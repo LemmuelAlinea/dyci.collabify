@@ -20,6 +20,13 @@ import StudentHome from './pages/app/StudentHome'
 import ProfessorHome from './pages/app/ProfessorHome'
 import AdminHome from './pages/app/AdminHome'
 
+import ProfessorClasses from './pages/app/classes/ProfessorClasses'
+import ProfessorClassDetail from './pages/app/classes/ProfessorClassDetail'
+import StudentClasses from './pages/app/classes/StudentClasses'
+import StudentClassDetail from './pages/app/classes/StudentClassDetail'
+import Syllabi from './pages/app/resources/Syllabi'
+import Curriculum from './pages/app/resources/Curriculum'
+
 export default function App() {
   return (
     <>
@@ -45,12 +52,18 @@ export default function App() {
         <Route element={<ProtectedRoute allow={['student']} />}>
           <Route element={<AppShell />}>
             <Route path="/student" element={<StudentHome />} />
+            <Route path="/student/classes" element={<StudentClasses />} />
+            <Route path="/student/classes/:classId" element={<StudentClassDetail />} />
           </Route>
         </Route>
 
         <Route element={<ProtectedRoute allow={['professor']} />}>
           <Route element={<AppShell />}>
             <Route path="/professor" element={<ProfessorHome />} />
+            <Route path="/professor/classes" element={<ProfessorClasses />} />
+            <Route path="/professor/classes/:classId" element={<ProfessorClassDetail />} />
+            <Route path="/professor/syllabi" element={<Syllabi />} />
+            <Route path="/professor/curriculum" element={<Curriculum />} />
           </Route>
         </Route>
 

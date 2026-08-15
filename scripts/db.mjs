@@ -44,6 +44,9 @@ const client = new pg.Client({
   ssl: { rejectUnauthorized: false },
 })
 
+// `raise notice` is how migrations report assertions; without this they vanish.
+client.on('notice', (n) => console.log(`NOTICE: ${n.message}`))
+
 try {
   await client.connect()
   const result = await client.query(sql)

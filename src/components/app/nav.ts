@@ -22,6 +22,7 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
       title: 'Workspace',
       items: [
         { label: 'Dashboard', icon: 'board', to: '/student' },
+        { label: 'Classes', icon: 'folder', to: '/student/classes' },
         { label: 'My tasks', icon: 'check', soon: true },
         { label: 'Project board', icon: 'kanban', soon: true },
         { label: 'Milestones', icon: 'target', soon: true },
@@ -39,20 +40,21 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
   ],
   professor: [
     {
-      title: 'Advising',
+      title: 'Teaching',
       items: [
         { label: 'Dashboard', icon: 'board', to: '/professor' },
-        { label: 'Advisee groups', icon: 'users', soon: true },
-        { label: 'Sign-offs', icon: 'checkCircle', soon: true },
-        { label: 'Milestones', icon: 'target', soon: true },
+        { label: 'Classes', icon: 'folder', to: '/professor/classes' },
+        { label: 'Projects', icon: 'kanban', soon: true },
+        { label: 'Groups', icon: 'users', soon: true },
+        { label: 'Reassignments', icon: 'refresh', soon: true },
+        { label: 'Messages', icon: 'message', soon: true },
       ],
     },
     {
-      title: 'Records',
+      title: 'Course documents',
       items: [
-        { label: 'Submissions', icon: 'file', soon: true },
-        { label: 'Reports', icon: 'chart', soon: true },
-        { label: 'Calendar', icon: 'calendar', soon: true },
+        { label: 'Curriculum', icon: 'chart', to: '/professor/curriculum' },
+        { label: 'Syllabi', icon: 'file', to: '/professor/syllabi' },
       ],
     },
     SETTINGS,

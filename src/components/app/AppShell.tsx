@@ -4,6 +4,7 @@ import { Logo } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
 import { ThemeToggle } from '../ThemeToggle'
 import { Avatar } from './Avatar'
+import { NotificationBell } from './NotificationBell'
 import { navFor } from './nav'
 import { useAuth } from '../../context/AuthContext'
 import { ROLE_LABEL, fullName } from '../../lib/types'
@@ -23,7 +24,9 @@ function NavRows({ onNavigate }: { onNavigate?: () => void }) {
                 <li key={item.label}>
                   <NavLink
                     to={item.to}
-                    end
+                    // Role homes ("/professor") must match exactly, section roots
+                    // ("/professor/classes") should stay lit on their detail pages.
+                    end={item.to.split('/').filter(Boolean).length < 2}
                     onClick={onNavigate}
                     className={({ isActive }) =>
                       `flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14.5px] transition-colors duration-200 ${
@@ -204,6 +207,7 @@ export function AppShell() {
               </Link>
             </div>
             <div className="flex items-center gap-1">
+              <NotificationBell />
               <ThemeToggle />
               <AccountMenu />
             </div>
