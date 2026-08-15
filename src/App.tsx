@@ -26,6 +26,9 @@ import StudentClasses from './pages/app/classes/StudentClasses'
 import StudentClassDetail from './pages/app/classes/StudentClassDetail'
 import Syllabi from './pages/app/resources/Syllabi'
 import Curriculum from './pages/app/resources/Curriculum'
+import ProfessorGroups from './pages/app/groups/ProfessorGroups'
+import StudentGroups from './pages/app/groups/StudentGroups'
+import GroupDetail from './pages/app/groups/GroupDetail'
 
 export default function App() {
   return (
@@ -54,6 +57,8 @@ export default function App() {
             <Route path="/student" element={<StudentHome />} />
             <Route path="/student/classes" element={<StudentClasses />} />
             <Route path="/student/classes/:classId" element={<StudentClassDetail />} />
+            <Route path="/student/groups" element={<StudentGroups />} />
+            <Route path="/student/groups/:groupId" element={<GroupDetail role="student" />} />
           </Route>
         </Route>
 
@@ -62,6 +67,8 @@ export default function App() {
             <Route path="/professor" element={<ProfessorHome />} />
             <Route path="/professor/classes" element={<ProfessorClasses />} />
             <Route path="/professor/classes/:classId" element={<ProfessorClassDetail />} />
+            <Route path="/professor/groups" element={<ProfessorGroups />} />
+            <Route path="/professor/groups/:groupId" element={<GroupDetail role="professor" />} />
             <Route path="/professor/syllabi" element={<Syllabi />} />
             <Route path="/professor/curriculum" element={<Curriculum />} />
           </Route>

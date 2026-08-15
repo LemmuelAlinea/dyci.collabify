@@ -167,6 +167,89 @@ export function classMeta(c: Pick<ClassRow, 'section' | 'semester' | 'school_yea
   return `${c.section} · ${sem.replace(' semester', ' sem')} · ${c.school_year.replace('-', '–')}`
 }
 
+/* ------------------------------------------------------------------- groups */
+
+export type GroupingMode = 'manual' | 'random' | 'student_formed'
+
+export type GroupSet = {
+  id: string
+  class_id: string
+  name: string
+  mode: GroupingMode
+  default_limit: number
+  closed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type GroupRow = {
+  id: string
+  set_id: string
+  name: string
+  member_limit: number
+  position: number
+  created_at: string
+  updated_at: string
+}
+
+/** group_overview: the row plus the set/class context every card needs. */
+export type GroupSummary = GroupRow & {
+  class_id: string
+  set_name: string
+  set_mode: GroupingMode
+  set_closed_at: string | null
+  member_count: number
+}
+
+export type GroupMember = {
+  group_id: string
+  set_id: string
+  student_id: string
+  added_by: string | null
+  joined_at: string
+  profile: Pick<Profile, 'id' | 'first_name' | 'middle_name' | 'last_name' | 'avatar_url'>
+}
+
+export type JoinGroupResult =
+  | 'joined'
+  | 'already_here'
+  | 'full'
+  | 'closed'
+  | 'not_student_formed'
+  | 'not_in_class'
+  | 'not_found'
+  | 'not_signed_in'
+
+export const GROUPING_MODES: {
+  value: GroupingMode
+  label: string
+  blurb: string
+  icon: 'user' | 'refresh' | 'users'
+}[] = [
+  {
+    value: 'manual',
+    label: 'Manual',
+    blurb: 'You place each student yourself.',
+    icon: 'user',
+  },
+  {
+    value: 'random',
+    label: 'Random',
+    blurb: 'Shuffle the class, reshuffle until it looks right.',
+    icon: 'refresh',
+  },
+  {
+    value: 'student_formed',
+    label: 'Student formed',
+    blurb: 'Publish empty groups and let students pick.',
+    icon: 'users',
+  },
+]
+
+export function modeLabel(mode: GroupingMode) {
+  return GROUPING_MODES.find((m) => m.value === mode)?.label ?? mode
+}
+
 /** Roster order is by family name, the way a class list is read out. */
 export function byLastName(
   a: Pick<Profile, 'first_name' | 'last_name'>,

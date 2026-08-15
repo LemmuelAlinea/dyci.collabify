@@ -7,13 +7,14 @@ import { AnnouncementFeed } from '../../../components/classes/AnnouncementFeed'
 import { ClassAbout } from '../../../components/classes/ClassAbout'
 import { ClassHeader } from '../../../components/classes/ClassHeader'
 import { RosterTable } from '../../../components/classes/RosterTable'
+import { ClassGroupsTab } from '../../../components/groups/ClassGroupsTab'
 import { useAuth } from '../../../context/AuthContext'
 import { listAnnouncements } from '../../../lib/api/announcements'
 import { getClass, listMembers } from '../../../lib/api/classes'
 import { authErrorMessage } from '../../../lib/authError'
 import type { Announcement, ClassMember, ClassSummary } from '../../../lib/types'
 
-type TabId = 'announcements' | 'classmates' | 'about'
+type TabId = 'announcements' | 'classmates' | 'groups' | 'about'
 
 export default function StudentClassDetail() {
   const { classId = '' } = useParams()
@@ -83,6 +84,7 @@ export default function StudentClassDetail() {
           tabs={[
             { id: 'announcements', label: 'Announcements', icon: 'message', count: announcements.length },
             { id: 'classmates', label: 'Classmates', icon: 'users', count: members.length },
+            { id: 'groups', label: 'Groups', icon: 'kanban' },
             { id: 'about', label: 'About', icon: 'info' },
           ]}
           active={tab}
@@ -108,6 +110,10 @@ export default function StudentClassDetail() {
             showEmail={false}
             emptyBody="You're the first one here. Others show up as they join with the code."
           />
+        )}
+
+        {tab === 'groups' && (
+          <ClassGroupsTab cls={cls} role="student" viewerId={profile?.id} />
         )}
 
         {tab === 'about' && <ClassAbout cls={cls} />}

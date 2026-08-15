@@ -23,6 +23,7 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
       items: [
         { label: 'Dashboard', icon: 'board', to: '/student' },
         { label: 'Classes', icon: 'folder', to: '/student/classes' },
+        { label: 'Groups', icon: 'users', to: '/student/groups' },
         { label: 'My tasks', icon: 'check', soon: true },
         { label: 'Project board', icon: 'kanban', soon: true },
         { label: 'Milestones', icon: 'target', soon: true },
@@ -44,8 +45,8 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
       items: [
         { label: 'Dashboard', icon: 'board', to: '/professor' },
         { label: 'Classes', icon: 'folder', to: '/professor/classes' },
+        { label: 'Groups', icon: 'users', to: '/professor/groups' },
         { label: 'Projects', icon: 'kanban', soon: true },
-        { label: 'Groups', icon: 'users', soon: true },
         { label: 'Reassignments', icon: 'refresh', soon: true },
         { label: 'Messages', icon: 'message', soon: true },
       ],

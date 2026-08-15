@@ -12,6 +12,7 @@ import { ClassAbout } from '../../../components/classes/ClassAbout'
 import { ClassForm } from '../../../components/classes/ClassForm'
 import { ClassHeader } from '../../../components/classes/ClassHeader'
 import { RosterTable } from '../../../components/classes/RosterTable'
+import { ClassGroupsTab } from '../../../components/groups/ClassGroupsTab'
 import { useAuth } from '../../../context/AuthContext'
 import { listAnnouncements } from '../../../lib/api/announcements'
 import {
@@ -28,7 +29,7 @@ import { listResources } from '../../../lib/api/resources'
 import { authErrorMessage } from '../../../lib/authError'
 import type { Announcement, ClassMember, ClassSummary, TeachingResource } from '../../../lib/types'
 
-type TabId = 'announcements' | 'students' | 'about'
+type TabId = 'announcements' | 'students' | 'groups' | 'about'
 
 export default function ProfessorClassDetail() {
   const { classId = '' } = useParams()
@@ -176,6 +177,7 @@ export default function ProfessorClassDetail() {
           tabs={[
             { id: 'announcements', label: 'Announcements', icon: 'message', count: announcements.length },
             { id: 'students', label: 'Students', icon: 'users', count: activeCount },
+            { id: 'groups', label: 'Groups', icon: 'kanban' },
             { id: 'about', label: 'About', icon: 'info' },
           ]}
           active={tab}
@@ -211,6 +213,8 @@ export default function ProfessorClassDetail() {
             }}
           />
         )}
+
+        {tab === 'groups' && <ClassGroupsTab cls={cls} role="professor" />}
 
         {tab === 'about' && <ClassAbout cls={cls} />}
       </div>
