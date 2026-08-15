@@ -19,7 +19,12 @@ export function Tabs<T extends string>({
   onChange: (id: T) => void
 }) {
   return (
-    <div role="tablist" className="flex gap-1 overflow-x-auto border-b border-line">
+    // The strip scrolls on narrow screens, but the page-wide scrollbar styling
+    // renders a 10px track across it that reads as broken. Hide it here.
+    <div
+      role="tablist"
+      className="flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
       {tabs.map((t) => {
         const on = t.id === active
         return (
@@ -28,7 +33,7 @@ export function Tabs<T extends string>({
             role="tab"
             aria-selected={on}
             onClick={() => onChange(t.id)}
-            className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-[14.5px] transition-colors duration-200 ${
+            className={`-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-[14px] transition-colors duration-200 sm:gap-2 sm:px-4 sm:text-[14.5px] ${
               on
                 ? 'border-navy-600 font-semibold text-ink dark:border-amber-400'
                 : 'border-transparent text-muted hover:text-ink'

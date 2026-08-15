@@ -190,7 +190,9 @@ export function AppShell() {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-col">
+      {/* clip, not hidden: a wide table can still scroll inside its own box,
+          but nothing drags the whole page sideways on a phone. */}
+      <div className="flex min-w-0 flex-col overflow-x-clip">
         <header className="surface sticky top-0 z-40 border-b border-line">
           <div className="flex h-[70px] items-center justify-between gap-3 px-4 md:px-7">
             <div className="flex min-w-0 items-center gap-2">
