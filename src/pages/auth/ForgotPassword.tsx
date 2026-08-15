@@ -5,6 +5,7 @@ import { AuthLayout } from '../../components/AuthLayout'
 import { Button } from '../../components/ui/Button'
 import { Alert, Field, Input } from '../../components/ui/Field'
 import { useAuth } from '../../context/AuthContext'
+import { authErrorMessage } from '../../lib/authError'
 
 export default function ForgotPassword() {
   const { sendPasswordReset } = useAuth()
@@ -21,7 +22,7 @@ export default function ForgotPassword() {
       await sendPasswordReset(email)
       setSent(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not send the reset link.')
+      setError(authErrorMessage(err, 'Could not send the reset link.'))
     } finally {
       setBusy(false)
     }

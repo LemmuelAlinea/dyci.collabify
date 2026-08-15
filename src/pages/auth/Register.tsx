@@ -7,6 +7,7 @@ import { Alert, Field, Input, PasswordInput } from '../../components/ui/Field'
 import { GoogleButton } from '../../components/ui/GoogleButton'
 import { RoleChoice } from '../../components/ui/RoleChoice'
 import { useAuth } from '../../context/AuthContext'
+import { authErrorMessage } from '../../lib/authError'
 import type { Role } from '../../lib/types'
 
 export default function Register() {
@@ -46,7 +47,7 @@ export default function Register() {
         navigate('/auth/callback', { replace: true })
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create your account.')
+      setError(authErrorMessage(err, 'Could not create your account.'))
     } finally {
       setBusy(false)
     }
@@ -58,7 +59,7 @@ export default function Register() {
     try {
       await signInWithGoogle()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not reach Google.')
+      setError(authErrorMessage(err, 'Could not reach Google.'))
       setGoogleBusy(false)
     }
   }

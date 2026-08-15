@@ -5,6 +5,7 @@ import { AuthLayout } from '../../components/AuthLayout'
 import { Button } from '../../components/ui/Button'
 import { Alert, Field, PasswordInput } from '../../components/ui/Field'
 import { useAuth } from '../../context/AuthContext'
+import { authErrorMessage } from '../../lib/authError'
 import { supabase } from '../../lib/supabase'
 
 export default function ResetPassword() {
@@ -41,7 +42,7 @@ export default function ResetPassword() {
       await updatePassword(password)
       navigate('/auth/callback', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update your password.')
+      setError(authErrorMessage(err, 'Could not update your password.'))
     } finally {
       setBusy(false)
     }

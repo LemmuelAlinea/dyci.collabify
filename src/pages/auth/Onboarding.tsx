@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Alert, Field, Input } from '../../components/ui/Field'
 import { RoleChoice } from '../../components/ui/RoleChoice'
 import { useAuth } from '../../context/AuthContext'
+import { authErrorMessage } from '../../lib/authError'
 import { roleHome } from '../../lib/roleHome'
 import type { Role } from '../../lib/types'
 
@@ -35,7 +36,7 @@ export default function Onboarding() {
       await completeOnboarding({ firstName, middleName, lastName, role })
       navigate(role === 'professor' ? '/pending' : roleHome(role, 'active'), { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not finish setting up your account.')
+      setError(authErrorMessage(err, 'Could not finish setting up your account.'))
     } finally {
       setBusy(false)
     }

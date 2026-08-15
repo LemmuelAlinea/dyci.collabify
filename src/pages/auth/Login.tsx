@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Alert, Field, Input, PasswordInput } from '../../components/ui/Field'
 import { GoogleButton } from '../../components/ui/GoogleButton'
 import { useAuth } from '../../context/AuthContext'
+import { authErrorMessage } from '../../lib/authError'
 
 export default function Login() {
   const { signInWithEmail, signInWithGoogle, configured } = useAuth()
@@ -24,13 +25,7 @@ export default function Login() {
       await signInWithEmail(email, password)
       navigate('/auth/callback', { replace: true })
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message === 'Invalid login credentials'
-            ? 'That email and password do not match. Try again or reset your password.'
-            : err.message
-          : 'Could not sign you in.',
-      )
+      setError(authErrorMessage(err, 'Could not sign you in.'))
     } finally {
       setBusy(false)
     }
@@ -42,7 +37,7 @@ export default function Login() {
     try {
       await signInWithGoogle()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not reach Google.')
+      setError(authErrorMessage(err, 'Could not reach Google.'))
       setGoogleBusy(false)
     }
   }

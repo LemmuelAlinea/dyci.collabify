@@ -9,6 +9,7 @@ import type { IconName } from '../components/ui/Icon'
 import { Spinner } from '../components/ui/Icon'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { authErrorMessage } from '../lib/authError'
 import { supabase } from '../lib/supabase'
 import { ROLE_LABEL } from '../lib/types'
 import type { NotificationKey, NotificationPrefs, ThemeMode } from '../lib/types'
@@ -126,7 +127,7 @@ export default function Settings() {
       setProfileSaved(true)
       setTimeout(() => setProfileSaved(false), 2600)
     } catch (err) {
-      setProfileError(err instanceof Error ? err.message : 'Could not save your name.')
+      setProfileError(authErrorMessage(err, 'Could not save your name.'))
     } finally {
       setProfileBusy(false)
     }
@@ -155,7 +156,7 @@ export default function Settings() {
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)
       await updateProfile({ avatar_url: data.publicUrl })
     } catch (err) {
-      setAvatarError(err instanceof Error ? err.message : 'Could not upload that photo.')
+      setAvatarError(authErrorMessage(err, 'Could not upload that photo.'))
     } finally {
       setAvatarBusy(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -196,7 +197,7 @@ export default function Settings() {
       setTimeout(() => setPrefsSaved(false), 2200)
     } catch (err) {
       setPrefs(previous)
-      setPrefsError(err instanceof Error ? err.message : 'Could not save that preference.')
+      setPrefsError(authErrorMessage(err, 'Could not save that preference.'))
     }
   }
 
@@ -213,7 +214,7 @@ export default function Settings() {
       await sendPasswordReset(profile.email)
       setResetSent(true)
     } catch (err) {
-      setResetError(err instanceof Error ? err.message : 'Could not send the link.')
+      setResetError(authErrorMessage(err, 'Could not send the link.'))
     } finally {
       setResetBusy(false)
     }
