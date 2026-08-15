@@ -8,7 +8,7 @@ import { Icon } from '../components/ui/Icon'
 import type { IconName } from '../components/ui/Icon'
 import { Spinner } from '../components/ui/Icon'
 import { useAuth } from '../context/AuthContext'
-import { useTheme } from '../context/ThemeContext'
+import { useThemePreference } from '../hooks/useThemePreference'
 import { authErrorMessage } from '../lib/authError'
 import { supabase } from '../lib/supabase'
 import { ROLE_LABEL } from '../lib/types'
@@ -93,7 +93,7 @@ function Saved({ show, text = 'Saved' }: { show: boolean; text?: string }) {
 export default function Settings() {
   const { profile, updateProfile, loadNotificationPrefs, updateNotificationPrefs, sendPasswordReset, signOut } =
     useAuth()
-  const { mode, setMode } = useTheme()
+  const { mode, choose } = useThemePreference()
 
   useEffect(() => {
     document.title = 'Settings · Collabify'
@@ -167,14 +167,9 @@ export default function Settings() {
   const [themeSaved, setThemeSaved] = useState(false)
 
   async function pickTheme(next: ThemeMode) {
-    setMode(next)
     setThemeSaved(true)
     setTimeout(() => setThemeSaved(false), 2200)
-    try {
-      await updateProfile({ theme: next })
-    } catch {
-      // Local preference already applied; the row sync is best-effort.
-    }
+    await choose(next)
   }
 
   /* ---------- notifications ---------- */

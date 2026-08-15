@@ -1,14 +1,14 @@
-import { useTheme } from '../context/ThemeContext'
+import { useThemePreference } from '../hooks/useThemePreference'
 import { Icon } from './ui/Icon'
 
 export function ThemeToggle({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }) {
-  const { resolved, setMode } = useTheme()
+  const { resolved, choose } = useThemePreference()
   const next = resolved === 'dark' ? 'light' : 'dark'
 
   return (
     <button
       type="button"
-      onClick={() => setMode(next)}
+      onClick={() => void choose(next)}
       aria-label={`Switch to ${next} mode`}
       title={`Switch to ${next} mode`}
       className={`grid h-10 w-10 place-items-center rounded-full transition-colors duration-200 ${
