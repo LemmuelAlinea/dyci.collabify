@@ -1,0 +1,209 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --color-navy-50: #eef0f9;
+  --color-navy-100: #d6dbf0;
+  --color-navy-200: #aeb8e1;
+  --color-navy-300: #8493cf;
+  --color-navy-400: #5a6bbd;
+  --color-navy-500: #3d4da3;
+  --color-navy-600: #26327a;
+  --color-navy-700: #1e2864;
+  --color-navy-800: #161d4a;
+  --color-navy-900: #101637;
+  --color-navy-950: #080b21;
+
+  --color-amber-50: #fef7e6;
+  --color-amber-100: #fdebbf;
+  --color-amber-200: #fbd982;
+  --color-amber-300: #f7c74a;
+  --color-amber-400: #f0b429;
+  --color-amber-500: #d9990f;
+  --color-amber-600: #ad770a;
+  --color-amber-700: #7d5507;
+  --color-amber-800: #513604;
+
+  --radius-card: 16px;
+  --radius-panel: 22px;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-snap: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Semantic surface tokens. Every component reads these, never raw ramp stops,
+   so light and dark stay in lockstep. */
+@layer base {
+  :root {
+    --page: #f4f5fb;
+    --surface: #ffffff;
+    --surface-sunken: #eef0f8;
+    --surface-raised: #ffffff;
+    --ink: #101637;
+    --ink-muted: #5b6386;
+    --ink-faint: #8b92b0;
+    --line: rgb(16 22 55 / 0.1);
+    --line-strong: rgb(16 22 55 / 0.18);
+    --ring: #3d4da3;
+    --shadow-card: 0 1px 2px rgb(16 22 55 / 0.05), 0 8px 24px rgb(16 22 55 / 0.06);
+    --shadow-lift: 0 2px 4px rgb(16 22 55 / 0.06), 0 18px 44px rgb(16 22 55 / 0.12);
+  }
+
+  .dark {
+    --page: #080b21;
+    --surface: #101637;
+    --surface-sunken: #0b1029;
+    --surface-raised: #161d4a;
+    --ink: #eef0f9;
+    --ink-muted: #a2aacb;
+    --ink-faint: #737b9e;
+    --line: rgb(255 255 255 / 0.1);
+    --line-strong: rgb(255 255 255 / 0.2);
+    --ring: #8493cf;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
+    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.4), 0 18px 44px rgb(0 0 0 / 0.45);
+  }
+
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'cv05';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.028em;
+    font-weight: 700;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--color-amber-300);
+    color: var(--color-navy-900);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  .surface {
+    background: var(--surface);
+  }
+  .surface-raised {
+    background: var(--surface-raised);
+  }
+  .surface-sunken {
+    background: var(--surface-sunken);
+  }
+  .text-ink {
+    color: var(--ink);
+  }
+  .text-muted {
+    color: var(--ink-muted);
+  }
+  .text-faint {
+    color: var(--ink-faint);
+  }
+  .border-line {
+    border-color: var(--line);
+  }
+  .border-line-strong {
+    border-color: var(--line-strong);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-lift {
+    box-shadow: var(--shadow-lift);
+  }
+
+  /* The blueprint grid — the recurring structural motif. Faint square rule,
+     the way a project plan is drafted before anything is built. */
+  .blueprint {
+    background-image:
+      linear-gradient(to right, var(--bp-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--bp-line) 1px, transparent 1px);
+    background-size: 56px 56px;
+    --bp-line: rgb(255 255 255 / 0.06);
+  }
+  .blueprint-ink {
+    --bp-line: rgb(16 22 55 / 0.05);
+  }
+  .dark .blueprint-ink {
+    --bp-line: rgb(255 255 255 / 0.05);
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .shell {
+    width: 100%;
+    max-width: 1240px;
+    margin-inline: auto;
+    padding-inline: 20px;
+  }
+  @media (min-width: 768px) {
+    .shell {
+      padding-inline: 32px;
+    }
+  }
+  @media (min-width: 1280px) {
+    .shell {
+      padding-inline: 40px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

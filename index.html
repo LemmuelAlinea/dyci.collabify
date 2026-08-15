@@ -1,35 +1,31 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/collabify-logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#26327A" />
     <meta
       name="description"
-      content="Collabify - a project management and collaboration platform built for BSIT students and professors in the Philippines."
+      content="Collabify is the project workspace for BSIT programs — plan capstones, track sprints, and keep every team accountable in one place."
     />
-    <title>Collabify - Project management for BSIT teams</title>
-
-    <!-- Preconnect and load the Sora typeface -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@300;400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
-
-    <!-- Apply saved theme before paint to avoid a flash; defaults to light -->
+    <title>Collabify — Project workspace for BSIT teams</title>
     <script>
-      (function () {
-        try {
-          var stored = localStorage.getItem("collabify-theme");
-          var dark =
-            stored === "dark" ||
-            (stored === "system" &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
-          if (dark) document.documentElement.classList.add("dark");
-        } catch (e) {}
-      })();
+      // Applied before paint so the first frame is never the wrong theme.
+      try {
+        const saved = localStorage.getItem('collabify.theme') || 'system'
+        const dark =
+          saved === 'dark' ||
+          (saved === 'system' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('dark', dark)
+      } catch {}
     </script>
   </head>
   <body>

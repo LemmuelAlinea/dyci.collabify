@@ -1,50 +1,91 @@
--- Collabify auth schema (3NF). Run once in the Supabase SQL editor.
--- Roles are a lookup table (no repeated role strings); email lives only in
--- auth.users (no duplication). Safe to re-run: guarded with if-not-exists.
+-- Collabify — phase 1 schema (profiles, notification prefs, avatars, RLS).
+-- Idempotent: safe to run repeatedly.
+-- Run with:  node scripts/db.mjs supabase/schema.sql
 
--- Roles lookup table
-create table if not exists public.roles (
-  id smallserial primary key,
-  name text not null unique
-);
+begin;
 
-insert into public.roles (name)
-values ('superadmin'), ('bsit_admin'), ('professor'), ('student')
-on conflict (name) do nothing;
+-- ---------------------------------------------------------------- enums
 
--- Account status enum
-do $$
-begin
-  if not exists (select 1 from pg_type where typname = 'account_status') then
-    create type public.account_status as enum ('active', 'pending', 'suspended');
-  end if;
-end $$;
+do $$ begin
+  create type public.user_role as enum ('student', 'professor', 'superadmin');
+exception when duplicate_object then null; end $$;
 
--- Profiles: one row per auth user
+do $$ begin
+  create type public.account_status as enum ('active', 'pending', 'rejected');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type public.theme_mode as enum ('light', 'dark', 'system');
+exception when duplicate_object then null; end $$;
+
+-- ---------------------------------------------------------------- tables
+
 create table if not exists public.profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
-  role_id smallint not null references public.roles (id),
-  status public.account_status not null default 'active',
-  first_name text not null default '',
-  last_name text not null default '',
-  created_at timestamptz not null default now()
+  id          uuid primary key references auth.users (id) on delete cascade,
+  email       text not null,
+  first_name  text not null default '',
+  middle_name text,
+  last_name   text not null default '',
+  role        public.user_role   not null default 'student',
+  status      public.account_status not null default 'active',
+  avatar_url  text,
+  theme       public.theme_mode  not null default 'system',
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
 );
 
--- Returns the caller's role name; SECURITY DEFINER avoids RLS recursion in policies.
-create or replace function public.current_role_name()
-returns text
+create index if not exists profiles_role_status_idx on public.profiles (role, status);
+
+create table if not exists public.notification_prefs (
+  user_id            uuid primary key references public.profiles (id) on delete cascade,
+  task_assignments   boolean not null default true,
+  deadline_reminders boolean not null default true,
+  comments_mentions  boolean not null default true,
+  project_invites    boolean not null default true,
+  progress_digest    boolean not null default false,
+  announcements      boolean not null default true,
+  updated_at         timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------- helpers
+
+-- Security definer so RLS policies can ask "is this caller a superadmin?"
+-- without re-entering the policy on public.profiles and recursing.
+create or replace function public.is_superadmin()
+returns boolean
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select r.name
-  from public.profiles p
-  join public.roles r on r.id = p.role_id
-  where p.id = auth.uid();
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'superadmin'
+  );
 $$;
 
--- Creates the profile on signup; sanitizes role so clients cannot self-assign admin.
+create or replace function public.touch_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_touch on public.profiles;
+create trigger profiles_touch before update on public.profiles
+  for each row execute function public.touch_updated_at();
+
+drop trigger if exists notification_prefs_touch on public.notification_prefs;
+create trigger notification_prefs_touch before update on public.notification_prefs
+  for each row execute function public.touch_updated_at();
+
+-- New auth user -> profile + default notification prefs.
+-- Role and names ride in on raw_user_meta_data from the signup form.
+-- Google users arrive with no role, so they get no profile row and the app
+-- routes them to /onboarding to pick one.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -52,92 +93,125 @@ security definer
 set search_path = public
 as $$
 declare
-  requested text := coalesce(new.raw_user_meta_data ->> 'role', 'student');
-  safe_role text;
-  rid smallint;
+  meta_role text := nullif(new.raw_user_meta_data ->> 'role', '');
+  resolved_role public.user_role;
 begin
-  safe_role := case when requested in ('professor', 'student') then requested else 'student' end;
-  select id into rid from public.roles where name = safe_role;
+  if meta_role is null or meta_role not in ('student', 'professor') then
+    return new;
+  end if;
 
-  insert into public.profiles (id, role_id, status, first_name, last_name)
+  resolved_role := meta_role::public.user_role;
+
+  insert into public.profiles (id, email, first_name, middle_name, last_name, role, status, avatar_url)
   values (
     new.id,
-    rid,
-    case when safe_role = 'professor' then 'pending'::public.account_status
-         else 'active'::public.account_status end,
+    coalesce(new.email, ''),
     coalesce(new.raw_user_meta_data ->> 'first_name', ''),
-    coalesce(new.raw_user_meta_data ->> 'last_name', '')
-  );
+    nullif(new.raw_user_meta_data ->> 'middle_name', ''),
+    coalesce(new.raw_user_meta_data ->> 'last_name', ''),
+    resolved_role,
+    case when resolved_role = 'professor' then 'pending' else 'active' end::public.account_status,
+    nullif(new.raw_user_meta_data ->> 'avatar_url', '')
+  )
+  on conflict (id) do nothing;
+
+  insert into public.notification_prefs (user_id)
+  values (new.id)
+  on conflict (user_id) do nothing;
+
   return new;
 end;
 $$;
 
 drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
+create trigger on_auth_user_created after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- Blocks role/status escalation by ordinary users; allows SQL editor / service role (auth.uid() null).
-create or replace function public.guard_profile_update()
+-- ---------------------------------------------------------------- RLS
+
+alter table public.profiles enable row level security;
+alter table public.notification_prefs enable row level security;
+
+drop policy if exists profiles_select_own on public.profiles;
+create policy profiles_select_own on public.profiles
+  for select using (id = auth.uid() or public.is_superadmin());
+
+drop policy if exists profiles_insert_own on public.profiles;
+create policy profiles_insert_own on public.profiles
+  for insert with check (id = auth.uid());
+
+drop policy if exists profiles_update_own on public.profiles;
+create policy profiles_update_own on public.profiles
+  for update using (id = auth.uid()) with check (id = auth.uid());
+
+drop policy if exists profiles_update_admin on public.profiles;
+create policy profiles_update_admin on public.profiles
+  for update using (public.is_superadmin()) with check (public.is_superadmin());
+
+drop policy if exists prefs_select_own on public.notification_prefs;
+create policy prefs_select_own on public.notification_prefs
+  for select using (user_id = auth.uid() or public.is_superadmin());
+
+drop policy if exists prefs_insert_own on public.notification_prefs;
+create policy prefs_insert_own on public.notification_prefs
+  for insert with check (user_id = auth.uid());
+
+drop policy if exists prefs_update_own on public.notification_prefs;
+create policy prefs_update_own on public.notification_prefs
+  for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- A user must not be able to promote themselves or self-approve. Column-level
+-- guard: role/status may only change when a superadmin is doing the update.
+create or replace function public.guard_privileged_columns()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  if (new.role_id is distinct from old.role_id or new.status is distinct from old.status)
-     and auth.uid() is not null
-     and public.current_role_name() not in ('superadmin', 'bsit_admin') then
-    raise exception 'Not allowed to change role or status';
+  if auth.uid() is null then
+    return new; -- service role / SQL console
+  end if;
+  if (new.role is distinct from old.role or new.status is distinct from old.status)
+     and not public.is_superadmin() then
+    new.role := old.role;
+    new.status := old.status;
   end if;
   return new;
 end;
 $$;
 
-drop trigger if exists profiles_guard_update on public.profiles;
-create trigger profiles_guard_update
-  before update on public.profiles
-  for each row execute function public.guard_profile_update();
+drop trigger if exists profiles_guard_privileged on public.profiles;
+create trigger profiles_guard_privileged before update on public.profiles
+  for each row execute function public.guard_privileged_columns();
 
--- Row level security
-alter table public.roles enable row level security;
-alter table public.profiles enable row level security;
+-- ---------------------------------------------------------------- storage
 
-drop policy if exists "roles readable by authenticated" on public.roles;
-create policy "roles readable by authenticated" on public.roles
-  for select to authenticated using (true);
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do update set public = true;
 
-drop policy if exists "select own profile" on public.profiles;
-create policy "select own profile" on public.profiles
-  for select to authenticated using (auth.uid() = id);
+drop policy if exists avatars_public_read on storage.objects;
+create policy avatars_public_read on storage.objects
+  for select using (bucket_id = 'avatars');
 
-drop policy if exists "admins select all profiles" on public.profiles;
-create policy "admins select all profiles" on public.profiles
-  for select to authenticated
-  using (public.current_role_name() in ('superadmin', 'bsit_admin'));
+-- Files live under <user-id>/… so a user can only touch their own folder.
+drop policy if exists avatars_insert_own on storage.objects;
+create policy avatars_insert_own on storage.objects
+  for insert with check (
+    bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
-drop policy if exists "update own profile" on public.profiles;
-create policy "update own profile" on public.profiles
-  for update to authenticated
-  using (auth.uid() = id) with check (auth.uid() = id);
+drop policy if exists avatars_update_own on storage.objects;
+create policy avatars_update_own on storage.objects
+  for update using (
+    bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
-drop policy if exists "admins update profiles" on public.profiles;
-create policy "admins update profiles" on public.profiles
-  for update to authenticated
-  using (public.current_role_name() in ('superadmin', 'bsit_admin'));
+drop policy if exists avatars_delete_own on storage.objects;
+create policy avatars_delete_own on storage.objects
+  for delete using (
+    bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
--- Least-privilege grants; profile insert happens only via the definer trigger.
-grant select on public.roles to authenticated;
-grant select, update on public.profiles to authenticated;
-
--- ---------------------------------------------------------------------------
--- Seed / admin snippets (run manually as needed).
--- Promote a dashboard-created user to superadmin:
---   update public.profiles
---   set role_id = (select id from public.roles where name = 'superadmin'), status = 'active'
---   where id = (select id from auth.users where email = 'you@example.com');
---
--- Approve a pending professor:
---   update public.profiles set status = 'active'
---   where id = (select id from auth.users where email = 'prof@example.com');
--- ---------------------------------------------------------------------------
+commit;

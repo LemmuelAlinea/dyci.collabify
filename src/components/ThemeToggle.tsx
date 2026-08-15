@@ -1,27 +1,23 @@
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from '../context/ThemeContext'
+import { Icon } from './ui/Icon'
 
-// Sun/moon toggle for switching between light and dark mode.
-export function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
-  const isDark = theme === "dark";
+export function ThemeToggle({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }) {
+  const { resolved, setMode } = useTheme()
+  const next = resolved === 'dark' ? 'light' : 'dark'
 
   return (
     <button
       type="button"
-      onClick={toggleTheme}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--bg-elevated)] text-[var(--ink-soft)] transition-colors hover:text-brand-blue hover:border-brand-blue/40"
+      onClick={() => setMode(next)}
+      aria-label={`Switch to ${next} mode`}
+      title={`Switch to ${next} mode`}
+      className={`grid h-10 w-10 place-items-center rounded-full transition-colors duration-200 ${
+        tone === 'onNavy'
+          ? 'text-white/75 hover:bg-white/10 hover:text-white'
+          : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
+      }`}
     >
-      {isDark ? (
-        <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-        </svg>
-      ) : (
-        <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-        </svg>
-      )}
+      <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={19} />
     </button>
-  );
+  )
 }

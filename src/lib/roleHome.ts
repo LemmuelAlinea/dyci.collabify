@@ -1,30 +1,14 @@
-// Role and status shared types plus role-to-landing-path mapping.
+import type { AccountStatus, Role } from './types'
 
-export type Role = "superadmin" | "bsit_admin" | "professor" | "student";
-export type AccountStatus = "active" | "pending" | "suspended";
-
-export interface Profile {
-  id: string;
-  role: Role;
-  status: AccountStatus;
-  firstName: string;
-  lastName: string;
-  avatarUrl: string | null;
+const HOME: Record<Role, string> = {
+  student: '/student',
+  professor: '/professor',
+  superadmin: '/admin',
 }
 
-// Where a user lands after auth, based on role and status.
-export function roleHome(profile: Pick<Profile, "role" | "status">): string {
-  if (profile.role === "professor" && profile.status !== "active") return "/pending";
-  switch (profile.role) {
-    case "superadmin":
-      return "/superadmin";
-    case "bsit_admin":
-      return "/admin";
-    case "professor":
-      return "/professor";
-    case "student":
-      return "/student";
-    default:
-      return "/";
-  }
+/** Where a signed-in user belongs right now. Pending professors are parked. */
+export function roleHome(role: Role | undefined, status?: AccountStatus) {
+  if (!role) return '/onboarding'
+  if (status === 'pending' || status === 'rejected') return '/pending'
+  return HOME[role]
 }

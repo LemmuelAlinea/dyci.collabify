@@ -1,43 +1,61 @@
-// Runs SQL against the Supabase database using SUPABASE_DB_URL.
-// Source order: process.env, then .env.local, then .env (all gitignored except .env.example).
+#!/usr/bin/env node
+// Run SQL against the Supabase database as the postgres superuser.
 //
-// Usage (from project root):
-//   node scripts/db.mjs path/to/file.sql        run a .sql file
-//   node scripts/db.mjs -c "select 1"           run inline SQL
-import pg from "pg";
-import { readFileSync, existsSync } from "fs";
+//   node scripts/db.mjs supabase/schema.sql
+//   node scripts/db.mjs -c "select count(*) from public.profiles"
+//
+// Reads SUPABASE_DB_URL from .env.local (gitignored).
 
-function loadDbUrl() {
-  if (process.env.SUPABASE_DB_URL) return process.env.SUPABASE_DB_URL;
-  for (const f of [".env.local", ".env"]) {
-    if (existsSync(f)) {
-      const m = readFileSync(f, "utf8").match(/^SUPABASE_DB_URL=(.+)$/m);
-      if (m) return m[1].trim();
-    }
-  }
-  throw new Error("SUPABASE_DB_URL not set (checked env, .env.local, .env).");
+import { readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import pg from 'pg'
+import dotenv from 'dotenv'
+
+const root = path.resolve(import.meta.dirname, '..')
+for (const file of ['.env.local', '.env']) {
+  const full = path.join(root, file)
+  if (existsSync(full)) dotenv.config({ path: full })
 }
 
-const args = process.argv.slice(2);
-let sql;
-if (args[0] === "-c") sql = args.slice(1).join(" ");
-else if (args[0]) sql = readFileSync(args[0], "utf8");
-else {
-  console.error('Usage: node scripts/db.mjs <file.sql> | -c "SQL"');
-  process.exit(1);
+const connectionString = process.env.SUPABASE_DB_URL
+if (!connectionString) {
+  console.error(
+    'SUPABASE_DB_URL is not set. Copy .env.example to .env.local and paste your\n' +
+      'Supabase session-pooler connection string (Project settings → Database).',
+  )
+  process.exit(1)
 }
 
-const client = new pg.Client({ connectionString: loadDbUrl(), ssl: { rejectUnauthorized: false } });
-await client.connect();
+const args = process.argv.slice(2)
+if (args.length === 0) {
+  console.error('Usage: node scripts/db.mjs <file.sql>   |   node scripts/db.mjs -c "SQL"')
+  process.exit(1)
+}
+
+const sql =
+  args[0] === '-c'
+    ? args.slice(1).join(' ')
+    : await readFile(path.resolve(root, args[0]), 'utf8')
+
+const client = new pg.Client({
+  connectionString,
+  ssl: { rejectUnauthorized: false },
+})
+
 try {
-  const res = await client.query(sql);
-  for (const r of Array.isArray(res) ? res : [res]) {
-    if (r.rows && r.rows.length) console.table(r.rows);
-    else console.log(r.command ?? "OK", r.rowCount ?? "");
+  await client.connect()
+  const result = await client.query(sql)
+  const sets = Array.isArray(result) ? result : [result]
+  for (const set of sets) {
+    if (set.rows?.length) console.table(set.rows)
+    else console.log(`${set.command ?? 'OK'}${set.rowCount != null ? ` · ${set.rowCount} row(s)` : ''}`)
   }
-} catch (e) {
-  console.error("SQL error:", e.message);
-  process.exit(1);
+  console.log('\nDone.')
+} catch (err) {
+  console.error('\nSQL failed:', err.message)
+  process.exitCode = 1
 } finally {
-  await client.end();
+  await client.end()
 }

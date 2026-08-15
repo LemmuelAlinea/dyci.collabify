@@ -1,29 +1,32 @@
-import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { roleHome } from "../lib/roleHome";
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { LogoMark } from '../components/brand/Logo'
+import { Spinner } from '../components/ui/Icon'
+import { useAuth } from '../context/AuthContext'
+import { roleHome } from '../lib/roleHome'
+import type { Role } from '../lib/types'
 
-interface Props {
-  // Role-home path this page belongs to; omit for any authenticated user (e.g. Settings).
-  path?: string;
-  children: ReactNode;
+function Booting() {
+  return (
+    <div className="grid min-h-dvh place-items-center px-6">
+      <div className="flex flex-col items-center gap-5">
+        <LogoMark size={44} />
+        <Spinner size={18} className="text-muted" />
+      </div>
+    </div>
+  )
 }
 
-// Guards a route: requires a session, and (when path is set) that it is the user's role home.
-export function ProtectedRoute({ path, children }: Props) {
-  const { session, profile, loading } = useAuth();
+export function ProtectedRoute({ allow }: { allow?: Role[] }) {
+  const { ready, session, profile } = useAuth()
+  const location = useLocation()
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
-        <span className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--line)] border-t-brand-blue" />
-      </div>
-    );
-  }
+  if (!ready) return <Booting />
+  if (!session)
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  if (!profile) return <Navigate to="/onboarding" replace />
+  if (profile.status !== 'active') return <Navigate to="/pending" replace />
+  if (allow && !allow.includes(profile.role))
+    return <Navigate to={roleHome(profile.role, profile.status)} replace />
 
-  if (!session || !profile) return <Navigate to="/login" replace />;
-
-  if (path && roleHome(profile) !== path) return <Navigate to={roleHome(profile)} replace />;
-
-  return <>{children}</>;
+  return <Outlet />
 }

@@ -1,18 +1,27 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js'
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const url = import.meta.env.VITE_SUPABASE_URL
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// Warn (do not crash) so the UI still renders before keys are configured.
-if (!url || !anonKey) {
+/** False until the user pastes real credentials — the public site still renders. */
+export const isSupabaseConfigured = Boolean(url && anonKey)
+
+if (!isSupabaseConfigured && import.meta.env.DEV) {
   console.warn(
-    "Supabase env vars missing. Copy .env.example to .env and set VITE_SUPABASE_URL and " +
-      "VITE_SUPABASE_ANON_KEY, then restart the dev server. Auth will not work until then.",
-  );
+    '[collabify] VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are missing. ' +
+      'Auth is disabled until you fill in .env.local — see docs/supabase-setup.md.',
+  )
 }
 
-// Placeholder URL keeps createClient valid until real keys are provided.
 export const supabase = createClient(
-  url || "http://localhost:54321",
-  anonKey || "public-anon-placeholder",
-);
+  url || 'https://placeholder.supabase.co',
+  anonKey || 'placeholder-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+    },
+  },
+)

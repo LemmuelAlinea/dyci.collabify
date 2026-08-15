@@ -2,19 +2,11 @@ node_modules
 dist
 dist-ssr
 *.local
-
-# Environment (never commit real keys)
 .env
-.env.*
-!.env.example
-
-# Editor / OS
+.env.local
+.env.*.local
+.vercel
 .DS_Store
-Thumbs.db
-.vscode/*
-!.vscode/extensions.json
-
-# Local session state and internal activity log (not for the repo)
-.remember/
-docs/activity-log.md
-scratchpad/
+*.tsbuildinfo
+.remember/logs
+.remember/tmp
