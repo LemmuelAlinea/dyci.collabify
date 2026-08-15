@@ -225,13 +225,19 @@ export function MessageBubble({
                 type="button"
                 onClick={() => setMenuOpen((v) => !v)}
                 aria-label="Message actions"
-                className="grid h-7 w-7 place-items-center rounded-full text-faint opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-[var(--surface-sunken)] hover:text-ink"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                // Always visible: hover-only hid this entirely on touch devices.
+                className={`grid h-7 w-7 place-items-center rounded-full transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink ${
+                  menuOpen ? 'bg-[var(--surface-sunken)] text-ink' : 'text-faint'
+                }`}
               >
                 <Icon name="dots" size={15} />
               </button>
 
               {menuOpen && (
                 <div
+                  role="menu"
                   className={`surface absolute top-8 z-30 w-52 overflow-hidden rounded-xl border border-line shadow-lift ${
                     mine ? 'right-0' : 'left-0'
                   }`}

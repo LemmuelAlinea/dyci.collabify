@@ -44,7 +44,10 @@ export function MessageThread({
   const { show } = useToast()
   const [messages, setMessages] = useState<ChatMessage[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  // Both deletes confirm first; the scope decides the wording and the call.
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; scope: 'me' | 'all' } | null>(
+    null,
+  )
   const [showPins, setShowPins] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const atBottomRef = useRef(true)
@@ -205,16 +208,8 @@ export function MessageThread({
                         show(authErrorMessage(err, 'Could not edit that message.'), 'error')
                       }
                     }}
-                    onDeleteForMe={async (id) => {
-                      try {
-                        await deleteForMe(id)
-                        await load()
-                        show('Hidden for you')
-                      } catch (err) {
-                        show(authErrorMessage(err, 'Could not hide that message.'), 'error')
-                      }
-                    }}
-                    onDeleteForEveryone={setPendingDelete}
+                    onDeleteForMe={(id) => setPendingDelete({ id, scope: 'me' })}
+                    onDeleteForEveryone={(id) => setPendingDelete({ id, scope: 'all' })}
                     onTogglePin={async (msg) => {
                       const { result } = await setPinned(msg.id, !msg.pinned)
                       if (result === 'ok') {
@@ -243,14 +238,23 @@ export function MessageThread({
         onClose={() => setPendingDelete(null)}
         onConfirm={async () => {
           if (!pendingDelete) return
-          const { result } = await deleteForEveryone(pendingDelete)
-          if (result !== 'deleted') throw new Error('You cannot delete that message.')
-          show('Deleted for everyone')
+          if (pendingDelete.scope === 'me') {
+            await deleteForMe(pendingDelete.id)
+            show('Hidden for you')
+          } else {
+            const { result } = await deleteForEveryone(pendingDelete.id)
+            if (result !== 'deleted') throw new Error('You cannot delete that message.')
+            show('Deleted for everyone')
+          }
           await load()
         }}
-        title="Delete for everyone?"
-        body="The message and any files on it are removed for everyone in this conversation. A note saying it was deleted stays in its place."
-        confirmLabel="Delete for everyone"
+        title={pendingDelete?.scope === 'me' ? 'Delete for you?' : 'Delete for everyone?'}
+        body={
+          pendingDelete?.scope === 'me'
+            ? 'The message disappears from your view of this chat. Everyone else still sees it, and you cannot bring it back.'
+            : 'The message and any files on it are removed for everyone in this conversation. A note saying it was deleted stays in its place.'
+        }
+        confirmLabel={pendingDelete?.scope === 'me' ? 'Delete for me' : 'Delete for everyone'}
       />
     </div>
   )
