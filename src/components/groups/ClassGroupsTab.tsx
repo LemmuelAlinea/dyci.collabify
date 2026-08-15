@@ -57,6 +57,7 @@ export function ClassGroupsTab({
         linkBase={role === 'professor' ? '/professor/groups' : '/student/groups'}
         viewerId={viewerId}
         showFilters={groups.length > 6}
+        showSetFilter={role === 'professor'}
         emptyTitle="No groups in this class yet"
         emptyBody={
           canManage

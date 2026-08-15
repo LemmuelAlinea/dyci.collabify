@@ -15,18 +15,28 @@ export function GroupFilters({
   onChange,
   classes,
   sets,
+  showSetFilter = true,
 }: {
   value: GroupFilterState
   onChange: (next: GroupFilterState) => void
   classes: ClassSummary[]
   sets: GroupSet[]
+  /** Off for students: they only ever see their own groups, so browsing by set
+      would imply there is something else to find. */
+  showSetFilter?: boolean
 }) {
   // Only offer sets belonging to the chosen class, so the two filters cannot
   // combine into an empty result by accident.
   const visibleSets = value.classId ? sets.filter((s) => s.class_id === value.classId) : sets
 
   return (
-    <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+    <div
+      className={`grid gap-3 ${
+        showSetFilter
+          ? 'sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]'
+          : 'sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]'
+      }`}
+    >
       <div className="relative">
         <Icon
           name="search"
@@ -51,14 +61,16 @@ export function GroupFilters({
         className="!h-11"
       />
 
-      <Select
-        aria-label="Filter by group set"
-        value={value.setId}
-        onChange={(e) => onChange({ ...value, setId: e.target.value })}
-        placeholder="All sets"
-        options={visibleSets.map((s) => ({ value: s.id, label: s.name }))}
-        className="!h-11"
-      />
+      {showSetFilter && (
+        <Select
+          aria-label="Filter by group set"
+          value={value.setId}
+          onChange={(e) => onChange({ ...value, setId: e.target.value })}
+          placeholder="All sets"
+          options={visibleSets.map((s) => ({ value: s.id, label: s.name }))}
+          className="!h-11"
+        />
+      )}
     </div>
   )
 }

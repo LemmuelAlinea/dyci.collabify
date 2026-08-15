@@ -109,6 +109,17 @@ returns boolean language sql stable security definer set search_path = public as
   );
 $$;
 
+-- Students may browse the whole set only while they still have a choice to
+-- make: a student-formed set that is still open. In a manual or random set,
+-- and in any closed set, a student sees their own group and nothing else.
+create or replace function public.is_set_browsable(p_set uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.group_sets
+     where id = p_set and mode = 'student_formed' and closed_at is null
+  );
+$$;
+
 -- A student renaming their group must not also raise its member limit.
 create or replace function public.guard_group_columns()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -382,7 +393,13 @@ create policy group_sets_write on public.group_sets
 
 drop policy if exists groups_select on public.groups;
 create policy groups_select on public.groups
-  for select using (public.is_set_professor(set_id) or public.is_set_class_member(set_id));
+  for select using (
+    public.is_set_professor(set_id)
+    or (
+      public.is_set_class_member(set_id)
+      and (public.is_group_member(id) or public.is_set_browsable(set_id))
+    )
+  );
 
 drop policy if exists groups_write on public.groups;
 create policy groups_write on public.groups
@@ -404,7 +421,10 @@ create policy group_members_select on public.group_members
   for select using (
     student_id = auth.uid()
     or public.is_set_professor(set_id)
-    or public.is_set_class_member(set_id)
+    or (
+      public.is_set_class_member(set_id)
+      and (public.is_group_member(group_id) or public.is_set_browsable(set_id))
+    )
   );
 
 drop policy if exists group_members_write on public.group_members;

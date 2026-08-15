@@ -25,6 +25,8 @@ type Props = {
   setActions?: (set: GroupSet) => ReactNode
   /** Hide the filter row when there is nothing to filter. */
   showFilters?: boolean
+  /** Students never browse by set — they only see their own groups. */
+  showSetFilter?: boolean
 }
 
 export function GroupsBoard({
@@ -39,6 +41,7 @@ export function GroupsBoard({
   emptyAction,
   setActions,
   showFilters = true,
+  showSetFilter = true,
 }: Props) {
   const [filters, setFilters] = useState<GroupFilterState>(EMPTY_FILTERS)
 
@@ -74,7 +77,13 @@ export function GroupsBoard({
   return (
     <div className="space-y-6">
       {showFilters && groups.length > 0 && (
-        <GroupFilters value={filters} onChange={setFilters} classes={classes} sets={sets} />
+        <GroupFilters
+          value={filters}
+          onChange={setFilters}
+          classes={classes}
+          sets={sets}
+          showSetFilter={showSetFilter}
+        />
       )}
 
       {groups.length === 0 ? (

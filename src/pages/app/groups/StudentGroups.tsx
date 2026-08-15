@@ -99,6 +99,7 @@ export default function StudentGroups() {
               members={members}
               linkBase="/student/groups"
               viewerId={profile?.id}
+              showSetFilter={false}
               emptyTitle={tab === 'mine' ? "You're not in a group yet" : 'Nothing to join'}
               emptyBody={
                 tab === 'mine'
