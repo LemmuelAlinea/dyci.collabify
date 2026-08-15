@@ -17,10 +17,19 @@ const WIDTHS = { sm: 'max-w-[420px]', md: 'max-w-[560px]', lg: 'max-w-[720px]' }
 export function Modal({ open, onClose, title, description, children, footer, size = 'md' }: Props) {
   const panel = useRef<HTMLDivElement>(null)
 
+  // Callers pass an inline arrow for onClose, so it is a new function on every
+  // parent render. Reading it through a ref keeps it out of the effect's deps —
+  // otherwise each keystroke re-ran the effect and its focus() call stole focus
+  // back from the field being typed into.
+  const closeRef = useRef(onClose)
+  useEffect(() => {
+    closeRef.current = onClose
+  })
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') closeRef.current()
     }
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
@@ -29,7 +38,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 

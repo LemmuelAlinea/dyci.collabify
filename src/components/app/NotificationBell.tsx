@@ -99,7 +99,10 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="surface absolute right-0 z-50 mt-2 w-[320px] overflow-hidden rounded-2xl border border-line shadow-lift sm:w-[380px]">
+        // The bell is not the rightmost control in the topbar, so anchoring the
+        // panel to it pushed the panel's left edge off a phone screen. Below sm
+        // it spans the viewport instead; from sm up it hangs off the button.
+        <div className="surface fixed inset-x-3 top-[78px] z-50 overflow-hidden rounded-2xl border border-line shadow-lift sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[380px]">
           <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
             <p className="text-[14px] font-semibold text-ink">Notifications</p>
             {unread > 0 && (
