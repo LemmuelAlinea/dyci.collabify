@@ -7,10 +7,12 @@ import { Avatar } from './Avatar'
 import { NotificationBell } from './NotificationBell'
 import { navFor } from './nav'
 import { useAuth } from '../../context/AuthContext'
+import { useUnreadTotal } from '../../hooks/useConversations'
 import { ROLE_LABEL, fullName } from '../../lib/types'
 
 function NavRows({ onNavigate }: { onNavigate?: () => void }) {
   const { profile } = useAuth()
+  const unreadMessages = useUnreadTotal(profile?.id)
   if (!profile) return null
 
   return (
@@ -37,7 +39,12 @@ function NavRows({ onNavigate }: { onNavigate?: () => void }) {
                     }
                   >
                     <Icon name={item.icon} size={18} />
-                    {item.label}
+                    <span className="flex-1 truncate">{item.label}</span>
+                    {item.badge === 'messages' && unreadMessages > 0 && (
+                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-amber-400 px-1.5 font-mono text-[10px] font-bold text-navy-900">
+                        {unreadMessages > 99 ? '99+' : unreadMessages}
+                      </span>
+                    )}
                   </NavLink>
                 </li>
               ) : (

@@ -29,6 +29,7 @@ import Curriculum from './pages/app/resources/Curriculum'
 import ProfessorGroups from './pages/app/groups/ProfessorGroups'
 import StudentGroups from './pages/app/groups/StudentGroups'
 import GroupDetail from './pages/app/groups/GroupDetail'
+import Messages from './pages/app/messages/Messages'
 
 export default function App() {
   return (
@@ -59,6 +60,11 @@ export default function App() {
             <Route path="/student/classes/:classId" element={<StudentClassDetail />} />
             <Route path="/student/groups" element={<StudentGroups />} />
             <Route path="/student/groups/:groupId" element={<GroupDetail role="student" />} />
+            <Route path="/student/messages" element={<Messages role="student" />} />
+            <Route
+              path="/student/messages/:conversationId"
+              element={<Messages role="student" />}
+            />
           </Route>
         </Route>
 
@@ -69,6 +75,11 @@ export default function App() {
             <Route path="/professor/classes/:classId" element={<ProfessorClassDetail />} />
             <Route path="/professor/groups" element={<ProfessorGroups />} />
             <Route path="/professor/groups/:groupId" element={<GroupDetail role="professor" />} />
+            <Route path="/professor/messages" element={<Messages role="professor" />} />
+            <Route
+              path="/professor/messages/:conversationId"
+              element={<Messages role="professor" />}
+            />
             <Route path="/professor/syllabi" element={<Syllabi />} />
             <Route path="/professor/curriculum" element={<Curriculum />} />
           </Route>

@@ -7,6 +7,8 @@ export type NavItem = {
   to?: string
   /** Phase 2. Rendered as a disabled row with a "Soon" tag. */
   soon?: boolean
+  /** Named counter the shell fills in live, e.g. unread messages. */
+  badge?: 'messages'
 }
 
 export type NavGroup = { title: string; items: NavItem[] }
@@ -24,6 +26,7 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
         { label: 'Dashboard', icon: 'board', to: '/student' },
         { label: 'Classes', icon: 'folder', to: '/student/classes' },
         { label: 'Groups', icon: 'users', to: '/student/groups' },
+        { label: 'Messages', icon: 'message', to: '/student/messages', badge: 'messages' },
         { label: 'My tasks', icon: 'check', soon: true },
         { label: 'Project board', icon: 'kanban', soon: true },
         { label: 'Milestones', icon: 'target', soon: true },
@@ -46,9 +49,9 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
         { label: 'Dashboard', icon: 'board', to: '/professor' },
         { label: 'Classes', icon: 'folder', to: '/professor/classes' },
         { label: 'Groups', icon: 'users', to: '/professor/groups' },
+        { label: 'Messages', icon: 'message', to: '/professor/messages', badge: 'messages' },
         { label: 'Projects', icon: 'kanban', soon: true },
         { label: 'Reassignments', icon: 'refresh', soon: true },
-        { label: 'Messages', icon: 'message', soon: true },
       ],
     },
     {

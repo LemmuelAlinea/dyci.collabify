@@ -250,6 +250,69 @@ export function modeLabel(mode: GroupingMode) {
   return GROUPING_MODES.find((m) => m.value === mode)?.label ?? mode
 }
 
+/* ----------------------------------------------------------------- messages */
+
+export type ConversationKind = 'class' | 'group' | 'direct'
+
+export type ConversationRow = {
+  id: string
+  kind: ConversationKind
+  class_id: string | null
+  group_id: string | null
+  direct_key: string | null
+  updated_at: string
+}
+
+/** conversation_overview: the row plus this viewer's unread state and preview. */
+export type ConversationSummary = ConversationRow & {
+  last_read_at: string
+  unread_count: number
+  last_body: string | null
+  last_at: string | null
+}
+
+/** What the list renders — resolved once, from classes, groups, and profiles. */
+export type ConversationCard = ConversationSummary & {
+  title: string
+  subtitle: string
+  /** Set for direct threads, so the list can show a face. */
+  counterpart?: Pick<Profile, 'id' | 'first_name' | 'last_name' | 'avatar_url'>
+  writable: boolean
+}
+
+export type MessageAttachment = {
+  id: string
+  message_id: string
+  file_path: string
+  file_name: string
+  mime_type: string | null
+  size_bytes: number
+}
+
+export type ChatMessage = {
+  id: string
+  conversation_id: string
+  sender_id: string
+  body: string
+  edited_at: string | null
+  deleted_at: string | null
+  deleted_by: string | null
+  pinned: boolean
+  created_at: string
+  attachments: MessageAttachment[]
+  sender?: Pick<Profile, 'first_name' | 'last_name' | 'avatar_url'>
+}
+
+export const EDIT_WINDOW_MINUTES = 15
+
+export function withinEditWindow(message: Pick<ChatMessage, 'created_at'>) {
+  return Date.now() - new Date(message.created_at).getTime() < EDIT_WINDOW_MINUTES * 60_000
+}
+
+export function isImage(attachment: Pick<MessageAttachment, 'mime_type'>) {
+  return Boolean(attachment.mime_type?.startsWith('image/'))
+}
+
 /** Roster order is by family name, the way a class list is read out. */
 export function byLastName(
   a: Pick<Profile, 'first_name' | 'last_name'>,
