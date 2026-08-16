@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { POLL_SELECT } from './polls'
 import { fullName } from '../types'
 import type {
   ChatMessage,
@@ -13,7 +14,8 @@ const BUCKET = 'chat-files'
 const MESSAGE_SELECT = `
   id, conversation_id, sender_id, body, edited_at, deleted_at, deleted_by, pinned, created_at,
   attachments:message_attachments (id, message_id, file_path, file_name, mime_type, size_bytes),
-  sender:profiles!messages_sender_id_fkey (first_name, last_name, avatar_url)
+  sender:profiles!messages_sender_id_fkey (first_name, last_name, avatar_url),
+  ${POLL_SELECT}
 `
 
 /* --------------------------------------------------------- conversations */

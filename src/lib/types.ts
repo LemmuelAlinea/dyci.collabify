@@ -289,6 +289,32 @@ export type MessageAttachment = {
   size_bytes: number
 }
 
+export type PollOption = {
+  id: string
+  poll_id: string
+  label: string
+  position: number
+}
+
+export type PollVote = {
+  option_id: string
+  user_id: string
+  voter?: Pick<Profile, 'first_name' | 'last_name' | 'avatar_url'>
+}
+
+export type Poll = {
+  id: string
+  message_id: string
+  conversation_id: string
+  created_by: string
+  question: string
+  allow_multiple: boolean
+  allow_new_options: boolean
+  closed_at: string | null
+  options: PollOption[]
+  votes: PollVote[]
+}
+
 export type ChatMessage = {
   id: string
   conversation_id: string
@@ -300,7 +326,24 @@ export type ChatMessage = {
   pinned: boolean
   created_at: string
   attachments: MessageAttachment[]
+  poll?: Poll | null
   sender?: Pick<Profile, 'first_name' | 'last_name' | 'avatar_url'>
+}
+
+/** Vote counts per option, plus who this viewer picked. */
+export function tallyPoll(poll: Poll, viewerId: string) {
+  const total = new Set(poll.votes.map((v) => v.user_id)).size
+  const byOption = new Map<string, PollVote[]>()
+  for (const v of poll.votes) {
+    const list = byOption.get(v.option_id) ?? []
+    list.push(v)
+    byOption.set(v.option_id, list)
+  }
+  return {
+    total,
+    mine: new Set(poll.votes.filter((v) => v.user_id === viewerId).map((v) => v.option_id)),
+    forOption: (optionId: string) => byOption.get(optionId) ?? [],
+  }
 }
 
 export const EDIT_WINDOW_MINUTES = 15

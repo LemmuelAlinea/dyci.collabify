@@ -5,6 +5,7 @@ import { Icon } from '../ui/Icon'
 import { formatBytes } from '../ui/FileDrop'
 import { Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
+import { PollCard } from './PollCard'
 import { attachmentUrl } from '../../lib/api/messages'
 import { authErrorMessage } from '../../lib/authError'
 import { isImage, withinEditWindow } from '../../lib/types'
@@ -77,6 +78,8 @@ type Props = {
   mine: boolean
   canModerate: boolean
   showSender: boolean
+  viewerId: string
+  onPollChanged: () => Promise<void> | void
   onEdit: (id: string, body: string) => Promise<void>
   onDeleteForMe: (id: string) => void
   onDeleteForEveryone: (id: string) => void
@@ -88,6 +91,8 @@ export function MessageBubble({
   mine,
   canModerate,
   showSender,
+  viewerId,
+  onPollChanged,
   onEdit,
   onDeleteForMe,
   onDeleteForEveryone,
@@ -109,7 +114,10 @@ export function MessageBubble({
   }, [menuOpen])
 
   const deleted = Boolean(message.deleted_at)
-  const canEdit = mine && !deleted && withinEditWindow(message)
+  const poll = message.poll ?? null
+  // A poll needs a light surface for its bars and avatars, so it never takes
+  // the navy "my message" fill.
+  const canEdit = mine && !deleted && !poll && withinEditWindow(message)
   const canDeleteForEveryone = (mine || canModerate) && !deleted
 
   if (deleted) {
@@ -149,7 +157,7 @@ export function MessageBubble({
         <div className={`flex items-start gap-1 ${mine ? 'flex-row-reverse' : ''}`}>
           <div
             className={`min-w-0 rounded-2xl px-3.5 py-2.5 ${
-              mine
+              mine && !poll
                 ? 'bg-navy-600 text-white dark:bg-navy-500'
                 : 'surface border border-line text-ink'
             }`}
@@ -197,6 +205,14 @@ export function MessageBubble({
               </div>
             ) : (
               <>
+                {poll && (
+                  <PollCard
+                    poll={poll}
+                    viewerId={viewerId}
+                    canManage={canModerate}
+                    onChanged={onPollChanged}
+                  />
+                )}
                 {message.body && (
                   <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap break-words">
                     {message.body}
@@ -210,7 +226,7 @@ export function MessageBubble({
                   </div>
                 )}
                 <p
-                  className={`mt-1 text-[10.5px] ${mine ? 'text-white/55' : 'text-faint'}`}
+                  className={`mt-1 text-[10.5px] ${mine && !poll ? 'text-white/55' : 'text-faint'}`}
                 >
                   {clockTime(message.created_at)}
                   {message.edited_at && ' · edited'}

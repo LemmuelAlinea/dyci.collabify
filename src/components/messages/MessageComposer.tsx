@@ -9,10 +9,12 @@ export function MessageComposer({
   disabled,
   disabledReason,
   onSend,
+  onCreatePoll,
 }: {
   disabled?: boolean
   disabledReason?: string
   onSend: (body: string, files: File[]) => Promise<void>
+  onCreatePoll: () => void
 }) {
   const [body, setBody] = useState('')
   const [files, setFiles] = useState<File[]>([])
@@ -111,6 +113,16 @@ export function MessageComposer({
           className="hidden"
           onChange={(e) => pick(e.target.files)}
         />
+
+        <button
+          type="button"
+          onClick={onCreatePoll}
+          aria-label="Create a poll"
+          title="Create a poll"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+        >
+          <Icon name="chart" size={19} />
+        </button>
 
         <textarea
           ref={boxRef}

@@ -5,6 +5,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Alert } from '../ui/Field'
 import { Icon, Spinner } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
+import { CreatePollDialog } from './CreatePollDialog'
 import { MessageBubble } from './MessageBubble'
 import { MessageComposer } from './MessageComposer'
 import {
@@ -49,6 +50,7 @@ export function MessageThread({
     null,
   )
   const [showPins, setShowPins] = useState(false)
+  const [pollOpen, setPollOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const atBottomRef = useRef(true)
 
@@ -200,6 +202,8 @@ export function MessageThread({
                     mine={m.sender_id === viewerId}
                     canModerate={canModerate}
                     showSender={showSender}
+                    viewerId={viewerId}
+                    onPollChanged={load}
                     onEdit={async (id, body) => {
                       try {
                         await editMessage(id, body)
@@ -231,6 +235,17 @@ export function MessageThread({
         disabled={!conversation.writable}
         disabledReason="This class is archived, so the chat is read-only."
         onSend={onSend}
+        onCreatePoll={() => setPollOpen(true)}
+      />
+
+      <CreatePollDialog
+        open={pollOpen}
+        onClose={() => setPollOpen(false)}
+        conversationId={conversation.id}
+        onCreated={async () => {
+          atBottomRef.current = true
+          await load(true)
+        }}
       />
 
       <ConfirmDialog
