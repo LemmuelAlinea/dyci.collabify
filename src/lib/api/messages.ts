@@ -235,23 +235,40 @@ export async function attachmentUrl(attachment: MessageAttachment) {
 /* -------------------------------------------------------------- realtime */
 
 /**
- * Postgres changes on this conversation. Supabase applies the same RLS to
- * realtime as to reads, so a non-member receives nothing.
+ * Postgres changes for everything shown in a thread. Supabase applies the same
+ * RLS to realtime as to reads, so a non-member receives nothing.
+ *
+ * Polls live in separate tables, so a vote or a new option produces no event on
+ * `messages` — each poll table needs its own listener or the card sits stale.
+ *
+ * The topic is unique per subscription: React remounts effects (StrictMode does
+ * it twice in development), and two live channels sharing one topic collide.
  */
 export function subscribeToConversation(conversationId: string, onChange: () => void) {
-  const channel = supabase
-    .channel(`conversation:${conversationId}`)
-    .on(
+  const topic = `conversation:${conversationId}:${Math.random().toString(36).slice(2)}`
+  const watch = ['messages', 'message_attachments', 'polls', 'poll_options', 'poll_votes']
+
+  let channel = supabase.channel(topic)
+  for (const table of watch) {
+    channel = channel.on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+      {
+        event: '*',
+        schema: 'public',
+        table,
+        // Only messages carries the conversation id; the rest are reached
+        // through it, and RLS already limits them to this viewer.
+        ...(table === 'messages' ? { filter: `conversation_id=eq.${conversationId}` } : {}),
+      },
       onChange,
     )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'message_attachments' },
-      onChange,
-    )
-    .subscribe()
+  }
+
+  channel.subscribe((status, err) => {
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      console.warn(`[collabify] realtime ${status} on ${topic}`, err?.message ?? '')
+    }
+  })
 
   return () => {
     void supabase.removeChannel(channel)

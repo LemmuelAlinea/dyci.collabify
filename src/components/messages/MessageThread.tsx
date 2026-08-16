@@ -80,6 +80,21 @@ export function MessageThread({
     })
   }, [conversation.id, load])
 
+  // Safety net: a dropped socket, a sleeping phone, or a proxy that kills long
+  // connections would otherwise leave the thread silently frozen. Cheap enough
+  // at this cadence, and it stops while the tab is hidden.
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === 'visible') void load()
+    }
+    const id = setInterval(tick, 12_000)
+    document.addEventListener('visibilitychange', tick)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', tick)
+    }
+  }, [load])
+
   useEffect(() => {
     if (atBottomRef.current) bottomRef.current?.scrollIntoView({ block: 'end' })
   }, [messages])
