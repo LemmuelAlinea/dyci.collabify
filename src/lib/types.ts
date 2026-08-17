@@ -614,6 +614,8 @@ export type BoardSummary = ProjectBoard & {
   done_pct: number
   doing_pct: number
   unclaimed_pct: number
+  /** When a task on it last changed. Null while the board is empty. */
+  last_activity: string | null
 }
 
 /**

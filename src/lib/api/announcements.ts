@@ -20,6 +20,20 @@ export async function listAnnouncements(classId: string) {
   return (data ?? []) as unknown as Announcement[]
 }
 
+/** Across every class the viewer is in — what the dashboard swiper shows. */
+export async function listRecentAnnouncements(classIds: string[], limit = 8) {
+  if (classIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('announcements')
+    .select(SELECT)
+    .in('class_id', classIds)
+    .order('pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data ?? []) as unknown as Announcement[]
+}
+
 export async function createAnnouncement(input: {
   classId: string
   authorId: string
