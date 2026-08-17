@@ -50,6 +50,8 @@ export function TaskCard({
   const due = dueSoonLabel(task.due_at)
   const overdue = due === 'Overdue' && task.status !== 'done'
   const yours = viewerId ? isMine(task, viewerId) : false
+  // Shared work splits evenly, so the card shows what one person walks away with.
+  const perPerson = Math.round((share / Math.max(1, task.assignees.length)) * 10) / 10
   const frozen = task.status !== 'todo'
   const editable = role === 'professor' || !frozen
 
@@ -101,6 +103,7 @@ export function TaskCard({
           task={task}
           members={members}
           progress={progress}
+          perPerson={perPerson}
           viewerId={viewerId}
           canChange={canWork}
           onClaim={onClaim}
