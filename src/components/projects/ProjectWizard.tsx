@@ -55,10 +55,13 @@ export function ProjectWizard({
   useEffect(() => {
     if (!open || !classId) {
       setWeeks(null)
+      setSets([])
       return
     }
     let live = true
     setWeeks(null)
+    // Otherwise the previous class's groups stay on screen while this one loads.
+    setSets([])
     void Promise.all([classWeekMap(classId), listLiveSets([classId])])
       .then(([w, s]) => {
         if (!live) return
