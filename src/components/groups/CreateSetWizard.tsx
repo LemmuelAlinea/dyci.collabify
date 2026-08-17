@@ -53,17 +53,26 @@ export function CreateSetWizard({
     setMode('manual')
     setLimit(5)
     setGroupCount(4)
-    setStudents([])
     setDrafts([])
     setError(null)
   }, [open, fixedClassId])
 
+  // Keyed on open as well as the class. Opened from inside a class the id never
+  // changes, so keying on it alone meant the roster was never fetched again
+  // after the reset above cleared it — every count read zero.
   useEffect(() => {
-    if (!classId) return setStudents([])
+    if (!open || !classId) {
+      setStudents([])
+      return
+    }
+    let live = true
     void listMembers(classId)
-      .then((members) => setStudents(members.map((m) => m.profile)))
-      .catch(() => setStudents([]))
-  }, [classId])
+      .then((members) => live && setStudents(members.map((m) => m.profile)))
+      .catch(() => live && setStudents([]))
+    return () => {
+      live = false
+    }
+  }, [open, classId])
 
   const suggestedCount = useMemo(
     () => Math.max(1, Math.ceil(students.length / Math.max(1, limit))),
