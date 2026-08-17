@@ -6,9 +6,10 @@ import { useToast } from '../ui/Toast'
 import { CreateSetWizard } from './CreateSetWizard'
 import { GroupsBoard } from './GroupsBoard'
 import { useGroupsData } from '../../hooks/useGroupsData'
-import { setClosed } from '../../lib/api/groups'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { deleteSet, setClosed } from '../../lib/api/groups'
 import { authErrorMessage } from '../../lib/authError'
-import type { ClassSummary } from '../../lib/types'
+import type { ClassSummary, GroupSet } from '../../lib/types'
 
 /** The Groups tab inside a class — same board, scoped to one class. */
 export function ClassGroupsTab({
@@ -22,6 +23,7 @@ export function ClassGroupsTab({
 }) {
   const { show } = useToast()
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [deleting, setDeleting] = useState<GroupSet | null>(null)
   const classes = useMemo(() => [cls], [cls])
   const { sets, groups, members, loading, error, reload } = useGroupsData(classes)
 
@@ -74,25 +76,62 @@ export function ClassGroupsTab({
         setActions={
           canManage
             ? (set) => (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="!rounded-lg"
-                  onClick={async () => {
-                    try {
-                      await setClosed(set.id, !set.closed_at)
-                      show(set.closed_at ? `${set.name} reopened` : `${set.name} is now final`)
-                      await reload()
-                    } catch (err) {
-                      show(authErrorMessage(err, 'Could not change that.'), 'error')
-                    }
-                  }}
-                >
-                  <Icon name={set.closed_at ? 'refresh' : 'lock'} size={15} />
-                  {set.closed_at ? 'Reopen' : 'Close set'}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="!rounded-lg"
+                    onClick={async () => {
+                      try {
+                        await setClosed(set.id, !set.closed_at)
+                        show(set.closed_at ? `${set.name} reopened` : `${set.name} is now final`)
+                        await reload()
+                      } catch (err) {
+                        show(authErrorMessage(err, 'Could not change that.'), 'error')
+                      }
+                    }}
+                  >
+                    <Icon name={set.closed_at ? 'refresh' : 'lock'} size={15} />
+                    {set.closed_at ? 'Reopen' : 'Close set'}
+                  </Button>
+
+                  {/* Only while the set is open — a closed set is a final record. */}
+                  {!set.closed_at && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="!rounded-lg !text-red-600 dark:!text-red-400"
+                      onClick={() => setDeleting(set)}
+                    >
+                      <Icon name="trash" size={15} />
+                      Delete all groups
+                    </Button>
+                  )}
+                </div>
               )
             : undefined
+        }
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onClose={() => setDeleting(null)}
+        onConfirm={async () => {
+          if (!deleting) return
+          await deleteSet(deleting.id)
+          show(`${deleting.name} deleted`)
+          await reload()
+        }}
+        title={`Delete ${deleting?.name ?? ''}?`}
+        confirmLabel="Delete all groups"
+        body={
+          <>
+            <p>
+              Every group in this set is deleted along with its members and its group chats.
+              The students stay in the class.
+            </p>
+            <p className="mt-3">This cannot be undone.</p>
+          </>
         }
       />
 

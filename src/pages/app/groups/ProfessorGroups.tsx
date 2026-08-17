@@ -9,7 +9,7 @@ import { GroupsBoard } from '../../../components/groups/GroupsBoard'
 import { useAuth } from '../../../context/AuthContext'
 import { useGroupsData } from '../../../hooks/useGroupsData'
 import { listProfessorClasses } from '../../../lib/api/classes'
-import { setClosed, ungroupedStudents } from '../../../lib/api/groups'
+import { deleteSet, setClosed, ungroupedStudents } from '../../../lib/api/groups'
 import { authErrorMessage } from '../../../lib/authError'
 import type { ClassSummary, GroupSet } from '../../../lib/types'
 
@@ -21,6 +21,7 @@ export default function ProfessorGroups() {
   const [classError, setClassError] = useState<string | null>(null)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [closing, setClosing] = useState<GroupSet | null>(null)
+  const [deleting, setDeleting] = useState<GroupSet | null>(null)
   const [unplaced, setUnplaced] = useState<string[]>([])
 
   const { sets, groups, members, loading, error, reload } = useGroupsData(classes)
@@ -102,23 +103,38 @@ export default function ProfessorGroups() {
               ) : undefined
             }
             setActions={(set) => (
-              <Button
-                variant="outline"
-                size="sm"
-                className="!rounded-lg"
-                onClick={async () => {
-                  if (set.closed_at) {
-                    await setClosed(set.id, false)
-                    show(`${set.name} reopened`)
-                    await reload()
-                  } else {
-                    await promptClose(set)
-                  }
-                }}
-              >
-                <Icon name={set.closed_at ? 'refresh' : 'lock'} size={15} />
-                {set.closed_at ? 'Reopen' : 'Close set'}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="!rounded-lg"
+                  onClick={async () => {
+                    if (set.closed_at) {
+                      await setClosed(set.id, false)
+                      show(`${set.name} reopened`)
+                      await reload()
+                    } else {
+                      await promptClose(set)
+                    }
+                  }}
+                >
+                  <Icon name={set.closed_at ? 'refresh' : 'lock'} size={15} />
+                  {set.closed_at ? 'Reopen' : 'Close set'}
+                </Button>
+
+                {/* Only while the set is open — a closed set is a final record. */}
+                {!set.closed_at && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="!rounded-lg !text-red-600 dark:!text-red-400"
+                    onClick={() => setDeleting(set)}
+                  >
+                    <Icon name="trash" size={15} />
+                    Delete all groups
+                  </Button>
+                )}
+              </div>
             )}
           />
         )}
@@ -129,6 +145,28 @@ export default function ProfessorGroups() {
         onClose={() => setWizardOpen(false)}
         classes={classes ?? []}
         onCreated={reload}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onClose={() => setDeleting(null)}
+        onConfirm={async () => {
+          if (!deleting) return
+          await deleteSet(deleting.id)
+          show(`${deleting.name} deleted`)
+          await reload()
+        }}
+        title={`Delete ${deleting?.name ?? ''}?`}
+        confirmLabel="Delete all groups"
+        body={
+          <>
+            <p>
+              Every group in this set is deleted along with its members and its group chats.
+              The students stay in the class.
+            </p>
+            <p className="mt-3">This cannot be undone.</p>
+          </>
+        }
       />
 
       <ConfirmDialog
