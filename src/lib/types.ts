@@ -633,6 +633,10 @@ export type MemberProgress = {
   personal_pct: number | null
   group_pct: number
   held_pct: number
+  /** An equal cut of the board — 25 in a four, 20 in a five. 100 when solo. */
+  cap_pct: number
+  /** False once they already carry a full share. */
+  can_claim: boolean
   profile?: Pick<Profile, 'id' | 'first_name' | 'middle_name' | 'last_name' | 'avatar_url'>
 }
 

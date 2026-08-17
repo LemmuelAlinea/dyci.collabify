@@ -23,6 +23,7 @@ import { boardWeight, TASK_STATUSES, taskShare } from '../../lib/types'
 import type {
   BoardSummary,
   GroupMember,
+  MemberProgress,
   ProjectTask,
   Role,
   TaskStatus,
@@ -38,6 +39,7 @@ export function TaskBoard({
   board,
   tasks,
   members,
+  progress,
   viewerId,
   role,
   canWork,
@@ -46,6 +48,8 @@ export function TaskBoard({
   board: BoardSummary
   tasks: ProjectTask[]
   members: GroupMember[]
+  /** Who still has room under their share — drives the claim controls. */
+  progress: MemberProgress[]
   viewerId: string | undefined
   role: Role
   /** A professor writes the work; only the board's own people move it. */
@@ -157,6 +161,7 @@ export function TaskBoard({
                       task={task}
                       share={taskShare(task, totalWeight)}
                       members={members}
+                      progress={progress}
                       viewerId={viewerId}
                       role={role}
                       canWork={canWork}

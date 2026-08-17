@@ -1,7 +1,13 @@
 import { AssigneePicker } from './AssigneePicker'
 import { Icon } from '../ui/Icon'
 import { dueSoonLabel, isMine } from '../../lib/types'
-import type { GroupMember, ProjectTask, Role, TaskStatus } from '../../lib/types'
+import type {
+  GroupMember,
+  MemberProgress,
+  ProjectTask,
+  Role,
+  TaskStatus,
+} from '../../lib/types'
 
 const NEXT: Record<TaskStatus, { to: TaskStatus; label: string; icon: 'check' | 'refresh' }> = {
   todo: { to: 'in_progress', label: 'Start', icon: 'check' },
@@ -13,6 +19,7 @@ export function TaskCard({
   task,
   share,
   members,
+  progress,
   viewerId,
   role,
   canWork,
@@ -27,6 +34,7 @@ export function TaskCard({
   /** This task's slice of the board's 100. */
   share: number
   members: GroupMember[]
+  progress: MemberProgress[]
   viewerId: string | undefined
   role: Role
   /** False for a professor: they write the work, the group does it. */
@@ -92,6 +100,7 @@ export function TaskCard({
         <AssigneePicker
           task={task}
           members={members}
+          progress={progress}
           viewerId={viewerId}
           canChange={canWork}
           onClaim={onClaim}

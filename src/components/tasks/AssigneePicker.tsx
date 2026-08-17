@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Avatar } from '../app/Avatar'
 import { Icon } from '../ui/Icon'
 import { fullName } from '../../lib/types'
-import type { GroupMember, ProjectTask } from '../../lib/types'
+import type { GroupMember, MemberProgress, ProjectTask } from '../../lib/types'
 
 /**
  * Who is on a task. Claiming is the group's business — a professor sees the
@@ -11,6 +11,7 @@ import type { GroupMember, ProjectTask } from '../../lib/types'
 export function AssigneePicker({
   task,
   members,
+  progress,
   viewerId,
   canChange,
   onClaim,
@@ -18,6 +19,8 @@ export function AssigneePicker({
 }: {
   task: ProjectTask
   members: GroupMember[]
+  /** Who still has room under their share of the board. */
+  progress: MemberProgress[]
   viewerId: string | undefined
   canChange: boolean
   onClaim: (studentId: string) => Promise<void> | void
@@ -42,6 +45,10 @@ export function AssigneePicker({
 
   const taken = new Set(task.assignees.map((a) => a.student_id))
   const mine = viewerId ? taken.has(viewerId) : false
+  // The database refuses a claim past a fair share, so say so before the click.
+  const room = (studentId: string) =>
+    progress.find((p) => p.student_id === studentId)?.can_claim ?? true
+  const viewerFull = viewerId ? !room(viewerId) : false
 
   if (task.assignees.length === 0 && !canChange) {
     return <span className="text-[12px] text-faint">Unclaimed</span>
@@ -68,10 +75,16 @@ export function AssigneePicker({
         (task.assignees.length === 0 ? (
           <button
             type="button"
+            disabled={viewerFull}
+            title={
+              viewerFull
+                ? 'You already carry a full share of this project'
+                : undefined
+            }
             onClick={() => viewerId && void onClaim(viewerId)}
-            className="rounded-full border border-dashed border-line-strong px-2.5 py-1 text-[12px] text-muted transition-colors hover:border-navy-400 hover:text-ink"
+            className="rounded-full border border-dashed border-line-strong px-2.5 py-1 text-[12px] text-muted transition-colors hover:border-navy-400 hover:text-ink disabled:pointer-events-none disabled:opacity-45"
           >
-            Claim it
+            {viewerFull ? 'Your share is full' : 'Claim it'}
           </button>
         ) : (
           <button
@@ -93,21 +106,26 @@ export function AssigneePicker({
           <ul className="max-h-[220px] overflow-y-auto py-1">
             {members.map((m) => {
               const on = taken.has(m.student_id)
+              const full = !on && !room(m.student_id)
               return (
                 <li key={m.student_id}>
                   <button
                     type="button"
+                    disabled={full}
                     onClick={async () => {
                       await (on ? onRelease(m.student_id) : onClaim(m.student_id))
                       setOpen(false)
                     }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[var(--surface-sunken)]"
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[var(--surface-sunken)] disabled:pointer-events-none disabled:opacity-45"
                   >
                     <Avatar profile={m.profile} size={24} />
                     <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">
                       {fullName(m.profile)}
                       {m.student_id === viewerId && (
                         <span className="ml-1 text-[12px] text-faint">you</span>
+                      )}
+                      {full && (
+                        <span className="block text-[11.5px] text-faint">share is full</span>
                       )}
                     </span>
                     {on && <Icon name="check" size={15} className="text-amber-500" />}

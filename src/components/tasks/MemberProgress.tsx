@@ -19,11 +19,16 @@ export function MemberProgress({
 }) {
   if (rows.length === 0) return null
 
+  const cap = rows[0].cap_pct
+
   return (
     <section className="surface rounded-card border border-line p-5 shadow-card">
       <h3 className="text-[16px]">{title}</h3>
       <p className="mt-1 text-[13px] text-muted">
         Their own progress on the left, their share of the group on the right.
+        {cap < 100 && (
+          <> Each member carries up to {cap}% of the project, so the work splits evenly.</>
+        )}
       </p>
 
       <ul className="mt-4 divide-y divide-[var(--line)]">
@@ -51,6 +56,7 @@ export function MemberProgress({
                   {r.task_count === 0
                     ? 'Nothing claimed yet'
                     : `${r.done_count} of ${r.task_count} of their tasks done`}
+                  {!r.can_claim && cap < 100 && ' · share is full'}
                 </p>
               </div>
 
@@ -59,7 +65,8 @@ export function MemberProgress({
                   {personal === null ? '—' : `${personal}%`}
                 </p>
                 <p className="mt-1 font-mono text-[11.5px] text-faint">
-                  {r.group_pct} of {r.held_pct} group
+                  {r.group_pct} of {r.held_pct}
+                  {cap < 100 && <span className="text-faint"> / {cap}</span>}
                 </p>
               </div>
             </li>

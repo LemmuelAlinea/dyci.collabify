@@ -188,6 +188,7 @@ export function ProjectTasksTab({
                 board={active}
                 tasks={tasks}
                 members={members}
+                progress={progress}
                 viewerId={viewerId}
                 role={role}
                 canWork
@@ -304,6 +305,7 @@ export function ProjectTasksTab({
                 board={active}
                 tasks={tasks}
                 members={members}
+                progress={progress}
                 viewerId={viewerId}
                 role={role}
                 canWork={false}
