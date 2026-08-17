@@ -10,9 +10,9 @@ import {
 } from '../../lib/api/notifications'
 import type { AppNotification, Role } from '../../lib/types'
 
-const CLASS_ROUTE: Record<Role, string> = {
-  student: '/student/classes',
-  professor: '/professor/classes',
+const ROLE_BASE: Record<Role, string> = {
+  student: '/student',
+  professor: '/professor',
   superadmin: '/admin',
 }
 
@@ -78,7 +78,13 @@ export function NotificationBell() {
       await markRead([n.id])
       void refreshCount()
     }
-    if (n.class_id && profile) navigate(`${CLASS_ROUTE[profile.role]}/${n.class_id}`)
+    if (!profile) return
+    const base = ROLE_BASE[profile.role]
+    if (n.project_id && profile.role !== 'superadmin') {
+      navigate(`${base}/projects/${n.project_id}`)
+    } else if (n.class_id) {
+      navigate(profile.role === 'superadmin' ? base : `${base}/classes/${n.class_id}`)
+    }
   }
 
   return (
@@ -131,7 +137,7 @@ export function NotificationBell() {
               </div>
             ) : items.length === 0 ? (
               <p className="px-4 py-10 text-center text-[13.5px] text-muted">
-                Nothing yet. Class announcements land here.
+                Nothing yet. Announcements and new projects land here.
               </p>
             ) : (
               <ul className="divide-y divide-[var(--line)]">

@@ -131,9 +131,10 @@ export type Announcement = {
 export type AppNotification = {
   id: string
   user_id: string
-  type: 'announcement'
+  type: 'announcement' | 'project_released'
   class_id: string | null
   announcement_id: string | null
+  project_id: string | null
   title: string
   preview: string | null
   read_at: string | null
@@ -307,6 +308,268 @@ export function weekRange(week: Pick<ClassWeek, 'week_start' | 'week_end'>) {
   const from = new Date(week.week_start).toLocaleDateString(undefined, opts)
   const to = new Date(week.week_end).toLocaleDateString(undefined, opts)
   return `${from} – ${to}`
+}
+
+/* ----------------------------------------------------------------- projects */
+
+export type ProjectType =
+  | 'web_dev'
+  | 'mobile_dev'
+  | 'research'
+  | 'capstone'
+  | 'group_programming'
+  | 'individual_programming'
+  | 'activity'
+  | 'laboratory'
+  | 'quiz'
+  | 'exam'
+  | 'other'
+
+export type ProjectAudience = 'group' | 'individual'
+
+export type ProjectRow = {
+  id: string
+  class_id: string
+  created_by: string
+  title: string
+  type: ProjectType
+  /** Free text, required when type is 'other'. */
+  type_label: string | null
+  guidelines: string
+  /** The syllabus weeks this project is built on. Never empty. */
+  start_week: number
+  end_week: number
+  audience: ProjectAudience
+  group_set_id: string | null
+  total_points: number
+  due_at: string | null
+  /** Null means live now; a future time keeps it hidden from students. */
+  release_at: string | null
+  archived_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** project_overview: the row plus the class, rubric, and syllabus context. */
+export type ProjectSummary = ProjectRow & {
+  class_name: string
+  class_initial: string
+  group_set_name: string | null
+  criteria_count: number
+  criteria_points: number
+  attachment_count: number
+  scheduled: boolean
+  start_week_title: string | null
+  /** What the bound weeks say is due — the project's stated basis. */
+  week_assessments: string | null
+}
+
+export type ProjectCriterion = {
+  id: string
+  project_id: string
+  position: number
+  label: string
+  description: string
+  max_points: number
+}
+
+export type ProjectAttachment = {
+  id: string
+  project_id: string
+  file_path: string
+  file_name: string
+  mime_type: string | null
+  size_bytes: number
+  created_at: string
+}
+
+/** Kept as a literal union so lib/ stays free of component imports. */
+export type ProjectTypeIcon =
+  | 'check'
+  | 'target'
+  | 'file'
+  | 'shield'
+  | 'edit'
+  | 'users'
+  | 'board'
+  | 'monitor'
+  | 'chart'
+  | 'spark'
+  | 'folder'
+
+export const PROJECT_TYPES: {
+  value: ProjectType
+  label: string
+  icon: ProjectTypeIcon
+  blurb: string
+  /** Working days this kind of deliverable usually needs. Drives the deadline check. */
+  typicalDays: number
+  defaultAudience: ProjectAudience
+}[] = [
+  {
+    value: 'activity',
+    label: 'Activity',
+    icon: 'check',
+    blurb: 'A short exercise tied to one topic.',
+    typicalDays: 3,
+    defaultAudience: 'individual',
+  },
+  {
+    value: 'laboratory',
+    label: 'Laboratory',
+    icon: 'target',
+    blurb: 'A guided hands-on lab with a deliverable.',
+    typicalDays: 5,
+    defaultAudience: 'individual',
+  },
+  {
+    value: 'quiz',
+    label: 'Quiz',
+    icon: 'file',
+    blurb: 'A short assessment on the week covered.',
+    typicalDays: 1,
+    defaultAudience: 'individual',
+  },
+  {
+    value: 'exam',
+    label: 'Exam',
+    icon: 'shield',
+    blurb: 'A major assessment across several weeks.',
+    typicalDays: 1,
+    defaultAudience: 'individual',
+  },
+  {
+    value: 'individual_programming',
+    label: 'Individual programming',
+    icon: 'edit',
+    blurb: 'One student writes and submits the code.',
+    typicalDays: 7,
+    defaultAudience: 'individual',
+  },
+  {
+    value: 'group_programming',
+    label: 'Group programming',
+    icon: 'users',
+    blurb: 'A team builds one program together.',
+    typicalDays: 14,
+    defaultAudience: 'group',
+  },
+  {
+    value: 'web_dev',
+    label: 'Web development',
+    icon: 'board',
+    blurb: 'A working web application, front to back.',
+    typicalDays: 21,
+    defaultAudience: 'group',
+  },
+  {
+    value: 'mobile_dev',
+    label: 'Mobile development',
+    icon: 'monitor',
+    blurb: 'A working mobile application.',
+    typicalDays: 21,
+    defaultAudience: 'group',
+  },
+  {
+    value: 'research',
+    label: 'Research',
+    icon: 'chart',
+    blurb: 'A written study with data and findings.',
+    typicalDays: 28,
+    defaultAudience: 'group',
+  },
+  {
+    value: 'capstone',
+    label: 'Capstone',
+    icon: 'spark',
+    blurb: 'The full-term system, documentation, and defense.',
+    typicalDays: 56,
+    defaultAudience: 'group',
+  },
+  {
+    value: 'other',
+    label: 'Other',
+    icon: 'folder',
+    blurb: 'Anything the list above does not cover.',
+    typicalDays: 7,
+    defaultAudience: 'individual',
+  },
+]
+
+export function projectTypeLabel(p: Pick<ProjectRow, 'type' | 'type_label'>) {
+  if (p.type === 'other') return p.type_label || 'Other'
+  return PROJECT_TYPES.find((t) => t.value === p.type)?.label ?? p.type
+}
+
+export function weekSpanLabel(p: Pick<ProjectRow, 'start_week' | 'end_week'>) {
+  return p.start_week === p.end_week
+    ? `Week ${p.start_week}`
+    : `Weeks ${p.start_week}–${p.end_week}`
+}
+
+const DAY = 86_400_000
+
+/** Live for students right now — the same rule the RLS policy applies. */
+export function isReleased(p: Pick<ProjectRow, 'release_at' | 'archived_at'>) {
+  return (
+    !p.archived_at && (!p.release_at || new Date(p.release_at).getTime() <= Date.now())
+  )
+}
+
+export type Feasibility = { tone: 'success' | 'info' | 'error'; message: string }
+
+/**
+ * A warning, never a block. Compares the time students actually get against
+ * what this kind of deliverable usually takes, and against the weeks it is
+ * built on. The professor always has the final say.
+ */
+export function assessDeadline(input: {
+  type: ProjectType
+  dueAt: string | null
+  releaseAt: string | null
+  /** Calendar end of the last bound week, when the class has term dates. */
+  spanEnd: string | null
+}): Feasibility | null {
+  if (!input.dueAt) return null
+  const due = new Date(input.dueAt).getTime()
+  if (Number.isNaN(due)) return null
+
+  const startsAt = input.releaseAt ? new Date(input.releaseAt).getTime() : Date.now()
+  const days = Math.round((due - startsAt) / DAY)
+  const need = PROJECT_TYPES.find((t) => t.value === input.type)?.typicalDays ?? 7
+  const label = PROJECT_TYPES.find((t) => t.value === input.type)?.label.toLowerCase() ?? 'project'
+
+  if (days < 0) {
+    return { tone: 'error', message: 'The deadline is before students can even see this.' }
+  }
+  if (days === 0) {
+    return { tone: 'error', message: 'Due the same day it opens. Students get no working time.' }
+  }
+  if (days < Math.ceil(need * 0.6)) {
+    return {
+      tone: 'error',
+      message: `${days} day${days === 1 ? '' : 's'} for a ${label}. Similar work usually needs about ${need}. Consider moving the deadline.`,
+    }
+  }
+  if (days < need) {
+    return {
+      tone: 'info',
+      message: `${days} days is workable but tight — a ${label} usually takes around ${need}.`,
+    }
+  }
+  if (input.spanEnd) {
+    const overrun = Math.round((due - new Date(input.spanEnd).getTime()) / DAY)
+    if (overrun > 14) {
+      return {
+        tone: 'info',
+        message: `${days} days is comfortable, but the deadline lands ${overrun} days after the last week it is based on.`,
+      }
+    }
+  }
+  return {
+    tone: 'success',
+    message: `${days} days. That is a realistic window for a ${label}.`,
+  }
 }
 
 /* ----------------------------------------------------------------- messages */

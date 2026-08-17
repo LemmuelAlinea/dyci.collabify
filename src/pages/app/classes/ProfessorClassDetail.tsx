@@ -13,6 +13,7 @@ import { ClassForm } from '../../../components/classes/ClassForm'
 import { ClassHeader } from '../../../components/classes/ClassHeader'
 import { RosterTable } from '../../../components/classes/RosterTable'
 import { ClassGroupsTab } from '../../../components/groups/ClassGroupsTab'
+import { ClassProjectsTab } from '../../../components/projects/ClassProjectsTab'
 import { ClassSyllabusTab } from '../../../components/syllabus/ClassSyllabusTab'
 import { useAuth } from '../../../context/AuthContext'
 import { listAnnouncements } from '../../../lib/api/announcements'
@@ -30,7 +31,7 @@ import { listResources } from '../../../lib/api/resources'
 import { authErrorMessage } from '../../../lib/authError'
 import type { Announcement, ClassMember, ClassSummary, TeachingResource } from '../../../lib/types'
 
-type TabId = 'announcements' | 'students' | 'groups' | 'syllabus' | 'about'
+type TabId = 'announcements' | 'students' | 'groups' | 'projects' | 'syllabus' | 'about'
 
 export default function ProfessorClassDetail() {
   const { classId = '' } = useParams()
@@ -179,6 +180,7 @@ export default function ProfessorClassDetail() {
             { id: 'announcements', label: 'Announcements', icon: 'message', count: announcements.length },
             { id: 'students', label: 'Students', icon: 'users', count: activeCount },
             { id: 'groups', label: 'Groups', icon: 'kanban' },
+            { id: 'projects', label: 'Projects', icon: 'board' },
             { id: 'syllabus', label: 'Syllabus', icon: 'calendar' },
             { id: 'about', label: 'About', icon: 'info' },
           ]}
@@ -217,6 +219,9 @@ export default function ProfessorClassDetail() {
         )}
 
         {tab === 'groups' && <ClassGroupsTab cls={cls} role="professor" />}
+        {tab === 'projects' && (
+          <ClassProjectsTab cls={cls} role="professor" viewerId={profile?.id} />
+        )}
         {tab === 'syllabus' && (
           <ClassSyllabusTab cls={cls} role="professor" onClassChanged={load} />
         )}
