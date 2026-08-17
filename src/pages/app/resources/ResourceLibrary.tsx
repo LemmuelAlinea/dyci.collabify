@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
 import { Alert, Field, Input } from '../../../components/ui/Field'
 import { FileDrop, formatBytes } from '../../../components/ui/FileDrop'
@@ -16,6 +17,7 @@ import {
   uploadResource,
 } from '../../../lib/api/resources'
 import { authErrorMessage } from '../../../lib/authError'
+import { PARSE_STATUS_LABEL } from '../../../lib/types'
 import type { ResourceKind, TeachingResource } from '../../../lib/types'
 
 type Copy = {
@@ -142,9 +144,22 @@ export function ResourceLibrary({ kind, copy }: { kind: ResourceKind; copy: Copy
                   <p className="truncate text-[12.5px] text-faint">
                     {r.file_name} · {formatBytes(r.size_bytes)} ·{' '}
                     {new Date(r.uploaded_at).toLocaleDateString()}
+                    {kind === 'syllabus' && (
+                      <> · {PARSE_STATUS_LABEL[r.parse_status ?? 'unparsed']}</>
+                    )}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
+                  {kind === 'syllabus' && (
+                    <Link
+                      to={`/professor/syllabi/${r.id}`}
+                      aria-label={`Week map for ${r.title}`}
+                      title="Week map"
+                      className="grid h-9 w-9 place-items-center rounded-full text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+                    >
+                      <Icon name="calendar" size={17} />
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={() => open(r)}

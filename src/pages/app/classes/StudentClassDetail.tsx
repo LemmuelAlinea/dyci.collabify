@@ -8,13 +8,14 @@ import { ClassAbout } from '../../../components/classes/ClassAbout'
 import { ClassHeader } from '../../../components/classes/ClassHeader'
 import { RosterTable } from '../../../components/classes/RosterTable'
 import { ClassGroupsTab } from '../../../components/groups/ClassGroupsTab'
+import { ClassSyllabusTab } from '../../../components/syllabus/ClassSyllabusTab'
 import { useAuth } from '../../../context/AuthContext'
 import { listAnnouncements } from '../../../lib/api/announcements'
 import { getClass, listMembers } from '../../../lib/api/classes'
 import { authErrorMessage } from '../../../lib/authError'
 import type { Announcement, ClassMember, ClassSummary } from '../../../lib/types'
 
-type TabId = 'announcements' | 'classmates' | 'groups' | 'about'
+type TabId = 'announcements' | 'classmates' | 'groups' | 'syllabus' | 'about'
 
 export default function StudentClassDetail() {
   const { classId = '' } = useParams()
@@ -85,6 +86,7 @@ export default function StudentClassDetail() {
             { id: 'announcements', label: 'Announcements', icon: 'message', count: announcements.length },
             { id: 'classmates', label: 'Classmates', icon: 'users', count: members.length },
             { id: 'groups', label: 'Groups', icon: 'kanban' },
+            { id: 'syllabus', label: 'Syllabus', icon: 'calendar' },
             { id: 'about', label: 'About', icon: 'info' },
           ]}
           active={tab}
@@ -115,6 +117,8 @@ export default function StudentClassDetail() {
         {tab === 'groups' && (
           <ClassGroupsTab cls={cls} role="student" viewerId={profile?.id} />
         )}
+
+        {tab === 'syllabus' && <ClassSyllabusTab cls={cls} role="student" />}
 
         {tab === 'about' && <ClassAbout cls={cls} />}
       </div>

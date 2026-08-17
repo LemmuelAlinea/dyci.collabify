@@ -58,6 +58,10 @@ export type TeachingResource = {
   file_name: string
   size_bytes: number
   uploaded_at: string
+  /** Syllabi only: how far the week map has got. */
+  parse_status?: ParseStatus
+  parsed_at?: string | null
+  parse_error?: string | null
 }
 
 export type ClassRow = {
@@ -75,6 +79,9 @@ export type ClassRow = {
   curriculum_id: string | null
   join_open: boolean
   archived_at: string | null
+  /** Week 1 of the syllabus starts here; every other week counts from it. */
+  term_start: string | null
+  term_end: string | null
   created_at: string
   updated_at: string
 }
@@ -248,6 +255,55 @@ export const GROUPING_MODES: {
 
 export function modeLabel(mode: GroupingMode) {
   return GROUPING_MODES.find((m) => m.value === mode)?.label ?? mode
+}
+
+/* ----------------------------------------------------------------- syllabus */
+
+export type ParseStatus = 'unparsed' | 'parsing' | 'draft' | 'verified' | 'failed'
+
+export type SyllabusWeek = {
+  id: string
+  resource_id: string
+  week_no: number
+  title: string
+  topics: string
+  outcomes: string
+  notes: string | null
+}
+
+export type WeekPhase = 'past' | 'current' | 'upcoming' | 'undated'
+
+/** class_week_map: a syllabus week with the calendar dates of one class laid over it. */
+export type ClassWeek = {
+  class_id: string
+  syllabus_id: string
+  week_id: string
+  week_no: number
+  title: string
+  topics: string
+  outcomes: string
+  notes: string | null
+  term_start: string | null
+  term_end: string | null
+  week_start: string | null
+  week_end: string | null
+  phase: WeekPhase
+}
+
+export const PARSE_STATUS_LABEL: Record<ParseStatus, string> = {
+  unparsed: 'Not read yet',
+  parsing: 'Reading…',
+  draft: 'Draft — needs your check',
+  verified: 'Verified',
+  failed: "Couldn't be read",
+}
+
+export function weekRange(week: Pick<ClassWeek, 'week_start' | 'week_end'>) {
+  if (!week.week_start || !week.week_end) return 'No term dates'
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
+  const from = new Date(week.week_start).toLocaleDateString(undefined, opts)
+  const to = new Date(week.week_end).toLocaleDateString(undefined, opts)
+  return `${from} – ${to}`
 }
 
 /* ----------------------------------------------------------------- messages */

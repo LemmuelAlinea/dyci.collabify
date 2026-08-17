@@ -10,6 +10,7 @@ above it are done.
 | 3 | Turn on "Continue with Google" | [03-google-oauth.md](03-google-oauth.md) | You |
 | 4 | Push to GitHub and deploy on Vercel | [04-deploy-vercel.md](04-deploy-vercel.md) | You + Claude |
 | 5 | Make yourself the superadmin | [05-superadmin.md](05-superadmin.md) | Claude |
+| 6 | Let the app read syllabi with AI *(optional)* | [06-ai-setup.md](06-ai-setup.md) | You |
 
 ## Run it locally right now
 
