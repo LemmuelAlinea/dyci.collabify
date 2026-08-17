@@ -9,7 +9,12 @@ import { GroupsBoard } from '../../../components/groups/GroupsBoard'
 import { useAuth } from '../../../context/AuthContext'
 import { useGroupsData } from '../../../hooks/useGroupsData'
 import { listProfessorClasses } from '../../../lib/api/classes'
-import { deleteSet, setClosed, ungroupedStudents } from '../../../lib/api/groups'
+import {
+  deleteSet,
+  projectsUsingSet,
+  setClosed,
+  ungroupedStudents,
+} from '../../../lib/api/groups'
 import { authErrorMessage } from '../../../lib/authError'
 import type { ClassSummary, GroupSet } from '../../../lib/types'
 
@@ -23,6 +28,7 @@ export default function ProfessorGroups() {
   const [closing, setClosing] = useState<GroupSet | null>(null)
   const [deleting, setDeleting] = useState<GroupSet | null>(null)
   const [unplaced, setUnplaced] = useState<string[]>([])
+  const [boundProjects, setBoundProjects] = useState(0)
 
   const { sets, groups, members, loading, error, reload } = useGroupsData(classes)
 
@@ -39,6 +45,15 @@ export default function ProfessorGroups() {
         setClasses([])
       })
   }, [profile])
+
+  const promptDelete = useCallback(async (set: GroupSet) => {
+    try {
+      setBoundProjects(await projectsUsingSet(set.id))
+    } catch {
+      setBoundProjects(0)
+    }
+    setDeleting(set)
+  }, [])
 
   const promptClose = useCallback(async (set: GroupSet) => {
     try {
@@ -128,7 +143,7 @@ export default function ProfessorGroups() {
                     variant="ghost"
                     size="sm"
                     className="!rounded-lg !text-red-600 dark:!text-red-400"
-                    onClick={() => setDeleting(set)}
+                    onClick={() => void promptDelete(set)}
                   >
                     <Icon name="trash" size={15} />
                     Delete all groups
@@ -158,14 +173,29 @@ export default function ProfessorGroups() {
         }}
         title={`Delete ${deleting?.name ?? ''}?`}
         confirmLabel="Delete all groups"
+        blocked={boundProjects > 0}
         body={
-          <>
-            <p>
-              Every group in this set is deleted along with its members and its group chats.
-              The students stay in the class.
-            </p>
-            <p className="mt-3">This cannot be undone.</p>
-          </>
+          boundProjects > 0 ? (
+            <>
+              <p>
+                {boundProjects} project{boundProjects === 1 ? ' is' : 's are'} assigned to these
+                groups, so deleting them would leave that work with nobody to hand it in.
+              </p>
+              <p className="mt-3">
+                Reassign or delete{' '}
+                {boundProjects === 1 ? 'that project' : 'those projects'} first, then this set
+                can go.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                Every group in this set is deleted along with its members and its group chats.
+                The students stay in the class.
+              </p>
+              <p className="mt-3">This cannot be undone.</p>
+            </>
+          )
         }
       />
 

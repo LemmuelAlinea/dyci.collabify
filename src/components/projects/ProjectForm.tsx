@@ -13,11 +13,11 @@ import {
 } from '../../lib/types'
 import type {
   ClassWeek,
-  GroupSet,
   ProjectAudience,
   ProjectSummary,
   ProjectType,
 } from '../../lib/types'
+import type { LiveGroupSet } from '../../lib/api/groups'
 import type { CriterionInput, ProjectInput } from '../../lib/api/projects'
 
 function toLocalInput(iso: string | null) {
@@ -75,7 +75,7 @@ export function ProjectForm({
 }: {
   formId: string
   weeks: ClassWeek[]
-  groupSets: GroupSet[]
+  groupSets: LiveGroupSet[]
   defaults?: ProjectSummary
   defaultCriteria?: CriterionInput[]
   error?: string | null
@@ -113,7 +113,10 @@ export function ProjectForm({
     releaseAt: scheduled ? fromLocalInput(releaseAt) : null,
     spanEnd: spanEndDate(weeks, span),
   })
+  // Closed sets are final records, not somewhere new work can be assigned. The
+  // one already on this project stays listed so editing does not silently drop it.
   const openSets = groupSets.filter((s) => !s.closed_at || s.id === groupSetId)
+  const chosenSet = openSets.find((s) => s.id === groupSetId)
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -252,24 +255,35 @@ export function ProjectForm({
           {audience === 'group' &&
             (openSets.length === 0 ? (
               <Alert tone="info">
-                This class has no groups yet. Create a group set first, or make this an
-                individual project.
+                This class has no groups to assign to. Create a set and put students in it,
+                or make this an individual project.
               </Alert>
             ) : (
-              <Field label="Which groups">
-                {(id) => (
-                  <Select
-                    id={id}
-                    value={groupSetId}
-                    onChange={(e) => setGroupSetId(e.target.value)}
-                    placeholder="Pick a set of groups"
-                    options={openSets.map((s) => ({
-                      value: s.id,
-                      label: s.closed_at ? `${s.name} (final)` : s.name,
-                    }))}
-                  />
+              <>
+                <Field label="Which groups">
+                  {(id) => (
+                    <Select
+                      id={id}
+                      value={groupSetId}
+                      onChange={(e) => setGroupSetId(e.target.value)}
+                      placeholder="Pick a set of groups"
+                      options={openSets.map((s) => ({
+                        value: s.id,
+                        label:
+                          `${s.name} · ${s.group_count} group${s.group_count === 1 ? '' : 's'}` +
+                          `, ${s.member_count} student${s.member_count === 1 ? '' : 's'}` +
+                          (s.closed_at ? ' (final)' : ''),
+                      }))}
+                    />
+                  )}
+                </Field>
+                {chosenSet && chosenSet.member_count === 0 && (
+                  <Alert tone="info">
+                    {chosenSet.name} has groups but nobody in them yet. Students see this
+                    project once they are placed.
+                  </Alert>
                 )}
-              </Field>
+              </>
             ))}
 
           <Field label="Guidelines" optional>

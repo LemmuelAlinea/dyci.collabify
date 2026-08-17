@@ -12,6 +12,8 @@ type Props = {
   body: ReactNode
   confirmLabel: string
   tone?: 'danger' | 'primary'
+  /** Set when the action cannot go ahead — the body says why. */
+  blocked?: boolean
 }
 
 export function ConfirmDialog({
@@ -22,6 +24,7 @@ export function ConfirmDialog({
   body,
   confirmLabel,
   tone = 'danger',
+  blocked = false,
 }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,11 +51,13 @@ export function ConfirmDialog({
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
+            {blocked ? 'Close' : 'Cancel'}
           </Button>
-          <Button variant={tone} onClick={run} loading={busy} className="!rounded-xl">
-            {confirmLabel}
-          </Button>
+          {!blocked && (
+            <Button variant={tone} onClick={run} loading={busy} className="!rounded-xl">
+              {confirmLabel}
+            </Button>
+          )}
         </>
       }
     >

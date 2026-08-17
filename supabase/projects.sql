@@ -45,7 +45,7 @@ create table if not exists public.projects (
 
   audience     public.project_audience not null,
   -- Set only when audience = 'group': which arrangement receives it.
-  group_set_id uuid references public.group_sets (id) on delete set null,
+  group_set_id uuid references public.group_sets (id),
 
   total_points int not null default 100,
   due_at       timestamptz,
@@ -68,6 +68,17 @@ create table if not exists public.projects (
 
 create index if not exists projects_class_idx
   on public.projects (class_id, start_week, created_at desc);
+
+-- Deleting a group set out from under a project would leave a group project with
+-- nobody to give it to, and the audience check would reject the resulting row
+-- anyway. Refuse the delete instead, so the professor is told which projects
+-- still point at that arrangement.
+do $$ begin
+  alter table public.projects drop constraint if exists projects_group_set_id_fkey;
+  alter table public.projects
+    add constraint projects_group_set_id_fkey
+    foreign key (group_set_id) references public.group_sets (id) on delete restrict;
+end $$;
 
 create table if not exists public.project_criteria (
   id           uuid primary key default gen_random_uuid(),
@@ -111,6 +122,16 @@ returns boolean language sql stable security definer set search_path = public as
       join public.classes c on c.id = p.class_id
      where p.id = p_project and c.professor_id = auth.uid()
   );
+$$;
+
+/** Projects still pointing at an arrangement. Drives the delete warning. */
+create or replace function public.projects_using_set(p_set uuid)
+returns int language sql stable security definer set search_path = public as $$
+  select case
+    when public.is_set_professor(p_set)
+      then (select count(*)::int from public.projects p where p.group_set_id = p_set)
+    else 0
+  end;
 $$;
 
 /** Released to students, or still scheduled. The single visibility rule. */

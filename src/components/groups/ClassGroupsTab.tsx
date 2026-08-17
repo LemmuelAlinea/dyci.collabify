@@ -7,7 +7,7 @@ import { CreateSetWizard } from './CreateSetWizard'
 import { GroupsBoard } from './GroupsBoard'
 import { useGroupsData } from '../../hooks/useGroupsData'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import { deleteSet, setClosed } from '../../lib/api/groups'
+import { deleteSet, projectsUsingSet, setClosed } from '../../lib/api/groups'
 import { authErrorMessage } from '../../lib/authError'
 import type { ClassSummary, GroupSet } from '../../lib/types'
 
@@ -24,6 +24,7 @@ export function ClassGroupsTab({
   const { show } = useToast()
   const [wizardOpen, setWizardOpen] = useState(false)
   const [deleting, setDeleting] = useState<GroupSet | null>(null)
+  const [boundProjects, setBoundProjects] = useState(0)
   const classes = useMemo(() => [cls], [cls])
   const { sets, groups, members, loading, error, reload } = useGroupsData(classes)
 
@@ -101,7 +102,14 @@ export function ClassGroupsTab({
                       variant="ghost"
                       size="sm"
                       className="!rounded-lg !text-red-600 dark:!text-red-400"
-                      onClick={() => setDeleting(set)}
+                      onClick={async () => {
+                        try {
+                          setBoundProjects(await projectsUsingSet(set.id))
+                        } catch {
+                          setBoundProjects(0)
+                        }
+                        setDeleting(set)
+                      }}
                     >
                       <Icon name="trash" size={15} />
                       Delete all groups
@@ -124,14 +132,29 @@ export function ClassGroupsTab({
         }}
         title={`Delete ${deleting?.name ?? ''}?`}
         confirmLabel="Delete all groups"
+        blocked={boundProjects > 0}
         body={
-          <>
-            <p>
-              Every group in this set is deleted along with its members and its group chats.
-              The students stay in the class.
-            </p>
-            <p className="mt-3">This cannot be undone.</p>
-          </>
+          boundProjects > 0 ? (
+            <>
+              <p>
+                {boundProjects} project{boundProjects === 1 ? ' is' : 's are'} assigned to these
+                groups, so deleting them would leave that work with nobody to hand it in.
+              </p>
+              <p className="mt-3">
+                Reassign or delete{' '}
+                {boundProjects === 1 ? 'that project' : 'those projects'} first, then this set
+                can go.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                Every group in this set is deleted along with its members and its group chats.
+                The students stay in the class.
+              </p>
+              <p className="mt-3">This cannot be undone.</p>
+            </>
+          )
         }
       />
 

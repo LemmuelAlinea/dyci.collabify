@@ -7,7 +7,8 @@ import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import { ProjectForm } from './ProjectForm'
 import type { ProjectFormValue } from './ProjectForm'
-import { listSetsForClasses } from '../../lib/api/groups'
+import { listLiveSets } from '../../lib/api/groups'
+import type { LiveGroupSet } from '../../lib/api/groups'
 import {
   createProject,
   replaceCriteria,
@@ -17,7 +18,7 @@ import {
 import type { CriterionInput } from '../../lib/api/projects'
 import { classWeekMap } from '../../lib/api/syllabus'
 import { authErrorMessage } from '../../lib/authError'
-import type { ClassSummary, ClassWeek, GroupSet, ProjectSummary } from '../../lib/types'
+import type { ClassSummary, ClassWeek, ProjectSummary } from '../../lib/types'
 
 const FORM_ID = 'project-form'
 
@@ -43,7 +44,7 @@ export function ProjectWizard({
 }) {
   const [classId, setClassId] = useState(fixedClassId ?? editing?.class_id ?? '')
   const [weeks, setWeeks] = useState<ClassWeek[] | null>(null)
-  const [sets, setSets] = useState<GroupSet[]>([])
+  const [sets, setSets] = useState<LiveGroupSet[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,7 +59,7 @@ export function ProjectWizard({
     }
     let live = true
     setWeeks(null)
-    void Promise.all([classWeekMap(classId), listSetsForClasses([classId])])
+    void Promise.all([classWeekMap(classId), listLiveSets([classId])])
       .then(([w, s]) => {
         if (!live) return
         setWeeks(w)

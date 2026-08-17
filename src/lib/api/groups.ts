@@ -24,6 +24,35 @@ export async function listSetsForClasses(classIds: string[]) {
   return (data ?? []) as GroupSet[]
 }
 
+/** A set that still exists and still has groups, with its live head count. */
+export type LiveGroupSet = GroupSet & { group_count: number; member_count: number }
+
+/**
+ * What a project can actually be assigned to. A set whose groups have all been
+ * deleted is an empty shell — offering it would hand the project to nobody.
+ */
+export async function listLiveSets(classIds: string[]) {
+  const sets = await listSetsForClasses(classIds)
+  const groups = await listGroups(sets.map((s) => s.id))
+  return sets
+    .map((s) => {
+      const mine = groups.filter((g) => g.set_id === s.id)
+      return {
+        ...s,
+        group_count: mine.length,
+        member_count: mine.reduce((n, g) => n + g.member_count, 0),
+      }
+    })
+    .filter((s) => s.group_count > 0)
+}
+
+/** How many projects still point at this set — checked before deleting it. */
+export async function projectsUsingSet(setId: string) {
+  const { data, error } = await supabase.rpc('projects_using_set', { p_set: setId })
+  if (error) throw error
+  return (data as number) ?? 0
+}
+
 export async function createSet(input: {
   classId: string
   name: string
