@@ -6,8 +6,10 @@ import { Alert } from '../../../components/ui/Field'
 import { FileDrop, formatBytes } from '../../../components/ui/FileDrop'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { useToast } from '../../../components/ui/Toast'
+import { Tabs } from '../../../components/ui/Tabs'
 import { dueLabel, StatusPill } from '../../../components/projects/ProjectCard'
 import { ProjectWizard } from '../../../components/projects/ProjectWizard'
+import { ProjectTasksTab } from '../../../components/tasks/ProjectTasksTab'
 import { useAuth } from '../../../context/AuthContext'
 import { listProfessorClasses } from '../../../lib/api/classes'
 import {
@@ -38,6 +40,8 @@ import type {
   ProjectSummary,
 } from '../../../lib/types'
 
+type TabId = 'brief' | 'tasks'
+
 export default function ProjectDetail({ role }: { role: 'professor' | 'student' }) {
   const { projectId = '' } = useParams()
   const { profile } = useAuth()
@@ -52,6 +56,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const [tab, setTab] = useState<TabId>('brief')
   const [editOpen, setEditOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [removing, setRemoving] = useState<ProjectAttachment | null>(null)
@@ -219,7 +224,24 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         </div>
       </header>
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-8">
+        <Tabs<TabId>
+          tabs={[
+            { id: 'brief', label: 'Brief', icon: 'file' },
+            { id: 'tasks', label: 'Tasks', icon: 'check' },
+          ]}
+          active={tab}
+          onChange={setTab}
+        />
+      </div>
+
+      {tab === 'tasks' && (
+        <div className="mt-6">
+          <ProjectTasksTab project={project} role={role} viewerId={profile?.id} />
+        </div>
+      )}
+
+      <div className={`mt-6 space-y-6 ${tab === 'brief' ? '' : 'hidden'}`}>
         {error && <Alert tone="error">{error}</Alert>}
         {project.archived_at && (
           <Alert tone="info">

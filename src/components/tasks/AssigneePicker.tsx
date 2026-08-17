@@ -1,0 +1,135 @@
+import { useEffect, useRef, useState } from 'react'
+import { Avatar } from '../app/Avatar'
+import { Icon } from '../ui/Icon'
+import { fullName } from '../../lib/types'
+import type { GroupMember, ProjectTask } from '../../lib/types'
+
+/**
+ * Who is on a task. Claiming is the group's business — a professor sees the
+ * faces but gets no controls, by design and by trigger.
+ */
+export function AssigneePicker({
+  task,
+  members,
+  viewerId,
+  canChange,
+  onClaim,
+  onRelease,
+}: {
+  task: ProjectTask
+  members: GroupMember[]
+  viewerId: string | undefined
+  canChange: boolean
+  onClaim: (studentId: string) => Promise<void> | void
+  onRelease: (studentId: string) => Promise<void> | void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const taken = new Set(task.assignees.map((a) => a.student_id))
+  const mine = viewerId ? taken.has(viewerId) : false
+
+  if (task.assignees.length === 0 && !canChange) {
+    return <span className="text-[12px] text-faint">Unclaimed</span>
+  }
+
+  return (
+    <div className="relative flex items-center gap-2" ref={ref}>
+      <div className="flex">
+        {task.assignees.map(
+          (a) =>
+            a.profile && (
+              <span
+                key={a.student_id}
+                title={fullName(a.profile)}
+                className="-ml-1.5 rounded-full ring-2 ring-[var(--surface)] first:ml-0"
+              >
+                <Avatar profile={a.profile} size={24} />
+              </span>
+            ),
+        )}
+      </div>
+
+      {canChange &&
+        (task.assignees.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => viewerId && void onClaim(viewerId)}
+            className="rounded-full border border-dashed border-line-strong px-2.5 py-1 text-[12px] text-muted transition-colors hover:border-navy-400 hover:text-ink"
+          >
+            Claim it
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-label="Change who is on this"
+            aria-expanded={open}
+            className="grid h-7 w-7 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+          >
+            <Icon name="plus" size={14} />
+          </button>
+        ))}
+
+      {open && canChange && (
+        <div className="surface absolute top-8 right-0 z-30 w-[240px] overflow-hidden rounded-xl border border-line shadow-lift">
+          <p className="border-b border-line px-3 py-2 text-[12px] text-faint">
+            Anyone in the group can take this
+          </p>
+          <ul className="max-h-[220px] overflow-y-auto py-1">
+            {members.map((m) => {
+              const on = taken.has(m.student_id)
+              return (
+                <li key={m.student_id}>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await (on ? onRelease(m.student_id) : onClaim(m.student_id))
+                      setOpen(false)
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[var(--surface-sunken)]"
+                  >
+                    <Avatar profile={m.profile} size={24} />
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">
+                      {fullName(m.profile)}
+                      {m.student_id === viewerId && (
+                        <span className="ml-1 text-[12px] text-faint">you</span>
+                      )}
+                    </span>
+                    {on && <Icon name="check" size={15} className="text-amber-500" />}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+          {mine && viewerId && (
+            <button
+              type="button"
+              onClick={async () => {
+                await onRelease(viewerId)
+                setOpen(false)
+              }}
+              className="w-full border-t border-line px-3 py-2 text-left text-[13px] text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+            >
+              Hand it back to the group
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

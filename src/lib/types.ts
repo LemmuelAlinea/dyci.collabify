@@ -572,6 +572,122 @@ export function assessDeadline(input: {
   }
 }
 
+/* -------------------------------------------------------------------- tasks */
+
+export type TaskStatus = 'todo' | 'in_progress' | 'done'
+export type TaskAuthor = 'professor' | 'student'
+
+export type TaskEventKind =
+  | 'created'
+  | 'edited'
+  | 'claimed'
+  | 'unclaimed'
+  | 'assigned'
+  | 'started'
+  | 'finished'
+  | 'reopened'
+
+/** Where work happens: one group's board, or one student's for a solo project. */
+export type ProjectBoard = {
+  id: string
+  project_id: string
+  group_id: string | null
+  student_id: string | null
+  created_at: string
+}
+
+/** task_board_overview: the board plus the counts a header needs. */
+export type BoardSummary = ProjectBoard & {
+  class_id: string
+  project_title: string
+  project_due_at: string | null
+  group_name: string | null
+  group_set_id: string | null
+  task_count: number
+  done_count: number
+  doing_count: number
+  unclaimed_count: number
+  member_count: number
+}
+
+export type TaskAssignee = {
+  task_id: string
+  student_id: string
+  claimed_by: string | null
+  claimed_at: string
+  profile?: Pick<Profile, 'id' | 'first_name' | 'middle_name' | 'last_name' | 'avatar_url'>
+}
+
+export type ProjectTask = {
+  id: string
+  board_id: string
+  /** Set on the copies of one professor task handed to several groups. */
+  origin_id: string | null
+  title: string
+  details: string
+  weight: number
+  status: TaskStatus
+  due_at: string | null
+  position: number
+  created_by: string | null
+  author_role: TaskAuthor
+  ai_generated: boolean
+  started_at: string | null
+  done_at: string | null
+  created_at: string
+  updated_at: string
+  assignees: TaskAssignee[]
+}
+
+export type TaskEvent = {
+  id: string
+  task_id: string
+  actor_id: string | null
+  kind: TaskEventKind
+  detail: string
+  at: string
+  actor?: Pick<Profile, 'first_name' | 'last_name' | 'avatar_url'>
+}
+
+export const TASK_STATUSES: { value: TaskStatus; label: string; blurb: string }[] = [
+  { value: 'todo', label: 'To do', blurb: 'Not started. Still open to edits.' },
+  { value: 'in_progress', label: 'In progress', blurb: 'Someone is on it. The wording is now fixed.' },
+  { value: 'done', label: 'Done', blurb: 'Finished, by whoever it belongs to.' },
+]
+
+export function taskStatusLabel(status: TaskStatus) {
+  return TASK_STATUSES.find((s) => s.value === status)?.label ?? status
+}
+
+/** Editable by the group only until somebody starts it. */
+export function isTaskEditable(task: Pick<ProjectTask, 'status'>, role: Role) {
+  return role === 'professor' || task.status === 'todo'
+}
+
+export function isUnclaimed(task: Pick<ProjectTask, 'assignees'>) {
+  return task.assignees.length === 0
+}
+
+export function isMine(task: Pick<ProjectTask, 'assignees'>, studentId: string) {
+  return task.assignees.some((a) => a.student_id === studentId)
+}
+
+/** A short "3 of 8 done" for headers and cards. */
+export function taskTally(tasks: Pick<ProjectTask, 'status'>[]) {
+  const done = tasks.filter((t) => t.status === 'done').length
+  return { done, total: tasks.length, label: `${done} of ${tasks.length} done` }
+}
+
+export function dueSoonLabel(iso: string | null) {
+  if (!iso) return null
+  const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
+  if (days < 0) return 'Overdue'
+  if (days === 0) return 'Due today'
+  if (days === 1) return 'Due tomorrow'
+  if (days <= 7) return `Due in ${days} days`
+  return `Due ${new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+}
+
 /* ----------------------------------------------------------------- messages */
 
 export type ConversationKind = 'class' | 'group' | 'direct'
