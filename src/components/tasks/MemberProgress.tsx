@@ -1,0 +1,71 @@
+import { Avatar } from '../app/Avatar'
+import { fullName } from '../../lib/types'
+import type { MemberProgress as Row } from '../../lib/types'
+
+/**
+ * Two numbers, deliberately side by side. The big one is the student's own 100
+ * — their individual grade — and the small one is the slice of the group's 100
+ * they are carrying. A member can be at 100% personally and still hold a fifth
+ * of the project.
+ */
+export function MemberProgress({
+  rows,
+  viewerId,
+  title = 'Everyone in the group',
+}: {
+  rows: Row[]
+  viewerId?: string
+  title?: string
+}) {
+  if (rows.length === 0) return null
+
+  return (
+    <section className="surface rounded-card border border-line p-5 shadow-card">
+      <h3 className="text-[16px]">{title}</h3>
+      <p className="mt-1 text-[13px] text-muted">
+        Their own progress on the left, their share of the group on the right.
+      </p>
+
+      <ul className="mt-4 divide-y divide-[var(--line)]">
+        {rows.map((r) => {
+          const personal = r.personal_pct
+          const you = r.student_id === viewerId
+          return (
+            <li key={r.student_id} className="flex items-center gap-3 py-3 first:pt-0">
+              {r.profile && <Avatar profile={r.profile} size={34} />}
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14px] font-medium text-ink">
+                  {r.profile ? fullName(r.profile) : 'Member'}
+                  {you && <span className="ml-1.5 text-[12px] text-faint">you</span>}
+                </p>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full surface-sunken">
+                  <span
+                    className={`block h-full rounded-full transition-[width] duration-300 ${
+                      personal === null ? 'bg-transparent' : 'bg-emerald-500'
+                    }`}
+                    style={{ width: `${personal ?? 0}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-[12px] text-faint">
+                  {r.task_count === 0
+                    ? 'Nothing claimed yet'
+                    : `${r.done_count} of ${r.task_count} of their tasks done`}
+                </p>
+              </div>
+
+              <div className="shrink-0 text-right">
+                <p className="font-mono text-[17px] leading-none text-ink">
+                  {personal === null ? '—' : `${personal}%`}
+                </p>
+                <p className="mt-1 font-mono text-[11.5px] text-faint">
+                  {r.group_pct} of {r.held_pct} group
+                </p>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}

@@ -24,7 +24,9 @@ export function GroupProgressTable({
         </thead>
         <tbody>
           {boards.map((b) => {
-            const pct = b.task_count ? Math.round((b.done_count / b.task_count) * 100) : 0
+            // Weighted, not counted: a group can finish most of its tasks and
+            // still be short of the project.
+            const pct = Number(b.done_pct)
             return (
               <tr
                 key={b.id}
@@ -59,9 +61,7 @@ export function GroupProgressTable({
                         style={{ width: `${pct}%` }}
                       />
                     </span>
-                    <span className="font-mono text-[12px] text-muted">
-                      {b.done_count}/{b.task_count}
-                    </span>
+                    <span className="font-mono text-[12px] text-muted">{pct}%</span>
                   </div>
                 </td>
                 <td className="py-3">

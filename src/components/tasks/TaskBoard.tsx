@@ -19,7 +19,7 @@ import {
 } from '../../lib/api/tasks'
 import type { TaskInput } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
-import { TASK_STATUSES } from '../../lib/types'
+import { boardWeight, TASK_STATUSES, taskShare } from '../../lib/types'
 import type {
   BoardSummary,
   GroupMember,
@@ -87,6 +87,8 @@ export function TaskBoard({
   }
 
   const unclaimed = tasks.filter((t) => t.assignees.length === 0 && t.status !== 'done')
+  // Recomputed on every render: a new task rebalances every other slice.
+  const totalWeight = boardWeight(tasks)
 
   return (
     <div className="space-y-5">
@@ -153,6 +155,7 @@ export function TaskBoard({
                     <TaskCard
                       key={task.id}
                       task={task}
+                      share={taskShare(task, totalWeight)}
                       members={members}
                       viewerId={viewerId}
                       role={role}

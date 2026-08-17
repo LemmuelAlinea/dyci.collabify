@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { PROJECT_TYPES, projectTypeLabel, weekSpanLabel } from '../../lib/types'
-import type { ProjectSummary } from '../../lib/types'
+import type { BoardSummary, ProjectSummary } from '../../lib/types'
 
 const DAY = 86_400_000
 
@@ -45,10 +45,13 @@ export function ProjectCard({
   project,
   to,
   showClass = true,
+  progress,
 }: {
   project: ProjectSummary
   to: string
   showClass?: boolean
+  /** The viewer's board on this project, when it has one. */
+  progress?: BoardSummary
 }) {
   const meta = PROJECT_TYPES.find((t) => t.value === project.type)
   const overdue = project.due_at ? new Date(project.due_at).getTime() < Date.now() : false
@@ -89,6 +92,23 @@ export function ProjectCard({
           <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
           {project.week_assessments}
         </p>
+      )}
+
+      {progress && progress.task_count > 0 && (
+        <div className="mt-3.5">
+          <div className="flex items-baseline justify-between gap-2 text-[11.5px]">
+            <span className="text-muted">
+              {progress.done_count} of {progress.task_count} tasks
+            </span>
+            <span className="font-mono text-faint">{Number(progress.done_pct)}%</span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full surface-sunken">
+            <span
+              className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+              style={{ width: `${Number(progress.done_pct)}%` }}
+            />
+          </div>
+        </div>
       )}
 
       <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-4 text-[12px] text-muted">

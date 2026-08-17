@@ -596,11 +596,12 @@ export type ProjectBoard = {
   created_at: string
 }
 
-/** task_board_overview: the board plus the counts a header needs. */
+/** task_board_overview: the board, its counts, and its split of 100. */
 export type BoardSummary = ProjectBoard & {
   class_id: string
   project_title: string
   project_due_at: string | null
+  total_points: number
   group_name: string | null
   group_set_id: string | null
   task_count: number
@@ -608,6 +609,31 @@ export type BoardSummary = ProjectBoard & {
   doing_count: number
   unclaimed_count: number
   member_count: number
+  total_weight: number
+  /** The board always totals 100, however many tasks it holds. */
+  done_pct: number
+  doing_pct: number
+  unclaimed_pct: number
+}
+
+/**
+ * task_member_progress. Two numbers that answer different questions:
+ * `personal_pct` is this student's own 100 — their individual grade — while
+ * `group_pct` is how much of the group's 100 they have delivered.
+ */
+export type MemberProgress = {
+  board_id: string
+  project_id: string
+  student_id: string
+  task_count: number
+  done_count: number
+  held_weight: number
+  done_weight: number
+  /** Null when they hold nothing yet — not a zero. */
+  personal_pct: number | null
+  group_pct: number
+  held_pct: number
+  profile?: Pick<Profile, 'id' | 'first_name' | 'middle_name' | 'last_name' | 'avatar_url'>
 }
 
 export type TaskAssignee = {
@@ -670,6 +696,16 @@ export function isUnclaimed(task: Pick<ProjectTask, 'assignees'>) {
 
 export function isMine(task: Pick<ProjectTask, 'assignees'>, studentId: string) {
   return task.assignees.some((a) => a.student_id === studentId)
+}
+
+/** A task's slice of the board's 100. Recomputed as tasks come and go. */
+export function taskShare(task: Pick<ProjectTask, 'weight'>, totalWeight: number) {
+  if (!totalWeight) return 0
+  return Math.round((task.weight / totalWeight) * 1000) / 10
+}
+
+export function boardWeight(tasks: Pick<ProjectTask, 'weight'>[]) {
+  return tasks.reduce((n, t) => n + t.weight, 0)
 }
 
 /** A short "3 of 8 done" for headers and cards. */

@@ -34,6 +34,7 @@ import Messages from './pages/app/messages/Messages'
 import ProfessorProjects from './pages/app/projects/ProfessorProjects'
 import StudentProjects from './pages/app/projects/StudentProjects'
 import ProjectDetail from './pages/app/projects/ProjectDetail'
+import MyTasks from './pages/app/tasks/MyTasks'
 
 export default function App() {
   return (
@@ -64,6 +65,7 @@ export default function App() {
             <Route path="/student/classes/:classId" element={<StudentClassDetail />} />
             <Route path="/student/groups" element={<StudentGroups />} />
             <Route path="/student/projects" element={<StudentProjects />} />
+            <Route path="/student/tasks" element={<MyTasks />} />
             <Route
               path="/student/projects/:projectId"
               element={<ProjectDetail role="student" />}

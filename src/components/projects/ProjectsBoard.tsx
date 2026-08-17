@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { boardProgressFor } from '../../lib/api/tasks'
 import { Icon } from '../ui/Icon'
 import { Select } from '../ui/Select'
 import { EmptyState } from '../ui/Tabs'
 import { ProjectCard } from './ProjectCard'
 import { PROJECT_TYPES, projectTypeLabel, weekSpanLabel } from '../../lib/types'
-import type { ClassSummary, ProjectSummary } from '../../lib/types'
+import type { BoardSummary, ClassSummary, ProjectSummary } from '../../lib/types'
 
 type StatusFilter = 'live' | 'scheduled' | 'closed' | 'archived' | ''
 
@@ -52,6 +53,17 @@ export function ProjectsBoard({
   const [classId, setClassId] = useState('')
   const [type, setType] = useState('')
   const [status, setStatus] = useState<StatusFilter>('')
+  const [progress, setProgress] = useState(new Map<string, BoardSummary>())
+
+  // A card shows how far its board has got. RLS hands a student their own board
+  // and nobody else's, so one query covers the whole list.
+  const projectIds = projects.map((p) => p.id).join(',')
+  useEffect(() => {
+    if (!projectIds) return
+    void boardProgressFor(projectIds.split(','))
+      .then(setProgress)
+      .catch(() => setProgress(new Map()))
+  }, [projectIds])
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -151,6 +163,7 @@ export function ProjectsBoard({
               project={p}
               to={`${linkBase}/${p.id}`}
               showClass={showClass}
+              progress={progress.get(p.id)}
             />
           ))}
         </div>

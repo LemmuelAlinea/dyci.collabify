@@ -2,6 +2,7 @@ import { supabase } from '../supabase'
 import { byLastName } from '../types'
 import type {
   BoardSummary,
+  MemberProgress,
   ProjectTask,
   TaskAssignee,
   TaskEvent,
@@ -31,6 +32,54 @@ export async function myBoard(projectId: string, studentId: string) {
     boards.find((b) => b.group_id) ??
     null
   )
+}
+
+/**
+ * How far each member has got, on one board. The names are fetched separately:
+ * a view carries no foreign keys, so PostgREST cannot embed through it.
+ */
+export async function listMemberProgress(boardId: string) {
+  const { data, error } = await supabase
+    .from('task_member_progress')
+    .select('*')
+    .eq('board_id', boardId)
+  if (error) throw error
+
+  const rows = (data ?? []) as MemberProgress[]
+  if (rows.length === 0) return []
+
+  const { data: people, error: pErr } = await supabase
+    .from('profiles')
+    .select(PROFILE_COLS)
+    .in(
+      'id',
+      rows.map((r) => r.student_id),
+    )
+  if (pErr) throw pErr
+
+  const byId = new Map(
+    ((people ?? []) as MemberProgress['profile'][]).map((p) => [p!.id, p!]),
+  )
+  return rows
+    .map((r) => ({ ...r, profile: byId.get(r.student_id) }))
+    .sort((a, b) => (a.profile && b.profile ? byLastName(a.profile, b.profile) : 0))
+}
+
+/** Board progress for a list of projects, keyed by project — for cards. */
+export async function boardProgressFor(projectIds: string[]) {
+  if (projectIds.length === 0) return new Map<string, BoardSummary>()
+  const { data, error } = await supabase
+    .from('task_board_overview')
+    .select('*')
+    .in('project_id', projectIds)
+  if (error) throw error
+  const map = new Map<string, BoardSummary>()
+  for (const row of (data ?? []) as BoardSummary[]) {
+    // A student sees one board per project; a professor sees many, so keep the
+    // first and let the project page show the per-group breakdown.
+    if (!map.has(row.project_id)) map.set(row.project_id, row)
+  }
+  return map
 }
 
 /* ----------------------------------------------------------------- tasks */
@@ -65,6 +114,15 @@ export async function listTasks(boardId: string) {
   }))
 }
 
+/** A task carrying enough of its project to be read out of context. */
+export type MyTask = ProjectTask & {
+  project_id: string
+  project_title: string
+  class_initial: string
+  class_name: string
+  group_name: string | null
+}
+
 /** Everything assigned to one student, across every project they are in. */
 export async function myTasks(studentId: string) {
   const { data, error } = await supabase
@@ -77,11 +135,32 @@ export async function myTasks(studentId: string) {
 
   const { data: tasks, error: tErr } = await supabase
     .from('project_tasks')
-    .select('*')
+    .select(
+      `*, board:project_boards!inner (
+         project:projects!inner (id, title, class:classes!inner (initial, name)),
+         group:groups (name)
+       )`,
+    )
     .in('id', ids)
     .order('due_at', { nullsFirst: false })
   if (tErr) throw tErr
-  return ((tasks ?? []) as ProjectTask[]).map((t) => ({ ...t, assignees: [] }))
+
+  type Row = ProjectTask & {
+    board: {
+      project: { id: string; title: string; class: { initial: string; name: string } }
+      group: { name: string } | null
+    }
+  }
+
+  return ((tasks ?? []) as unknown as Row[]).map<MyTask>((t) => ({
+    ...t,
+    assignees: [],
+    project_id: t.board.project.id,
+    project_title: t.board.project.title,
+    class_initial: t.board.project.class.initial,
+    class_name: t.board.project.class.name,
+    group_name: t.board.group?.name ?? null,
+  }))
 }
 
 export type TaskInput = {

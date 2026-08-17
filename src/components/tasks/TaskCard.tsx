@@ -11,6 +11,7 @@ const NEXT: Record<TaskStatus, { to: TaskStatus; label: string; icon: 'check' | 
 
 export function TaskCard({
   task,
+  share,
   members,
   viewerId,
   role,
@@ -23,6 +24,8 @@ export function TaskCard({
   onTrail,
 }: {
   task: ProjectTask
+  /** This task's slice of the board's 100. */
+  share: number
   members: GroupMember[]
   viewerId: string | undefined
   role: Role
@@ -56,7 +59,13 @@ export function TaskCard({
         >
           {task.title}
         </h4>
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="flex shrink-0 items-center gap-1">
+          <span
+            title="Worth this much of the project"
+            className="rounded-md surface-sunken px-1.5 py-0.5 font-mono text-[10.5px] text-muted"
+          >
+            {share}%
+          </span>
           {task.author_role === 'professor' && (
             <span
               title="Set by your professor"

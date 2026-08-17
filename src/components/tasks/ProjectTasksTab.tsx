@@ -5,20 +5,28 @@ import { Alert } from '../ui/Field'
 import { Icon, Spinner } from '../ui/Icon'
 import { EmptyState } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
+import { BoardProgress } from './BoardProgress'
 import { FanOutForm } from './FanOutForm'
 import { GroupProgressTable } from './GroupProgressTable'
+import { MemberProgress } from './MemberProgress'
 import { TaskBoard } from './TaskBoard'
 import { useTaskBoard } from '../../hooks/useTaskBoard'
 import {
   deleteProfessorTask,
   groupByOrigin,
   listBoards,
+  listMemberProgress,
   listProjectTasks,
 } from '../../lib/api/tasks'
 import type { ProfessorTaskGroup } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import { isReleased } from '../../lib/types'
-import type { BoardSummary, ProjectSummary, Role } from '../../lib/types'
+import type {
+  BoardSummary,
+  MemberProgress as MemberRow,
+  ProjectSummary,
+  Role,
+} from '../../lib/types'
 
 /**
  * Tasks inside one project. A student sees their own board; a professor sees
@@ -41,6 +49,7 @@ export function ProjectTasksTab({
   const [editingOrigin, setEditingOrigin] = useState<ProfessorTaskGroup | null>(null)
   const [deletingOrigin, setDeletingOrigin] = useState<ProfessorTaskGroup | null>(null)
   const [mine, setMine] = useState<ProfessorTaskGroup[]>([])
+  const [progress, setProgress] = useState<MemberRow[]>([])
 
   const isProfessor = role === 'professor'
 
@@ -75,9 +84,25 @@ export function ProjectTasksTab({
     reload,
   } = useTaskBoard(active)
 
+  // Member percentages are derived in the database, so they follow the board
+  // rather than being recomputed here from a stale copy of the tasks.
+  const activeId = active?.id
+  const loadProgress = useCallback(async () => {
+    if (!activeId) return setProgress([])
+    try {
+      setProgress(await listMemberProgress(activeId))
+    } catch {
+      setProgress([])
+    }
+  }, [activeId])
+
+  useEffect(() => {
+    void loadProgress()
+  }, [loadProgress, tasks])
+
   const refresh = useCallback(async () => {
-    await Promise.all([reload(), loadBoards()])
-  }, [reload, loadBoards])
+    await Promise.all([reload(), loadBoards(), loadProgress()])
+  }, [reload, loadBoards, loadProgress])
 
   if (boards === null) {
     return (
@@ -125,15 +150,23 @@ export function ProjectTasksTab({
               Loading your board…
             </div>
           ) : (
-            <TaskBoard
-              board={active}
-              tasks={tasks}
-              members={members}
-              viewerId={viewerId}
-              role={role}
-              canWork
-              onChanged={refresh}
-            />
+            <>
+              <BoardProgress board={active} />
+              <MemberProgress
+                rows={progress}
+                viewerId={viewerId}
+                title={active.group_id ? 'You and your group' : 'Your progress'}
+              />
+              <TaskBoard
+                board={active}
+                tasks={tasks}
+                members={members}
+                viewerId={viewerId}
+                role={role}
+                canWork
+                onChanged={refresh}
+              />
+            </>
           )
         ) : (
           <EmptyState
@@ -226,15 +259,19 @@ export function ProjectTasksTab({
               Loading that board…
             </div>
           ) : (
-            <TaskBoard
-              board={active}
-              tasks={tasks}
-              members={members}
-              viewerId={viewerId}
-              role={role}
-              canWork={false}
-              onChanged={refresh}
-            />
+            <>
+              <BoardProgress board={active} />
+              <MemberProgress rows={progress} title="Who is carrying what" />
+              <TaskBoard
+                board={active}
+                tasks={tasks}
+                members={members}
+                viewerId={viewerId}
+                role={role}
+                canWork={false}
+                onChanged={refresh}
+              />
+            </>
           )}
         </section>
       )}
