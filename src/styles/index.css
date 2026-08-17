@@ -39,34 +39,40 @@
 /* Semantic surface tokens. Every component reads these, never raw ramp stops,
    so light and dark stay in lockstep. */
 @layer base {
+  /* Light mode leans on a tinted page so white cards read as raised. When the
+     page was near-white the cards vanished on low-contrast screens, so the
+     separation is carried by three things at once: a darker canvas, a visible
+     hairline, and a shadow with real contact. */
   :root {
-    --page: #f4f5fb;
+    --page: #e6eaf4;
     --surface: #ffffff;
-    --surface-sunken: #eef0f8;
+    --surface-sunken: #dde3f0;
     --surface-raised: #ffffff;
-    --ink: #101637;
-    --ink-muted: #5b6386;
-    --ink-faint: #8b92b0;
-    --line: rgb(16 22 55 / 0.1);
-    --line-strong: rgb(16 22 55 / 0.18);
+    --ink: #0d1330;
+    --ink-muted: #4a5478;
+    --ink-faint: #626b8f;
+    --line: rgb(16 22 55 / 0.16);
+    --line-strong: rgb(16 22 55 / 0.3);
     --ring: #3d4da3;
-    --shadow-card: 0 1px 2px rgb(16 22 55 / 0.05), 0 8px 24px rgb(16 22 55 / 0.06);
-    --shadow-lift: 0 2px 4px rgb(16 22 55 / 0.06), 0 18px 44px rgb(16 22 55 / 0.12);
+    --shadow-card: 0 1px 2px rgb(13 19 48 / 0.1), 0 2px 6px rgb(13 19 48 / 0.07),
+      0 10px 26px rgb(13 19 48 / 0.07);
+    --shadow-lift: 0 2px 6px rgb(13 19 48 / 0.14), 0 12px 28px rgb(13 19 48 / 0.14),
+      0 28px 60px rgb(13 19 48 / 0.12);
   }
 
   .dark {
     --page: #080b21;
-    --surface: #101637;
-    --surface-sunken: #0b1029;
-    --surface-raised: #161d4a;
-    --ink: #eef0f9;
-    --ink-muted: #a2aacb;
-    --ink-faint: #737b9e;
-    --line: rgb(255 255 255 / 0.1);
-    --line-strong: rgb(255 255 255 / 0.2);
+    --surface: #131a3f;
+    --surface-sunken: #0c1130;
+    --surface-raised: #1a2255;
+    --ink: #f1f3fb;
+    --ink-muted: #aeb6d4;
+    --ink-faint: #838cb0;
+    --line: rgb(255 255 255 / 0.14);
+    --line-strong: rgb(255 255 255 / 0.26);
     --ring: #8493cf;
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
-    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.4), 0 18px 44px rgb(0 0 0 / 0.45);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px rgb(0 0 0 / 0.38);
+    --shadow-lift: 0 2px 6px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.55);
   }
 
   * {
@@ -163,7 +169,7 @@
     --bp-line: rgb(255 255 255 / 0.06);
   }
   .blueprint-ink {
-    --bp-line: rgb(16 22 55 / 0.05);
+    --bp-line: rgb(16 22 55 / 0.07);
   }
   .dark .blueprint-ink {
     --bp-line: rgb(255 255 255 / 0.05);

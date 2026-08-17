@@ -29,16 +29,20 @@ export function Logo({
   subtitle = 'Project workspace',
   showSubtitle = true,
 }: Props & { subtitle?: string; showSubtitle?: boolean }) {
+  // The wordmark used to inherit body colour, so on the navy sidebar it turned
+  // near-black in light mode. Each tone now states its own colour.
+  const word =
+    tone === 'onDark' ? 'text-white' : tone === 'brand' ? 'text-navy-600 dark:text-white' : ''
+  const sub = tone === 'onDark' ? 'text-white/60' : 'text-muted'
+
   return (
     <span className="flex items-center gap-2.5">
       <LogoMark size={size} tone={tone} />
       <span className="flex flex-col leading-none">
-        <span className="font-display text-[19px] font-extrabold tracking-[-0.04em]">
+        <span className={`font-display text-[19px] font-extrabold tracking-[-0.04em] ${word}`}>
           Collabify
         </span>
-        {showSubtitle && (
-          <span className="eyebrow mt-1 text-[9.5px] opacity-60">{subtitle}</span>
-        )}
+        {showSubtitle && <span className={`eyebrow mt-1 text-[9.5px] ${sub}`}>{subtitle}</span>}
       </span>
     </span>
   )
