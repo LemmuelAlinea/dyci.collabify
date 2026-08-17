@@ -115,13 +115,26 @@ export function AssigneePicker({
         ))}
 
       {open && canChange && (
-        <div className="surface absolute top-8 right-0 z-30 w-[240px] overflow-hidden rounded-xl border border-line shadow-lift">
-          <p className="border-b border-line px-3 py-2 text-[12px] text-faint">
-            {releasable
-              ? `Anyone in the group can take this. Splitting it gives each person ${perPerson}% now, less as more join.`
-              : 'Started, so it stays with whoever is on it.'}
-          </p>
-          <ul className="max-h-[220px] overflow-y-auto py-1">
+        // The faces sit at the left edge of a card, so anchoring a fixed-width
+        // panel to them pushed it off a phone screen. Below sm it is a sheet
+        // across the viewport; from sm up it hangs off the control.
+        <div className="surface fixed inset-x-3 bottom-3 z-60 overflow-hidden rounded-2xl border border-line shadow-lift sm:absolute sm:inset-x-auto sm:top-8 sm:right-0 sm:bottom-auto sm:z-30 sm:w-[240px] sm:rounded-xl">
+          <div className="flex items-start justify-between gap-3 border-b border-line px-3.5 py-2.5 sm:px-3 sm:py-2">
+            <p className="text-[12.5px] leading-snug text-faint sm:text-[12px]">
+              {releasable
+                ? `Anyone in the group can take this. Splitting it gives each person ${perPerson}% now, less as more join.`
+                : 'Started, so it stays with whoever is on it.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close"
+              className="-mt-0.5 -mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink sm:hidden"
+            >
+              <Icon name="x" size={15} />
+            </button>
+          </div>
+          <ul className="max-h-[45vh] overflow-y-auto py-1 sm:max-h-[220px]">
             {members.map((m) => {
               const on = taken.has(m.student_id)
               const full = !on && !room(m.student_id)
@@ -137,10 +150,10 @@ export function AssigneePicker({
                       await (on ? onRelease(m.student_id) : onClaim(m.student_id))
                       setOpen(false)
                     }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[var(--surface-sunken)] disabled:pointer-events-none disabled:opacity-45"
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-[var(--surface-sunken)] disabled:pointer-events-none disabled:opacity-45 sm:px-3 sm:py-2"
                   >
                     <Avatar profile={m.profile} size={24} />
-                    <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">
+                    <span className="min-w-0 flex-1 truncate text-[14px] text-ink sm:text-[13.5px]">
                       {fullName(m.profile)}
                       {m.student_id === viewerId && (
                         <span className="ml-1 text-[12px] text-faint">you</span>
@@ -162,7 +175,7 @@ export function AssigneePicker({
                 await onRelease(viewerId)
                 setOpen(false)
               }}
-              className="w-full border-t border-line px-3 py-2 text-left text-[13px] text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+              className="w-full border-t border-line px-3.5 py-3 text-left text-[13.5px] text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink sm:px-3 sm:py-2 sm:text-[13px]"
             >
               Hand it back to the group
             </button>
