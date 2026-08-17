@@ -74,6 +74,15 @@ function WeekRow({
             aria-label={`Week ${week.week_no} outcomes`}
             className="text-[13.5px]"
           />
+          <Textarea
+            rows={2}
+            value={draft.assessments}
+            onChange={(e) => setDraft({ ...draft, assessments: e.target.value })}
+            onBlur={() => commit({ assessments: draft.assessments })}
+            placeholder="Assessments — what this week expects handed in"
+            aria-label={`Week ${week.week_no} assessments`}
+            className="text-[13.5px]"
+          />
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1">

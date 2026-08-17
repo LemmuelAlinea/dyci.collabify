@@ -97,6 +97,13 @@ export function WeekMap({ weeks }: { weeks: ClassWeek[] }) {
                     {w.outcomes}
                   </p>
                 )}
+                {/* What a project for this week would be built against. */}
+                {w.assessments && (
+                  <p className="mt-2 flex gap-1.5 text-[12.5px] leading-relaxed text-amber-700 dark:text-amber-300">
+                    <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
+                    {w.assessments}
+                  </p>
+                )}
               </div>
             </li>
           )

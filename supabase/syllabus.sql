@@ -27,6 +27,9 @@ create table if not exists public.syllabus_weeks (
   title       text not null default '',
   topics      text not null default '',
   outcomes    text not null default '',
+  -- What the week expects handed in ("Project Milestone 2", "Lab 6"). This is
+  -- what a project binds to, so it is its own column.
+  assessments text not null default '',
   notes       text,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
@@ -82,7 +85,11 @@ create policy syllabus_weeks_write on public.syllabus_weeks
 
 -- Every consumer reads this rather than recomputing dates. Week 1 starts on
 -- term_start; week N runs the seven days from term_start + (N-1) weeks.
-create or replace view public.class_week_map
+-- Dropped first: `create or replace` cannot insert a column mid-list, so a new
+-- field would fail on an existing view.
+drop view if exists public.class_week_map;
+
+create view public.class_week_map
 with (security_invoker = true) as
 select c.id                                                     as class_id,
        c.syllabus_id,
@@ -91,6 +98,7 @@ select c.id                                                     as class_id,
        w.title,
        w.topics,
        w.outcomes,
+       w.assessments,
        w.notes,
        c.term_start,
        c.term_end,

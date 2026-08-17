@@ -33,8 +33,9 @@ const WEEK_SCHEMA = {
           title: { type: 'string' },
           topics: { type: 'string' },
           outcomes: { type: 'string' },
+          assessments: { type: 'string' },
         },
-        required: ['week_no', 'title', 'topics', 'outcomes'],
+        required: ['week_no', 'title', 'topics', 'outcomes', 'assessments'],
         additionalProperties: false,
       },
     },
@@ -50,10 +51,17 @@ Rules:
 - One entry per teaching week, numbered from 1 in the order the syllabus gives.
 - title: a short name for the week, at most about eight words.
 - topics: the subject matter for that week, as written in the syllabus, condensed.
+  Do not put graded work here — that belongs in assessments.
 - outcomes: the learning outcomes for that week, or an empty string when the
   syllabus does not state any for it.
-- Copy what the document says. Do not invent weeks, topics, or outcomes, and do
-  not fill gaps with what a course like this usually covers.
+- assessments: exactly what the week expects to be handed in or sat, copied as
+  named — "Lab 2: input-data profile", "Quiz 1; Project Milestone 2",
+  "Final project bundle and defense". Syllabi usually carry these in a column
+  called Assessment, Evidence, Requirements, Output, or Deliverables. Keep the
+  names verbatim, since projects are built against them. Empty string when the
+  week names none. Do not repeat learning activities here — only assessed work.
+- Copy what the document says. Do not invent weeks, topics, outcomes, or
+  assessments, and do not fill gaps with what a course like this usually covers.
 - Ignore grading tables, class policies, references, and the preamble.
 - If the document has no weekly schedule at all, return an empty list.`
 
@@ -198,6 +206,7 @@ Deno.serve(async (req) => {
         title: String(w.title ?? '').slice(0, 200),
         topics: String(w.topics ?? ''),
         outcomes: String(w.outcomes ?? ''),
+        assessments: String(w.assessments ?? ''),
       }))
 
     await admin.from('syllabus_weeks').delete().eq('resource_id', resourceId)

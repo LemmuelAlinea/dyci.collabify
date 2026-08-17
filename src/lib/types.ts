@@ -268,6 +268,8 @@ export type SyllabusWeek = {
   title: string
   topics: string
   outcomes: string
+  /** What the week expects handed in — what a project binds to. */
+  assessments: string
   notes: string | null
 }
 
@@ -282,6 +284,7 @@ export type ClassWeek = {
   title: string
   topics: string
   outcomes: string
+  assessments: string
   notes: string | null
   term_start: string | null
   term_end: string | null
