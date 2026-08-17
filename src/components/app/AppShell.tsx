@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Logo } from '../brand/Logo'
+import { Logo, LogoMark } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
 import { ThemeToggle } from '../ThemeToggle'
 import { Avatar } from './Avatar'
@@ -10,16 +10,27 @@ import { useAuth } from '../../context/AuthContext'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { ROLE_LABEL, fullName } from '../../lib/types'
 
-function NavRows({ onNavigate }: { onNavigate?: () => void }) {
+function NavRows({
+  onNavigate,
+  collapsed,
+}: {
+  onNavigate?: () => void
+  collapsed?: boolean
+}) {
   const { profile } = useAuth()
   const unreadMessages = useUnreadTotal(profile?.id)
   if (!profile) return null
 
   return (
-    <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
+    <nav className={`flex-1 space-y-6 overflow-y-auto py-5 ${collapsed ? 'px-2' : 'px-3'}`}>
       {navFor(profile.role).map((group) => (
         <div key={group.title}>
-          <p className="eyebrow px-3 pb-2 text-white/35">{group.title}</p>
+          {/* Collapsed keeps a rule where the heading was, so the grouping survives. */}
+          {collapsed ? (
+            <div className="mx-2 mb-2 border-t border-white/10" />
+          ) : (
+            <p className="eyebrow px-3 pb-2 text-white/35">{group.title}</p>
+          )}
           <ul className="space-y-0.5">
             {group.items.map((item) =>
               item.to ? (
@@ -30,8 +41,11 @@ function NavRows({ onNavigate }: { onNavigate?: () => void }) {
                     // ("/professor/classes") should stay lit on their detail pages.
                     end={item.to.split('/').filter(Boolean).length < 2}
                     onClick={onNavigate}
+                    title={collapsed ? item.label : undefined}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14.5px] transition-colors duration-200 ${
+                      `relative flex items-center rounded-xl py-2.5 text-[14.5px] transition-colors duration-200 ${
+                        collapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                      } ${
                         isActive
                           ? 'bg-white/12 font-semibold text-white'
                           : 'text-white/62 hover:bg-white/7 hover:text-white'
@@ -39,26 +53,36 @@ function NavRows({ onNavigate }: { onNavigate?: () => void }) {
                     }
                   >
                     <Icon name={item.icon} size={18} />
-                    <span className="flex-1 truncate">{item.label}</span>
-                    {item.badge === 'messages' && unreadMessages > 0 && (
-                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-amber-400 px-1.5 font-mono text-[10px] font-bold text-navy-900">
-                        {unreadMessages > 99 ? '99+' : unreadMessages}
-                      </span>
-                    )}
+                    {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                    {item.badge === 'messages' &&
+                      unreadMessages > 0 &&
+                      (collapsed ? (
+                        <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-amber-400" />
+                      ) : (
+                        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-amber-400 px-1.5 font-mono text-[10px] font-bold text-navy-900">
+                          {unreadMessages > 99 ? '99+' : unreadMessages}
+                        </span>
+                      ))}
                   </NavLink>
                 </li>
               ) : (
                 <li key={item.label}>
                   <span
                     aria-disabled
-                    title="Coming in the next release"
-                    className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-[14.5px] text-white/28"
+                    title={collapsed ? `${item.label} — coming soon` : 'Coming in the next release'}
+                    className={`flex cursor-not-allowed items-center rounded-xl py-2.5 text-[14.5px] text-white/28 ${
+                      collapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                    }`}
                   >
                     <Icon name={item.icon} size={18} />
-                    <span className="flex-1 truncate">{item.label}</span>
-                    <span className="rounded-full bg-white/8 px-2 py-0.5 font-mono text-[9.5px] tracking-wider uppercase">
-                      Soon
-                    </span>
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 truncate">{item.label}</span>
+                        <span className="rounded-full bg-white/8 px-2 py-0.5 font-mono text-[9.5px] tracking-wider uppercase">
+                          Soon
+                        </span>
+                      </>
+                    )}
                   </span>
                 </li>
               ),
@@ -70,25 +94,68 @@ function NavRows({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarBody({
+  onNavigate,
+  collapsed,
+  onToggle,
+}: {
+  onNavigate?: () => void
+  collapsed?: boolean
+  onToggle?: () => void
+}) {
   const { profile } = useAuth()
 
   return (
     <>
-      <div className="flex h-[70px] shrink-0 items-center px-5">
+      <div
+        className={`flex h-[70px] shrink-0 items-center ${
+          collapsed ? 'justify-center px-2' : 'justify-between px-5'
+        }`}
+      >
         <Link to="/" aria-label="Collabify home">
-          <Logo tone="onDark" size={32} subtitle={profile ? ROLE_LABEL[profile.role] : ''} />
+          {collapsed ? (
+            <LogoMark size={32} tone="onDark" />
+          ) : (
+            <Logo tone="onDark" size={32} subtitle={profile ? ROLE_LABEL[profile.role] : ''} />
+          )}
         </Link>
+        {onToggle && !collapsed && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <Icon name="chevronLeft" size={17} />
+          </button>
+        )}
       </div>
-      <NavRows onNavigate={onNavigate} />
-      <div className="shrink-0 px-3 pb-4">
-        <div className="rounded-2xl bg-white/6 p-3.5">
-          <p className="eyebrow text-white/40">Phase 1</p>
-          <p className="mt-1.5 text-[12.5px] leading-relaxed text-white/55">
-            Boards, milestones, and files land in the next release. Settings is live now.
-          </p>
+
+      {onToggle && collapsed && (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label="Expand sidebar"
+          title="Expand sidebar"
+          className="mx-auto grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <Icon name="chevronRight" size={17} />
+        </button>
+      )}
+
+      <NavRows onNavigate={onNavigate} collapsed={collapsed} />
+
+      {!collapsed && (
+        <div className="shrink-0 px-3 pb-4">
+          <div className="rounded-2xl bg-white/6 p-3.5">
+            <p className="eyebrow text-white/40">Phase 1</p>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-white/55">
+              Boards, milestones, and files land in the next release. Settings is live now.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
     </>
   )
 }
@@ -166,8 +233,13 @@ function AccountMenu() {
   )
 }
 
+const COLLAPSE_KEY = 'collabify.sidebar.collapsed'
+
 export function AppShell() {
   const [drawer, setDrawer] = useState(false)
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== 'undefined' && localStorage.getItem(COLLAPSE_KEY) === '1',
+  )
   const location = useLocation()
 
   useEffect(() => setDrawer(false), [location.pathname])
@@ -178,10 +250,18 @@ export function AppShell() {
     }
   }, [drawer])
 
+  useEffect(() => {
+    localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0')
+  }, [collapsed])
+
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[276px_minmax(0,1fr)]">
+    <div
+      className={`min-h-dvh lg:grid ${
+        collapsed ? 'lg:grid-cols-[76px_minmax(0,1fr)]' : 'lg:grid-cols-[276px_minmax(0,1fr)]'
+      }`}
+    >
       <aside className="sticky top-0 hidden h-dvh flex-col bg-navy-600 dark:bg-navy-800 lg:flex">
-        <SidebarBody />
+        <SidebarBody collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
       </aside>
 
       {drawer && (

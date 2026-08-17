@@ -7,6 +7,7 @@ const PATHS = {
   checkCircle: 'M22 11.1V12a10 10 0 11-5.9-9.1M22 4L12 14.01l-3-3',
   chevronDown: 'M6 9l6 6 6-6',
   chevronRight: 'M9 18l6-6-6-6',
+  chevronLeft: 'M15 18l-6-6 6-6',
   x: 'M18 6L6 18M6 6l12 12',
   menu: 'M3 6h18M3 12h18M3 18h18',
   sun: 'M12 17a5 5 0 100-10 5 5 0 000 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
