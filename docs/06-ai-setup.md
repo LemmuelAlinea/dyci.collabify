@@ -85,3 +85,38 @@ The editor always works, so a failure never blocks you.
 It does not judge or grade a syllabus, and it does not fill in weeks the
 document leaves out — it only reports what is written. A wrong week in the draft
 is a reading error, so read the draft before marking it verified.
+
+---
+
+# 6.7 Drafting tasks
+
+A second function, `generate-tasks`, breaks a project into tasks. It uses the
+same key and the same deploy step:
+
+```bash
+supabase functions deploy generate-tasks
+```
+
+**Where it lives.** Open a project, go to the **Tasks** tab, then **Draft with
+AI** (professor) or **Draft tasks with AI** (student, on their group board).
+
+**What it reads.** The project's guidelines, its rubric, and the topics,
+outcomes, and assessments of the syllabus weeks it is bound to. Nothing else —
+it has no access to other classes, and it never sees a file it was not given.
+
+**What it writes.** Nothing. It returns a draft. You tick what to keep, edit the
+wording and the weights, and only then are the tasks saved. A professor's picks
+go out to one group or all of them; a student's land on their own board.
+
+**Cost.** One draft is a few thousand tokens — well under a peso — and only runs
+on the button.
+
+| Message | Cause |
+|---|---|
+| "The AI key is not set on the server yet" | §6.4 was skipped, or this deploy came before it |
+| "That project is not available to you" | You are not in the class, or the project has not been released |
+| "Nothing could be drafted from this brief" | Too little to go on. Write guidelines or a rubric first, or add the tasks by hand |
+
+**What it does not do.** It does not grade, does not assign anybody, and does not
+decide what the project is. A draft with a task you did not want is a draft — the
+board is only ever what you saved.

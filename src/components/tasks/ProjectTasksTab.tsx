@@ -7,6 +7,7 @@ import { EmptyState } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
 import { BoardProgress } from './BoardProgress'
 import { FanOutForm } from './FanOutForm'
+import { GenerateTasksModal } from './GenerateTasksModal'
 import { GroupProgressTable } from './GroupProgressTable'
 import { MemberProgress } from './MemberProgress'
 import { TaskBoard } from './TaskBoard'
@@ -50,6 +51,7 @@ export function ProjectTasksTab({
   const [deletingOrigin, setDeletingOrigin] = useState<ProfessorTaskGroup | null>(null)
   const [mine, setMine] = useState<ProfessorTaskGroup[]>([])
   const [progress, setProgress] = useState<MemberRow[]>([])
+  const [aiOpen, setAiOpen] = useState(false)
 
   const isProfessor = role === 'professor'
 
@@ -143,6 +145,20 @@ export function ProjectTasksTab({
     return (
       <div className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
+        <GenerateTasksModal
+          open={aiOpen}
+          onClose={() => setAiOpen(false)}
+          project={project}
+          board={active}
+          boards={boards}
+          role={role}
+          viewerId={viewerId}
+          onSaved={async (message) => {
+            show(message)
+            await refresh()
+          }}
+        />
+
         {active ? (
           boardLoading ? (
             <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
@@ -157,6 +173,17 @@ export function ProjectTasksTab({
                 viewerId={viewerId}
                 title={active.group_id ? 'You and your group' : 'Your progress'}
               />
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="!rounded-lg"
+                  onClick={() => setAiOpen(true)}
+                >
+                  <Icon name="spark" size={15} />
+                  Draft tasks with AI
+                </Button>
+              </div>
               <TaskBoard
                 board={active}
                 tasks={tasks}
@@ -193,10 +220,21 @@ export function ProjectTasksTab({
               Handed to the groups. They decide who does it.
             </p>
           </div>
-          <Button size="sm" className="!rounded-lg" onClick={() => setSetTaskOpen(true)}>
-            <Icon name="plus" size={15} />
-            Set a task
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="!rounded-lg"
+              onClick={() => setAiOpen(true)}
+            >
+              <Icon name="spark" size={15} />
+              Draft with AI
+            </Button>
+            <Button size="sm" className="!rounded-lg" onClick={() => setSetTaskOpen(true)}>
+              <Icon name="plus" size={15} />
+              Set a task
+            </Button>
+          </div>
         </div>
 
         {mine.length === 0 ? (
@@ -275,6 +313,20 @@ export function ProjectTasksTab({
           )}
         </section>
       )}
+
+      <GenerateTasksModal
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        project={project}
+        board={active}
+        boards={boards}
+        role={role}
+        viewerId={viewerId}
+        onSaved={async (message) => {
+          show(message)
+          await refresh()
+        }}
+      />
 
       <FanOutForm
         open={setTaskOpen || Boolean(editingOrigin)}

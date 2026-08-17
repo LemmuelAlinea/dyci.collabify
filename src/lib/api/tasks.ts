@@ -170,7 +170,12 @@ export type TaskInput = {
   dueAt: string | null
 }
 
-export async function addTask(boardId: string, input: TaskInput, createdBy: string) {
+export async function addTask(
+  boardId: string,
+  input: TaskInput,
+  createdBy: string,
+  aiGenerated = false,
+) {
   const { data: last } = await supabase
     .from('project_tasks')
     .select('position')
@@ -190,6 +195,7 @@ export async function addTask(boardId: string, input: TaskInput, createdBy: stri
       position: ((last as { position: number } | null)?.position ?? 0) + 1,
       created_by: createdBy,
       author_role: 'student',
+      ai_generated: aiGenerated,
     })
     .select('*')
     .single()
@@ -358,6 +364,29 @@ export async function listProjectTasks(projectId: string) {
   if (error) throw error
   const tasks = ((data ?? []) as ProjectTask[]).map((t) => ({ ...t, assignees: [] }))
   return { boards, tasks }
+}
+
+/* ------------------------------------------------------------------- AI */
+
+export type TaskDraft = { title: string; details: string; weight: number }
+
+export type DraftResult = {
+  result: 'ok' | 'failed'
+  tasks?: TaskDraft[]
+  note?: string
+  message?: string
+}
+
+/**
+ * Asks the server to draft a task list from the project. Nothing is saved: the
+ * caller picks what to keep and edits it first.
+ */
+export async function generateTasks(projectId: string, boardId: string | null) {
+  const { data, error } = await supabase.functions.invoke('generate-tasks', {
+    body: { project_id: projectId, board_id: boardId },
+  })
+  if (error) throw error
+  return data as DraftResult
 }
 
 /* ------------------------------------------------------------- realtime */
