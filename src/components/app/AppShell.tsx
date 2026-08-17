@@ -8,6 +8,7 @@ import { NotificationBell } from './NotificationBell'
 import { navFor } from './nav'
 import { useAuth } from '../../context/AuthContext'
 import { useUnreadTotal } from '../../hooks/useConversations'
+import { roleHome } from '../../lib/roleHome'
 import { ROLE_LABEL, fullName } from '../../lib/types'
 
 function NavRows({
@@ -112,7 +113,8 @@ function SidebarBody({
           collapsed ? 'justify-center px-2' : 'justify-between px-5'
         }`}
       >
-        <Link to="/" aria-label="Collabify home">
+        {/* Inside the app the logo belongs to the dashboard, not the public site. */}
+        <Link to={roleHome(profile?.role, profile?.status)} aria-label="Go to your dashboard">
           {collapsed ? (
             <LogoMark size={32} tone="onDark" />
           ) : (
@@ -236,6 +238,7 @@ function AccountMenu() {
 const COLLAPSE_KEY = 'collabify.sidebar.collapsed'
 
 export function AppShell() {
+  const { profile } = useAuth()
   const [drawer, setDrawer] = useState(false)
   const [collapsed, setCollapsed] = useState(
     () => typeof window !== 'undefined' && localStorage.getItem(COLLAPSE_KEY) === '1',
@@ -291,7 +294,11 @@ export function AppShell() {
               >
                 <Icon name="menu" size={20} />
               </button>
-              <Link to="/" className="lg:hidden" aria-label="Collabify home">
+              <Link
+                to={roleHome(profile?.role, profile?.status)}
+                className="lg:hidden"
+                aria-label="Go to your dashboard"
+              >
                 <Logo size={30} showSubtitle={false} />
               </Link>
             </div>
