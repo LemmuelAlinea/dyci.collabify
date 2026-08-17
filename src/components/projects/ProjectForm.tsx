@@ -113,10 +113,9 @@ export function ProjectForm({
     releaseAt: scheduled ? fromLocalInput(releaseAt) : null,
     spanEnd: spanEndDate(weeks, span),
   })
-  // Closed sets are final records, not somewhere new work can be assigned. The
-  // one already on this project stays listed so editing does not silently drop it.
-  const openSets = groupSets.filter((s) => !s.closed_at || s.id === groupSetId)
-  const chosenSet = openSets.find((s) => s.id === groupSetId)
+  // A closed set is a finalised arrangement — the strongest thing to assign to,
+  // not something to hide. Only sets with no groups left are unusable.
+  const chosenSet = groupSets.find((s) => s.id === groupSetId)
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -253,7 +252,7 @@ export function ProjectForm({
           </Field>
 
           {audience === 'group' &&
-            (openSets.length === 0 ? (
+            (groupSets.length === 0 ? (
               <Alert tone="info">
                 This class has no groups to assign to. Create a set and put students in it,
                 or make this an individual project.
@@ -267,12 +266,12 @@ export function ProjectForm({
                       value={groupSetId}
                       onChange={(e) => setGroupSetId(e.target.value)}
                       placeholder="Pick a set of groups"
-                      options={openSets.map((s) => ({
+                      options={groupSets.map((s) => ({
                         value: s.id,
                         label:
                           `${s.name} · ${s.group_count} group${s.group_count === 1 ? '' : 's'}` +
                           `, ${s.member_count} student${s.member_count === 1 ? '' : 's'}` +
-                          (s.closed_at ? ' (final)' : ''),
+                          (s.closed_at ? ' · final' : ''),
                       }))}
                     />
                   )}
@@ -283,6 +282,14 @@ export function ProjectForm({
                     project once they are placed.
                   </Alert>
                 )}
+                {chosenSet &&
+                  !chosenSet.closed_at &&
+                  chosenSet.mode === 'student_formed' && (
+                    <Alert tone="info">
+                      {chosenSet.name} is still open, so students can move between groups.
+                      Close the set once the teams are final.
+                    </Alert>
+                  )}
               </>
             ))}
 
