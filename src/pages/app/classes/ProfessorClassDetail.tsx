@@ -125,6 +125,7 @@ export default function ProfessorClassDetail() {
   }
 
   const activeCount = members.filter((m) => m.status === 'active').length
+  const removedCount = members.filter((m) => m.status === 'removed').length
 
   return (
     <div className="mx-auto w-full max-w-[900px]">
@@ -178,7 +179,14 @@ export default function ProfessorClassDetail() {
         <Tabs<TabId>
           tabs={[
             { id: 'announcements', label: 'Announcements', icon: 'message', count: announcements.length },
-            { id: 'students', label: 'Students', icon: 'users', count: activeCount },
+            {
+              id: 'students',
+              label: removedCount
+                ? `Students · ${removedCount} removed`
+                : 'Students',
+              icon: 'users',
+              count: activeCount,
+            },
             { id: 'groups', label: 'Groups', icon: 'kanban' },
             { id: 'projects', label: 'Projects', icon: 'board' },
             { id: 'syllabus', label: 'Syllabus', icon: 'calendar' },

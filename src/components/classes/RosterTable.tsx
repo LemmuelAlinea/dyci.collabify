@@ -106,7 +106,7 @@ export function RosterTable({
       </ol>
 
       {canManage && removed.length > 0 && (
-        <div>
+        <div className="rounded-card border border-amber-300 p-4 dark:border-amber-400/40">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <p className="eyebrow text-faint">
               Removed · {removed.length} {removed.length === 1 ? 'student' : 'students'}
