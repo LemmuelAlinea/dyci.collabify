@@ -29,7 +29,10 @@ export function MemberProgress({
       <h3 className="text-[16px]">{title}</h3>
       <p className="mt-1 text-[13px] text-muted">
         {dense ? (
-          <>Their own progress, and their share of the group.</>
+          <>
+            Their own progress, then their share of the group.
+            {cap < 100 && <> Each member carries up to {cap}%.</>}
+          </>
         ) : (
           <>
             Their own progress on the left, their share of the group on the right.
@@ -47,7 +50,7 @@ export function MemberProgress({
           return (
             <li
               key={r.student_id}
-              className={`flex gap-3 py-3 first:pt-0 ${dense ? 'items-start' : 'items-center'}`}
+              className={`flex items-center gap-3 first:pt-0 ${dense ? 'py-2' : 'py-3'}`}
             >
               {r.profile && <Avatar profile={r.profile} size={dense ? 26 : 34} />}
 
@@ -75,6 +78,12 @@ export function MemberProgress({
                   {r.task_count === 0
                     ? 'Nothing claimed yet'
                     : `${r.done_count} of ${r.task_count} of their tasks done`}
+                  {dense && r.task_count > 0 && (
+                    <span className="font-mono">
+                      {' · '}
+                      {r.group_pct} of {r.held_pct} of the group
+                    </span>
+                  )}
                   {!r.can_claim && cap < 100 && ' · share is full'}
                 </p>
               </div>

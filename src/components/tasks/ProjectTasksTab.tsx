@@ -251,18 +251,13 @@ export function ProjectTasksTab({
             </div>
           ) : (
             <>
-              {/* The bar carries the project; the members are a sidebar to it. */}
-              <div className="grid gap-4 lg:grid-cols-4">
-                <div className="lg:col-span-3">
-                  <BoardProgress board={active} />
-                </div>
-                <MemberProgress
-                  rows={progress}
-                  viewerId={viewerId}
-                  dense
-                  title={active.group_id ? 'Your group' : 'Your progress'}
-                />
-              </div>
+              <BoardProgress board={active} />
+              <MemberProgress
+                rows={progress}
+                viewerId={viewerId}
+                dense
+                title={active.group_id ? 'Your group' : 'Your progress'}
+              />
               <div className="flex justify-end">
                 <Button
                   variant="outline"
