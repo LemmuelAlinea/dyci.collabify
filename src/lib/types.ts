@@ -736,11 +736,31 @@ export function taskTally(tasks: Pick<ProjectTask, 'status'>[]) {
   return { done, total: tasks.length, label: `${done} of ${tasks.length} done` }
 }
 
+/** Whether the moment has been and gone. A deadline is a time, not a date. */
+export function hasPassed(iso: string) {
+  return new Date(iso).getTime() < Date.now()
+}
+
+/**
+ * Whole days between today and the day `iso` falls on, counted as people count
+ * them: tomorrow is 1 however few hours away it is.
+ *
+ * Measuring elapsed milliseconds instead gets both ends wrong. A deadline that
+ * passed nine hours ago is -0.4 days, and `Math.ceil` turns that into -0, which
+ * is not less than zero and reads as "due today" — so anything less than a day
+ * overdue looked like it was still to come. Rounding up did the same at the far
+ * end, calling a five-day gap six.
+ */
+export function calendarDaysUntil(iso: string) {
+  const midnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  return Math.round((midnight(new Date(iso)) - midnight(new Date())) / 86_400_000)
+}
+
 export function dueSoonLabel(iso: string | null) {
   if (!iso) return null
-  const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
-  if (days < 0) return 'Overdue'
-  if (days === 0) return 'Due today'
+  if (hasPassed(iso)) return 'Overdue'
+  const days = calendarDaysUntil(iso)
+  if (days <= 0) return 'Due today'
   if (days === 1) return 'Due tomorrow'
   if (days <= 7) return `Due in ${days} days`
   return `Due ${new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`

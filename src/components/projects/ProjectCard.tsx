@@ -1,22 +1,26 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
-import { PROJECT_TYPES, projectTypeLabel, weekSpanLabel } from '../../lib/types'
+import {
+  PROJECT_TYPES,
+  calendarDaysUntil,
+  hasPassed,
+  projectTypeLabel,
+  weekSpanLabel,
+} from '../../lib/types'
 import type { BoardSummary, ProjectSummary } from '../../lib/types'
-
-const DAY = 86_400_000
 
 export function dueLabel(iso: string | null) {
   if (!iso) return 'No deadline'
   const due = new Date(iso)
-  const days = Math.ceil((due.getTime() - Date.now()) / DAY)
   const stamp = due.toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   })
-  if (days < 0) return `Was due ${stamp}`
-  if (days === 0) return `Due today · ${stamp}`
+  if (hasPassed(iso)) return `Was due ${stamp}`
+  const days = calendarDaysUntil(iso)
+  if (days <= 0) return `Due today · ${stamp}`
   if (days === 1) return `Due tomorrow · ${stamp}`
   if (days <= 14) return `Due in ${days} days · ${stamp}`
   return `Due ${stamp}`
