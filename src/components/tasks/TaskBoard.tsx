@@ -100,7 +100,11 @@ export function TaskBoard({
     }
   }
 
-  const unclaimed = tasks.filter((t) => t.assignees.length === 0 && t.status !== 'done')
+  // A solo board has no unclaimed lane: its owner holds everything on it.
+  const solo = Boolean(board.student_id)
+  const unclaimed = solo
+    ? []
+    : tasks.filter((t) => t.assignees.length === 0 && t.status !== 'done')
   // Recomputed on every render: a new task rebalances every other slice.
   const totalWeight = boardWeight(tasks)
 
@@ -136,7 +140,9 @@ export function TaskBoard({
           title="No tasks yet"
           body={
             canWork
-              ? 'Break the project into the pieces your group has to do. Leave one unassigned and anybody can pick it up.'
+              ? solo
+                ? 'Break the project into the pieces you have to do. Everything here is yours already.'
+                : 'Break the project into the pieces your group has to do. Leave one unassigned and anybody can pick it up.'
               : 'This group has not broken the project down yet.'
           }
           action={
@@ -194,6 +200,7 @@ export function TaskBoard({
                       }
                       onOpen={() => showTask(task.id)}
                       counts={task as unknown as { file_count: number; comment_count: number }}
+                      solo={solo}
                     />
                   ))
                 )}

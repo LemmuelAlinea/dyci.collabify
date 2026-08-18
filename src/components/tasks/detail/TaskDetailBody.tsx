@@ -43,7 +43,9 @@ export function TaskDetailBody({
   onChanged: () => Promise<void> | void
 }) {
   const onBoard = role !== 'professor'
-  const yours = viewerId ? isMine(task, viewerId) : false
+  // On an individual board the viewer is the owner, so the work is theirs.
+  const solo = Boolean(task.group_id === null)
+  const yours = solo ? onBoard : viewerId ? isMine(task, viewerId) : false
 
   return (
     <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_300px]">

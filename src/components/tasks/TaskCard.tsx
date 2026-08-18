@@ -30,6 +30,7 @@ export function TaskCard({
   onRelease,
   onOpen,
   counts,
+  solo = false,
 }: {
   task: ProjectTask
   /** This task's slice of the board's 100. */
@@ -49,6 +50,8 @@ export function TaskCard({
   onOpen: () => void
   /** Files and comments hanging off it, when the board has loaded them. */
   counts?: { file_count: number; comment_count: number }
+  /** An individual project: the owner already owns it, so nothing is claimed. */
+  solo?: boolean
 }) {
   const next = NEXT[task.status]
   const due = dueSoonLabel(task.due_at)
@@ -119,7 +122,7 @@ export function TaskCard({
           progress={progress}
           perPerson={perPerson}
           viewerId={viewerId}
-          canChange={canWork}
+          canChange={canWork && !solo}
           onClaim={onClaim}
           onRelease={onRelease}
         />
@@ -154,7 +157,7 @@ export function TaskCard({
       </div>
 
       <div className="relative z-10 mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5">
-        {canWork && yours ? (
+        {canWork && (yours || solo) ? (
           <button
             type="button"
             onClick={() => void onStatus(next.to)}
@@ -168,7 +171,9 @@ export function TaskCard({
             {!canWork
               ? frozen
                 ? 'Frozen — the group has started it'
-                : 'Open to the group'
+                : solo
+                  ? 'Theirs to do'
+                  : 'Open to the group'
               : task.assignees.length === 0
                 ? 'Claim it to start it'
                 : 'Whoever is on it moves it'}
