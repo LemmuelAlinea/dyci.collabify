@@ -5,7 +5,6 @@ import { Icon } from '../../components/ui/Icon'
 import type { IconName } from '../../components/ui/Icon'
 import { ButtonLink } from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
-import { ROLE_LABEL } from '../../lib/types'
 
 export type Upcoming = { icon: IconName; title: string; body: string }
 
@@ -36,10 +35,7 @@ export function RoleHome({
   return (
     <div className="mx-auto w-full max-w-[1080px]">
       <Reveal once>
-        <p className="eyebrow text-amber-500 dark:text-amber-300">
-          {ROLE_LABEL[profile.role]} workspace
-        </p>
-        <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.6rem)] leading-tight">
+        <h1 className="text-[clamp(1.9rem,3.4vw,2.6rem)] leading-tight">
           {greeting()}, {profile.first_name}.
         </h1>
         <p className="mt-3 max-w-[620px] text-[16px] leading-relaxed text-muted">{intro}</p>

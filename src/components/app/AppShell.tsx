@@ -118,7 +118,7 @@ function SidebarBody({
           {collapsed ? (
             <LogoMark size={32} tone="onDark" />
           ) : (
-            <Logo tone="onDark" size={32} subtitle={profile ? ROLE_LABEL[profile.role] : ''} />
+            <Logo tone="onDark" size={32} showSubtitle={false} />
           )}
         </Link>
         {onToggle && !collapsed && (

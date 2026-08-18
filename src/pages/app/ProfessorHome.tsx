@@ -34,8 +34,7 @@ export default function ProfessorHome() {
   return (
     <div className="mx-auto w-full max-w-[1080px]">
       <Reveal once>
-        <p className="eyebrow text-amber-500 dark:text-amber-300">Teaching workspace</p>
-        <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">
+        <h1 className="text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">
           {greeting()}, {profile.first_name}.
         </h1>
       </Reveal>
