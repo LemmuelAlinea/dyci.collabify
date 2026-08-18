@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Avatar } from '../app/Avatar'
 import { Button } from '../ui/Button'
@@ -7,6 +7,7 @@ import { Icon } from '../ui/Icon'
 import { EmptyState } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
 import { START_DM_MESSAGE, startDirectConversation } from '../../lib/api/messages'
+import { recoverMemberWork, recoverableWorkCount } from '../../lib/api/classes'
 import { authErrorMessage } from '../../lib/authError'
 import { fullName } from '../../lib/types'
 import type { ClassMember } from '../../lib/types'
@@ -22,6 +23,9 @@ type Props = {
   emptyBody: string
   /** Professors only: open a direct thread from the roster. */
   canMessage?: boolean
+  /** The class these rows belong to — needed to recover lost work. */
+  classId?: string
+  onRecovered?: () => Promise<void> | void
 }
 
 export function RosterTable({
@@ -32,12 +36,33 @@ export function RosterTable({
   onRestore,
   emptyBody,
   canMessage = false,
+  classId,
+  onRecovered,
 }: Props) {
   const { show } = useToast()
   const navigate = useNavigate()
   const [pendingRemove, setPendingRemove] = useState<ClassMember | null>(null)
   const [opening, setOpening] = useState<string | null>(null)
   const [restoring, setRestoring] = useState<string | null>(null)
+  const [lost, setLost] = useState(new Map<string, number>())
+  const [recovering, setRecovering] = useState<string | null>(null)
+
+  // Claims the trail remembers that the tables no longer hold — from a removal
+  // that happened before the archive existed.
+  useEffect(() => {
+    if (!classId || !canManage) return
+    let live = true
+    void Promise.all(
+      members
+        .filter((m) => m.status === 'active')
+        .map(async (m) => [m.student_id, await recoverableWorkCount(classId, m.student_id)] as const),
+    )
+      .then((pairs) => live && setLost(new Map(pairs.filter(([, n]) => n > 0))))
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [classId, canManage, members])
 
   /** Finds the thread or makes it, then lands on it ready to type. */
   async function message(member: ClassMember) {
@@ -79,6 +104,38 @@ export function RosterTable({
               </p>
               {showEmail && <p className="truncate text-[12.5px] text-faint">{m.profile.email}</p>}
             </div>
+            {classId && lost.get(m.student_id) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="!rounded-lg"
+                loading={recovering === m.student_id}
+                onClick={async () => {
+                  setRecovering(m.student_id)
+                  try {
+                    const res = await recoverMemberWork(classId, m.student_id)
+                    show(
+                      res.tasks
+                        ? `${res.tasks} ${res.tasks === 1 ? 'task' : 'tasks'} back for ${m.profile.first_name}`
+                        : 'Nothing could be recovered',
+                    )
+                    setLost((prev) => {
+                      const next = new Map(prev)
+                      next.delete(m.student_id)
+                      return next
+                    })
+                    await onRecovered?.()
+                  } catch (err) {
+                    show(authErrorMessage(err, 'Could not recover that work.'), 'error')
+                  } finally {
+                    setRecovering(null)
+                  }
+                }}
+              >
+                <Icon name="refresh" size={14} />
+                Recover {lost.get(m.student_id)}
+              </Button>
+            ) : null}
             {canMessage && (
               <button
                 type="button"

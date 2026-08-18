@@ -213,6 +213,8 @@ export default function ProfessorClassDetail() {
             members={members}
             canManage={!cls.archived_at}
             canMessage
+            classId={classId}
+            onRecovered={load}
             showEmail
             emptyBody={`Share the code ${cls.code} with your section. Students join themselves — you never add them by hand.`}
             onRemove={async (m) => {

@@ -167,6 +167,30 @@ export async function restoreMember(classId: string, studentId: string) {
   }
 }
 
+/** Claims the trail still remembers but the tables no longer hold. */
+export async function recoverableWorkCount(classId: string, studentId: string) {
+  const { data, error } = await supabase.rpc('recoverable_work_count', {
+    p_class: classId,
+    p_student: studentId,
+  })
+  if (error) throw error
+  return (data as number) ?? 0
+}
+
+/** Rebuilds those claims, and the group placement they depend on. */
+export async function recoverMemberWork(classId: string, studentId: string) {
+  const { data, error } = await supabase.rpc('recover_member_work', {
+    p_class: classId,
+    p_student: studentId,
+  })
+  if (error) throw error
+  return data as {
+    result: 'recovered' | 'not_allowed' | 'not_a_member'
+    groups?: number
+    tasks?: number
+  }
+}
+
 /** What a restore would bring back, so the professor knows before they press. */
 export async function archivedMemberSummary(classId: string, studentId: string) {
   const { data, error } = await supabase.rpc('archived_member_summary', {
