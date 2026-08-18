@@ -35,15 +35,24 @@ function Tile({
   value,
   label,
   sub,
+  tone = 'neutral',
 }: {
-  icon: 'checkCircle' | 'edit' | 'plus' | 'calendar'
+  icon: 'checkCircle' | 'edit' | 'plus' | 'calendar' | 'clock'
   value: number
   label: string
   sub: string
+  /** Draws attention to a count that is bad news rather than neutral. */
+  tone?: 'neutral' | 'warn'
 }) {
   return (
     <div className="surface flex items-center gap-3 rounded-card border border-line px-4 py-3.5 shadow-card">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg surface-sunken text-muted">
+      <span
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
+          tone === 'warn'
+            ? 'bg-red-500/15 text-red-700 dark:text-red-300'
+            : 'surface-sunken text-muted'
+        }`}
+      >
         <Icon name={icon} size={17} />
       </span>
       <span className="min-w-0">
@@ -153,6 +162,10 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
       new Date(t.due_at).getTime() > now,
   ).length
 
+  // Stamped at the moment each task was finished, so an extension granted
+  // afterwards does not quietly empty this out.
+  const handedInLate = rows.filter((t) => t.status === 'done' && t.late).length
+
   const unclaimed = rows.filter((t) => t.assignees.length === 0 && t.status !== 'done')
   const logged = rows.reduce((n, t) => n + t.logged_minutes, 0)
   const titles = new Map(rows.map((t) => [t.id, t.title]))
@@ -176,11 +189,26 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {/* The late tile only appears once there is something late, so a class
+          that is keeping up sees the same four it always did. */}
+      <div
+        className={`grid gap-3 sm:grid-cols-2 ${
+          handedInLate > 0 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'
+        }`}
+      >
         <Tile icon="checkCircle" value={finishedWeek} label="finished" sub="in the last 7 days" />
         <Tile icon="edit" value={updatedWeek} label="updated" sub="in the last 7 days" />
         <Tile icon="plus" value={createdWeek} label="created" sub="in the last 7 days" />
         <Tile icon="calendar" value={dueSoon} label="due soon" sub="in the next 7 days" />
+        {handedInLate > 0 && (
+          <Tile
+            icon="clock"
+            tone="warn"
+            value={handedInLate}
+            label="handed in late"
+            sub="after the deadline"
+          />
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

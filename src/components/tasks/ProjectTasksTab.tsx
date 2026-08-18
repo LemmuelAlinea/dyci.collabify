@@ -26,7 +26,7 @@ import {
 } from '../../lib/api/tasks'
 import type { ProfessorTaskGroup, ProjectTaskRow } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
-import { isReleased } from '../../lib/types'
+import { isProjectLocked, isReleased } from '../../lib/types'
 import type {
   BoardSummary,
   MemberProgress as MemberRow,
@@ -65,6 +65,9 @@ export function ProjectTasksTab({
   const openTask = params.get('task')
 
   const isProfessor = role === 'professor'
+  // A passed deadline still takes work — only the professor closing it stops
+  // the board, so this is the one thing the UI gates on.
+  const locked = isProjectLocked(project)
 
   const loadBoards = useCallback(async () => {
     try {
@@ -191,9 +194,18 @@ export function ProjectTasksTab({
       boardWeight={
         weightByBoard.get(rows.find((t) => t.id === openTask)?.board_id ?? '') ?? 0
       }
+      locked={locked && !isProfessor}
       onChanged={refresh}
     />
   )
+
+  const lockedNotice = locked ? (
+    <Alert tone="info">
+      {isProfessor
+        ? 'This project is closed. Students can no longer change their tasks — reopen it from the project header to let them back in.'
+        : 'This project is closed, so your tasks can no longer change. You can still read the board and comment. Ask your professor to reopen it if you need to finish something.'}
+    </Alert>
+  ) : null
 
   if (boards === null) {
     return (
@@ -234,6 +246,7 @@ export function ProjectTasksTab({
     return (
       <div className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
+        {lockedNotice}
         <GenerateTasksModal
           open={aiOpen}
           onClose={() => setAiOpen(false)}
@@ -322,6 +335,7 @@ export function ProjectTasksTab({
   return (
     <div className="space-y-6">
       {error && <Alert tone="error">{error}</Alert>}
+      {lockedNotice}
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -20,6 +20,9 @@ const STATUS_OPTIONS = [
 function statusOf(p: ProjectSummary): Exclude<StatusFilter, ''> {
   if (p.archived_at) return 'archived'
   if (p.scheduled) return 'scheduled'
+  // Closed by hand, or simply past its deadline — either way it is not the
+  // work a professor is still waiting on.
+  if (p.locked_at) return 'closed'
   if (p.due_at && new Date(p.due_at).getTime() < Date.now()) return 'closed'
   return 'live'
 }

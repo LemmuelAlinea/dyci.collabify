@@ -60,7 +60,8 @@ export function TaskList({
         <tbody>
           {rows.map((t) => {
             const due = dueSoonLabel(t.due_at)
-            const late = due === 'Overdue' && t.status !== 'done'
+            const overdue = due === 'Overdue' && t.status !== 'done'
+            const handedInLate = t.late && t.status === 'done'
             const share = taskShare(t, boardWeight.get(t.board_id) || t.weight)
             return (
               <tr
@@ -146,12 +147,19 @@ export function TaskList({
 
                 <td className="py-2.5 pr-3 font-mono text-[12.5px] text-muted">{share}%</td>
 
-                <td
-                  className={`py-2.5 pr-3 font-mono text-[12px] ${
-                    late ? 'text-red-600 dark:text-red-400' : 'text-faint'
-                  }`}
-                >
-                  {due ?? '—'}
+                <td className="py-2.5 pr-3 font-mono text-[12px]">
+                  {handedInLate ? (
+                    <span
+                      title="Finished after the deadline"
+                      className="rounded-md bg-red-500/15 px-1.5 py-0.5 text-[10.5px] text-red-700 dark:text-red-300"
+                    >
+                      Late
+                    </span>
+                  ) : (
+                    <span className={overdue ? 'text-red-600 dark:text-red-400' : 'text-faint'}>
+                      {due ?? '—'}
+                    </span>
+                  )}
                 </td>
 
                 <td className="py-2.5 pr-4 text-right">

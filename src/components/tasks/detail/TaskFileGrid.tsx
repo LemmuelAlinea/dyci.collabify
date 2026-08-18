@@ -17,18 +17,21 @@ export function TaskFileGrid({
   task,
   files,
   isAssignee,
+  /** The project has been closed, so the deliverable is fixed too. */
+  locked = false,
   onChanged,
 }: {
   task: TaskDetail
   files: TaskFile[]
   isAssignee: boolean
+  locked?: boolean
   onChanged: () => Promise<void> | void
 }) {
   const { show } = useToast()
   const [busy, setBusy] = useState(false)
   const [removing, setRemoving] = useState<TaskFile | null>(null)
 
-  const open = canChangeFiles(task)
+  const open = canChangeFiles(task, locked)
   const canAttach = isAssignee && open
 
   return (
@@ -40,7 +43,11 @@ export function TaskFileGrid({
             <span className="ml-1.5 font-mono text-[12px] text-faint">{files.length}</span>
           )}
         </h3>
-        {!open && <span className="text-[12px] text-faint">Locked — the task is done</span>}
+        {!open && (
+          <span className="text-[12px] text-faint">
+            {locked ? 'Locked — the project is closed' : 'Locked — the task is done'}
+          </span>
+        )}
       </div>
 
       {files.length === 0 ? (

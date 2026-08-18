@@ -15,6 +15,8 @@ const PATHS = {
   monitor: 'M3 4h18v12H3zM8 20h8M12 16v4',
   bell: 'M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0',
   lock: 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4',
+  // The same body with the shackle swung open, so the pair reads as one state.
+  unlock: 'M5 11h14v10H5zM8 11V7a4 4 0 017.5-2',
   mail: 'M3 5h18v14H3zM3 6l9 7 9-7',
   user: 'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z',
   users: 'M17 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9.5 11a4 4 0 100-8 4 4 0 000 8zM22 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8',

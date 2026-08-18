@@ -345,6 +345,11 @@ export type ProjectRow = {
   due_at: string | null
   /** Null means live now; a future time keeps it hidden from students. */
   release_at: string | null
+  /**
+   * Null means the project still takes work. Set, it stops — separately from
+   * due_at, so granting an extension never rewrites when the work was due.
+   */
+  locked_at: string | null
   archived_at: string | null
   created_at: string
   updated_at: string
@@ -605,6 +610,7 @@ export type BoardSummary = ProjectBoard & {
   class_id: string
   project_title: string
   project_due_at: string | null
+  project_locked_at: string | null
   total_points: number
   group_name: string | null
   group_set_id: string | null
@@ -612,6 +618,8 @@ export type BoardSummary = ProjectBoard & {
   done_count: number
   doing_count: number
   unclaimed_count: number
+  /** Finished, but after the deadline. */
+  late_count: number
   member_count: number
   total_weight: number
   /** The board always totals 100, however many tasks it holds. */
@@ -633,6 +641,8 @@ export type MemberProgress = {
   student_id: string
   task_count: number
   done_count: number
+  /** How many of their finished tasks landed after the deadline. */
+  late_count: number
   held_weight: number
   done_weight: number
   /** Null when they hold nothing yet — not a zero. */
@@ -670,6 +680,8 @@ export type ProjectTask = {
   ai_generated: boolean
   started_at: string | null
   done_at: string | null
+  /** Stamped when it was finished, and only meaningful while it is done. */
+  late: boolean
   created_at: string
   updated_at: string
   assignees: TaskAssignee[]
@@ -787,9 +799,18 @@ export function formatMinutes(minutes: number) {
   return m ? `${h}h ${m}m` : `${h}h`
 }
 
-/** The deliverable is still being made while the task runs; it locks when done. */
-export function canChangeFiles(task: Pick<ProjectTask, 'status'>) {
-  return task.status !== 'done'
+/**
+ * The deliverable is still being made while the task runs; it locks when done.
+ * A closed project shuts it for the same reason the writes are refused, so the
+ * grid does not offer an upload the database will turn away.
+ */
+export function canChangeFiles(task: Pick<ProjectTask, 'status'>, locked = false) {
+  return !locked && task.status !== 'done'
+}
+
+/** A project stops taking work when its professor closes it, not when it is due. */
+export function isProjectLocked(project: Pick<ProjectRow, 'locked_at'> | null | undefined) {
+  return Boolean(project?.locked_at)
 }
 
 /* ----------------------------------------------------------------- messages */

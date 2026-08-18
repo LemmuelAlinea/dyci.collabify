@@ -21,6 +21,7 @@ import {
   projectFileUrl,
   releaseNow,
   setProjectArchived,
+  setProjectLocked,
   uploadProjectFile,
 } from '../../../lib/api/projects'
 import type { CriterionInput } from '../../../lib/api/projects'
@@ -185,6 +186,25 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                   Publish now
                 </Button>
               )}
+              {/* Separate from the deadline on purpose: closing stops the work
+                  without rewriting when it was due, and reopening is how an
+                  extension is granted. */}
+              <Button
+                variant="onNavy"
+                size="sm"
+                onClick={async () => {
+                  await setProjectLocked(project.id, !project.locked_at)
+                  show(
+                    project.locked_at
+                      ? 'Project reopened — students can work on it again'
+                      : 'Project closed — students can no longer change their tasks',
+                  )
+                  await load()
+                }}
+              >
+                <Icon name={project.locked_at ? 'unlock' : 'lock'} size={15} />
+                {project.locked_at ? 'Reopen' : 'Close'}
+              </Button>
               <Button
                 variant="onNavy"
                 size="sm"

@@ -56,6 +56,9 @@ export function TaskCard({
   const next = NEXT[task.status]
   const due = dueSoonLabel(task.due_at)
   const overdue = due === 'Overdue' && task.status !== 'done'
+  // Handed in, but after the deadline. The chip says it better than the due
+  // label would, so it stands in place of it rather than beside it.
+  const handedInLate = task.late && task.status === 'done'
   const yours = viewerId ? isMine(task, viewerId) : false
   // Shared work splits evenly, so the card shows what one person walks away with.
   const perPerson = Math.round((share / Math.max(1, task.assignees.length)) * 10) / 10
@@ -144,7 +147,16 @@ export function TaskCard({
           </span>
         ) : null}
 
-        {due && (
+        {handedInLate && (
+          <span
+            title="Finished after the deadline"
+            className="rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[10.5px] text-red-700 dark:text-red-300"
+          >
+            Late
+          </span>
+        )}
+
+        {due && !handedInLate && (
           <span
             className={`flex items-center gap-1 font-mono text-[11.5px] ${
               overdue ? 'text-red-600 dark:text-red-400' : 'text-faint'

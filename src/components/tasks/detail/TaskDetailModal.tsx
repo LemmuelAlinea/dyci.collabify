@@ -19,6 +19,8 @@ export function TaskDetailModal({
   role,
   /** Total weight on the board, so the share can be shown honestly. */
   boardWeight,
+  /** The project is closed: the board still reads, nothing writes. */
+  locked = false,
   onChanged,
 }: {
   taskId: string | null
@@ -26,6 +28,7 @@ export function TaskDetailModal({
   viewerId: string | undefined
   role: Role
   boardWeight: number
+  locked?: boolean
   onChanged: () => Promise<void> | void
 }) {
   const { show } = useToast()
@@ -66,6 +69,7 @@ export function TaskDetailModal({
           viewerId={viewerId}
           role={role}
           boardWeight={boardWeight}
+          locked={locked}
           onStatus={(status) => void move(status)}
           onChanged={reload}
         />

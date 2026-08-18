@@ -187,7 +187,8 @@ export function GroupWork({
                   <ul className="divide-y divide-[var(--line)]">
                     {list.map((t) => {
                       const due = dueSoonLabel(t.due_at)
-                      const late = due === 'Overdue' && t.status !== 'done'
+                      const overdue = due === 'Overdue' && t.status !== 'done'
+                      const handedInLate = t.late && t.status === 'done'
                       return (
                         <li key={t.id}>
                           <button
@@ -224,10 +225,19 @@ export function GroupWork({
                               )}
                             </span>
 
-                            {due && (
+                            {handedInLate && (
+                              <span
+                                title="Finished after the deadline"
+                                className="shrink-0 rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[10.5px] text-red-700 dark:text-red-300"
+                              >
+                                Late
+                              </span>
+                            )}
+
+                            {due && !handedInLate && (
                               <span
                                 className={`shrink-0 font-mono text-[11.5px] ${
-                                  late ? 'text-red-600 dark:text-red-400' : 'text-faint'
+                                  overdue ? 'text-red-600 dark:text-red-400' : 'text-faint'
                                 }`}
                               >
                                 {due}

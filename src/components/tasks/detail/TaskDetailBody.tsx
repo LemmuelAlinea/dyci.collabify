@@ -28,6 +28,7 @@ export function TaskDetailBody({
   viewerId,
   role,
   boardWeight,
+  locked = false,
   onStatus,
   onChanged,
 }: {
@@ -39,6 +40,8 @@ export function TaskDetailBody({
   viewerId: string | undefined
   role: Role
   boardWeight: number
+  /** The project is closed, so nothing on the task may change. */
+  locked?: boolean
   onStatus: (status: TaskStatus) => void
   onChanged: () => Promise<void> | void
 }) {
@@ -73,6 +76,7 @@ export function TaskDetailBody({
           task={task}
           files={files}
           isAssignee={yours}
+          locked={locked}
           onChanged={onChanged}
         />
 

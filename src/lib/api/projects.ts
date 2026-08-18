@@ -88,6 +88,19 @@ export async function setProjectArchived(id: string, archived: boolean) {
   if (error) throw error
 }
 
+/**
+ * Closes a project to further work, or reopens it. Deliberately separate from
+ * the deadline: a passed due_at marks work late but still accepts it, and an
+ * extension granted this way leaves the record of when it was due intact.
+ */
+export async function setProjectLocked(id: string, locked: boolean) {
+  const { error } = await supabase
+    .from('projects')
+    .update({ locked_at: locked ? new Date().toISOString() : null })
+    .eq('id', id)
+  if (error) throw error
+}
+
 /** Publishes a scheduled project immediately, which also sends the notifications. */
 export async function releaseNow(id: string) {
   const { error } = await supabase.from('projects').update({ release_at: null }).eq('id', id)
