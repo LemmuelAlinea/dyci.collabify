@@ -2,7 +2,15 @@ import { useState } from 'react'
 import { Avatar } from '../../app/Avatar'
 import { Icon } from '../../ui/Icon'
 import { CommentList } from './CommentList'
-import type { Role, TaskComment, TaskEvent, TaskEventKind } from '../../../lib/types'
+import { WorkLogList } from './WorkLogList'
+import type {
+  Role,
+  TaskComment,
+  TaskDetail,
+  TaskEvent,
+  TaskEventKind,
+  WorkLogEntry,
+} from '../../../lib/types'
 
 const WORDING: Record<TaskEventKind, string> = {
   created: 'created it',
@@ -19,12 +27,13 @@ const WORDING: Record<TaskEventKind, string> = {
   file_removed: 'removed a file',
 }
 
-type TabId = 'all' | 'comments' | 'history'
+type TabId = 'all' | 'comments' | 'history' | 'worklog'
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'comments', label: 'Comments' },
   { id: 'history', label: 'History' },
+  { id: 'worklog', label: 'Work log' },
 ]
 
 function stamp(iso: string) {
@@ -118,20 +127,24 @@ function AllList({ comments, events }: { comments: TaskComment[]; events: TaskEv
 }
 
 export function TaskActivity({
-  taskId,
+  task,
   comments,
   events,
+  worklog,
   viewerId,
   role,
   canPost,
+  isAssignee,
   onChanged,
 }: {
-  taskId: string
+  task: TaskDetail
   comments: TaskComment[]
   events: TaskEvent[]
+  worklog: WorkLogEntry[]
   viewerId: string | undefined
   role: Role
   canPost: boolean
+  isAssignee: boolean
   onChanged: () => Promise<void> | void
 }) {
   const [tab, setTab] = useState<TabId>('comments')
@@ -166,7 +179,7 @@ export function TaskActivity({
 
       {tab === 'comments' && (
         <CommentList
-          taskId={taskId}
+          taskId={task.id}
           comments={comments}
           viewerId={viewerId}
           role={role}
@@ -176,6 +189,15 @@ export function TaskActivity({
       )}
       {tab === 'history' && <HistoryList events={events} />}
       {tab === 'all' && <AllList comments={comments} events={events} />}
+      {tab === 'worklog' && (
+        <WorkLogList
+          task={task}
+          entries={worklog}
+          viewerId={viewerId}
+          isAssignee={isAssignee}
+          onChanged={onChanged}
+        />
+      )}
     </section>
   )
 }

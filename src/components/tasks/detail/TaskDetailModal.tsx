@@ -29,7 +29,8 @@ export function TaskDetailModal({
   onChanged: () => Promise<void> | void
 }) {
   const { show } = useToast()
-  const { task, comments, events, loading, error, reload } = useTaskDetail(taskId)
+  const { task, comments, events, files, worklog, loading, error, reload } =
+    useTaskDetail(taskId)
 
   async function move(status: TaskStatus) {
     if (!task) return
@@ -60,6 +61,8 @@ export function TaskDetailModal({
           task={task}
           comments={comments}
           events={events}
+          files={files}
+          worklog={worklog}
           viewerId={viewerId}
           role={role}
           boardWeight={boardWeight}

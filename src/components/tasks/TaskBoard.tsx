@@ -193,6 +193,7 @@ export function TaskBoard({
                         )
                       }
                       onOpen={() => showTask(task.id)}
+                      counts={task as unknown as { file_count: number; comment_count: number }}
                     />
                   ))
                 )}

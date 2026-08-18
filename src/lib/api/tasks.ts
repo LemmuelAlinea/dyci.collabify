@@ -85,8 +85,11 @@ export async function boardProgressFor(projectIds: string[]) {
 /* ----------------------------------------------------------------- tasks */
 
 export async function listTasks(boardId: string) {
+  // Read through the detail view rather than the table: it carries the same
+  // columns plus the file and comment counts, so a card can show them without
+  // a query each.
   const { data, error } = await supabase
-    .from('project_tasks')
+    .from('task_detail_overview')
     .select('*')
     .eq('board_id', boardId)
     .order('position')

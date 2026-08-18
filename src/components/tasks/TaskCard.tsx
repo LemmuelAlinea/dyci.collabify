@@ -29,6 +29,7 @@ export function TaskCard({
   onClaim,
   onRelease,
   onOpen,
+  counts,
 }: {
   task: ProjectTask
   /** This task's slice of the board's 100. */
@@ -46,6 +47,8 @@ export function TaskCard({
   onRelease: (studentId: string) => Promise<void> | void
   /** Opens the detail view. */
   onOpen: () => void
+  /** Files and comments hanging off it, when the board has loaded them. */
+  counts?: { file_count: number; comment_count: number }
 }) {
   const next = NEXT[task.status]
   const due = dueSoonLabel(task.due_at)
@@ -112,6 +115,23 @@ export function TaskCard({
           onClaim={onClaim}
           onRelease={onRelease}
         />
+
+        {(counts?.file_count ?? 0) > 0 || (counts?.comment_count ?? 0) > 0 ? (
+          <span className="flex items-center gap-2.5 text-[11.5px] text-faint">
+            {(counts?.file_count ?? 0) > 0 && (
+              <span className="flex items-center gap-1" title="Files attached">
+                <Icon name="file" size={12} />
+                {counts?.file_count}
+              </span>
+            )}
+            {(counts?.comment_count ?? 0) > 0 && (
+              <span className="flex items-center gap-1" title="Comments">
+                <Icon name="message" size={12} />
+                {counts?.comment_count}
+              </span>
+            )}
+          </span>
+        ) : null}
 
         {due && (
           <span

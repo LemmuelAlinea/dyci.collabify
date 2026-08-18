@@ -2,8 +2,17 @@ import { Icon } from '../../ui/Icon'
 import { Select } from '../../ui/Select'
 import { TaskActivity } from './TaskActivity'
 import { TaskDetailPanel } from './TaskDetailPanel'
+import { TaskFileGrid } from './TaskFileGrid'
 import { TASK_STATUSES, isMine, taskShare } from '../../../lib/types'
-import type { Role, TaskComment, TaskDetail, TaskEvent, TaskStatus } from '../../../lib/types'
+import type {
+  Role,
+  TaskComment,
+  TaskDetail,
+  TaskEvent,
+  TaskFile,
+  TaskStatus,
+  WorkLogEntry,
+} from '../../../lib/types'
 
 /**
  * The layout, with no data fetching in it: the modal owns the loading, this
@@ -14,6 +23,8 @@ export function TaskDetailBody({
   task,
   comments,
   events,
+  files,
+  worklog,
   viewerId,
   role,
   boardWeight,
@@ -23,6 +34,8 @@ export function TaskDetailBody({
   task: TaskDetail
   comments: TaskComment[]
   events: TaskEvent[]
+  files: TaskFile[]
+  worklog: WorkLogEntry[]
   viewerId: string | undefined
   role: Role
   boardWeight: number
@@ -54,13 +67,22 @@ export function TaskDetailBody({
           )}
         </section>
 
+        <TaskFileGrid
+          task={task}
+          files={files}
+          isAssignee={yours}
+          onChanged={onChanged}
+        />
+
         <TaskActivity
-          taskId={task.id}
+          task={task}
           comments={comments}
           events={events}
+          worklog={worklog}
           viewerId={viewerId}
           role={role}
           canPost={onBoard}
+          isAssignee={yours}
           onChanged={onChanged}
         />
       </div>

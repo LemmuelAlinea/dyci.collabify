@@ -3,30 +3,44 @@ import {
   getTaskDetail,
   listComments,
   listEvents,
+  listFiles,
+  listWorkLog,
   subscribeToTask,
 } from '../lib/api/taskDetail'
 import { authErrorMessage } from '../lib/authError'
-import type { TaskComment, TaskDetail, TaskEvent } from '../lib/types'
+import type {
+  TaskComment,
+  TaskDetail,
+  TaskEvent,
+  TaskFile,
+  WorkLogEntry,
+} from '../lib/types'
 
 /** One task and everything hanging off it, kept live while the modal is open. */
 export function useTaskDetail(taskId: string | null) {
   const [task, setTask] = useState<TaskDetail | null>(null)
   const [comments, setComments] = useState<TaskComment[]>([])
   const [events, setEvents] = useState<TaskEvent[]>([])
+  const [files, setFiles] = useState<TaskFile[]>([])
+  const [worklog, setWorklog] = useState<WorkLogEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!taskId) return
     try {
-      const [detail, said, done] = await Promise.all([
+      const [detail, said, done, attached, logged] = await Promise.all([
         getTaskDetail(taskId),
         listComments(taskId),
         listEvents(taskId),
+        listFiles(taskId),
+        listWorkLog(taskId),
       ])
       setTask(detail)
       setComments(said)
       setEvents(done)
+      setFiles(attached)
+      setWorklog(logged)
       setError(detail ? null : 'That task is not available to you.')
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load that task.'))
@@ -40,6 +54,8 @@ export function useTaskDetail(taskId: string | null) {
       setTask(null)
       setComments([])
       setEvents([])
+      setFiles([])
+      setWorklog([])
       return
     }
     setLoading(true)
@@ -51,5 +67,5 @@ export function useTaskDetail(taskId: string | null) {
     return subscribeToTask(taskId, () => void load())
   }, [taskId, load])
 
-  return { task, comments, events, loading, error, reload: load }
+  return { task, comments, events, files, worklog, loading, error, reload: load }
 }
