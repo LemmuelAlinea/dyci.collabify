@@ -11,6 +11,8 @@ import { EmptyState } from '../../../components/ui/Tabs'
 import { useToast } from '../../../components/ui/Toast'
 import { CapacityPill } from '../../../components/groups/GroupCard'
 import { GroupWork } from '../../../components/groups/GroupWork'
+import { groupMemberLoad } from '../../../lib/api/groupWork'
+import type { GroupMemberLoad } from '../../../lib/api/groupWork'
 import { useAuth } from '../../../context/AuthContext'
 import { getClass, listMembers } from '../../../lib/api/classes'
 import {
@@ -31,6 +33,28 @@ import { authErrorMessage } from '../../../lib/authError'
 import { fullName, modeLabel } from '../../../lib/types'
 import type { ClassMember, ClassSummary, GroupMember, GroupSummary } from '../../../lib/types'
 
+/** Finished over held, across every project this group has. */
+function MemberLoadBar({ load }: { load?: GroupMemberLoad }) {
+  if (!load || load.task_count === 0) {
+    return <p className="mt-1 text-[12px] text-faint">No tasks claimed yet</p>
+  }
+  const pct = load.personal_pct ?? 0
+  return (
+    <div className="mt-1.5 flex items-center gap-2.5">
+      <span className="h-1.5 max-w-[220px] flex-1 overflow-hidden rounded-full surface-sunken">
+        <span
+          className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+      <span className="shrink-0 font-mono text-[11.5px] text-muted">
+        {load.done_count}/{load.task_count}
+      </span>
+      <span className="shrink-0 font-mono text-[12.5px] text-ink">{pct}%</span>
+    </div>
+  )
+}
+
 export default function GroupDetail({ role }: { role: 'professor' | 'student' }) {
   const { groupId = '' } = useParams()
   const { profile } = useAuth()
@@ -45,6 +69,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
   const [setMembersAll, setSetMembersAll] = useState<GroupMember[]>([])
   const [cls, setCls] = useState<ClassSummary | null>(null)
   const [roster, setRoster] = useState<ClassMember[]>([])
+  const [load_, setLoad] = useState(new Map<string, GroupMemberLoad>())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -98,6 +123,14 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
   useEffect(() => {
     void load()
   }, [load])
+
+  // How far each member has got across every project this group has.
+  useEffect(() => {
+    if (!groupId) return
+    void groupMemberLoad(groupId)
+      .then(setLoad)
+      .catch(() => setLoad(new Map()))
+  }, [groupId])
 
   useEffect(() => {
     if (group) document.title = `${group.name} · Collabify`
@@ -367,10 +400,11 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                   <p className="truncate text-[14.5px] font-medium text-ink">
                     {m.profile.last_name}, {m.profile.first_name}
                     {m.profile.middle_name ? ` ${m.profile.middle_name[0]}.` : ''}
+                    {m.student_id === profile?.id && (
+                      <span className="ml-1.5 text-[12px] text-faint">you</span>
+                    )}
                   </p>
-                  {m.student_id === profile?.id && (
-                    <p className="text-[12px] text-faint">You</p>
-                  )}
+                  <MemberLoadBar load={load_.get(m.student_id)} />
                 </div>
 
                 {canManage && (

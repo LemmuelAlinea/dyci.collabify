@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Avatar } from '../app/Avatar'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
 import { EmptyState } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
+import { START_DM_MESSAGE, startDirectConversation } from '../../lib/api/messages'
 import { authErrorMessage } from '../../lib/authError'
 import { fullName } from '../../lib/types'
 import type { ClassMember } from '../../lib/types'
@@ -17,6 +19,8 @@ type Props = {
   onRemove?: (member: ClassMember) => Promise<void>
   onUnblock?: (member: ClassMember) => Promise<void>
   emptyBody: string
+  /** Professors only: open a direct thread from the roster. */
+  canMessage?: boolean
 }
 
 export function RosterTable({
@@ -26,9 +30,29 @@ export function RosterTable({
   onRemove,
   onUnblock,
   emptyBody,
+  canMessage = false,
 }: Props) {
   const { show } = useToast()
+  const navigate = useNavigate()
   const [pendingRemove, setPendingRemove] = useState<ClassMember | null>(null)
+  const [opening, setOpening] = useState<string | null>(null)
+
+  /** Finds the thread or makes it, then lands on it ready to type. */
+  async function message(member: ClassMember) {
+    setOpening(member.student_id)
+    try {
+      const res = await startDirectConversation(member.student_id)
+      if (res.result !== 'ok' || !res.conversation_id) {
+        show(START_DM_MESSAGE[res.result as keyof typeof START_DM_MESSAGE], 'error')
+        return
+      }
+      navigate(`/professor/messages/${res.conversation_id}`)
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not open that conversation.'), 'error')
+    } finally {
+      setOpening(null)
+    }
+  }
 
   const active = members.filter((m) => m.status === 'active')
   const removed = members.filter((m) => m.status === 'removed')
@@ -53,6 +77,18 @@ export function RosterTable({
               </p>
               {showEmail && <p className="truncate text-[12.5px] text-faint">{m.profile.email}</p>}
             </div>
+            {canMessage && (
+              <button
+                type="button"
+                onClick={() => void message(m)}
+                disabled={opening === m.student_id}
+                aria-label={`Message ${fullName(m.profile)}`}
+                title="Send a direct message"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-navy-600 disabled:opacity-50 dark:hover:text-navy-200"
+              >
+                <Icon name="message" size={17} />
+              </button>
+            )}
             {canManage && (
               <button
                 type="button"
