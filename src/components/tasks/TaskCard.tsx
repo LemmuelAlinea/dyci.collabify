@@ -28,7 +28,7 @@ export function TaskCard({
   onDelete,
   onClaim,
   onRelease,
-  onTrail,
+  onOpen,
 }: {
   task: ProjectTask
   /** This task's slice of the board's 100. */
@@ -44,7 +44,8 @@ export function TaskCard({
   onDelete: () => void
   onClaim: (studentId: string) => Promise<void> | void
   onRelease: (studentId: string) => Promise<void> | void
-  onTrail: () => void
+  /** Opens the detail view. */
+  onOpen: () => void
 }) {
   const next = NEXT[task.status]
   const due = dueSoonLabel(task.due_at)
@@ -62,13 +63,15 @@ export function TaskCard({
       }`}
     >
       <div className="flex items-start justify-between gap-2">
-        <h4
-          className={`min-w-0 text-[14.5px] leading-snug font-medium ${
+        <button
+          type="button"
+          onClick={onOpen}
+          className={`min-w-0 text-left text-[14.5px] leading-snug font-medium hover:underline ${
             task.status === 'done' ? 'text-muted line-through' : 'text-ink'
           }`}
         >
           {task.title}
-        </h4>
+        </button>
         <div className="flex shrink-0 items-center gap-1">
           <span
             title="Worth this much of the project"
@@ -141,11 +144,11 @@ export function TaskCard({
         <div className="flex items-center gap-0.5">
           <button
             type="button"
-            onClick={onTrail}
-            aria-label="History"
+            onClick={onOpen}
+            aria-label={`Open ${task.title}`}
             className="grid h-7 w-7 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
           >
-            <Icon name="clock" size={14} />
+            <Icon name="arrowRight" size={14} />
           </button>
           {editable && (
             <>

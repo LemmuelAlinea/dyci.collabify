@@ -9,10 +9,15 @@ type Props = {
   description?: string
   children: ReactNode
   footer?: ReactNode
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
-const WIDTHS = { sm: 'max-w-[420px]', md: 'max-w-[560px]', lg: 'max-w-[720px]' }
+const WIDTHS = {
+  sm: 'max-w-[420px]',
+  md: 'max-w-[560px]',
+  lg: 'max-w-[720px]',
+  xl: 'max-w-[960px]',
+}
 
 export function Modal({ open, onClose, title, description, children, footer, size = 'md' }: Props) {
   const panel = useRef<HTMLDivElement>(null)

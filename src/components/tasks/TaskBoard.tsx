@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Alert } from '../ui/Field'
@@ -8,7 +9,7 @@ import { EmptyState } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
 import { TaskCard } from './TaskCard'
 import { TaskForm } from './TaskForm'
-import { TaskTrail } from './TaskTrail'
+import { TaskDetailModal } from './detail/TaskDetailModal'
 import {
   addTask,
   claimTask,
@@ -57,10 +58,19 @@ export function TaskBoard({
   onChanged: () => Promise<void> | void
 }) {
   const { show } = useToast()
+  // The open task lives in the URL, so a task can be linked and reloaded into.
+  const [params, setParams] = useSearchParams()
+  const openTask = params.get('task')
+
+  function showTask(id: string | null) {
+    const next = new URLSearchParams(params)
+    if (id) next.set('task', id)
+    else next.delete('task')
+    setParams(next, { replace: !id })
+  }
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<ProjectTask | null>(null)
   const [deleting, setDeleting] = useState<ProjectTask | null>(null)
-  const [trail, setTrail] = useState<ProjectTask | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -182,7 +192,7 @@ export function TaskBoard({
                           'Could not hand that task back.',
                         )
                       }
-                      onTrail={() => setTrail(task)}
+                      onOpen={() => showTask(task.id)}
                     />
                   ))
                 )}
@@ -253,7 +263,14 @@ export function TaskBoard({
         confirmLabel="Delete task"
       />
 
-      <TaskTrail task={trail} onClose={() => setTrail(null)} />
+      <TaskDetailModal
+        taskId={openTask}
+        onClose={() => showTask(null)}
+        viewerId={viewerId}
+        role={role}
+        boardWeight={totalWeight}
+        onChanged={onChanged}
+      />
     </div>
   )
 }

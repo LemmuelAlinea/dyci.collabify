@@ -586,6 +586,10 @@ export type TaskEventKind =
   | 'started'
   | 'finished'
   | 'reopened'
+  | 'commented'
+  | 'logged'
+  | 'file_added'
+  | 'file_removed'
 
 /** Where work happens: one group's board, or one student's for a solo project. */
 export type ProjectBoard = {
@@ -728,6 +732,64 @@ export function dueSoonLabel(iso: string | null) {
   if (days === 1) return 'Due tomorrow'
   if (days <= 7) return `Due in ${days} days`
   return `Due ${new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+}
+
+
+export type TaskComment = {
+  id: string
+  task_id: string
+  author_id: string | null
+  body: string
+  edited_at: string | null
+  created_at: string
+  author?: Pick<Profile, 'id' | 'first_name' | 'middle_name' | 'last_name' | 'avatar_url'>
+}
+
+export type TaskFile = {
+  id: string
+  task_id: string
+  uploaded_by: string | null
+  file_path: string
+  file_name: string
+  mime_type: string | null
+  size_bytes: number
+  created_at: string
+  uploader?: Pick<Profile, 'id' | 'first_name' | 'middle_name' | 'last_name' | 'avatar_url'>
+}
+
+export type WorkLogEntry = {
+  id: string
+  task_id: string
+  student_id: string
+  minutes: number
+  note: string
+  worked_on: string
+  created_at: string
+  student?: Pick<Profile, 'id' | 'first_name' | 'middle_name' | 'last_name' | 'avatar_url'>
+}
+
+/** task_detail_overview: the task plus what hangs off it. */
+export type TaskDetail = ProjectTask & {
+  project_id: string
+  group_id: string | null
+  comment_count: number
+  file_count: number
+  logged_minutes: number
+  creator_name: string | null
+}
+
+/** Minutes as people say them: 90 reads "1h 30m". */
+export function formatMinutes(minutes: number) {
+  if (minutes <= 0) return '0m'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (!h) return `${m}m`
+  return m ? `${h}h ${m}m` : `${h}h`
+}
+
+/** The deliverable is still being made while the task runs; it locks when done. */
+export function canChangeFiles(task: Pick<ProjectTask, 'status'>) {
+  return task.status !== 'done'
 }
 
 /* ----------------------------------------------------------------- messages */
