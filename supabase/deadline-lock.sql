@@ -357,6 +357,30 @@ select p.*,
 
 grant select on public.project_overview to authenticated;
 
+-- task_detail_overview is `select t.*` and has the same frozen star, so it is
+-- missing `late` for the same reason. Nothing reads it yet, but TaskDetail
+-- declares the field — leaving it out means the type promises a boolean and
+-- hands back undefined.
+drop view if exists public.task_detail_overview;
+
+create view public.task_detail_overview
+with (security_invoker = true) as
+select t.*,
+       b.project_id,
+       b.group_id,
+       (select count(*) from public.task_comments c where c.task_id = t.id)::int
+         as comment_count,
+       (select count(*) from public.task_files f where f.task_id = t.id)::int
+         as file_count,
+       (select coalesce(sum(w.minutes), 0) from public.task_worklog w where w.task_id = t.id)::int
+         as logged_minutes,
+       p.first_name || ' ' || p.last_name as creator_name
+  from public.project_tasks t
+  join public.project_boards b on b.id = t.board_id
+  left join public.profiles p on p.id = t.created_by;
+
+grant select on public.task_detail_overview to authenticated;
+
 drop view if exists public.task_board_overview;
 
 create view public.task_board_overview
