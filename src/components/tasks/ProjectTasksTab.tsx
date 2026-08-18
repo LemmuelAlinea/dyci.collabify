@@ -385,7 +385,7 @@ export function ProjectTasksTab({
 
       <section className="space-y-3">
         <h3 className="text-[16px]">Where the groups are</h3>
-        <GroupProgressTable boards={boards} onOpen={setOpen} />
+        <GroupProgressTable boards={boards} activeId={active?.id} onOpen={setOpen} />
       </section>
 
       <section className="space-y-3">
