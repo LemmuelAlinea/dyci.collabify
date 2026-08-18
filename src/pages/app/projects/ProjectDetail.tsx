@@ -226,6 +226,14 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13.5px] text-white/80">
+          {/* Says the state wherever you are on the page — the Close button
+              alone only reads as the state once you look at its label. */}
+          {project.locked_at && (
+            <span className="flex items-center gap-1.5 rounded-lg bg-amber-400/20 px-2.5 py-1 font-mono text-[12px] text-amber-200">
+              <Icon name="lock" size={14} />
+              CLOSED
+            </span>
+          )}
           <span className="flex items-center gap-1.5">
             <Icon name="clock" size={15} />
             {dueLabel(project.due_at)}

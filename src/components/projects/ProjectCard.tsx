@@ -15,7 +15,7 @@ export function dueLabel(iso: string | null) {
     hour: 'numeric',
     minute: '2-digit',
   })
-  if (days < 0) return `Closed ${stamp}`
+  if (days < 0) return `Was due ${stamp}`
   if (days === 0) return `Due today · ${stamp}`
   if (days === 1) return `Due tomorrow · ${stamp}`
   if (days <= 14) return `Due in ${days} days · ${stamp}`
@@ -27,6 +27,15 @@ export function StatusPill({ project }: { project: ProjectSummary }) {
     return (
       <span className="shrink-0 rounded-lg surface-sunken px-2 py-1 font-mono text-[11px] text-muted">
         Archived
+      </span>
+    )
+  }
+  // Shut by the professor — which is not the same as being past its deadline.
+  if (project.locked_at) {
+    return (
+      <span className="flex shrink-0 items-center gap-1 rounded-lg bg-navy-50 px-2 py-1 font-mono text-[11px] text-navy-700 dark:bg-navy-500/18 dark:text-navy-100">
+        <Icon name="lock" size={12} />
+        Closed
       </span>
     )
   }

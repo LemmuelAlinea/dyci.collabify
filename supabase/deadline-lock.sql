@@ -322,6 +322,41 @@ create policy task_worklog_write on public.task_worklog
 
 -- ---------------------------------------------------------------- views
 
+/**
+ * project_overview is `select p.*`, but Postgres expands the star when the view
+ * is created and then freezes it. Adding locked_at to the table above does not
+ * reach a view that already exists, so every page reading this view sees the
+ * column as missing — the enforcement works while the UI cannot tell that a
+ * project is closed. It has to be dropped and rebuilt, not replaced.
+ */
+drop view if exists public.project_overview;
+
+create view public.project_overview
+with (security_invoker = true) as
+select p.*,
+       c.name    as class_name,
+       c.initial as class_initial,
+       s.name    as group_set_name,
+       (select count(*) from public.project_criteria x where x.project_id = p.id)::int
+         as criteria_count,
+       (select coalesce(sum(x.max_points), 0) from public.project_criteria x
+         where x.project_id = p.id)::int as criteria_points,
+       (select count(*) from public.project_attachments a where a.project_id = p.id)::int
+         as attachment_count,
+       (p.release_at is not null and p.release_at > now()) as scheduled,
+       (select w.title from public.syllabus_weeks w
+         where w.resource_id = c.syllabus_id and w.week_no = p.start_week) as start_week_title,
+       (select string_agg(w.assessments, ' · ' order by w.week_no)
+          from public.syllabus_weeks w
+         where w.resource_id = c.syllabus_id
+           and w.week_no between p.start_week and p.end_week
+           and w.assessments <> '') as week_assessments
+  from public.projects p
+  join public.classes c on c.id = p.class_id
+  left join public.group_sets s on s.id = p.group_set_id;
+
+grant select on public.project_overview to authenticated;
+
 drop view if exists public.task_board_overview;
 
 create view public.task_board_overview
