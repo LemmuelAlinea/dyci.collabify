@@ -23,7 +23,7 @@ import {
   listMembers,
   removeMember,
   setArchived,
-  unblockMember,
+  restoreMember,
   updateClass,
 } from '../../../lib/api/classes'
 import type { ClassInput } from '../../../lib/api/classes'
@@ -212,9 +212,10 @@ export default function ProfessorClassDetail() {
               await removeMember(classId, m.student_id, profile.id)
               await load()
             }}
-            onUnblock={async (m) => {
-              await unblockMember(classId, m.student_id)
+            onRestore={async (m) => {
+              const res = await restoreMember(classId, m.student_id)
               await load()
+              return res
             }}
           />
         )}

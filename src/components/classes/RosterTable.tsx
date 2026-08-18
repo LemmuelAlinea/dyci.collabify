@@ -17,7 +17,8 @@ type Props = {
   canManage: boolean
   showEmail: boolean
   onRemove?: (member: ClassMember) => Promise<void>
-  onUnblock?: (member: ClassMember) => Promise<void>
+  /** Puts them back with what they held. Returns what came back. */
+  onRestore?: (member: ClassMember) => Promise<{ groups?: number; tasks?: number } | void>
   emptyBody: string
   /** Professors only: open a direct thread from the roster. */
   canMessage?: boolean
@@ -28,7 +29,7 @@ export function RosterTable({
   canManage,
   showEmail,
   onRemove,
-  onUnblock,
+  onRestore,
   emptyBody,
   canMessage = false,
 }: Props) {
@@ -36,6 +37,7 @@ export function RosterTable({
   const navigate = useNavigate()
   const [pendingRemove, setPendingRemove] = useState<ClassMember | null>(null)
   const [opening, setOpening] = useState<string | null>(null)
+  const [restoring, setRestoring] = useState<string | null>(null)
 
   /** Finds the thread or makes it, then lands on it ready to type. */
   async function message(member: ClassMember) {
@@ -105,7 +107,14 @@ export function RosterTable({
 
       {canManage && removed.length > 0 && (
         <div>
-          <p className="eyebrow mb-2 text-faint">Removed · blocked from rejoining</p>
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <p className="eyebrow text-faint">
+              Removed · {removed.length} {removed.length === 1 ? 'student' : 'students'}
+            </p>
+            <p className="text-[12px] text-faint">
+              Their group and their claimed tasks are kept, and come back with them.
+            </p>
+          </div>
           <ol className="surface divide-y divide-[var(--line)] rounded-card border border-line">
             {removed.map((m) => (
               <li key={m.student_id} className="flex items-center gap-4 px-5 py-3.5">
@@ -124,16 +133,31 @@ export function RosterTable({
                   variant="outline"
                   size="sm"
                   className="!rounded-lg"
+                  loading={restoring === m.student_id}
                   onClick={async () => {
+                    setRestoring(m.student_id)
                     try {
-                      await onUnblock?.(m)
-                      show(`${m.profile.first_name} can join again`)
+                      const back = await onRestore?.(m)
+                      const bits = [
+                        back?.groups ? `${back.groups} group` : '',
+                        back?.tasks
+                          ? `${back.tasks} ${back.tasks === 1 ? 'task' : 'tasks'}`
+                          : '',
+                      ].filter(Boolean)
+                      show(
+                        bits.length
+                          ? `${m.profile.first_name} is back, with ${bits.join(' and ')}`
+                          : `${m.profile.first_name} is back in the class`,
+                      )
                     } catch (err) {
-                      show(authErrorMessage(err, 'Could not undo that.'), 'error')
+                      show(authErrorMessage(err, 'Could not put them back.'), 'error')
+                    } finally {
+                      setRestoring(null)
                     }
                   }}
                 >
-                  Allow rejoining
+                  <Icon name="refresh" size={15} />
+                  Put back
                 </Button>
               </li>
             ))}
@@ -155,8 +179,9 @@ export function RosterTable({
             <strong className="text-ink">
               {pendingRemove ? fullName(pendingRemove.profile) : ''}
             </strong>{' '}
-            loses access to this class and cannot rejoin with the code. You can undo this from
-            the removed list afterwards.
+            loses access to this class and cannot rejoin with the code. Their group and the
+            tasks they had claimed are set aside, not destroyed — putting them back from the
+            removed list below returns both.
           </>
         }
         confirmLabel="Remove student"

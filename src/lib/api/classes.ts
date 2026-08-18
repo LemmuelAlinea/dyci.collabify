@@ -149,13 +149,32 @@ export async function removeMember(classId: string, studentId: string, byProfess
 }
 
 /** Dropping the row clears the block, so the student can use the code again. */
-export async function unblockMember(classId: string, studentId: string) {
-  const { error } = await supabase
-    .from('class_members')
-    .delete()
-    .eq('class_id', classId)
-    .eq('student_id', studentId)
+/**
+ * Puts a removed student back with what they had. Their group placement and
+ * task claims were archived on removal, so this is a replay rather than a
+ * fresh join — anything since deleted or filled is simply skipped.
+ */
+export async function restoreMember(classId: string, studentId: string) {
+  const { data, error } = await supabase.rpc('restore_class_member', {
+    p_class: classId,
+    p_student: studentId,
+  })
   if (error) throw error
+  return data as {
+    result: 'restored' | 'not_allowed' | 'not_removed'
+    groups?: number
+    tasks?: number
+  }
+}
+
+/** What a restore would bring back, so the professor knows before they press. */
+export async function archivedMemberSummary(classId: string, studentId: string) {
+  const { data, error } = await supabase.rpc('archived_member_summary', {
+    p_class: classId,
+    p_student: studentId,
+  })
+  if (error) throw error
+  return data as { groups: number; tasks: number }
 }
 
 export async function joinClass(code: string) {
