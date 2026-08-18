@@ -377,6 +377,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
             <div className="mt-4">
               <FileDrop
                 file={null}
+                compact={files.length > 0}
                 maxSize={20}
                 accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.png,.jpg,.jpeg"
                 hint="PDF, Word, Excel, PowerPoint, or an image. Up to 20 MB."

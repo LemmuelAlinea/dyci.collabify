@@ -15,6 +15,8 @@ type Props = {
   /** Megabytes. */
   maxSize?: number
   hint?: string
+  /** A slim row rather than a drop zone — for when files are already listed. */
+  compact?: boolean
 }
 
 export function FileDrop({
@@ -23,6 +25,7 @@ export function FileDrop({
   accept = '.pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg',
   maxSize = 10,
   hint,
+  compact = false,
 }: Props) {
   const input = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
@@ -67,17 +70,52 @@ export function FileDrop({
     )
   }
 
+  const dragProps = {
+    onDragOver: (e: DragEvent) => {
+      e.preventDefault()
+      setOver(true)
+    },
+    onDragLeave: () => setOver(false),
+    onDrop,
+  }
+
+  // Once something is already listed above, a full drop zone is just a hole in
+  // the page. The slim row still takes a drop.
+  if (compact) {
+    return (
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => input.current?.click()}
+          {...dragProps}
+          className={`flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-2.5 text-[13px] transition-colors duration-200 ${
+            over
+              ? 'border-navy-400 bg-navy-50 dark:bg-navy-500/12'
+              : 'border-line-strong text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
+          }`}
+        >
+          <Icon name="plus" size={15} />
+          Add another file
+          <span className="text-[11.5px] text-faint">· up to {maxSize} MB</span>
+        </button>
+        <input
+          ref={input}
+          type="file"
+          accept={accept}
+          className="hidden"
+          onChange={(e) => take(e.target.files?.[0])}
+        />
+        {error && <p className="text-[12.5px] text-red-600 dark:text-red-400">{error}</p>}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
       <button
         type="button"
         onClick={() => input.current?.click()}
-        onDragOver={(e) => {
-          e.preventDefault()
-          setOver(true)
-        }}
-        onDragLeave={() => setOver(false)}
-        onDrop={onDrop}
+        {...dragProps}
         className={`flex w-full flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-9 transition-colors duration-200 ${
           over
             ? 'border-navy-400 bg-navy-50 dark:bg-navy-500/12'

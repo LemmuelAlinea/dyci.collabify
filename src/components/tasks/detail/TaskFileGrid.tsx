@@ -68,6 +68,7 @@ export function TaskFileGrid({
         <div className="space-y-2">
           <FileDrop
             file={null}
+            compact={files.length > 0}
             maxSize={20}
             accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.png,.jpg,.jpeg,.gif,.txt,.csv"
             hint="PDF, Office, an image, or a zip. Up to 20 MB."
