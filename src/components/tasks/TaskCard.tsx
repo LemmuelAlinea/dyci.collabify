@@ -61,21 +61,29 @@ export function TaskCard({
 
   return (
     <article
-      className={`surface rounded-xl border p-3.5 shadow-card transition-colors ${
-        yours ? 'border-amber-300 dark:border-amber-400/50' : 'border-line'
+      className={`surface group relative rounded-xl border p-3.5 shadow-card transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-lift ${
+        yours
+          ? 'border-amber-300 hover:border-amber-400 dark:border-amber-400/50'
+          : 'border-line hover:border-line-strong'
       }`}
     >
+      {/* A stretched link rather than a wrapping button: the card holds its own
+          controls, and a button cannot legally contain them. */}
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Open ${task.title}`}
+        className="absolute inset-0 z-0 rounded-xl focus-visible:ring-4 focus-visible:ring-navy-500/12 focus-visible:outline-none"
+      />
       <div className="flex items-start justify-between gap-2">
-        <button
-          type="button"
-          onClick={onOpen}
-          className={`min-w-0 text-left text-[14.5px] leading-snug font-medium hover:underline ${
+        <h4
+          className={`pointer-events-none min-w-0 text-[14.5px] leading-snug font-medium group-hover:underline ${
             task.status === 'done' ? 'text-muted line-through' : 'text-ink'
           }`}
         >
           {task.title}
-        </button>
-        <div className="flex shrink-0 items-center gap-1">
+        </h4>
+        <div className="pointer-events-none relative z-10 flex shrink-0 items-center gap-1">
           <span
             title="Worth this much of the project"
             className="rounded-md surface-sunken px-1.5 py-0.5 font-mono text-[10.5px] text-muted"
@@ -99,12 +107,12 @@ export function TaskCard({
       </div>
 
       {task.details && (
-        <p className="mt-1.5 line-clamp-3 text-[13px] leading-relaxed text-muted">
+        <p className="pointer-events-none mt-1.5 line-clamp-3 text-[13px] leading-relaxed text-muted">
           {task.details}
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="relative z-10 mt-3 flex flex-wrap items-center justify-between gap-2">
         <AssigneePicker
           task={task}
           members={members}
@@ -145,7 +153,7 @@ export function TaskCard({
         )}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5">
+      <div className="relative z-10 mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5">
         {canWork && yours ? (
           <button
             type="button"
@@ -168,14 +176,6 @@ export function TaskCard({
         )}
 
         <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={onOpen}
-            aria-label={`Open ${task.title}`}
-            className="grid h-7 w-7 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
-          >
-            <Icon name="arrowRight" size={14} />
-          </button>
           {editable && (
             <>
               <button
