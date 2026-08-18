@@ -124,7 +124,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
   useEffect(() => {
     if (!ids) return setEvents([])
     setEvents(null)
-    void listEventsForTasks(ids.split(','), 12)
+    void listEventsForTasks(ids.split(','), 30)
       .then(setEvents)
       .catch(() => setEvents([]))
   }, [ids])
@@ -204,7 +204,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
           )}
         </section>
 
-        <section className="surface rounded-card border border-line p-5 shadow-card">
+        <section className="surface flex max-h-[380px] flex-col rounded-card border border-line p-5 shadow-card">
           <h3 className="text-[16px]">Recent activity</h3>
           <p className="mt-1 mb-3 text-[13px] text-muted">What has moved lately.</p>
           {events === null ? (
@@ -215,7 +215,8 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
           ) : events.length === 0 ? (
             <p className="text-[13.5px] text-muted">Nothing has happened here yet.</p>
           ) : (
-            <ol className="space-y-2.5">
+            // Fixed height, scrolled: a long trail should not push the page down.
+            <ol className="-mr-2 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-2">
               {events.map((e) => (
                 <li key={e.id} className="flex items-baseline justify-between gap-3">
                   <p className="min-w-0 text-[13px] text-muted">
