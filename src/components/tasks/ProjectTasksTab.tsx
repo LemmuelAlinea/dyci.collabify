@@ -50,7 +50,6 @@ export function ProjectTasksTab({
   const { show } = useToast()
   const [boards, setBoards] = useState<BoardSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [open, setOpen] = useState<BoardSummary | null>(null)
   const [setTaskOpen, setSetTaskOpen] = useState(false)
   const [editingOrigin, setEditingOrigin] = useState<ProfessorTaskGroup | null>(null)
   const [deletingOrigin, setDeletingOrigin] = useState<ProfessorTaskGroup | null>(null)
@@ -87,9 +86,15 @@ export function ProjectTasksTab({
     void loadBoards()
   }, [loadBoards])
 
-  // RLS already narrows a student to the board they work on, so the first row
-  // is theirs. A professor sees them all and picks one.
-  const active = isProfessor ? open : (boards?.[0] ?? null)
+  // Picking a group is one idea, not two: it drives the board, the summary, and
+  // the list together, so the tiles and the group filter can never disagree.
+  const active = isProfessor
+    ? ((boards ?? []).find((b) => b.group_id === filters.group) ?? null)
+    : (boards?.[0] ?? null)
+
+  function showGroup(groupId: string | null) {
+    setFilters((f) => ({ ...f, group: groupId ?? '' }))
+  }
 
   const {
     tasks,
@@ -271,7 +276,7 @@ export function ProjectTasksTab({
               </div>
 
               {viewSwitch}
-              {view !== 'summary' && filterBar}
+              {filterBar}
 
               {view === 'summary' && <TaskSummary rows={shown} />}
               {view === 'list' && (
@@ -385,12 +390,16 @@ export function ProjectTasksTab({
 
       <section className="space-y-3">
         <h3 className="text-[16px]">Where the groups are</h3>
-        <GroupProgressTable boards={boards} activeId={active?.id} onOpen={setOpen} />
+        <GroupProgressTable
+          boards={boards}
+          activeId={active?.id}
+          onOpen={(b) => showGroup(b.group_id)}
+        />
       </section>
 
       <section className="space-y-3">
         {viewSwitch}
-        {view !== 'summary' && filterBar}
+        {filterBar}
 
         {view === 'summary' && <TaskSummary rows={shown} />}
         {view === 'list' && (
@@ -409,7 +418,7 @@ export function ProjectTasksTab({
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-[16px]">{active.group_name ?? 'One student'}</h3>
-            <Button variant="ghost" size="sm" onClick={() => setOpen(null)}>
+            <Button variant="ghost" size="sm" onClick={() => showGroup(null)}>
               <Icon name="x" size={15} />
               Close
             </Button>
