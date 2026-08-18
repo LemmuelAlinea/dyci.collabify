@@ -77,6 +77,21 @@ export async function listEvents(taskId: string) {
   return (data ?? []) as unknown as TaskEvent[]
 }
 
+/** The trail across a whole project, for the summary's activity feed. */
+export async function listEventsForTasks(taskIds: string[], limit = 20) {
+  if (taskIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('task_events')
+    .select(
+      `id, task_id, actor_id, kind, detail, at, actor:profiles!task_events_actor_id_fkey (first_name, last_name, avatar_url)`,
+    )
+    .in('task_id', taskIds)
+    .order('at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data ?? []) as unknown as TaskEvent[]
+}
+
 /* ------------------------------------------------------------------ files */
 
 const BUCKET = 'task-files'

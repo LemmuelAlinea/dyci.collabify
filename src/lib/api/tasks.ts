@@ -117,6 +117,63 @@ export async function listTasks(boardId: string) {
   }))
 }
 
+/** Every task on a project, with who is on it and which group it belongs to. */
+export type ProjectTaskRow = ProjectTask & {
+  group_id: string | null
+  group_name: string | null
+  file_count: number
+  comment_count: number
+  logged_minutes: number
+}
+
+export async function listProjectTaskRows(projectId: string) {
+  const boards = await listBoards(projectId)
+  if (boards.length === 0) return { boards, rows: [] as ProjectTaskRow[] }
+
+  const { data, error } = await supabase
+    .from('task_detail_overview')
+    .select('*')
+    .in(
+      'board_id',
+      boards.map((b) => b.id),
+    )
+    .order('position')
+  if (error) throw error
+
+  const rows = (data ?? []) as (ProjectTask & {
+    file_count: number
+    comment_count: number
+    logged_minutes: number
+  })[]
+  if (rows.length === 0) return { boards, rows: [] as ProjectTaskRow[] }
+
+  const { data: people, error: aErr } = await supabase
+    .from('task_assignees')
+    .select(
+      `task_id, student_id, claimed_by, claimed_at, profile:profiles!task_assignees_student_id_fkey (${PROFILE_COLS})`,
+    )
+    .in(
+      'task_id',
+      rows.map((t) => t.id),
+    )
+  if (aErr) throw aErr
+
+  const assignees = (people ?? []) as unknown as TaskAssignee[]
+  const boardById = new Map(boards.map((b) => [b.id, b]))
+
+  return {
+    boards,
+    rows: rows.map<ProjectTaskRow>((t) => ({
+      ...t,
+      assignees: assignees
+        .filter((a) => a.task_id === t.id && a.profile)
+        .sort((a, b) => byLastName(a.profile!, b.profile!)),
+      group_id: boardById.get(t.board_id)?.group_id ?? null,
+      group_name: boardById.get(t.board_id)?.group_name ?? null,
+    })),
+  }
+}
+
 /** A task carrying enough of its project to be read out of context. */
 export type MyTask = ProjectTask & {
   project_id: string

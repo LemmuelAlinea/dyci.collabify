@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Alert } from '../ui/Field'
@@ -11,15 +12,19 @@ import { GenerateTasksModal } from './GenerateTasksModal'
 import { GroupProgressTable } from './GroupProgressTable'
 import { MemberProgress } from './MemberProgress'
 import { TaskBoard } from './TaskBoard'
+import { TaskDetailModal } from './detail/TaskDetailModal'
+import { EMPTY_TASK_FILTERS, TaskFilters, applyTaskFilters } from './TaskFilters'
+import type { TaskFilterState } from './TaskFilters'
+import { TaskList } from './TaskList'
+import { TaskSummary } from './TaskSummary'
 import { useTaskBoard } from '../../hooks/useTaskBoard'
 import {
   deleteProfessorTask,
   groupByOrigin,
-  listBoards,
   listMemberProgress,
-  listProjectTasks,
+  listProjectTaskRows,
 } from '../../lib/api/tasks'
-import type { ProfessorTaskGroup } from '../../lib/api/tasks'
+import type { ProfessorTaskGroup, ProjectTaskRow } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import { isReleased } from '../../lib/types'
 import type {
@@ -52,22 +57,29 @@ export function ProjectTasksTab({
   const [mine, setMine] = useState<ProfessorTaskGroup[]>([])
   const [progress, setProgress] = useState<MemberRow[]>([])
   const [aiOpen, setAiOpen] = useState(false)
+  const [rows, setRows] = useState<ProjectTaskRow[]>([])
+  const [view, setView] = useState<'summary' | 'board' | 'list'>(
+    role === 'professor' ? 'summary' : 'board',
+  )
+  const [filters, setFilters] = useState<TaskFilterState>(EMPTY_TASK_FILTERS)
+  const [params, setParams] = useSearchParams()
+  const openTask = params.get('task')
 
   const isProfessor = role === 'professor'
 
   const loadBoards = useCallback(async () => {
     try {
-      if (isProfessor) {
-        const { boards: rows, tasks } = await listProjectTasks(project.id)
-        setBoards(rows)
-        setMine(groupByOrigin(tasks))
-      } else {
-        setBoards(await listBoards(project.id))
-      }
+      // One pass over the project: the summary and the list read the same rows
+      // the board does, so the three views can never disagree.
+      const { boards: found, rows: all } = await listProjectTaskRows(project.id)
+      setBoards(found)
+      setRows(all)
+      if (isProfessor) setMine(groupByOrigin(all))
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load the tasks.'))
       setBoards([])
+      setRows([])
     }
   }, [project.id, isProfessor])
 
@@ -105,6 +117,78 @@ export function ProjectTasksTab({
   const refresh = useCallback(async () => {
     await Promise.all([reload(), loadBoards(), loadProgress()])
   }, [reload, loadBoards, loadProgress])
+
+  // A student's views cover their own board; a professor's cover the project,
+  // narrowed by the group filter.
+  const scope = useMemo(
+    () => (isProfessor ? rows : rows.filter((t) => t.board_id === active?.id)),
+    [rows, isProfessor, active?.id],
+  )
+  const shown = useMemo(() => applyTaskFilters(scope, filters), [scope, filters])
+  const weightByBoard = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const t of rows) map.set(t.board_id, (map.get(t.board_id) ?? 0) + t.weight)
+    return map
+  }, [rows])
+
+  function showTask(id: string | null) {
+    const next = new URLSearchParams(params)
+    if (id) next.set('task', id)
+    else next.delete('task')
+    setParams(next, { replace: !id })
+  }
+
+  const viewSwitch = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex gap-1 rounded-lg surface-sunken p-0.5">
+        {(['summary', 'board', 'list'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={view === v}
+            onClick={() => setView(v)}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] capitalize transition-colors ${
+              view === v
+                ? 'surface font-medium text-ink shadow-card'
+                : 'text-muted hover:text-ink'
+            }`}
+          >
+            <Icon name={v === 'summary' ? 'chart' : v === 'board' ? 'kanban' : 'board'} size={15} />
+            {v}
+          </button>
+        ))}
+      </div>
+      <p className="text-[12.5px] text-faint">
+        {shown.length === scope.length
+          ? `${scope.length} ${scope.length === 1 ? 'task' : 'tasks'}`
+          : `${shown.length} of ${scope.length} tasks`}
+      </p>
+    </div>
+  )
+
+  const filterBar =
+    scope.length > 0 ? (
+      <TaskFilters
+        value={filters}
+        onChange={setFilters}
+        rows={scope}
+        boards={boards ?? []}
+        showGroups={isProfessor}
+      />
+    ) : null
+
+  const detailModal = (
+    <TaskDetailModal
+      taskId={openTask}
+      onClose={() => showTask(null)}
+      viewerId={viewerId}
+      role={role}
+      boardWeight={
+        weightByBoard.get(rows.find((t) => t.id === openTask)?.board_id ?? '') ?? 0
+      }
+      onChanged={refresh}
+    />
+  )
 
   if (boards === null) {
     return (
@@ -184,16 +268,36 @@ export function ProjectTasksTab({
                   Draft tasks with AI
                 </Button>
               </div>
-              <TaskBoard
-                board={active}
-                tasks={tasks}
-                members={members}
-                progress={progress}
-                viewerId={viewerId}
-                role={role}
-                canWork
-                onChanged={refresh}
-              />
+
+              {viewSwitch}
+              {view !== 'summary' && filterBar}
+
+              {view === 'summary' && <TaskSummary rows={shown} />}
+              {view === 'list' && (
+                <TaskList
+                  rows={shown}
+                  boardWeight={weightByBoard}
+                  showGroup={false}
+                  onOpen={showTask}
+                />
+              )}
+              {view === 'board' && (
+                <TaskBoard
+                  board={active}
+                  tasks={
+                    filters === EMPTY_TASK_FILTERS
+                      ? tasks
+                      : tasks.filter((t) => shown.some((r) => r.id === t.id))
+                  }
+                  members={members}
+                  progress={progress}
+                  viewerId={viewerId}
+                  role={role}
+                  canWork
+                  onChanged={refresh}
+                />
+              )}
+              {view !== 'board' && detailModal}
             </>
           )
         ) : (
@@ -281,6 +385,23 @@ export function ProjectTasksTab({
       <section className="space-y-3">
         <h3 className="text-[16px]">Where the groups are</h3>
         <GroupProgressTable boards={boards} onOpen={setOpen} />
+      </section>
+
+      <section className="space-y-3">
+        {viewSwitch}
+        {view !== 'summary' && filterBar}
+
+        {view === 'summary' && <TaskSummary rows={shown} />}
+        {view === 'list' && (
+          <TaskList rows={shown} boardWeight={weightByBoard} showGroup onOpen={showTask} />
+        )}
+        {view === 'board' && !active && (
+          <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13.5px] text-muted">
+            Open a group above to see its board, or switch to the list to see every group at
+            once.
+          </p>
+        )}
+        {view !== 'board' && detailModal}
       </section>
 
       {active && (
