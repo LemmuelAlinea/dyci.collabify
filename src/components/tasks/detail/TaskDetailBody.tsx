@@ -1,10 +1,21 @@
+import { useState } from 'react'
+import { Button } from '../../ui/Button'
 import { Icon } from '../../ui/Icon'
 import { Select } from '../../ui/Select'
+import { ReassignRequestModal } from './ReassignRequestModal'
 import { TaskActivity } from './TaskActivity'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { TaskFileGrid } from './TaskFileGrid'
-import { TASK_STATUSES, isMine, taskShare } from '../../../lib/types'
+import { withdrawReassignment } from '../../../lib/api/reassignments'
+import {
+  TASK_STATUSES,
+  canRequestReassignment,
+  fullName,
+  isMine,
+  taskShare,
+} from '../../../lib/types'
 import type {
+  ReassignmentRow,
   Role,
   TaskComment,
   TaskDetail,
@@ -29,6 +40,9 @@ export function TaskDetailBody({
   role,
   boardWeight,
   locked = false,
+  /** The live request on this task, when the viewer is allowed to see one. */
+  reassignment,
+  viewerCanRequest = false,
   onStatus,
   onChanged,
 }: {
@@ -42,9 +56,14 @@ export function TaskDetailBody({
   boardWeight: number
   /** The project is closed, so nothing on the task may change. */
   locked?: boolean
+  reassignment?: ReassignmentRow | null
+  /** False for a professor: they decide requests, they do not file them. */
+  viewerCanRequest?: boolean
   onStatus: (status: TaskStatus) => void
   onChanged: () => Promise<void> | void
 }) {
+  const [askOpen, setAskOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
   const onBoard = role !== 'professor'
   // On an individual board the viewer is the owner, so the work is theirs.
   const solo = Boolean(task.group_id === null)
@@ -118,8 +137,70 @@ export function TaskDetailBody({
           ) : null}
         </div>
 
+        {/* Neglected work is the case this exists for: once a task is started
+            nothing else can move it off whoever holds it. */}
+        {onBoard && (
+          <div>
+            {reassignment ? (
+              <div className="rounded-xl border border-line px-3.5 py-3">
+                <p className="text-[13px] font-medium text-ink">
+                  Reassignment requested
+                </p>
+                <p className="mt-0.5 text-[12.5px] text-muted">
+                  Waiting on your professor.
+                </p>
+                {reassignment.requested_by === viewerId && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={async () => {
+                      setBusy(true)
+                      try {
+                        await withdrawReassignment(reassignment.id)
+                        await onChanged()
+                      } finally {
+                        setBusy(false)
+                      }
+                    }}
+                    className="mt-2 text-[12.5px] font-medium text-navy-600 hover:underline disabled:opacity-60 dark:text-navy-200"
+                  >
+                    Withdraw it
+                  </button>
+                )}
+              </div>
+            ) : (
+              viewerCanRequest &&
+              canRequestReassignment(task, locked) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  full
+                  onClick={() => setAskOpen(true)}
+                >
+                  <Icon name="refresh" size={15} />
+                  Request reassignment
+                </Button>
+              )
+            )}
+          </div>
+        )}
+
         <TaskDetailPanel task={task} share={taskShare(task, boardWeight || task.weight)} />
       </div>
+
+      <ReassignRequestModal
+        open={askOpen}
+        onClose={() => setAskOpen(false)}
+        taskId={task.id}
+        taskTitle={task.title}
+        holderName={
+          task.assignees.length === 1 && task.assignees[0].profile
+            ? fullName(task.assignees[0].profile)
+            : null
+        }
+        mine={yours}
+        onDone={onChanged}
+      />
     </div>
   )
 }

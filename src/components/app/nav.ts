@@ -51,7 +51,7 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
         { label: 'Groups', icon: 'users', to: '/professor/groups' },
         { label: 'Projects', icon: 'kanban', to: '/professor/projects' },
         { label: 'Messages', icon: 'message', to: '/professor/messages', badge: 'messages' },
-        { label: 'Reassignments', icon: 'refresh', soon: true },
+        { label: 'Reassignments', icon: 'refresh', to: '/professor/reassignments' },
       ],
     },
     {

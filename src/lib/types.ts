@@ -131,7 +131,15 @@ export type Announcement = {
 export type AppNotification = {
   id: string
   user_id: string
-  type: 'announcement' | 'project_released'
+  /** Mirrors the notification_type enum. The bell routes on the ids, not this. */
+  type:
+    | 'announcement'
+    | 'group_placement'
+    | 'group_closed'
+    | 'project_released'
+    | 'task_assigned'
+    | 'reassign_requested'
+    | 'reassign_decided'
   class_id: string | null
   announcement_id: string | null
   project_id: string | null
@@ -841,6 +849,79 @@ export function boardOwnerName(board: Pick<BoardSummary, 'group_name' | 'student
 /** A project stops taking work when its professor closes it, not when it is due. */
 export function isProjectLocked(project: Pick<ProjectRow, 'locked_at'> | null | undefined) {
   return Boolean(project?.locked_at)
+}
+
+/* ------------------------------------------------------------ reassignments */
+
+/** What the student is asking for. The professor may still decide otherwise. */
+export type ReassignmentOutcome = 'take_over' | 'release'
+export type ReassignmentStatus = 'pending' | 'approved' | 'declined' | 'withdrawn'
+
+export const REASSIGNMENT_OUTCOMES: { value: ReassignmentOutcome; label: string; hint: string }[] =
+  [
+    {
+      value: 'take_over',
+      label: 'I will take it on',
+      hint: 'The task moves to you, and you carry it from here.',
+    },
+    {
+      value: 'release',
+      label: 'Put it back to the group',
+      hint: 'The task goes back to being unclaimed so anyone can pick it up.',
+    },
+  ]
+
+export type ReassignmentRequest = {
+  id: string
+  task_id: string
+  requested_by: string
+  /** Who held it when it was asked. Null when several people share the task. */
+  from_student: string | null
+  wants: ReassignmentOutcome
+  /** Read only by the professor and whoever wrote it. */
+  reason: string
+  status: ReassignmentStatus
+  /** Who received it. Null on a release: it went back to the group. */
+  to_student: string | null
+  decided_by: string | null
+  decided_at: string | null
+  decision_note: string
+  created_at: string
+}
+
+/** reassignment_overview: the request with the names and project around it. */
+export type ReassignmentRow = ReassignmentRequest & {
+  task_title: string
+  task_status: TaskStatus
+  board_id: string
+  group_id: string | null
+  group_name: string | null
+  project_id: string
+  project_title: string
+  class_id: string
+  class_name: string
+  class_initial: string
+  requested_by_name: string
+  requested_by_avatar: string | null
+  from_student_name: string | null
+  to_student_name: string | null
+}
+
+/** A finished task has nothing to hand over, and a closed project takes nothing. */
+export function canRequestReassignment(
+  task: Pick<ProjectTask, 'status'>,
+  locked = false,
+) {
+  return !locked && task.status !== 'done'
+}
+
+export function reassignmentStatusLabel(status: ReassignmentStatus) {
+  return {
+    pending: 'Waiting on your professor',
+    approved: 'Approved',
+    declined: 'Declined',
+    withdrawn: 'Withdrawn',
+  }[status]
 }
 
 /* ----------------------------------------------------------------- messages */

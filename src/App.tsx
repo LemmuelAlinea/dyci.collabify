@@ -27,6 +27,7 @@ import StudentClassDetail from './pages/app/classes/StudentClassDetail'
 import Syllabi from './pages/app/resources/Syllabi'
 import SyllabusDetail from './pages/app/resources/SyllabusDetail'
 import Curriculum from './pages/app/resources/Curriculum'
+import Reassignments from './pages/app/reassignments/Reassignments'
 import ProfessorGroups from './pages/app/groups/ProfessorGroups'
 import StudentGroups from './pages/app/groups/StudentGroups'
 import GroupDetail from './pages/app/groups/GroupDetail'
@@ -99,6 +100,7 @@ export default function App() {
             <Route path="/professor/syllabi" element={<Syllabi />} />
             <Route path="/professor/syllabi/:resourceId" element={<SyllabusDetail />} />
             <Route path="/professor/curriculum" element={<Curriculum />} />
+            <Route path="/professor/reassignments" element={<Reassignments />} />
           </Route>
         </Route>
 
