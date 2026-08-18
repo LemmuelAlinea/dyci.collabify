@@ -146,7 +146,7 @@ export function TaskCard({
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5">
-        {canWork ? (
+        {canWork && yours ? (
           <button
             type="button"
             onClick={() => void onStatus(next.to)}
@@ -157,7 +157,13 @@ export function TaskCard({
           </button>
         ) : (
           <span className="px-2 text-[12px] text-faint">
-            {frozen ? 'Frozen — the group has started it' : 'Open to the group'}
+            {!canWork
+              ? frozen
+                ? 'Frozen — the group has started it'
+                : 'Open to the group'
+              : task.assignees.length === 0
+                ? 'Claim it to start it'
+                : 'Whoever is on it moves it'}
           </span>
         )}
 

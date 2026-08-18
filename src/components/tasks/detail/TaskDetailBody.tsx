@@ -95,15 +95,21 @@ export function TaskDetailBody({
             <span className="text-[12.5px] text-faint">Status</span>
             <Select
               value={task.status}
-              disabled={!onBoard}
+              disabled={!onBoard || !yours}
               onChange={(e) => onStatus(e.target.value as TaskStatus)}
               options={TASK_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
               className="!h-11"
             />
           </label>
-          {!onBoard && (
+          {!onBoard ? (
             <p className="mt-1.5 text-[12px] text-faint">The group moves its own work.</p>
-          )}
+          ) : !yours ? (
+            <p className="mt-1.5 text-[12px] text-faint">
+              {task.assignees.length === 0
+                ? 'Claim this task to move it.'
+                : 'Only the people on this task move it.'}
+            </p>
+          ) : null}
         </div>
 
         <TaskDetailPanel task={task} share={taskShare(task, boardWeight || task.weight)} />

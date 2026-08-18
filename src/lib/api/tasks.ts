@@ -124,6 +124,11 @@ export type MyTask = ProjectTask & {
   class_initial: string
   class_name: string
   group_name: string | null
+  file_count: number
+  comment_count: number
+  logged_minutes: number
+  /** Total weight on its board, so the task's share can be worked out. */
+  board_weight: number
 }
 
 /** Everything assigned to one student, across every project they are in. */
@@ -155,7 +160,32 @@ export async function myTasks(studentId: string) {
     }
   }
 
-  return ((tasks ?? []) as unknown as Row[]).map<MyTask>((t) => ({
+  const rows = (tasks ?? []) as unknown as Row[]
+  if (rows.length === 0) return []
+
+  // Counts and board weight come from the views, which carry no foreign keys to
+  // embed through — two small lookups rather than one per card.
+  const [{ data: counts }, { data: boards }] = await Promise.all([
+    supabase
+      .from('task_detail_overview')
+      .select('id, file_count, comment_count, logged_minutes')
+      .in('id', rows.map((t) => t.id)),
+    supabase
+      .from('task_board_overview')
+      .select('id, total_weight')
+      .in('id', rows.map((t) => t.board_id)),
+  ])
+
+  type Count = { id: string; file_count: number; comment_count: number; logged_minutes: number }
+  const byTask = new Map(((counts ?? []) as Count[]).map((c) => [c.id, c]))
+  const byBoard = new Map(
+    ((boards ?? []) as { id: string; total_weight: number }[]).map((b) => [
+      b.id,
+      Number(b.total_weight),
+    ]),
+  )
+
+  return rows.map<MyTask>((t) => ({
     ...t,
     assignees: [],
     project_id: t.board.project.id,
@@ -163,6 +193,10 @@ export async function myTasks(studentId: string) {
     class_initial: t.board.project.class.initial,
     class_name: t.board.project.class.name,
     group_name: t.board.group?.name ?? null,
+    file_count: byTask.get(t.id)?.file_count ?? 0,
+    comment_count: byTask.get(t.id)?.comment_count ?? 0,
+    logged_minutes: byTask.get(t.id)?.logged_minutes ?? 0,
+    board_weight: byBoard.get(t.board_id) ?? 0,
   }))
 }
 
