@@ -396,6 +396,10 @@ select b.id,
        p.total_points,
        g.name       as group_name,
        g.set_id     as group_set_id,
+       -- An individual board has no group to name it, so it is named by the
+       -- student who owns it. Null on a group board.
+       case when b.student_id is null then null
+            else btrim(sp.first_name || ' ' || sp.last_name) end as student_name,
        t.task_count,
        t.done_count,
        t.doing_count,
@@ -414,6 +418,7 @@ select b.id,
   from public.project_boards b
   join public.projects p on p.id = b.project_id
   left join public.groups g on g.id = b.group_id
+  left join public.profiles sp on sp.id = b.student_id
   cross join lateral (
     select count(*)::int as task_count,
            count(*) filter (where x.status = 'done')::int as done_count,

@@ -24,13 +24,19 @@ const STATUS_TONE: Record<string, string> = {
 export function TaskList({
   rows,
   boardWeight,
-  showGroup,
+  showOwner,
+  ownerLabel,
+  ownerFor,
   onOpen,
 }: {
   rows: ProjectTaskRow[]
   /** Total weight per board, so each row's share is against its own board. */
   boardWeight: Map<string, number>
-  showGroup: boolean
+  /** Whether to name who each task belongs to — off on a student's own board. */
+  showOwner: boolean
+  /** 'Group' on a group project, 'Student' on an individual one. */
+  ownerLabel: string
+  ownerFor: (row: ProjectTaskRow) => string
   onOpen: (taskId: string) => void
 }) {
   if (rows.length === 0) {
@@ -49,7 +55,7 @@ export function TaskList({
         <thead>
           <tr className="border-b border-line text-[11.5px] tracking-wide text-faint uppercase">
             <th className="py-2.5 pr-3 pl-4 font-medium">Task</th>
-            {showGroup && <th className="py-2.5 pr-3 font-medium">Group</th>}
+            {showOwner && <th className="py-2.5 pr-3 font-medium">{ownerLabel}</th>}
             <th className="py-2.5 pr-3 font-medium">Assignees</th>
             <th className="py-2.5 pr-3 font-medium">Status</th>
             <th className="py-2.5 pr-3 font-medium">Worth</th>
@@ -101,8 +107,8 @@ export function TaskList({
                   </span>
                 </td>
 
-                {showGroup && (
-                  <td className="py-2.5 pr-3 text-[13px] text-muted">{t.group_name ?? '—'}</td>
+                {showOwner && (
+                  <td className="py-2.5 pr-3 text-[13px] text-muted">{ownerFor(t)}</td>
                 )}
 
                 <td className="py-2.5 pr-3">

@@ -1,19 +1,23 @@
 import { Icon } from '../ui/Icon'
 import { Select } from '../ui/Select'
-import { fullName, TASK_STATUSES } from '../../lib/types'
+import { boardOwnerName, fullName, TASK_STATUSES } from '../../lib/types'
 import type { BoardSummary } from '../../lib/types'
 import type { ProjectTaskRow } from '../../lib/api/tasks'
 
 export type TaskFilterState = {
   query: string
-  group: string
+  /**
+   * A board, not a group. An individual project's boards have no group at all,
+   * so keying this on the group made every tile on one unselectable.
+   */
+  board: string
   assignee: string
   status: string
 }
 
 export const EMPTY_TASK_FILTERS: TaskFilterState = {
   query: '',
-  group: '',
+  board: '',
   assignee: '',
   status: '',
 }
@@ -22,7 +26,7 @@ export const EMPTY_TASK_FILTERS: TaskFilterState = {
 export function applyTaskFilters(rows: ProjectTaskRow[], f: TaskFilterState) {
   const q = f.query.trim().toLowerCase()
   return rows
-    .filter((t) => (f.group ? t.group_id === f.group : true))
+    .filter((t) => (f.board ? t.board_id === f.board : true))
     .filter((t) =>
       f.assignee
         ? f.assignee === 'unclaimed'
@@ -41,14 +45,14 @@ export function TaskFilters({
   onChange,
   rows,
   boards,
-  showGroups,
+  showBoards,
 }: {
   value: TaskFilterState
   onChange: (next: TaskFilterState) => void
   rows: ProjectTaskRow[]
   boards: BoardSummary[]
-  /** A student has one board, so the group filter would only ever say one thing. */
-  showGroups: boolean
+  /** A student has one board, so this filter would only ever say one thing. */
+  showBoards: boolean
 }) {
   // Only offer people who actually hold something here.
   const people = new Map<string, string>()
@@ -58,14 +62,14 @@ export function TaskFilters({
     }
   }
 
-  const groups = boards
-    .filter((b) => b.group_id)
-    .map((b) => ({ value: b.group_id as string, label: b.group_name ?? 'Group' }))
+  // An individual project has no groups to offer, so it offers its students.
+  const solo = boards.some((b) => b.student_id)
+  const boardOptions = boards.map((b) => ({ value: b.id, label: boardOwnerName(b) }))
 
   return (
     <div
       className={`grid gap-2.5 ${
-        showGroups
+        showBoards
           ? 'sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]'
           : 'sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)]'
       }`}
@@ -85,13 +89,13 @@ export function TaskFilters({
         />
       </div>
 
-      {showGroups && (
+      {showBoards && (
         <Select
-          aria-label="Filter by group"
-          value={value.group}
-          onChange={(e) => onChange({ ...value, group: e.target.value })}
-          placeholder="Every group"
-          options={groups}
+          aria-label={solo ? 'Filter by student' : 'Filter by group'}
+          value={value.board}
+          onChange={(e) => onChange({ ...value, board: e.target.value })}
+          placeholder={solo ? 'Every student' : 'Every group'}
+          options={boardOptions}
           className="!h-10 !text-[13.5px]"
         />
       )}

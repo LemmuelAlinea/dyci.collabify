@@ -1,15 +1,18 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '../ui/Icon'
 import { Select } from '../ui/Select'
+import { boardOwnerName } from '../../lib/types'
 import type { BoardSummary } from '../../lib/types'
 
 type SortId = 'attention' | 'progress' | 'name'
 
-const SORTS: { value: SortId; label: string }[] = [
-  { value: 'attention', label: 'Needs attention' },
-  { value: 'progress', label: 'Furthest along' },
-  { value: 'name', label: 'Group name' },
-]
+function sortOptions(solo: boolean): { value: SortId; label: string }[] {
+  return [
+    { value: 'attention', label: 'Needs attention' },
+    { value: 'progress', label: 'Furthest along' },
+    { value: 'name', label: solo ? 'Student name' : 'Group name' },
+  ]
+}
 
 const PREVIEW = 8
 
@@ -20,7 +23,7 @@ function needsAttention(b: BoardSummary) {
 
 function sortBoards(boards: BoardSummary[], sort: SortId) {
   const byName = (a: BoardSummary, b: BoardSummary) =>
-    (a.group_name ?? '').localeCompare(b.group_name ?? '', 'en', { numeric: true })
+    boardOwnerName(a).localeCompare(boardOwnerName(b), 'en', { numeric: true })
 
   if (sort === 'name') return [...boards].sort(byName)
   if (sort === 'progress')
@@ -37,17 +40,23 @@ function sortBoards(boards: BoardSummary[], sort: SortId) {
 }
 
 /**
- * One tile per group rather than one table row. A class of twenty groups is a
+ * One tile per board rather than one table row. A class of twenty groups is a
  * wall of rows; as tiles it is five short lines, folded to two until asked.
+ *
+ * An individual project fills the same grid with one tile per student, since a
+ * board is a board — only the words around it change.
  */
 export function GroupProgressTable({
   boards,
   activeId,
+  solo = false,
   onOpen,
 }: {
   boards: BoardSummary[]
   /** The board currently open below, so the tile can say so. */
   activeId?: string | null
+  /** An individual project: these are students, not groups. */
+  solo?: boolean
   onOpen: (board: BoardSummary) => void
 }) {
   const [sort, setSort] = useState<SortId>('attention')
@@ -57,7 +66,7 @@ export function GroupProgressTable({
   const sorted = useMemo(() => sortBoards(boards, sort), [boards, sort])
   const matched = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return q ? sorted.filter((b) => (b.group_name ?? '').toLowerCase().includes(q)) : sorted
+    return q ? sorted.filter((b) => boardOwnerName(b).toLowerCase().includes(q)) : sorted
   }, [sorted, query])
 
   const shown = all || matched.length <= PREVIEW ? matched : matched.slice(0, PREVIEW)
@@ -94,15 +103,15 @@ export function GroupProgressTable({
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Find a group"
+                placeholder={solo ? 'Find a student' : 'Find a group'}
                 className="h-9 w-[160px] rounded-lg border border-[var(--line)] bg-[var(--surface)] pr-3 pl-8 text-[13px] text-ink placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:outline-none"
               />
             </div>
             <Select
-              aria-label="Sort the groups"
+              aria-label={solo ? 'Sort the students' : 'Sort the groups'}
               value={sort}
               onChange={(e) => setSort(e.target.value as SortId)}
-              options={SORTS}
+              options={sortOptions(solo)}
               className="!h-9 !w-[170px] !text-[13px]"
             />
           </div>
@@ -111,7 +120,7 @@ export function GroupProgressTable({
 
       {shown.length === 0 ? (
         <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13.5px] text-muted">
-          No group matches that.
+          {solo ? 'No student matches that.' : 'No group matches that.'}
         </p>
       ) : (
         <ul className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
@@ -134,7 +143,7 @@ export function GroupProgressTable({
                 >
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="min-w-0 truncate text-[14px] font-medium text-ink">
-                      {b.group_name ?? 'One student'}
+                      {boardOwnerName(b)}
                     </span>
                     <span className="shrink-0 font-mono text-[12px] text-muted">{pct}%</span>
                   </div>
@@ -160,9 +169,14 @@ export function GroupProgressTable({
                             {b.unclaimed_count} unclaimed
                           </span>
                         )}
+                        {b.late_count > 0 && (
+                          <span className="text-red-600 dark:text-red-400">
+                            {b.late_count} late
+                          </span>
+                        )}
                       </>
                     )}
-                    <span className="ml-auto">{b.member_count} members</span>
+                    {!solo && <span className="ml-auto">{b.member_count} members</span>}
                   </div>
                 </button>
               </li>
@@ -178,7 +192,9 @@ export function GroupProgressTable({
           className="flex items-center gap-1.5 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
         >
           <Icon name={all ? 'chevronDown' : 'chevronRight'} size={14} />
-          {all ? 'Show fewer' : `Show all ${matched.length} groups`}
+          {all
+            ? 'Show fewer'
+            : `Show all ${matched.length} ${solo ? 'students' : 'groups'}`}
         </button>
       )}
     </div>

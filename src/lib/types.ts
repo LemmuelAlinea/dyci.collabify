@@ -614,6 +614,8 @@ export type BoardSummary = ProjectBoard & {
   total_points: number
   group_name: string | null
   group_set_id: string | null
+  /** Set only on an individual board, which has an owner rather than a group. */
+  student_name: string | null
   task_count: number
   done_count: number
   doing_count: number
@@ -826,6 +828,14 @@ export function formatMinutes(minutes: number) {
  */
 export function canChangeFiles(task: Pick<ProjectTask, 'status'>, locked = false) {
   return !locked && task.status !== 'done'
+}
+
+/**
+ * What to call a board. A group board is its group; an individual board is the
+ * student who owns it. Only falls back to a label when the name has not loaded.
+ */
+export function boardOwnerName(board: Pick<BoardSummary, 'group_name' | 'student_name'>) {
+  return board.group_name ?? board.student_name ?? 'One student'
 }
 
 /** A project stops taking work when its professor closes it, not when it is due. */

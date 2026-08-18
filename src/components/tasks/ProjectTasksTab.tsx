@@ -26,7 +26,7 @@ import {
 } from '../../lib/api/tasks'
 import type { ProfessorTaskGroup, ProjectTaskRow } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
-import { isProjectLocked, isReleased } from '../../lib/types'
+import { boardOwnerName, isProjectLocked, isReleased } from '../../lib/types'
 import type {
   BoardSummary,
   MemberProgress as MemberRow,
@@ -89,15 +89,20 @@ export function ProjectTasksTab({
     void loadBoards()
   }, [loadBoards])
 
-  // Picking a group is one idea, not two: it drives the board, the summary, and
-  // the list together, so the tiles and the group filter can never disagree.
+  // Picking a board is one idea, not two: it drives the board, the summary, and
+  // the list together, so the tiles and the filter can never disagree. Keyed on
+  // the board rather than the group, because an individual project has none —
+  // which used to make every tile on one impossible to select.
   const active = isProfessor
-    ? ((boards ?? []).find((b) => b.group_id === filters.group) ?? null)
+    ? ((boards ?? []).find((b) => b.id === filters.board) ?? null)
     : (boards?.[0] ?? null)
 
-  function showGroup(groupId: string | null) {
-    setFilters((f) => ({ ...f, group: groupId ?? '' }))
+  function showBoard(boardId: string | null) {
+    setFilters((f) => ({ ...f, board: boardId ?? '' }))
   }
+
+  // An individual project hands every student their own board.
+  const solo = project.audience === 'individual'
 
   const {
     tasks,
@@ -133,6 +138,17 @@ export function ProjectTasksTab({
     [rows, isProfessor, active?.id],
   )
   const shown = useMemo(() => applyTaskFilters(scope, filters), [scope, filters])
+  // Rows carry a board, not a name; the boards carry the name.
+  const ownerByBoard = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const b of boards ?? []) map.set(b.id, boardOwnerName(b))
+    return map
+  }, [boards])
+  const ownerFor = useCallback(
+    (row: ProjectTaskRow) => ownerByBoard.get(row.board_id) ?? '—',
+    [ownerByBoard],
+  )
+
   const weightByBoard = useMemo(() => {
     const map = new Map<string, number>()
     for (const t of rows) map.set(t.board_id, (map.get(t.board_id) ?? 0) + t.weight)
@@ -181,7 +197,7 @@ export function ProjectTasksTab({
         onChange={setFilters}
         rows={scope}
         boards={boards ?? []}
-        showGroups={isProfessor}
+        showBoards={isProfessor}
       />
     ) : null
 
@@ -296,7 +312,9 @@ export function ProjectTasksTab({
                 <TaskList
                   rows={shown}
                   boardWeight={weightByBoard}
-                  showGroup={false}
+                  showOwner={false}
+                  ownerLabel=""
+                  ownerFor={ownerFor}
                   onOpen={showTask}
                 />
               )}
@@ -403,11 +421,14 @@ export function ProjectTasksTab({
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-[16px]">Where the groups are</h3>
+        <h3 className="text-[16px]">
+          {solo ? 'Where the students are' : 'Where the groups are'}
+        </h3>
         <GroupProgressTable
           boards={boards}
           activeId={active?.id}
-          onOpen={(b) => showGroup(b.group_id)}
+          solo={solo}
+          onOpen={(b) => showBoard(b.id === active?.id ? null : b.id)}
         />
       </section>
 
@@ -417,12 +438,20 @@ export function ProjectTasksTab({
 
         {view === 'summary' && <TaskSummary rows={shown} />}
         {view === 'list' && (
-          <TaskList rows={shown} boardWeight={weightByBoard} showGroup onOpen={showTask} />
+          <TaskList
+            rows={shown}
+            boardWeight={weightByBoard}
+            showOwner
+            ownerLabel={solo ? 'Student' : 'Group'}
+            ownerFor={ownerFor}
+            onOpen={showTask}
+          />
         )}
         {view === 'board' && !active && (
           <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13.5px] text-muted">
-            Open a group above to see its board, or switch to the list to see every group at
-            once.
+            {solo
+              ? 'Open a student above to see their board, or switch to the list to see everyone at once.'
+              : 'Open a group above to see its board, or switch to the list to see every group at once.'}
           </p>
         )}
         {view !== 'board' && detailModal}
@@ -431,8 +460,8 @@ export function ProjectTasksTab({
       {active && (
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-[16px]">{active.group_name ?? 'One student'}</h3>
-            <Button variant="ghost" size="sm" onClick={() => showGroup(null)}>
+            <h3 className="text-[16px]">{boardOwnerName(active)}</h3>
+            <Button variant="ghost" size="sm" onClick={() => showBoard(null)}>
               <Icon name="x" size={15} />
               Close
             </Button>
