@@ -10,6 +10,7 @@ import { Select } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/Tabs'
 import { useToast } from '../../../components/ui/Toast'
 import { CapacityPill } from '../../../components/groups/GroupCard'
+import { GroupWork } from '../../../components/groups/GroupWork'
 import { useAuth } from '../../../context/AuthContext'
 import { getClass, listMembers } from '../../../lib/api/classes'
 import {
@@ -295,7 +296,17 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
         )}
       </header>
 
-      <section className="mt-6">
+      <section className="mt-8">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="text-[18px]">Projects and tasks</h2>
+          <p className="text-[12.5px] text-faint">
+            Everything set for this group, without leaving it.
+          </p>
+        </div>
+        <GroupWork groupId={group.id} role={role} viewerId={profile?.id} />
+      </section>
+
+      <section className="mt-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-[18px]">Members</h2>
           {canManage && unplaced.length > 0 && (

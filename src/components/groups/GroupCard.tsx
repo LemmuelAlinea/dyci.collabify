@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Avatar } from '../app/Avatar'
 import { Icon } from '../ui/Icon'
 import type { GroupMember, GroupSummary } from '../../lib/types'
+import type { GroupWorkSummary } from '../../lib/api/groupWork'
 
 const MAX_FACES = 5
 
@@ -26,6 +27,7 @@ export function GroupCard({
   className,
   to,
   highlight,
+  work,
 }: {
   group: GroupSummary
   members: GroupMember[]
@@ -34,6 +36,8 @@ export function GroupCard({
   to: string
   /** Marks the viewer's own group. */
   highlight?: boolean
+  /** The projects and tasks this group holds, when the board has loaded them. */
+  work?: GroupWorkSummary
 }) {
   const faces = members.slice(0, MAX_FACES)
   const overflow = members.length - faces.length
@@ -81,6 +85,31 @@ export function GroupCard({
           style={{ width: `${pct}%` }}
         />
       </div>
+
+      {work && work.projects > 0 && (
+        <div className="mt-3 border-t border-line pt-3">
+          <p className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[12px] text-muted">
+            <span className="flex items-center gap-1.5">
+              <Icon name="kanban" size={13} className="text-faint" />
+              {work.projects} {work.projects === 1 ? 'project' : 'projects'}
+              {work.tasks > 0 && (
+                <span className="text-faint">
+                  · {work.done}/{work.tasks} tasks
+                </span>
+              )}
+            </span>
+            {work.tasks > 0 && <span className="font-mono text-faint">{work.pct}%</span>}
+          </p>
+          {work.tasks > 0 && (
+            <span className="mt-1.5 block h-1 overflow-hidden rounded-full surface-sunken">
+              <span
+                className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                style={{ width: `${work.pct}%` }}
+              />
+            </span>
+          )}
+        </div>
+      )}
 
       {highlight && (
         <p className="mt-3 flex items-center gap-1.5 text-[12px] font-medium text-amber-600 dark:text-amber-300">

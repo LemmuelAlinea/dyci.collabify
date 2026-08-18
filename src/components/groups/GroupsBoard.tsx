@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { GroupCard } from './GroupCard'
 import { EMPTY_FILTERS, GroupFilters } from './GroupFilters'
@@ -8,6 +8,8 @@ import { EmptyState } from '../ui/Tabs'
 import { fullName, modeLabel } from '../../lib/types'
 import type { ClassSummary, GroupMember, GroupSet, GroupSummary } from '../../lib/types'
 import { membersOf } from '../../hooks/useGroupsData'
+import { groupWorkByGroup, listGroupBoards } from '../../lib/api/groupWork'
+import type { GroupWorkSummary } from '../../lib/api/groupWork'
 
 type Props = {
   classes: ClassSummary[]
@@ -44,6 +46,16 @@ export function GroupsBoard({
   showSetFilter = true,
 }: Props) {
   const [filters, setFilters] = useState<GroupFilterState>(EMPTY_FILTERS)
+  const [work, setWork] = useState(new Map<string, GroupWorkSummary>())
+
+  // One query for the page: a card should not have to ask what its group holds.
+  const groupIds = groups.map((g) => g.id).join(',')
+  useEffect(() => {
+    if (!groupIds) return setWork(new Map())
+    void listGroupBoards(groupIds.split(','))
+      .then((boards) => setWork(groupWorkByGroup(boards)))
+      .catch(() => setWork(new Map()))
+  }, [groupIds])
 
   const classById = useMemo(() => new Map(classes.map((c) => [c.id, c])), [classes])
   const setById = useMemo(() => new Map(sets.map((s) => [s.id, s])), [sets])
@@ -133,6 +145,7 @@ export function GroupsBoard({
                       Boolean(viewerId) &&
                       membersOf(members, g.id).some((m) => m.student_id === viewerId)
                     }
+                    work={work.get(g.id)}
                   />
                 ))}
               </div>
