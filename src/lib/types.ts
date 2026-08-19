@@ -865,6 +865,31 @@ export function isProjectLocked(project: Pick<ProjectRow, 'locked_at'> | null | 
   return Boolean(project?.locked_at)
 }
 
+/* ----------------------------------------------------------------- results */
+
+/**
+ * What the professor said about what was handed in. Deliberately not a score:
+ * a number here would be a second grade record next to the school's, and the
+ * one here would not be the one that counts.
+ */
+export type ResultVerdict = 'accepted' | 'returned'
+
+export type BoardResult = {
+  id: string
+  board_id: string
+  verdict: ResultVerdict
+  feedback: string
+  decided_at: string
+  decided_by: string | null
+  decided_by_name: string | null
+  /** How many times this board has been answered, returns included. */
+  answer_count: number
+}
+
+export function resultLabel(verdict: ResultVerdict) {
+  return verdict === 'accepted' ? 'Accepted' : 'Returned for another look'
+}
+
 /* ---------------------------------------------------------------- calendar */
 
 /**

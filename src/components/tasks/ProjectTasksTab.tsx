@@ -11,6 +11,7 @@ import { FanOutForm } from './FanOutForm'
 import { GenerateTasksModal } from './GenerateTasksModal'
 import { GroupProgressTable } from './GroupProgressTable'
 import { MemberProgress } from './MemberProgress'
+import { BoardVerdict } from './BoardVerdict'
 import { SubmitProject } from './SubmitProject'
 import { TaskBoard } from './TaskBoard'
 import { TaskDetailModal } from './detail/TaskDetailModal'
@@ -286,6 +287,7 @@ export function ProjectTasksTab({
             </div>
           ) : (
             <>
+              <BoardVerdict board={active} role={role} onChanged={refresh} />
               <SubmitProject board={active} locked={locked} onChanged={refresh} />
               <BoardProgress board={active} />
               <MemberProgress
@@ -475,6 +477,7 @@ export function ProjectTasksTab({
             </div>
           ) : (
             <>
+              <BoardVerdict board={active} role={role} onChanged={refresh} />
               <BoardProgress board={active} />
               <MemberProgress rows={progress} title="Who is carrying what" />
               <TaskBoard
