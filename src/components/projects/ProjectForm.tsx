@@ -124,6 +124,23 @@ export function ProjectForm({
     if (audience === 'group' && !groupSetId) {
       return setInvalid('Pick which set of groups gets this project.')
     }
+    if (!guidelines.trim()) {
+      return setInvalid('Say what the work is. Students see this as the brief.')
+    }
+
+    // A half-filled row is worse than no row: it marks against a criterion
+    // nobody named, or names one worth nothing.
+    const filled = criteria.filter((c) => c.label.trim() || c.max_points > 0)
+    if (filled.length === 0) {
+      return setInvalid('Add at least one criterion to mark against.')
+    }
+    const unnamed = filled.find((c) => !c.label.trim())
+    if (unnamed) return setInvalid('Every criterion needs a name.')
+    const worthless = filled.find((c) => !(c.max_points > 0))
+    if (worthless) {
+      return setInvalid(`"${worthless.label.trim()}" needs to be worth more than zero.`)
+    }
+
     setInvalid(null)
     onSubmit({
       input: {
@@ -139,7 +156,7 @@ export function ProjectForm({
         dueAt: fromLocalInput(dueAt),
         releaseAt: scheduled ? fromLocalInput(releaseAt) : null,
       },
-      criteria,
+      criteria: criteria.filter((c) => c.label.trim()),
       file,
     })
   }
@@ -293,7 +310,7 @@ export function ProjectForm({
               </>
             ))}
 
-          <Field label="Guidelines" optional>
+          <Field label="Guidelines">
             {(id) => (
               <Textarea
                 id={id}
@@ -307,7 +324,7 @@ export function ProjectForm({
         </div>
       </Section>
 
-      <Section step={3} title="Marking" hint="A total, and the criteria you mark against.">
+      <Section step={3} title="Marking" hint="A total, and the criteria you mark against. At least one is required.">
         <div className="space-y-4">
           <Field label="Total points">
             {(id) => (

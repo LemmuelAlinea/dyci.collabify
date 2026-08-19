@@ -26,8 +26,8 @@ export function RubricEditor({
     <div className="space-y-3">
       {rows.length === 0 ? (
         <p className="text-[13.5px] text-muted">
-          No rubric yet. Add the criteria you will mark against, or leave it out and mark on
-          the total.
+          No rubric yet. Add the criteria you will mark against — a project needs at least
+          one.
         </p>
       ) : (
         <ul className="space-y-2.5">
