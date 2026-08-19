@@ -865,6 +865,52 @@ export function isProjectLocked(project: Pick<ProjectRow, 'locked_at'> | null | 
   return Boolean(project?.locked_at)
 }
 
+/* ---------------------------------------------------------------- calendar */
+
+/**
+ * What a dated row on the calendar is. Deliberately narrow: state that merely
+ * records when something was closed is not a deadline, and history belongs in
+ * the activity feed.
+ */
+export type CalendarKind = 'project_due' | 'project_release' | 'task_due' | 'submitted'
+
+export type CalendarEvent = {
+  kind: CalendarKind
+  ref_id: string
+  title: string
+  /** The moment it sits at. Never null — the view filters those out. */
+  at: string
+  class_id: string
+  class_initial: string
+  class_name: string
+  project_id: string
+  project_title: string
+  task_id: string | null
+  group_name: string | null
+  done: boolean
+  late: boolean
+}
+
+export const CALENDAR_KINDS: { value: CalendarKind; label: string }[] = [
+  { value: 'project_due', label: 'Project due' },
+  { value: 'task_due', label: 'Task due' },
+  { value: 'project_release', label: 'Opens to students' },
+  { value: 'submitted', label: 'Handed in' },
+]
+
+/** A stable key: one row is one kind of thing about one record. */
+export function calendarEventKey(e: CalendarEvent) {
+  return `${e.kind}:${e.ref_id}`
+}
+
+/** Local midnight, as a sortable yyyy-mm-dd. The grid is keyed on these. */
+export function dayKey(value: string | Date) {
+  const d = typeof value === 'string' ? new Date(value) : value
+  const m = `${d.getMonth() + 1}`.padStart(2, '0')
+  const day = `${d.getDate()}`.padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
 /* ------------------------------------------------------------ reassignments */
 
 /** What the student is asking for. The professor may still decide otherwise. */
