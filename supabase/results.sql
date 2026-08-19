@@ -166,4 +166,90 @@ select distinct on (r.board_id)
 
 grant select on public.board_result_overview to authenticated;
 
+-- ---------------------------------------------------------------- board view
+
+/**
+ * task_board_overview lives here now: it has to carry the standing verdict, and
+ * board_results is created in this file. One file owns it at a time — two
+ * definitions is how a column silently goes missing, which is exactly what
+ * happened to `last_activity` below. It was added in dashboard.sql, dropped
+ * without anyone noticing when deadline-lock.sql redefined the view, and
+ * findStalled has been reading undefined ever since — dating every unfinished
+ * board to the epoch and calling it stalled for twenty thousand days.
+ */
+drop view if exists public.task_board_overview;
+
+create view public.task_board_overview
+with (security_invoker = true) as
+select b.id,
+       b.project_id,
+       b.group_id,
+       b.student_id,
+       b.submitted_at,
+       b.submitted_by,
+       btrim(sb.first_name || ' ' || sb.last_name) as submitted_by_name,
+       p.class_id,
+       p.title      as project_title,
+       p.due_at     as project_due_at,
+       p.locked_at  as project_locked_at,
+       p.total_points,
+       g.name       as group_name,
+       g.set_id     as group_set_id,
+       -- An individual board has no group to name it, so it is named by the
+       -- student who owns it. Null on a group board.
+       case when b.student_id is null then null
+            else btrim(sp.first_name || ' ' || sp.last_name) end as student_name,
+       -- The standing answer, so a card can say what became of the work.
+       res.verdict    as result_verdict,
+       res.decided_at as result_at,
+       t.task_count,
+       t.done_count,
+       t.doing_count,
+       t.unclaimed_count,
+       t.late_count,
+       (select count(*) from public.group_members m where m.group_id = b.group_id)::int
+         as member_count,
+       t.total_weight,
+       t.last_activity,
+       -- The board's 100, split by how far the work has got.
+       case when t.total_weight = 0 then 0
+            else round(t.done_weight / t.total_weight * 100, 1) end as done_pct,
+       case when t.total_weight = 0 then 0
+            else round(t.doing_weight / t.total_weight * 100, 1) end as doing_pct,
+       case when t.total_weight = 0 then 0
+            else round(t.unclaimed_weight / t.total_weight * 100, 1) end as unclaimed_pct
+  from public.project_boards b
+  join public.projects p on p.id = b.project_id
+  left join public.groups g on g.id = b.group_id
+  left join public.profiles sp on sp.id = b.student_id
+  left join public.profiles sb on sb.id = b.submitted_by
+  left join lateral (
+    select r.verdict, r.decided_at
+      from public.board_results r
+     where r.board_id = b.id
+     order by r.decided_at desc
+     limit 1
+  ) res on true
+  cross join lateral (
+    select count(*)::int as task_count,
+           count(*) filter (where x.status = 'done')::int as done_count,
+           count(*) filter (where x.status = 'in_progress')::int as doing_count,
+           count(*) filter (
+             where not exists (select 1 from public.task_assignees a where a.task_id = x.id)
+           )::int as unclaimed_count,
+           count(*) filter (where x.status = 'done' and x.late)::int as late_count,
+           coalesce(sum(x.weight), 0)::numeric as total_weight,
+           coalesce(sum(x.weight) filter (where x.status = 'done'), 0)::numeric as done_weight,
+           coalesce(sum(x.weight) filter (where x.status = 'in_progress'), 0)::numeric
+             as doing_weight,
+           coalesce(sum(x.weight) filter (
+             where not exists (select 1 from public.task_assignees a where a.task_id = x.id)
+           ), 0)::numeric as unclaimed_weight,
+           max(x.updated_at) as last_activity
+      from public.project_tasks x
+     where x.board_id = b.id
+  ) t;
+
+grant select on public.task_board_overview to authenticated;
+
 commit;

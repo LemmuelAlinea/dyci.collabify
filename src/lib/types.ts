@@ -631,6 +631,9 @@ export type BoardSummary = ProjectBoard & {
   /** Set only on an individual board, which has an owner rather than a group. */
   student_name: string | null
   submitted_by_name: string | null
+  /** The professor's standing answer, when they have given one. */
+  result_verdict: ResultVerdict | null
+  result_at: string | null
   task_count: number
   done_count: number
   doing_count: number

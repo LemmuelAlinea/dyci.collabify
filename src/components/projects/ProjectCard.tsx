@@ -107,6 +107,37 @@ export function ProjectCard({
         </p>
       )}
 
+      {/* What became of the work, when there is an answer. It sits above the
+          progress because once a project is accepted, how far the tasks got is
+          no longer what a student is scanning for. */}
+      {progress?.result_verdict && (
+        <p
+          className={`mt-3.5 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium ${
+            progress.result_verdict === 'accepted'
+              ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200'
+              : 'bg-amber-400/20 text-amber-800 dark:text-amber-200'
+          }`}
+        >
+          <Icon
+            name={progress.result_verdict === 'accepted' ? 'checkCircle' : 'refresh'}
+            size={14}
+            className="shrink-0"
+          />
+          {progress.result_verdict === 'accepted'
+            ? 'Accepted by your professor'
+            : 'Returned — needs another look'}
+        </p>
+      )}
+
+      {/* Handed in and still waiting is its own state, and the one a student
+          most often wants confirmed. */}
+      {!progress?.result_verdict && progress?.submitted_at && (
+        <p className="mt-3.5 flex items-center gap-1.5 rounded-lg surface-sunken px-2.5 py-1.5 text-[12.5px] text-muted">
+          <Icon name="check" size={14} className="shrink-0" />
+          Handed in · waiting on your professor
+        </p>
+      )}
+
       {progress && progress.task_count > 0 && (
         <div className="mt-3.5">
           <div className="flex items-baseline justify-between gap-2 text-[11.5px]">
