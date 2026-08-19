@@ -22,19 +22,24 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
   student: [
     {
       title: 'Workspace',
+      // Classes hold groups, groups hold projects, projects hold the tasks —
+      // so the spine reads widest to narrowest, and My tasks sits against
+      // Projects rather than behind Messages. Talking comes after working.
       items: [
         { label: 'Dashboard', icon: 'board', to: '/student' },
         { label: 'Classes', icon: 'folder', to: '/student/classes' },
         { label: 'Groups', icon: 'users', to: '/student/groups' },
         { label: 'Projects', icon: 'kanban', to: '/student/projects' },
-        { label: 'Messages', icon: 'message', to: '/student/messages', badge: 'messages' },
         { label: 'My tasks', icon: 'check', to: '/student/tasks' },
-        { label: 'Milestones', icon: 'target', soon: true },
+        { label: 'Messages', icon: 'message', to: '/student/messages', badge: 'messages' },
       ],
     },
     {
-      title: 'Group',
+      // Everything unbuilt, in one place. Scattered through the live rows they
+      // read as things that are broken rather than things that are coming.
+      title: 'Coming soon',
       items: [
+        { label: 'Milestones', icon: 'target', soon: true },
         { label: 'Files', icon: 'folder', soon: true },
         { label: 'Discussion', icon: 'message', soon: true },
         { label: 'Calendar', icon: 'calendar', soon: true },
