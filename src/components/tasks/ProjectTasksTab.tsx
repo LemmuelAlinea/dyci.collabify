@@ -11,6 +11,7 @@ import { FanOutForm } from './FanOutForm'
 import { GenerateTasksModal } from './GenerateTasksModal'
 import { GroupProgressTable } from './GroupProgressTable'
 import { MemberProgress } from './MemberProgress'
+import { SubmitProject } from './SubmitProject'
 import { TaskBoard } from './TaskBoard'
 import { TaskDetailModal } from './detail/TaskDetailModal'
 import { EMPTY_TASK_FILTERS, TaskFilters, applyTaskFilters } from './TaskFilters'
@@ -26,7 +27,7 @@ import {
 } from '../../lib/api/tasks'
 import type { ProfessorTaskGroup, ProjectTaskRow } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
-import { boardOwnerName, isProjectLocked, isReleased } from '../../lib/types'
+import { boardOwnerName, isBoardSubmitted, isProjectLocked, isReleased } from '../../lib/types'
 import type {
   BoardSummary,
   MemberProgress as MemberRow,
@@ -210,7 +211,7 @@ export function ProjectTasksTab({
       boardWeight={
         weightByBoard.get(rows.find((t) => t.id === openTask)?.board_id ?? '') ?? 0
       }
-      locked={locked && !isProfessor}
+      locked={(locked || isBoardSubmitted(active)) && !isProfessor}
       onChanged={refresh}
     />
   )
@@ -285,6 +286,7 @@ export function ProjectTasksTab({
             </div>
           ) : (
             <>
+              <SubmitProject board={active} locked={locked} onChanged={refresh} />
               <BoardProgress board={active} />
               <MemberProgress
                 rows={progress}

@@ -515,3 +515,15 @@ export function subscribeToBoard(boardId: string, onChange: () => void) {
     void supabase.removeChannel(channel)
   }
 }
+
+/**
+ * The group's own word that the project is finished, and taking it back.
+ * Freezes every task on the board without touching the conversation on them.
+ */
+export async function setBoardSubmitted(boardId: string, submitted: boolean) {
+  const { error } = await supabase.rpc('set_board_submitted', {
+    p_board: boardId,
+    p_submitted: submitted,
+  })
+  if (error) throw error
+}

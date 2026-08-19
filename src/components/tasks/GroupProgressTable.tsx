@@ -18,6 +18,7 @@ const PREVIEW = 8
 
 /** Nothing on the board, or work nobody has taken — the two things to look at. */
 function needsAttention(b: BoardSummary) {
+  if (b.submitted_at) return false // they have said they are done with it
   return b.task_count === 0 || b.unclaimed_count > 0
 }
 
@@ -72,6 +73,7 @@ export function GroupProgressTable({
   const shown = all || matched.length <= PREVIEW ? matched : matched.slice(0, PREVIEW)
 
   const started = boards.filter((b) => b.task_count > 0).length
+  const handedIn = boards.filter((b) => b.submitted_at).length
   const attention = boards.filter(needsAttention).length
   const average = boards.length
     ? Math.round((boards.reduce((n, b) => n + Number(b.done_pct), 0) / boards.length) * 10) / 10
@@ -83,6 +85,12 @@ export function GroupProgressTable({
         <p className="text-[13px] text-muted">
           <strong className="text-ink">{started}</strong> of {boards.length} started ·{' '}
           <strong className="text-ink">{average}%</strong> average
+          {handedIn > 0 && (
+            <span className="text-emerald-700 dark:text-emerald-300">
+              {' · '}
+              <strong>{handedIn}</strong> handed in
+            </span>
+          )}
           {attention > 0 && (
             <span className="text-amber-700 dark:text-amber-300">
               {' · '}
@@ -145,7 +153,18 @@ export function GroupProgressTable({
                     <span className="min-w-0 truncate text-[14px] font-medium text-ink">
                       {boardOwnerName(b)}
                     </span>
-                    <span className="shrink-0 font-mono text-[12px] text-muted">{pct}%</span>
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      {b.submitted_at && (
+                        <span
+                          title={`Handed in${b.submitted_by_name ? ` by ${b.submitted_by_name}` : ''}`}
+                          className="flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10.5px] text-emerald-700 dark:text-emerald-300"
+                        >
+                          <Icon name="check" size={11} />
+                          In
+                        </span>
+                      )}
+                      <span className="font-mono text-[12px] text-muted">{pct}%</span>
+                    </span>
                   </div>
 
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full surface-sunken">

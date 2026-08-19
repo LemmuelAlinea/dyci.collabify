@@ -610,6 +610,12 @@ export type ProjectBoard = {
   project_id: string
   group_id: string | null
   student_id: string | null
+  /**
+   * The group's own word that they are finished. Theirs to take back while the
+   * project is open; the professor's `locked_at` outranks it.
+   */
+  submitted_at: string | null
+  submitted_by: string | null
   created_at: string
 }
 
@@ -624,6 +630,7 @@ export type BoardSummary = ProjectBoard & {
   group_set_id: string | null
   /** Set only on an individual board, which has an owner rather than a group. */
   student_name: string | null
+  submitted_by_name: string | null
   task_count: number
   done_count: number
   doing_count: number
@@ -831,11 +838,18 @@ export function formatMinutes(minutes: number) {
 
 /**
  * The deliverable is still being made while the task runs; it locks when done.
- * A closed project shuts it for the same reason the writes are refused, so the
- * grid does not offer an upload the database will turn away.
+ * A closed or handed-in project shuts it for the same reason the writes are
+ * refused, so the grid does not offer an upload the database will turn away.
  */
 export function canChangeFiles(task: Pick<ProjectTask, 'status'>, locked = false) {
   return !locked && task.status !== 'done'
+}
+
+/** A board stops taking work when its group hands it in. */
+export function isBoardSubmitted(
+  board: Pick<ProjectBoard, 'submitted_at'> | null | undefined,
+) {
+  return Boolean(board?.submitted_at)
 }
 
 /**
