@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
+import { useReducedMotion } from 'motion/react'
 import { Alert, Field, Input } from '../ui/Field'
 import { Icon } from '../ui/Icon'
 import { Select, Textarea } from '../ui/Select'
@@ -92,6 +93,11 @@ export function ProjectForm({
     start: defaults?.start_week ?? firstOpen,
     end: defaults?.end_week ?? firstOpen,
   })
+  // The error lands at the top of a scrolling modal; this is what carries the
+  // professor back to it.
+  const alertRef = useRef<HTMLDivElement>(null)
+  const reduce = useReducedMotion()
+
   const [title, setTitle] = useState(defaults?.title ?? '')
   const [type, setType] = useState<ProjectType>(defaults?.type ?? 'activity')
   const [typeLabel, setTypeLabel] = useState(defaults?.type_label ?? '')
@@ -117,28 +123,59 @@ export function ProjectForm({
   // not something to hide. Only sets with no groups left are unusable.
   const chosenSet = groupSets.find((s) => s.id === groupSetId)
 
+  // A save that failed on the server lands in the same place, and is just as
+  // easy to miss from the bottom of the form.
+  useEffect(() => {
+    if (!error) return
+    alertRef.current?.scrollIntoView({
+      behavior: reduce ? 'auto' : 'smooth',
+      block: 'center',
+    })
+  }, [error, reduce])
+
+  /**
+   * Say what is wrong, then take the professor to it. The form is four sections
+   * inside a scrolling modal, so on a long one the message can be well above
+   * the fold when the button is pressed — and a save that appears to do nothing
+   * reads as broken rather than refused.
+   *
+   * Scrolling here rather than in an effect on `invalid` is deliberate: pressing
+   * save twice on the same mistake leaves the message unchanged, and an effect
+   * keyed on it would not fire the second time.
+   */
+  function fail(message: string) {
+    setInvalid(message)
+    // Next frame, so the alert is in the DOM to be scrolled to.
+    requestAnimationFrame(() => {
+      alertRef.current?.scrollIntoView({
+        behavior: reduce ? 'auto' : 'smooth',
+        block: 'center',
+      })
+    })
+  }
+
   function submit(e: FormEvent) {
     e.preventDefault()
-    if (!title.trim()) return setInvalid('Give the project a name.')
-    if (type === 'other' && !typeLabel.trim()) return setInvalid('Name the project type.')
+    if (!title.trim()) return fail('Give the project a name.')
+    if (type === 'other' && !typeLabel.trim()) return fail('Name the project type.')
     if (audience === 'group' && !groupSetId) {
-      return setInvalid('Pick which set of groups gets this project.')
+      return fail('Pick which set of groups gets this project.')
     }
     if (!guidelines.trim()) {
-      return setInvalid('Say what the work is. Students see this as the brief.')
+      return fail('Say what the work is. Students see this as the brief.')
     }
 
     // A half-filled row is worse than no row: it marks against a criterion
     // nobody named, or names one worth nothing.
     const filled = criteria.filter((c) => c.label.trim() || c.max_points > 0)
     if (filled.length === 0) {
-      return setInvalid('Add at least one criterion to mark against.')
+      return fail('Add at least one criterion to mark against.')
     }
     const unnamed = filled.find((c) => !c.label.trim())
-    if (unnamed) return setInvalid('Every criterion needs a name.')
+    if (unnamed) return fail('Every criterion needs a name.')
     const worthless = filled.find((c) => !(c.max_points > 0))
     if (worthless) {
-      return setInvalid(`"${worthless.label.trim()}" needs to be worth more than zero.`)
+      return fail(`"${worthless.label.trim()}" needs to be worth more than zero.`)
     }
 
     setInvalid(null)
@@ -163,7 +200,9 @@ export function ProjectForm({
 
   return (
     <form id={formId} onSubmit={submit} className="space-y-8">
-      {(error || invalid) && <Alert tone="error">{error ?? invalid}</Alert>}
+      <div ref={alertRef} className="scroll-mt-4">
+        {(error || invalid) && <Alert tone="error">{error ?? invalid}</Alert>}
+      </div>
 
       <Section
         step={1}
