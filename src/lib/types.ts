@@ -865,6 +865,32 @@ export function isProjectLocked(project: Pick<ProjectRow, 'locked_at'> | null | 
   return Boolean(project?.locked_at)
 }
 
+/* ------------------------------------------------------------- group drive */
+
+/**
+ * A file the group is still working on. It leaves the drive the moment it is
+ * attached to a task, so the drive only ever holds work not handed in — which
+ * is what makes "six staged, none attached" a readable signal.
+ */
+export type GroupFile = {
+  id: string
+  group_id: string
+  uploaded_by: string | null
+  file_path: string
+  file_name: string
+  mime_type: string | null
+  size_bytes: number
+  /** What it is, when the filename does not say. */
+  note: string
+  created_at: string
+  group_name: string
+  set_id: string
+  class_id: string
+  class_initial: string
+  class_name: string
+  uploaded_by_name: string | null
+}
+
 /* ------------------------------------------------------------------- files */
 
 /** Where a file came from. The four stores stay four stores; this only names them. */

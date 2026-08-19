@@ -11,6 +11,7 @@ import { EmptyState } from '../../../components/ui/Tabs'
 import { useToast } from '../../../components/ui/Toast'
 import { CapacityPill } from '../../../components/groups/GroupCard'
 import { FilesPanel } from '../../../components/files/FilesPanel'
+import { GroupDrive } from '../../../components/groups/GroupDrive'
 import { GroupWork } from '../../../components/groups/GroupWork'
 import { groupMemberLoad } from '../../../lib/api/groupWork'
 import type { GroupMemberLoad } from '../../../lib/api/groupWork'
@@ -340,14 +341,23 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
         <GroupWork groupId={group.id} role={role} viewerId={profile?.id} />
       </section>
 
+      {/* Two lists, and the difference between them is the whole point: this
+          one is what has not been handed in. */}
       <section className="mt-8">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-[18px]">Files</h2>
+          <h2 className="text-[18px]">Group files</h2>
+          <p className="text-[12.5px] text-faint">Work in progress, not handed in.</p>
+        </div>
+        <GroupDrive groupId={group.id} role={role} canManage={isMember} />
+      </section>
+
+      <section className="mt-8">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="text-[18px]">Handed in</h2>
           <p className="text-[12.5px] text-faint">
             Everything this group has attached to its work.
           </p>
         </div>
-        {/* Scoped to the group, so it is their deliverables and nobody else's. */}
         <FilesPanel scope={{ groupId: group.id }} showProject />
       </section>
 

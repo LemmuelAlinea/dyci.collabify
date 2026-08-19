@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { FileDrop } from '../../ui/FileDrop'
 import { Icon, Spinner } from '../../ui/Icon'
@@ -6,7 +6,9 @@ import { useToast } from '../../ui/Toast'
 import { FilePreview } from './FilePreview'
 import { deleteTaskFile, uploadTaskFile } from '../../../lib/api/taskDetail'
 import { authErrorMessage } from '../../../lib/authError'
-import { canChangeFiles } from '../../../lib/types'
+import { attachToTask, listGroupFiles } from '../../../lib/api/groupDrive'
+import { canChangeFiles, formatBytes } from '../../../lib/types'
+import type { GroupFile } from '../../../lib/types'
 import type { TaskDetail, TaskFile } from '../../../lib/types'
 
 /**
@@ -30,9 +32,33 @@ export function TaskFileGrid({
   const { show } = useToast()
   const [busy, setBusy] = useState(false)
   const [removing, setRemoving] = useState<TaskFile | null>(null)
+  // Staged work the group can hand up without finding the file again.
+  const [drive, setDrive] = useState<GroupFile[]>([])
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const open = canChangeFiles(task, locked)
   const canAttach = isAssignee && open
+
+  useEffect(() => {
+    if (!canAttach || !task.group_id) return
+    listGroupFiles(task.group_id)
+      .then(setDrive)
+      .catch(() => setDrive([]))
+  }, [canAttach, task.group_id, files.length])
+
+  async function handUp(f: GroupFile) {
+    setBusy(true)
+    try {
+      await attachToTask(f, task.id)
+      show(`${f.file_name} attached — it has left the group files`)
+      setPickerOpen(false)
+      await onChanged()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not attach that file.'), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <section className="space-y-3">
@@ -68,6 +94,48 @@ export function TaskFileGrid({
               onRemove={() => setRemoving(f)}
             />
           ))}
+        </div>
+      )}
+
+      {canAttach && drive.length > 0 && (
+        <div className="rounded-xl border border-line surface-sunken px-3.5 py-3">
+          <button
+            type="button"
+            onClick={() => setPickerOpen((v) => !v)}
+            className="flex w-full items-center gap-2 text-left text-[13px] font-medium text-ink"
+          >
+            <Icon name={pickerOpen ? 'chevronDown' : 'chevronRight'} size={14} />
+            Hand up something from the group files
+            <span className="font-mono text-[11.5px] font-normal text-faint">
+              {drive.length}
+            </span>
+          </button>
+
+          {pickerOpen && (
+            <ul className="mt-2.5 space-y-1.5">
+              {drive.map((f) => (
+                <li key={f.id}>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void handUp(f)}
+                    className="surface flex w-full items-center gap-3 rounded-lg border border-line px-3 py-2 text-left transition-colors hover:border-line-strong disabled:opacity-60"
+                  >
+                    <Icon name="upload" size={14} className="shrink-0 text-faint" />
+                    <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
+                      {f.file_name}
+                    </span>
+                    <span className="shrink-0 font-mono text-[11px] text-faint">
+                      {formatBytes(f.size_bytes)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-2 text-[11.5px] text-faint">
+            Attaching moves it out of the group files, so it lives in one place.
+          </p>
         </div>
       )}
 
