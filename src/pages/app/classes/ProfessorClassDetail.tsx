@@ -6,6 +6,7 @@ import { Alert } from '../../../components/ui/Field'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { Modal } from '../../../components/ui/Modal'
 import { Tabs } from '../../../components/ui/Tabs'
+import { FilesPanel } from '../../../components/files/FilesPanel'
 import { useToast } from '../../../components/ui/Toast'
 import { AnnouncementFeed } from '../../../components/classes/AnnouncementFeed'
 import { ClassAbout } from '../../../components/classes/ClassAbout'
@@ -31,7 +32,14 @@ import { listResources } from '../../../lib/api/resources'
 import { authErrorMessage } from '../../../lib/authError'
 import type { Announcement, ClassMember, ClassSummary, TeachingResource } from '../../../lib/types'
 
-type TabId = 'announcements' | 'students' | 'groups' | 'projects' | 'syllabus' | 'about'
+type TabId =
+  | 'announcements'
+  | 'students'
+  | 'groups'
+  | 'projects'
+  | 'files'
+  | 'syllabus'
+  | 'about'
 
 export default function ProfessorClassDetail() {
   const { classId = '' } = useParams()
@@ -189,6 +197,7 @@ export default function ProfessorClassDetail() {
             },
             { id: 'groups', label: 'Groups', icon: 'kanban' },
             { id: 'projects', label: 'Projects', icon: 'board' },
+            { id: 'files', label: 'Files', icon: 'folder' },
             { id: 'syllabus', label: 'Syllabus', icon: 'calendar' },
             { id: 'about', label: 'About', icon: 'info' },
           ]}
@@ -237,6 +246,8 @@ export default function ProfessorClassDetail() {
         {tab === 'syllabus' && (
           <ClassSyllabusTab cls={cls} role="professor" onClassChanged={load} />
         )}
+
+        {tab === 'files' && <FilesPanel scope={{ classId }} />}
 
         {tab === 'about' && <ClassAbout cls={cls} />}
       </div>

@@ -7,6 +7,7 @@ import { FileDrop, formatBytes } from '../../../components/ui/FileDrop'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { useToast } from '../../../components/ui/Toast'
 import { Tabs } from '../../../components/ui/Tabs'
+import { FilesPanel } from '../../../components/files/FilesPanel'
 import { dueLabel, StatusPill } from '../../../components/projects/ProjectCard'
 import { ProjectWizard } from '../../../components/projects/ProjectWizard'
 import { ProjectTasksTab } from '../../../components/tasks/ProjectTasksTab'
@@ -41,7 +42,7 @@ import type {
   ProjectSummary,
 } from '../../../lib/types'
 
-type TabId = 'brief' | 'tasks'
+type TabId = 'brief' | 'tasks' | 'files'
 
 export default function ProjectDetail({ role }: { role: 'professor' | 'student' }) {
   const { projectId = '' } = useParams()
@@ -257,6 +258,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           tabs={[
             { id: 'brief', label: 'Brief', icon: 'file' },
             { id: 'tasks', label: 'Tasks', icon: 'check' },
+            { id: 'files', label: 'Files', icon: 'folder' },
           ]}
           active={tab}
           onChange={setTab}
@@ -266,6 +268,14 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
       {tab === 'tasks' && (
         <div className="mt-6">
           <ProjectTasksTab project={project} role={role} viewerId={profile?.id} />
+        </div>
+      )}
+
+      {/* Split by whoever handed it up — group by group, or student by student
+          when the project is individual. */}
+      {tab === 'files' && (
+        <div className="mt-6">
+          <FilesPanel scope={{ projectId: project.id }} showProject={false} />
         </div>
       )}
 

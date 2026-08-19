@@ -865,6 +865,60 @@ export function isProjectLocked(project: Pick<ProjectRow, 'locked_at'> | null | 
   return Boolean(project?.locked_at)
 }
 
+/* ------------------------------------------------------------------- files */
+
+/** Where a file came from. The four stores stay four stores; this only names them. */
+export type FileSource = 'task' | 'project' | 'syllabus' | 'curriculum'
+
+export type FileRow = {
+  source: FileSource
+  id: string
+  file_name: string
+  file_path: string
+  /** Which storage bucket to ask for a signed link. */
+  bucket: string
+  mime_type: string | null
+  size_bytes: number | null
+  uploaded_at: string
+  uploaded_by: string | null
+  uploaded_by_name: string | null
+  class_id: string
+  class_initial: string
+  class_name: string
+  project_id: string | null
+  project_title: string | null
+  project_audience: ProjectAudience | null
+  board_id: string | null
+  group_id: string | null
+  group_name: string | null
+  student_id: string | null
+  student_name: string | null
+  task_id: string | null
+  task_title: string | null
+}
+
+export const FILE_SOURCES: { value: FileSource; label: string }[] = [
+  { value: 'task', label: 'Student work' },
+  { value: 'project', label: 'Project material' },
+  { value: 'syllabus', label: 'Syllabus' },
+  { value: 'curriculum', label: 'Curriculum' },
+]
+
+/**
+ * Who a file belongs to on a board: the group on a group project, the student
+ * on an individual one. Course material belongs to the class itself.
+ */
+export function fileOwnerName(f: FileRow) {
+  return f.group_name ?? f.student_name ?? null
+}
+
+export function formatBytes(bytes: number | null) {
+  if (!bytes || bytes <= 0) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${Math.round((bytes / (1024 * 1024)) * 10) / 10} MB`
+}
+
 /* ---------------------------------------------------------------- calendar */
 
 /**

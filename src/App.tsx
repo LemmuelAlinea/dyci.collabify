@@ -27,6 +27,7 @@ import StudentClassDetail from './pages/app/classes/StudentClassDetail'
 import Syllabi from './pages/app/resources/Syllabi'
 import SyllabusDetail from './pages/app/resources/SyllabusDetail'
 import Calendar from './pages/app/calendar/Calendar'
+import Files from './pages/app/files/Files'
 import Curriculum from './pages/app/resources/Curriculum'
 import Reassignments from './pages/app/reassignments/Reassignments'
 import ProfessorGroups from './pages/app/groups/ProfessorGroups'
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/student/groups" element={<StudentGroups />} />
             <Route path="/student/projects" element={<StudentProjects />} />
             <Route path="/student/calendar" element={<Calendar />} />
+            <Route path="/student/files" element={<Files />} />
             <Route path="/student/tasks" element={<MyTasks />} />
             <Route
               path="/student/projects/:projectId"
@@ -104,6 +106,7 @@ export default function App() {
             <Route path="/professor/curriculum" element={<Curriculum />} />
             <Route path="/professor/reassignments" element={<Reassignments />} />
             <Route path="/professor/calendar" element={<Calendar />} />
+            <Route path="/professor/files" element={<Files />} />
           </Route>
         </Route>
 
