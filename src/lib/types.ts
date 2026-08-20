@@ -868,6 +868,25 @@ export function isProjectLocked(project: Pick<ProjectRow, 'locked_at'> | null | 
   return Boolean(project?.locked_at)
 }
 
+/* --------------------------------------------------------------- approvals */
+
+/** professor_accounts: a faculty account and who decided it. */
+export type ProfessorAccount = {
+  id: string
+  first_name: string
+  middle_name: string | null
+  last_name: string
+  email: string
+  avatar_url: string | null
+  status: AccountStatus
+  created_at: string
+  decided_at: string | null
+  decided_by: string | null
+  decided_by_name: string | null
+  /** Classes they already run. A rejection is heavier when this is not zero. */
+  class_count: number
+}
+
 /* ----------------------------------------------------------------- results */
 
 /**

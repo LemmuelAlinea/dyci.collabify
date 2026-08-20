@@ -3,11 +3,6 @@ import type { Upcoming } from './RoleHome'
 
 const UPCOMING: Upcoming[] = [
   {
-    icon: 'shield',
-    title: 'Professor approvals',
-    body: 'Review and verify faculty accounts before adviser tools unlock for them.',
-  },
-  {
     icon: 'users',
     title: 'Account management',
     body: 'Search the roster, change a role, or deactivate an account that has left the program.',
@@ -38,7 +33,7 @@ export default function AdminHome() {
   return (
     <RoleHome
       headline="Program console is ready"
-      intro="Approvals, rosters, and cohort oversight land here. Your own account settings are live today."
+      intro="Professor approvals are live. Rosters and cohort oversight land here next."
       upcoming={UPCOMING}
     />
   )
