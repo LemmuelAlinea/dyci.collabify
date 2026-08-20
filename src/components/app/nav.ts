@@ -59,7 +59,7 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
     },
     SETTINGS,
   ],
-  superadmin: [
+  admin: [
     {
       title: 'Program',
       items: [

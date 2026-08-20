@@ -18,7 +18,7 @@ export default function Onboarding() {
   const meta = user?.user_metadata ?? {}
   const guessed = String(meta.full_name ?? meta.name ?? '').trim().split(/\s+/)
 
-  const [role, setRole] = useState<Exclude<Role, 'superadmin'>>('student')
+  const [role, setRole] = useState<Exclude<Role, 'admin'>>('student')
   const [firstName, setFirstName] = useState(guessed[0] ?? '')
   const [middleName, setMiddleName] = useState('')
   const [lastName, setLastName] = useState(guessed.length > 1 ? guessed[guessed.length - 1] : '')

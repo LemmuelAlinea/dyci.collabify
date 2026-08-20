@@ -1,7 +1,7 @@
 import { Icon } from './Icon'
 import type { Role } from '../../lib/types'
 
-type Choice = Exclude<Role, 'superadmin'>
+type Choice = Exclude<Role, 'admin'>
 
 const OPTIONS: { value: Choice; label: string; note: string; icon: 'user' | 'users' }[] = [
   { value: 'student', label: 'Student', note: 'Join a group and work the board', icon: 'user' },

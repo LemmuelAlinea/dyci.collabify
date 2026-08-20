@@ -60,7 +60,7 @@ do $$
 declare
   v_admin uuid; v_student uuid; v_prof uuid; v_new uuid;
 begin
-  select id into v_admin from public.profiles where role = 'superadmin' limit 1;
+  select id into v_admin from public.profiles where role = 'admin' limit 1;
   select id into v_student from public.profiles where role = 'student' limit 1;
   select id into v_prof from public.profiles where role = 'professor' limit 1;
 

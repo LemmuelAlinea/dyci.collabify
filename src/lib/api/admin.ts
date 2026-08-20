@@ -5,7 +5,7 @@ import type { ProfessorAccount } from '../types'
  * Faculty accounts and their standing.
  *
  * RLS decides the audience, not this file: `profiles_select_own` opens the whole
- * table to a superadmin and to nobody else who is not in the same class, so a
+ * table to an admin and to nobody else who is not in the same class, so a
  * professor calling this reads only themselves.
  */
 export async function listProfessorAccounts() {

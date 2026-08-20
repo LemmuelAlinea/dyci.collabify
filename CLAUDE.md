@@ -1,7 +1,7 @@
 # Collabify — working notes
 
 Project management for BSIT programs in the Philippines. Roles: student, professor,
-superadmin. Phase 1 (shipped): landing, auth, settings. Phase 2: boards, milestones,
+admin. Phase 1 (shipped): landing, auth, settings. Phase 2: boards, milestones,
 files, approval console.
 
 ## Commands
@@ -51,7 +51,7 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
 
 ## Security invariants
 
-- `role` and `status` are only changeable by a superadmin — enforced by the
+- `role` and `status` are only changeable by an admin — enforced by the
   `profiles_guard_privileged` trigger, not just by UI.
 - `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_DB_URL` never appear in frontend code, in
   Vercel, or in any committed file.

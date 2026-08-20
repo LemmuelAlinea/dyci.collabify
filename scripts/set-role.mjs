@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Promote or approve an existing Collabify account.
 //
-//   node scripts/set-role.mjs you@example.com superadmin
+//   node scripts/set-role.mjs you@example.com admin
 //   node scripts/set-role.mjs prof@example.com professor active
 //
 // The user must already have signed up (the row is created by the auth trigger).
@@ -18,13 +18,13 @@ for (const file of ['.env.local', '.env']) {
   if (existsSync(full)) dotenv.config({ path: full })
 }
 
-const [email, role = 'superadmin', status = 'active'] = process.argv.slice(2)
+const [email, role = 'admin', status = 'active'] = process.argv.slice(2)
 
 if (!email) {
-  console.error('Usage: node scripts/set-role.mjs <email> [student|professor|superadmin] [active|pending|rejected]')
+  console.error('Usage: node scripts/set-role.mjs <email> [student|professor|admin] [active|pending|rejected]')
   process.exit(1)
 }
-if (!['student', 'professor', 'superadmin'].includes(role)) {
+if (!['student', 'professor', 'admin'].includes(role)) {
   console.error(`Unknown role "${role}".`)
   process.exit(1)
 }

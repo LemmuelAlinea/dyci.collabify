@@ -13,7 +13,7 @@ import type { AppNotification, Role } from '../../lib/types'
 const ROLE_BASE: Record<Role, string> = {
   student: '/student',
   professor: '/professor',
-  superadmin: '/admin',
+  admin: '/admin',
 }
 
 function ago(iso: string) {
@@ -80,10 +80,10 @@ export function NotificationBell() {
     }
     if (!profile) return
     const base = ROLE_BASE[profile.role]
-    if (n.project_id && profile.role !== 'superadmin') {
+    if (n.project_id && profile.role !== 'admin') {
       navigate(`${base}/projects/${n.project_id}`)
     } else if (n.class_id) {
-      navigate(profile.role === 'superadmin' ? base : `${base}/classes/${n.class_id}`)
+      navigate(profile.role === 'admin' ? base : `${base}/classes/${n.class_id}`)
     }
   }
 

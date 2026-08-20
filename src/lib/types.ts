@@ -1,4 +1,4 @@
-export type Role = 'student' | 'professor' | 'superadmin'
+export type Role = 'student' | 'professor' | 'admin'
 export type AccountStatus = 'active' | 'pending' | 'rejected'
 export type ThemeMode = 'light' | 'dark' | 'system'
 
@@ -31,7 +31,7 @@ export type NotificationKey = Exclude<keyof NotificationPrefs, 'user_id'>
 export const ROLE_LABEL: Record<Role, string> = {
   student: 'Student',
   professor: 'Professor',
-  superadmin: 'Superadmin',
+  admin: 'Admin',
 }
 
 export function fullName(p: Pick<Profile, 'first_name' | 'middle_name' | 'last_name'>) {

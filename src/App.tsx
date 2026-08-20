@@ -108,7 +108,7 @@ export default function App() {
           </Route>
         </Route>
 
-        <Route element={<ProtectedRoute allow={['superadmin']} />}>
+        <Route element={<ProtectedRoute allow={['admin']} />}>
           <Route element={<AppShell />}>
             <Route path="/admin" element={<AdminHome />} />
             <Route path="/admin/approvals" element={<ProfessorApprovals />} />

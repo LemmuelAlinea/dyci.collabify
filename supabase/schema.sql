@@ -7,7 +7,7 @@ begin;
 -- ---------------------------------------------------------------- enums
 
 do $$ begin
-  create type public.user_role as enum ('student', 'professor', 'superadmin');
+  create type public.user_role as enum ('student', 'professor', 'admin');
 exception when duplicate_object then null; end $$;
 
 do $$ begin
@@ -49,9 +49,9 @@ create table if not exists public.notification_prefs (
 
 -- ---------------------------------------------------------------- helpers
 
--- Security definer so RLS policies can ask "is this caller a superadmin?"
+-- Security definer so RLS policies can ask "is this caller an admin?"
 -- without re-entering the policy on public.profiles and recursing.
-create or replace function public.is_superadmin()
+create or replace function public.is_admin()
 returns boolean
 language sql
 stable
@@ -60,7 +60,7 @@ set search_path = public
 as $$
   select exists (
     select 1 from public.profiles
-    where id = auth.uid() and role = 'superadmin'
+    where id = auth.uid() and role = 'admin'
   );
 $$;
 
@@ -134,7 +134,7 @@ alter table public.notification_prefs enable row level security;
 
 drop policy if exists profiles_select_own on public.profiles;
 create policy profiles_select_own on public.profiles
-  for select using (id = auth.uid() or public.is_superadmin());
+  for select using (id = auth.uid() or public.is_admin());
 
 drop policy if exists profiles_insert_own on public.profiles;
 create policy profiles_insert_own on public.profiles
@@ -146,11 +146,11 @@ create policy profiles_update_own on public.profiles
 
 drop policy if exists profiles_update_admin on public.profiles;
 create policy profiles_update_admin on public.profiles
-  for update using (public.is_superadmin()) with check (public.is_superadmin());
+  for update using (public.is_admin()) with check (public.is_admin());
 
 drop policy if exists prefs_select_own on public.notification_prefs;
 create policy prefs_select_own on public.notification_prefs
-  for select using (user_id = auth.uid() or public.is_superadmin());
+  for select using (user_id = auth.uid() or public.is_admin());
 
 drop policy if exists prefs_insert_own on public.notification_prefs;
 create policy prefs_insert_own on public.notification_prefs
@@ -161,7 +161,7 @@ create policy prefs_update_own on public.notification_prefs
   for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- A user must not be able to promote themselves or self-approve. Column-level
--- guard: role/status may only change when a superadmin is doing the update.
+-- guard: role/status may only change when an admin is doing the update.
 create or replace function public.guard_privileged_columns()
 returns trigger
 language plpgsql
@@ -173,7 +173,7 @@ begin
     return new; -- service role / SQL console
   end if;
   if (new.role is distinct from old.role or new.status is distinct from old.status)
-     and not public.is_superadmin() then
+     and not public.is_admin() then
     new.role := old.role;
     new.status := old.status;
   end if;

@@ -82,4 +82,4 @@ Run through all of these on the Vercel URL, not localhost:
 - [ ] Settings: flip a notification toggle, reload, it stayed flipped
 - [ ] Settings: sign out, then try to open `/settings` — you get bounced to sign-in
 
-Next: [05-superadmin.md](05-superadmin.md)
+Next: [05-admin.md](05-admin.md)

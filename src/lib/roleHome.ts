@@ -3,7 +3,7 @@ import type { AccountStatus, Role } from './types'
 const HOME: Record<Role, string> = {
   student: '/student',
   professor: '/professor',
-  superadmin: '/admin',
+  admin: '/admin',
 }
 
 /** Where a signed-in user belongs right now. Pending professors are parked. */

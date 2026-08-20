@@ -4,11 +4,11 @@
 
 /**
  * A professor signing up lands `pending` and waits at /pending. Until now the
- * only way past that was a superadmin editing the row by hand, which is why
+ * only way past that was an admin editing the row by hand, which is why
  * the console has always said "coming soon".
  *
  * The rules were already here and are not being loosened: `profiles_update_admin`
- * lets a superadmin write, and `guard_privileged_columns` pins `role` and
+ * lets an admin write, and `guard_privileged_columns` pins `role` and
  * `status` back for everybody else. This adds a way to use them, and records
  * who used it.
  */
@@ -37,7 +37,7 @@ language plpgsql security definer set search_path = public as $$
 declare
   target public.profiles%rowtype;
 begin
-  if auth.uid() is not null and not public.is_superadmin() then
+  if auth.uid() is not null and not public.is_admin() then
     raise exception 'Only the program admin approves professor accounts'
       using errcode = 'insufficient_privilege';
   end if;

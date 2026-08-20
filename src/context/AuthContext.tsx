@@ -18,7 +18,7 @@ type SignUpInput = {
   lastName: string
   email: string
   password: string
-  role: Exclude<Role, 'superadmin'>
+  role: Exclude<Role, 'admin'>
 }
 
 type AuthValue = {
@@ -38,7 +38,7 @@ type AuthValue = {
     firstName: string
     middleName?: string
     lastName: string
-    role: Exclude<Role, 'superadmin'>
+    role: Exclude<Role, 'admin'>
   }) => Promise<void>
   loadNotificationPrefs: () => Promise<NotificationPrefs | null>
   updateNotificationPrefs: (patch: Partial<NotificationPrefs>) => Promise<void>

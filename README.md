@@ -46,8 +46,8 @@ The landing page works with no configuration. Auth needs Supabase keys — see
 | Role | How you get it | Home |
 |---|---|---|
 | Student | Chosen at register, active immediately | `/student` |
-| Professor | Chosen at register, held until a superadmin approves | `/professor` |
-| Superadmin | Set from the command line only | `/admin` |
+| Professor | Chosen at register, held until an admin approves | `/professor` |
+| Admin | Set from the command line only | `/admin` |
 
 A database trigger strips any self-service attempt to change `role` or `status`, so a
 student cannot promote themselves even with a crafted request.

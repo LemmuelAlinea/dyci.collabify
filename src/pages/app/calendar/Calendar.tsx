@@ -42,7 +42,7 @@ export default function Calendar() {
   const openTask = params.get('task')
 
   const load = useCallback(async () => {
-    if (!role || role === 'superadmin') return
+    if (!role || role === 'admin') return
     try {
       const rows = await listCalendar(role)
       setEvents(rows)
@@ -90,7 +90,7 @@ export default function Calendar() {
     navigate(`${base}/projects/${event.project_id}`)
   }
 
-  if (!role || role === 'superadmin') {
+  if (!role || role === 'admin') {
     return (
       <Alert tone="info">
         The calendar follows classes, so it is for students and professors.

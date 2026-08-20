@@ -14,7 +14,7 @@ export default function Register() {
   const { signUpWithEmail, signInWithGoogle, configured } = useAuth()
   const navigate = useNavigate()
 
-  const [role, setRole] = useState<Exclude<Role, 'superadmin'>>('student')
+  const [role, setRole] = useState<Exclude<Role, 'admin'>>('student')
   const [firstName, setFirstName] = useState('')
   const [middleName, setMiddleName] = useState('')
   const [lastName, setLastName] = useState('')

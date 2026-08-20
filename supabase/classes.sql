@@ -133,7 +133,7 @@ create index if not exists notifications_inbox_idx
 
 -- All three are security definer so RLS policies can ask membership questions
 -- without re-entering the policy they are defined on. Same pattern as
--- public.is_superadmin() in schema.sql.
+-- public.is_admin() in schema.sql.
 
 create or replace function public.is_class_professor(p_class uuid)
 returns boolean language sql stable security definer set search_path = public as $$
@@ -296,12 +296,12 @@ alter table public.announcement_attachments enable row level security;
 alter table public.teaching_resources      enable row level security;
 alter table public.notifications           enable row level security;
 
--- classes: owner writes; active members read live classes; superadmin reads all.
+-- classes: owner writes; active members read live classes; admin reads all.
 drop policy if exists classes_select on public.classes;
 create policy classes_select on public.classes
   for select using (
     professor_id = auth.uid()
-    or public.is_superadmin()
+    or public.is_admin()
     or (archived_at is null and public.is_active_member(id))
   );
 
@@ -399,7 +399,7 @@ create policy notifications_delete_own on public.notifications
 drop policy if exists profiles_select_own on public.profiles;
 create policy profiles_select_own on public.profiles
   for select using (
-    id = auth.uid() or public.is_superadmin() or public.shares_class_with(id)
+    id = auth.uid() or public.is_admin() or public.shares_class_with(id)
   );
 
 -- ---------------------------------------------------------------- views

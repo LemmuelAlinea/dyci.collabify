@@ -1,8 +1,8 @@
-# 5 · Make yourself the superadmin
+# 5 · Make yourself the admin
 
-Nobody can register as a superadmin — the register form only offers student and
+Nobody can register as an admin — the register form only offers student and
 professor, and a database trigger blocks anyone from promoting themselves. The first
-superadmin is set from the command line.
+admin is set from the command line.
 
 ## Steps
 
@@ -11,7 +11,7 @@ superadmin is set from the command line.
 2. Then run:
 
 ```bash
-node scripts/set-role.mjs you@example.com superadmin
+node scripts/set-role.mjs you@example.com admin
 ```
 
 3. Sign out and sign back in. You land on `/admin`.
