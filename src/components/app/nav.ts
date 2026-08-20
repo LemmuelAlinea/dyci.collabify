@@ -35,15 +35,6 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
         { label: 'Messages', icon: 'message', to: '/student/messages', badge: 'messages' },
       ],
     },
-    {
-      // Everything unbuilt, in one place. Scattered through the live rows they
-      // read as things that are broken rather than things that are coming.
-      title: 'Coming soon',
-      items: [
-        { label: 'Milestones', icon: 'target', soon: true },
-        { label: 'Discussion', icon: 'message', soon: true },
-      ],
-    },
     SETTINGS,
   ],
   professor: [
