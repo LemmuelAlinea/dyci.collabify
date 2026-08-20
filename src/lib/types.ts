@@ -868,6 +868,73 @@ export function isProjectLocked(project: Pick<ProjectRow, 'locked_at'> | null | 
   return Boolean(project?.locked_at)
 }
 
+/* --------------------------------------------------------------- audit log */
+
+/**
+ * Administrative acts only. There is deliberately no action here naming a
+ * project, task, file, comment or result — an admin reads none of those, and a
+ * log is exactly the feature that would quietly change that.
+ */
+export type AuditAction =
+  | 'account_created'
+  | 'role_changed'
+  | 'status_changed'
+  | 'class_created'
+  | 'class_archived'
+  | 'class_restored'
+  | 'class_professor_changed'
+  | 'class_deleted'
+
+export type AuditEvent = {
+  id: string
+  at: string
+  action: AuditAction
+  actor_id: string | null
+  actor_name: string
+  actor_avatar: string | null
+  subject_id: string | null
+  /** The name as it stood, so a deleted account still reads correctly. */
+  subject_label: string
+  class_id: string | null
+  class_label: string
+  before_value: string
+  after_value: string
+}
+
+export const AUDIT_ACTIONS: { value: AuditAction; label: string }[] = [
+  { value: 'account_created', label: 'Account created' },
+  { value: 'role_changed', label: 'Role changed' },
+  { value: 'status_changed', label: 'Status changed' },
+  { value: 'class_created', label: 'Class created' },
+  { value: 'class_archived', label: 'Class archived' },
+  { value: 'class_restored', label: 'Class restored' },
+  { value: 'class_professor_changed', label: 'Class handed over' },
+  { value: 'class_deleted', label: 'Class deleted' },
+]
+
+/** One line saying what happened, without naming anything academic. */
+export function auditSentence(e: AuditEvent) {
+  const who = e.subject_label || 'an account'
+  switch (e.action) {
+    case 'account_created':
+      return `${who} signed up as ${e.after_value}`
+    case 'role_changed':
+      return `${who} went from ${e.before_value} to ${e.after_value}`
+    case 'status_changed':
+      return `${who} went from ${e.before_value} to ${e.after_value}`
+    case 'class_created':
+      return `${e.class_label} was created${who ? ` for ${who}` : ''}`
+    case 'class_archived':
+      return `${e.class_label} was archived`
+    case 'class_restored':
+      return `${e.class_label} was put back`
+    case 'class_professor_changed':
+      return `${e.class_label} moved from ${e.before_value || 'nobody'} to ${e.after_value}`
+    case 'class_deleted':
+      return `${e.class_label} was deleted`
+  }
+}
+
 /* --------------------------------------------------------------- approvals */
 
 /** professor_accounts: a faculty account and who decided it. */

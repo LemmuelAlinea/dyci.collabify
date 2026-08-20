@@ -18,11 +18,6 @@ const UPCOMING: Upcoming[] = [
     body: 'Completion across the whole batch, so a stalled group surfaces before defense week.',
   },
   {
-    icon: 'clock',
-    title: 'Audit log',
-    body: 'A record of approvals, role changes, and deletions, with who did each one.',
-  },
-  {
     icon: 'bell',
     title: 'Announcements',
     body: 'Program-wide notices that reach students and advisers in one send.',
@@ -33,7 +28,7 @@ export default function AdminHome() {
   return (
     <RoleHome
       headline="Program console is ready"
-      intro="Professor approvals are live. Rosters and cohort oversight land here next."
+      intro="Professor approvals and the audit log are live. Rosters and cohort oversight land here next."
       upcoming={UPCOMING}
     />
   )

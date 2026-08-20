@@ -73,7 +73,7 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
       title: 'Oversight',
       items: [
         { label: 'Cohort progress', icon: 'chart', soon: true },
-        { label: 'Audit log', icon: 'clock', soon: true },
+        { label: 'Audit log', icon: 'clock', to: '/admin/audit' },
       ],
     },
     SETTINGS,

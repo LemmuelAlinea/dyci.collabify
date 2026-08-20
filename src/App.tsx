@@ -19,6 +19,7 @@ import Pending from './pages/auth/Pending'
 import StudentHome from './pages/app/StudentHome'
 import ProfessorHome from './pages/app/ProfessorHome'
 import AdminHome from './pages/app/AdminHome'
+import AuditLog from './pages/app/admin/AuditLog'
 import ProfessorApprovals from './pages/app/admin/ProfessorApprovals'
 
 import ProfessorClasses from './pages/app/classes/ProfessorClasses'
@@ -112,6 +113,7 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route path="/admin" element={<AdminHome />} />
             <Route path="/admin/approvals" element={<ProfessorApprovals />} />
+            <Route path="/admin/audit" element={<AuditLog />} />
           </Route>
         </Route>
 
