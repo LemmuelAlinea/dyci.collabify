@@ -11,6 +11,31 @@ import { useUnreadTotal } from '../../hooks/useConversations'
 import { roleHome } from '../../lib/roleHome'
 import { ROLE_LABEL, fullName } from '../../lib/types'
 
+const SHUT_KEY = 'collabify.nav.shut'
+
+/** Which groups the person folded away, remembered between visits. */
+function useShutGroups() {
+  const [shut, setShut] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = JSON.parse(localStorage.getItem(SHUT_KEY) ?? '[]')
+      return Array.isArray(raw) ? (raw as string[]) : []
+    } catch {
+      return []
+    }
+  })
+
+  useEffect(() => {
+    localStorage.setItem(SHUT_KEY, JSON.stringify(shut))
+  }, [shut])
+
+  return {
+    isShut: (title: string) => shut.includes(title),
+    toggle: (title: string) =>
+      setShut((v) => (v.includes(title) ? v.filter((t) => t !== title) : [...v, title])),
+  }
+}
+
 function NavRows({
   onNavigate,
   collapsed,
@@ -20,77 +45,98 @@ function NavRows({
 }) {
   const { profile } = useAuth()
   const unreadMessages = useUnreadTotal(profile?.id)
+  const { isShut, toggle } = useShutGroups()
   if (!profile) return null
 
   return (
     <nav className={`flex-1 space-y-6 overflow-y-auto py-5 ${collapsed ? 'px-2' : 'px-3'}`}>
-      {navFor(profile.role).map((group) => (
-        <div key={group.title}>
-          {/* Collapsed keeps a rule where the heading was, so the grouping survives. */}
-          {collapsed ? (
-            <div className="mx-2 mb-2 border-t border-white/10" />
-          ) : (
-            <p className="eyebrow px-3 pb-2 text-white/35">{group.title}</p>
-          )}
-          <ul className="space-y-0.5">
-            {group.items.map((item) =>
-              item.to ? (
-                <li key={item.label}>
-                  <NavLink
-                    to={item.to}
-                    // Role homes ("/professor") must match exactly, section roots
-                    // ("/professor/classes") should stay lit on their detail pages.
-                    end={item.to.split('/').filter(Boolean).length < 2}
-                    onClick={onNavigate}
-                    title={collapsed ? item.label : undefined}
-                    className={({ isActive }) =>
-                      `relative flex items-center rounded-xl py-2.5 text-[14.5px] transition-colors duration-200 ${
-                        collapsed ? 'justify-center px-0' : 'gap-3 px-3'
-                      } ${
-                        isActive
-                          ? 'bg-white/12 font-semibold text-white'
-                          : 'text-white/62 hover:bg-white/7 hover:text-white'
-                      }`
-                    }
-                  >
-                    <Icon name={item.icon} size={18} />
-                    {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-                    {item.badge === 'messages' &&
-                      unreadMessages > 0 &&
-                      (collapsed ? (
-                        <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-amber-400" />
-                      ) : (
-                        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-amber-400 px-1.5 font-mono text-[10px] font-bold text-navy-900">
-                          {unreadMessages > 99 ? '99+' : unreadMessages}
-                        </span>
-                      ))}
-                  </NavLink>
-                </li>
-              ) : (
-                <li key={item.label}>
-                  <span
-                    aria-disabled
-                    title={collapsed ? `${item.label} — coming soon` : 'Coming in the next release'}
-                    className={`flex cursor-not-allowed items-center rounded-xl py-2.5 text-[14.5px] text-white/28 ${
-                      collapsed ? 'justify-center px-0' : 'gap-3 px-3'
-                    }`}
-                  >
-                    <Icon name={item.icon} size={18} />
-                    {!collapsed && (
-                      <>
-                        <span className="flex-1 truncate">{item.label}</span>
-                        <span className="rounded-full bg-white/8 px-2 py-0.5 font-mono text-[9.5px] tracking-wider uppercase">
-                          Soon
-                        </span>
-                      </>
-                    )}
-                  </span>
-                </li>
-              ),
+      {navFor(profile.role).map((group) => {
+        // On the icon rail there is no heading to press, so nothing folds there.
+        const shut = !collapsed && isShut(group.title)
+        return (
+          <div key={group.title}>
+            {/* Collapsed keeps a rule where the heading was, so the grouping survives. */}
+            {collapsed ? (
+              <div className="mx-2 mb-2 border-t border-white/10" />
+            ) : (
+              <button
+                type="button"
+                onClick={() => toggle(group.title)}
+                aria-expanded={!shut}
+                className={`eyebrow flex w-full items-center gap-1.5 rounded-lg px-3 pb-2 pt-1 text-left transition-colors ${
+                  // Folded away, the heading is the only thing standing for its
+                  // rows, so it brightens to the accent rather than fading out.
+                  shut ? 'text-amber-400 hover:text-amber-300' : 'text-white/35 hover:text-white/60'
+                }`}
+              >
+                <Icon
+                  name="chevronDown"
+                  size={13}
+                  className={`shrink-0 transition-transform duration-200 ${shut ? '-rotate-90' : ''}`}
+                />
+                <span className="flex-1 truncate">{group.title}</span>
+              </button>
             )}
-          </ul>
-        </div>
-      ))}
+            <ul className={`space-y-0.5 ${shut ? 'hidden' : ''}`}>
+              {group.items.map((item) =>
+                item.to ? (
+                  <li key={item.label}>
+                    <NavLink
+                      to={item.to}
+                      // Role homes ("/professor") must match exactly, section roots
+                      // ("/professor/classes") should stay lit on their detail pages.
+                      end={item.to.split('/').filter(Boolean).length < 2}
+                      onClick={onNavigate}
+                      title={collapsed ? item.label : undefined}
+                      className={({ isActive }) =>
+                        `relative flex items-center rounded-xl py-2.5 text-[14.5px] transition-colors duration-200 ${
+                          collapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                        } ${
+                          isActive
+                            ? 'bg-white/12 font-semibold text-white'
+                            : 'text-white/62 hover:bg-white/7 hover:text-white'
+                        }`
+                      }
+                    >
+                      <Icon name={item.icon} size={18} />
+                      {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                      {item.badge === 'messages' &&
+                        unreadMessages > 0 &&
+                        (collapsed ? (
+                          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-amber-400" />
+                        ) : (
+                          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-amber-400 px-1.5 font-mono text-[10px] font-bold text-navy-900">
+                            {unreadMessages > 99 ? '99+' : unreadMessages}
+                          </span>
+                        ))}
+                    </NavLink>
+                  </li>
+                ) : (
+                  <li key={item.label}>
+                    <span
+                      aria-disabled
+                      title={collapsed ? `${item.label} — coming soon` : 'Coming in the next release'}
+                      className={`flex cursor-not-allowed items-center rounded-xl py-2.5 text-[14.5px] text-white/28 ${
+                        collapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                      }`}
+                    >
+                      <Icon name={item.icon} size={18} />
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1 truncate">{item.label}</span>
+                          <span className="rounded-full bg-white/8 px-2 py-0.5 font-mono text-[9.5px] tracking-wider uppercase">
+                            Soon
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  </li>
+                ),
+              )}
+            </ul>
+          </div>
+        )
+      })}
     </nav>
   )
 }
