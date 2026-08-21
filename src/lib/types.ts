@@ -868,6 +868,94 @@ export function isProjectLocked(project: Pick<ProjectRow, 'locked_at'> | null | 
   return Boolean(project?.locked_at)
 }
 
+/* --------------------------------------------------------------- analytics */
+
+export type ClassPace = {
+  class_id: string
+  class_initial: string
+  class_name: string
+  term_start: string
+  term_end: string
+  weeks_total: number
+  weeks_covered: number
+  weeks_elapsed: number
+  weeks_in_term: number
+}
+
+export type ClassGap = {
+  class_id: string
+  class_initial: string
+  class_name: string
+  week_no: number
+  week_title: string
+  assessments: string
+  week_start: string | null
+  phase: WeekPhase
+}
+
+export type ClassHealth = {
+  class_id: string
+  class_initial: string
+  class_name: string
+  boards: number
+  boards_empty: number
+  boards_submitted: number
+  boards_accepted: number
+  boards_returned: number
+  late_tasks: number
+  tasks: number
+  tasks_done: number
+  tasks_unclaimed: number
+  average_done_pct: number
+  last_activity: string | null
+}
+
+export type MemberLoad = {
+  class_id: string
+  project_id: string
+  board_id: string
+  group_name: string | null
+  project_title: string
+  student_id: string
+  student_name: string
+  avatar_url: string | null
+  task_count: number
+  done_count: number
+  held_pct: number
+  personal_pct: number | null
+  group_size: number
+}
+
+/**
+ * The projection, and every number that produced it.
+ *
+ * Deliberately arithmetic: weeks covered divided by weeks elapsed, extended to
+ * the end of the syllabus. No model and no confidence interval — there is not
+ * enough history for either, and a figure nobody can reproduce by hand is worse
+ * than no figure. The caller shows the working.
+ */
+export function projectFinish(p: ClassPace) {
+  const rate = p.weeks_covered / p.weeks_elapsed
+  const remaining = Math.max(0, p.weeks_total - p.weeks_covered)
+
+  if (p.weeks_covered === 0) {
+    return { rate: 0, remaining, weeksNeeded: null, finishesInTerm: false, weeksSpare: null }
+  }
+
+  const weeksNeeded = Math.ceil(remaining / rate)
+  const weeksLeft = p.weeks_in_term - p.weeks_elapsed
+  return {
+    rate: Math.round(rate * 100) / 100,
+    remaining,
+    weeksNeeded,
+    finishesInTerm: weeksNeeded <= weeksLeft,
+    weeksSpare: weeksLeft - weeksNeeded,
+  }
+}
+
+/** One member holding most of a board while others hold nothing. */
+export const CARRYING_ALONE_PCT = 50
+
 /* ---------------------------------------------------------------- accounts */
 
 /** account_overview: a person, and how much a change to them would disturb. */
