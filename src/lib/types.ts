@@ -893,6 +893,24 @@ export type ClassGap = {
   phase: WeekPhase
 }
 
+/** A class that cannot be measured yet, and what is missing. */
+export type ClassUnmeasured = {
+  class_id: string
+  class_initial: string
+  class_name: string
+  term_start: string | null
+  term_end: string | null
+  needs_term: boolean
+  needs_syllabus: boolean
+}
+
+/** Enough of a class to name it in a filter, from whichever view carries it. */
+export type ClassRef = {
+  class_id: string
+  class_initial: string
+  class_name: string
+}
+
 export type ClassHealth = {
   class_id: string
   class_initial: string

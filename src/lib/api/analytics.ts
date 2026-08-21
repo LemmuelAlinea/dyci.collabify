@@ -1,5 +1,13 @@
 import { supabase } from '../supabase'
-import type { BoardBurn, ClassGap, ClassHealth, ClassPace, MemberLoad, TaskState } from '../types'
+import type {
+  BoardBurn,
+  ClassGap,
+  ClassHealth,
+  ClassPace,
+  ClassUnmeasured,
+  MemberLoad,
+  TaskState,
+} from '../types'
 
 /**
  * Everything the analytics page reads. Each view is scoped to the class's own
@@ -10,6 +18,16 @@ export async function classPace() {
   const { data, error } = await supabase.from('class_pace').select('*').order('class_name')
   if (error) throw error
   return (data ?? []) as ClassPace[]
+}
+
+/**
+ * The classes the pace figure cannot speak for. Read alongside `classPace` so
+ * a class missing its term dates or its syllabus says so instead of vanishing.
+ */
+export async function classesUnmeasured() {
+  const { data, error } = await supabase.from('class_unmeasured').select('*').order('class_name')
+  if (error) throw error
+  return (data ?? []) as ClassUnmeasured[]
 }
 
 export async function classGaps() {

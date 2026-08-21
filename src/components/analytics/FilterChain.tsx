@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Icon } from '../ui/Icon'
 import { Select } from '../ui/Select'
 import { burnOwner } from '../../lib/types'
-import type { BoardBurn, ClassPace, MemberLoad, TaskState } from '../../lib/types'
+import type { BoardBurn, ClassRef, MemberLoad, TaskState } from '../../lib/types'
 
 export type Scope = {
   classId: string
@@ -43,7 +43,9 @@ export function FilterChain({
 }: {
   scope: Scope
   onChange: (next: Scope) => void
-  classes: ClassPace[]
+  // Every class, not only the paced ones — a class with no term dates still
+  // has boards and tasks worth narrowing to.
+  classes: ClassRef[]
   burns: BoardBurn[]
   members: MemberLoad[]
   tasks: TaskState[]

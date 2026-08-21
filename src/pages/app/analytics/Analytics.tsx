@@ -5,6 +5,7 @@ import type { Scope } from '../../../components/analytics/FilterChain'
 import { GapList } from '../../../components/analytics/GapList'
 import { MemberLoad } from '../../../components/analytics/MemberLoad'
 import { PaceCard } from '../../../components/analytics/PaceCard'
+import { UnmeasuredList } from '../../../components/analytics/UnmeasuredList'
 import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
 import { Alert } from '../../../components/ui/Field'
 import { Icon, Spinner } from '../../../components/ui/Icon'
@@ -15,6 +16,7 @@ import {
   classGaps,
   classHealth,
   classPace,
+  classesUnmeasured,
   memberLoad,
   taskStates,
 } from '../../../lib/api/analytics'
@@ -25,6 +27,7 @@ import type {
   ClassGap,
   ClassHealth,
   ClassPace,
+  ClassUnmeasured,
   MemberLoad as Load,
   TaskState,
 } from '../../../lib/types'
@@ -57,6 +60,7 @@ export default function Analytics() {
   const [pace, setPace] = useState<ClassPace[] | null>(null)
   const [gaps, setGaps] = useState<ClassGap[]>([])
   const [health, setHealth] = useState<ClassHealth[]>([])
+  const [unmeasured, setUnmeasured] = useState<ClassUnmeasured[]>([])
   const [members, setMembers] = useState<Load[]>([])
   const [burns, setBurns] = useState<BoardBurn[]>([])
   const [tasks, setTasks] = useState<TaskState[]>([])
@@ -66,8 +70,9 @@ export default function Analytics() {
 
   const load = useCallback(async () => {
     try {
-      const [p, g, h, m, b, t] = await Promise.all([
+      const [p, u, g, h, m, b, t] = await Promise.all([
         classPace(),
+        classesUnmeasured(),
         classGaps(),
         classHealth(),
         memberLoad(),
@@ -75,6 +80,7 @@ export default function Analytics() {
         taskStates(),
       ])
       setPace(p)
+      setUnmeasured(u)
       setGaps(g)
       setHealth(h)
       setMembers(m)
@@ -134,6 +140,10 @@ export default function Analytics() {
   const shownGaps = useMemo(
     () => gaps.filter((g) => (scope.classId ? g.class_id === scope.classId : true)),
     [gaps, scope.classId],
+  )
+  const shownUnmeasured = useMemo(
+    () => unmeasured.filter((c) => (scope.classId ? c.class_id === scope.classId : true)),
+    [unmeasured, scope.classId],
   )
   const narrowedBelowClass = Boolean(
     scope.projectId || scope.boardId || scope.studentId || scope.taskId,
@@ -207,17 +217,17 @@ export default function Analytics() {
       <FilterChain
         scope={scope}
         onChange={setScope}
-        classes={pace ?? []}
+        classes={health}
         burns={burns}
         members={members}
         tasks={tasks}
       />
 
-      {pace.length === 0 ? (
+      {health.length === 0 ? (
         <EmptyState
           icon="chart"
           title="Nothing to measure yet"
-          body="A class needs its term dates and a syllabus before its pace means anything."
+          body="Create a class, set its term dates and give it a syllabus, and its pace shows up here."
         />
       ) : (
         <>
@@ -225,16 +235,25 @@ export default function Analytics() {
               question is about one group or one person. */}
           {!narrowedBelowClass && (
             <>
-              <section className="space-y-3">
-                {shownPace.map((p) => (
-                  <PaceCard key={p.class_id} pace={p} />
-                ))}
-              </section>
+              {/* A syllabus gap list is only true for a class that has one. With
+                  nothing measurable in view, "every assessed week has work
+                  against it" would be an answer to a question nobody can ask. */}
+              {shownPace.length > 0 && (
+                <>
+                  <section className="space-y-3">
+                    {shownPace.map((p) => (
+                      <PaceCard key={p.class_id} pace={p} />
+                    ))}
+                  </section>
 
-              <section className="space-y-3">
-                <h2 className="text-[17px]">Weeks with nothing set</h2>
-                <GapList gaps={shownGaps} />
-              </section>
+                  <section className="space-y-3">
+                    <h2 className="text-[17px]">Weeks with nothing set</h2>
+                    <GapList gaps={shownGaps} />
+                  </section>
+                </>
+              )}
+
+              <UnmeasuredList rows={shownUnmeasured} />
             </>
           )}
 

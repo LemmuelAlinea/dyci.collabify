@@ -61,6 +61,10 @@ select c.id as class_id,
  where c.archived_at is null
    and c.term_start is not null
    and c.term_end is not null
+   -- A syllabus with no weeks makes weeks_total zero, and "0 of 0 covered"
+   -- reads as finished rather than unmeasurable. Those classes are named by
+   -- class_unmeasured instead, which says what is missing.
+   and exists (select 1 from public.syllabus_weeks w where w.resource_id = c.syllabus_id)
    and public.is_class_professor(c.id);
 
 grant select on public.class_pace to authenticated;
@@ -276,5 +280,45 @@ select t.id            as task_id,
  where public.is_class_professor(b.class_id);
 
 grant select on public.task_state to authenticated;
+
+-- --------------------------------------------------------- unmeasurable
+
+/**
+ * A class that cannot be measured, and why.
+ *
+ * `class_pace` needs a term to divide by and a syllabus to count against, so a
+ * class missing either is simply absent from the page — the professor reads one
+ * class where they have two, with nothing saying why. Absence is the least
+ * useful thing a page can show somebody, and it is indistinguishable from a
+ * class doing fine.
+ *
+ * The two flags are separate because the fixes are separate: term dates live on
+ * the class, the syllabus is a resource attached to it.
+ */
+drop view if exists public.class_unmeasured;
+
+create view public.class_unmeasured
+with (security_invoker = true) as
+select c.id      as class_id,
+       c.initial as class_initial,
+       c.name    as class_name,
+       c.term_start,
+       c.term_end,
+       (c.term_start is null or c.term_end is null) as needs_term,
+       not exists (
+         select 1 from public.syllabus_weeks w where w.resource_id = c.syllabus_id
+       ) as needs_syllabus
+  from public.classes c
+ where c.archived_at is null
+   and public.is_class_professor(c.id)
+   and (
+     c.term_start is null
+     or c.term_end is null
+     or not exists (
+       select 1 from public.syllabus_weeks w where w.resource_id = c.syllabus_id
+     )
+   );
+
+grant select on public.class_unmeasured to authenticated;
 
 commit;

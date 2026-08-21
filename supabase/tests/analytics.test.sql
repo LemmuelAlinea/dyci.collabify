@@ -240,6 +240,107 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
+-- ----------------------------------------------------------- unmeasurable
+
+-- A class the pace cannot speak for says so, instead of vanishing. Each refusal
+-- is paired with the control that shows the same class measured, seconds apart.
+do $$
+declare
+  v_class uuid := (select v from fx where k='class');
+  v_prof uuid := (select v from fx where k='prof');
+  v_syllabus uuid;
+  n int; r public.class_unmeasured%rowtype;
+begin
+  -- The fixture class was archived by the test above; bring it back, since this
+  -- section is about what is missing rather than what is gone.
+  update public.classes set archived_at = null where id = v_class;
+  select syllabus_id into v_syllabus from public.classes where id = v_class;
+
+  perform pg_temp.act_as(v_prof);
+
+  -- Control: dated, with a syllabus. It is measured, and it is not listed.
+  select count(*) into n from public.class_pace where class_id = v_class;
+  perform pg_temp.must_be('a dated class with a syllabus is measured', n = 1);
+  select count(*) into n from public.class_unmeasured where class_id = v_class;
+  perform pg_temp.must_be('...and is not named as unmeasurable', n = 0);
+  perform pg_temp.act_as_service();
+
+  -- Take the term dates away.
+  update public.classes set term_start = null, term_end = null where id = v_class;
+  perform pg_temp.act_as(v_prof);
+  select count(*) into n from public.class_pace where class_id = v_class;
+  perform pg_temp.must_be('an undated class has no pace', n = 0);
+  select * into r from public.class_unmeasured where class_id = v_class;
+  perform pg_temp.must_be('...and is named as needing its term dates',
+    r.class_id = v_class and r.needs_term);
+  perform pg_temp.must_be('...without blaming the syllabus it does have',
+    not r.needs_syllabus);
+  perform pg_temp.act_as_service();
+
+  -- Give them back, and take the syllabus away instead.
+  update public.classes
+     set term_start = (current_date - 28)::date,
+         term_end   = (current_date + 28)::date,
+         syllabus_id = null
+   where id = v_class;
+  perform pg_temp.act_as(v_prof);
+  -- Without this, weeks_total is zero and the card reads "0 of 0 covered",
+  -- which looks like a finished syllabus rather than an absent one.
+  select count(*) into n from public.class_pace where class_id = v_class;
+  perform pg_temp.must_be('a class with no syllabus weeks has no pace either', n = 0);
+  select * into r from public.class_unmeasured where class_id = v_class;
+  perform pg_temp.must_be('...and is named as needing a syllabus', r.needs_syllabus);
+  perform pg_temp.must_be('...without blaming the term dates it does have',
+    not r.needs_term);
+  perform pg_temp.act_as_service();
+
+  -- Restore it, and the class goes back to being measured. The nudge is a
+  -- statement about right now, not a flag anybody has to clear.
+  update public.classes set syllabus_id = v_syllabus where id = v_class;
+  perform pg_temp.act_as(v_prof);
+  select count(*) into n from public.class_unmeasured where class_id = v_class;
+  perform pg_temp.must_be('putting the syllabus back clears the notice', n = 0);
+  select count(*) into n from public.class_pace where class_id = v_class;
+  perform pg_temp.must_be('...and the class is measured again', n = 1);
+  perform pg_temp.act_as_service();
+end $$;
+
+-- An archived class is not an unfinished setup job, and must not be nagged about.
+do $$
+declare
+  v_class uuid := (select v from fx where k='class');
+  n int;
+begin
+  update public.classes set term_start = null, archived_at = now() where id = v_class;
+  perform pg_temp.act_as((select v from fx where k='prof'));
+  select count(*) into n from public.class_unmeasured where class_id = v_class;
+  perform pg_temp.must_be('an archived class is never named as unmeasurable', n = 0);
+
+  -- Control: unarchive it, still undated, and it is named again.
+  perform pg_temp.act_as_service();
+  update public.classes set archived_at = null where id = v_class;
+  perform pg_temp.act_as((select v from fx where k='prof'));
+  select count(*) into n from public.class_unmeasured where class_id = v_class;
+  perform pg_temp.must_be('...and a live one still is', n = 1);
+  perform pg_temp.act_as_service();
+end $$;
+
+-- Scoped like the rest. What a professor has not set up yet is theirs to know.
+do $$
+declare
+  v_class uuid := (select v from fx where k='class');
+  n int;
+begin
+  perform pg_temp.act_as((select v from fx where k='stud'));
+  select count(*) into n from public.class_unmeasured where class_id = v_class;
+  perform pg_temp.must_be('a student in the class reads no setup notice', n = 0);
+
+  perform pg_temp.act_as((select v from fx where k='out'));
+  select count(*) into n from public.class_unmeasured;
+  perform pg_temp.must_be('somebody outside reads none at all', n = 0);
+  perform pg_temp.act_as_service();
+end $$;
+
 -- The new views are scoped like the rest: absence is only measurable by
 -- somebody who can see everything it is measured against.
 do $$
