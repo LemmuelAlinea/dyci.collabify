@@ -868,6 +868,27 @@ export function isProjectLocked(project: Pick<ProjectRow, 'locked_at'> | null | 
   return Boolean(project?.locked_at)
 }
 
+/* ---------------------------------------------------------------- accounts */
+
+/** account_overview: a person, and how much a change to them would disturb. */
+export type Account = {
+  id: string
+  first_name: string
+  middle_name: string | null
+  last_name: string
+  email: string
+  avatar_url: string | null
+  role: Role
+  status: AccountStatus
+  created_at: string
+  decided_at: string | null
+  decided_by: string | null
+  decided_by_name: string | null
+  /** Live classes they run. A count only — what is inside one is not this page's. */
+  class_count: number
+  enrolment_count: number
+}
+
 /* --------------------------------------------------------------- audit log */
 
 /**

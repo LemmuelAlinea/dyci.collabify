@@ -19,6 +19,7 @@ import Pending from './pages/auth/Pending'
 import StudentHome from './pages/app/StudentHome'
 import ProfessorHome from './pages/app/ProfessorHome'
 import AdminHome from './pages/app/AdminHome'
+import Accounts from './pages/app/admin/Accounts'
 import AuditLog from './pages/app/admin/AuditLog'
 import ProfessorApprovals from './pages/app/admin/ProfessorApprovals'
 
@@ -114,6 +115,7 @@ export default function App() {
             <Route path="/admin" element={<AdminHome />} />
             <Route path="/admin/approvals" element={<ProfessorApprovals />} />
             <Route path="/admin/audit" element={<AuditLog />} />
+            <Route path="/admin/accounts" element={<Accounts />} />
           </Route>
         </Route>
 

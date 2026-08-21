@@ -65,7 +65,7 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
       items: [
         { label: 'Dashboard', icon: 'board', to: '/admin' },
         { label: 'Professor approvals', icon: 'shield', to: '/admin/approvals' },
-        { label: 'Accounts', icon: 'users', soon: true },
+        { label: 'Accounts', icon: 'users', to: '/admin/accounts' },
         { label: 'Sections', icon: 'folder', soon: true },
       ],
     },
