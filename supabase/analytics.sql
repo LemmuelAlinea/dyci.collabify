@@ -163,7 +163,15 @@ select b.class_id,
        m.held_pct,
        m.personal_pct,
        (select count(*) from public.group_members gm where gm.group_id = b.group_id)::int
-         as group_size
+         as group_size,
+       -- When this person's own work began and last moved, so their rate is
+       -- measured from when they started rather than when the board did.
+       (select min(t.started_at) from public.project_tasks t
+          join public.task_assignees a on a.task_id = t.id
+         where t.board_id = b.id and a.student_id = m.student_id) as first_activity,
+       (select max(t.done_at) from public.project_tasks t
+          join public.task_assignees a on a.task_id = t.id
+         where t.board_id = b.id and a.student_id = m.student_id) as last_finish
   from public.task_board_overview b
   join public.task_member_progress m on m.board_id = b.id
   join public.profiles p on p.id = m.student_id
@@ -171,5 +179,102 @@ select b.class_id,
    and public.is_class_professor(b.class_id);
 
 grant select on public.class_member_load to authenticated;
+
+-- ---------------------------------------------------------------- burn
+
+/**
+ * The same question as the syllabus pace, one level down: at the rate this
+ * board is finishing tasks, does the remaining work fit before the deadline.
+ *
+ * Measured from when the board actually started, not when the project was set.
+ * A group that sat idle for two weeks and then began in earnest is moving at
+ * the rate they are moving now, and dating it from the project would report a
+ * rate nobody has.
+ *
+ * The raw numbers only. The division happens in one place in `types.ts`, shared
+ * with the pace card, so the two projections can never drift apart.
+ */
+drop view if exists public.board_burn;
+
+create view public.board_burn
+with (security_invoker = true) as
+select b.id             as board_id,
+       b.class_id,
+       b.project_id,
+       b.project_title,
+       b.group_id,
+       b.group_name,
+       b.student_name,
+       b.project_due_at,
+       b.submitted_at,
+       b.result_verdict,
+       b.task_count,
+       b.done_count,
+       b.unclaimed_count,
+       b.late_count,
+       b.done_pct,
+       b.member_count,
+       t.first_activity,
+       t.last_finish,
+       -- Whole days, never zero: a board that started this morning has had a
+       -- day of chances, not none, and it is about to be divided by.
+       case when t.first_activity is null then null
+            else greatest(1, (current_date - t.first_activity::date))::int end as days_active,
+       case when b.project_due_at is null then null
+            else (b.project_due_at::date - current_date)::int end as days_left
+  from public.task_board_overview b
+  cross join lateral (
+    select min(x.started_at) as first_activity, max(x.done_at) as last_finish
+      from public.project_tasks x where x.board_id = b.id
+  ) t
+ where public.is_class_professor(b.class_id);
+
+grant select on public.board_burn to authenticated;
+
+-- ---------------------------------------------------------------- tasks
+
+/**
+ * The leaf of the filter. One task, and enough around it to say whether it is
+ * in trouble — nothing is projected for a single task, because a task is done
+ * or it is not.
+ *
+ * `assignee_ids` travels as an array so the page can narrow to one student
+ * without a second round trip.
+ */
+drop view if exists public.task_state;
+
+create view public.task_state
+with (security_invoker = true) as
+select t.id            as task_id,
+       t.title,
+       t.status,
+       t.due_at,
+       t.late,
+       t.weight,
+       t.started_at,
+       t.done_at,
+       b.id            as board_id,
+       b.class_id,
+       b.project_id,
+       b.project_title,
+       b.group_id,
+       b.group_name,
+       b.student_name  as board_student_name,
+       coalesce(
+         (select array_agg(a.student_id) from public.task_assignees a where a.task_id = t.id),
+         '{}'::uuid[]
+       ) as assignee_ids,
+       coalesce(
+         (select string_agg(btrim(p.first_name || ' ' || p.last_name), ', ')
+            from public.task_assignees a
+            join public.profiles p on p.id = a.student_id
+           where a.task_id = t.id),
+         ''
+       ) as assignee_names
+  from public.project_tasks t
+  join public.task_board_overview b on b.id = t.board_id
+ where public.is_class_professor(b.class_id);
+
+grant select on public.task_state to authenticated;
 
 commit;

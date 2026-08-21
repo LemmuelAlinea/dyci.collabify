@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import type { ClassGap, ClassHealth, ClassPace, MemberLoad } from '../types'
+import type { BoardBurn, ClassGap, ClassHealth, ClassPace, MemberLoad, TaskState } from '../types'
 
 /**
  * Everything the analytics page reads. Each view is scoped to the class's own
@@ -28,4 +28,20 @@ export async function memberLoad() {
   const { data, error } = await supabase.from('class_member_load').select('*')
   if (error) throw error
   return (data ?? []) as MemberLoad[]
+}
+
+/** Board-level burn: the projection one level below the syllabus. */
+export async function boardBurn() {
+  const { data, error } = await supabase.from('board_burn').select('*')
+  if (error) throw error
+  return (data ?? []) as BoardBurn[]
+}
+
+/** The leaf of the filter chain. */
+export async function taskStates() {
+  const { data, error } = await supabase.from('task_state').select('*').order('due_at', {
+    nullsFirst: false,
+  })
+  if (error) throw error
+  return (data ?? []) as TaskState[]
 }

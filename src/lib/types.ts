@@ -924,6 +924,9 @@ export type MemberLoad = {
   held_pct: number
   personal_pct: number | null
   group_size: number
+  /** When this person's own work began and last moved. */
+  first_activity: string | null
+  last_finish: string | null
 }
 
 /**
@@ -951,6 +954,105 @@ export function projectFinish(p: ClassPace) {
     finishesInTerm: weeksNeeded <= weeksLeft,
     weeksSpare: weeksLeft - weeksNeeded,
   }
+}
+
+export type BoardBurn = {
+  board_id: string
+  class_id: string
+  project_id: string
+  project_title: string
+  group_id: string | null
+  group_name: string | null
+  student_name: string | null
+  project_due_at: string | null
+  submitted_at: string | null
+  result_verdict: ResultVerdict | null
+  task_count: number
+  done_count: number
+  unclaimed_count: number
+  late_count: number
+  done_pct: number
+  member_count: number
+  first_activity: string | null
+  last_finish: string | null
+  /** Null when nothing has been started — the case with no rate to measure. */
+  days_active: number | null
+  days_left: number | null
+}
+
+export type TaskState = {
+  task_id: string
+  title: string
+  status: TaskStatus
+  due_at: string | null
+  late: boolean
+  weight: number
+  started_at: string | null
+  done_at: string | null
+  board_id: string
+  class_id: string
+  project_id: string
+  project_title: string
+  group_id: string | null
+  group_name: string | null
+  board_student_name: string | null
+  assignee_ids: string[]
+  assignee_names: string
+}
+
+/**
+ * The same shape as projectFinish, one level down: work finished per day,
+ * extended across what is left, against the days that remain.
+ *
+ * Kept beside its sibling deliberately. Two projections that drift apart are
+ * worse than one, and a professor comparing a syllabus to a board should be
+ * comparing the same arithmetic.
+ */
+export type Burn =
+  | { state: 'done' }
+  | { state: 'not_started'; remaining: number; daysLeft: number | null }
+  | { state: 'no_deadline'; rate: number; remaining: number; daysNeeded: number }
+  | {
+      state: 'projected'
+      rate: number
+      remaining: number
+      daysNeeded: number
+      daysLeft: number
+      fits: boolean
+    }
+
+export function projectBurn(b: Pick<
+  BoardBurn,
+  'task_count' | 'done_count' | 'days_active' | 'days_left'
+>): Burn {
+  const remaining = Math.max(0, b.task_count - b.done_count)
+  if (b.task_count > 0 && remaining === 0) return { state: 'done' }
+
+  // No rate exists yet — reporting zero would read as "moving slowly".
+  if (!b.days_active || b.done_count === 0) {
+    return { state: 'not_started', remaining, daysLeft: b.days_left }
+  }
+
+  const rate = b.done_count / b.days_active
+  const daysNeeded = Math.ceil(remaining / rate)
+  const rounded = Math.round(rate * 100) / 100
+
+  if (b.days_left === null) {
+    return { state: 'no_deadline', rate: rounded, remaining, daysNeeded }
+  }
+  return {
+    state: 'projected',
+    rate: rounded,
+    remaining,
+    daysNeeded,
+    daysLeft: b.days_left,
+    fits: daysNeeded <= b.days_left,
+  }
+}
+
+/** What to call a board on this page: its group, or the student who owns it. */
+export function burnOwner(b: Pick<BoardBurn, 'group_name' | 'student_name'>) {
+  return b.group_name ?? b.student_name ?? 'A board'
 }
 
 /** One member holding most of a board while others hold nothing. */

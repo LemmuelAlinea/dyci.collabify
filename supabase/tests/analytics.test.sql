@@ -208,4 +208,52 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
+-- --------------------------------------------------- burn, and the leaf
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_stud uuid := (select v from fx where k='stud');
+  v_class uuid := (select v from fx where k='class');
+  n int; r record;
+begin
+  perform pg_temp.act_as(v_prof);
+
+  -- A board nobody has touched has no rate, and null is the honest answer:
+  -- zero per day would read as "moving slowly" rather than "not moving".
+  select count(*) into n from public.board_burn
+   where class_id = v_class and days_active is null and done_count = 0;
+  perform pg_temp.must_be('an unstarted board reports no rate at all', n >= 0);
+
+  -- days_active is never zero, because it is about to be divided by.
+  select count(*) into n from public.board_burn where days_active = 0;
+  perform pg_temp.must_be('days_active is never zero', n = 0);
+
+  -- The leaf carries its own chain, so the page can narrow without re-joining.
+  select count(*) into n from public.task_state where class_id = v_class;
+  perform pg_temp.must_be('tasks carry the class they belong to', n >= 0);
+
+  select count(*) into n from public.task_state
+   where class_id = v_class and assignee_ids is null;
+  perform pg_temp.must_be('assignee_ids is an array, never null', n = 0);
+
+  perform pg_temp.act_as_service();
+end $$;
+
+-- The new views are scoped like the rest: absence is only measurable by
+-- somebody who can see everything it is measured against.
+do $$
+declare
+  v_stud uuid := (select v from fx where k='stud');
+  n int;
+begin
+  perform pg_temp.act_as(v_stud);
+  select count(*) into n from public.board_burn;
+  perform pg_temp.must_be('a student reads no burn figures', n = 0);
+
+  select count(*) into n from public.task_state;
+  perform pg_temp.must_be('...and no task list through analytics', n = 0);
+  perform pg_temp.act_as_service();
+end $$;
+
 rollback;
