@@ -38,6 +38,9 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
     SETTINGS,
   ],
   professor: [
+    // Classes hold groups, groups hold projects: the spine reads widest to
+    // narrowest. Then the things that arrive on their own schedule — a date, a
+    // request, a message — and only then the pages that read the work back.
     {
       title: 'Teaching',
       items: [
@@ -45,16 +48,29 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
         { label: 'Classes', icon: 'folder', to: '/professor/classes' },
         { label: 'Groups', icon: 'users', to: '/professor/groups' },
         { label: 'Projects', icon: 'kanban', to: '/professor/projects' },
-        { label: 'Messages', icon: 'message', to: '/professor/messages', badge: 'messages' },
+      ],
+    },
+    {
+      title: 'Day to day',
+      items: [
         { label: 'Calendar', icon: 'calendar', to: '/professor/calendar' },
-        { label: 'Analytics', icon: 'chart', to: '/professor/analytics' },
         { label: 'Reassignments', icon: 'refresh', to: '/professor/reassignments' },
+        { label: 'Messages', icon: 'message', to: '/professor/messages', badge: 'messages' },
+      ],
+    },
+    {
+      // Reading the work back, rather than running it. Analytics answers what is
+      // happening now; reports are the record of it to hand somebody else.
+      title: 'Insights',
+      items: [
+        { label: 'Analytics', icon: 'chart', to: '/professor/analytics' },
+        { label: 'Reports', icon: 'file', soon: true },
       ],
     },
     {
       title: 'Course documents',
       items: [
-        { label: 'Curriculum', icon: 'chart', to: '/professor/curriculum' },
+        { label: 'Curriculum', icon: 'target', to: '/professor/curriculum' },
         { label: 'Syllabi', icon: 'file', to: '/professor/syllabi' },
       ],
     },
