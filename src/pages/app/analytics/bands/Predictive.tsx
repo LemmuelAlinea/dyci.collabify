@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { BandHeader } from '../../../../components/analytics/BandHeader'
 import { BurnCard } from '../../../../components/analytics/BurnCard'
 import { ForecastSummary } from '../../../../components/analytics/ForecastSummary'
 import { PressureChart } from '../../../../components/analytics/PressureChart'
 import { EmptyState } from '../../../../components/ui/Tabs'
 import type { useAnalytics } from '../useAnalytics'
+
+const SHOWN = 6
 
 /**
  * What is coming.
@@ -16,6 +19,7 @@ import type { useAnalytics } from '../useAnalytics'
  */
 export function Predictive({ data }: { data: ReturnType<typeof useAnalytics> }) {
   const { shownBurns, shownPressure, narrowedBelowClass } = data
+  const [all, setAll] = useState(false)
 
   const atRisk = shownBurns.filter(
     (b) => !b.submitted_at && b.task_count > 0 && b.done_count < b.task_count,
@@ -41,10 +45,19 @@ export function Predictive({ data }: { data: ReturnType<typeof useAnalytics> }) 
         <div className="space-y-3">
           <h3 className="text-[15px] text-ink">Board by board, slowest first</h3>
           <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {atRisk.map((b) => (
+            {(all ? atRisk : atRisk.slice(0, SHOWN)).map((b) => (
               <BurnCard key={b.board_id} burn={b} />
             ))}
           </ul>
+          {atRisk.length > SHOWN && (
+            <button
+              type="button"
+              onClick={() => setAll((v) => !v)}
+              className="text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+            >
+              {all ? 'Show fewer' : `Show the other ${atRisk.length - SHOWN}`}
+            </button>
+          )}
         </div>
       )}
 

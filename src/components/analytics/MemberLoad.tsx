@@ -84,7 +84,7 @@ function Column({
           Nobody.
         </p>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="max-h-[320px] space-y-1.5 overflow-y-auto pr-1">
           {rows.map((r) => (
             <li
               key={`${r.board_id}-${r.student_id}`}

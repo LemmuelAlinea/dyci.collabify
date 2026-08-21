@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { Icon } from '../ui/Icon'
 import { EmptyState } from '../ui/Tabs'
 import { boardCauses } from '../../lib/insight'
 import type { BoardDiagnosis } from '../../lib/insight'
+
+const SHOWN = 4
 
 /**
  * Why each board is where it is.
@@ -15,6 +18,7 @@ import type { BoardDiagnosis } from '../../lib/insight'
  * problems found" is noise between the ones that matter.
  */
 export function DiagnosisList({ rows }: { rows: BoardDiagnosis[] }) {
+  const [all, setAll] = useState(false)
   const diagnosed = rows
     .map((d) => ({ d, causes: boardCauses(d) }))
     .filter(({ causes }) => causes.length > 0)
@@ -31,44 +35,56 @@ export function DiagnosisList({ rows }: { rows: BoardDiagnosis[] }) {
   }
 
   return (
-    <ul className="grid gap-3 lg:grid-cols-2">
-      {diagnosed.map(({ d, causes }) => (
-        <li
-          key={d.board_id}
-          className="surface rounded-card border border-line p-4 shadow-card"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="eyebrow">{d.project_title}</p>
-              <h3 className="mt-0.5 truncate text-[15px] font-medium text-ink">
-                {d.owner_name ?? 'A board'}
-              </h3>
+    <div className="space-y-3">
+      <ul className="grid gap-3 lg:grid-cols-2">
+        {(all ? diagnosed : diagnosed.slice(0, SHOWN)).map(({ d, causes }) => (
+          <li
+            key={d.board_id}
+            className="surface rounded-card border border-line p-4 shadow-card"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="eyebrow">{d.project_title}</p>
+                <h3 className="mt-0.5 truncate text-[15px] font-medium text-ink">
+                  {d.owner_name ?? 'A board'}
+                </h3>
+              </div>
+              <span className="shrink-0 font-mono text-[13px] text-muted">
+                {d.done_count}/{d.task_count}
+              </span>
             </div>
-            <span className="shrink-0 font-mono text-[13px] text-muted">
-              {d.done_count}/{d.task_count}
-            </span>
-          </div>
 
-          <ul className="mt-3 space-y-1.5">
-            {causes.map((c) => (
-              <li key={c.key} className="flex items-start gap-2 text-[13px] leading-relaxed">
-                <Icon
-                  name={c.weight >= 70 ? 'alert' : 'info'}
-                  size={13}
-                  className={`mt-[3px] shrink-0 ${
-                    c.weight >= 70
-                      ? 'text-red-600 dark:text-red-400'
-                      : c.weight >= 55
-                        ? 'text-amber-600 dark:text-amber-400'
-                        : 'text-faint'
-                  }`}
-                />
-                <span className="text-muted">{c.text}</span>
-              </li>
-            ))}
-          </ul>
-        </li>
-      ))}
-    </ul>
+            <ul className="mt-3 space-y-1.5">
+              {causes.map((c) => (
+                <li key={c.key} className="flex items-start gap-2 text-[13px] leading-relaxed">
+                  <Icon
+                    name={c.weight >= 70 ? 'alert' : 'info'}
+                    size={13}
+                    className={`mt-[3px] shrink-0 ${
+                      c.weight >= 70
+                        ? 'text-red-600 dark:text-red-400'
+                        : c.weight >= 55
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-faint'
+                    }`}
+                  />
+                  <span className="text-muted">{c.text}</span>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+
+      {diagnosed.length > SHOWN && (
+        <button
+          type="button"
+          onClick={() => setAll((v) => !v)}
+          className="text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+        >
+          {all ? 'Show fewer' : `Show the other ${diagnosed.length - SHOWN}`}
+        </button>
+      )}
+    </div>
   )
 }

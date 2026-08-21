@@ -71,7 +71,7 @@ function People({
         <h3 className="text-[14.5px] text-ink">{title}</h3>
         <p className="text-[12.5px] text-muted">{hint}</p>
       </div>
-      <ul className="flex flex-wrap gap-2">
+      <ul className="flex max-h-[164px] flex-wrap gap-2 overflow-y-auto pr-1">
         {rows.map((r) => (
           <li
             key={`${r.class_id}-${r.student_id}`}

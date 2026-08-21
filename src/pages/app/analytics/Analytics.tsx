@@ -85,7 +85,7 @@ export default function Analytics() {
                   {shownTasks.length}
                 </span>
               </h2>
-              <ul className="space-y-1.5">
+              <ul className="max-h-[460px] space-y-1.5 overflow-y-auto pr-1">
                 {shownTasks.map((t) => {
                   const due = dueSoonLabel(t.due_at)
                   return (
