@@ -109,7 +109,7 @@ create trigger task_assignees_guard before insert on public.task_assignees
 
 -- The same numbers the guard uses, so the UI can grey a name out before
 -- somebody clicks and gets refused.
-drop view if exists public.task_member_progress;
+drop view if exists public.task_member_progress cascade;
 
 create view public.task_member_progress
 with (security_invoker = true) as

@@ -2,6 +2,7 @@
 // Run SQL against the Supabase database as the postgres superuser.
 //
 //   node scripts/db.mjs supabase/schema.sql
+//   node scripts/db.mjs supabase/results.sql supabase/analytics.sql
 //   node scripts/db.mjs -c "select count(*) from public.profiles"
 //
 // Reads SUPABASE_DB_URL from .env.local (gitignored).
@@ -30,14 +31,24 @@ if (!connectionString) {
 
 const args = process.argv.slice(2)
 if (args.length === 0) {
-  console.error('Usage: node scripts/db.mjs <file.sql>   |   node scripts/db.mjs -c "SQL"')
+  console.error(
+    'Usage: node scripts/db.mjs <file.sql> [more.sql …]   |   node scripts/db.mjs -c "SQL"',
+  )
   process.exit(1)
 }
 
-const sql =
+// Several files run in the order given, stopping at the first failure. A view
+// dropped with `cascade` takes its dependants with it, so whatever rebuilds them
+// has to follow in the same breath.
+const jobs =
   args[0] === '-c'
-    ? args.slice(1).join(' ')
-    : await readFile(path.resolve(root, args[0]), 'utf8')
+    ? [{ label: '-c', sql: args.slice(1).join(' ') }]
+    : await Promise.all(
+        args.map(async (file) => ({
+          label: file,
+          sql: await readFile(path.resolve(root, file), 'utf8'),
+        })),
+      )
 
 const client = new pg.Client({
   connectionString,
@@ -49,11 +60,17 @@ client.on('notice', (n) => console.log(`NOTICE: ${n.message}`))
 
 try {
   await client.connect()
-  const result = await client.query(sql)
-  const sets = Array.isArray(result) ? result : [result]
-  for (const set of sets) {
-    if (set.rows?.length) console.table(set.rows)
-    else console.log(`${set.command ?? 'OK'}${set.rowCount != null ? ` · ${set.rowCount} row(s)` : ''}`)
+  for (const job of jobs) {
+    if (jobs.length > 1) console.log(`\n── ${job.label}`)
+    const result = await client.query(job.sql)
+    const sets = Array.isArray(result) ? result : [result]
+    for (const set of sets) {
+      if (set.rows?.length) console.table(set.rows)
+      else
+        console.log(
+          `${set.command ?? 'OK'}${set.rowCount != null ? ` · ${set.rowCount} row(s)` : ''}`,
+        )
+    }
   }
   console.log('\nDone.')
 } catch (err) {

@@ -643,7 +643,7 @@ create policy task_events_select on public.task_events
 -- ---------------------------------------------------------------- views
 
 /** A board with its counts. Batch 2 adds the weighted percentages. */
-drop view if exists public.task_board_overview;
+drop view if exists public.task_board_overview cascade;
 
 create view public.task_board_overview
 with (security_invoker = true) as

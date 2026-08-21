@@ -177,7 +177,11 @@ grant select on public.board_result_overview to authenticated;
  * findStalled has been reading undefined ever since — dating every unfinished
  * board to the epoch and calling it stalled for twenty thousand days.
  */
-drop view if exists public.task_board_overview;
+-- cascade, because the analytics views are built on this one. A plain drop
+-- fails while they exist, which made this file unrunnable. Whatever rebuilds
+-- them must run straight after:
+--   node scripts/db.mjs supabase/results.sql supabase/analytics.sql --     supabase/analytics-insight.sql
+drop view if exists public.task_board_overview cascade;
 
 create view public.task_board_overview
 with (security_invoker = true) as

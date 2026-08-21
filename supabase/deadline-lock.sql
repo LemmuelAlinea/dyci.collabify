@@ -386,7 +386,7 @@ grant select on public.task_detail_overview to authenticated;
 -- because whichever ran last silently won. Its late_count comes from there.
 
 
-drop view if exists public.task_member_progress;
+drop view if exists public.task_member_progress cascade;
 
 create view public.task_member_progress
 with (security_invoker = true) as

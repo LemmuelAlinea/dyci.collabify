@@ -8,6 +8,7 @@ import type {
   MemberLoad,
   TaskState,
 } from '../types'
+import type { ActionRow, BoardDiagnosis, Participation, Pressure } from '../insight'
 
 /**
  * Everything the analytics page reads. Each view is scoped to the class's own
@@ -53,6 +54,45 @@ export async function boardBurn() {
   const { data, error } = await supabase.from('board_burn').select('*')
   if (error) throw error
   return (data ?? []) as BoardBurn[]
+}
+
+/* ------------------------------------------------ why, what next, what to do */
+
+/** Every cause of trouble a board has evidence for, one row per board. */
+export async function boardDiagnoses() {
+  const { data, error } = await supabase.from('board_diagnosis').select('*')
+  if (error) throw error
+  return (data ?? []) as BoardDiagnosis[]
+}
+
+/** Who in the class is anywhere near the work — including who is nowhere near it. */
+export async function classParticipation() {
+  const { data, error } = await supabase
+    .from('class_participation')
+    .select('*')
+    .order('tasks_held')
+  if (error) throw error
+  return (data ?? []) as Participation[]
+}
+
+/** Open work by the week it falls due, plus what is already past due. */
+export async function deadlinePressure() {
+  const { data, error } = await supabase
+    .from('deadline_pressure')
+    .select('*')
+    .order('week_start', { nullsFirst: true })
+  if (error) throw error
+  return (data ?? []) as Pressure[]
+}
+
+/**
+ * The recommendations, as facts. `rankActions` turns them into sentences and
+ * merges in the one rule that needs the burn projection.
+ */
+export async function classActions() {
+  const { data, error } = await supabase.from('class_actions').select('*').order('severity')
+  if (error) throw error
+  return (data ?? []) as ActionRow[]
 }
 
 /** The leaf of the filter chain. */

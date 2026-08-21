@@ -8,8 +8,8 @@ begin;
 -- way round. Adding a task shrinks every other slice, so nobody earns more by
 -- making more tasks.
 
-drop view if exists public.task_member_progress;
-drop view if exists public.task_board_overview;
+drop view if exists public.task_member_progress cascade;
+drop view if exists public.task_board_overview cascade;
 
 create view public.task_board_overview
 with (security_invoker = true) as
