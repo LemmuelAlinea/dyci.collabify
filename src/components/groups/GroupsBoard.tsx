@@ -60,6 +60,31 @@ export function GroupsBoard({
   const classById = useMemo(() => new Map(classes.map((c) => [c.id, c])), [classes])
   const setById = useMemo(() => new Map(sets.map((s) => [s.id, s])), [sets])
 
+  /**
+   * Only sets that actually have groups can be filtered to.
+   *
+   * A set whose groups were all deleted still exists, and the section below
+   * renders nothing for it — so offering it here promised a result that could
+   * never appear. Derived from the groups rather than kept as a second list, so
+   * the two cannot drift apart again as sets come and go.
+   *
+   * Deliberately from the unfiltered `groups`: narrowing by class or by search
+   * should not make the set options flicker out from under the cursor.
+   */
+  const filterableSets = useMemo(() => {
+    const present = new Set(groups.map((g) => g.set_id))
+    return sets.filter((s) => present.has(s.id))
+  }, [sets, groups])
+
+  // A set can lose its last group while it is the one being filtered by —
+  // "Delete all groups" does exactly that. Let go of it rather than sitting on
+  // a selection nothing can satisfy.
+  useEffect(() => {
+    if (filters.setId && !filterableSets.some((s) => s.id === filters.setId)) {
+      setFilters((f) => ({ ...f, setId: '' }))
+    }
+  }, [filterableSets, filters.setId])
+
   const visible = useMemo(() => {
     const q = filters.query.trim().toLowerCase()
     return groups.filter((g) => {
@@ -93,7 +118,7 @@ export function GroupsBoard({
           value={filters}
           onChange={setFilters}
           classes={classes}
-          sets={sets}
+          sets={filterableSets}
           showSetFilter={showSetFilter}
         />
       )}
