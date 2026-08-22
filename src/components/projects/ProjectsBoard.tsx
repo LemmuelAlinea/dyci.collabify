@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { boardProgressFor } from '../../lib/api/tasks'
-import { Icon } from '../ui/Icon'
+import { FilterField, FilterPopover, FilterSearch } from '../ui/FilterPopover'
 import { Select } from '../ui/Select'
 import { EmptyState } from '../ui/Tabs'
 import { ProjectCard } from './ProjectCard'
@@ -102,50 +102,69 @@ export function ProjectsBoard({
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="relative">
-          <Icon
-            name="search"
-            size={17}
-            className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-faint"
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search projects"
-            className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] pr-4 pl-11 text-[14.5px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12 focus:outline-none"
-          />
-        </div>
+      <div className="flex items-center gap-2.5">
+        <FilterPopover
+          active={
+            [query, classId, type, status].filter(Boolean).length
+          }
+          summary={[
+            query && `“${query}”`,
+            classId && classes.find((c) => c.id === classId)?.initial,
+            type && PROJECT_TYPES.find((t) => t.value === type)?.label,
+            status && STATUS_OPTIONS.find((o) => o.value === status)?.label,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+          onClear={() => {
+            setQuery('')
+            setClassId('')
+            setType('')
+            setStatus('')
+          }}
+          label="Filter projects"
+        >
+          <FilterField label="Search">
+            <FilterSearch value={query} onChange={setQuery} placeholder="Search projects" />
+          </FilterField>
 
-        {classes.length > 1 && (
-          <Select
-            aria-label="Filter by class"
-            value={classId}
-            onChange={(e) => setClassId(e.target.value)}
-            placeholder="All classes"
-            options={classes.map((c) => ({ value: c.id, label: `${c.initial} · ${c.name}` }))}
-            className="!h-11"
-          />
-        )}
+          {classes.length > 1 && (
+            <FilterField label="Class">
+              <Select
+                value={classId}
+                onChange={(e) => setClassId(e.target.value)}
+                placeholder="All classes"
+                options={classes.map((c) => ({ value: c.id, label: `${c.initial} · ${c.name}` }))}
+                className="!h-10 !text-[13.5px]"
+              />
+            </FilterField>
+          )}
 
-        <Select
-          aria-label="Filter by type"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-          placeholder="All types"
-          options={PROJECT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
-          className="!h-11"
-        />
+          <FilterField label="Kind of work">
+            <Select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              placeholder="All types"
+              options={PROJECT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+              className="!h-10 !text-[13.5px]"
+            />
+          </FilterField>
 
-        <Select
-          aria-label="Filter by status"
-          value={status}
-          onChange={(e) => setStatus(e.target.value as StatusFilter)}
-          placeholder="All open"
-          options={STATUS_OPTIONS}
-          className="!h-11"
-        />
+          <FilterField label="Status">
+            <Select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as StatusFilter)}
+              placeholder="All open"
+              options={STATUS_OPTIONS}
+              className="!h-10 !text-[13.5px]"
+            />
+          </FilterField>
+        </FilterPopover>
+
+        <p className="ml-auto shrink-0 font-mono text-[12px] text-faint">
+          {shown.length === projects.length
+            ? `${projects.length} projects`
+            : `${shown.length} of ${projects.length}`}
+        </p>
       </div>
 
       {shown.length === 0 ? (

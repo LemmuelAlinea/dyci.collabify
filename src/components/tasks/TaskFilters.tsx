@@ -1,4 +1,4 @@
-import { Icon } from '../ui/Icon'
+import { FilterField, FilterPopover, FilterSearch } from '../ui/FilterPopover'
 import { Select } from '../ui/Select'
 import { boardOwnerName, fullName, TASK_STATUSES } from '../../lib/types'
 import type { BoardSummary } from '../../lib/types'
@@ -66,60 +66,64 @@ export function TaskFilters({
   const solo = boards.some((b) => b.student_id)
   const boardOptions = boards.map((b) => ({ value: b.id, label: boardOwnerName(b) }))
 
+  const named = (list: { value: string; label: string }[], v: string) =>
+    list.find((o) => o.value === v)?.label ?? ''
+  const on = [
+    value.query && `“${value.query}”`,
+    value.board && named(boardOptions, value.board),
+    value.assignee === 'unclaimed' ? 'Unclaimed' : value.assignee && people.get(value.assignee),
+    value.status && TASK_STATUSES.find((s) => s.value === value.status)?.label,
+  ].filter(Boolean) as string[]
+
   return (
-    <div
-      className={`grid gap-2.5 ${
-        showBoards
-          ? 'sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]'
-          : 'sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)]'
-      }`}
+    <FilterPopover
+      active={on.length}
+      summary={on.join(' · ')}
+      onClear={() => onChange(EMPTY_TASK_FILTERS)}
+      label="Filter tasks"
     >
-      <div className="relative">
-        <Icon
-          name="search"
-          size={16}
-          className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-faint"
-        />
-        <input
-          type="search"
+      <FilterField label="Search">
+        <FilterSearch
           value={value.query}
-          onChange={(e) => onChange({ ...value, query: e.target.value })}
+          onChange={(query) => onChange({ ...value, query })}
           placeholder="Search tasks"
-          className="h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] pr-4 pl-10 text-[14px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12 focus:outline-none"
         />
-      </div>
+      </FilterField>
 
       {showBoards && (
-        <Select
-          aria-label={solo ? 'Filter by student' : 'Filter by group'}
-          value={value.board}
-          onChange={(e) => onChange({ ...value, board: e.target.value })}
-          placeholder={solo ? 'Every student' : 'Every group'}
-          options={boardOptions}
-          className="!h-10 !text-[13.5px]"
-        />
+        <FilterField label={solo ? 'Student' : 'Group'}>
+          <Select
+            value={value.board}
+            onChange={(e) => onChange({ ...value, board: e.target.value })}
+            placeholder={solo ? 'Every student' : 'Every group'}
+            options={boardOptions}
+            className="!h-10 !text-[13.5px]"
+          />
+        </FilterField>
       )}
 
-      <Select
-        aria-label="Filter by assignee"
-        value={value.assignee}
-        onChange={(e) => onChange({ ...value, assignee: e.target.value })}
-        placeholder="Anyone"
-        options={[
-          { value: 'unclaimed', label: 'Unclaimed' },
-          ...[...people].map(([id, name]) => ({ value: id, label: name })),
-        ]}
-        className="!h-10 !text-[13.5px]"
-      />
+      <FilterField label="Held by">
+        <Select
+          value={value.assignee}
+          onChange={(e) => onChange({ ...value, assignee: e.target.value })}
+          placeholder="Anyone"
+          options={[
+            { value: 'unclaimed', label: 'Unclaimed' },
+            ...[...people].map(([id, name]) => ({ value: id, label: name })),
+          ]}
+          className="!h-10 !text-[13.5px]"
+        />
+      </FilterField>
 
-      <Select
-        aria-label="Filter by status"
-        value={value.status}
-        onChange={(e) => onChange({ ...value, status: e.target.value })}
-        placeholder="Any status"
-        options={TASK_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
-        className="!h-10 !text-[13.5px]"
-      />
-    </div>
+      <FilterField label="Status">
+        <Select
+          value={value.status}
+          onChange={(e) => onChange({ ...value, status: e.target.value })}
+          placeholder="Any status"
+          options={TASK_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
+          className="!h-10 !text-[13.5px]"
+        />
+      </FilterField>
+    </FilterPopover>
   )
 }

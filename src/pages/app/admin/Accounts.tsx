@@ -4,6 +4,11 @@ import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Alert } from '../../../components/ui/Field'
 import { Icon, Spinner } from '../../../components/ui/Icon'
+import {
+  FilterField,
+  FilterPopover,
+  FilterSearch,
+} from '../../../components/ui/FilterPopover'
 import { Select } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/Tabs'
 import { useToast } from '../../../components/ui/Toast'
@@ -41,6 +46,12 @@ function when(iso: string) {
  * classes, projects, tasks and files with it. Deactivating covers every honest
  * reason to remove somebody and can be undone.
  */
+const ROLE_FILTERS = [
+  { value: 'student', label: 'Students' },
+  { value: 'professor', label: 'Professors' },
+  { value: 'admin', label: 'Admins' },
+]
+
 export default function Accounts() {
   const { profile } = useAuth()
   const { show } = useToast()
@@ -118,33 +129,32 @@ export default function Accounts() {
         leaves the work where it belongs.
       </p>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
-          <Icon
-            name="search"
-            size={15}
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint"
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Find by name or email"
-            className="h-9 w-[240px] rounded-lg border border-[var(--line)] bg-[var(--surface)] pr-3 pl-8 text-[13px] text-ink placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:outline-none"
-          />
-        </div>
-        <Select
-          aria-label="Filter by role"
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          placeholder="Every role"
-          options={[
-            { value: 'student', label: 'Students' },
-            { value: 'professor', label: 'Professors' },
-            { value: 'admin', label: 'Admins' },
-          ]}
-          className="!h-9 !w-[160px] !text-[13px]"
-        />
+      <div className="flex flex-wrap items-center gap-2.5">
+        <FilterPopover
+          active={[query, role].filter(Boolean).length}
+          summary={[query && `“${query}”`, role && ROLE_FILTERS.find((r) => r.value === role)?.label]
+            .filter(Boolean)
+            .join(' · ')}
+          onClear={() => {
+            setQuery('')
+            setRole('')
+          }}
+          label="Filter accounts"
+        >
+          <FilterField label="Search">
+            <FilterSearch value={query} onChange={setQuery} placeholder="Find by name or email" />
+          </FilterField>
+          <FilterField label="Role">
+            <Select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              placeholder="Every role"
+              options={ROLE_FILTERS}
+              className="!h-10 !text-[13.5px]"
+            />
+          </FilterField>
+        </FilterPopover>
+
         <p className="ml-auto font-mono text-[12px] text-faint">
           {shown.length === rows.length
             ? `${rows.length} accounts`

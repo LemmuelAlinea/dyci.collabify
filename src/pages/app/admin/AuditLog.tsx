@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert } from '../../../components/ui/Field'
 import { Icon, Spinner } from '../../../components/ui/Icon'
+import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
 import { Select } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/Tabs'
 import { listAuditEvents } from '../../../lib/api/audit'
@@ -124,14 +125,22 @@ export default function AuditLog() {
       </p>
 
       {rows.length > 4 && (
-        <Select
-          aria-label="Filter the log"
-          value={action}
-          onChange={(e) => setAction(e.target.value)}
-          placeholder="Everything"
-          options={AUDIT_ACTIONS}
-          className="!h-9 !w-[210px] !text-[13px]"
-        />
+        <FilterPopover
+          active={action ? 1 : 0}
+          summary={AUDIT_ACTIONS.find((o) => o.value === action)?.label}
+          onClear={() => setAction('')}
+          label="Filter the log"
+        >
+          <FilterField label="Kind of change">
+            <Select
+              value={action}
+              onChange={(e) => setAction(e.target.value)}
+              placeholder="Everything"
+              options={AUDIT_ACTIONS}
+              className="!h-10 !text-[13.5px]"
+            />
+          </FilterField>
+        </FilterPopover>
       )}
 
       {days.length === 0 ? (

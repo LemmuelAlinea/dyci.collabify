@@ -6,6 +6,7 @@ import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModa
 import { Button } from '../../../components/ui/Button'
 import { Alert } from '../../../components/ui/Field'
 import { Icon, Spinner } from '../../../components/ui/Icon'
+import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
 import { Select } from '../../../components/ui/Select'
 import { useAuth } from '../../../context/AuthContext'
 import { listCalendar, listWeekBands } from '../../../lib/api/calendar'
@@ -141,30 +142,46 @@ export default function Calendar() {
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <FilterPopover
+          active={[classFilter, kindFilter].filter(Boolean).length}
+          summary={[
+            classes.find((c) => c.value === classFilter)?.label,
+            CALENDAR_KINDS.find((k) => k.value === kindFilter)?.label,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+          onClear={() => {
+            setClassFilter('')
+            setKindFilter('')
+          }}
+          label="Filter the calendar"
+          align="right"
+        >
           {classes.length > 1 && (
-            <Select
-              aria-label="Filter by class"
-              value={classFilter}
-              onChange={(e) => setClassFilter(e.target.value)}
-              placeholder="Every class"
-              options={classes}
-              className="!h-9 !w-[190px] !text-[13px]"
-            />
+            <FilterField label="Class">
+              <Select
+                value={classFilter}
+                onChange={(e) => setClassFilter(e.target.value)}
+                placeholder="Every class"
+                options={classes}
+                className="!h-10 !text-[13.5px]"
+              />
+            </FilterField>
           )}
-          <Select
-            aria-label="Filter by kind"
-            value={kindFilter}
-            onChange={(e) => setKindFilter(e.target.value)}
-            placeholder="Everything"
-            options={CALENDAR_KINDS.filter(
-              (k) =>
-                (role === 'professor' && k.value !== 'task_due') ||
-                (role !== 'professor' && k.value !== 'project_release'),
-            )}
-            className="!h-9 !w-[170px] !text-[13px]"
-          />
-        </div>
+          <FilterField label="What to show">
+            <Select
+              value={kindFilter}
+              onChange={(e) => setKindFilter(e.target.value)}
+              placeholder="Everything"
+              options={CALENDAR_KINDS.filter(
+                (k) =>
+                  (role === 'professor' && k.value !== 'task_due') ||
+                  (role !== 'professor' && k.value !== 'project_release'),
+              )}
+              className="!h-10 !text-[13.5px]"
+            />
+          </FilterField>
+        </FilterPopover>
       </div>
 
       {view === 'month' ? (

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Icon } from '../ui/Icon'
+import { FilterField, FilterPopover } from '../ui/FilterPopover'
 import { Select } from '../ui/Select'
 import { burnOwner } from '../../lib/types'
 import type { BoardBurn, ClassRef, MemberLoad, TaskState } from '../../lib/types'
@@ -99,66 +99,72 @@ export function FilterChain({
     onChange(next)
   }
 
-  const touched = ORDER.some((k) => scope[k])
+  const label = (list: { value: string; label: string }[], v: string) =>
+    list.find((o) => o.value === v)?.label ?? ''
+  const classOptions = classes.map((c) => ({
+    value: c.class_id,
+    label: `${c.class_initial} · ${c.class_name}`,
+  }))
+  const on = [
+    label(classOptions, scope.classId),
+    label(projects, scope.projectId),
+    label(boards, scope.boardId),
+    label(students, scope.studentId),
+    label(taskOptions, scope.taskId),
+  ].filter(Boolean)
 
   return (
-    <div className="space-y-2">
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+    <FilterPopover
+      active={on.length}
+      summary={on.join(' → ')}
+      onClear={() => onChange(EMPTY_SCOPE)}
+      label="Narrow the page"
+    >
+      <FilterField label="Class">
         <Select
-          aria-label="Class"
           value={scope.classId}
           onChange={(e) => set('classId', e.target.value)}
           placeholder="Every class"
-          options={classes.map((c) => ({
-            value: c.class_id,
-            label: `${c.class_initial} · ${c.class_name}`,
-          }))}
-          className="!h-9 !text-[13px]"
+          options={classOptions}
+          className="!h-10 !text-[13.5px]"
         />
+      </FilterField>
+      <FilterField label="Project">
         <Select
-          aria-label="Project"
           value={scope.projectId}
           onChange={(e) => set('projectId', e.target.value)}
           placeholder="Every project"
           options={projects}
-          className="!h-9 !text-[13px]"
+          className="!h-10 !text-[13.5px]"
         />
+      </FilterField>
+      <FilterField label="Group">
         <Select
-          aria-label="Group"
           value={scope.boardId}
           onChange={(e) => set('boardId', e.target.value)}
           placeholder="Every group"
           options={boards}
-          className="!h-9 !text-[13px]"
+          className="!h-10 !text-[13.5px]"
         />
+      </FilterField>
+      <FilterField label="Student">
         <Select
-          aria-label="Student"
           value={scope.studentId}
           onChange={(e) => set('studentId', e.target.value)}
           placeholder="Everyone"
           options={students}
-          className="!h-9 !text-[13px]"
+          className="!h-10 !text-[13.5px]"
         />
+      </FilterField>
+      <FilterField label="Task">
         <Select
-          aria-label="Task"
           value={scope.taskId}
           onChange={(e) => set('taskId', e.target.value)}
           placeholder="Every task"
           options={taskOptions}
-          className="!h-9 !text-[13px]"
+          className="!h-10 !text-[13.5px]"
         />
-      </div>
-
-      {touched && (
-        <button
-          type="button"
-          onClick={() => onChange(EMPTY_SCOPE)}
-          className="flex items-center gap-1.5 text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
-        >
-          <Icon name="x" size={13} />
-          Clear the filters
-        </button>
-      )}
-    </div>
+      </FilterField>
+    </FilterPopover>
   )
 }

@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '../ui/Icon'
+import { FilterField, FilterPopover, FilterSearch } from '../ui/FilterPopover'
 import { Select } from '../ui/Select'
 import { boardOwnerName } from '../../lib/types'
 import type { BoardSummary } from '../../lib/types'
 
 type SortId = 'attention' | 'progress' | 'name'
+
+/** What the table shows when nothing is chosen, so "sorted" means changed. */
+const DEFAULT_SORT: SortId = 'attention'
 
 function sortOptions(solo: boolean): { value: SortId; label: string }[] {
   return [
@@ -60,7 +64,7 @@ export function GroupProgressTable({
   solo?: boolean
   onOpen: (board: BoardSummary) => void
 }) {
-  const [sort, setSort] = useState<SortId>('attention')
+  const [sort, setSort] = useState<SortId>(DEFAULT_SORT)
   const [query, setQuery] = useState('')
   const [all, setAll] = useState(false)
 
@@ -100,29 +104,37 @@ export function GroupProgressTable({
         </p>
 
         {boards.length > 4 && (
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Icon
-                name="search"
-                size={15}
-                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint"
-              />
-              <input
-                type="search"
+          <FilterPopover
+            active={[query, sort !== DEFAULT_SORT ? sort : ''].filter(Boolean).length}
+            summary={[
+              query && `“${query}”`,
+              sort !== DEFAULT_SORT && sortOptions(solo).find((o) => o.value === sort)?.label,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+            onClear={() => {
+              setQuery('')
+              setSort(DEFAULT_SORT)
+            }}
+            label={solo ? 'Filter the students' : 'Filter the groups'}
+            align="right"
+          >
+            <FilterField label="Search">
+              <FilterSearch
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={setQuery}
                 placeholder={solo ? 'Find a student' : 'Find a group'}
-                className="h-9 w-[160px] rounded-lg border border-[var(--line)] bg-[var(--surface)] pr-3 pl-8 text-[13px] text-ink placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:outline-none"
               />
-            </div>
-            <Select
-              aria-label={solo ? 'Sort the students' : 'Sort the groups'}
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortId)}
-              options={sortOptions(solo)}
-              className="!h-9 !w-[170px] !text-[13px]"
-            />
-          </div>
+            </FilterField>
+            <FilterField label="Order">
+              <Select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortId)}
+                options={sortOptions(solo)}
+                className="!h-10 !text-[13.5px]"
+              />
+            </FilterField>
+          </FilterPopover>
         )}
       </div>
 
