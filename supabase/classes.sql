@@ -406,9 +406,35 @@ create policy profiles_select_own on public.profiles
 
 -- Cards and headers always want the live student count. security_invoker keeps
 -- the caller's RLS in force, so a student counts only the classes they are in.
-create or replace view public.class_overview
+--
+-- The columns are spelled out rather than `c.*`. Postgres freezes a star at
+-- creation, so `term_start` and `term_end` — added later by syllabus.sql — never
+-- reached this view: the class page read them as undefined and went on offering
+-- to set dates that were already set. A named list makes adding a column a
+-- deliberate edit here, and the drop is needed because `create or replace`
+-- refuses a column inserted before an existing one.
+drop view if exists public.class_overview;
+
+create view public.class_overview
 with (security_invoker = true) as
-select c.*,
+select c.id,
+       c.professor_id,
+       c.name,
+       c.initial,
+       c.code,
+       c.section,
+       c.year_level,
+       c.semester,
+       c.school_year,
+       c.description,
+       c.syllabus_id,
+       c.curriculum_id,
+       c.join_open,
+       c.term_start,
+       c.term_end,
+       c.archived_at,
+       c.created_at,
+       c.updated_at,
        (
          select count(*)
            from public.class_members m

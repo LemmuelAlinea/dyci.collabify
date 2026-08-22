@@ -25,6 +25,9 @@ export function ClassSyllabusTab({
   const [start, setStart] = useState(cls.term_start ?? '')
   const [end, setEnd] = useState(cls.term_end ?? '')
   const [saving, setSaving] = useState(false)
+  // A term that is already set reads back as a sentence; the form is what you
+  // open to change it, not what greets you every time.
+  const [editing, setEditing] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -44,6 +47,8 @@ export function ClassSyllabusTab({
     setStart(cls.term_start ?? '')
     setEnd(cls.term_end ?? '')
   }, [cls.term_start, cls.term_end])
+
+  const termSet = Boolean(cls.term_start && cls.term_end)
 
   if (weeks === null) {
     return (
@@ -84,40 +89,88 @@ export function ClassSyllabusTab({
 
       {role === 'professor' && (
         <div className="surface rounded-card border border-line p-5 shadow-card">
-          <p className="text-[15px] font-semibold text-ink">Term dates</p>
-          <p className="mt-1 text-[13.5px] text-muted">
-            Week 1 starts on the first date. Every other week is counted from it.
-          </p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-            <Field label="Term starts">
-              {(id) => (
-                <Input id={id} type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-ink">Term dates</p>
+              {termSet && !editing ? (
+                <p className="mt-1 text-[13.5px] text-muted">
+                  <span className="text-ink">{termLabel(cls.term_start, cls.term_end)}</span>
+                  {' · '}
+                  {termWeeks(cls.term_start, cls.term_end)} weeks. Week 1 starts on the first
+                  date.
+                </p>
+              ) : (
+                <p className="mt-1 text-[13.5px] text-muted">
+                  Week 1 starts on the first date. Every other week is counted from it.
+                </p>
               )}
-            </Field>
-            <Field label="Term ends">
-              {(id) => (
-                <Input id={id} type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
-              )}
-            </Field>
-            <Button
-              className="!rounded-xl"
-              loading={saving}
-              onClick={async () => {
-                setSaving(true)
-                try {
-                  await setTermDates(cls.id, start, end)
-                  show('Term dates saved')
-                  await Promise.all([load(), onClassChanged?.()])
-                } catch (err) {
-                  show(authErrorMessage(err, 'Could not save the dates.'), 'error')
-                } finally {
-                  setSaving(false)
-                }
-              }}
-            >
-              Save dates
-            </Button>
+            </div>
+            {termSet && !editing && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="!rounded-xl"
+                onClick={() => setEditing(true)}
+              >
+                <Icon name="edit" size={14} />
+                Change
+              </Button>
+            )}
           </div>
+
+          {(!termSet || editing) && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+              <Field label="Term starts">
+                {(id) => (
+                  <Input
+                    id={id}
+                    type="date"
+                    value={start}
+                    onChange={(e) => setStart(e.target.value)}
+                  />
+                )}
+              </Field>
+              <Field label="Term ends">
+                {(id) => (
+                  <Input id={id} type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+                )}
+              </Field>
+              <div className="flex gap-2">
+                <Button
+                  className="!rounded-xl"
+                  loading={saving}
+                  onClick={async () => {
+                    setSaving(true)
+                    try {
+                      await setTermDates(cls.id, start, end)
+                      show('Term dates saved')
+                      setEditing(false)
+                      await Promise.all([load(), onClassChanged?.()])
+                    } catch (err) {
+                      show(authErrorMessage(err, 'Could not save the dates.'), 'error')
+                    } finally {
+                      setSaving(false)
+                    }
+                  }}
+                >
+                  Save dates
+                </Button>
+                {termSet && (
+                  <Button
+                    variant="ghost"
+                    className="!rounded-xl"
+                    onClick={() => {
+                      setStart(cls.term_start ?? '')
+                      setEnd(cls.term_end ?? '')
+                      setEditing(false)
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -165,4 +218,26 @@ export function ClassSyllabusTab({
       )}
     </div>
   )
+}
+
+/**
+ * A plain date column arrives as "2026-07-20". `new Date` on that reads it as
+ * UTC midnight, which is the previous day anywhere west of Greenwich, so the
+ * parts are put together by hand.
+ */
+function termLabel(from: string | null, to: string | null) {
+  if (!from || !to) return ''
+  const opts: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' }
+  return `${localDay(from).toLocaleDateString(undefined, opts)} – ${localDay(to).toLocaleDateString(undefined, opts)}`
+}
+
+function termWeeks(from: string | null, to: string | null) {
+  if (!from || !to) return 0
+  const days = (localDay(to).getTime() - localDay(from).getTime()) / 86_400_000
+  return Math.max(1, Math.ceil((days + 1) / 7))
+}
+
+function localDay(value: string) {
+  const [y, m, d] = value.slice(0, 10).split('-').map(Number)
+  return new Date(y, (m ?? 1) - 1, d ?? 1)
 }
