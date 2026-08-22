@@ -61,10 +61,18 @@ do $$
 declare
   v_admin uuid; v_prof uuid; v_stud uuid; v_free uuid; v_class uuid;
 begin
-  select id into v_admin from public.profiles where role='admin' limit 1;
-  select id into v_prof  from public.profiles where role='professor' limit 1;
-  select id into v_stud  from public.profiles where role='student' limit 1;
-  select id into v_class from public.classes where professor_id = v_prof limit 1;
+  select id into v_admin from public.profiles where role='admin' order by created_at limit 1;
+  select id into v_stud  from public.profiles where role='student' order by created_at limit 1;
+
+  -- The professor has to be one who actually holds a live class, or the
+  -- demotion guard below has nothing to refuse and the assertion passes by
+  -- accident. `limit 1` off profiles picked whichever row the planner returned,
+  -- which for a while was a pending professor holding nothing.
+  select c.professor_id, c.id into v_prof, v_class
+    from public.classes c
+   where c.archived_at is null
+   order by c.created_at
+   limit 1;
 
   -- A professor holding no classes, so the demotion guard can be told apart
   -- from a plain refusal.

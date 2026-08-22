@@ -30,6 +30,7 @@ import StudentClassDetail from './pages/app/classes/StudentClassDetail'
 import Syllabi from './pages/app/resources/Syllabi'
 import SyllabusDetail from './pages/app/resources/SyllabusDetail'
 import Analytics from './pages/app/analytics/Analytics'
+import Reports from './pages/app/reports/Reports'
 import Calendar from './pages/app/calendar/Calendar'
 import Curriculum from './pages/app/resources/Curriculum'
 import Reassignments from './pages/app/reassignments/Reassignments'
@@ -109,6 +110,7 @@ export default function App() {
             <Route path="/professor/reassignments" element={<Reassignments />} />
             <Route path="/professor/calendar" element={<Calendar />} />
             <Route path="/professor/analytics" element={<Analytics />} />
+            <Route path="/professor/reports" element={<Reports />} />
           </Route>
         </Route>
 

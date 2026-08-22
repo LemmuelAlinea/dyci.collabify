@@ -64,7 +64,7 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
       title: 'Insights',
       items: [
         { label: 'Analytics', icon: 'chart', to: '/professor/analytics' },
-        { label: 'Reports', icon: 'file', soon: true },
+        { label: 'Reports', icon: 'file', to: '/professor/reports' },
       ],
     },
     {

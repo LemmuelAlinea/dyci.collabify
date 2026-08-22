@@ -213,3 +213,83 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* --------------------------------------------------------------- printing */
+
+/**
+ * A report leaves the product through the browser's own Print — there is no PDF
+ * library here, and a print stylesheet is a truer one anyway: the page is the
+ * document rather than a rendering of it.
+ *
+ * The tokens are forced back to their light values whatever the screen theme
+ * is. A professor working in dark mode would otherwise print a navy sheet, and
+ * a chair would get a page that cost a cartridge.
+ */
+@media print {
+  :root,
+  .dark {
+    --page: #ffffff;
+    --surface: #ffffff;
+    --surface-sunken: #f3f5fb;
+    --surface-raised: #ffffff;
+    --ink: #0d1330;
+    --ink-muted: #3a4265;
+    --ink-faint: #5a6288;
+    --line: rgb(16 22 55 / 0.28);
+    --line-strong: rgb(16 22 55 / 0.55);
+    --shadow-card: none;
+    --shadow-lift: none;
+  }
+
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  /* The rail, the header and everything that is a control rather than content. */
+  aside,
+  header.sticky,
+  nav,
+  button,
+  select,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* The shell's grid and scroll containers fight pagination; flatten them. */
+  main,
+  .sheet,
+  .sheet * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  .sheet {
+    break-inside: auto;
+  }
+
+  .sheet tr,
+  .sheet dl,
+  .sheet section {
+    break-inside: avoid;
+  }
+
+  /* A table running past one page repeats its header on the next. */
+  .sheet thead {
+    display: table-header-group;
+  }
+
+  .sheet a {
+    text-decoration: none;
+    color: inherit;
+  }
+}
