@@ -32,6 +32,9 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
         { label: 'Projects', icon: 'kanban', to: '/student/projects' },
         { label: 'My tasks', icon: 'check', to: '/student/tasks' },
         { label: 'Calendar', icon: 'calendar', to: '/student/calendar' },
+        // Their own record of what they did, printable. Beside the calendar
+        // rather than under Messages: it is about the work, not about talking.
+        { label: 'Reports', icon: 'file', to: '/student/reports' },
         { label: 'Messages', icon: 'message', to: '/student/messages', badge: 'messages' },
       ],
     },

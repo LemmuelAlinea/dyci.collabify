@@ -1,6 +1,6 @@
 import { Figures, ReportTable, Sheet, SheetSection } from './Sheet'
 import { dayLabel, momentLabel, pct } from '../../lib/report'
-import type { BoardTask, ClassReport, StudentWork } from '../../lib/report'
+import type { BoardTask, SheetClass, StudentWork } from '../../lib/report'
 import { resultLabel, taskStatusLabel } from '../../lib/types'
 import type { BoardSummary } from '../../lib/types'
 
@@ -20,15 +20,24 @@ export function BoardSheet({
   members,
   feedback,
   professor,
+  signatureLabel,
 }: {
-  cls: ClassReport
+  cls: SheetClass
   board: BoardSummary
-  tasks: BoardTask[]
-  /** The people on this board, from report_student_work. */
-  members: StudentWork[]
+  /** Only the columns the sheet prints, so the student views fit here too. */
+  tasks: Pick<
+    BoardTask,
+    'task_id' | 'title' | 'holders' | 'status' | 'due_at' | 'done_at' | 'late' | 'file_count'
+  >[]
+  /** The people on this board — from the professor's view or the group's own. */
+  members: Pick<
+    StudentWork,
+    'student_id' | 'student_name' | 'tasks_held' | 'tasks_done' | 'tasks_late' | 'held_pct'
+  >[]
   /** The reason given when the board was returned, if it was. */
   feedback: string | null
   professor: string
+  signatureLabel?: string
 }) {
   const owner = board.group_name ?? board.student_name ?? 'A board'
   const done = tasks.filter((t) => t.status === 'done').length
@@ -44,6 +53,7 @@ export function BoardSheet({
         board.project_due_at ? `Due ${momentLabel(board.project_due_at)}` : 'No deadline set',
       ]}
       professor={professor}
+      signatureLabel={signatureLabel}
     >
       <Figures
         rows={[

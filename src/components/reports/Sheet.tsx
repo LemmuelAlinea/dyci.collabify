@@ -18,6 +18,7 @@ export function Sheet({
   professor,
   children,
   footnote,
+  signatureLabel = 'Signature over printed name',
 }: {
   title: string
   /** What the report is about: the class, the group, the student. */
@@ -28,6 +29,8 @@ export function Sheet({
   children: ReactNode
   /** An extra line above the standing note, when the report needs one. */
   footnote?: string
+  /** What the name under the rule means. A student prepares; a professor attests. */
+  signatureLabel?: string
 }) {
   return (
     <article className="sheet surface rounded-card border border-line p-8 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none">
@@ -68,7 +71,7 @@ export function Sheet({
           <div className="min-w-[220px]">
             <div className="h-8 border-b border-line-strong" />
             <p className="mt-1 text-[11.5px] text-muted">{professor}</p>
-            <p className="text-[10.5px] text-faint">Signature over printed name</p>
+            <p className="text-[10.5px] text-faint">{signatureLabel}</p>
           </div>
         </div>
       </footer>

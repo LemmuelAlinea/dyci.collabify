@@ -132,6 +132,20 @@ export const pct = (value: number | string | null) =>
 
 /* -------------------------------------------------------------------- types */
 
+/**
+ * Enough of a class to head a sheet. The professor's reports pass a whole
+ * ClassReport; a student has only what their own class list carries, and a
+ * letterhead needs no more than this.
+ */
+export type SheetClass = {
+  class_initial: string
+  class_name: string
+  code: string
+  section: string
+  semester: string
+  school_year: string
+}
+
 /** report_class_summary: one class, archived or not, and everything in it. */
 export type ClassReport = {
   class_id: string

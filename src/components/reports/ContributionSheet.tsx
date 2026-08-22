@@ -1,6 +1,6 @@
 import { Figures, ReportTable, Sheet, SheetSection } from './Sheet'
 import { dayLabel, momentLabel, ownerName, pct } from '../../lib/report'
-import type { ClassReport, StudentWork } from '../../lib/report'
+import type { SheetClass, StudentWork } from '../../lib/report'
 import { resultLabel } from '../../lib/types'
 import type { ReassignmentRow, ReassignmentStatus } from '../../lib/types'
 
@@ -26,12 +26,15 @@ export function ContributionSheet({
   rows,
   reassignments,
   professor,
+  signatureLabel,
 }: {
-  cls: ClassReport
+  cls: SheetClass
   /** Every board this student is on, in this class. */
   rows: StudentWork[]
   reassignments: ReassignmentRow[]
   professor: string
+  /** A student printing their own copy prepares it; a professor attests to it. */
+  signatureLabel?: string
 }) {
   const student = rows[0]?.student_name ?? 'This student'
   const held = rows.reduce((n, r) => n + r.tasks_held, 0)
@@ -48,6 +51,7 @@ export function ContributionSheet({
         `${cls.semester} semester · ${cls.school_year}`,
       ]}
       professor={professor}
+      signatureLabel={signatureLabel}
       footnote="A share is of the board's weight, not of a mark. Shared tasks are split evenly between the people on them."
     >
       <Figures
