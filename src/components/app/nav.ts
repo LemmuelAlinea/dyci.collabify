@@ -20,23 +20,34 @@ const SETTINGS: NavGroup = {
 
 const BY_ROLE: Record<Role, NavGroup[]> = {
   student: [
+    // Same shape as the professor's rail: the spine first, then what arrives on
+    // its own schedule, then the pages that read the work back. Eight rows
+    // under one heading said nothing about what belonged where.
     {
       title: 'Workspace',
       // Classes hold groups, groups hold projects, projects hold the tasks —
-      // so the spine reads widest to narrowest, and My tasks sits against
-      // Projects rather than behind Messages. Talking comes after working.
+      // widest to narrowest.
       items: [
         { label: 'Dashboard', icon: 'board', to: '/student' },
         { label: 'Classes', icon: 'folder', to: '/student/classes' },
         { label: 'Groups', icon: 'users', to: '/student/groups' },
         { label: 'Projects', icon: 'kanban', to: '/student/projects' },
+      ],
+    },
+    {
+      title: 'Day to day',
+      // What is on you now, when it is due, and who is asking. My tasks leads:
+      // it is the only one of the three that is work rather than about work.
+      items: [
         { label: 'My tasks', icon: 'check', to: '/student/tasks' },
         { label: 'Calendar', icon: 'calendar', to: '/student/calendar' },
-        // Their own record of what they did, printable. Beside the calendar
-        // rather than under Messages: it is about the work, not about talking.
-        { label: 'Reports', icon: 'file', to: '/student/reports' },
         { label: 'Messages', icon: 'message', to: '/student/messages', badge: 'messages' },
       ],
+    },
+    {
+      // Yours to keep, rather than yours to do.
+      title: 'Your record',
+      items: [{ label: 'Reports', icon: 'file', to: '/student/reports' }],
     },
     SETTINGS,
   ],
