@@ -865,6 +865,25 @@ export function isBoardSubmitted(
 }
 
 /**
+ * Whether a group may still put work on their board.
+ *
+ * Two things close it and they are different acts: the group handing in, and
+ * the professor closing the project. Accepting a hand-in leaves the board
+ * submitted, so an accepted board stays closed; returning one un-submits it,
+ * which is precisely how "fix this and hand it in again" gives the board back.
+ *
+ * The database enforces the same rule through the submission freeze — this is
+ * what keeps the buttons agreeing with it, so nobody is offered something that
+ * would be refused.
+ */
+export function canPlanBoard(
+  board: Pick<ProjectBoard, 'submitted_at'> | null | undefined,
+  locked = false,
+) {
+  return Boolean(board) && !locked && !isBoardSubmitted(board)
+}
+
+/**
  * What to call a board. A group board is its group; an individual board is the
  * student who owns it. Only falls back to a label when the name has not loaded.
  */

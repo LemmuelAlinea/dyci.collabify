@@ -28,7 +28,13 @@ import {
 } from '../../lib/api/tasks'
 import type { ProfessorTaskGroup, ProjectTaskRow } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
-import { boardOwnerName, isBoardSubmitted, isProjectLocked, isReleased } from '../../lib/types'
+import {
+  boardOwnerName,
+  canPlanBoard,
+  isBoardSubmitted,
+  isProjectLocked,
+  isReleased,
+} from '../../lib/types'
 import type {
   BoardSummary,
   MemberProgress as MemberRow,
@@ -296,17 +302,32 @@ export function ProjectTasksTab({
                 dense
                 title={active.group_id ? 'Your group' : 'Your progress'}
               />
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="!rounded-lg"
-                  onClick={() => setAiOpen(true)}
-                >
-                  <Icon name="spark" size={15} />
-                  Draft tasks with AI
-                </Button>
-              </div>
+              {/* Drafting is planning, and planning is over once the board is
+                  handed in — accepting leaves it that way, returning gives it
+                  back. The database refuses the insert either way; this is what
+                  stops the button offering something that cannot happen. */}
+              {canPlanBoard(active, locked) ? (
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="!rounded-lg"
+                    onClick={() => setAiOpen(true)}
+                  >
+                    <Icon name="spark" size={15} />
+                    Draft tasks with AI
+                  </Button>
+                </div>
+              ) : (
+                !locked &&
+                active.submitted_at && (
+                  <p className="text-right text-[12.5px] text-muted">
+                    {active.result_verdict === 'accepted'
+                      ? 'This project is finished, so drafting is off.'
+                      : 'Drafting is off while this is handed in. Take it back if something still needs adding.'}
+                  </p>
+                )
+              )}
 
               {viewSwitch}
               {filterBar}
@@ -334,7 +355,10 @@ export function ProjectTasksTab({
                   progress={progress}
                   viewerId={viewerId}
                   role={role}
-                  canWork
+                  // The same rule as the AI button, for the same reason: a
+                  // handed-in or closed board refuses new work in the database,
+                  // so offering "Add task" here only produces an error.
+                  canWork={canPlanBoard(active, locked)}
                   onChanged={refresh}
                 />
               )}
