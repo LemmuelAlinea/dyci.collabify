@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Logo, LogoMark } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
@@ -46,6 +47,21 @@ function NavRows({
   const { profile } = useAuth()
   const unreadMessages = useUnreadTotal(profile?.id)
   const { isShut, toggle } = useShutGroups()
+  const reduce = useReducedMotion()
+
+  /**
+   * Labels fade in behind the widening rail rather than appearing at full
+   * strength the instant the state flips. On the way back they simply go: the
+   * rail is closing over them, so fading them out as well reads as hesitation.
+   */
+  const label = reduce
+    ? {}
+    : {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        transition: { duration: 0.26, delay: 0.12, ease: [0.22, 1, 0.36, 1] as const },
+      }
+
   if (!profile) return null
 
   return (
@@ -59,7 +75,8 @@ function NavRows({
             {collapsed ? (
               <div className="mx-2 mb-2 border-t border-white/10" />
             ) : (
-              <button
+              <motion.button
+                {...label}
                 type="button"
                 onClick={() => toggle(group.title)}
                 aria-expanded={!shut}
@@ -75,7 +92,7 @@ function NavRows({
                   className={`shrink-0 transition-transform duration-200 ${shut ? '-rotate-90' : ''}`}
                 />
                 <span className="flex-1 truncate">{group.title}</span>
-              </button>
+              </motion.button>
             )}
             <ul className={`space-y-0.5 ${shut ? 'hidden' : ''}`}>
               {group.items.map((item) =>
@@ -99,7 +116,11 @@ function NavRows({
                       }
                     >
                       <Icon name={item.icon} size={18} />
-                      {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                      {!collapsed && (
+                        <motion.span {...label} className="flex-1 truncate">
+                          {item.label}
+                        </motion.span>
+                      )}
                       {item.badge === 'messages' &&
                         unreadMessages > 0 &&
                         (collapsed ? (
@@ -122,12 +143,15 @@ function NavRows({
                     >
                       <Icon name={item.icon} size={18} />
                       {!collapsed && (
-                        <>
+                        <motion.span
+                          {...label}
+                          className="flex min-w-0 flex-1 items-center gap-3"
+                        >
                           <span className="flex-1 truncate">{item.label}</span>
                           <span className="rounded-full bg-white/8 px-2 py-0.5 font-mono text-[9.5px] tracking-wider uppercase">
                             Soon
                           </span>
-                        </>
+                        </motion.span>
                       )}
                     </span>
                   </li>
@@ -151,6 +175,7 @@ function SidebarBody({
   onToggle?: () => void
 }) {
   const { profile } = useAuth()
+  const reduce = useReducedMotion()
 
   return (
     <>
@@ -195,14 +220,24 @@ function SidebarBody({
       <NavRows onNavigate={onNavigate} collapsed={collapsed} />
 
       {!collapsed && (
-        <div className="shrink-0 px-3 pb-4">
+        <motion.div
+          {...(reduce
+            ? {}
+            : {
+                initial: { opacity: 0 },
+                animate: { opacity: 1 },
+                transition: { duration: 0.26, delay: 0.14, ease: [0.22, 1, 0.36, 1] as const },
+              })}
+          className="shrink-0 px-3 pb-4"
+        >
           <div className="rounded-2xl bg-white/6 p-3.5">
-            <p className="eyebrow text-white/40">Phase 1</p>
+            <p className="eyebrow text-white/40">Effort, not marks</p>
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-white/55">
-              Boards, milestones, and files land in the next release. Settings is live now.
+              Collabify records what was done and when. No grade is kept here — that stays
+              with your class record.
             </p>
           </div>
-        </div>
+        </motion.div>
       )}
     </>
   )
@@ -285,6 +320,7 @@ const COLLAPSE_KEY = 'collabify.sidebar.collapsed'
 
 export function AppShell() {
   const { profile } = useAuth()
+  const reduce = useReducedMotion()
   const [drawer, setDrawer] = useState(false)
   const [collapsed, setCollapsed] = useState(
     () => typeof window !== 'undefined' && localStorage.getItem(COLLAPSE_KEY) === '1',
@@ -305,26 +341,45 @@ export function AppShell() {
 
   return (
     <div
-      className={`min-h-dvh lg:grid ${
+      // The rail's width is the grid column, so the column is what animates.
+      // Everything to the right of it is laid out by the same grid and slides
+      // with it for free — animating the aside on its own would have left the
+      // page content jumping to the new position a frame later.
+      className={`min-h-dvh transition-[grid-template-columns] duration-[320ms] ease-[var(--ease-out-soft)] lg:grid ${
         collapsed ? 'lg:grid-cols-[76px_minmax(0,1fr)]' : 'lg:grid-cols-[276px_minmax(0,1fr)]'
       }`}
     >
-      <aside className="sticky top-0 hidden h-dvh flex-col bg-navy-600 dark:bg-navy-800 lg:flex">
+      <aside className="sticky top-0 hidden h-dvh flex-col overflow-hidden bg-navy-600 dark:bg-navy-800 lg:flex">
         <SidebarBody collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
       </aside>
 
-      {drawer && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            className="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"
-            aria-label="Close navigation"
-            onClick={() => setDrawer(false)}
-          />
-          <div className="absolute inset-y-0 left-0 flex w-[280px] flex-col bg-navy-600 shadow-2xl dark:bg-navy-800">
-            <SidebarBody onNavigate={() => setDrawer(false)} />
+      {/* The drawer has to survive its own closing animation, which is what
+          AnimatePresence is for: React would otherwise unmount it the instant
+          the state flips and there would be nothing left to animate out. */}
+      <AnimatePresence>
+        {drawer && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <motion.button
+              className="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"
+              aria-label="Close navigation"
+              onClick={() => setDrawer(false)}
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reduce ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            />
+            <motion.div
+              className="absolute inset-y-0 left-0 flex w-[280px] flex-col bg-navy-600 shadow-2xl dark:bg-navy-800"
+              initial={reduce ? false : { x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={reduce ? undefined : { x: '-100%' }}
+              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <SidebarBody onNavigate={() => setDrawer(false)} />
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* clip, not hidden: a wide table can still scroll inside its own box,
           but nothing drags the whole page sideways on a phone. */}
