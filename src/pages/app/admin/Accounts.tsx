@@ -15,19 +15,13 @@ import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import { listAccounts, setAccountActive, setAccountRole } from '../../../lib/api/accounts'
 import { authErrorMessage } from '../../../lib/authError'
-import { fullName, ROLE_LABEL } from '../../../lib/types'
+import { ACCOUNT_STATUS_LABEL, fullName, ROLE_LABEL } from '../../../lib/types'
 import type { Account, AccountStatus } from '../../../lib/types'
 
 const STATUS_TONE: Record<AccountStatus, string> = {
   active: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
   pending: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
   rejected: 'surface-sunken text-muted',
-}
-
-const STATUS_LABEL: Record<AccountStatus, string> = {
-  active: 'Active',
-  pending: 'Waiting',
-  rejected: 'Deactivated',
 }
 
 function when(iso: string) {
@@ -195,7 +189,7 @@ export default function Accounts() {
                 <span
                   className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] ${STATUS_TONE[a.status]}`}
                 >
-                  {STATUS_LABEL[a.status]}
+                  {ACCOUNT_STATUS_LABEL[a.status]}
                 </span>
 
                 {/* An admin is not changed from here, and neither is yourself. */}

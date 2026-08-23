@@ -101,9 +101,13 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
       ],
     },
     {
+      // The program read as figures. Nothing in here reaches inside a class:
+      // the chair sees counts and asks the professor for the rest.
       title: 'Oversight',
       items: [
-        { label: 'Cohort progress', icon: 'chart', soon: true },
+        { label: 'Classes', icon: 'folder', to: '/admin/classes' },
+        { label: 'Faculty', icon: 'users', to: '/admin/faculty' },
+        { label: 'Cohort', icon: 'chart', to: '/admin/cohort' },
         { label: 'Audit log', icon: 'clock', to: '/admin/audit' },
       ],
     },

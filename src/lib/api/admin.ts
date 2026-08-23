@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import type { ProgramClass } from '../program'
 import type { ProfessorAccount } from '../types'
 
 /**
@@ -24,4 +25,20 @@ export async function decideProfessor(userId: string, approve: boolean) {
     p_approve: approve,
   })
   if (error) throw error
+}
+
+/**
+ * Every class in the program, as figures.
+ *
+ * `admin_class_overview` is gated on `is_admin()` in the database, so a
+ * professor or student calling this reads an empty list rather than an error.
+ */
+export async function programClasses() {
+  const { data, error } = await supabase
+    .from('admin_class_overview')
+    .select('*')
+    .order('year_level')
+    .order('class_name')
+  if (error) throw error
+  return (data ?? []) as ProgramClass[]
 }

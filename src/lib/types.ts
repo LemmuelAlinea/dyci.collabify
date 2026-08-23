@@ -1,5 +1,12 @@
 export type Role = 'student' | 'professor' | 'admin'
 export type AccountStatus = 'active' | 'pending' | 'rejected'
+
+/** Shared by the accounts page and the faculty load, so both say the same word. */
+export const ACCOUNT_STATUS_LABEL: Record<AccountStatus, string> = {
+  active: 'Active',
+  pending: 'Waiting',
+  rejected: 'Deactivated',
+}
 export type ThemeMode = 'light' | 'dark' | 'system'
 
 export type Profile = {
