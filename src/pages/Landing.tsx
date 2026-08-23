@@ -10,7 +10,7 @@ import { Footer } from '../components/landing/Footer'
 
 export default function Landing() {
   useEffect(() => {
-    document.title = 'Collabify — Project workspace for BSIT teams'
+    document.title = "Collabify — BSIT coursework at Dr. Yanga's Colleges"
   }, [])
 
   return (

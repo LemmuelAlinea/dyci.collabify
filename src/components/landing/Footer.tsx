@@ -28,8 +28,8 @@ export function Footer() {
           <div>
             <Logo tone="brand" subtitle="Project workspace" />
             <p className="mt-5 max-w-[320px] text-[14.5px] leading-relaxed text-muted">
-              Coursework for BSIT programs: boards that hang off the syllabus, work with an
-              owner, and a professor's answer at the end of it.
+              Coursework for the BSIT program at Dr. Yanga's Colleges: boards that hang off
+              the syllabus, work with an owner, and a professor's answer at the end of it.
             </p>
           </div>
           {GROUPS.map((g) => (
@@ -51,7 +51,10 @@ export function Footer() {
           ))}
         </div>
         <div className="mt-12 flex flex-col gap-3 border-t border-line pt-7 text-[13px] text-faint sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} Collabify. Built for BSIT programs in the Philippines.</p>
+          <p>
+            © {new Date().getFullYear()} Collabify. Built for the BSIT program at Dr. Yanga's
+            Colleges, Inc.
+          </p>
           <p className="font-mono text-[11.5px] tracking-wide">No grades are recorded here</p>
         </div>
       </div>

@@ -48,7 +48,7 @@ export function AuthLayout({ title, subtitle, children, footer }: Props) {
           </div>
 
           <p className="hidden text-[12.5px] text-white/40 lg:block">
-            © {new Date().getFullYear()} Collabify · Built for BSIT programs in the Philippines
+            © {new Date().getFullYear()} Collabify · Dr. Yanga's Colleges · BSIT program
           </p>
         </div>
       </aside>

@@ -212,6 +212,16 @@
   }
 }
 
+/**
+ * Reduced motion means no *movement* — not a page with nothing happening on it.
+ *
+ * Travel, parallax, scaling and looping drift are what cause vestibular
+ * trouble, and all of them are switched off below. A cross-fade causes none of
+ * it, so anything carrying `data-reveal="fade"` keeps its opacity transition:
+ * Windows ships with animation effects off on a great many machines, browsers
+ * report that as reduced motion, and those people should still see content
+ * arrive rather than snap.
+ */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -222,6 +232,10 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  [data-reveal='fade'] {
+    transition-duration: 0.55s !important;
   }
 }
 

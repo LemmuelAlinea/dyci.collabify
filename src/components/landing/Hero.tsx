@@ -50,7 +50,7 @@ export function Hero() {
             <motion.div {...rise(0.02)}>
               <span className="inline-flex items-center gap-2.5 rounded-full border border-white/18 bg-white/8 py-2 pr-4 pl-3 text-[13px] text-white/85 backdrop-blur-sm">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                Built for BSIT programs in the Philippines
+                Dr. Yanga's Colleges · BSIT program
               </span>
             </motion.div>
 
@@ -58,18 +58,20 @@ export function Hero() {
               {...rise(0.1)}
               className="mt-6 text-[clamp(2.6rem,7.2vw,4.6rem)] leading-[0.98] font-extrabold"
             >
-              Group work with
+              Group work where
               <br className="hidden sm:block" />{' '}
-              <span className="text-amber-400">an owner and a date</span>.
+              <span className="text-amber-400">nobody carries it alone</span>.
             </motion.h1>
 
             <motion.p
               {...rise(0.18)}
               className="mt-6 max-w-[540px] text-[clamp(1rem,1.5vw,1.18rem)] leading-relaxed text-white/72"
             >
-              A term's coursework on boards that hang off the syllabus. Students claim
-              their share and hand in; professors see why a group is behind, not only that
-              it is.
+              Collabify is where BSIT classes at DYCI run their coursework. Your professor
+              sets a project against the weeks of the syllabus. Your group claims it off a
+              board — and the share limit means one person cannot end up doing all of it.
+              You hand in when you are done, and your professor answers: accepted, or
+              returned with the reason why.
             </motion.p>
 
             <motion.div {...rise(0.26)} className="mt-9 flex flex-wrap items-center gap-3">
