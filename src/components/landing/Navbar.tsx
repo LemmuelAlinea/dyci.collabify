@@ -56,15 +56,23 @@ export function Navbar() {
 
         <div className="flex items-center gap-1.5">
           <ThemeToggle tone="onNavy" />
-          <Link
-            to="/login"
-            className="hidden rounded-full px-4 py-2 text-[14.5px] font-medium text-white/85 transition-colors hover:text-white sm:block"
-          >
-            Sign in
-          </Link>
-          <ButtonLink to="/register" variant="accent" size="sm" className="hidden sm:inline-flex">
-            Get started
-          </ButtonLink>
+          {/* Wrapped rather than given `hidden` directly: Button's base class
+              already sets `inline-flex`, and two display utilities are decided
+              by their order in Tailwind's output, not by the order they are
+              written in. `hidden` lost, so on a 360px phone this button stayed
+              on screen and pushed the menu icon past the right edge where it
+              could not be tapped at all. */}
+          <span className="hidden sm:contents">
+            <Link
+              to="/login"
+              className="rounded-full px-4 py-2 text-[14.5px] font-medium text-white/85 transition-colors hover:text-white"
+            >
+              Sign in
+            </Link>
+            <ButtonLink to="/register" variant="accent" size="sm">
+              Get started
+            </ButtonLink>
+          </span>
           <button
             type="button"
             onClick={() => setOpen(true)}

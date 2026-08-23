@@ -1,5 +1,5 @@
 import { Figures, ReportTable, Sheet, SheetSection } from './Sheet'
-import { momentLabel } from '../../lib/report'
+import { csvMoment, momentLabel } from '../../lib/report'
 import type { ClassReport } from '../../lib/report'
 import { resultLabel } from '../../lib/types'
 import type { BoardSummary } from '../../lib/types'
@@ -92,7 +92,7 @@ export function comparisonCsv(boards: BoardSummary[]) {
     b.done_count,
     b.late_count,
     Math.round(Number(b.done_pct)),
-    b.submitted_at ?? '',
+    csvMoment(b.submitted_at),
     b.result_verdict ?? '',
   ])
   return { headers, body }

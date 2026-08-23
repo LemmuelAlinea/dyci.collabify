@@ -42,6 +42,30 @@ export function localDay(value: string) {
 const LONG: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' }
 const SHORT: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' }
 
+/**
+ * A timestamp for a spreadsheet cell, not for a person to read.
+ *
+ * `submitted_at` arrives as a Postgres timestamptz —
+ * `2026-08-23T04:12:33.123456+00:00`. Dropped into a CSV as-is, Excel and
+ * Sheets both give up and store it as text, so the column cannot be sorted or
+ * filtered by date, and the time shown is UTC rather than the Manila time the
+ * work was actually handed in at.
+ *
+ * `YYYY-MM-DD HH:mm` in local time is the one format both parse into a real
+ * date without asking, and it is unambiguous besides — `08/23` and `23/08`
+ * are not, and which one a machine assumes depends on its regional settings.
+ */
+export function csvMoment(value: string | null | undefined) {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  const p = (n: number) => String(n).padStart(2, '0')
+  return (
+    `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ` +
+    `${p(d.getHours())}:${p(d.getMinutes())}`
+  )
+}
+
 /** A plain date column, printed. Empty string when there is nothing to print. */
 export function dayLabel(value: string | null, long = false) {
   if (!value) return ''
