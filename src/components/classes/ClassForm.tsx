@@ -62,11 +62,24 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
     if (!initialTouched) setInitial(suggestInitial(name))
   }, [name, initialTouched])
 
-  // Offer the sections of this year level first; a 3rd-year class listing every
-  // 1st-year section is how the wrong one gets picked.
-  const forLevel = sections.filter(
+  // Offer the sections of this year level and school year first; a 3rd-year
+  // class listing every 1st-year section is how the wrong one gets picked.
+  //
+  // But never leave the field with nothing in it. A section registered under a
+  // different year level than the class being made is a mismatch for the chair
+  // to sort out, not a reason a professor cannot create their class — so when
+  // the narrow list is empty the whole registry is offered, each one labelled
+  // with the year it was filed under.
+  const narrow = sections.filter(
     (x) => x.year_level === yearLevel && (!schoolYear || x.school_year === schoolYear),
   )
+  const forLevel =
+    narrow.length > 0
+      ? narrow.map((x) => ({ value: x.name, label: x.name }))
+      : sections.map((x) => ({
+          value: x.name,
+          label: `${x.name} — ${x.year_level} year, ${x.school_year}`,
+        }))
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -151,7 +164,7 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
                 onChange={(e) => setSection(e.target.value)}
                 placeholder="Pick a section"
                 options={[
-                  ...forLevel.map((x) => ({ value: x.name, label: x.name })),
+                  ...forLevel,
                   // A class already written under a name the registry never had
                   // must still be editable without silently changing its cohort.
                   ...(section && !sections.some((x) => x.name === section)
