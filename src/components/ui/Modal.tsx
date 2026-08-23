@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
+import { useFocusTrap } from '../../lib/focus'
 
 type Props = {
   open: boolean
@@ -38,19 +39,25 @@ export function Modal({ open, onClose, title, description, children, footer, siz
     }
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
-    panel.current?.focus()
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
   }, [open])
 
+  // Tab used to walk out of the dialog and into the page behind it, which a
+  // mouse never reveals because the backdrop hides it.
+  useFocusTrap(panel, open)
+
   if (!open) return null
 
   return (
     <div className="fixed inset-0 z-60 flex items-end justify-center p-0 sm:items-center sm:p-6">
-      <button
-        aria-label="Close"
+      {/* Clickable, but not a tab stop: the header already has a real Close
+          button, and Escape closes. A focusable full-screen button here just
+          added a control that reads as "Close" before the dialog's own title. */}
+      <div
+        aria-hidden="true"
         onClick={onClose}
         className="absolute inset-0 bg-navy-950/55 backdrop-blur-sm"
       />

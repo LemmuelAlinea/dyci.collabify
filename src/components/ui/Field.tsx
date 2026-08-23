@@ -4,9 +4,9 @@ import { Icon } from './Icon'
 import type { IconName } from './Icon'
 
 const INPUT_BASE =
-  'w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] text-ink ' +
+  'w-full rounded-xl border border-[var(--control-line)] bg-[var(--surface)] text-ink ' +
   'placeholder:text-[var(--ink-faint)] transition-[border-color,box-shadow] duration-200 ' +
-  'hover:border-[var(--line-strong)] focus:border-navy-400 focus:outline-none ' +
+  'hover:border-[var(--line-strong)] focus:border-navy-400 ' +
   'focus:ring-4 focus:ring-navy-500/12 disabled:opacity-60'
 
 type FieldProps = {

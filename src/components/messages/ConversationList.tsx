@@ -60,7 +60,7 @@ export function ConversationList({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search conversations"
-              className="h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] pr-3 pl-9 text-[14px] text-ink placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12 focus:outline-none"
+              className="h-10 w-full rounded-xl border border-[var(--control-line)] bg-[var(--surface)] pr-3 pl-9 text-[14px] text-ink placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12"
             />
           </div>
           {action}

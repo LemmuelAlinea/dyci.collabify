@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
+import { useFocusTrap } from '../../lib/focus'
 
 /**
  * Every filter in the product lives behind this one button.
@@ -34,6 +35,11 @@ export function FilterPopover({
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLDivElement>(null)
+
+  // Opening moves focus into the panel and closing hands it back to the icon,
+  // so the filters are reachable without a mouse at all.
+  useFocusTrap(panel, open)
 
   useEffect(() => {
     if (!open) return
@@ -87,6 +93,7 @@ export function FilterPopover({
 
       {open && (
         <div
+          ref={panel}
           role="dialog"
           aria-label={label}
           className={`surface absolute top-12 z-40 w-[min(92vw,340px)] space-y-3 rounded-2xl border border-line p-4 shadow-lift ${
@@ -149,7 +156,7 @@ export function FilterSearch({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] pr-3 pl-9 text-[13.5px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12 focus:outline-none"
+        className="h-10 w-full rounded-xl border border-[var(--control-line)] bg-[var(--surface)] pr-3 pl-9 text-[13.5px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12"
       />
     </div>
   )

@@ -79,7 +79,7 @@ export function TaskCard({
         type="button"
         onClick={onOpen}
         aria-label={`Open ${task.title}`}
-        className="absolute inset-0 z-0 rounded-xl focus-visible:ring-4 focus-visible:ring-navy-500/12 focus-visible:outline-none"
+        className="absolute inset-0 z-0 rounded-xl"
       />
       <div className="flex items-start justify-between gap-2">
         <h4

@@ -60,7 +60,7 @@ export function ManualBuilder({
                   value={d.name}
                   onChange={(e) => update(i, { name: e.target.value })}
                   aria-label={`Group ${i + 1} name`}
-                  className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold text-ink hover:border-[var(--line)] focus:border-navy-400 focus:outline-none"
+                  className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold text-ink hover:border-[var(--line)] focus:border-navy-400"
                 />
                 <span className="font-mono text-[11.5px] text-faint">
                   {d.students.length}/{d.member_limit}

@@ -11,6 +11,7 @@ import { NotificationBell } from './NotificationBell'
 import { navFor } from './nav'
 import { useAuth } from '../../context/AuthContext'
 import { useUnreadTotal } from '../../hooks/useConversations'
+import { useFocusTrap } from '../../lib/focus'
 import { roleHome } from '../../lib/roleHome'
 import { ROLE_LABEL, fullName } from '../../lib/types'
 
@@ -362,6 +363,7 @@ export function AppShell() {
   const { profile } = useAuth()
   const reduce = useReducedMotion()
   const [drawer, setDrawer] = useState(false)
+  const drawerPanel = useRef<HTMLDivElement>(null)
   const [collapsed, setCollapsed] = useState(
     () => typeof window !== 'undefined' && localStorage.getItem(COLLAPSE_KEY) === '1',
   )
@@ -370,10 +372,16 @@ export function AppShell() {
   useEffect(() => setDrawer(false), [location.pathname])
   useEffect(() => {
     document.body.style.overflow = drawer ? 'hidden' : ''
+    if (!drawer) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDrawer(false)
+    document.addEventListener('keydown', onKey)
     return () => {
       document.body.style.overflow = ''
+      document.removeEventListener('keydown', onKey)
     }
   }, [drawer])
+
+  useFocusTrap(drawerPanel, drawer)
 
   useEffect(() => {
     localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0')
@@ -389,7 +397,16 @@ export function AppShell() {
         collapsed ? 'lg:grid-cols-[76px_minmax(0,1fr)]' : 'lg:grid-cols-[276px_minmax(0,1fr)]'
       }`}
     >
-      <aside className="sticky top-0 hidden h-dvh flex-col overflow-hidden bg-navy-600 dark:bg-navy-800 lg:flex">
+      {/* First tab stop on every page. The rail is 30-odd links, and without
+          this a keyboard user walks all of them again on every navigation. */}
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+
+      <aside
+        aria-label="Main navigation"
+        className="sticky top-0 hidden h-dvh flex-col overflow-hidden bg-navy-600 dark:bg-navy-800 lg:flex"
+      >
         <SidebarBody collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
       </aside>
 
@@ -399,9 +416,9 @@ export function AppShell() {
       <AnimatePresence>
         {drawer && (
           <div className="fixed inset-0 z-50 lg:hidden">
-            <motion.button
+            <motion.div
               className="absolute inset-0 bg-navy-950/60 backdrop-blur-sm"
-              aria-label="Close navigation"
+              aria-hidden="true"
               onClick={() => setDrawer(false)}
               initial={reduce ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -409,6 +426,10 @@ export function AppShell() {
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             />
             <motion.div
+              ref={drawerPanel}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigation"
               className="absolute inset-y-0 left-0 flex w-[280px] flex-col bg-navy-600 shadow-2xl dark:bg-navy-800"
               initial={reduce ? false : { x: '-100%' }}
               animate={{ x: 0 }}
@@ -453,7 +474,10 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-7 md:px-7 md:py-9">
+        {/* tabIndex -1 so the skip link can actually move focus here, not just
+            scroll — without it the next Tab starts from the top of the rail
+            again and the link achieves nothing. */}
+        <main id="main-content" tabIndex={-1} className="flex-1 px-4 py-7 outline-none md:px-7 md:py-9">
           {/* Inside the shell rather than around it: a page that throws leaves
               the rail, the header and the way out alive. Keyed on the path so
               navigating away from a broken page clears the error — otherwise

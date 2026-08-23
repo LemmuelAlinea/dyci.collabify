@@ -54,7 +54,7 @@ function WeekRow({
             onBlur={() => commit({ title: draft.title })}
             placeholder="What this week covers"
             aria-label={`Week ${week.week_no} title`}
-            className="w-full rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold text-ink hover:border-[var(--line)] focus:border-navy-400 focus:outline-none"
+            className="w-full rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold text-ink hover:border-[var(--line)] focus:border-navy-400"
           />
           <Textarea
             rows={2}

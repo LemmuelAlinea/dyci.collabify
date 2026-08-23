@@ -2,9 +2,9 @@ import type { SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import { Icon } from './Icon'
 
 const CONTROL =
-  'w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] text-ink ' +
+  'w-full rounded-xl border border-[var(--control-line)] bg-[var(--surface)] text-ink ' +
   'transition-[border-color,box-shadow] duration-200 hover:border-[var(--line-strong)] ' +
-  'focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-500/12 ' +
+  'focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12 ' +
   'disabled:opacity-60'
 
 export type Option = { value: string; label: string }

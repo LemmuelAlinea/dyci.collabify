@@ -174,7 +174,7 @@ export function PollCard({
                   if (e.key === 'Escape') setAdding(false)
                 }}
                 placeholder="New option"
-                className="h-8 w-[130px] rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 text-[12.5px] text-ink focus:border-navy-400 focus:outline-none"
+                className="h-8 w-[130px] rounded-lg border border-[var(--control-line)] bg-[var(--surface)] px-2.5 text-[12.5px] text-ink focus:border-navy-400"
               />
               <button
                 type="button"

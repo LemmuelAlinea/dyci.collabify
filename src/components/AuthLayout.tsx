@@ -14,6 +14,9 @@ type Props = {
 export function AuthLayout({ title, subtitle, children, footer }: Props) {
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
+      <a href="#main-content" className="skip-link">
+        Skip to the form
+      </a>
       {/* Brand panel. On phones it shrinks to a band so the form stays above the fold. */}
       <aside className="relative overflow-hidden bg-navy-600 text-white">
         <div
@@ -53,7 +56,11 @@ export function AuthLayout({ title, subtitle, children, footer }: Props) {
         </div>
       </aside>
 
-      <main className="surface-sunken relative flex flex-col">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="surface-sunken relative flex flex-col outline-none"
+      >
         <div className="flex items-center justify-between p-4 md:p-6">
           <Link
             to="/"

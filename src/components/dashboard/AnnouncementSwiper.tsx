@@ -99,7 +99,7 @@ export function AnnouncementSwiper({
             go(index - 1)
           }
         }}
-        className="flex snap-x snap-mandatory gap-4 overflow-x-auto rounded-card focus:outline-none focus-visible:ring-4 focus-visible:ring-navy-500/12 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex snap-x snap-mandatory gap-4 overflow-x-auto rounded-card focus-visible:ring-4 focus-visible:ring-navy-500/12 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {announcements.map((a) => {
           const cls = nameOf(a.class_id)

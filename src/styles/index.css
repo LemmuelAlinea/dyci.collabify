@@ -50,9 +50,19 @@
     --surface-raised: #ffffff;
     --ink: #0d1330;
     --ink-muted: #4a5478;
-    --ink-faint: #626b8f;
+    /* Was #626b8f: 4.34:1 on --page, just under the 4.5 body-text floor. */
+    --ink-faint: #5f688c;
     --line: rgb(16 22 55 / 0.16);
     --line-strong: rgb(16 22 55 / 0.3);
+    /**
+     * The boundary of a control the user has to find: input, select, textarea,
+     * checkbox. WCAG 1.4.11 wants 3:1 for that, and `--line` gave 1.95:1 — the
+     * fields were legible but their edges were not, which is the whole of what
+     * the rule is about. Solved for the worst background a field sits on (the
+     * sunken panel, not the card) rather than for white.
+     * Measured by scripts/contrast.mjs.
+     */
+    --control-line: rgb(16 22 55 / 0.48);
     --ring: #3d4da3;
     --shadow-card: 0 1px 2px rgb(13 19 48 / 0.1), 0 2px 6px rgb(13 19 48 / 0.07),
       0 10px 26px rgb(13 19 48 / 0.07);
@@ -70,6 +80,7 @@
     --ink-faint: #838cb0;
     --line: rgb(255 255 255 / 0.14);
     --line-strong: rgb(255 255 255 / 0.26);
+    --control-line: rgb(255 255 255 / 0.35);
     --ring: #8493cf;
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px rgb(0 0 0 / 0.38);
     --shadow-lift: 0 2px 6px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.55);
@@ -105,6 +116,34 @@
     outline: 2px solid var(--ring);
     outline-offset: 2px;
     border-radius: 4px;
+  }
+
+  /**
+   * Off-screen until focused, then a real button at the top-left. Not
+   * `display: none` and not `visibility: hidden` — both take it out of the tab
+   * order, which is the one thing it exists to be in.
+   */
+  .skip-link {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    transform: translateY(-140%);
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: 0 0 12px 0;
+    padding: 0.7rem 1.1rem;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: var(--shadow-lift);
+    transition: transform 0.18s var(--ease-out-soft);
+  }
+  /* `:focus`, not `:focus-visible`: the link is only reachable by Tab in the
+     first place, and focus-visible does not match when focus arrives
+     programmatically — which is how assistive tools often move it. */
+  .skip-link:focus {
+    transform: translateY(0);
   }
 
   ::selection {
@@ -262,6 +301,7 @@
     --ink-faint: #5a6288;
     --line: rgb(16 22 55 / 0.28);
     --line-strong: rgb(16 22 55 / 0.55);
+    --control-line: rgb(16 22 55 / 0.6);
     --shadow-card: none;
     --shadow-lift: none;
   }

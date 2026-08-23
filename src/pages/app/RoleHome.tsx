@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { FirstRun } from '../../components/app/FirstRun'
 import { Reveal } from '../../components/motion/Reveal'
 import { Icon } from '../../components/ui/Icon'
 import type { IconName } from '../../components/ui/Icon'
 import { ButtonLink } from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
+import type { Role } from '../../lib/types'
 
 export type Upcoming = { icon: IconName; title: string; body: string }
 
@@ -19,10 +21,12 @@ export function RoleHome({
   headline,
   intro,
   upcoming,
+  firstRunRole,
 }: {
   headline: string
   intro: string
   upcoming: Upcoming[]
+  firstRunRole?: Role
 }) {
   const { profile } = useAuth()
 
@@ -40,6 +44,12 @@ export function RoleHome({
         </h1>
         <p className="mt-3 max-w-[620px] text-[16px] leading-relaxed text-muted">{intro}</p>
       </Reveal>
+
+      {firstRunRole && (
+        <div className="mt-6">
+          <FirstRun role={firstRunRole} />
+        </div>
+      )}
 
       <Reveal once delay={0.08} className="mt-8">
         <div className="relative overflow-hidden rounded-panel bg-navy-600 p-7 text-white md:p-9">

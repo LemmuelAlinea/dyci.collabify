@@ -131,7 +131,7 @@ export function MessageComposer({
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Write a message"
-          className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-[14.5px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12 focus:outline-none"
+          className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-4 py-3 text-[14.5px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12"
         />
 
         <button
