@@ -1,12 +1,13 @@
+import { Suspense, lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { ThemeSync } from './components/ThemeSync'
 import { AppShell } from './components/app/AppShell'
 import { ErrorBoundary } from './components/app/ErrorBoundary'
 import { ProtectedRoute } from './routes/ProtectedRoute'
+import { PageLoading } from './components/ui/PageLoading'
 
 import Landing from './pages/Landing'
 import NotFound from './pages/NotFound'
-import Settings from './pages/Settings'
 
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
@@ -17,39 +18,54 @@ import AuthCallback from './pages/auth/AuthCallback'
 import Onboarding from './pages/auth/Onboarding'
 import Pending from './pages/auth/Pending'
 
-import StudentHome from './pages/app/StudentHome'
-import ProfessorHome from './pages/app/ProfessorHome'
-import AdminHome from './pages/app/AdminHome'
-import Accounts from './pages/app/admin/Accounts'
-import AuditLog from './pages/app/admin/AuditLog'
-import Cohort from './pages/app/admin/Cohort'
-import Faculty from './pages/app/admin/Faculty'
-import Notices from './pages/app/admin/Notices'
-import ProgramClasses from './pages/app/admin/ProgramClasses'
-import ProgramLibrary from './pages/app/admin/ProgramLibrary'
-import Sections from './pages/app/admin/Sections'
-import ProfessorApprovals from './pages/app/admin/ProfessorApprovals'
 
-import ProfessorClasses from './pages/app/classes/ProfessorClasses'
-import ProfessorClassDetail from './pages/app/classes/ProfessorClassDetail'
-import StudentClasses from './pages/app/classes/StudentClasses'
-import StudentClassDetail from './pages/app/classes/StudentClassDetail'
-import Syllabi from './pages/app/resources/Syllabi'
-import SyllabusDetail from './pages/app/resources/SyllabusDetail'
-import Analytics from './pages/app/analytics/Analytics'
-import Reports from './pages/app/reports/Reports'
-import StudentReports from './pages/app/reports/StudentReports'
-import Calendar from './pages/app/calendar/Calendar'
-import Curriculum from './pages/app/resources/Curriculum'
-import Reassignments from './pages/app/reassignments/Reassignments'
-import ProfessorGroups from './pages/app/groups/ProfessorGroups'
-import StudentGroups from './pages/app/groups/StudentGroups'
-import GroupDetail from './pages/app/groups/GroupDetail'
-import Messages from './pages/app/messages/Messages'
-import ProfessorProjects from './pages/app/projects/ProfessorProjects'
-import StudentProjects from './pages/app/projects/StudentProjects'
-import ProjectDetail from './pages/app/projects/ProjectDetail'
-import MyTasks from './pages/app/tasks/MyTasks'
+
+
+/**
+ * Everything behind the sign-in is loaded when it is first opened.
+ *
+ * The whole product used to arrive in one 1.15 MB file, so a student reading
+ * the landing page downloaded the program chair's console, the analytics bands
+ * and the entire print system before the headline could render. Each of these
+ * is now its own chunk, fetched on the way to the page that needs it.
+ *
+ * The landing page and the auth screens stay eager: they are the first thing a
+ * visitor sees, and splitting them would trade a smaller download for a blank
+ * frame at the worst possible moment.
+ */
+const Accounts = lazy(() => import('./pages/app/admin/Accounts'))
+const AdminHome = lazy(() => import('./pages/app/AdminHome'))
+const Analytics = lazy(() => import('./pages/app/analytics/Analytics'))
+const AuditLog = lazy(() => import('./pages/app/admin/AuditLog'))
+const Calendar = lazy(() => import('./pages/app/calendar/Calendar'))
+const Cohort = lazy(() => import('./pages/app/admin/Cohort'))
+const Curriculum = lazy(() => import('./pages/app/resources/Curriculum'))
+const Faculty = lazy(() => import('./pages/app/admin/Faculty'))
+const GroupDetail = lazy(() => import('./pages/app/groups/GroupDetail'))
+const Messages = lazy(() => import('./pages/app/messages/Messages'))
+const MyTasks = lazy(() => import('./pages/app/tasks/MyTasks'))
+const Notices = lazy(() => import('./pages/app/admin/Notices'))
+const ProfessorApprovals = lazy(() => import('./pages/app/admin/ProfessorApprovals'))
+const ProfessorClassDetail = lazy(() => import('./pages/app/classes/ProfessorClassDetail'))
+const ProfessorClasses = lazy(() => import('./pages/app/classes/ProfessorClasses'))
+const ProfessorGroups = lazy(() => import('./pages/app/groups/ProfessorGroups'))
+const ProfessorHome = lazy(() => import('./pages/app/ProfessorHome'))
+const ProfessorProjects = lazy(() => import('./pages/app/projects/ProfessorProjects'))
+const ProgramClasses = lazy(() => import('./pages/app/admin/ProgramClasses'))
+const ProgramLibrary = lazy(() => import('./pages/app/admin/ProgramLibrary'))
+const ProjectDetail = lazy(() => import('./pages/app/projects/ProjectDetail'))
+const Reassignments = lazy(() => import('./pages/app/reassignments/Reassignments'))
+const Reports = lazy(() => import('./pages/app/reports/Reports'))
+const Sections = lazy(() => import('./pages/app/admin/Sections'))
+const Settings = lazy(() => import('./pages/Settings'))
+const StudentClassDetail = lazy(() => import('./pages/app/classes/StudentClassDetail'))
+const StudentClasses = lazy(() => import('./pages/app/classes/StudentClasses'))
+const StudentGroups = lazy(() => import('./pages/app/groups/StudentGroups'))
+const StudentHome = lazy(() => import('./pages/app/StudentHome'))
+const StudentProjects = lazy(() => import('./pages/app/projects/StudentProjects'))
+const StudentReports = lazy(() => import('./pages/app/reports/StudentReports'))
+const Syllabi = lazy(() => import('./pages/app/resources/Syllabi'))
+const SyllabusDetail = lazy(() => import('./pages/app/resources/SyllabusDetail'))
 
 export default function App() {
   return (
@@ -58,25 +74,28 @@ export default function App() {
     // escapes that — a failure in the shell itself, or on a page outside it.
     <ErrorBoundary home="/">
       <ThemeSync />
-      <Routes>
-        <Route path="/" element={<Landing />} />
+      {/* The shell has its own Suspense around the page area, so this one only
+          catches a lazy route that renders outside it. */}
+      <Suspense fallback={<PageLoading />}>
+          <Routes>
+          <Route path="/" element={<Landing />} />
 
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/check-email" element={<CheckEmail />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/pending" element={<Pending />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/check-email" element={<CheckEmail />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/pending" element={<Pending />} />
 
-        <Route element={<ProtectedRoute />}>
+          <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
             <Route path="/settings" element={<Settings />} />
           </Route>
-        </Route>
+          </Route>
 
-        <Route element={<ProtectedRoute allow={['student']} />}>
+          <Route element={<ProtectedRoute allow={['student']} />}>
           <Route element={<AppShell />}>
             <Route path="/student" element={<StudentHome />} />
             <Route path="/student/classes" element={<StudentClasses />} />
@@ -97,9 +116,9 @@ export default function App() {
               element={<Messages role="student" />}
             />
           </Route>
-        </Route>
+          </Route>
 
-        <Route element={<ProtectedRoute allow={['professor']} />}>
+          <Route element={<ProtectedRoute allow={['professor']} />}>
           <Route element={<AppShell />}>
             <Route path="/professor" element={<ProfessorHome />} />
             <Route path="/professor/classes" element={<ProfessorClasses />} />
@@ -124,9 +143,9 @@ export default function App() {
             <Route path="/professor/analytics" element={<Analytics />} />
             <Route path="/professor/reports" element={<Reports />} />
           </Route>
-        </Route>
+          </Route>
 
-        <Route element={<ProtectedRoute allow={['admin']} />}>
+          <Route element={<ProtectedRoute allow={['admin']} />}>
           <Route element={<AppShell />}>
             <Route path="/admin" element={<AdminHome />} />
             <Route path="/admin/approvals" element={<ProfessorApprovals />} />
@@ -139,10 +158,11 @@ export default function App() {
             <Route path="/admin/audit" element={<AuditLog />} />
             <Route path="/admin/accounts" element={<Accounts />} />
           </Route>
-        </Route>
+          </Route>
 
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+          <Route path="*" element={<NotFound />} />
+          </Routes>
+      </Suspense>
     </ErrorBoundary>
   )
 }

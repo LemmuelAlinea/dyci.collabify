@@ -87,19 +87,16 @@ select b.id           as board_id,
        case when b.last_activity is null then null
             else (current_date - b.last_activity::date)::int end as idle_days,
        -- Tasks exist and not one has been picked up and begun.
-       (b.task_count > 0 and not exists (
-          select 1 from public.project_tasks t
-           where t.board_id = b.id and t.started_at is not null
-        )) as never_started,
-       ov.overdue_open_count,
+       (b.task_count > 0 and coalesce(ov.started_count, 0) = 0) as never_started,
+       coalesce(ov.overdue_open_count, 0) as overdue_open_count,
        h.top_holder_id,
-       h.top_holder_name,
+       btrim(hp.first_name || ' ' || hp.last_name) as top_holder_name,
        h.top_holder_pct,
        h.members_holding_nothing,
-       e.unclaim_events,
-       e.reopened_events,
-       r.reassignments_total,
-       r.reassignments_pending,
+       coalesce(e.unclaim_events, 0)  as unclaim_events,
+       coalesce(e.reopened_events, 0) as reopened_events,
+       coalesce(r.reassignments_total, 0)   as reassignments_total,
+       coalesce(r.reassignments_pending, 0) as reassignments_pending,
        r.oldest_pending_at,
        -- A board sent back to be fixed, where nothing has moved since. The
        -- comparison is against the board's own last activity, so a group that
@@ -108,43 +105,67 @@ select b.id           as board_id,
         and (b.last_activity is null or b.last_activity <= b.result_at)) as returned_untouched
   from public.task_board_overview b
   join public.projects p on p.id = b.project_id
-  cross join lateral (
-    select count(*) filter (
+  /**
+   * Four correlated laterals used to hang here, each re-scanning per board:
+   * `explain analyze` put this at 91 ms for 20 boards, growing as boards x
+   * tasks. They are grouped joins now — one pass over each table, joined on
+   * board_id — which is the same rewrite `class_participation` needed.
+   *
+   * Left joins with `coalesce` above, because a board with no tasks, no events
+   * and no reassignments still has to appear in the diagnosis with zeros.
+   */
+  left join (
+    select t.board_id,
+           count(*) filter (
              where t.status <> 'done' and t.due_at is not null and t.due_at < now()
-           )::int as overdue_open_count
+           )::int as overdue_open_count,
+           count(*) filter (where t.started_at is not null)::int as started_count
       from public.project_tasks t
-     where t.board_id = b.id
-  ) ov
+     group by t.board_id
+  ) ov on ov.board_id = b.id
+
   -- Group boards only. On an individual board one person holding everything is
   -- the arrangement, not a symptom.
-  left join lateral (
-    select m.student_id                                as top_holder_id,
-           btrim(pr.first_name || ' ' || pr.last_name) as top_holder_name,
-           m.held_pct                                  as top_holder_pct,
-           (select count(*) from public.task_member_progress z
-             where z.board_id = b.id and z.held_pct = 0)::int as members_holding_nothing
+  /**
+   * A plain grouped aggregate, deliberately. The obvious spelling — `distinct
+   * on (board_id) ... order by held_pct desc` with a window count — measured
+   * *worse*: the planner would not hash-join it, and re-ran it once per board,
+   * 78 ms x 20 = 1.5 s inside `class_actions`. A GroupAggregate hash-joins, so
+   * the view is scanned once.
+   *
+   * `array_agg(... order by held_pct desc)[1]` is the top holder; `max` is that
+   * same row's percentage.
+   */
+  left join (
+    select m.board_id,
+           (array_agg(m.student_id order by m.held_pct desc))[1] as top_holder_id,
+           max(m.held_pct)                                       as top_holder_pct,
+           count(*) filter (where m.held_pct = 0)::int           as members_holding_nothing
       from public.task_member_progress m
-      join public.profiles pr on pr.id = m.student_id
-     where m.board_id = b.id
-     order by m.held_pct desc
-     limit 1
-  ) h on b.group_id is not null
-  cross join lateral (
-    -- Churn: work put back, and work reopened after being called done.
-    select count(*) filter (where ev.kind = 'unclaimed')::int as unclaim_events,
+     group by m.board_id
+  ) h on h.board_id = b.id and b.group_id is not null
+  left join public.profiles hp on hp.id = h.top_holder_id
+
+  -- Churn: work put back, and work reopened after being called done.
+  left join (
+    select t.board_id,
+           count(*) filter (where ev.kind = 'unclaimed')::int as unclaim_events,
            count(*) filter (where ev.kind = 'reopened')::int  as reopened_events
       from public.task_events ev
       join public.project_tasks t on t.id = ev.task_id
-     where t.board_id = b.id
-  ) e
-  cross join lateral (
-    select count(*)::int                                        as reassignments_total,
+     group by t.board_id
+  ) e on e.board_id = b.id
+
+  left join (
+    select t.board_id,
+           count(*)::int                                        as reassignments_total,
            count(*) filter (where q.status = 'pending')::int     as reassignments_pending,
            min(q.created_at) filter (where q.status = 'pending') as oldest_pending_at
       from public.task_reassignments q
       join public.project_tasks t on t.id = q.task_id
-     where t.board_id = b.id
-  ) r
+     group by t.board_id
+  ) r on r.board_id = b.id
+
   -- There is deliberately no count of work held by somebody who has left. It
   -- cannot happen: removing a class member drops their group memberships, and
   -- `group_members_release_tasks` puts every task they held back to unclaimed.
@@ -176,9 +197,9 @@ select c.id  as class_id,
        cm.student_id,
        btrim(pr.first_name || ' ' || pr.last_name) as student_name,
        pr.avatar_url,
-       w.boards_on,
-       w.tasks_held,
-       w.tasks_done,
+       coalesce(w.boards_on, 0)  as boards_on,
+       coalesce(w.tasks_held, 0) as tasks_held,
+       coalesce(w.tasks_done, 0) as tasks_done,
        w.last_move,
        exists (
          select 1
@@ -190,19 +211,31 @@ select c.id  as class_id,
   from public.classes c
   join public.class_members cm on cm.class_id = c.id and cm.status = 'active'
   join public.profiles pr on pr.id = cm.student_id
-  cross join lateral (
-    select count(distinct t.board_id)::int                          as boards_on,
-           count(*)::int                                            as tasks_held,
-           count(*) filter (where t.status = 'done')::int            as tasks_done,
-           max(greatest(t.done_at, t.started_at, t.updated_at))      as last_move
+  /**
+   * Grouped once, not once per student. This was a correlated lateral, which
+   * re-scanned every board in the class for each member: `explain analyze` on
+   * the live database showed 320 loops for 16 students and 20 boards, and the
+   * shape was members x boards — fine at 591 rows, quadratic at a cohort's.
+   * Grouping makes it one pass over the tasks instead.
+   *
+   * Left join, because a student who holds nothing still belongs on the list —
+   * that is the whole point of a participation view — so the counts coalesce to
+   * zero above rather than vanishing.
+   */
+  left join (
+    select pj.class_id,
+           a.student_id,
+           count(distinct t.board_id)::int                     as boards_on,
+           count(*)::int                                       as tasks_held,
+           count(*) filter (where t.status = 'done')::int      as tasks_done,
+           max(greatest(t.done_at, t.started_at, t.updated_at)) as last_move
       from public.project_tasks t
       join public.task_assignees a on a.task_id = t.id
       join public.project_boards pb on pb.id = t.board_id
       join public.projects pj on pj.id = pb.project_id
-     where a.student_id = cm.student_id
-       and pj.class_id = c.id
-       and pj.archived_at is null
-  ) w
+     where pj.archived_at is null
+     group by pj.class_id, a.student_id
+  ) w on w.class_id = c.id and w.student_id = cm.student_id
  where c.archived_at is null
    and public.is_class_professor(c.id);
 
@@ -255,8 +288,21 @@ grant select on public.deadline_pressure to authenticated;
  */
 drop view if exists public.class_actions;
 
+/**
+ * The branches below read `board_diagnosis` six times and
+ * `class_participation` twice, and each read re-ran the whole thing: five
+ * lateral joins over every board in the program, per branch. Measured against
+ * the live database it cost **422 ms** for 45 rows.
+ *
+ * `materialized` forces each one to be computed once and reused. It is the
+ * opposite of the usual advice — Postgres inlines CTEs by default precisely so
+ * it can optimise across them — but here the inlining is what caused the
+ * repetition, and the result set is tiny.
+ */
 create view public.class_actions
 with (security_invoker = true) as
+with d as materialized (select * from public.board_diagnosis),
+     p as materialized (select * from public.class_participation)
 
 -- Work already past its date and not finished. The most concrete thing here.
 select d.class_id,
@@ -270,7 +316,7 @@ select d.class_id,
        null::uuid            as student_id,
        d.overdue_open_count  as n,
        d.project_due_at      as at
-  from public.board_diagnosis d
+  from d
  where d.overdue_open_count > 0
    and d.submitted_at is null
 
@@ -280,7 +326,7 @@ union all
 select d.class_id, 'returned_untouched'::text, 1::int, 'board'::text,
        d.board_id, d.owner_name, d.project_id, d.board_id, null::uuid,
        (current_date - d.result_at::date)::int, d.result_at
-  from public.board_diagnosis d
+  from d
  where d.returned_untouched
    and d.result_at < (now() - interval '3 days')
 
@@ -291,7 +337,7 @@ union all
 select d.class_id, 'stalled_board'::text, 2::int, 'board'::text,
        d.board_id, d.owner_name, d.project_id, d.board_id, null::uuid,
        d.idle_days, d.last_activity
-  from public.board_diagnosis d
+  from d
  where d.task_count > 0
    and d.done_count < d.task_count
    and d.submitted_at is null
@@ -303,7 +349,7 @@ union all
 select d.class_id, 'empty_board'::text, 2::int, 'board'::text,
        d.board_id, d.owner_name, d.project_id, d.board_id, null::uuid,
        0::int, d.project_due_at
-  from public.board_diagnosis d
+  from d
  where d.task_count = 0
    and (d.release_at is null or d.release_at <= now())
 
@@ -313,7 +359,7 @@ union all
 select d.class_id, 'unclaimed_work'::text, 3::int, 'board'::text,
        d.board_id, d.owner_name, d.project_id, d.board_id, null::uuid,
        d.unclaimed_count, d.project_due_at
-  from public.board_diagnosis d
+  from d
  where d.unclaimed_count > 0
    and d.submitted_at is null
    and (d.release_at is null or d.release_at <= now())
@@ -325,7 +371,7 @@ union all
 select d.class_id, 'carrying_alone'::text, 3::int, 'student'::text,
        d.top_holder_id, d.top_holder_name, d.project_id, d.board_id, d.top_holder_id,
        round(d.top_holder_pct)::int, d.last_activity
-  from public.board_diagnosis d
+  from d
  where d.group_id is not null
    and d.member_count >= 3
    and d.top_holder_pct >= 50
@@ -339,7 +385,7 @@ union all
 select p.class_id, 'not_in_a_group'::text, 3::int, 'student'::text,
        p.student_id, p.student_name, null::uuid, null::uuid, p.student_id,
        0::int, null::timestamptz
-  from public.class_participation p
+  from p
  where not p.in_any_group
    and exists (
      select 1 from public.projects pj
@@ -355,7 +401,7 @@ union all
 select p.class_id, 'holding_nothing'::text, 4::int, 'student'::text,
        p.student_id, p.student_name, null::uuid, null::uuid, p.student_id,
        0::int, p.last_move
-  from public.class_participation p
+  from p
  where p.in_any_group
    and p.tasks_held = 0
    and exists (

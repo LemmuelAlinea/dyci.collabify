@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Logo, LogoMark } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
+import { PageLoading } from '../ui/PageLoading'
 import { ThemeToggle } from '../ThemeToggle'
 import { Avatar } from './Avatar'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -462,7 +463,11 @@ export function AppShell() {
             scope="This page"
             home={roleHome(profile?.role, profile?.status)}
           >
-            <Outlet />
+            {/* Inside the boundary, so a chunk that fails to download is caught
+                and offers Try again rather than hanging on the spinner. */}
+            <Suspense fallback={<PageLoading />}>
+              <Outlet />
+            </Suspense>
           </ErrorBoundary>
         </main>
       </div>

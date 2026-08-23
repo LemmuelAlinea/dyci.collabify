@@ -39,11 +39,11 @@ export function AuthLayout({ title, subtitle, children, footer }: Props) {
           <div className="hidden lg:block">
             <LogoMark size={64} tone="onDark" />
             <h2 className="mt-8 max-w-[440px] text-[clamp(2rem,3.2vw,2.9rem)] leading-[1.04]">
-              Capstone work, <span className="text-amber-400">on one board</span>.
+              Group work, <span className="text-amber-400">with an owner</span>.
             </h2>
             <p className="mt-5 max-w-[400px] text-[16px] leading-relaxed text-white/65">
-              Plan sprints, hand off tasks, and keep your adviser in the loop — from title
-              defense through final defense.
+              Your class's coursework on boards that follow the syllabus. Claim your share,
+              hand in when the group is done, and read your professor's answer.
             </p>
           </div>
 

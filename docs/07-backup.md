@@ -19,13 +19,33 @@ true once a full cohort uses it for a term, so the figures are dated.
 
 **The schema is code, and that is the stronger half.** Every table, policy,
 trigger, function and view is defined by a file in `supabase/`, and every file
-is idempotent — the suites re-run them constantly, which is what proves it. A
-database that vanished entirely could be rebuilt by running those files in
-order:
+is idempotent. A database that vanished entirely can be rebuilt by running those
+files in this order:
 
 ```bash
 node scripts/db.mjs supabase/schema.sql supabase/classes.sql supabase/groups.sql supabase/tasks.sql supabase/task-points.sql supabase/task-detail.sql supabase/task-claim-limit.sql supabase/task-unclaim.sql supabase/task-status-owner.sql supabase/solo-auto-claim.sql supabase/deadline-lock.sql supabase/submissions.sql supabase/reassignments.sql supabase/results.sql supabase/syllabus.sql supabase/syllabus-assessments.sql supabase/polls.sql supabase/messages.sql supabase/dashboard.sql supabase/realtime.sql supabase/recover-work.sql supabase/removed-visible.sql supabase/class-restore.sql supabase/approvals.sql supabase/accounts.sql supabase/audit.sql supabase/admin-rename.sql supabase/calendar.sql supabase/analytics.sql supabase/analytics-insight.sql supabase/reports.sql supabase/student-reports.sql supabase/admin-program.sql supabase/program-notices.sql supabase/program-registry.sql supabase/safety.sql
 ```
+
+**This order is verified, and it was not always right.** When it was first
+written the claim above was untrue: running the files in order produced a
+database the application could not query. Three files redefined an object an
+earlier file already owned, using an older copy, so whichever ran last quietly
+undid the newer one — `task_board_overview` came out missing ten columns,
+`guard_task_assignee` lost the locked-project and handed-in checks, and
+`guard_reassignment_request` lost the handed-in check. None of it showed in the
+live database, because the files had never actually been run in this order
+against it.
+
+It is now run end to end, twice, followed by all fifteen suites:
+**379 assertions, 0 failures.** Repeat it the same way after changing anything
+in `supabase/`, and run the drift check first:
+
+```bash
+node scripts/schema-drift.mjs
+```
+
+That lists every object more than one file defines and flags any whose **last**
+definition is smaller than an earlier one — the shape all three faults had.
 
 **The data is the weaker half**, and it depends on Supabase's own backups.
 Where they are: Supabase dashboard → Database → Backups. What the plan includes

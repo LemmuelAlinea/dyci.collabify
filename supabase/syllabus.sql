@@ -87,7 +87,10 @@ create policy syllabus_weeks_write on public.syllabus_weeks
 -- term_start; week N runs the seven days from term_start + (N-1) weeks.
 -- Dropped first: `create or replace` cannot insert a column mid-list, so a new
 -- field would fail on an existing view.
-drop view if exists public.class_week_map;
+-- `cascade`: reports.sql builds on this view, and it is recreated below, so a
+-- bare drop makes this file unrunnable once the report views exist. Re-run
+-- reports.sql after this file.
+drop view if exists public.class_week_map cascade;
 
 create view public.class_week_map
 with (security_invoker = true) as

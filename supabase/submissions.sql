@@ -312,76 +312,12 @@ drop trigger if exists task_assignees_guard_unclaim on public.task_assignees;
 create trigger task_assignees_guard_unclaim before delete on public.task_assignees
   for each row execute function public.guard_task_unclaim();
 
--- Asking for work to change hands is a change to the work.
-create or replace function public.guard_reassignment_request()
-returns trigger language plpgsql security definer set search_path = public as $$
-declare
-  board  uuid;
-  state  public.task_status;
-  holder uuid;
-  held   int;
-begin
-  board := public.task_board(new.task_id);
-  if board is null then
-    raise exception 'That task no longer exists';
-  end if;
-
-  new.status        := 'pending';
-  new.to_student    := null;
-  new.decided_by    := null;
-  new.decided_at    := null;
-  new.decision_note := '';
-
-  if auth.uid() is null then
-    return new; -- service role, and the test fixtures
-  end if;
-
-  new.requested_by := auth.uid();
-
-  if not public.is_board_member(board) then
-    raise exception 'Only this board can ask for its work to change hands'
-      using errcode = 'check_violation';
-  end if;
-
-  if public.board_project_locked(board) then
-    raise exception
-      'This project is closed, so its work can no longer change hands. Ask your professor to reopen it.'
-      using errcode = 'check_violation';
-  end if;
-
-  if public.board_submitted(board) then
-    raise exception
-      'This project has been handed in, so its work can no longer change hands. Take the submission back first.'
-      using errcode = 'check_violation';
-  end if;
-
-  select status into state from public.project_tasks where id = new.task_id;
-  if state = 'done' then
-    raise exception 'That task is finished, so there is nothing to hand over'
-      using errcode = 'check_violation';
-  end if;
-
-  if exists (select 1 from public.project_boards b
-              where b.id = board and b.student_id is not null) then
-    raise exception 'This is an individual project, so its work cannot change hands'
-      using errcode = 'check_violation';
-  end if;
-
-  select count(*) into held from public.task_assignees a where a.task_id = new.task_id;
-  if held = 1 then
-    select a.student_id into holder
-      from public.task_assignees a where a.task_id = new.task_id;
-  end if;
-  new.from_student := case when held = 1 then holder else null end;
-
-  if held = 0 and new.wants = 'release' then
-    raise exception 'Nobody holds that task, so there is nothing to release'
-      using errcode = 'check_violation';
-  end if;
-
-  return new;
-end;
-$$;
+/**
+ * The rule "a handed-in project's work cannot change hands" lives in
+ * reassignments.sql, not here. This file used to redefine
+ * `guard_reassignment_request` to add it, but reassignments.sql runs after this
+ * one and put the rule straight back out again.
+ */
 
 drop trigger if exists task_reassignments_guard on public.task_reassignments;
 create trigger task_reassignments_guard before insert on public.task_reassignments

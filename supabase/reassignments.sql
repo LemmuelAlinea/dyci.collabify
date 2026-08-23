@@ -135,6 +135,16 @@ begin
       using errcode = 'check_violation';
   end if;
 
+  -- Handed in, so nothing on it changes hands until it is taken back. This
+  -- rule belongs to submissions.sql, which defined this function again to add
+  -- it; that copy ran *before* this one and was silently overwritten, so the
+  -- rule is kept here, where the last definition lives.
+  if public.board_submitted(board) then
+    raise exception
+      'This project has been handed in, so its work can no longer change hands. Take the submission back first.'
+      using errcode = 'check_violation';
+  end if;
+
   -- An individual board has one owner and no one to hand anything to, so a
   -- request on one has no answer the professor could give.
   if exists (select 1 from public.project_boards b

@@ -54,7 +54,7 @@ export default function Onboarding() {
 
         {role === 'professor' && (
           <Alert tone="info">
-            The program admin reviews professor accounts before adviser tools unlock.
+            The program office reviews professor accounts before teaching tools unlock.
           </Alert>
         )}
 

@@ -90,8 +90,8 @@ export default function Register() {
 
         {role === 'professor' && (
           <Alert tone="info">
-            Professor accounts are reviewed by the program admin. You can sign in right after
-            confirming your email, and adviser tools open once you're approved.
+            Professor accounts are reviewed by the program office. You can sign in straight
+            away; teaching tools open once you are approved.
           </Alert>
         )}
 

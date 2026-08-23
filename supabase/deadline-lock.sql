@@ -388,6 +388,21 @@ grant select on public.task_detail_overview to authenticated;
 
 drop view if exists public.task_member_progress cascade;
 
+/**
+ * This redefines the view `task-claim-limit.sql` created, because it adds
+ * `late_count` and `late` is a column that file cannot see yet. That makes this
+ * copy the live one, and it therefore has to carry **every** column the earlier
+ * copy had.
+ *
+ * It did not. `cap_pct` and `can_claim` were dropped here, while
+ * `AssigneePicker.tsx`, `MemberProgress.tsx` and `types.ts` went on reading
+ * them: `can_claim ?? true` meant the picker offered a claim the database
+ * would refuse, and the "share is full" hint could never appear. The rule
+ * itself never lapsed -- `guard_task_assignee` still raises -- so the fault was
+ * a student being told no by an exception instead of by a disabled option.
+ *
+ * If you add a column to either copy, add it to both.
+ */
 create view public.task_member_progress
 with (security_invoker = true) as
 with board_members as (
@@ -399,6 +414,10 @@ with board_members as (
     from public.project_boards b
    where b.student_id is not null
 ),
+board_size as (
+  select board_id, count(*)::numeric as members
+    from board_members group by board_id
+),
 board_total as (
   select board_id, coalesce(sum(weight), 0)::numeric as total
     from public.project_tasks
@@ -409,9 +428,11 @@ held as (
          a.student_id,
          t.status,
          t.late,
-         t.weight::numeric / greatest(1, (
-           select count(*) from public.task_assignees x where x.task_id = t.id
-         )) as share
+         -- Split evenly between whoever holds it. The join already yields one
+         -- row per assignee, so a window count over the task is the same number
+         -- the correlated subquery here used to fetch — and it is one pass
+         -- instead of one index scan per task (1,640 of them, 517 ms measured).
+         t.weight::numeric / greatest(1, count(*) over (partition by t.id)) as share
     from public.project_tasks t
     join public.task_assignees a on a.task_id = t.id
 )
@@ -432,11 +453,17 @@ select bm.board_id,
             else round(coalesce(sum(h.share) filter (where h.status = 'done'), 0)
                        / bt.total * 100, 1) end as group_pct,
        case when bt.total = 0 then 0
-            else round(coalesce(sum(h.share), 0) / bt.total * 100, 1) end as held_pct
+            else round(coalesce(sum(h.share), 0) / bt.total * 100, 1) end as held_pct,
+       -- An equal cut of the board. 0 members-of-one means no ceiling at all.
+       case when bs.members <= 1 then 100
+            else round(100 / bs.members, 1) end as cap_pct,
+       case when bs.members <= 1 or bt.total = 0 then true
+            else coalesce(sum(h.share), 0) < bt.total / bs.members end as can_claim
   from board_members bm
   join board_total bt on bt.board_id = bm.board_id
+  join board_size  bs on bs.board_id = bm.board_id
   left join held h on h.board_id = bm.board_id and h.student_id = bm.student_id
- group by bm.board_id, bm.project_id, bm.student_id, bt.total;
+ group by bm.board_id, bm.project_id, bm.student_id, bt.total, bs.members;
 
 grant select on public.task_member_progress to authenticated;
 

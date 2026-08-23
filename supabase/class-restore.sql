@@ -65,58 +65,16 @@ drop trigger if exists class_members_drop_groups on public.class_members;
 create trigger class_members_drop_groups after update on public.class_members
   for each row execute function public.drop_group_memberships_on_class_removal();
 
--- A restore is the app acting for the student, not a professor assigning work,
--- so the claim guard is told to stand aside — the same escape hatch the group
--- release path uses.
-create or replace function public.guard_task_assignee()
-returns trigger language plpgsql security definer set search_path = public as $$
-declare
-  board uuid := public.task_board(new.task_id);
-  cap   numeric;
-  held  numeric;
-begin
-  if auth.uid() is null
-     or coalesce(current_setting('collabify.restoring', true), '') = 'on' then
-    return new; -- service role, or a removed student being put back
-  end if;
-
-  if public.is_board_professor(board) and not public.is_board_member(board) then
-    raise exception 'A professor does not assign tasks — the group claims them';
-  end if;
-
-  if not public.is_board_member(board) then
-    raise exception 'Only this board can claim its tasks';
-  end if;
-
-  if not exists (
-    select 1 from public.project_boards b
-     where b.id = board
-       and (
-         b.student_id = new.student_id
-         or exists (
-           select 1 from public.group_members m
-            where m.group_id = b.group_id and m.student_id = new.student_id
-         )
-       )
-  ) then
-    raise exception 'That student is not on this board';
-  end if;
-
-  cap := public.board_member_cap(board);
-  if cap > 0 then
-    held := public.board_member_held(board, new.student_id);
-    if held >= cap then
-      raise exception
-        'That is already a full share of this project — % of the % each member carries. Hand something back first, or leave this one for a groupmate.',
-        round(held, 1), round(cap, 1)
-        using errcode = 'check_violation';
-    end if;
-  end if;
-
-  new.claimed_by := coalesce(new.claimed_by, auth.uid());
-  return new;
-end;
-$$;
+/**
+ * `guard_task_assignee` is defined in submissions.sql, which has every rule
+ * this file's copy had plus two it did not: a locked project and a handed-in
+ * board both refuse a claim. This file runs last, so its older copy won and
+ * both rules quietly stopped applying -- caught by deadline-lock.test.sql
+ * only once the schema was rebuilt in the documented order.
+ *
+ * The bypass this file needed, `collabify.restoring`, is already in that
+ * definition, so nothing is lost by not repeating it here.
+ */
 
 drop trigger if exists task_assignees_guard on public.task_assignees;
 create trigger task_assignees_guard before insert on public.task_assignees
