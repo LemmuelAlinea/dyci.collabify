@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Render docs/iso-25010-report.html to a real PDF.
+// Render one of the docs/*.html documents to a real PDF.
 //
-//   node scripts/report-pdf.mjs
+//   node scripts/report-pdf.mjs                            the quality report
+//   node scripts/report-pdf.mjs docs/evaluation-questionnaire.html
 //
 // Headless Chrome or Edge, whichever is installed — both ship a PDF printer
 // that honours @page, page-break rules and print-color-adjust, which is what
@@ -32,8 +33,15 @@ if (!browser) {
   process.exit(1)
 }
 
-const src = resolve('docs/iso-25010-report.html')
-const out = resolve('docs/Collabify-ISO-25010-report.pdf')
+const NAMES = {
+  'iso-25010-report': 'Collabify-ISO-25010-report',
+  'evaluation-questionnaire': 'Collabify-Evaluation-Questionnaire',
+}
+
+const arg = process.argv[2] ?? 'docs/iso-25010-report.html'
+const src = resolve(arg)
+const stem = arg.replace(/.*[\/]/, '').replace(/\.html$/, '')
+const out = resolve('docs', `${NAMES[stem] ?? stem}.pdf`)
 if (!existsSync(src)) {
   console.error(`Missing ${src}`)
   process.exit(1)

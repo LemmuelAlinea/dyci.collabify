@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Collabify — Software Evaluation Questionnaire (ISO/IEC 25010:2023)</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 16mm 15mm 18mm;
+        @bottom-right { content: counter(page); }
+      }
+
+      :root {
+        --ink: #14183a;
+        --muted: #4a5478;
+        --faint: #6b7396;
+        --line: #c9cfe0;
+        --line-strong: #8e97b5;
+        --navy: #26327a;
+        --band: #eef1f9;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font: 10pt/1.45 "Segoe UI", -apple-system, system-ui, sans-serif;
+        color: var(--ink);
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      h1, h2, h3 { margin: 0; line-height: 1.2; font-weight: 700; }
+      h1 { font-size: 19pt; letter-spacing: -0.01em; }
+      h2 {
+        font-size: 11.5pt;
+        color: #fff;
+        background: var(--navy);
+        padding: 5pt 8pt;
+        border-radius: 3px;
+        margin: 16pt 0 8pt;
+      }
+      h3 { font-size: 10.5pt; margin: 12pt 0 5pt; color: var(--navy); }
+      p { margin: 0 0 6pt; }
+      ul { margin: 0 0 6pt; padding-left: 15pt; }
+      li { margin-bottom: 2pt; }
+
+      .head {
+        border-bottom: 2.5px solid var(--navy);
+        padding-bottom: 8pt;
+        margin-bottom: 10pt;
+      }
+      .school { font-size: 9.5pt; color: var(--muted); margin-bottom: 3pt; }
+      .sub { font-size: 10.5pt; color: var(--muted); margin-top: 4pt; }
+
+      .note {
+        background: var(--band);
+        border-left: 3px solid var(--line-strong);
+        padding: 7pt 9pt;
+        margin: 8pt 0;
+        font-size: 9.5pt;
+      }
+
+      table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.5pt; }
+      th, td { border: 1px solid var(--line); padding: 4pt 6pt; vertical-align: top; }
+      th { background: var(--band); font-weight: 600; text-align: left; font-size: 9pt; }
+      td.tick { width: 9mm; text-align: center; }
+      th.tick { width: 9mm; text-align: center; font-size: 8.5pt; }
+      td.no { width: 8mm; text-align: center; color: var(--faint); }
+      th.no { width: 8mm; text-align: center; }
+
+      .fill { border-bottom: 1px solid var(--line-strong); display: inline-block; min-width: 55mm; }
+      .fill.short { min-width: 32mm; }
+      .fill.long { min-width: 100mm; }
+
+      .profile td { padding: 7pt 6pt; }
+
+      .indicators {
+        font-size: 8.5pt;
+        color: var(--muted);
+        font-style: italic;
+        margin: 0 0 5pt;
+      }
+
+      .scale td, .scale th { text-align: center; }
+      .scale td:first-child, .scale th:first-child { text-align: left; }
+
+      section { page-break-inside: auto; }
+      tr { page-break-inside: avoid; }
+      thead { display: table-header-group; }
+      h2 { page-break-after: avoid; }
+      h3 { page-break-after: avoid; }
+
+      .sig { margin-top: 18pt; font-size: 9.5pt; }
+      .sig .fill { min-width: 70mm; }
+
+      .break { page-break-before: always; }
+      .expert-only {
+        font-size: 8.5pt;
+        font-weight: 600;
+        color: var(--navy);
+        background: var(--band);
+        padding: 1pt 5pt;
+        border-radius: 3px;
+      }
+      footer.doc {
+        margin-top: 16pt;
+        border-top: 1px solid var(--line);
+        padding-top: 6pt;
+        font-size: 8.5pt;
+        color: var(--faint);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="head">
+      <p class="school">
+        Dr. Yanga's Colleges, Inc. · College of Computer Studies<br />
+        Bachelor of Science in Information Technology · Capstone and Research Project 2
+      </p>
+      <h1>Software Evaluation Questionnaire</h1>
+      <p class="sub">
+        <strong>Collabify</strong> — A Coursework and Project Management System for the BSIT
+        Program<br />
+        Evaluation instrument based on <strong>ISO/IEC 25010:2023</strong> Product Quality Model
+      </p>
+    </div>
+
+    <!-- =============================================================== -->
+    <h2>PART I — INSTRUCTIONS</h2>
+
+    <h3>Purpose of the Evaluation</h3>
+    <p>
+      This questionnaire measures the quality of <strong>Collabify</strong>, a web-based system
+      that lets BSIT professors run their classes' coursework — syllabus weeks, group sets,
+      project boards, task claiming, submission and results — and lets the program office see
+      how the program is progressing. Your answers determine how the system is assessed against
+      the nine quality characteristics of ISO/IEC 25010:2023.
+    </p>
+
+    <h3>Confidentiality Statement</h3>
+    <p>
+      All responses are treated as confidential and will be used only for the academic purposes
+      of this capstone research. Individual answers will not be published; only summarised
+      figures (weighted means per characteristic) will appear in the study. Your name is
+      optional and no response will be attributed to you without your consent.
+    </p>
+
+    <h3>How to Answer</h3>
+    <ul>
+      <li>Use the system before answering, so that each rating is based on actual use.</li>
+      <li>Put a check (&#10003;) in the one box that matches your judgement of each statement.</li>
+      <li>Answer every item. If an item does not apply to your role, write <em>N/A</em> beside it.</li>
+      <li>Rate only what the statement says — each item covers one idea only.</li>
+      <li>Comments are welcome at the end of every section and are as useful as the ratings.</li>
+    </ul>
+
+    <h3>Rating Scale Guide</h3>
+    <table class="scale">
+      <thead>
+        <tr>
+          <th>Scale</th>
+          <th>Verbal Interpretation</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>5</strong></td><td>Strongly Agree</td><td>The system fully meets the statement.</td></tr>
+        <tr><td><strong>4</strong></td><td>Agree</td><td>The system meets the statement with minor exceptions.</td></tr>
+        <tr><td><strong>3</strong></td><td>Neutral</td><td>The system partly meets the statement.</td></tr>
+        <tr><td><strong>2</strong></td><td>Disagree</td><td>The system meets the statement poorly.</td></tr>
+        <tr><td><strong>1</strong></td><td>Strongly Disagree</td><td>The system does not meet the statement.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <strong>Which sections to answer.</strong> All respondents answer Sections A to F.
+      Sections G, H and I ask about the code and deployment of the system, so they are for
+      <span class="expert-only">IT EXPERTS ONLY</span> — IT faculty, software developers and
+      system administrators. End users (students and professors) may leave them blank.
+    </div>
+
+    <!-- =============================================================== -->
+    <div class="break"></div>
+    <h2>PART II — RESPONDENT PROFILE</h2>
+
+    <table class="profile">
+      <tbody>
+        <tr>
+          <td style="width: 38%"><strong>Name</strong> <em>(optional)</em></td>
+          <td><span class="fill long"></span></td>
+        </tr>
+        <tr>
+          <td><strong>Position / Designation</strong></td>
+          <td><span class="fill long"></span></td>
+        </tr>
+        <tr>
+          <td><strong>Organization / Institution</strong></td>
+          <td><span class="fill long"></span></td>
+        </tr>
+        <tr>
+          <td><strong>Years of Experience</strong></td>
+          <td>
+            &#9744; Less than 1 year &nbsp;&nbsp; &#9744; 1–3 years &nbsp;&nbsp;
+            &#9744; 4–6 years &nbsp;&nbsp; &#9744; 7–10 years &nbsp;&nbsp;
+            &#9744; More than 10 years
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Area of Expertise</strong></td>
+          <td>
+            &#9744; Software Development &nbsp;&nbsp; &#9744; Systems Analysis and Design<br />
+            &#9744; Database Administration &nbsp;&nbsp; &#9744; Network / Systems Administration<br />
+            &#9744; IT Education / Faculty &nbsp;&nbsp; &#9744; Quality Assurance / Testing<br />
+            &#9744; Other: <span class="fill"></span>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Type of Respondent</strong></td>
+          <td>
+            &#9744; IT Expert &nbsp;&nbsp; &#9744; Faculty Evaluator &nbsp;&nbsp;
+            &#9744; Industry Expert<br />
+            &#9744; System Administrator &nbsp;&nbsp; &#9744; Professor (End User) &nbsp;&nbsp;
+            &#9744; Student (End User)
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Date of Evaluation</strong></td>
+          <td><span class="fill"></span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- =============================================================== -->
+    <div class="break"></div>
+    <h2>PART III — SOFTWARE EVALUATION</h2>
+    <p class="sub" style="margin-bottom: 10pt">
+      Organized by the nine quality characteristics of ISO/IEC 25010:2023.
+    </p>
+
+    <!-- ---------------------------------------------------- A -->
+    <h3>Section A — Functional Suitability</h3>
+    <p class="indicators">
+      Indicators: functional completeness · functional correctness · functional appropriateness
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th class="no">No.</th>
+          <th>Statement</th>
+          <th class="tick">5</th><th class="tick">4</th><th class="tick">3</th>
+          <th class="tick">2</th><th class="tick">1</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="no">1</td><td>The system provides all the functions needed to manage a BSIT class and its coursework.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">2</td><td>The system allows a professor to create a class and enrol students in it.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">3</td><td>The system allows a professor to upload a syllabus and set the term dates of a class.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">4</td><td>The system creates a project board for each group.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">5</td><td>The system allows students to claim tasks on their own board.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">6</td><td>The system limits how much of a board's work one member can hold.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">7</td><td>The system allows a group to submit their project for checking.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">8</td><td>The system allows a professor to accept or return a submitted project.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">9</td><td>The figures shown on the analytics page match the work recorded on the boards.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">10</td><td>The reports produced contain the information needed for program records.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size: 9pt">Comments: <span class="fill long"></span></p>
+
+    <!-- ---------------------------------------------------- B -->
+    <h3>Section B — Performance Efficiency</h3>
+    <p class="indicators">Indicators: time behaviour · resource utilization · capacity</p>
+    <table>
+      <thead>
+        <tr>
+          <th class="no">No.</th>
+          <th>Statement</th>
+          <th class="tick">5</th><th class="tick">4</th><th class="tick">3</th>
+          <th class="tick">2</th><th class="tick">1</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="no">11</td><td>The system loads its pages within an acceptable waiting time.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">12</td><td>The system responds quickly when a task is claimed, moved or updated.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">13</td><td>The analytics page displays its results without noticeable delay.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">14</td><td>The system performs acceptably on a typical campus internet connection.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">15</td><td>The system remains responsive when a class has many students, projects and tasks.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size: 9pt">Comments: <span class="fill long"></span></p>
+
+    <!-- ---------------------------------------------------- C -->
+    <h3>Section C — Compatibility</h3>
+    <p class="indicators">Indicators: co-existence · interoperability</p>
+    <table>
+      <thead>
+        <tr>
+          <th class="no">No.</th>
+          <th>Statement</th>
+          <th class="tick">5</th><th class="tick">4</th><th class="tick">3</th>
+          <th class="tick">2</th><th class="tick">1</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="no">16</td><td>The system runs correctly on the web browsers commonly used in the college.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">17</td><td>The system works properly alongside other applications open on the same device.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">18</td><td>The exported report files open correctly in Excel or Google Sheets.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">19</td><td>The exported files keep the correct characters, dates and figures.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">20</td><td>Reports printed or saved as PDF keep their intended layout.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size: 9pt">Comments: <span class="fill long"></span></p>
+
+    <!-- ---------------------------------------------------- D -->
+    <h3>Section D — Interaction Capability</h3>
+    <p class="indicators">
+      Indicators: appropriateness recognizability · learnability · operability · user error
+      protection · user engagement · inclusivity · user assistance
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th class="no">No.</th>
+          <th>Statement</th>
+          <th class="tick">5</th><th class="tick">4</th><th class="tick">3</th>
+          <th class="tick">2</th><th class="tick">1</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="no">21</td><td>The purpose of each page is clear on first use.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">22</td><td>A new user can learn to use the system without additional training.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">23</td><td>The system is easy to navigate from one page to another.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">24</td><td>The layout, colours and text are consistent across the system.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">25</td><td>The text is readable in both the light and the dark appearance.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">26</td><td>The system can be operated using the keyboard alone.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">27</td><td>The system shows clearly which control is currently selected.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">28</td><td>The system asks for confirmation before an action that cannot be undone.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">29</td><td>Error messages state what happened and what to do next.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">30</td><td>A first-time user is guided on what to do first.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size: 9pt">Comments: <span class="fill long"></span></p>
+
+    <!-- ---------------------------------------------------- E -->
+    <h3>Section E — Reliability</h3>
+    <p class="indicators">
+      Indicators: faultlessness · availability · fault tolerance · recoverability
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th class="no">No.</th>
+          <th>Statement</th>
+          <th class="tick">5</th><th class="tick">4</th><th class="tick">3</th>
+          <th class="tick">2</th><th class="tick">1</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="no">31</td><td>The system is available whenever it is needed.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">32</td><td>The system operates without stopping unexpectedly.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">33</td><td>The system produces the same result each time the same action is performed.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">34</td><td>When a page fails to load, the system offers a way to try again.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">35</td><td>The system informs the user when the internet connection is lost.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">36</td><td>Work already saved remains intact after an error occurs.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size: 9pt">Comments: <span class="fill long"></span></p>
+
+    <!-- ---------------------------------------------------- F -->
+    <h3>Section F — Security</h3>
+    <p class="indicators">
+      Indicators: confidentiality · integrity · non-repudiation · accountability · authenticity
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th class="no">No.</th>
+          <th>Statement</th>
+          <th class="tick">5</th><th class="tick">4</th><th class="tick">3</th>
+          <th class="tick">2</th><th class="tick">1</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="no">37</td><td>The system requires a valid account before granting access.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">38</td><td>A student can view only the classes and boards they belong to.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">39</td><td>A professor can view only the classes they handle.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">40</td><td>Only the program office can change a user's role or account status.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">41</td><td>Uploaded files can be opened only by the users permitted to see them.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">42</td><td>The system keeps a record of who made each important change.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">43</td><td>Records of past decisions cannot be altered afterwards.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size: 9pt">Comments: <span class="fill long"></span></p>
+
+    <!-- ---------------------------------------------------- G -->
+    <h3>Section G — Maintainability <span class="expert-only">IT EXPERTS ONLY</span></h3>
+    <p class="indicators">
+      Indicators: modularity · reusability · analysability · modifiability · testability
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th class="no">No.</th>
+          <th>Statement</th>
+          <th class="tick">5</th><th class="tick">4</th><th class="tick">3</th>
+          <th class="tick">2</th><th class="tick">1</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="no">44</td><td>The system is organised into clear and separate modules.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">45</td><td>Components of the system can be reused in other parts of it.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">46</td><td>The source code is documented well enough for another developer to understand.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">47</td><td>A change in one part of the system can be made without breaking other parts.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">48</td><td>Automated tests exist to verify the system after a change is made.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">49</td><td>The cause of a fault can be traced without difficulty.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size: 9pt">Comments: <span class="fill long"></span></p>
+
+    <!-- ---------------------------------------------------- H -->
+    <h3>Section H — Flexibility <span class="expert-only">IT EXPERTS ONLY</span></h3>
+    <p class="indicators">
+      Indicators: adaptability · scalability · installability · replaceability
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th class="no">No.</th>
+          <th>Statement</th>
+          <th class="tick">5</th><th class="tick">4</th><th class="tick">3</th>
+          <th class="tick">2</th><th class="tick">1</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="no">50</td><td>The system adapts correctly to desktop, tablet and mobile screens.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">51</td><td>The system can accommodate more classes, students and projects as the program grows.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">52</td><td>The system can be deployed or set up without difficulty.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">53</td><td>Program data such as sections and curriculum can be updated without changing the code.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">54</td><td>The system could replace the manual method currently used for the same work.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size: 9pt">Comments: <span class="fill long"></span></p>
+
+    <!-- ---------------------------------------------------- I -->
+    <h3>Section I — Safety <span class="expert-only">IT EXPERTS ONLY</span></h3>
+    <p class="indicators">
+      Indicators: operational constraint · risk identification · fail-safe · hazard warning ·
+      safe integration
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th class="no">No.</th>
+          <th>Statement</th>
+          <th class="tick">5</th><th class="tick">4</th><th class="tick">3</th>
+          <th class="tick">2</th><th class="tick">1</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="no">55</td><td>The system prevents an action that would destroy other users' work.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">56</td><td>The system requires a class to be handed over or archived before its holder can be removed.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">57</td><td>The system offers archiving as an alternative to deleting.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">58</td><td>The system states clearly what will be lost before a destructive action.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+        <tr><td class="no">59</td><td>The system keeps academic records safe from accidental loss.</td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td><td class="tick"></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size: 9pt">Comments: <span class="fill long"></span></p>
+
+    <!-- =============================================================== -->
+    <h3>Overall Assessment</h3>
+    <table>
+      <tbody>
+        <tr>
+          <td style="width: 46%">What is the greatest strength of the system?</td>
+          <td><span class="fill long"></span></td>
+        </tr>
+        <tr>
+          <td>What part of the system most needs improvement?</td>
+          <td><span class="fill long"></span></td>
+        </tr>
+        <tr>
+          <td>Would you recommend the system for use in the BSIT program?</td>
+          <td>&#9744; Yes &nbsp;&nbsp; &#9744; Yes, with revisions &nbsp;&nbsp; &#9744; No</td>
+        </tr>
+        <tr>
+          <td>Other recommendations</td>
+          <td><span class="fill long"></span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="sig">
+      <p>
+        <span class="fill"></span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="fill short"></span><br />
+        <span style="font-size: 8.5pt; color: var(--faint)"
+          >Signature over Printed Name &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          Date</span
+        >
+      </p>
+    </div>
+
+    <footer class="doc">
+      Thank you for taking the time to evaluate Collabify. Your assessment forms part of the
+      research findings of this capstone study.
+    </footer>
+
+    <!-- =============================================================== -->
+    <div class="break"></div>
+    <h2>FOR THE RESEARCHER — SCORING GUIDE</h2>
+    <p class="note" style="margin-top: 0">
+      This page is <strong>not</strong> given to respondents. Remove it before distributing.
+    </p>
+
+    <h3>Computing the results</h3>
+    <ul>
+      <li>Compute the <strong>weighted mean</strong> of each item.</li>
+      <li>
+        Compute the <strong>mean per characteristic</strong> (Sections A to I) by averaging the
+        item means within that section.
+      </li>
+      <li>
+        Compute the <strong>overall mean</strong> by averaging the nine characteristic means.
+      </li>
+      <li>
+        Report Sections G, H and I separately from A to F, since only IT experts answer them —
+        averaging them with end-user responses would misrepresent both.
+      </li>
+    </ul>
+
+    <h3>Interpretation of the weighted mean</h3>
+    <table class="scale">
+      <thead>
+        <tr>
+          <th>Range</th>
+          <th>Verbal Interpretation</th>
+          <th>Descriptive Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>4.20 – 5.00</td><td>Excellent</td><td>The characteristic is fully satisfied.</td></tr>
+        <tr><td>3.40 – 4.19</td><td>Very Good</td><td>The characteristic is satisfied with minor issues.</td></tr>
+        <tr><td>2.60 – 3.39</td><td>Good</td><td>The characteristic is partly satisfied.</td></tr>
+        <tr><td>1.80 – 2.59</td><td>Fair</td><td>The characteristic is poorly satisfied.</td></tr>
+        <tr><td>1.00 – 1.79</td><td>Poor</td><td>The characteristic is not satisfied.</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size: 9pt; color: var(--muted)">
+      State the chosen interpretation scale in Chapter 3 of the paper, since more than one is in
+      common use and the reader cannot tell which was applied from the figures alone.
+    </p>
+
+    <h3>Before distributing</h3>
+    <ul>
+      <li>
+        Have this instrument validated by 3–5 experts using a separate validation sheet, and
+        compute the Content Validity Index (I-CVI = experts rating 3 or 4 ÷ total experts).
+      </li>
+      <li>Revise any item scoring below 0.78 and record the change.</li>
+      <li>
+        Recommended respondents: 3–5 IT experts, 2–3 faculty evaluators, and 15–30 end users
+        (students and professors who have actually used the system).
+      </li>
+      <li>
+        Ask respondents to use the system first. A rating given without use measures the demo,
+        not the software.
+      </li>
+    </ul>
+  </body>
+</html>
