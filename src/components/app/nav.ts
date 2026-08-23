@@ -91,26 +91,35 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
     SETTINGS,
   ],
   admin: [
+    // The same three bands as the other two rails: what the office sets up,
+    // who is in the program, and the program read back as figures.
     {
       title: 'Program',
       items: [
         { label: 'Dashboard', icon: 'board', to: '/admin' },
         { label: 'Notices', icon: 'bell', to: '/admin/notices' },
-        { label: 'Professor approvals', icon: 'shield', to: '/admin/approvals' },
-        { label: 'Accounts', icon: 'users', to: '/admin/accounts' },
-        { label: 'Sections', icon: 'folder', to: '/admin/sections' },
+        { label: 'Sections', icon: 'kanban', to: '/admin/sections' },
         { label: 'Library', icon: 'file', to: '/admin/library' },
       ],
     },
     {
-      // The program read as figures. Nothing in here reaches inside a class:
-      // the chair sees counts and asks the professor for the rest.
+      // Who is in the program, and the record of what was done to their
+      // accounts. The audit log belongs with the people it is about.
+      title: 'People',
+      items: [
+        { label: 'Professor approvals', icon: 'shield', to: '/admin/approvals' },
+        { label: 'Accounts', icon: 'users', to: '/admin/accounts' },
+        { label: 'Audit log', icon: 'clock', to: '/admin/audit' },
+      ],
+    },
+    {
+      // Counts, never content: the chair reads figures and asks the professor
+      // for anything inside a class.
       title: 'Oversight',
       items: [
         { label: 'Classes', icon: 'folder', to: '/admin/classes' },
-        { label: 'Faculty', icon: 'users', to: '/admin/faculty' },
+        { label: 'Faculty', icon: 'user', to: '/admin/faculty' },
         { label: 'Cohort', icon: 'chart', to: '/admin/cohort' },
-        { label: 'Audit log', icon: 'clock', to: '/admin/audit' },
       ],
     },
     SETTINGS,
