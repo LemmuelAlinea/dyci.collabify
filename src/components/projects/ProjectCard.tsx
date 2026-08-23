@@ -58,14 +58,24 @@ export function ProjectCard({
   project,
   to,
   showClass = true,
-  progress,
+  boards = [],
+  /**
+   * Whose progress the card is reporting. `mine` is the viewer's own board and
+   * speaks in the second person; `class` is every board on the project and
+   * speaks about groups. A professor reading "accepted by your professor" was
+   * the tell that one board had been mistaken for the whole project.
+   */
+  audience = 'mine',
 }: {
   project: ProjectSummary
   to: string
   showClass?: boolean
-  /** The viewer's board on this project, when it has one. */
-  progress?: BoardSummary
+  /** One board for a student, every group's board for a professor. */
+  boards?: BoardSummary[]
+  audience?: 'mine' | 'class'
 }) {
+  const progress = audience === 'mine' ? boards[0] : undefined
+  const across = audience === 'class' ? summarise(boards) : null
   const meta = PROJECT_TYPES.find((t) => t.value === project.type)
   const overdue = project.due_at ? new Date(project.due_at).getTime() < Date.now() : false
 
@@ -105,6 +115,35 @@ export function ProjectCard({
           <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
           {project.week_assessments}
         </p>
+      )}
+
+      {/* A professor's card answers for the class, not for one group: how many
+          boards there are, how many are in, and how far the work has got on
+          average. Naming a single group here would be picking one at random. */}
+      {across && across.boards > 0 && (
+        <div className="mt-3.5">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11.5px]">
+            <span className="text-muted">
+              {across.boards} {across.boards === 1 ? 'board' : 'boards'} ·{' '}
+              {across.submitted} handed in
+              {across.accepted > 0 && ` · ${across.accepted} accepted`}
+              {across.returned > 0 && ` · ${across.returned} returned`}
+            </span>
+            <span className="font-mono text-faint">{across.pct}%</span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full surface-sunken">
+            <span
+              className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+              style={{ width: `${across.pct}%` }}
+            />
+          </div>
+          {across.notStarted > 0 && (
+            <p className="mt-1.5 text-[11.5px] text-amber-700 dark:text-amber-300">
+              {across.notStarted} {across.notStarted === 1 ? 'group has' : 'groups have'} not
+              started
+            </p>
+          )}
+        </div>
       )}
 
       {/* What became of the work, when there is an answer. It sits above the
@@ -172,4 +211,18 @@ export function ProjectCard({
       </div>
     </Link>
   )
+}
+
+/** Every board on one project, added up for the professor's card. */
+function summarise(boards: BoardSummary[]) {
+  const tasks = boards.reduce((n, b) => n + b.task_count, 0)
+  const done = boards.reduce((n, b) => n + b.done_count, 0)
+  return {
+    boards: boards.length,
+    submitted: boards.filter((b) => b.submitted_at).length,
+    accepted: boards.filter((b) => b.result_verdict === 'accepted').length,
+    returned: boards.filter((b) => b.result_verdict === 'returned').length,
+    notStarted: boards.filter((b) => b.task_count === 0 || b.done_count === 0).length,
+    pct: tasks === 0 ? 0 : Math.round((done / tasks) * 100),
+  }
 }

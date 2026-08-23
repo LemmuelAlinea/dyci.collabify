@@ -82,6 +82,7 @@ export default function ProfessorProjects() {
             projects={projects}
             classes={classes}
             linkBase="/professor/projects"
+            audience="class"
             emptyTitle="No projects yet"
             emptyBody="Pick a class, choose the weeks it covers, and the syllabus tells you what the project should be for. You can schedule it to open later."
             emptyAction={

@@ -43,6 +43,12 @@ export function ProjectsBoard({
   emptyTitle,
   emptyBody,
   emptyAction,
+  /**
+   * Whose progress the cards report. A student has one board per project and
+   * the card speaks to them about it; a professor has every group's, and the
+   * card has to summarise rather than pick one.
+   */
+  audience = 'mine',
 }: {
   projects: ProjectSummary[]
   classes: ClassSummary[]
@@ -51,12 +57,13 @@ export function ProjectsBoard({
   emptyTitle: string
   emptyBody: string
   emptyAction?: ReactNode
+  audience?: 'mine' | 'class'
 }) {
   const [query, setQuery] = useState('')
   const [classId, setClassId] = useState('')
   const [type, setType] = useState('')
   const [status, setStatus] = useState<StatusFilter>('')
-  const [progress, setProgress] = useState(new Map<string, BoardSummary>())
+  const [progress, setProgress] = useState(new Map<string, BoardSummary[]>())
 
   // A card shows how far its board has got. RLS hands a student their own board
   // and nobody else's, so one query covers the whole list.
@@ -185,7 +192,8 @@ export function ProjectsBoard({
               project={p}
               to={`${linkBase}/${p.id}`}
               showClass={showClass}
-              progress={progress.get(p.id)}
+              boards={progress.get(p.id) ?? []}
+              audience={audience}
             />
           ))}
         </div>

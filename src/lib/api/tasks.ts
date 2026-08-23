@@ -66,18 +66,28 @@ export async function listMemberProgress(boardId: string) {
 }
 
 /** Board progress for a list of projects, keyed by project — for cards. */
+/**
+ * Every board the caller may see, grouped by project.
+ *
+ * It used to keep only the first board of each project. For a student that is
+ * their own and correct; for a professor it was one group picked by the
+ * planner, and their project cards were showing that group's progress, its
+ * hand-in and its verdict as though they belonged to the project. A card read
+ * "accepted · 4 of 4 tasks" while three other groups had not started.
+ *
+ * The caller decides what to do with the list: one board is a person's own,
+ * several are a class to be summarised.
+ */
 export async function boardProgressFor(projectIds: string[]) {
-  if (projectIds.length === 0) return new Map<string, BoardSummary>()
+  if (projectIds.length === 0) return new Map<string, BoardSummary[]>()
   const { data, error } = await supabase
     .from('task_board_overview')
     .select('*')
     .in('project_id', projectIds)
   if (error) throw error
-  const map = new Map<string, BoardSummary>()
+  const map = new Map<string, BoardSummary[]>()
   for (const row of (data ?? []) as BoardSummary[]) {
-    // A student sees one board per project; a professor sees many, so keep the
-    // first and let the project page show the per-group breakdown.
-    if (!map.has(row.project_id)) map.set(row.project_id, row)
+    map.set(row.project_id, [...(map.get(row.project_id) ?? []), row])
   }
   return map
 }
