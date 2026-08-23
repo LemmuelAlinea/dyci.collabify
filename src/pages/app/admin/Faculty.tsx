@@ -49,7 +49,7 @@ export default function Faculty() {
     })()
   }, [])
 
-  const all = rows ?? []
+  const all = useMemo(() => rows ?? [], [rows])
   const inTerm = useMemo(
     () =>
       all

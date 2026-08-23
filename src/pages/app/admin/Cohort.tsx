@@ -45,7 +45,7 @@ export default function Cohort() {
     })()
   }, [])
 
-  const all = rows ?? []
+  const all = useMemo(() => rows ?? [], [rows])
   const shown = useMemo(
     () =>
       all

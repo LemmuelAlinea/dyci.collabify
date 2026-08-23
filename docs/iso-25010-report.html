@@ -175,13 +175,17 @@
         <tr><td>Row-level security policies</td><td class="num">77</td></tr>
         <tr><td>Triggers</td><td class="num">52</td></tr>
         <tr><td>Database test suites</td><td class="num">15</td></tr>
-        <tr><td>Passing assertions</td><td class="num">379</td></tr>
-        <tr><td>Failing assertions</td><td class="num">0</td></tr>
+        <tr><td>Passing database assertions</td><td class="num">379</td></tr>
+        <tr><td>Passing JavaScript tests</td><td class="num">79</td></tr>
+        <tr><td>Failures, of either kind</td><td class="num">0</td></tr>
       </table>
 
       <div class="repeat">
-        <span class="eyebrow">Repeat every database measurement</span>
+        <span class="eyebrow">Repeat every measurement</span>
+        <code>npm run check</code>
+        <span class="note">Types, lint, tests, contrast, accessible names, schema drift.</span>
         <code>for f in supabase/tests/*.test.sql; do node scripts/db.mjs "$f"; done</code>
+        <span class="note">The database suites, which need credentials.</span>
       </div>
     </section>
 
@@ -652,13 +656,25 @@
         the order runs end to end, twice, followed by all fifteen suites.
       </p>
 
-      <p class="verdict open">
-        <strong>Open, deliberately.</strong> There are still no JavaScript
-        tests, no linter and no continuous integration. The four checkers this
-        exercise produced — <code>schema-drift.mjs</code>,
-        <code>contrast.mjs</code>, <code>a11y-names.mjs</code> and the SQL suites
-        — run only when someone remembers to run them. This was the one phase
-        skipped, and it is the largest remaining gap in the model.
+      <h3>What was added</h3>
+      <table>
+        <tbody>
+          <tr><td><strong>79 JavaScript tests</strong></td><td>Over the pure functions behind the analytics, the reports and the buttons — the CSV writer, the day arithmetic, the cohort and load rollups, the board diagnoses, and the gates that decide whether a control is offered at all. There were none.</td></tr>
+          <tr><td><strong>A linter</strong></td><td>Five real faults in the first run, all fixed. Rules that do not suit this codebase are switched off <em>with the reason written next to them</em>, rather than left to make the output noise everybody ignores.</td></tr>
+          <tr><td><strong>Continuous integration</strong></td><td>Types, lint, tests, contrast, accessible names, schema drift and the build, on every push and every pull request.</td></tr>
+          <tr><td><strong>The largest file split</strong></td><td><code>ProjectTasksTab.tsx</code> was 582 lines holding two roles' screens at once. It is now 67 lines of shared guards, with the state in a hook and each role's markup in its own file.</td></tr>
+        </tbody>
+      </table>
+
+      <p class="verdict fixed">Addressed.</p>
+
+      <p class="note">
+        The SQL suites stay out of continuous integration on purpose: they sign
+        in as real people against the live database, and putting a service-role
+        key into a build runner to automate them would trade a strong guarantee
+        for a weaker one. They are a release step, and the command is in
+        <code>.github/workflows/check.yml</code> where the next person will find
+        it.
       </p>
     </section>
 
@@ -804,6 +820,15 @@
         than discovered.
       </p>
 
+      <p class="note">
+        Twenty of the linter's warnings are left standing rather than silenced.
+        They are all one thing: reading the clock while drawing the screen, to
+        decide whether a deadline shows as overdue. It is correct for the
+        purpose — moving it would freeze the answer at the moment the page
+        opened — and leaving the warnings visible means a genuinely new one gets
+        noticed.
+      </p>
+
       <h3>Decided against, by the owner</h3>
       <table>
         <thead><tr><th>Item</th><th>Risk</th></tr></thead>
@@ -823,10 +848,6 @@
       <table>
         <thead><tr><th>Item</th><th>Consequence</th></tr></thead>
         <tbody>
-          <tr>
-            <td><strong>No JavaScript tests, linter or continuous integration</strong></td>
-            <td>Fifty-five pure functions across four modules — the ones computing what people read in analytics and reports — have no tests. The five checkers this exercise produced run only on request. This is the single largest gap against the model.</td>
-          </tr>
           <tr>
             <td>Safari, Firefox and a real Android device untested</td>
             <td>One browser engine was available. It proves nothing about the other two. A matrix presented from a single engine would be a guess, so the rows are left blank in <code>docs/08-compatibility.md</code> with the exact steps to fill them.</td>
@@ -866,6 +887,9 @@
       <table>
         <thead><tr><th style="width: 62mm">Command</th><th>What it proves</th></tr></thead>
         <tbody>
+          <tr><td><code>npm run check</code></td><td>Everything below except the database suites, in one command — the same list continuous integration runs.</td></tr>
+          <tr><td><code>npm test</code></td><td>79 tests over the pure logic behind analytics, reports and the buttons.</td></tr>
+          <tr><td><code>npm run lint</code></td><td>0 errors. The 20 warnings are explained in Section 3.</td></tr>
           <tr><td><code>npm run build</code></td><td>Type-checks and builds; the chunk sizes under Performance are its output.</td></tr>
           <tr><td><code>node scripts/contrast.mjs</code></td><td>Every contrast ratio in both themes. Exits non-zero on a failure.</td></tr>
           <tr><td><code>node scripts/a11y-names.mjs</code></td><td>Icon-only buttons with no accessible name.</td></tr>

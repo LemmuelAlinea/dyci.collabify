@@ -61,7 +61,7 @@ export async function createAnnouncement(input: {
 }
 
 export async function attachFile(classId: string, announcementId: string, file: File) {
-  const safeName = file.name.replace(/[^\w.\-]+/g, '_')
+  const safeName = file.name.replace(/[^\w.-]+/g, '_')
   const path = `${classId}/announcements/${announcementId}/${Date.now()}-${safeName}`
 
   const { error: upErr } = await supabase.storage

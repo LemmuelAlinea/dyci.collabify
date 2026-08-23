@@ -82,9 +82,9 @@ const PAIRS = [
 ]
 
 let failures = 0
-for (const [name, themeName, scope] of [
-  ['light', 'light', light],
-  ['dark', 'dark', dark],
+for (const [name, scope] of [
+  ['light', light],
+  ['dark', dark],
 ]) {
   console.log(`\n${name}`)
   for (const [label, fgTok, bgTok, need] of PAIRS) {

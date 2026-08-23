@@ -109,7 +109,7 @@ export async function listFiles(taskId: string) {
 }
 
 export async function uploadTaskFile(taskId: string, file: File) {
-  const safeName = file.name.replace(/[^\w.\-]+/g, '_')
+  const safeName = file.name.replace(/[^\w.-]+/g, '_')
   // The storage policy reads the task id off the first path segment.
   const path = `${taskId}/${Date.now()}-${safeName}`
 

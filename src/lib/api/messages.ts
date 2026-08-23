@@ -177,7 +177,7 @@ export async function sendMessage(input: {
 }
 
 export async function attachToMessage(conversationId: string, messageId: string, file: File) {
-  const safeName = file.name.replace(/[^\w.\-]+/g, '_')
+  const safeName = file.name.replace(/[^\w.-]+/g, '_')
   const path = `${conversationId}/${messageId}/${Date.now()}-${safeName}`
 
   const { error: upErr } = await supabase.storage

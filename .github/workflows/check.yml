@@ -1,0 +1,55 @@
+name: check
+
+# Everything that can be checked without a database, on every push and every
+# pull request. The SQL suites are deliberately not here: they need real
+# credentials and they run against the live database, so they stay a local
+# step — see the note at the bottom of this file.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Contrast
+        run: node scripts/contrast.mjs
+
+      - name: Accessible names
+        run: node scripts/a11y-names.mjs
+
+      - name: Schema drift
+        run: node scripts/schema-drift.mjs
+
+      - name: Build
+        run: npm run build
+
+# Not run here, and why:
+#
+#   supabase/tests/*.test.sql   They sign in as real people against the live
+#                               database. Putting the service-role key in CI to
+#                               run them would trade a stronger guarantee for a
+#                               weaker one. Run them before a release:
+#
+#                                 for f in supabase/tests/*.test.sql; do
+#                                   node scripts/db.mjs "$f"
+#                                 done

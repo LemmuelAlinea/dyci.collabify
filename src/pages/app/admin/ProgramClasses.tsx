@@ -53,7 +53,7 @@ export default function ProgramClasses() {
     })()
   }, [])
 
-  const all = rows ?? []
+  const all = useMemo(() => rows ?? [], [rows])
   const professors = useMemo(() => {
     const seen = new Map<string, string>()
     for (const c of all) seen.set(c.professor_id, c.professor_name)

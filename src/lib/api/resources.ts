@@ -40,7 +40,7 @@ export async function uploadResource(input: {
   /** Only an admin may set this; a trigger refuses anybody else. */
   programWide?: boolean
 }) {
-  const safeName = input.file.name.replace(/[^\w.\-]+/g, '_')
+  const safeName = input.file.name.replace(/[^\w.-]+/g, '_')
   const path = `${input.professorId}/${input.kind}/${Date.now()}-${safeName}`
 
   const { error: upErr } = await supabase.storage

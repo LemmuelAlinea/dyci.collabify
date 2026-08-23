@@ -161,7 +161,7 @@ export async function listAttachments(projectId: string) {
 }
 
 export async function uploadProjectFile(projectId: string, file: File) {
-  const safeName = file.name.replace(/[^\w.\-]+/g, '_')
+  const safeName = file.name.replace(/[^\w.-]+/g, '_')
   // The storage policy reads the project id off the first path segment.
   const path = `${projectId}/${Date.now()}-${safeName}`
 
