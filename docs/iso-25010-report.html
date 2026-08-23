@@ -1,0 +1,898 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Collabify — ISO/IEC 25010:2023 quality report</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 18mm 16mm 20mm;
+        @bottom-right { content: counter(page); }
+      }
+
+      :root {
+        --ink: #14183a;
+        --muted: #4a5478;
+        --faint: #6b7396;
+        --line: #d6dbe8;
+        --line-strong: #9aa3bf;
+        --navy: #26327a;
+        --amber: #8a6a08;
+        --bad: #9b1c1c;
+        --good: #14603a;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font: 10.5pt/1.55 "Segoe UI", -apple-system, system-ui, sans-serif;
+        color: var(--ink);
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      h1, h2, h3, h4 { line-height: 1.2; margin: 0; font-weight: 700; }
+      h1 { font-size: 26pt; letter-spacing: -0.02em; }
+      h2 { font-size: 15pt; letter-spacing: -0.01em; color: var(--navy); }
+      h3 { font-size: 11.5pt; margin-top: 14pt; }
+      p { margin: 0 0 8pt; }
+      ul, ol { margin: 0 0 8pt; padding-left: 16pt; }
+      li { margin-bottom: 3pt; }
+      code, .mono { font-family: "Cascadia Mono", Consolas, monospace; font-size: 9pt; }
+      strong { font-weight: 600; }
+
+      .cover {
+        height: 247mm;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        page-break-after: always;
+      }
+      .cover .mark { width: 64px; height: 64px; object-fit: contain; margin-bottom: 22pt; }
+      .cover .rule { height: 3px; background: var(--navy); width: 74px; margin: 16pt 0; }
+      .cover .sub { font-size: 13pt; color: var(--muted); max-width: 118mm; }
+      .cover dl { margin: 30pt 0 0; font-size: 10pt; }
+      .cover dt { color: var(--faint); font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 10pt; }
+      .cover dd { margin: 2pt 0 0; }
+
+      .eyebrow {
+        font-size: 8pt;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--faint);
+        font-family: "Cascadia Mono", Consolas, monospace;
+      }
+
+      section.char { page-break-before: always; }
+      section.char > header {
+        border-bottom: 2px solid var(--navy);
+        padding-bottom: 6pt;
+        margin-bottom: 12pt;
+      }
+      .defn {
+        background: #f2f4fa;
+        border-left: 3px solid var(--line-strong);
+        padding: 8pt 10pt;
+        margin: 0 0 12pt;
+        font-size: 9.5pt;
+        color: var(--muted);
+      }
+
+      table { width: 100%; border-collapse: collapse; margin: 8pt 0 12pt; font-size: 9.5pt; }
+      th, td { text-align: left; padding: 4.5pt 6pt; border-bottom: 1px solid var(--line); vertical-align: top; }
+      th { border-bottom: 1.5px solid var(--line-strong); font-weight: 600; color: var(--muted); font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.05em; }
+      td.num, th.num { text-align: right; font-family: "Cascadia Mono", Consolas, monospace; white-space: nowrap; }
+      tr { page-break-inside: avoid; }
+      thead { display: table-header-group; }
+
+      .verdict { font-weight: 600; }
+      .fixed { color: var(--good); }
+      .open { color: var(--bad); }
+      .partial { color: var(--amber); }
+
+      .repeat {
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 7pt 9pt;
+        margin: 10pt 0 0;
+        font-size: 9pt;
+        background: #fbfbfd;
+      }
+      .repeat .eyebrow { display: block; margin-bottom: 4pt; }
+      .repeat code { display: block; margin: 2pt 0; }
+
+      .note { font-size: 9pt; color: var(--muted); }
+      .avoid { page-break-inside: avoid; }
+    </style>
+  </head>
+  <body>
+    <div class="cover">
+      <img class="mark" src="../src/assets/dyci-logo.png" alt="" />
+      <p class="eyebrow">Software quality report</p>
+      <h1>Collabify against<br />ISO/IEC 25010:2023</h1>
+      <div class="rule"></div>
+      <p class="sub">
+        What was measured, what was found, what was changed, and what is still
+        open. Every figure in this document was taken from the running system;
+        anything that could not be measured here says so.
+      </p>
+      <dl>
+        <dt>System</dt>
+        <dd>Collabify — coursework workspace for the BSIT program, Dr. Yanga's Colleges, Inc.</dd>
+        <dt>Stack</dt>
+        <dd>React 19 · TypeScript · Vite 7 · Tailwind v4 · Supabase (PostgreSQL with row-level security)</dd>
+        <dt>Prepared</dt>
+        <dd>23 August 2026</dd>
+        <dt>Scope</dt>
+        <dd>Nine quality characteristics of ISO/IEC 25010:2023</dd>
+      </dl>
+    </div>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char" style="page-break-before: auto">
+      <header>
+        <p class="eyebrow">Section 1</p>
+        <h2>What this document is, and is not</h2>
+      </header>
+
+      <p>
+        ISO/IEC 25010 is a <strong>quality model</strong>. It names nine
+        characteristics that software can be described against. It is not a
+        certification, there is no certificate to hold, and no software is ever
+        "ISO 25010 certified" — anyone claiming otherwise is describing
+        something else. This document uses the model the way it is meant to be
+        used: as a checklist to be honest against.
+      </p>
+
+      <p>
+        The work behind it ran in phases, riskiest first. Each phase measured
+        the system before changing it, changed it, and measured it again. The
+        numbers in this report are those measurements, not estimates.
+      </p>
+
+      <h3>How to read the verdicts</h3>
+      <table>
+        <tr>
+          <td style="width: 22mm"><span class="verdict fixed">Addressed</span></td>
+          <td>Measured before, changed, measured after. The figures are here.</td>
+        </tr>
+        <tr>
+          <td><span class="verdict partial">Partial</span></td>
+          <td>Improved and measured, with a named part still outstanding.</td>
+        </tr>
+        <tr>
+          <td><span class="verdict open">Open</span></td>
+          <td>Examined and deliberately not changed. The reason is given.</td>
+        </tr>
+      </table>
+
+      <h3>The system, in figures</h3>
+      <table>
+        <tr><td>Database size</td><td class="num">17 MB</td></tr>
+        <tr><td>Tables in <code>public</code></td><td class="num">36</td></tr>
+        <tr><td>Views</td><td class="num">35</td></tr>
+        <tr><td>Row-level security policies</td><td class="num">77</td></tr>
+        <tr><td>Triggers</td><td class="num">52</td></tr>
+        <tr><td>Database test suites</td><td class="num">15</td></tr>
+        <tr><td>Passing assertions</td><td class="num">379</td></tr>
+        <tr><td>Failing assertions</td><td class="num">0</td></tr>
+      </table>
+
+      <div class="repeat">
+        <span class="eyebrow">Repeat every database measurement</span>
+        <code>for f in supabase/tests/*.test.sql; do node scripts/db.mjs "$f"; done</code>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char">
+      <header>
+        <p class="eyebrow">Section 2</p>
+        <h2>Defects found, in one table</h2>
+      </header>
+
+      <p>
+        The strongest evidence that an exercise like this was worth doing is
+        what it turned up. Eighteen defects were found. Five of them were
+        affecting people using the live system; the rest were latent.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 8mm">#</th>
+            <th>Defect</th>
+            <th style="width: 30mm">Characteristic</th>
+            <th style="width: 16mm">Was live</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">1</td><td>Deleting one professor's account destroyed their class, its projects, boards, tasks, files and enrolments — no warning, no undo</td><td>Safety</td><td>latent</td></tr>
+          <tr><td class="num">2</td><td>No error boundary: one thrown error blanked the whole application with no way back</td><td>Reliability</td><td>live</td></tr>
+          <tr><td class="num">3</td><td>Eight pages showed a fetch error with no way to retry but a manual reload</td><td>Reliability</td><td>live</td></tr>
+          <tr><td class="num">4</td><td>No signal when the connection dropped — writes failed silently on campus wifi</td><td>Reliability</td><td>live</td></tr>
+          <tr><td class="num">5</td><td><code>guard_task_edit</code> pinned <code>created_by</code> back, so a professor could not be deleted even after handing the class over</td><td>Safety</td><td>latent</td></tr>
+          <tr><td class="num">6</td><td>The account page promised an approval email that is never sent</td><td>Functional suitability</td><td>live</td></tr>
+          <tr><td class="num">7</td><td>Whole application shipped as one 1.15 MB file — the landing page carried the admin console</td><td>Performance</td><td>live</td></tr>
+          <tr><td class="num">8</td><td>School logo shipped at 2048×2048, 1.7 MB, for a 56-pixel slot</td><td>Performance</td><td>live</td></tr>
+          <tr><td class="num">9</td><td>Analytics views re-ran correlated subqueries per row; cost grew as members × boards</td><td>Performance</td><td>live</td></tr>
+          <tr><td class="num">10</td><td><code>task_member_progress</code> lost <code>cap_pct</code> and <code>can_claim</code>, so the assignee picker offered a claim the database refuses — a student met an exception instead of a disabled option</td><td>Functional suitability</td><td><strong>live</strong></td></tr>
+          <tr><td class="num">11</td><td><code>task_board_overview</code> missing ten columns in the file that runs last — rebuilding from the documented order produced a database the app could not query</td><td>Maintainability</td><td>latent</td></tr>
+          <tr><td class="num">12</td><td><code>guard_task_assignee</code> lost the locked-project and handed-in checks to an older copy in a later file</td><td>Maintainability</td><td>latent</td></tr>
+          <tr><td class="num">13</td><td><code>guard_reassignment_request</code> lost the handed-in check the same way</td><td>Maintainability</td><td>latent</td></tr>
+          <tr><td class="num">14</td><td>Control borders at 1.95:1 (light) and 2.32:1 (dark) — WCAG 1.4.11 requires 3:1</td><td>Interaction</td><td><strong>live</strong></td></tr>
+          <tr><td class="num">15</td><td><code>focus:outline-none</code> on inputs removed the only focus indicator meeting 3:1</td><td>Interaction</td><td><strong>live</strong></td></tr>
+          <tr><td class="num">16</td><td>No focus trap: Tab walked out of every dialog into the page hidden behind it</td><td>Interaction</td><td><strong>live</strong></td></tr>
+          <tr><td class="num">17</td><td>Landing navbar pushed the menu icon off a 360 px screen, where it could not be tapped</td><td>Flexibility</td><td><strong>live</strong></td></tr>
+          <tr><td class="num">18</td><td>CSV exported timestamps as raw UTC <code>timestamptz</code>, which Excel stores as unsortable text</td><td>Compatibility</td><td>live</td></tr>
+        </tbody>
+      </table>
+
+      <p class="note">
+        All eighteen are fixed. Numbers 11 to 13 share one cause and are worth
+        singling out: several files define the same view or trigger function,
+        and whichever runs <em>last</em> wins. Three times that was the older
+        copy, silently undoing a newer one. <code>scripts/schema-drift.mjs</code>
+        now reports every such object and flags any whose last definition is
+        smaller than an earlier one.
+      </p>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char">
+      <header>
+        <p class="eyebrow">Characteristic 1</p>
+        <h2>Functional suitability</h2>
+      </header>
+      <p class="defn">
+        Completeness, correctness and appropriateness — does it do the tasks it
+        is meant to, and get them right?
+      </p>
+
+      <p>
+        The feature set is complete for what the product claims: classes and
+        syllabus weeks, group sets, projects on boards, fair-share task
+        claiming, submission and a professor's answer, four-layer analytics,
+        reports for both professor and student, and a program office console.
+      </p>
+
+      <h3>What was wrong</h3>
+      <p>
+        Two places where the interface and the database disagreed, which is the
+        failure mode that matters most here — the user is told one thing and the
+        system does another.
+      </p>
+      <ul>
+        <li>
+          <strong>The assignee picker offered claims the database refuses.</strong>
+          <code>task_member_progress</code> had lost <code>cap_pct</code> and
+          <code>can_claim</code> to an older redefinition, while three
+          components still read them. <code>can_claim ?? true</code> resolved to
+          <em>true</em> for everyone, so the fair-share ceiling was invisible
+          and the "share is full" hint could never appear. The rule itself never
+          lapsed — <code>guard_task_assignee</code> still raises — so a student
+          was refused by a database exception rather than by a greyed-out
+          option.
+        </li>
+        <li>
+          <strong>The pending-approval page promised an email</strong> that is
+          never sent, because outbound mail is not switched on. It now tells the
+          professor to sign in again to check.
+        </li>
+      </ul>
+
+      <p class="verdict fixed">Addressed. Both columns restored and asserted; the copy no longer promises what the system cannot do.</p>
+
+      <div class="repeat">
+        <span class="eyebrow">Verify</span>
+        <code>node scripts/db.mjs supabase/tests/deadline-lock.test.sql</code>
+        <span class="note">24 assertions, including the claim ceiling.</span>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char">
+      <header>
+        <p class="eyebrow">Characteristic 2</p>
+        <h2>Performance efficiency</h2>
+      </header>
+      <p class="defn">
+        Time behaviour, resource use and capacity, relative to what the system
+        is asked to do.
+      </p>
+
+      <h3>What a first-time visitor downloads</h3>
+      <table>
+        <thead><tr><th></th><th class="num">Before</th><th class="num">After</th></tr></thead>
+        <tbody>
+          <tr><td>JavaScript, as built</td><td class="num">1,150,275 B in 1 file</td><td class="num">split across 74 chunks</td></tr>
+          <tr><td>First visit, on the wire</td><td class="num">~333 KB</td><td class="num">219 KB</td></tr>
+          <tr><td>Files fetched on first visit</td><td class="num">2</td><td class="num">5</td></tr>
+          <tr><td>School logo</td><td class="num">1,718,585 B</td><td class="num">39,757 B</td></tr>
+          <tr><td><code>dist/</code> total</td><td class="num">2,953,103 B</td><td class="num">1,314,763 B</td></tr>
+        </tbody>
+      </table>
+
+      <p>
+        Thirty-three routes are loaded on demand, split by what changes together
+        rather than by size, so a deploy that changes one line of copy no longer
+        makes every returning student re-download React, Supabase and the
+        animation library. <strong>82,728 bytes of admin and analytics code are
+        never sent to a student at all.</strong>
+      </p>
+
+      <p>
+        The logo was larger than the entire application. It was resized by
+        <code>scripts/resize-png.mjs</code>, written for the purpose rather than
+        adding an image library for one file, and its output was checked against
+        the browser's own canvas downscale: mean channel difference 1.12 of 255,
+        worst case 3.
+      </p>
+
+      <h3>Query time, against the live database</h3>
+      <table>
+        <thead><tr><th>View</th><th class="num">Before</th><th class="num">After</th></tr></thead>
+        <tbody>
+          <tr><td><code>class_actions</code> — the prescriptive analytics band</td><td class="num">421.8 ms</td><td class="num">116 ms</td></tr>
+          <tr><td><code>class_participation</code></td><td class="num">133.2 ms</td><td class="num">8.9 ms</td></tr>
+          <tr><td><code>board_diagnosis</code></td><td class="num">91.9 ms</td><td class="num">4.5 ms</td></tr>
+          <tr><td><code>report_student_work</code></td><td class="num">58.2 ms</td><td class="num">30.9 ms</td></tr>
+        </tbody>
+      </table>
+
+      <p class="note">
+        <code>class_actions</code> is a median of five consecutive runs; 115–158 ms
+        was observed, the high end on a cold plan.
+      </p>
+
+      <p>
+        The cause was not missing indexes — those were already right, and 591
+        rows is not enough data to be slow. <code>explain analyze</code> showed
+        correlated lateral joins being re-executed per row:
+        <code>class_participation</code> re-scanned every board once per student
+        (320 loops), <code>board_diagnosis</code> had four laterals doing the
+        same per board, and <code>task_member_progress</code> ran a scalar
+        subquery per task — 1,640 index scans, 517 ms. All are grouped joins now.
+      </p>
+
+      <p>
+        <strong>The shape mattered more than the milliseconds.</strong> The cost
+        was growing as members × boards, which is unremarkable at 591 rows and
+        would not have been at a full cohort's.
+      </p>
+
+      <p class="note">
+        One rewrite measured <em>worse</em> and was reverted:
+        <code>distinct on</code> with a window count would not hash-join and ran
+        78 ms × 20 boards inside <code>class_actions</code>. A plain
+        <code>GroupAggregate</code> does hash-join. The reason is recorded in the
+        file so it is not attempted again.
+      </p>
+
+      <p class="verdict fixed">Addressed.</p>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char">
+      <header>
+        <p class="eyebrow">Characteristic 3</p>
+        <h2>Compatibility</h2>
+      </header>
+      <p class="defn">
+        Co-existence — sharing an environment without harming other software —
+        and interoperability, exchanging information other systems can use.
+      </p>
+
+      <h3>Interoperability: the CSV export</h3>
+      <p>
+        Reports export to CSV for Excel and Google Sheets. Verified against the
+        real function in a browser:
+      </p>
+      <table>
+        <tbody>
+          <tr><td>UTF-8 byte-order mark</td><td>present — Excel shows <em>Peña</em>, not <em>PeÃ±a</em></td></tr>
+          <tr><td>Line endings</td><td>CRLF, per RFC 4180</td></tr>
+          <tr><td>Quotes inside a field</td><td>doubled</td></tr>
+          <tr><td>Commas and newlines in a field</td><td>field quoted</td></tr>
+          <tr><td>Empty value</td><td>empty cell, not the word <code>null</code></td></tr>
+          <tr><td>Timestamps</td><td><code>2026-08-23 12:12</code>, local time</td></tr>
+        </tbody>
+      </table>
+
+      <p>
+        The timestamp was a defect. <code>submitted_at</code> went into the file
+        as the raw database value,
+        <code>2026-08-23T04:12:33.123456+00:00</code>. Excel and Sheets both
+        store that as text, so the column could not be sorted or filtered as a
+        date, and it read UTC rather than the Manila time the work was actually
+        handed in. It is now written in the one format both parse unprompted,
+        and which no regional setting can read backwards.
+      </p>
+
+      <h3>Print</h3>
+      <p>
+        Reports are meant to reach the program office on paper. The print
+        stylesheet sets A4, forces the light palette, removes the rail, header
+        and every control, flattens the scroll containers that fight pagination,
+        repeats table headers across pages and keeps rows from breaking. No
+        report sheet uses a coloured fill, so nothing depends on the reader
+        having "background graphics" switched on — a common way for a status
+        pill to print as white text on white paper.
+      </p>
+
+      <h3>Co-existence</h3>
+      <p>
+        Nothing is written to <code>window</code>. All four stored keys are
+        namespaced — <code>collabify.theme</code>,
+        <code>collabify.firstrun</code>, <code>collabify.nav.shut</code>,
+        <code>collabify.sidebar.collapsed</code> — so the app cannot collide with
+        anything else on the same origin.
+      </p>
+
+      <p class="verdict partial">
+        Partial. An actual print preview needs a signed-in professor and has not
+        been run; see the outstanding items.
+      </p>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char">
+      <header>
+        <p class="eyebrow">Characteristic 4</p>
+        <h2>Interaction capability</h2>
+      </header>
+      <p class="defn">
+        Recognisability, learnability, operability, user error protection,
+        engagement, inclusivity and user assistance.
+      </p>
+
+      <h3>Contrast, computed rather than judged</h3>
+      <p>
+        <code>scripts/contrast.mjs</code> reads the design tokens straight out of
+        the stylesheet and computes every text and control pair in both themes.
+        It found three genuine failures:
+      </p>
+      <table>
+        <thead><tr><th>Pair</th><th class="num">Before</th><th class="num">Required</th><th class="num">After</th></tr></thead>
+        <tbody>
+          <tr><td>Faint text on the page (light)</td><td class="num">4.34:1</td><td class="num">4.5</td><td class="num">4.54:1</td></tr>
+          <tr><td>Control border on a card (light)</td><td class="num">1.95:1</td><td class="num">3.0</td><td class="num">3.20:1</td></tr>
+          <tr><td>Control border on a card (dark)</td><td class="num">2.32:1</td><td class="num">3.0</td><td class="num">3.17:1</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Input fields took their resting border from the decorative hairline
+        token, so the fields were legible but their edges were not — which is
+        the whole of what WCAG 1.4.11 is about. A dedicated
+        <code>--control-line</code> token was solved for the worst background a
+        field actually sits on, not for white. <strong>Now 0 failing pairs in
+        both themes.</strong>
+      </p>
+
+      <h3>Keyboard</h3>
+      <ul>
+        <li>
+          <strong>Focus trap and focus restore</strong> in dialogs, the filter
+          popover and the mobile navigation drawer. Tab used to walk out of a
+          dialog and into the page behind it — invisible to a mouse user because
+          the backdrop covers it, but on a keyboard you end up typing into a form
+          you cannot see. Closing now hands focus back to the control that opened
+          it, so the next Tab continues instead of restarting at the top.
+        </li>
+        <li>
+          <strong>Two full-screen backdrops were focusable buttons</strong>
+          labelled "Close", so the first thing announced inside a dialog was a
+          control covering the entire viewport. They are inert now; the header
+          has a real close button and Escape works.
+        </li>
+        <li>
+          <strong><code>focus:outline-none</code> was removed</strong> from
+          inputs, selects and a task card. It had deleted the only indicator
+          meeting 3:1, leaving a ring at 12% opacity that does not.
+        </li>
+        <li>
+          <strong>A skip link is the first tab stop</strong> in the application
+          shell, on the landing page and in the auth layout, each landing on a
+          real focusable <code>#main-content</code>. The navigation rail is
+          thirty-odd links, and without it a keyboard user walked all of them
+          again on every page.
+        </li>
+        <li>
+          <strong>Escape closes the navigation drawer</strong>, as it already did
+          everywhere else.
+        </li>
+      </ul>
+
+      <h3>User assistance</h3>
+      <p>
+        A dismissible first-run panel gives each role the three things it needs
+        to know. An empty dashboard reads as broken rather than new — every panel
+        says "nothing yet" — so it explains what will fill it and what to do
+        first, then never appears again.
+      </p>
+
+      <p class="verdict fixed">Addressed.</p>
+
+      <div class="repeat">
+        <span class="eyebrow">Repeat</span>
+        <code>node scripts/contrast.mjs</code>
+        <code>node scripts/a11y-names.mjs</code>
+        <span class="note">0 failing pairs; 0 icon-only buttons without an accessible name.</span>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char">
+      <header>
+        <p class="eyebrow">Characteristic 5</p>
+        <h2>Reliability</h2>
+      </header>
+      <p class="defn">
+        Faultlessness, availability, fault tolerance and recoverability.
+      </p>
+
+      <ul>
+        <li>
+          <strong>An error boundary in two places.</strong> Around the whole
+          application, and — the one that matters — inside the shell around the
+          page content, so a page that throws leaves the rail, the header and the
+          way out alive. It says what failed in one sentence, offers
+          <em>Try again</em> and a link to the dashboard, and logs the real error
+          for whoever is debugging. It is keyed on the path, so navigating away
+          from a broken page clears it.
+        </li>
+        <li>
+          <strong>Retry on failure.</strong> Eight pages caught their fetch
+          errors and displayed them with no way forward but a manual reload.
+          The alert component now takes an <code>onRetry</code> and shows a
+          button.
+        </li>
+        <li>
+          <strong>An offline bar</strong> driven by the browser's own
+          connection events, saying plainly that changes will fail until the
+          connection returns. Campus wifi is the setting this runs in.
+        </li>
+        <li>
+          <strong>Recoverability is code.</strong> The whole schema rebuilds
+          from files, and that claim is now true — see Maintainability.
+        </li>
+      </ul>
+
+      <p class="verdict fixed">Addressed.</p>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char">
+      <header>
+        <p class="eyebrow">Characteristic 6</p>
+        <h2>Security</h2>
+      </header>
+      <p class="defn">
+        Confidentiality, integrity, non-repudiation, accountability and
+        authenticity.
+      </p>
+
+      <p>
+        This was the strongest characteristic before the exercise began and it
+        remains so. Access is enforced in the database, not in the interface:
+        <strong>77 row-level security policies</strong> across every table, with
+        <strong>52 triggers</strong> holding the rules that policies cannot
+        express.
+      </p>
+
+      <ul>
+        <li>
+          <code>role</code> and <code>status</code> are changeable only by the
+          program office, enforced by a trigger rather than by hiding a form
+          field.
+        </li>
+        <li>
+          Avatar uploads are scoped per user by storage policy.
+        </li>
+        <li>
+          The audit log records who changed a role, a status or a class, and no
+          policy permits editing or deleting an entry — not even for an
+          administrator. That is what makes it evidence.
+        </li>
+        <li>
+          Service-role keys and the database URL appear in no frontend code and
+          in no committed file.
+        </li>
+        <li>
+          Every claim above is asserted by impersonating real users inside
+          rolled-back transactions, so the tests prove the live rules rather
+          than a copy of them.
+        </li>
+      </ul>
+
+      <p class="verdict partial">
+        Partial — two items were examined and deliberately left, and are listed
+        as outstanding risks.
+      </p>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char">
+      <header>
+        <p class="eyebrow">Characteristic 7</p>
+        <h2>Maintainability</h2>
+      </header>
+      <p class="defn">
+        Modularity, reusability, analysability, modifiability and testability.
+      </p>
+
+      <h3>Where it is strong</h3>
+      <p>
+        <strong>379 assertions across 15 suites, all passing.</strong> They are
+        not unit tests of helper functions; they sign in as real users inside a
+        transaction, attempt the thing that should be refused, confirm it was,
+        then attempt the paired thing that should be allowed and confirm that
+        too. A rule that refused everything would fail them.
+      </p>
+
+      <h3>Where it was weak, and what it cost</h3>
+      <p>
+        The rebuild instructions were wrong. Several files redefine an object an
+        earlier file owns, and whichever runs last wins. Three times, that was
+        the older copy:
+      </p>
+      <table>
+        <thead><tr><th>Object</th><th>Winner</th><th>What was lost</th></tr></thead>
+        <tbody>
+          <tr><td><code>task_board_overview</code></td><td><code>dashboard.sql</code></td><td>ten columns, including <code>submitted_at</code> — the rebuilt database could not answer the application</td></tr>
+          <tr><td><code>guard_task_assignee</code></td><td><code>class-restore.sql</code></td><td>the locked-project and handed-in checks on claiming a task</td></tr>
+          <tr><td><code>guard_reassignment_request</code></td><td><code>reassignments.sql</code></td><td>the handed-in check</td></tr>
+        </tbody>
+      </table>
+      <p>
+        None of it showed in the live database, because the files had never been
+        run in the documented order against it. Each object now has a single
+        owner — the last file to define it, carrying every column and rule — and
+        the order runs end to end, twice, followed by all fifteen suites.
+      </p>
+
+      <p class="verdict open">
+        <strong>Open, deliberately.</strong> There are still no JavaScript
+        tests, no linter and no continuous integration. The four checkers this
+        exercise produced — <code>schema-drift.mjs</code>,
+        <code>contrast.mjs</code>, <code>a11y-names.mjs</code> and the SQL suites
+        — run only when someone remembers to run them. This was the one phase
+        skipped, and it is the largest remaining gap in the model.
+      </p>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char">
+      <header>
+        <p class="eyebrow">Characteristic 8</p>
+        <h2>Flexibility</h2>
+      </header>
+      <p class="defn">
+        Adaptability, scalability, installability and replaceability.
+      </p>
+
+      <h3>Adaptability: the browser floor</h3>
+      <p>
+        The stylesheet compiles down to modern colour functions. Counted in the
+        built CSS:
+      </p>
+      <table>
+        <thead><tr><th>Feature</th><th class="num">Uses</th><th>First supported in</th></tr></thead>
+        <tbody>
+          <tr><td><code>@property</code></td><td class="num">63</td><td>Chrome 85 · Safari 16.4 · <strong>Firefox 128</strong></td></tr>
+          <tr><td><code>color-mix()</code></td><td class="num">162</td><td><strong>Chrome 111</strong> · Safari 16.2 · Firefox 113</td></tr>
+          <tr><td><code>oklch()</code></td><td class="num">22</td><td>Chrome 111 · Safari 15.4 · Firefox 113</td></tr>
+        </tbody>
+      </table>
+      <p>
+        The floor is <strong>Chrome/Edge 111, Safari 16.4, Firefox 128</strong>,
+        now declared in <code>browserslist</code>. Below it the page does not
+        degrade — those functions fail to parse rather than falling back, so
+        every colour resolves to nothing and the page loads unreadable. A college
+        lab on a pinned browser had no way of knowing why. The page now checks
+        before booting and replaces itself with a plain sentence naming the
+        versions needed.
+      </p>
+
+      <h3>Screens</h3>
+      <table>
+        <thead><tr><th>Viewport</th><th>Page</th><th>Sideways scroll</th><th>Content past the edge</th></tr></thead>
+        <tbody>
+          <tr><td class="num">360 × 740</td><td>landing</td><td>no</td><td>none</td></tr>
+          <tr><td class="num">360 × 740</td><td>register, light</td><td>no</td><td>none</td></tr>
+          <tr><td class="num">768 × 1024</td><td>landing</td><td>no</td><td>none</td></tr>
+          <tr><td class="num">1024 × 800</td><td>landing</td><td>no</td><td>none</td></tr>
+          <tr><td class="num">1440 × 900</td><td>landing</td><td>no</td><td>none</td></tr>
+        </tbody>
+      </table>
+      <p>
+        One real fault was found at 360 px and fixed: the landing navigation
+        pushed the menu icon off the right edge, where it could not be tapped at
+        all. The cause is worth recording — the button component sets a display
+        utility in its own base class, and adding <code>hidden</code> alongside
+        it does nothing, because competing display utilities are resolved by
+        their order in the generated stylesheet, not by the order they are
+        written.
+      </p>
+
+      <h3>Scalability</h3>
+      <p>
+        The quadratic query shapes described under Performance were the real
+        scalability limit and are gone. What remains untested is behaviour at a
+        full cohort's data volume; today's database holds 591 rows.
+      </p>
+
+      <p class="verdict partial">
+        Partial. Adaptability is measured. Running a second program remains a
+        code change rather than configuration — the school's identity is a
+        constant — which is correct for the current scope and recorded here so it
+        is a decision rather than an oversight.
+      </p>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char">
+      <header>
+        <p class="eyebrow">Characteristic 9</p>
+        <h2>Safety</h2>
+      </header>
+      <p class="defn">
+        Operational constraint, risk identification, fail-safe behaviour,
+        hazard warning and safe integration — avoiding a state that puts people
+        or their work at unacceptable risk.
+      </p>
+
+      <p>
+        For a coursework system the hazard is losing a term's work. Nineteen
+        foreign keys cascade from the profiles table. Most of them should: a
+        person's own claims, votes, messages and settings have no meaning
+        without the person. Two did not delete the person's own rows — they
+        deleted everybody else's.
+      </p>
+
+      <table>
+        <thead><tr><th>Key</th><th>What one <code>DELETE</code> destroyed</th></tr></thead>
+        <tbody>
+          <tr><td><code>classes.professor_id</code></td><td>the class, its group sets, every project, board, task, comment, file and enrolment — on live data that is 1 class, 3 projects, 26 tasks and 16 enrolments, with no undo and no warning</td></tr>
+          <tr><td><code>projects.created_by</code></td><td>the project and all of its groups' boards and work</td></tr>
+        </tbody>
+      </table>
+
+      <p>
+        Both are <code>on delete restrict</code> now. The delete is refused while
+        the work exists, and the class must be handed over or archived first —
+        which is what the accounts page had always said in words while the
+        database quietly disagreed. There is no delete button for a professor in
+        the product, but the hosting dashboard has one, and a constraint holds
+        where a missing button does not.
+      </p>
+
+      <p>
+        A constraint that can never be satisfied is a trap rather than a
+        safeguard, so the way out is tested too: hand the class to somebody else
+        and the same delete succeeds. A second fault surfaced doing this — a
+        trigger was pinning the old author back onto tasks, so the professor
+        could not be deleted even after handing over. Fixed and asserted.
+      </p>
+
+      <p>
+        Alongside it: archiving is offered everywhere deleting is, every
+        destructive dialog names what will be lost in counts rather than asking
+        whether you are sure, and the audit log cannot be edited by anyone.
+      </p>
+
+      <p class="verdict fixed">Addressed.</p>
+
+      <div class="repeat">
+        <span class="eyebrow">Verify</span>
+        <code>node scripts/db.mjs supabase/tests/safety.test.sql</code>
+        <span class="note">The refusal, the survival of the work, the hand-over that succeeds, and the cascades that should still happen.</span>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char">
+      <header>
+        <p class="eyebrow">Section 3</p>
+        <h2>What is still outstanding</h2>
+      </header>
+
+      <p>
+        Nothing in this section is hidden in a footnote elsewhere. These are the
+        things a panel should ask about, listed so they can be answered rather
+        than discovered.
+      </p>
+
+      <h3>Decided against, by the owner</h3>
+      <table>
+        <thead><tr><th>Item</th><th>Risk</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>The Anthropic API key has not been rotated</td>
+            <td>A key that has been exposed should be replaced regardless of whether misuse is suspected. Until it is, the AI task-drafting feature is the one credential outside the guarantees made under Security.</td>
+          </tr>
+          <tr>
+            <td>Email confirmation is off; outbound mail is not switched on</td>
+            <td>Accounts are usable without a verified address, and the system cannot notify anyone of anything by email. The interface no longer promises that it will.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Not done in this exercise</h3>
+      <table>
+        <thead><tr><th>Item</th><th>Consequence</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>No JavaScript tests, linter or continuous integration</strong></td>
+            <td>Fifty-five pure functions across four modules — the ones computing what people read in analytics and reports — have no tests. The five checkers this exercise produced run only on request. This is the single largest gap against the model.</td>
+          </tr>
+          <tr>
+            <td>Safari, Firefox and a real Android device untested</td>
+            <td>One browser engine was available. It proves nothing about the other two. A matrix presented from a single engine would be a guess, so the rows are left blank in <code>docs/08-compatibility.md</code> with the exact steps to fill them.</td>
+          </tr>
+          <tr>
+            <td>No print preview of a real report</td>
+            <td>Reaching one needs a signed-in professor. The stylesheet is written and reviewed; it has not been put on paper.</td>
+          </tr>
+          <tr>
+            <td>Backup retention not confirmed</td>
+            <td>What the hosting plan actually retains, and whether point-in-time recovery is included, is a billing-tier property that has not been read from the dashboard. <code>docs/07-backup.md</code> holds a blank line for the answer.</td>
+          </tr>
+          <tr>
+            <td>No backup has ever been taken by hand</td>
+            <td>The client tools are not installed on the development machine, so no file size or duration can be quoted. A backup nobody has taken is a plan, not a backup.</td>
+          </tr>
+          <tr>
+            <td>Behaviour at cohort scale unmeasured</td>
+            <td>All timings are against 591 rows. The quadratic query shapes are fixed, which was the known limit, but the figures are small-data figures.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <section class="char">
+      <header>
+        <p class="eyebrow">Appendix</p>
+        <h2>Reproducing every figure</h2>
+      </header>
+
+      <p>
+        Nothing in this report requires trusting it. Each command prints the
+        numbers quoted above.
+      </p>
+
+      <table>
+        <thead><tr><th style="width: 62mm">Command</th><th>What it proves</th></tr></thead>
+        <tbody>
+          <tr><td><code>npm run build</code></td><td>Type-checks and builds; the chunk sizes under Performance are its output.</td></tr>
+          <tr><td><code>node scripts/contrast.mjs</code></td><td>Every contrast ratio in both themes. Exits non-zero on a failure.</td></tr>
+          <tr><td><code>node scripts/a11y-names.mjs</code></td><td>Icon-only buttons with no accessible name.</td></tr>
+          <tr><td><code>node scripts/schema-drift.mjs</code></td><td>Objects defined by more than one file, flagging any whose last definition shrank.</td></tr>
+          <tr><td><code>node scripts/db.mjs supabase/tests/*.test.sql</code></td><td>379 assertions against the live database, each rolled back.</td></tr>
+          <tr><td><code>node scripts/resize-png.mjs &lt;file&gt; &lt;px&gt;</code></td><td>The image downscaler, with its before and after byte counts.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Supporting documents in the repository</h3>
+      <table>
+        <tbody>
+          <tr><td><code>docs/07-backup.md</code></td><td>What is recoverable, the verified rebuild order, and what is not measured.</td></tr>
+          <tr><td><code>docs/08-compatibility.md</code></td><td>The browser floor, the tested viewports, and the matrix left for the owner to complete.</td></tr>
+          <tr><td><code>supabase/tests/</code></td><td>Fifteen suites. Every security and safety claim in this report resolves to one of them.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>A closing note on honesty</h3>
+      <p>
+        Two claims in earlier drafts of this work were wrong and are corrected
+        here: the stylesheet was said to have no focus styles when a global rule
+        already existed, and an early version of the accessible-name checker
+        reported fourteen failures that were all false. Both were found by
+        checking rather than by remembering. A quality report that never
+        corrects itself has not been checked either.
+      </p>
+    </section>
+  </body>
+</html>
