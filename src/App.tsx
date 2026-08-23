@@ -23,7 +23,10 @@ import Accounts from './pages/app/admin/Accounts'
 import AuditLog from './pages/app/admin/AuditLog'
 import Cohort from './pages/app/admin/Cohort'
 import Faculty from './pages/app/admin/Faculty'
+import Notices from './pages/app/admin/Notices'
 import ProgramClasses from './pages/app/admin/ProgramClasses'
+import ProgramLibrary from './pages/app/admin/ProgramLibrary'
+import Sections from './pages/app/admin/Sections'
 import ProfessorApprovals from './pages/app/admin/ProfessorApprovals'
 
 import ProfessorClasses from './pages/app/classes/ProfessorClasses'
@@ -123,6 +126,9 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route path="/admin" element={<AdminHome />} />
             <Route path="/admin/approvals" element={<ProfessorApprovals />} />
+            <Route path="/admin/notices" element={<Notices />} />
+            <Route path="/admin/sections" element={<Sections />} />
+            <Route path="/admin/library" element={<ProgramLibrary />} />
             <Route path="/admin/classes" element={<ProgramClasses />} />
             <Route path="/admin/faculty" element={<Faculty />} />
             <Route path="/admin/cohort" element={<Cohort />} />

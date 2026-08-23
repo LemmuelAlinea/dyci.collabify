@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { ProgramNotices } from '../../components/app/ProgramNotices'
 import { Reveal } from '../../components/motion/Reveal'
 import { AttentionList } from '../../components/dashboard/AttentionList'
 import { ClassProgress } from '../../components/dashboard/ClassProgress'
@@ -38,6 +39,10 @@ export default function ProfessorHome() {
           {greeting()}, {profile.first_name}.
         </h1>
       </Reveal>
+
+      <div className="mt-6">
+        <ProgramNotices />
+      </div>
 
       {error && (
         <div className="mt-6">

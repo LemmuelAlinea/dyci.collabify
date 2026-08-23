@@ -161,3 +161,46 @@ export function currentSchoolYear(rows: ProgramClass[]) {
   for (const c of rows) tally.set(c.school_year, (tally.get(c.school_year) ?? 0) + 1)
   return [...tally].sort((a, b) => b[1] - a[1] || b[0].localeCompare(a[0]))[0]?.[0] ?? ''
 }
+
+/* ------------------------------------------------------- what the office owns */
+
+/** program_notices: one notice to the whole program, with who sent it. */
+export type ProgramNotice = {
+  id: string
+  title: string
+  body: string
+  pinned: boolean
+  created_at: string
+  edited_at: string | null
+  author_id: string
+  author_name: string
+  author_avatar: string | null
+}
+
+/** program_sections: the cohort names the program actually runs. */
+export type ProgramSection = {
+  id: string
+  name: string
+  year_level: YearLevel
+  school_year: string
+  adviser_id: string | null
+  archived_at: string | null
+  created_at: string
+}
+
+/** program_section_overview: the same, with what is running in it. */
+export type SectionOverview = Omit<ProgramSection, 'created_at'> & {
+  section_id: string
+  adviser_name: string | null
+  classes: number
+  professors: number
+  students: number
+}
+
+/**
+ * Folded the way `public.section_key` folds it, so the page groups a cohort the
+ * same way the database does. Spacing and dashes are the whole problem: BSIT 3A
+ * and BSIT-3A were two cohorts before the registry existed.
+ */
+export const sectionKey = (name: string) =>
+  name.toLowerCase().replace(/[\s\-_]/g, '')

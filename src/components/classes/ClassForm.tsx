@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { listSections } from '../../lib/api/program'
+import { listProgramResources } from '../../lib/api/resources'
+import type { ProgramSection } from '../../lib/program'
 import { Alert, Field, Input } from '../ui/Field'
 import { Select, Textarea } from '../ui/Select'
 import { SCHOOL_YEARS, SEMESTERS, YEAR_LEVELS } from '../../lib/types'
@@ -38,10 +41,32 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
   const [description, setDescription] = useState(defaults?.description ?? '')
   const [syllabusId, setSyllabusId] = useState(defaults?.syllabus_id ?? '')
   const [curriculumId, setCurriculumId] = useState(defaults?.curriculum_id ?? '')
+  const [sections, setSections] = useState<ProgramSection[]>([])
+  const [published, setPublished] = useState<TeachingResource[]>([])
+
+  // The program office keeps the list of sections. Until it has one, the field
+  // stays free text — a professor cannot be blocked from making a class because
+  // nobody has filled in a registry yet.
+  useEffect(() => {
+    void listSections()
+      .then(setSections)
+      .catch(() => setSections([]))
+    // What the program office has published is attachable exactly like a
+    // professor's own — the same table, so the same id goes in syllabus_id.
+    void Promise.all([listProgramResources('syllabus'), listProgramResources('curriculum')])
+      .then(([a, b]) => setPublished([...a, ...b]))
+      .catch(() => setPublished([]))
+  }, [])
 
   useEffect(() => {
     if (!initialTouched) setInitial(suggestInitial(name))
   }, [name, initialTouched])
+
+  // Offer the sections of this year level first; a 3rd-year class listing every
+  // 1st-year section is how the wrong one gets picked.
+  const forLevel = sections.filter(
+    (x) => x.year_level === yearLevel && (!schoolYear || x.school_year === schoolYear),
+  )
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -58,8 +83,13 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
     })
   }
 
-  const asOptions = (rows: TeachingResource[]) =>
-    rows.map((r) => ({ value: r.id, label: r.title }))
+  const asOptions = (rows: TeachingResource[], kind?: 'syllabus' | 'curriculum') => [
+    ...rows.map((r) => ({ value: r.id, label: r.title })),
+    ...published
+      .filter((r) => (kind ? r.kind === kind : true))
+      .filter((r) => !rows.some((own) => own.id === r.id))
+      .map((r) => ({ value: r.id, label: `Program · ${r.title}` })),
+  ]
 
   return (
     <form id={formId} onSubmit={submit} className="space-y-4">
@@ -96,16 +126,41 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
             />
           )}
         </Field>
-        <Field label="Section">
-          {(id) => (
-            <Input
-              id={id}
-              required
-              value={section}
-              onChange={(e) => setSection(e.target.value)}
-              placeholder="BSIT-4A"
-            />
-          )}
+        <Field
+          label="Section"
+          hint={
+            sections.length === 0 ? (
+              <span className="text-[12px] text-faint">Free text until the program sets its sections</span>
+            ) : undefined
+          }
+        >
+          {(id) =>
+            sections.length === 0 ? (
+              <Input
+                id={id}
+                required
+                value={section}
+                onChange={(e) => setSection(e.target.value)}
+                placeholder="BSIT-4A"
+              />
+            ) : (
+              <Select
+                id={id}
+                required
+                value={section}
+                onChange={(e) => setSection(e.target.value)}
+                placeholder="Pick a section"
+                options={[
+                  ...forLevel.map((x) => ({ value: x.name, label: x.name })),
+                  // A class already written under a name the registry never had
+                  // must still be editable without silently changing its cohort.
+                  ...(section && !sections.some((x) => x.name === section)
+                    ? [{ value: section, label: `${section} (not on the list)` }]
+                    : []),
+                ]}
+              />
+            )
+          }
         </Field>
       </div>
 
@@ -170,9 +225,11 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
               id={id}
               value={syllabusId ?? ''}
               onChange={(e) => setSyllabusId(e.target.value)}
-              options={asOptions(syllabi)}
-              placeholder={syllabi.length ? 'No syllabus' : 'Upload one in Syllabi first'}
-              disabled={syllabi.length === 0}
+              options={asOptions(syllabi, 'syllabus')}
+              placeholder={
+                asOptions(syllabi, 'syllabus').length ? 'No syllabus' : 'Upload one in Syllabi first'
+              }
+              disabled={asOptions(syllabi, 'syllabus').length === 0}
             />
           )}
         </Field>
@@ -190,9 +247,13 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
               id={id}
               value={curriculumId ?? ''}
               onChange={(e) => setCurriculumId(e.target.value)}
-              options={asOptions(curricula)}
-              placeholder={curricula.length ? 'No curriculum' : 'Upload one in Curriculum first'}
-              disabled={curricula.length === 0}
+              options={asOptions(curricula, 'curriculum')}
+              placeholder={
+                asOptions(curricula, 'curriculum').length
+                  ? 'No curriculum'
+                  : 'Upload one in Curriculum first'
+              }
+              disabled={asOptions(curricula, 'curriculum').length === 0}
             />
           )}
         </Field>

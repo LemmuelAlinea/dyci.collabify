@@ -65,6 +65,8 @@ export type TeachingResource = {
   file_name: string
   size_bytes: number
   uploaded_at: string
+  /** Published by the program office, and readable by every professor. */
+  program_wide?: boolean
   /** Syllabi only: how far the week map has got. */
   parse_status?: ParseStatus
   parsed_at?: string | null

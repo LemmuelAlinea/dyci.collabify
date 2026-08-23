@@ -12,6 +12,7 @@ import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import {
   deleteResource,
+  listProgramResources,
   listResources,
   resourceUrl,
   uploadResource,
@@ -31,7 +32,20 @@ type Copy = {
   titlePlaceholder: string
 }
 
-export function ResourceLibrary({ kind, copy }: { kind: ResourceKind; copy: Copy }) {
+export function ResourceLibrary({
+  kind,
+  copy,
+  /**
+   * The program office's shelf rather than a professor's own. Uploads are
+   * published to everybody, and the page lists what has been published rather
+   * than what this person owns.
+   */
+  programWide = false,
+}: {
+  kind: ResourceKind
+  copy: Copy
+  programWide?: boolean
+}) {
   const { profile } = useAuth()
   const { show } = useToast()
 
@@ -44,6 +58,16 @@ export function ResourceLibrary({ kind, copy }: { kind: ResourceKind; copy: Copy
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  // What the program office published. Read-only here: a professor attaches one
+  // to a class from the class form, and only the chair can change it.
+  const [published, setPublished] = useState<TeachingResource[]>([])
+
+  useEffect(() => {
+    if (programWide) return
+    void listProgramResources(kind)
+      .then(setPublished)
+      .catch(() => setPublished([]))
+  }, [kind, programWide])
 
   useEffect(() => {
     document.title = `${copy.title} · Collabify`
@@ -52,13 +76,13 @@ export function ResourceLibrary({ kind, copy }: { kind: ResourceKind; copy: Copy
   const load = useCallback(async () => {
     if (!profile) return
     try {
-      setItems(await listResources(profile.id, kind))
+      setItems(programWide ? await listProgramResources(kind) : await listResources(profile.id, kind))
       setLoadError(null)
     } catch (err) {
       setLoadError(authErrorMessage(err, `Could not load your ${copy.title.toLowerCase()}.`))
       setItems([])
     }
-  }, [profile, kind, copy.title])
+  }, [profile, kind, copy.title, programWide])
 
   useEffect(() => {
     void load()
@@ -79,7 +103,7 @@ export function ResourceLibrary({ kind, copy }: { kind: ResourceKind; copy: Copy
     setFormError(null)
     setBusy(true)
     try {
-      await uploadResource({ professorId: profile.id, kind, title, file })
+      await uploadResource({ professorId: profile.id, kind, title, file, programWide })
       setAddOpen(false)
       resetForm()
       show(`${copy.titleLabel} uploaded`)
@@ -115,6 +139,34 @@ export function ResourceLibrary({ kind, copy }: { kind: ResourceKind; copy: Copy
 
       <div className="mt-8">
         {loadError && <Alert tone="error">{loadError}</Alert>}
+
+        {published.length > 0 && (
+          <section className="mb-6 space-y-2">
+            <p className="eyebrow text-faint">From the program office</p>
+            <p className="max-w-[620px] text-[13px] text-muted">
+              Published for the whole program. Attach one to a class from the class settings
+              and every section of the subject runs the same one.
+            </p>
+            <ul className="space-y-1.5">
+              {published.map((r) => (
+                <li
+                  key={r.id}
+                  className="surface flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line px-3.5 py-2.5"
+                >
+                  <Icon name="file" size={15} className="shrink-0 text-faint" />
+                  <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{r.title}</span>
+                  <button
+                    type="button"
+                    onClick={() => void open(r)}
+                    className="shrink-0 text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+                  >
+                    Open
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {items === null ? (
           <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">

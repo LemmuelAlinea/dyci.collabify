@@ -95,9 +95,11 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
       title: 'Program',
       items: [
         { label: 'Dashboard', icon: 'board', to: '/admin' },
+        { label: 'Notices', icon: 'bell', to: '/admin/notices' },
         { label: 'Professor approvals', icon: 'shield', to: '/admin/approvals' },
         { label: 'Accounts', icon: 'users', to: '/admin/accounts' },
-        { label: 'Sections', icon: 'folder', soon: true },
+        { label: 'Sections', icon: 'folder', to: '/admin/sections' },
+        { label: 'Library', icon: 'file', to: '/admin/library' },
       ],
     },
     {

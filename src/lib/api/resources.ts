@@ -14,11 +14,31 @@ export async function listResources(professorId: string, kind: ResourceKind) {
   return (data ?? []) as TeachingResource[]
 }
 
+/**
+ * What the program office has published, for everybody.
+ *
+ * A professor attaches one of these to a class exactly as they would their own:
+ * it is the same table and the same id, which is why `classes.syllabus_id` and
+ * the week map needed no change at all.
+ */
+export async function listProgramResources(kind: ResourceKind) {
+  const { data, error } = await supabase
+    .from('teaching_resources')
+    .select('*')
+    .eq('kind', kind)
+    .eq('program_wide', true)
+    .order('uploaded_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as TeachingResource[]
+}
+
 export async function uploadResource(input: {
   professorId: string
   kind: ResourceKind
   title: string
   file: File
+  /** Only an admin may set this; a trigger refuses anybody else. */
+  programWide?: boolean
 }) {
   const safeName = input.file.name.replace(/[^\w.\-]+/g, '_')
   const path = `${input.professorId}/${input.kind}/${Date.now()}-${safeName}`
@@ -37,6 +57,7 @@ export async function uploadResource(input: {
       file_path: path,
       file_name: input.file.name,
       size_bytes: input.file.size,
+      program_wide: input.programWide ?? false,
     })
     .select('*')
     .single()
