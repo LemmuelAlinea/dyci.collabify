@@ -2,7 +2,8 @@ import { useEffect } from 'react'
 import { Navbar } from '../components/landing/Navbar'
 import { Hero } from '../components/landing/Hero'
 import { Features } from '../components/landing/Features'
-import { HowItWorks } from '../components/landing/HowItWorks'
+import { Flow } from '../components/landing/Flow'
+import { Boundaries } from '../components/landing/Boundaries'
 import { ForRoles } from '../components/landing/ForRoles'
 import { CTA } from '../components/landing/CTA'
 import { Footer } from '../components/landing/Footer'
@@ -17,9 +18,10 @@ export default function Landing() {
       <Navbar />
       <main>
         <Hero />
+        <Flow />
         <Features />
-        <HowItWorks />
         <ForRoles />
+        <Boundaries />
         <CTA />
       </main>
       <Footer />

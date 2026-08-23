@@ -1,37 +1,51 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { Icon } from '../ui/Icon'
 
-type Card = { title: string; meta: string; tint?: 'amber' | 'plain' }
+/**
+ * The board, as it really looks.
+ *
+ * The columns are the three task states the product has, the meta lines are the
+ * things a card really carries — who holds it, when it is due, whether it went
+ * in late — and the strip underneath is the share of the board each member
+ * holds, which is the figure the whole fair-share rule exists to keep honest.
+ *
+ * It used to show a defense-milestone timeline. There are no milestones, so
+ * there is no timeline.
+ */
+type Card = { title: string; meta: string; tint?: 'amber' | 'late' | 'plain' }
 
 const COLUMNS: { name: string; count: string; cards: Card[] }[] = [
   {
-    name: 'Backlog',
+    name: 'To do',
     count: '4',
     cards: [
-      { title: 'Chapter 4 — results', meta: 'Due Sep 2' },
-      { title: 'Usability test, 10 users', meta: 'Unassigned' },
+      { title: 'Fit the input distribution', meta: 'Unclaimed · due Fri' },
+      { title: 'Write the summary', meta: 'Unclaimed' },
     ],
   },
   {
     name: 'In progress',
-    count: '3',
+    count: '2',
     cards: [
-      { title: 'Auth + role guard', meta: 'Rhea · today', tint: 'amber' },
-      { title: 'ERD + data dictionary', meta: 'Miguel · Fri' },
+      { title: 'Collect the input data', meta: 'Bianca · started Mon', tint: 'amber' },
+      { title: 'Build the ERD', meta: 'Miguel · started Tue' },
     ],
   },
   {
-    name: 'For review',
-    count: '2',
-    cards: [{ title: 'System proposal', meta: 'Adviser review' }],
+    name: 'Done',
+    count: '5',
+    cards: [
+      { title: 'Conceptual model', meta: 'Ann · finished Aug 19' },
+      { title: 'Problem statement', meta: 'Handed in late', tint: 'late' },
+    ],
   },
 ]
 
-const MILESTONES = [
-  { label: 'Title defense', done: true },
-  { label: 'Proposal', done: true },
-  { label: 'Sprint 3', done: false, current: true },
-  { label: 'Final defense', done: false },
+/** Held share of the board, the way task_member_progress computes it. */
+const SHARE = [
+  { name: 'Ann', pct: 42 },
+  { name: 'Bianca', pct: 33 },
+  { name: 'Miguel', pct: 25 },
 ]
 
 export function BoardPreview() {
@@ -67,12 +81,12 @@ export function BoardPreview() {
       <div className="mb-4 flex items-center justify-between gap-3 px-1">
         <div className="min-w-0">
           <p className="truncate font-display text-[15px] font-semibold text-white">
-            IT Capstone 2 · Group 4
+            Project Milestone 2 · Group 1
           </p>
-          <p className="eyebrow mt-1 text-white/45">Sprint 3 · 6 days left</p>
+          <p className="eyebrow mt-1 text-white/45">Weeks 5–6 · due in 6 days</p>
         </div>
         <div className="flex -space-x-2">
-          {['RM', 'MC', 'JD'].map((i, n) => (
+          {['AD', 'BD', 'MS'].map((i, n) => (
             <span
               key={i}
               className="grid h-8 w-8 place-items-center rounded-full border-2 border-navy-700 text-[11px] font-semibold text-navy-900"
@@ -99,11 +113,19 @@ export function BoardPreview() {
                   className={`rounded-xl border p-2.5 ${
                     c.tint === 'amber'
                       ? 'border-amber-400/45 bg-amber-400/12'
-                      : 'border-white/10 bg-white/8'
+                      : c.tint === 'late'
+                        ? 'border-red-400/40 bg-red-400/10'
+                        : 'border-white/10 bg-white/8'
                   }`}
                 >
                   <p className="text-[12px] leading-snug font-medium text-white">{c.title}</p>
-                  <p className="mt-1.5 truncate text-[10.5px] text-white/45">{c.meta}</p>
+                  <p
+                    className={`mt-1.5 truncate text-[10.5px] ${
+                      c.tint === 'late' ? 'text-red-200/80' : 'text-white/45'
+                    }`}
+                  >
+                    {c.meta}
+                  </p>
                 </motion.div>
               ))}
             </div>
@@ -111,40 +133,41 @@ export function BoardPreview() {
         ))}
       </motion.div>
 
-      {/* Milestone spine — the through-line from title defense to final defense. */}
+      {/* Who is carrying it. The bar is the share of the board's weight each
+          member holds — the number the claim limit is enforced against. */}
       <div className="mt-4 rounded-2xl bg-navy-950/28 px-3.5 py-3.5">
-        <div className="relative flex items-start justify-between">
-          <div aria-hidden className="absolute top-[7px] right-2 left-2 h-px bg-white/12" />
-          <motion.div
-            aria-hidden
-            className="absolute top-[7px] left-2 h-px bg-amber-400"
-            initial={reduce ? undefined : { width: 0 }}
-            animate={reduce ? undefined : { width: 'calc(66% - 8px)' }}
-            transition={{ duration: 1.1, delay: 1.15, ease: [0.22, 1, 0.36, 1] }}
-          />
-          {MILESTONES.map((m) => (
-            <div key={m.label} className="relative flex min-w-0 flex-1 flex-col items-center">
-              <span
-                className={`grid h-3.5 w-3.5 place-items-center rounded-full ring-4 ring-navy-800 ${
-                  m.done
-                    ? 'bg-amber-400'
-                    : m.current
-                      ? 'bg-amber-400/30 outline-2 outline-amber-400'
-                      : 'bg-white/25'
-                }`}
-              >
-                {m.done && <Icon name="check" size={9} className="text-navy-900" strokeWidth={3.5} />}
-              </span>
-              <span
-                className={`mt-2 truncate px-0.5 text-center text-[10px] ${
-                  m.current ? 'font-semibold text-amber-400' : 'text-white/45'
-                }`}
-              >
-                {m.label}
-              </span>
-            </div>
+        <div className="flex items-center justify-between">
+          <span className="eyebrow text-white/55">Share of the board</span>
+          <span className="flex items-center gap-1.5 text-[10.5px] text-white/45">
+            <Icon name="users" size={12} />3 members
+          </span>
+        </div>
+
+        <div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-white/10">
+          {SHARE.map((s, n) => (
+            <motion.span
+              key={s.name}
+              className="block h-full"
+              style={{ background: ['#F0B429', '#F7C74A', '#FBD982'][n] }}
+              initial={reduce ? undefined : { width: 0 }}
+              animate={reduce ? undefined : { width: `${s.pct}%` }}
+              transition={{ duration: 0.9, delay: 1.05 + n * 0.12, ease: [0.22, 1, 0.36, 1] }}
+            />
           ))}
         </div>
+
+        <ul className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1">
+          {SHARE.map((s, n) => (
+            <li key={s.name} className="flex items-center gap-1.5 text-[10.5px] text-white/50">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ background: ['#F0B429', '#F7C74A', '#FBD982'][n] }}
+              />
+              {s.name}
+              <span className="font-mono text-white/35">{s.pct}%</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   )

@@ -4,10 +4,15 @@ import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import { BoardPreview } from './BoardPreview'
 
+/**
+ * Three things that are true at sign-up. "Email confirmation" used to be here
+ * and is not: no mail is sent yet, and a landing page is the worst place to
+ * promise one.
+ */
 const TRUST: { icon: IconName; label: string }[] = [
   { icon: 'checkCircle', label: 'Google sign-in' },
-  { icon: 'mail', label: 'Email confirmation' },
-  { icon: 'shield', label: 'Adviser-approved accounts' },
+  { icon: 'shield', label: 'Professors approved by the program' },
+  { icon: 'lock', label: 'A class is private to the people in it' },
 ]
 
 export function Hero() {
@@ -53,18 +58,18 @@ export function Hero() {
               {...rise(0.1)}
               className="mt-6 text-[clamp(2.6rem,7.2vw,4.6rem)] leading-[0.98] font-extrabold"
             >
-              Capstone teams that
+              Group work with
               <br className="hidden sm:block" />{' '}
-              <span className="text-amber-400">ship on schedule</span>.
+              <span className="text-amber-400">an owner and a date</span>.
             </motion.h1>
 
             <motion.p
               {...rise(0.18)}
               className="mt-6 max-w-[540px] text-[clamp(1rem,1.5vw,1.18rem)] leading-relaxed text-white/72"
             >
-              One workspace for proposals, sprint boards, task hand-offs, and defense
-              milestones — so students know what's next and advisers can see it without
-              asking.
+              A term's coursework on boards that hang off the syllabus. Students claim
+              their share and hand in; professors see why a group is behind, not only that
+              it is.
             </motion.p>
 
             <motion.div {...rise(0.26)} className="mt-9 flex flex-wrap items-center gap-3">

@@ -5,8 +5,8 @@ const GROUPS = [
   {
     title: 'Product',
     links: [
-      { label: 'Features', to: '/#features' },
-      { label: 'How it works', to: '/#how' },
+      { label: 'How the work moves', to: '/#how' },
+      { label: 'What is inside', to: '/#features' },
       { label: 'For roles', to: '/#roles' },
     ],
   },
@@ -28,8 +28,8 @@ export function Footer() {
           <div>
             <Logo tone="brand" subtitle="Project workspace" />
             <p className="mt-5 max-w-[320px] text-[14.5px] leading-relaxed text-muted">
-              A project workspace built for BSIT capstone teams and the professors advising
-              them.
+              Coursework for BSIT programs: boards that hang off the syllabus, work with an
+              owner, and a professor's answer at the end of it.
             </p>
           </div>
           {GROUPS.map((g) => (
@@ -52,7 +52,7 @@ export function Footer() {
         </div>
         <div className="mt-12 flex flex-col gap-3 border-t border-line pt-7 text-[13px] text-faint sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Collabify. Built for BSIT programs in the Philippines.</p>
-          <p className="font-mono text-[11.5px] tracking-wide">v0.1 · Phase 1</p>
+          <p className="font-mono text-[11.5px] tracking-wide">No grades are recorded here</p>
         </div>
       </div>
     </footer>

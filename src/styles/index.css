@@ -201,6 +201,17 @@
   }
 }
 
+/* The landing page's word strip. Paused entirely under reduced motion, which
+   the block below takes care of by killing every animation on the page. */
+@keyframes collabify-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

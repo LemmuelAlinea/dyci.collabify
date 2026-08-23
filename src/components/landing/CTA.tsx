@@ -15,10 +15,11 @@ export function CTA() {
           />
           <div className="relative mx-auto max-w-[620px]">
             <h2 className="text-[clamp(2rem,4.6vw,3.2rem)] leading-[1.03]">
-              Start the semester <span className="text-amber-400">already organized</span>.
+              Start the term <span className="text-amber-400">with the work visible</span>.
             </h2>
             <p className="mt-5 text-[17px] leading-relaxed text-white/70">
-              Create your account, set up your group, and put the whole capstone on one board.
+              Students sign in and start claiming. Professors set the first project against a
+              syllabus week. Nothing else to configure.
             </p>
             <div className="mt-9 flex flex-wrap justify-center gap-3">
               <ButtonLink to="/register" variant="accent" size="lg">

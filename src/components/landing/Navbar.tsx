@@ -6,8 +6,8 @@ import { Icon } from '../ui/Icon'
 import { ThemeToggle } from '../ThemeToggle'
 
 const LINKS = [
-  { href: '#features', label: 'Features' },
   { href: '#how', label: 'How it works' },
+  { href: '#features', label: 'What is inside' },
   { href: '#roles', label: 'For roles' },
 ]
 
