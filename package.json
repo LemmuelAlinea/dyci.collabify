@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "check": "npm run typecheck && npm run lint && npm run test && node scripts/contrast.mjs && node scripts/a11y-names.mjs && node scripts/schema-drift.mjs"
+    "check": "npm run typecheck && npm run lint && npm run test && node scripts/contrast.mjs && node scripts/a11y-names.mjs && node scripts/schema-drift.mjs",
+    "docs": "node scripts/report-pdf.mjs && node scripts/report-pdf.mjs docs/evaluation-questionnaire.html && node scripts/questionnaire-docx.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.58.0",
@@ -28,6 +29,7 @@
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.2",
     "@vitest/coverage-v8": "^4.1.11",
+    "docx": "^9.7.1",
     "dotenv": "^17.2.2",
     "eslint": "^10.9.0",
     "eslint-plugin-react-hooks": "^7.1.1",

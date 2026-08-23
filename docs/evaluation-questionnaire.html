@@ -10,14 +10,17 @@
         @bottom-right { content: counter(page); }
       }
 
+      /* Black only: printed on a mono photocopier, and a validator's pen
+         marks read against it. Bands stay a light grey rather than white so
+         table headers are still distinguishable when the colour is gone. */
       :root {
-        --ink: #14183a;
-        --muted: #4a5478;
-        --faint: #6b7396;
-        --line: #c9cfe0;
-        --line-strong: #8e97b5;
-        --navy: #26327a;
-        --band: #eef1f9;
+        --ink: #000000;
+        --muted: #000000;
+        --faint: #3a3a3a;
+        --line: #000000;
+        --line-strong: #000000;
+        --navy: #000000;
+        --band: #e8e8e8;
       }
 
       * { box-sizing: border-box; }
