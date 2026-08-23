@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import { ThemeSync } from './components/ThemeSync'
 import { AppShell } from './components/app/AppShell'
+import { ErrorBoundary } from './components/app/ErrorBoundary'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 
 import Landing from './pages/Landing'
@@ -52,7 +53,10 @@ import MyTasks from './pages/app/tasks/MyTasks'
 
 export default function App() {
   return (
-    <>
+    // The outer net. The shell has its own boundary around the page area, which
+    // catches almost everything and keeps the navigation; this one is for what
+    // escapes that — a failure in the shell itself, or on a page outside it.
+    <ErrorBoundary home="/">
       <ThemeSync />
       <Routes>
         <Route path="/" element={<Landing />} />
@@ -139,6 +143,6 @@ export default function App() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </>
+    </ErrorBoundary>
   )
 }

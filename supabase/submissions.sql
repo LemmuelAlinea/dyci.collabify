@@ -109,9 +109,27 @@ begin
   if auth.uid() is null or public.is_board_professor(old.board_id) then
     -- Service role, or the professor: only the immutable columns are pinned.
     new.board_id   := old.board_id;
-    new.created_by := old.created_by;
     new.created_at := old.created_at;
     new.late       := old.late;
+
+    -- `created_by` is immutable too, with one exception that took a delete to
+    -- find. The column is `on delete set null`, so removing an account nulls it
+    -- wherever that person authored a task — but this trigger fires on that
+    -- update and pinned the old value straight back, leaving a row pointing at
+    -- a profile the same statement was deleting. The delete then failed with a
+    -- foreign key error naming project_tasks, and no professor who had ever set
+    -- a task could be removed at all, however carefully their classes were
+    -- handed over.
+    --
+    -- The referential action is the only thing that nulls this column while the
+    -- author no longer exists, which is exactly how to tell it apart from a
+    -- client trying to rewrite authorship.
+    if new.created_by is not null
+       or old.created_by is null
+       or exists (select 1 from public.profiles p where p.id = old.created_by) then
+      new.created_by := old.created_by;
+    end if;
+
     return new;
   end if;
 

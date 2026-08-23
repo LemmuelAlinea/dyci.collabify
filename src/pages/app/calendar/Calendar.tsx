@@ -122,7 +122,7 @@ export default function Calendar() {
         </p>
       </header>
 
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 rounded-lg surface-sunken p-0.5">

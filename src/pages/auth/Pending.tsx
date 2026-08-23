@@ -32,8 +32,9 @@ export default function Pending() {
             </>
           ) : (
             <>
-              You'll get an email the moment it's approved. Adviser tools stay locked until
-              then — this keeps student groups visible only to verified faculty.
+              Sign in again to check — the moment the program office approves you, this
+              page becomes your dashboard. Teaching tools stay locked until then, which is
+              what keeps a class visible only to the faculty who run it.
             </>
           )}
         </Alert>

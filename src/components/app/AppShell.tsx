@@ -5,6 +5,7 @@ import { Logo, LogoMark } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
 import { ThemeToggle } from '../ThemeToggle'
 import { Avatar } from './Avatar'
+import { ErrorBoundary } from './ErrorBoundary'
 import { NotificationBell } from './NotificationBell'
 import { navFor } from './nav'
 import { useAuth } from '../../context/AuthContext'
@@ -316,6 +317,44 @@ function AccountMenu() {
   )
 }
 
+/**
+ * A bar that appears when the connection drops.
+ *
+ * Everything in this product is a round trip to Supabase, so offline is not a
+ * degraded experience, it is a broken one: claims fail, hand-ins fail, and the
+ * only clue is an error message that reads as though the app is at fault. This
+ * says which it is, and disappears by itself.
+ */
+function OfflineBar() {
+  const [offline, setOffline] = useState(
+    () => typeof navigator !== 'undefined' && navigator.onLine === false,
+  )
+
+  useEffect(() => {
+    const on = () => setOffline(false)
+    const off = () => setOffline(true)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => {
+      window.removeEventListener('online', on)
+      window.removeEventListener('offline', off)
+    }
+  }, [])
+
+  if (!offline) return null
+
+  return (
+    <div
+      role="status"
+      className="flex items-center justify-center gap-2 bg-amber-400 px-4 py-2 text-center text-[13px] font-medium text-navy-900"
+    >
+      <Icon name="alert" size={15} className="shrink-0" />
+      You are offline. Collabify will keep showing what it already loaded, but nothing you
+      change will save until the connection is back.
+    </div>
+  )
+}
+
 const COLLAPSE_KEY = 'collabify.sidebar.collapsed'
 
 export function AppShell() {
@@ -384,6 +423,8 @@ export function AppShell() {
       {/* clip, not hidden: a wide table can still scroll inside its own box,
           but nothing drags the whole page sideways on a phone. */}
       <div className="flex min-w-0 flex-col overflow-x-clip">
+        <OfflineBar />
+
         <header className="surface sticky top-0 z-40 border-b border-line">
           <div className="flex h-[70px] items-center justify-between gap-3 px-4 md:px-7">
             <div className="flex min-w-0 items-center gap-2">
@@ -412,7 +453,17 @@ export function AppShell() {
         </header>
 
         <main className="flex-1 px-4 py-7 md:px-7 md:py-9">
-          <Outlet />
+          {/* Inside the shell rather than around it: a page that throws leaves
+              the rail, the header and the way out alive. Keyed on the path so
+              navigating away from a broken page clears the error — otherwise
+              the boundary would hold its failure over every page after it. */}
+          <ErrorBoundary
+            key={location.pathname}
+            scope="This page"
+            home={roleHome(profile?.role, profile?.status)}
+          >
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

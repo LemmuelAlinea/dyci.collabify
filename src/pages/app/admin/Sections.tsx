@@ -125,7 +125,7 @@ export default function Sections() {
         </p>
       </header>
 
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
       <section className="surface rounded-card border border-line p-5 shadow-card">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_auto_1fr_1fr_auto] lg:items-end">

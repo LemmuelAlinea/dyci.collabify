@@ -52,7 +52,7 @@ export default function Analytics() {
         </p>
       </header>
 
-      {data.error && <Alert tone="error">{data.error}</Alert>}
+      {data.error && <Alert tone="error" onRetry={data.reload}>{data.error}</Alert>}
 
       <FilterChain
         scope={scope}

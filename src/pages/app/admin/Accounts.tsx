@@ -114,7 +114,7 @@ export default function Accounts() {
         </p>
       </header>
 
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
       <p className="flex items-start gap-2 rounded-xl surface-sunken px-4 py-3 text-[13px] leading-relaxed text-muted">
         <Icon name="info" size={15} className="mt-0.5 shrink-0" />

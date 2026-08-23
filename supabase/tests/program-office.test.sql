@@ -128,6 +128,11 @@ do $$
 declare
   v_admin uuid := (select v from fx where k='admin');
 begin
+  -- The live database may already have a pinned notice — somebody pinned one
+  -- through the page. Clear it inside this transaction so the assertion is
+  -- about the constraint rather than about what happens to be pinned today.
+  update public.program_announcements set pinned = false where pinned;
+
   perform pg_temp.act_as(v_admin);
   perform pg_temp.must_allow('one notice can be pinned',
     format('insert into public.program_announcements (author_id, title, body, pinned)

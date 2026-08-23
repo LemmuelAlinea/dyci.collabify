@@ -290,7 +290,22 @@ export default function ProfessorClassDetail() {
           navigate('/professor/classes')
         }}
         title={`Delete ${cls.name} for good?`}
-        body="The class, its roster, and every announcement are destroyed. This cannot be undone."
+        // It said "the class, its roster, and every announcement", which is
+        // less than half of what the cascade actually takes. A warning that
+        // understates the loss is worse than none: it is read and believed.
+        body={
+          <>
+            Everything in this class is destroyed and cannot be recovered — the roster of{' '}
+            <strong className="text-ink">
+              {cls.student_count} {cls.student_count === 1 ? 'student' : 'students'}
+            </strong>
+            , every announcement, and <strong className="text-ink">every project in it</strong>{' '}
+            with all of its groups' boards, tasks, comments and files.
+            <br />
+            <br />
+            Archiving takes it out of everybody's way and keeps all of it.
+          </>
+        }
         confirmLabel="Delete permanently"
       />
     </div>

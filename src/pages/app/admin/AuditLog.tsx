@@ -114,7 +114,7 @@ export default function AuditLog() {
         </p>
       </header>
 
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
       {/* Said plainly, because an admin should know the limit of their own view. */}
       <p className="flex items-start gap-2 rounded-xl surface-sunken px-4 py-3 text-[13px] leading-relaxed text-muted">

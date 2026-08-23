@@ -100,7 +100,7 @@ export default function ProfessorApprovals() {
         </p>
       </header>
 
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
       <section className="space-y-3">
         <h2 className="text-[16px]">
