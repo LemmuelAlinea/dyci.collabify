@@ -8,7 +8,7 @@ import type { useAnalytics } from '../useAnalytics'
 
 function Tile({ value, label, tone }: { value: number | string; label: string; tone?: 'warn' }) {
   return (
-    <div className="surface rounded-card border border-line px-4 py-3 shadow-card">
+    <div className="surface rounded-card border border-line px-3 py-2.5 shadow-card sm:px-4 sm:py-3">
       <p
         className={`font-mono text-[19px] ${
           tone === 'warn' && value !== 0 ? 'text-red-600 dark:text-red-400' : 'text-ink'

@@ -46,7 +46,7 @@ export function ParticipationList({ rows }: { rows: Participation[] }) {
 
 function Figure({ value, total, label }: { value: number; total: number; label: string }) {
   return (
-    <div className="surface rounded-card border border-line px-4 py-3 shadow-card">
+    <div className="surface rounded-card border border-line px-3 py-2.5 shadow-card sm:px-4 sm:py-3">
       <p className="font-mono text-[19px] text-ink">
         {value}
         <span className="text-[13px] text-faint">/{total}</span>

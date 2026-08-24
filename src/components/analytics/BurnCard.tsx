@@ -33,7 +33,7 @@ export function BurnCard({ burn }: { burn: BoardBurn }) {
   }[tone]
 
   return (
-    <li className={`surface rounded-card border p-4 shadow-card ${border}`}>
+    <li className={`surface rounded-card border p-3 shadow-card sm:p-4 ${border}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="eyebrow">{burn.project_title}</p>

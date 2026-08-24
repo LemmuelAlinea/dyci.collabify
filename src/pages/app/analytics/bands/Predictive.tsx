@@ -44,7 +44,7 @@ export function Predictive({ data }: { data: ReturnType<typeof useAnalytics> }) 
       ) : (
         <div className="space-y-3">
           <h3 className="text-[15px] text-ink">Board by board, slowest first</h3>
-          <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3">
             {(all ? atRisk : atRisk.slice(0, SHOWN)).map((b) => (
               <BurnCard key={b.board_id} burn={b} />
             ))}

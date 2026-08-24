@@ -38,7 +38,7 @@ export function ActionList({ actions }: { actions: Action[] }) {
         {shown.map((a) => (
           <li
             key={a.key}
-            className={`surface rounded-card border p-4 shadow-card ${
+            className={`surface rounded-card border p-3 shadow-card sm:p-4 ${
               a.severity === 1
                 ? 'border-red-200 dark:border-red-500/30'
                 : a.severity === 2

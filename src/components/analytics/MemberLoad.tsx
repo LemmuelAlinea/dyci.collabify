@@ -39,7 +39,7 @@ export function MemberLoad({ rows }: { rows: Load[] }) {
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid gap-3 sm:gap-5 lg:grid-cols-2">
       <Column
         title="Carrying a group"
         hint={`Holding ${CARRYING_ALONE_PCT}% or more of a board on their own.`}

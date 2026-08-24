@@ -9,6 +9,16 @@ import {
 } from '../../lib/types'
 import type { BoardSummary, ProjectSummary } from '../../lib/types'
 
+/**
+ * The date, without the day-and-time stamp. Two of these cards fit across a
+ * phone, and at 174px "Due in 3 days · Aug 27, 4:17 PM" wraps onto three lines
+ * — which is more of the card than the deadline deserves. The stamp is still
+ * there from `sm` up, where there is room for it.
+ */
+export function dueLabelShort(iso: string | null) {
+  return dueLabel(iso).split(' · ')[0]
+}
+
 export function dueLabel(iso: string | null) {
   if (!iso) return 'No deadline'
   const due = new Date(iso)
@@ -105,13 +115,20 @@ export function ProjectCard({
 
       {showClass && (
         <p className="mt-0.5 truncate text-[11.5px] text-muted sm:mt-1 sm:text-[12px]">
-          {project.class_initial} · {project.class_name}
-          {project.group_set_name ? ` · ${project.group_set_name}` : ''}
+          {/* The initial is the part that identifies the class at a glance;
+              the full name and the group set are what push this line past the
+              width of a half-screen card. */}
+          {project.class_initial}
+          <span className="hidden sm:inline">
+            {' · '}
+            {project.class_name}
+            {project.group_set_name ? ` · ${project.group_set_name}` : ''}
+          </span>
         </p>
       )}
 
       {project.week_assessments && (
-        <p className="mt-2 line-clamp-1 flex gap-1.5 text-[11.5px] leading-snug text-amber-700 sm:mt-3 sm:line-clamp-2 sm:text-[12.5px] dark:text-amber-300">
+        <p className="mt-2 hidden gap-1.5 text-[11.5px] leading-snug text-amber-700 sm:mt-3 sm:line-clamp-2 sm:flex sm:text-[12.5px] dark:text-amber-300">
           <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
           {project.week_assessments}
         </p>
@@ -125,9 +142,11 @@ export function ProjectCard({
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11.5px]">
             <span className="text-muted">
               {across.boards} {across.boards === 1 ? 'board' : 'boards'} ·{' '}
-              {across.submitted} handed in
-              {across.accepted > 0 && ` · ${across.accepted} accepted`}
-              {across.returned > 0 && ` · ${across.returned} returned`}
+              {across.submitted} in
+              <span className="hidden sm:inline">
+                {across.accepted > 0 && ` · ${across.accepted} accepted`}
+                {across.returned > 0 && ` · ${across.returned} returned`}
+              </span>
             </span>
             <span className="font-mono text-faint">{across.pct}%</span>
           </div>
@@ -201,13 +220,16 @@ export function ProjectCard({
           }`}
         >
           <Icon name="clock" size={13} />
-          {dueLabel(project.due_at)}
+          <span className="sm:hidden">{dueLabelShort(project.due_at)}</span>
+          <span className="hidden sm:inline">{dueLabel(project.due_at)}</span>
         </span>
-        <span className="flex items-center gap-1.5">
+        {/* Whether it is group work, and what it is out of, are answered on the
+            project itself. On a half-screen card they cost two more lines. */}
+        <span className="hidden items-center gap-1.5 sm:flex">
           <Icon name={project.audience === 'group' ? 'users' : 'user'} size={13} />
           {project.audience === 'group' ? 'Group' : 'Individual'}
         </span>
-        <span className="font-mono text-faint">{project.total_points} pts</span>
+        <span className="hidden font-mono text-faint sm:inline">{project.total_points} pts</span>
       </div>
     </Link>
   )

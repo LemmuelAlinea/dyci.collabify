@@ -46,32 +46,37 @@ export function GroupCard({
   return (
     <Link
       to={to}
-      className={`group surface flex flex-col rounded-card border p-4 sm:p-5 shadow-card transition-[transform,box-shadow,border-color] duration-250 hover:-translate-y-0.5 hover:shadow-lift ${
+      className={`group surface flex flex-col rounded-card border p-3.5 shadow-card transition-[transform,box-shadow,border-color] duration-250 hover:-translate-y-0.5 hover:shadow-lift sm:p-5 ${
         highlight ? 'border-amber-300 dark:border-amber-400/50' : 'border-line hover:border-line-strong'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-2 sm:gap-3">
         <div className="min-w-0">
-          <h3 className="truncate text-[17px] leading-snug">{group.name}</h3>
-          <p className="mt-1 truncate text-[12px] text-muted">
-            {className} · {group.set_name}
+          <h3 className="line-clamp-2 text-[14px] leading-snug sm:truncate sm:text-[17px]">
+            {group.name}
+          </h3>
+          <p className="mt-0.5 truncate text-[11px] text-muted sm:mt-1 sm:text-[12px]">
+            {className}
+            {/* The set name repeats down a whole column of these; it is the
+                first thing to go when the card is half a screen wide. */}
+            <span className="hidden sm:inline"> · {group.set_name}</span>
           </p>
         </div>
         <CapacityPill count={group.member_count} limit={group.member_limit} />
       </div>
 
-      <div className="mt-4 flex min-h-[30px] items-center">
+      <div className="mt-2.5 flex min-h-[26px] items-center sm:mt-4 sm:min-h-[30px]">
         {members.length === 0 ? (
           <span className="text-[12.5px] text-faint">No members yet</span>
         ) : (
           <div className="flex">
             {faces.map((m) => (
               <span key={m.student_id} className="-ml-2 first:ml-0 rounded-full ring-2 ring-[var(--surface)]">
-                <Avatar profile={m.profile} size={30} />
+                <Avatar profile={m.profile} size={26} />
               </span>
             ))}
             {overflow > 0 && (
-              <span className="-ml-2 grid h-[30px] w-[30px] place-items-center rounded-full surface-sunken text-[11px] font-semibold text-muted ring-2 ring-[var(--surface)]">
+              <span className="-ml-2 grid h-[26px] w-[26px] place-items-center rounded-full surface-sunken text-[10.5px] font-semibold text-muted ring-2 ring-[var(--surface)]">
                 +{overflow}
               </span>
             )}
@@ -79,7 +84,7 @@ export function GroupCard({
         )}
       </div>
 
-      <div className="mt-4 h-1 overflow-hidden rounded-full surface-sunken">
+      <div className="mt-2.5 h-1 overflow-hidden rounded-full surface-sunken sm:mt-4">
         <div
           className="h-full rounded-full bg-amber-400 transition-[width] duration-300"
           style={{ width: `${pct}%` }}
@@ -87,18 +92,26 @@ export function GroupCard({
       </div>
 
       {work && work.projects > 0 && (
-        <div className="mt-3 border-t border-line pt-3">
-          <p className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[12px] text-muted">
-            <span className="flex items-center gap-1.5">
-              <Icon name="kanban" size={13} className="text-faint" />
-              {work.projects} {work.projects === 1 ? 'project' : 'projects'}
+        <div className="mt-2.5 border-t border-line pt-2.5 sm:mt-3 sm:pt-3">
+          {/* One line at any width: on a phone it reads "3 · 14/24", which is
+              what the icon and the bar underneath are already labelling. */}
+          <p className="flex items-center justify-between gap-2 text-[11.5px] text-muted sm:gap-x-3 sm:text-[12px]">
+            <span className="flex min-w-0 items-center gap-1.5">
+              <Icon name="kanban" size={13} className="shrink-0 text-faint" />
+              {work.projects}
+              <span className="hidden sm:inline">
+                {work.projects === 1 ? 'project' : 'projects'}
+              </span>
               {work.tasks > 0 && (
-                <span className="text-faint">
-                  · {work.done}/{work.tasks} tasks
+                <span className="truncate text-faint">
+                  · {work.done}/{work.tasks}
+                  <span className="hidden sm:inline"> tasks</span>
                 </span>
               )}
             </span>
-            {work.tasks > 0 && <span className="font-mono text-faint">{work.pct}%</span>}
+            {work.tasks > 0 && (
+              <span className="shrink-0 font-mono text-faint">{work.pct}%</span>
+            )}
           </p>
           {work.tasks > 0 && (
             <span className="mt-1.5 block h-1 overflow-hidden rounded-full surface-sunken">
@@ -112,8 +125,8 @@ export function GroupCard({
       )}
 
       {highlight && (
-        <p className="mt-3 flex items-center gap-1.5 text-[12px] font-medium text-amber-600 dark:text-amber-300">
-          <Icon name="check" size={14} strokeWidth={2.6} />
+        <p className="mt-2.5 flex items-center gap-1.5 text-[11.5px] font-medium text-amber-600 sm:mt-3 sm:text-[12px] dark:text-amber-300">
+          <Icon name="check" size={14} strokeWidth={2.6} className="shrink-0" />
           Your group
         </p>
       )}
