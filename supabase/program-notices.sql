@@ -23,6 +23,21 @@
  *
  * It carries no attachment. A class announcement takes files because coursework
  * needs them; a program notice that needs a file needs a class.
+ *
+ * **A notice is visible for 24 hours and then it is not.** The program office
+ * announces things that are true for a day — classes suspended, a defense
+ * moved, a deadline the registrar shifted — and a dashboard that still carries
+ * last month's suspension teaches everybody to stop reading the section. The
+ * window is enforced by `program_notices` rather than by the pages, so there is
+ * no view of the product where an old notice is still on somebody's dashboard.
+ *
+ * The clock runs from `created_at`, not from `updated_at`: editing a notice
+ * that has already gone corrects the record, it does not re-announce it. To
+ * say a thing again, say it again.
+ *
+ * Nothing is deleted. `program_notices_all` keeps every notice for the chair,
+ * because "what did the office announce last term" is a real question and the
+ * answer should not be "whatever is still inside the window".
  */
 
 begin;
@@ -45,8 +60,16 @@ create index if not exists program_announcements_recent_idx
 
 -- One pinned notice at a time. Two things at the top of everybody's dashboard
 -- is neither of them being the important one.
+--
+-- Pinning orders the notices inside the 24-hour window; it does not exempt one
+-- from it. A pin that outlived the window would be the one stale notice on
+-- every dashboard, which is the thing the window exists to prevent.
 create unique index if not exists program_announcements_one_pin
   on public.program_announcements ((true)) where pinned;
+
+-- The window filter reads this; the index above leads with `pinned`.
+create index if not exists program_announcements_live_idx
+  on public.program_announcements (created_at desc);
 
 alter table public.program_announcements enable row level security;
 
@@ -106,6 +129,14 @@ create trigger program_announcements_notify after insert on public.program_annou
  */
 drop view if exists public.program_notices;
 
+/**
+ * What is on a dashboard right now: the last 24 hours, newest first, pinned
+ * before the rest.
+ *
+ * The window lives here and not in the pages that read it. A page could forget
+ * it, a second page could implement it differently, and neither would be
+ * visible until somebody noticed a month-old notice on a student's dashboard.
+ */
 create view public.program_notices
 with (security_barrier = true) as
 select a.id,
@@ -118,9 +149,46 @@ select a.id,
        btrim(p.first_name || ' ' || p.last_name) as author_name,
        p.avatar_url as author_avatar
   from public.program_announcements a
-  join public.profiles p on p.id = a.author_id;
+  join public.profiles p on p.id = a.author_id
+ where a.created_at > now() - interval '24 hours';
 
 revoke all on public.program_notices from anon;
 grant select on public.program_notices to authenticated;
+
+-- ------------------------------------------------------------- the record
+
+drop view if exists public.program_notices_all;
+
+/**
+ * Every notice the office has ever sent, for the office alone.
+ *
+ * The chair needs this to answer "what did we announce, and when" and to take
+ * down something posted in error after its day has passed. `expired` says which
+ * side of the window a notice is on, so the console can show what is live now
+ * without recomputing the rule and getting it slightly different.
+ *
+ * `security_barrier` for the same reason as above — the chair shares a class
+ * with nobody, so reading `profiles` as the caller returns nothing. The gate is
+ * `is_admin()` in the where clause, and it is the only thing standing between
+ * this and everybody, so it does not move.
+ */
+create view public.program_notices_all
+with (security_barrier = true) as
+select a.id,
+       a.title,
+       a.body,
+       a.pinned,
+       a.created_at,
+       a.edited_at,
+       a.author_id,
+       btrim(p.first_name || ' ' || p.last_name) as author_name,
+       p.avatar_url as author_avatar,
+       (a.created_at <= now() - interval '24 hours') as expired
+  from public.program_announcements a
+  join public.profiles p on p.id = a.author_id
+ where public.is_admin();
+
+revoke all on public.program_notices_all from anon;
+grant select on public.program_notices_all to authenticated;
 
 commit;

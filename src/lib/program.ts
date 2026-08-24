@@ -164,6 +164,14 @@ export function currentSchoolYear(rows: ProgramClass[]) {
 
 /* ------------------------------------------------------- what the office owns */
 
+/**
+ * How long a program notice stays on a dashboard.
+ *
+ * The database is what enforces it — `program_notices` carries the same
+ * interval. This constant exists so the pages can *say* the rule, not apply it.
+ */
+export const NOTICE_HOURS = 24
+
 /** program_notices: one notice to the whole program, with who sent it. */
 export type ProgramNotice = {
   id: string
@@ -176,6 +184,13 @@ export type ProgramNotice = {
   author_name: string
   author_avatar: string | null
 }
+
+/**
+ * program_notices_all: the office's own record, including notices whose day has
+ * passed. `expired` comes from the view rather than being recomputed here, so
+ * the console and the dashboard cannot disagree about where the line is.
+ */
+export type ProgramNoticeRecord = ProgramNotice & { expired: boolean }
 
 /** program_sections: the cohort names the program actually runs. */
 export type ProgramSection = {

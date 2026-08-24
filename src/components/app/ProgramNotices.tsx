@@ -7,12 +7,17 @@ import { momentLabel } from '../../lib/report'
 const SHOWN = 2
 
 /**
- * What the program office has said, on everybody's dashboard.
+ * What the program office has said in the last 24 hours.
  *
- * A pinned notice sits at the top and stays there; the rest are folded away
- * behind a line, because a dashboard that opens on six announcements is a
- * dashboard nobody reads. Nothing here is dismissible per person — a notice the
- * chair took down is gone for everyone, and one they left up is still current.
+ * The window is the view's, not this component's — `program_notices` stops at
+ * it, so there is no page anywhere that can show a stale one. That also means
+ * this list empties itself: a notice nobody took down still leaves, and the
+ * section disappears with the last of them.
+ *
+ * A pinned notice sits at the top of whatever is inside the window; the rest
+ * fold away behind a line, because a dashboard that opens on six announcements
+ * is a dashboard nobody reads. Nothing here is dismissible per person — what is
+ * on this list is current for everyone.
  */
 export function ProgramNotices() {
   const [rows, setRows] = useState<ProgramNotice[]>([])
@@ -30,7 +35,7 @@ export function ProgramNotices() {
 
   return (
     <section className="space-y-2">
-      <p className="eyebrow text-faint">From the program office</p>
+      <p className="eyebrow text-faint">From the program office · last 24 hours</p>
       <ul className="space-y-2">
         {shown.map((n) => (
           <li

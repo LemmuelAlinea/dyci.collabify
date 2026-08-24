@@ -77,7 +77,7 @@ const STEPS: Record<Role, { heading: string; steps: Step[] }> = {
       {
         icon: 'bell',
         title: 'Announcements reach the whole program',
-        body: 'Unlike a class announcement, these show for every student and professor in BSIT. Pin the one that has to stay at the top.',
+        body: 'Unlike a class announcement, these show for every student and professor in BSIT — and only for 24 hours, so the dashboards stay current. Send it again if it still matters.',
       },
     ],
   },

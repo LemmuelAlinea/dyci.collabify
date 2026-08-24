@@ -1,5 +1,10 @@
 import { supabase } from '../supabase'
-import type { ProgramNotice, ProgramSection, SectionOverview } from '../program'
+import type {
+  ProgramNotice,
+  ProgramNoticeRecord,
+  ProgramSection,
+  SectionOverview,
+} from '../program'
 import type { YearLevel } from '../types'
 
 /**
@@ -11,6 +16,7 @@ import type { YearLevel } from '../types'
 
 /* -------------------------------------------------------------- notices */
 
+/** What is on a dashboard now. The 24-hour window is applied by the view. */
 export async function listNotices() {
   const { data, error } = await supabase
     .from('program_notices')
@@ -19,6 +25,21 @@ export async function listNotices() {
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as ProgramNotice[]
+}
+
+/**
+ * Every notice ever sent, for the chair's console only — the view refuses
+ * everybody else. Ordered so what is still live comes first.
+ */
+export async function listAllNotices() {
+  const { data, error } = await supabase
+    .from('program_notices_all')
+    .select('*')
+    .order('expired', { ascending: true })
+    .order('pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as ProgramNoticeRecord[]
 }
 
 export async function postNotice(input: { title: string; body: string; pinned: boolean }) {

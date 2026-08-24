@@ -11,7 +11,7 @@
 import { existsSync, rmSync, mkdtempSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const CANDIDATES = [
@@ -40,7 +40,7 @@ const NAMES = {
 
 const arg = process.argv[2] ?? 'docs/iso-25010-report.html'
 const src = resolve(arg)
-const stem = arg.replace(/.*[\/]/, '').replace(/\.html$/, '')
+const stem = basename(arg, '.html')
 const out = resolve('docs', `${NAMES[stem] ?? stem}.pdf`)
 if (!existsSync(src)) {
   console.error(`Missing ${src}`)
