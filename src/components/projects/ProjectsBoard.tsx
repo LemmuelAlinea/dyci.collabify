@@ -185,7 +185,7 @@ export function ProjectsBoard({
           }
         />
       ) : (
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 xl:grid-cols-3 max-sm:[&>*:only-child]:col-span-2">
           {shown.map((p) => (
             <ProjectCard
               key={p.id}

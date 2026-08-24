@@ -141,7 +141,7 @@ export default function ProfessorClasses() {
             }
           />
         ) : (
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-3 max-sm:[&>*:only-child]:col-span-2">
             {classes.map((c) => (
               <ClassCard key={c.id} cls={c} to={`/professor/classes/${c.id}`} />
             ))}
