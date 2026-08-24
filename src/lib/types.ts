@@ -149,9 +149,15 @@ export type AppNotification = {
     | 'task_assigned'
     | 'reassign_requested'
     | 'reassign_decided'
+    | 'result_recorded'
+    | 'deadline_soon'
+    | 'comment_posted'
+    | 'weekly_digest'
   class_id: string | null
   announcement_id: string | null
   project_id: string | null
+  task_id: string | null
+  group_id: string | null
   title: string
   preview: string | null
   read_at: string | null

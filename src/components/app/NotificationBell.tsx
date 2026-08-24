@@ -84,6 +84,12 @@ export function NotificationBell() {
       navigate(`${base}/projects/${n.project_id}`)
     } else if (n.class_id) {
       navigate(profile.role === 'admin' ? base : `${base}/classes/${n.class_id}`)
+    } else if (n.type === 'weekly_digest' && profile.role === 'student') {
+      // The digest is about everything at once, so it has no one project to
+      // open. My tasks is the page it is a summary of. Only students have it.
+      navigate('/student/tasks')
+    } else {
+      navigate(base)
     }
   }
 

@@ -14,36 +14,45 @@ import { supabase } from '../lib/supabase'
 import { ROLE_LABEL } from '../lib/types'
 import type { NotificationKey, NotificationPrefs, ThemeMode } from '../lib/types'
 
+/**
+ * Each of these controls something real, and the wording says which.
+ *
+ * They did not always. Three of the six were wired to nothing at all and a
+ * fourth was reading the wrong switch, so "Deadline reminders" was a control
+ * that changed no behaviour in either position. `supabase/notifications.sql`
+ * put a trigger or a scheduled job behind each one; the copy here is what it
+ * actually does now, not what it sounded like it should.
+ */
 const NOTIFICATIONS: { key: NotificationKey; label: string; body: string }[] = [
   {
     key: 'task_assignments',
     label: 'Task assignments',
-    body: 'When a task is assigned to you, or handed to someone else.',
+    body: 'When a task on one of your boards is given to you.',
   },
   {
     key: 'deadline_reminders',
     label: 'Deadline reminders',
-    body: 'A nudge before a task or milestone is due, not after it slipped.',
+    body: 'One nudge the day before a task you hold is due. Never twice for the same task.',
   },
   {
     key: 'comments_mentions',
-    label: 'Comments and mentions',
-    body: 'When someone replies to your thread or tags you by name.',
+    label: 'Comments',
+    body: 'When somebody writes on a task you hold, or one you have written on yourself.',
   },
   {
     key: 'project_invites',
-    label: 'Project invites',
-    body: 'When you are added to a group or assigned as its adviser.',
+    label: 'Groups and new projects',
+    body: 'When you are placed in a group, when a group is made final, and when a project opens to you.',
   },
   {
     key: 'progress_digest',
     label: 'Weekly progress digest',
-    body: 'A Monday summary of what moved last week and what is due next.',
+    body: 'Monday morning: what you finished last week, what is due next, and anything past its date.',
   },
   {
     key: 'announcements',
-    label: 'Program announcements',
-    body: 'Notices sent by your program admin to the whole cohort.',
+    label: 'Announcements',
+    body: 'Notices from your class, and from the program office to everybody.',
   },
 ]
 

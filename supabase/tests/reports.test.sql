@@ -255,30 +255,44 @@ declare
   v_prof uuid := (select v from fx where k='prof');
   r public.report_week_coverage%rowtype;
   v_new uuid;
+  v_empty_week int;
 begin
   perform pg_temp.act_as(v_prof);
   select * into r from public.report_week_coverage where class_id = v_class and week_no = 3;
   perform pg_temp.must_be('a covered week names the project against it',
     r.project_count >= 1 and r.project_titles like '%zz-report-group%');
 
-  select * into r from public.report_week_coverage where class_id = v_class and week_no = 8;
+  /**
+   * Whichever week actually has nothing against it, rather than week 8.
+   *
+   * This borrows a live class, and somebody set a real project across week 8
+   * during the term — so a hard-coded week number asserts about today's data
+   * rather than about the view. Asking the view for an empty week keeps the
+   * assertion about the rule.
+   */
+  select * into r from public.report_week_coverage
+   where class_id = v_class and project_count = 0
+   order by week_no limit 1;
   perform pg_temp.must_be('an uncovered week reports nothing against it',
-    r.project_count = 0 and r.project_titles = '');
+    r.week_no is not null and r.project_count = 0 and r.project_titles = '');
   perform pg_temp.must_be('...and still prints what the syllabus asked for',
     length(btrim(r.title)) > 0);
   perform pg_temp.act_as_service();
 
-  -- The control: set something against that week and the same row fills in.
+  -- The control: set something against that same empty week and the row fills.
+  v_empty_week := r.week_no;
+
   insert into public.projects
     (class_id, created_by, title, type, start_week, end_week, audience, due_at)
-  values (v_class, (select v from fx where k='prof'), 'zz-report-week8', 'activity',
-          8, 8, 'individual', now() + interval '20 days')
+  values (v_class, (select v from fx where k='prof'), 'zz-report-gap', 'activity',
+          v_empty_week, v_empty_week, 'individual', now() + interval '20 days')
   returning id into v_new;
 
   perform pg_temp.act_as(v_prof);
-  select * into r from public.report_week_coverage where class_id = v_class and week_no = 8;
+  select * into r from public.report_week_coverage
+   where class_id = v_class and week_no = v_empty_week;
   perform pg_temp.must_be('setting a project against it closes the gap',
-    r.project_count = 1 and r.project_titles = 'zz-report-week8');
+    r.project_count = 1 and r.project_titles = 'zz-report-gap');
   perform pg_temp.act_as_service();
 end $$;
 
