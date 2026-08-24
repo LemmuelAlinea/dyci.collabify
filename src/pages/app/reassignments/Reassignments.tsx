@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { Link } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
 import { Alert } from '../../../components/ui/Field'
@@ -55,6 +56,8 @@ export default function Reassignments() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['task_reassignments', 'task_assignees', 'project_tasks'])
 
   const pending = useMemo(() => (rows ?? []).filter((r) => r.status === 'pending'), [rows])
   const settled = useMemo(() => (rows ?? []).filter((r) => r.status !== 'pending'), [rows])

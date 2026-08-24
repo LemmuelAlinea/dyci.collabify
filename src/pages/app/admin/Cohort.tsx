@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import type { ReactNode } from 'react'
 import { Alert } from '../../../components/ui/Field'
 import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
@@ -31,19 +32,23 @@ export default function Cohort() {
   const [year, setYear] = useState('')
   const [semester, setSemester] = useState('')
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const data = await programClasses()
-        setRows(data)
-        setYear((y) => y || currentSchoolYear(data))
-        setError(null)
-      } catch (err) {
-        setError(authErrorMessage(err, 'Could not load the cohorts.'))
-        setRows([])
-      }
-    })()
+  const load = useCallback(async () => {
+    try {
+      const data = await programClasses()
+      setRows(data)
+      setYear((y) => y || currentSchoolYear(data))
+      setError(null)
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not load the cohorts.'))
+      setRows([])
+    }
   }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  useLive(load, ['classes', 'class_members', 'projects', 'project_boards', 'project_tasks', 'syllabus_weeks'])
 
   const all = useMemo(() => rows ?? [], [rows])
   const shown = useMemo(

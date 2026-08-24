@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from '../../hooks/useLive'
 import { Button } from '../ui/Button'
 import { Alert, Field } from '../ui/Field'
 import { Icon, Spinner } from '../ui/Icon'
@@ -58,6 +59,8 @@ export function BoardVerdict({
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['board_results', 'project_boards'])
 
   const isProfessor = role === 'professor'
   const submitted = Boolean(board.submitted_at)

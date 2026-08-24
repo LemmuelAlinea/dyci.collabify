@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { PaceCard } from '../../../components/analytics/PaceCard'
 import { Alert } from '../../../components/ui/Field'
 import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
@@ -39,19 +40,23 @@ export default function ProgramClasses() {
   const [professor, setProfessor] = useState('')
   const [state, setState] = useState<State>('')
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const data = await programClasses()
-        setRows(data)
-        setYear((y) => y || currentSchoolYear(data))
-        setError(null)
-      } catch (err) {
-        setError(authErrorMessage(err, 'Could not load the program.'))
-        setRows([])
-      }
-    })()
+  const load = useCallback(async () => {
+    try {
+      const data = await programClasses()
+      setRows(data)
+      setYear((y) => y || currentSchoolYear(data))
+      setError(null)
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not load the program.'))
+      setRows([])
+    }
   }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  useLive(load, ['classes', 'class_members', 'projects', 'project_boards', 'project_tasks', 'syllabus_weeks'])
 
   const all = useMemo(() => rows ?? [], [rows])
   const professors = useMemo(() => {

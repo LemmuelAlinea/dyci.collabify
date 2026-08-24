@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Avatar } from '../../../components/app/Avatar'
 import { Button } from '../../../components/ui/Button'
@@ -123,6 +124,8 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['groups', 'group_members', 'project_boards', 'project_tasks', 'task_assignees'])
 
   // How far each member has got across every project this group has.
   useEffect(() => {

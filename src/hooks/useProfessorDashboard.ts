@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from './useLive'
 import { listProfessorClasses } from '../lib/api/classes'
 import { professorDashboard } from '../lib/api/dashboard'
 import type { ProfessorDashboard } from '../lib/api/dashboard'
@@ -23,6 +24,8 @@ export function useProfessorDashboard(professorId: string | undefined) {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['classes', 'projects', 'project_boards', 'project_tasks', 'announcements', 'program_announcements', 'class_members', 'board_results', 'task_reassignments'])
 
   return { data, error, reload: load }
 }

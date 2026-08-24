@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AgendaList } from '../../../components/calendar/AgendaList'
 import { MonthGrid } from '../../../components/calendar/MonthGrid'
@@ -58,6 +59,8 @@ export default function Calendar() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['projects', 'project_tasks', 'project_boards', 'syllabus_weeks', 'classes'])
 
   const classes = useMemo(() => {
     const map = new Map<string, string>()

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { Avatar } from '../../../components/app/Avatar'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
@@ -70,6 +71,8 @@ export default function Accounts() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['profiles'])
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import type { ReactNode } from 'react'
 import { Avatar } from '../../../components/app/Avatar'
 import { Alert } from '../../../components/ui/Field'
@@ -34,20 +35,24 @@ export default function Faculty() {
   const [year, setYear] = useState('')
   const [semester, setSemester] = useState('')
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const [classes, people] = await Promise.all([programClasses(), listAccounts()])
-        setRows(classes)
-        setAccounts(people.filter((a) => a.role === 'professor'))
-        setYear((y) => y || currentSchoolYear(classes))
-        setError(null)
-      } catch (err) {
-        setError(authErrorMessage(err, 'Could not load the faculty.'))
-        setRows([])
-      }
-    })()
+  const refresh = useCallback(async () => {
+    try {
+      const [classes, people] = await Promise.all([programClasses(), listAccounts()])
+      setRows(classes)
+      setAccounts(people.filter((a) => a.role === 'professor'))
+      setYear((y) => y || currentSchoolYear(classes))
+      setError(null)
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not load the faculty.'))
+      setRows([])
+    }
   }, [])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  useLive(refresh, ['classes', 'profiles', 'class_members', 'projects'])
 
   const all = useMemo(() => rows ?? [], [rows])
   const inTerm = useMemo(

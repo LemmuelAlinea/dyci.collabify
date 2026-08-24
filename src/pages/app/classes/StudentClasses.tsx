@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
@@ -43,6 +44,8 @@ export default function StudentClasses() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['classes', 'class_members'])
 
   async function submit(e: FormEvent) {
     e.preventDefault()

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { EMPTY_SCOPE } from '../../../components/analytics/FilterChain'
 import type { Scope } from '../../../components/analytics/FilterChain'
 import {
@@ -91,6 +92,8 @@ export function useAnalytics() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['project_tasks', 'task_assignees', 'project_boards', 'projects', 'board_results', 'task_events', 'task_reassignments', 'syllabus_weeks', 'class_members'])
 
   const shownTasks = useMemo(
     () =>

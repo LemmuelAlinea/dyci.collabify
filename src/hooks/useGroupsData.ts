@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from './useLive'
 import { listGroupMembers, listGroups, listSetsForClasses } from '../lib/api/groups'
 import { authErrorMessage } from '../lib/authError'
 import type { ClassSummary, GroupMember, GroupSet, GroupSummary } from '../lib/types'
@@ -36,6 +37,8 @@ export function useGroupsData(classes: ClassSummary[] | null) {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['group_sets', 'groups', 'group_members', 'class_members'])
 
   return { sets, groups, members, loading, error, reload: load }
 }

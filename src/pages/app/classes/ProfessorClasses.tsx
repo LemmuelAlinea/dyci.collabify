@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { Button } from '../../../components/ui/Button'
 import { Alert } from '../../../components/ui/Field'
 import { Icon, Spinner } from '../../../components/ui/Icon'
@@ -50,6 +51,8 @@ export default function ProfessorClasses() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['classes', 'class_members'])
 
   useEffect(() => {
     if (!profile) return

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from '../../hooks/useLive'
 import { Link } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { Alert, Field, Input } from '../ui/Field'
@@ -42,6 +43,8 @@ export function ClassSyllabusTab({
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['teaching_resources', 'syllabus_weeks', 'classes'])
 
   useEffect(() => {
     setStart(cls.term_start ?? '')

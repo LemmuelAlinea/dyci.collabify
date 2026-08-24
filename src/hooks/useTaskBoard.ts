@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from './useLive'
 import { listGroupMembers } from '../lib/api/groups'
 import { listTasks, subscribeToBoard } from '../lib/api/tasks'
 import { authErrorMessage } from '../lib/authError'
@@ -34,6 +35,9 @@ export function useTaskBoard(board: BoardSummary | null) {
     setLoading(true)
     void load()
   }, [load])
+
+  // Channel and poll are below; this is only the come-back-to-the-tab refresh.
+  useLive(load, [], { every: 0 })
 
   useEffect(() => {
     if (!groupId) return setMembers([])

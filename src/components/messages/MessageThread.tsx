@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLive } from '../../hooks/useLive'
 import { Link } from 'react-router-dom'
 import { Avatar } from '../app/Avatar'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -81,19 +82,11 @@ export function MessageThread({
   }, [conversation.id, load])
 
   // Safety net: a dropped socket, a sleeping phone, or a proxy that kills long
-  // connections would otherwise leave the thread silently frozen. Cheap enough
-  // at this cadence, and it stops while the tab is hidden.
-  useEffect(() => {
-    const tick = () => {
-      if (document.visibilityState === 'visible') void load()
-    }
-    const id = setInterval(tick, 12_000)
-    document.addEventListener('visibilitychange', tick)
-    return () => {
-      clearInterval(id)
-      document.removeEventListener('visibilitychange', tick)
-    }
-  }, [load])
+  // connections would otherwise leave the thread silently frozen. The cadence
+  // is this thread's own — a conversation is the one place a minute of staleness
+  // is actually noticeable — and useLive adds the focus and back-online cases
+  // the hand-rolled version here was missing.
+  useLive(load, [], { every: 12_000 })
 
   useEffect(() => {
     if (atBottomRef.current) bottomRef.current?.scrollIntoView({ block: 'end' })

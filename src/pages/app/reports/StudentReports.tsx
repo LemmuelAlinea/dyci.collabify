@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { BoardSheet } from '../../../components/reports/BoardSheet'
 import { ContributionSheet } from '../../../components/reports/ContributionSheet'
 import { Button } from '../../../components/ui/Button'
@@ -48,21 +49,25 @@ export default function StudentReports() {
   const [requests, setRequests] = useState<ReassignmentRow[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const [work, reqs] = await Promise.all([myWork(), listReassignments()])
-        setRows(work)
-        setRequests(reqs)
-        setClassId((id) => id || (work[0]?.class_id ?? ''))
-        setBoards(await boardsFor([...new Set(work.map((w) => w.project_id))]))
-        setError(null)
-      } catch (err) {
-        setError(authErrorMessage(err, 'Could not load your work.'))
-        setRows([])
-      }
-    })()
+  const load = useCallback(async () => {
+    try {
+      const [work, reqs] = await Promise.all([myWork(), listReassignments()])
+      setRows(work)
+      setRequests(reqs)
+      setClassId((id) => id || (work[0]?.class_id ?? ''))
+      setBoards(await boardsFor([...new Set(work.map((w) => w.project_id))]))
+      setError(null)
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not load your work.'))
+      setRows([])
+    }
   }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  useLive(load, ['project_tasks', 'task_assignees', 'project_boards', 'task_reassignments', 'board_results'])
 
   useEffect(() => {
     if (!boardId) {

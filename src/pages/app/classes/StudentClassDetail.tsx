@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { useParams } from 'react-router-dom'
 import { Alert } from '../../../components/ui/Field'
 import { Spinner } from '../../../components/ui/Icon'
@@ -55,6 +56,8 @@ export default function StudentClassDetail() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['classes', 'class_members', 'projects', 'announcements', 'group_sets', 'groups', 'group_members', 'syllabus_weeks'])
 
   useEffect(() => {
     if (cls) document.title = `${cls.name} · Collabify`

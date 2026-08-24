@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from '../../hooks/useLive'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Icon, Spinner } from '../ui/Icon'
 import { EmptyState } from '../ui/Tabs'
@@ -56,6 +57,8 @@ export function GroupWork({
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['project_boards', 'project_tasks', 'task_assignees', 'projects'])
 
   const loadTasks = useCallback(async (boardId: string) => {
     setLoadingTasks(true)

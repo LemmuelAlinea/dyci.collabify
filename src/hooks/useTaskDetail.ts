@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from './useLive'
 import {
   getTaskDetail,
   listComments,
@@ -66,6 +67,9 @@ export function useTaskDetail(taskId: string | null) {
     if (!taskId) return
     return subscribeToTask(taskId, () => void load())
   }, [taskId, load])
+
+  // Channel above; this is only the come-back-to-the-tab refresh.
+  useLive(load, [], { every: 0, enabled: Boolean(taskId) })
 
   return { task, comments, events, files, worklog, loading, error, reload: load }
 }

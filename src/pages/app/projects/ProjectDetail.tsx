@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
@@ -94,6 +95,8 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['projects', 'project_boards', 'project_tasks', 'task_assignees', 'board_results', 'groups', 'group_members'])
 
   useEffect(() => {
     if (!canManage || !profile) return

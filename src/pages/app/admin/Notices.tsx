@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Alert, Field, Input } from '../../../components/ui/Field'
@@ -77,6 +78,8 @@ export default function Notices() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['program_announcements'])
 
   const ready = title.trim().length > 0 && body.trim().length > 0
 

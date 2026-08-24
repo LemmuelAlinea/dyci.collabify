@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { Link, useParams } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
@@ -51,6 +52,8 @@ export default function SyllabusDetail() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['teaching_resources', 'syllabus_weeks'])
 
   useEffect(() => {
     if (resource) document.title = `${resource.title} · Collabify`

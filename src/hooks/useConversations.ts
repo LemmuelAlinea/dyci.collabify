@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from './useLive'
 import { decorateConversations, listConversations } from '../lib/api/messages'
 import { authErrorMessage } from '../lib/authError'
 import { supabase } from '../lib/supabase'
@@ -23,6 +24,9 @@ export function useConversations(viewerId: string | undefined) {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Channel below; this is only the come-back-to-the-tab refresh.
+  useLive(load, [], { every: 0 })
 
   // One channel for the whole list, so unread counts and previews move without
   // a subscription per conversation. The topic is generated inside the effect —

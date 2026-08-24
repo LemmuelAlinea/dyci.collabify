@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { Alert } from '../../../components/ui/Field'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
@@ -81,6 +82,8 @@ export default function AuditLog() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['profiles', 'classes'])
 
   const days = useMemo(() => {
     const kept = (rows ?? []).filter((e) => (action ? e.action === action : true))

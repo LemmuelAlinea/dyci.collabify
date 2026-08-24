@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { listMembers } from '../../../lib/api/classes'
 import { boardsFor } from '../../../lib/api/dashboard'
 import { listProjectsForClasses } from '../../../lib/api/projects'
@@ -56,52 +57,80 @@ export function useReports(professorId: string | undefined) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
+  const loadClasses = useCallback(async () => {
     if (!professorId) return
-    void (async () => {
-      try {
-        const rows = await classReports()
-        setClasses(rows)
-        setClassId((id) => id || (rows[0]?.class_id ?? ''))
-        setError(null)
-      } catch (err) {
-        setError(authErrorMessage(err, 'Could not load your classes.'))
-        setClasses([])
-      }
-    })()
+    try {
+      const rows = await classReports()
+      setClasses(rows)
+      setClassId((id) => id || (rows[0]?.class_id ?? ''))
+      setError(null)
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not load your classes.'))
+      setClasses([])
+    }
   }, [professorId])
+
+  useEffect(() => {
+    void loadClasses()
+  }, [loadClasses])
+
+  useLive(loadClasses, ['classes', 'class_members'])
 
   // One class's worth of everything. Cheap enough to fetch together, and it
   // keeps the four sheets that read from a class in step with each other.
-  useEffect(() => {
+  const loadClass = useCallback(async () => {
     if (!classId) return
-    void (async () => {
-      setBusy(true)
-      try {
-        const [w, s, m, p, r] = await Promise.all([
-          weekCoverage(classId),
-          studentWork(classId),
-          listMembers(classId),
-          listProjectsForClasses([classId]),
-          listReassignments(),
-        ])
-        setWeeks(w)
-        setWork(s)
-        setMembers(m)
-        setProjects(p)
-        setReassignments(r.filter((x) => x.class_id === classId))
-        setBoards(await boardsFor(p.map((x) => x.id)))
-        setError(null)
-      } catch (err) {
-        setError(authErrorMessage(err, 'Could not load that class.'))
-      } finally {
-        setBusy(false)
-      }
-    })()
+    setBusy(true)
+    try {
+      const [w, s, m, p, r] = await Promise.all([
+        weekCoverage(classId),
+        studentWork(classId),
+        listMembers(classId),
+        listProjectsForClasses([classId]),
+        listReassignments(),
+      ])
+      setWeeks(w)
+      setWork(s)
+      setMembers(m)
+      setProjects(p)
+      setReassignments(r.filter((x) => x.class_id === classId))
+      setBoards(await boardsFor(p.map((x) => x.id)))
+      setError(null)
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not load that class.'))
+    } finally {
+      setBusy(false)
+    }
+  }, [classId])
+
+  useEffect(() => {
+    void loadClass()
+  }, [loadClass])
+
+  /**
+   * Clearing the pickers is a separate effect, keyed on the class alone.
+   *
+   * It used to sit inside the fetch above, which was harmless while that ran
+   * only when the class changed. It is not harmless now: a live refresh runs
+   * the same fetch, and a professor who had picked a project would have had it
+   * taken back every time somebody else touched a task.
+   */
+  useEffect(() => {
     setProjectId('')
     setBoardId('')
     setStudentId('')
   }, [classId])
+
+  useLive(loadClass, [
+    'projects',
+    'project_boards',
+    'project_tasks',
+    'task_assignees',
+    'board_results',
+    'task_reassignments',
+    'syllabus_weeks',
+    'class_members',
+  ])
 
   // The verdict's reason lives on the result row rather than the board, so it
   // is only worth fetching once a board is actually chosen.

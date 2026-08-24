@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Reveal } from '../../../components/motion/Reveal'
 import { StatRow } from '../../../components/dashboard/DashSection'
@@ -122,6 +123,8 @@ export default function MyTasks() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['project_tasks', 'task_assignees', 'project_boards', 'projects'])
 
   function showTask(id: string | null) {
     const next = new URLSearchParams(params)

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
@@ -87,6 +88,8 @@ export function ResourceLibrary({
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['teaching_resources', 'syllabus_weeks'])
 
   function resetForm() {
     setTitle('')

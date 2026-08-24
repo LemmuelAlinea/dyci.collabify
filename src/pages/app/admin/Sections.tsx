@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Alert, Field, Input } from '../../../components/ui/Field'
@@ -68,6 +69,8 @@ export default function Sections() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['program_sections', 'classes', 'profiles'])
 
   /**
    * Sections that classes are using but the registry has never heard of. This

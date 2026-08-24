@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from './useLive'
 import { studentDashboard } from '../lib/api/dashboard'
 import type { StudentDashboard } from '../lib/api/dashboard'
 import { authErrorMessage } from '../lib/authError'
@@ -21,6 +22,8 @@ export function useStudentDashboard(studentId: string | undefined) {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['projects', 'project_boards', 'project_tasks', 'task_assignees', 'announcements', 'program_announcements', 'class_members', 'board_results'])
 
   return { data, error, reload: load }
 }

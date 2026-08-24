@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { Avatar } from '../../../components/app/Avatar'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
@@ -62,6 +63,8 @@ export default function ProfessorApprovals() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['profiles'])
 
   const waiting = useMemo(() => (rows ?? []).filter((r) => r.status === 'pending'), [rows])
   const settled = useMemo(() => (rows ?? []).filter((r) => r.status !== 'pending'), [rows])

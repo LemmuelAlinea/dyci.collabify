@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLive } from './useLive'
 import { listProjectsForClasses } from '../lib/api/projects'
 import { authErrorMessage } from '../lib/authError'
 import type { ClassSummary, ProjectSummary } from '../lib/types'
@@ -25,6 +26,8 @@ export function useProjectsData(classes: ClassSummary[] | null) {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLive(load, ['projects', 'project_boards', 'project_tasks', 'board_results'])
 
   return { projects, loading, error, reload: load }
 }
