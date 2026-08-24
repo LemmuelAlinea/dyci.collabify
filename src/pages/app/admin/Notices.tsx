@@ -3,6 +3,7 @@ import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Alert, Field, Input } from '../../../components/ui/Field'
 import { Icon, Spinner } from '../../../components/ui/Icon'
+import { Modal } from '../../../components/ui/Modal'
 import { Textarea } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/Tabs'
 import { useToast } from '../../../components/ui/Toast'
@@ -26,6 +27,8 @@ import { momentLabel } from '../../../lib/report'
  * answering "what did we announce in October" both need the ones that have
  * already gone.
  */
+const ABOUT_KEY = 'collabify.notices.about'
+
 export default function Notices() {
   const { show } = useToast()
   const [rows, setRows] = useState<ProgramNoticeRecord[] | null>(null)
@@ -35,6 +38,31 @@ export default function Notices() {
   const [pinned, setPinned] = useState(false)
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState<ProgramNoticeRecord | null>(null)
+  const [composing, setComposing] = useState(false)
+
+  /**
+   * The paragraphs explaining what this page is stay hidden once the chair has
+   * read them. It is the same two paragraphs every visit, and after the first
+   * one they are just distance between the heading and the notices.
+   *
+   * Kept per browser rather than on the profile: it is a preference about this
+   * screen, not a fact about the person.
+   */
+  const [about, setAbout] = useState(false)
+  useEffect(() => {
+    setAbout(localStorage.getItem(ABOUT_KEY) !== '0')
+  }, [])
+  function toggleAbout() {
+    setAbout((v) => {
+      const next = !v
+      try {
+        localStorage.setItem(ABOUT_KEY, next ? '1' : '0')
+      } catch {
+        /* a browser refusing storage should not stop the toggle working */
+      }
+      return next
+    })
+  }
 
   const load = useCallback(async () => {
     try {
@@ -59,6 +87,7 @@ export default function Notices() {
       setTitle('')
       setBody('')
       setPinned(false)
+      setComposing(false)
       show('Notice sent to the program')
       await load()
     } catch (err) {
@@ -80,66 +109,112 @@ export default function Notices() {
   return (
     <div className="space-y-6">
       <header>
-        <p className="eyebrow">Program</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Notices</h1>
-        <p className="mt-2 max-w-[70ch] text-[14.5px] text-muted">
-          One notice to everybody in the program — a moved deadline, a defense schedule, a
-          suspension of classes. It appears on every dashboard and notifies anybody who has
-          not turned announcements off.
-        </p>
-        <p className="mt-2 max-w-[70ch] text-[13.5px] text-muted">
-          A notice stays on those dashboards for <strong>{NOTICE_HOURS} hours</strong> and then
-          comes off on its own. This page keeps every one you have sent, so nothing is lost —
-          it is only no longer in front of people. To say something again, send it again.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+          <div className="min-w-0">
+            <p className="eyebrow">Program</p>
+            <h1 className="mt-1 text-[26px] leading-tight sm:text-[30px]">Notices</h1>
+          </div>
+          <Button className="!rounded-xl" onClick={() => setComposing(true)}>
+            <Icon name="plus" size={15} />
+            Send a notice
+          </Button>
+        </div>
+
+        <button
+          type="button"
+          onClick={toggleAbout}
+          aria-expanded={about}
+          className="mt-2 flex items-center gap-1 text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+        >
+          <Icon
+            name="chevronDown"
+            size={14}
+            className={`transition-transform duration-200 ${about ? '' : '-rotate-90'}`}
+          />
+          {about ? 'Hide what this page does' : 'What this page does'}
+        </button>
+
+        {about && (
+          <>
+            <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
+              One notice to everybody in the program — a moved deadline, a defense schedule, a
+              suspension of classes. It appears on every dashboard and notifies anybody who has
+              not turned announcements off.
+            </p>
+            <p className="mt-2 max-w-[70ch] text-[13.5px] text-muted">
+              A notice stays on those dashboards for <strong>{NOTICE_HOURS} hours</strong> and
+              then comes off on its own. This page keeps every one you have sent, so nothing is
+              lost — it is only no longer in front of people. To say something again, send it
+              again.
+            </p>
+          </>
+        )}
       </header>
 
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
-      <section className="surface space-y-4 rounded-card border border-line p-4 sm:p-5 shadow-card">
-        <Field label="Title">
-          {(id) => (
-            <Input
-              id={id}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="No classes on Friday"
-            />
-          )}
-        </Field>
-        <Field label="What people need to know">
-          {(id) => (
-            <Textarea
-              id={id}
-              rows={4}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Say what changed and what to do about it."
-            />
-          )}
-        </Field>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* The composer is a dialog rather than a panel on the page. It is used
+          once in a while and read past every other time, and as a panel it sat
+          between the heading and the notices the chair actually came to look
+          at. A draft survives closing it — only sending clears the fields. */}
+      <Modal
+        open={composing}
+        onClose={() => setComposing(false)}
+        title="Send a notice"
+        description="It reaches every professor and student in the program."
+        size="md"
+        focusField
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setComposing(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button className="!rounded-xl" loading={saving} disabled={!ready} onClick={send}>
+              <Icon name="bell" size={15} />
+              Send to the program
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Field label="Title">
+            {(id) => (
+              <Input
+                id={id}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="No classes on Friday"
+              />
+            )}
+          </Field>
+          <Field label="What people need to know">
+            {(id) => (
+              <Textarea
+                id={id}
+                rows={4}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Say what changed and what to do about it."
+              />
+            )}
+          </Field>
           <label className="flex items-center gap-2 text-[13.5px] text-muted">
             <input
               type="checkbox"
               checked={pinned}
               onChange={(e) => setPinned(e.target.checked)}
-              className="h-4 w-4 rounded border-[var(--line-strong)]"
+              className="h-4 w-4 rounded border-[var(--control-line)]"
             />
             Pin it to the top for its {NOTICE_HOURS} hours
           </label>
-          <Button className="!rounded-xl" loading={saving} disabled={!ready} onClick={send}>
-            <Icon name="bell" size={15} />
-            Send to the program
-          </Button>
+          {pinned && rows.some((r) => r.pinned) && (
+            <p className="text-[12.5px] text-amber-700 dark:text-amber-300">
+              One notice is pinned at a time — sending this will refuse until you unpin the
+              current one.
+            </p>
+          )}
         </div>
-        {pinned && rows.some((r) => r.pinned) && (
-          <p className="text-[12.5px] text-amber-700 dark:text-amber-300">
-            One notice is pinned at a time — sending this will refuse until you unpin the
-            current one.
-          </p>
-        )}
-      </section>
+      </Modal>
 
       {rows.length === 0 ? (
         <EmptyState

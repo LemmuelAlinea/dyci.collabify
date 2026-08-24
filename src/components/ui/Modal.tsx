@@ -11,6 +11,15 @@ type Props = {
   children: ReactNode
   footer?: ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
+  /**
+   * Open with the first field focused instead of the close button.
+   *
+   * Opt-in rather than the default: on a dialog whose job is to ask a question
+   * — "delete this, are you sure" — landing on a text box would be wrong, and
+   * landing on the destructive button would be worse. On a dialog whose job is
+   * to be filled in, the first field is the only sensible place to start.
+   */
+  focusField?: boolean
 }
 
 const WIDTHS = {
@@ -20,7 +29,16 @@ const WIDTHS = {
   xl: 'max-w-[960px]',
 }
 
-export function Modal({ open, onClose, title, description, children, footer, size = 'md' }: Props) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  footer,
+  size = 'md',
+  focusField = false,
+}: Props) {
   const panel = useRef<HTMLDivElement>(null)
 
   // Callers pass an inline arrow for onClose, so it is a new function on every
@@ -47,7 +65,16 @@ export function Modal({ open, onClose, title, description, children, footer, siz
 
   // Tab used to walk out of the dialog and into the page behind it, which a
   // mouse never reveals because the backdrop hides it.
-  useFocusTrap(panel, open)
+  useFocusTrap(panel, open, { autoFocus: !focusField })
+
+  useEffect(() => {
+    if (!open || !focusField) return
+    const field = panel.current?.querySelector<HTMLElement>(
+      'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])',
+    )
+    // Falls back to the panel so focus is never left on the page behind.
+    ;(field ?? panel.current)?.focus({ preventScroll: true })
+  }, [open, focusField])
 
   if (!open) return null
 
