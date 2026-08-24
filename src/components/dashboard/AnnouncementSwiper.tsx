@@ -107,7 +107,7 @@ export function AnnouncementSwiper({
             <li key={a.id} className="w-full shrink-0 snap-start">
               <Link
                 to={`${linkBase}/${a.class_id}`}
-                className="surface flex h-full flex-col rounded-card border border-line p-5 shadow-card transition-colors hover:border-line-strong sm:p-6"
+                className="surface flex h-full flex-col rounded-card border border-line p-4 sm:p-5 shadow-card transition-colors hover:border-line-strong sm:p-6"
               >
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                   <span className="eyebrow text-amber-500 dark:text-amber-300">

@@ -46,7 +46,7 @@ export function GroupCard({
   return (
     <Link
       to={to}
-      className={`group surface flex flex-col rounded-card border p-5 shadow-card transition-[transform,box-shadow,border-color] duration-250 hover:-translate-y-0.5 hover:shadow-lift ${
+      className={`group surface flex flex-col rounded-card border p-4 sm:p-5 shadow-card transition-[transform,box-shadow,border-color] duration-250 hover:-translate-y-0.5 hover:shadow-lift ${
         highlight ? 'border-amber-300 dark:border-amber-400/50' : 'border-line hover:border-line-strong'
       }`}
     >

@@ -71,7 +71,7 @@ export function Boundaries() {
                 key={n.title}
                 as="li"
                 delay={i * 0.08}
-                className="surface flex gap-4 rounded-card border border-line p-6 shadow-card md:p-7"
+                className="surface flex gap-4 rounded-card border border-line p-4 sm:p-6 shadow-card md:p-7"
               >
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full surface-sunken text-muted">
                   <Icon name="x" size={17} />

@@ -62,7 +62,7 @@ export function ForRoles() {
               key={r.role}
               as="article"
               delay={i * 0.09}
-              className="surface flex flex-col rounded-card border border-line p-7 shadow-card transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-lift md:p-8"
+              className="surface flex flex-col rounded-card border border-line p-4 sm:p-5 sm:p-7 shadow-card transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-lift md:p-8"
             >
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-400/15 text-amber-600 dark:text-amber-300">
                 <Icon name={r.icon} size={21} />

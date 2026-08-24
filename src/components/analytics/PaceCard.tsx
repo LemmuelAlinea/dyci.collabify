@@ -18,7 +18,7 @@ export function PaceCard({ pace }: { pace: ClassPace }) {
 
   return (
     <section
-      className={`surface rounded-card border p-5 shadow-card ${
+      className={`surface rounded-card border p-4 sm:p-5 shadow-card ${
         !started
           ? 'border-line'
           : good

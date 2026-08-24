@@ -169,7 +169,7 @@ export function AnnouncementFeed({
           {announcements.map((a) => (
             <li
               key={a.id}
-              className={`surface rounded-card border p-5 shadow-card md:p-6 ${
+              className={`surface rounded-card border p-4 sm:p-5 shadow-card md:p-6 ${
                 a.pinned ? 'border-amber-300 dark:border-amber-400/50' : 'border-line'
               }`}
             >

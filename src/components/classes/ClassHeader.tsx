@@ -42,7 +42,7 @@ export function ClassHeader({
         All classes
       </Link>
 
-      <div className="relative mt-4 overflow-hidden rounded-panel bg-navy-600 p-6 text-white md:p-8">
+      <div className="relative mt-4 overflow-hidden rounded-panel bg-navy-600 p-4 sm:p-6 text-white md:p-8">
         <div aria-hidden className="blueprint absolute inset-0 opacity-60" />
         <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div className="flex min-w-0 items-start gap-4">

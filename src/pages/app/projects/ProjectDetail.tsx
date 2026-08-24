@@ -145,7 +145,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         All projects
       </Link>
 
-      <header className="blueprint mt-4 rounded-card bg-navy-700 p-6 text-white sm:p-8 dark:bg-navy-800">
+      <header className="blueprint mt-4 rounded-card bg-navy-700 p-4 sm:p-6 text-white sm:p-8 dark:bg-navy-800">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="flex items-center gap-2 font-mono text-[11.5px] tracking-wide text-amber-300 uppercase">
@@ -278,7 +278,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         )}
 
         {/* The syllabus lines it was built on — the reason the project exists. */}
-        <section className="surface rounded-card border border-line p-5 shadow-card sm:p-6">
+        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[16px]">Based on the syllabus</h2>
             <StatusPill project={project} />
@@ -313,7 +313,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           )}
         </section>
 
-        <section className="surface rounded-card border border-line p-5 shadow-card sm:p-6">
+        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card sm:p-6">
           <h2 className="text-[16px]">Guidelines</h2>
           {project.guidelines ? (
             <p className="mt-3 text-[14.5px] leading-relaxed whitespace-pre-wrap text-muted">
@@ -328,7 +328,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           )}
         </section>
 
-        <section className="surface rounded-card border border-line p-5 shadow-card sm:p-6">
+        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card sm:p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="text-[16px]">Rubric</h2>
             {criteria.length > 0 && (
@@ -362,7 +362,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           )}
         </section>
 
-        <section className="surface rounded-card border border-line p-5 shadow-card sm:p-6">
+        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card sm:p-6">
           <h2 className="text-[16px]">Files</h2>
           {files.length === 0 ? (
             <p className="mt-2 text-[13.5px] text-faint">Nothing attached.</p>

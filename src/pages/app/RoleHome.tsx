@@ -52,7 +52,7 @@ export function RoleHome({
       )}
 
       <Reveal once delay={0.08} className="mt-8">
-        <div className="relative overflow-hidden rounded-panel bg-navy-600 p-7 text-white md:p-9">
+        <div className="relative overflow-hidden rounded-panel bg-navy-600 p-4 sm:p-5 sm:p-7 text-white md:p-9">
           <div aria-hidden className="blueprint absolute inset-0 opacity-60" />
           <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div className="max-w-[560px]">
@@ -85,7 +85,7 @@ export function RoleHome({
               once
               delay={(i % 3) * 0.07}
               as="article"
-              className="surface rounded-card border border-line p-6 shadow-card"
+              className="surface rounded-card border border-line p-4 sm:p-6 shadow-card"
             >
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--surface-sunken)] text-muted">
                 <Icon name={u.icon} size={20} />

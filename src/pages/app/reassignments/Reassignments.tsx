@@ -149,7 +149,7 @@ export default function Reassignments() {
 
 function RequestCard({ row, onDecide }: { row: ReassignmentRow; onDecide: () => void }) {
   return (
-    <li className="surface rounded-card border border-line p-5 shadow-card">
+    <li className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="eyebrow">

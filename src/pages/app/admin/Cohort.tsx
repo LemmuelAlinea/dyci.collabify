@@ -155,7 +155,7 @@ function ProgramStrip({ cohorts }: { cohorts: CohortRow[] }) {
   const pct = total.tasks === 0 ? 0 : Math.round((total.done / total.tasks) * 100)
 
   return (
-    <section className="surface rounded-card border border-line p-5 shadow-card">
+    <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
           <p className="eyebrow text-faint">The program, this term</p>

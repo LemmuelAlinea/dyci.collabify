@@ -88,7 +88,7 @@ export function ClassSyllabusTab({
       {error && <Alert tone="error">{error}</Alert>}
 
       {role === 'professor' && (
-        <div className="surface rounded-card border border-line p-5 shadow-card">
+        <div className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[15px] font-semibold text-ink">Term dates</p>

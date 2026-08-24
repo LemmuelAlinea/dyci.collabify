@@ -307,7 +307,7 @@ export default function Settings() {
         </Section>
 
         <Section icon="palette" title="Appearance" description="Applies on this device right away, and follows your account.">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
             {APPEARANCE.map((a) => {
               const active = mode === a.mode
               return (

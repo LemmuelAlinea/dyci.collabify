@@ -91,7 +91,7 @@ export function Navbar() {
             aria-label="Close menu"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute inset-x-3 top-3 rounded-3xl bg-navy-900 p-5 shadow-2xl ring-1 ring-white/10">
+          <div className="absolute inset-x-3 top-3 rounded-3xl bg-navy-900 p-4 sm:p-5 shadow-2xl ring-1 ring-white/10">
             <div className="flex items-center justify-between">
               <Logo tone="onDark" showSubtitle={false} />
               <button

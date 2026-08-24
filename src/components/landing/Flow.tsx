@@ -89,7 +89,7 @@ export function Flow() {
                   aria-hidden
                   className="absolute top-7 left-[9px] hidden h-3.5 w-3.5 rounded-full border-2 border-amber-400 bg-[var(--page)] md:block"
                 />
-                <div className="surface rounded-card border border-line p-6 shadow-card transition-[transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:shadow-lift md:p-7">
+                <div className="surface rounded-card border border-line p-4 sm:p-6 shadow-card transition-[transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:shadow-lift md:p-7">
                   <div className="flex items-start gap-4">
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-navy-600 text-amber-400 dark:bg-navy-500">
                       <Icon name={s.icon} size={19} />

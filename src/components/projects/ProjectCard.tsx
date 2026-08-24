@@ -82,7 +82,7 @@ export function ProjectCard({
   return (
     <Link
       to={to}
-      className="group surface flex flex-col rounded-card border border-line p-5 shadow-card transition-[transform,box-shadow,border-color] duration-250 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lift"
+      className="group surface flex flex-col rounded-card border border-line p-4 sm:p-5 shadow-card transition-[transform,box-shadow,border-color] duration-250 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lift"
     >
       <div className="flex items-start justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
@@ -101,17 +101,17 @@ export function ProjectCard({
         <StatusPill project={project} />
       </div>
 
-      <h3 className="mt-3.5 line-clamp-2 text-[16.5px] leading-snug">{project.title}</h3>
+      <h3 className="mt-2.5 line-clamp-2 text-[15px] leading-snug sm:mt-3.5 sm:text-[16.5px]">{project.title}</h3>
 
       {showClass && (
-        <p className="mt-1 truncate text-[12px] text-muted">
+        <p className="mt-0.5 truncate text-[11.5px] text-muted sm:mt-1 sm:text-[12px]">
           {project.class_initial} · {project.class_name}
           {project.group_set_name ? ` · ${project.group_set_name}` : ''}
         </p>
       )}
 
       {project.week_assessments && (
-        <p className="mt-3 line-clamp-2 flex gap-1.5 text-[12.5px] leading-snug text-amber-700 dark:text-amber-300">
+        <p className="mt-2 line-clamp-1 flex gap-1.5 text-[11.5px] leading-snug text-amber-700 sm:mt-3 sm:line-clamp-2 sm:text-[12.5px] dark:text-amber-300">
           <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
           {project.week_assessments}
         </p>
@@ -121,7 +121,7 @@ export function ProjectCard({
           boards there are, how many are in, and how far the work has got on
           average. Naming a single group here would be picking one at random. */}
       {across && across.boards > 0 && (
-        <div className="mt-3.5">
+        <div className="mt-2.5 sm:mt-3.5">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11.5px]">
             <span className="text-muted">
               {across.boards} {across.boards === 1 ? 'board' : 'boards'} ·{' '}
@@ -151,7 +151,7 @@ export function ProjectCard({
           no longer what a student is scanning for. */}
       {progress?.result_verdict && (
         <p
-          className={`mt-3.5 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium ${
+          className={`mt-2.5 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium sm:mt-3.5 sm:text-[12.5px] ${
             progress.result_verdict === 'accepted'
               ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200'
               : 'bg-amber-400/20 text-amber-800 dark:text-amber-200'
@@ -171,14 +171,14 @@ export function ProjectCard({
       {/* Handed in and still waiting is its own state, and the one a student
           most often wants confirmed. */}
       {!progress?.result_verdict && progress?.submitted_at && (
-        <p className="mt-3.5 flex items-center gap-1.5 rounded-lg surface-sunken px-2.5 py-1.5 text-[12.5px] text-muted">
+        <p className="mt-2.5 flex items-center gap-1.5 rounded-lg surface-sunken px-2.5 py-1.5 text-[12px] text-muted sm:mt-3.5 sm:text-[12.5px]">
           <Icon name="check" size={14} className="shrink-0" />
           Handed in · waiting on your professor
         </p>
       )}
 
       {progress && progress.task_count > 0 && (
-        <div className="mt-3.5">
+        <div className="mt-2.5 sm:mt-3.5">
           <div className="flex items-baseline justify-between gap-2 text-[11.5px]">
             <span className="text-muted">
               {progress.done_count} of {progress.task_count} tasks
@@ -194,7 +194,7 @@ export function ProjectCard({
         </div>
       )}
 
-      <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-4 text-[12px] text-muted">
+      <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2.5 text-[11.5px] text-muted sm:gap-x-4 sm:pt-4 sm:text-[12px]">
         <span
           className={`flex items-center gap-1.5 ${
             overdue ? 'text-faint' : 'text-muted'

@@ -96,7 +96,7 @@ export default function Notices() {
 
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
-      <section className="surface space-y-4 rounded-card border border-line p-5 shadow-card">
+      <section className="surface space-y-4 rounded-card border border-line p-4 sm:p-5 shadow-card">
         <Field label="Title">
           {(id) => (
             <Input

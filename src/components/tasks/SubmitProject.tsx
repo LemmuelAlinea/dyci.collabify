@@ -59,7 +59,7 @@ export function SubmitProject({
 
   if (submitted) {
     return (
-      <section className="surface rounded-card border border-emerald-300 p-5 shadow-card dark:border-emerald-500/40">
+      <section className="surface rounded-card border border-emerald-300 p-4 sm:p-5 shadow-card dark:border-emerald-500/40">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="flex items-center gap-2 text-[16px]">
@@ -103,7 +103,7 @@ export function SubmitProject({
 
   return (
     <>
-      <section className="surface rounded-card border border-line p-5 shadow-card">
+      <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-[16px]">Ready to hand in?</h3>

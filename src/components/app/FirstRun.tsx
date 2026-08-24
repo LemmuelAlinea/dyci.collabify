@@ -114,7 +114,7 @@ export function FirstRun({ role }: { role: Role }) {
   return (
     <section
       aria-label="Getting started"
-      className="surface relative overflow-hidden rounded-panel border border-line p-5 shadow-card md:p-6"
+      className="surface relative overflow-hidden rounded-panel border border-line p-4 sm:p-5 shadow-card md:p-6"
     >
       <div className="blueprint pointer-events-none absolute inset-0 opacity-60" aria-hidden="true" />
       <div className="relative">

@@ -192,7 +192,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
       {/* The late tile only appears once there is something late, so a class
           that is keeping up sees the same four it always did. */}
       <div
-        className={`grid gap-3 sm:grid-cols-2 ${
+        className={`grid grid-cols-2 gap-2.5 sm:gap-3 ${
           handedInLate > 0 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'
         }`}
       >
@@ -212,7 +212,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="surface rounded-card border border-line p-5 shadow-card">
+        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
           <h3 className="text-[16px]">Where it stands</h3>
           <p className="mt-1 mb-4 text-[13px] text-muted">
             Every task in view, by status.
@@ -232,7 +232,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
           )}
         </section>
 
-        <section className="surface flex max-h-[380px] flex-col rounded-card border border-line p-5 shadow-card">
+        <section className="surface flex max-h-[380px] flex-col rounded-card border border-line p-4 sm:p-5 shadow-card">
           <h3 className="text-[16px]">Recent activity</h3>
           <p className="mt-1 mb-3 text-[13px] text-muted">What has moved lately.</p>
           {events === null ? (
@@ -268,7 +268,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
       </div>
 
       {load.size > 0 && (
-        <section className="surface rounded-card border border-line p-5 shadow-card">
+        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
           <h3 className="text-[16px]">Who is carrying what</h3>
           <p className="mt-1 mb-3 text-[13px] text-muted">
             Tasks held, and how many of them are finished.

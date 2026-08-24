@@ -12,7 +12,7 @@ export function BoardProgress({ board }: { board: BoardSummary }) {
   const left = Math.max(0, 100 - done - doing)
 
   return (
-    <div className="surface rounded-card border border-line p-5 shadow-card">
+    <div className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="eyebrow text-amber-500 dark:text-amber-300">Group progress</p>

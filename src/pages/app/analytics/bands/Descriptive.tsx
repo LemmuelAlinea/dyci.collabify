@@ -36,7 +36,7 @@ export function Descriptive({ data }: { data: ReturnType<typeof useAnalytics> })
         body="Counted from what has happened. Nothing in this band is projected or inferred."
       />
 
-      <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
         <Tile value={`${totals.done}/${totals.tasks}`} label="tasks done" />
         <Tile value={totals.boards} label="boards" />
         <Tile value={totals.submitted} label="handed in" />

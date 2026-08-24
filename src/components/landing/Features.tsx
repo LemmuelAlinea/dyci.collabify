@@ -79,7 +79,7 @@ export function Features() {
               key={f.title}
               as="article"
               delay={(i % 3) * 0.08}
-              className="group surface rounded-card border border-line p-6 shadow-card transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-line-strong hover:shadow-lift md:p-7"
+              className="group surface rounded-card border border-line p-4 sm:p-6 shadow-card transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-line-strong hover:shadow-lift md:p-7"
             >
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-navy-600 text-amber-400 transition-transform duration-300 group-hover:scale-105 dark:bg-navy-500">
                 <Icon name={f.icon} size={22} />
