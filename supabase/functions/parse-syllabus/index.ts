@@ -124,6 +124,36 @@ Deno.serve(async (req) => {
     } = await caller.auth.getUser()
     if (!user) return json({ result: 'failed', message: 'Sign in first.' }, 401)
 
+    /**
+     * How often this person may ask. Enforced in the database rather than here,
+     * so it survives a second copy of this function, a restart, and anybody
+     * calling the endpoint directly — an in-memory counter in an edge runtime
+     * resets whenever the instance does, which is exactly when it matters.
+     *
+     * Two windows, because the shapes of misuse differ: a loop hits the hourly
+     * one in seconds, while a slow drip that would still run up a bill over a
+     * weekend hits the daily one.
+     */
+    const limited = await caller.rpc('rate_limit', {
+      p_bucket: 'ai_parse_syllabus_hour',
+      p_max: 8,
+      p_per: '01:00:00',
+      p_message: 'That is eight syllabus reads in an hour. Wait a while before uploading another.',
+    })
+    if (limited.error) {
+      return json({ result: 'failed', message: limited.error.message }, 429)
+    }
+
+    const limitedDay = await caller.rpc('rate_limit', {
+      p_bucket: 'ai_parse_syllabus_day',
+      p_max: 30,
+      p_per: '24:00:00',
+      p_message: 'That is thirty syllabus reads today. Come back tomorrow.',
+    })
+    if (limitedDay.error) {
+      return json({ result: 'failed', message: limitedDay.error.message }, 429)
+    }
+
     const body = await req.json().catch(() => ({}))
     resourceId = String(body.resource_id ?? '')
     if (!resourceId) return json({ result: 'failed', message: 'No syllabus given.' }, 400)

@@ -28,7 +28,7 @@ task-unclaim task-status-owner solo-auto-claim deadline-lock submissions
 reassignments results syllabus syllabus-assessments polls messages dashboard
 realtime recover-work removed-visible class-restore approvals accounts audit
 admin-rename calendar analytics analytics-insight reports student-reports
-admin-program program-notices program-registry safety live notifications`.split(/\s+/)
+admin-program program-notices program-registry safety live notifications rate-limit`.split(/\s+/)
 
 const seen = new Map()
 for (const name of ORDER) {

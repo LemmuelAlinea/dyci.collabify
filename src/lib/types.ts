@@ -173,6 +173,8 @@ export type JoinResult =
   | 'blocked'
   | 'not_student'
   | 'not_signed_in'
+  /** Too many codes tried in an hour. Guessing a code is the reason this exists. */
+  | 'too_many'
 
 export const YEAR_LEVELS: { value: YearLevel; label: string }[] = [
   { value: '1st', label: '1st year' },

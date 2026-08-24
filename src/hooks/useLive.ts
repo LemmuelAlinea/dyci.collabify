@@ -28,6 +28,22 @@ import { supabase } from '../lib/supabase'
 /** Tables whose changes should refetch. RLS decides what actually arrives. */
 export type LiveTable = string
 
+/**
+ * How many realtime channels one tab may hold open.
+ *
+ * Every hook that subscribes opens one, and a page rendering many live
+ * components could open a dozen without anybody deciding to. Supabase counts
+ * concurrent channels per connection, so the failure is not local — one tab
+ * with a runaway list can exhaust the project's allowance for everybody else.
+ *
+ * Over the cap the page still works: the focus, visibility and poll paths all
+ * carry on, so it degrades to "current within thirty seconds" rather than
+ * breaking. That is the right trade — a stale page is a nuisance, a project
+ * that has run out of connections is an outage.
+ */
+const MAX_CHANNELS = 12
+let openChannels = 0
+
 export function useLive(
   load: () => void | Promise<void>,
   tables: LiveTable[] = [],
@@ -47,6 +63,14 @@ export function useLive(
   // --- somebody else changed something
   useEffect(() => {
     if (!enabled || key === '') return
+    if (openChannels >= MAX_CHANNELS) {
+      console.warn(
+        `[collabify] ${MAX_CHANNELS} realtime channels already open; this view ` +
+          'will refresh on focus and on its poll instead.',
+      )
+      return
+    }
+    openChannels += 1
     const topic = `live:${key}:${Math.random().toString(36).slice(2)}`
     let channel = supabase.channel(topic)
     for (const table of key.split(',')) {
@@ -63,6 +87,7 @@ export function useLive(
       }
     })
     return () => {
+      openChannels -= 1
       void supabase.removeChannel(channel)
     }
   }, [key, enabled])
