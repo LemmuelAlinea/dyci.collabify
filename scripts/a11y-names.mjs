@@ -11,7 +11,7 @@
 // () => x}` contains a `>`, so the obvious pattern ends the opening tag in the
 // middle of an arrow function and reads the rest as the body.
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 
 const BACKSLASH = String.fromCharCode(92)
@@ -67,6 +67,10 @@ const files = execSync('git ls-files "src/**/*.tsx"', { encoding: 'utf8' })
 
 let hits = 0
 for (const f of files) {
+  // `git ls-files` still lists a file that has been deleted but not yet staged,
+  // which is an ordinary state to be in mid-change. Skipping beats crashing:
+  // a checker that falls over during normal work is a checker people turn off.
+  if (!existsSync(f)) continue
   const src = readFileSync(f, 'utf8')
   for (const m of src.matchAll(/<button\b/g)) {
     const gt = tagEnd(src, m.index)

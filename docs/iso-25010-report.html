@@ -429,8 +429,8 @@
       <p>
         Nothing is written to <code>window</code>. All four stored keys are
         namespaced — <code>collabify.theme</code>,
-        <code>collabify.firstrun</code>, <code>collabify.nav.shut</code>,
-        <code>collabify.sidebar.collapsed</code> — so the app cannot collide with
+        <code>collabify.nav.shut</code>, <code>collabify.sidebar.collapsed</code>,
+        <code>collabify.notices.about</code> — so the app cannot collide with
         anything else on the same origin.
       </p>
 
@@ -510,10 +510,17 @@
 
       <h3>User assistance</h3>
       <p>
-        A dismissible first-run panel gives each role the three things it needs
-        to know. An empty dashboard reads as broken rather than new — every panel
-        says "nothing yet" — so it explains what will fill it and what to do
-        first, then never appears again.
+        Explanation is written into the pages themselves rather than carried by
+        a separate layer: every empty state says what will fill it, every
+        destructive dialog names what will be lost in counts, and every error
+        says what happened and what to do next.
+      </p>
+      <p class="note">
+        A dismissible first-run panel was built during this work and has since
+        been removed at the owner's request. It is recorded here rather than
+        quietly dropped, because "no first-run guidance" is a fair thing for an
+        evaluator to notice, and it should be a decision on the record rather
+        than an oversight.
       </p>
 
       <p class="verdict fixed">Addressed.</p>

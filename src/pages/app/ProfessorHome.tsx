@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { ProgramNotices } from '../../components/app/ProgramNotices'
-import { FirstRun } from '../../components/app/FirstRun'
 import { Reveal } from '../../components/motion/Reveal'
 import { AttentionList } from '../../components/dashboard/AttentionList'
 import { ClassProgress } from '../../components/dashboard/ClassProgress'
@@ -40,10 +39,6 @@ export default function ProfessorHome() {
           {greeting()}, {profile.first_name}.
         </h1>
       </Reveal>
-
-      <div className="mt-6">
-        <FirstRun role='professor' />
-      </div>
 
       <div className="mt-6">
         <ProgramNotices />

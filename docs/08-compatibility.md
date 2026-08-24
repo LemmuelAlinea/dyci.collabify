@@ -123,6 +123,6 @@ Nothing is written to `window`. Every stored key is namespaced, so Collabify
 cannot collide with another app on the same origin:
 
 - `collabify.theme`
-- `collabify.firstrun`
 - `collabify.nav.shut`
 - `collabify.sidebar.collapsed`
+- `collabify.notices.about`
