@@ -186,8 +186,8 @@ export default function Calendar() {
 
       {view === 'month' ? (
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[17px]">{monthLabel}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <h2 className="text-[15.5px] sm:text-[17px]">{monthLabel}</h2>
             <div className="flex items-center gap-1.5">
               <Button
                 variant="outline"
