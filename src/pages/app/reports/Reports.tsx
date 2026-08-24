@@ -4,22 +4,18 @@ import { ClassTermSheet } from '../../../components/reports/ClassTermSheet'
 import { ComparisonSheet, comparisonCsv } from '../../../components/reports/ComparisonSheet'
 import { ContributionSheet } from '../../../components/reports/ContributionSheet'
 import { CoverageSheet } from '../../../components/reports/CoverageSheet'
+import { ReportBar, ReportSidebar } from '../../../components/reports/ReportPicker'
+import type { ReportGroup } from '../../../components/reports/ReportPicker'
 import { TermSummarySheet, termSummaryCsv } from '../../../components/reports/TermSummarySheet'
-import { Button } from '../../../components/ui/Button'
 import { Alert } from '../../../components/ui/Field'
-import { Icon, Spinner } from '../../../components/ui/Icon'
-import { Select } from '../../../components/ui/Select'
+import { Spinner } from '../../../components/ui/Icon'
 import { EmptyState } from '../../../components/ui/Tabs'
 import { useAuth } from '../../../context/AuthContext'
 import { downloadCsv, reportFilename, toCsv } from '../../../lib/report'
 import { fullName } from '../../../lib/types'
-import { NEEDS, useReports } from './useReports'
-import type { ReportKind } from './useReports'
+import { useReports } from './useReports'
 
-const CATALOGUE: {
-  group: string
-  items: { kind: ReportKind; label: string; body: string; csv?: boolean }[]
-}[] = [
+const CATALOGUE: ReportGroup[] = [
   {
     group: 'For the chair',
     items: [
@@ -146,113 +142,20 @@ export default function Reports() {
           body="Create a class and run a project in it, and its reports appear here."
         />
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
-          <div className="space-y-5 print:hidden">
-            <section className="space-y-4">
-              {CATALOGUE.map((g) => (
-                <div key={g.group} className="space-y-1.5">
-                  <p className="eyebrow text-faint">{g.group}</p>
-                  {g.items.map((item) => (
-                    <button
-                      key={item.kind}
-                      type="button"
-                      onClick={() => r.choose(item.kind)}
-                      className={`block w-full rounded-xl border px-3.5 py-2.5 text-left transition-colors ${
-                        r.kind === item.kind
-                          ? 'border-navy-400 bg-navy-500/8'
-                          : 'surface border-line hover:border-line-strong'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2 text-[14px] text-ink">
-                        {item.label}
-                        {item.csv && (
-                          <span className="rounded-full surface-sunken px-1.5 py-0.5 font-mono text-[9.5px] tracking-wider text-muted uppercase">
-                            csv
-                          </span>
-                        )}
-                      </span>
-                      <span className="mt-0.5 block text-[12px] leading-relaxed text-muted">
-                        {item.body}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </section>
-
-            <section className="space-y-2">
-              <p className="eyebrow text-faint">What it is about</p>
-              {NEEDS[r.kind].includes('class') && (
-                <Select
-                  aria-label="Class"
-                  value={r.classId}
-                  onChange={(e) => r.setClassId(e.target.value)}
-                  options={r.classes.map((c) => ({
-                    value: c.class_id,
-                    label: `${c.class_initial} · ${c.class_name}${c.archived_at ? ' (ended)' : ''}`,
-                  }))}
-                  className="!h-10 !text-[13px]"
-                />
-              )}
-              {NEEDS[r.kind].includes('project') && (
-                <Select
-                  aria-label="Project"
-                  value={r.projectId}
-                  onChange={(e) => r.setProjectId(e.target.value)}
-                  placeholder="Pick a project"
-                  options={r.projects.map((p) => ({ value: p.id, label: p.title }))}
-                  className="!h-10 !text-[13px]"
-                />
-              )}
-              {NEEDS[r.kind].includes('board') && (
-                <Select
-                  aria-label="Group"
-                  value={r.boardId}
-                  onChange={(e) => r.setBoardId(e.target.value)}
-                  placeholder="Pick a group"
-                  options={r.boards.map((b) => ({
-                    value: b.id,
-                    label: b.group_name ?? b.student_name ?? 'A board',
-                  }))}
-                  className="!h-10 !text-[13px]"
-                />
-              )}
-              {NEEDS[r.kind].includes('student') && (
-                <Select
-                  aria-label="Student"
-                  value={r.studentId}
-                  onChange={(e) => r.setStudentId(e.target.value)}
-                  placeholder="Pick a student"
-                  options={r.students}
-                  className="!h-10 !text-[13px]"
-                />
-              )}
-              {NEEDS[r.kind].length === 0 && (
-                <p className="text-[12.5px] text-muted">
-                  This one covers every class you teach, so there is nothing to choose.
-                </p>
-              )}
-            </section>
-
-            <section className="flex flex-wrap gap-2">
-              <Button size="sm" className="!rounded-xl" disabled={!r.ready} onClick={() => window.print()}>
-                <Icon name="file" size={14} />
-                Print
-              </Button>
-              {csv && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="!rounded-xl"
-                  disabled={!r.ready}
-                  onClick={() => downloadCsv(csv.name, toCsv(csv.headers, csv.body))}
-                >
-                  <Icon name="download" size={14} />
-                  Download CSV
-                </Button>
-              )}
-            </section>
-          </div>
+        <div className="@container">
+        <div className="grid gap-5 @min-[860px]:grid-cols-[290px_minmax(0,1fr)] @min-[860px]:gap-6">
+          <ReportBar
+            catalogue={CATALOGUE}
+            r={r}
+            csv={Boolean(csv)}
+            onCsv={() => csv && downloadCsv(csv.name, toCsv(csv.headers, csv.body))}
+          />
+          <ReportSidebar
+            catalogue={CATALOGUE}
+            r={r}
+            csv={Boolean(csv)}
+            onCsv={() => csv && downloadCsv(csv.name, toCsv(csv.headers, csv.body))}
+          />
 
           <div className="min-w-0">
             {r.busy && (
@@ -271,6 +174,7 @@ export default function Reports() {
               <Preview r={r} professor={professor} />
             )}
           </div>
+        </div>
         </div>
       )}
     </div>
