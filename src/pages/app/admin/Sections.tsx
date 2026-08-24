@@ -3,6 +3,7 @@ import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Alert, Field, Input } from '../../../components/ui/Field'
 import { Icon, Spinner } from '../../../components/ui/Icon'
+import { Modal } from '../../../components/ui/Modal'
 import { Select } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/Tabs'
 import { useToast } from '../../../components/ui/Toast'
@@ -44,6 +45,7 @@ export default function Sections() {
   const [adviser, setAdviser] = useState('')
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState<SectionOverview | null>(null)
+  const [adding, setAdding] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -105,6 +107,7 @@ export default function Sections() {
       })
       setName('')
       setAdviser('')
+      setAdding(false)
       show('Section added')
       await load()
     } catch (err) {
@@ -116,19 +119,51 @@ export default function Sections() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <p className="eyebrow">Program</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Sections</h1>
-        <p className="mt-2 max-w-[70ch] text-[14.5px] text-muted">
-          The cohorts the program runs this year. A professor making a class picks from
-          this list, so one section is spelled one way everywhere and its figures add up.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <p className="eyebrow">Program</p>
+          <h1 className="mt-1 text-[26px] leading-tight sm:text-[30px]">Sections</h1>
+          <p className="mt-2 max-w-[70ch] text-[14.5px] text-muted">
+            The cohorts the program runs this year. A professor making a class picks from
+            this list, so one section is spelled one way everywhere and its figures add up.
+          </p>
+        </div>
+        <Button className="!rounded-xl" onClick={() => setAdding(true)}>
+          <Icon name="plus" size={15} />
+          Add a section
+        </Button>
       </header>
 
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
-      <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_auto_1fr_1fr_auto] lg:items-end">
+      {/* A dialog, not a panel. Sections are added at the start of a term and
+          then left alone, so the form was five controls sitting above the list
+          for the rest of the year. */}
+      <Modal
+        open={adding}
+        onClose={() => setAdding(false)}
+        title="Add a section"
+        description="Professors pick from this list when they make a class."
+        size="md"
+        focusField
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setAdding(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button
+              className="!rounded-xl"
+              loading={saving}
+              disabled={!name.trim() || !year.trim()}
+              onClick={() => add()}
+            >
+              <Icon name="plus" size={15} />
+              Add
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Section name">
             {(id) => (
               <Input
@@ -170,17 +205,8 @@ export default function Sections() {
               />
             )}
           </Field>
-          <Button
-            className="!rounded-xl"
-            loading={saving}
-            disabled={!name.trim() || !year.trim()}
-            onClick={() => add()}
-          >
-            <Icon name="plus" size={15} />
-            Add
-          </Button>
         </div>
-      </section>
+      </Modal>
 
       {unregistered.length > 0 && (
         <section className="space-y-2">
@@ -194,9 +220,11 @@ export default function Sections() {
               <li key={`${u.name}-${u.school_year}`}>
                 <button
                   type="button"
+                  aria-label={`Add ${u.name} for ${u.school_year}`}
                   onClick={() => {
                     setName(u.name)
                     setYear(u.school_year)
+                    setAdding(true)
                   }}
                   className="surface flex items-center gap-2 rounded-xl border border-amber-300 px-3 py-1.5 text-[13px] text-ink transition-colors hover:border-line-strong dark:border-amber-400/40"
                 >
