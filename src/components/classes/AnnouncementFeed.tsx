@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Avatar } from '../app/Avatar'
+import { NOTICE_HOURS } from '../../lib/program'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Alert, Field, Input } from '../ui/Field'
@@ -50,6 +51,16 @@ function AttachmentRow({ attachment }: { attachment: Announcement['attachments']
     </button>
   )
 }
+
+/**
+ * Whether this announcement is still on the students' screens.
+ *
+ * The rule is the policy's — a student simply cannot read one older than the
+ * window. This is only so the professor's own feed, which keeps everything, can
+ * show which of their announcements the class can still see.
+ */
+const isLive = (iso: string) =>
+  Date.now() - new Date(iso).getTime() < NOTICE_HOURS * 60 * 60 * 1000
 
 export function AnnouncementFeed({
   classId,
@@ -129,7 +140,7 @@ export function AnnouncementFeed({
   async function togglePin(a: Announcement) {
     try {
       await setPinned(classId, a.id, !a.pinned)
-      show(a.pinned ? 'Unpinned' : 'Pinned to the top')
+      show(a.pinned ? 'Unpinned' : 'Pinned to the top for its day')
       await onChanged()
     } catch (err) {
       show(authErrorMessage(err, 'Could not change the pin.'), 'error')
@@ -139,7 +150,14 @@ export function AnnouncementFeed({
   return (
     <div className="space-y-4">
       {canManage && (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          {/* Only the professor is told this. A student never sees an
+              announcement that has gone, so there is nothing to explain. */}
+          <p className="max-w-[62ch] text-[12.5px] text-muted">
+            An announcement is on your students' screens for {NOTICE_HOURS} hours and then
+            comes off on its own. You keep all of them here. To say something again, post it
+            again.
+          </p>
           <Button onClick={openComposer} className="!rounded-xl">
             <Icon name="plus" size={17} />
             New announcement
@@ -153,7 +171,7 @@ export function AnnouncementFeed({
           title="No announcements yet"
           body={
             canManage
-              ? 'Post one and everyone in the class gets a notification.'
+              ? 'Post one and everyone in the class gets a notification. It stays on their screens for a day.'
               : 'When your professor posts something, it shows up here.'
           }
           action={
@@ -169,18 +187,30 @@ export function AnnouncementFeed({
           {announcements.map((a) => (
             <li
               key={a.id}
-              className={`surface rounded-card border p-4 sm:p-5 shadow-card md:p-6 ${
-                a.pinned ? 'border-amber-300 dark:border-amber-400/50' : 'border-line'
-              }`}
+              className={`surface rounded-card border p-4 shadow-card sm:p-5 md:p-6 ${
+                a.pinned && isLive(a.created_at)
+                  ? 'border-amber-300 dark:border-amber-400/50'
+                  : 'border-line'
+              } ${canManage && !isLive(a.created_at) ? 'opacity-70' : ''}`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  {a.pinned && (
-                    <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-amber-400/18 px-2.5 py-1 font-mono text-[9.5px] tracking-wider text-amber-700 uppercase dark:text-amber-300">
-                      <Icon name="target" size={11} />
-                      Pinned
-                    </span>
-                  )}
+                  <span className="mb-2 flex flex-wrap items-center gap-1.5">
+                    {a.pinned && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/18 px-2.5 py-1 font-mono text-[9.5px] tracking-wider text-amber-700 uppercase dark:text-amber-300">
+                        <Icon name="target" size={11} />
+                        Pinned
+                      </span>
+                    )}
+                    {/* Only the professor ever sees this — a student cannot
+                        read an announcement that has gone. */}
+                    {canManage && !isLive(a.created_at) && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full surface-sunken px-2.5 py-1 font-mono text-[9.5px] tracking-wider text-faint uppercase">
+                        <Icon name="clock" size={11} />
+                        Off the class feed
+                      </span>
+                    )}
+                  </span>
                   <h3 className="text-[18px] leading-snug">{a.title}</h3>
                   <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[12.5px] text-faint">
                     {a.author && (
@@ -208,7 +238,7 @@ export function AnnouncementFeed({
                       type="button"
                       onClick={() => togglePin(a)}
                       aria-label={a.pinned ? 'Unpin announcement' : 'Pin announcement'}
-                      title={a.pinned ? 'Unpin' : 'Pin to top'}
+                      title={a.pinned ? 'Unpin' : 'Pin to the top for its day'}
                       className={`grid h-9 w-9 place-items-center rounded-full transition-colors hover:bg-[var(--surface-sunken)] ${
                         a.pinned ? 'text-amber-500 dark:text-amber-300' : 'text-muted hover:text-ink'
                       }`}
