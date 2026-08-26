@@ -75,14 +75,14 @@ export function ProjectCard({
    * speaks about groups. A professor reading "accepted by your professor" was
    * the tell that one board had been mistaken for the whole project.
    */
-  audience = 'mine',
+  audience,
 }: {
   project: ProjectSummary
   to: string
   showClass?: boolean
   /** One board for a student, every group's board for a professor. */
   boards?: BoardSummary[]
-  audience?: 'mine' | 'class'
+  audience: 'mine' | 'class'
 }) {
   const progress = audience === 'mine' ? boards[0] : undefined
   const across = audience === 'class' ? summarise(boards) : null

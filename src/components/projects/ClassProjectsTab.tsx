@@ -57,6 +57,10 @@ export function ClassProjectsTab({
         classes={classes}
         linkBase={role === 'professor' ? '/professor/projects' : '/student/projects'}
         showClass={false}
+        // A professor is looking at the whole class, not at a board of their
+        // own — without this the cards speak to them in the second person and
+        // say things like "accepted by your professor".
+        audience={role === 'professor' ? 'class' : 'mine'}
         emptyTitle="No projects in this class yet"
         emptyBody={
           canManage

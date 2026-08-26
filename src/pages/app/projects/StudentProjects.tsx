@@ -52,6 +52,7 @@ export default function StudentProjects() {
           <ProjectsBoard
             projects={projects}
             classes={classes}
+            audience="mine"
             linkBase="/student/projects"
             emptyTitle="Nothing set yet"
             emptyBody="When a professor releases a project in one of your classes, it appears here with its deadline."

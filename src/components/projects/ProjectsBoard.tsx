@@ -48,7 +48,7 @@ export function ProjectsBoard({
    * the card speaks to them about it; a professor has every group's, and the
    * card has to summarise rather than pick one.
    */
-  audience = 'mine',
+  audience,
 }: {
   projects: ProjectSummary[]
   classes: ClassSummary[]
@@ -57,7 +57,13 @@ export function ProjectsBoard({
   emptyTitle: string
   emptyBody: string
   emptyAction?: ReactNode
-  audience?: 'mine' | 'class'
+  /**
+   * Whose progress these cards report. Required, with no default on purpose:
+   * defaulting to `mine` is how a professor's class tab came to tell them their
+   * own work had been "accepted by your professor" — twice, in two different
+   * places, because the second call site never had to think about it.
+   */
+  audience: 'mine' | 'class'
 }) {
   const [query, setQuery] = useState('')
   const [classId, setClassId] = useState('')
