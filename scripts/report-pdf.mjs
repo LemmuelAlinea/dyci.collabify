@@ -4,31 +4,54 @@
 //   node scripts/report-pdf.mjs                            the quality report
 //   node scripts/report-pdf.mjs docs/evaluation-questionnaire.html
 //
-// Headless Chrome or Edge, whichever is installed — both ship a PDF printer
-// that honours @page, page-break rules and print-color-adjust, which is what
-// the report's stylesheet is written against. No dependency is added for it.
+// Headless Chrome, Chromium or Edge, whichever is installed — all ship a PDF
+// printer that honours @page, page-break rules and print-color-adjust, which
+// is what the report's stylesheet is written against. No dependency is added.
 
 import { existsSync, rmSync, mkdtempSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
-import { basename, join, resolve } from 'node:path'
+import { delimiter, basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-const CANDIDATES = [
+// Finding a Chromium, in order: an explicit CHROME_PATH, then anything on PATH
+// (Termux/proot, Linux, a macOS shim), then the usual install locations.
+const ON_PATH = [
+  'chromium',
+  'chromium-browser',
+  'google-chrome',
+  'google-chrome-stable',
+  'chrome',
+  'msedge',
+]
+
+const INSTALLED = [
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
   '/usr/bin/google-chrome',
   '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/data/data/com.termux/files/usr/bin/chromium',
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
 ]
 
-const browser = CANDIDATES.find((p) => existsSync(p))
-if (!browser) {
+const exts = process.platform === 'win32' ? ['.exe', ''] : ['']
+const searched = (process.env.PATH ?? '')
+  .split(delimiter)
+  .filter(Boolean)
+  .flatMap((dir) => ON_PATH.flatMap((name) => exts.map((ext) => join(dir, name + ext))))
+
+const browser = process.env.CHROME_PATH ?? [...searched, ...INSTALLED].find((p) => existsSync(p))
+if (!browser || !existsSync(browser)) {
   console.error(
-    'No Chrome or Edge found. Install either, or open docs/iso-25010-report.html\n' +
-      'and print it to PDF by hand — the stylesheet is already set up for A4.',
+    process.env.CHROME_PATH
+      ? `CHROME_PATH points at ${process.env.CHROME_PATH}, which does not exist.`
+      : 'No Chrome, Chromium or Edge found. Install one, set CHROME_PATH to its\n' +
+        'binary, or open docs/iso-25010-report.html and print it to PDF by hand —\n' +
+        'the stylesheet is already set up for A4.',
   )
   process.exit(1)
 }
@@ -56,6 +79,7 @@ try {
     browser,
     [
       '--headless',
+      '--no-sandbox', // proot and containers have no user namespaces to sandbox with
       '--disable-gpu',
       `--user-data-dir=${profile}`,
       '--no-first-run',
