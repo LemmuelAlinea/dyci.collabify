@@ -147,15 +147,20 @@ export default function ProfessorHome() {
             />
           </Reveal>
 
-          <div className="mt-8">
+          <div className="mt-7 md:mt-8">
             <ProgramNotices />
           </div>
 
-          <div className="mt-8 grid gap-8 lg:grid-cols-3 lg:gap-7">
+          <div className="mt-7 grid gap-5 md:mt-8 md:gap-8 lg:grid-cols-3 lg:gap-7">
             {/* What needs you. */}
-            <div className="space-y-8 lg:col-span-2">
+            <div className="space-y-5 md:space-y-8 lg:col-span-2">
               <Reveal once delay={0.04}>
-                <DashSection icon="checkCircle" title="Needs your attention" count={waiting}>
+                <DashSection
+                  icon="checkCircle"
+                  title="Needs your attention"
+                  count={waiting}
+                  defaultOpen
+                >
                   <AttentionList items={data.attention} />
                 </DashSection>
               </Reveal>
@@ -183,13 +188,14 @@ export default function ProfessorHome() {
             </div>
 
             {/* What to know. */}
-            <div className="space-y-8">
+            <div className="space-y-5 md:space-y-8">
               <Reveal once delay={0.05}>
                 <DashSection
                   icon="folder"
                   title="Your classes"
                   count={classes.length}
                   seeAll="/professor/classes"
+                  defaultOpen
                 >
                   <ClassRail classes={classes} />
                 </DashSection>

@@ -150,20 +150,21 @@ export default function StudentHome() {
             />
           </Reveal>
 
-          <div className="mt-8">
+          <div className="mt-7 md:mt-8">
             <ProgramNotices />
           </div>
 
-          <div className="mt-8 grid gap-8 lg:grid-cols-3 lg:gap-7">
+          <div className="mt-7 grid gap-5 md:mt-8 md:gap-8 lg:grid-cols-3 lg:gap-7">
             {/* What is on you. Due first, because a deadline is the only thing
                 here that stops being actionable if it is read too late. */}
-            <div className="space-y-8 lg:col-span-2">
+            <div className="space-y-5 md:space-y-8 lg:col-span-2">
               <Reveal once delay={0.04}>
                 <DashSection
                   icon="clock"
                   title="Due this week"
                   count={deadlines.length}
                   seeAll="/student/tasks"
+                  defaultOpen
                 >
                   <DeadlineList deadlines={deadlines} />
                 </DashSection>
@@ -196,7 +197,7 @@ export default function StudentHome() {
             </div>
 
             {/* What is going on around you. Context, not chores. */}
-            <div className="space-y-8">
+            <div className="space-y-5 md:space-y-8">
               {/* Renders nothing when nothing is waiting, which is why it can
                   sit at the top of this column without taking up a heading. */}
               <Reveal once delay={0.05}>
@@ -216,6 +217,7 @@ export default function StudentHome() {
                     count={data.announcements.length}
                     seeAll="/student/classes"
                     seeAllLabel="All classes"
+                    defaultOpen
                   >
                     <AnnouncementSwiper
                       announcements={data.announcements}

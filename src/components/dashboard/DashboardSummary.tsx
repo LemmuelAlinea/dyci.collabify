@@ -97,7 +97,7 @@ export function DashboardSummary({
         {line}
       </p>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-2.5 sm:mt-6 sm:gap-3 lg:grid-cols-4">
         {tiles.map((t) => {
           const body = (
             <>
@@ -116,7 +116,7 @@ export function DashboardSummary({
                 )}
               </span>
               <span
-                className={`mt-3 block font-mono text-[30px] leading-none font-bold tabular-nums ${
+                className={`mt-2.5 block font-mono text-[24px] leading-none font-bold tabular-nums sm:mt-3 sm:text-[30px] ${
                   t.tone === 'warn' ? 'text-amber-600 dark:text-amber-300' : 'text-ink'
                 }`}
               >
@@ -129,7 +129,7 @@ export function DashboardSummary({
           )
 
           const shell =
-            'group surface flex flex-col rounded-card border px-4 py-3.5 transition-colors duration-200 ' +
+            'group surface flex flex-col rounded-card border px-3.5 py-3 transition-colors duration-200 sm:px-4 sm:py-3.5 ' +
             (t.tone === 'warn'
               ? 'border-amber-300 dark:border-amber-400/40'
               : 'border-line hover:border-line-strong')
