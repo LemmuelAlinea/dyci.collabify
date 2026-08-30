@@ -87,7 +87,7 @@ export default function ProfessorClasses() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1080px]">
+    <div className="w-full">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow text-amber-500 dark:text-amber-300">Advising</p>
@@ -144,7 +144,7 @@ export default function ProfessorClasses() {
             }
           />
         ) : (
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-3 max-sm:[&>*:only-child]:col-span-2">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4 min-[2100px]:grid-cols-5 max-sm:[&>*:only-child]:col-span-2">
             {classes.map((c) => (
               <ClassCard key={c.id} cls={c} to={`/professor/classes/${c.id}`} />
             ))}

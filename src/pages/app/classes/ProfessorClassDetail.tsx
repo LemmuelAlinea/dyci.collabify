@@ -131,7 +131,7 @@ export default function ProfessorClassDetail() {
   const removedCount = members.filter((m) => m.status === 'removed').length
 
   return (
-    <div className="mx-auto w-full max-w-[900px]">
+    <div className="mx-auto w-full max-w-[1280px]">
       <ClassHeader
         cls={cls}
         backTo="/professor/classes"

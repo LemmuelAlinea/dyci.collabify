@@ -35,7 +35,7 @@ export default function ProfessorProjects() {
   const withSyllabus = (classes ?? []).filter((c) => c.syllabus_id)
 
   return (
-    <div className="mx-auto w-full max-w-[1080px]">
+    <div className="w-full">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow text-amber-500 dark:text-amber-300">Teaching</p>

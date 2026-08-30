@@ -244,7 +244,9 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
 
   return (
     <header className="surface sticky top-0 z-40 border-b border-line">
-      <div className="mx-auto w-full max-w-[1220px] px-4 md:px-8">
+      {/* Matches main's gutters exactly, so the logo and the page title below it
+          sit on the same line down the screen. */}
+      <div className="w-full px-4 sm:px-6 md:px-8 xl:px-12 2xl:px-20">
         {/* Who you are, what arrived, how it looks. */}
         <div className="flex h-[58px] items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-2">

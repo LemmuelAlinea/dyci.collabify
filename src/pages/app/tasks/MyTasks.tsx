@@ -151,7 +151,7 @@ export default function MyTasks() {
   const activeBoard = (tasks ?? []).find((t) => t.id === openTask)
 
   return (
-    <div className="mx-auto w-full max-w-[900px]">
+    <div className="mx-auto w-full max-w-[1280px]">
       <Reveal once>
         <p className="eyebrow text-amber-500 dark:text-amber-300">Workspace</p>
         <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">My tasks</h1>

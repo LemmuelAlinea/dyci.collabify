@@ -33,7 +33,7 @@ export default function ProfessorHome() {
   const students = (data?.classes ?? []).reduce((n, c) => n + (c.student_count ?? 0), 0)
 
   return (
-    <div className="mx-auto w-full max-w-[1080px]">
+    <div className="w-full">
       <Reveal once>
         <h1 className="text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">
           {greeting()}, {profile.first_name}.

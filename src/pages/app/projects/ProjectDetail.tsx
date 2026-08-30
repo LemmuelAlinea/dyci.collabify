@@ -157,7 +157,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   const others = members.filter((m) => m.project_id !== project.id)
 
   return (
-    <div className="mx-auto w-full max-w-[900px]">
+    <div className="mx-auto w-full max-w-[1280px]">
       <Link
         to={`${base}/projects`}
         className="inline-flex items-center gap-1.5 text-[13.5px] text-muted transition-colors hover:text-ink"

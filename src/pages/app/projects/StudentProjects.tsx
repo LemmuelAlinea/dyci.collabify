@@ -30,7 +30,7 @@ export default function StudentProjects() {
   }, [profile])
 
   return (
-    <div className="mx-auto w-full max-w-[1080px]">
+    <div className="w-full">
       <header>
         <p className="eyebrow text-amber-500 dark:text-amber-300">Workspace</p>
         <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">Projects</h1>

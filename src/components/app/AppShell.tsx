@@ -225,12 +225,17 @@ export function AppShell() {
       {/* tabIndex -1 so the skip link can actually move focus here, not just
           scroll — without it the next Tab starts from the top of the nav again
           and the link achieves nothing. */}
+      {/* No width cap. A fixed column left a third of a wide screen empty while
+          the tables inside it scrolled — the page was narrow because of a
+          number, not because anything needed to be. The gutters grow with the
+          screen instead, and the things that genuinely have a comfortable
+          maximum say so themselves: a paragraph caps at 62ch wherever it is. */}
       <main
         id="main-content"
         tabIndex={-1}
-        className="flex-1 px-4 py-6 outline-none md:px-8 md:py-8"
+        className="flex-1 px-4 py-6 outline-none sm:px-6 md:px-8 md:py-8 xl:px-12 2xl:px-20"
       >
-        <div className="mx-auto w-full max-w-[1220px]">
+        <div className="w-full">
           {/* Inside the shell rather than around it: a page that throws leaves
               the navigation, the header and the way out alive. Keyed on the
               path so navigating away from a broken page clears the error —

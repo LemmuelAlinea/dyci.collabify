@@ -127,7 +127,7 @@ export function ResourceLibrary({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[880px]">
+    <div className="mx-auto w-full max-w-[1280px]">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow text-amber-500 dark:text-amber-300">{copy.eyebrow}</p>

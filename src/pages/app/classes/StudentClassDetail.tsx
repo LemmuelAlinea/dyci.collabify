@@ -81,7 +81,7 @@ export default function StudentClassDetail() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[900px]">
+    <div className="mx-auto w-full max-w-[1280px]">
       <ClassHeader cls={cls} backTo="/student/classes" canManage={false} />
 
       <div className="mt-8">

@@ -97,7 +97,7 @@ export default function SyllabusDetail() {
   const status = resource.parse_status ?? 'unparsed'
 
   return (
-    <div className="mx-auto w-full max-w-[820px]">
+    <div className="mx-auto w-full max-w-[1180px]">
       <Link
         to="/professor/syllabi"
         className="inline-flex items-center gap-1.5 text-[13.5px] text-muted transition-colors hover:text-ink"

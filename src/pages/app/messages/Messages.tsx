@@ -27,7 +27,7 @@ export default function Messages({ role }: { role: 'professor' | 'student' }) {
   if (!profile) return null
 
   return (
-    <div className="mx-auto w-full max-w-[1180px]">
+    <div className="w-full">
       {/* The shell already pads the page; messaging wants the full height. */}
       <div className="surface -mx-4 -my-7 flex h-[calc(100dvh-70px)] overflow-hidden border-y border-line md:-mx-7 md:-my-9 md:h-[calc(100dvh-70px)] lg:mx-0 lg:my-0 lg:h-[calc(100dvh-134px)] lg:rounded-panel lg:border">
         <aside

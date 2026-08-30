@@ -198,7 +198,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
   }
 
   return (
-    <div className="mx-auto w-full max-w-[820px]">
+    <div className="mx-auto w-full max-w-[1180px]">
       <Link
         to={base}
         className="inline-flex items-center gap-1.5 text-[13.5px] text-muted transition-colors hover:text-ink"
