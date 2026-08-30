@@ -32,10 +32,10 @@ export function ClassProgress({
           <li key={p.id}>
             <Link
               to={`/professor/projects/${p.id}`}
-              className="surface block rounded-xl border border-line px-4 py-3.5 shadow-card transition-colors hover:border-line-strong"
+              className="surface block rounded-xl border border-line px-3 py-3 shadow-card transition-colors hover:border-line-strong sm:px-4 sm:py-3.5"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                <p className="min-w-0 truncate text-[14.5px] font-medium text-ink">
+                <p className="min-w-0 truncate text-[14px] font-medium text-ink sm:text-[14.5px]">
                   {p.title}
                 </p>
                 <p className="font-mono text-[12px] text-faint">{pct}%</p>

@@ -26,10 +26,10 @@ export function TaskDigest({ tasks, limit = 5 }: { tasks: MyTask[]; limit?: numb
           <li key={t.id}>
             <Link
               to={`/student/projects/${t.project_id}`}
-              className="surface flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-line px-4 py-3 shadow-card transition-colors hover:border-line-strong"
+              className="surface flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl border border-line px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:gap-x-3 sm:gap-y-1.5 sm:px-4 sm:py-3"
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14.5px] font-medium text-ink">
+                <span className="block truncate text-[14px] font-medium text-ink sm:text-[14.5px]">
                   {t.title}
                 </span>
                 <span className="block truncate text-[12.5px] text-muted">

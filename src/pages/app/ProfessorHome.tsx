@@ -155,12 +155,7 @@ export default function ProfessorHome() {
             {/* What needs you. */}
             <div className="space-y-5 md:space-y-8 lg:col-span-2">
               <Reveal once delay={0.04}>
-                <DashSection
-                  icon="checkCircle"
-                  title="Needs your attention"
-                  count={waiting}
-                  defaultOpen
-                >
+                <DashSection icon="checkCircle" title="Needs your attention" count={waiting}>
                   <AttentionList items={data.attention} />
                 </DashSection>
               </Reveal>
@@ -195,7 +190,6 @@ export default function ProfessorHome() {
                   title="Your classes"
                   count={classes.length}
                   seeAll="/professor/classes"
-                  defaultOpen
                 >
                   <ClassRail classes={classes} />
                 </DashSection>

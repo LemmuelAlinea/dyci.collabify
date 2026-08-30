@@ -164,7 +164,6 @@ export default function StudentHome() {
                   title="Due this week"
                   count={deadlines.length}
                   seeAll="/student/tasks"
-                  defaultOpen
                 >
                   <DeadlineList deadlines={deadlines} />
                 </DashSection>
@@ -217,7 +216,6 @@ export default function StudentHome() {
                     count={data.announcements.length}
                     seeAll="/student/classes"
                     seeAllLabel="All classes"
-                    defaultOpen
                   >
                     <AnnouncementSwiper
                       announcements={data.announcements}

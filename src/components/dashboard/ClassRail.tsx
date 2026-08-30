@@ -29,7 +29,7 @@ export function ClassRail({ classes }: { classes: ClassSummary[] }) {
           <li key={c.id}>
             <Link
               to={`/professor/classes/${c.id}`}
-              className="surface flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 transition-colors hover:border-line-strong"
+              className="surface flex items-start gap-2.5 rounded-xl border border-line px-3 py-2.5 transition-colors hover:border-line-strong sm:gap-3 sm:px-3.5 sm:py-3"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg surface-sunken font-mono text-[12px] font-bold text-navy-600 dark:text-amber-300">
                 {c.initial}
