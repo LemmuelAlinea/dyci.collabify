@@ -76,6 +76,7 @@ export function ProjectCard({
    * the tell that one board had been mistaken for the whole project.
    */
   audience,
+  sections = 1,
 }: {
   project: ProjectSummary
   to: string
@@ -83,6 +84,12 @@ export function ProjectCard({
   /** One board for a student, every group's board for a professor. */
   boards?: BoardSummary[]
   audience: 'mine' | 'class'
+  /**
+   * How many sections this project runs in, counted from the list the board
+   * already holds — no extra query, and no column added to a view that three
+   * files define.
+   */
+  sections?: number
 }) {
   const progress = audience === 'mine' ? boards[0] : undefined
   const across = audience === 'class' ? summarise(boards) : null
@@ -114,6 +121,13 @@ export function ProjectCard({
         </span>
         <StatusPill project={project} />
       </div>
+
+      {sections > 1 && (
+        <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-faint">
+          <Icon name="copy" size={12} className="shrink-0" />
+          1 of {sections} sections
+        </p>
+      )}
 
       <h3 className="mt-2.5 line-clamp-2 text-[15px] leading-snug @min-[240px]:mt-3.5 @min-[240px]:text-[16.5px]">{project.title}</h3>
 

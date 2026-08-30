@@ -366,6 +366,13 @@ export type ProjectRow = {
   end_week: number
   audience: ProjectAudience
   group_set_id: string | null
+  /**
+   * Null for an ordinary one-class project. Shared by the sibling projects a
+   * professor created for several sections of one course in a single action —
+   * each section still has its own row, its own deadline and its own lock, so
+   * acting on one leaves the rest alone.
+   */
+  series_id: string | null
   total_points: number
   due_at: string | null
   /** Null means live now; a future time keeps it hidden from students. */
@@ -392,6 +399,27 @@ export type ProjectSummary = ProjectRow & {
   start_week_title: string | null
   /** What the bound weeks say is due — the project's stated basis. */
   week_assessments: string | null
+}
+
+/** project_series_members: a sibling section, and the state it is actually in. */
+export type SeriesMember = {
+  series_id: string
+  project_id: string
+  class_id: string
+  class_initial: string
+  class_name: string
+  section: string
+  title: string
+  audience: ProjectAudience
+  group_set_id: string | null
+  group_set_name: string | null
+  start_week: number
+  end_week: number
+  due_at: string | null
+  release_at: string | null
+  locked_at: string | null
+  archived_at: string | null
+  created_at: string
 }
 
 export type ProjectCriterion = {

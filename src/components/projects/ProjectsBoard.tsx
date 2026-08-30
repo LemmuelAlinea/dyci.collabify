@@ -81,6 +81,17 @@ export function ProjectsBoard({
       .catch(() => setProgress(new Map()))
   }, [projectIds])
 
+  // Counted from the projects already loaded rather than asked for: this page
+  // holds every project the professor has, so the siblings are all here.
+  const seriesSize = useMemo(() => {
+    const n = new Map<string, number>()
+    for (const p of projects) {
+      if (p.series_id) n.set(p.series_id, (n.get(p.series_id) ?? 0) + 1)
+    }
+    return n
+  }, [projects])
+
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     return projects
@@ -200,6 +211,7 @@ export function ProjectsBoard({
               showClass={showClass}
               boards={progress.get(p.id) ?? []}
               audience={audience}
+              sections={p.series_id ? (seriesSize.get(p.series_id) ?? 1) : 1}
             />
           ))}
         </div>

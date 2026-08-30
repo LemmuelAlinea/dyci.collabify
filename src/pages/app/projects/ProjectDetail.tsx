@@ -10,6 +10,7 @@ import { useToast } from '../../../components/ui/Toast'
 import { Tabs } from '../../../components/ui/Tabs'
 import { dueLabel, StatusPill } from '../../../components/projects/ProjectCard'
 import { ProjectWizard } from '../../../components/projects/ProjectWizard'
+import { SeriesActionDialog } from '../../../components/projects/SeriesActionDialog'
 import { ProjectTasksTab } from '../../../components/tasks/ProjectTasksTab'
 import { useAuth } from '../../../context/AuthContext'
 import { listProfessorClasses } from '../../../lib/api/classes'
@@ -19,10 +20,15 @@ import {
   getProject,
   listAttachments,
   listCriteria,
+  listSeriesMembers,
   projectFileUrl,
   releaseNow,
+  releaseSeriesNow,
   setProjectArchived,
   setProjectLocked,
+  setSeriesArchived,
+  setSeriesDue,
+  setSeriesLocked,
   uploadProjectFile,
 } from '../../../lib/api/projects'
 import type { CriterionInput } from '../../../lib/api/projects'
@@ -40,9 +46,13 @@ import type {
   ProjectAttachment,
   ProjectCriterion,
   ProjectSummary,
+  SeriesMember,
 } from '../../../lib/types'
 
 type TabId = 'brief' | 'tasks'
+
+/** Which scoped action the professor opened, when the project runs in several. */
+type SeriesAction = 'due' | 'lock' | 'archive' | 'release'
 
 export default function ProjectDetail({ role }: { role: 'professor' | 'student' }) {
   const { projectId = '' } = useParams()
@@ -55,6 +65,8 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   const [files, setFiles] = useState<ProjectAttachment[]>([])
   const [weeks, setWeeks] = useState<ClassWeek[]>([])
   const [classes, setClasses] = useState<ClassSummary[]>([])
+  const [members, setMembers] = useState<SeriesMember[]>([])
+  const [action, setAction] = useState<SeriesAction | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -76,14 +88,16 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         setError('That project does not exist, or you do not have access to it.')
         return
       }
-      const [c, f, w] = await Promise.all([
+      const [c, f, w, m] = await Promise.all([
         listCriteria(p.id),
         listAttachments(p.id),
         classWeekMap(p.class_id),
+        listSeriesMembers(p.series_id),
       ])
       setCriteria(c)
       setFiles(f)
       setWeeks(w)
+      setMembers(m)
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load that project.'))
@@ -137,6 +151,10 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
     (w) => w.week_no >= project.start_week && w.week_no <= project.end_week,
   )
   const rubricTotal = criteria.reduce((n, c) => n + c.max_points, 0)
+  // One row is not a series: a project created for a single section carries no
+  // series id at all, and there is nothing to scope.
+  const inSeries = members.length > 1
+  const others = members.filter((m) => m.project_id !== project.id)
 
   return (
     <div className="mx-auto w-full max-w-[900px]">
@@ -167,6 +185,17 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
               </Link>
               {project.group_set_name && ` · ${project.group_set_name}`}
             </p>
+            {/* Said here because every action on this page can reach further
+                than the page itself. */}
+            {inSeries && (
+              <p className="mt-2 flex items-start gap-1.5 text-[13px] text-white/60">
+                <Icon name="copy" size={14} className="mt-0.5 shrink-0" />
+                <span>
+                  Also set for {others.map((m) => m.section).join(', ')} — each with its
+                  own board and deadline.
+                </span>
+              </p>
+            )}
           </div>
 
           {canManage && (
@@ -180,6 +209,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                   variant="onNavy"
                   size="sm"
                   onClick={async () => {
+                    if (inSeries) return setAction('release')
                     await releaseNow(project.id)
                     show('Project published')
                     await load()
@@ -189,6 +219,17 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                   Publish now
                 </Button>
               )}
+              {/* The extension, on its own button. Moving one section's
+                  deadline is the commonest thing done to a series, and going
+                  through the whole form to do it would put four other steps
+                  in front of it — every one of which would then be saved to
+                  whatever sections were in scope. */}
+              {inSeries && (
+                <Button variant="onNavy" size="sm" onClick={() => setAction('due')}>
+                  <Icon name="clock" size={15} />
+                  Deadline
+                </Button>
+              )}
               {/* Separate from the deadline on purpose: closing stops the work
                   without rewriting when it was due, and reopening is how an
                   extension is granted. */}
@@ -196,6 +237,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                 variant="onNavy"
                 size="sm"
                 onClick={async () => {
+                  if (inSeries) return setAction('lock')
                   await setProjectLocked(project.id, !project.locked_at)
                   show(
                     project.locked_at
@@ -212,6 +254,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                 variant="onNavy"
                 size="sm"
                 onClick={async () => {
+                  if (inSeries) return setAction('archive')
                   await setProjectArchived(project.id, !project.archived_at)
                   show(project.archived_at ? 'Project restored' : 'Project archived')
                   await load()
@@ -467,6 +510,81 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         body="The file is deleted from the project. Students can no longer open it."
         confirmLabel="Remove file"
       />
+
+      {canManage && inSeries && (
+        <SeriesActionDialog
+          open={action !== null}
+          onClose={() => setAction(null)}
+          members={members}
+          current={project.id}
+          deadline={action === 'due'}
+          defaultDue={project.due_at}
+          title={
+            action === 'due'
+              ? 'Change the deadline'
+              : action === 'lock'
+                ? project.locked_at
+                  ? 'Reopen the project'
+                  : 'Close the project'
+                : action === 'archive'
+                  ? project.archived_at
+                    ? 'Restore the project'
+                    : 'Archive the project'
+                  : 'Publish now'
+          }
+          body={
+            action === 'due'
+              ? 'A passed deadline still marks work late rather than blocking it.'
+              : action === 'lock'
+                ? project.locked_at
+                  ? 'Students can change their tasks again in the sections you pick.'
+                  : 'Students can no longer change their tasks in the sections you pick.'
+                : action === 'archive'
+                  ? project.archived_at
+                    ? 'Students see it again in the sections you pick.'
+                    : 'Students no longer see it in the sections you pick.'
+                  : 'The sections you pick become visible to their students now.'
+          }
+          confirmLabel={
+            action === 'due'
+              ? 'Move the deadline'
+              : action === 'lock'
+                ? project.locked_at
+                  ? 'Reopen'
+                  : 'Close'
+                : action === 'archive'
+                  ? project.archived_at
+                    ? 'Restore'
+                    : 'Archive'
+                  : 'Publish'
+          }
+          verb={
+            action === 'due'
+              ? 'move'
+              : action === 'lock'
+                ? project.locked_at
+                  ? 'reopen'
+                  : 'close'
+                : action === 'archive'
+                  ? project.archived_at
+                    ? 'come back'
+                    : 'archive'
+                  : 'publish'
+          }
+          onConfirm={async (targets, dueAt) => {
+            if (action === 'due') await setSeriesDue(targets, dueAt)
+            else if (action === 'lock') await setSeriesLocked(targets, !project.locked_at)
+            else if (action === 'archive') await setSeriesArchived(targets, !project.archived_at)
+            else await releaseSeriesNow(targets)
+            show(
+              targets.length === 1
+                ? 'Done — the other sections are unchanged'
+                : `Done in ${targets.length} sections`,
+            )
+            await load()
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={deletePrompt}

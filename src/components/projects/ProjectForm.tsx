@@ -6,6 +6,8 @@ import { Icon } from '../ui/Icon'
 import { Select, Textarea } from '../ui/Select'
 import { FileDrop, formatBytes } from '../ui/FileDrop'
 import { RubricEditor } from './RubricEditor'
+import { SectionPicker } from './SectionPicker'
+import type { SectionChoice } from './SectionPicker'
 import { WeekSpanPicker, spanEndDate, spanSuggestions } from './WeekSpanPicker'
 import type { WeekSpan } from './WeekSpanPicker'
 import {
@@ -13,6 +15,7 @@ import {
   assessDeadline,
 } from '../../lib/types'
 import type {
+  ClassSummary,
   ClassWeek,
   ProjectAudience,
   ProjectSummary,
@@ -59,10 +62,21 @@ function Section({
   )
 }
 
+/** Everything a new project needs to be written to more than one section. */
+export type SectionOptions = {
+  primary: ClassSummary
+  /** Every class the professor teaches, the primary one included. */
+  classes: ClassSummary[]
+  /** Live sets across all of those classes, loaded in one go. */
+  groupSets: LiveGroupSet[]
+}
+
 export type ProjectFormValue = {
   input: Omit<ProjectInput, 'classId'>
   criteria: CriterionInput[]
   file: File | null
+  /** The sections beyond the primary one. Empty for an ordinary project. */
+  sections: SectionChoice[]
 }
 
 export function ProjectForm({
@@ -71,6 +85,7 @@ export function ProjectForm({
   groupSets,
   defaults,
   defaultCriteria = [],
+  sectionOptions,
   error,
   onSubmit,
 }: {
@@ -79,6 +94,8 @@ export function ProjectForm({
   groupSets: LiveGroupSet[]
   defaults?: ProjectSummary
   defaultCriteria?: CriterionInput[]
+  /** Set only when creating: offers the other sections of the same course. */
+  sectionOptions?: SectionOptions
   error?: string | null
   onSubmit: (value: ProjectFormValue) => void
 }) {
@@ -110,6 +127,7 @@ export function ProjectForm({
   const [releaseAt, setReleaseAt] = useState(toLocalInput(defaults?.release_at ?? null))
   const [criteria, setCriteria] = useState<CriterionInput[]>(defaultCriteria)
   const [file, setFile] = useState<File | null>(null)
+  const [sections, setSections] = useState<SectionChoice[]>([])
   const [invalid, setInvalid] = useState<string | null>(null)
 
   const suggestions = useMemo(() => spanSuggestions(weeks, span), [weeks, span])
@@ -161,6 +179,17 @@ export function ProjectForm({
     if (audience === 'group' && !groupSetId) {
       return fail('Pick which set of groups gets this project.')
     }
+    // A section with no arrangement named would be refused by the database
+    // anyway, and the whole fan-out with it — better to say which one here.
+    if (audience === 'group') {
+      const missing = sections.find((x) => !x.groupSetId)
+      if (missing) {
+        const cls = sectionOptions?.classes.find((c) => c.id === missing.classId)
+        return fail(
+          `Pick which groups get this project in ${cls ? `${cls.initial} · ${cls.section}` : 'the other section'}.`,
+        )
+      }
+    }
     if (!guidelines.trim()) {
       return fail('Say what the work is. Students see this as the brief.')
     }
@@ -195,6 +224,7 @@ export function ProjectForm({
       },
       criteria: criteria.filter((c) => c.label.trim()),
       file,
+      sections,
     })
   }
 
@@ -363,7 +393,24 @@ export function ProjectForm({
         </div>
       </Section>
 
-      <Section step={3} title="Marking" hint="A total, and the criteria you mark against. At least one is required.">
+      {sectionOptions && (
+        <Section
+          step={3}
+          title="Where it runs"
+          hint="Give the same project to more than one section of the course."
+        >
+          <SectionPicker
+            primary={sectionOptions.primary}
+            classes={sectionOptions.classes}
+            groupSets={sectionOptions.groupSets}
+            audience={audience}
+            chosen={sections}
+            onChange={setSections}
+          />
+        </Section>
+      )}
+
+      <Section step={sectionOptions ? 4 : 3} title="Marking" hint="A total, and the criteria you mark against. At least one is required.">
         <div className="space-y-4">
           <Field label="Total points">
             {(id) => (
@@ -383,7 +430,7 @@ export function ProjectForm({
       </Section>
 
       <Section
-        step={4}
+        step={sectionOptions ? 5 : 4}
         title="When"
         hint="Set the deadline, and hold the project back until you are ready."
       >
@@ -445,7 +492,7 @@ export function ProjectForm({
         </div>
       </Section>
 
-      <Section step={5} title="Files" hint="Attach the brief or a starter file. Optional.">
+      <Section step={sectionOptions ? 6 : 5} title="Files" hint="Attach the brief or a starter file. Optional.">
         <div className="space-y-2">
           <FileDrop
             file={file}
