@@ -59,6 +59,7 @@ export default function ProfessorHome() {
         <div className="mt-8">
           <EmptyState
             icon="folder"
+            art="classes"
             title="No classes yet"
             body="Create a class and share its code with your section. Groups, projects, and everything on this page follow from it."
             action={

@@ -66,6 +66,7 @@ export default function StudentHome() {
         <div className="mt-8">
           <EmptyState
             icon="folder"
+            art="classes"
             title="You are not in a class yet"
             body="Ask your professor for the class code, then join. Everything else — projects, groups, tasks — arrives with the class."
             action={
