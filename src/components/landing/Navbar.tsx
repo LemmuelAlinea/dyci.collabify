@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { motion } from 'motion/react'
+import { useActiveSection } from './useLoop'
 import { Logo } from '../brand/Logo'
 import { ButtonLink } from '../ui/Button'
 import { Icon } from '../ui/Icon'
@@ -11,9 +13,13 @@ const LINKS = [
   { href: '#roles', label: 'For roles' },
 ]
 
+/** Module-level so the hook's effect is not re-subscribed on every render. */
+const SECTION_IDS = LINKS.map((l) => l.href.slice(1))
+
 export function Navbar() {
   const [stuck, setStuck] = useState(false)
   const [open, setOpen] = useState(false)
+  const active = useActiveSection(SECTION_IDS)
 
   useEffect(() => {
     const onScroll = () => setStuck(window.scrollY > 24)
@@ -42,16 +48,33 @@ export function Navbar() {
           <Logo tone="onDark" subtitle="Project workspace" />
         </Link>
 
+        {/* The pill is one element that moves between the links, not three
+            that fade — so it reads as the page telling you where you are
+            rather than each link lighting up on its own. */}
         <div className="hidden items-center gap-1 lg:flex">
-          {LINKS.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="relative rounded-full px-4 py-2 text-[14.5px] text-white/72 transition-colors duration-200 hover:text-white"
-            >
-              {l.label}
-            </a>
-          ))}
+          {LINKS.map((l) => {
+            const on = active === l.href.slice(1)
+            return (
+              <a
+                key={l.href}
+                href={l.href}
+                aria-current={on ? 'true' : undefined}
+                className={`relative rounded-full px-4 py-2 text-[14.5px] transition-colors duration-200 hover:text-white ${
+                  on ? 'text-white' : 'text-white/72'
+                }`}
+              >
+                {on && (
+                  <motion.span
+                    layoutId="nav-here"
+                    aria-hidden
+                    className="absolute inset-0 -z-10 rounded-full bg-white/12"
+                    transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                  />
+                )}
+                {l.label}
+              </a>
+            )
+          })}
         </div>
 
         <div className="flex items-center gap-1.5">

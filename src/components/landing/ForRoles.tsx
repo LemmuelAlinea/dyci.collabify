@@ -1,4 +1,5 @@
 import { Reveal } from '../motion/Reveal'
+import { DrawnCheck, Spotlight } from './Anim'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 
@@ -58,30 +59,30 @@ export function ForRoles() {
 
         <div className="mt-14 grid gap-4 md:grid-cols-3 lg:gap-5">
           {ROLES.map((r, i) => (
-            <Reveal
-              key={r.role}
-              as="article"
-              delay={i * 0.09}
-              className="surface flex flex-col rounded-card border border-line p-4 sm:p-5 sm:p-7 shadow-card transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-lift md:p-8"
-            >
-              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-400/15 text-amber-600 dark:text-amber-300">
-                <Icon name={r.icon} size={21} />
-              </span>
-              <h3 className="mt-5 text-[22px]">{r.role}</h3>
-              <p className="mt-2 text-[15px] text-muted">{r.line}</p>
-              <ul className="mt-6 space-y-3 border-t border-line pt-6">
-                {r.points.map((p) => (
-                  <li key={p} className="flex gap-2.5 text-[14.5px] leading-relaxed text-muted">
-                    <Icon
-                      name="check"
-                      size={16}
-                      className="mt-1 shrink-0 text-amber-500 dark:text-amber-300"
-                      strokeWidth={2.4}
-                    />
-                    {p}
-                  </li>
-                ))}
-              </ul>
+            <Reveal key={r.role} as="div" delay={i * 0.09}>
+              <Spotlight className="surface group flex h-full flex-col rounded-card border border-line p-4 sm:p-5 sm:p-7 shadow-card transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-lift md:p-8">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-400/15 text-amber-600 transition-transform duration-300 group-hover:scale-105 dark:text-amber-300">
+                  <Icon name={r.icon} size={21} />
+                </span>
+                <h3 className="mt-5 text-[22px]">{r.role}</h3>
+                <p className="mt-2 text-[15px] text-muted">{r.line}</p>
+                <ul className="mt-6 space-y-3 border-t border-line pt-6">
+                  {r.points.map((p, n) => (
+                    <li
+                      key={p}
+                      className="flex gap-2.5 text-[14.5px] leading-relaxed text-muted"
+                    >
+                      {/* Drawn rather than faded: the point of the mark is that
+                          somebody can do the thing beside it, and a stroke being
+                          made is closer to that than a shape appearing. */}
+                      <span className="mt-1 text-amber-500 dark:text-amber-300">
+                        <DrawnCheck delay={i * 0.09 + n * 0.09} />
+                      </span>
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              </Spotlight>
             </Reveal>
           ))}
         </div>

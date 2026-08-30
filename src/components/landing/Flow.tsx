@@ -1,8 +1,10 @@
 import { useRef } from 'react'
+import { motion } from 'motion/react'
 import { Reveal } from '../motion/Reveal'
 import { ScrollLine } from '../motion/Parallax'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
+import { useActiveIndex } from './useLoop'
 
 /**
  * The shape of the product, in the order it happens.
@@ -55,6 +57,10 @@ const STEPS: { n: string; icon: IconName; title: string; body: string }[] = [
 
 export function Flow() {
   const list = useRef<HTMLOListElement>(null)
+  // The line already shows how far through the section you are. This says
+  // which step that is — which matters here because the steps are a chain,
+  // not a menu: nothing in step 4 can happen until step 3 has.
+  const { setItem, active } = useActiveIndex(STEPS.length)
 
   return (
     <section
@@ -76,33 +82,55 @@ export function Flow() {
 
           <ol ref={list} className="relative space-y-3 md:pl-0">
             <ScrollLine target={list} />
-            {STEPS.map((s, i) => (
-              <Reveal
-                key={s.n}
-                as="li"
-                delay={(i % 3) * 0.06}
-                className="relative md:pl-12"
-              >
-                {/* The node on the line. It is the same amber the filled part of
-                    the line uses, so the two read as one object. */}
-                <span
-                  aria-hidden
-                  className="absolute top-7 left-[9px] hidden h-3.5 w-3.5 rounded-full border-2 border-amber-400 bg-[var(--page)] md:block"
-                />
-                <div className="surface rounded-card border border-line p-4 sm:p-6 shadow-card transition-[transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:shadow-lift md:p-7">
-                  <div className="flex items-start gap-4">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-navy-600 text-amber-400 dark:bg-navy-500">
-                      <Icon name={s.icon} size={19} />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="font-mono text-[12px] tracking-widest text-faint">{s.n}</p>
-                      <h3 className="mt-1 text-[20px] leading-snug">{s.title}</h3>
-                      <p className="mt-2.5 text-[14.5px] leading-relaxed text-muted">{s.body}</p>
+            {STEPS.map((s, i) => {
+              const on = i === active
+              return (
+                <Reveal key={s.n} as="li" delay={(i % 3) * 0.06}>
+                  <div ref={setItem(i)} className="relative md:pl-12">
+                    {/* The node on the line — hollow until you reach its step,
+                        then filled. Same amber as the line's filled part, so
+                        the two read as one object rather than two effects. */}
+                    <motion.span
+                      aria-hidden
+                      animate={{
+                        scale: on ? 1.25 : 1,
+                        backgroundColor: on ? '#F0B429' : 'var(--page)',
+                      }}
+                      transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+                      className="absolute top-7 left-[9px] hidden h-3.5 w-3.5 rounded-full border-2 border-amber-400 md:block"
+                    />
+                    <div
+                      className={`surface group rounded-card border p-4 sm:p-6 shadow-card transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-0.5 hover:shadow-lift md:p-7 ${
+                        on ? 'border-amber-400/60' : 'border-line'
+                      }`}
+                    >
+                      <div className="flex items-start gap-4">
+                        <motion.span
+                          animate={{ scale: on ? 1.06 : 1 }}
+                          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-navy-600 text-amber-400 transition-transform duration-300 group-hover:rotate-3 dark:bg-navy-500"
+                        >
+                          <Icon name={s.icon} size={19} />
+                        </motion.span>
+                        <div className="min-w-0">
+                          <p
+                            className={`font-mono text-[12px] tracking-widest transition-colors duration-300 ${
+                              on ? 'text-amber-600 dark:text-amber-300' : 'text-faint'
+                            }`}
+                          >
+                            {s.n}
+                          </p>
+                          <h3 className="mt-1 text-[20px] leading-snug">{s.title}</h3>
+                          <p className="mt-2.5 text-[14.5px] leading-relaxed text-muted">
+                            {s.body}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Reveal>
-            ))}
+                </Reveal>
+              )
+            })}
           </ol>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { Reveal } from '../motion/Reveal'
 import { Parallax } from '../motion/Parallax'
+import { Spotlight } from './Anim'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 
@@ -75,17 +76,20 @@ export function Features() {
 
         <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
           {FEATURES.map((f, i) => (
-            <Reveal
-              key={f.title}
-              as="article"
-              delay={(i % 3) * 0.08}
-              className="group surface rounded-card border border-line p-4 sm:p-6 shadow-card transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-line-strong hover:shadow-lift md:p-7"
-            >
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-navy-600 text-amber-400 transition-transform duration-300 group-hover:scale-105 dark:bg-navy-500">
-                <Icon name={f.icon} size={22} />
-              </span>
-              <h3 className="mt-5 text-[19px] leading-snug">{f.title}</h3>
-              <p className="mt-2.5 text-[14.5px] leading-relaxed text-muted">{f.body}</p>
+            <Reveal key={f.title} as="div" delay={(i % 3) * 0.08}>
+              <Spotlight className="group surface h-full rounded-card border border-line p-4 sm:p-6 shadow-card transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-line-strong hover:shadow-lift md:p-7">
+                {/* The tile turns amber under the pointer and the mark inside it
+                    leans — one gesture per card, not a different trick each. */}
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-navy-600 text-amber-400 transition-[transform,background-color] duration-300 group-hover:scale-105 group-hover:bg-amber-400 group-hover:text-navy-800 dark:bg-navy-500">
+                  <Icon
+                    name={f.icon}
+                    size={22}
+                    className="transition-transform duration-500 group-hover:-rotate-6"
+                  />
+                </span>
+                <h3 className="mt-5 text-[19px] leading-snug">{f.title}</h3>
+                <p className="mt-2.5 text-[14.5px] leading-relaxed text-muted">{f.body}</p>
+              </Spotlight>
             </Reveal>
           ))}
         </div>
