@@ -48,18 +48,14 @@ export function Hero() {
                 sentence is the page's whole argument, and watching it be built
                 is the one place a heading earns motion. */}
             <WordReveal
-              text="Group work where nobody carries it alone."
-              accent={['nobody', 'carries', 'it', 'alone']}
+              text="Where BSIT programs run the term."
+              accent={['run', 'the', 'term']}
               delay={0.12}
               className="mt-6 text-[clamp(2.6rem,7.2vw,4.6rem)] leading-[0.98] font-extrabold text-balance"
             />
 
             <Rise as="p" delay={0.18} className="mt-6 max-w-[540px] text-[clamp(1rem,1.5vw,1.18rem)] leading-relaxed text-white/72">
-              Collabify is where BSIT classes at DYCI run their coursework. Your professor
-              sets a project against the weeks of the syllabus. Your group claims it off a
-              board — and the share limit means one person cannot end up doing all of it.
-              You hand in when you are done, and your professor answers: accepted, or
-              returned with the reason why.
+              Projects, boards and deadlines for classes at Dr. Yanga's Colleges.
             </Rise>
 
             <Rise delay={0.26} className="mt-9 flex flex-wrap items-center gap-3">
