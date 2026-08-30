@@ -55,41 +55,33 @@ export type Tile = {
 }
 
 /**
- * The top of a student's dashboard: who they are, what is true this minute, and
- * four figures they can press.
+ * The top of a dashboard: who you are, what is true this minute, and four
+ * figures you can press.
  *
  * The greeting used to be the largest thing on the page and it said nothing —
- * a student already knows their own name and the time of day. The line beneath
- * it is the page's actual answer, assembled from the same data the sections
- * below repeat in detail, and it changes with their week rather than the clock.
+ * somebody already knows their own name and the time of day. The line beneath
+ * it is the page's actual answer, and it changes with the week rather than the
+ * clock.
+ *
+ * The sentence is passed in rather than worked out here, because what counts as
+ * urgent is not the same question on both dashboards: a student is behind when
+ * a deadline has passed, and a professor is behind when a group has gone quiet
+ * or something is sitting unreleased. Only the shape is shared.
  */
-export function StudentSummary({
+export function DashboardSummary({
   greeting,
   name,
-  overdue,
-  dueThisWeek,
-  tasksInHand,
+  line,
+  urgent = false,
   tiles,
 }: {
   greeting: string
   name: string
-  overdue: number
-  dueThisWeek: number
-  tasksInHand: number
+  /** One sentence of what is true right now, built by the page from its own data. */
+  line: string
+  urgent?: boolean
   tiles: Tile[]
 }) {
-  const urgent = overdue > 0
-  const plural = (n: number, one: string, many: string) => (n === 1 ? one : many)
-
-  const line = urgent
-    ? `${overdue} ${plural(overdue, 'deadline has', 'deadlines have')} already passed.` +
-      (dueThisWeek > 0 ? ` Another ${dueThisWeek} ${plural(dueThisWeek, 'is', 'are')} due this week.` : '')
-    : dueThisWeek > 0
-      ? `${dueThisWeek} ${plural(dueThisWeek, 'deadline', 'deadlines')} this week, and nothing overdue.`
-      : tasksInHand > 0
-        ? `${tasksInHand} ${plural(tasksInHand, 'task', 'tasks')} in hand, and nothing due this week.`
-        : 'Nothing is waiting on you right now.'
-
   return (
     <section>
       <h1 className="leading-tight">

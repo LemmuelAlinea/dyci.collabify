@@ -6,7 +6,7 @@ import { DashSection } from '../../components/dashboard/DashSection'
 import { DeadlineList } from '../../components/dashboard/DeadlineList'
 import { ProjectStrip } from '../../components/dashboard/ProjectStrip'
 import { StandingCard } from '../../components/dashboard/StandingCard'
-import { StudentSummary } from '../../components/dashboard/StudentSummary'
+import { DashboardSummary } from '../../components/dashboard/DashboardSummary'
 import { TaskDigest } from '../../components/dashboard/TaskDigest'
 import { TermStrip } from '../../components/dashboard/TermStrip'
 import { WaitingOnYou } from '../../components/dashboard/WaitingOnYou'
@@ -15,6 +15,7 @@ import { Alert } from '../../components/ui/Field'
 import { Spinner } from '../../components/ui/Icon'
 import { EmptyState } from '../../components/ui/Tabs'
 import { useAuth } from '../../context/AuthContext'
+import { plural } from '../../lib/plural'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { useStudentDashboard } from '../../hooks/useStudentDashboard'
 
@@ -61,6 +62,21 @@ export default function StudentHome() {
   const openProjects = (data?.projects ?? []).filter(
     (p) => !p.archived_at && !p.scheduled,
   ).length
+  const tasksInHand = data?.tasks.length ?? 0
+
+  // A student is behind when a deadline has gone by. Everything else is a
+  // report on how the week looks.
+  const line =
+    overdue > 0
+      ? `${overdue} ${plural(overdue, 'deadline has', 'deadlines have')} already passed.` +
+        (dueThisWeek > 0
+          ? ` Another ${dueThisWeek} ${plural(dueThisWeek, 'is', 'are')} due this week.`
+          : '')
+      : dueThisWeek > 0
+        ? `${dueThisWeek} ${plural(dueThisWeek, 'deadline', 'deadlines')} this week, and nothing overdue.`
+        : tasksInHand > 0
+          ? `${tasksInHand} ${plural(tasksInHand, 'task', 'tasks')} in hand, and nothing due this week.`
+          : 'Nothing is waiting on you right now.'
 
   return (
     <div className="w-full">
@@ -99,12 +115,11 @@ export default function StudentHome() {
       ) : (
         <>
           <Reveal once>
-            <StudentSummary
+            <DashboardSummary
               greeting={greeting()}
               name={profile.first_name}
-              overdue={overdue}
-              dueThisWeek={dueThisWeek}
-              tasksInHand={data.tasks.length}
+              line={line}
+              urgent={overdue > 0}
               tiles={[
                 {
                   label: 'Tasks to finish',
