@@ -269,27 +269,32 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
           </div>
         </div>
 
-        {/* Where you can go. Scrolls on a narrow screen; the page-wide scrollbar
-            styling would otherwise draw a 10px track across it. */}
-        <nav
-          aria-label="Sections"
-          className="-mb-px hidden gap-6 overflow-x-auto [scrollbar-width:none] md:flex [&::-webkit-scrollbar]:hidden"
-        >
-          {groups[0].items.map((item) =>
-            item.to ? (
-              <NavLink
-                key={item.label}
-                to={item.to}
-                end={item.to.split('/').filter(Boolean).length < 2}
-                className={({ isActive }) => tabClass(isActive)}
-              >
-                <Icon name={item.icon} size={17} />
-                {item.label}
-              </NavLink>
-            ) : null,
-          )}
+        {/* Where you can go.
+            The More menu sits OUTSIDE the scrolling strip, and that is not a
+            layout preference. `overflow-x: auto` forces the other axis to
+            `auto` as well, so a row that scrolls sideways also clips
+            everything that hangs below it — the dropdown opened, was cut off
+            at the height of the row, and could not even be clicked. Measured,
+            not guessed: a hit test at the middle of the open menu found
+            nothing there. */}
+        <div aria-label="Sections" className="-mb-px hidden items-center gap-6 md:flex">
+          <nav className="flex min-w-0 gap-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {groups[0].items.map((item) =>
+              item.to ? (
+                <NavLink
+                  key={item.label}
+                  to={item.to}
+                  end={item.to.split('/').filter(Boolean).length < 2}
+                  className={({ isActive }) => tabClass(isActive)}
+                >
+                  <Icon name={item.icon} size={17} />
+                  {item.label}
+                </NavLink>
+              ) : null,
+            )}
+          </nav>
           <MoreMenu groups={rest} />
-        </nav>
+        </div>
       </div>
     </header>
   )
