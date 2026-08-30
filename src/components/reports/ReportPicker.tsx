@@ -170,49 +170,91 @@ function Actions({
   )
 }
 
-/** The seven, grouped and described. Used by the column and by the dialog. */
+/**
+ * The seven, grouped. Used by the column and by the dialog, and the difference
+ * between them is the sentence under each one.
+ *
+ * **Dense**, in the column: only the chosen report explains itself. Seven
+ * descriptions at once is roughly seven hundred pixels of prose that somebody
+ * reads once and then scrolls past every time afterwards — and it pushed Print
+ * and the selects below the fold, which is how the controls for a page ended up
+ * being the hardest part of it to find. Seven single lines are a list you can
+ * take in at a glance, and the sentence arrives on the one you land on.
+ *
+ * **Full**, in the dialog: every description, because choosing is the only
+ * thing that dialog is for and there is a whole screen to do it in.
+ */
 function Catalogue({
   catalogue,
   kind,
   onPick,
+  dense = false,
 }: {
   catalogue: ReportGroup[]
   kind: ReportKind
   onPick: (k: ReportKind) => void
+  dense?: boolean
 }) {
   return (
-    <div className="space-y-4">
+    <div className={dense ? 'space-y-3' : 'space-y-4'}>
       {catalogue.map((g) => (
-        <div key={g.group} className="space-y-1.5">
-          <p className="eyebrow text-faint">{g.group}</p>
-          {g.items.map((item) => (
-            <button
-              key={item.kind}
-              type="button"
-              aria-pressed={kind === item.kind}
-              onClick={() => onPick(item.kind)}
-              className={`block w-full rounded-xl border px-3.5 py-2.5 text-left transition-colors ${
-                kind === item.kind
-                  ? 'border-navy-400 bg-navy-500/8'
-                  : 'surface border-line hover:border-line-strong'
-              }`}
-            >
-              <span className="flex items-center gap-2 text-[14px] text-ink">
-                {item.label}
-                {item.csv && (
-                  <span className="rounded-full surface-sunken px-1.5 py-0.5 font-mono text-[9.5px] tracking-wider text-muted uppercase">
-                    csv
+        <div key={g.group} className={dense ? 'space-y-1' : 'space-y-1.5'}>
+          <p
+            className={
+              dense
+                ? 'px-1 pb-0.5 text-[11px] font-medium tracking-wide text-faint uppercase'
+                : 'eyebrow text-faint'
+            }
+          >
+            {g.group}
+          </p>
+          {g.items.map((item) => {
+            const on = kind === item.kind
+            return (
+              <button
+                key={item.kind}
+                type="button"
+                aria-pressed={on}
+                onClick={() => onPick(item.kind)}
+                className={`block w-full rounded-xl border text-left transition-colors ${
+                  dense ? 'px-3 py-2' : 'px-3.5 py-2.5'
+                } ${
+                  on
+                    ? 'border-navy-400 bg-navy-500/8'
+                    : 'surface border-line hover:border-line-strong'
+                }`}
+              >
+                <span
+                  className={`flex items-center gap-2 text-ink ${
+                    dense ? 'text-[13.5px]' : 'text-[14px]'
+                  } ${on && dense ? 'font-medium' : ''}`}
+                >
+                  {item.label}
+                  {item.csv && (
+                    <span className="rounded-full surface-sunken px-1.5 py-0.5 font-mono text-[9.5px] tracking-wider text-muted uppercase">
+                      csv
+                    </span>
+                  )}
+                  {on && (
+                    <Icon
+                      name="check"
+                      size={14}
+                      className="ml-auto shrink-0 text-navy-600 dark:text-navy-200"
+                    />
+                  )}
+                </span>
+                {(!dense || on) && (
+                  <span
+                    className={`block leading-relaxed text-muted ${
+                      dense ? 'mt-1 text-[12px]' : 'mt-0.5 text-[12px]'
+                    }`}
+                  >
+                    {item.body}
                   </span>
                 )}
-                {kind === item.kind && (
-                  <Icon name="check" size={14} className="ml-auto shrink-0 text-navy-600 dark:text-navy-200" />
-                )}
-              </span>
-              <span className="mt-0.5 block text-[12px] leading-relaxed text-muted">
-                {item.body}
-              </span>
-            </button>
-          ))}
+              </button>
+            )
+          })}
         </div>
       ))}
     </div>
@@ -248,11 +290,13 @@ export function ReportSidebar({
 }) {
   return (
     <div className="hidden @min-[860px]:block print:hidden">
-      <div className="sticky top-[72px] max-h-[calc(100dvh-96px)] space-y-5 overflow-y-auto pb-1 [scrollbar-width:thin]">
-        <Catalogue catalogue={catalogue} kind={r.kind} onPick={r.choose} />
+      <div className="sticky top-[72px] max-h-[calc(100dvh-96px)] space-y-4 overflow-y-auto pb-1 [scrollbar-width:thin]">
+        <Catalogue catalogue={catalogue} kind={r.kind} onPick={r.choose} dense />
 
         <section className="space-y-2">
-          <p className="eyebrow text-faint">What it is about</p>
+          <p className="px-1 text-[11px] font-medium tracking-wide text-faint uppercase">
+            What it is about
+          </p>
           <About r={r} />
         </section>
 
