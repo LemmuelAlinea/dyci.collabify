@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 
@@ -31,14 +32,16 @@ export function PageHeader({
 }) {
   return (
     <header className="mb-6">
+      {/* Link, not an anchor: a plain href reloads the whole app to go one page
+          back, which throws away every query already in memory. */}
       {back && (
-        <a
-          href={back.to}
+        <Link
+          to={back.to}
           className="mb-3 inline-flex items-center gap-1.5 text-[13.5px] text-muted transition-colors hover:text-ink"
         >
           <Icon name="arrowLeft" size={15} />
           {back.label}
-        </a>
+        </Link>
       )}
 
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
