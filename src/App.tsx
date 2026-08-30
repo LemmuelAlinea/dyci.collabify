@@ -1,6 +1,5 @@
 import { Suspense, lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
-import DesignProbe from './pages/__probe/DesignProbe'
 import { ThemeSync } from './components/ThemeSync'
 import { AppShell } from './components/app/AppShell'
 import { ErrorBoundary } from './components/app/ErrorBoundary'
@@ -80,7 +79,6 @@ export default function App() {
       <Suspense fallback={<PageLoading />}>
           <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/__design" element={<DesignProbe />} />
 
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
