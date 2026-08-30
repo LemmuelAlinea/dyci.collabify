@@ -166,6 +166,149 @@
   }
 }
 
+/**
+ * The signed-in workspace.
+ *
+ * Everything inside `AppShell` carries `.app-ui`, and these override the tokens
+ * the rest of the product uses. The landing page keeps the originals, which is
+ * the whole reason this is a scoped block rather than an edit to `:root` — the
+ * two now want different things. Marketing wants depth: a tinted canvas, cards
+ * that lift off it, a navy slab of navigation. Work does not. A person is in
+ * here for an hour at a time, reading dense pages, and every shadow and tint is
+ * something their eye has to sort before it reaches the sentence it came for.
+ *
+ * So: white ground, and separation carried by a hairline rather than a shadow.
+ * The brand colours are still here and still mean something — they are just
+ * spent on the two or three things per page that need pointing at, instead of
+ * on the furniture.
+ *
+ * Both themes are defined together, the same rule the rest of the file follows.
+ * A value set in one and not the other is a bug in the other.
+ */
+@layer base {
+  .app-ui {
+    --page: #ffffff;
+    --surface: #ffffff;
+    /* The one tint. Header bands, quiet fills, table stripes — nothing else. */
+    --surface-sunken: #f4f6fb;
+    --surface-raised: #ffffff;
+
+    --ink: #10162e;
+    --ink-muted: #59627f;
+    /* 4.6:1 on white and on the sunken tint. Checked with scripts/contrast.mjs. */
+    --ink-faint: #6b738f;
+
+    --line: rgb(16 22 55 / 0.12);
+    --line-strong: rgb(16 22 55 / 0.22);
+    /* WCAG 1.4.11 wants 3:1 for the boundary of a control the person has to
+       find. On a white ground that is a heavier line than the hairline between
+       two panels, which is why these are two tokens and not one.
+       Measured by scripts/contrast.mjs. */
+    --control-line: rgb(16 22 55 / 0.52);
+    --ring: #26327a;
+
+    /* A card does not float. Only things that genuinely sit above the page —
+       a menu, a dialog, a popover — get a shadow, and `--shadow-lift` is it. */
+    --shadow-card: none;
+    --shadow-lift: 0 2px 4px rgb(16 22 55 / 0.06), 0 8px 24px rgb(16 22 55 / 0.12);
+
+    --radius-card: 12px;
+    --radius-panel: 14px;
+
+    background: var(--page);
+    color: var(--ink);
+  }
+
+  .dark .app-ui {
+    --page: #0a0e24;
+    --surface: #10152f;
+    --surface-sunken: #161c3c;
+    --surface-raised: #1a2145;
+
+    --ink: #eef1fa;
+    --ink-muted: #a8b0cd;
+    --ink-faint: #8890ad;
+
+    --line: rgb(255 255 255 / 0.11);
+    --line-strong: rgb(255 255 255 / 0.22);
+    --control-line: rgb(255 255 255 / 0.36);
+    --ring: #8493cf;
+
+    --shadow-card: none;
+    --shadow-lift: 0 2px 6px rgb(0 0 0 / 0.5), 0 16px 40px rgb(0 0 0 / 0.5);
+  }
+
+  /**
+   * A pill is a marketing shape. In here a button is a control that sits in a
+   * row with inputs and selects, and it should look like one — square-ish, flat,
+   * and no coloured glow underneath it. The glow was doing the work of saying
+   * "this is the important one", which on a working page is the job of there
+   * being exactly one filled button.
+   */
+  .app-ui .btn {
+    border-radius: 9px;
+    box-shadow: none;
+  }
+
+  /**
+   * One heading size in here, and one weight.
+   *
+   * The pages had four: `text-[30px]`, two different `clamp()` ramps and a
+   * plain `text-2xl`. Nobody chose that — each page picked a size the day it
+   * was written — and the result was that moving between two pages felt like
+   * moving between two products. Set here rather than edited into thirty-odd
+   * files, so it stays one decision in one place.
+   *
+   * Scoped to `main` so a heading inside a dialog or the rail is not caught.
+   */
+  .app-ui main h1 {
+    font-size: clamp(23px, 2.3vw, 27px);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+  .app-ui main h2 {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .app-ui main h3 {
+    font-size: 15.5px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  /**
+   * A card, said once. Thirty-odd pages were each spelling out the same six
+   * utilities, which is how they drifted apart — three different paddings and
+   * two different radii were live at the same time.
+   */
+  .app-ui .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+  }
+
+  /**
+   * The mono kicker above a page title is retired in here.
+   *
+   * `.eyebrow` is 11px mono at 0.18em tracking, and it was the first thing on
+   * almost every page. It is a strong, technical, blueprint-ish voice, which is
+   * right on the landing page and wrong on a page somebody reads every day —
+   * it made every screen announce itself before saying anything. In here it is
+   * just a small quiet label, and the mono face goes back to what it is good
+   * at: numerals and counts.
+   */
+  .app-ui .eyebrow {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ink-faint);
+  }
+}
+
 @layer utilities {
   .surface {
     background: var(--surface);

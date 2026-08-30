@@ -110,7 +110,7 @@ export default function ProfessorClasses() {
             type="button"
             onClick={() => setView(v)}
             className={`flex-1 rounded-full px-5 py-2 text-[14px] transition-colors duration-200 sm:flex-none ${
-              view === v ? 'surface font-semibold text-ink shadow-card' : 'text-muted hover:text-ink'
+              view === v ? 'surface font-semibold text-ink ring-1 ring-[var(--line-strong)]' : 'text-muted hover:text-ink'
             }`}
           >
             {v === 'active' ? 'Active' : 'Archived'}

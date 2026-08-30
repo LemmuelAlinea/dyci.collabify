@@ -20,10 +20,23 @@ function vars(block) {
 
 // Match the block openers exactly: `.dark` also appears in the @custom-variant
 // line on line 3, and slicing from there returns nothing.
-const at = (needle) => css.indexOf(needle)
+//
+// There are four scopes, not two. The signed-in app redefines the same tokens
+// under `.app-ui`, and the slice for `dark` used to run all the way to
+// `@layer utilities` — which swallowed both app blocks, so the numbers printed
+// under "dark" were really the app's, and the app's own pairs were never
+// checked at all. A checker reporting on the wrong block is worse than no
+// checker: it passes while the thing it names is broken.
+const at = (needle) => {
+  const i = css.indexOf(needle)
+  if (i < 0) throw new Error(`contrast.mjs: cannot find the block opener ${needle}`)
+  return i
+}
 const theme = vars(css.slice(at('@theme'), at('@layer base')))
 const light = vars(css.slice(at(':root {'), at('.dark {')))
-const dark = vars(css.slice(at('.dark {'), at('@layer utilities')))
+const dark = vars(css.slice(at('.dark {'), at('.app-ui {')))
+const appLight = vars(css.slice(at('.app-ui {'), at('.dark .app-ui {')))
+const appDark = vars(css.slice(at('.dark .app-ui {'), at('.app-ui .btn {')))
 
 function rgb(value, scope) {
   let v = (value || '').trim()
@@ -85,6 +98,8 @@ let failures = 0
 for (const [name, scope] of [
   ['light', light],
   ['dark', dark],
+  ['app · light', appLight],
+  ['app · dark', appDark],
 ]) {
   console.log(`\n${name}`)
   for (const [label, fgTok, bgTok, need] of PAIRS) {

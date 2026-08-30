@@ -36,7 +36,7 @@ export function TaskViewSwitch({
             aria-pressed={view === v}
             onClick={() => onView(v)}
             className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] capitalize transition-colors ${
-              view === v ? 'surface font-medium text-ink shadow-card' : 'text-muted hover:text-ink'
+              view === v ? 'surface font-medium text-ink ring-1 ring-[var(--line-strong)]' : 'text-muted hover:text-ink'
             }`}
           >
             <Icon name={ICON[v]} size={15} />

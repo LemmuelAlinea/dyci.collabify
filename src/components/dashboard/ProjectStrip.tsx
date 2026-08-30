@@ -39,7 +39,7 @@ export function ProjectStrip({
           <Link
             key={p.id}
             to={`${linkBase}/${p.id}`}
-            className="surface flex flex-col rounded-card border border-line p-4 shadow-card transition-[transform,box-shadow] duration-250 hover:-translate-y-0.5 hover:shadow-lift"
+            className="surface flex flex-col rounded-card border border-line p-4 shadow-card transition-colors duration-250 hover:border-line-strong"
           >
             <div className="flex items-start gap-2.5">
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg surface-sunken text-muted">

@@ -71,7 +71,7 @@ export function StatRow({
           <Link
             key={s.label}
             to={s.to}
-            className="surface rounded-card border border-line px-4 py-3.5 shadow-card transition-[transform,box-shadow] duration-250 hover:-translate-y-0.5 hover:shadow-lift"
+            className="surface rounded-card border border-line px-4 py-3.5 shadow-card transition-colors duration-250 hover:border-line-strong"
           >
             {body}
           </Link>

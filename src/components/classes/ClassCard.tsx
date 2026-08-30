@@ -34,7 +34,7 @@ export function ClassCard({ cls, to }: { cls: ClassSummary; to: string }) {
   return (
     <Link
       to={to}
-      className="group @container surface flex rounded-card border border-line shadow-card transition-[transform,box-shadow,border-color] duration-250 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lift"
+      className="group @container surface flex rounded-card border border-line shadow-card transition-colors duration-250 hover:border-line-strong hover:border-line-strong"
     >
       {/* The padding lives on this inner box, not on the card itself: an
           element cannot answer its own container query, so the card declares

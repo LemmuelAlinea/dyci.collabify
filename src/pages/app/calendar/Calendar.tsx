@@ -136,7 +136,7 @@ export default function Calendar() {
               aria-pressed={view === v}
               onClick={() => setView(v)}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] capitalize transition-colors ${
-                view === v ? 'surface font-medium text-ink shadow-card' : 'text-muted hover:text-ink'
+                view === v ? 'surface font-medium text-ink ring-1 ring-[var(--line-strong)]' : 'text-muted hover:text-ink'
               }`}
             >
               <Icon name={v === 'month' ? 'calendar' : 'board'} size={15} />

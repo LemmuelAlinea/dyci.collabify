@@ -215,7 +215,7 @@ export default function MyTasks() {
                         return (
                           <li
                             key={t.id}
-                            className="surface group flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-line px-4 py-3.5 shadow-card transition-[transform,box-shadow,border-color] duration-250 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lift"
+                            className="surface group flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-line px-4 py-3.5 shadow-card transition-colors duration-250 hover:border-line-strong hover:border-line-strong"
                           >
                             <span className={`h-9 w-1 shrink-0 rounded-full ${bucket.bar}`} />
 

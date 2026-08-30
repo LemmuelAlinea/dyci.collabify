@@ -67,7 +67,7 @@ export function TaskCard({
 
   return (
     <article
-      className={`surface group relative rounded-xl border p-3.5 shadow-card transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-lift ${
+      className={`surface group relative rounded-xl border p-3.5 shadow-card transition-colors duration-200 hover:border-line-strong ${
         yours
           ? 'border-amber-300 hover:border-amber-400 dark:border-amber-400/50'
           : 'border-line hover:border-line-strong'

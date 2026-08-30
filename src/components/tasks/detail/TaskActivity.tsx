@@ -162,7 +162,7 @@ export function TaskActivity({
               onClick={() => setTab(t.id)}
               className={`rounded-md px-2.5 py-1 text-[12.5px] transition-colors ${
                 tab === t.id
-                  ? 'surface font-medium text-ink shadow-card'
+                  ? 'surface font-medium text-ink ring-1 ring-[var(--line-strong)]'
                   : 'text-muted hover:text-ink'
               }`}
             >

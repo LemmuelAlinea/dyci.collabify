@@ -38,7 +38,7 @@ export default function ProgramLibrary() {
             type="button"
             onClick={() => setKind(k)}
             className={`rounded-lg px-3.5 py-1.5 text-[13px] transition-colors ${
-              kind === k ? 'surface font-medium text-ink shadow-card' : 'text-muted hover:text-ink'
+              kind === k ? 'surface font-medium text-ink ring-1 ring-[var(--line-strong)]' : 'text-muted hover:text-ink'
             }`}
           >
             {label}

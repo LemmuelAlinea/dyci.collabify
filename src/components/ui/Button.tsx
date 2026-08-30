@@ -5,8 +5,12 @@ import { Spinner } from './Icon'
 type Variant = 'primary' | 'accent' | 'outline' | 'ghost' | 'onNavy' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
 
+// `btn` is a styling hook, not a style. It carries nothing on the public side;
+// inside `.app-ui` it is what squares off the corners and drops the coloured
+// glow, so the same component can be a marketing pill out there and a plain
+// control in here.
 const BASE =
-  'inline-flex items-center justify-center gap-2 rounded-full font-medium whitespace-nowrap ' +
+  'btn inline-flex items-center justify-center gap-2 rounded-full font-medium whitespace-nowrap ' +
   'transition-[transform,background-color,border-color,box-shadow,color] duration-200 ' +
   'active:scale-[0.98] disabled:pointer-events-none disabled:opacity-55'
 
