@@ -143,7 +143,7 @@ export default function Reports() {
         />
       ) : (
         <div className="@container">
-        <div className="grid gap-5 @min-[860px]:grid-cols-[290px_minmax(0,1fr)] @min-[860px]:gap-6">
+        <div className="grid gap-5 @min-[860px]:grid-cols-[300px_minmax(0,1fr)] @min-[860px]:gap-6">
           <ReportBar
             catalogue={CATALOGUE}
             r={r}
@@ -157,7 +157,16 @@ export default function Reports() {
             onCsv={() => csv && downloadCsv(csv.name, toCsv(csv.headers, csv.body))}
           />
 
-          <div className="min-w-0">
+          {/* On a wide screen the sheet sits on a ground rather than filling
+              the column. Two reasons, and neither is decoration: the page has
+              no width cap of its own, so on a large monitor a class record was
+              stretching a printed table to two thousand pixels; and a document
+              somebody is about to print reads as one when it looks like paper
+              on a desk instead of another panel in the app. All of it is
+              screen-only — printing strips the ground, the padding and the
+              cap, so the sheet itself is unchanged on paper. */}
+          <div className="min-w-0 @min-[860px]:rounded-card @min-[860px]:bg-[var(--surface-sunken)] @min-[860px]:p-6 print:!bg-transparent print:!p-0">
+            <div className="mx-auto w-full @min-[860px]:max-w-[900px] print:!max-w-none">
             {r.busy && (
               <p className="mb-3 flex items-center gap-2 text-[13px] text-muted print:hidden">
                 <Spinner size={14} />
@@ -173,6 +182,7 @@ export default function Reports() {
             ) : (
               <Preview r={r} professor={professor} />
             )}
+            </div>
           </div>
         </div>
         </div>

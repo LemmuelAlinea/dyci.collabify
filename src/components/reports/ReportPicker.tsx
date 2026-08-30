@@ -221,7 +221,20 @@ function Catalogue({
 
 /* ------------------------------------------------------------ the layouts */
 
-/** From `lg` up: a column beside the sheet. */
+/**
+ * From 860px up: a column beside the sheet, and it stays put.
+ *
+ * It used to scroll away with the page. A class record runs to several screens,
+ * so by the time a professor had read enough to know they wanted a different
+ * report, or a different group, every control for changing it was above the
+ * fold behind them — and Print, which is the whole point of the page, was the
+ * furthest thing from wherever they were looking.
+ *
+ * Sticky, with its own scroll only if it outgrows the window. Nothing in here
+ * opens a floating layer — the selects are native, so their popups escape the
+ * box on their own — which is the reason an `overflow` on this column is safe
+ * when it would not have been on the nav.
+ */
 export function ReportSidebar({
   catalogue,
   r,
@@ -234,15 +247,17 @@ export function ReportSidebar({
   onCsv: () => void
 }) {
   return (
-    <div className="hidden space-y-5 @min-[860px]:block print:hidden">
-      <Catalogue catalogue={catalogue} kind={r.kind} onPick={r.choose} />
+    <div className="hidden @min-[860px]:block print:hidden">
+      <div className="sticky top-[72px] max-h-[calc(100dvh-96px)] space-y-5 overflow-y-auto pb-1 [scrollbar-width:thin]">
+        <Catalogue catalogue={catalogue} kind={r.kind} onPick={r.choose} />
 
-      <section className="space-y-2">
-        <p className="eyebrow text-faint">What it is about</p>
-        <About r={r} />
-      </section>
+        <section className="space-y-2">
+          <p className="eyebrow text-faint">What it is about</p>
+          <About r={r} />
+        </section>
 
-      <Actions r={r} csv={csv} onCsv={onCsv} />
+        <Actions r={r} csv={csv} onCsv={onCsv} />
+      </div>
     </div>
   )
 }
