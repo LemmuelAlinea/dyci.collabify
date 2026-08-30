@@ -4,7 +4,10 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  server: { port: 5173 },
+  // `host: true` binds the dev server to every interface rather than just
+  // localhost, so the app can be opened from a phone on the same Wi-Fi. Dev
+  // only — it has no bearing on the production build.
+  server: { port: 5173, host: true },
   build: {
     rollupOptions: {
       output: {
