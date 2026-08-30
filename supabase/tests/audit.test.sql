@@ -54,7 +54,12 @@ begin
   select id into v_admin from public.profiles where role = 'admin' limit 1;
   select id into v_student from public.profiles where role = 'student' limit 1;
   select id into v_prof from public.profiles where role = 'professor' limit 1;
-  select id into v_class from public.classes limit 1;
+  -- Live, and ordered. An unordered pick handed back an already-archived
+  -- class, and setting archived_at on one that is already set is not a
+  -- transition — so the trigger correctly logged nothing and the test blamed
+  -- the trigger.
+  select id into v_class from public.classes
+   where archived_at is null order by created_at limit 1;
 
   v_new := gen_random_uuid();
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
@@ -133,20 +138,37 @@ do $$
 declare
   v_class uuid := (select v from fx where k='class');
   n int;
+  before_archived int;
+  before_restored int;
 begin
+  -- Counted as a *change*, not a total. The log is append-only and this class
+  -- is a real one, so it already carries whatever was done to it before today;
+  -- asserting the total is 1 was really asserting the class had no history,
+  -- which stopped being true the moment one was archived through the UI.
+  select count(*) into before_archived from public.audit_events
+   where action = 'class_archived' and class_id = v_class;
+  select count(*) into before_restored from public.audit_events
+   where action = 'class_restored' and class_id = v_class;
+
   update public.classes set archived_at = now() where id = v_class;
   select count(*) into n from public.audit_events
    where action = 'class_archived' and class_id = v_class;
-  perform pg_temp.must_be('archiving a class is recorded', n = 1);
+  perform pg_temp.must_be('archiving a class is recorded', n = before_archived + 1);
 
   update public.classes set archived_at = null where id = v_class;
   select count(*) into n from public.audit_events
    where action = 'class_restored' and class_id = v_class;
-  perform pg_temp.must_be('...and so is putting it back', n = 1);
+  perform pg_temp.must_be('...and so is putting it back', n = before_restored + 1);
 
-  perform pg_temp.must_be('the entry carries the class label, not its contents',
-    (select class_label <> '' from public.audit_events
-      where action = 'class_archived' and class_id = v_class));
+  -- Every entry, not "the" entry: a class with history has more than one, and
+  -- a subquery expecting a single row simply raised. Asserting all of them
+  -- carry a label is both deterministic and the stronger claim.
+  perform pg_temp.must_be('every entry carries the class label, not its contents',
+    not exists (
+      select 1 from public.audit_events
+       where action = 'class_archived' and class_id = v_class
+         and coalesce(class_label, '') = ''
+    ));
 end $$;
 
 -- --------------------------------------------------- what it must not hold

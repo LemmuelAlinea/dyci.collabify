@@ -69,6 +69,12 @@ begin
   select c.id, c.professor_id into v_class, v_prof
     from public.classes c
    where (select count(*) from public.syllabus_weeks w where w.resource_id = c.syllabus_id) >= 2
+     -- A class the planner picked at random used to be enough. It is not:
+     -- an unordered `limit 1` handed back an empty class one day and the
+     -- fixtures failed on a null student. Ordered, and it must have people.
+     and (select count(*) from public.class_members m
+           where m.class_id = c.id and m.status = 'active') >= 2
+   order by c.created_at
    limit 1;
 
   select student_id into v_a from public.class_members
