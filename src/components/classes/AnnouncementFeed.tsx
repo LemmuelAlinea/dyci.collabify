@@ -168,6 +168,7 @@ export function AnnouncementFeed({
       {announcements.length === 0 ? (
         <EmptyState
           icon="message"
+          art="announcements"
           title="No announcements yet"
           body={
             canManage

@@ -120,7 +120,13 @@ export function ProjectsBoard({
 
   if (projects.length === 0) {
     return (
-      <EmptyState icon="kanban" title={emptyTitle} body={emptyBody} action={emptyAction} />
+      <EmptyState
+        icon="kanban"
+        art="projects"
+        title={emptyTitle}
+        body={emptyBody}
+        action={emptyAction}
+      />
     )
   }
 

@@ -129,6 +129,7 @@ export default function ProfessorClasses() {
         ) : classes.length === 0 ? (
           <EmptyState
             icon={view === 'active' ? 'board' : 'folder'}
+            art="classes"
             title={view === 'active' ? 'No classes yet' : 'Nothing archived'}
             body={
               view === 'active'

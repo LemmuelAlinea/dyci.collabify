@@ -172,6 +172,7 @@ export default function MyTasks() {
         ) : tasks.length === 0 ? (
           <EmptyState
             icon="check"
+            art="tasks"
             title="Nothing claimed yet"
             body="Open a project, find your group's board, and take a task. Work nobody has claimed is waiting on somebody."
           />

@@ -97,6 +97,7 @@ export default function Reassignments() {
         {pending.length === 0 ? (
           <EmptyState
             icon="check"
+            art="reassignments"
             title="Nothing to decide"
             body="Requests from your classes land here. Students can only ask about work on their own board."
           />

@@ -222,6 +222,7 @@ export default function Notices() {
       {rows.length === 0 ? (
         <EmptyState
           icon="bell"
+          art="announcements"
           title="Nothing sent yet"
           body="A notice you send reaches every professor and student in the program."
         />

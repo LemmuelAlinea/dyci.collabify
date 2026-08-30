@@ -124,7 +124,13 @@ export function GroupsBoard({
       )}
 
       {groups.length === 0 ? (
-        <EmptyState icon="users" title={emptyTitle} body={emptyBody} action={emptyAction} />
+        <EmptyState
+          icon="users"
+          art="groups"
+          title={emptyTitle}
+          body={emptyBody}
+          action={emptyAction}
+        />
       ) : visible.length === 0 ? (
         <EmptyState
           icon="search"

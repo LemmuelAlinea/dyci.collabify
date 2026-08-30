@@ -100,6 +100,7 @@ export default function StudentClasses() {
         ) : classes.length === 0 ? (
           <EmptyState
             icon="board"
+            art="classes"
             title="You haven't joined a class yet"
             body="Ask your professor for the class code — it looks like DBM-7823 — then enter it here."
             action={
