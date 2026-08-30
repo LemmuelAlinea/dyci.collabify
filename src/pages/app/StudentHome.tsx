@@ -2,10 +2,11 @@ import { useEffect } from 'react'
 import { ProgramNotices } from '../../components/app/ProgramNotices'
 import { Reveal } from '../../components/motion/Reveal'
 import { AnnouncementSwiper } from '../../components/dashboard/AnnouncementSwiper'
-import { DashSection, StatRow } from '../../components/dashboard/DashSection'
+import { DashSection } from '../../components/dashboard/DashSection'
 import { DeadlineList } from '../../components/dashboard/DeadlineList'
 import { ProjectStrip } from '../../components/dashboard/ProjectStrip'
 import { StandingCard } from '../../components/dashboard/StandingCard'
+import { StudentSummary } from '../../components/dashboard/StudentSummary'
 import { TaskDigest } from '../../components/dashboard/TaskDigest'
 import { TermStrip } from '../../components/dashboard/TermStrip'
 import { WaitingOnYou } from '../../components/dashboard/WaitingOnYou'
@@ -24,9 +25,27 @@ function greeting() {
   return 'Good evening'
 }
 
+/**
+ * A student's dashboard.
+ *
+ * It used to be eight sections of equal weight stacked in one column, which
+ * meant nothing led: the numbers, the announcements, the term strip and the
+ * work all shouted at the same volume, and the largest thing on the page was a
+ * greeting that told a student their own name.
+ *
+ * It reads in two passes now. **What is on me** — the summary line and four
+ * figures, then the work itself, down the main column in the order somebody
+ * actually needs it: what is due, what they hold, what it belongs to. **What is
+ * going on around me** — anything waiting, what the class is saying, how they
+ * are doing, where the term is — sits in a narrower column beside it, because
+ * it is context rather than a thing to act on.
+ *
+ * On a phone the columns collapse and that same order is what you scroll
+ * through, so the priority survives the layout rather than depending on it.
+ */
 export default function StudentHome() {
   const { profile } = useAuth()
-  const { data, error } = useStudentDashboard(profile?.id)
+  const { data, error, reload } = useStudentDashboard(profile?.id)
   const unread = useUnreadTotal(profile?.id)
 
   useEffect(() => {
@@ -35,25 +54,21 @@ export default function StudentHome() {
 
   if (!profile) return null
 
-  const overdue = (data?.deadlines ?? []).filter(
-    (d) => new Date(d.due_at).getTime() < Date.now(),
+  const now = Date.now()
+  const deadlines = data?.deadlines ?? []
+  const overdue = deadlines.filter((d) => new Date(d.due_at).getTime() < now).length
+  const dueThisWeek = deadlines.length - overdue
+  const openProjects = (data?.projects ?? []).filter(
+    (p) => !p.archived_at && !p.scheduled,
   ).length
 
   return (
     <div className="w-full">
-      <Reveal once>
-        <h1 className="text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">
-          {greeting()}, {profile.first_name}.
-        </h1>
-      </Reveal>
-
-      <div className="mt-6">
-        <ProgramNotices />
-      </div>
-
       {error && (
-        <div className="mt-6">
-          <Alert tone="error">{error}</Alert>
+        <div className="mb-6">
+          <Alert tone="error" onRetry={reload}>
+            {error}
+          </Alert>
         </div>
       )}
 
@@ -63,120 +78,159 @@ export default function StudentHome() {
           Loading your dashboard…
         </div>
       ) : data.classes.length === 0 ? (
-        <div className="mt-8">
-          <EmptyState
-            icon="folder"
-            art="classes"
-            title="You are not in a class yet"
-            body="Ask your professor for the class code, then join. Everything else — projects, groups, tasks — arrives with the class."
-            action={
-              <ButtonLink to="/student/classes" className="!rounded-xl">
-                Join a class
-              </ButtonLink>
-            }
-          />
-        </div>
+        <>
+          <h1 className="leading-tight">
+            {greeting()}, {profile.first_name}.
+          </h1>
+          <div className="mt-8">
+            <EmptyState
+              icon="folder"
+              art="classes"
+              title="You are not in a class yet"
+              body="Ask your professor for the class code, then join. Everything else — projects, groups, tasks — arrives with the class."
+              action={
+                <ButtonLink to="/student/classes" className="!rounded-xl">
+                  Join a class
+                </ButtonLink>
+              }
+            />
+          </div>
+        </>
       ) : (
-        <div className="mt-7 space-y-9">
-          <Reveal once delay={0.04}>
-            <StatRow
-              stats={[
-                { label: 'Classes', value: data.classes.length, to: '/student/classes' },
+        <>
+          <Reveal once>
+            <StudentSummary
+              greeting={greeting()}
+              name={profile.first_name}
+              overdue={overdue}
+              dueThisWeek={dueThisWeek}
+              tasksInHand={data.tasks.length}
+              tiles={[
                 {
                   label: 'Tasks to finish',
                   value: data.tasks.length,
                   to: '/student/tasks',
+                  icon: 'check',
                 },
                 {
                   label: overdue === 1 ? 'Deadline passed' : 'Deadlines passed',
                   value: overdue,
+                  to: '/student/tasks',
+                  icon: 'clock',
                   tone: overdue > 0 ? 'warn' : 'plain',
                 },
                 {
                   label: 'Projects open',
-                  value: data.projects.filter((p) => !p.archived_at && !p.scheduled).length,
+                  value: openProjects,
                   to: '/student/projects',
+                  icon: 'kanban',
+                },
+                {
+                  label: data.classes.length === 1 ? 'Class' : 'Classes',
+                  value: data.classes.length,
+                  to: '/student/classes',
+                  icon: 'folder',
                 },
               ]}
             />
           </Reveal>
 
-          <Reveal once delay={0.06}>
-            <WaitingOnYou
-              unclaimed={data.unclaimed}
-              unread={unread}
-              openSets={data.openSets}
-            />
-          </Reveal>
+          <div className="mt-8">
+            <ProgramNotices />
+          </div>
 
-          {data.announcements.length > 0 && (
-            <Reveal once delay={0.08}>
-              <DashSection
-                icon="message"
-                title="Announcements"
-                count={data.announcements.length}
-                seeAll="/student/classes"
-                seeAllLabel="All classes"
-              >
-                <AnnouncementSwiper
-                  announcements={data.announcements}
-                  classes={data.classes}
-                  linkBase="/student/classes"
+          <div className="mt-8 grid gap-8 lg:grid-cols-3 lg:gap-7">
+            {/* What is on you. Due first, because a deadline is the only thing
+                here that stops being actionable if it is read too late. */}
+            <div className="space-y-8 lg:col-span-2">
+              <Reveal once delay={0.04}>
+                <DashSection
+                  icon="clock"
+                  title="Due this week"
+                  count={deadlines.length}
+                  seeAll="/student/tasks"
+                >
+                  <DeadlineList deadlines={deadlines} />
+                </DashSection>
+              </Reveal>
+
+              <Reveal once delay={0.06}>
+                <DashSection
+                  icon="check"
+                  title="Your unfinished tasks"
+                  count={data.tasks.length}
+                  seeAll="/student/tasks"
+                >
+                  <TaskDigest tasks={data.tasks} />
+                </DashSection>
+              </Reveal>
+
+              <Reveal once delay={0.08}>
+                <DashSection
+                  icon="kanban"
+                  title="Projects you are on"
+                  seeAll="/student/projects"
+                >
+                  <ProjectStrip
+                    projects={data.projects}
+                    boards={data.boards}
+                    linkBase="/student/projects"
+                  />
+                </DashSection>
+              </Reveal>
+            </div>
+
+            {/* What is going on around you. Context, not chores. */}
+            <div className="space-y-8">
+              {/* Renders nothing when nothing is waiting, which is why it can
+                  sit at the top of this column without taking up a heading. */}
+              <Reveal once delay={0.05}>
+                <WaitingOnYou
+                  unclaimed={data.unclaimed}
+                  unread={unread}
+                  openSets={data.openSets}
+                  stacked
                 />
-              </DashSection>
-            </Reveal>
-          )}
+              </Reveal>
 
-          <Reveal once delay={0.1}>
-            <DashSection
-              icon="clock"
-              title="Due this week"
-              count={data.deadlines.length}
-              seeAll="/student/tasks"
-            >
-              <DeadlineList deadlines={data.deadlines} />
-            </DashSection>
-          </Reveal>
+              {data.announcements.length > 0 && (
+                <Reveal once delay={0.07}>
+                  <DashSection
+                    icon="message"
+                    title="Announcements"
+                    count={data.announcements.length}
+                    seeAll="/student/classes"
+                    seeAllLabel="All classes"
+                  >
+                    <AnnouncementSwiper
+                      announcements={data.announcements}
+                      classes={data.classes}
+                      linkBase="/student/classes"
+                    />
+                  </DashSection>
+                </Reveal>
+              )}
 
-          <Reveal once delay={0.12}>
-            <DashSection
-              icon="check"
-              title="Your unfinished tasks"
-              count={data.tasks.length}
-              seeAll="/student/tasks"
-            >
-              <TaskDigest tasks={data.tasks} />
-            </DashSection>
-          </Reveal>
+              <Reveal once delay={0.09}>
+                <DashSection icon="chart" title="Where you stand">
+                  <StandingCard rows={data.standing} />
+                </DashSection>
+              </Reveal>
 
-          <Reveal once delay={0.14}>
-            <DashSection icon="kanban" title="Projects you are on" seeAll="/student/projects">
-              <ProjectStrip
-                projects={data.projects}
-                boards={data.boards}
-                linkBase="/student/projects"
-              />
-            </DashSection>
-          </Reveal>
-
-          <Reveal once delay={0.16}>
-            <DashSection icon="chart" title="Where you stand">
-              <StandingCard rows={data.standing} />
-            </DashSection>
-          </Reveal>
-
-          {data.currentWeeks.length > 0 && (
-            <Reveal once delay={0.18}>
-              <DashSection icon="calendar" title="Where the term is">
-                <TermStrip
-                  weeks={data.currentWeeks}
-                  classes={data.classes}
-                  linkBase="/student/classes"
-                />
-              </DashSection>
-            </Reveal>
-          )}
-        </div>
+              {data.currentWeeks.length > 0 && (
+                <Reveal once delay={0.11}>
+                  <DashSection icon="calendar" title="Where the term is">
+                    <TermStrip
+                      weeks={data.currentWeeks}
+                      classes={data.classes}
+                      linkBase="/student/classes"
+                    />
+                  </DashSection>
+                </Reveal>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

@@ -9,10 +9,13 @@ export function WaitingOnYou({
   unclaimed,
   unread,
   openSets,
+  stacked = false,
 }: {
   unclaimed: number
   unread: number
   openSets: number
+  /** One per row, for the narrow column beside a dashboard's main content. */
+  stacked?: boolean
 }) {
   const items: Item[] = ([
     {
@@ -38,7 +41,7 @@ export function WaitingOnYou({
   if (items.length === 0) return null
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className={`grid gap-3 ${stacked ? '' : 'sm:grid-cols-3'}`}>
       {items.map((i) => (
         <Link
           key={i.label}
