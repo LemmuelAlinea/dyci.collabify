@@ -41,14 +41,12 @@ export function Hero() {
           Under `prefers-reduced-motion` it renders no canvas at all and the
           hero is exactly what it was. */}
       <CursorRingField
-        // Every stop sits LIGHTER than the hero's own ground, which runs
-        // #33429B to #161D4A. The first ramp used navy-700 at the dark end and
-        // the field vanished into the gradient — measured, the average lit
-        // pixel came back rgb(27,35,85), which is the background. The shader
-        // multiplies each point by its ring energy, so the stops have to start
-        // above the ground for the quiet field to be visible at all and for the
-        // ring to have somewhere brighter to go.
-        colors={['#5568C4', '#93A2EC', '#F0B429']}
+        // One stop, so every point is the accent and nothing in the field
+        // drifts toward the blues of the ground behind it. The shader skips its
+        // ramp entirely at a count of one and every point is this colour, then
+        // multiplied by its own ring energy — so the variation left is
+        // brightness alone: dim amber at rest, full amber where the ring is.
+        colors={['#F0B429']}
         ring={{ radius: 12, width: 9 }}
       />
 
