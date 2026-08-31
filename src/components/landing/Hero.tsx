@@ -1,8 +1,10 @@
+import { Suspense, lazy, useMemo } from 'react'
 import { ButtonLink } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import { CursorRingField } from './CursorRingField'
-import { BoardScrollStory } from './board/BoardScrollStory'
+import { BoardFallback } from './board/BoardFallback'
+import type { BoardHandle } from './board/BoardScene'
 import { Rise, WordReveal } from './Anim'
 
 /**
@@ -10,18 +12,23 @@ import { Rise, WordReveal } from './Anim'
  * and is not: no mail is sent yet, and a landing page is the worst place to
  * promise one.
  */
+/**
+ * three, fiber and drei are around 200KB gzipped between them — more than the
+ * entire rest of this page. Split out, they load after the landing chunk rather
+ * than inside it, and the flat board holds the space meanwhile.
+ */
+const BoardExperience = lazy(() => import('./board/BoardExperience'))
+
+/** The canvas box, at its final height, before anything has loaded. */
+const BOX = 'relative h-[340px] w-full sm:h-[400px] lg:h-[470px] xl:h-[500px]'
+
 const TRUST: { icon: IconName; label: string }[] = [
   { icon: 'checkCircle', label: 'Google sign-in' },
   { icon: 'shield', label: 'Professors approved by the program' },
   { icon: 'lock', label: 'A class is private to the people in it' },
 ]
 
-/**
- * The hero's left column, unchanged.
- *
- * Lifted into its own component only because the story now owns the layout and
- * needs to cross-fade this against the chapters. Not a word of it has moved.
- */
+/** The hero's left column. */
 function HeroCopy() {
   return (
     <div className="max-w-[640px]">
@@ -76,16 +83,21 @@ function HeroCopy() {
 }
 
 export function Hero() {
+  // The board reads the pointer through this and nothing else crosses the
+  // boundary. useMemo rather than a ref: reading `.current` during render is
+  // what React's rules forbid, and a stable object is all this needs to be.
+  const handle = useMemo<BoardHandle>(
+    () => ({ pointer: { current: { x: 0, y: 0, active: false } } }),
+    [],
+  )
+
   return (
-    // NO `overflow-hidden` on this section, and that is load-bearing. An
-    // ancestor whose overflow is anything but `visible` becomes the scroll
-    // container for a `position: sticky` descendant — so the board's sticky
-    // viewport stopped pinning to the window and scrolled away with the page,
-    // leaving a screen of empty navy behind it. The decoration still has to be
-    // clipped, so the clipping moved to a layer of its own below.
-    <section className="relative bg-navy-600 text-white">
-      {/* Every decorative layer, in one clipped box. */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+    <section className="relative overflow-hidden bg-navy-600 text-white">
+      {/* Every decorative layer, grouped so none of them can take a click. The
+          particle field spans the whole hero and would otherwise sit between
+          the reader and anything the copy does not cover. It tracks the cursor
+          from a `window` listener, so it loses nothing by being inert. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0">
       {/* Depth: a wide radial lift behind the copy, then the blueprint rule on top. */}
       <div
         aria-hidden
@@ -118,10 +130,27 @@ export function Hero() {
       />
       </div>
 
-      {/* The board and the copy that travels with it. On a phone this is just
-          the hero, stacked, with the chapters as ordinary blocks underneath. */}
-      <div className="relative">
-        <BoardScrollStory heroCopy={<HeroCopy />} />
+      <div className="shell relative pt-[124px] pb-20 md:pt-[150px] md:pb-28 lg:pt-[168px] lg:pb-32">
+        <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.02fr)] lg:gap-16 xl:gap-20">
+          <HeroCopy />
+
+          {/* No `Rise` around this one: the board arrives by building itself,
+              and a container fading up underneath that entrance would be two
+              arrivals for one object. */}
+          <div className="relative">
+            <Suspense
+              fallback={
+                <div className="relative w-full">
+                  <div className={BOX}>
+                    <BoardFallback />
+                  </div>
+                </div>
+              }
+            >
+              <BoardExperience handle={handle} />
+            </Suspense>
+          </div>
+        </div>
       </div>
 
       {/* Section seam: the hero sits on the page surface, not a hard edge. */}

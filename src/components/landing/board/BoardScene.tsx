@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { HERO_UNTIL, ramp } from './story'
+import { HERO_UNTIL, LOOP, LOOP_SECONDS, ramp, storyProgress } from './story'
 
 const MODEL = '/models/board.glb'
 useGLTF.preload(MODEL)
@@ -18,18 +18,26 @@ useGLTF.preload(MODEL)
  *
  * ONE NESTED GROUP PER SOURCE OF MOTION, and that is the whole architecture:
  *
- *     scroll → entrance → pointer → float → the model
+ *     story → entrance → pointer → float → the model
  *
  * Four things move this board and they run on different clocks — the entrance
- * plays once, the float loops forever, the pointer chases a cursor, the scroll
- * is scrubbed backwards and forwards by the reader. Written onto one transform
- * they would each be overwriting the others every frame, and the last one to
- * run each frame would win. On separate groups the matrices simply compose and
- * none of them has to know about the rest.
+ * builds it, the float loops forever, the pointer chases a cursor, the story
+ * runs its timeline. Written onto one transform they would each be overwriting
+ * the others every frame, and the last one to run each frame would win. On
+ * separate groups the matrices simply compose and none of them has to know
+ * about the rest.
  *
- * NO REACT STATE IN THE FRAME LOOP. Scroll progress arrives through a ref that
- * GSAP writes to, and every animated value is set straight onto a Three object.
- * A component that re-rendered on scroll would re-render the whole canvas tree
+ * THE TIMELINE LOOPS, AND THE DISSOLVE IS WHAT MAKES THAT POSSIBLE. Every pose
+ * here is a pure function of the story fraction, so the fraction can be reset
+ * to its start at any moment — but doing that while the board is visible would
+ * teleport the flying card home. So the last second of every turn scales the
+ * parts away and walks the entrance backwards to its own starting transform.
+ * At the wrap the board is already in exactly the state the next entrance
+ * begins from, and there is nothing on screen to snap.
+ *
+ * NO REACT STATE IN THE FRAME LOOP. The timeline is read off the render
+ * clock and every animated value is set straight onto a Three object. A
+ * component that re-rendered each tick would re-render the whole canvas tree
  * sixty times a second.
  *
  * THE GLTF SCENE IS CLONED. `useGLTF` caches by URL and hands every caller the
@@ -47,8 +55,6 @@ const REVEAL_STEP = 0.075
 type Named = Record<string, THREE.Object3D>
 
 export type BoardHandle = {
-  /** 0–1 through the pinned section. Written by GSAP, read in the frame loop. */
-  progress: { current: number }
   pointer: { current: { x: number; y: number; active: boolean } }
 }
 
@@ -65,13 +71,15 @@ export function BoardScene({
   const { scene } = useGLTF(MODEL)
   const { invalidate } = useThree()
 
-  const scrollGroup = useRef<THREE.Group>(null)
+  const storyGroup = useRef<THREE.Group>(null)
   const entranceGroup = useRef<THREE.Group>(null)
   const pointerGroup = useRef<THREE.Group>(null)
   const floatGroup = useRef<THREE.Group>(null)
 
   const started = useRef(0)
   const hovered = useRef<THREE.Object3D | null>(null)
+  /** How lifted each card currently is, 0–1. Eased here, applied as a factor. */
+  const lift = useRef(new Map<THREE.Object3D, number>())
   const tilt = useRef({ x: 0, y: 0 })
 
   // Cloned once per mount. Materials that get an emissive lift are cloned too —
@@ -119,6 +127,14 @@ export function BoardScene({
     return rest
   }, [named])
 
+  /**
+   * The plate is revealed like any other part, and that is load-bearing for the
+   * loop rather than for the entrance. It is the one piece the staggered reveal
+   * used to skip, so it sat at full scale while everything above it scaled
+   * away — the dissolve ended on a bare slab hanging in the hero instead of on
+   * an empty stage the next turn could build on.
+   */
+  const plate = useMemo(() => [named.BasePlate].filter(Boolean), [named])
   const panels = useMemo(
     () => ['Panel_0', 'Panel_1', 'Panel_2'].map((n) => named[n]).filter(Boolean),
     [named],
@@ -153,12 +169,19 @@ export function BoardScene({
     if (reduced) return
     const now = state.clock.elapsedTime
     if (!started.current) started.current = now
-    const since = (now - started.current) * 1000
+
+    // Where we are in this turn of the loop. Everything below reads from these
+    // three and nothing carries over between turns.
+    const cyc = (now - started.current) % LOOP_SECONDS
+    const since = cyc * 1000
+    // The dissolve. 0 for almost the whole turn, 1 at the wrap — so `alive`
+    // takes every visible part to nothing and the entrance back to its start.
+    const alive = 1 - ramp(cyc, LOOP_SECONDS - LOOP.outro, LOOP_SECONDS)
 
     /* ---------------------------------------------------------- entrance */
     const e = entranceGroup.current
     if (e) {
-      const t = power3Out(Math.min(1, since / ENTRANCE_MS))
+      const t = power3Out(Math.min(1, since / ENTRANCE_MS)) * alive
       e.position.set(0.65 * (1 - t), -0.35 * (1 - t), 0)
       e.rotation.set(
         0.18 + (0.04 - 0.18) * t,
@@ -177,9 +200,11 @@ export function BoardScene({
         const t = power3Out(
           Math.min(1, Math.max(0, since / 1000 - startAt - i * REVEAL_STEP) / 0.45),
         )
-        o.scale.copy(rest.s).multiplyScalar(t)
+        o.scale.copy(rest.s).multiplyScalar(t * alive)
       })
     }
+    // The plate first, then what stands on it.
+    partReveal(plate, 0)
     partReveal(panels, 0.25)
     partReveal(cards, 0.55)
     partReveal(bars, 0.8)
@@ -193,22 +218,25 @@ export function BoardScene({
       if (rest) {
         // It comes in along the trail's own direction, so the two read as one
         // gesture rather than a card and a separate streak.
-        flying.scale.copy(rest.s).multiplyScalar(flyIn)
+        flying.scale.copy(rest.s).multiplyScalar(flyIn * alive)
       }
-      if (trailRest) trail.scale.copy(trailRest.s).multiplyScalar(flyIn)
+      if (trailRest) trail.scale.copy(trailRest.s).multiplyScalar(flyIn * alive)
     }
 
     /* ------------------------------------------------------------ story */
-    const p = handle.progress.current
-    const s = scrollGroup.current
+    const p = storyProgress(cyc)
+    const s = storyGroup.current
     if (s) {
       // Turning toward the reader as the story runs, and never past front —
       // this board explains itself, it does not present itself.
-      const toFront = ramp(p, HERO_UNTIL, 0.9)
+      // `alive` unwinds the turn along with everything else, so the base plate
+      // — which is not part of the staggered reveal and stays visible right up
+      // to the wrap — is square-on again by the time the next turn starts.
+      const toFront = ramp(p, HERO_UNTIL, 0.9) * alive
       s.rotation.y = 0.16 * toFront
       s.rotation.x = -0.02 * toFront
       // Stage five: settle back very slightly rather than drifting away.
-      s.scale.setScalar(1 - 0.04 * ramp(p, 0.9, 1))
+      s.scale.setScalar(1 - 0.04 * ramp(p, 0.9, 1) * alive)
     }
 
     // Stage two — the columns step forward, left to right.
@@ -220,11 +248,9 @@ export function BoardScene({
       o.position.z = rest.p.z + 0.18 * own * create
     })
 
+    // Card_0_0's step forward is applied in the hover pass below, which is the
+    // only place a card's z is written — two writers meant the later one won.
     const first = named.Card_0_0
-    if (first) {
-      const rest = home.get(first)
-      if (rest) first.position.z = rest.p.z + 0.12 * create
-    }
 
     // Stages three and four — the card crosses the board on an arc, turning as
     // it goes, and the trail fades out behind it as it lands.
@@ -302,21 +328,31 @@ export function BoardScene({
     }
 
     // Card hover, and never on the flying card while the story owns it.
+    //
+    // THE LIFT IS A FACTOR, NOT A TARGET. This used to ease each card's scale
+    // toward its full size, and because it runs after the reveal it won every
+    // frame — the entrance was quietly damped, and through the dissolve the
+    // cards held at a fraction of full size while everything around them went
+    // to nothing. Easing the 0–1 lift instead and multiplying whatever the
+    // reveal left means a hover can never resurrect a card the story has
+    // already taken away.
     const lifted = hovered.current
+    const k = 1 - Math.pow(0.0005, delta)
     cards.forEach((o) => {
       const rest = home.get(o)
       if (!rest) return
       const on = o === lifted ? 1 : 0
-      const k = 1 - Math.pow(0.0005, delta)
-      o.position.z += (rest.p.z + 0.07 * on - o.position.z) * k
-      const target = rest.s.x * (1 + 0.02 * on)
-      o.scale.x += (target - o.scale.x) * k
-      o.scale.y += (rest.s.y * (1 + 0.02 * on) - o.scale.y) * k
+      const next = (lift.current.get(o) ?? 0) * (1 - k) + on * k
+      lift.current.set(o, next)
+
+      o.position.z = rest.p.z + (o === first ? 0.12 * create : 0) + 0.07 * next
+      o.scale.x *= 1 + 0.02 * next
+      o.scale.y *= 1 + 0.02 * next
     })
   })
 
   return (
-    <group ref={scrollGroup}>
+    <group ref={storyGroup}>
       <group ref={entranceGroup}>
         <group ref={pointerGroup}>
           <group ref={floatGroup}>
