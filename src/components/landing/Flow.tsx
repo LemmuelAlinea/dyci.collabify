@@ -21,37 +21,37 @@ const STEPS: { n: string; icon: IconName; title: string; body: string }[] = [
     n: '01',
     icon: 'folder',
     title: 'A class, with its syllabus in it',
-    body: 'A professor opens the class, sets the term dates, and attaches the syllabus. Its weeks become the calendar everything else is measured against — including which weeks still have nothing set for them.',
+    body: 'The syllabus and the term dates go in, and its weeks become what everything after this is measured against.',
   },
   {
     n: '02',
     icon: 'users',
     title: 'Groups the class actually has',
-    body: 'Group sets are built by hand or opened for students to join, with a size limit. Individual work skips this: everyone gets their own board instead.',
+    body: 'Sets are built by hand, or opened for students to form their own up to a size limit.',
   },
   {
     n: '03',
     icon: 'kanban',
     title: 'A project bound to weeks',
-    body: 'Every project names the syllabus weeks it covers, carries a brief and its criteria, and can be scheduled to appear later. Each group gets a board of its own the moment it is released.',
+    body: 'A project names the weeks it covers, carries the brief, and gives every group a board of its own.',
   },
   {
     n: '04',
     icon: 'check',
     title: 'Work that has an owner',
-    body: 'Students claim tasks off their board — up to a fair share of it, so one person cannot take everything on paper and nothing in practice. Starting one freezes its wording; finishing it after the deadline stamps it late rather than blocking it.',
+    body: 'Students claim tasks off the board, up to a fair share of it, so nobody can end up holding all of it.',
   },
   {
     n: '05',
     icon: 'refresh',
     title: 'Work that can change hands',
-    body: 'When somebody goes quiet, a groupmate asks for the task — to take it on or to put it back — with a reason. The professor rules on it. Nobody is stuck holding work that is not moving.',
+    body: 'When somebody goes quiet a groupmate asks for the task, with a reason, and the professor rules on it.',
   },
   {
     n: '06',
     icon: 'upload',
     title: 'Handing in, and an answer',
-    body: 'A group hands in when they say they are done, which freezes the board. The professor accepts it, or returns it with a reason — and returning it gives the work straight back to them.',
+    body: 'Handing in freezes the board. The professor accepts it, or returns it with a reason.',
   },
 ]
 
@@ -65,7 +65,7 @@ export function Flow() {
   return (
     <section
       id="how"
-      className="surface-sunken blueprint-ink blueprint relative scroll-mt-24 overflow-hidden border-y border-line py-24 md:py-32"
+      className="surface-sunken blueprint-ink blueprint relative scroll-mt-24 overflow-hidden border-y border-line py-20 md:py-24"
     >
       <div className="shell relative">
         <div className="grid gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-20">
@@ -80,7 +80,7 @@ export function Flow() {
             </p>
           </Reveal>
 
-          <ol ref={list} className="relative space-y-3 md:pl-0">
+          <ol ref={list} className="relative space-y-2.5 md:pl-0">
             <ScrollLine target={list} />
             {STEPS.map((s, i) => {
               const on = i === active
@@ -97,31 +97,36 @@ export function Flow() {
                         backgroundColor: on ? '#F0B429' : 'var(--page)',
                       }}
                       transition={{ type: 'spring', stiffness: 320, damping: 22 }}
-                      className="absolute top-7 left-[9px] hidden h-3.5 w-3.5 rounded-full border-2 border-amber-400 md:block"
+                      className="absolute top-6 left-[9px] hidden h-3.5 w-3.5 rounded-full border-2 border-amber-400 md:block"
                     />
                     <div
-                      className={`surface group rounded-card border p-4 sm:p-6 shadow-card transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-0.5 hover:shadow-lift md:p-7 ${
+                      className={`surface group rounded-card border p-4 sm:p-5 shadow-card transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-0.5 hover:shadow-lift ${
                         on ? 'border-amber-400/60' : 'border-line'
                       }`}
                     >
-                      <div className="flex items-start gap-4">
+                      <div className="flex items-start gap-3.5">
                         <motion.span
                           animate={{ scale: on ? 1.06 : 1 }}
                           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-navy-600 text-amber-400 transition-transform duration-300 group-hover:rotate-3 dark:bg-navy-500"
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-navy-600 text-amber-400 transition-transform duration-300 group-hover:rotate-3 dark:bg-navy-500"
                         >
-                          <Icon name={s.icon} size={19} />
+                          <Icon name={s.icon} size={17} />
                         </motion.span>
                         <div className="min-w-0">
-                          <p
-                            className={`font-mono text-[12px] tracking-widest transition-colors duration-300 ${
-                              on ? 'text-amber-600 dark:text-amber-300' : 'text-faint'
-                            }`}
-                          >
-                            {s.n}
-                          </p>
-                          <h3 className="mt-1 text-[20px] leading-snug">{s.title}</h3>
-                          <p className="mt-2.5 text-[14.5px] leading-relaxed text-muted">
+                          {/* The number sits beside the title rather than above
+                              it. On its own line it cost a whole line of height
+                              in each of six cards to say two characters. */}
+                          <div className="flex items-baseline gap-2.5">
+                            <span
+                              className={`shrink-0 font-mono text-[11.5px] tracking-widest transition-colors duration-300 ${
+                                on ? 'text-amber-600 dark:text-amber-300' : 'text-faint'
+                              }`}
+                            >
+                              {s.n}
+                            </span>
+                            <h3 className="text-[18px] leading-snug">{s.title}</h3>
+                          </div>
+                          <p className="mt-1.5 text-[14px] leading-relaxed text-muted">
                             {s.body}
                           </p>
                         </div>
