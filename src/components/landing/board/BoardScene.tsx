@@ -83,9 +83,18 @@ function token([name, fallback]: [string, string]) {
  * every width rather than drifting as the column changes size.
  */
 const FRAME = {
-  fill: 0.97,
+  /**
+   * Deliberately not near 1. The fit is measured against the model's REST
+   * pose, but almost nothing on this board is ever at rest: it turns 9 degrees
+   * toward the reader, the panels step forward — which is toward the camera,
+   * so they are magnified — the whole thing floats, and the card leaves the
+   * body of the model entirely on its arc. The leftover is the room all of
+   * that plays in. At 0.97 there was none, and the plate lost its bottom right
+   * corner every time the board turned.
+   */
+  fill: 0.8,
   /** -x is left, +y is up. */
-  offset: { x: -0.045, y: 0.04 },
+  offset: { x: -0.045, y: 0.055 },
 }
 
 /** power3.out — the brief's entrance easing, as a function rather than a tween. */
@@ -195,8 +204,13 @@ export function BoardScene({
     const b = new THREE.Box3().setFromObject(model)
     const size = b.getSize(new THREE.Vector3())
     const center = b.getCenter(new THREE.Vector3())
+    // Up for the card's arc and the trail above it; out for the swing the
+    // plate's far corner takes as the board turns. Raising the centre with the
+    // height is what keeps the card in frame without dropping the plate out of
+    // the bottom of it.
     size.y += 0.9
     center.y += 0.45
+    size.x += 0.45
     return { size, center }
   }, [model])
 

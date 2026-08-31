@@ -131,7 +131,7 @@ export default function BoardExperience({ handle }: { handle: BoardHandle }) {
     // give it more size is to give the box more room. No `w-full`: a block box
     // fills its column on its own, and negative margins then widen it rather
     // than just sliding it sideways.
-    <div ref={host} className="relative lg:-mx-8 xl:-mx-12">
+    <div ref={host} className="relative lg:-mx-12 xl:-mx-16">
       {/* The glows are CSS, not postprocessing. Bloom on a scene this simple
           costs a render target and buys a haze the brand does not want. */}
       <div
@@ -153,7 +153,7 @@ export default function BoardExperience({ handle }: { handle: BoardHandle }) {
 
       {/* Sized in CSS, not by the model: the canvas box has to exist at its
           final height before the GLB arrives or the hero reflows around it. */}
-      <div className="relative h-[340px] w-full sm:h-[400px] lg:h-[500px] xl:h-[530px]">
+      <div className="relative h-[360px] w-full sm:h-[420px] lg:h-[540px] xl:h-[580px]">
         {/* Only when there will never be a 3D board to show. */}
         {!use3d && (
           <div className="absolute inset-0">
