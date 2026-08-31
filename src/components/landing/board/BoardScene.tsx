@@ -14,6 +14,31 @@ const MODEL = '/models/board.glb'
 useGLTF.preload(MODEL)
 
 /**
+ * The model's navy, lifted a long way up the brand ramp.
+ *
+ * The GLB ships its three navies around navy-700, which is roughly the value of
+ * the hero sitting behind it — the board read as a silhouette of itself rather
+ * than as an object in front of something. These are two steps lighter and they
+ * keep the model's own ordering, so it still reads as one object: the panel
+ * faces lightest, the plate and cards a step below them, the bars darkest.
+ *
+ * Named as tokens, not hexes, because the ramp is the ramp — see the design
+ * notes. The fallbacks are the same values and exist only for the case where
+ * the stylesheet has not resolved, which would otherwise leave the board white.
+ */
+const NAVY: Record<string, [token: string, fallback: string]> = {
+  PanelGlass: ['--color-navy-400', '#5a6bbd'],
+  MatteNavy: ['--color-navy-500', '#3d4da3'],
+  DeepNavy: ['--color-navy-600', '#26327a'],
+}
+
+function token([name, fallback]: [string, string]) {
+  if (typeof window === 'undefined') return fallback
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return v || fallback
+}
+
+/**
  * The board itself.
  *
  * ONE NESTED GROUP PER SOURCE OF MOTION, and that is the whole architecture:
@@ -100,6 +125,12 @@ export function BoardScene({
         // The trail is allowed to be the brightest thing on the board; the
         // amber cards are an accent, not a light source.
         clone.emissiveIntensity = mat.name === 'TrailAmber' ? 0.85 : 0.35
+        mesh.material = clone
+      } else if (NAVY[mat.name]) {
+        // Cloned for the same reason the amber is: `useGLTF` caches by URL and
+        // hands every caller the same material.
+        const clone = mat.clone()
+        clone.color = new THREE.Color(token(NAVY[mat.name]))
         mesh.material = clone
       }
     })
