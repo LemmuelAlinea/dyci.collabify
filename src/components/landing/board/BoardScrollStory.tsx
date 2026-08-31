@@ -24,7 +24,7 @@ type Gsap = typeof import('gsap')['default']
 type ScrollTriggerType = typeof import('gsap/ScrollTrigger')['ScrollTrigger']
 
 /** The canvas box, at its final height, before anything has loaded. */
-const BOX = 'relative h-[360px] w-full sm:h-[420px] lg:h-[520px] xl:h-[560px]'
+const BOX = 'relative h-[340px] w-full sm:h-[400px] lg:h-[470px] xl:h-[500px]'
 
 /**
  * The hero and the story it turns into.
@@ -47,7 +47,15 @@ const BOX = 'relative h-[360px] w-full sm:h-[420px] lg:h-[520px] xl:h-[560px]'
  * somebody has to fight through to reach the page.
  */
 
-const STORY_VH = 280
+/**
+ * How much scroll the story costs, counting the screen it is pinned for.
+ *
+ * 280 was the brief's figure and it made the hero 2.8 screens tall — nearly
+ * three full drags before anything else on the page existed. At 200 the pinned
+ * screen is one, the travel through all three chapters is the second, and
+ * "How it works" is one scroll away rather than three.
+ */
+const STORY_VH = 200
 
 export function BoardScrollStory({ heroCopy }: { heroCopy: ReactNode }) {
   const reduced = useReducedMotion() ?? false
@@ -199,7 +207,7 @@ export function BoardScrollStory({ heroCopy }: { heroCopy: ReactNode }) {
         }
       >
         <div className="shell w-full">
-          <div className="grid items-center gap-10 pt-[112px] pb-14 md:pt-[132px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.02fr)] lg:gap-14 xl:gap-16">
+          <div className="grid items-center gap-10 pt-[104px] pb-12 md:pt-[116px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.02fr)] lg:gap-14 xl:gap-16">
             {/* Left: the hero, and the chapters it becomes. Stacked on top of
                 each other when pinned so the crossfade has nothing to push
                 around; in normal flow otherwise. */}

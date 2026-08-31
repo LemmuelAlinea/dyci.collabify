@@ -145,7 +145,7 @@ export default function BoardExperience({ handle }: { handle: BoardHandle }) {
 
       {/* Sized in CSS, not by the model: the canvas box has to exist at its
           final height before the GLB arrives or the hero reflows around it. */}
-      <div className="relative h-[360px] w-full sm:h-[420px] lg:h-[520px] xl:h-[560px]">
+      <div className="relative h-[340px] w-full sm:h-[400px] lg:h-[470px] xl:h-[500px]">
         {/* Always mounted, faded out once the model is up. */}
         <div
           className="absolute inset-0 transition-opacity duration-700"
