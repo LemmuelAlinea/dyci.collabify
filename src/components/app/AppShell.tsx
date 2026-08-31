@@ -179,7 +179,7 @@ export function AppShell() {
           the state flips and there would be nothing left to animate out. */}
       <AnimatePresence>
         {drawer && (
-          <div className="fixed inset-0 z-50 md:hidden">
+          <div className="fixed inset-0 z-50 lg:hidden">
             <motion.div
               className="absolute inset-0 bg-navy-950/45 backdrop-blur-sm"
               aria-hidden="true"

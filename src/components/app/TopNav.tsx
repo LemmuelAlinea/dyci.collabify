@@ -60,31 +60,49 @@ function tabClass(on: boolean) {
   }`
 }
 
-function MoreMenu({ groups }: { groups: NavGroup[] }) {
-  const [open, setOpen] = useState(false)
-  const ref = useDismiss(open, () => setOpen(false))
+/**
+ * One group of the navigation, as a menu in the bar.
+ *
+ * Everything past the first group used to live behind a single "More", which
+ * meant Analytics and Reports and Syllabi were all the same distance away and
+ * none of them was named until you opened it. Each group is its own button
+ * now — Insights, Course documents, People — so the bar says what the product
+ * contains before anybody presses anything, and a group's two or three pages
+ * are one press apart rather than two.
+ *
+ * `openMenu` is held by the bar rather than by each menu, because only one may
+ * be open: two dropdowns overlapping is how a nav stops looking like a nav.
+ */
+function GroupMenu({
+  title,
+  items,
+  open,
+  onToggle,
+}: {
+  title: string
+  items: NavItem[]
+  open: boolean
+  onToggle: (open: boolean) => void
+}) {
+  const ref = useDismiss(open, () => onToggle(false))
   const location = useLocation()
 
   // Shut on navigation. Without this the menu stays open over the page it just
   // sent you to, which reads as the link not having worked.
-  useEffect(() => setOpen(false), [location.pathname])
+  useEffect(() => onToggle(false), [location.pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const here = groups.some((g) =>
-    g.items.some((i) => i.to && location.pathname.startsWith(i.to)),
-  )
-
-  if (groups.length === 0) return null
+  const here = items.some((i) => i.to && location.pathname.startsWith(i.to))
 
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => onToggle(!open)}
         aria-expanded={open}
         aria-haspopup="menu"
         className={tabClass(here)}
       >
-        More
+        {title}
         <Icon
           name="chevronDown"
           size={15}
@@ -95,47 +113,40 @@ function MoreMenu({ groups }: { groups: NavGroup[] }) {
       {open && (
         <div
           role="menu"
-          className="surface absolute left-0 z-50 mt-1 w-[248px] overflow-hidden rounded-xl border border-line py-1.5 shadow-lift"
+          className="surface absolute left-0 z-50 mt-1 w-[236px] overflow-hidden rounded-xl border border-line py-1.5 shadow-lift"
         >
-          {groups.map((g, n) => (
-            <div key={g.title} className={n > 0 ? 'mt-1 border-t border-line pt-1' : ''}>
-              <p className="px-4 pt-2 pb-1 text-[11.5px] font-medium tracking-wide text-faint uppercase">
-                {g.title}
-              </p>
-              {g.items.map((item) =>
-                item.to ? (
-                  <NavLink
-                    key={item.label}
-                    to={item.to}
-                    role="menuitem"
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-2.5 text-[14px] transition-colors ${
-                        isActive
-                          ? 'bg-[var(--surface-sunken)] font-semibold text-ink'
-                          : 'text-ink hover:bg-[var(--surface-sunken)]'
-                      }`
-                    }
-                  >
-                    <Icon name={item.icon} size={17} className="text-muted" />
-                    {item.label}
-                  </NavLink>
-                ) : (
-                  <span
-                    key={item.label}
-                    aria-disabled
-                    title="Coming in the next release"
-                    className="flex cursor-not-allowed items-center gap-3 px-4 py-2.5 text-[14px] text-faint"
-                  >
-                    <Icon name={item.icon} size={17} />
-                    <span className="flex-1">{item.label}</span>
-                    <span className="rounded-full border border-line px-1.5 py-0.5 text-[10px]">
-                      Soon
-                    </span>
-                  </span>
-                ),
-              )}
-            </div>
-          ))}
+          {items.map((item) =>
+            item.to ? (
+              <NavLink
+                key={item.label}
+                to={item.to}
+                role="menuitem"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2.5 text-[14px] transition-colors ${
+                    isActive
+                      ? 'bg-[var(--surface-sunken)] font-semibold text-ink'
+                      : 'text-ink hover:bg-[var(--surface-sunken)]'
+                  }`
+                }
+              >
+                <Icon name={item.icon} size={17} className="text-muted" />
+                {item.label}
+              </NavLink>
+            ) : (
+              <span
+                key={item.label}
+                aria-disabled
+                title="Coming in the next release"
+                className="flex cursor-not-allowed items-center gap-3 px-4 py-2.5 text-[14px] text-faint"
+              >
+                <Icon name={item.icon} size={17} />
+                <span className="flex-1">{item.label}</span>
+                <span className="rounded-full border border-line px-1.5 py-0.5 text-[10px]">
+                  Soon
+                </span>
+              </span>
+            ),
+          )}
         </div>
       )}
     </div>
@@ -236,6 +247,15 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   // row. Leaving either in the list as well would be two places to press for
   // one destination, which is how a menu stops being trustworthy.
   const messages = groups.flatMap((g) => g.items).find((i) => i.badge === 'messages')
+
+  // The first group is the spine of the product — the pages work happens on —
+  // and stays inline, one press each. Everything after it keeps its own name in
+  // the bar and opens to its own pages.
+  //
+  // A group left holding a single page becomes that page's link instead of a
+  // menu: "Your record" opening to nothing but Reports is a door in front of a
+  // door, and the label the reader wants is the one on the far side of it.
+  const spine = groups[0].items.filter((i) => i.badge !== 'messages')
   const rest = groups
     .slice(1)
     .filter((g) => g.title !== 'Account')
@@ -254,7 +274,7 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
               type="button"
               onClick={onOpenDrawer}
               aria-label="Open navigation"
-              className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-[var(--surface-sunken)] md:hidden"
+              className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-[var(--surface-sunken)] lg:hidden"
             >
               <Icon name="menu" size={20} />
             </button>
@@ -279,25 +299,67 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
             at the height of the row, and could not even be clicked. Measured,
             not guessed: a hit test at the middle of the open menu found
             nothing there. */}
-        <div aria-label="Sections" className="-mb-px hidden items-center gap-6 md:flex">
-          <nav className="flex min-w-0 gap-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {groups[0].items.map((item) =>
-              item.to ? (
-                <NavLink
-                  key={item.label}
-                  to={item.to}
-                  end={item.to.split('/').filter(Boolean).length < 2}
-                  className={({ isActive }) => tabClass(isActive)}
-                >
-                  <Icon name={item.icon} size={17} />
-                  {item.label}
-                </NavLink>
-              ) : null,
-            )}
-          </nav>
-          <MoreMenu groups={rest} />
-        </div>
+        <SectionsNav spine={spine} rest={rest} />
       </div>
     </header>
+  )
+}
+
+/**
+ * The row of destinations. Its own component so it can be rendered — and its
+ * width measured against a real viewport — without a signed-in session, which
+ * is the only way this row has ever been checked.
+ */
+export function SectionsNav({ spine, rest }: { spine: NavItem[]; rest: NavGroup[] }) {
+  // Only one menu open at a time: two dropdowns overlapping is how a nav stops
+  // looking like a nav.
+  const [openMenu, setOpenMenu] = useState<string | null>(null)
+
+  return (
+    <>
+        {/* No `overflow-x-auto` anywhere on this row. It forces the other axis
+            to `auto` as well, which clips every dropdown hanging below it —
+            that is what stopped the old menu opening at all. The row is sized
+            to fit instead. */}
+        <nav
+          aria-label="Sections"
+          className="-mb-px hidden items-center gap-5 lg:flex xl:gap-6"
+        >
+          {spine.map((item) =>
+            item.to ? (
+              <NavLink
+                key={item.label}
+                to={item.to}
+                end={item.to.split('/').filter(Boolean).length < 2}
+                className={({ isActive }) => tabClass(isActive)}
+              >
+                <Icon name={item.icon} size={17} />
+                {item.label}
+              </NavLink>
+            ) : null,
+          )}
+
+          {rest.map((g) =>
+            g.items.length === 1 && g.items[0].to ? (
+              <NavLink
+                key={g.title}
+                to={g.items[0].to}
+                className={({ isActive }) => tabClass(isActive)}
+              >
+                <Icon name={g.items[0].icon} size={17} />
+                {g.items[0].label}
+              </NavLink>
+            ) : (
+              <GroupMenu
+                key={g.title}
+                title={g.title}
+                items={g.items}
+                open={openMenu === g.title}
+                onToggle={(next) => setOpenMenu(next ? g.title : null)}
+              />
+            ),
+          )}
+        </nav>
+    </>
   )
 }
