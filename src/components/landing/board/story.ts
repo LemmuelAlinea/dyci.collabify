@@ -44,7 +44,10 @@ export const CHAPTERS: Chapter[] = [
     title: 'Finish with confidence',
     body: 'Collabify exposes delays early and keeps the whole group moving toward submission.',
     from: 0.68,
-    to: 0.9,
+    // Runs to the very end of the pin, and does not fade out — see the `isLast`
+    // branch in the story's paint. Ending at 0.9 left the last tenth of the
+    // pinned scroll with the board beside an empty column.
+    to: 1,
   },
 ]
 

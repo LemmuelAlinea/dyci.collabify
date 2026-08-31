@@ -77,7 +77,15 @@ function HeroCopy() {
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden bg-navy-600 text-white">
+    // NO `overflow-hidden` on this section, and that is load-bearing. An
+    // ancestor whose overflow is anything but `visible` becomes the scroll
+    // container for a `position: sticky` descendant — so the board's sticky
+    // viewport stopped pinning to the window and scrolled away with the page,
+    // leaving a screen of empty navy behind it. The decoration still has to be
+    // clipped, so the clipping moved to a layer of its own below.
+    <section className="relative bg-navy-600 text-white">
+      {/* Every decorative layer, in one clipped box. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       {/* Depth: a wide radial lift behind the copy, then the blueprint rule on top. */}
       <div
         aria-hidden
@@ -108,6 +116,7 @@ export function Hero() {
         colors={['#F0B429']}
         ring={{ radius: 12, width: 9 }}
       />
+      </div>
 
       {/* The board and the copy that travels with it. On a phone this is just
           the hero, stacked, with the chapters as ordinary blocks underneath. */}

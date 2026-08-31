@@ -108,7 +108,11 @@ export function BoardScrollStory({ heroCopy }: { heroCopy: ReactNode }) {
         if (!node) return
         const span = c.to - c.from
         const inn = ramp(p, c.from, c.from + span * 0.35)
-        const out = ramp(p, c.to - span * 0.2, c.to)
+        // The last chapter never fades: it has to still be there at the moment
+        // the section unpins, or the board spends the end of the scroll beside
+        // an empty column.
+        const out =
+          i === CHAPTERS.length - 1 ? 0 : ramp(p, c.to - span * 0.2, c.to)
         const o = inn * (1 - out)
         node.style.opacity = String(o)
         node.style.transform = `translateY(${20 * (1 - inn) - 20 * out}px)`
