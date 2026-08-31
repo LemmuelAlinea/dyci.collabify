@@ -2,6 +2,7 @@ import { ButtonLink } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import { BoardPreview } from './BoardPreview'
+import { CursorRingField } from './CursorRingField'
 import { Rise, WordReveal } from './Anim'
 
 /**
@@ -32,6 +33,23 @@ export function Hero() {
         aria-hidden
         className="absolute -top-40 -right-32 h-[560px] w-[560px] rounded-full opacity-25 blur-3xl"
         style={{ background: 'radial-gradient(circle, #F0B429 0%, transparent 62%)' }}
+      />
+
+      {/* The field sits on top of the gradient, the grid and the glow, and
+          under everything that is read. Its own background is transparent so
+          all three still show through — it contributes points, not a ground.
+          Under `prefers-reduced-motion` it renders no canvas at all and the
+          hero is exactly what it was. */}
+      <CursorRingField
+        // Every stop sits LIGHTER than the hero's own ground, which runs
+        // #33429B to #161D4A. The first ramp used navy-700 at the dark end and
+        // the field vanished into the gradient — measured, the average lit
+        // pixel came back rgb(27,35,85), which is the background. The shader
+        // multiplies each point by its ring energy, so the stops have to start
+        // above the ground for the quiet field to be visible at all and for the
+        // ring to have somewhere brighter to go.
+        colors={['#5568C4', '#93A2EC', '#F0B429']}
+        ring={{ radius: 12, width: 9 }}
       />
 
       <div className="shell relative pt-[124px] pb-20 md:pt-[150px] md:pb-28 lg:pt-[168px] lg:pb-32">
