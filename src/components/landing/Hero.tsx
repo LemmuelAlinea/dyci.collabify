@@ -3,7 +3,6 @@ import { ButtonLink } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import { CursorRingField } from './CursorRingField'
-import { BoardFallback } from './board/BoardFallback'
 import type { BoardHandle } from './board/BoardScene'
 import { Rise, WordReveal } from './Anim'
 
@@ -19,7 +18,13 @@ import { Rise, WordReveal } from './Anim'
  */
 const BoardExperience = lazy(() => import('./board/BoardExperience'))
 
-/** The canvas box, at its final height, before anything has loaded. */
+/**
+ * The canvas box, at its final height, before anything has loaded.
+ *
+ * It holds the space and shows nothing. The flat board used to sit in here and
+ * it is why the old kanban flashed up on every load: it painted immediately,
+ * then had to be faded out again the moment the real board was ready.
+ */
 const BOX = 'relative h-[340px] w-full sm:h-[400px] lg:h-[470px] xl:h-[500px]'
 
 const TRUST: { icon: IconName; label: string }[] = [
@@ -141,9 +146,7 @@ export function Hero() {
             <Suspense
               fallback={
                 <div className="relative w-full">
-                  <div className={BOX}>
-                    <BoardFallback />
-                  </div>
+                  <div className={BOX} />
                 </div>
               }
             >

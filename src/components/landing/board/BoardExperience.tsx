@@ -9,11 +9,13 @@ import { BoardFallback } from './BoardFallback'
 /**
  * The 3D board, and everything that has to be true before it is safe to show.
  *
- * THE FLAT BOARD IS UNDERNEATH THE WHOLE TIME. It is what renders while the
- * model downloads, what stays if WebGL is missing, and what the error boundary
- * falls back to if the scene throws. There is no state in which this component
- * shows an empty canvas: the picture is always the old picture until the new
- * one is genuinely ready, and then it crossfades.
+ * THE FLAT BOARD IS A FAILURE STATE, NOT A LOADING STATE. It renders when
+ * WebGL is missing and when the error boundary catches the scene, and at no
+ * other time. It used to be mounted underneath from the first paint and faded
+ * out once the model was ready, which meant every visitor was shown the old
+ * flat kanban for as long as the GLB took to arrive — a picture of a different
+ * product, flashing up on every load. The box below holds its own height, so
+ * showing nothing there costs a moment of empty space and no reflow.
  *
  * THE CANVAS STOPS WHEN NOBODY IS LOOKING. `frameloop` goes to `never` when the
  * hero scrolls away or the tab is hidden — a continuously rendering WebGL
@@ -146,13 +148,12 @@ export default function BoardExperience({ handle }: { handle: BoardHandle }) {
       {/* Sized in CSS, not by the model: the canvas box has to exist at its
           final height before the GLB arrives or the hero reflows around it. */}
       <div className="relative h-[340px] w-full sm:h-[400px] lg:h-[470px] xl:h-[500px]">
-        {/* Always mounted, faded out once the model is up. */}
-        <div
-          className="absolute inset-0 transition-opacity duration-700"
-          style={{ opacity: use3d && ready ? 0 : 1 }}
-        >
-          <BoardFallback />
-        </div>
+        {/* Only when there will never be a 3D board to show. */}
+        {!use3d && (
+          <div className="absolute inset-0">
+            <BoardFallback />
+          </div>
+        )}
 
         {use3d && (
           <div
