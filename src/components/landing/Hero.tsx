@@ -25,7 +25,7 @@ const BoardExperience = lazy(() => import('./board/BoardExperience'))
  * it is why the old kanban flashed up on every load: it painted immediately,
  * then had to be faded out again the moment the real board was ready.
  */
-const BOX = 'relative h-[340px] w-full sm:h-[400px] lg:h-[470px] xl:h-[500px]'
+const BOX = 'relative h-[340px] w-full sm:h-[400px] lg:h-[500px] xl:h-[530px]'
 
 const TRUST: { icon: IconName; label: string }[] = [
   { icon: 'checkCircle', label: 'Google sign-in' },

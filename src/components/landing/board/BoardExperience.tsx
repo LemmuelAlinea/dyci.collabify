@@ -125,7 +125,13 @@ export default function BoardExperience({ handle }: { handle: BoardHandle }) {
   }, [use3d, interactive, handle])
 
   return (
-    <div ref={host} className="relative w-full">
+    // Bleeds out of its grid column at desktop widths, into the gap on one
+    // side and the page gutter on the other. The board spans essentially the
+    // whole column already — that is why it was clipping — so the only way to
+    // give it more size is to give the box more room. No `w-full`: a block box
+    // fills its column on its own, and negative margins then widen it rather
+    // than just sliding it sideways.
+    <div ref={host} className="relative lg:-mx-8 xl:-mx-12">
       {/* The glows are CSS, not postprocessing. Bloom on a scene this simple
           costs a render target and buys a haze the brand does not want. */}
       <div
@@ -147,7 +153,7 @@ export default function BoardExperience({ handle }: { handle: BoardHandle }) {
 
       {/* Sized in CSS, not by the model: the canvas box has to exist at its
           final height before the GLB arrives or the hero reflows around it. */}
-      <div className="relative h-[340px] w-full sm:h-[400px] lg:h-[470px] xl:h-[500px]">
+      <div className="relative h-[340px] w-full sm:h-[400px] lg:h-[500px] xl:h-[530px]">
         {/* Only when there will never be a 3D board to show. */}
         {!use3d && (
           <div className="absolute inset-0">
@@ -164,9 +170,11 @@ export default function BoardExperience({ handle }: { handle: BoardHandle }) {
               <Canvas
                 dpr={[1, 1.5]}
                 frameloop={live ? 'always' : 'never'}
+                // Position and target are set by the scene, which fits the
+                // board to the box on both axes and re-fits on every resize.
+                // Only the fov is read from here.
                 camera={{ position: [0, 1.4, 12], fov: 35 }}
                 gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-                onCreated={({ camera }) => camera.lookAt(0, 1.4, 0)}
                 style={{ background: 'transparent' }}
               >
                 <ambientLight intensity={0.85} />

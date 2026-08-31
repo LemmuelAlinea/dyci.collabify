@@ -70,6 +70,24 @@ function token([name, fallback]: [string, string]) {
  * StrictMode that is the second mount of this very component.
  */
 
+/**
+ * How the board is framed in its box.
+ *
+ * Done on the camera rather than on the model, because the model's groups are
+ * all written to on every frame and a static transform put on any of them
+ * would be overwritten before it was ever seen.
+ *
+ * `fill` is the share of the box the board spans on whichever axis binds
+ * first — raise it to make the board bigger. `offset` slides it around inside
+ * the box as a fraction of what is visible, so it sits in the same place at
+ * every width rather than drifting as the column changes size.
+ */
+const FRAME = {
+  fill: 0.97,
+  /** -x is left, +y is up. */
+  offset: { x: -0.045, y: 0.04 },
+}
+
 /** power3.out — the brief's entrance easing, as a function rather than a tween. */
 const power3Out = (t: number) => 1 - Math.pow(1 - t, 3)
 
@@ -94,7 +112,7 @@ export function BoardScene({
   interactive: boolean
 }) {
   const { scene } = useGLTF(MODEL)
-  const { invalidate } = useThree()
+  const { invalidate, camera, size: box } = useThree()
 
   const storyGroup = useRef<THREE.Group>(null)
   const entranceGroup = useRef<THREE.Group>(null)
@@ -166,6 +184,54 @@ export function BoardScene({
    * an empty stage the next turn could build on.
    */
   const plate = useMemo(() => [named.BasePlate].filter(Boolean), [named])
+  /**
+   * The model's own extents, measured once from the clone.
+   *
+   * Padded upward because the flying card leaves the rest bounds on its arc,
+   * and the trail above it goes further still — fitting to the rest pose alone
+   * crops the one gesture the whole scene is built around.
+   */
+  const bounds = useMemo(() => {
+    const b = new THREE.Box3().setFromObject(model)
+    const size = b.getSize(new THREE.Vector3())
+    const center = b.getCenter(new THREE.Vector3())
+    size.y += 0.9
+    center.y += 0.45
+    return { size, center }
+  }, [model])
+
+  /**
+   * FIT TO BOTH AXES, NOT JUST HEIGHT.
+   *
+   * A perspective camera's fov is vertical, so a fixed camera distance sizes
+   * the board against the box's height and ignores its width entirely. The
+   * board is wider than it is tall and the column it sits in narrows with the
+   * viewport, so on anything under about a square box the sides were simply
+   * cut off — the base plate was sliced at both ends at 1024px wide and had
+   * been since the board landed. Taking whichever axis needs more distance
+   * means it is framed the same way at every width.
+   */
+  useEffect(() => {
+    const cam = camera as THREE.PerspectiveCamera
+    const aspect = Math.max(box.width, 1) / Math.max(box.height, 1)
+    const halfV = Math.tan((cam.fov * Math.PI) / 180 / 2)
+    const dist = Math.max(
+      bounds.size.y / 2 / (halfV * FRAME.fill),
+      bounds.size.x / 2 / (halfV * aspect * FRAME.fill),
+    )
+    // Panned, not rotated: the view axis stays parallel to Z so the offset
+    // cannot introduce a perspective skew the model was never posed for.
+    const visibleH = 2 * halfV * dist
+    cam.position.set(
+      bounds.center.x - FRAME.offset.x * visibleH * aspect,
+      bounds.center.y - FRAME.offset.y * visibleH,
+      bounds.center.z + dist,
+    )
+    cam.lookAt(cam.position.x, cam.position.y, bounds.center.z)
+    cam.updateProjectionMatrix()
+    invalidate()
+  }, [camera, box, bounds, invalidate])
+
   const panels = useMemo(
     () => ['Panel_0', 'Panel_1', 'Panel_2'].map((n) => named[n]).filter(Boolean),
     [named],
