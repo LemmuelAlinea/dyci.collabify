@@ -357,6 +357,18 @@
     --bp-line: rgb(255 255 255 / 0.05);
   }
 
+  /* The same grid, pitched for the app shell rather than a page.
+     `blueprint-ink` is tuned for a whole section of landing page, where there
+     is a screen of it to read and a tinted surface behind it. The app's bar is
+     a 130px strip on plain white, and at 7% the rule simply was not there.
+     Scoped under `.app-ui` so the landing page keeps the softer original. */
+  .app-ui .blueprint-shell {
+    --bp-line: rgb(16 22 55 / 0.15);
+  }
+  .dark .app-ui .blueprint-shell {
+    --bp-line: rgb(255 255 255 / 0.07);
+  }
+
   .eyebrow {
     font-family: var(--font-mono);
     font-size: 11px;

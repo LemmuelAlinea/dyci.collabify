@@ -265,15 +265,14 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   return (
     // The blueprint grid, carried in from the landing page's visual language.
     //
-    // `blueprint-ink` is the half that matters in here: `.blueprint` on its own
-    // draws a white rule, which is right on the hero's navy and invisible on a
-    // light surface. The `-ink` pair swaps it for a dark rule in light mode and
-    // back to white under `.dark`, so the motif reads in both themes.
+    // `blueprint-shell`, not `blueprint-ink`: the latter is tuned for a whole
+    // section of landing page and all but vanished in a 130px strip on plain
+    // white. Both carry a light and a dark value, so the motif reads either way.
     //
     // `.surface` sets `background` as a shorthand, which resets
     // `background-image` — the grid survives only because `.blueprint` is
     // declared after it in the stylesheet. Worth knowing before either moves.
-    <header className="surface blueprint blueprint-ink sticky top-0 z-40 border-b border-line">
+    <header className="surface blueprint blueprint-shell sticky top-0 z-40 border-b border-line">
       {/* Matches main's gutters exactly, so the logo and the page title below it
           sit on the same line down the screen. */}
       <div className="w-full px-4 sm:px-6 md:px-8 xl:px-12 2xl:px-20">
