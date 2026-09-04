@@ -52,7 +52,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             data-state={t.closing ? 'closed' : 'open'}
             className={`motion-toast pointer-events-auto flex w-full max-w-[380px] items-start gap-2.5 rounded-xl border px-4 py-3 text-[14px] shadow-lift ${STYLES[t.tone].cls}`}
-            style={{ transitionBehavior: 'allow-discrete' }}
           >
             <Icon name={STYLES[t.tone].icon} size={17} className="mt-px shrink-0" />
             <span className="min-w-0">{t.message}</span>
