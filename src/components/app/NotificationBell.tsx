@@ -100,7 +100,7 @@ export function NotificationBell() {
         onClick={() => setOpen((v) => !v)}
         aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}
         aria-expanded={open}
-        className="relative grid h-10 w-10 place-items-center rounded-full text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+        className="relative grid h-10 w-10 place-items-center rounded-full text-muted transition-[background-color,color,transform] duration-(--dur-press) hover:bg-[var(--surface-sunken)] hover:text-ink active:scale-[0.97]"
       >
         <Icon name="bell" size={19} />
         {unread > 0 && (
@@ -155,7 +155,7 @@ export function NotificationBell() {
                     <button
                       type="button"
                       onClick={() => openNotification(n)}
-                      className="flex w-full gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[var(--surface-sunken)]"
+                      className="flex w-full gap-3 px-4 py-3.5 text-left transition-colors duration-(--dur-press) hover:bg-[var(--surface-sunken)] active:bg-[var(--surface-sunken)]"
                     >
                       <span
                         className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
