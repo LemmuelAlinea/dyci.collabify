@@ -408,6 +408,10 @@
     .motion-scrim[data-state='open'] {
       opacity: 0;
     }
+    .motion-overlay[data-state='open'] {
+      opacity: 0;
+      transform: scale(0.97);
+    }
   }
 
   .motion-scrim {
