@@ -119,17 +119,47 @@ Light mode values, as two-layer composites — a tight contact shadow plus a dif
 Shadows are navy-tinted rather than black. A black shadow over navy-tinted surfaces
 reads dirty; a navy one reads as the same light source. This introduces no new colour.
 
-**Dark mode expresses the same four levels differently.** A drop shadow on a near-black
-surface is invisible, so in dark mode elevation is carried by surface lightness stepping
-up (`surface-sunken` to `surface` to `surface-raised`) plus a 1px inset top highlight,
-`inset 0 1px 0 rgb(255 255 255 / .04)`, reading as light catching the top edge. Shadows
-are retained in dark mode only on levels 2 and 3, deeper than their light-mode
-counterparts, purely to separate floating surfaces from the page.
+**Dark mode expresses the same four levels through border brightness, not fill.** This
+was corrected after measuring the running app; the first draft of this spec specified
+surface-lightness stepping, which the measurements below show cannot work.
 
-**Borders change at level 1.** In light mode a level-1 card drops its `border-line` and
-is defined by shadow alone; keeping both reads heavy. In dark mode a level-1 card keeps
-the hairline border and has no shadow. This is the most visible single change in the
-spec, and is reversible by one token if it proves wrong.
+Measured on the professor dashboard at 1440px, in both themes:
+
+| | Light | Dark |
+| --- | --- | --- |
+| Page background | `rgb(230,234,244)`, L* 92.7 | `rgb(8,11,33)`, L* 3.6 |
+| Card background | `rgb(255,255,255)`, L* 100 | `rgb(16,21,47)`, L* 7.7 |
+| Card-vs-page separation from fill | **7.3 L\*** | **4.1 L\*** |
+| Card border, composited | `rgb(226,227,231)` | `rgb(42,47,70)` |
+| What the border contributes | **-2.4 L\* vs the page** | **+12.2 L\* vs the card** |
+
+Two conclusions follow, and they point in opposite directions per theme.
+
+In light mode the border composites to 2.4 L* *below* the page it is meant to separate
+from — at or under the perceptual threshold for a 1px edge. It is already nearly
+invisible, and the card reads as a card purely because white on a blue-grey page gives
+7.3 L* of fill separation. Dropping it costs almost nothing and a shadow does more.
+
+In dark mode the relationship inverts: the fill step is 4.1 L*, at the dark end where
+perception is most compressed, while the border sits 12.2 L* above the card — three
+times stronger than the fill step. The border is the primary edge signal there, and
+there is not enough headroom between page and card to fit four distinguishable
+lightness levels inside 4.1 L*.
+
+So dark-mode elevation rides on border brightness:
+
+| Level | Dark-mode treatment |
+| --- | --- |
+| 0 `flat` | No border, `surface-sunken` |
+| 1 `card` | `rgba(255,255,255,0.11)`, no shadow — today's value, unchanged |
+| 2 `overlay` | `rgba(255,255,255,0.16)` plus `0 8px 24px rgb(0 0 0 / .5)` |
+| 3 `modal` | `rgba(255,255,255,0.20)` plus `0 24px 56px rgb(0 0 0 / .65)` |
+
+**Borders change at level 1, in light mode only.** A light-mode level-1 card drops its
+`border-line` and is defined by shadow alone; keeping both reads heavy, and the
+measurement above shows the border was contributing nothing perceptible anyway. A
+dark-mode level-1 card keeps its hairline border and takes no shadow. Both directions
+are reversible by one token.
 
 ## Section 3 — Spacing rhythm and radius
 
@@ -259,8 +289,12 @@ Strictly in this order, because each layer cascades into the next:
 - Lint held at the standing baseline of 23 warnings and 0 errors. Any increase is a
   regression to fix, not to accept.
 - Browser verification is required for the four overlay enter/exit transitions, the
-  reduced-motion change, dark-mode elevation, and hover gating at tablet width. None of
-  these can be judged from code alone.
+  reduced-motion change, and hover gating at tablet width. None can be judged from code.
+- Dark-mode elevation has a measured baseline already captured (§2), taken from the
+  running app on the professor dashboard. After Layer 0 lands, the same measurement is
+  repeated and compared: level 2 and level 3 must each show a border-brightness delta
+  above the level below it that exceeds the 4.1 L* fill step, or the level is not
+  carrying its weight and the alpha values need raising.
 - Dark mode is checked on every migrated directory, because the elevation model differs
   by theme and a light-only check will miss it.
 
@@ -281,15 +315,29 @@ Measurable against the evidence table above:
 
 ## Risks
 
-1. **Cards losing their light-mode border is the most visible change.** If it reads
-   wrong it reverts by restoring one token, not by unpicking the migration.
-2. **Dark-mode elevation cannot be verified from code.** Surface-lightness stepping is
-   subtle and needs a real browser in both themes.
-3. **Card padding rising to 20px reduces content above the fold** on the densest pages
+1. **Card padding rising to 20px reduces content above the fold** on the densest pages
    (`Analytics`, `MyTasks`). If that proves costly, those pages can opt into 16px padding
    through a `Card` prop rather than abandoning the rhythm.
-4. **Disk space.** The machine had 8 MB free on C: at the time of writing. A Vite dev
-   server needs room for its cache, so browser verification may be blocked until that is
-   cleared.
-5. **Scope creep into Layer 3.** Migration will surface page-layout problems. Those are
+2. **Reduced motion cannot be verified with the available tooling.** The browser tools
+   emulate colour scheme but not `prefers-reduced-motion`, so §4 rule 8 can only be
+   checked by forcing the CSS by hand. That tests the rule but not whether the media
+   query is wired correctly. It needs a real browser with the OS setting on.
+3. **Shadow subtlety may not survive the target device.** Verification here is on a
+   desktop panel. Light-mode level-1 elevation is deliberately faint, and faint shadows
+   are exactly what a different panel renders differently. The Xiaomi Pad 7 the project
+   is moving to should be checked before light-mode elevation is considered settled.
+4. **Scope creep into Layer 3.** Migration will surface page-layout problems. Those are
    recorded for the follow-up spec, not fixed in passing.
+
+## Risks resolved during design
+
+Recorded so the reasoning is not lost.
+
+- **Cards losing their light-mode border** was the risk flagged as most visible.
+  Measurement retired it: the border composites to 2.4 L* below the page and is already
+  below the perceptual threshold, while fill separation is 7.3 L*. See §2.
+- **Dark-mode elevation could not be verified from code.** It has now been verified in a
+  running browser in both themes, and doing so corrected the spec — the original
+  surface-lightness model was unbuildable in 4.1 L* of headroom. See §2.
+- **Disk space** blocked browser verification at 8 MB free. The machine now has 17 GB
+  free and the dev server runs.
