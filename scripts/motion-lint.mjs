@@ -33,23 +33,67 @@ const failures = []
 // Checks 2 and 4 need to reason about one element at a time, not the file as
 // a whole — otherwise an unrelated `hover:` on one element and `duration-300`
 // on another (a progress-bar fill, say) look like a single violation. Pull
-// out each className string literal as its own scope. Both `className="..."`
-// and `` className={`...`} `` forms appear in this codebase; a template
-// literal is split on each `${...}` interpolation, since a conditional
-// className is often built by concatenating pieces for different states —
-// each literal chunk between interpolations is its own element scope. This
-// is a heuristic, not a parser: it does not follow className built up in a
-// variable, and an interpolation containing a literal `}` (a nested object)
-// would truncate early. Good enough for a lint script.
+// out each className attribute as its own scope. Both `className="..."` and
+// `` className={`...`} `` forms appear in this codebase, and each occurrence
+// of either is exactly one scope. An interpolation does not start a new
+// element, so a template literal is kept whole, interpolation contents
+// included — a conditional class added inside a ternary (the idiom used
+// throughout this file set) stays visible to checks 2 and 4 instead of being
+// split off into a scope of its own or discarded.
+//
+// This is a heuristic, not a parser. A className assembled in a separate
+// variable and referenced as `className={cls}` is not followed — that
+// className is invisible to every check below. And because a scope's closing
+// delimiter is a literal `"` or backtick, a template literal whose
+// interpolation itself contains a backtick (a nested template literal) would
+// end the capture early. Good enough for a lint script.
 function classNameScopes(src) {
   const scopes = []
   for (const m of src.matchAll(/className="([^"]*)"/g)) {
     scopes.push(m[1])
   }
   for (const m of src.matchAll(/className=\{`([^`]*)`\}/g)) {
-    scopes.push(...m[1].split(/\$\{[^}]*\}/))
+    scopes.push(m[1])
   }
   return scopes
+}
+
+// Self-check, always on: if this extractor regresses, checks 2 and 4 fail
+// silently instead of loudly, which is exactly what shipped last time. A few
+// representative inputs, run on every invocation, catch that before it does.
+const CLASS_NAME_SCOPES_SELF_CHECK = [
+  {
+    name: 'plain className="..." is one scope',
+    src: '<div className="flex items-center hover:scale-105" />',
+    expected: ['flex items-center hover:scale-105'],
+  },
+  {
+    name: 'a ternary interpolation stays inside the surrounding scope',
+    src: '<div className={`transition duration-300 ${isOpen ? "opacity-100" : "opacity-0"} hover:scale-105`} />',
+    expected: [
+      'transition duration-300 ${isOpen ? "opacity-100" : "opacity-0"} hover:scale-105',
+    ],
+  },
+  {
+    name: 'a class added only inside the interpolation is still visible',
+    src: '<div className={`base hover:-translate-y-0.5 ${isSafe ? "hover-safe" : ""}`} />',
+    expected: ['base hover:-translate-y-0.5 ${isSafe ? "hover-safe" : ""}'],
+  },
+  {
+    name: 'two className attributes on different elements stay separate scopes',
+    src: '<div className="hover:scale-105" />\n<div className="duration-300" />',
+    expected: ['hover:scale-105', 'duration-300'],
+  },
+]
+for (const { name, src, expected } of CLASS_NAME_SCOPES_SELF_CHECK) {
+  const actual = classNameScopes(src)
+  const ok = actual.length === expected.length && actual.every((s, i) => s === expected[i])
+  if (!ok) {
+    throw new Error(
+      `motion-lint: classNameScopes self-check failed (${name}) — expected ` +
+        `${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    )
+  }
 }
 
 // 1. The four overlays must carry an enter/exit transition class.
