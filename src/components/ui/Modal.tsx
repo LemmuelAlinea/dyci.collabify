@@ -104,7 +104,19 @@ export function Modal({
   if (!render) return null
 
   return (
-    <div className="fixed inset-0 z-60 flex items-end justify-center p-0 sm:items-center sm:p-6">
+    // `render` staying true after `open` goes false is what lets the dialog fade
+    // out instead of vanishing on the click — but for that one transition the
+    // node is still in the DOM, still focusable, and still announced as an open
+    // dialog. useFocusTrap has already released by then (it's keyed on `open`),
+    // so nothing is stopping Tab from walking back into a dialog the user just
+    // dismissed. `inert` is the one attribute that pulls the whole exit-only
+    // window out of tab order and the accessibility tree in one shot — it drops
+    // the instant `open` flips back to true, so a genuinely open dialog is never
+    // inert.
+    <div
+      inert={!open}
+      className="fixed inset-0 z-60 flex items-end justify-center p-0 sm:items-center sm:p-6"
+    >
       {/* Clickable, but not a tab stop: the header already has a real Close
           button, and Escape closes. A focusable full-screen button here just
           added a control that reads as "Close" before the dialog's own title. */}
