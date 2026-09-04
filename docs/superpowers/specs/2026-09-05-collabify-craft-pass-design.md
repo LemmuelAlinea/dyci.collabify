@@ -1,352 +1,265 @@
-# Collabify craft pass — foundations, primitives and patterns
+# Collabify craft pass — stop bypassing the token layer
 
 Date: 2026-09-05
-Status: approved design, ready for implementation planning
+Status: rewritten against `src/styles/index.css`, superseding revisions 1-3
 
-## Goal
+## What changed in this revision, and why
 
-Raise the craft of the Collabify app UI — hierarchy, density, consistency and motion —
-without changing what the product does or how it is coloured.
+The first three revisions of this spec were wrong in the same way. Evidence was gathered
+by grepping Tailwind utility classes in `.tsx` files and never by reading
+`src/styles/index.css`, which is where this project's design decisions actually live and
+are argued for in comments. That produced three proposals to overturn deliberate,
+documented choices:
 
-The work is drawn from Emil Kowalski's design engineering skills (`emilkowalski/skills`),
-chiefly `emil-design-eng`, `animate`, `review-animations`, and the typography and
-materials sections of `apple-design`. Values cited below come from those documents
-rather than being invented here.
+- "11 shadows across 135 components" was read as drift. It is the design. `.app-ui`
+  carries `--shadow-card: none` with the comment *"A card does not float"*, and the block
+  comment at lines 169-187 explains why the signed-in app uses a white ground with
+  hairline separation while the landing page uses a tinted canvas with lifted cards.
+- A four-level elevation scale was specified twice, once via surface lightness and once
+  via border brightness. Both were solving a problem the token layer had already solved
+  deliberately.
+- A seven-step type ramp was specified that would have re-imposed the 11px mono uppercase
+  eyebrow across the app, undoing an explicit decision (lines 292-309) to de-monospace it
+  because it *"made every screen announce itself before saying anything."*
+- `Card.tsx`, `--radius-card` and `--radius-modal` were proposed as new. `.app-ui .card`,
+  `--radius-card` and `--radius-panel` already exist.
+
+The token layer is not the problem. **Call sites bypass it.** That is what this spec now
+addresses, and it is a smaller and more accurate piece of work.
 
 ## Constraints
 
-Fixed, and not open for reinterpretation during implementation:
-
-1. **Colours do not change.** Not the `navy-*` or `amber-*` ramps, not
-   `surface` / `surface-raised` / `surface-sunken`, not `text-ink` / `text-muted` /
-   `text-faint`, not `border-line` / `border-line-strong`. Shadows introduced by this
-   spec are tinted with the existing navy (`rgb(16 22 55)`), which adds no new colour.
-2. **The landing page is frozen.** Nothing under `src/components/landing/` or
-   `src/pages/Landing.tsx` is touched, including the hero and the 3D board.
-3. **No new dependencies.** base-ui, Sonner, cva and zustand were considered and
-   rejected: the existing hand-rolled primitives already match the design system, and a
-   dependency overhaul on a shipped Phase 2 is not warranted.
-4. **Existing project rules hold** — no hardcoded colours, both themes defined in the
-   same block, dark mode via the `.dark` class, reduced motion honoured, desktop layout
-   first, copy in sentence case.
+1. **Colours do not change.** No ramp stop, no surface, ink, line or shadow token value.
+2. **The token layer's decisions stand.** Cards do not float. The app ground is white with
+   hairline separation. The app eyebrow is 12px sans, not mono. `.app-ui` overrides
+   `:root` on purpose and the two scopes are allowed to disagree.
+3. **The landing page is frozen** — nothing under `src/components/landing/` or
+   `src/pages/Landing.tsx`, and nothing in the `:root` / `.dark` token blocks that serve it.
+4. **No new dependencies.**
+5. **`scripts/contrast.mjs` must keep passing.** It parses `index.css` by string-matching
+   the block openers `@theme`, `@layer base`, `:root {`, `.dark {`, `.app-ui {`,
+   `.dark .app-ui {`, `.app-ui .btn {`. Those openers and their order must survive intact
+   or the script throws.
+6. **`npm run check` must pass** — typecheck, lint, test, contrast, a11y-names,
+   schema-drift.
 
 ## Scope
 
-**In scope:** the 40 app pages plus auth, all components outside `landing/`, and the
-token layer in `src/styles/index.css`.
+The 40 app pages plus auth, and components outside `landing/`.
 
-**Out of scope, deliberately:** per-page layout reorganisation. Of the four problems
-identified with the user, this spec addresses three — weak hierarchy, excess density,
-and page-to-page inconsistency. The fourth, "scattered: too much hunting and scrolling",
-is per-page composition work across 40 pages and requires its own spec, written after
-these foundations exist.
+Out of scope: per-page layout reorganisation ("scattered — too much hunting and
+scrolling"). That needs its own spec once these are done.
 
 ## Evidence
 
-Measured across `src/` before any change:
+Measured across `src/`, excluding `landing/`, with the token layer read first.
 
-| Finding | Measurement |
-| --- | --- |
-| Distinct hardcoded font sizes | 29 |
-| Uses of the five sizes inside a 2px band (12 / 12.5 / 13 / 13.5 / 14px) | 621 |
-| `font-medium` vs `font-semibold` vs `font-bold` | 137 / 46 / 15 |
-| Shadow uses across 135 components | 11 `shadow-lift` plus 4 one-offs |
-| Half-step spacing uses (`gap-1.5`, `gap-2.5`) | 168 |
-| Half-step `space-y` uses | 46 |
-| Distinct radius values | 10 |
-| Files hand-assembling a card from utility strings | 24 |
-| Shared pattern components that exist | `PageHeader` only |
-| `EmptyState` location | exported from `ui/Tabs.tsx` |
-| `Alert` location | exported from `ui/Field.tsx` |
-| Overlays with an enter or exit transition | 0 of 4 |
-| Button call sites with press feedback | 3 of 127 |
-| Hover-motion sites gated for touch | 0 of 4 |
-
-Two root causes explain most of it. Hierarchy is weak because the type ramp has 29 steps
-with five crammed into a 2px band, where the eye cannot separate them, and weight is not
-helping — `font-medium` outnumbers every other weight combined. Consistency is poor
-because there is no shared pattern layer to be consistent with: `Card`, `Badge`, `Table`
-and `Section` do not exist, and `EmptyState` and `Alert` are buried inside unrelated
-files where nobody finds them.
-
-## Section 1 — Type ramp
-
-Twenty-nine sizes collapse to seven named steps. Each step fixes size, weight, leading
-and tracking together; hierarchy comes from the set, not from size alone.
-
-| Token | Size | Weight | Leading | Tracking | Font | Absorbs |
-| --- | --- | --- | --- | --- | --- | --- |
-| `display` | 30px | 600 | 1.08 | -0.028em | Outfit | 26, 30 |
-| `title` | 20px | 600 | 1.2 | -0.02em | Outfit | 19, 22 |
-| `heading` | 16px | 600 | 1.3 | -0.01em | Outfit | 16, 17, 18 |
-| `body` | 14px | 400 | 1.55 | -0.005em | Instrument Sans | 14, 14.5, 15, 15.5 |
-| `secondary` | 13px | 400 | 1.5 | 0 | Instrument Sans | 12, 12.5, 13, 13.5 |
-| `caption` | 11.5px | 500 | 1.4 | +0.01em | Instrument Sans | 9.5, 10, 10.5, 11, 11.5 |
-| `eyebrow` | 11px | 500 | 1 | 0.18em, uppercase | JetBrains Mono | unchanged |
-
-Notes:
-
-- `body` and `secondary` sit 1px apart, which is invisible on its own. They are
-  separated by colour as well: `body` uses `text-ink`, `secondary` uses `text-muted`.
-  This is intentional, and is why seven steps can replace twenty-nine.
-- Body text gets **larger**. The dominant body size rises from 13.5px to 14px and the
-  dominant secondary size from 12.5px to 13px, with leading up to 1.55. This is part of
-  the density fix, not only a hierarchy fix.
-- The existing tracking ramp is already correct and carries over unchanged. `caption`
-  gains slightly positive tracking, the only addition.
-- Steps ship as CSS classes in `src/styles/index.css`. Arbitrary values such as
-  `text-[13.5px]` are removed from the codebase so the drift cannot return.
-
-## Section 2 — Elevation
-
-Four levels. The assignment matters more than the values.
-
-| Level | Name | Components |
+| Finding | Count | Is there a token for it? |
 | --- | --- | --- |
-| 0 | `flat` | Inset regions: table headers, input wells, empty states, existing `surface-sunken` areas |
-| 1 | `card` | Default resting card: the 24 hand-assembled cards, `DashSection`, list row containers |
-| 2 | `overlay` | Anchored floating surfaces: `FilterPopover`, `NotificationBell` panel, `Select` menu, tooltips |
-| 3 | `modal` | `Modal` and `ConfirmDialog` only, paired with the scrim |
+| Headings overriding `.app-ui main h1/h2/h3` with inline `text-[Npx]` | 86 | **Yes — being bypassed** |
+| Files hand-rolling a card instead of `.card` | 20 | **Yes — being bypassed** (`.card` is used correctly 71 times) |
+| Body-text uses across 12 / 12.5 / 13 / 13.5 / 14px | 621 | **No — real gap** |
+| Badge and pill sites with duplicated styling | 93 | **No — real gap** |
+| Half-step spacing uses (`gap-1.5`, `gap-2.5`, `space-y-1.5`, `space-y-2.5`) | 214 | No |
+| Overlays with an enter or exit transition | 0 of 4 | No |
+| Button sites with a press state | 3 of 127 | No |
+| Hover-motion sites gated for touch | 0 of 4 | No |
+| `.app-ui .eyebrow` uses — **do not touch** | 56 | Yes, working |
 
-**Levels 0 and 1 do not get a shadow, in either theme.** This preserves an existing,
-deliberate decision already recorded in `.app-ui`:
+Two categories, and they want different treatment. Where a token exists and is bypassed,
+the fix is deletion at the call site. Where no token exists, the fix is a small addition
+that matches the conventions already in the file.
+
+## Section 1 — Complete the type scale, and stop overriding it
+
+The token layer defines headings (`main h1` at `clamp(23px, 2.3vw, 27px)`, `h2` at 17px,
+`h3` at 15.5px, all weight 600) and the app eyebrow (12px sans, weight 500,
+`--ink-faint`). It defines nothing for body text, which is why 621 call sites invented
+five mutually indistinguishable sizes between 12 and 14px.
+
+**Add the missing base, in the smallest way that closes the gap:**
 
 ```css
-/* A card does not float. Only things that genuinely sit above the page —
-   a menu, a dialog, a popover — get a shadow, and `--shadow-lift` is it. */
---shadow-card: none;
+.app-ui {
+  font-size: 14px;
+  line-height: 1.55;
+}
 ```
 
-Measurement supports keeping it. Inside `.app-ui` the page and a card are both
-`rgb(255,255,255)` in light mode — **zero fill separation** — so the 1px hairline is the
-only thing distinguishing a card from the page. A shadow cannot replace it, and a shadow
-under a white card on a white page reads as a smudge rather than as depth. Level 1 keeps
-its `--line` hairline and no shadow, in both themes.
+```css
+.app-ui .type-secondary {
+  font-size: 13px;
+  line-height: 1.5;
+}
+```
 
-**The real work at this section is splitting the one floating elevation into two.**
-Today `--shadow-lift` serves menus, popovers and dialogs alike, so a dialog carries the
-same weight as a dropdown. Bigger surfaces should read as heavier:
+Body becomes the inherited default and needs no class at all. Secondary is one class.
+Colour continues to come from the existing `.text-ink` / `.text-muted` / `.text-faint`
+utilities, which already work, rather than being baked into the size steps.
 
-| Level | Light | Dark |
-| --- | --- | --- |
-| 2 `overlay` | `0 2px 4px rgb(16 22 55 / .06), 0 8px 24px rgb(16 22 55 / .12)` — today's `--shadow-lift`, retained | border `rgba(255,255,255,0.16)` plus `0 8px 24px rgb(0 0 0 / .5)` |
-| 3 `modal` | `0 8px 16px rgb(16 22 55 / .10), 0 24px 56px rgb(16 22 55 / .20)` | border `rgba(255,255,255,0.20)` plus `0 24px 56px rgb(0 0 0 / .65)` |
+The resulting app scale, top to bottom: 23-27 / 17 / 15.5 / **14** / **13** / 12. Three
+of those already existed, one is the eyebrow, two are new.
 
-Shadows stay navy-tinted in light mode, matching the existing `--shadow-lift`. Dark mode
-also steps border brightness, for the reason set out below.
+**Then remove the 86 inline heading overrides** so `main h1/h2/h3` actually applies. That
+ramp was written to be one decision in one place and is currently overridden at 86 call
+sites, which is precisely the drift it was created to stop.
 
-**Measured baseline, taken from the running app inside `.app-ui`.** An earlier revision
-of this spec measured `document.body` instead — the landing-page scope sitting behind the
-app shell — and drew the opposite conclusion. These are the correct figures, professor
-dashboard at 1280px:
+**Not in scope:** `.eyebrow`, in either scope. The app override at 12px sans is
+deliberate and is used 56 times.
 
-| | Light | Dark |
-| --- | --- | --- |
-| App page | `rgb(255,255,255)`, L* 100 | `rgb(10,14,36)`, L* 4.6 |
-| Card | `rgb(255,255,255)`, L* 100 | `rgb(16,21,47)`, L* 7.7 |
-| Fill separation | **0.0 L\*** | **3.1 L\*** |
-| Border, composited | `rgb(226,227,231)` | `rgb(42,47,70)` |
-| Border vs page | **-9.7 L\*** | **+15.3 L\*** |
+## Section 2 — Adopt the card class that already exists
 
-The hairline is the primary edge signal in both themes, and the only one in light mode.
-That is why level 1 keeps it and gains no shadow.
+`.app-ui .card` sets `background: var(--surface)`, `border: 1px solid var(--line)`,
+`border-radius: var(--radius-card)`. It is used correctly in 71 places. Twenty files
+spell the same three properties out by hand instead, which is how the padding and radius
+drift in the original comment happened.
 
-In dark mode the fill step between page and card is 3.1 L*, at the dark end where
-perception is most compressed, while the border sits 15.3 L* above the page. There is not
-enough headroom to fit distinguishable lightness levels inside 3.1 L*, so the floating
-levels step **border brightness** rather than fill: 0.11 at level 1 (today's value,
-unchanged), 0.16 at level 2, 0.20 at level 3.
+Those 20 move onto `.card`. No new component, no token changes, no visual change where
+the hand-rolled version already matched — and a visual correction where it did not.
 
-## Section 3 — Spacing rhythm and radius
+## Section 3 — Motion
 
-Half-steps are removed. The 6px, 10px and 14px values (`gap-1.5`, `gap-2.5`, `p-3.5`,
-`space-y-1.5`, `space-y-2.5`) do not read as a distinct amount of space; they read as an
-accident, and they are the same failure mode as the 2px type band.
+The largest genuinely-unaddressed area. The token layer carries `--ease-out-soft` and
+`--ease-snap` in `@theme` and nothing else about motion.
 
-Two scales, each with one job:
-
-| Scale | Values | Used for |
-| --- | --- | --- |
-| Inside a component | 4 · 8 · 12 · 16 | Gaps between elements within a card or row |
-| Between blocks | 16 · 24 · 32 | Section rhythm down a page |
-
-**Card padding rises** from 16px to 20px on desktop, staying 16px on mobile. With the
-larger body text and looser leading from section 1, this completes the density fix.
-
-Radius drops from ten values to four, named by role so a wrong choice is obvious at the
-call site:
-
-| Token | Value | Status | Applies to | Replaces |
-| --- | --- | --- | --- | --- |
-| `--radius-control` | 8px | **new** | Inputs, selects, small buttons | `rounded-lg`, `rounded-md` |
-| `--radius-card` | 12px | **already exists in `.app-ui`** | Cards, popovers | `rounded-xl` |
-| `--radius-panel` | 14px | **already exists in `.app-ui`** | Dialogs, large panels | `rounded-2xl` |
-| `--radius-pill` | 9999px | **new** | Pills, avatars, badges | `rounded-full` |
-
-`--radius-card` and `--radius-panel` are already defined and correct; the work there is
-routing call sites onto them, not creating them. The spec originally proposed a
-`--radius-modal` at 16px — that is dropped in favour of the existing `--radius-panel` at
-14px, because inventing a parallel token beside a working one is the drift this section
-exists to remove.
-
-One-off values (`rounded-[5px]`, `rounded-[26px]`, `rounded-3xl`) are absorbed into the
-nearest role token.
-
-**Before writing any token, read the whole `.app-ui` block.** Two revisions of this spec
-proposed tokens that already existed, because the evidence was gathered by grepping
-utility classes rather than by reading the token definitions. The token block is the
-source of truth.
-
-## Section 4 — Motion
-
-New tokens, alongside the existing `--ease-out-soft` and `--ease-snap`, which are kept:
+**Add durations beside the existing easings in `@theme`:**
 
 ```css
---ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 --dur-press: 140ms;
 --dur-fast: 180ms;
 --dur-base: 220ms;
 --dur-overlay: 260ms;
 ```
 
-Nine rules:
+`--ease-out-soft` (`cubic-bezier(0.22, 1, 0.36, 1)`) is already a strong ease-out and is
+used for entrances. No new easing token is needed; the earlier proposal to add
+`--ease-out: cubic-bezier(0.23, 1, 0.32, 1)` is dropped as a near-duplicate.
 
-1. **Overlays gain enter and exit transitions**, each using a defined token rather than a
-   loose number. `Modal` scales .96 to 1 over `--dur-base` from centre. `Toast`
-   translates `translateY(100%)` to 0 over `--dur-overlay` and exits through the same
-   edge it entered. Popovers scale .97 with a fade over `--dur-fast`.
-2. **Overlay motion uses CSS transitions, never keyframes.** Toasts and toggles can be
-   fired twice in a second; transitions retarget from the current value, keyframes
-   restart from zero.
-3. **Popovers scale from their trigger.** `transform-origin` is set to the anchor for
-   `FilterPopover`, `NotificationBell` and `Select`. Modals are exempt and stay centred.
-4. **Press feedback on every pressable element**, in one of two forms. Discrete controls
-   — icon buttons, chips, close buttons, the bell and popover triggers — take
+Rules:
+
+1. **Overlays gain enter and exit transitions.** `Modal` scales .96 to 1 over
+   `--dur-base`. `Toast` translates `translateY(100%)` to 0 over `--dur-overlay`, exiting
+   through the same edge. `FilterPopover` and the `NotificationBell` panel scale .97 with
+   a fade over `--dur-fast`. All four currently appear and vanish instantly.
+2. **Transitions, not keyframes,** for all four — they can be triggered rapidly, and
+   transitions retarget from the current value where keyframes restart from zero.
+3. **Popovers scale from their trigger.** `transform-origin` at the anchor for
+   `FilterPopover`, `NotificationBell` and `Select`. `Modal` stays centred.
+4. **Press feedback on every pressable element.** Discrete controls take
    `active:scale(0.97)` over `--dur-press`. Full-width list rows and card-sized targets
    take a background-tint press state instead, because scaling a full-width row reads as
-   the page flexing rather than as a button responding. Every raw `<button>` that
-   bypasses `Button.tsx` gets one form or the other; none are left with no press state.
-5. **Hover motion is gated** behind `@media (hover: hover) and (pointer: fine)` at all
-   four `hover:-translate-y-*` sites and on card hover states. Touch devices fire hover
-   on tap; this matters for the tablet the project is moving to.
-6. **Hover durations drop from 300ms to 200ms** across the 23 affected sites. Hover is a
-   tens-of-times-per-day interaction, where 300ms reads sluggish.
-7. **Motion shorthands become full transform strings.** `animate={{ x: 0 }}` in
-   `AppShell.tsx:199` becomes `animate={{ transform: "translateX(0)" }}`. The mobile nav
-   drawer opens while the main thread is busy navigating, which is exactly when the
-   rAF-driven shorthand drops frames.
-8. **Reduced motion is narrowed.** The current block sets
-   `transition-duration: 0.01ms !important` on every element, which removes colour and
-   opacity feedback along with movement. It becomes transform-only, so those users keep
-   comprehension-aiding transitions. The existing rationale for the blanket rule — that
-   Windows reports reduced motion on many machines — is preserved by this narrowing
-   rather than contradicted by it.
-9. **Stagger widens** from the current 20ms `Reveal` delays to 40ms, inside the 30–80ms
-   range. Nav and tab switching receive no animation at all, per the frequency gate.
+   the page flexing. Currently 3 of 127 sites have any press state.
+5. **Hover motion gated** behind `@media (hover: hover) and (pointer: fine)` at the four
+   `hover:-translate-y-*` sites. Touch fires hover on tap; this matters for the tablet.
+6. **Hover durations 300ms to 200ms** across the 23 affected sites.
+7. **Full transform strings instead of Motion shorthands.** `animate={{ x: 0 }}` at
+   `AppShell.tsx:199` becomes `animate={{ transform: "translateX(0)" }}`. The nav drawer
+   opens while the main thread is busy, which is when the rAF-driven shorthand drops
+   frames.
+8. **Stagger widens** from 20ms to 40ms in `Reveal`, inside the 30-80ms range.
+9. **Reduced motion gains press and colour feedback back.** The existing block is
+   deliberate and its rationale (lines 409-418) stands: movement is what causes vestibular
+   trouble, and `[data-reveal="fade"]` is already exempted so content still arrives. But
+   `transition-duration: 0.01ms !important` on `*` also removes hover colour fades and
+   button press timing, which are not movement. Extend the existing opt-out pattern with a
+   second exemption for colour and opacity feedback rather than replacing the approach.
+   **This changes a documented decision, so it ships last and separately, and is the one
+   item here that should be reverted rather than debated if it looks wrong.**
 
-## Section 5 — Primitives
+## Section 4 — Extract the two misfiled primitives
 
-The 13 files in `src/components/ui/`. Two changes are structural.
+`EmptyState` is exported from `ui/Tabs.tsx` and `Alert` from `ui/Field.tsx`. Both move to
+`ui/EmptyState.tsx` and `ui/Alert.tsx`. Imports update; no behaviour changes.
 
-| File | Change |
-| --- | --- |
-| `Tabs.tsx` | `EmptyState` is extracted to `ui/EmptyState.tsx` |
-| `Field.tsx` | `Alert` is extracted to `ui/Alert.tsx` |
-| `Modal.tsx` | Enter/exit motion, level 3, `--radius-panel`, scrim fade |
-| `Toast.tsx` | Enter/exit via transitions, level 2 |
-| `Select.tsx` | Origin-aware, level 2, `--dur-base` |
-| `FilterPopover.tsx` | Origin-aware, level 2, `--dur-base` |
-| `Button.tsx` | Token adoption, hover gating; `active:scale` already present |
-| `ConfirmDialog.tsx` | Rebuilt on `Modal` |
-| `Icon.tsx`, `PageLoading.tsx`, `RoleChoice.tsx`, `GoogleButton.tsx`, `FileDrop.tsx` | Token adoption only |
+This is not tidying. Components nobody can find are components nobody uses, which is how
+20 files came to hand-roll a card while `.card` sat in the stylesheet.
 
-Extracting `EmptyState` and `Alert` is not tidying. They are undiscoverable where they
-are, which is why 24 files hand-rolled a card rather than looking for one.
+## Section 5 — Badge
 
-## Section 6 — Shared patterns
+Ninety-three sites style a count or status pill by hand from `rounded-full` plus a size
+plus a background. This is the one place a genuinely new component is justified, because
+unlike `.card` there is nothing existing to adopt.
 
-Six new files under `src/components/ui/`:
+`ui/Badge.tsx`, with tone variants drawn from existing colour tokens only.
 
-| Component | Purpose |
-| --- | --- |
-| `Card.tsx` | Absorbs the 24 hand-assembled cards. Props for elevation level and padding |
-| `EmptyState.tsx` | Relocated from `Tabs.tsx`, now discoverable |
-| `Alert.tsx` | Relocated from `Field.tsx`, now discoverable |
-| `Badge.tsx` | Counts and status pills, currently ad-hoc across the app |
-| `SectionHeader.tsx` | Generalises `DashSection`'s icon plus title plus count header |
-| `ListRow.tsx` | The repeated row pattern in `AttentionList`, `DeadlineList`, `TaskDigest`, `StalledGroups` and others |
+## Section 6 — Half-step spacing sweep
+
+214 uses of `gap-1.5`, `gap-2.5`, `space-y-1.5` and `space-y-2.5` — 6px and 10px values
+sitting between the whole steps. They do not read as a distinct amount of space. Each
+collapses to its nearest neighbour on a 4 / 8 / 12 / 16 scale inside components and
+16 / 24 / 32 between blocks.
+
+Lowest value in this spec and the largest diff. It runs last, and can be dropped without
+affecting anything above it.
 
 ## Implementation order
 
-Strictly in this order, because each layer cascades into the next:
+1. **Section 3, motion** — the highest-value and most self-contained. Rules 1-8 only.
+2. **Section 4, extractions** — small, unblocks nothing but is cheap.
+3. **Section 5, `Badge`.**
+4. **Section 1, type** — token addition first, then the 86 heading overrides.
+5. **Section 2, card adoption** — the 20 files.
+6. **Section 6, spacing sweep.**
+7. **Section 3 rule 9, reduced motion** — last and alone, being the only change to a
+   documented decision.
 
-1. **Layer 0 — tokens.** Type ramp, elevation, spacing, radius and motion tokens in
-   `src/styles/index.css`. No component changes.
-2. **Layer 1 — primitives.** The 13 `ui/` files, including the two extractions.
-3. **Layer 2 — patterns.** The six new components.
-4. **Layer 3 — call-site migration.** Directory by directory, in descending size:
-   `tasks/` (27), `dashboard/` (13), `analytics/` (12), `projects/` (10), `reports/` (9),
-   `groups/` (8), `messages/` (7), `app/` (7), `classes/` (6), `calendar/` (3),
-   `syllabus/` (3), then `pages/`.
+Sections 1 and 2 deliberately run after motion: they are wide, mechanical diffs, and
+putting them first would bury the changes worth looking at.
 
 ## Verification
 
-- `npm run build` after every layer and every migrated directory. `tsc -b` runs first and
-  catches most breakage.
-- Lint held at the standing baseline of 23 warnings and 0 errors. Any increase is a
-  regression to fix, not to accept.
-- Browser verification is required for the four overlay enter/exit transitions, the
-  reduced-motion change, and hover gating at tablet width. None can be judged from code.
-- Dark-mode elevation has a measured baseline already captured (§2), taken from the
-  running app on the professor dashboard. After Layer 0 lands, the same measurement is
-  repeated and compared: level 2 and level 3 must each show a border-brightness delta
-  above the level below it that exceeds the 4.1 L* fill step, or the level is not
-  carrying its weight and the alpha values need raising.
-- Dark mode is checked on every migrated directory, because the elevation model differs
-  by theme and a light-only check will miss it.
+- `npm run check` after every section — typecheck, lint, test, contrast, a11y-names,
+  schema-drift. Lint holds at 23 warnings / 0 errors.
+- `scripts/contrast.mjs` specifically after any `index.css` edit, since it string-matches
+  block openers and will throw if their order changes.
+- Browser verification in **both themes** for section 3 rules 1-3, and at tablet width for
+  rule 5. Neither can be judged from code.
+- After section 1's token addition, confirm in the browser that `main h1/h2/h3` still
+  render at their ramp sizes and that the new 14px base has not changed heading sizes.
 
 ## Success criteria
 
-Measurable against the evidence table above:
-
 | Metric | Before | After |
 | --- | --- | --- |
-| Distinct font sizes | 29 | 7 |
-| Half-step spacing uses | 214 | 0 |
-| Distinct radius values | 10 | 4 |
-| Hand-assembled cards | 24 | 0 |
+| Inline heading overrides of the `main` ramp | 86 | 0 |
+| Files hand-rolling a card | 20 | 0 |
+| Distinct body-text sizes in call sites | 5 | 2 (inherited 14, `.type-secondary` 13) |
+| Hand-styled badge sites | 93 | 0 |
 | Overlays with enter/exit motion | 0 of 4 | 4 of 4 |
+| Button sites with a press state | 3 of 127 | 127 of 127 |
 | Ungated hover-motion sites | 4 | 0 |
-| Button sites with a press state (scale or tint) | 3 of 127 | 127 of 127 |
+| Half-step spacing uses | 214 | 0 |
+| `.app-ui .eyebrow` uses | 56 | 56, untouched |
+| Token values changed | — | 0 |
 | Lint | 23 warnings / 0 errors | unchanged |
 
 ## Risks
 
-1. **Card padding rising to 20px reduces content above the fold** on the densest pages
-   (`Analytics`, `MyTasks`). If that proves costly, those pages can opt into 16px padding
-   through a `Card` prop rather than abandoning the rhythm.
-2. **Reduced motion cannot be verified with the available tooling.** The browser tools
-   emulate colour scheme but not `prefers-reduced-motion`, so §4 rule 8 can only be
-   checked by forcing the CSS by hand. That tests the rule but not whether the media
-   query is wired correctly. It needs a real browser with the OS setting on.
-3. **Shadow subtlety may not survive the target device.** Verification here is on a
-   desktop panel. Light-mode level-1 elevation is deliberately faint, and faint shadows
-   are exactly what a different panel renders differently. The Xiaomi Pad 7 the project
-   is moving to should be checked before light-mode elevation is considered settled.
-4. **Scope creep into Layer 3.** Migration will surface page-layout problems. Those are
-   recorded for the follow-up spec, not fixed in passing.
+1. **Section 1's 14px base changes inherited sizes app-wide.** Anything currently relying
+   on the browser default of 16px, or on Tailwind's `text-base`, shifts. The 86 heading
+   overrides are removed in the same section, so heading sizes must be re-checked in the
+   browser rather than assumed.
+2. **Section 3 rule 9 alters a documented decision.** Isolated to its own step at the end
+   for exactly that reason.
+3. **Reduced motion cannot be verified with the available tooling** — colour scheme can be
+   emulated, `prefers-reduced-motion` cannot. Rule 9 needs a real browser with the OS
+   setting on.
+4. **Sections 1, 2 and 6 are wide mechanical diffs** across dozens of files. Each runs as
+   its own commit so a bad sweep reverts cleanly.
 
-## Risks resolved during design
+## Removed from earlier revisions
 
-Recorded so the reasoning is not lost.
+Recorded so the reasoning is not relitigated.
 
-- **Cards losing their light-mode border** is no longer proposed at all. Measurement in
-  the correct scope showed light-mode fill separation is 0.0 L* — page and card are the
-  same white — so the hairline is the only edge signal and removing it would erase the
-  card. Level 1 keeps its border in both themes. See §2.
-- **Dark-mode elevation could not be verified from code.** It has now been measured in a
-  running browser in both themes. Doing so corrected this spec twice: first replacing an
-  unbuildable surface-lightness model, then — after the measurement was retaken in
-  `.app-ui` rather than `document.body` — removing the level-1 shadow entirely. See §2.
-- **Disk space** blocked browser verification at 8 MB free. The machine now has 17 GB
-  free and the dev server runs.
+- **The four-level elevation scale**, in both its surface-lightness and border-brightness
+  forms. `.app-ui` deliberately gives cards no shadow, and the block comment explains why
+  dense reading surfaces do not want depth.
+- **Light-mode card border removal.** Page and card are both `rgb(255,255,255)` inside
+  `.app-ui`; the hairline is the only edge signal and removing it would erase the card.
+- **`Card.tsx`.** `.app-ui .card` already exists and is used 71 times.
+- **`--radius-control`, `--radius-modal`, `--radius-pill`.** `--radius-card` and
+  `--radius-panel` exist in two scopes with different values by design, and the radius
+  drift that remains is not worth a sweep.
+- **`--ease-out`.** `--ease-out-soft` already covers it.
+- **The seven-step type ramp.** Four of its steps already existed; one would have undone
+  the app's deliberate 12px sans eyebrow.
