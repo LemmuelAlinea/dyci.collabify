@@ -108,58 +108,54 @@ Four levels. The assignment matters more than the values.
 | 2 | `overlay` | Anchored floating surfaces: `FilterPopover`, `NotificationBell` panel, `Select` menu, tooltips |
 | 3 | `modal` | `Modal` and `ConfirmDialog` only, paired with the scrim |
 
-Light mode values, as two-layer composites — a tight contact shadow plus a diffused drop:
+**Levels 0 and 1 do not get a shadow, in either theme.** This preserves an existing,
+deliberate decision already recorded in `.app-ui`:
 
-| Level | Shadow |
-| --- | --- |
-| 1 | `0 1px 2px rgb(16 22 55 / .04), 0 1px 3px rgb(16 22 55 / .03)` |
-| 2 | `0 4px 12px rgb(16 22 55 / .08), 0 1px 3px rgb(16 22 55 / .05)` |
-| 3 | `0 16px 40px rgb(16 22 55 / .16), 0 4px 10px rgb(16 22 55 / .08)` |
+```css
+/* A card does not float. Only things that genuinely sit above the page —
+   a menu, a dialog, a popover — get a shadow, and `--shadow-lift` is it. */
+--shadow-card: none;
+```
 
-Shadows are navy-tinted rather than black. A black shadow over navy-tinted surfaces
-reads dirty; a navy one reads as the same light source. This introduces no new colour.
+Measurement supports keeping it. Inside `.app-ui` the page and a card are both
+`rgb(255,255,255)` in light mode — **zero fill separation** — so the 1px hairline is the
+only thing distinguishing a card from the page. A shadow cannot replace it, and a shadow
+under a white card on a white page reads as a smudge rather than as depth. Level 1 keeps
+its `--line` hairline and no shadow, in both themes.
 
-**Dark mode expresses the same four levels through border brightness, not fill.** This
-was corrected after measuring the running app; the first draft of this spec specified
-surface-lightness stepping, which the measurements below show cannot work.
+**The real work at this section is splitting the one floating elevation into two.**
+Today `--shadow-lift` serves menus, popovers and dialogs alike, so a dialog carries the
+same weight as a dropdown. Bigger surfaces should read as heavier:
 
-Measured on the professor dashboard at 1440px, in both themes:
+| Level | Light | Dark |
+| --- | --- | --- |
+| 2 `overlay` | `0 2px 4px rgb(16 22 55 / .06), 0 8px 24px rgb(16 22 55 / .12)` — today's `--shadow-lift`, retained | border `rgba(255,255,255,0.16)` plus `0 8px 24px rgb(0 0 0 / .5)` |
+| 3 `modal` | `0 8px 16px rgb(16 22 55 / .10), 0 24px 56px rgb(16 22 55 / .20)` | border `rgba(255,255,255,0.20)` plus `0 24px 56px rgb(0 0 0 / .65)` |
+
+Shadows stay navy-tinted in light mode, matching the existing `--shadow-lift`. Dark mode
+also steps border brightness, for the reason set out below.
+
+**Measured baseline, taken from the running app inside `.app-ui`.** An earlier revision
+of this spec measured `document.body` instead — the landing-page scope sitting behind the
+app shell — and drew the opposite conclusion. These are the correct figures, professor
+dashboard at 1280px:
 
 | | Light | Dark |
 | --- | --- | --- |
-| Page background | `rgb(230,234,244)`, L* 92.7 | `rgb(8,11,33)`, L* 3.6 |
-| Card background | `rgb(255,255,255)`, L* 100 | `rgb(16,21,47)`, L* 7.7 |
-| Card-vs-page separation from fill | **7.3 L\*** | **4.1 L\*** |
-| Card border, composited | `rgb(226,227,231)` | `rgb(42,47,70)` |
-| What the border contributes | **-2.4 L\* vs the page** | **+12.2 L\* vs the card** |
+| App page | `rgb(255,255,255)`, L* 100 | `rgb(10,14,36)`, L* 4.6 |
+| Card | `rgb(255,255,255)`, L* 100 | `rgb(16,21,47)`, L* 7.7 |
+| Fill separation | **0.0 L\*** | **3.1 L\*** |
+| Border, composited | `rgb(226,227,231)` | `rgb(42,47,70)` |
+| Border vs page | **-9.7 L\*** | **+15.3 L\*** |
 
-Two conclusions follow, and they point in opposite directions per theme.
+The hairline is the primary edge signal in both themes, and the only one in light mode.
+That is why level 1 keeps it and gains no shadow.
 
-In light mode the border composites to 2.4 L* *below* the page it is meant to separate
-from — at or under the perceptual threshold for a 1px edge. It is already nearly
-invisible, and the card reads as a card purely because white on a blue-grey page gives
-7.3 L* of fill separation. Dropping it costs almost nothing and a shadow does more.
-
-In dark mode the relationship inverts: the fill step is 4.1 L*, at the dark end where
-perception is most compressed, while the border sits 12.2 L* above the card — three
-times stronger than the fill step. The border is the primary edge signal there, and
-there is not enough headroom between page and card to fit four distinguishable
-lightness levels inside 4.1 L*.
-
-So dark-mode elevation rides on border brightness:
-
-| Level | Dark-mode treatment |
-| --- | --- |
-| 0 `flat` | No border, `surface-sunken` |
-| 1 `card` | `rgba(255,255,255,0.11)`, no shadow — today's value, unchanged |
-| 2 `overlay` | `rgba(255,255,255,0.16)` plus `0 8px 24px rgb(0 0 0 / .5)` |
-| 3 `modal` | `rgba(255,255,255,0.20)` plus `0 24px 56px rgb(0 0 0 / .65)` |
-
-**Borders change at level 1, in light mode only.** A light-mode level-1 card drops its
-`border-line` and is defined by shadow alone; keeping both reads heavy, and the
-measurement above shows the border was contributing nothing perceptible anyway. A
-dark-mode level-1 card keeps its hairline border and takes no shadow. Both directions
-are reversible by one token.
+In dark mode the fill step between page and card is 3.1 L*, at the dark end where
+perception is most compressed, while the border sits 15.3 L* above the page. There is not
+enough headroom to fit distinguishable lightness levels inside 3.1 L*, so the floating
+levels step **border brightness** rather than fill: 0.11 at level 1 (today's value,
+unchanged), 0.16 at level 2, 0.20 at level 3.
 
 ## Section 3 — Spacing rhythm and radius
 
@@ -180,15 +176,26 @@ larger body text and looser leading from section 1, this completes the density f
 Radius drops from ten values to four, named by role so a wrong choice is obvious at the
 call site:
 
-| Token | Value | Applies to | Replaces |
-| --- | --- | --- | --- |
-| `--radius-control` | 8px | Inputs, selects, small buttons | `rounded-lg`, `rounded-md` |
-| `--radius-card` | 12px | Cards, panels, popovers | `rounded-xl` |
-| `--radius-modal` | 16px | Dialogs only | `rounded-2xl` |
-| `--radius-pill` | 9999px | Pills, avatars, badges | `rounded-full` |
+| Token | Value | Status | Applies to | Replaces |
+| --- | --- | --- | --- | --- |
+| `--radius-control` | 8px | **new** | Inputs, selects, small buttons | `rounded-lg`, `rounded-md` |
+| `--radius-card` | 12px | **already exists in `.app-ui`** | Cards, popovers | `rounded-xl` |
+| `--radius-panel` | 14px | **already exists in `.app-ui`** | Dialogs, large panels | `rounded-2xl` |
+| `--radius-pill` | 9999px | **new** | Pills, avatars, badges | `rounded-full` |
+
+`--radius-card` and `--radius-panel` are already defined and correct; the work there is
+routing call sites onto them, not creating them. The spec originally proposed a
+`--radius-modal` at 16px — that is dropped in favour of the existing `--radius-panel` at
+14px, because inventing a parallel token beside a working one is the drift this section
+exists to remove.
 
 One-off values (`rounded-[5px]`, `rounded-[26px]`, `rounded-3xl`) are absorbed into the
 nearest role token.
+
+**Before writing any token, read the whole `.app-ui` block.** Two revisions of this spec
+proposed tokens that already existed, because the evidence was gathered by grepping
+utility classes rather than by reading the token definitions. The token block is the
+source of truth.
 
 ## Section 4 — Motion
 
@@ -245,7 +252,7 @@ The 13 files in `src/components/ui/`. Two changes are structural.
 | --- | --- |
 | `Tabs.tsx` | `EmptyState` is extracted to `ui/EmptyState.tsx` |
 | `Field.tsx` | `Alert` is extracted to `ui/Alert.tsx` |
-| `Modal.tsx` | Enter/exit motion, level 3, `--radius-modal`, scrim fade |
+| `Modal.tsx` | Enter/exit motion, level 3, `--radius-panel`, scrim fade |
 | `Toast.tsx` | Enter/exit via transitions, level 2 |
 | `Select.tsx` | Origin-aware, level 2, `--dur-base` |
 | `FilterPopover.tsx` | Origin-aware, level 2, `--dur-base` |
@@ -333,11 +340,13 @@ Measurable against the evidence table above:
 
 Recorded so the reasoning is not lost.
 
-- **Cards losing their light-mode border** was the risk flagged as most visible.
-  Measurement retired it: the border composites to 2.4 L* below the page and is already
-  below the perceptual threshold, while fill separation is 7.3 L*. See §2.
-- **Dark-mode elevation could not be verified from code.** It has now been verified in a
-  running browser in both themes, and doing so corrected the spec — the original
-  surface-lightness model was unbuildable in 4.1 L* of headroom. See §2.
+- **Cards losing their light-mode border** is no longer proposed at all. Measurement in
+  the correct scope showed light-mode fill separation is 0.0 L* — page and card are the
+  same white — so the hairline is the only edge signal and removing it would erase the
+  card. Level 1 keeps its border in both themes. See §2.
+- **Dark-mode elevation could not be verified from code.** It has now been measured in a
+  running browser in both themes. Doing so corrected this spec twice: first replacing an
+  unbuildable surface-lightness model, then — after the measurement was retaken in
+  `.app-ui` rather than `document.body` — removing the level-1 shadow entirely. See §2.
 - **Disk space** blocked browser verification at 8 MB free. The machine now has 17 GB
   free and the dev server runs.
