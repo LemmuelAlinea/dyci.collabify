@@ -34,6 +34,16 @@
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-snap: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Durations, so a dropdown and a dialog cannot drift apart the way the
+     hardcoded ones did. Emil Kowalski's scale: press 100-160, popovers
+     125-200, dropdowns 150-250, dialogs and drawers 200-500. Everything a
+     person triggers stays under 300 — a 180ms popover feels more responsive
+     than a 400ms one. */
+  --dur-press: 140ms;
+  --dur-fast: 180ms;
+  --dur-base: 220ms;
+  --dur-overlay: 260ms;
 }
 
 /* Semantic surface tokens. Every component reads these, never raw ramp stops,
@@ -339,6 +349,65 @@
   }
   .shadow-lift {
     box-shadow: var(--shadow-lift);
+  }
+
+  /**
+   * Overlay motion, said once.
+   *
+   * Transitions rather than keyframes: all four of these can be fired twice in
+   * a second, and a transition retargets from wherever the element currently
+   * is while a keyframe restarts from zero. `[data-state='closed']` is the
+   * exit; the resting rule is the enter, so both directions share one curve.
+   *
+   * Never `scale(0)` — nothing in the real world appears from nothing.
+   */
+  .motion-overlay,
+  .motion-dialog,
+  .motion-toast {
+    transition-timing-function: var(--ease-out-soft);
+    transition-property: opacity, transform;
+  }
+  .motion-overlay {
+    transition-duration: var(--dur-fast);
+  }
+  .motion-dialog {
+    transition-duration: var(--dur-base);
+  }
+  .motion-toast {
+    transition-duration: var(--dur-overlay);
+  }
+
+  .motion-overlay[data-state='closed'] {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  .motion-dialog[data-state='closed'] {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  /* A toast leaves through the edge it arrived from. `100%` is the element's
+     own height, so it clears itself whatever the message length. */
+  .motion-toast[data-state='closed'] {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  .motion-scrim {
+    transition: opacity var(--dur-base) var(--ease-out-soft);
+  }
+  .motion-scrim[data-state='closed'] {
+    opacity: 0;
+  }
+
+  /**
+   * Hover motion only where there is a real pointer. A touch device fires
+   * hover on tap, which leaves a card stuck in its lifted state after the
+   * finger has gone.
+   */
+  @media (hover: hover) and (pointer: fine) {
+    .hover-safe:hover {
+      transform: translateY(-2px);
+    }
   }
 
   /* The blueprint grid — the recurring structural motif. Faint square rule,
