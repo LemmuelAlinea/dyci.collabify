@@ -695,7 +695,15 @@ In `src/components/tasks/GroupProgressTable.tsx` line 156, remove the `hover:-tr
 
 Run: `node scripts/motion-lint.mjs 2>&1 | grep duration-300`
 
-For each file listed, change `duration-300` to `duration-200` **only on elements that also carry a `hover:` utility**. Leave `duration-300` alone on progress bars and other state-driven fills — those are not hover interactions and 300ms is correct for them.
+**Expect this to return nothing, and treat that as the correct result.** After check 4 was
+scoped to per-element className strings in Task 1, it found zero in-scope hits: every real
+same-element `hover:` plus `duration-300` case in this codebase is in
+`src/components/landing/`, which the gate excludes and the plan freezes. The spec's claim
+of "23 affected sites" counted landing files and non-hover progress bars.
+
+If the command does return something, change `duration-300` to `duration-200` on those
+elements only. Do not go looking for `duration-300` by hand — a progress-bar fill at 300ms
+is correct and must be left alone.
 
 - [ ] **Step 4: Verify**
 
