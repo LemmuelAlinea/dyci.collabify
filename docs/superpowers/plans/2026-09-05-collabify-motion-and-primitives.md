@@ -32,7 +32,8 @@ Every task's requirements implicitly include all of these.
 
 | File | Responsibility |
 | --- | --- |
-| `scripts/motion-lint.mjs` | Static gate. Asserts the four overlays carry a transition, no ungated hover motion exists, no Motion transform shorthands remain, and no 300ms hover durations remain. This is the failing test for tasks 3-9. |
+| `scripts/motion-lint.mjs` | Static gate. Asserts the four overlays carry a transition, no ungated hover motion exists, no Motion transform shorthands remain, no 300ms hover durations remain, and the JS duration constants match the CSS tokens. This is the failing test for tasks 3-9. |
+| `src/lib/motion.ts` | The duration values as TypeScript constants, for the two components that must unmount after their own transition. Kept in sync with the CSS tokens by check 5 of the gate. |
 | `src/components/ui/EmptyState.tsx` | `EmptyState` and `EmptyArt`, moved out of `Tabs.tsx` |
 | `src/components/ui/Alert.tsx` | `Alert`, moved out of `Field.tsx` |
 | `src/components/ui/Badge.tsx` | Count and status pill, replacing 93 hand-styled sites |
@@ -137,6 +138,39 @@ for (const f of files) {
   const src = read(f)
   if (/hover:/.test(src) && /duration-300/.test(src)) {
     failures.push(`${f}: \`duration-300\` alongside a hover state — use duration-200`)
+  }
+}
+
+// 5. Two components must unmount themselves after their own CSS transition
+//    finishes, so they need the duration in JS as well as in CSS. That is a
+//    duplicated source of truth, so it is enforced here rather than trusted to
+//    a comment: if a token moves and the constant does not, this fails.
+const CSS_DUR = Object.fromEntries(
+  [...readFileSync('src/styles/index.css', 'utf8').matchAll(/--dur-(\w+):\s*(\d+)ms/g)].map(
+    (m) => [m[1], Number(m[2])],
+  ),
+)
+let tsDur = null
+try {
+  tsDur = readFileSync('src/lib/motion.ts', 'utf8')
+} catch {
+  failures.push('src/lib/motion.ts: missing — the duration constants live here')
+}
+if (tsDur) {
+  const TS_DUR = Object.fromEntries(
+    [...tsDur.matchAll(/(\w+):\s*(\d+)/g)].map((m) => [m[1], Number(m[2])]),
+  )
+  for (const [name, ms] of Object.entries(CSS_DUR)) {
+    if (TS_DUR[name] !== undefined && TS_DUR[name] !== ms) {
+      failures.push(
+        `src/lib/motion.ts: ${name} is ${TS_DUR[name]}ms but --dur-${name} is ${ms}ms`,
+      )
+    }
+  }
+  for (const name of Object.keys(CSS_DUR)) {
+    if (TS_DUR[name] === undefined) {
+      failures.push(`src/lib/motion.ts: no constant for --dur-${name}`)
+    }
   }
 }
 
@@ -271,23 +305,48 @@ In `src/styles/index.css`, inside the existing `@layer utilities` block (opens l
   }
 ```
 
-- [ ] **Step 3: Verify the contrast gate still parses the file**
+- [ ] **Step 3: Create the matching TypeScript constants**
+
+Two components must unmount themselves after their own transition finishes, so they need
+these durations in JS as well as CSS. Create `src/lib/motion.ts`:
+
+```ts
+/**
+ * The duration tokens, in JavaScript.
+ *
+ * `Toast` and `Modal` stay mounted for one transition after they are told to
+ * close, so they need to know how long that transition lasts. CSS cannot tell
+ * them, so the values live in two places — and check 5 of
+ * `scripts/motion-lint.mjs` fails the build if the two ever disagree.
+ *
+ * Milliseconds, matching `--dur-*` in src/styles/index.css.
+ */
+export const DUR = {
+  press: 140,
+  fast: 180,
+  base: 220,
+  overlay: 260,
+} as const
+```
+
+- [ ] **Step 4: Verify the contrast gate still parses the file**
 
 Run: `node scripts/contrast.mjs`
 
 Expected: PASS, printing its usual four-scope table. If it throws `cannot find the block opener`, a block opener was moved — revert and redo step 1 without touching the openers.
 
-- [ ] **Step 4: Verify the build**
+- [ ] **Step 5: Verify the build and the sync check**
 
-Run: `npm run build`
+Run: `npm run build && node scripts/motion-lint.mjs`
 
-Expected: `tsc -b` clean, Vite build succeeds.
+Expected: `tsc -b` clean, Vite build succeeds, and check 5 of the gate passes — the four
+constants match the four tokens. Checks 1-4 still fail; that is the point.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/styles/index.css
-git commit -m "Add duration tokens and the overlay motion utilities"
+git add src/styles/index.css src/lib/motion.ts
+git commit -m "Add duration tokens, their TypeScript mirror, and the overlay motion utilities"
 ```
 
 ---
@@ -305,7 +364,13 @@ The toast currently unmounts the instant its 4200ms timer fires, so there is not
 
 - [ ] **Step 1: Add the closing phase**
 
-In `src/components/ui/Toast.tsx`, change the `Toast` type (line 7) and the `show` callback (lines 29-33) to:
+In `src/components/ui/Toast.tsx`, add the duration import beside the existing ones:
+
+```tsx
+import { DUR } from '../../lib/motion'
+```
+
+Then change the `Toast` type (line 7) and the `show` callback (lines 29-33) to:
 
 ```tsx
 type Toast = { id: number; tone: Tone; message: string; closing?: boolean }
@@ -317,10 +382,9 @@ type Toast = { id: number; tone: Tone; message: string; closing?: boolean }
     setToasts((t) => [...t, { id, tone, message }])
     // Two phases. The first marks the toast closed so the transition has
     // something to play; the second removes it once that transition is over.
-    // 260ms is `--dur-overlay` — if that token changes, change this with it.
     setTimeout(() => {
       setToasts((t) => t.map((x) => (x.id === id ? { ...x, closing: true } : x)))
-      setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 260)
+      setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), DUR.overlay)
     }, 4200)
   }, [])
 ```
@@ -384,10 +448,15 @@ git commit -m "Give the toast an entrance and an exit through the same edge"
 
 - [ ] **Step 1: Add the lagging render state**
 
-In `src/components/ui/Modal.tsx`, change the import on line 1 to include `useState`:
+In `src/components/ui/Modal.tsx`, change the import on line 1 to include `useState`, and
+add the duration import:
 
 ```tsx
 import { useEffect, useRef, useState } from 'react'
+```
+
+```tsx
+import { DUR } from '../../lib/motion'
 ```
 
 Then add this directly above the `if (!open) return null` guard on line 79:
@@ -403,7 +472,7 @@ Then add this directly above the `if (!open) return null` guard on line 79:
       setRender(true)
       return
     }
-    const t = setTimeout(() => setRender(false), 220) // --dur-base
+    const t = setTimeout(() => setRender(false), DUR.base)
     return () => clearTimeout(t)
   }, [open])
 
@@ -945,7 +1014,9 @@ The mono face is deliberate — the `.app-ui .eyebrow` comment records that mono
 
 Run: `npm run build`
 
-Expected: clean. The component is unused at this point, so `lint` may report it — check the warning count has not risen above 23. If it has, the new warning is the unused export and it clears in step 3.
+Expected: `tsc -b` clean. Run `npm run build` only at this step, not `npm run check` — the
+component is unused until step 3, and lint is the gate that would object. The full check
+runs at step 4, once it has call sites.
 
 - [ ] **Step 3: Adopt it at the count sites**
 
