@@ -392,6 +392,15 @@
     transform: translateY(100%);
   }
 
+  /* The entrance. Without this the toast is already at rest on its first
+     frame and only the exit would animate. */
+  @starting-style {
+    .motion-toast[data-state='open'] {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+  }
+
   .motion-scrim {
     transition: opacity var(--dur-base) var(--ease-out-soft);
   }

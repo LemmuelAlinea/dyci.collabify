@@ -2,9 +2,10 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
+import { DUR } from '../../lib/motion'
 
 type Tone = 'success' | 'error' | 'info'
-type Toast = { id: number; tone: Tone; message: string }
+type Toast = { id: number; tone: Tone; message: string; closing?: boolean }
 
 const ToastContext = createContext<{ show: (message: string, tone?: Tone) => void } | null>(null)
 
@@ -29,7 +30,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const show = useCallback((message: string, tone: Tone = 'success') => {
     const id = Date.now() + Math.random()
     setToasts((t) => [...t, { id, tone, message }])
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200)
+    // Two phases. The first marks the toast closed so the transition has
+    // something to play; the second removes it once that transition is over.
+    setTimeout(() => {
+      setToasts((t) => t.map((x) => (x.id === id ? { ...x, closing: true } : x)))
+      setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), DUR.overlay)
+    }, 4200)
   }, [])
 
   const value = useMemo(() => ({ show }), [show])
@@ -44,7 +50,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto flex w-full max-w-[380px] items-start gap-2.5 rounded-xl border px-4 py-3 text-[14px] shadow-lift ${STYLES[t.tone].cls}`}
+            data-state={t.closing ? 'closed' : 'open'}
+            className={`motion-toast pointer-events-auto flex w-full max-w-[380px] items-start gap-2.5 rounded-xl border px-4 py-3 text-[14px] shadow-lift ${STYLES[t.tone].cls}`}
+            style={{ transitionBehavior: 'allow-discrete' }}
           >
             <Icon name={STYLES[t.tone].icon} size={17} className="mt-px shrink-0" />
             <span className="min-w-0">{t.message}</span>
