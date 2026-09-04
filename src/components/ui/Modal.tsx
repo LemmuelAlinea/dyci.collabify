@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 import { useFocusTrap } from '../../lib/focus'
+import { DUR } from '../../lib/motion'
 
 type Props = {
   open: boolean
@@ -50,21 +51,45 @@ export function Modal({
     closeRef.current = onClose
   })
 
+  // `open` is the caller's intent; `render` is what is on screen. They differ
+  // for one transition on the way out, which is the whole reason a dialog can
+  // animate closed at all — without this the element is unmounted on the frame
+  // the user clicks, and there is nothing left to fade.
+  const [render, setRender] = useState(open)
+  useEffect(() => {
+    if (open) {
+      setRender(true)
+      return
+    }
+    const t = setTimeout(() => setRender(false), DUR.base)
+    return () => clearTimeout(t)
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeRef.current()
     }
     document.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
-    }
+    return () => document.removeEventListener('keydown', onKey)
   }, [open])
 
+  // Keyed on `render`, not `open`: the dialog is still on screen — fading and
+  // shrinking out — for one transition after `open` goes false, and the page
+  // behind it should not be scrollable while it is still visibly there.
+  useEffect(() => {
+    if (!render) return
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [render])
+
   // Tab used to walk out of the dialog and into the page behind it, which a
-  // mouse never reveals because the backdrop hides it.
+  // mouse never reveals because the backdrop hides it. Keyed on `open`, not
+  // `render`: the trap should engage and release on the caller's intent, not
+  // on the extra frame the exit animation keeps the element mounted for —
+  // otherwise Tab would still be caught inside a dialog the user just closed.
   useFocusTrap(panel, open, { autoFocus: !focusField })
 
   useEffect(() => {
@@ -76,7 +101,7 @@ export function Modal({
     ;(field ?? panel.current)?.focus({ preventScroll: true })
   }, [open, focusField])
 
-  if (!open) return null
+  if (!render) return null
 
   return (
     <div className="fixed inset-0 z-60 flex items-end justify-center p-0 sm:items-center sm:p-6">
@@ -86,7 +111,8 @@ export function Modal({
       <div
         aria-hidden="true"
         onClick={onClose}
-        className="absolute inset-0 bg-navy-950/55 backdrop-blur-sm"
+        data-state={open ? 'open' : 'closed'}
+        className="motion-scrim absolute inset-0 bg-navy-950/55 backdrop-blur-sm"
       />
       <div
         ref={panel}
@@ -94,7 +120,8 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className={`surface relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-panel shadow-lift outline-none sm:rounded-panel ${WIDTHS[size]}`}
+        data-state={open ? 'open' : 'closed'}
+        className={`motion-dialog surface relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-panel shadow-lift outline-none sm:rounded-panel ${WIDTHS[size]}`}
       >
         <header className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
           <div className="min-w-0">

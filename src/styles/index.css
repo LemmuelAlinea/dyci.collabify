@@ -399,6 +399,15 @@
       opacity: 0;
       transform: translateY(100%);
     }
+    /* A dialog is not anchored to a trigger, so it scales from its own centre
+       rather than from an origin. */
+    .motion-dialog[data-state='open'] {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    .motion-scrim[data-state='open'] {
+      opacity: 0;
+    }
   }
 
   .motion-scrim {
