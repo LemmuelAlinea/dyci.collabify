@@ -30,6 +30,28 @@ const files = walk(SRC)
 const read = (p) => readFileSync(p, 'utf8')
 const failures = []
 
+// Checks 2 and 4 need to reason about one element at a time, not the file as
+// a whole — otherwise an unrelated `hover:` on one element and `duration-300`
+// on another (a progress-bar fill, say) look like a single violation. Pull
+// out each className string literal as its own scope. Both `className="..."`
+// and `` className={`...`} `` forms appear in this codebase; a template
+// literal is split on each `${...}` interpolation, since a conditional
+// className is often built by concatenating pieces for different states —
+// each literal chunk between interpolations is its own element scope. This
+// is a heuristic, not a parser: it does not follow className built up in a
+// variable, and an interpolation containing a literal `}` (a nested object)
+// would truncate early. Good enough for a lint script.
+function classNameScopes(src) {
+  const scopes = []
+  for (const m of src.matchAll(/className="([^"]*)"/g)) {
+    scopes.push(m[1])
+  }
+  for (const m of src.matchAll(/className=\{`([^`]*)`\}/g)) {
+    scopes.push(...m[1].split(/\$\{[^}]*\}/))
+  }
+  return scopes
+}
+
 // 1. The four overlays must carry an enter/exit transition class.
 const OVERLAYS = {
   'src/components/ui/Toast.tsx': 'motion-toast',
@@ -38,17 +60,26 @@ const OVERLAYS = {
   'src/components/app/NotificationBell.tsx': 'motion-overlay',
 }
 for (const [file, cls] of Object.entries(OVERLAYS)) {
-  if (!read(file).includes(cls)) {
+  let overlaySrc = null
+  try {
+    overlaySrc = readFileSync(file, 'utf8')
+  } catch {
+    failures.push(`${file}: missing — expected to carry \`${cls}\``)
+  }
+  if (overlaySrc !== null && !overlaySrc.includes(cls)) {
     failures.push(`${file}: no \`${cls}\` — overlay appears and vanishes instantly`)
   }
 }
 
-// 2. Hover motion must be gated. Touch devices fire hover on tap.
+// 2. Hover motion must be gated. Touch devices fire hover on tap. Gating is
+// per element: a `hover-safe` on one hover site does not excuse another.
 for (const f of files) {
   const src = read(f)
-  for (const m of src.matchAll(/hover:-?translate-[xy]-[^\s"'`]+/g)) {
-    if (!src.includes('@media (hover: hover)') && !src.includes('hover-safe')) {
-      failures.push(`${f}: ungated \`${m[0]}\` — wrap in \`hover-safe\``)
+  for (const scope of classNameScopes(src)) {
+    for (const m of scope.matchAll(/hover:-?translate-[xy]-[^\s"'`]+/g)) {
+      if (!scope.includes('hover-safe')) {
+        failures.push(`${f}: ungated \`${m[0]}\` — wrap in \`hover-safe\``)
+      }
     }
   }
 }
@@ -61,11 +92,16 @@ for (const f of files) {
   }
 }
 
-// 4. Hover is a tens-of-times-a-day interaction; 300ms reads sluggish.
+// 4. Hover is a tens-of-times-a-day interaction; 300ms reads sluggish. Scoped
+// per element: a progress-bar fill can legitimately carry `duration-300`
+// while an unrelated hover site elsewhere in the same file carries
+// `duration-200` — only flag when both land on the same className string.
 for (const f of files) {
   const src = read(f)
-  if (/hover:/.test(src) && /duration-300/.test(src)) {
-    failures.push(`${f}: \`duration-300\` alongside a hover state — use duration-200`)
+  for (const scope of classNameScopes(src)) {
+    if (/hover:/.test(scope) && /duration-300/.test(scope)) {
+      failures.push(`${f}: \`duration-300\` alongside a hover state — use duration-200`)
+    }
   }
 }
 
