@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "check": "npm run typecheck && npm run lint && npm run test && node scripts/contrast.mjs && node scripts/a11y-names.mjs && node scripts/schema-drift.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test && node scripts/contrast.mjs && node scripts/a11y-names.mjs && node scripts/schema-drift.mjs && node scripts/motion-lint.mjs",
     "docs": "node scripts/report-pdf.mjs && node scripts/report-pdf.mjs docs/evaluation-questionnaire.html && node scripts/questionnaire-docx.mjs"
   },
   "dependencies": {
