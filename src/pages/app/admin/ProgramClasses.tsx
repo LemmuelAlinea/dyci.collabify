@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { PaceCard } from '../../../components/analytics/PaceCard'
 import { Alert } from '../../../components/ui/Alert'
+import { Badge } from '../../../components/ui/Badge'
 import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { Select } from '../../../components/ui/Select'
@@ -253,12 +254,9 @@ function ClassRow({ cls }: { cls: ProgramClass }) {
           <Icon name="alert" size={14} className="shrink-0 text-amber-500" />
           <span className="text-muted">Not ready to run:</span>
           {gaps.map((g) => (
-            <span
-              key={g}
-              className="rounded-full bg-amber-400/18 px-2 py-0.5 text-[11.5px] text-amber-700 dark:text-amber-300"
-            >
+            <Badge key={g} tone="warning">
               {g}
-            </span>
+            </Badge>
           ))}
         </p>
       )}

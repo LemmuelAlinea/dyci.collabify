@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
+import { Badge } from '../ui/Badge'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 
@@ -25,11 +26,7 @@ export function DashSection({
         <h2 className="flex items-center gap-2 text-[15.5px] sm:text-[17px]">
           <Icon name={icon} size={17} className="text-faint" />
           {title}
-          {typeof count === 'number' && count > 0 && (
-            <span className="rounded-full surface-sunken px-2 py-0.5 font-mono text-[11px] text-muted">
-              {count}
-            </span>
-          )}
+          {typeof count === 'number' && count > 0 && <Badge>{count}</Badge>}
         </h2>
         {seeAll && (
           <Link

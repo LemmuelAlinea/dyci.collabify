@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
-import type { ReactNode } from 'react'
 import { Alert } from '../../../components/ui/Alert'
+import { Badge } from '../../../components/ui/Badge'
 import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
 import { Spinner } from '../../../components/ui/Icon'
 import { Select } from '../../../components/ui/Select'
@@ -183,11 +183,15 @@ function ProgramStrip({ cohorts }: { cohorts: CohortRow[] }) {
 
       {(total.late > 0 || total.notReady > 0) && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {total.late > 0 && <Chip tone="bad">{total.late} finished late</Chip>}
+          {total.late > 0 && (
+            <Badge tone="danger" className="shrink-0 whitespace-nowrap">
+              {total.late} finished late
+            </Badge>
+          )}
           {total.notReady > 0 && (
-            <Chip tone="warn">
+            <Badge tone="warning" className="shrink-0 whitespace-nowrap">
               {total.notReady} {total.notReady === 1 ? 'class is' : 'classes are'} not ready
-            </Chip>
+            </Badge>
           )}
         </div>
       )}
@@ -228,8 +232,16 @@ function CohortCard({ cohort, classes }: { cohort: CohortRow; classes: ProgramCl
         <Bar pct={pct} />
         {(cohort.tasks_late > 0 || cohort.not_ready > 0) && (
           <div className="mt-3 flex flex-wrap gap-2">
-            {cohort.tasks_late > 0 && <Chip tone="bad">{cohort.tasks_late} finished late</Chip>}
-            {cohort.not_ready > 0 && <Chip tone="warn">{cohort.not_ready} not ready to run</Chip>}
+            {cohort.tasks_late > 0 && (
+              <Badge tone="danger" className="shrink-0 whitespace-nowrap">
+                {cohort.tasks_late} finished late
+              </Badge>
+            )}
+            {cohort.not_ready > 0 && (
+              <Badge tone="warning" className="shrink-0 whitespace-nowrap">
+                {cohort.not_ready} not ready to run
+              </Badge>
+            )}
           </div>
         )}
       </div>
@@ -280,13 +292,17 @@ function ClassLine({ cls }: { cls: ProgramClass }) {
 
       <span className="flex w-[92px] shrink-0 justify-end">
         {gaps.length > 0 ? (
-          <Chip tone="warn" title={gaps.join(', ')}>
-            not ready
-          </Chip>
+          <span title={gaps.join(', ')}>
+            <Badge tone="warning" className="whitespace-nowrap">
+              not ready
+            </Badge>
+          </span>
         ) : behind ? (
-          <Chip tone="bad" title="Fewer syllabus weeks covered than the term has used">
-            behind
-          </Chip>
+          <span title="Fewer syllabus weeks covered than the term has used">
+            <Badge tone="danger" className="whitespace-nowrap">
+              behind
+            </Badge>
+          </span>
         ) : null}
       </span>
     </li>
@@ -304,25 +320,3 @@ function Bar({ pct, className = 'h-2' }: { pct: number; className?: string }) {
   )
 }
 
-function Chip({
-  children,
-  tone,
-  title,
-}: {
-  children: ReactNode
-  tone: 'warn' | 'bad'
-  title?: string
-}) {
-  return (
-    <span
-      title={title}
-      className={`shrink-0 rounded-full px-2 py-0.5 text-[11.5px] whitespace-nowrap ${
-        tone === 'bad'
-          ? 'bg-red-500/15 text-red-700 dark:text-red-300'
-          : 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
-      }`}
-    >
-      {children}
-    </span>
-  )
-}

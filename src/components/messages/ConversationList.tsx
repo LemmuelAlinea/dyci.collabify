@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar } from '../app/Avatar'
+import { Badge } from '../ui/Badge'
 import { Icon } from '../ui/Icon'
 import type { ConversationCard, ConversationKind } from '../../lib/types'
 
@@ -116,9 +117,9 @@ export function ConversationList({
                                 {c.last_body || c.subtitle}
                               </span>
                               {c.unread_count > 0 && (
-                                <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-amber-400 px-1.5 font-mono text-[10px] font-bold text-navy-900">
+                                <Badge tone="accent" className="shrink-0">
                                   {c.unread_count > 99 ? '99+' : c.unread_count}
-                                </span>
+                                </Badge>
                               )}
                             </span>
                           </span>
