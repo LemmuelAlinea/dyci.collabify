@@ -33,10 +33,7 @@ import Pending from './pages/auth/Pending'
  * frame at the worst possible moment.
  */
 // Lazy so the landing page's 3D board never lands on a signed-in route.
-// LandingAlt is the minimal study that fed into the live page; it is still
-// routed so the two can be compared.
 const Landing = lazy(() => import('./pages/Landing'))
-const LandingAlt = lazy(() => import('./pages/LandingAlt'))
 const Accounts = lazy(() => import('./pages/app/admin/Accounts'))
 const AdminHome = lazy(() => import('./pages/app/AdminHome'))
 const Analytics = lazy(() => import('./pages/app/analytics/Analytics'))
@@ -83,7 +80,6 @@ export default function App() {
       <Suspense fallback={<PageLoading />}>
           <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/preview/study" element={<LandingAlt />} />
 
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

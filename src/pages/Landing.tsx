@@ -10,10 +10,11 @@ import { Kicker, Marquee, Rise, Shell } from '../components/landing/parts'
  *
  * Two sources. The supplied static design brought the sticky workflow with its
  * stepping board, the role switcher, the orbit vectors and floating labels
- * around the render, and an amber block to close on. The earlier study at
- * `/preview/study` brought the near-black ground, a wordmark large enough to
- * touch both gutters, mono micro-labels, the scroll rail, and the habit of
- * setting a statement far away from its own paragraph.
+ * around the render, and an amber block to close on. A study in the manner of
+ * oryzo.ai brought the near-black ground, a wordmark large enough to touch
+ * both gutters, mono micro-labels, the scroll rail, and the habit of setting a
+ * statement far away from its own paragraph. That study has since been
+ * deleted, its ideas having landed here.
  *
  * What holds them together is alternating ground. Dark hero, paper features,
  * navy workflow, paper roles, amber close. Five dark sections in a row would
