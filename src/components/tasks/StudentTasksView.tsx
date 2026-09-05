@@ -1,5 +1,5 @@
 import { Button } from '../ui/Button'
-import { Alert } from '../ui/Field'
+import { Alert } from '../ui/Alert'
 import { Icon, Spinner } from '../ui/Icon'
 import { EmptyState } from '../ui/EmptyState'
 import { useToast } from '../ui/Toast'

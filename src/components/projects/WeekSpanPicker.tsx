@@ -1,6 +1,6 @@
 import { Icon } from '../ui/Icon'
 import { Select } from '../ui/Select'
-import { Alert } from '../ui/Field'
+import { Alert } from '../ui/Alert'
 import { weekRange } from '../../lib/types'
 import type { ClassWeek } from '../../lib/types'
 

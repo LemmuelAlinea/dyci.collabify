@@ -3,10 +3,6 @@ import type { InputHTMLAttributes, ReactNode } from 'react'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
 
-// Moved to ./Alert. Re-exported here so this commit is a pure move; the next
-// one updates the importers and deletes this line.
-export { Alert } from './Alert'
-
 const INPUT_BASE =
   'w-full rounded-xl border border-[var(--control-line)] bg-[var(--surface)] text-ink ' +
   'placeholder:text-[var(--ink-faint)] transition-[border-color,box-shadow] duration-200 ' +

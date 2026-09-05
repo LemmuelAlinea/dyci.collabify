@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Modal } from './Modal'
 import { Button } from './Button'
-import { Alert } from './Field'
+import { Alert } from './Alert'
 
 type Props = {
   open: boolean

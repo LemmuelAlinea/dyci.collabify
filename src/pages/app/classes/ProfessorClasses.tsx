@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { Button } from '../../../components/ui/Button'
-import { Alert } from '../../../components/ui/Field'
+import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { Modal } from '../../../components/ui/Modal'
 import { EmptyState } from '../../../components/ui/EmptyState'

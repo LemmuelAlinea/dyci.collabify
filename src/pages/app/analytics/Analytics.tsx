@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FilterChain } from '../../../components/analytics/FilterChain'
 import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
-import { Alert } from '../../../components/ui/Field'
+import { Alert } from '../../../components/ui/Alert'
 import { Spinner } from '../../../components/ui/Icon'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useAuth } from '../../../context/AuthContext'

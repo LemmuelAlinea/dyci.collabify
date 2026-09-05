@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import { Alert } from '../ui/Field'
+import { Alert } from '../ui/Alert'
 import { Icon, Spinner } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
 import { BoardProgress } from './BoardProgress'

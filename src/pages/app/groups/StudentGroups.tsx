@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert } from '../../../components/ui/Field'
+import { Alert } from '../../../components/ui/Alert'
 import { Spinner } from '../../../components/ui/Icon'
 import { Tabs } from '../../../components/ui/Tabs'
 import { GroupsBoard } from '../../../components/groups/GroupsBoard'

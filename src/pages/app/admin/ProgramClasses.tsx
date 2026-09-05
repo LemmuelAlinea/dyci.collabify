@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { PaceCard } from '../../../components/analytics/PaceCard'
-import { Alert } from '../../../components/ui/Field'
+import { Alert } from '../../../components/ui/Alert'
 import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { Select } from '../../../components/ui/Select'

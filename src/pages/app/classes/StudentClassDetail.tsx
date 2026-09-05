@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { useParams } from 'react-router-dom'
-import { Alert } from '../../../components/ui/Field'
+import { Alert } from '../../../components/ui/Alert'
 import { Spinner } from '../../../components/ui/Icon'
 import { Tabs } from '../../../components/ui/Tabs'
 import { AnnouncementFeed } from '../../../components/classes/AnnouncementFeed'

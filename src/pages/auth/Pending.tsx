@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { AuthLayout } from '../../components/AuthLayout'
-import { Alert } from '../../components/ui/Field'
+import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { roleHome } from '../../lib/roleHome'

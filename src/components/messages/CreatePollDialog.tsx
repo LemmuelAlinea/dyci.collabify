@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button } from '../ui/Button'
-import { Alert, Field, Input, Toggle } from '../ui/Field'
+import { Field, Input, Toggle } from '../ui/Field'
+import { Alert } from '../ui/Alert'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'

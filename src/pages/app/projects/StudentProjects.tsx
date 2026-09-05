@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert } from '../../../components/ui/Field'
+import { Alert } from '../../../components/ui/Alert'
 import { Spinner } from '../../../components/ui/Icon'
 import { ProjectsBoard } from '../../../components/projects/ProjectsBoard'
 import { useAuth } from '../../../context/AuthContext'

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '../../../components/ui/Button'
-import { Alert } from '../../../components/ui/Field'
+import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { ProjectsBoard } from '../../../components/projects/ProjectsBoard'
 import { ProjectWizard } from '../../../components/projects/ProjectWizard'
