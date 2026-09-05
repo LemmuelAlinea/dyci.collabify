@@ -171,7 +171,7 @@ export default function ProfessorHome() {
                 </DashSection>
               </Reveal>
 
-              <Reveal once delay={0.20}>
+              <Reveal once delay={0.16}>
                 <DashSection
                   icon="chart"
                   title="Progress across your classes"
