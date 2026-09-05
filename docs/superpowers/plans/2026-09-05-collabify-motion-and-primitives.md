@@ -612,6 +612,14 @@ git commit -m "Scale the popovers from their triggers instead of their centres"
 
 ## Task 6: Press states on the raw buttons
 
+> **Tailwind v4 syntax note.** A bare custom property in a utility takes
+> **parentheses**, not brackets: `duration-(--dur-press)` compiles to
+> `transition-duration: var(--dur-press)`, while `duration-[--dur-press]`
+> compiles to `transition-duration: --dur-press`, which is invalid and is
+> silently dropped — no duration applied, no warning. This plan originally
+> specified the bracket form in four places; they were corrected after the
+> implementer checked the built CSS rather than trusting the class name.
+
 **Files:**
 - Modify: `src/components/app/NotificationBell.tsx:103` (bell trigger), `:155` (notification rows)
 - Modify: `src/components/ui/Modal.tsx:108` (close button)
@@ -628,7 +636,7 @@ git commit -m "Scale the popovers from their triggers instead of their centres"
 `src/components/app/NotificationBell.tsx` line 103:
 
 ```tsx
-        className="relative grid h-10 w-10 place-items-center rounded-full text-muted transition-[background-color,color,transform] duration-[--dur-press] hover:bg-[var(--surface-sunken)] hover:text-ink active:scale-[0.97]"
+        className="relative grid h-10 w-10 place-items-center rounded-full text-muted transition-[background-color,color,transform] duration-(--dur-press) hover:bg-[var(--surface-sunken)] hover:text-ink active:scale-[0.97]"
 ```
 
 - [ ] **Step 2: The notification rows — full width, so they tint**
@@ -636,7 +644,7 @@ git commit -m "Scale the popovers from their triggers instead of their centres"
 `src/components/app/NotificationBell.tsx` line 155:
 
 ```tsx
-                      className="flex w-full gap-3 px-4 py-3.5 text-left transition-colors duration-[--dur-press] hover:bg-[var(--surface-sunken)] active:bg-[var(--surface-sunken)]"
+                      className="flex w-full gap-3 px-4 py-3.5 text-left transition-colors duration-(--dur-press) hover:bg-[var(--surface-sunken)] active:bg-[var(--surface-sunken)]"
 ```
 
 - [ ] **Step 3: The dialog close button — discrete**
@@ -644,7 +652,7 @@ git commit -m "Scale the popovers from their triggers instead of their centres"
 `src/components/ui/Modal.tsx` line 108:
 
 ```tsx
-            className="-mt-1 -mr-2 grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-[background-color,color,transform] duration-[--dur-press] hover:bg-[var(--surface-sunken)] hover:text-ink active:scale-[0.97]"
+            className="-mt-1 -mr-2 grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-[background-color,color,transform] duration-(--dur-press) hover:bg-[var(--surface-sunken)] hover:text-ink active:scale-[0.97]"
 ```
 
 - [ ] **Step 4: The filter trigger — discrete**
@@ -652,7 +660,7 @@ git commit -m "Scale the popovers from their triggers instead of their centres"
 `src/components/ui/FilterPopover.tsx` line 67, add to the existing template literal's static portion:
 
 ```tsx
-        className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-[background-color,border-color,transform] duration-[--dur-press] active:scale-[0.97] ${
+        className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-[background-color,border-color,transform] duration-(--dur-press) active:scale-[0.97] ${
 ```
 
 - [ ] **Step 5: Verify**
