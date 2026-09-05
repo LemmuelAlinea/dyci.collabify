@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useReducedMotion } from 'motion/react'
-import { Kicker, Shell } from './parts'
+import { BlueprintField, Glow, Kicker, Shell } from './parts'
 
 /**
  * The sticky workflow, and the best idea in the supplied design.
@@ -91,29 +91,41 @@ export function Workflow() {
   const pos = CARD_POSITION[step]
 
   return (
-    <section id="how" className="bg-navy-900 text-amber-50">
+    <section id="how" className="relative bg-white text-amber-50">
       {/* Reduced motion collapses the tall wrapper, so the section becomes an
           ordinary block instead of a long scroll that changes nothing. */}
-      <div ref={wrap} className={reduce ? '' : 'h-[420vh]'}>
+      <div ref={wrap} className={reduce ? '' : 'h-[230vh]'}>
         <div
           className={
             reduce
-              ? 'py-24'
-              : 'sticky top-0 flex min-h-screen items-center overflow-hidden py-20'
+              ? 'relative overflow-hidden bg-navy-950 py-24'
+              : 'sticky top-0 flex min-h-[100svh] items-center overflow-hidden bg-navy-950 py-8 sm:py-10'
           }
         >
-          <Shell>
+          <BlueprintField />
+          <Glow corner="right" />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-px bg-amber-50/10"
+          />
+          <Shell className="relative">
             <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-10">
               {/* ---------------------------------------------------- steps */}
               <div className="lg:col-span-5">
-                <Kicker>How it runs</Kicker>
-                <h2 className="mt-6 font-display text-[clamp(26px,4.2vw,46px)] leading-[1.1] font-bold tracking-[-0.035em] text-amber-50">
-                  A term, from the
-                  <br />
-                  syllabus to the answer.
-                </h2>
+                <div className="rounded-[26px] border border-amber-50/10 bg-white/[0.035] p-5 backdrop-blur-sm sm:p-7">
+                  <div className="flex items-center justify-between gap-4">
+                    <Kicker>How it runs</Kicker>
+                    <span className="rounded-full border border-amber-50/12 bg-white/[0.05] px-3 py-1.5 font-mono text-[10px] tracking-[0.16em] text-amber-200/65 uppercase">
+                      {String(step + 1).padStart(2, '0')} / 06
+                    </span>
+                  </div>
+                  <h2 className="mt-5 font-display text-[clamp(25px,3.8vw,40px)] leading-[1.1] font-bold tracking-[-0.035em] text-amber-50">
+                    A term, from the
+                    <br />
+                    <span className="text-amber-300">syllabus to the answer.</span>
+                  </h2>
 
-                <ol className="mt-7 lg:mt-10">
+                  <ol className="mt-6 space-y-1">
                   {STEPS.map((s, i) => {
                     const active = reduce || i === step
                     return (
@@ -123,14 +135,18 @@ export function Workflow() {
                         // a board does not fit one screen, and the board going
                         // off the bottom costs more than the list does — the
                         // moving card is the thing this section exists to show.
-                        className={`border-t border-amber-50/12 py-4 transition-colors duration-500 ${
-                          active ? 'text-amber-50' : 'hidden text-amber-50/40 lg:block'
+                        className={`rounded-xl border px-3 py-2.5 transition-[background-color,border-color,color] duration-500 ${
+                          active
+                            ? 'border-amber-50/12 bg-white/[0.07] text-amber-50'
+                            : 'hidden border-transparent text-amber-50/38 lg:block'
                         }`}
                       >
-                        <div className="flex gap-5">
+                        <div className="flex gap-3.5">
                           <span
-                            className={`mt-0.5 font-mono text-[11px] transition-colors duration-500 ${
-                              active ? 'text-amber-400' : 'text-amber-50/30'
+                            className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg font-mono text-[10px] transition-colors duration-500 ${
+                              active
+                                ? 'bg-amber-400 font-bold text-navy-950'
+                                : 'bg-white/[0.04] text-amber-50/28'
                             }`}
                           >
                             {s.n}
@@ -156,53 +172,65 @@ export function Workflow() {
                         </div>
                       </li>
                     )
-                  })}
-                </ol>
+                    })}
+                  </ol>
 
-                {!reduce && (
-                  <div aria-hidden className="mt-6 flex gap-1.5 lg:mt-8">
-                    {STEPS.map((s, i) => (
-                      <span
-                        key={s.n}
-                        className={`h-[3px] rounded-full transition-all duration-500 ${
-                          i === step ? 'w-8 bg-amber-400' : 'w-4 bg-amber-50/20'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                )}
+                  {!reduce && (
+                    <div aria-hidden className="mt-4 flex gap-1.5">
+                      {STEPS.map((s, i) => (
+                        <span
+                          key={s.n}
+                          className={`h-1 flex-1 rounded-full transition-colors duration-500 ${
+                            i <= step ? 'bg-amber-400' : 'bg-amber-50/12'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* ----------------------------------------------- mock board */}
               <div className="lg:col-span-7">
-                <div className="mb-4 flex justify-between font-mono text-[9.5px] tracking-[0.2em] text-amber-50/35 uppercase">
-                  <span>Group 1 · Project Milestone 2</span>
-                  <span>Example board</span>
-                </div>
-
                 <div
-                  className="overflow-hidden rounded-2xl bg-white text-navy-900 shadow-[0_28px_90px_-20px_rgb(4_8_24_/_0.7)]"
+                  className="relative rounded-[28px] border border-amber-50/10 bg-white/[0.045] p-2.5 shadow-[0_34px_100px_-24px_rgb(0_0_0_/_0.85)] sm:p-3"
                   style={
                     reduce
                       ? undefined
                       : { transform: 'perspective(1600px) rotateY(-5deg) rotateX(2deg)' }
                   }
                 >
-                  <div className="flex h-12 items-center gap-2.5 border-b border-navy-900/10 px-5">
-                    <span className="font-display text-[15px] font-bold tracking-tight">
-                      Collabify
-                    </span>
-                    <span className="ml-auto font-mono text-[9px] tracking-[0.2em] text-navy-500 uppercase">
-                      Board
-                    </span>
+                  <div className="mb-2.5 flex items-center justify-between px-2 py-1 font-mono text-[9px] tracking-[0.18em] text-amber-50/45 uppercase">
+                    <span>Group 1 · Project Milestone 2</span>
+                    <span>Live example</span>
                   </div>
 
-                  <div className="relative grid grid-cols-3 gap-2.5 bg-navy-50/60 p-4">
+                  <div className="overflow-hidden rounded-[20px] bg-white text-navy-900">
+                    <div className="flex h-14 items-center gap-3 bg-navy-900 px-5 text-amber-50">
+                      <span className="grid h-7 w-7 place-items-center rounded-lg bg-amber-400 font-display text-[12px] font-bold text-navy-950">
+                        C
+                      </span>
+                      <span className="font-display text-[15px] font-bold tracking-tight">Collabify</span>
+                      <span className="ml-auto rounded-full border border-amber-50/12 bg-white/[0.06] px-2.5 py-1 font-mono text-[8px] tracking-[0.18em] text-amber-50/65 uppercase">
+                        Project board
+                      </span>
+                    </div>
+
+                  <div className="relative grid grid-cols-3 gap-2.5 bg-[#eef2f8] p-4">
                     {['To do', 'Doing', 'Done'].map((col, ci) => (
-                      <div key={col}>
+                      <div
+                        key={col}
+                        className={`rounded-xl p-2 ${
+                          ci === 0
+                            ? 'bg-white/75'
+                            : ci === 1
+                              ? 'bg-amber-50/85'
+                              : 'bg-emerald-50/75'
+                        }`}
+                      >
                         <div className="mb-3 flex items-center justify-between px-1">
-                          <span className="text-[11px] font-semibold">{col}</span>
-                          <span className="grid h-[18px] w-[18px] place-items-center rounded bg-navy-900/8 font-mono text-[9px] text-navy-500">
+                          <span className="text-[11px] font-semibold text-navy-800">{col}</span>
+                          <span className="grid h-[18px] w-[18px] place-items-center rounded-full bg-navy-900/8 font-mono text-[9px] text-navy-500">
                             {ci === 2 ? 4 : 3}
                           </span>
                         </div>
@@ -210,7 +238,7 @@ export function Workflow() {
                           {[0, 1].map((r) => (
                             <div
                               key={r}
-                              className="rounded-lg border border-navy-900/8 bg-white p-2.5"
+                              className="rounded-lg border border-navy-900/8 bg-white p-2.5 shadow-[0_5px_14px_-12px_rgb(23_37_83_/_0.7)]"
                             >
                               <span className="inline-block rounded bg-navy-100 px-1.5 py-0.5 font-mono text-[7.5px] tracking-wide text-navy-600 uppercase">
                                 {['Research', 'Model', 'Write'][(ci + r) % 3]}
@@ -245,7 +273,7 @@ export function Workflow() {
                         travel between them without disturbing their layout. */}
                     <div
                       aria-hidden
-                      className="absolute rounded-lg border-2 border-amber-400 bg-white p-2.5 shadow-[0_8px_24px_-6px_rgb(240_180_41_/_0.55)]"
+                      className="absolute rounded-lg border border-amber-300 bg-amber-300 p-2.5 text-navy-950 shadow-[0_12px_30px_-8px_rgb(240_180_41_/_0.7)]"
                       style={{
                         width: 'calc((100% - 2rem - 1.25rem) / 3)',
                         left: `calc(1rem + (100% - 2rem - 1.25rem) / 3 * ${pos.col} + 0.625rem * ${pos.col})`,
@@ -255,14 +283,14 @@ export function Workflow() {
                           : 'left .85s var(--ease-out-soft), top .85s var(--ease-out-soft)',
                       }}
                     >
-                      <span className="inline-block rounded bg-amber-400/25 px-1.5 py-0.5 font-mono text-[7.5px] tracking-wide text-amber-700 uppercase">
+                      <span className="inline-block rounded bg-navy-950 px-1.5 py-0.5 font-mono text-[7.5px] tracking-wide text-amber-200 uppercase">
                         Yours
                       </span>
                       <p className="mt-2 text-[10.5px] leading-snug font-semibold">
                         Summarize with descriptive statistics
                       </p>
                       <div className="mt-3 flex items-center justify-between">
-                        <span className="grid h-5 w-5 place-items-center rounded-full bg-amber-400/25 font-mono text-[7px] text-amber-700">
+                        <span className="grid h-5 w-5 place-items-center rounded-full bg-navy-950 font-mono text-[7px] text-amber-200">
                           LA
                         </span>
                         <span className="font-mono text-[7.5px] text-navy-400">W5</span>
@@ -270,11 +298,11 @@ export function Workflow() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2.5 border-t border-navy-900/10 px-5 py-3.5">
-                    <span className="grid h-6 w-6 place-items-center rounded-full bg-amber-400/20 text-[11px] text-amber-700">
+                  <div className="flex items-center gap-2.5 bg-navy-900 px-5 py-3.5 text-amber-50">
+                    <span className="grid h-6 w-6 place-items-center rounded-full bg-amber-400 text-[10px] text-navy-950">
                       ●
                     </span>
-                    <span className="text-[11px] text-navy-600">
+                    <span className="text-[11px] text-amber-50/65">
                       {
                         [
                           'The class and its syllabus are in.',
@@ -286,6 +314,7 @@ export function Workflow() {
                         ][step]
                       }
                     </span>
+                  </div>
                   </div>
                 </div>
               </div>

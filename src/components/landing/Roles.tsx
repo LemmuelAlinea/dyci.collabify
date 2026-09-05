@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Kicker, Rise, Shell, Statement } from './parts'
+import { BlueprintField, Kicker, Rise, Shell, Statement } from './parts'
 
 /**
  * Features, then the role switcher.
@@ -19,17 +19,17 @@ const FEATURES = [
     title: 'A home for every project',
     body: 'A project names the weeks it covers, carries the brief, and gives every group a board of its own.',
     demo: (
-      <div className="mt-6 flex min-h-[84px] items-center gap-3 rounded-xl border border-navy-900/10 bg-navy-50/40 p-4">
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-navy-100 font-mono text-[12px] font-bold text-navy-600">
+      <div className="mt-6 flex min-h-[84px] items-center gap-3 rounded-xl border border-amber-50/12 bg-white/7 p-4">
+        <span className="grid h-9 w-9 place-items-center rounded-lg bg-amber-400 font-mono text-[12px] font-bold text-navy-950">
           PM
         </span>
         <span className="min-w-0">
           <strong className="block text-[13px] font-semibold">Project Milestone 2</strong>
-          <span className="font-mono text-[10px] tracking-[0.12em] text-navy-500 uppercase">
+          <span className="font-mono text-[10px] tracking-[0.12em] text-amber-50/55 uppercase">
             QM · weeks 4–8
           </span>
         </span>
-        <span className="ml-auto font-mono text-[11px] text-navy-500">3 groups</span>
+        <span className="ml-auto font-mono text-[11px] text-amber-50/55">3 groups</span>
       </div>
     ),
   },
@@ -38,13 +38,13 @@ const FEATURES = [
     title: 'Keep everyone in the loop',
     body: 'Announcements, group chat and files sit inside the class, so nothing important lives in somebody else’s inbox.',
     demo: (
-      <div className="mt-6 flex min-h-[84px] items-center gap-3 rounded-xl border border-navy-900/10 bg-navy-50/40 p-4">
-        <span className="grid h-9 w-9 place-items-center rounded-full bg-amber-400/25 font-mono text-[10px] font-bold text-amber-700">
+      <div className="mt-6 flex min-h-[84px] items-center gap-3 rounded-xl bg-navy-950 p-4 text-amber-50">
+        <span className="grid h-9 w-9 place-items-center rounded-full bg-amber-400 font-mono text-[10px] font-bold text-navy-950">
           MS
         </span>
         <span className="min-w-0">
           <strong className="block text-[13px] font-semibold">Maria posted an update</strong>
-          <span className="font-mono text-[10px] tracking-[0.12em] text-navy-500 uppercase">
+          <span className="font-mono text-[10px] tracking-[0.12em] text-amber-50/55 uppercase">
             Group 1 · 2 hours ago
           </span>
         </span>
@@ -56,7 +56,7 @@ const FEATURES = [
     title: 'See the whole picture',
     body: 'A professor sees what has stopped moving and what is waiting on a decision, across every class at once.',
     demo: (
-      <div className="mt-6 min-h-[84px] rounded-xl border border-navy-900/10 bg-navy-50/40 p-4">
+      <div className="mt-6 min-h-[84px] rounded-xl border border-navy-900/10 bg-white p-4">
         <span className="font-mono text-[10px] tracking-[0.12em] text-navy-500 uppercase">
           4 of 11 tasks done
         </span>
@@ -110,8 +110,21 @@ type RoleName = keyof typeof ROLES
 
 export function Features() {
   return (
-    <section id="workspace" className="bg-white py-24 text-navy-900 sm:py-32">
-      <Shell>
+    <section
+      id="workspace"
+      className="relative overflow-hidden bg-[#eef2f8] py-24 text-navy-900 sm:py-32"
+    >
+      <BlueprintField tone="light" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-56 -right-52 h-[620px] w-[620px] rounded-full bg-amber-300/25 blur-[140px]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-72 -left-56 h-[600px] w-[600px] rounded-full bg-navy-200/45 blur-[150px]"
+      />
+
+      <Shell className="relative">
         <Statement
           tone="light"
           kicker="Inside a class"
@@ -125,19 +138,45 @@ export function Features() {
           body="Groups, projects, boards, deadlines and the syllabus they are measured against — all of it inside the class it belongs to."
         />
 
-        <div className="mt-16 grid gap-9 sm:mt-20 md:grid-cols-3">
+        <div className="mt-16 grid gap-4 sm:mt-20 md:grid-cols-3">
           {FEATURES.map((f, i) => (
-            <Rise key={f.n} delay={0.06 * i}>
-              <div className="border-t border-navy-900/12 pt-6">
-                <span className="font-mono text-[10.5px] tracking-[0.18em] text-navy-500 uppercase">
+            <Rise key={f.n} delay={0.06 * i} className="h-full">
+              <article
+                className={`relative flex h-full min-h-[340px] flex-col overflow-hidden rounded-2xl border p-6 sm:p-7 ${
+                  i === 0
+                    ? 'border-navy-950 bg-navy-950 text-amber-50'
+                    : i === 1
+                      ? 'border-amber-400 bg-amber-400 text-navy-950'
+                      : 'border-navy-900/10 bg-white/90 text-navy-900'
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`absolute -top-6 right-2 font-display text-[110px] leading-none font-bold ${
+                    i === 0
+                      ? 'text-amber-50/5'
+                      : i === 1
+                        ? 'text-navy-950/7'
+                        : 'text-navy-950/5'
+                  }`}
+                >
                   {f.n}
                 </span>
-                <h3 className="mt-7 font-display text-[21px] font-bold tracking-[-0.02em]">
+                <span className={`relative font-mono text-[10.5px] tracking-[0.18em] uppercase ${
+                  i === 0 ? 'text-amber-300' : i === 1 ? 'text-navy-800/65' : 'text-navy-500'
+                }`}>
+                  {f.n}
+                </span>
+                <h3 className="relative mt-7 font-display text-[21px] font-bold tracking-[-0.02em]">
                   {f.title}
                 </h3>
-                <p className="mt-3.5 text-[14.5px] leading-[1.75] text-navy-600/75">{f.body}</p>
-                {f.demo}
-              </div>
+                <p className={`relative mt-3.5 text-[14.5px] leading-[1.75] ${
+                  i === 0 ? 'text-amber-50/62' : i === 1 ? 'text-navy-900/72' : 'text-navy-600/75'
+                }`}>
+                  {f.body}
+                </p>
+                <div className="relative mt-auto">{f.demo}</div>
+              </article>
             </Rise>
           ))}
         </div>
