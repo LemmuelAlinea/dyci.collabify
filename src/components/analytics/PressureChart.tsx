@@ -28,7 +28,7 @@ export function PressureChart({ rows }: { rows: Pressure[] }) {
   const peak = Math.max(1, ...weeks.map((w) => w.due_count))
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {overdue && (
         <p className="flex items-center gap-2 text-[13px]">
           <span className="rounded-md bg-red-500/15 px-2 py-0.5 font-mono text-[12px] text-red-700 dark:text-red-300">
@@ -41,7 +41,7 @@ export function PressureChart({ rows }: { rows: Pressure[] }) {
         </p>
       )}
 
-      <ul className="space-y-1.5">
+      <ul className="space-y-2">
         {weeks.map((w) => {
           const heavy = w.due_count >= PILE_UP_TASKS
           return (

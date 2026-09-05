@@ -38,7 +38,7 @@ export function TermStrip({
               </p>
             )}
             {w.assessments && (
-              <p className="mt-2 flex gap-1.5 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
+              <p className="mt-2 flex gap-2 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
                 <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
                 {w.assessments}
               </p>

@@ -75,7 +75,7 @@ export function RoleHome({
               once
               delay={(i % 3) * 0.07}
               as="article"
-              className="surface rounded-card border border-line p-4 sm:p-6 shadow-card"
+              className="card p-4 sm:p-6 shadow-card"
             >
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--surface-sunken)] text-muted">
                 <Icon name={u.icon} size={20} />

@@ -39,7 +39,7 @@ export default function Pending() {
           )}
         </Alert>
 
-        <div className="surface rounded-card border border-line p-4 sm:p-5">
+        <div className="card p-4 sm:p-5">
           <p className="eyebrow text-faint">Signed in as</p>
           <p className="mt-2 text-[14px] font-medium text-ink">{profile?.email ?? '—'}</p>
           <p className="mt-1 text-[13px] text-muted">

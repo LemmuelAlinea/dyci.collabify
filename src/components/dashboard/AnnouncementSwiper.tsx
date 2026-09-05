@@ -149,7 +149,7 @@ export function AnnouncementSwiper({
 
       {announcements.length > 1 && (
         <div className="mt-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {announcements.map((a, i) => (
               <button
                 key={a.id}

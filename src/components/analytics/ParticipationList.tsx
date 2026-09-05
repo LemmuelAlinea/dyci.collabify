@@ -20,7 +20,7 @@ export function ParticipationList({ rows }: { rows: Participation[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-3">
         <Figure value={working.length} total={rows.length} label="holding work" />
         <Figure value={empty.length} total={rows.length} label="in a group, holding nothing" />
         <Figure value={ungrouped.length} total={rows.length} label="in no group at all" />
@@ -46,7 +46,7 @@ export function ParticipationList({ rows }: { rows: Participation[] }) {
 
 function Figure({ value, total, label }: { value: number; total: number; label: string }) {
   return (
-    <div className="surface rounded-card border border-line px-3 py-2.5 shadow-card sm:px-4 sm:py-3">
+    <div className="card px-3 py-2.5 shadow-card sm:px-4 sm:py-3">
       <p className="font-mono text-[19px] text-ink">
         {value}
         <span className="text-[13px] text-faint">/{total}</span>

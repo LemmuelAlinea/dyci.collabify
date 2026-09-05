@@ -108,9 +108,9 @@ export function WorkLogList({
               : 'Nobody on this task has logged time.'}
         </p>
       ) : (
-        <ul className="space-y-2.5">
+        <ul className="space-y-3">
           {entries.map((e) => (
-            <li key={e.id} className="flex gap-2.5">
+            <li key={e.id} className="flex gap-3">
               {e.student ? (
                 <Avatar profile={e.student} size={28} />
               ) : (
@@ -163,7 +163,7 @@ export function WorkLogList({
         (open ? (
           <div className="surface space-y-3 rounded-xl border border-line p-4">
             <div className="grid gap-3 sm:grid-cols-3">
-              <label className="space-y-1.5">
+              <label className="space-y-2">
                 <span className="block text-[12px] text-faint">Hours</span>
                 <Input
                   type="number"
@@ -174,7 +174,7 @@ export function WorkLogList({
                   className="!h-10"
                 />
               </label>
-              <label className="space-y-1.5">
+              <label className="space-y-2">
                 <span className="block text-[12px] text-faint">Minutes</span>
                 <Input
                   type="number"
@@ -187,7 +187,7 @@ export function WorkLogList({
                   className="!h-10"
                 />
               </label>
-              <label className="space-y-1.5">
+              <label className="space-y-2">
                 <span className="block text-[12px] text-faint">Date</span>
                 <Input
                   type="date"

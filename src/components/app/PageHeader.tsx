@@ -37,7 +37,7 @@ export function PageHeader({
       {back && (
         <Link
           to={back.to}
-          className="mb-3 inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-ink"
+          className="mb-3 inline-flex items-center gap-2 text-[13px] text-muted transition-colors hover:text-ink"
         >
           <Icon name="arrowLeft" size={15} />
           {back.label}

@@ -84,7 +84,7 @@ export function TaskDetailBody({
             </p>
           )}
           {yours && (
-            <p className="mt-2 flex items-center gap-1.5 text-[12px] text-amber-700 dark:text-amber-300">
+            <p className="mt-2 flex items-center gap-2 text-[12px] text-amber-700 dark:text-amber-300">
               <Icon name="check" size={13} />
               This one is yours.
             </p>
@@ -116,7 +116,7 @@ export function TaskDetailBody({
           above the thread, which would otherwise push it off the screen. */}
       <div className="order-first space-y-4 md:order-none">
         <div>
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-[12px] text-faint">Status</span>
             <Select
               value={task.status}

@@ -123,7 +123,7 @@ export function ProjectCard({
       </div>
 
       {sections > 1 && (
-        <p className="mt-2 flex items-center gap-1.5 text-[12px] text-faint">
+        <p className="mt-2 flex items-center gap-2 text-[12px] text-faint">
           <Icon name="copy" size={12} className="shrink-0" />
           1 of {sections} sections
         </p>
@@ -146,7 +146,7 @@ export function ProjectCard({
       )}
 
       {project.week_assessments && (
-        <p className="mt-2 hidden gap-1.5 text-[12px] leading-snug text-amber-700 @min-[240px]:mt-3 @min-[240px]:line-clamp-2 @min-[240px]:flex @min-[240px]:text-[12px] dark:text-amber-300">
+        <p className="mt-2 hidden gap-2 text-[12px] leading-snug text-amber-700 @min-[240px]:mt-3 @min-[240px]:line-clamp-2 @min-[240px]:flex @min-[240px]:text-[12px] dark:text-amber-300">
           <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
           {project.week_assessments}
         </p>
@@ -188,7 +188,7 @@ export function ProjectCard({
           no longer what a student is scanning for. */}
       {progress?.result_verdict && (
         <p
-          className={`mt-2.5 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium @min-[240px]:mt-3.5 @min-[240px]:text-[12px] ${
+          className={`mt-2.5 flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] font-medium @min-[240px]:mt-3.5 @min-[240px]:text-[12px] ${
             progress.result_verdict === 'accepted'
               ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200'
               : 'bg-amber-400/20 text-amber-800 dark:text-amber-200'
@@ -208,7 +208,7 @@ export function ProjectCard({
       {/* Handed in and still waiting is its own state, and the one a student
           most often wants confirmed. */}
       {!progress?.result_verdict && progress?.submitted_at && (
-        <p className="mt-2.5 flex items-center gap-1.5 rounded-lg surface-sunken px-2.5 py-1.5 text-[12px] text-muted @min-[240px]:mt-3.5 @min-[240px]:text-[12px]">
+        <p className="mt-2.5 flex items-center gap-2 rounded-lg surface-sunken px-2.5 py-1.5 text-[12px] text-muted @min-[240px]:mt-3.5 @min-[240px]:text-[12px]">
           <Icon name="check" size={14} className="shrink-0" />
           Handed in · waiting on your professor
         </p>
@@ -233,7 +233,7 @@ export function ProjectCard({
 
       <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2.5 text-[12px] text-muted @min-[240px]:gap-x-4 @min-[240px]:pt-4 @min-[240px]:text-[12px]">
         <span
-          className={`flex items-center gap-1.5 ${
+          className={`flex items-center gap-2 ${
             overdue ? 'text-faint' : 'text-muted'
           }`}
         >
@@ -243,7 +243,7 @@ export function ProjectCard({
         </span>
         {/* Whether it is group work, and what it is out of, are answered on the
             project itself. On a half-screen card they cost two more lines. */}
-        <span className="hidden items-center gap-1.5 @min-[240px]:flex">
+        <span className="hidden items-center gap-2 @min-[240px]:flex">
           <Icon name={project.audience === 'group' ? 'users' : 'user'} size={13} />
           {project.audience === 'group' ? 'Group' : 'Individual'}
         </span>

@@ -85,7 +85,7 @@ export function GroupWork({
 
   if (boards === null) {
     return (
-      <div className="flex items-center gap-2.5 py-8 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-8 text-[14px] text-muted">
         <Spinner size={16} />
         Loading this group’s work…
       </div>
@@ -117,13 +117,13 @@ export function GroupWork({
         const list = tasks[board.id] ?? []
         const pct = Number(board.done_pct)
         return (
-          <section key={board.id} className="surface rounded-card border border-line shadow-card">
+          <section key={board.id} className="card shadow-card">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5">
               <button
                 type="button"
                 onClick={() => setOpen(expanded ? null : board.id)}
                 aria-expanded={expanded}
-                className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
                 <Icon
                   name="chevronRight"

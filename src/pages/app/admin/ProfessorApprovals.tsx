@@ -85,7 +85,7 @@ export default function ProfessorApprovals() {
 
   if (rows === null) {
     return (
-      <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
         <Spinner size={16} />
         Loading accounts…
       </div>
@@ -163,7 +163,7 @@ export default function ProfessorApprovals() {
       {settled.length > 0 && (
         <section className="space-y-3">
           <h2 className="">Already decided</h2>
-          <ul className="space-y-2.5">
+          <ul className="space-y-3">
             {settled.map((a) => (
               <li
                 key={a.id}

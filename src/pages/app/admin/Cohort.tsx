@@ -62,7 +62,7 @@ export default function Cohort() {
 
   if (rows === null) {
     return (
-      <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
         <Spinner size={16} />
         Adding up the batch…
       </div>
@@ -160,7 +160,7 @@ function ProgramStrip({ cohorts }: { cohorts: CohortRow[] }) {
   const pct = total.tasks === 0 ? 0 : Math.round((total.done / total.tasks) * 100)
 
   return (
-    <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
+    <section className="card p-4 sm:p-5 shadow-card">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
           <p className="eyebrow text-faint">The program, this term</p>

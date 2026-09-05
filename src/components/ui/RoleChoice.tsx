@@ -23,7 +23,7 @@ export function RoleChoice({
   return (
     <fieldset>
       <legend className="mb-2 text-[13px] font-medium text-ink">I am a</legend>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-3">
         {OPTIONS.map((o) => {
           const active = value === o.value
           return (

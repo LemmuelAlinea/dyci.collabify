@@ -54,7 +54,7 @@ export function BurnCard({ burn }: { burn: BoardBurn }) {
         />
       </div>
 
-      <p className="mt-2.5 flex items-start gap-1.5 text-[12px] leading-relaxed text-muted">
+      <p className="mt-2.5 flex items-start gap-2 text-[12px] leading-relaxed text-muted">
         <Icon
           name={tone === 'good' ? 'check' : tone === 'plain' ? 'clock' : 'alert'}
           size={13}

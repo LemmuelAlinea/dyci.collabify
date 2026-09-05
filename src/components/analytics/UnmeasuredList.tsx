@@ -22,7 +22,7 @@ export function UnmeasuredList({ rows }: { rows: ClassUnmeasured[] }) {
         above. Nothing is wrong with {rows.length === 1 ? 'it' : 'them'} — there is just
         nothing to measure against yet.
       </p>
-      <ul className="space-y-1.5">
+      <ul className="space-y-2">
         {rows.map((c) => (
           <li
             key={c.class_id}
@@ -33,7 +33,7 @@ export function UnmeasuredList({ rows }: { rows: ClassUnmeasured[] }) {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[14px] text-ink">{c.class_name}</span>
-              <span className="flex items-center gap-1.5 text-[12px] text-muted">
+              <span className="flex items-center gap-2 text-[12px] text-muted">
                 <Icon name="alert" size={13} className="shrink-0 text-amber-500" />
                 {c.needs_term && c.needs_syllabus
                   ? 'Set this class’s term dates and add its syllabus to measure its pace'

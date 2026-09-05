@@ -166,7 +166,7 @@ export default function MyTasks() {
         {error && <Alert tone="error">{error}</Alert>}
 
         {tasks === null ? (
-          <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+          <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
             <Spinner size={16} />
             Loading your tasks…
           </div>
@@ -199,7 +199,7 @@ export default function MyTasks() {
               if (list.length === 0) return null
               return (
                 <Reveal once delay={0.06 + i * 0.02} key={bucket.id}>
-                  <section className="space-y-2.5">
+                  <section className="space-y-3">
                     <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       <h2 className={`flex items-center gap-2 ${bucket.tone}`}>
                         <span className={`h-2.5 w-2.5 rounded-full ${bucket.bar}`} />
@@ -298,7 +298,7 @@ export default function MyTasks() {
                                     )
                                   }
                                 }}
-                                className="flex items-center gap-1.5 rounded-lg border border-[var(--line-strong)] px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:bg-[var(--surface-sunken)]"
+                                className="flex items-center gap-2 rounded-lg border border-[var(--line-strong)] px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:bg-[var(--surface-sunken)]"
                               >
                                 <Icon name={NEXT[t.status].icon} size={14} />
                                 {NEXT[t.status].label}

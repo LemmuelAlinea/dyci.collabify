@@ -69,7 +69,7 @@ export function AgendaList({
       {days.map(([key, list]) => (
         <li key={key}>
           <p className="eyebrow pb-2">{heading(list[0].at)}</p>
-          <ul className="space-y-1.5">
+          <ul className="space-y-2">
             {list.map((e) => (
               <li
                 key={`${e.kind}:${e.ref_id}`}

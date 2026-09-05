@@ -132,7 +132,7 @@ export function ProjectsBoard({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-3">
         <FilterPopover
           active={
             [query, classId, type, status].filter(Boolean).length
@@ -208,7 +208,7 @@ export function ProjectsBoard({
           }
         />
       ) : (
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 xl:grid-cols-3 2xl:grid-cols-4 min-[2100px]:grid-cols-5 max-sm:[&>*:only-child]:col-span-2">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3 2xl:grid-cols-4 min-[2100px]:grid-cols-5 max-sm:[&>*:only-child]:col-span-2">
           {shown.map((p) => (
             <ProjectCard
               key={p.id}

@@ -88,7 +88,7 @@ export function BoardVerdict({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2.5 py-4 text-[13px] text-muted">
+      <div className="flex items-center gap-3 py-4 text-[13px] text-muted">
         <Spinner size={15} />
         Loading the answer…
       </div>

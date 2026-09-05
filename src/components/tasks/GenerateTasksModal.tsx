@@ -152,7 +152,7 @@ export function GenerateTasksModal({
 
         {rows === null ? (
           busy ? (
-            <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+            <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
               <Spinner size={16} />
               Reading the brief and the weeks it is based on…
             </div>
@@ -182,7 +182,7 @@ export function GenerateTasksModal({
               </p>
             )}
 
-            <ul className="space-y-2.5">
+            <ul className="space-y-3">
               {rows.map((r, i) => (
                 <li
                   key={i}
@@ -244,7 +244,7 @@ export function GenerateTasksModal({
             </ul>
 
             {isProfessor && (
-              <label className="block space-y-1.5">
+              <label className="block space-y-2">
                 <span className="text-[13px] font-medium text-ink">Who gets them</span>
                 <Select
                   value={target}

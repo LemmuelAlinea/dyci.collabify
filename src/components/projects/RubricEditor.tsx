@@ -30,7 +30,7 @@ export function RubricEditor({
           one.
         </p>
       ) : (
-        <ul className="space-y-2.5">
+        <ul className="space-y-3">
           {rows.map((r, i) => (
             <li
               key={i}

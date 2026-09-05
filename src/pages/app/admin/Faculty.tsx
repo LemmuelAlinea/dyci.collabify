@@ -90,7 +90,7 @@ export default function Faculty() {
 
   if (rows === null) {
     return (
-      <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
         <Spinner size={16} />
         Reading the load…
       </div>
@@ -178,8 +178,8 @@ function LoadStrip({ accounts, load }: { accounts: Account[]; load: Map<string, 
   const waiting = accounts.filter((a) => a.status !== 'active').length
 
   return (
-    <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+    <section className="card p-4 sm:p-5 shadow-card">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Figure value={`${teaching.length}/${active.length}`} label="professors with a load" />
         <Figure value={classes} label="classes running" />
         <Figure value={students} label="student places filled" />

@@ -36,7 +36,7 @@ export default function Messages({ role }: { role: 'professor' | 'student' }) {
           }`}
         >
           {conversations === null ? (
-            <div className="flex items-center gap-2.5 px-4 py-10 text-[14px] text-muted">
+            <div className="flex items-center gap-3 px-4 py-10 text-[14px] text-muted">
               <Spinner size={16} />
               Loading…
             </div>
@@ -94,7 +94,7 @@ export default function Messages({ role }: { role: 'professor' | 'student' }) {
               backTo={base}
             />
           ) : (
-            <div className="flex items-center gap-2.5 p-6 text-[14px] text-muted">
+            <div className="flex items-center gap-3 p-6 text-[14px] text-muted">
               <Spinner size={16} />
               Loading…
             </div>

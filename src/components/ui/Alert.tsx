@@ -38,7 +38,7 @@ export function Alert({
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
-      className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-[13px] leading-relaxed ${map.cls}`}
+      className={`flex items-start gap-3 rounded-xl border px-3.5 py-3 text-[13px] leading-relaxed ${map.cls}`}
     >
       <Icon name={map.icon} size={17} className="mt-px shrink-0" />
       <div className="min-w-0 flex-1">{children}</div>

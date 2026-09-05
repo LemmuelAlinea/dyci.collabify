@@ -112,7 +112,7 @@ export default function ProfessorClassDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2.5 py-16 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-16 text-[14px] text-muted">
         <Spinner size={16} />
         Loading class…
       </div>

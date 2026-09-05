@@ -67,7 +67,7 @@ export function TaskDetailPanel({
             {task.assignees.length === 0 ? (
               <span className="text-faint">Unclaimed</span>
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {task.assignees.map(
                   (a) =>
                     a.profile && (

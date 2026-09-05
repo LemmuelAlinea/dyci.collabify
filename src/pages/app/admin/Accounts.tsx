@@ -98,7 +98,7 @@ export default function Accounts() {
 
   if (rows === null) {
     return (
-      <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
         <Spinner size={16} />
         Loading accounts…
       </div>
@@ -126,7 +126,7 @@ export default function Accounts() {
         leaves the work where it belongs.
       </p>
 
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-3">
         <FilterPopover
           active={[query, role].filter(Boolean).length}
           summary={[query && `“${query}”`, role && ROLE_FILTERS.find((r) => r.value === role)?.label]
@@ -162,7 +162,7 @@ export default function Accounts() {
       {shown.length === 0 ? (
         <EmptyState icon="users" title="Nobody matches" body="Try a different name or role." />
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {shown.map((a) => {
             const self = a.id === profile?.id
             const isAdmin = a.role === 'admin'
@@ -199,7 +199,7 @@ export default function Accounts() {
                 {isAdmin || self ? (
                   <span className="shrink-0 text-[12px] text-faint">Not editable here</span>
                 ) : (
-                  <span className="flex shrink-0 flex-wrap gap-1.5">
+                  <span className="flex shrink-0 flex-wrap gap-2">
                     <Button
                       variant="ghost"
                       size="sm"

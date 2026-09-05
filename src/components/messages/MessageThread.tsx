@@ -131,7 +131,7 @@ export function MessageThread({
           <button
             type="button"
             onClick={() => setShowPins((v) => !v)}
-            className="flex w-full items-start gap-2.5 text-left"
+            className="flex w-full items-start gap-3 text-left"
           >
             <Icon
               name="pin"
@@ -157,7 +157,7 @@ export function MessageThread({
             )}
           </button>
           {showPins && pinned.length > 1 && (
-            <ul className="mt-2 space-y-1.5 border-t border-amber-400/25 pt-2">
+            <ul className="mt-2 space-y-2 border-t border-amber-400/25 pt-2">
               {pinned.slice(0, -1).map((m) => (
                 <li key={m.id} className="truncate text-[12px] text-muted">
                   {m.body || 'Attachment'}
@@ -178,7 +178,7 @@ export function MessageThread({
         {error && <Alert tone="error">{error}</Alert>}
 
         {messages === null ? (
-          <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+          <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
             <Spinner size={16} />
             Loading messages…
           </div>
@@ -193,13 +193,13 @@ export function MessageThread({
             </div>
           </div>
         ) : (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {messages.map((m, i) => {
               const prev = messages[i - 1]
               const newDay = !prev || dayLabel(prev.created_at) !== dayLabel(m.created_at)
               const showSender = newDay || !prev || prev.sender_id !== m.sender_id
               return (
-                <div key={m.id} className="space-y-2.5">
+                <div key={m.id} className="space-y-3">
                   {newDay && (
                     <p className="py-2 text-center font-mono text-[12px] tracking-wider text-faint uppercase">
                       {dayLabel(m.created_at)}

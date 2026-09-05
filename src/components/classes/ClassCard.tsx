@@ -40,7 +40,7 @@ export function ClassCard({ cls, to }: { cls: ClassSummary; to: string }) {
           element cannot answer its own container query, so the card declares
           the container and everything inside it measures against that. */}
       <div className="flex w-full flex-col p-3.5 @min-[240px]:p-5">
-      <div className="flex items-start gap-2.5 @min-[240px]:gap-3.5">
+      <div className="flex items-start gap-3 @min-[240px]:gap-3.5">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-navy-600 font-display text-[12px] font-bold tracking-tight text-amber-400 @min-[240px]:h-12 @min-[240px]:w-12 @min-[240px]:rounded-xl @min-[240px]:text-[14px] dark:bg-navy-500">
           {cls.initial}
         </span>
@@ -70,7 +70,7 @@ export function ClassCard({ cls, to }: { cls: ClassSummary; to: string }) {
       {/* Wraps on a narrow card instead of squeezing the code pill. */}
       <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-t border-line pt-2.5 @min-[240px]:pt-3.5">
         <ClassCodePill code={cls.code} />
-        <span className="flex items-center gap-1.5 text-[12px] text-muted @min-[240px]:text-[12px]">
+        <span className="flex items-center gap-2 text-[12px] text-muted @min-[240px]:text-[12px]">
           <Icon name="users" size={14} />
           {cls.student_count}
           <span className="hidden @min-[240px]:inline">

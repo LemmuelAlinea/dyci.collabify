@@ -36,11 +36,11 @@ export function DiagnosisList({ rows }: { rows: BoardDiagnosis[] }) {
 
   return (
     <div className="space-y-3">
-      <ul className="grid gap-2.5 sm:gap-3 lg:grid-cols-2">
+      <ul className="grid gap-3 sm:gap-3 lg:grid-cols-2">
         {(all ? diagnosed : diagnosed.slice(0, SHOWN)).map(({ d, causes }) => (
           <li
             key={d.board_id}
-            className="surface rounded-card border border-line p-3 shadow-card sm:p-4"
+            className="card p-3 shadow-card sm:p-4"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
@@ -54,7 +54,7 @@ export function DiagnosisList({ rows }: { rows: BoardDiagnosis[] }) {
               </span>
             </div>
 
-            <ul className="mt-3 space-y-1.5">
+            <ul className="mt-3 space-y-2">
               {causes.map((c) => (
                 <li key={c.key} className="flex items-start gap-2 text-[13px] leading-relaxed">
                   <Icon

@@ -29,7 +29,7 @@ export function ClassRail({ classes }: { classes: ClassSummary[] }) {
           <li key={c.id}>
             <Link
               to={`/professor/classes/${c.id}`}
-              className="surface flex items-start gap-2.5 rounded-xl border border-line px-3 py-2.5 transition-colors hover:border-line-strong sm:gap-3 sm:px-3.5 sm:py-3"
+              className="surface flex items-start gap-3 rounded-xl border border-line px-3 py-2.5 transition-colors hover:border-line-strong sm:gap-3 sm:px-3.5 sm:py-3"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg surface-sunken font-mono text-[12px] font-bold text-navy-600 dark:text-amber-300">
                 {c.initial}
@@ -46,7 +46,7 @@ export function ClassRail({ classes }: { classes: ClassSummary[] }) {
                   </span>
                 </span>
                 {notReady && (
-                  <span className="mt-1.5 flex items-start gap-1.5 text-[12px] leading-snug text-amber-700 dark:text-amber-300">
+                  <span className="mt-1.5 flex items-start gap-2 text-[12px] leading-snug text-amber-700 dark:text-amber-300">
                     <Icon name="alert" size={12} className="mt-0.5 shrink-0" />
                     {noSyllabus && noDates
                       ? 'No syllabus and no term dates'

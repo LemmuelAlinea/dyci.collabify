@@ -99,7 +99,7 @@ export function RandomPreview({
                     return (
                       <li
                         key={sid}
-                        className="flex items-center gap-1.5 rounded-full surface-sunken py-1 pr-2.5 pl-1"
+                        className="flex items-center gap-2 rounded-full surface-sunken py-1 pr-2.5 pl-1"
                       >
                         <Avatar profile={p} size={20} />
                         <span className="text-[12px] text-ink">

@@ -51,7 +51,7 @@ export function SeriesScope({
             {' '}{verb === 'change' ? 'change' : verb}.
           </p>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           <button
             type="button"
             onClick={() => onChange(all.filter((id) => id !== current))}
@@ -69,7 +69,7 @@ export function SeriesScope({
         </div>
       </div>
 
-      <ul className="mt-3 space-y-1.5">
+      <ul className="mt-3 space-y-2">
         {members.map((m) => {
           const on = isOn(m.project_id)
           const here = m.project_id === current

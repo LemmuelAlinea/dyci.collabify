@@ -93,7 +93,7 @@ function Section({
 function Saved({ show, text = 'Saved' }: { show: boolean; text?: string }) {
   if (!show) return null
   return (
-    <span className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
+    <span className="flex items-center gap-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
       <Icon name="check" size={15} strokeWidth={2.6} />
       {text}
     </span>
@@ -317,7 +317,7 @@ export default function Settings() {
         </Section>
 
         <Section icon="palette" title="Appearance" description="Applies on this device right away, and follows your account.">
-          <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-3 gap-3 sm:gap-3">
             {APPEARANCE.map((a) => {
               const active = mode === a.mode
               return (
@@ -359,7 +359,7 @@ export default function Settings() {
             </div>
           )}
           {!prefs ? (
-            <div className="flex items-center gap-2.5 py-4 text-[14px] text-muted">
+            <div className="flex items-center gap-3 py-4 text-[14px] text-muted">
               <Spinner size={16} />
               Loading your preferences…
             </div>

@@ -192,7 +192,7 @@ export function ProjectWizard({
         {error && <Alert tone="error">{error}</Alert>}
 
         {!fixedClassId && !editing && (
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-[13px] font-medium text-ink">Class</span>
             <Select
               value={classId}
@@ -217,7 +217,7 @@ export function ProjectWizard({
             Pick the class first — its syllabus decides what a project can be based on.
           </p>
         ) : weeks === null ? (
-          <div className="flex items-center gap-2.5 py-8 text-[14px] text-muted">
+          <div className="flex items-center gap-3 py-8 text-[14px] text-muted">
             <Spinner size={16} />
             Reading the syllabus…
           </div>
@@ -229,7 +229,7 @@ export function ProjectWizard({
             </p>
             <Link
               to="/professor/classes"
-              className="mt-2 inline-flex items-center gap-1.5 font-medium hover:underline"
+              className="mt-2 inline-flex items-center gap-2 font-medium hover:underline"
             >
               <Icon name="edit" size={14} />
               Attach one in the class settings
@@ -240,7 +240,7 @@ export function ProjectWizard({
             <p>The syllabus on this class has no weeks yet.</p>
             <Link
               to={`/professor/syllabi/${cls.syllabus_id}`}
-              className="mt-2 inline-flex items-center gap-1.5 font-medium hover:underline"
+              className="mt-2 inline-flex items-center gap-2 font-medium hover:underline"
             >
               <Icon name="calendar" size={14} />
               Open the syllabus and add its weeks

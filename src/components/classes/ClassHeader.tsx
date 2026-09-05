@@ -36,7 +36,7 @@ export function ClassHeader({
     <header>
       <Link
         to={backTo}
-        className="inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-ink"
+        className="inline-flex items-center gap-2 text-[13px] text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={16} />
         All classes
@@ -67,7 +67,7 @@ export function ClassHeader({
                   {cls.code}
                   <Icon name={copied ? 'check' : 'copy'} size={14} />
                 </button>
-                <span className="flex items-center gap-1.5 text-[13px] text-white/65">
+                <span className="flex items-center gap-2 text-[13px] text-white/65">
                   <Icon name="users" size={15} />
                   {cls.student_count} {cls.student_count === 1 ? 'student' : 'students'}
                 </span>

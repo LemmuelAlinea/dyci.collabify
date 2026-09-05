@@ -151,7 +151,7 @@ export function ResourceLibrary({
               Published for the whole program. Attach one to a class from the class settings
               and every section of the subject runs the same one.
             </p>
-            <ul className="space-y-1.5">
+            <ul className="space-y-2">
               {published.map((r) => (
                 <li
                   key={r.id}
@@ -173,7 +173,7 @@ export function ResourceLibrary({
         )}
 
         {items === null ? (
-          <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+          <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
             <Spinner size={16} />
             Loading…
           </div>

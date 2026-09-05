@@ -150,7 +150,7 @@ export function AssigneePicker({
                       await (on ? onRelease(m.student_id) : onClaim(m.student_id))
                       setOpen(false)
                     }}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-[var(--surface-sunken)] disabled:pointer-events-none disabled:opacity-45 sm:px-3 sm:py-2"
+                    className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-[var(--surface-sunken)] disabled:pointer-events-none disabled:opacity-45 sm:px-3 sm:py-2"
                   >
                     <Avatar profile={m.profile} size={24} />
                     <span className="min-w-0 flex-1 truncate text-[14px] text-ink sm:text-[13px]">

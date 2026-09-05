@@ -42,7 +42,7 @@ function MemberLoadBar({ load }: { load?: GroupMemberLoad }) {
   }
   const pct = load.personal_pct ?? 0
   return (
-    <div className="mt-1.5 flex items-center gap-2.5">
+    <div className="mt-1.5 flex items-center gap-3">
       <span className="h-1.5 max-w-[220px] flex-1 overflow-hidden rounded-full surface-sunken">
         <span
           className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
@@ -183,7 +183,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2.5 py-16 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-16 text-[14px] text-muted">
         <Spinner size={16} />
         Loading group…
       </div>
@@ -202,7 +202,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
     <div className="mx-auto w-full max-w-[1180px]">
       <Link
         to={base}
-        className="inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-ink"
+        className="inline-flex items-center gap-2 text-[13px] text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={16} />
         All groups
@@ -496,7 +496,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
               />
             )}
           </Field>
-          <label className="flex items-start gap-2.5 text-[14px] text-ink">
+          <label className="flex items-start gap-3 text-[14px] text-ink">
             <input
               type="checkbox"
               checked={applyAll}

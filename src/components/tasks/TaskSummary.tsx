@@ -107,7 +107,7 @@ function StatusDonut({ counts, total }: { counts: Record<TaskStatus, number>; to
 
       <ul className="space-y-2">
         {TASK_STATUSES.map((s) => (
-          <li key={s.value} className="flex items-center gap-2.5 text-[13px]">
+          <li key={s.value} className="flex items-center gap-3 text-[13px]">
             <span
               className="h-2.5 w-2.5 rounded-full"
               style={{ background: RING[s.value] }}
@@ -192,7 +192,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
       {/* The late tile only appears once there is something late, so a class
           that is keeping up sees the same four it always did. */}
       <div
-        className={`grid grid-cols-2 gap-2.5 sm:gap-3 ${
+        className={`grid grid-cols-2 gap-3 sm:gap-3 ${
           handedInLate > 0 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'
         }`}
       >
@@ -212,7 +212,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
+        <section className="card p-4 sm:p-5 shadow-card">
           <h3 className="">Where it stands</h3>
           <p className="mt-1 mb-4 text-[13px] text-muted">
             Every task in view, by status.
@@ -224,7 +224,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
             <StatusDonut counts={counts} total={rows.length} />
           )}
           {unclaimed.length > 0 && (
-            <p className="mt-4 flex items-center gap-1.5 text-[12px] text-amber-700 dark:text-amber-300">
+            <p className="mt-4 flex items-center gap-2 text-[12px] text-amber-700 dark:text-amber-300">
               <Icon name="alert" size={13} />
               {unclaimed.length} {unclaimed.length === 1 ? 'task has' : 'tasks have'} nobody on
               them
@@ -244,7 +244,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
             <p className="text-[13px] text-muted">Nothing has happened here yet.</p>
           ) : (
             // Fixed height, scrolled: a long trail should not push the page down.
-            <ol className="-mr-2 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-2">
+            <ol className="-mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
               {events.map((e) => (
                 <li key={e.id} className="flex items-baseline justify-between gap-3">
                   <p className="min-w-0 text-[13px] text-muted">
@@ -268,7 +268,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
       </div>
 
       {load.size > 0 && (
-        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
+        <section className="card p-4 sm:p-5 shadow-card">
           <h3 className="">Who is carrying what</h3>
           <p className="mt-1 mb-3 text-[13px] text-muted">
             Tasks held, and how many of them are finished.

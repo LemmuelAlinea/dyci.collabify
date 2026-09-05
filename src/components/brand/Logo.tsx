@@ -50,7 +50,7 @@ export function Logo({
   const sub = tone === 'onDark' ? 'text-white/60' : 'text-muted'
 
   return (
-    <span className="flex items-center gap-2.5">
+    <span className="flex items-center gap-3">
       <LogoMark size={size} tone={tone} />
       <span className="flex flex-col leading-none">
         <span className={`font-display text-[19px] font-extrabold tracking-[-0.04em] ${word}`}>

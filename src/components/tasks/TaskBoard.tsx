@@ -158,7 +158,7 @@ export function TaskBoard({
           {TASK_STATUSES.map((column) => {
             const inColumn = tasks.filter((t) => t.status === column.value)
             return (
-              <section key={column.value} className="space-y-2.5">
+              <section key={column.value} className="space-y-3">
                 <header className="flex items-baseline justify-between gap-2 border-b border-line pb-2">
                   <h3 className={` font-semibold ${COLUMN_TONE[column.value]}`}>
                     {column.label}

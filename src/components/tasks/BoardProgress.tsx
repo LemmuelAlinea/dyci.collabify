@@ -12,7 +12,7 @@ export function BoardProgress({ board }: { board: BoardSummary }) {
   const left = Math.max(0, 100 - done - doing)
 
   return (
-    <div className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
+    <div className="card p-4 sm:p-5 shadow-card">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="eyebrow text-amber-500 dark:text-amber-300">Group progress</p>
@@ -44,7 +44,7 @@ export function BoardProgress({ board }: { board: BoardSummary }) {
         <Legend colour="bg-amber-400" label="In progress" value={doing} />
         <Legend colour="surface-sunken border border-line" label="Not started" value={left} />
         {unclaimed > 0 && (
-          <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+          <span className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
             <Icon name="alert" size={13} />
             {unclaimed}% belongs to nobody yet
           </span>
@@ -56,7 +56,7 @@ export function BoardProgress({ board }: { board: BoardSummary }) {
 
 function Legend({ colour, label, value }: { colour: string; label: string; value: number }) {
   return (
-    <span className="flex items-center gap-1.5 text-muted">
+    <span className="flex items-center gap-2 text-muted">
       <span className={`h-2.5 w-2.5 rounded-full ${colour}`} />
       {label}
       <span className="font-mono text-faint">{Math.round(value * 10) / 10}%</span>

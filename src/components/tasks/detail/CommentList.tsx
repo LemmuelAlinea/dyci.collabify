@@ -68,7 +68,7 @@ export function CommentList({
             const mine = c.author_id === viewerId
             const isEditing = editing?.id === c.id
             return (
-              <li key={c.id} className="flex gap-2.5">
+              <li key={c.id} className="flex gap-3">
                 {c.author ? (
                   <Avatar profile={c.author} size={30} />
                 ) : (

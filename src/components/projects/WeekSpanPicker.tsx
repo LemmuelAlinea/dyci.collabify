@@ -27,7 +27,7 @@ export function WeekSpanPicker({
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1.5">
+        <label className="space-y-2">
           <span className="block text-[13px] font-medium text-ink">From week</span>
           <Select
             value={String(value.start)}
@@ -42,7 +42,7 @@ export function WeekSpanPicker({
           />
         </label>
 
-        <label className="space-y-1.5">
+        <label className="space-y-2">
           <span className="block text-[13px] font-medium text-ink">To week</span>
           <Select
             value={String(value.end)}
@@ -89,7 +89,7 @@ export function WeekSpanPicker({
               <p className="mt-1 text-[13px] leading-relaxed text-muted">{w.topics}</p>
             )}
             {w.assessments && (
-              <p className="mt-1.5 flex gap-1.5 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
+              <p className="mt-1.5 flex gap-2 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
                 <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
                 {w.assessments}
               </p>

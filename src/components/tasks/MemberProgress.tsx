@@ -25,7 +25,7 @@ export function MemberProgress({
   const cap = rows[0].cap_pct
 
   return (
-    <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
+    <section className="card p-4 sm:p-5 shadow-card">
       <h3 className="">{title}</h3>
       <p className="mt-1 text-[13px] text-muted">
         {dense ? (

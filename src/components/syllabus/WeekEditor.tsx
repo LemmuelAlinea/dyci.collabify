@@ -41,13 +41,13 @@ function WeekRow({
   }
 
   return (
-    <li className="surface rounded-card border border-line p-4 shadow-card md:p-5">
+    <li className="card p-4 shadow-card md:p-5">
       <div className="flex items-start gap-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-navy-600 font-mono text-[12px] font-bold text-amber-400 dark:bg-navy-500">
           {week.week_no}
         </span>
 
-        <div className="min-w-0 flex-1 space-y-2.5">
+        <div className="min-w-0 flex-1 space-y-3">
           <input
             value={draft.title}
             onChange={(e) => setDraft({ ...draft, title: e.target.value })}

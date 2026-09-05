@@ -79,7 +79,7 @@ export default function SyllabusDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2.5 py-16 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-16 text-[14px] text-muted">
         <Spinner size={16} />
         Loading syllabus…
       </div>
@@ -100,7 +100,7 @@ export default function SyllabusDetail() {
     <div className="mx-auto w-full max-w-[1180px]">
       <Link
         to="/professor/syllabi"
-        className="inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-ink"
+        className="inline-flex items-center gap-2 text-[13px] text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={16} />
         All syllabi

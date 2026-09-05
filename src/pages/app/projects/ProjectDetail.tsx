@@ -131,7 +131,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2.5 py-16 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-16 text-[14px] text-muted">
         <Spinner size={16} />
         Loading project…
       </div>
@@ -160,7 +160,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
     <div className="mx-auto w-full max-w-[1280px]">
       <Link
         to={`${base}/projects`}
-        className="inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-ink"
+        className="inline-flex items-center gap-2 text-[13px] text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={15} />
         All projects
@@ -188,7 +188,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
             {/* Said here because every action on this page can reach further
                 than the page itself. */}
             {inSeries && (
-              <p className="mt-2 flex items-start gap-1.5 text-[13px] text-white/60">
+              <p className="mt-2 flex items-start gap-2 text-[13px] text-white/60">
                 <Icon name="copy" size={14} className="mt-0.5 shrink-0" />
                 <span>
                   Also set for {others.map((m) => m.section).join(', ')} — each with its
@@ -275,22 +275,22 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           {/* Says the state wherever you are on the page — the Close button
               alone only reads as the state once you look at its label. */}
           {project.locked_at && (
-            <span className="flex items-center gap-1.5 rounded-lg bg-amber-400/20 px-2.5 py-1 font-mono text-[12px] text-amber-200">
+            <span className="flex items-center gap-2 rounded-lg bg-amber-400/20 px-2.5 py-1 font-mono text-[12px] text-amber-200">
               <Icon name="lock" size={14} />
               CLOSED
             </span>
           )}
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-2">
             <Icon name="clock" size={15} />
             {dueLabel(project.due_at)}
           </span>
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-2">
             <Icon name={project.audience === 'group' ? 'users' : 'user'} size={15} />
             {project.audience === 'group' ? 'One submission per group' : 'One per student'}
           </span>
           <span className="font-mono">{project.total_points} points</span>
           {project.scheduled && project.release_at && (
-            <span className="flex items-center gap-1.5 text-amber-300">
+            <span className="flex items-center gap-2 text-amber-300">
               <Icon name="eyeOff" size={15} />
               Hidden until {new Date(project.release_at).toLocaleString()}
             </span>
@@ -324,7 +324,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         )}
 
         {/* The syllabus lines it was built on — the reason the project exists. */}
-        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card sm:p-6">
+        <section className="card p-4 sm:p-5 shadow-card sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <h2 className="">Based on the syllabus</h2>
             <StatusPill project={project} />
@@ -334,7 +334,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
               The weeks behind this project are no longer in the syllabus.
             </p>
           ) : (
-            <ul className="mt-4 space-y-2.5">
+            <ul className="mt-4 space-y-3">
               {span.map((w) => (
                 <li key={w.week_id} className="rounded-xl border border-line px-4 py-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -348,7 +348,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                     <p className="mt-1 text-[13px] leading-relaxed text-muted">{w.topics}</p>
                   )}
                   {w.assessments && (
-                    <p className="mt-1.5 flex gap-1.5 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
+                    <p className="mt-1.5 flex gap-2 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
                       <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
                       {w.assessments}
                     </p>
@@ -359,7 +359,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           )}
         </section>
 
-        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card sm:p-6">
+        <section className="card p-4 sm:p-5 shadow-card sm:p-6">
           <h2 className="">Guidelines</h2>
           {project.guidelines ? (
             <p className="mt-3 text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
@@ -374,7 +374,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           )}
         </section>
 
-        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card sm:p-6">
+        <section className="card p-4 sm:p-5 shadow-card sm:p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="">Rubric</h2>
             {criteria.length > 0 && (
@@ -408,7 +408,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           )}
         </section>
 
-        <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card sm:p-6">
+        <section className="card p-4 sm:p-5 shadow-card sm:p-6">
           <h2 className="">Files</h2>
           {files.length === 0 ? (
             <p className="mt-2 text-[13px] text-faint">Nothing attached.</p>

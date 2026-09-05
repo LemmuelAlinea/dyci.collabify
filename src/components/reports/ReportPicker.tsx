@@ -198,7 +198,7 @@ function Catalogue({
   return (
     <div className={dense ? 'space-y-3' : 'space-y-4'}>
       {catalogue.map((g) => (
-        <div key={g.group} className={dense ? 'space-y-1' : 'space-y-1.5'}>
+        <div key={g.group} className={dense ? 'space-y-1' : 'space-y-2'}>
           <p
             className={
               dense
@@ -322,7 +322,7 @@ export function ReportBar({
   const needs = NEEDS[r.kind].length
 
   return (
-    <div className="space-y-2.5 @min-[860px]:hidden print:hidden">
+    <div className="space-y-3 @min-[860px]:hidden print:hidden">
       <button
         type="button"
         onClick={() => setOpen(true)}

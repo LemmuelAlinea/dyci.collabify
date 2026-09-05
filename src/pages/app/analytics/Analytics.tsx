@@ -33,7 +33,7 @@ export default function Analytics() {
 
   if (data.loading) {
     return (
-      <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
         <Spinner size={16} />
         Working it out…
       </div>
@@ -85,7 +85,7 @@ export default function Analytics() {
                   {shownTasks.length}
                 </span>
               </h2>
-              <ul className="max-h-[460px] space-y-1.5 overflow-y-auto pr-1">
+              <ul className="max-h-[460px] space-y-2 overflow-y-auto pr-1">
                 {shownTasks.map((t) => {
                   const due = dueSoonLabel(t.due_at)
                   return (

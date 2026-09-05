@@ -33,7 +33,7 @@ export function Sheet({
   signatureLabel?: string
 }) {
   return (
-    <article className="sheet surface rounded-card border border-line p-4 sm:p-5 sm:p-8 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none">
+    <article className="sheet card p-4 sm:p-5 sm:p-8 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none">
       <header className="flex items-start gap-4 border-b border-line-strong pb-4">
         <img src={logo} alt="" className="h-14 w-14 shrink-0 object-contain" />
         <div className="min-w-0 flex-1">

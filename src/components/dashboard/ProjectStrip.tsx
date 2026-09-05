@@ -30,7 +30,7 @@ export function ProjectStrip({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+    <div className="grid grid-cols-2 gap-3 sm:gap-3">
       {live.map((p) => {
         const board = boards.find((b) => b.project_id === p.id)
         const pct = board ? Number(board.done_pct) : 0
@@ -41,7 +41,7 @@ export function ProjectStrip({
             to={`${linkBase}/${p.id}`}
             className="surface flex flex-col rounded-card border border-line p-3 shadow-card transition-colors duration-250 hover:border-line-strong sm:p-4"
           >
-            <div className="flex items-start gap-2 sm:gap-2.5">
+            <div className="flex items-start gap-2 sm:gap-3">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg surface-sunken text-muted sm:h-8 sm:w-8">
                 <Icon name={meta?.icon ?? 'folder'} size={15} />
               </span>
@@ -80,7 +80,7 @@ export function ProjectStrip({
                 wraps to a second line on every card. The relative half is the
                 part anybody reads at a glance; the date returns with the room
                 for it. */}
-            <p className="mt-2 flex items-center gap-1.5 text-[12px] text-faint">
+            <p className="mt-2 flex items-center gap-2 text-[12px] text-faint">
               <Icon name="clock" size={12} className="shrink-0" />
               <span className="truncate sm:hidden">{dueLabelShort(p.due_at)}</span>
               <span className="hidden truncate sm:inline">{dueLabel(p.due_at)}</span>

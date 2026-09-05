@@ -60,7 +60,7 @@ function Attachment({ attachment, mine }: { attachment: MessageAttachment; mine:
     <button
       type="button"
       onClick={open}
-      className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+      className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
         mine
           ? 'border-white/20 hover:bg-white/10'
           : 'border-line hover:bg-[var(--surface-sunken)]'
@@ -131,7 +131,7 @@ export function MessageBubble({
   }
 
   return (
-    <div className={`group flex gap-2.5 ${mine ? 'flex-row-reverse' : ''}`}>
+    <div className={`group flex gap-3 ${mine ? 'flex-row-reverse' : ''}`}>
       {!mine && (
         <span className="w-8 shrink-0">
           {showSender && message.sender && (
@@ -266,7 +266,7 @@ export function MessageBubble({
                         setEditing(true)
                         setMenuOpen(false)
                       }}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
+                      className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
                     >
                       <Icon name="edit" size={15} className="text-muted" />
                       Edit
@@ -278,7 +278,7 @@ export function MessageBubble({
                       onTogglePin(message)
                       setMenuOpen(false)
                     }}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
+                    className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
                   >
                     <Icon name="pin" size={15} className="text-muted" />
                     {message.pinned ? 'Unpin' : 'Pin to top'}
@@ -289,7 +289,7 @@ export function MessageBubble({
                       onDeleteForMe(message.id)
                       setMenuOpen(false)
                     }}
-                    className="flex w-full items-center gap-2.5 border-t border-line px-3.5 py-2.5 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
+                    className="flex w-full items-center gap-3 border-t border-line px-3.5 py-2.5 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
                   >
                     <Icon name="eyeOff" size={15} className="text-muted" />
                     Delete for me
@@ -301,7 +301,7 @@ export function MessageBubble({
                         onDeleteForEveryone(message.id)
                         setMenuOpen(false)
                       }}
-                      className="flex w-full items-center gap-2.5 border-t border-line px-3.5 py-2.5 text-left text-[13px] text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                      className="flex w-full items-center gap-3 border-t border-line px-3.5 py-2.5 text-left text-[13px] text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
                     >
                       <Icon name="trash" size={15} />
                       Delete for everyone

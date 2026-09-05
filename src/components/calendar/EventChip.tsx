@@ -65,7 +65,7 @@ export function EventChip({
       type="button"
       onClick={() => onOpen(event)}
       title={`${event.title} — ${event.class_initial} · ${event.project_title}`}
-      className={`flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-opacity hover:opacity-85 ${look.cls} ${
+      className={`flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-opacity hover:opacity-85 ${look.cls} ${
         compact ? 'text-[12px]' : 'text-[12px]'
       } ${event.done && event.kind === 'task_due' ? 'line-through opacity-60' : ''}`}
     >

@@ -103,7 +103,7 @@ export function TaskFileGrid({
       )}
 
       {open && !isAssignee && files.length > 0 && (
-        <p className="flex items-center gap-1.5 text-[12px] text-faint">
+        <p className="flex items-center gap-2 text-[12px] text-faint">
           <Icon name="info" size={13} />
           Claim this task to add or remove files.
         </p>

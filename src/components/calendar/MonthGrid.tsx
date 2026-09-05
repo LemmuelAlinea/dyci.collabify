@@ -273,7 +273,7 @@ export function MonthGrid({
               Nothing is due on this day.
             </p>
           ) : (
-            <ul className="space-y-1.5">
+            <ul className="space-y-2">
               {pickedEvents.map((e) => (
                 <li key={`${e.kind}:${e.ref_id}`}>
                   <EventChip event={e} onOpen={onOpen} />

@@ -131,7 +131,7 @@ export function CreatePollDialog({
           <button
             type="button"
             onClick={() => setOptions((list) => [...list, ''])}
-            className="mt-2.5 flex items-center gap-1.5 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+            className="mt-2.5 flex items-center gap-2 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
           >
             <Icon name="plus" size={15} />
             Add option

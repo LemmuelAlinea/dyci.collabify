@@ -108,7 +108,7 @@ export function FanOutForm({
               : `On ${editing.boards} ${editing.boards === 1 ? 'board' : 'boards'}, none started yet.`}
           </p>
         ) : (
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-[13px] font-medium text-ink">Who gets it</span>
             <Select
               value={target}

@@ -56,7 +56,7 @@ export function ClassSyllabusTab({
 
   if (weeks === null) {
     return (
-      <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
         <Spinner size={16} />
         Loading week map…
       </div>
@@ -92,7 +92,7 @@ export function ClassSyllabusTab({
       {error && <Alert tone="error">{error}</Alert>}
 
       {role === 'professor' && (
-        <div className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
+        <div className="card p-4 sm:p-5 shadow-card">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[14px] font-semibold text-ink">Term dates</p>
@@ -214,7 +214,7 @@ export function ClassSyllabusTab({
       {role === 'professor' && weeks.length > 0 && (
         <Link
           to={`/professor/syllabi/${cls.syllabus_id}`}
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
         >
           <Icon name="edit" size={14} />
           Edit the syllabus weeks

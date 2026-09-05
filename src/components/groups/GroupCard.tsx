@@ -100,7 +100,7 @@ export function GroupCard({
           {/* One line at any width: on a phone it reads "3 · 14/24", which is
               what the icon and the bar underneath are already labelling. */}
           <p className="flex items-center justify-between gap-2 text-[12px] text-muted @min-[240px]:gap-x-3 @min-[240px]:text-[12px]">
-            <span className="flex min-w-0 items-center gap-1.5">
+            <span className="flex min-w-0 items-center gap-2">
               <Icon name="kanban" size={13} className="shrink-0 text-faint" />
               {work.projects}
               <span className="hidden @min-[240px]:inline">
@@ -129,7 +129,7 @@ export function GroupCard({
       )}
 
       {highlight && (
-        <p className="mt-2.5 flex items-center gap-1.5 text-[12px] font-medium text-amber-600 @min-[240px]:mt-3 @min-[240px]:text-[12px] dark:text-amber-300">
+        <p className="mt-2.5 flex items-center gap-2 text-[12px] font-medium text-amber-600 @min-[240px]:mt-3 @min-[240px]:text-[12px] dark:text-amber-300">
           <Icon name="check" size={14} strokeWidth={2.6} className="shrink-0" />
           Your group
         </p>

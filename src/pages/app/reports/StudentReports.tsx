@@ -116,7 +116,7 @@ export default function StudentReports() {
 
   if (rows === null) {
     return (
-      <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
         <Spinner size={16} />
         Gathering your work…
       </div>
@@ -145,7 +145,7 @@ export default function StudentReports() {
         />
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-2.5 print:hidden">
+          <div className="flex flex-wrap items-center gap-3 print:hidden">
             <div className="flex rounded-xl surface-sunken p-1">
               {(
                 [

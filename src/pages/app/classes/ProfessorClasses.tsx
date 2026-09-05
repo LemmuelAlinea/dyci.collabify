@@ -122,7 +122,7 @@ export default function ProfessorClasses() {
         {loadError && <Alert tone="error">{loadError}</Alert>}
 
         {classes === null ? (
-          <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+          <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
             <Spinner size={16} />
             Loading classes…
           </div>
@@ -145,7 +145,7 @@ export default function ProfessorClasses() {
             }
           />
         ) : (
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4 min-[2100px]:grid-cols-5 max-sm:[&>*:only-child]:col-span-2">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4 min-[2100px]:grid-cols-5 max-sm:[&>*:only-child]:col-span-2">
             {classes.map((c) => (
               <ClassCard key={c.id} cls={c} to={`/professor/classes/${c.id}`} />
             ))}

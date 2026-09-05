@@ -104,7 +104,7 @@ export default function Calendar() {
 
   if (events === null) {
     return (
-      <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
         <Spinner size={16} />
         Loading the calendar…
       </div>
@@ -135,7 +135,7 @@ export default function Calendar() {
               type="button"
               aria-pressed={view === v}
               onClick={() => setView(v)}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] capitalize transition-colors ${
+              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-[13px] capitalize transition-colors ${
                 view === v ? 'surface font-medium text-ink ring-1 ring-[var(--line-strong)]' : 'text-muted hover:text-ink'
               }`}
             >
@@ -191,7 +191,7 @@ export default function Calendar() {
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <h2 className=" sm:">{monthLabel}</h2>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"

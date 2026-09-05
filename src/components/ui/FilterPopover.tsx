@@ -72,7 +72,7 @@ export function FilterPopover({
   }, [open])
 
   return (
-    <div className="relative flex min-w-0 items-center gap-2.5" ref={ref}>
+    <div className="relative flex min-w-0 items-center gap-3" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

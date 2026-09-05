@@ -64,7 +64,7 @@ export default function Reassignments() {
 
   if (rows === null) {
     return (
-      <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
         <Spinner size={16} />
         Loading requests…
       </div>
@@ -115,7 +115,7 @@ export default function Reassignments() {
       {settled.length > 0 && (
         <section className="space-y-3">
           <h2 className="">Already decided</h2>
-          <ul className="space-y-2.5">
+          <ul className="space-y-3">
             {settled.map((r) => (
               <li
                 key={r.id}
@@ -153,7 +153,7 @@ export default function Reassignments() {
 
 function RequestCard({ row, onDecide }: { row: ReassignmentRow; onDecide: () => void }) {
   return (
-    <li className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
+    <li className="card p-4 sm:p-5 shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="eyebrow">
@@ -180,7 +180,7 @@ function RequestCard({ row, onDecide }: { row: ReassignmentRow; onDecide: () => 
 
       <Link
         to={`/professor/projects/${row.project_id}?tab=tasks&task=${row.task_id}`}
-        className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+        className="mt-3 inline-flex items-center gap-2 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
       >
         <Icon name="kanban" size={14} />
         Open the task
@@ -260,7 +260,7 @@ function DecideModal({
         <div className="space-y-5">
           {error && <Alert tone="error">{error}</Alert>}
 
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-[13px] font-medium text-ink">Who gets it</span>
             <Select
               value={target}
@@ -278,7 +278,7 @@ function DecideModal({
             </span>
           </label>
 
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-[13px] font-medium text-ink">
               A note back <span className="text-[12px] text-faint">optional</span>
             </span>

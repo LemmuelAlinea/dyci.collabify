@@ -64,7 +64,7 @@ export function PollCard({
     <div className="w-[min(78vw,340px)] space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-[12px] font-medium tracking-wide text-faint uppercase">
+          <p className="flex items-center gap-2 text-[12px] font-medium tracking-wide text-faint uppercase">
             <Icon name="chart" size={11} />
             Poll{poll.allow_multiple && ' · pick any'}
             {closed && ' · closed'}
@@ -111,7 +111,7 @@ export function PollCard({
                   className="absolute inset-y-0 left-0 bg-amber-400/15 transition-[width] duration-400"
                   style={{ width: `${pct}%` }}
                 />
-                <span className="relative flex items-center gap-2.5">
+                <span className="relative flex items-center gap-3">
                   {/* Full class names: Tailwind scans source statically, so a
                       constructed `rounded-${...}` would never be generated. */}
                   <span
@@ -164,7 +164,7 @@ export function PollCard({
         </p>
         {canAddOption &&
           (adding ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <input
                 autoFocus
                 value={draft}

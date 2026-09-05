@@ -159,7 +159,7 @@ export function NotificationBell() {
 
           <div className="max-h-[380px] overflow-y-auto">
             {items === null ? (
-              <div className="flex items-center gap-2.5 px-4 py-8 text-[13px] text-muted">
+              <div className="flex items-center gap-3 px-4 py-8 text-[13px] text-muted">
                 <Spinner size={15} />
                 Loading…
               </div>

@@ -8,7 +8,7 @@ import type { useAnalytics } from '../useAnalytics'
 
 function Tile({ value, label, tone }: { value: number | string; label: string; tone?: 'warn' }) {
   return (
-    <div className="surface rounded-card border border-line px-3 py-2.5 shadow-card sm:px-4 sm:py-3">
+    <div className="card px-3 py-2.5 shadow-card sm:px-4 sm:py-3">
       <p
         className={`font-mono text-[19px] ${
           tone === 'warn' && value !== 0 ? 'text-red-600 dark:text-red-400' : 'text-ink'
@@ -36,7 +36,7 @@ export function Descriptive({ data }: { data: ReturnType<typeof useAnalytics> })
         body="Counted from what has happened. Nothing in this band is projected or inferred."
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
         <Tile value={`${totals.done}/${totals.tasks}`} label="tasks done" />
         <Tile value={totals.boards} label="boards" />
         <Tile value={totals.submitted} label="handed in" />

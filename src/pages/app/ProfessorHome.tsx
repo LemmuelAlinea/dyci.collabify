@@ -87,7 +87,7 @@ export default function ProfessorHome() {
       )}
 
       {!data ? (
-        <div className="flex items-center gap-2.5 py-16 text-[14px] text-muted">
+        <div className="flex items-center gap-3 py-16 text-[14px] text-muted">
           <Spinner size={16} />
           Loading your dashboard…
         </div>

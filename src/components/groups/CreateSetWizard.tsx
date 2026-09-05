@@ -216,7 +216,7 @@ export function CreateSetWizard({
 
           <fieldset>
             <legend className="mb-2 text-[13px] font-medium text-ink">How to group</legend>
-            <div className="grid gap-2.5 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               {GROUPING_MODES.map((m) => {
                 const active = mode === m.value
                 return (

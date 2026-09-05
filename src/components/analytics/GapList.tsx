@@ -40,7 +40,7 @@ export function GapList({ gaps }: { gaps: ClassGap[] }) {
         )}
       </p>
 
-      <ul className="max-h-[300px] space-y-1.5 overflow-y-auto pr-1">
+      <ul className="max-h-[300px] space-y-2 overflow-y-auto pr-1">
         {sorted.map((g) => (
           <li
             key={`${g.class_id}-${g.week_no}`}

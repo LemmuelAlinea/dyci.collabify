@@ -62,7 +62,7 @@ export class ErrorBoundary extends Component<Props, State> {
           — if it keeps happening, tell whoever looks after Collabify what you were doing.
         </p>
 
-        <div className="mt-7 flex flex-wrap justify-center gap-2.5">
+        <div className="mt-7 flex flex-wrap justify-center gap-3">
           {/* Clearing the error remounts the children, which is a real retry:
               the page refetches from scratch rather than reusing what broke. */}
           <Button className="!rounded-xl" onClick={() => this.setState({ error: null })}>

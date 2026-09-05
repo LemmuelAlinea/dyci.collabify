@@ -97,7 +97,7 @@ export function DashboardSummary({
         {line}
       </p>
 
-      <div className="mt-5 grid grid-cols-2 gap-2.5 sm:mt-6 sm:gap-3 lg:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-6 sm:gap-3 lg:grid-cols-4">
         {tiles.map((t) => {
           const body = (
             <>

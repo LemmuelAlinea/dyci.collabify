@@ -58,7 +58,7 @@ export function ForecastSummary({ burns }: { burns: BoardBurn[] }) {
       </p>
 
       {late.length > 0 && (
-        <ul className="max-h-[260px] space-y-1.5 overflow-y-auto pr-1">
+        <ul className="max-h-[260px] space-y-2 overflow-y-auto pr-1">
           {late
             .sort((a, b) => (b.f.lateBy ?? 0) - (a.f.lateBy ?? 0))
             .map(({ b, f }) => (

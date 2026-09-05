@@ -54,7 +54,7 @@ export function WeekMap({ weeks }: { weeks: ClassWeek[] }) {
         </div>
       )}
 
-      <ol className="relative space-y-2.5 pl-6">
+      <ol className="relative space-y-3 pl-6">
         {/* The spine makes the term read as one run rather than loose cards. */}
         <span aria-hidden className="absolute top-2 bottom-2 left-[7px] w-px bg-[var(--line)]" />
 
@@ -92,14 +92,14 @@ export function WeekMap({ weeks }: { weeks: ClassWeek[] }) {
                   <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{w.topics}</p>
                 )}
                 {w.outcomes && (
-                  <p className="mt-1.5 flex gap-1.5 text-[12px] leading-relaxed text-faint">
+                  <p className="mt-1.5 flex gap-2 text-[12px] leading-relaxed text-faint">
                     <Icon name="target" size={13} className="mt-0.5 shrink-0" />
                     {w.outcomes}
                   </p>
                 )}
                 {/* What a project for this week would be built against. */}
                 {w.assessments && (
-                  <p className="mt-2 flex gap-1.5 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
+                  <p className="mt-2 flex gap-2 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
                     <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
                     {w.assessments}
                   </p>

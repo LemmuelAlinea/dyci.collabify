@@ -131,7 +131,7 @@ export function TaskCard({
         />
 
         {(counts?.file_count ?? 0) > 0 || (counts?.comment_count ?? 0) > 0 ? (
-          <span className="flex items-center gap-2.5 text-[12px] text-faint">
+          <span className="flex items-center gap-3 text-[12px] text-faint">
             {(counts?.file_count ?? 0) > 0 && (
               <span className="flex items-center gap-1" title="Files attached">
                 <Icon name="file" size={12} />
@@ -173,7 +173,7 @@ export function TaskCard({
           <button
             type="button"
             onClick={() => void onStatus(next.to)}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12px] font-medium text-navy-600 transition-colors hover:bg-[var(--surface-sunken)] dark:text-navy-200"
+            className="flex items-center gap-2 rounded-lg px-2 py-1 text-[12px] font-medium text-navy-600 transition-colors hover:bg-[var(--surface-sunken)] dark:text-navy-200"
           >
             <Icon name={next.icon} size={14} />
             {next.label}

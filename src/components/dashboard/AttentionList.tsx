@@ -18,7 +18,7 @@ export function AttentionList({ items }: { items: Attention[] }) {
         <li key={i.id}>
           <Link
             to={i.to}
-            className="surface flex items-start gap-2.5 rounded-xl border border-line px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:gap-3 sm:px-4 sm:py-3"
+            className="surface flex items-start gap-3 rounded-xl border border-line px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:gap-3 sm:px-4 sm:py-3"
           >
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg surface-sunken text-muted">
               <Icon name={i.icon} size={15} />

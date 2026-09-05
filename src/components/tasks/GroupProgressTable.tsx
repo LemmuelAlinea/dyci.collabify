@@ -143,7 +143,7 @@ export function GroupProgressTable({
           {solo ? 'No student matches that.' : 'No group matches that.'}
         </p>
       ) : (
-        <ul className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {shown.map((b) => {
             const pct = Number(b.done_pct)
             const open = b.id === activeId
@@ -165,7 +165,7 @@ export function GroupProgressTable({
                     <span className="min-w-0 truncate text-[14px] font-medium text-ink">
                       {boardOwnerName(b)}
                     </span>
-                    <span className="flex shrink-0 items-center gap-1.5">
+                    <span className="flex shrink-0 items-center gap-2">
                       {b.submitted_at && (
                         <span
                           title={`Handed in${b.submitted_by_name ? ` by ${b.submitted_by_name}` : ''}`}
@@ -220,7 +220,7 @@ export function GroupProgressTable({
         <button
           type="button"
           onClick={() => setAll((v) => !v)}
-          className="flex items-center gap-1.5 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+          className="flex items-center gap-2 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
         >
           <Icon name={all ? 'chevronDown' : 'chevronRight'} size={14} />
           {all

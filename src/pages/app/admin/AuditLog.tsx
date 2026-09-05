@@ -99,7 +99,7 @@ export default function AuditLog() {
 
   if (rows === null) {
     return (
-      <div className="flex items-center gap-2.5 py-10 text-[14px] text-muted">
+      <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
         <Spinner size={16} />
         Loading the log…
       </div>
@@ -157,7 +157,7 @@ export default function AuditLog() {
           {days.map(([day, list]) => (
             <li key={day}>
               <p className="eyebrow pb-2">{day}</p>
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {list.map((e) => (
                   <li
                     key={e.id}

@@ -28,7 +28,7 @@ export function DeadlineList({
           <li key={`${d.kind}-${d.id}`}>
             <Link
               to={d.to}
-              className={`surface flex items-center gap-2.5 rounded-xl border px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:gap-3 sm:px-4 sm:py-3 ${
+              className={`surface flex items-center gap-3 rounded-xl border px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:gap-3 sm:px-4 sm:py-3 ${
                 late ? 'border-red-300 dark:border-red-500/40' : 'border-line'
               }`}
             >

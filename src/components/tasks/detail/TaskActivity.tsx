@@ -51,7 +51,7 @@ function HistoryList({ events }: { events: TaskEvent[] }) {
     return <p className="text-[13px] text-muted">Nothing recorded yet.</p>
   }
   return (
-    <ol className="space-y-2.5">
+    <ol className="space-y-3">
       {events.map((e) => (
         <li key={e.id} className="flex items-baseline justify-between gap-3">
           <p className="min-w-0 text-[13px] text-ink">
@@ -85,7 +85,7 @@ function AllList({ comments, events }: { comments: TaskComment[]; events: TaskEv
     <ol className="space-y-3">
       {merged.map((row) =>
         row.kind === 'comment' ? (
-          <li key={row.comment.id} className="flex gap-2.5">
+          <li key={row.comment.id} className="flex gap-3">
             {row.comment.author ? (
               <Avatar profile={row.comment.author} size={26} />
             ) : (

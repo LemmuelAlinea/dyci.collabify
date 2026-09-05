@@ -44,7 +44,7 @@ function AttachmentRow({ attachment }: { attachment: Announcement['attachments']
           show(authErrorMessage(err, 'Could not open that file.'), 'error')
         }
       }}
-      className="flex w-full items-center gap-2.5 rounded-xl border border-line px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-sunken)]"
+      className="flex w-full items-center gap-3 rounded-xl border border-line px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-sunken)]"
     >
       <Icon name="file" size={17} className="shrink-0 text-muted" />
       <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{attachment.file_name}</span>
@@ -197,9 +197,9 @@ export function AnnouncementFeed({
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <span className="mb-2 flex flex-wrap items-center gap-1.5">
+                  <span className="mb-2 flex flex-wrap items-center gap-2">
                     {a.pinned && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/18 px-2.5 py-1 font-mono text-[12px] tracking-wider text-amber-700 uppercase dark:text-amber-300">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-amber-400/18 px-2.5 py-1 font-mono text-[12px] tracking-wider text-amber-700 uppercase dark:text-amber-300">
                         <Icon name="target" size={11} />
                         Pinned
                       </span>
@@ -207,7 +207,7 @@ export function AnnouncementFeed({
                     {/* Only the professor ever sees this — a student cannot
                         read an announcement that has gone. */}
                     {canManage && !isLive(a.created_at) && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full surface-sunken px-2.5 py-1 font-mono text-[12px] tracking-wider text-faint uppercase">
+                      <span className="inline-flex items-center gap-2 rounded-full surface-sunken px-2.5 py-1 font-mono text-[12px] tracking-wider text-faint uppercase">
                         <Icon name="clock" size={11} />
                         Off the class feed
                       </span>
@@ -216,7 +216,7 @@ export function AnnouncementFeed({
                   <h3 className=" leading-snug">{a.title}</h3>
                   <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[12px] text-faint">
                     {a.author && (
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-2">
                         <Avatar
                           profile={{
                             first_name: a.author.first_name,

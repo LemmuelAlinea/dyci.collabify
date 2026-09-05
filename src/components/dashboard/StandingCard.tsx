@@ -22,7 +22,7 @@ export function StandingCard({ rows }: { rows: Row[] }) {
     ) / 10
 
   return (
-    <div className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
+    <div className="card p-4 sm:p-5 shadow-card">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="eyebrow text-amber-500 dark:text-amber-300">Across your projects</p>

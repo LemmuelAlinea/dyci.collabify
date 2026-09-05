@@ -20,7 +20,7 @@ type FieldProps = {
 export function Field({ label, hint, error, optional, children }: FieldProps) {
   const id = useId()
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-3">
         <label htmlFor={id} className="text-[13px] font-medium text-ink">
           {label}
@@ -30,7 +30,7 @@ export function Field({ label, hint, error, optional, children }: FieldProps) {
       </div>
       {children(id)}
       {error && (
-        <p className="flex items-center gap-1.5 text-[12px] text-red-600 dark:text-red-400">
+        <p className="flex items-center gap-2 text-[12px] text-red-600 dark:text-red-400">
           <Icon name="alert" size={14} />
           {error}
         </p>

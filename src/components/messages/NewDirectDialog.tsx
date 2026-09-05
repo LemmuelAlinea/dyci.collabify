@@ -109,7 +109,7 @@ export function NewDirectDialog({
         </div>
 
         {people === null ? (
-          <div className="flex items-center gap-2.5 py-8 text-[14px] text-muted">
+          <div className="flex items-center gap-3 py-8 text-[14px] text-muted">
             <Spinner size={16} />
             Loading students…
           </div>

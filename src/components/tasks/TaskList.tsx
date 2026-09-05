@@ -84,7 +84,7 @@ export function TaskList({
                   >
                     {t.title}
                   </button>
-                  <span className="mt-0.5 flex items-center gap-2.5 text-[12px] text-faint">
+                  <span className="mt-0.5 flex items-center gap-3 text-[12px] text-faint">
                     {t.author_role === 'professor' && <span>Set by the professor</span>}
                     {t.file_count > 0 && (
                       <span className="flex items-center gap-1">
