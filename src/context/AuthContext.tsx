@@ -11,6 +11,12 @@ import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import type { NotificationPrefs, Profile, Role } from '../lib/types'
+import {
+  RateLimitError,
+  clearFailures,
+  recordFailure,
+  retryAfter,
+} from '../lib/rateLimit'
 
 type SignUpInput = {
   firstName: string
@@ -55,6 +61,17 @@ function requireConfigured() {
       'Supabase is not connected yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local.',
     )
   }
+}
+
+function guardRate(action: 'signIn' | 'signUp' | 'passwordReset', identifier: string) {
+  const wait = retryAfter(action, identifier)
+  if (wait > 0) throw new RateLimitError(wait)
+}
+
+/** A dropped connection is not a failed credential and must not be counted. */
+function isNetworkError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? '')
+  return /failed to fetch|networkerror|load failed/i.test(msg)
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -124,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUpWithEmail = useCallback(async (input: SignUpInput) => {
     requireConfigured()
+    guardRate('signUp', input.email)
     const { data, error } = await supabase.auth.signUp({
       email: input.email.trim(),
       password: input.password,
@@ -137,18 +155,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     })
-    if (error) throw error
+    if (error) {
+      recordFailure('signUp', input.email)
+      throw error
+    }
+    clearFailures('signUp', input.email)
     // Supabase returns a user with no session when confirmation is required.
     return { needsConfirmation: !data.session }
   }, [])
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     requireConfigured()
+    guardRate('signIn', email)
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     })
-    if (error) throw error
+    if (error) {
+      // Only a rejected credential counts. A network fault is not the person's
+      // doing and locking them out for it would be punishing the wifi.
+      if (!isNetworkError(error)) recordFailure('signIn', email)
+      throw error
+    }
+    clearFailures('signIn', email)
   }, [])
 
   const signInWithGoogle = useCallback(async () => {
@@ -172,10 +201,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sendPasswordReset = useCallback(async (email: string) => {
     requireConfigured()
+    guardRate('passwordReset', email)
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: redirectTo('/reset-password'),
     })
-    if (error) throw error
+    if (error) {
+      if (!isNetworkError(error)) recordFailure('passwordReset', email)
+      throw error
+    }
+    // Counted on success too. A reset mail is the expensive, abusable side of
+    // this form, and succeeding at sending one is exactly what must not be
+    // repeatable without limit.
+    recordFailure('passwordReset', email)
   }, [])
 
   const updatePassword = useCallback(async (password: string) => {

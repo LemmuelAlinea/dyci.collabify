@@ -8,6 +8,8 @@ import { Alert } from '../../components/ui/Alert'
 import { GoogleButton } from '../../components/ui/GoogleButton'
 import { useAuth } from '../../context/AuthContext'
 import { authErrorMessage } from '../../lib/authError'
+import { useCooldown } from '../../components/auth/useCooldown'
+import { attemptsLeft } from '../../lib/rateLimit'
 
 export default function Login() {
   const { signInWithEmail, signInWithGoogle, configured } = useAuth()
@@ -17,6 +19,8 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
+  const cooldown = useCooldown('signIn', email)
+  const left = attemptsLeft('signIn', email)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -27,6 +31,7 @@ export default function Login() {
       navigate('/auth/callback', { replace: true })
     } catch (err) {
       setError(authErrorMessage(err, 'Could not sign you in.'))
+      cooldown.refresh()
     } finally {
       setBusy(false)
     }
@@ -103,7 +108,27 @@ export default function Login() {
           )}
         </Field>
 
-        <Button type="submit" size="lg" full loading={busy} className="!rounded-xl">
+        {cooldown.blocked && (
+          <Alert tone="error">
+            Too many failed sign-ins for this email. Try again in {cooldown.label}, or reset your
+            password.
+          </Alert>
+        )}
+        {!cooldown.blocked && left > 0 && left <= 2 && (
+          <p className="text-[13px] leading-relaxed text-muted">
+            {left === 1 ? 'One more attempt' : `${left} more attempts`} before this email is paused
+            for a few minutes.
+          </p>
+        )}
+
+        <Button
+          type="submit"
+          size="lg"
+          full
+          loading={busy}
+          disabled={cooldown.blocked}
+          className="!rounded-xl"
+        >
           Sign in
         </Button>
       </form>

@@ -9,6 +9,7 @@ import { GoogleButton } from '../../components/ui/GoogleButton'
 import { RoleChoice } from '../../components/ui/RoleChoice'
 import { useAuth } from '../../context/AuthContext'
 import { authErrorMessage } from '../../lib/authError'
+import { useCooldown } from '../../components/auth/useCooldown'
 import type { Role } from '../../lib/types'
 
 export default function Register() {
@@ -24,6 +25,7 @@ export default function Register() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
+  const cooldown = useCooldown('signUp', email)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -49,6 +51,7 @@ export default function Register() {
       }
     } catch (err) {
       setError(authErrorMessage(err, 'Could not create your account.'))
+      cooldown.refresh()
     } finally {
       setBusy(false)
     }
@@ -164,7 +167,21 @@ export default function Register() {
           )}
         </Field>
 
-        <Button type="submit" size="lg" full loading={busy} className="!rounded-xl">
+        {cooldown.blocked && (
+          <Alert tone="error">
+            Too many sign-up attempts for this email. Try again in {cooldown.label}, or sign in if
+            the account already exists.
+          </Alert>
+        )}
+
+        <Button
+          type="submit"
+          size="lg"
+          full
+          loading={busy}
+          disabled={cooldown.blocked}
+          className="!rounded-xl"
+        >
           Create account
         </Button>
 

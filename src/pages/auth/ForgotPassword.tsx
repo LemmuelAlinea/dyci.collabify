@@ -7,6 +7,7 @@ import { Field, Input } from '../../components/ui/Field'
 import { Alert } from '../../components/ui/Alert'
 import { useAuth } from '../../context/AuthContext'
 import { authErrorMessage } from '../../lib/authError'
+import { useCooldown } from '../../components/auth/useCooldown'
 
 export default function ForgotPassword() {
   const { sendPasswordReset } = useAuth()
@@ -14,6 +15,7 @@ export default function ForgotPassword() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const cooldown = useCooldown('passwordReset', email)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -22,8 +24,10 @@ export default function ForgotPassword() {
     try {
       await sendPasswordReset(email)
       setSent(true)
+      cooldown.refresh()
     } catch (err) {
       setError(authErrorMessage(err, 'Could not send the reset link.'))
+      cooldown.refresh()
     } finally {
       setBusy(false)
     }
@@ -70,7 +74,21 @@ export default function ForgotPassword() {
               />
             )}
           </Field>
-          <Button type="submit" size="lg" full loading={busy} className="!rounded-xl">
+          {cooldown.blocked && (
+            <Alert tone="error">
+              A link has already gone out to this address. Wait {cooldown.label} before asking for
+              another — check spam in the meantime.
+            </Alert>
+          )}
+
+          <Button
+            type="submit"
+            size="lg"
+            full
+            loading={busy}
+            disabled={cooldown.blocked}
+            className="!rounded-xl"
+          >
             Email me a reset link
           </Button>
         </form>
