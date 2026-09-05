@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
-import type { FormEvent } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
 import { Field, Input } from '../../../components/ui/Field'
@@ -44,10 +44,12 @@ export function ResourceLibrary({
    * than what this person owns.
    */
   programWide = false,
+  toolbar,
 }: {
   kind: ResourceKind
   copy: Copy
   programWide?: boolean
+  toolbar?: ReactNode
 }) {
   const { profile } = useAuth()
   const { show } = useToast()
@@ -131,17 +133,21 @@ export function ResourceLibrary({
   return (
     <div className="w-full">
       {programWide ? (
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="eyebrow text-amber-500 dark:text-amber-300">{copy.eyebrow}</p>
-            <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">{copy.title}</h1>
-            <p className="mt-2.5 max-w-[560px] text-[15.5px] text-muted">{copy.intro}</p>
-          </div>
-          <Button onClick={() => setAddOpen(true)} className="!rounded-xl">
-            <Icon name="plus" size={17} />
-            {copy.addLabel}
-          </Button>
-        </header>
+        <DirectoryHero
+          title="Program"
+          accent={`${kind === 'syllabus' ? 'syllabi' : 'curricula'}, shared.`}
+          description={copy.intro}
+          action={
+            <Button variant="onNavy" size="sm" onClick={() => setAddOpen(true)} className="!rounded-lg">
+              <Icon name="plus" size={16} />
+              {copy.addLabel}
+            </Button>
+          }
+          stats={[
+            { value: items === null ? '—' : items.length, label: 'Published files' },
+            { value: items === null ? '—' : formatBytes(items.reduce((sum, item) => sum + item.size_bytes, 0)), label: 'Stored' },
+          ]}
+        />
       ) : (
         <DirectoryHero
           title={kind === 'curriculum' ? 'Program' : 'Course'}
@@ -164,6 +170,8 @@ export function ResourceLibrary({
           ]}
         />
       )}
+
+      {toolbar && <div className="mt-6">{toolbar}</div>}
 
       <div className="mt-8">
         {loadError && <Alert tone="error">{loadError}</Alert>}

@@ -15,42 +15,38 @@ import { ResourceLibrary } from '../resources/ResourceLibrary'
 export default function ProgramLibrary() {
   const [kind, setKind] = useState<'syllabus' | 'curriculum'>('syllabus')
 
+  const toolbar = (
+    <div className="surface flex w-fit rounded-xl border border-line p-1">
+      {(
+        [
+          ['syllabus', 'Syllabi'],
+          ['curriculum', 'Curricula'],
+        ] as const
+      ).map(([k, label]) => (
+        <button
+          key={k}
+          type="button"
+          onClick={() => setKind(k)}
+          className={`rounded-lg px-3.5 py-1.5 text-[13px] transition-colors ${
+            kind === k
+              ? 'bg-navy-950 font-medium text-amber-50'
+              : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
-    <div className="space-y-6">
-      <header>
-        <p className="eyebrow">Program</p>
-        <h1 className="mt-1 leading-tight">Library</h1>
-        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
-          Curricula and syllabi published for the whole program. Every professor can attach
-          one to their class, so two sections of a subject run the same outline.
-        </p>
-      </header>
-
-      <div className="flex w-fit rounded-xl surface-sunken p-1">
-        {(
-          [
-            ['syllabus', 'Syllabi'],
-            ['curriculum', 'Curricula'],
-          ] as const
-        ).map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setKind(k)}
-            className={`rounded-lg px-3.5 py-1.5 text-[13px] transition-colors ${
-              kind === k ? 'surface font-medium text-ink ring-1 ring-[var(--line-strong)]' : 'text-muted hover:text-ink'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
+    <div>
       {kind === 'syllabus' ? (
         <ResourceLibrary
           key="syllabus"
           kind="syllabus"
           programWide
+          toolbar={toolbar}
           copy={{
             eyebrow: 'Program',
             title: 'Published syllabi',
@@ -69,6 +65,7 @@ export default function ProgramLibrary() {
           key="curriculum"
           kind="curriculum"
           programWide
+          toolbar={toolbar}
           copy={{
             eyebrow: 'Program',
             title: 'Published curricula',

@@ -3,10 +3,9 @@ import { Link } from 'react-router-dom'
 import { Reveal } from '../../components/motion/Reveal'
 import { Icon } from '../../components/ui/Icon'
 import type { IconName } from '../../components/ui/Icon'
-import { ButtonLink } from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 
-export type Upcoming = { icon: IconName; title: string; body: string }
+export type Upcoming = { icon: IconName; title: string; body: string; to: string }
 
 function greeting() {
   const h = new Date().getHours()
@@ -59,11 +58,8 @@ export function RoleHome({
             }}
           />
           <div className="relative">
-            <p className="flex items-center gap-3">
-              <span className="h-px w-7 bg-amber-400" />
-              <span className="font-mono text-[12px] tracking-[0.22em] text-amber-200/75 uppercase">
-                Program
-              </span>
+            <p className="font-mono text-[12px] tracking-[0.22em] text-amber-200/75 uppercase">
+              Program
             </p>
             <h1 className="mt-5 font-display leading-tight text-amber-50">
               {greeting()}, {profile.first_name}.
@@ -75,29 +71,11 @@ export function RoleHome({
         </section>
       </Reveal>
 
-      <Reveal once delay={0.08} className="mt-8">
-        <div className="relative overflow-hidden rounded-panel border border-line bg-[var(--surface-sunken)] p-4 text-ink sm:p-7 md:p-9">
-          <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="max-w-[560px]">
-              <h2>{headline}</h2>
-              <p className="mt-2.5 text-[14px] leading-relaxed text-muted">
-                Your account, appearance, notifications, and security are live today. The
-                boards and milestones below arrive in the next release.
-              </p>
-            </div>
-            <ButtonLink to="/settings" variant="accent" size="md" className="shrink-0">
-              Open settings
-              <Icon name="arrowRight" size={17} />
-            </ButtonLink>
-          </div>
-        </div>
-      </Reveal>
-
-      <div className="mt-10">
+      <div className="mt-8">
         <Reveal once className="flex items-baseline justify-between gap-4">
-          <h2>Landing in the next release</h2>
+          <h2>Program tools</h2>
           <span className="font-mono text-[12px] tracking-wider text-faint uppercase">
-            Phase 2
+            Quick access
           </span>
         </Reveal>
 
@@ -108,13 +86,15 @@ export function RoleHome({
               once
               delay={(i % 3) * 0.07}
               as="article"
-              className="card p-4 sm:p-6 shadow-card"
+              className="h-full"
             >
-              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--surface-sunken)] text-muted">
-                <Icon name={u.icon} size={20} />
-              </span>
-              <h3 className="mt-4">{u.title}</h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-muted">{u.body}</p>
+              <Link to={u.to} className="surface block h-full rounded-card border border-line p-4 transition-colors hover:border-line-strong sm:p-6">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-navy-950 text-amber-300">
+                  <Icon name={u.icon} size={20} />
+                </span>
+                <h3 className="mt-4">{u.title}</h3>
+                <p className="mt-2 text-[14px] leading-relaxed text-muted">{u.body}</p>
+              </Link>
             </Reveal>
           ))}
         </div>

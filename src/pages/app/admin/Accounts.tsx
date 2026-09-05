@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { Avatar } from '../../../components/app/Avatar'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Alert } from '../../../components/ui/Alert'
@@ -69,6 +70,7 @@ export default function Accounts() {
   }, [])
 
   useEffect(() => {
+    document.title = 'Accounts · Collabify'
     void load()
   }, [load])
 
@@ -105,64 +107,74 @@ export default function Accounts() {
     )
   }
 
+  const activeAccounts = rows.filter((account) => account.status === 'active').length
+  const students = rows.filter((account) => account.role === 'student').length
+  const professors = rows.filter((account) => account.role === 'professor').length
+
   return (
     <div className="space-y-6">
-      <header>
-        <p className="eyebrow">Program</p>
-        <h1 className="mt-1 leading-tight">Accounts</h1>
-        <p className="mt-2 max-w-[66ch] text-[14px] text-muted">
-          Everyone in the program. You can move somebody between student and professor, and
-          deactivate an account that has left — both reversible, and both recorded in the
-          audit log.
-        </p>
-      </header>
+      <DirectoryHero
+        title="Every account,"
+        accent="clearly managed."
+        description="Find anyone in the program, review their access, and make reversible role or status changes."
+        statsVariant="compact-row"
+        stats={[
+          { value: rows.length, label: 'Accounts' },
+          { value: activeAccounts, label: 'Active' },
+          { value: students, label: 'Students' },
+          { value: professors, label: 'Professors' },
+        ]}
+      />
 
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
-      <p className="flex items-start gap-2 rounded-xl surface-sunken px-4 py-3 text-[13px] leading-relaxed text-muted">
-        <Icon name="info" size={15} className="mt-0.5 shrink-0" />
-        Accounts are never deleted here. Removing a professor would take their classes,
-        projects and every task inside them with it — deactivating stops the sign-in and
-        leaves the work where it belongs.
-      </p>
+      <section className="surface overflow-hidden rounded-panel border border-line">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-[var(--surface-sunken)] px-4 py-4 sm:px-5">
+          <div>
+            <p className="text-[12px] font-medium text-faint">Account directory</p>
+            <h2 className="mt-1">People and access</h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <FilterPopover
+              active={[query, role].filter(Boolean).length}
+              summary={[query && `“${query}”`, role && ROLE_FILTERS.find((r) => r.value === role)?.label]
+                .filter(Boolean)
+                .join(' · ')}
+              onClear={() => {
+                setQuery('')
+                setRole('')
+              }}
+              label="Filter accounts"
+            >
+              <FilterField label="Search">
+                <FilterSearch value={query} onChange={setQuery} placeholder="Find by name or email" />
+              </FilterField>
+              <FilterField label="Role">
+                <Select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  placeholder="Every role"
+                  options={ROLE_FILTERS}
+                  className="!h-10 !text-[13px]"
+                />
+              </FilterField>
+            </FilterPopover>
+            <p className="font-mono text-[12px] text-faint">
+              {shown.length === rows.length ? `${rows.length} accounts` : `${shown.length} of ${rows.length}`}
+            </p>
+          </div>
+        </header>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterPopover
-          active={[query, role].filter(Boolean).length}
-          summary={[query && `“${query}”`, role && ROLE_FILTERS.find((r) => r.value === role)?.label]
-            .filter(Boolean)
-            .join(' · ')}
-          onClear={() => {
-            setQuery('')
-            setRole('')
-          }}
-          label="Filter accounts"
-        >
-          <FilterField label="Search">
-            <FilterSearch value={query} onChange={setQuery} placeholder="Find by name or email" />
-          </FilterField>
-          <FilterField label="Role">
-            <Select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              placeholder="Every role"
-              options={ROLE_FILTERS}
-              className="!h-10 !text-[13px]"
-            />
-          </FilterField>
-        </FilterPopover>
+        <div className="p-4 sm:p-5">
+          <p className="mb-4 flex items-start gap-2 rounded-xl surface-sunken px-4 py-3 text-[13px] leading-relaxed text-muted">
+            <Icon name="info" size={15} className="mt-0.5 shrink-0" />
+            Accounts are never deleted here. Deactivating stops sign-in while leaving classes and work intact.
+          </p>
 
-        <p className="ml-auto font-mono text-[12px] text-faint">
-          {shown.length === rows.length
-            ? `${rows.length} accounts`
-            : `${shown.length} of ${rows.length}`}
-        </p>
-      </div>
-
-      {shown.length === 0 ? (
-        <EmptyState icon="users" title="Nobody matches" body="Try a different name or role." />
-      ) : (
-        <ul className="space-y-2">
+          {shown.length === 0 ? (
+            <EmptyState icon="users" title="Nobody matches" body="Try a different name or role." />
+          ) : (
+            <ul className="space-y-2">
           {shown.map((a) => {
             const self = a.id === profile?.id
             const isAdmin = a.role === 'admin'
@@ -237,8 +249,10 @@ export default function Accounts() {
               </li>
             )
           })}
-        </ul>
-      )}
+            </ul>
+          )}
+        </div>
+      </section>
 
       <ConfirmDialog
         open={Boolean(promoting)}

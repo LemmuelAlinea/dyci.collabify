@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
@@ -80,6 +81,7 @@ export default function AuditLog() {
   }, [])
 
   useEffect(() => {
+    document.title = 'Audit log · Collabify'
     void load()
   }, [load])
 
@@ -106,54 +108,68 @@ export default function AuditLog() {
     )
   }
 
+  const accountEvents = rows.filter((event) =>
+    ['account_created', 'role_changed', 'status_changed'].includes(event.action),
+  ).length
+  const classEvents = rows.length - accountEvents
+  const recordedDays = new Set(rows.map((event) => dayOf(event.at))).size
+
   return (
     <div className="space-y-6">
-      <header>
-        <p className="eyebrow">Program</p>
-        <h1 className="mt-1 leading-tight">Audit log</h1>
-        <p className="mt-2 max-w-[66ch] text-[14px] text-muted">
-          Every change to who someone is and what they can reach, and every class opened,
-          handed over or closed. Nothing can be edited here, by anyone.
-        </p>
-      </header>
+      <DirectoryHero
+        title="Every access change,"
+        accent="on record."
+        description="Review account and class changes in one read-only timeline."
+        statsVariant="compact-row"
+        stats={[
+          { value: rows.length, label: 'Events' },
+          { value: accountEvents, label: 'Account changes' },
+          { value: classEvents, label: 'Class changes' },
+          { value: recordedDays, label: 'Recorded days' },
+        ]}
+      />
 
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
-      {/* Said plainly, because an admin should know the limit of their own view. */}
-      <p className="flex items-start gap-2 rounded-xl surface-sunken px-4 py-3 text-[13px] leading-relaxed text-muted">
-        <Icon name="info" size={15} className="mt-0.5 shrink-0" />
-        This records accounts and classes only. What happens inside a class — its projects,
-        tasks, files, marks and messages — belongs to the professor and their students, and
-        never appears here.
-      </p>
+      <section className="surface overflow-hidden rounded-panel border border-line">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-[var(--surface-sunken)] px-4 py-4 sm:px-5">
+          <div>
+            <p className="text-[12px] font-medium text-faint">Immutable history</p>
+            <h2 className="mt-1">Recorded activity</h2>
+          </div>
+          {rows.length > 4 && (
+            <FilterPopover
+              active={action ? 1 : 0}
+              summary={AUDIT_ACTIONS.find((o) => o.value === action)?.label}
+              onClear={() => setAction('')}
+              label="Filter the log"
+            >
+              <FilterField label="Kind of change">
+                <Select
+                  value={action}
+                  onChange={(e) => setAction(e.target.value)}
+                  placeholder="Everything"
+                  options={AUDIT_ACTIONS}
+                  className="!h-10 !text-[13px]"
+                />
+              </FilterField>
+            </FilterPopover>
+          )}
+        </header>
+        <div className="p-4 sm:p-5">
+          <p className="mb-5 flex items-start gap-2 rounded-xl surface-sunken px-4 py-3 text-[13px] leading-relaxed text-muted">
+            <Icon name="info" size={15} className="mt-0.5 shrink-0" />
+            This log covers accounts and classes only. Class work, files, marks, and messages stay private.
+          </p>
 
-      {rows.length > 4 && (
-        <FilterPopover
-          active={action ? 1 : 0}
-          summary={AUDIT_ACTIONS.find((o) => o.value === action)?.label}
-          onClear={() => setAction('')}
-          label="Filter the log"
-        >
-          <FilterField label="Kind of change">
-            <Select
-              value={action}
-              onChange={(e) => setAction(e.target.value)}
-              placeholder="Everything"
-              options={AUDIT_ACTIONS}
-              className="!h-10 !text-[13px]"
+          {days.length === 0 ? (
+            <EmptyState
+              icon="clock"
+              title="Nothing recorded yet"
+              body="Approvals, role changes and class changes appear here as they happen."
             />
-          </FilterField>
-        </FilterPopover>
-      )}
-
-      {days.length === 0 ? (
-        <EmptyState
-          icon="clock"
-          title="Nothing recorded yet"
-          body="Approvals, role changes and class changes appear here as they happen."
-        />
-      ) : (
-        <ol className="space-y-6">
+          ) : (
+            <ol className="space-y-6">
           {days.map(([day, list]) => (
             <li key={day}>
               <p className="eyebrow pb-2">{day}</p>
@@ -182,8 +198,10 @@ export default function AuditLog() {
               </ul>
             </li>
           ))}
-        </ol>
-      )}
+            </ol>
+          )}
+        </div>
+      </section>
     </div>
   )
 }

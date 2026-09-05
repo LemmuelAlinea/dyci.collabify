@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { PaceCard } from '../../../components/analytics/PaceCard'
 import { Alert } from '../../../components/ui/Alert'
 import { Badge } from '../../../components/ui/Badge'
@@ -54,6 +55,7 @@ export default function ProgramClasses() {
   }, [])
 
   useEffect(() => {
+    document.title = 'Program classes · Collabify'
     void load()
   }, [load])
 
@@ -95,22 +97,36 @@ export default function ProgramClasses() {
 
   const years = [...new Set(all.map((c) => c.school_year))].sort().reverse()
   const active = [year, semester, level, professor, state].filter(Boolean).length
+  const notReady = all.filter((item) => readiness(item).length > 0).length
+  const behind = all.filter((item) => {
+    const pace = paceOf(item)
+    return pace ? pace.weeks_covered < pace.weeks_elapsed : false
+  }).length
 
   return (
     <div className="space-y-6">
-      <header>
-        <p className="eyebrow">Oversight</p>
-        <h1 className="mt-1 leading-tight">Classes</h1>
-        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
-          Every class in the program: who teaches it, whether it is set up to run, and how
-          much of its syllabus has work against it. Figures only — what is inside a class
-          belongs to its professor and their students.
-        </p>
-      </header>
+      <DirectoryHero
+        title="Every class,"
+        accent="ready to run."
+        description="Compare setup, syllabus pace, enrolment, and delivery across the program without opening private class work."
+        statsVariant="compact-row"
+        stats={[
+          { value: all.length, label: 'Classes' },
+          { value: all.reduce((sum, item) => sum + item.students, 0), label: 'Students' },
+          { value: notReady, label: 'Not ready' },
+          { value: behind, label: 'Behind' },
+        ]}
+      />
 
       {error && <Alert tone="error">{error}</Alert>}
 
-      <FilterPopover
+      <section className="surface overflow-hidden rounded-panel border border-line">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-[var(--surface-sunken)] px-4 py-4 sm:px-5">
+          <div>
+            <p className="text-[12px] font-medium text-faint">Program delivery</p>
+            <h2 className="mt-1">Class overview</h2>
+          </div>
+          <FilterPopover
         active={active}
         summary={[
           year,
@@ -180,7 +196,9 @@ export default function ProgramClasses() {
             className="!h-10 !text-[13px]"
           />
         </FilterField>
-      </FilterPopover>
+          </FilterPopover>
+        </header>
+        <div className="p-4 sm:p-5">
 
       {shown.length === 0 ? (
         <EmptyState
@@ -193,12 +211,14 @@ export default function ProgramClasses() {
           }
         />
       ) : (
-        <ul className="space-y-3">
+          <ul className="space-y-3">
           {shown.map((c) => (
             <ClassRow key={c.class_id} cls={c} />
           ))}
-        </ul>
+          </ul>
       )}
+        </div>
+      </section>
     </div>
   )
 }
@@ -210,9 +230,9 @@ function ClassRow({ cls }: { cls: ProgramClass }) {
 
   return (
     <li
-      className={`surface rounded-card border p-4 shadow-card ${
+      className={`surface rounded-card border p-4 ${
         gaps.length > 0
-          ? 'border-amber-300 dark:border-amber-400/40'
+          ? 'border-line'
           : behind
             ? 'border-red-200 dark:border-red-500/30'
             : 'border-line'

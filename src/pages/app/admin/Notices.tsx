@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Field, Input } from '../../../components/ui/Field'
@@ -77,6 +78,7 @@ export default function Notices() {
   }, [])
 
   useEffect(() => {
+    document.title = 'Notices · Collabify'
     void load()
   }, [load])
 
@@ -112,23 +114,37 @@ export default function Notices() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-          <div className="min-w-0">
-            <p className="eyebrow">Program</p>
-            <h1 className="mt-1 leading-tight">Notices</h1>
-          </div>
-          <Button className="!rounded-xl" onClick={() => setComposing(true)}>
+      <DirectoryHero
+        title="One update,"
+        accent="everyone informed."
+        description="Publish time-sensitive program notices and keep a clear history after they leave dashboards."
+        action={
+          <Button variant="onNavy" size="sm" className="!rounded-lg" onClick={() => setComposing(true)}>
             <Icon name="plus" size={15} />
             Send a notice
           </Button>
-        </div>
+        }
+        statsVariant="compact-row"
+        stats={[
+          { value: rows.length, label: 'Notices' },
+          { value: rows.filter((notice) => !notice.expired).length, label: 'Live now' },
+          { value: rows.filter((notice) => notice.pinned && !notice.expired).length, label: 'Pinned' },
+          { value: rows.filter((notice) => notice.expired).length, label: 'Archived' },
+        ]}
+      />
 
+      <section className="surface overflow-hidden rounded-panel border border-line">
+        <header className="border-b border-line bg-[var(--surface-sunken)] px-4 py-4 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[12px] font-medium text-faint">Notice history</p>
+              <h2 className="mt-1">Program announcements</h2>
+            </div>
         <button
           type="button"
           onClick={toggleAbout}
           aria-expanded={about}
-          className="mt-2 flex items-center gap-1 text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+              className="flex items-center gap-1 text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
         >
           <Icon
             name="chevronDown"
@@ -136,22 +152,21 @@ export default function Notices() {
             className={`transition-transform duration-200 ${about ? '' : '-rotate-90'}`}
           />
           {about ? 'Hide what this page does' : 'What this page does'}
-        </button>
+            </button>
+          </div>
 
         {about && (
-          <>
-            <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
+            <div className="mt-3 max-w-[76ch] text-[13px] leading-relaxed text-muted">
+              <p>
               One notice to everybody in the program — a moved deadline, a defense schedule, a
               suspension of classes. It appears on every dashboard and notifies anybody who has
               not turned announcements off.
             </p>
-            <p className="mt-2 max-w-[70ch] text-[13px] text-muted">
+              <p className="mt-1.5">
               A notice stays on those dashboards for <strong>{NOTICE_HOURS} hours</strong> and
-              then comes off on its own. This page keeps every one you have sent, so nothing is
-              lost — it is only no longer in front of people. To say something again, send it
-              again.
+                then moves into this history automatically.
             </p>
-          </>
+            </div>
         )}
       </header>
 
@@ -220,6 +235,7 @@ export default function Notices() {
         </div>
       </Modal>
 
+        <div className="p-4 sm:p-5">
       {rows.length === 0 ? (
         <EmptyState
           icon="bell"
@@ -228,7 +244,7 @@ export default function Notices() {
           body="A notice you send reaches every professor and student in the program."
         />
       ) : (
-        <ul className="space-y-3">
+          <ul className="space-y-3">
           {rows.map((n, i) => (
             <Fragment key={n.id}>
               {/* One heading where the window falls, not a badge on every row:
@@ -260,8 +276,10 @@ export default function Notices() {
               />
             </Fragment>
           ))}
-        </ul>
+          </ul>
       )}
+        </div>
+      </section>
 
       <ConfirmDialog
         open={removing !== null}
@@ -299,11 +317,7 @@ function NoticeCard({
 }) {
   return (
     <li
-      className={`surface rounded-card border p-4 shadow-card ${
-        n.pinned && !n.expired
-          ? 'border-amber-300 dark:border-amber-400/40'
-          : 'border-line'
-      } ${n.expired ? 'opacity-70' : ''}`}
+      className={`surface rounded-card border border-line p-4 ${n.expired ? 'opacity-70' : ''}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">

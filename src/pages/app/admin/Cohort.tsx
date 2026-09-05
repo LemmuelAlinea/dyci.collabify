@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { Alert } from '../../../components/ui/Alert'
 import { Badge } from '../../../components/ui/Badge'
 import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
@@ -45,6 +46,7 @@ export default function Cohort() {
   }, [])
 
   useEffect(() => {
+    document.title = 'Cohort · Collabify'
     void load()
   }, [load])
 
@@ -71,21 +73,34 @@ export default function Cohort() {
 
   const years = [...new Set(all.map((c) => c.school_year))].sort().reverse()
   const active = [year, semester].filter(Boolean).length
+  const totalStudents = cohorts.reduce((sum, cohort) => sum + cohort.students, 0)
+  const totalTasks = cohorts.reduce((sum, cohort) => sum + cohort.tasks, 0)
+  const totalDone = cohorts.reduce((sum, cohort) => sum + cohort.tasks_done, 0)
 
   return (
     <div className="space-y-6">
-      <header>
-        <p className="eyebrow">Oversight</p>
-        <h1 className="mt-1 leading-tight">Cohort</h1>
-        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
-          Each year level added up, and the classes underneath it. How much of the work set
-          for a batch is finished, and which class is furthest from finishing it.
-        </p>
-      </header>
+      <DirectoryHero
+        title="Every cohort,"
+        accent="progress in context."
+        description="Compare year levels, completed work, and classes that need attention across the current term."
+        statsVariant="compact-row"
+        stats={[
+          { value: cohorts.length, label: 'Year levels' },
+          { value: shown.length, label: 'Classes' },
+          { value: totalStudents, label: 'Students' },
+          { value: totalTasks === 0 ? '0%' : `${Math.round((totalDone / totalTasks) * 100)}%`, label: 'Finished' },
+        ]}
+      />
 
       {error && <Alert tone="error">{error}</Alert>}
 
-      <FilterPopover
+      <section className="surface overflow-hidden rounded-panel border border-line">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-[var(--surface-sunken)] px-4 py-4 sm:px-5">
+          <div>
+            <p className="text-[12px] font-medium text-faint">Term overview</p>
+            <h2 className="mt-1">Cohort progress</h2>
+          </div>
+          <FilterPopover
         active={active}
         summary={[year, semester && `${semester} sem`].filter(Boolean).join(' · ')}
         onClear={() => {
@@ -117,7 +132,9 @@ export default function Cohort() {
             className="!h-10 !text-[13px]"
           />
         </FilterField>
-      </FilterPopover>
+          </FilterPopover>
+        </header>
+        <div className="p-4 sm:p-5">
 
       {cohorts.length === 0 ? (
         <EmptyState
@@ -140,6 +157,8 @@ export default function Cohort() {
           </ul>
         </>
       )}
+        </div>
+      </section>
     </div>
   )
 }
@@ -160,7 +179,7 @@ function ProgramStrip({ cohorts }: { cohorts: CohortRow[] }) {
   const pct = total.tasks === 0 ? 0 : Math.round((total.done / total.tasks) * 100)
 
   return (
-    <section className="card p-4 sm:p-5 shadow-card">
+    <section className="mb-4 rounded-card border border-line bg-[var(--surface-sunken)] p-4 sm:p-5">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
           <p className="eyebrow text-faint">The program, this term</p>
@@ -208,7 +227,7 @@ function CohortCard({ cohort, classes }: { cohort: CohortRow; classes: ProgramCl
   const ordered = [...classes].sort((a, b) => share(a) - share(b))
 
   return (
-    <li className="surface overflow-hidden rounded-card border border-line shadow-card">
+    <li className="surface overflow-hidden rounded-card border border-line">
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 p-5 pb-3">
         <div className="min-w-0">
           <p className="eyebrow">{cohort.year_level} year</p>

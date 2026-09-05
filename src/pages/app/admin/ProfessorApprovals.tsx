@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { Avatar } from '../../../components/app/Avatar'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Alert } from '../../../components/ui/Alert'
@@ -61,6 +62,7 @@ export default function ProfessorApprovals() {
   }, [])
 
   useEffect(() => {
+    document.title = 'Professor approvals · Collabify'
     void load()
   }, [load])
 
@@ -94,26 +96,34 @@ export default function ProfessorApprovals() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <p className="eyebrow">Program</p>
-        <h1 className="mt-1 leading-tight">Professor approvals</h1>
-        <p className="mt-2 max-w-[64ch] text-[14px] text-muted">
-          A professor account stays locked until you verify it. Until then they cannot open a
-          class or see a student group, which is the point of the wait.
-        </p>
-      </header>
+      <DirectoryHero
+        title="Verify faculty,"
+        accent="protect access."
+        description="Review professor sign-ups before their class and group tools unlock."
+        statsVariant="compact-row"
+        stats={[
+          { value: rows.length, label: 'Professors' },
+          { value: waiting.length, label: 'Waiting' },
+          { value: settled.filter((account) => account.status === 'active').length, label: 'Approved' },
+          { value: settled.filter((account) => account.status === 'rejected').length, label: 'Turned down' },
+        ]}
+      />
 
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
-      <section className="space-y-3">
-        <h2>
+      <section className="surface overflow-hidden rounded-panel border border-line">
+        <header className="border-b border-line bg-[var(--surface-sunken)] px-4 py-4 sm:px-5">
+          <h2>
           Waiting on you
           {waiting.length > 0 && (
             <span className="ml-2 font-mono text-[13px] text-amber-700 dark:text-amber-300">
               {waiting.length}
             </span>
           )}
-        </h2>
+          </h2>
+          <p className="mt-1 text-[12px] text-muted">New requests appear here before access is granted.</p>
+        </header>
+        <div className="p-4 sm:p-5">
 
         {waiting.length === 0 ? (
           <EmptyState
@@ -125,7 +135,7 @@ export default function ProfessorApprovals() {
           <ul className="space-y-3">
             {waiting.map((a, i) => (
               <Reveal key={a.id} delay={i * 0.04}>
-                <li className="surface flex flex-wrap items-center gap-x-4 gap-y-3 rounded-card border border-amber-300 p-4 shadow-card dark:border-amber-400/40">
+                <li className="surface flex flex-wrap items-center gap-x-4 gap-y-3 rounded-card border border-line p-4">
                   <Avatar profile={a} size={40} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-medium text-ink">
@@ -158,12 +168,15 @@ export default function ProfessorApprovals() {
             ))}
           </ul>
         )}
+        </div>
       </section>
 
       {settled.length > 0 && (
-        <section className="space-y-3">
-          <h2>Already decided</h2>
-          <ul className="space-y-3">
+        <section className="surface overflow-hidden rounded-panel border border-line">
+          <header className="border-b border-line bg-[var(--surface-sunken)] px-4 py-4 sm:px-5">
+            <h2>Already decided</h2>
+          </header>
+          <ul className="space-y-2 p-4 sm:p-5">
             {settled.map((a) => (
               <li
                 key={a.id}

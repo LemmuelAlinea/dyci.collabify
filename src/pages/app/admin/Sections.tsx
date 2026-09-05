@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Field, Input } from '../../../components/ui/Field'
@@ -68,6 +69,7 @@ export default function Sections() {
   }, [])
 
   useEffect(() => {
+    document.title = 'Sections · Collabify'
     void load()
   }, [load])
 
@@ -123,20 +125,24 @@ export default function Sections() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-        <div className="min-w-0">
-          <p className="eyebrow">Program</p>
-          <h1 className="mt-1 leading-tight">Sections</h1>
-          <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
-            The cohorts the program runs this year. A professor making a class picks from
-            this list, so one section is spelled one way everywhere and its figures add up.
-          </p>
-        </div>
-        <Button className="!rounded-xl" onClick={() => setAdding(true)}>
-          <Icon name="plus" size={15} />
-          Add a section
-        </Button>
-      </header>
+      <DirectoryHero
+        title="Every cohort,"
+        accent="one clear name."
+        description="Keep section names, year levels, advisers, and enrolment figures consistent across the program."
+        action={
+          <Button variant="onNavy" size="sm" className="!rounded-lg" onClick={() => setAdding(true)}>
+            <Icon name="plus" size={15} />
+            Add a section
+          </Button>
+        }
+        statsVariant="compact-row"
+        stats={[
+          { value: rows.length, label: 'Sections' },
+          { value: rows.filter((section) => !section.archived_at).length, label: 'Active' },
+          { value: rows.reduce((sum, section) => sum + section.classes, 0), label: 'Classes' },
+          { value: rows.reduce((sum, section) => sum + section.students, 0), label: 'Students' },
+        ]}
+      />
 
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
@@ -213,13 +219,13 @@ export default function Sections() {
       </Modal>
 
       {unregistered.length > 0 && (
-        <section className="space-y-2">
-          <h2 className=" text-ink">Already in use, not on the list</h2>
-          <p className="max-w-[70ch] text-[13px] text-muted">
+        <section className="surface rounded-panel border border-line p-4 sm:p-5">
+          <h2 className="text-ink">Already in use, not on the list</h2>
+          <p className="mt-1 max-w-[70ch] text-[13px] text-muted">
             Classes are running under these names. Adding one adopts the spelling that is
             already out there rather than creating a second version of it.
           </p>
-          <ul className="flex flex-wrap gap-2">
+          <ul className="mt-3 flex flex-wrap gap-2">
             {unregistered.map((u) => (
               <li key={`${u.name}-${u.school_year}`}>
                 <button
@@ -230,7 +236,7 @@ export default function Sections() {
                     setYear(u.school_year)
                     setAdding(true)
                   }}
-                  className="surface flex items-center gap-2 rounded-xl border border-amber-300 px-3 py-1.5 text-[13px] text-ink transition-colors hover:border-line-strong dark:border-amber-400/40"
+                  className="surface flex items-center gap-2 rounded-xl border border-line px-3 py-1.5 text-[13px] text-ink transition-colors hover:border-line-strong"
                 >
                   {u.name}
                   <span className="font-mono text-[12px] text-faint">
@@ -250,7 +256,12 @@ export default function Sections() {
           body="Add the cohorts this program runs and professors will pick from them."
         />
       ) : (
-        <ul className="space-y-2">
+        <section className="surface overflow-hidden rounded-panel border border-line">
+          <header className="border-b border-line bg-[var(--surface-sunken)] px-4 py-4 sm:px-5">
+            <p className="text-[12px] font-medium text-faint">Section registry</p>
+            <h2 className="mt-1">Current sections</h2>
+          </header>
+          <ul className="space-y-2 p-4 sm:p-5">
           {rows.map((s) => (
             <li
               key={s.section_id}
@@ -302,7 +313,8 @@ export default function Sections() {
               </Button>
             </li>
           ))}
-        </ul>
+          </ul>
+        </section>
       )}
 
       <ConfirmDialog

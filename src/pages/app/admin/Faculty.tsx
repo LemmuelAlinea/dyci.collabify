@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { Avatar } from '../../../components/app/Avatar'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { Alert } from '../../../components/ui/Alert'
 import { Badge } from '../../../components/ui/Badge'
 import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
@@ -49,6 +50,7 @@ export default function Faculty() {
   }, [])
 
   useEffect(() => {
+    document.title = 'Faculty · Collabify'
     void refresh()
   }, [refresh])
 
@@ -99,21 +101,35 @@ export default function Faculty() {
 
   const years = [...new Set(all.map((c) => c.school_year))].sort().reverse()
   const active = [year, semester].filter(Boolean).length
+  const activeFaculty = accounts.filter((account) => account.status === 'active')
+  const teaching = activeFaculty.filter((account) => (load.get(account.id)?.classes.length ?? 0) > 0)
+  const students = [...load.values()].reduce((sum, item) => sum + item.students, 0)
+  const notReady = [...load.values()].reduce((sum, item) => sum + item.not_ready, 0)
 
   return (
     <div className="space-y-6">
-      <header>
-        <p className="eyebrow">Oversight</p>
-        <h1 className="mt-1 leading-tight">Faculty</h1>
-        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
-          Who is teaching what this term, how much of it is set up, and who is carrying
-          nothing. Names and counts — never what happens inside anybody's class.
-        </p>
-      </header>
+      <DirectoryHero
+        title="Teaching load,"
+        accent="made visible."
+        description="See who is teaching this term, where classes need setup, and where faculty capacity remains."
+        statsVariant="compact-row"
+        stats={[
+          { value: `${teaching.length}/${activeFaculty.length}`, label: 'With a load' },
+          { value: inTerm.length, label: 'Classes' },
+          { value: students, label: 'Students' },
+          { value: notReady, label: 'Not ready' },
+        ]}
+      />
 
       {error && <Alert tone="error">{error}</Alert>}
 
-      <FilterPopover
+      <section className="surface overflow-hidden rounded-panel border border-line">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-[var(--surface-sunken)] px-4 py-4 sm:px-5">
+          <div>
+            <p className="text-[12px] font-medium text-faint">Term overview</p>
+            <h2 className="mt-1">Faculty load</h2>
+          </div>
+          <FilterPopover
         active={active}
         summary={[year, semester && `${semester} sem`].filter(Boolean).join(' · ')}
         onClear={() => {
@@ -145,7 +161,9 @@ export default function Faculty() {
             className="!h-10 !text-[13px]"
           />
         </FilterField>
-      </FilterPopover>
+          </FilterPopover>
+        </header>
+        <div className="p-4 sm:p-5">
 
       {accounts.length === 0 ? (
         <EmptyState
@@ -164,6 +182,8 @@ export default function Faculty() {
           </ul>
         </>
       )}
+        </div>
+      </section>
     </div>
   )
 }
@@ -178,7 +198,7 @@ function LoadStrip({ accounts, load }: { accounts: Account[]; load: Map<string, 
   const waiting = accounts.filter((a) => a.status !== 'active').length
 
   return (
-    <section className="card p-4 sm:p-5 shadow-card">
+    <section className="mb-4 rounded-card border border-line bg-[var(--surface-sunken)] p-4 sm:p-5">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Figure value={`${teaching.length}/${active.length}`} label="professors with a load" />
         <Figure value={classes} label="classes running" />
@@ -242,11 +262,11 @@ function ProfessorRow({ account, load }: { account: Account; load?: Load }) {
 
   return (
     <li
-      className={`surface overflow-hidden rounded-card border shadow-card ${
+      className={`surface overflow-hidden rounded-card border ${
         inactive
           ? 'border-line opacity-80'
           : empty || notReady > 0
-            ? 'border-amber-300 dark:border-amber-400/40'
+            ? 'border-line'
             : 'border-line'
       }`}
     >
