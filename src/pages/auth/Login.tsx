@@ -50,6 +50,7 @@ export default function Login() {
 
   return (
     <AuthLayout
+      kicker="Welcome back"
       title="Sign in"
       subtitle="Pick up where your group left off."
       footer={
@@ -123,6 +124,7 @@ export default function Login() {
 
         <Button
           type="submit"
+          variant="accent"
           size="lg"
           full
           loading={busy}

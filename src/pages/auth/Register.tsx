@@ -70,6 +70,7 @@ export default function Register() {
 
   return (
     <AuthLayout
+      kicker="Get started"
       title="Create your account"
       subtitle="Set up your workspace for this semester."
       footer={
@@ -176,6 +177,7 @@ export default function Register() {
 
         <Button
           type="submit"
+          variant="accent"
           size="lg"
           full
           loading={busy}

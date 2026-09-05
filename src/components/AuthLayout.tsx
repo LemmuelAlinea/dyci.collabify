@@ -1,38 +1,96 @@
 import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { Logo, LogoMark } from './brand/Logo'
+import { useReducedMotion } from 'motion/react'
+import { Logo } from './brand/Logo'
 import { ThemeToggle } from './ThemeToggle'
 import { Icon } from './ui/Icon'
 
 type Props = {
+  /** The mono label above the heading. */
+  kicker?: string
   title: string
   subtitle: string
   children: ReactNode
   footer?: ReactNode
 }
 
-export function AuthLayout({ title, subtitle, children, footer }: Props) {
+/**
+ * The frame the three auth pages share.
+ *
+ * Rebuilt to match the landing page, and it keeps that page's rhythm rather
+ * than copying its surface: a near-black brand panel against a paper form
+ * panel, which is the same dark-then-light alternation the landing runs down
+ * its length. The form stays light on purpose — it is the one screen here
+ * somebody has to read carefully and type into, and dark forms cost legibility
+ * for atmosphere.
+ *
+ * The brand panel carries the landing's signatures so arriving here does not
+ * feel like leaving the product: the amber bleed, the blueprint rule, the
+ * orbit, the mono kicker with its leading rule, and the underline that draws
+ * itself under the words the sentence turns on.
+ */
+export function AuthLayout({ kicker, title, subtitle, children, footer }: Props) {
+  const reduce = useReducedMotion()
+  const still = !!reduce
+
   return (
-    <div className="grid min-h-dvh lg:grid-cols-2">
+    <div className="grid min-h-dvh lg:grid-cols-[minmax(0,46fr)_minmax(0,54fr)]">
       <a href="#main-content" className="skip-link">
         Skip to the form
       </a>
-      {/* Brand panel. On phones it shrinks to a band so the form stays above the fold. */}
-      <aside className="relative overflow-hidden bg-navy-600 text-white">
+
+      {/* --------------------------------------------------------- brand */}
+      {/* On phones this shrinks to a band so the form stays above the fold. */}
+      <aside className="relative overflow-hidden bg-navy-950 text-amber-50">
         <div
           aria-hidden
-          className="absolute inset-0"
+          className="pointer-events-none absolute -bottom-64 -left-56 h-[620px] w-[620px] rounded-full blur-[130px]"
           style={{
             background:
-              'radial-gradient(110% 80% at 20% 10%, #33429B 0%, #26327A 45%, #161D4A 100%)',
+              'radial-gradient(circle, rgb(240 180 41 / 0.20) 0%, rgb(240 180 41 / 0.06) 45%, transparent 70%)',
           }}
         />
-        <div aria-hidden className="blueprint absolute inset-0 opacity-70" />
         <div
           aria-hidden
-          className="absolute -right-24 -bottom-24 h-[420px] w-[420px] rounded-full opacity-25 blur-3xl"
-          style={{ background: 'radial-gradient(circle, #F0B429 0%, transparent 62%)' }}
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px)',
+            backgroundSize: '54px 54px',
+            maskImage: 'radial-gradient(ellipse at 40% 35%, #000, transparent 72%)',
+            WebkitMaskImage: 'radial-gradient(ellipse at 40% 35%, #000, transparent 72%)',
+          }}
         />
+
+        {/* The orbit, from the landing hero. Desktop only — at phone height the
+            band is too short for it to read as anything but a stray curve. */}
+        <svg
+          aria-hidden
+          viewBox="0 0 520 620"
+          className="pointer-events-none absolute inset-0 hidden h-full w-full lg:block"
+          fill="none"
+          preserveAspectRatio="xMidYMid slice"
+        >
+          <ellipse cx="260" cy="330" rx="250" ry="240" className="stroke-amber-50/10" />
+          <ellipse
+            cx="260"
+            cy="330"
+            rx="196"
+            ry="186"
+            className="stroke-amber-50/8"
+            strokeDasharray="4 7"
+          />
+          <ellipse
+            cx="260"
+            cy="330"
+            rx="250"
+            ry="240"
+            className="stroke-amber-400"
+            strokeWidth="1.6"
+            strokeDasharray="70 1450"
+            style={still ? undefined : { animation: 'collabify-orbit 18s linear infinite' }}
+          />
+        </svg>
 
         <div className="relative flex h-full flex-col justify-between p-6 md:p-10 lg:p-12">
           <Link to="/" className="inline-flex w-fit" aria-label="Back to Collabify home">
@@ -40,30 +98,65 @@ export function AuthLayout({ title, subtitle, children, footer }: Props) {
           </Link>
 
           <div className="hidden lg:block">
-            <LogoMark size={64} tone="onDark" />
-            <h2 className="mt-8 max-w-[440px] text-[clamp(2rem,3.2vw,2.9rem)] leading-[1.04]">
-              Where BSIT programs <span className="text-amber-400">run the term</span>.
-            </h2>
-            <p className="mt-5 max-w-[400px] text-[16px] leading-relaxed text-white/65">
-              Projects, boards and deadlines for classes at Dr. Yanga's Colleges.
+            <p className="flex items-center gap-3">
+              <span className="h-px w-7 bg-amber-400" />
+              <span className="font-mono text-[10.5px] tracking-[0.22em] text-amber-200/80 uppercase">
+                Dr. Yanga's Colleges · BSIT
+              </span>
             </p>
+
+            <h2 className="mt-7 max-w-[13ch] font-display text-[clamp(2rem,3.1vw,2.9rem)] leading-[1.02] font-bold tracking-[-0.04em]">
+              Where BSIT programs{' '}
+              <span className="relative inline-block">
+                <span className="text-amber-400">run the term.</span>
+                <svg
+                  aria-hidden
+                  viewBox="0 0 300 14"
+                  preserveAspectRatio="none"
+                  className="absolute -bottom-1 left-0 h-2.5 w-full overflow-visible"
+                  fill="none"
+                >
+                  <path
+                    d="M3 9c58-7 176-8 294-3"
+                    className="stroke-amber-400"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeDasharray="320"
+                    strokeDashoffset={still ? 0 : 320}
+                    style={
+                      still
+                        ? undefined
+                        : { animation: 'collabify-draw 1.4s .4s var(--ease-out-soft) forwards' }
+                    }
+                  />
+                </svg>
+              </span>
+            </h2>
+
+            <p className="mt-8 max-w-[38ch] text-[15.5px] leading-[1.8] text-amber-50/60">
+              Projects, boards and deadlines for classes at Dr. Yanga's Colleges. Six steps, each
+              blocked by the one before it.
+            </p>
+
+            <div className="mt-10 flex gap-9 border-t border-amber-50/12 pt-6 font-mono text-[10.5px] tracking-[0.16em] text-amber-50/45 uppercase">
+              <span>6 steps</span>
+              <span>3 roles</span>
+              <span>1 board per group</span>
+            </div>
           </div>
 
-          <p className="hidden text-[12.5px] text-white/40 lg:block">
-            © {new Date().getFullYear()} Collabify · Dr. Yanga's Colleges · BSIT program
+          <p className="hidden font-mono text-[10px] tracking-[0.14em] text-amber-50/25 uppercase lg:block">
+            © {new Date().getFullYear()} Collabify · Dr. Yanga's Colleges
           </p>
         </div>
       </aside>
 
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="surface-sunken relative flex flex-col outline-none"
-      >
+      {/* ---------------------------------------------------------- form */}
+      <main id="main-content" tabIndex={-1} className="surface relative flex flex-col outline-none">
         <div className="flex items-center justify-between p-4 md:p-6">
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-[13.5px] text-muted transition-colors hover:text-ink"
+            className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-[13.5px] text-muted transition-colors duration-200 hover:text-ink"
           >
             <Icon name="arrowLeft" size={16} />
             Back to site
@@ -72,11 +165,21 @@ export function AuthLayout({ title, subtitle, children, footer }: Props) {
         </div>
 
         <div className="flex flex-1 items-center justify-center px-5 pb-12 md:px-8">
-          <div className="w-full max-w-[420px]">
-            <h1 className="text-[clamp(1.8rem,3vw,2.3rem)] leading-tight">{title}</h1>
-            <p className="mt-2 text-[15px] leading-relaxed text-muted">{subtitle}</p>
-            <div className="mt-8">{children}</div>
-            {footer && <div className="mt-7 text-center text-[14px] text-muted">{footer}</div>}
+          <div className="w-full max-w-[430px]">
+            {kicker && (
+              <p className="flex items-center gap-3">
+                <span className="h-px w-7 bg-amber-400" />
+                <span className="font-mono text-[10.5px] tracking-[0.22em] text-faint uppercase">
+                  {kicker}
+                </span>
+              </p>
+            )}
+            <h1 className="mt-5 font-display text-[clamp(1.9rem,3vw,2.4rem)] leading-[1.05] font-bold tracking-[-0.035em]">
+              {title}
+            </h1>
+            <p className="mt-3 text-[15px] leading-relaxed text-muted">{subtitle}</p>
+            <div className="mt-9">{children}</div>
+            {footer && <div className="mt-8 text-center text-[14px] text-muted">{footer}</div>}
           </div>
         </div>
       </main>
@@ -88,7 +191,7 @@ export function OrDivider() {
   return (
     <div className="my-5 flex items-center gap-4">
       <span className="h-px flex-1 bg-[var(--line)]" />
-      <span className="eyebrow text-faint">or</span>
+      <span className="font-mono text-[10px] tracking-[0.2em] text-faint uppercase">or</span>
       <span className="h-px flex-1 bg-[var(--line)]" />
     </div>
   )

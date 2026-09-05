@@ -35,6 +35,7 @@ export default function ForgotPassword() {
 
   return (
     <AuthLayout
+      kicker="Account recovery"
       title="Reset your password"
       subtitle="We'll email you a link that signs you in and lets you set a new one."
       footer={
@@ -83,6 +84,7 @@ export default function ForgotPassword() {
 
           <Button
             type="submit"
+            variant="accent"
             size="lg"
             full
             loading={busy}
