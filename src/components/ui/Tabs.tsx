@@ -1,10 +1,6 @@
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
 
-// Moved to ./EmptyState. Re-exported here so this commit is a pure move; the
-// next one updates the 37 importers and deletes this line.
-export { EmptyState, type EmptyArt } from './EmptyState'
-
 export type Tab<T extends string> = {
   id: T
   label: string

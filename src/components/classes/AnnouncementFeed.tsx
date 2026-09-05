@@ -9,7 +9,7 @@ import { FileDrop, formatBytes } from '../ui/FileDrop'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Textarea } from '../ui/Select'
-import { EmptyState } from '../ui/Tabs'
+import { EmptyState } from '../ui/EmptyState'
 import { useToast } from '../ui/Toast'
 import {
   attachmentUrl,

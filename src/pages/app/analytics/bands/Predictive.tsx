@@ -3,7 +3,7 @@ import { BandHeader } from '../../../../components/analytics/BandHeader'
 import { BurnCard } from '../../../../components/analytics/BurnCard'
 import { ForecastSummary } from '../../../../components/analytics/ForecastSummary'
 import { PressureChart } from '../../../../components/analytics/PressureChart'
-import { EmptyState } from '../../../../components/ui/Tabs'
+import { EmptyState } from '../../../../components/ui/EmptyState'
 import type { useAnalytics } from '../useAnalytics'
 
 const SHOWN = 6

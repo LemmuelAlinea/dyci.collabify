@@ -1,6 +1,6 @@
 import { Avatar } from '../app/Avatar'
 import { Icon } from '../ui/Icon'
-import { EmptyState } from '../ui/Tabs'
+import { EmptyState } from '../ui/EmptyState'
 import {
   dueSoonLabel,
   formatMinutes,

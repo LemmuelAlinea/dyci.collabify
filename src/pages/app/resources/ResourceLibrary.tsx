@@ -8,7 +8,7 @@ import { FileDrop, formatBytes } from '../../../components/ui/FileDrop'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { Modal } from '../../../components/ui/Modal'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
-import { EmptyState } from '../../../components/ui/Tabs'
+import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import {
