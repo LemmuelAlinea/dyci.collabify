@@ -23,7 +23,12 @@ import { Kicker, Marquee, Rise, Shell } from '../components/landing-v2/parts'
  * (#172553) and `--orange` (#f6a536) land within a shade of `navy-800` and
  * `amber-400`, so nothing new had to be introduced to match it.
  *
- * The live page at `/` is untouched.
+ * This is the live page at `/`. The name is from when it was a study, and was
+ * kept so the swap stayed a route change rather than a rename reaching every
+ * import — worth tidying, but not in the same commit as the swap. The page it
+ * replaced is still routed at `/preview/original`, which is also why nothing
+ * under `components/landing/` was deleted; the 3D board lives there and all
+ * three pages import it.
  */
 
 /** Nav that inverts as the page passes from the dark hero onto white. */
@@ -46,7 +51,7 @@ function Nav() {
       }`}
     >
       <Shell className="flex h-16 items-center justify-between sm:h-[72px]">
-        <Link to="/preview" className="font-display text-[19px] font-bold tracking-[-0.03em]">
+        <Link to="/" className="font-display text-[19px] font-bold tracking-[-0.03em]">
           Collabify<span className="text-amber-400">.</span>
         </Link>
 
@@ -181,9 +186,8 @@ export default function LandingV2() {
             </p>
             <div className="flex flex-wrap gap-7">
               {[
-                ['Current landing page', '/'],
-                ['The minimal study', '/preview/study'],
                 ['Sign in', '/login'],
+                ['Create an account', '/register'],
               ].map(([label, to]) => (
                 <Link
                   key={to}
@@ -197,7 +201,7 @@ export default function LandingV2() {
           </Shell>
           <Shell className="pb-10">
             <p className="font-mono text-[10px] leading-relaxed tracking-[0.14em] text-amber-50/25 uppercase">
-              A landing page study. Not the live page.
+              Collabify · a project workspace for BSIT coursework
             </p>
           </Shell>
         </footer>

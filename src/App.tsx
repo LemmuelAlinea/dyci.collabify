@@ -6,7 +6,6 @@ import { ErrorBoundary } from './components/app/ErrorBoundary'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { PageLoading } from './components/ui/PageLoading'
 
-import Landing from './pages/Landing'
 import NotFound from './pages/NotFound'
 
 import Login from './pages/auth/Login'
@@ -33,11 +32,14 @@ import Pending from './pages/auth/Pending'
  * visitor sees, and splitting them would trade a smaller download for a blank
  * frame at the worst possible moment.
  */
-// Landing-page studies. Both lazy, so their weight never lands on anyone who
-// does not ask for one. /preview is the combined page; /preview/study is the
-// earlier minimal one it borrows its restraint from.
+// The live landing page is LandingV2 — the file keeps its name from when it
+// was a study, so the swap stays a route change rather than a rename touching
+// every import. The two pages it replaced are still routed under /preview so
+// they can be compared, and because the board under landing/board is imported
+// by all three and must not be deleted with the page that used to own it.
 const LandingV2 = lazy(() => import('./pages/LandingV2'))
 const LandingAlt = lazy(() => import('./pages/LandingAlt'))
+const LandingOriginal = lazy(() => import('./pages/Landing'))
 const Accounts = lazy(() => import('./pages/app/admin/Accounts'))
 const AdminHome = lazy(() => import('./pages/app/AdminHome'))
 const Analytics = lazy(() => import('./pages/app/analytics/Analytics'))
@@ -83,8 +85,8 @@ export default function App() {
           catches a lazy route that renders outside it. */}
       <Suspense fallback={<PageLoading />}>
           <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/preview" element={<LandingV2 />} />
+          <Route path="/" element={<LandingV2 />} />
+          <Route path="/preview/original" element={<LandingOriginal />} />
           <Route path="/preview/study" element={<LandingAlt />} />
 
           <Route path="/login" element={<Login />} />
