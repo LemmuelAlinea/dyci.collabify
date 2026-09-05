@@ -11,7 +11,7 @@ type Size = 'sm' | 'md' | 'lg'
 // control in here.
 const BASE =
   'btn inline-flex items-center justify-center gap-2 rounded-full font-medium whitespace-nowrap ' +
-  'transition-[transform,background-color,border-color,box-shadow,color] duration-200 ' +
+  'transition-[scale,background-color,border-color,box-shadow,color] duration-200 ' +
   'active:scale-[0.98] disabled:pointer-events-none disabled:opacity-55'
 
 const VARIANTS: Record<Variant, string> = {

@@ -64,7 +64,7 @@ export function FilterPopover({
         aria-haspopup="dialog"
         aria-label={active > 0 ? `${label} — ${active} on` : label}
         title={label}
-        className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-[background-color,border-color,transform] duration-(--dur-press) active:scale-[0.97] ${
+        className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-[background-color,border-color,color,scale] duration-(--dur-press) active:scale-[0.97] ${
           active > 0 || open
             ? 'border-navy-400 bg-navy-500/10 text-navy-600 dark:text-navy-200'
             : 'surface border-line text-muted hover:border-line-strong hover:text-ink'
