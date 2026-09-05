@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button } from '../ui/Button'
-import { Alert, Field, Input } from '../ui/Field'
+import { Field, Input } from '../ui/Field'
+import { Alert } from '../ui/Alert'
 import { Modal } from '../ui/Modal'
 import { SeriesScope } from './SeriesScope'
 import type { SeriesMember } from '../../lib/types'

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
-import { EmptyState } from '../ui/Tabs'
+import { EmptyState } from '../ui/EmptyState'
 import type { Action } from '../../lib/insight'
 
 const SHOWN = 6

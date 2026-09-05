@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Avatar } from '../app/Avatar'
-import { Alert } from '../ui/Field'
+import { Alert } from '../ui/Alert'
 import { Icon, Spinner } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { listMembers, listProfessorClasses } from '../../lib/api/classes'

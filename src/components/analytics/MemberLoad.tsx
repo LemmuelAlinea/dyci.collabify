@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Avatar } from '../app/Avatar'
-import { EmptyState } from '../ui/Tabs'
+import { EmptyState } from '../ui/EmptyState'
 import { CARRYING_ALONE_PCT } from '../../lib/types'
 import type { MemberLoad as Load } from '../../lib/types'
 

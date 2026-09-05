@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { AuthLayout } from '../../components/AuthLayout'
-import { Alert } from '../../components/ui/Field'
+import { Alert } from '../../components/ui/Alert'
 import { ButtonLink } from '../../components/ui/Button'
 
 export default function CheckEmail() {

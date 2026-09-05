@@ -14,7 +14,7 @@ export function GoogleButton({
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="surface flex h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-[var(--line-strong)] text-[14.5px] font-medium text-ink transition-[background-color,transform] duration-200 hover:bg-[var(--surface-sunken)] active:scale-[0.99] disabled:opacity-60"
+      className="surface flex h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-[var(--line-strong)] text-[14.5px] font-medium text-ink transition-[background-color,scale] duration-(--dur-press) hover:bg-[var(--surface-sunken)] active:scale-[0.99] disabled:opacity-60"
     >
       {loading ? <Spinner size={17} /> : <GoogleMark size={18} />}
       {label}

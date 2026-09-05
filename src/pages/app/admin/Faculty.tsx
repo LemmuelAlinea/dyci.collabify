@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
-import type { ReactNode } from 'react'
 import { Avatar } from '../../../components/app/Avatar'
-import { Alert } from '../../../components/ui/Field'
+import { Alert } from '../../../components/ui/Alert'
+import { Badge } from '../../../components/ui/Badge'
 import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { Select } from '../../../components/ui/Select'
-import { EmptyState } from '../../../components/ui/Tabs'
+import { EmptyState } from '../../../components/ui/EmptyState'
 import { listAccounts } from '../../../lib/api/accounts'
 import { programClasses } from '../../../lib/api/admin'
 import { authErrorMessage } from '../../../lib/authError'
@@ -256,7 +256,11 @@ function ProfessorRow({ account, load }: { account: Account; load?: Load }) {
           <div className="min-w-0">
             <p className="flex items-center gap-2 truncate text-[15px] text-ink">
               {fullName(account)}
-              {inactive && <Chip tone="plain">{ACCOUNT_STATUS_LABEL[account.status]}</Chip>}
+              {inactive && (
+                <Badge className="shrink-0 whitespace-nowrap">
+                  {ACCOUNT_STATUS_LABEL[account.status]}
+                </Badge>
+              )}
             </p>
             <p className="truncate text-[12.5px] text-muted">{account.email}</p>
           </div>
@@ -265,7 +269,11 @@ function ProfessorRow({ account, load }: { account: Account; load?: Load }) {
         <div className="flex shrink-0 items-center gap-5">
           <Stat value={classes.length} label={classes.length === 1 ? 'class' : 'classes'} />
           <Stat value={load?.students ?? 0} label="students" />
-          {notReady > 0 && <Chip tone="warn">{notReady} not ready</Chip>}
+          {notReady > 0 && (
+            <Badge tone="warning" className="shrink-0 whitespace-nowrap">
+              {notReady} not ready
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -299,9 +307,11 @@ function ProfessorRow({ account, load }: { account: Account; load?: Load }) {
                 </span>
                 <span className="flex w-[86px] shrink-0 justify-end">
                   {gaps.length > 0 && (
-                    <Chip tone="warn" title={gaps.join(', ')}>
-                      not ready
-                    </Chip>
+                    <span title={gaps.join(', ')} className="shrink-0">
+                      <Badge tone="warning" className="whitespace-nowrap">
+                        not ready
+                      </Badge>
+                    </span>
                   )}
                 </span>
               </li>
@@ -322,25 +332,3 @@ function Stat({ value, label }: { value: number; label: string }) {
   )
 }
 
-function Chip({
-  children,
-  tone,
-  title,
-}: {
-  children: ReactNode
-  tone: 'warn' | 'plain'
-  title?: string
-}) {
-  return (
-    <span
-      title={title}
-      className={`shrink-0 rounded-full px-2 py-0.5 text-[11.5px] whitespace-nowrap ${
-        tone === 'warn'
-          ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
-          : 'surface-sunken text-muted'
-      }`}
-    >
-      {children}
-    </span>
-  )
-}

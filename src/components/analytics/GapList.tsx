@@ -1,5 +1,5 @@
 import { Icon } from '../ui/Icon'
-import { EmptyState } from '../ui/Tabs'
+import { EmptyState } from '../ui/EmptyState'
 import type { ClassGap } from '../../lib/types'
 
 /**

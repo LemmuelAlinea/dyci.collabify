@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button } from '../ui/Button'
-import { Alert, Input } from '../ui/Field'
+import { Input } from '../ui/Field'
+import { Alert } from '../ui/Alert'
 import { Icon, Spinner } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'

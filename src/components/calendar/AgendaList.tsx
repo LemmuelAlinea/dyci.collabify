@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { EventChip } from './EventChip'
-import { EmptyState } from '../ui/Tabs'
+import { EmptyState } from '../ui/EmptyState'
 import { calendarDaysUntil, dayKey, hasPassed } from '../../lib/types'
 import type { CalendarEvent } from '../../lib/types'
 

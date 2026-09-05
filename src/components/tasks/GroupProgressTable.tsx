@@ -153,7 +153,7 @@ export function GroupProgressTable({
                 <button
                   type="button"
                   onClick={() => onOpen(b)}
-                  className={`surface w-full rounded-xl border px-3.5 py-3 text-left transition-[border-color,transform] duration-200 hover:-translate-y-0.5 ${
+                  className={`surface hover-safe w-full rounded-xl border px-3.5 py-3 text-left transition-[border-color,transform] duration-200 ${
                     open
                       ? 'border-navy-400 dark:border-navy-300'
                       : empty || b.unclaimed_count > 0

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '../../ui/Button'
-import { Alert, Field } from '../../ui/Field'
+import { Field } from '../../ui/Field'
+import { Alert } from '../../ui/Alert'
 import { Modal } from '../../ui/Modal'
 import { Textarea } from '../../ui/Select'
 import { useToast } from '../../ui/Toast'

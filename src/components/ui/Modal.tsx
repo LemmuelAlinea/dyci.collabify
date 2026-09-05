@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 import { useFocusTrap } from '../../lib/focus'
+import { DUR } from '../../lib/motion'
 
 type Props = {
   open: boolean
@@ -50,21 +51,54 @@ export function Modal({
     closeRef.current = onClose
   })
 
+  // `open` is the caller's intent; `render` is what is on screen. They differ
+  // for one transition on the way out, which is the whole reason a dialog can
+  // animate closed at all — without this the element is unmounted on the frame
+  // the user clicks, and there is nothing left to fade.
+  //
+  // The open->true edge is applied here, during render, rather than in an
+  // effect. Every <Modal> in this app is permanently mounted and toggled by
+  // `open`, so on that edge this component is already rendering when `open`
+  // flips true — calling setState here makes React redo this render with
+  // `render` already true and commit the panel to the DOM in the SAME commit.
+  // If this were done in an effect instead (as the close edge below still is),
+  // the panel would mount one commit late: the trap and autofocus effects
+  // would run first, see `panel.current === null`, bail, and never re-run,
+  // because their deps (`ref`, `open`) would not have changed on the following
+  // commit. Focus would silently stay on the trigger behind the backdrop.
+  const [render, setRender] = useState(open)
+  if (open && !render) setRender(true)
+  useEffect(() => {
+    if (open) return
+    const t = setTimeout(() => setRender(false), DUR.base)
+    return () => clearTimeout(t)
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeRef.current()
     }
     document.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
-    }
+    return () => document.removeEventListener('keydown', onKey)
   }, [open])
 
+  // Keyed on `render`, not `open`: the dialog is still on screen — fading and
+  // shrinking out — for one transition after `open` goes false, and the page
+  // behind it should not be scrollable while it is still visibly there.
+  useEffect(() => {
+    if (!render) return
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [render])
+
   // Tab used to walk out of the dialog and into the page behind it, which a
-  // mouse never reveals because the backdrop hides it.
+  // mouse never reveals because the backdrop hides it. Keyed on `open`, not
+  // `render`: the trap should engage and release on the caller's intent, not
+  // on the extra frame the exit animation keeps the element mounted for —
+  // otherwise Tab would still be caught inside a dialog the user just closed.
   useFocusTrap(panel, open, { autoFocus: !focusField })
 
   useEffect(() => {
@@ -76,17 +110,30 @@ export function Modal({
     ;(field ?? panel.current)?.focus({ preventScroll: true })
   }, [open, focusField])
 
-  if (!open) return null
+  if (!render) return null
 
   return (
-    <div className="fixed inset-0 z-60 flex items-end justify-center p-0 sm:items-center sm:p-6">
+    // `render` staying true after `open` goes false is what lets the dialog fade
+    // out instead of vanishing on the click — but for that one transition the
+    // node is still in the DOM, still focusable, and still announced as an open
+    // dialog. useFocusTrap has already released by then (it's keyed on `open`),
+    // so nothing is stopping Tab from walking back into a dialog the user just
+    // dismissed. `inert` is the one attribute that pulls the whole exit-only
+    // window out of tab order and the accessibility tree in one shot — it drops
+    // the instant `open` flips back to true, so a genuinely open dialog is never
+    // inert.
+    <div
+      inert={!open}
+      className="fixed inset-0 z-60 flex items-end justify-center p-0 sm:items-center sm:p-6"
+    >
       {/* Clickable, but not a tab stop: the header already has a real Close
           button, and Escape closes. A focusable full-screen button here just
           added a control that reads as "Close" before the dialog's own title. */}
       <div
         aria-hidden="true"
         onClick={onClose}
-        className="absolute inset-0 bg-navy-950/55 backdrop-blur-sm"
+        data-state={open ? 'open' : 'closed'}
+        className="motion-scrim absolute inset-0 bg-navy-950/55 backdrop-blur-sm"
       />
       <div
         ref={panel}
@@ -94,7 +141,8 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className={`surface relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-panel shadow-lift outline-none sm:rounded-panel ${WIDTHS[size]}`}
+        data-state={open ? 'open' : 'closed'}
+        className={`motion-dialog surface relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-panel shadow-lift outline-none sm:rounded-panel ${WIDTHS[size]}`}
       >
         <header className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
           <div className="min-w-0">
@@ -105,7 +153,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-mt-1 -mr-2 grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+            className="-mt-1 -mr-2 grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-[background-color,color,scale] duration-(--dur-press) hover:bg-[var(--surface-sunken)] hover:text-ink active:scale-[0.97]"
           >
             <Icon name="x" size={18} />
           </button>

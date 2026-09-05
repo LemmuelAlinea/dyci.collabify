@@ -3,7 +3,7 @@ import { useLive } from '../../../hooks/useLive'
 import { Avatar } from '../../../components/app/Avatar'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
-import { Alert } from '../../../components/ui/Field'
+import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import {
   FilterField,
@@ -11,7 +11,7 @@ import {
   FilterSearch,
 } from '../../../components/ui/FilterPopover'
 import { Select } from '../../../components/ui/Select'
-import { EmptyState } from '../../../components/ui/Tabs'
+import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import { listAccounts, setAccountActive, setAccountRole } from '../../../lib/api/accounts'

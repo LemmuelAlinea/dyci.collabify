@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Alert, Field, Input } from '../ui/Field'
+import { Field, Input } from '../ui/Field'
+import { Alert } from '../ui/Alert'
 import { Textarea } from '../ui/Select'
 import type { TaskInput } from '../../lib/api/tasks'
 import type { ProjectTask } from '../../lib/types'

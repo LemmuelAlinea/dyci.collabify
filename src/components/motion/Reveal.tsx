@@ -3,7 +3,13 @@ import type { ReactNode } from 'react'
 
 type Props = {
   children: ReactNode
-  /** Seconds. Stagger siblings by passing 0, 0.06, 0.12 … */
+  /**
+   * Seconds. Stagger siblings with `i * <step>`, not a flat delay — call
+   * sites land the step anywhere from 0.02 to 0.09 depending on how many
+   * siblings are revealing together and how much motion budget the surface
+   * gets. The landing page is a marketing surface and can spend more of
+   * that budget than the app, so the two reasonably use different steps.
+   */
   delay?: number
   y?: number
   className?: string

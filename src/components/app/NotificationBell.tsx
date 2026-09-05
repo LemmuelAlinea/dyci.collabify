@@ -9,6 +9,7 @@ import {
   unreadCount,
 } from '../../lib/api/notifications'
 import type { AppNotification, Role } from '../../lib/types'
+import { DUR } from '../../lib/motion'
 
 const ROLE_BASE: Record<Role, string> = {
   student: '/student',
@@ -32,6 +33,20 @@ export function NotificationBell() {
   const [items, setItems] = useState<AppNotification[] | null>(null)
   const [unread, setUnread] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
+
+  // `open` is the caller's intent; `render` is what is on screen, staying true
+  // for one transition after `open` goes false so the panel fades out instead
+  // of vanishing on the click. See Modal.tsx for why the open->true edge is
+  // set during the render body rather than an effect (this panel has no focus
+  // trap, so it does not matter here the way it did there, but the shape is
+  // kept identical rather than inventing a second dialect).
+  const [render, setRender] = useState(open)
+  if (open && !render) setRender(true)
+  useEffect(() => {
+    if (open) return
+    const t = setTimeout(() => setRender(false), DUR.fast)
+    return () => clearTimeout(t)
+  }, [open])
 
   const refreshCount = useCallback(async () => {
     if (!profile) return
@@ -100,7 +115,7 @@ export function NotificationBell() {
         onClick={() => setOpen((v) => !v)}
         aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}
         aria-expanded={open}
-        className="relative grid h-10 w-10 place-items-center rounded-full text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+        className="relative grid h-10 w-10 place-items-center rounded-full text-muted transition-[background-color,color,scale] duration-(--dur-press) hover:bg-[var(--surface-sunken)] hover:text-ink active:scale-[0.97]"
       >
         <Icon name="bell" size={19} />
         {unread > 0 && (
@@ -110,11 +125,18 @@ export function NotificationBell() {
         )}
       </button>
 
-      {open && (
+      {render && (
         // The bell is not the rightmost control in the topbar, so anchoring the
         // panel to it pushed the panel's left edge off a phone screen. Below sm
         // it spans the viewport instead; from sm up it hangs off the button.
-        <div className="surface fixed inset-x-3 top-[78px] z-50 overflow-hidden rounded-2xl border border-line shadow-lift sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[380px]">
+        <div
+          // Dismissed but still mounted for the exit transition: `inert` keeps
+          // a closed panel from staying a tab stop. See FilterPopover.tsx /
+          // Modal.tsx for the same rule.
+          inert={!open}
+          data-state={open ? 'open' : 'closed'}
+          className="motion-overlay surface fixed inset-x-3 top-[78px] z-50 origin-top overflow-hidden rounded-2xl border border-line shadow-lift sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[380px] sm:origin-top-right"
+        >
           <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
             <p className="text-[14px] font-semibold text-ink">Notifications</p>
             {unread > 0 && (
@@ -152,7 +174,7 @@ export function NotificationBell() {
                     <button
                       type="button"
                       onClick={() => openNotification(n)}
-                      className="flex w-full gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[var(--surface-sunken)]"
+                      className="flex w-full gap-3 px-4 py-3.5 text-left transition-colors duration-(--dur-press) hover:bg-[var(--surface-sunken)] active:bg-[var(--surface-sunken)]"
                     >
                       <span
                         className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${

@@ -139,7 +139,7 @@ export function MessageComposer({
           onClick={submit}
           disabled={busy || (!body.trim() && files.length === 0)}
           aria-label="Send message"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-navy-600 text-white transition-[background-color,transform] duration-200 hover:bg-navy-500 active:scale-95 disabled:opacity-40 dark:bg-navy-500 dark:hover:bg-navy-400"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-navy-600 text-white transition-[background-color,scale] duration-(--dur-press) hover:bg-navy-500 active:scale-95 disabled:opacity-40 dark:bg-navy-500 dark:hover:bg-navy-400"
         >
           {busy ? <Spinner size={17} /> : <Icon name="arrowRight" size={19} />}
         </button>

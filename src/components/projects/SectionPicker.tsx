@@ -1,4 +1,4 @@
-import { Alert } from '../ui/Field'
+import { Alert } from '../ui/Alert'
 import { Icon } from '../ui/Icon'
 import { Select } from '../ui/Select'
 import type { LiveGroupSet } from '../../lib/api/groups'

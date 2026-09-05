@@ -8,9 +8,9 @@ import { DashSection } from '../../components/dashboard/DashSection'
 import { DashboardSummary } from '../../components/dashboard/DashboardSummary'
 import { StalledGroups } from '../../components/dashboard/StalledGroups'
 import { ButtonLink } from '../../components/ui/Button'
-import { Alert } from '../../components/ui/Field'
+import { Alert } from '../../components/ui/Alert'
 import { Spinner } from '../../components/ui/Icon'
-import { EmptyState } from '../../components/ui/Tabs'
+import { EmptyState } from '../../components/ui/EmptyState'
 import { useAuth } from '../../context/AuthContext'
 import { plural } from '../../lib/plural'
 import { useProfessorDashboard } from '../../hooks/useProfessorDashboard'
@@ -160,7 +160,7 @@ export default function ProfessorHome() {
                 </DashSection>
               </Reveal>
 
-              <Reveal once delay={0.06}>
+              <Reveal once delay={0.12}>
                 <DashSection
                   icon="alert"
                   title="Groups that have stalled"
@@ -171,7 +171,7 @@ export default function ProfessorHome() {
                 </DashSection>
               </Reveal>
 
-              <Reveal once delay={0.08}>
+              <Reveal once delay={0.16}>
                 <DashSection
                   icon="chart"
                   title="Progress across your classes"
@@ -184,7 +184,7 @@ export default function ProfessorHome() {
 
             {/* What to know. */}
             <div className="space-y-5 md:space-y-8">
-              <Reveal once delay={0.05}>
+              <Reveal once delay={0.08}>
                 <DashSection
                   icon="folder"
                   title="Your classes"

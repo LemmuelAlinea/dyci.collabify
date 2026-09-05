@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Button } from '../ui/Button'
-import { Alert } from '../ui/Field'
+import { Alert } from '../ui/Alert'
 import { Icon, Spinner } from '../ui/Icon'
 import { ProjectsBoard } from './ProjectsBoard'
 import { ProjectWizard } from './ProjectWizard'

@@ -4,9 +4,10 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Reveal } from '../../../components/motion/Reveal'
 import { StatRow } from '../../../components/dashboard/DashSection'
 import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
-import { Alert } from '../../../components/ui/Field'
+import { Alert } from '../../../components/ui/Alert'
+import { Badge } from '../../../components/ui/Badge'
 import { Icon, Spinner } from '../../../components/ui/Icon'
-import { EmptyState } from '../../../components/ui/Tabs'
+import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import { myTasks, setTaskStatus } from '../../../lib/api/tasks'
@@ -203,9 +204,7 @@ export default function MyTasks() {
                       <h2 className={`flex items-center gap-2 text-[16px] ${bucket.tone}`}>
                         <span className={`h-2.5 w-2.5 rounded-full ${bucket.bar}`} />
                         {bucket.title}
-                        <span className="rounded-full surface-sunken px-2 py-0.5 font-mono text-[11px] text-muted">
-                          {list.length}
-                        </span>
+                        <Badge numeric>{list.length}</Badge>
                       </h2>
                       <p className="text-[12.5px] text-faint">{bucket.blurb}</p>
                     </header>

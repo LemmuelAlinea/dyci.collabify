@@ -1,5 +1,5 @@
 import { Spinner } from '../ui/Icon'
-import { EmptyState } from '../ui/Tabs'
+import { EmptyState } from '../ui/EmptyState'
 import { ProfessorTasksView } from './ProfessorTasksView'
 import { StudentTasksView } from './StudentTasksView'
 import { useProjectTasks } from './useProjectTasks'
