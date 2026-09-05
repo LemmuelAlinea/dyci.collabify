@@ -5,13 +5,15 @@ export type BadgeTone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger'
 /**
  * A count or a status, said once.
  *
- * Ninety-odd places were each spelling out a pill from `rounded-full` plus a
- * size plus a background, which is how four different paddings and three
- * different text sizes ended up live at the same time. Tones map onto colours
- * that already exist — nothing new is introduced here. `success`, `warning`
- * and `danger` are the same `-500/15` and `-400/18` mixes the status pills
- * across classes, groups and admin tables already used, not the paler
- * `-50`/`-800` pairing `Alert` and `Toast` use for a banner.
+ * Used at 13 call sites. About 18 hand-rolled pills — `rounded-full` plus a
+ * size plus a background, spelled out inline — still live outside `landing/`,
+ * including the ones in `Tabs.tsx`, `NotificationBell.tsx` and
+ * `FilterPopover.tsx`; moving them over is unstarted, not something this
+ * component already did. Tones map onto colours that already exist — nothing
+ * new is introduced here. `success`, `warning` and `danger` are the same
+ * `-500/15` and `-400/18` mixes the status pills across classes, groups and
+ * admin tables already used, not the paler `-50`/`-800` pairing `Alert` and
+ * `Toast` use for a banner.
  */
 const TONES: Record<BadgeTone, string> = {
   neutral: 'surface-sunken text-muted',
