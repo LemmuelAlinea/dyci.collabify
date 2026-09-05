@@ -2,10 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Reveal } from '../../../components/motion/Reveal'
-import { StatRow } from '../../../components/dashboard/DashSection'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
 import { Alert } from '../../../components/ui/Alert'
-import { Badge } from '../../../components/ui/Badge'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
@@ -152,17 +151,30 @@ export default function MyTasks() {
   const activeBoard = (tasks ?? []).find((t) => t.id === openTask)
 
   return (
-    <div className="mx-auto w-full max-w-[1280px]">
-      <Reveal once>
-        <p className="eyebrow text-amber-500 dark:text-amber-300">Workspace</p>
-        <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">My tasks</h1>
-        <p className="mt-2.5 max-w-[560px] text-[15.5px] text-muted">
-          Everything you have taken on, across every project. Finishing these is what makes
-          up your own grade.
-        </p>
-      </Reveal>
+    <div className="w-full">
+      <DirectoryHero
+        title="My"
+        accent="tasks"
+        description="What you have taken on across every project, ordered by what needs you first."
+        action={
+          <Link
+            to="/student/projects"
+            className="inline-flex items-center gap-2 rounded-lg border border-amber-50/20 bg-amber-50/8 px-4 py-2.5 text-[13px] font-medium text-amber-50 transition-colors hover:bg-amber-50/14"
+          >
+            Find work on project boards
+            <Icon name="arrowRight" size={14} />
+          </Link>
+        }
+        stats={[
+          { label: 'Still open', value: tasks === null ? '—' : open.length },
+          { label: 'Past due', value: tasks === null ? '—' : overdue },
+          { label: 'Finished', value: tasks === null ? '—' : (tasks?.length ?? 0) - open.length },
+          { label: 'Time logged', value: tasks === null ? '—' : formatMinutes(loggedTotal) },
+        ]}
+        statsVariant="compact-row"
+      />
 
-      <div className="mt-7 space-y-7">
+      <div className="mt-6 space-y-7">
         {error && <Alert tone="error">{error}</Alert>}
 
         {tasks === null ? (
@@ -179,46 +191,55 @@ export default function MyTasks() {
           />
         ) : (
           <>
-            <Reveal once delay={0.04}>
-              <StatRow
-                stats={[
-                  { label: 'Still open', value: open.length },
-                  {
-                    label: overdue === 1 ? 'Past due' : 'Past due',
-                    value: overdue,
-                    tone: overdue > 0 ? 'warn' : 'plain',
-                  },
-                  { label: 'Finished', value: tasks.length - open.length },
-                  { label: 'Time logged', value: formatMinutes(loggedTotal) },
-                ]}
-              />
-            </Reveal>
+            <nav aria-label="Jump to task group" className="flex flex-wrap items-center gap-2">
+              <span className="mr-1 text-[12px] font-medium text-faint">Jump to</span>
+              {BUCKETS.map((bucket) => {
+                const count = grouped.get(bucket.id)?.length ?? 0
+                if (count === 0) return null
+                return (
+                  <a
+                    key={bucket.id}
+                    href={`#tasks-${bucket.id}`}
+                    className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink"
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${bucket.bar}`} />
+                    {bucket.title}
+                    <span className="font-mono text-faint">{count}</span>
+                  </a>
+                )
+              })}
+            </nav>
 
             {BUCKETS.map((bucket, i) => {
               const list = grouped.get(bucket.id) ?? []
               if (list.length === 0) return null
               return (
                 <Reveal once delay={0.06 + i * 0.02} key={bucket.id}>
-                  <section className="space-y-3">
-                    <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <h2 className={`flex items-center gap-2 ${bucket.tone}`}>
-                        <span className={`h-2.5 w-2.5 rounded-full ${bucket.bar}`} />
-                        {bucket.title}
-                        <Badge numeric>{list.length}</Badge>
-                      </h2>
-                      <p className="text-[12px] text-faint">{bucket.blurb}</p>
+                  <section
+                    id={`tasks-${bucket.id}`}
+                    className="scroll-mt-28 overflow-hidden rounded-card border border-line surface"
+                  >
+                    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line surface-sunken px-4 py-3.5 sm:px-5">
+                      <div className="flex items-center gap-3">
+                        <span className={`h-2 w-2 rounded-full ${bucket.bar}`} />
+                        <div>
+                          <h2 className={bucket.tone}>{bucket.title}</h2>
+                          <p className="mt-0.5 text-[12px] text-faint">{bucket.blurb}</p>
+                        </div>
+                      </div>
+                      <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted ring-1 ring-[var(--line)]">
+                        {list.length}
+                      </span>
                     </header>
 
-                    <ul className="space-y-2">
+                    <ul className="divide-y divide-[var(--line)]">
                       {list.map((t) => {
                         const share = taskShare(t, t.board_weight || t.weight)
                         return (
                           <li
                             key={t.id}
-                            className="surface group flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-line px-4 py-3.5 shadow-card transition-colors duration-250 hover:border-line-strong hover:border-line-strong"
+                            className="group flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-4 transition-colors hover:bg-[var(--surface-sunken)] sm:px-5"
                           >
-                            <span className={`h-9 w-1 shrink-0 rounded-full ${bucket.bar}`} />
-
                             <button
                               type="button"
                               onClick={() => showTask(t.id)}
@@ -234,7 +255,7 @@ export default function MyTasks() {
                                 {t.title}
                               </span>
                               <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-muted">
-                                <span className="truncate">
+                                <span className="max-w-full truncate">
                                   {t.project_title} · {t.class_initial}
                                   {t.group_name ? ` · ${t.group_name}` : ''}
                                 </span>
@@ -262,7 +283,7 @@ export default function MyTasks() {
                               </span>
                             </button>
 
-                            <span className="flex shrink-0 items-center gap-3">
+                            <span className="ml-auto flex shrink-0 items-center gap-3">
                               {t.due_at && (
                                 <span
                                   className={`hidden font-mono text-[12px] sm:block ${
@@ -298,7 +319,7 @@ export default function MyTasks() {
                                     )
                                   }
                                 }}
-                                className="flex items-center gap-2 rounded-lg border border-[var(--line-strong)] px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:bg-[var(--surface-sunken)]"
+                                className="flex items-center gap-2 rounded-lg border border-[var(--line-strong)] bg-[var(--surface)] px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-navy-400 hover:text-navy-600 dark:hover:border-navy-300 dark:hover:text-navy-200"
                               >
                                 <Icon name={NEXT[t.status].icon} size={14} />
                                 {NEXT[t.status].label}
@@ -313,16 +334,7 @@ export default function MyTasks() {
               )
             })}
 
-            <p className="text-[12px] text-faint">
-              Only the people on a task can move it.{' '}
-              <Link
-                to="/student/projects"
-                className="font-medium text-navy-600 hover:underline dark:text-navy-200"
-              >
-                Claim more work
-              </Link>{' '}
-              from a project board.
-            </p>
+            <p className="text-[12px] text-faint">Only the people on a task can move it.</p>
           </>
         )}
       </div>

@@ -28,56 +28,92 @@ export function ClassCodePill({ code, tone = 'quiet' }: { code: string; tone?: '
  * widths. One card per row wasted half the screen on a list whose whole job is
  * to be scanned.
  */
-export function ClassCard({ cls, to }: { cls: ClassSummary; to: string }) {
+export function ClassCard({
+  cls,
+  to,
+  audience,
+  index,
+}: {
+  cls: ClassSummary
+  to: string
+  audience: 'professor' | 'student'
+  index: number
+}) {
   const archived = Boolean(cls.archived_at)
+  const ready = Boolean(cls.syllabus_id && cls.term_start && cls.term_end)
+  const status = archived
+    ? 'Archived'
+    : audience === 'professor'
+      ? ready
+        ? 'Ready for the term'
+        : 'Setup needed'
+      : ready
+        ? 'Term scheduled'
+        : 'Schedule pending'
 
   return (
     <Link
       to={to}
-      className="group @container surface flex rounded-card border border-line shadow-card transition-colors duration-250 hover:border-line-strong hover:border-line-strong"
+      className="group relative flex min-h-[248px] overflow-hidden rounded-card border border-line bg-[var(--surface)] transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-line-strong"
     >
-      {/* The padding lives on this inner box, not on the card itself: an
-          element cannot answer its own container query, so the card declares
-          the container and everything inside it measures against that. */}
-      <div className="flex w-full flex-col p-3.5 @min-[240px]:p-5">
-      <div className="flex items-start gap-3 @min-[240px]:gap-3.5">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-navy-600 font-display text-[12px] font-bold tracking-tight text-amber-400 @min-[240px]:h-12 @min-[240px]:w-12 @min-[240px]:rounded-xl @min-[240px]:text-[14px] dark:bg-navy-500">
-          {cls.initial}
-        </span>
-        <div className="min-w-0 flex-1">
-          {/* Two lines on a phone rather than one truncated one: at 174px a
-              truncated class name is often just its course code. */}
-          <h3 className="line-clamp-2 leading-snug @min-[240px]:truncate @min-[240px]:">
-            {cls.name}
-          </h3>
-          <p className="mt-0.5 truncate text-[12px] text-muted @min-[240px]:mt-1 @min-[240px]:text-[12px]">
-            {classMeta(cls)}
+      <div className="flex w-full flex-col p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-mono text-[11px] tracking-[0.18em] text-faint uppercase">
+            Class {String(index + 1).padStart(2, '0')}
           </p>
+          <span
+            className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+              ready && !archived
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : 'surface-sunken text-muted'
+            }`}
+          >
+            {status}
+          </span>
         </div>
-        {archived && (
-          <span className="shrink-0 rounded-full surface-sunken px-2 py-0.5 font-mono text-[12px] tracking-wider text-faint uppercase @min-[240px]:px-2.5 @min-[240px]:py-1">
-            Archived
-          </span>
-        )}
-      </div>
 
-      {cls.professor && (
-        <p className="mt-2 truncate text-[12px] text-muted @min-[240px]:mt-3 @min-[240px]:text-[13px]">
-          {fullName(cls.professor)}
+        <div className="mt-5 flex items-start gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-navy-950 font-display text-[14px] font-bold text-amber-300 ring-1 ring-white/10">
+            {cls.initial}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="line-clamp-2 text-[17px] leading-snug text-ink transition-colors group-hover:text-navy-600 dark:group-hover:text-amber-300">
+              {cls.name}
+            </h3>
+            <p className="mt-1 text-[12px] leading-relaxed text-muted">{classMeta(cls)}</p>
+          </div>
+        </div>
+
+        <p className="mt-4 line-clamp-2 min-h-[42px] text-[13px] leading-relaxed text-muted">
+          {cls.description ||
+            (audience === 'professor'
+              ? 'Open the class workspace to manage its roster, projects and term materials.'
+              : 'Open the class workspace for announcements, projects and your group work.')}
         </p>
-      )}
 
-      {/* Wraps on a narrow card instead of squeezing the code pill. */}
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-t border-line pt-2.5 @min-[240px]:pt-3.5">
-        <ClassCodePill code={cls.code} />
-        <span className="flex items-center gap-2 text-[12px] text-muted @min-[240px]:text-[12px]">
-          <Icon name="users" size={14} />
-          {cls.student_count}
-          <span className="hidden @min-[240px]:inline">
-            {cls.student_count === 1 ? ' student' : ' students'}
+        <div className="mt-auto flex items-end justify-between gap-4 border-t border-line pt-4">
+          <div className="min-w-0">
+            {audience === 'student' && cls.professor ? (
+              <>
+                <p className="text-[11px] text-faint">Professor</p>
+                <p className="mt-0.5 truncate text-[13px] font-medium text-ink">
+                  {fullName(cls.professor)}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[11px] text-faint">Class code</p>
+                <div className="mt-1">
+                  <ClassCodePill code={cls.code} />
+                </div>
+              </>
+            )}
+          </div>
+          <span className="flex shrink-0 items-center gap-1.5 text-[12px] text-muted">
+            <Icon name="users" size={14} />
+            {cls.student_count} {cls.student_count === 1 ? 'student' : 'students'}
           </span>
-        </span>
-      </div>
+        </div>
       </div>
     </Link>
   )

@@ -99,22 +99,19 @@ export function ProjectCard({
   return (
     <Link
       to={to}
-      className="group @container surface flex rounded-card border border-line shadow-card transition-colors duration-250 hover:border-line-strong hover:border-line-strong"
+      className="group flex min-h-[286px] rounded-card border border-line bg-[var(--surface)] transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-line-strong"
     >
-      {/* The padding lives on this inner box, not on the card itself: an
-          element cannot answer its own container query, so the card declares
-          the container and everything inside it measures against that. */}
-      <div className="flex w-full flex-col p-3.5 @min-[240px]:p-5">
+      <div className="flex w-full flex-col p-5 sm:p-6">
       <div className="flex items-start justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg surface-sunken text-muted">
-            <Icon name={meta?.icon ?? 'folder'} size={16} />
+        <span className="flex min-w-0 items-center gap-3.5">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-navy-950 text-amber-300">
+            <Icon name={meta?.icon ?? 'folder'} size={18} />
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-[12px] text-muted">
+            <span className="block truncate text-[12px] font-medium text-ink">
               {projectTypeLabel(project)}
             </span>
-            <span className="block font-mono text-[12px] text-faint">
+            <span className="mt-0.5 block font-mono text-[11px] text-faint">
               {weekSpanLabel(project)}
             </span>
           </span>
@@ -123,31 +120,26 @@ export function ProjectCard({
       </div>
 
       {sections > 1 && (
-        <p className="mt-2 flex items-center gap-2 text-[12px] text-faint">
+        <p className="mt-3 flex items-center gap-2 text-[12px] text-faint">
           <Icon name="copy" size={12} className="shrink-0" />
           1 of {sections} sections
         </p>
       )}
 
-      <h3 className="mt-2.5 line-clamp-2 leading-snug @min-[240px]:mt-3.5 @min-[240px]:">{project.title}</h3>
+      <h3 className="mt-5 line-clamp-2 text-[17px] leading-snug transition-colors group-hover:text-navy-600 dark:group-hover:text-amber-300">
+        {project.title}
+      </h3>
 
       {showClass && (
-        <p className="mt-0.5 truncate text-[12px] text-muted @min-[240px]:mt-1 @min-[240px]:text-[12px]">
-          {/* The initial is the part that identifies the class at a glance;
-              the full name and the group set are what push this line past the
-              width of a half-screen card. */}
-          {project.class_initial}
-          <span className="hidden @min-[240px]:inline">
-            {' · '}
-            {project.class_name}
-            {project.group_set_name ? ` · ${project.group_set_name}` : ''}
-          </span>
+        <p className="mt-1 truncate text-[12px] text-muted">
+          {project.class_initial} · {project.class_name}
+          {project.group_set_name ? ` · ${project.group_set_name}` : ''}
         </p>
       )}
 
       {project.week_assessments && (
-        <p className="mt-2 hidden gap-2 text-[12px] leading-snug text-amber-700 @min-[240px]:mt-3 @min-[240px]:line-clamp-2 @min-[240px]:flex @min-[240px]:text-[12px] dark:text-amber-300">
-          <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
+        <p className="mt-4 flex line-clamp-2 gap-2 text-[12px] leading-relaxed text-muted">
+          <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0 text-faint" />
           {project.week_assessments}
         </p>
       )}
@@ -156,15 +148,13 @@ export function ProjectCard({
           boards there are, how many are in, and how far the work has got on
           average. Naming a single group here would be picking one at random. */}
       {across && across.boards > 0 && (
-        <div className="mt-2.5 @min-[240px]:mt-3.5">
+        <div className="mt-4 rounded-xl surface-sunken p-3.5">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[12px]">
             <span className="text-muted">
               {across.boards} {across.boards === 1 ? 'board' : 'boards'} ·{' '}
               {across.submitted} in
-              <span className="hidden @min-[240px]:inline">
-                {across.accepted > 0 && ` · ${across.accepted} accepted`}
-                {across.returned > 0 && ` · ${across.returned} returned`}
-              </span>
+              {across.accepted > 0 && ` · ${across.accepted} accepted`}
+              {across.returned > 0 && ` · ${across.returned} returned`}
             </span>
             <span className="font-mono text-faint">{across.pct}%</span>
           </div>
@@ -188,7 +178,7 @@ export function ProjectCard({
           no longer what a student is scanning for. */}
       {progress?.result_verdict && (
         <p
-          className={`mt-2.5 flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] font-medium @min-[240px]:mt-3.5 @min-[240px]:text-[12px] ${
+          className={`mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium ${
             progress.result_verdict === 'accepted'
               ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200'
               : 'bg-amber-400/20 text-amber-800 dark:text-amber-200'
@@ -208,14 +198,14 @@ export function ProjectCard({
       {/* Handed in and still waiting is its own state, and the one a student
           most often wants confirmed. */}
       {!progress?.result_verdict && progress?.submitted_at && (
-        <p className="mt-2.5 flex items-center gap-2 rounded-lg surface-sunken px-2.5 py-1.5 text-[12px] text-muted @min-[240px]:mt-3.5 @min-[240px]:text-[12px]">
+        <p className="mt-4 flex items-center gap-2 rounded-lg surface-sunken px-3 py-2 text-[12px] text-muted">
           <Icon name="check" size={14} className="shrink-0" />
           Handed in · waiting on your professor
         </p>
       )}
 
       {progress && progress.task_count > 0 && (
-        <div className="mt-2.5 @min-[240px]:mt-3.5">
+        <div className="mt-4 rounded-xl surface-sunken p-3.5">
           <div className="flex items-baseline justify-between gap-2 text-[12px]">
             <span className="text-muted">
               {progress.done_count} of {progress.task_count} tasks
@@ -231,23 +221,20 @@ export function ProjectCard({
         </div>
       )}
 
-      <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2.5 text-[12px] text-muted @min-[240px]:gap-x-4 @min-[240px]:pt-4 @min-[240px]:text-[12px]">
+      <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-4 text-[12px] text-muted">
         <span
           className={`flex items-center gap-2 ${
             overdue ? 'text-faint' : 'text-muted'
           }`}
         >
           <Icon name="clock" size={13} />
-          <span className="@min-[240px]:hidden">{dueLabelShort(project.due_at)}</span>
-          <span className="hidden @min-[240px]:inline">{dueLabel(project.due_at)}</span>
+          <span>{dueLabel(project.due_at)}</span>
         </span>
-        {/* Whether it is group work, and what it is out of, are answered on the
-            project itself. On a half-screen card they cost two more lines. */}
-        <span className="hidden items-center gap-2 @min-[240px]:flex">
+        <span className="flex items-center gap-2">
           <Icon name={project.audience === 'group' ? 'users' : 'user'} size={13} />
           {project.audience === 'group' ? 'Group' : 'Individual'}
         </span>
-        <span className="hidden font-mono text-faint @min-[240px]:inline">{project.total_points} pts</span>
+        <span className="font-mono text-faint">{project.total_points} pts</span>
       </div>
       </div>
     </Link>

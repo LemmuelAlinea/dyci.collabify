@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Alert } from '../../../components/ui/Alert'
 import { Spinner } from '../../../components/ui/Icon'
 import { ProjectsBoard } from '../../../components/projects/ProjectsBoard'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { useProjectsData } from '../../../hooks/useProjectsData'
 import { listStudentClasses } from '../../../lib/api/classes'
@@ -31,15 +32,22 @@ export default function StudentProjects() {
 
   return (
     <div className="w-full">
-      <header>
-        <p className="eyebrow text-amber-500 dark:text-amber-300">Workspace</p>
-        <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">Projects</h1>
-        <p className="mt-2.5 max-w-[560px] text-[15.5px] text-muted">
-          Everything your classes have set, with the week of the syllabus each one comes from.
-        </p>
-      </header>
+      <DirectoryHero
+        title="Every brief, deadline"
+        accent="and board."
+        description="See the work your classes have set, the syllabus weeks behind it and how far your own board has moved."
+        stats={[
+          { value: loading || classes === null ? '—' : projects.length, label: 'Projects in view' },
+          { value: classes === null ? '—' : classes.length, label: 'Classes represented' },
+        ]}
+      />
 
-      <div className="mt-8 space-y-4">
+      <div className="mt-8 border-b border-line pb-4">
+        <p className="text-[12px] font-medium text-faint">Project directory</p>
+        <h2 className="mt-1">Your assigned work</h2>
+      </div>
+
+      <div className="mt-5 space-y-4">
         {classError && <Alert tone="error">{classError}</Alert>}
         {error && <Alert tone="error">{error}</Alert>}
 

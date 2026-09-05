@@ -160,145 +160,194 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
     <div className="mx-auto w-full max-w-[1280px]">
       <Link
         to={`${base}/projects`}
-        className="inline-flex items-center gap-2 text-[13px] text-muted transition-colors hover:text-ink"
+        className="inline-flex items-center gap-2 text-[13px] font-medium text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={15} />
         All projects
       </Link>
 
-      <header className="blueprint mt-4 rounded-card bg-navy-700 p-4 sm:p-6 text-white sm:p-8 dark:bg-navy-800">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="flex items-center gap-2 font-mono text-[12px] tracking-wide text-amber-300 uppercase">
-              <Icon name={meta?.icon ?? 'folder'} size={14} />
-              {projectTypeLabel(project)} · {weekSpanLabel(project)}
-            </p>
-            <h1 className="mt-3 text-[clamp(1.6rem,3vw,2.2rem)] leading-tight">
-              {project.title}
-            </h1>
-            <p className="mt-2 text-[14px] text-white/70">
-              <Link
-                to={`${base}/classes/${project.class_id}`}
-                className="hover:underline"
-              >
-                {project.class_initial} · {project.class_name}
-              </Link>
-              {project.group_set_name && ` · ${project.group_set_name}`}
-            </p>
-            {/* Said here because every action on this page can reach further
-                than the page itself. */}
-            {inSeries && (
-              <p className="mt-2 flex items-start gap-2 text-[13px] text-white/60">
-                <Icon name="copy" size={14} className="mt-0.5 shrink-0" />
-                <span>
-                  Also set for {others.map((m) => m.section).join(', ')} — each with its
-                  own board and deadline.
-                </span>
-              </p>
-            )}
-          </div>
+      <header className="relative mt-4 overflow-hidden rounded-panel border border-amber-50/10 bg-navy-950 px-5 py-6 text-amber-50 sm:px-7 sm:py-8 lg:px-9">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-48 -right-40 h-[420px] w-[420px] rounded-full bg-amber-400/10 blur-[115px]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-60"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px)',
+            backgroundSize: '54px 54px',
+            maskImage: 'linear-gradient(90deg, #000 10%, transparent 85%)',
+            WebkitMaskImage: 'linear-gradient(90deg, #000 10%, transparent 85%)',
+          }}
+        />
 
-          {canManage && (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="onNavy" size="sm" onClick={() => setEditOpen(true)}>
-                <Icon name="edit" size={15} />
-                Edit
-              </Button>
-              {project.scheduled && (
+        <div className="relative">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50/8 px-2.5 py-1 text-[11px] font-medium text-amber-50/65 ring-1 ring-amber-50/10">
+                <Icon name={meta?.icon ?? 'folder'} size={12} />
+                {projectTypeLabel(project)}
+              </span>
+              <span className="rounded-full bg-amber-50/8 px-2.5 py-1 text-[11px] font-medium text-amber-50/65 ring-1 ring-amber-50/10">
+                {weekSpanLabel(project)}
+              </span>
+              <span
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                  project.archived_at || project.locked_at
+                    ? 'bg-white/10 text-amber-50/70'
+                    : project.scheduled
+                      ? 'bg-amber-400/15 text-amber-200'
+                      : 'bg-emerald-400/12 text-emerald-200'
+                }`}
+              >
+                {project.archived_at
+                  ? 'Archived'
+                  : project.locked_at
+                    ? 'Closed'
+                    : project.scheduled
+                      ? 'Scheduled'
+                      : 'Active'}
+              </span>
+            </div>
+
+            {canManage && (
+              <div className="flex flex-wrap items-center gap-1.5">
                 <Button
                   variant="onNavy"
                   size="sm"
+                  className="!h-8 !rounded-lg !px-3"
+                  onClick={() => setEditOpen(true)}
+                >
+                  <Icon name="edit" size={14} />
+                  Edit
+                </Button>
+                {project.scheduled && (
+                  <Button
+                    variant="onNavy"
+                    size="sm"
+                    className="!h-8 !rounded-lg !px-3"
+                    onClick={async () => {
+                      if (inSeries) return setAction('release')
+                      await releaseNow(project.id)
+                      show('Project published')
+                      await load()
+                    }}
+                  >
+                    <Icon name="upload" size={14} />
+                    Publish
+                  </Button>
+                )}
+                {inSeries && (
+                  <Button
+                    variant="onNavy"
+                    size="sm"
+                    className="!h-8 !rounded-lg !px-3"
+                    onClick={() => setAction('due')}
+                  >
+                    <Icon name="clock" size={14} />
+                    Deadline
+                  </Button>
+                )}
+                <Button
+                  variant="onNavy"
+                  size="sm"
+                  className="!h-8 !rounded-lg !px-3"
                   onClick={async () => {
-                    if (inSeries) return setAction('release')
-                    await releaseNow(project.id)
-                    show('Project published')
+                    if (inSeries) return setAction('lock')
+                    await setProjectLocked(project.id, !project.locked_at)
+                    show(
+                      project.locked_at
+                        ? 'Project reopened — students can work on it again'
+                        : 'Project closed — students can no longer change their tasks',
+                    )
                     await load()
                   }}
                 >
-                  <Icon name="upload" size={15} />
-                  Publish now
+                  <Icon name={project.locked_at ? 'unlock' : 'lock'} size={14} />
+                  {project.locked_at ? 'Reopen' : 'Close'}
                 </Button>
-              )}
-              {/* The extension, on its own button. Moving one section's
-                  deadline is the commonest thing done to a series, and going
-                  through the whole form to do it would put four other steps
-                  in front of it — every one of which would then be saved to
-                  whatever sections were in scope. */}
-              {inSeries && (
-                <Button variant="onNavy" size="sm" onClick={() => setAction('due')}>
-                  <Icon name="clock" size={15} />
-                  Deadline
+                <Button
+                  variant="onNavy"
+                  size="sm"
+                  className="!h-8 !rounded-lg !px-3"
+                  onClick={async () => {
+                    if (inSeries) return setAction('archive')
+                    await setProjectArchived(project.id, !project.archived_at)
+                    show(project.archived_at ? 'Project restored' : 'Project archived')
+                    await load()
+                  }}
+                >
+                  <Icon name={project.archived_at ? 'refresh' : 'archive'} size={14} />
+                  {project.archived_at ? 'Restore' : 'Archive'}
                 </Button>
-              )}
-              {/* Separate from the deadline on purpose: closing stops the work
-                  without rewriting when it was due, and reopening is how an
-                  extension is granted. */}
-              <Button
-                variant="onNavy"
-                size="sm"
-                onClick={async () => {
-                  if (inSeries) return setAction('lock')
-                  await setProjectLocked(project.id, !project.locked_at)
-                  show(
-                    project.locked_at
-                      ? 'Project reopened — students can work on it again'
-                      : 'Project closed — students can no longer change their tasks',
-                  )
-                  await load()
-                }}
-              >
-                <Icon name={project.locked_at ? 'unlock' : 'lock'} size={15} />
-                {project.locked_at ? 'Reopen' : 'Close'}
-              </Button>
-              <Button
-                variant="onNavy"
-                size="sm"
-                onClick={async () => {
-                  if (inSeries) return setAction('archive')
-                  await setProjectArchived(project.id, !project.archived_at)
-                  show(project.archived_at ? 'Project restored' : 'Project archived')
-                  await load()
-                }}
-              >
-                <Icon name={project.archived_at ? 'refresh' : 'archive'} size={15} />
-                {project.archived_at ? 'Restore' : 'Archive'}
-              </Button>
-              <Button variant="danger" size="sm" onClick={() => setDeletePrompt(true)}>
-                <Icon name="trash" size={15} />
-                Delete
-              </Button>
-            </div>
-          )}
-        </div>
+                <button
+                  type="button"
+                  onClick={() => setDeletePrompt(true)}
+                  aria-label="Delete project"
+                  className="grid h-8 w-8 place-items-center rounded-lg text-amber-50/55 transition-colors hover:bg-red-500/15 hover:text-red-200"
+                >
+                  <Icon name="trash" size={15} />
+                </button>
+              </div>
+            )}
+          </div>
 
-        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-white/80">
-          {/* Says the state wherever you are on the page — the Close button
-              alone only reads as the state once you look at its label. */}
-          {project.locked_at && (
-            <span className="flex items-center gap-2 rounded-lg bg-amber-400/20 px-2.5 py-1 font-mono text-[12px] text-amber-200">
-              <Icon name="lock" size={14} />
-              CLOSED
-            </span>
-          )}
-          <span className="flex items-center gap-2">
-            <Icon name="clock" size={15} />
-            {dueLabel(project.due_at)}
-          </span>
-          <span className="flex items-center gap-2">
-            <Icon name={project.audience === 'group' ? 'users' : 'user'} size={15} />
-            {project.audience === 'group' ? 'One submission per group' : 'One per student'}
-          </span>
-          <span className="font-mono">{project.total_points} points</span>
-          {project.scheduled && project.release_at && (
-            <span className="flex items-center gap-2 text-amber-300">
-              <Icon name="eyeOff" size={15} />
-              Hidden until {new Date(project.release_at).toLocaleString()}
-            </span>
+          <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(460px,0.82fr)] lg:items-end">
+            <div className="flex min-w-0 items-start gap-4 sm:gap-5">
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-amber-50/8 text-amber-300 ring-1 ring-amber-50/12 sm:h-16 sm:w-16">
+                <Icon name={meta?.icon ?? 'folder'} size={23} />
+              </span>
+              <div className="min-w-0">
+                <h1 className="text-balance text-amber-50">{project.title}</h1>
+                <p className="mt-2 text-[13px] text-amber-50/55">
+                  <Link to={`${base}/classes/${project.class_id}`} className="hover:text-amber-200 hover:underline">
+                    {project.class_initial} · {project.class_name}
+                  </Link>
+                  {project.group_set_name && ` · ${project.group_set_name}`}
+                </p>
+                {project.scheduled && project.release_at && (
+                  <p className="mt-3 flex items-center gap-2 text-[12px] text-amber-200/80">
+                    <Icon name="eyeOff" size={13} />
+                    Hidden until {new Date(project.release_at).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-amber-50/12 bg-amber-50/12">
+              <div className="min-w-0 bg-navy-950/85 px-3 py-3.5">
+                <dt className="text-[11px] text-amber-50/45">Deadline</dt>
+                <dd className="mt-1.5 text-[12px] font-medium text-amber-50">{dueLabel(project.due_at)}</dd>
+              </div>
+              <div className="min-w-0 bg-navy-950/85 px-3 py-3.5">
+                <dt className="text-[11px] text-amber-50/45">Submission</dt>
+                <dd className="mt-1.5 truncate text-[12px] font-medium text-amber-50">
+                  {project.audience === 'group' ? 'Per group' : 'Per student'}
+                </dd>
+              </div>
+              <div className="min-w-0 bg-navy-950/85 px-3 py-3.5">
+                <dt className="text-[11px] text-amber-50/45">Points</dt>
+                <dd className="mt-1.5 font-mono text-[18px] font-bold text-amber-50">
+                  {project.total_points}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          {inSeries && (
+            <p className="mt-6 flex items-start gap-2 border-t border-amber-50/10 pt-4 text-[12px] text-amber-50/50">
+              <Icon name="copy" size={13} className="mt-0.5 shrink-0" />
+              <span>
+                Also set for {others.map((m) => m.section).join(', ')} — each has its own board and deadline.
+              </span>
+            </p>
           )}
         </div>
       </header>
 
-      <div className="mt-8">
+      <div className="mt-6">
         <Tabs<TabId>
           tabs={[
             { id: 'brief', label: 'Brief', icon: 'file' },
@@ -306,6 +355,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           ]}
           active={tab}
           onChange={setTab}
+          variant="panel"
         />
       </div>
 
@@ -315,7 +365,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         </div>
       )}
 
-      <div className={`mt-6 space-y-6 ${tab === 'brief' ? '' : 'hidden'}`}>
+      <div className={`mt-6 ${tab === 'brief' ? '' : 'hidden'}`}>
         {error && <Alert tone="error">{error}</Alert>}
         {project.archived_at && (
           <Alert tone="info">
@@ -323,8 +373,9 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           </Alert>
         )}
 
+        <div className="grid gap-6 lg:grid-cols-2">
         {/* The syllabus lines it was built on — the reason the project exists. */}
-        <section className="card p-4 sm:p-5 shadow-card sm:p-6">
+        <section className="rounded-panel border border-line surface p-4 shadow-card sm:p-6 lg:col-span-2">
           <div className="flex items-center justify-between gap-3">
             <h2>Based on the syllabus</h2>
             <StatusPill project={project} />
@@ -359,7 +410,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           )}
         </section>
 
-        <section className="card p-4 sm:p-5 shadow-card sm:p-6">
+        <section className="rounded-panel border border-line surface p-4 shadow-card sm:p-6">
           <h2>Guidelines</h2>
           {project.guidelines ? (
             <p className="mt-3 text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
@@ -374,7 +425,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           )}
         </section>
 
-        <section className="card p-4 sm:p-5 shadow-card sm:p-6">
+        <section className="rounded-panel border border-line surface p-4 shadow-card sm:p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2>Rubric</h2>
             {criteria.length > 0 && (
@@ -408,7 +459,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           )}
         </section>
 
-        <section className="card p-4 sm:p-5 shadow-card sm:p-6">
+        <section className="rounded-panel border border-line surface p-4 shadow-card sm:p-6 lg:col-span-2">
           <h2>Files</h2>
           {files.length === 0 ? (
             <p className="mt-2 text-[13px] text-faint">Nothing attached.</p>
@@ -478,6 +529,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
             </div>
           )}
         </section>
+        </div>
       </div>
 
       {canManage && profile && (

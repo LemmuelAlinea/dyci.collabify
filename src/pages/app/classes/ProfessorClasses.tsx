@@ -7,6 +7,7 @@ import { Modal } from '../../../components/ui/Modal'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { ClassCard } from '../../../components/classes/ClassCard'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { ClassForm } from '../../../components/classes/ClassForm'
 import { useAuth } from '../../../context/AuthContext'
 import { createClass, listProfessorClasses } from '../../../lib/api/classes'
@@ -86,39 +87,50 @@ export default function ProfessorClasses() {
     }
   }
 
+  const studentTotal = classes?.reduce((total, cls) => total + cls.student_count, 0) ?? 0
+
   return (
     <div className="w-full">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow text-amber-500 dark:text-amber-300">Advising</p>
-          <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">Classes</h1>
-          <p className="mt-2.5 max-w-[560px] text-[15.5px] text-muted">
-            Each class gets a join code you hand to your section. Everything else — roster,
-            announcements, files — lives inside it.
-          </p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)} className="!rounded-xl">
-          <Icon name="plus" size={17} />
-          Create class
-        </Button>
-      </header>
+      <DirectoryHero
+        title="Your classes shape"
+        accent="the term."
+        description="Build each section around one syllabus, then keep its people, projects and decisions moving from the same place."
+        action={
+          <Button variant="accent" onClick={() => setCreateOpen(true)}>
+            <Icon name="plus" size={17} />
+            Create class
+          </Button>
+        }
+        stats={[
+          { value: classes === null ? '—' : classes.length, label: view === 'active' ? 'Active classes' : 'Archived classes' },
+          { value: classes === null ? '—' : studentTotal, label: 'Students represented' },
+        ]}
+      />
 
-      <div className="mt-7 flex gap-1 rounded-full surface-sunken p-1 sm:w-fit">
-        {(['active', 'archived'] as View[]).map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setView(v)}
-            className={`flex-1 rounded-full px-5 py-2 text-[14px] transition-colors duration-200 sm:flex-none ${
-              view === v ? 'surface font-semibold text-ink ring-1 ring-[var(--line-strong)]' : 'text-muted hover:text-ink'
-            }`}
-          >
-            {v === 'active' ? 'Active' : 'Archived'}
-          </button>
-        ))}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
+        <div>
+          <p className="text-[12px] font-medium text-faint">Class directory</p>
+          <h2 className="mt-1">{view === 'active' ? 'This term' : 'Past classes'}</h2>
+        </div>
+        <div className="flex gap-1 rounded-lg surface-sunken p-1">
+          {(['active', 'archived'] as View[]).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={`rounded-md px-4 py-1.5 text-[13px] transition-colors duration-150 ${
+                view === v
+                  ? 'surface font-medium text-ink ring-1 ring-[var(--line)]'
+                  : 'text-muted hover:text-ink'
+              }`}
+            >
+              {v === 'active' ? 'Active' : 'Archived'}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-5">
         {loadError && <Alert tone="error">{loadError}</Alert>}
 
         {classes === null ? (
@@ -145,9 +157,15 @@ export default function ProfessorClasses() {
             }
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4 min-[2100px]:grid-cols-5 max-sm:[&>*:only-child]:col-span-2">
-            {classes.map((c) => (
-              <ClassCard key={c.id} cls={c} to={`/professor/classes/${c.id}`} />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:gap-5">
+            {classes.map((c, index) => (
+              <ClassCard
+                key={c.id}
+                cls={c}
+                to={`/professor/classes/${c.id}`}
+                audience="professor"
+                index={index}
+              />
             ))}
           </div>
         )}

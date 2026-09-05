@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { Toggle } from '../ui/Field'
 import { useToast } from '../ui/Toast'
-import { classMeta } from '../../lib/types'
+import { classMeta, fullName } from '../../lib/types'
 import type { ClassSummary } from '../../lib/types'
 
 export function ClassHeader({
@@ -36,49 +36,95 @@ export function ClassHeader({
     <header>
       <Link
         to={backTo}
-        className="inline-flex items-center gap-2 text-[13px] text-muted transition-colors hover:text-ink"
+        className="inline-flex items-center gap-2 text-[13px] font-medium text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={16} />
         All classes
       </Link>
 
-      <div className="relative mt-4 overflow-hidden rounded-panel bg-navy-600 p-4 sm:p-6 text-white md:p-8">
-        <div aria-hidden className="blueprint absolute inset-0 opacity-60" />
-        <div className="relative flex flex-wrap items-start justify-between gap-6">
-          <div className="flex min-w-0 items-start gap-4">
-            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/12 font-display text-[17px] font-bold tracking-tight text-amber-400">
-              {cls.initial}
-            </span>
-            <div className="min-w-0">
-              {cls.archived_at && (
-                <span className="mb-2 inline-block rounded-full bg-white/12 px-2.5 py-1 font-mono text-[12px] tracking-wider uppercase">
+      <div className="relative mt-4 overflow-hidden rounded-panel border border-amber-50/10 bg-navy-950 px-5 py-6 text-amber-50 sm:px-7 sm:py-8 lg:px-9">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-48 -right-40 h-[420px] w-[420px] rounded-full bg-amber-400/10 blur-[115px]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-60"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px)',
+            backgroundSize: '54px 54px',
+            maskImage: 'linear-gradient(90deg, #000 10%, transparent 85%)',
+            WebkitMaskImage: 'linear-gradient(90deg, #000 10%, transparent 85%)',
+          }}
+        />
+
+        <div className="relative">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="font-mono text-[11px] tracking-[0.2em] text-amber-200/70 uppercase">
+                Class workspace
+              </span>
+              {cls.archived_at ? (
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-amber-50/70">
                   Archived
                 </span>
-              )}
-              <h1 className="truncate text-[clamp(1.5rem,3vw,2.1rem)] leading-tight">{cls.name}</h1>
-              <p className="mt-1.5 text-[13px] text-white/65">{classMeta(cls)}</p>
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={copyCode}
-                  title="Copy class code"
-                  className="inline-flex items-center gap-2 rounded-lg bg-navy-950/35 px-3 py-1.5 font-mono text-[13px] tracking-wide text-amber-300 transition-colors hover:bg-navy-950/55"
-                >
-                  {cls.code}
-                  <Icon name={copied ? 'check' : 'copy'} size={14} />
-                </button>
-                <span className="flex items-center gap-2 text-[13px] text-white/65">
-                  <Icon name="users" size={15} />
-                  {cls.student_count} {cls.student_count === 1 ? 'student' : 'students'}
+              ) : (
+                <span className="rounded-full bg-emerald-400/12 px-2.5 py-1 text-[11px] font-medium text-emerald-200">
+                  Active term
                 </span>
+              )}
+            </div>
+            {canManage && actions}
+          </div>
+
+          <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.7fr)] lg:items-end">
+            <div className="flex min-w-0 items-start gap-4 sm:gap-5">
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-amber-50/8 font-display text-[16px] font-bold text-amber-300 ring-1 ring-amber-50/12 sm:h-16 sm:w-16 sm:text-[18px]">
+                {cls.initial}
+              </span>
+              <div className="min-w-0">
+                <h1 className="text-balance text-amber-50">{cls.name}</h1>
+                <p className="mt-2 text-[13px] text-amber-50/55">{classMeta(cls)}</p>
+                <p className="mt-3 max-w-[62ch] text-[13px] leading-relaxed text-amber-50/55">
+                  {cls.description ||
+                    (canManage
+                      ? 'Manage the people, projects, materials and decisions that move this class through the term.'
+                      : cls.professor
+                        ? `Led by ${fullName(cls.professor)}. Announcements, projects and group work stay together here.`
+                        : 'Announcements, projects and group work stay together here.')}
+                </p>
               </div>
             </div>
+
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-amber-50/12 bg-amber-50/12">
+              <div className="bg-navy-950/85 px-4 py-3.5">
+                <dt className="text-[11px] text-amber-50/45">Class code</dt>
+                <dd className="mt-1.5">
+                  <button
+                    type="button"
+                    onClick={copyCode}
+                    title="Copy class code"
+                    className="inline-flex items-center gap-2 font-mono text-[15px] font-bold tracking-wide text-amber-300 transition-colors hover:text-amber-200"
+                  >
+                    {cls.code}
+                    <Icon name={copied ? 'check' : 'copy'} size={14} />
+                  </button>
+                </dd>
+              </div>
+              <div className="bg-navy-950/85 px-4 py-3.5">
+                <dt className="text-[11px] text-amber-50/45">Roster</dt>
+                <dd className="mt-1.5 flex items-center gap-2 font-mono text-[15px] font-bold text-amber-50">
+                  <Icon name="users" size={15} className="text-amber-50/45" />
+                  {cls.student_count} {cls.student_count === 1 ? 'student' : 'students'}
+                </dd>
+              </div>
+            </dl>
           </div>
 
           {canManage && (
-            <div className="flex flex-col items-start gap-4 sm:items-end">
-              {actions}
-              <label className="flex items-center gap-3 text-[13px] text-white/75">
+            <div className="mt-6 flex justify-end border-t border-amber-50/10 pt-4">
+              <label className="flex items-center gap-3 text-[12px] text-amber-50/65">
                 <Toggle
                   label="Allow students to join"
                   checked={cls.join_open}

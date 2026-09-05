@@ -4,6 +4,7 @@ import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { ProjectsBoard } from '../../../components/projects/ProjectsBoard'
 import { ProjectWizard } from '../../../components/projects/ProjectWizard'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { useProjectsData } from '../../../hooks/useProjectsData'
 import { listProfessorClasses } from '../../../lib/api/classes'
@@ -33,29 +34,37 @@ export default function ProfessorProjects() {
   }, [profile])
 
   const withSyllabus = (classes ?? []).filter((c) => c.syllabus_id)
+  const openProjects = projects.filter((p) => !p.archived_at && !p.scheduled && !p.locked_at)
+  const scheduledProjects = projects.filter((p) => p.scheduled)
 
   return (
     <div className="w-full">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow text-amber-500 dark:text-amber-300">Teaching</p>
-          <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">Projects</h1>
-          <p className="mt-2.5 max-w-[560px] text-[15.5px] text-muted">
-            Every project is built on the weeks of a class syllabus, so what you set always
-            traces back to what the course said it would cover.
-          </p>
-        </div>
-        <Button
-          onClick={() => setWizardOpen(true)}
-          disabled={withSyllabus.length === 0}
-          className="!rounded-xl"
-        >
-          <Icon name="plus" size={17} />
-          New project
-        </Button>
-      </header>
+      <DirectoryHero
+        title="Turn syllabus weeks into"
+        accent="work that ships."
+        description="Plan every brief against the course, release it at the right moment and read progress across all of its boards."
+        action={
+          <Button
+            variant="accent"
+            onClick={() => setWizardOpen(true)}
+            disabled={withSyllabus.length === 0}
+          >
+            <Icon name="plus" size={17} />
+            New project
+          </Button>
+        }
+        stats={[
+          { value: loading || classes === null ? '—' : openProjects.length, label: 'Open projects' },
+          { value: loading || classes === null ? '—' : scheduledProjects.length, label: 'Scheduled next' },
+        ]}
+      />
 
-      <div className="mt-8 space-y-4">
+      <div className="mt-8 border-b border-line pb-4">
+        <p className="text-[12px] font-medium text-faint">Project directory</p>
+        <h2 className="mt-1">Work across classes</h2>
+      </div>
+
+      <div className="mt-5 space-y-4">
         {classError && <Alert tone="error">{classError}</Alert>}
         {error && <Alert tone="error">{error}</Alert>}
 

@@ -6,6 +6,7 @@ import { Icon, Spinner } from '../../../components/ui/Icon'
 import { useToast } from '../../../components/ui/Toast'
 import { CreateSetWizard } from '../../../components/groups/CreateSetWizard'
 import { GroupsBoard } from '../../../components/groups/GroupsBoard'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { useGroupsData } from '../../../hooks/useGroupsData'
 import { listProfessorClasses } from '../../../lib/api/classes'
@@ -31,6 +32,7 @@ export default function ProfessorGroups() {
   const [boundProjects, setBoundProjects] = useState(0)
 
   const { sets, groups, members, loading, error, reload } = useGroupsData(classes)
+  const pending = loading || classes === null
 
   useEffect(() => {
     document.title = 'Groups · Collabify'
@@ -67,26 +69,32 @@ export default function ProfessorGroups() {
 
   return (
     <div className="w-full">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow text-amber-500 dark:text-amber-300">Teaching</p>
-          <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">Groups</h1>
-          <p className="mt-2.5 max-w-[560px] text-[15.5px] text-muted">
-            Arrange a class into working teams. Place students yourself, shuffle them, or let
-            them pick their own.
-          </p>
-        </div>
-        <Button
-          onClick={() => setWizardOpen(true)}
-          disabled={!classes || classes.length === 0}
-          className="!rounded-xl"
-        >
-          <Icon name="plus" size={17} />
-          Create groups
-        </Button>
-      </header>
+      <DirectoryHero
+        title="Teams that make"
+        accent="the work move."
+        description="Arrange each class into focused working teams, then see membership and project momentum without losing the class context."
+        action={
+          <Button
+            variant="accent"
+            onClick={() => setWizardOpen(true)}
+            disabled={!classes || classes.length === 0}
+          >
+            <Icon name="plus" size={17} />
+            Create groups
+          </Button>
+        }
+        stats={[
+          { value: pending ? '—' : sets.length, label: 'Group sets' },
+          { value: pending ? '—' : groups.length, label: 'Working teams' },
+        ]}
+      />
 
-      <div className="mt-8 space-y-4">
+      <div className="mt-8 border-b border-line pb-4">
+        <p className="text-[12px] font-medium text-faint">Group directory</p>
+        <h2 className="mt-1">Teams by class</h2>
+      </div>
+
+      <div className="mt-5 space-y-4">
         {classError && <Alert tone="error">{classError}</Alert>}
         {error && <Alert tone="error">{error}</Alert>}
 

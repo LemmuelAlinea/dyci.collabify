@@ -46,32 +46,34 @@ export function GroupCard({
   return (
     <Link
       to={to}
-      className={`group @container surface flex rounded-card border shadow-card transition-colors duration-250 hover:border-line-strong ${
-        highlight ? 'border-amber-300 dark:border-amber-400/50' : 'border-line hover:border-line-strong'
+      className={`group flex min-h-[238px] rounded-card border bg-[var(--surface)] transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-line-strong ${
+        highlight ? 'border-navy-400 dark:border-navy-300' : 'border-line'
       }`}
     >
-      {/* The padding lives on this inner box, not on the card itself: an
-          element cannot answer its own container query, so the card declares
-          the container and everything inside it measures against that. */}
-      <div className="flex w-full flex-col p-3.5 @min-[240px]:p-5">
-      <div className="flex items-start justify-between gap-2 @min-[240px]:gap-3">
-        <div className="min-w-0">
-          <h3 className="line-clamp-2 leading-snug @min-[240px]:truncate @min-[240px]:">
+      <div className="flex w-full flex-col p-5 sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3.5">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-navy-950 text-amber-300">
+            <Icon name="users" size={18} />
+          </span>
+          <div className="min-w-0">
+          <h3 className="line-clamp-2 text-[17px] leading-snug transition-colors group-hover:text-navy-600 dark:group-hover:text-amber-300">
             {group.name}
           </h3>
-          <p className="mt-0.5 truncate text-[12px] text-muted @min-[240px]:mt-1 @min-[240px]:text-[12px]">
+          <p className="mt-1 truncate text-[12px] text-muted">
             {className}
-            {/* The set name repeats down a whole column of these; it is the
-                first thing to go when the card is half a screen wide. */}
-            <span className="hidden @min-[240px]:inline"> · {group.set_name}</span>
+            <span> · {group.set_name}</span>
           </p>
+          </div>
         </div>
         <CapacityPill count={group.member_count} limit={group.member_limit} />
       </div>
 
-      <div className="mt-2.5 flex min-h-[26px] items-center @min-[240px]:mt-4 @min-[240px]:min-h-[30px]">
+      <div className="mt-5 flex items-end justify-between gap-4">
+        <div>
+          <p className="mb-2 text-[11px] text-faint">Members</p>
         {members.length === 0 ? (
-          <span className="text-[12px] text-faint">No members yet</span>
+          <span className="text-[13px] text-faint">No members yet</span>
         ) : (
           <div className="flex">
             {faces.map((m) => (
@@ -86,30 +88,29 @@ export function GroupCard({
             )}
           </div>
         )}
+        </div>
+        <p className="text-[12px] text-muted">
+          <span className="font-mono font-semibold text-ink">{group.member_count}</span> of{' '}
+          {group.member_limit} filled
+        </p>
       </div>
 
-      <div className="mt-2.5 h-1 overflow-hidden rounded-full surface-sunken @min-[240px]:mt-4">
+      <div className="mt-4 h-1.5 overflow-hidden rounded-full surface-sunken">
         <div
-          className="h-full rounded-full bg-amber-400 transition-[width] duration-300"
+          className="h-full rounded-full bg-navy-500 transition-[width] duration-300 dark:bg-navy-300"
           style={{ width: `${pct}%` }}
         />
       </div>
 
       {work && work.projects > 0 && (
-        <div className="mt-2.5 border-t border-line pt-2.5 @min-[240px]:mt-3 @min-[240px]:pt-3">
-          {/* One line at any width: on a phone it reads "3 · 14/24", which is
-              what the icon and the bar underneath are already labelling. */}
-          <p className="flex items-center justify-between gap-2 text-[12px] text-muted @min-[240px]:gap-x-3 @min-[240px]:text-[12px]">
+        <div className="mt-auto border-t border-line pt-4">
+          <p className="flex items-center justify-between gap-3 text-[12px] text-muted">
             <span className="flex min-w-0 items-center gap-2">
               <Icon name="kanban" size={13} className="shrink-0 text-faint" />
-              {work.projects}
-              <span className="hidden @min-[240px]:inline">
-                {work.projects === 1 ? 'project' : 'projects'}
-              </span>
+              {work.projects} {work.projects === 1 ? 'project' : 'projects'}
               {work.tasks > 0 && (
                 <span className="truncate text-faint">
-                  · {work.done}/{work.tasks}
-                  <span className="hidden @min-[240px]:inline"> tasks</span>
+                  · {work.done}/{work.tasks} tasks
                 </span>
               )}
             </span>
@@ -129,7 +130,7 @@ export function GroupCard({
       )}
 
       {highlight && (
-        <p className="mt-2.5 flex items-center gap-2 text-[12px] font-medium text-amber-600 @min-[240px]:mt-3 @min-[240px]:text-[12px] dark:text-amber-300">
+        <p className="mt-3 flex items-center gap-2 text-[12px] font-medium text-navy-600 dark:text-navy-200">
           <Icon name="check" size={14} strokeWidth={2.6} className="shrink-0" />
           Your group
         </p>

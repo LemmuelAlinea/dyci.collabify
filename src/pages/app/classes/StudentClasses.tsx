@@ -10,6 +10,7 @@ import { Modal } from '../../../components/ui/Modal'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { ClassCard } from '../../../components/classes/ClassCard'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { JOIN_MESSAGE, joinClass, listStudentClasses } from '../../../lib/api/classes'
 import { authErrorMessage } from '../../../lib/authError'
@@ -74,23 +75,32 @@ export default function StudentClasses() {
     }
   }
 
+  const peerTotal = classes?.reduce((total, cls) => total + cls.student_count, 0) ?? 0
+
   return (
     <div className="w-full">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow text-amber-500 dark:text-amber-300">Workspace</p>
-          <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">Classes</h1>
-          <p className="mt-2.5 max-w-[560px] text-[15.5px] text-muted">
-            Every class you've joined this term. Your professor gives you the code.
-          </p>
-        </div>
-        <Button onClick={() => setJoinOpen(true)} className="!rounded-xl">
-          <Icon name="plus" size={17} />
-          Join a class
-        </Button>
-      </header>
+      <DirectoryHero
+        title="Every class, one"
+        accent="shared rhythm."
+        description="Move from announcements to projects and group work without losing the class, term or people each decision belongs to."
+        action={
+          <Button variant="accent" onClick={() => setJoinOpen(true)}>
+            <Icon name="plus" size={17} />
+            Join a class
+          </Button>
+        }
+        stats={[
+          { value: classes === null ? '—' : classes.length, label: 'Classes this term' },
+          { value: classes === null ? '—' : peerTotal, label: 'Classmates across classes' },
+        ]}
+      />
 
-      <div className="mt-8">
+      <div className="mt-8 border-b border-line pb-4">
+        <p className="text-[12px] font-medium text-faint">Class directory</p>
+        <h2 className="mt-1">Your term</h2>
+      </div>
+
+      <div className="mt-5">
         {loadError && <Alert tone="error">{loadError}</Alert>}
 
         {classes === null ? (
@@ -111,9 +121,15 @@ export default function StudentClasses() {
             }
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4 min-[2100px]:grid-cols-5 max-sm:[&>*:only-child]:col-span-2">
-            {classes.map((c) => (
-              <ClassCard key={c.id} cls={c} to={`/student/classes/${c.id}`} />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:gap-5">
+            {classes.map((c, index) => (
+              <ClassCard
+                key={c.id}
+                cls={c}
+                to={`/student/classes/${c.id}`}
+                audience="student"
+                index={index}
+              />
             ))}
           </div>
         )}

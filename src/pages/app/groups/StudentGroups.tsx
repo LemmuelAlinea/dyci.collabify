@@ -3,6 +3,7 @@ import { Alert } from '../../../components/ui/Alert'
 import { Spinner } from '../../../components/ui/Icon'
 import { Tabs } from '../../../components/ui/Tabs'
 import { GroupsBoard } from '../../../components/groups/GroupsBoard'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { membersOf, useGroupsData } from '../../../hooks/useGroupsData'
 import { listStudentClasses } from '../../../lib/api/classes'
@@ -55,16 +56,21 @@ export default function StudentGroups() {
 
   return (
     <div className="w-full">
-      <header>
-        <p className="eyebrow text-amber-500 dark:text-amber-300">Workspace</p>
-        <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">Groups</h1>
-        <p className="mt-2.5 max-w-[560px] text-[15.5px] text-muted">
-          The teams you belong to. When a professor lets the class form its own groups, you
-          can claim a slot here.
-        </p>
-      </header>
+      <DirectoryHero
+        title="Your team, in"
+        accent="every class."
+        description="See the people you work with, the projects your group holds and any open team you can still join."
+        stats={[
+          { value: loading || classes === null ? '—' : mine.length, label: 'My groups' },
+          { value: loading || classes === null ? '—' : joinable.length, label: 'Open to join' },
+        ]}
+      />
 
-      <div className="mt-7">
+      <div className="mt-8 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-4">
+        <div>
+          <p className="text-[12px] font-medium text-faint">Team directory</p>
+          <h2 className="mt-1">{tab === 'mine' ? 'Your teams' : 'Available teams'}</h2>
+        </div>
         <Tabs<TabId>
           tabs={[
             { id: 'mine', label: 'My groups', icon: 'users', count: mine.length },
@@ -72,10 +78,11 @@ export default function StudentGroups() {
           ]}
           active={tab}
           onChange={setTab}
+          variant="panel"
         />
       </div>
 
-      <div className="mt-6 space-y-4">
+      <div className="mt-5 space-y-4">
         {classError && <Alert tone="error">{classError}</Alert>}
         {error && <Alert tone="error">{error}</Alert>}
 

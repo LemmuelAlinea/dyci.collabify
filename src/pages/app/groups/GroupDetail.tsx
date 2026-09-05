@@ -11,7 +11,6 @@ import { Modal } from '../../../components/ui/Modal'
 import { Select } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
-import { CapacityPill } from '../../../components/groups/GroupCard'
 import { GroupWork } from '../../../components/groups/GroupWork'
 import { groupMemberLoad } from '../../../lib/api/groupWork'
 import type { GroupMemberLoad } from '../../../lib/api/groupWork'
@@ -199,272 +198,329 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1180px]">
+    <div className="mx-auto w-full max-w-[1280px]">
       <Link
         to={base}
-        className="inline-flex items-center gap-2 text-[13px] text-muted transition-colors hover:text-ink"
+        className="inline-flex items-center gap-2 text-[13px] font-medium text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={16} />
         All groups
       </Link>
 
-      <header className="surface mt-4 rounded-panel border border-line p-4 sm:p-6 shadow-card md:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            {renaming ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
-                  className="!h-11 max-w-[280px]"
-                  aria-label="Group name"
-                />
-                <Button size="sm" loading={busy} onClick={saveName} className="!rounded-lg">
-                  Save
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setRenaming(false)
-                    setDraftName(group.name)
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <h1 className="text-[clamp(1.5rem,3vw,2rem)] leading-tight">{group.name}</h1>
-                {canRename && (
-                  <button
-                    type="button"
-                    onClick={() => setRenaming(true)}
-                    aria-label="Rename group"
-                    className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
-                  >
-                    <Icon name="edit" size={15} />
-                  </button>
-                )}
-              </div>
-            )}
+      <header className="relative mt-4 overflow-hidden rounded-panel border border-amber-50/10 bg-navy-950 px-5 py-6 text-amber-50 sm:px-7 sm:py-8 lg:px-9">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-48 -right-40 h-[420px] w-[420px] rounded-full bg-amber-400/10 blur-[115px]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-60"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px)',
+            backgroundSize: '54px 54px',
+            maskImage: 'linear-gradient(90deg, #000 10%, transparent 85%)',
+            WebkitMaskImage: 'linear-gradient(90deg, #000 10%, transparent 85%)',
+          }}
+        />
 
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[13px] text-muted">
-              <span>{cls ? `${cls.initial} · ${cls.name}` : ''}</span>
-              <span>·</span>
-              <span>{group.set_name}</span>
-              <span>·</span>
-              <span>{modeLabel(group.set_mode)}</span>
-              {group.set_closed_at && (
-                <>
-                  <span>·</span>
-                  <span className="flex items-center gap-1 font-medium text-amber-600 dark:text-amber-300">
-                    <Icon name="lock" size={12} />
-                    Final
-                  </span>
-                </>
+        <div className="relative">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-amber-50/8 px-2.5 py-1 text-[11px] font-medium text-amber-50/65 ring-1 ring-amber-50/10">
+                {group.set_name}
+              </span>
+              {group.set_closed_at ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-amber-50/70">
+                  <Icon name="lock" size={11} />
+                  Final
+                </span>
+              ) : (
+                <span className="rounded-full bg-emerald-400/12 px-2.5 py-1 text-[11px] font-medium text-emerald-200">
+                  Open
+                </span>
               )}
-            </p>
-          </div>
+            </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <CapacityPill count={group.member_count} limit={group.member_limit} />
             {canManage && (
-              <>
+              <div className="flex items-center gap-1.5">
                 <Button
-                  variant="outline"
+                  variant="onNavy"
                   size="sm"
-                  className="!rounded-lg"
+                  className="!h-8 !rounded-lg !px-3"
                   onClick={() => setLimitOpen(true)}
                 >
-                  Limit
+                  Member limit
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <button
+                  type="button"
                   onClick={() => setDeletePrompt(true)}
                   aria-label="Delete group"
+                  className="grid h-8 w-8 place-items-center rounded-lg text-amber-50/55 transition-colors hover:bg-red-500/15 hover:text-red-200"
                 >
                   <Icon name="trash" size={15} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.65fr)] lg:items-end">
+            <div className="flex min-w-0 items-start gap-4 sm:gap-5">
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-amber-50/8 text-amber-300 ring-1 ring-amber-50/12 sm:h-16 sm:w-16">
+                <Icon name="users" size={23} />
+              </span>
+
+              <div className="min-w-0 flex-1">
+                {renaming ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      value={draftName}
+                      onChange={(e) => setDraftName(e.target.value)}
+                      className="!h-10 max-w-[280px]"
+                      aria-label="Group name"
+                    />
+                    <Button size="sm" loading={busy} onClick={saveName} className="!h-10 !rounded-lg">
+                      Save
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRenaming(false)
+                        setDraftName(group.name)
+                      }}
+                      className="h-10 rounded-lg px-3 text-[13px] text-amber-50/60 transition-colors hover:bg-white/8 hover:text-amber-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-balance text-amber-50">{group.name}</h1>
+                    {canRename && (
+                      <button
+                        type="button"
+                        onClick={() => setRenaming(true)}
+                        aria-label="Rename group"
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-amber-50/45 transition-colors hover:bg-white/8 hover:text-amber-200"
+                      >
+                        <Icon name="edit" size={15} />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <p className="mt-2 text-[13px] text-amber-50/55">
+                  {cls ? `${cls.initial} · ${cls.name}` : ''}
+                </p>
+                <p className="mt-3 max-w-[58ch] text-[13px] leading-relaxed text-amber-50/55">
+                  Keep the group roster, assigned projects and individual task progress together.
+                </p>
+              </div>
+            </div>
+
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-amber-50/12 bg-amber-50/12">
+              <div className="bg-navy-950/85 px-4 py-3.5">
+                <dt className="text-[11px] text-amber-50/45">Members</dt>
+                <dd className="mt-1.5 font-mono text-[18px] font-bold text-amber-50">
+                  {group.member_count} / {group.member_limit}
+                </dd>
+              </div>
+              <div className="bg-navy-950/85 px-4 py-3.5">
+                <dt className="text-[11px] text-amber-50/45">Formation</dt>
+                <dd className="mt-1.5 truncate text-[13px] font-medium text-amber-50">
+                  {modeLabel(group.set_mode)}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          {studentFormedOpen && (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-amber-50/10 pt-4">
+              <p className="text-[12px] text-amber-50/50">
+                {isMember ? 'You currently belong to this group.' : 'This group is accepting members.'}
+              </p>
+              {isMember ? (
+                <Button
+                  variant="onNavy"
+                  size="sm"
+                  className="!h-8 !rounded-lg"
+                  onClick={async () => {
+                    const { result } = await leaveGroup(group.id)
+                    if (result === 'left') {
+                      show(`You left ${group.name}`)
+                      await load()
+                    } else {
+                      show('You can no longer leave this group.', 'error')
+                    }
+                  }}
+                >
+                  Leave group
                 </Button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {studentFormedOpen && (
-          <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-5">
-            {isMember ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="!rounded-lg"
-                onClick={async () => {
-                  const { result } = await leaveGroup(group.id)
-                  if (result === 'left') {
-                    show(`You left ${group.name}`)
-                    await load()
-                  } else {
-                    show('You can no longer leave this group.', 'error')
-                  }
-                }}
-              >
-                Leave group
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                className="!rounded-lg"
-                disabled={group.member_count >= group.member_limit}
-                onClick={async () => {
-                  const { result } = await joinGroup(group.id)
-                  if (result === 'joined' || result === 'already_here') {
-                    show(`You joined ${group.name}`)
-                    await load()
-                  } else {
-                    show(JOIN_GROUP_MESSAGE[result], 'error')
-                  }
-                }}
-              >
-                {group.member_count >= group.member_limit ? 'Group is full' : 'Join this group'}
-              </Button>
-            )}
-          </div>
-        )}
-      </header>
-
-      <section className="mt-8">
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h2>Projects and tasks</h2>
-          <p className="text-[12px] text-faint">
-            Everything set for this group, without leaving it.
-          </p>
-        </div>
-        <GroupWork groupId={group.id} role={role} viewerId={profile?.id} />
-      </section>
-
-      <section className="mt-8">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2>Members</h2>
-          {canManage && unplaced.length > 0 && (
-            <div className="w-full sm:w-[260px]">
-              <Select
-                aria-label="Add a student to this group"
-                value=""
-                disabled={group.member_count >= group.member_limit}
-                onChange={async (e) => {
-                  if (!e.target.value || !profile) return
-                  try {
-                    await placeStudent({
-                      groupId: group.id,
-                      setId: group.set_id,
-                      studentId: e.target.value,
-                      byProfessorId: profile.id,
-                    })
-                    show('Student added')
-                    await load()
-                  } catch (err) {
-                    show(authErrorMessage(err, 'Could not add that student.'), 'error')
-                  }
-                }}
-                placeholder={
-                  group.member_count >= group.member_limit
-                    ? 'Group is full'
-                    : `Add from ${unplaced.length} unplaced…`
-                }
-                options={unplaced.map((r) => ({
-                  value: r.student_id,
-                  label: `${r.profile.last_name}, ${r.profile.first_name}`,
-                }))}
-                className="!h-10 text-[13px]"
-              />
+              ) : (
+                <Button
+                  variant="accent"
+                  size="sm"
+                  className="!h-8 !rounded-lg"
+                  disabled={group.member_count >= group.member_limit}
+                  onClick={async () => {
+                    const { result } = await joinGroup(group.id)
+                    if (result === 'joined' || result === 'already_here') {
+                      show(`You joined ${group.name}`)
+                      await load()
+                    } else {
+                      show(JOIN_GROUP_MESSAGE[result], 'error')
+                    }
+                  }}
+                >
+                  {group.member_count >= group.member_limit ? 'Group is full' : 'Join this group'}
+                </Button>
+              )}
             </div>
           )}
         </div>
+      </header>
 
-        {members.length === 0 ? (
-          <EmptyState
-            icon="users"
-            title="Nobody in this group yet"
-            body={
-              canManage
-                ? 'Add students from the class roster above, or let them claim a slot if this is a student-formed set.'
-                : 'This group has no members yet.'
-            }
-          />
-        ) : (
-          <ol className="surface divide-y divide-[var(--line)] rounded-card border border-line shadow-card">
-            {members.map((m, i) => (
-              <li key={m.student_id} className="flex items-center gap-4 px-5 py-3.5">
-                <span className="w-5 shrink-0 text-right font-mono text-[12px] text-faint tabular-nums">
-                  {i + 1}
-                </span>
-                <Avatar profile={m.profile} size={36} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-medium text-ink">
-                    {m.profile.last_name}, {m.profile.first_name}
-                    {m.profile.middle_name ? ` ${m.profile.middle_name[0]}.` : ''}
-                    {m.student_id === profile?.id && (
-                      <span className="ml-1.5 text-[12px] text-faint">you</span>
-                    )}
-                  </p>
-                  <MemberLoadBar load={load_.get(m.student_id)} />
-                </div>
+      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(380px,0.75fr)] xl:items-start">
+        <section className="overflow-hidden rounded-panel border border-line surface shadow-card">
+          <div className="border-b border-line surface-sunken px-5 py-4">
+            <h2>Projects and tasks</h2>
+            <p className="mt-1 text-[12px] text-faint">Everything assigned to this group.</p>
+          </div>
+          <div className="p-4 sm:p-5">
+            <GroupWork groupId={group.id} role={role} viewerId={profile?.id} />
+          </div>
+        </section>
 
-                {canManage && (
-                  <div className="flex shrink-0 items-center gap-1">
-                    {siblings.length > 1 && (
-                      <Select
-                        aria-label={`Move ${fullName(m.profile)} to another group`}
-                        value=""
-                        onChange={async (e) => {
-                          if (!e.target.value || !profile) return
+        <section className="overflow-hidden rounded-panel border border-line surface shadow-card">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line surface-sunken px-5 py-4">
+            <div>
+              <h2>Members</h2>
+              <p className="mt-1 text-[12px] text-faint">
+                {members.length} of {group.member_limit} places filled
+              </p>
+            </div>
+            {canManage && unplaced.length > 0 && (
+              <div className="w-full sm:w-[240px] xl:w-full 2xl:w-[240px]">
+                <Select
+                  aria-label="Add a student to this group"
+                  value=""
+                  disabled={group.member_count >= group.member_limit}
+                  onChange={async (e) => {
+                    if (!e.target.value || !profile) return
+                    try {
+                      await placeStudent({
+                        groupId: group.id,
+                        setId: group.set_id,
+                        studentId: e.target.value,
+                        byProfessorId: profile.id,
+                      })
+                      show('Student added')
+                      await load()
+                    } catch (err) {
+                      show(authErrorMessage(err, 'Could not add that student.'), 'error')
+                    }
+                  }}
+                  placeholder={
+                    group.member_count >= group.member_limit
+                      ? 'Group is full'
+                      : `Add from ${unplaced.length} unplaced…`
+                  }
+                  options={unplaced.map((r) => ({
+                    value: r.student_id,
+                    label: `${r.profile.last_name}, ${r.profile.first_name}`,
+                  }))}
+                  className="!h-9 text-[12px]"
+                />
+              </div>
+            )}
+          </div>
+
+          {members.length === 0 ? (
+            <div className="p-5">
+              <EmptyState
+                icon="users"
+                title="Nobody in this group yet"
+                body={
+                  canManage
+                    ? 'Add students from the class roster, or let them claim a slot if this is a student-formed set.'
+                    : 'This group has no members yet.'
+                }
+              />
+            </div>
+          ) : (
+            <ol className="divide-y divide-[var(--line)]">
+              {members.map((m, i) => (
+                <li key={m.student_id} className="flex flex-wrap items-center gap-3 px-4 py-4 sm:px-5">
+                  <span className="w-5 shrink-0 text-right font-mono text-[11px] text-faint tabular-nums">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <Avatar profile={m.profile} size={38} />
+                  <div className="min-w-[160px] flex-1">
+                    <p className="truncate text-[14px] font-medium text-ink">
+                      {m.profile.last_name}, {m.profile.first_name}
+                      {m.profile.middle_name ? ` ${m.profile.middle_name[0]}.` : ''}
+                      {m.student_id === profile?.id && (
+                        <span className="ml-1.5 text-[12px] text-faint">you</span>
+                      )}
+                    </p>
+                    <MemberLoadBar load={load_.get(m.student_id)} />
+                  </div>
+
+                  {canManage && (
+                    <div className="ml-auto flex shrink-0 items-center gap-1">
+                      {siblings.length > 1 && (
+                        <Select
+                          aria-label={`Move ${fullName(m.profile)} to another group`}
+                          value=""
+                          onChange={async (e) => {
+                            if (!e.target.value || !profile) return
+                            try {
+                              await placeStudent({
+                                groupId: e.target.value,
+                                setId: group.set_id,
+                                studentId: m.student_id,
+                                byProfessorId: profile.id,
+                              })
+                              show(`${m.profile.first_name} moved`)
+                              await load()
+                            } catch (err) {
+                              show(authErrorMessage(err, 'Could not move that student.'), 'error')
+                            }
+                          }}
+                          placeholder="Move to…"
+                          options={siblings
+                            .filter((s) => s.id !== group.id)
+                            .map((s) => ({
+                              value: s.id,
+                              label: `${s.name} (${s.member_count}/${s.member_limit})`,
+                            }))}
+                          className="!h-9 !w-[132px] text-[12px]"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={async () => {
                           try {
-                            await placeStudent({
-                              groupId: e.target.value,
-                              setId: group.set_id,
-                              studentId: m.student_id,
-                              byProfessorId: profile.id,
-                            })
-                            show(`${m.profile.first_name} moved`)
+                            await removeFromGroup(group.id, m.student_id)
+                            show(`${m.profile.first_name} removed from the group`)
                             await load()
                           } catch (err) {
-                            show(authErrorMessage(err, 'Could not move that student.'), 'error')
+                            show(authErrorMessage(err, 'Could not remove them.'), 'error')
                           }
                         }}
-                        placeholder="Move to…"
-                        options={siblings
-                          .filter((s) => s.id !== group.id)
-                          .map((s) => ({
-                            value: s.id,
-                            label: `${s.name} (${s.member_count}/${s.member_limit})`,
-                          }))}
-                        className="!h-9 !w-[150px] text-[12px]"
-                      />
-                    )}
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await removeFromGroup(group.id, m.student_id)
-                          show(`${m.profile.first_name} removed from the group`)
-                          await load()
-                        } catch (err) {
-                          show(authErrorMessage(err, 'Could not remove them.'), 'error')
-                        }
-                      }}
-                      aria-label={`Remove ${fullName(m.profile)}`}
-                      className="grid h-9 w-9 place-items-center rounded-full text-muted transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/12 dark:hover:text-red-400"
-                    >
-                      <Icon name="x" size={16} />
-                    </button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+                        aria-label={`Remove ${fullName(m.profile)}`}
+                        className="grid h-9 w-9 place-items-center rounded-lg text-muted transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/12 dark:hover:text-red-400"
+                      >
+                        <Icon name="x" size={16} />
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+      </div>
 
       <Modal
         open={limitOpen}

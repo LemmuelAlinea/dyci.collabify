@@ -131,7 +131,7 @@ export default function ProfessorClassDetail() {
   const removedCount = members.filter((m) => m.status === 'removed').length
 
   return (
-    <div className="mx-auto w-full max-w-[1280px]">
+    <div className="w-full">
       <ClassHeader
         cls={cls}
         backTo="/professor/classes"
@@ -178,7 +178,7 @@ export default function ProfessorClassDetail() {
         }
       />
 
-      <div className="mt-8">
+      <div className="mt-6">
         <Tabs<TabId>
           tabs={[
             { id: 'announcements', label: 'Announcements', icon: 'message', count: announcements.length },
@@ -197,10 +197,11 @@ export default function ProfessorClassDetail() {
           ]}
           active={tab}
           onChange={setTab}
+          variant="panel"
         />
       </div>
 
-      <div className="mt-6">
+      <div className="mx-auto mt-6 w-full max-w-[1280px]">
         {tab === 'announcements' && profile && (
           <AnnouncementFeed
             classId={classId}
