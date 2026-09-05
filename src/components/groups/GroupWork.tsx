@@ -133,10 +133,10 @@ export function GroupWork({
                   }`}
                 />
                 <span className="min-w-0">
-                  <span className="block truncate text-[15px] font-medium text-ink">
+                  <span className="block truncate text-[14px] font-medium text-ink">
                     {board.project_title}
                   </span>
-                  <span className="block text-[12.5px] text-muted">
+                  <span className="block text-[12px] text-muted">
                     {board.task_count === 0
                       ? 'No tasks yet'
                       : `${board.done_count} of ${board.task_count} done`}
@@ -176,7 +176,7 @@ export function GroupWork({
                     Loading tasks…
                   </p>
                 ) : list.length === 0 ? (
-                  <p className="py-2 text-[13.5px] text-muted">
+                  <p className="py-2 text-[13px] text-muted">
                     Nothing on this board yet.{' '}
                     <Link
                       to={`${projectBase}/${board.project_id}?tab=tasks`}
@@ -231,7 +231,7 @@ export function GroupWork({
                             {handedInLate && (
                               <span
                                 title="Finished after the deadline"
-                                className="shrink-0 rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[10.5px] text-red-700 dark:text-red-300"
+                                className="shrink-0 rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[12px] text-red-700 dark:text-red-300"
                               >
                                 Late
                               </span>
@@ -239,7 +239,7 @@ export function GroupWork({
 
                             {due && !handedInLate && (
                               <span
-                                className={`shrink-0 font-mono text-[11.5px] ${
+                                className={`shrink-0 font-mono text-[12px] ${
                                   overdue ? 'text-red-600 dark:text-red-400' : 'text-faint'
                                 }`}
                               >
@@ -247,7 +247,7 @@ export function GroupWork({
                               </span>
                             )}
                             <span
-                              className={`shrink-0 rounded-lg px-2 py-0.5 font-mono text-[11px] ${
+                              className={`shrink-0 rounded-lg px-2 py-0.5 font-mono text-[12px] ${
                                 STATUS_TONE[t.status]
                               }`}
                             >

@@ -26,7 +26,7 @@ export function MemberProgress({
 
   return (
     <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
-      <h3 className="text-[16px]">{title}</h3>
+      <h3 className="">{title}</h3>
       <p className="mt-1 text-[13px] text-muted">
         {dense ? (
           <>
@@ -93,7 +93,7 @@ export function MemberProgress({
                   <p className="font-mono text-[17px] leading-none text-ink">
                     {personal === null ? '—' : `${personal}%`}
                   </p>
-                  <p className="mt-1 font-mono text-[11.5px] text-faint">
+                  <p className="mt-1 font-mono text-[12px] text-faint">
                     {r.group_pct} of {r.held_pct}
                     {cap < 100 && <span className="text-faint"> / {cap}</span>}
                   </p>

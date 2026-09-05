@@ -53,7 +53,7 @@ export function ProfessorTasksView({
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-[16px]">What you set</h3>
+            <h3 className="">What you set</h3>
             <p className="mt-0.5 text-[13px] text-muted">
               Handed to the groups. They decide who does it.
             </p>
@@ -76,7 +76,7 @@ export function ProfessorTasksView({
         </div>
 
         {t.mine.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-[13.5px] text-muted">
+          <p className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-[13px] text-muted">
             You have set none. A group can still break the project down themselves.
           </p>
         ) : (
@@ -87,8 +87,8 @@ export function ProfessorTasksView({
                 className="surface flex flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14.5px] font-medium text-ink">{task.title}</p>
-                  <p className="mt-0.5 text-[12.5px] text-faint">
+                  <p className="truncate text-[14px] font-medium text-ink">{task.title}</p>
+                  <p className="mt-0.5 text-[12px] text-faint">
                     {task.boards} {task.boards === 1 ? 'group' : 'groups'} · {task.started}{' '}
                     started · {task.done} done
                   </p>
@@ -116,7 +116,7 @@ export function ProfessorTasksView({
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-[16px]">{solo ? 'Where the students are' : 'Where the groups are'}</h3>
+        <h3 className="">{solo ? 'Where the students are' : 'Where the groups are'}</h3>
         <GroupProgressTable
           boards={boards ?? []}
           activeId={active?.id}
@@ -152,7 +152,7 @@ export function ProfessorTasksView({
           />
         )}
         {t.view === 'board' && !active && (
-          <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13.5px] text-muted">
+          <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
             {solo
               ? 'Open a student above to see their board, or switch to the list to see everyone at once.'
               : 'Open a group above to see its board, or switch to the list to see every group at once.'}
@@ -177,7 +177,7 @@ export function ProfessorTasksView({
       {active && (
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-[16px]">{boardOwnerName(active)}</h3>
+            <h3 className="">{boardOwnerName(active)}</h3>
             <Button variant="ghost" size="sm" onClick={() => t.showBoard(null)}>
               <Icon name="x" size={15} />
               Close

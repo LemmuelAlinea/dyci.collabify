@@ -29,16 +29,16 @@ export function TermStrip({
               <p className="text-[14px] font-semibold text-ink">
                 {cls ? cls.initial : 'Class'} · Week {w.week_no}
               </p>
-              <p className="font-mono text-[11.5px] text-faint">{weekRange(w)}</p>
+              <p className="font-mono text-[12px] text-faint">{weekRange(w)}</p>
             </div>
-            {w.title && <p className="mt-1 text-[13.5px] text-ink">{w.title}</p>}
+            {w.title && <p className="mt-1 text-[13px] text-ink">{w.title}</p>}
             {w.topics && (
-              <p className="mt-1 line-clamp-2 text-[12.5px] leading-relaxed text-muted">
+              <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-muted">
                 {w.topics}
               </p>
             )}
             {w.assessments && (
-              <p className="mt-2 flex gap-1.5 text-[12.5px] leading-relaxed text-amber-700 dark:text-amber-300">
+              <p className="mt-2 flex gap-1.5 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
                 <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
                 {w.assessments}
               </p>

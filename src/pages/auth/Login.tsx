@@ -66,7 +66,7 @@ export default function Login() {
         {!configured && (
           <Alert tone="info">
             Supabase is not connected yet, so sign-in is disabled. Add your keys to{' '}
-            <code className="font-mono text-[12.5px]">.env.local</code>.
+            <code className="font-mono text-[12px]">.env.local</code>.
           </Alert>
         )}
         {error && <Alert tone="error">{error}</Alert>}

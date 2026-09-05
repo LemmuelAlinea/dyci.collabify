@@ -104,8 +104,8 @@ export default function Faculty() {
     <div className="space-y-6">
       <header>
         <p className="eyebrow">Oversight</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Faculty</h1>
-        <p className="mt-2 max-w-[70ch] text-[14.5px] text-muted">
+        <h1 className="mt-1 leading-tight">Faculty</h1>
+        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
           Who is teaching what this term, how much of it is set up, and who is carrying
           nothing. Names and counts — never what happens inside anybody's class.
         </p>
@@ -128,7 +128,7 @@ export default function Faculty() {
             onChange={(e) => setYear(e.target.value)}
             placeholder="Every year"
             options={years.map((y) => ({ value: y, label: y }))}
-            className="!h-10 !text-[13.5px]"
+            className="!h-10 !text-[13px]"
           />
         </FilterField>
         <FilterField label="Semester">
@@ -142,7 +142,7 @@ export default function Faculty() {
               { value: '3rd', label: '3rd semester' },
               { value: 'summer', label: 'Summer' },
             ]}
-            className="!h-10 !text-[13.5px]"
+            className="!h-10 !text-[13px]"
           />
         </FilterField>
       </FilterPopover>
@@ -254,7 +254,7 @@ function ProfessorRow({ account, load }: { account: Account; load?: Load }) {
         <div className="flex min-w-0 items-center gap-3">
           <Avatar profile={account} size={40} />
           <div className="min-w-0">
-            <p className="flex items-center gap-2 truncate text-[15px] text-ink">
+            <p className="flex items-center gap-2 truncate text-[14px] text-ink">
               {fullName(account)}
               {inactive && (
                 <Badge className="shrink-0 whitespace-nowrap">
@@ -262,7 +262,7 @@ function ProfessorRow({ account, load }: { account: Account; load?: Load }) {
                 </Badge>
               )}
             </p>
-            <p className="truncate text-[12.5px] text-muted">{account.email}</p>
+            <p className="truncate text-[12px] text-muted">{account.email}</p>
           </div>
         </div>
 
@@ -278,7 +278,7 @@ function ProfessorRow({ account, load }: { account: Account; load?: Load }) {
       </div>
 
       {empty ? (
-        <p className="flex items-center gap-2 border-t border-line surface-sunken px-4 py-2.5 text-[12.5px] text-muted">
+        <p className="flex items-center gap-2 border-t border-line surface-sunken px-4 py-2.5 text-[12px] text-muted">
           <Icon name="info" size={13} className="shrink-0 text-faint" />
           {inactive
             ? 'Not teaching — the account is not active.'
@@ -298,11 +298,11 @@ function ProfessorRow({ account, load }: { account: Account; load?: Load }) {
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
                   {c.class_name}
-                  <span className="ml-2 text-[11.5px] text-faint">
+                  <span className="ml-2 text-[12px] text-faint">
                     {c.section} · {c.year_level} year
                   </span>
                 </span>
-                <span className="shrink-0 font-mono text-[11.5px] text-faint">
+                <span className="shrink-0 font-mono text-[12px] text-faint">
                   {c.students} {c.students === 1 ? 'student' : 'students'}
                 </span>
                 <span className="flex w-[86px] shrink-0 justify-end">
@@ -327,7 +327,7 @@ function Stat({ value, label }: { value: number; label: string }) {
   return (
     <div className="text-right">
       <p className="font-mono text-[17px] leading-none text-ink">{value}</p>
-      <p className="mt-0.5 text-[11px] text-faint">{label}</p>
+      <p className="mt-0.5 text-[12px] text-faint">{label}</p>
     </div>
   )
 }

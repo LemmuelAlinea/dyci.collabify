@@ -114,7 +114,7 @@ export function NewDirectDialog({
             Loading students…
           </div>
         ) : filtered.length === 0 ? (
-          <p className="py-8 text-center text-[13.5px] text-muted">
+          <p className="py-8 text-center text-[13px] text-muted">
             {people.length === 0
               ? 'No students have joined your classes yet.'
               : 'Nobody matches that search.'}
@@ -131,7 +131,7 @@ export function NewDirectDialog({
                 >
                   <Avatar profile={p} size={36} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14.5px] text-ink">
+                    <span className="block truncate text-[14px] text-ink">
                       {p.last_name}, {p.first_name}
                     </span>
                     <span className="block truncate text-[12px] text-faint">

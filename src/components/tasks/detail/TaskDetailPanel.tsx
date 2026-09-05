@@ -17,8 +17,8 @@ function when(iso: string | null) {
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[92px_minmax(0,1fr)] items-start gap-3 py-2">
-      <dt className="text-[12.5px] text-faint">{label}</dt>
-      <dd className="min-w-0 text-[13.5px] text-ink">{children}</dd>
+      <dt className="text-[12px] text-faint">{label}</dt>
+      <dd className="min-w-0 text-[13px] text-ink">{children}</dd>
     </div>
   )
 }
@@ -53,9 +53,9 @@ export function TaskDetailPanel({
             open ? 'rotate-90' : ''
           }`}
         />
-        <span className="text-[14.5px] font-semibold text-ink">Details</span>
+        <span className="text-[14px] font-semibold text-ink">Details</span>
         {!open && (
-          <span className="min-w-0 truncate text-[12.5px] text-faint">
+          <span className="min-w-0 truncate text-[12px] text-faint">
             Assignees, status, weight, dates, author
           </span>
         )}
@@ -83,7 +83,7 @@ export function TaskDetailPanel({
 
           <Row label="Status">
             <span
-              className={`rounded-lg px-2 py-0.5 font-mono text-[11.5px] ${
+              className={`rounded-lg px-2 py-0.5 font-mono text-[12px] ${
                 task.status === 'done'
                   ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                   : task.status === 'in_progress'
@@ -97,7 +97,7 @@ export function TaskDetailPanel({
 
           <Row label="Worth">
             <span className="font-mono">{share}%</span>
-            <span className="ml-1.5 text-[12.5px] text-faint">of the project</span>
+            <span className="ml-1.5 text-[12px] text-faint">of the project</span>
           </Row>
 
           <Row label="Started">{when(task.started_at)}</Row>
@@ -115,7 +115,7 @@ export function TaskDetailPanel({
           <Row label="Created by">
             <span>{task.creator_name ?? 'Somebody'}</span>
             {task.author_role === 'professor' && (
-              <span className="ml-1.5 rounded-md bg-navy-50 px-1.5 py-0.5 font-mono text-[10px] text-navy-700 dark:bg-navy-500/18 dark:text-navy-100">
+              <span className="ml-1.5 rounded-md bg-navy-50 px-1.5 py-0.5 font-mono text-[12px] text-navy-700 dark:bg-navy-500/18 dark:text-navy-100">
                 SET
               </span>
             )}

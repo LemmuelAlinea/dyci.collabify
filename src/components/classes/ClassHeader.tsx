@@ -36,7 +36,7 @@ export function ClassHeader({
     <header>
       <Link
         to={backTo}
-        className="inline-flex items-center gap-1.5 text-[13.5px] text-muted transition-colors hover:text-ink"
+        className="inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={16} />
         All classes
@@ -51,12 +51,12 @@ export function ClassHeader({
             </span>
             <div className="min-w-0">
               {cls.archived_at && (
-                <span className="mb-2 inline-block rounded-full bg-white/12 px-2.5 py-1 font-mono text-[9.5px] tracking-wider uppercase">
+                <span className="mb-2 inline-block rounded-full bg-white/12 px-2.5 py-1 font-mono text-[12px] tracking-wider uppercase">
                   Archived
                 </span>
               )}
               <h1 className="truncate text-[clamp(1.5rem,3vw,2.1rem)] leading-tight">{cls.name}</h1>
-              <p className="mt-1.5 text-[13.5px] text-white/65">{classMeta(cls)}</p>
+              <p className="mt-1.5 text-[13px] text-white/65">{classMeta(cls)}</p>
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <button
                   type="button"

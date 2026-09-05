@@ -76,8 +76,8 @@ export default function Cohort() {
     <div className="space-y-6">
       <header>
         <p className="eyebrow">Oversight</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Cohort</h1>
-        <p className="mt-2 max-w-[70ch] text-[14.5px] text-muted">
+        <h1 className="mt-1 leading-tight">Cohort</h1>
+        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
           Each year level added up, and the classes underneath it. How much of the work set
           for a batch is finished, and which class is furthest from finishing it.
         </p>
@@ -100,7 +100,7 @@ export default function Cohort() {
             onChange={(e) => setYear(e.target.value)}
             placeholder="Every year"
             options={years.map((y) => ({ value: y, label: y }))}
-            className="!h-10 !text-[13.5px]"
+            className="!h-10 !text-[13px]"
           />
         </FilterField>
         <FilterField label="Semester">
@@ -114,7 +114,7 @@ export default function Cohort() {
               { value: '3rd', label: '3rd semester' },
               { value: 'summer', label: 'Summer' },
             ]}
-            className="!h-10 !text-[13.5px]"
+            className="!h-10 !text-[13px]"
           />
         </FilterField>
       </FilterPopover>
@@ -212,11 +212,11 @@ function CohortCard({ cohort, classes }: { cohort: CohortRow; classes: ProgramCl
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 p-5 pb-3">
         <div className="min-w-0">
           <p className="eyebrow">{cohort.year_level} year</p>
-          <h2 className="mt-1 text-[17px] leading-snug text-ink">
+          <h2 className="mt-1 leading-snug text-ink">
             {cohort.students} {cohort.students === 1 ? 'student' : 'students'} across{' '}
             {cohort.classes} {cohort.classes === 1 ? 'class' : 'classes'}
           </h2>
-          <p className="mt-0.5 text-[12.5px] text-muted">
+          <p className="mt-0.5 text-[12px] text-muted">
             {cohort.projects} {cohort.projects === 1 ? 'project' : 'projects'} set ·{' '}
             {cohort.tasks_done} of {cohort.tasks} tasks finished
           </p>
@@ -224,7 +224,7 @@ function CohortCard({ cohort, classes }: { cohort: CohortRow; classes: ProgramCl
 
         <div className="shrink-0 text-right">
           <p className="font-mono text-[28px] leading-none text-ink">{pct}%</p>
-          <p className="mt-0.5 text-[11px] text-faint">finished</p>
+          <p className="mt-0.5 text-[12px] text-faint">finished</p>
         </div>
       </div>
 
@@ -276,8 +276,8 @@ function ClassLine({ cls }: { cls: ProgramClass }) {
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13.5px] text-ink">{cls.class_name}</span>
-        <span className="block truncate text-[11.5px] text-faint">
+        <span className="block truncate text-[13px] text-ink">{cls.class_name}</span>
+        <span className="block truncate text-[12px] text-faint">
           {cls.section} · {cls.professor_name} · {cls.students}{' '}
           {cls.students === 1 ? 'student' : 'students'}
         </span>

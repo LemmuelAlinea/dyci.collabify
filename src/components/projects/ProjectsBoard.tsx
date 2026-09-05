@@ -164,7 +164,7 @@ export function ProjectsBoard({
                 onChange={(e) => setClassId(e.target.value)}
                 placeholder="All classes"
                 options={classes.map((c) => ({ value: c.id, label: `${c.initial} · ${c.name}` }))}
-                className="!h-10 !text-[13.5px]"
+                className="!h-10 !text-[13px]"
               />
             </FilterField>
           )}
@@ -175,7 +175,7 @@ export function ProjectsBoard({
               onChange={(e) => setType(e.target.value)}
               placeholder="All types"
               options={PROJECT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
-              className="!h-10 !text-[13.5px]"
+              className="!h-10 !text-[13px]"
             />
           </FilterField>
 
@@ -185,7 +185,7 @@ export function ProjectsBoard({
               onChange={(e) => setStatus(e.target.value as StatusFilter)}
               placeholder="All open"
               options={STATUS_OPTIONS}
-              className="!h-10 !text-[13.5px]"
+              className="!h-10 !text-[13px]"
             />
           </FilterField>
         </FilterPopover>

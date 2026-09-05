@@ -218,7 +218,7 @@ export function GenerateTasksModal({
                         value={r.details}
                         onChange={(e) => patch(i, { details: e.target.value })}
                         aria-label={`Task ${i + 1} details`}
-                        className="!text-[13.5px]"
+                        className="!text-[13px]"
                       />
                     </div>
 
@@ -236,7 +236,7 @@ export function GenerateTasksModal({
                         aria-label={`Task ${i + 1} weight`}
                         className="!h-10 text-center"
                       />
-                      <p className="mt-1 text-center text-[11px] text-faint">weight</p>
+                      <p className="mt-1 text-center text-[12px] text-faint">weight</p>
                     </div>
                   </div>
                 </li>
@@ -245,7 +245,7 @@ export function GenerateTasksModal({
 
             {isProfessor && (
               <label className="block space-y-1.5">
-                <span className="text-[13.5px] font-medium text-ink">Who gets them</span>
+                <span className="text-[13px] font-medium text-ink">Who gets them</span>
                 <Select
                   value={target}
                   onChange={(e) => setTarget(e.target.value)}
@@ -258,7 +258,7 @@ export function GenerateTasksModal({
               </label>
             )}
 
-            <p className="text-[12.5px] leading-relaxed text-faint">
+            <p className="text-[12px] leading-relaxed text-faint">
               Weights are relative. Once added, these sit alongside your other tasks and the
               board still totals 100.
             </p>

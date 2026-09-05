@@ -67,7 +67,7 @@ export function Descriptive({ data }: { data: ReturnType<typeof useAnalytics> })
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-[15px] text-ink">Weeks with nothing set</h3>
+            <h3 className=" text-ink">Weeks with nothing set</h3>
             <GapList gaps={shownGaps} />
           </div>
         </>
@@ -76,8 +76,8 @@ export function Descriptive({ data }: { data: ReturnType<typeof useAnalytics> })
       {!narrowedBelowClass && <UnmeasuredList rows={shownUnmeasured} />}
 
       <div className="space-y-3">
-        <h3 className="text-[15px] text-ink">Who is carrying the work</h3>
-        <p className="max-w-[66ch] text-[13.5px] text-muted">
+        <h3 className=" text-ink">Who is carrying the work</h3>
+        <p className="max-w-[66ch] text-[13px] text-muted">
           Effort, not marks. A group at eighty per cent looks the same whether everyone did a
           share or one person did all of it.
         </p>

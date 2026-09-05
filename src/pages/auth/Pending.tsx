@@ -41,8 +41,8 @@ export default function Pending() {
 
         <div className="surface rounded-card border border-line p-4 sm:p-5">
           <p className="eyebrow text-faint">Signed in as</p>
-          <p className="mt-2 text-[15px] font-medium text-ink">{profile?.email ?? '—'}</p>
-          <p className="mt-1 text-[13.5px] text-muted">
+          <p className="mt-2 text-[14px] font-medium text-ink">{profile?.email ?? '—'}</p>
+          <p className="mt-1 text-[13px] text-muted">
             Status: {rejected ? 'Not approved' : 'Pending review'}
           </p>
         </div>

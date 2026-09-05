@@ -223,7 +223,7 @@ export default function ProfessorGroups() {
               </p>
               <ul className="mt-1.5 space-y-0.5">
                 {unplaced.map((n) => (
-                  <li key={n} className="text-[13.5px]">
+                  <li key={n} className="text-[13px]">
                     · {n}
                   </li>
                 ))}

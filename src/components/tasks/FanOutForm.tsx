@@ -109,7 +109,7 @@ export function FanOutForm({
           </p>
         ) : (
           <label className="block space-y-1.5">
-            <span className="text-[13.5px] font-medium text-ink">Who gets it</span>
+            <span className="text-[13px] font-medium text-ink">Who gets it</span>
             <Select
               value={target}
               onChange={(e) => setTarget(e.target.value)}

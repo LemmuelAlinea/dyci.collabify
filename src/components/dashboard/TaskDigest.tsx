@@ -7,7 +7,7 @@ import type { MyTask } from '../../lib/api/tasks'
 export function TaskDigest({ tasks, limit = 5 }: { tasks: MyTask[]; limit?: number }) {
   if (tasks.length === 0) {
     return (
-      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13.5px] text-muted">
+      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
         Nothing on your plate. Open a project and claim something your group needs.
       </p>
     )
@@ -29,17 +29,17 @@ export function TaskDigest({ tasks, limit = 5 }: { tasks: MyTask[]; limit?: numb
               className="surface flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl border border-line px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:gap-x-3 sm:gap-y-1.5 sm:px-4 sm:py-3"
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-medium text-ink sm:text-[14.5px]">
+                <span className="block truncate text-[14px] font-medium text-ink sm:text-[14px]">
                   {t.title}
                 </span>
-                <span className="block truncate text-[12.5px] text-muted">
+                <span className="block truncate text-[12px] text-muted">
                   {t.project_title} · {t.class_initial}
                   {t.group_name ? ` · ${t.group_name}` : ''}
                 </span>
               </span>
 
               <span
-                className={`shrink-0 rounded-lg px-2 py-0.5 font-mono text-[11px] ${
+                className={`shrink-0 rounded-lg px-2 py-0.5 font-mono text-[12px] ${
                   t.status === 'in_progress'
                     ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
                     : 'surface-sunken text-muted'

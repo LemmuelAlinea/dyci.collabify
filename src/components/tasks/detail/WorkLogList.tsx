@@ -84,13 +84,13 @@ export function WorkLogList({
         <div className="surface rounded-xl border border-line p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="text-[13px] text-muted">Logged on this task</p>
-            <p className="font-mono text-[18px] text-ink">{formatMinutes(total)}</p>
+            <p className="font-mono text-[17px] text-ink">{formatMinutes(total)}</p>
           </div>
           <ul className="mt-2.5 space-y-1">
             {[...perPerson.values()].map((p) => (
               <li key={p.name} className="flex items-baseline justify-between gap-3">
                 <span className="min-w-0 truncate text-[13px] text-muted">{p.name}</span>
-                <span className="font-mono text-[12.5px] text-faint">
+                <span className="font-mono text-[12px] text-faint">
                   {formatMinutes(p.minutes)}
                 </span>
               </li>
@@ -100,7 +100,7 @@ export function WorkLogList({
       )}
 
       {entries.length === 0 ? (
-        <p className="text-[13.5px] text-muted">
+        <p className="text-[13px] text-muted">
           {canLog
             ? 'No time logged yet. It is a record of effort, not a mark — nothing here changes your points.'
             : task.status === 'todo'
@@ -119,14 +119,14 @@ export function WorkLogList({
                 </span>
               )}
               <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-baseline gap-x-2 text-[13.5px]">
+                <p className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
                   <span className="font-medium text-ink">
                     {e.student ? fullName(e.student) : 'Somebody'}
                   </span>
-                  <span className="font-mono text-[12.5px] text-amber-700 dark:text-amber-300">
+                  <span className="font-mono text-[12px] text-amber-700 dark:text-amber-300">
                     {formatMinutes(e.minutes)}
                   </span>
-                  <span className="font-mono text-[11.5px] text-faint">
+                  <span className="font-mono text-[12px] text-faint">
                     {new Date(e.worked_on).toLocaleDateString(undefined, {
                       month: 'short',
                       day: 'numeric',
@@ -164,7 +164,7 @@ export function WorkLogList({
           <div className="surface space-y-3 rounded-xl border border-line p-4">
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="space-y-1.5">
-                <span className="block text-[12.5px] text-faint">Hours</span>
+                <span className="block text-[12px] text-faint">Hours</span>
                 <Input
                   type="number"
                   min={0}
@@ -175,7 +175,7 @@ export function WorkLogList({
                 />
               </label>
               <label className="space-y-1.5">
-                <span className="block text-[12.5px] text-faint">Minutes</span>
+                <span className="block text-[12px] text-faint">Minutes</span>
                 <Input
                   type="number"
                   min={0}
@@ -188,7 +188,7 @@ export function WorkLogList({
                 />
               </label>
               <label className="space-y-1.5">
-                <span className="block text-[12.5px] text-faint">Date</span>
+                <span className="block text-[12px] text-faint">Date</span>
                 <Input
                   type="date"
                   value={when}
@@ -205,7 +205,7 @@ export function WorkLogList({
               onChange={(e) => setNote(e.target.value)}
               placeholder="What the time went on."
               aria-label="What you did"
-              className="!text-[13.5px]"
+              className="!text-[13px]"
             />
 
             <div className="flex justify-end gap-2">

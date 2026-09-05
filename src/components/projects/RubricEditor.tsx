@@ -25,7 +25,7 @@ export function RubricEditor({
   return (
     <div className="space-y-3">
       {rows.length === 0 ? (
-        <p className="text-[13.5px] text-muted">
+        <p className="text-[13px] text-muted">
           No rubric yet. Add the criteria you will mark against — a project needs at least
           one.
         </p>
@@ -49,7 +49,7 @@ export function RubricEditor({
                   onChange={(e) => patch(i, { description: e.target.value })}
                   placeholder="What earns full marks here"
                   aria-label={`Criterion ${i + 1} description`}
-                  className="!h-10 !text-[13.5px]"
+                  className="!h-10 !text-[13px]"
                 />
               </div>
               <Input
@@ -88,7 +88,7 @@ export function RubricEditor({
 
         {named > 0 && (
           <p
-            className={`font-mono text-[12.5px] ${
+            className={`font-mono text-[12px] ${
               mismatch ? 'text-amber-700 dark:text-amber-300' : 'text-faint'
             }`}
           >

@@ -160,7 +160,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
     <div className="mx-auto w-full max-w-[1280px]">
       <Link
         to={`${base}/projects`}
-        className="inline-flex items-center gap-1.5 text-[13.5px] text-muted transition-colors hover:text-ink"
+        className="inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={15} />
         All projects
@@ -169,7 +169,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
       <header className="blueprint mt-4 rounded-card bg-navy-700 p-4 sm:p-6 text-white sm:p-8 dark:bg-navy-800">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="flex items-center gap-2 font-mono text-[11.5px] tracking-wide text-amber-300 uppercase">
+            <p className="flex items-center gap-2 font-mono text-[12px] tracking-wide text-amber-300 uppercase">
               <Icon name={meta?.icon ?? 'folder'} size={14} />
               {projectTypeLabel(project)} · {weekSpanLabel(project)}
             </p>
@@ -271,7 +271,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           )}
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13.5px] text-white/80">
+        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-white/80">
           {/* Says the state wherever you are on the page — the Close button
               alone only reads as the state once you look at its label. */}
           {project.locked_at && (
@@ -326,11 +326,11 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         {/* The syllabus lines it was built on — the reason the project exists. */}
         <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card sm:p-6">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[16px]">Based on the syllabus</h2>
+            <h2 className="">Based on the syllabus</h2>
             <StatusPill project={project} />
           </div>
           {span.length === 0 ? (
-            <p className="mt-2 text-[13.5px] text-muted">
+            <p className="mt-2 text-[13px] text-muted">
               The weeks behind this project are no longer in the syllabus.
             </p>
           ) : (
@@ -342,13 +342,13 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                       Week {w.week_no}
                       {w.title ? ` · ${w.title}` : ''}
                     </p>
-                    <p className="font-mono text-[11.5px] text-faint">{weekRange(w)}</p>
+                    <p className="font-mono text-[12px] text-faint">{weekRange(w)}</p>
                   </div>
                   {w.topics && (
                     <p className="mt-1 text-[13px] leading-relaxed text-muted">{w.topics}</p>
                   )}
                   {w.assessments && (
-                    <p className="mt-1.5 flex gap-1.5 text-[12.5px] leading-relaxed text-amber-700 dark:text-amber-300">
+                    <p className="mt-1.5 flex gap-1.5 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
                       <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
                       {w.assessments}
                     </p>
@@ -360,13 +360,13 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         </section>
 
         <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card sm:p-6">
-          <h2 className="text-[16px]">Guidelines</h2>
+          <h2 className="">Guidelines</h2>
           {project.guidelines ? (
-            <p className="mt-3 text-[14.5px] leading-relaxed whitespace-pre-wrap text-muted">
+            <p className="mt-3 text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
               {project.guidelines}
             </p>
           ) : (
-            <p className="mt-2 text-[13.5px] text-faint">
+            <p className="mt-2 text-[13px] text-faint">
               {canManage
                 ? 'No guidelines yet. Edit the project to add the brief.'
                 : 'Your professor has not written guidelines for this one.'}
@@ -376,15 +376,15 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
 
         <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card sm:p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 className="text-[16px]">Rubric</h2>
+            <h2 className="">Rubric</h2>
             {criteria.length > 0 && (
-              <p className="font-mono text-[12.5px] text-faint">
+              <p className="font-mono text-[12px] text-faint">
                 {rubricTotal} / {project.total_points} points
               </p>
             )}
           </div>
           {criteria.length === 0 ? (
-            <p className="mt-2 text-[13.5px] text-faint">
+            <p className="mt-2 text-[13px] text-faint">
               Marked on the total of {project.total_points} points.
             </p>
           ) : (
@@ -392,7 +392,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
               {criteria.map((c) => (
                 <li key={c.id} className="flex items-start gap-4 py-3 first:pt-0 last:pb-0">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[14.5px] font-medium text-ink">{c.label}</p>
+                    <p className="text-[14px] font-medium text-ink">{c.label}</p>
                     {c.description && (
                       <p className="mt-0.5 text-[13px] leading-relaxed text-muted">
                         {c.description}
@@ -409,9 +409,9 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         </section>
 
         <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card sm:p-6">
-          <h2 className="text-[16px]">Files</h2>
+          <h2 className="">Files</h2>
           {files.length === 0 ? (
-            <p className="mt-2 text-[13.5px] text-faint">Nothing attached.</p>
+            <p className="mt-2 text-[13px] text-faint">Nothing attached.</p>
           ) : (
             <ul className="mt-4 space-y-2">
               {files.map((a) => (

@@ -95,16 +95,16 @@ export function ClassSyllabusTab({
         <div className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[15px] font-semibold text-ink">Term dates</p>
+              <p className="text-[14px] font-semibold text-ink">Term dates</p>
               {termSet && !editing ? (
-                <p className="mt-1 text-[13.5px] text-muted">
+                <p className="mt-1 text-[13px] text-muted">
                   <span className="text-ink">{termLabel(cls.term_start, cls.term_end)}</span>
                   {' · '}
                   {termWeeks(cls.term_start, cls.term_end)} weeks. Week 1 starts on the first
                   date.
                 </p>
               ) : (
-                <p className="mt-1 text-[13.5px] text-muted">
+                <p className="mt-1 text-[13px] text-muted">
                   Week 1 starts on the first date. Every other week is counted from it.
                 </p>
               )}
@@ -214,7 +214,7 @@ export function ClassSyllabusTab({
       {role === 'professor' && weeks.length > 0 && (
         <Link
           to={`/professor/syllabi/${cls.syllabus_id}`}
-          className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
         >
           <Icon name="edit" size={14} />
           Edit the syllabus weeks

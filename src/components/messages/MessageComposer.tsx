@@ -65,7 +65,7 @@ export function MessageComposer({
 
   if (disabled) {
     return (
-      <div className="border-t border-line px-4 py-4 text-center text-[13.5px] text-muted md:px-6">
+      <div className="border-t border-line px-4 py-4 text-center text-[13px] text-muted md:px-6">
         {disabledReason ?? 'You cannot post in this conversation.'}
       </div>
     )
@@ -73,7 +73,7 @@ export function MessageComposer({
 
   return (
     <div className="border-t border-line px-3 py-3 md:px-5 md:py-4">
-      {error && <p className="mb-2 text-[12.5px] text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mb-2 text-[12px] text-red-600 dark:text-red-400">{error}</p>}
 
       {files.length > 0 && (
         <ul className="mb-2 flex flex-wrap gap-2">
@@ -83,7 +83,7 @@ export function MessageComposer({
               className="flex items-center gap-2 rounded-lg surface-sunken py-1.5 pr-1.5 pl-2.5"
             >
               <Icon name="file" size={14} className="text-muted" />
-              <span className="max-w-[160px] truncate text-[12.5px]">{f.name}</span>
+              <span className="max-w-[160px] truncate text-[12px]">{f.name}</span>
               <button
                 type="button"
                 onClick={() => setFiles((list) => list.filter((_, n) => n !== i))}
@@ -131,7 +131,7 @@ export function MessageComposer({
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Write a message"
-          className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-4 py-3 text-[14.5px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12"
+          className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-4 py-3 text-[14px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12"
         />
 
         <button

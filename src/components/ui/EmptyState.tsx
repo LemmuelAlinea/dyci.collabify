@@ -54,7 +54,7 @@ export function EmptyState({
           <Icon name={icon} size={24} />
         </span>
       )}
-      <h3 className={`text-[18px] ${art ? 'mt-3' : 'mt-5'}`}>{title}</h3>
+      <h3 className={` ${art ? 'mt-3' : 'mt-5'}`}>{title}</h3>
       <p className="mt-2 max-w-[380px] text-[14px] leading-relaxed text-muted">{body}</p>
       {action && <div className="mt-6">{action}</div>}
     </div>

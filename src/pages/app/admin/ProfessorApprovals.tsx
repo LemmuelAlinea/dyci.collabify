@@ -96,8 +96,8 @@ export default function ProfessorApprovals() {
     <div className="space-y-8">
       <header>
         <p className="eyebrow">Program</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Professor approvals</h1>
-        <p className="mt-2 max-w-[64ch] text-[14.5px] text-muted">
+        <h1 className="mt-1 leading-tight">Professor approvals</h1>
+        <p className="mt-2 max-w-[64ch] text-[14px] text-muted">
           A professor account stays locked until you verify it. Until then they cannot open a
           class or see a student group, which is the point of the wait.
         </p>
@@ -106,7 +106,7 @@ export default function ProfessorApprovals() {
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
       <section className="space-y-3">
-        <h2 className="text-[16px]">
+        <h2 className="">
           Waiting on you
           {waiting.length > 0 && (
             <span className="ml-2 font-mono text-[13px] text-amber-700 dark:text-amber-300">
@@ -128,10 +128,10 @@ export default function ProfessorApprovals() {
                 <li className="surface flex flex-wrap items-center gap-x-4 gap-y-3 rounded-card border border-amber-300 p-4 shadow-card dark:border-amber-400/40">
                   <Avatar profile={a} size={40} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-medium text-ink">
+                    <span className="block truncate text-[14px] font-medium text-ink">
                       {fullName(a)}
                     </span>
-                    <span className="block truncate text-[12.5px] text-muted">
+                    <span className="block truncate text-[12px] text-muted">
                       {a.email} · signed up {when(a.created_at)}
                     </span>
                   </span>
@@ -162,7 +162,7 @@ export default function ProfessorApprovals() {
 
       {settled.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-[16px]">Already decided</h2>
+          <h2 className="">Already decided</h2>
           <ul className="space-y-2.5">
             {settled.map((a) => (
               <li
@@ -179,7 +179,7 @@ export default function ProfessorApprovals() {
                   </span>
                 </span>
                 <span
-                  className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] ${TONE[a.status]}`}
+                  className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[12px] ${TONE[a.status]}`}
                 >
                   {LABEL[a.status]}
                 </span>

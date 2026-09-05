@@ -96,7 +96,7 @@ export function Marquee({ words }: { words: string[] }) {
         {run.map((w, i) => (
           <span
             key={`${w}-${i}`}
-            className="font-mono text-[12.5px] tracking-[0.22em] whitespace-nowrap text-faint uppercase"
+            className="font-mono text-[12px] tracking-[0.22em] whitespace-nowrap text-faint uppercase"
           >
             {w}
             <span className="ml-10 text-amber-500/60 dark:text-amber-300/50">/</span>

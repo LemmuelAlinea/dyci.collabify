@@ -109,8 +109,8 @@ export default function Accounts() {
     <div className="space-y-6">
       <header>
         <p className="eyebrow">Program</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Accounts</h1>
-        <p className="mt-2 max-w-[66ch] text-[14.5px] text-muted">
+        <h1 className="mt-1 leading-tight">Accounts</h1>
+        <p className="mt-2 max-w-[66ch] text-[14px] text-muted">
           Everyone in the program. You can move somebody between student and professor, and
           deactivate an account that has left — both reversible, and both recorded in the
           audit log.
@@ -147,7 +147,7 @@ export default function Accounts() {
               onChange={(e) => setRole(e.target.value)}
               placeholder="Every role"
               options={ROLE_FILTERS}
-              className="!h-10 !text-[13.5px]"
+              className="!h-10 !text-[13px]"
             />
           </FilterField>
         </FilterPopover>
@@ -186,11 +186,11 @@ export default function Accounts() {
                   </span>
                 </span>
 
-                <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 font-mono text-[11px] text-muted">
+                <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 font-mono text-[12px] text-muted">
                   {ROLE_LABEL[a.role]}
                 </span>
                 <span
-                  className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] ${STATUS_TONE[a.status]}`}
+                  className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[12px] ${STATUS_TONE[a.status]}`}
                 >
                   {ACCOUNT_STATUS_LABEL[a.status]}
                 </span>

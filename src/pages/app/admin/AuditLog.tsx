@@ -110,8 +110,8 @@ export default function AuditLog() {
     <div className="space-y-6">
       <header>
         <p className="eyebrow">Program</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Audit log</h1>
-        <p className="mt-2 max-w-[66ch] text-[14.5px] text-muted">
+        <h1 className="mt-1 leading-tight">Audit log</h1>
+        <p className="mt-2 max-w-[66ch] text-[14px] text-muted">
           Every change to who someone is and what they can reach, and every class opened,
           handed over or closed. Nothing can be edited here, by anyone.
         </p>
@@ -140,7 +140,7 @@ export default function AuditLog() {
               onChange={(e) => setAction(e.target.value)}
               placeholder="Everything"
               options={AUDIT_ACTIONS}
-              className="!h-10 !text-[13.5px]"
+              className="!h-10 !text-[13px]"
             />
           </FilterField>
         </FilterPopover>
@@ -174,7 +174,7 @@ export default function AuditLog() {
                         {e.actor_name}
                       </span>
                     </span>
-                    <span className="shrink-0 font-mono text-[11.5px] text-faint">
+                    <span className="shrink-0 font-mono text-[12px] text-faint">
                       {when(e.at)}
                     </span>
                   </li>

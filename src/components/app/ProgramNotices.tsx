@@ -44,14 +44,14 @@ export function ProgramNotices() {
               n.pinned ? 'border-amber-300 dark:border-amber-400/40' : 'border-line'
             }`}
           >
-            <h3 className="flex items-center gap-2 text-[15px] text-ink">
+            <h3 className="flex items-center gap-2 text-ink">
               {n.pinned && <Icon name="pin" size={14} className="shrink-0 text-amber-500" />}
               {n.title}
             </h3>
-            <p className="mt-1.5 max-w-[80ch] text-[13.5px] leading-relaxed whitespace-pre-wrap text-muted">
+            <p className="mt-1.5 max-w-[80ch] text-[13px] leading-relaxed whitespace-pre-wrap text-muted">
               {n.body}
             </p>
-            <p className="mt-2 text-[11.5px] text-faint">
+            <p className="mt-2 text-[12px] text-faint">
               {n.author_name} · {momentLabel(n.created_at)}
               {n.edited_at && ' · edited'}
             </p>
@@ -63,7 +63,7 @@ export function ProgramNotices() {
         <button
           type="button"
           onClick={() => setAll((v) => !v)}
-          className="text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+          className="text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
         >
           {all ? 'Show fewer' : `Show the other ${rows.length - SHOWN}`}
         </button>

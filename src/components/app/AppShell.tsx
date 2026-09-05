@@ -35,7 +35,7 @@ function DrawerNav({ onNavigate }: { onNavigate: () => void }) {
     <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-4">
       {navFor(profile.role).map((group) => (
         <div key={group.title}>
-          <p className="px-3 pb-1.5 text-[11.5px] font-medium tracking-wide text-faint uppercase">
+          <p className="px-3 pb-1.5 text-[12px] font-medium tracking-wide text-faint uppercase">
             {group.title}
           </p>
           <ul className="space-y-0.5">
@@ -47,7 +47,7 @@ function DrawerNav({ onNavigate }: { onNavigate: () => void }) {
                     end={item.to.split('/').filter(Boolean).length < 2}
                     onClick={onNavigate}
                     className={({ isActive }) =>
-                      `relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14.5px] transition-colors ${
+                      `relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] transition-colors ${
                         isActive
                           ? 'bg-[var(--surface-sunken)] font-semibold text-ink'
                           : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
@@ -69,7 +69,7 @@ function DrawerNav({ onNavigate }: { onNavigate: () => void }) {
                         />
                         <span className="flex-1 truncate">{item.label}</span>
                         {item.badge === 'messages' && unread > 0 && (
-                          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-navy-600 px-1.5 font-mono text-[10px] font-bold text-white dark:bg-amber-400 dark:text-navy-900">
+                          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-navy-600 px-1.5 font-mono text-[12px] font-bold text-white dark:bg-amber-400 dark:text-navy-900">
                             {unread > 99 ? '99+' : unread}
                           </span>
                         )}
@@ -81,11 +81,11 @@ function DrawerNav({ onNavigate }: { onNavigate: () => void }) {
                 <li key={item.label}>
                   <span
                     aria-disabled
-                    className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2.5 text-[14.5px] text-faint"
+                    className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] text-faint"
                   >
                     <Icon name={item.icon} size={18} />
                     <span className="flex-1 truncate">{item.label}</span>
-                    <span className="rounded-full border border-line px-1.5 py-0.5 text-[10px]">
+                    <span className="rounded-full border border-line px-1.5 py-0.5 text-[12px]">
                       Soon
                     </span>
                   </span>

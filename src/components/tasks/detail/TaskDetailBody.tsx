@@ -73,18 +73,18 @@ export function TaskDetailBody({
     <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_300px]">
       <div className="min-w-0 space-y-6">
         <section>
-          <h3 className="text-[15px] font-semibold text-ink">Description</h3>
+          <h3 className=" font-semibold text-ink">Description</h3>
           {task.details ? (
             <p className="mt-1.5 text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
               {task.details}
             </p>
           ) : (
-            <p className="mt-1.5 text-[13.5px] text-faint">
+            <p className="mt-1.5 text-[13px] text-faint">
               No description. {task.status === 'todo' && 'Edit the task to add one.'}
             </p>
           )}
           {yours && (
-            <p className="mt-2 flex items-center gap-1.5 text-[12.5px] text-amber-700 dark:text-amber-300">
+            <p className="mt-2 flex items-center gap-1.5 text-[12px] text-amber-700 dark:text-amber-300">
               <Icon name="check" size={13} />
               This one is yours.
             </p>
@@ -117,7 +117,7 @@ export function TaskDetailBody({
       <div className="order-first space-y-4 md:order-none">
         <div>
           <label className="block space-y-1.5">
-            <span className="text-[12.5px] text-faint">Status</span>
+            <span className="text-[12px] text-faint">Status</span>
             <Select
               value={task.status}
               disabled={!onBoard || !yours}
@@ -146,7 +146,7 @@ export function TaskDetailBody({
                 <p className="text-[13px] font-medium text-ink">
                   Reassignment requested
                 </p>
-                <p className="mt-0.5 text-[12.5px] text-muted">
+                <p className="mt-0.5 text-[12px] text-muted">
                   Waiting on your professor.
                 </p>
                 {reassignment.requested_by === viewerId && (
@@ -162,7 +162,7 @@ export function TaskDetailBody({
                         setBusy(false)
                       }
                     }}
-                    className="mt-2 text-[12.5px] font-medium text-navy-600 hover:underline disabled:opacity-60 dark:text-navy-200"
+                    className="mt-2 text-[12px] font-medium text-navy-600 hover:underline disabled:opacity-60 dark:text-navy-200"
                   >
                     Withdraw it
                   </button>

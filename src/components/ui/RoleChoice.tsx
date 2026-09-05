@@ -22,7 +22,7 @@ export function RoleChoice({
 }) {
   return (
     <fieldset>
-      <legend className="mb-2 text-[13.5px] font-medium text-ink">I am a</legend>
+      <legend className="mb-2 text-[13px] font-medium text-ink">I am a</legend>
       <div className="grid grid-cols-2 gap-2.5">
         {OPTIONS.map((o) => {
           const active = value === o.value
@@ -39,14 +39,14 @@ export function RoleChoice({
               }`}
             >
               <span
-                className={`flex items-center gap-2 text-[14.5px] font-semibold ${
+                className={`flex items-center gap-2 text-[14px] font-semibold ${
                   active ? 'text-navy-700 dark:text-navy-100' : 'text-ink'
                 }`}
               >
                 <Icon name={o.icon} size={17} />
                 {o.label}
               </span>
-              <span className="mt-1.5 block text-[11.5px] leading-snug text-muted">{o.note}</span>
+              <span className="mt-1.5 block text-[12px] leading-snug text-muted">{o.note}</span>
             </button>
           )
         })}

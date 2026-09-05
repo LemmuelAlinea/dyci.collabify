@@ -50,7 +50,7 @@ export default function ForgotPassword() {
             If an account exists for <strong>{email}</strong>, a reset link is on its way. The
             link expires in one hour.
           </Alert>
-          <p className="text-[13.5px] leading-relaxed text-muted">
+          <p className="text-[13px] leading-relaxed text-muted">
             Nothing in your inbox after a minute? Check spam, then try again — the address has
             to match the one you registered with.
           </p>

@@ -18,7 +18,7 @@ export function ClassProgress({
 
   if (live.length === 0) {
     return (
-      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13.5px] text-muted">
+      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
         Nothing is open across your classes right now.
       </p>
     )
@@ -35,7 +35,7 @@ export function ClassProgress({
               className="surface block rounded-xl border border-line px-3 py-3 shadow-card transition-colors hover:border-line-strong sm:px-4 sm:py-3.5"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                <p className="min-w-0 truncate text-[14px] font-medium text-ink sm:text-[14.5px]">
+                <p className="min-w-0 truncate text-[14px] font-medium text-ink sm:text-[14px]">
                   {p.title}
                 </p>
                 <p className="font-mono text-[12px] text-faint">{pct}%</p>

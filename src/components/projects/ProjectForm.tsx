@@ -54,7 +54,7 @@ function Section({
           {step}
         </span>
         <div>
-          <h3 className="text-[15.5px] leading-tight font-semibold text-ink">{title}</h3>
+          <h3 className=" leading-tight font-semibold text-ink">{title}</h3>
           <p className="mt-0.5 text-[13px] text-muted">{hint}</p>
         </div>
       </div>
@@ -259,13 +259,13 @@ export function ProjectForm({
 
           {suggestions.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[12.5px] text-faint">From the syllabus:</span>
+              <span className="text-[12px] text-faint">From the syllabus:</span>
               {suggestions.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setTitle(s)}
-                  className="rounded-full border border-line-strong px-3 py-1 text-[12.5px] text-ink transition-colors hover:bg-[var(--surface-sunken)]"
+                  className="rounded-full border border-line-strong px-3 py-1 text-[12px] text-ink transition-colors hover:bg-[var(--surface-sunken)]"
                 >
                   {s}
                 </button>
@@ -289,7 +289,7 @@ export function ProjectForm({
             )}
           </Field>
 
-          <p className="-mt-1 text-[12.5px] text-faint">
+          <p className="-mt-1 text-[12px] text-faint">
             {PROJECT_TYPES.find((t) => t.value === type)?.blurb}
           </p>
 
@@ -326,7 +326,7 @@ export function ProjectForm({
                       <span className="block text-[14px] font-medium text-ink">
                         {a === 'group' ? 'One group' : 'Each student'}
                       </span>
-                      <span className="block text-[12.5px] text-muted">
+                      <span className="block text-[12px] text-muted">
                         {a === 'group'
                           ? 'Goes to the groups in one arrangement.'
                           : 'Goes to everyone on the roster.'}
@@ -468,7 +468,7 @@ export function ProjectForm({
                   <span className="block text-[14px] font-medium text-ink">
                     {s ? 'Schedule it' : 'Publish now'}
                   </span>
-                  <span className="block text-[12.5px] text-muted">
+                  <span className="block text-[12px] text-muted">
                     {s
                       ? 'Stays hidden until the time you set.'
                       : 'Students see it as soon as you save.'}
@@ -503,13 +503,13 @@ export function ProjectForm({
             hint="PDF, Word, Excel, PowerPoint, or an image. Up to 20 MB."
           />
           {defaults && defaults.attachment_count > 0 && (
-            <p className="text-[12.5px] text-faint">
+            <p className="text-[12px] text-faint">
               {defaults.attachment_count} file{defaults.attachment_count === 1 ? '' : 's'} already
               attached — manage them on the project page.
             </p>
           )}
           {file && (
-            <p className="text-[12.5px] text-faint">
+            <p className="text-[12px] text-faint">
               {file.name} · {formatBytes(file.size)} will be attached when you save.
             </p>
           )}

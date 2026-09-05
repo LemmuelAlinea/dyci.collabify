@@ -37,7 +37,7 @@ export function TaskFileGrid({
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-[15px] font-semibold text-ink">
+        <h3 className=" font-semibold text-ink">
           Files
           {files.length > 0 && (
             <span className="ml-1.5 font-mono text-[12px] text-faint">{files.length}</span>
@@ -51,7 +51,7 @@ export function TaskFileGrid({
       </div>
 
       {files.length === 0 ? (
-        <p className="text-[13.5px] text-muted">
+        <p className="text-[13px] text-muted">
           {canAttach
             ? 'Nothing attached yet. Put the deliverable here so it sits with the work.'
             : open

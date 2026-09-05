@@ -101,7 +101,7 @@ export function StudentTasksView({
           ) : (
             !locked &&
             active.submitted_at && (
-              <p className="text-right text-[12.5px] text-muted">
+              <p className="text-right text-[12px] text-muted">
                 {active.result_verdict === 'accepted'
                   ? 'This project is finished, so drafting is off.'
                   : 'Drafting is off while this is handed in. Take it back if something still needs adding.'}

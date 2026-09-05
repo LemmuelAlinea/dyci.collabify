@@ -117,8 +117,8 @@ export default function Calendar() {
     <div className="space-y-6">
       <header>
         <p className="eyebrow">{role === 'professor' ? 'Teaching' : 'Workspace'}</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Calendar</h1>
-        <p className="mt-2 max-w-[64ch] text-[14.5px] text-muted">
+        <h1 className="mt-1 leading-tight">Calendar</h1>
+        <p className="mt-2 max-w-[64ch] text-[14px] text-muted">
           {role === 'professor'
             ? 'Deadlines and releases across your classes, laid over the syllabus weeks they were built on. A week that names an assessment with nothing under it is a gap.'
             : 'Everything your classes have due, laid over the syllabus weeks it comes from.'}
@@ -167,7 +167,7 @@ export default function Calendar() {
                 onChange={(e) => setClassFilter(e.target.value)}
                 placeholder="Every class"
                 options={classes}
-                className="!h-10 !text-[13.5px]"
+                className="!h-10 !text-[13px]"
               />
             </FilterField>
           )}
@@ -181,7 +181,7 @@ export default function Calendar() {
                   (role === 'professor' && k.value !== 'task_due') ||
                   (role !== 'professor' && k.value !== 'project_release'),
               )}
-              className="!h-10 !text-[13.5px]"
+              className="!h-10 !text-[13px]"
             />
           </FilterField>
         </FilterPopover>
@@ -190,7 +190,7 @@ export default function Calendar() {
       {view === 'month' ? (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-            <h2 className="text-[15.5px] sm:text-[17px]">{monthLabel}</h2>
+            <h2 className=" sm:">{monthLabel}</h2>
             <div className="flex items-center gap-1.5">
               <Button
                 variant="outline"

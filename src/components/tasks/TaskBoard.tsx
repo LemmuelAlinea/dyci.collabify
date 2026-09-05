@@ -111,7 +111,7 @@ export function TaskBoard({
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[13.5px] text-muted">
+        <p className="text-[13px] text-muted">
           <strong className="text-ink">
             {board.done_count} of {board.task_count}
           </strong>{' '}
@@ -160,14 +160,14 @@ export function TaskBoard({
             return (
               <section key={column.value} className="space-y-2.5">
                 <header className="flex items-baseline justify-between gap-2 border-b border-line pb-2">
-                  <h3 className={`text-[13px] font-semibold ${COLUMN_TONE[column.value]}`}>
+                  <h3 className={` font-semibold ${COLUMN_TONE[column.value]}`}>
                     {column.label}
                   </h3>
-                  <span className="font-mono text-[11.5px] text-faint">{inColumn.length}</span>
+                  <span className="font-mono text-[12px] text-faint">{inColumn.length}</span>
                 </header>
 
                 {inColumn.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-[12.5px] text-faint">
+                  <p className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-[12px] text-faint">
                     Nothing here
                   </p>
                 ) : (

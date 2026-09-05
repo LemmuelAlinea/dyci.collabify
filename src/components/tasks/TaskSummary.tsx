@@ -56,7 +56,7 @@ function Tile({
         <Icon name={icon} size={17} />
       </span>
       <span className="min-w-0">
-        <span className="block text-[15px] font-semibold text-ink">
+        <span className="block text-[14px] font-semibold text-ink">
           {value} <span className="font-normal text-muted">{label}</span>
         </span>
         <span className="block text-[12px] text-faint">{sub}</span>
@@ -99,7 +99,7 @@ function StatusDonut({ counts, total }: { counts: Record<TaskStatus, number>; to
         </svg>
         <span className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="font-mono text-[22px] leading-none text-ink">{total}</span>
-          <span className="mt-1 text-[11px] text-faint">
+          <span className="mt-1 text-[12px] text-faint">
             {total === 1 ? 'task' : 'tasks'}
           </span>
         </span>
@@ -213,18 +213,18 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
-          <h3 className="text-[16px]">Where it stands</h3>
+          <h3 className="">Where it stands</h3>
           <p className="mt-1 mb-4 text-[13px] text-muted">
             Every task in view, by status.
             {logged > 0 && ` ${formatMinutes(logged)} logged against them.`}
           </p>
           {rows.length === 0 ? (
-            <p className="text-[13.5px] text-muted">Nothing matches those filters.</p>
+            <p className="text-[13px] text-muted">Nothing matches those filters.</p>
           ) : (
             <StatusDonut counts={counts} total={rows.length} />
           )}
           {unclaimed.length > 0 && (
-            <p className="mt-4 flex items-center gap-1.5 text-[12.5px] text-amber-700 dark:text-amber-300">
+            <p className="mt-4 flex items-center gap-1.5 text-[12px] text-amber-700 dark:text-amber-300">
               <Icon name="alert" size={13} />
               {unclaimed.length} {unclaimed.length === 1 ? 'task has' : 'tasks have'} nobody on
               them
@@ -233,7 +233,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
         </section>
 
         <section className="surface flex max-h-[380px] flex-col rounded-card border border-line p-4 sm:p-5 shadow-card">
-          <h3 className="text-[16px]">Recent activity</h3>
+          <h3 className="">Recent activity</h3>
           <p className="mt-1 mb-3 text-[13px] text-muted">What has moved lately.</p>
           {events === null ? (
             <p className="flex items-center gap-2 py-4 text-[13px] text-muted">
@@ -241,7 +241,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
               Loading…
             </p>
           ) : events.length === 0 ? (
-            <p className="text-[13.5px] text-muted">Nothing has happened here yet.</p>
+            <p className="text-[13px] text-muted">Nothing has happened here yet.</p>
           ) : (
             // Fixed height, scrolled: a long trail should not push the page down.
             <ol className="-mr-2 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-2">
@@ -254,7 +254,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
                     {WORDING[e.kind]}{' '}
                     <span className="text-ink">{titles.get(e.task_id) ?? 'a task'}</span>
                   </p>
-                  <p className="shrink-0 font-mono text-[11px] text-faint">
+                  <p className="shrink-0 font-mono text-[12px] text-faint">
                     {new Date(e.at).toLocaleDateString(undefined, {
                       month: 'short',
                       day: 'numeric',
@@ -269,7 +269,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
 
       {load.size > 0 && (
         <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
-          <h3 className="text-[16px]">Who is carrying what</h3>
+          <h3 className="">Who is carrying what</h3>
           <p className="mt-1 mb-3 text-[13px] text-muted">
             Tasks held, and how many of them are finished.
           </p>

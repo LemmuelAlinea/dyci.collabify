@@ -88,7 +88,7 @@ export function BoardVerdict({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2.5 py-4 text-[13.5px] text-muted">
+      <div className="flex items-center gap-2.5 py-4 text-[13px] text-muted">
         <Spinner size={15} />
         Loading the answer…
       </div>
@@ -113,7 +113,7 @@ export function BoardVerdict({
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="flex items-center gap-2 text-[16px]">
+            <h3 className="flex items-center gap-2">
               {result && (
                 <span
                   className={`grid h-7 w-7 place-items-center rounded-full ${
@@ -129,12 +129,12 @@ export function BoardVerdict({
             </h3>
 
             {result ? (
-              <p className="mt-1 text-[12.5px] text-faint">
+              <p className="mt-1 text-[12px] text-faint">
                 {result.decided_by_name ?? 'Your professor'} · {when(result.decided_at)}
                 {result.answer_count > 1 && ` · answered ${result.answer_count} times`}
               </p>
             ) : (
-              <p className="mt-1 max-w-[58ch] text-[13.5px] leading-relaxed text-muted">
+              <p className="mt-1 max-w-[58ch] text-[13px] leading-relaxed text-muted">
                 {isProfessor
                   ? 'Handed in and waiting. Accepting leaves it frozen; returning it gives the group their board back so they can fix it.'
                   : 'Handed in. Your professor has not answered yet.'}
@@ -192,7 +192,7 @@ export function BoardVerdict({
       >
         <div className="space-y-4">
           {error && <Alert tone="error">{error}</Alert>}
-          <p className="text-[13.5px] leading-relaxed text-muted">
+          <p className="text-[13px] leading-relaxed text-muted">
             This hands the board back, so the group can change their tasks and files again
             and hand in a second time.
           </p>

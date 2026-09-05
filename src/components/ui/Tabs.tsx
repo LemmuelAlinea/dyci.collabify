@@ -32,7 +32,7 @@ export function Tabs<T extends string>({
             role="tab"
             aria-selected={on}
             onClick={() => onChange(t.id)}
-            className={`-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-[14px] transition-colors duration-200 sm:gap-2 sm:px-4 sm:text-[14.5px] ${
+            className={`-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-[14px] transition-colors duration-200 sm:gap-2 sm:px-4 sm:text-[14px] ${
               on
                 ? 'border-navy-600 font-semibold text-ink dark:border-amber-400'
                 : 'border-transparent text-muted hover:text-ink'
@@ -42,7 +42,7 @@ export function Tabs<T extends string>({
             {t.label}
             {typeof t.count === 'number' && (
               <span
-                className={`rounded-full px-2 py-0.5 font-mono text-[10.5px] ${
+                className={`rounded-full px-2 py-0.5 font-mono text-[12px] ${
                   on ? 'bg-navy-600 text-white dark:bg-amber-400 dark:text-navy-900' : 'surface-sunken text-faint'
                 }`}
               >

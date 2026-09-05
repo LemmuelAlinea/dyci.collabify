@@ -19,8 +19,8 @@ export default function ProgramLibrary() {
     <div className="space-y-6">
       <header>
         <p className="eyebrow">Program</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Library</h1>
-        <p className="mt-2 max-w-[70ch] text-[14.5px] text-muted">
+        <h1 className="mt-1 leading-tight">Library</h1>
+        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
           Curricula and syllabi published for the whole program. Every professor can attach
           one to their class, so two sections of a subject run the same outline.
         </p>

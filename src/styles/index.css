@@ -289,6 +289,33 @@
   }
 
   /**
+   * The body scale.
+   *
+   * The heading ramp below was already one decision in one place. Underneath
+   * it there was nothing, so 621 call sites invented five sizes between 12 and
+   * 14px — mutually indistinguishable, and no help to anyone scanning a page.
+   *
+   * Body is the inherited default so it needs no class at all, and 14px with
+   * 1.55 leading rather than the 13.5px at tighter leading most of those sites
+   * had picked: the density complaint about this product was partly small type
+   * in tight lines, not only spacing.
+   */
+  .app-ui {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  /**
+   * One step down for supporting text. It sits 1px from body, which alone
+   * would be invisible — the separation is meant to come from colour as well,
+   * so this pairs with `text-muted` at the call site.
+   */
+  .app-ui .type-secondary {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /**
    * A card, said once. Thirty-odd pages were each spelling out the same six
    * utilities, which is how they drifted apart — three different paddings and
    * two different radii were live at the same time.

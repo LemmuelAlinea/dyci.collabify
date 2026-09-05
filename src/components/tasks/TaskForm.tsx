@@ -99,7 +99,7 @@ export function TaskForm({
         </Field>
       </div>
 
-      <p className="text-[12.5px] leading-relaxed text-faint">
+      <p className="text-[12px] leading-relaxed text-faint">
         Weight is how big this is next to the group's other tasks — a heavier task is worth
         more of the project. Everything can be changed until someone starts it.
       </p>

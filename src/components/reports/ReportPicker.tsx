@@ -68,11 +68,11 @@ export function reportLabel(catalogue: ReportGroup[], kind: ReportKind) {
 /** The narrowing selects, in whatever order this report needs them. */
 function About({ r }: { r: PickerState }) {
   const needs = NEEDS[r.kind]
-  const size = '!h-11 !text-[13.5px] sm:!h-10 sm:!text-[13px]'
+  const size = '!h-11 !text-[13px] sm:!h-10 sm:!text-[13px]'
 
   if (needs.length === 0) {
     return (
-      <p className="text-[12.5px] text-muted">
+      <p className="text-[12px] text-muted">
         This one covers every class you teach, so there is nothing to choose.
       </p>
     )
@@ -202,7 +202,7 @@ function Catalogue({
           <p
             className={
               dense
-                ? 'px-1 pb-0.5 text-[11px] font-medium tracking-wide text-faint uppercase'
+                ? 'px-1 pb-0.5 text-[12px] font-medium tracking-wide text-faint uppercase'
                 : 'eyebrow text-faint'
             }
           >
@@ -226,12 +226,12 @@ function Catalogue({
               >
                 <span
                   className={`flex items-center gap-2 text-ink ${
-                    dense ? 'text-[13.5px]' : 'text-[14px]'
+                    dense ? 'text-[13px]' : 'text-[14px]'
                   } ${on && dense ? 'font-medium' : ''}`}
                 >
                   {item.label}
                   {item.csv && (
-                    <span className="rounded-full surface-sunken px-1.5 py-0.5 font-mono text-[9.5px] tracking-wider text-muted uppercase">
+                    <span className="rounded-full surface-sunken px-1.5 py-0.5 font-mono text-[12px] tracking-wider text-muted uppercase">
                       csv
                     </span>
                   )}
@@ -294,7 +294,7 @@ export function ReportSidebar({
         <Catalogue catalogue={catalogue} kind={r.kind} onPick={r.choose} dense />
 
         <section className="space-y-2">
-          <p className="px-1 text-[11px] font-medium tracking-wide text-faint uppercase">
+          <p className="px-1 text-[12px] font-medium tracking-wide text-faint uppercase">
             What it is about
           </p>
           <About r={r} />
@@ -331,7 +331,7 @@ export function ReportBar({
       >
         <Icon name="file" size={16} className="shrink-0 text-faint" />
         <span className="min-w-0 flex-1">
-          <span className="block font-mono text-[10px] tracking-wider text-faint uppercase">
+          <span className="block font-mono text-[12px] tracking-wider text-faint uppercase">
             Report
           </span>
           <span className="block truncate text-[14px] font-medium text-ink">

@@ -126,7 +126,7 @@ export function FilterChain({
           onChange={(e) => set('classId', e.target.value)}
           placeholder="Every class"
           options={classOptions}
-          className="!h-10 !text-[13.5px]"
+          className="!h-10 !text-[13px]"
         />
       </FilterField>
       <FilterField label="Project">
@@ -135,7 +135,7 @@ export function FilterChain({
           onChange={(e) => set('projectId', e.target.value)}
           placeholder="Every project"
           options={projects}
-          className="!h-10 !text-[13.5px]"
+          className="!h-10 !text-[13px]"
         />
       </FilterField>
       <FilterField label="Group">
@@ -144,7 +144,7 @@ export function FilterChain({
           onChange={(e) => set('boardId', e.target.value)}
           placeholder="Every group"
           options={boards}
-          className="!h-10 !text-[13.5px]"
+          className="!h-10 !text-[13px]"
         />
       </FilterField>
       <FilterField label="Student">
@@ -153,7 +153,7 @@ export function FilterChain({
           onChange={(e) => set('studentId', e.target.value)}
           placeholder="Everyone"
           options={students}
-          className="!h-10 !text-[13.5px]"
+          className="!h-10 !text-[13px]"
         />
       </FilterField>
       <FilterField label="Task">
@@ -162,7 +162,7 @@ export function FilterChain({
           onChange={(e) => set('taskId', e.target.value)}
           placeholder="Every task"
           options={taskOptions}
-          className="!h-10 !text-[13.5px]"
+          className="!h-10 !text-[13px]"
         />
       </FilterField>
     </FilterPopover>

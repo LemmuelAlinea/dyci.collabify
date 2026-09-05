@@ -52,7 +52,7 @@ export function GapList({ gaps }: { gaps: ClassGap[] }) {
                   : 'border-line'
             }`}
           >
-            <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 font-mono text-[11px] text-muted">
+            <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 font-mono text-[12px] text-muted">
               Week {g.week_no}
             </span>
             <span className="min-w-0 flex-1">

@@ -38,7 +38,7 @@ export function BurnCard({ burn }: { burn: BoardBurn }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="eyebrow">{burn.project_title}</p>
-          <h4 className="mt-0.5 truncate text-[15px] font-medium text-ink">
+          <h4 className="mt-0.5 truncate text-[14px] font-medium text-ink">
             {burnOwner(burn)}
           </h4>
         </div>
@@ -54,7 +54,7 @@ export function BurnCard({ burn }: { burn: BoardBurn }) {
         />
       </div>
 
-      <p className="mt-2.5 flex items-start gap-1.5 text-[12.5px] leading-relaxed text-muted">
+      <p className="mt-2.5 flex items-start gap-1.5 text-[12px] leading-relaxed text-muted">
         <Icon
           name={tone === 'good' ? 'check' : tone === 'plain' ? 'clock' : 'alert'}
           size={13}
@@ -98,7 +98,7 @@ export function BurnCard({ burn }: { burn: BoardBurn }) {
       </p>
 
       {burn.late_count > 0 && (
-        <p className="mt-1.5 font-mono text-[11.5px] text-red-600 dark:text-red-400">
+        <p className="mt-1.5 font-mono text-[12px] text-red-600 dark:text-red-400">
           {burn.late_count} handed in late
         </p>
       )}

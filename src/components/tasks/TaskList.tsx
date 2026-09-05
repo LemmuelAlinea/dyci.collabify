@@ -53,7 +53,7 @@ export function TaskList({
     <div className="surface overflow-x-auto rounded-card border border-line shadow-card">
       <table className="w-full min-w-[720px] border-collapse text-left">
         <thead>
-          <tr className="border-b border-line text-[11.5px] tracking-wide text-faint uppercase">
+          <tr className="border-b border-line text-[12px] tracking-wide text-faint uppercase">
             <th className="py-2.5 pr-3 pl-4 font-medium">Task</th>
             {showOwner && <th className="py-2.5 pr-3 font-medium">{ownerLabel}</th>}
             <th className="py-2.5 pr-3 font-medium">Assignees</th>
@@ -84,7 +84,7 @@ export function TaskList({
                   >
                     {t.title}
                   </button>
-                  <span className="mt-0.5 flex items-center gap-2.5 text-[11.5px] text-faint">
+                  <span className="mt-0.5 flex items-center gap-2.5 text-[12px] text-faint">
                     {t.author_role === 'professor' && <span>Set by the professor</span>}
                     {t.file_count > 0 && (
                       <span className="flex items-center gap-1">
@@ -113,7 +113,7 @@ export function TaskList({
 
                 <td className="py-2.5 pr-3">
                   {t.assignees.length === 0 ? (
-                    <span className="text-[12.5px] text-amber-700 dark:text-amber-300">
+                    <span className="text-[12px] text-amber-700 dark:text-amber-300">
                       Unclaimed
                     </span>
                   ) : (
@@ -132,7 +132,7 @@ export function TaskList({
                             ),
                         )}
                       </span>
-                      <span className="max-w-[130px] truncate text-[12.5px] text-muted">
+                      <span className="max-w-[130px] truncate text-[12px] text-muted">
                         {t.assignees[0]?.profile
                           ? t.assignees.length > 1
                             ? `${t.assignees[0].profile.first_name} +${t.assignees.length - 1}`
@@ -145,19 +145,19 @@ export function TaskList({
 
                 <td className="py-2.5 pr-3">
                   <span
-                    className={`rounded-lg px-2 py-0.5 font-mono text-[11px] ${STATUS_TONE[t.status]}`}
+                    className={`rounded-lg px-2 py-0.5 font-mono text-[12px] ${STATUS_TONE[t.status]}`}
                   >
                     {taskStatusLabel(t.status)}
                   </span>
                 </td>
 
-                <td className="py-2.5 pr-3 font-mono text-[12.5px] text-muted">{share}%</td>
+                <td className="py-2.5 pr-3 font-mono text-[12px] text-muted">{share}%</td>
 
                 <td className="py-2.5 pr-3 font-mono text-[12px]">
                   {handedInLate ? (
                     <span
                       title="Finished after the deadline"
-                      className="rounded-md bg-red-500/15 px-1.5 py-0.5 text-[10.5px] text-red-700 dark:text-red-300"
+                      className="rounded-md bg-red-500/15 px-1.5 py-0.5 text-[12px] text-red-700 dark:text-red-300"
                     >
                       Late
                     </span>

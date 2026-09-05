@@ -39,7 +39,7 @@ export function ManualBuilder({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[13.5px] text-muted">
+        <p className="text-[13px] text-muted">
           {unassigned.length === 0
             ? 'Everyone is placed.'
             : `${unassigned.length} student${unassigned.length === 1 ? '' : 's'} still unplaced`}
@@ -60,9 +60,9 @@ export function ManualBuilder({
                   value={d.name}
                   onChange={(e) => update(i, { name: e.target.value })}
                   aria-label={`Group ${i + 1} name`}
-                  className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold text-ink hover:border-[var(--line)] focus:border-navy-400"
+                  className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-[14px] font-semibold text-ink hover:border-[var(--line)] focus:border-navy-400"
                 />
-                <span className="font-mono text-[11.5px] text-faint">
+                <span className="font-mono text-[12px] text-faint">
                   {d.students.length}/{d.member_limit}
                 </span>
                 <button
@@ -86,7 +86,7 @@ export function ManualBuilder({
                         className="flex items-center gap-2 rounded-full surface-sunken py-1 pr-1 pl-1.5"
                       >
                         <Avatar profile={p} size={22} />
-                        <span className="text-[12.5px] text-ink">
+                        <span className="text-[12px] text-ink">
                           {p.last_name}, {p.first_name}
                         </span>
                         <button
@@ -125,7 +125,7 @@ export function ManualBuilder({
                     value: s.id,
                     label: `${s.last_name}, ${s.first_name}`,
                   }))}
-                  className="!h-10 text-[13.5px]"
+                  className="!h-10 text-[13px]"
                 />
               </div>
             </div>

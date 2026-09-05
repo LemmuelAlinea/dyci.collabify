@@ -29,7 +29,7 @@ export function PaceCard({ pace }: { pace: ClassPace }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="eyebrow">{pace.class_initial}</p>
-          <h3 className="mt-1 flex items-center gap-2 text-[17px] leading-snug">
+          <h3 className="mt-1 flex items-center gap-2 leading-snug">
             <span
               className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
                 !started
@@ -49,7 +49,7 @@ export function PaceCard({ pace }: { pace: ClassPace }) {
           </h3>
 
           {started && (
-            <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-relaxed text-muted">
+            <p className="mt-1.5 max-w-[62ch] text-[13px] leading-relaxed text-muted">
               {pace.weeks_covered} of {pace.weeks_total} weeks covered in {pace.weeks_elapsed}{' '}
               {pace.weeks_elapsed === 1 ? 'week' : 'weeks'} — {p.rate} a week. The remaining{' '}
               {p.remaining} would take about {p.weeksNeeded}{' '}
@@ -58,7 +58,7 @@ export function PaceCard({ pace }: { pace: ClassPace }) {
             </p>
           )}
           {!started && (
-            <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-relaxed text-muted">
+            <p className="mt-1.5 max-w-[62ch] text-[13px] leading-relaxed text-muted">
               No project is bound to a syllabus week, so there is no pace to measure yet.
             </p>
           )}
@@ -71,8 +71,8 @@ export function PaceCard({ pace }: { pace: ClassPace }) {
             ['Rate', started ? `${p.rate}/wk` : '—'],
           ].map(([k, v]) => (
             <div key={k}>
-              <dt className="text-[11px] text-faint">{k}</dt>
-              <dd className="font-mono text-[15px] text-ink">{v}</dd>
+              <dt className="text-[12px] text-faint">{k}</dt>
+              <dd className="font-mono text-[14px] text-ink">{v}</dd>
             </div>
           ))}
         </dl>

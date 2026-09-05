@@ -75,8 +75,8 @@ export default function Reassignments() {
     <div className="space-y-8">
       <header>
         <p className="eyebrow">Teaching</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Reassignments</h1>
-        <p className="mt-2 max-w-[62ch] text-[14.5px] text-muted">
+        <h1 className="mt-1 leading-tight">Reassignments</h1>
+        <p className="mt-2 max-w-[62ch] text-[14px] text-muted">
           When a task stalls with the person holding it, their group can ask for it to move.
           You decide, and you are the only one who reads the reason.
         </p>
@@ -85,7 +85,7 @@ export default function Reassignments() {
       {error && <Alert tone="error">{error}</Alert>}
 
       <section className="space-y-3">
-        <h2 className="text-[16px]">
+        <h2 className="">
           Waiting on you
           {pending.length > 0 && (
             <span className="ml-2 font-mono text-[13px] text-amber-700 dark:text-amber-300">
@@ -114,7 +114,7 @@ export default function Reassignments() {
 
       {settled.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-[16px]">Already decided</h2>
+          <h2 className="">Already decided</h2>
           <ul className="space-y-2.5">
             {settled.map((r) => (
               <li
@@ -122,14 +122,14 @@ export default function Reassignments() {
                 className="surface flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line px-4 py-3"
               >
                 <span
-                  className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] ${TONE[r.status]}`}
+                  className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[12px] ${TONE[r.status]}`}
                 >
                   {reassignmentStatusLabel(r.status)}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[14px] text-ink">
                   {r.task_title}
                 </span>
-                <span className="text-[12.5px] text-muted">
+                <span className="text-[12px] text-muted">
                   {r.to_student_name ? `Now with ${r.to_student_name}` : 'Back to the group'}
                 </span>
                 <span className="font-mono text-[12px] text-faint">{when(r.decided_at)}</span>
@@ -160,7 +160,7 @@ function RequestCard({ row, onDecide }: { row: ReassignmentRow; onDecide: () => 
             {row.class_initial} · {row.project_title}
             {row.group_name ? ` · ${row.group_name}` : ''}
           </p>
-          <h3 className="mt-1 text-[17px] leading-snug">{row.task_title}</h3>
+          <h3 className="mt-1 leading-snug">{row.task_title}</h3>
           <p className="mt-1 text-[13px] text-muted">
             <strong className="font-medium text-ink">{row.requested_by_name}</strong> asked{' '}
             {row.wants === 'take_over' ? 'to take it on' : 'for it to go back to the group'}
@@ -261,7 +261,7 @@ function DecideModal({
           {error && <Alert tone="error">{error}</Alert>}
 
           <label className="block space-y-1.5">
-            <span className="text-[13.5px] font-medium text-ink">Who gets it</span>
+            <span className="text-[13px] font-medium text-ink">Who gets it</span>
             <Select
               value={target}
               onChange={(e) => setTarget(e.target.value)}
@@ -271,7 +271,7 @@ function DecideModal({
                 label: m.profile ? fullName(m.profile) : 'Student',
               }))}
             />
-            <span className="block text-[12.5px] text-faint">
+            <span className="block text-[12px] text-faint">
               {row.wants === 'take_over'
                 ? 'They asked to take it on, so that is preselected. Choose somebody else if it suits the group better.'
                 : 'They asked for it to go back to the group. Name someone to hand it straight over instead.'}
@@ -279,7 +279,7 @@ function DecideModal({
           </label>
 
           <label className="block space-y-1.5">
-            <span className="text-[13.5px] font-medium text-ink">
+            <span className="text-[13px] font-medium text-ink">
               A note back <span className="text-[12px] text-faint">optional</span>
             </span>
             <Textarea
@@ -290,7 +290,7 @@ function DecideModal({
             />
           </label>
 
-          <p className="text-[12.5px] text-faint">
+          <p className="text-[12px] text-faint">
             Approving moves the task and puts it back to To do, so whoever picks it up starts
             clean. Its files, comments and work log stay where they are.
           </p>

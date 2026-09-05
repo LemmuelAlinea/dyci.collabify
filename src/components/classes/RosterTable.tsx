@@ -98,11 +98,11 @@ export function RosterTable({
             </span>
             <Avatar profile={m.profile} size={36} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14.5px] font-medium text-ink">
+              <p className="truncate text-[14px] font-medium text-ink">
                 {m.profile.last_name}, {m.profile.first_name}
                 {m.profile.middle_name ? ` ${m.profile.middle_name[0]}.` : ''}
               </p>
-              {showEmail && <p className="truncate text-[12.5px] text-faint">{m.profile.email}</p>}
+              {showEmail && <p className="truncate text-[12px] text-faint">{m.profile.email}</p>}
             </div>
             {classId && lost.get(m.student_id) ? (
               <Button

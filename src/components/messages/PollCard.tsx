@@ -64,12 +64,12 @@ export function PollCard({
     <div className="w-[min(78vw,340px)] space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-[10.5px] font-medium tracking-wide text-faint uppercase">
+          <p className="flex items-center gap-1.5 text-[12px] font-medium tracking-wide text-faint uppercase">
             <Icon name="chart" size={11} />
             Poll{poll.allow_multiple && ' · pick any'}
             {closed && ' · closed'}
           </p>
-          <p className="mt-1 text-[15px] leading-snug font-semibold text-ink">{poll.question}</p>
+          <p className="mt-1 text-[14px] leading-snug font-semibold text-ink">{poll.question}</p>
         </div>
         {mineToManage && (
           <button
@@ -121,11 +121,11 @@ export function PollCard({
                   >
                     {picked && <Icon name="check" size={10} className="text-navy-900" strokeWidth={3.5} />}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">{o.label}</span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{o.label}</span>
                   {busyOption === o.id ? (
                     <Spinner size={13} className="text-muted" />
                   ) : (
-                    <span className="shrink-0 font-mono text-[11.5px] text-muted">
+                    <span className="shrink-0 font-mono text-[12px] text-muted">
                       {voters.length}
                     </span>
                   )}
@@ -146,7 +146,7 @@ export function PollCard({
                       </span>
                     ))}
                     {voters.length > 6 && (
-                      <span className="-ml-1.5 grid h-5 w-5 place-items-center rounded-full surface-sunken text-[9px] font-semibold text-muted">
+                      <span className="-ml-1.5 grid h-5 w-5 place-items-center rounded-full surface-sunken text-[12px] font-semibold text-muted">
                         +{voters.length - 6}
                       </span>
                     )}
@@ -159,7 +159,7 @@ export function PollCard({
       </ul>
 
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11.5px] text-faint">
+        <p className="text-[12px] text-faint">
           {total === 0 ? 'No votes yet' : `${total} ${total === 1 ? 'person' : 'people'} voted`}
         </p>
         {canAddOption &&
@@ -174,12 +174,12 @@ export function PollCard({
                   if (e.key === 'Escape') setAdding(false)
                 }}
                 placeholder="New option"
-                className="h-8 w-[130px] rounded-lg border border-[var(--control-line)] bg-[var(--surface)] px-2.5 text-[12.5px] text-ink focus:border-navy-400"
+                className="h-8 w-[130px] rounded-lg border border-[var(--control-line)] bg-[var(--surface)] px-2.5 text-[12px] text-ink focus:border-navy-400"
               />
               <button
                 type="button"
                 onClick={submitOption}
-                className="text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+                className="text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
               >
                 Add
               </button>
@@ -188,7 +188,7 @@ export function PollCard({
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="flex items-center gap-1 text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+              className="flex items-center gap-1 text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
             >
               <Icon name="plus" size={13} />
               Add option

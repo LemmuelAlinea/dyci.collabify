@@ -110,7 +110,7 @@ export function SeriesActionDialog({
           </Field>
         )}
         {deadline && !due && (
-          <p className="-mt-2 text-[12.5px] text-faint">
+          <p className="-mt-2 text-[12px] text-faint">
             Left empty, the sections you tick end up with no deadline at all.
           </p>
         )}

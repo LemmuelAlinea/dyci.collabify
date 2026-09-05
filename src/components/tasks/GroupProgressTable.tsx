@@ -131,7 +131,7 @@ export function GroupProgressTable({
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortId)}
                 options={sortOptions(solo)}
-                className="!h-10 !text-[13.5px]"
+                className="!h-10 !text-[13px]"
               />
             </FilterField>
           </FilterPopover>
@@ -139,7 +139,7 @@ export function GroupProgressTable({
       </div>
 
       {shown.length === 0 ? (
-        <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13.5px] text-muted">
+        <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
           {solo ? 'No student matches that.' : 'No group matches that.'}
         </p>
       ) : (
@@ -169,7 +169,7 @@ export function GroupProgressTable({
                       {b.submitted_at && (
                         <span
                           title={`Handed in${b.submitted_by_name ? ` by ${b.submitted_by_name}` : ''}`}
-                          className="flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10.5px] text-emerald-700 dark:text-emerald-300"
+                          className="flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[12px] text-emerald-700 dark:text-emerald-300"
                         >
                           <Icon name="check" size={11} />
                           In
@@ -186,7 +186,7 @@ export function GroupProgressTable({
                     />
                   </div>
 
-                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11.5px] text-faint">
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-faint">
                     {empty ? (
                       <span className="text-amber-700 dark:text-amber-300">No tasks yet</span>
                     ) : (

@@ -65,7 +65,7 @@ export function FileDrop({
             <Icon name="x" size={16} />
           </button>
         </div>
-        {error && <p className="text-[12.5px] text-red-600 dark:text-red-400">{error}</p>}
+        {error && <p className="text-[12px] text-red-600 dark:text-red-400">{error}</p>}
       </div>
     )
   }
@@ -96,7 +96,7 @@ export function FileDrop({
         >
           <Icon name="plus" size={15} />
           Add another file
-          <span className="text-[11.5px] text-faint">· up to {maxSize} MB</span>
+          <span className="text-[12px] text-faint">· up to {maxSize} MB</span>
         </button>
         <input
           ref={input}
@@ -105,7 +105,7 @@ export function FileDrop({
           className="hidden"
           onChange={(e) => take(e.target.files?.[0])}
         />
-        {error && <p className="text-[12.5px] text-red-600 dark:text-red-400">{error}</p>}
+        {error && <p className="text-[12px] text-red-600 dark:text-red-400">{error}</p>}
       </div>
     )
   }
@@ -135,7 +135,7 @@ export function FileDrop({
         className="hidden"
         onChange={(e) => take(e.target.files?.[0])}
       />
-      {error && <p className="text-[12.5px] text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="text-[12px] text-red-600 dark:text-red-400">{error}</p>}
     </div>
   )
 }

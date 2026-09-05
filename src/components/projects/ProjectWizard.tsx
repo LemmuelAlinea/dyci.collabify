@@ -193,7 +193,7 @@ export function ProjectWizard({
 
         {!fixedClassId && !editing && (
           <label className="block space-y-1.5">
-            <span className="text-[13.5px] font-medium text-ink">Class</span>
+            <span className="text-[13px] font-medium text-ink">Class</span>
             <Select
               value={classId}
               onChange={(e) => setClassId(e.target.value)}
@@ -213,7 +213,7 @@ export function ProjectWizard({
         )}
 
         {!classId ? (
-          <p className="text-[13.5px] text-muted">
+          <p className="text-[13px] text-muted">
             Pick the class first — its syllabus decides what a project can be based on.
           </p>
         ) : weeks === null ? (

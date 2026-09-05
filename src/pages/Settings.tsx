@@ -81,8 +81,8 @@ function Section({
           <Icon name={icon} size={19} />
         </span>
         <div className="min-w-0">
-          <h2 className="text-[19px]">{title}</h2>
-          <p className="mt-0.5 text-[13.5px] text-muted">{description}</p>
+          <h2 className="">{title}</h2>
+          <p className="mt-0.5 text-[13px] text-muted">{description}</p>
         </div>
       </header>
       <div className="px-6 py-6 md:px-8">{children}</div>
@@ -262,7 +262,7 @@ export default function Settings() {
                 className="hidden"
                 onChange={(e) => onAvatarPicked(e.target.files?.[0])}
               />
-              <p className="text-center text-[11.5px] text-faint">JPG, PNG or WebP · max 2 MB</p>
+              <p className="text-center text-[12px] text-faint">JPG, PNG or WebP · max 2 MB</p>
             </div>
 
             <form onSubmit={saveProfile} className="min-w-0 flex-1 space-y-4">
@@ -338,11 +338,11 @@ export default function Settings() {
                     className={active ? 'text-navy-600 dark:text-navy-100' : 'text-muted'}
                   />
                   <span
-                    className={`text-[14.5px] font-medium ${active ? 'text-navy-700 dark:text-navy-100' : 'text-ink'}`}
+                    className={`text-[14px] font-medium ${active ? 'text-navy-700 dark:text-navy-100' : 'text-ink'}`}
                   >
                     {a.label}
                   </span>
-                  <span className="text-[11.5px] text-faint">{a.note}</span>
+                  <span className="text-[12px] text-faint">{a.note}</span>
                 </button>
               )
             })}
@@ -368,8 +368,8 @@ export default function Settings() {
               {NOTIFICATIONS.map((n) => (
                 <li key={n.key} className="flex items-start justify-between gap-5 py-4 first:pt-0">
                   <div className="min-w-0">
-                    <p className="text-[15px] font-medium text-ink">{n.label}</p>
-                    <p className="mt-0.5 text-[13.5px] leading-relaxed text-muted">{n.body}</p>
+                    <p className="text-[14px] font-medium text-ink">{n.label}</p>
+                    <p className="mt-0.5 text-[13px] leading-relaxed text-muted">{n.body}</p>
                   </div>
                   <Toggle
                     label={n.label}
@@ -380,8 +380,8 @@ export default function Settings() {
               ))}
               <li className="flex items-start justify-between gap-5 py-4">
                 <div className="min-w-0">
-                  <p className="text-[15px] font-medium text-ink">Security alerts</p>
-                  <p className="mt-0.5 text-[13.5px] leading-relaxed text-muted">
+                  <p className="text-[14px] font-medium text-ink">Security alerts</p>
+                  <p className="mt-0.5 text-[13px] leading-relaxed text-muted">
                     Password changes and new sign-ins. Always on, so a stolen account cannot
                     hide itself.
                   </p>
@@ -407,8 +407,8 @@ export default function Settings() {
 
             <div className="flex flex-col gap-4 rounded-xl border border-line p-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <p className="text-[15px] font-medium text-ink">Password</p>
-                <p className="mt-0.5 text-[13.5px] leading-relaxed text-muted">
+                <p className="text-[14px] font-medium text-ink">Password</p>
+                <p className="mt-0.5 text-[13px] leading-relaxed text-muted">
                   We email a link to {profile.email} so nobody can change it from an unlocked
                   screen.
                 </p>
@@ -426,8 +426,8 @@ export default function Settings() {
 
             <div className="flex flex-col gap-4 rounded-xl border border-line p-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <p className="text-[15px] font-medium text-ink">Sign out</p>
-                <p className="mt-0.5 text-[13.5px] text-muted">
+                <p className="text-[14px] font-medium text-ink">Sign out</p>
+                <p className="mt-0.5 text-[13px] text-muted">
                   Ends this session on this device only.
                 </p>
               </div>

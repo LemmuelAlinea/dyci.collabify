@@ -40,7 +40,7 @@ export function Sheet({
           <p className="font-display text-[17px] leading-tight font-semibold text-ink">{SCHOOL}</p>
           <p className="text-[12px] leading-snug text-muted">{DEPARTMENT}</p>
         </div>
-        <p className="shrink-0 text-right font-mono text-[10.5px] leading-relaxed text-faint">
+        <p className="shrink-0 text-right font-mono text-[12px] leading-relaxed text-faint">
           Generated
           <br />
           {generatedOn()}
@@ -49,9 +49,9 @@ export function Sheet({
 
       <div className="mt-5">
         <p className="eyebrow text-faint">{title}</p>
-        <h2 className="mt-1 font-display text-[22px] leading-tight text-ink">{subject}</h2>
+        <h2 className="mt-1 font-display leading-tight text-ink">{subject}</h2>
         {meta && meta.length > 0 && (
-          <p className="mt-1.5 text-[12.5px] text-muted">{meta.filter(Boolean).join(' · ')}</p>
+          <p className="mt-1.5 text-[12px] text-muted">{meta.filter(Boolean).join(' · ')}</p>
         )}
       </div>
 
@@ -59,7 +59,7 @@ export function Sheet({
 
       <footer className="mt-8 border-t border-line pt-4">
         <div className="flex flex-wrap items-end justify-between gap-6">
-          <p className="max-w-[62ch] text-[11px] leading-relaxed text-faint">
+          <p className="max-w-[62ch] text-[12px] leading-relaxed text-faint">
             {footnote && (
               <>
                 {footnote}
@@ -70,8 +70,8 @@ export function Sheet({
           </p>
           <div className="min-w-[220px]">
             <div className="h-8 border-b border-line-strong" />
-            <p className="mt-1 text-[11.5px] text-muted">{professor}</p>
-            <p className="text-[10.5px] text-faint">{signatureLabel}</p>
+            <p className="mt-1 text-[12px] text-muted">{professor}</p>
+            <p className="text-[12px] text-faint">{signatureLabel}</p>
           </div>
         </div>
       </footer>
@@ -85,8 +85,8 @@ export function Figures({ rows }: { rows: [string, string | number][] }) {
     <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
       {rows.map(([k, v]) => (
         <div key={k} className="border-l-2 border-line pl-3">
-          <dt className="text-[11px] text-muted">{k}</dt>
-          <dd className="font-mono text-[16px] text-ink">{v}</dd>
+          <dt className="text-[12px] text-muted">{k}</dt>
+          <dd className="font-mono text-[15.5px] text-ink">{v}</dd>
         </div>
       ))}
     </dl>
@@ -112,7 +112,7 @@ export function ReportTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-[12.5px]">
+      <table className="w-full border-collapse text-[12px]">
         <thead>
           <tr>
             {headers.map((h, i) => (
@@ -153,7 +153,7 @@ export function ReportTable({
 export function SheetSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="space-y-2">
-      <h3 className="text-[13.5px] font-semibold tracking-wide text-ink uppercase">{title}</h3>
+      <h3 className=" font-semibold tracking-wide text-ink uppercase">{title}</h3>
       {children}
     </section>
   )

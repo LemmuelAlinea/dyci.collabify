@@ -49,7 +49,7 @@ function Row({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[14px] font-medium text-ink">{title}</span>
-          <span className="block text-[12.5px] text-muted">{hint}</span>
+          <span className="block text-[12px] text-muted">{hint}</span>
         </span>
       </button>
       {children && <div className="mt-3 pl-[30px]">{children}</div>}
@@ -148,7 +148,7 @@ export function SectionPicker({
         hint={hint}
       >
         {otherSyllabus && chosenHere && (
-          <p className="flex gap-1.5 text-[12.5px] leading-relaxed text-amber-700 dark:text-amber-300">
+          <p className="flex gap-1.5 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
             <Icon name="clock" size={13} className="mt-0.5 shrink-0" />
             This section follows a different syllabus, so the same week numbers may not
             be the same topic.

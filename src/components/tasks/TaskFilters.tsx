@@ -97,7 +97,7 @@ export function TaskFilters({
             onChange={(e) => onChange({ ...value, board: e.target.value })}
             placeholder={solo ? 'Every student' : 'Every group'}
             options={boardOptions}
-            className="!h-10 !text-[13.5px]"
+            className="!h-10 !text-[13px]"
           />
         </FilterField>
       )}
@@ -111,7 +111,7 @@ export function TaskFilters({
             { value: 'unclaimed', label: 'Unclaimed' },
             ...[...people].map(([id, name]) => ({ value: id, label: name })),
           ]}
-          className="!h-10 !text-[13.5px]"
+          className="!h-10 !text-[13px]"
         />
       </FilterField>
 
@@ -121,7 +121,7 @@ export function TaskFilters({
           onChange={(e) => onChange({ ...value, status: e.target.value })}
           placeholder="Any status"
           options={TASK_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
-          className="!h-10 !text-[13.5px]"
+          className="!h-10 !text-[13px]"
         />
       </FilterField>
     </FilterPopover>

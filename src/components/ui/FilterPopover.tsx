@@ -88,7 +88,7 @@ export function FilterPopover({
       >
         <Icon name="filter" size={18} />
         {active > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-amber-400 px-1 font-mono text-[10px] font-bold text-navy-900">
+          <span className="absolute -top-1.5 -right-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-amber-400 px-1 font-mono text-[12px] font-bold text-navy-900">
             {active}
           </span>
         )}
@@ -96,11 +96,11 @@ export function FilterPopover({
 
       {active > 0 && (
         <>
-          <p className="min-w-0 truncate text-[12.5px] text-muted">{summary}</p>
+          <p className="min-w-0 truncate text-[12px] text-muted">{summary}</p>
           <button
             type="button"
             onClick={onClear}
-            className="shrink-0 text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+            className="shrink-0 text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
           >
             Clear
           </button>
@@ -128,14 +128,14 @@ export function FilterPopover({
               type="button"
               onClick={onClear}
               disabled={active === 0}
-              className="text-[12.5px] font-medium text-muted hover:text-ink disabled:opacity-45"
+              className="text-[12px] font-medium text-muted hover:text-ink disabled:opacity-45"
             >
               Clear all
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+              className="text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
             >
               Done
             </button>
@@ -150,7 +150,7 @@ export function FilterPopover({
 export function FilterField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block space-y-1">
-      <span className="text-[11.5px] font-medium text-muted">{label}</span>
+      <span className="text-[12px] font-medium text-muted">{label}</span>
       {children}
     </label>
   )
@@ -178,7 +178,7 @@ export function FilterSearch({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-10 w-full rounded-xl border border-[var(--control-line)] bg-[var(--surface)] pr-3 pl-9 text-[13.5px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12"
+        className="h-10 w-full rounded-xl border border-[var(--control-line)] bg-[var(--surface)] pr-3 pl-9 text-[13px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12"
       />
     </div>
   )

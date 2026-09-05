@@ -106,11 +106,11 @@ export function MonthGrid({
         <div
           className={`grid grid-cols-7 gap-px @min-[720px]:grid-cols-[132px_repeat(7,minmax(0,1fr))]`}
         >
-          <div className={`hidden px-2 py-2 text-[11px] text-faint @min-[720px]:block`}>Syllabus</div>
+          <div className={`hidden px-2 py-2 text-[12px] text-faint @min-[720px]:block`}>Syllabus</div>
           {DAY_NAMES.map((d) => (
             <div
               key={d}
-              className={`px-1 py-1.5 text-center text-[10.5px] font-medium text-muted @min-[720px]:px-2 @min-[720px]:py-2 @min-[720px]:text-[11.5px]`}
+              className={`px-1 py-1.5 text-center text-[12px] font-medium text-muted @min-[720px]:px-2 @min-[720px]:py-2 @min-[720px]:text-[12px]`}
             >
               {/* One letter is enough at 50px; the full name returns with the
                   room for it. */}
@@ -134,21 +134,21 @@ export function MonthGrid({
               >
                 {week ? (
                   <>
-                    <p className="font-mono text-[10.5px] text-faint">Week {week.week_no}</p>
-                    <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug font-medium text-ink">
+                    <p className="font-mono text-[12px] text-faint">Week {week.week_no}</p>
+                    <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug font-medium text-ink">
                       {week.title}
                     </p>
                     {week.assessments && (
                       <p
                         title={week.assessments}
-                        className="mt-1 line-clamp-3 text-[10.5px] leading-snug text-amber-700 dark:text-amber-300"
+                        className="mt-1 line-clamp-3 text-[12px] leading-snug text-amber-700 dark:text-amber-300"
                       >
                         {week.assessments}
                       </p>
                     )}
                   </>
                 ) : (
-                  <p className="text-[10.5px] text-faint">—</p>
+                  <p className="text-[12px] text-faint">—</p>
                 )}
               </div>
 
@@ -185,7 +185,7 @@ export function MonthGrid({
                       className="flex min-h-[46px] w-full flex-col items-center justify-center gap-1 rounded py-1 @min-[720px]:block @min-[720px]:min-h-0 @min-[720px]:py-0 @min-[720px]:pointer-events-none"
                     >
                       <span
-                        className={`font-mono text-[11px] @min-[720px]:mb-1 @min-[720px]:block @min-[720px]:w-full @min-[720px]:text-right ${
+                        className={`font-mono text-[12px] @min-[720px]:mb-1 @min-[720px]:block @min-[720px]:w-full @min-[720px]:text-right ${
                           today
                             ? `grid h-5 w-5 place-items-center rounded-full bg-navy-600 text-white @min-[720px]:inline-block @min-[720px]:h-auto @min-[720px]:w-full @min-[720px]:rounded @min-[720px]:px-1 dark:bg-navy-500`
                             : outside
@@ -207,7 +207,7 @@ export function MonthGrid({
                           />
                         ))}
                         {list.length > DOTS_PER_CELL && (
-                          <span className="font-mono text-[8px] text-faint">+</span>
+                          <span className="font-mono text-[12px] text-faint">+</span>
                         )}
                       </span>
                     </button>
@@ -223,7 +223,7 @@ export function MonthGrid({
                         />
                       ))}
                       {list.length > PER_CELL && (
-                        <p className="px-1 text-[10.5px] text-faint">
+                        <p className="px-1 text-[12px] text-faint">
                           +{list.length - PER_CELL} more
                         </p>
                       )}
@@ -248,12 +248,12 @@ export function MonthGrid({
                 })}
               </p>
               {pickedRow?.week && (
-                <p className="mt-0.5 text-[11.5px] text-muted">
+                <p className="mt-0.5 text-[12px] text-muted">
                   Week {pickedRow.week.week_no} · {pickedRow.week.title}
                 </p>
               )}
               {pickedRow?.week?.assessments && (
-                <p className="mt-0.5 text-[11.5px] leading-snug text-amber-700 dark:text-amber-300">
+                <p className="mt-0.5 text-[12px] leading-snug text-amber-700 dark:text-amber-300">
                   {pickedRow.week.assessments}
                 </p>
               )}
@@ -269,7 +269,7 @@ export function MonthGrid({
           </div>
 
           {pickedEvents.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-line px-3 py-4 text-center text-[12.5px] text-muted">
+            <p className="rounded-xl border border-dashed border-line px-3 py-4 text-center text-[12px] text-muted">
               Nothing is due on this day.
             </p>
           ) : (

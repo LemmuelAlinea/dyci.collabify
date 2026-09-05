@@ -87,7 +87,7 @@ export function ReassignRequestModal({
       <div className="space-y-5">
         {error && <Alert tone="error">{error}</Alert>}
 
-        <p className="text-[13.5px] leading-relaxed text-muted">
+        <p className="text-[13px] leading-relaxed text-muted">
           {holderName
             ? `${holderName} holds this task. Your professor decides whether it moves.`
             : 'Your professor decides whether this moves.'}
@@ -114,7 +114,7 @@ export function ReassignRequestModal({
               />
               <span className="min-w-0">
                 <span className="block text-[14px] font-medium text-ink">{o.label}</span>
-                <span className="block text-[12.5px] text-muted">{o.hint}</span>
+                <span className="block text-[12px] text-muted">{o.hint}</span>
               </span>
             </label>
           ))}
@@ -130,7 +130,7 @@ export function ReassignRequestModal({
                 rows={4}
                 placeholder="What has happened, and what it is holding up."
               />
-              <p className="mt-1.5 text-[12.5px] text-faint">
+              <p className="mt-1.5 text-[12px] text-faint">
                 Only your professor reads this. Whoever holds the task does not.
               </p>
             </>

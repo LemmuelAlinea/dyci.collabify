@@ -56,7 +56,7 @@ export function Logo({
         <span className={`font-display text-[19px] font-extrabold tracking-[-0.04em] ${word}`}>
           Collabify
         </span>
-        {showSubtitle && <span className={`eyebrow mt-1 text-[9.5px] ${sub}`}>{subtitle}</span>}
+        {showSubtitle && <span className={`eyebrow mt-1 text-[12px] ${sub}`}>{subtitle}</span>}
       </span>
     </span>
   )

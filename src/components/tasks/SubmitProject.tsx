@@ -62,13 +62,13 @@ export function SubmitProject({
       <section className="surface rounded-card border border-emerald-300 p-4 sm:p-5 shadow-card dark:border-emerald-500/40">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="flex items-center gap-2 text-[16px]">
+            <h3 className="flex items-center gap-2">
               <span className="grid h-7 w-7 place-items-center rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
                 <Icon name="check" size={15} />
               </span>
               Handed in
             </h3>
-            <p className="mt-1.5 max-w-[60ch] text-[13.5px] leading-relaxed text-muted">
+            <p className="mt-1.5 max-w-[60ch] text-[13px] leading-relaxed text-muted">
               {board.submitted_by_name
                 ? `${board.submitted_by_name} handed this in on ${when(board.submitted_at as string)}.`
                 : `Handed in on ${when(board.submitted_at as string)}.`}{' '}
@@ -91,7 +91,7 @@ export function SubmitProject({
         </div>
 
         {locked && (
-          <p className="mt-3 text-[12.5px] text-faint">
+          <p className="mt-3 text-[12px] text-faint">
             Your professor has closed this project, so the submission cannot be taken back.
           </p>
         )}
@@ -106,8 +106,8 @@ export function SubmitProject({
       <section className="surface rounded-card border border-line p-4 sm:p-5 shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-[16px]">Ready to hand in?</h3>
-            <p className="mt-1 max-w-[60ch] text-[13.5px] leading-relaxed text-muted">
+            <h3 className="">Ready to hand in?</h3>
+            <p className="mt-1 max-w-[60ch] text-[13px] leading-relaxed text-muted">
               {unfinished > 0
                 ? `${unfinished} ${unfinished === 1 ? 'task is' : 'tasks are'} still unfinished. You can hand in anyway — your professor sees where the work got to.`
                 : 'Every task is done. Handing in fixes them so nothing changes after the fact.'}

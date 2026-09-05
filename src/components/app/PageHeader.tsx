@@ -37,7 +37,7 @@ export function PageHeader({
       {back && (
         <Link
           to={back.to}
-          className="mb-3 inline-flex items-center gap-1.5 text-[13.5px] text-muted transition-colors hover:text-ink"
+          className="mb-3 inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-ink"
         >
           <Icon name="arrowLeft" size={15} />
           {back.label}
@@ -46,7 +46,7 @@ export function PageHeader({
 
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
-          <h1 className="text-[24px] leading-tight font-semibold text-ink sm:text-[27px]">
+          <h1 className=" leading-tight font-semibold text-ink sm:">
             {title}
           </h1>
           {description && (
@@ -93,7 +93,7 @@ export function FilterPills<T extends string>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13.5px] transition-colors duration-150 ${
+            className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] transition-colors duration-150 ${
               on
                 ? 'border-navy-600 bg-navy-600 font-medium text-white dark:border-amber-400 dark:bg-amber-400 dark:text-navy-900'
                 : 'border-line-strong text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
@@ -102,7 +102,7 @@ export function FilterPills<T extends string>({
             {o.label}
             {typeof o.count === 'number' && (
               <span
-                className={`font-mono text-[11px] ${on ? 'opacity-80' : 'text-faint'}`}
+                className={`font-mono text-[12px] ${on ? 'opacity-80' : 'text-faint'}`}
               >
                 {o.count}
               </span>
@@ -182,7 +182,7 @@ export function Stat({
       >
         {value}
       </p>
-      <p className="mt-1.5 text-[12.5px] text-muted">{label}</p>
+      <p className="mt-1.5 text-[12px] text-muted">{label}</p>
     </div>
   )
 }

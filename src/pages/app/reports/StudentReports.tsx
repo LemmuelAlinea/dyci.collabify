@@ -127,8 +127,8 @@ export default function StudentReports() {
     <div className="space-y-7">
       <header className="print:hidden">
         <p className="eyebrow">Workspace</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Reports</h1>
-        <p className="mt-2 max-w-[70ch] text-[14.5px] text-muted">
+        <h1 className="mt-1 leading-tight">Reports</h1>
+        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
           Your own copy of what you did. Print it from here — your browser's print dialog
           saves it as a PDF — and keep it, or attach it to a defense record. It records
           effort, never a grade.
@@ -183,7 +183,7 @@ export default function StudentReports() {
                     onChange={(e) => setClassId(e.target.value)}
                     placeholder="Pick a class"
                     options={classes}
-                    className="!h-10 !text-[13.5px]"
+                    className="!h-10 !text-[13px]"
                   />
                 </FilterField>
               ) : (
@@ -196,7 +196,7 @@ export default function StudentReports() {
                       value: b.board_id,
                       label: `${b.project_title} · ${b.group_name}`,
                     }))}
-                    className="!h-10 !text-[13.5px]"
+                    className="!h-10 !text-[13px]"
                   />
                 </FilterField>
               )}

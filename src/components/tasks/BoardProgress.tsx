@@ -18,7 +18,7 @@ export function BoardProgress({ board }: { board: BoardSummary }) {
           <p className="eyebrow text-amber-500 dark:text-amber-300">Group progress</p>
           <p className="mt-2 text-[28px] leading-none font-semibold text-ink">
             {done}
-            <span className="ml-0.5 text-[16px] text-muted">%</span>
+            <span className="ml-0.5 text-[15.5px] text-muted">%</span>
           </p>
         </div>
         <p className="text-[13px] text-muted">
@@ -39,7 +39,7 @@ export function BoardProgress({ board }: { board: BoardSummary }) {
         <span className="flex-1" />
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12.5px]">
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px]">
         <Legend colour="bg-emerald-500" label="Done" value={done} />
         <Legend colour="bg-amber-400" label="In progress" value={doing} />
         <Legend colour="surface-sunken border border-line" label="Not started" value={left} />

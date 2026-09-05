@@ -56,7 +56,7 @@ export function GroupFilters({
           onChange={(e) => onChange({ ...value, classId: e.target.value, setId: '' })}
           placeholder="All classes"
           options={classes.map((c) => ({ value: c.id, label: `${c.initial} · ${c.name}` }))}
-          className="!h-10 !text-[13.5px]"
+          className="!h-10 !text-[13px]"
         />
       </FilterField>
 
@@ -67,7 +67,7 @@ export function GroupFilters({
             onChange={(e) => onChange({ ...value, setId: e.target.value })}
             placeholder="All sets"
             options={visibleSets.map((s) => ({ value: s.id, label: s.name }))}
-            className="!h-10 !text-[13.5px]"
+            className="!h-10 !text-[13px]"
           />
         </FilterField>
       )}

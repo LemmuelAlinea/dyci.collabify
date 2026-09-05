@@ -23,7 +23,7 @@ export function ForecastSummary({ burns }: { burns: BoardBurn[] }) {
 
   if (live.length === 0) {
     return (
-      <p className="text-[13.5px] text-muted">
+      <p className="text-[13px] text-muted">
         Every board in view is handed in or accepted, so there is nothing left to project.
       </p>
     )
@@ -81,7 +81,7 @@ export function ForecastSummary({ burns }: { burns: BoardBurn[] }) {
                 <span className="shrink-0 font-mono text-[12px] text-muted">
                   lands {f.finishOn && shortDate(f.finishOn)}
                 </span>
-                <span className="shrink-0 rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[11px] text-red-700 dark:text-red-300">
+                <span className="shrink-0 rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[12px] text-red-700 dark:text-red-300">
                   {f.lateBy} {f.lateBy === 1 ? 'day' : 'days'} late
                 </span>
               </li>

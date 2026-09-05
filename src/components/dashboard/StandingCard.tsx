@@ -10,7 +10,7 @@ type Row = MemberProgress & { project_title: string }
 export function StandingCard({ rows }: { rows: Row[] }) {
   if (rows.length === 0) {
     return (
-      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13.5px] text-muted">
+      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
         Claim a task and your own progress starts counting here.
       </p>
     )
@@ -28,10 +28,10 @@ export function StandingCard({ rows }: { rows: Row[] }) {
           <p className="eyebrow text-amber-500 dark:text-amber-300">Across your projects</p>
           <p className="mt-2 text-[28px] leading-none font-semibold text-ink">
             {average}
-            <span className="ml-0.5 text-[16px] text-muted">%</span>
+            <span className="ml-0.5 text-[15.5px] text-muted">%</span>
           </p>
         </div>
-        <p className="max-w-[280px] text-[12.5px] leading-relaxed text-muted">
+        <p className="max-w-[280px] text-[12px] leading-relaxed text-muted">
           Your own tasks finished. The group figure beside each one is your share of that
           project's 100.
         </p>
@@ -54,10 +54,10 @@ export function StandingCard({ rows }: { rows: Row[] }) {
                 </span>
               </span>
               <span className="shrink-0 text-right">
-                <span className="block font-mono text-[15px] text-ink">
+                <span className="block font-mono text-[14px] text-ink">
                   {r.personal_pct === null ? '—' : `${r.personal_pct}%`}
                 </span>
-                <span className="block font-mono text-[11px] text-faint">
+                <span className="block font-mono text-[12px] text-faint">
                   {r.group_pct} of {r.held_pct} group
                 </span>
               </span>

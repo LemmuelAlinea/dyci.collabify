@@ -63,7 +63,7 @@ export function ConfirmDialog({
     >
       <div className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
-        <div className="text-[14.5px] leading-relaxed text-muted">{body}</div>
+        <div className="text-[14px] leading-relaxed text-muted">{body}</div>
       </div>
     </Modal>
   )

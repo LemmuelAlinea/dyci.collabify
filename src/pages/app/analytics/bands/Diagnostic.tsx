@@ -27,8 +27,8 @@ export function Diagnostic({ data }: { data: ReturnType<typeof useAnalytics> }) 
       {/* Membership belongs to a class. Below one, "in no group" has no meaning. */}
       {!narrowedBelowClass && shownPeople.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-[15px] text-ink">Who the work has not reached</h3>
-          <p className="max-w-[66ch] text-[13.5px] text-muted">
+          <h3 className=" text-ink">Who the work has not reached</h3>
+          <p className="max-w-[66ch] text-[13px] text-muted">
             Every other figure on this page is built from what people produced, so somebody who
             has produced nothing is invisible to all of them.
           </p>

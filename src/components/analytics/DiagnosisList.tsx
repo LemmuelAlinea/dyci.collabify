@@ -45,7 +45,7 @@ export function DiagnosisList({ rows }: { rows: BoardDiagnosis[] }) {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="eyebrow">{d.project_title}</p>
-                <h3 className="mt-0.5 truncate text-[15px] font-medium text-ink">
+                <h3 className="mt-0.5 truncate font-medium text-ink">
                   {d.owner_name ?? 'A board'}
                 </h3>
               </div>
@@ -80,7 +80,7 @@ export function DiagnosisList({ rows }: { rows: BoardDiagnosis[] }) {
         <button
           type="button"
           onClick={() => setAll((v) => !v)}
-          className="text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+          className="text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
         >
           {all ? 'Show fewer' : `Show the other ${diagnosed.length - SHOWN}`}
         </button>

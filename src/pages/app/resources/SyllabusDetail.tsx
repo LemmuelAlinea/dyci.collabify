@@ -100,7 +100,7 @@ export default function SyllabusDetail() {
     <div className="mx-auto w-full max-w-[1180px]">
       <Link
         to="/professor/syllabi"
-        className="inline-flex items-center gap-1.5 text-[13.5px] text-muted transition-colors hover:text-ink"
+        className="inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={16} />
         All syllabi
@@ -110,7 +110,7 @@ export default function SyllabusDetail() {
         <div className="min-w-0">
           <p className="eyebrow text-amber-500 dark:text-amber-300">Syllabus</p>
           <h1 className="mt-2 text-[clamp(1.6rem,3vw,2.2rem)] leading-tight">{resource.title}</h1>
-          <p className="mt-1.5 text-[13.5px] text-muted">{resource.file_name}</p>
+          <p className="mt-1.5 text-[13px] text-muted">{resource.file_name}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

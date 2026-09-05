@@ -70,7 +70,7 @@ export function ConversationList({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <p className="px-4 py-10 text-center text-[13.5px] text-muted">
+          <p className="px-4 py-10 text-center text-[13px] text-muted">
             {conversations.length === 0
               ? 'Chats appear here as you join classes and groups.'
               : 'Nothing matches that search.'}
@@ -104,16 +104,16 @@ export function ConversationList({
                           <span className="min-w-0 flex-1">
                             <span className="flex items-baseline justify-between gap-2">
                               <span
-                                className={`truncate text-[14.5px] ${
+                                className={`truncate text-[14px] ${
                                   c.unread_count > 0 ? 'font-semibold text-ink' : 'text-ink'
                                 }`}
                               >
                                 {c.title}
                               </span>
-                              <span className="shrink-0 text-[11px] text-faint">{ago(c.last_at)}</span>
+                              <span className="shrink-0 text-[12px] text-faint">{ago(c.last_at)}</span>
                             </span>
                             <span className="mt-0.5 flex items-center justify-between gap-2">
-                              <span className="truncate text-[12.5px] text-muted">
+                              <span className="truncate text-[12px] text-muted">
                                 {c.last_body || c.subtitle}
                               </span>
                               {c.unread_count > 0 && (

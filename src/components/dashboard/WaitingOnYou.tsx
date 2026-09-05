@@ -52,8 +52,8 @@ export function WaitingOnYou({
             <Icon name={i.icon} size={17} />
           </span>
           <span className="min-w-0">
-            <span className="block font-mono text-[18px] leading-none text-ink">{i.count}</span>
-            <span className="mt-1 block text-[12.5px] leading-snug text-muted">{i.label}</span>
+            <span className="block font-mono text-[17px] leading-none text-ink">{i.count}</span>
+            <span className="mt-1 block text-[12px] leading-snug text-muted">{i.label}</span>
           </span>
         </Link>
       ))}

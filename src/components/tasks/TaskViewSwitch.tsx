@@ -44,7 +44,7 @@ export function TaskViewSwitch({
           </button>
         ))}
       </div>
-      <p className="text-[12.5px] text-faint">
+      <p className="text-[12px] text-faint">
         {shown === total
           ? `${total} ${total === 1 ? 'task' : 'tasks'}`
           : `${shown} of ${total} tasks`}

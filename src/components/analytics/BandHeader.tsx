@@ -19,8 +19,8 @@ export function BandHeader({
   return (
     <header className="border-t border-line pt-6">
       <p className="eyebrow">{kind}</p>
-      <h2 className="mt-1 text-[21px] leading-tight">{title}</h2>
-      <p className="mt-1.5 max-w-[70ch] text-[13.5px] leading-relaxed text-muted">{body}</p>
+      <h2 className="mt-1 leading-tight">{title}</h2>
+      <p className="mt-1.5 max-w-[70ch] text-[13px] leading-relaxed text-muted">{body}</p>
     </header>
   )
 }

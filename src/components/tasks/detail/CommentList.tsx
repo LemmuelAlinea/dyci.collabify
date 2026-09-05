@@ -59,7 +59,7 @@ export function CommentList({
   return (
     <div className="space-y-4">
       {comments.length === 0 ? (
-        <p className="text-[13.5px] text-muted">
+        <p className="text-[13px] text-muted">
           Nothing said yet. Ask the question here rather than in a chat nobody can find later.
         </p>
       ) : (
@@ -79,10 +79,10 @@ export function CommentList({
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <span className="text-[13.5px] font-medium text-ink">
+                    <span className="text-[13px] font-medium text-ink">
                       {c.author ? fullName(c.author) : 'Somebody'}
                     </span>
-                    <span className="font-mono text-[11.5px] text-faint">
+                    <span className="font-mono text-[12px] text-faint">
                       {ago(c.created_at)}
                       {c.edited_at && ' · edited'}
                     </span>
@@ -185,7 +185,7 @@ export function CommentList({
           </div>
         </div>
       ) : (
-        <p className="text-[12.5px] text-faint">
+        <p className="text-[12px] text-faint">
           {role === 'professor'
             ? 'You can read the thread and remove anything that does not belong.'
             : 'Only this group can comment here.'}

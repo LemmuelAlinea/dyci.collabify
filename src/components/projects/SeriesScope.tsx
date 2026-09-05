@@ -45,8 +45,8 @@ export function SeriesScope({
     <section className="rounded-xl border border-line surface-sunken p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-[14.5px] font-semibold text-ink">Which sections</h3>
-          <p className="mt-0.5 text-[12.5px] text-muted">
+          <h3 className=" font-semibold text-ink">Which sections</h3>
+          <p className="mt-0.5 text-[12px] text-muted">
             This project runs in {members.length} sections. Only the ones you tick
             {' '}{verb === 'change' ? 'change' : verb}.
           </p>
@@ -55,14 +55,14 @@ export function SeriesScope({
           <button
             type="button"
             onClick={() => onChange(all.filter((id) => id !== current))}
-            className="rounded-full border border-line-strong px-3 py-1 text-[12.5px] text-ink transition-colors hover:bg-[var(--surface)]"
+            className="rounded-full border border-line-strong px-3 py-1 text-[12px] text-ink transition-colors hover:bg-[var(--surface)]"
           >
             All {members.length}
           </button>
           <button
             type="button"
             onClick={() => onChange([])}
-            className="rounded-full border border-line-strong px-3 py-1 text-[12.5px] text-ink transition-colors hover:bg-[var(--surface)]"
+            className="rounded-full border border-line-strong px-3 py-1 text-[12px] text-ink transition-colors hover:bg-[var(--surface)]"
           >
             This one only
           </button>
@@ -94,7 +94,7 @@ export function SeriesScope({
                   {on && <Icon name="check" size={11} />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-medium text-ink">
+                  <span className="block truncate text-[13px] font-medium text-ink">
                     {m.class_initial}  ·  {m.section}
                     {here && <span className="ml-2 text-[12px] text-faint">this page</span>}
                   </span>
@@ -110,7 +110,7 @@ export function SeriesScope({
         })}
       </ul>
 
-      <p className="mt-3 text-[12.5px] text-faint">
+      <p className="mt-3 text-[12px] text-faint">
         {count === 1
           ? 'One section, and the rest are left alone.'
           : `${count} of ${members.length} sections.`}

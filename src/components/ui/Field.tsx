@@ -22,7 +22,7 @@ export function Field({ label, hint, error, optional, children }: FieldProps) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-[13.5px] font-medium text-ink">
+        <label htmlFor={id} className="text-[13px] font-medium text-ink">
           {label}
           {optional && <span className="ml-1.5 text-[12px] text-faint">optional</span>}
         </label>
@@ -30,7 +30,7 @@ export function Field({ label, hint, error, optional, children }: FieldProps) {
       </div>
       {children(id)}
       {error && (
-        <p className="flex items-center gap-1.5 text-[12.5px] text-red-600 dark:text-red-400">
+        <p className="flex items-center gap-1.5 text-[12px] text-red-600 dark:text-red-400">
           <Icon name="alert" size={14} />
           {error}
         </p>
@@ -52,7 +52,7 @@ export function Input({ icon, className = '', ...rest }: InputProps) {
         />
       )}
       <input
-        className={`${INPUT_BASE} h-12 ${icon ? 'pl-11' : 'pl-4'} pr-4 text-[14.5px] ${className}`}
+        className={`${INPUT_BASE} h-12 ${icon ? 'pl-11' : 'pl-4'} pr-4 text-[14px] ${className}`}
         {...rest}
       />
     </div>
@@ -70,7 +70,7 @@ export function PasswordInput({ className = '', ...rest }: InputHTMLAttributes<H
       />
       <input
         type={visible ? 'text' : 'password'}
-        className={`${INPUT_BASE} h-12 pr-12 pl-11 text-[14.5px] ${className}`}
+        className={`${INPUT_BASE} h-12 pr-12 pl-11 text-[14px] ${className}`}
         {...rest}
       />
       <button

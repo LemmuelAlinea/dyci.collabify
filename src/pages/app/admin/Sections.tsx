@@ -126,8 +126,8 @@ export default function Sections() {
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
           <p className="eyebrow">Program</p>
-          <h1 className="mt-1 text-[26px] leading-tight sm:text-[30px]">Sections</h1>
-          <p className="mt-2 max-w-[70ch] text-[14.5px] text-muted">
+          <h1 className="mt-1 leading-tight sm:">Sections</h1>
+          <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
             The cohorts the program runs this year. A professor making a class picks from
             this list, so one section is spelled one way everywhere and its figures add up.
           </p>
@@ -214,7 +214,7 @@ export default function Sections() {
 
       {unregistered.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-[15px] text-ink">Already in use, not on the list</h2>
+          <h2 className=" text-ink">Already in use, not on the list</h2>
           <p className="max-w-[70ch] text-[13px] text-muted">
             Classes are running under these names. Adding one adopts the spelling that is
             already out there rather than creating a second version of it.
@@ -233,7 +233,7 @@ export default function Sections() {
                   className="surface flex items-center gap-2 rounded-xl border border-amber-300 px-3 py-1.5 text-[13px] text-ink transition-colors hover:border-line-strong dark:border-amber-400/40"
                 >
                   {u.name}
-                  <span className="font-mono text-[11px] text-faint">
+                  <span className="font-mono text-[12px] text-faint">
                     {u.school_year} · {u.classes}
                   </span>
                 </button>
@@ -259,10 +259,10 @@ export default function Sections() {
               }`}
             >
               <span className="min-w-0 flex-1">
-                <span className="block text-[14.5px] text-ink">
+                <span className="block text-[14px] text-ink">
                   {s.name}
                   {s.archived_at && (
-                    <span className="ml-2 font-mono text-[11px] text-faint">retired</span>
+                    <span className="ml-2 font-mono text-[12px] text-faint">retired</span>
                   )}
                 </span>
                 <span className="block text-[12px] text-muted">

@@ -24,15 +24,15 @@ export default function CheckEmail() {
         </Alert>
         <ol className="space-y-3 text-[14px] leading-relaxed text-muted">
           <li className="flex gap-3">
-            <span className="font-mono text-[12.5px] font-bold text-amber-500">01</span>
+            <span className="font-mono text-[12px] font-bold text-amber-500">01</span>
             Open the email from Collabify and tap <strong className="text-ink">Confirm my email</strong>.
           </li>
           <li className="flex gap-3">
-            <span className="font-mono text-[12.5px] font-bold text-amber-500">02</span>
+            <span className="font-mono text-[12px] font-bold text-amber-500">02</span>
             You'll land back here, already signed in.
           </li>
           <li className="flex gap-3">
-            <span className="font-mono text-[12.5px] font-bold text-amber-500">03</span>
+            <span className="font-mono text-[12px] font-bold text-amber-500">03</span>
             Not there? Check spam — the sender is your school's Collabify address.
           </li>
         </ol>

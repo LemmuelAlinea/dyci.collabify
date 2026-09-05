@@ -83,7 +83,7 @@ export function TaskCard({
       />
       <div className="flex items-start justify-between gap-2">
         <h4
-          className={`pointer-events-none min-w-0 text-[14.5px] leading-snug font-medium group-hover:underline ${
+          className={`pointer-events-none min-w-0 text-[14px] leading-snug font-medium group-hover:underline ${
             task.status === 'done' ? 'text-muted line-through' : 'text-ink'
           }`}
         >
@@ -92,14 +92,14 @@ export function TaskCard({
         <div className="pointer-events-none relative z-10 flex shrink-0 items-center gap-1">
           <span
             title="Worth this much of the project"
-            className="rounded-md surface-sunken px-1.5 py-0.5 font-mono text-[10.5px] text-muted"
+            className="rounded-md surface-sunken px-1.5 py-0.5 font-mono text-[12px] text-muted"
           >
             {share}%
           </span>
           {task.author_role === 'professor' && (
             <span
               title="Set by your professor"
-              className="rounded-md bg-navy-50 px-1.5 py-0.5 font-mono text-[10px] text-navy-700 dark:bg-navy-500/18 dark:text-navy-100"
+              className="rounded-md bg-navy-50 px-1.5 py-0.5 font-mono text-[12px] text-navy-700 dark:bg-navy-500/18 dark:text-navy-100"
             >
               SET
             </span>
@@ -131,7 +131,7 @@ export function TaskCard({
         />
 
         {(counts?.file_count ?? 0) > 0 || (counts?.comment_count ?? 0) > 0 ? (
-          <span className="flex items-center gap-2.5 text-[11.5px] text-faint">
+          <span className="flex items-center gap-2.5 text-[12px] text-faint">
             {(counts?.file_count ?? 0) > 0 && (
               <span className="flex items-center gap-1" title="Files attached">
                 <Icon name="file" size={12} />
@@ -150,7 +150,7 @@ export function TaskCard({
         {handedInLate && (
           <span
             title="Finished after the deadline"
-            className="rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[10.5px] text-red-700 dark:text-red-300"
+            className="rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[12px] text-red-700 dark:text-red-300"
           >
             Late
           </span>
@@ -158,7 +158,7 @@ export function TaskCard({
 
         {due && !handedInLate && (
           <span
-            className={`flex items-center gap-1 font-mono text-[11.5px] ${
+            className={`flex items-center gap-1 font-mono text-[12px] ${
               overdue ? 'text-red-600 dark:text-red-400' : 'text-faint'
             }`}
           >
@@ -173,7 +173,7 @@ export function TaskCard({
           <button
             type="button"
             onClick={() => void onStatus(next.to)}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12.5px] font-medium text-navy-600 transition-colors hover:bg-[var(--surface-sunken)] dark:text-navy-200"
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12px] font-medium text-navy-600 transition-colors hover:bg-[var(--surface-sunken)] dark:text-navy-200"
           >
             <Icon name={next.icon} size={14} />
             {next.label}

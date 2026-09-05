@@ -49,10 +49,10 @@ function MemberLoadBar({ load }: { load?: GroupMemberLoad }) {
           style={{ width: `${pct}%` }}
         />
       </span>
-      <span className="shrink-0 font-mono text-[11.5px] text-muted">
+      <span className="shrink-0 font-mono text-[12px] text-muted">
         {load.done_count}/{load.task_count}
       </span>
-      <span className="shrink-0 font-mono text-[12.5px] text-ink">{pct}%</span>
+      <span className="shrink-0 font-mono text-[12px] text-ink">{pct}%</span>
     </div>
   )
 }
@@ -202,7 +202,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
     <div className="mx-auto w-full max-w-[1180px]">
       <Link
         to={base}
-        className="inline-flex items-center gap-1.5 text-[13.5px] text-muted transition-colors hover:text-ink"
+        className="inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={16} />
         All groups
@@ -249,7 +249,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
               </div>
             )}
 
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[13.5px] text-muted">
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[13px] text-muted">
               <span>{cls ? `${cls.initial} · ${cls.name}` : ''}</span>
               <span>·</span>
               <span>{group.set_name}</span>
@@ -335,8 +335,8 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
 
       <section className="mt-8">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-[18px]">Projects and tasks</h2>
-          <p className="text-[12.5px] text-faint">
+          <h2 className="">Projects and tasks</h2>
+          <p className="text-[12px] text-faint">
             Everything set for this group, without leaving it.
           </p>
         </div>
@@ -345,7 +345,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
 
       <section className="mt-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[18px]">Members</h2>
+          <h2 className="">Members</h2>
           {canManage && unplaced.length > 0 && (
             <div className="w-full sm:w-[260px]">
               <Select
@@ -376,7 +376,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                   value: r.student_id,
                   label: `${r.profile.last_name}, ${r.profile.first_name}`,
                 }))}
-                className="!h-10 text-[13.5px]"
+                className="!h-10 text-[13px]"
               />
             </div>
           )}
@@ -401,7 +401,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                 </span>
                 <Avatar profile={m.profile} size={36} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14.5px] font-medium text-ink">
+                  <p className="truncate text-[14px] font-medium text-ink">
                     {m.profile.last_name}, {m.profile.first_name}
                     {m.profile.middle_name ? ` ${m.profile.middle_name[0]}.` : ''}
                     {m.student_id === profile?.id && (
@@ -439,7 +439,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                             value: s.id,
                             label: `${s.name} (${s.member_count}/${s.member_limit})`,
                           }))}
-                        className="!h-9 !w-[150px] text-[12.5px]"
+                        className="!h-9 !w-[150px] text-[12px]"
                       />
                     )}
                     <button
@@ -505,7 +505,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
             />
             <span>
               Apply to every group in {group.set_name}
-              <span className="block text-[12.5px] text-muted">
+              <span className="block text-[12px] text-muted">
                 Leave this off to change only {group.name}.
               </span>
             </span>

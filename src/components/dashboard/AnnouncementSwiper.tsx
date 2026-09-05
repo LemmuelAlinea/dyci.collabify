@@ -114,19 +114,19 @@ export function AnnouncementSwiper({
                     {cls ? `${cls.initial} · ${cls.name}` : 'Class'}
                   </span>
                   {a.pinned && (
-                    <span className="flex items-center gap-1 rounded-full bg-amber-400/18 px-2 py-0.5 font-mono text-[10.5px] text-amber-700 dark:text-amber-300">
+                    <span className="flex items-center gap-1 rounded-full bg-amber-400/18 px-2 py-0.5 font-mono text-[12px] text-amber-700 dark:text-amber-300">
                       <Icon name="pin" size={11} />
                       Pinned
                     </span>
                   )}
                 </div>
 
-                <h3 className="mt-2.5 text-[18px] leading-snug">{a.title}</h3>
+                <h3 className="mt-2.5 leading-snug">{a.title}</h3>
                 <p className="mt-2 line-clamp-3 text-[14px] leading-relaxed text-muted">
                   {a.body}
                 </p>
 
-                <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1 text-[12.5px] text-faint">
+                <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1 text-[12px] text-faint">
                   {a.author && (
                     <span className="flex items-center gap-2">
                       <Avatar profile={a.author} size={22} />

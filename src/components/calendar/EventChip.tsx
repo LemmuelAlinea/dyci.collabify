@@ -66,18 +66,18 @@ export function EventChip({
       onClick={() => onOpen(event)}
       title={`${event.title} — ${event.class_initial} · ${event.project_title}`}
       className={`flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-opacity hover:opacity-85 ${look.cls} ${
-        compact ? 'text-[11px]' : 'text-[12.5px]'
+        compact ? 'text-[12px]' : 'text-[12px]'
       } ${event.done && event.kind === 'task_due' ? 'line-through opacity-60' : ''}`}
     >
       <Icon name={look.icon} size={compact ? 10 : 12} className="shrink-0" />
       <span className="min-w-0 flex-1 truncate">{event.title}</span>
       {event.late && (
-        <span className="shrink-0 rounded bg-red-500/25 px-1 font-mono text-[9.5px] text-red-700 dark:text-red-200">
+        <span className="shrink-0 rounded bg-red-500/25 px-1 font-mono text-[12px] text-red-700 dark:text-red-200">
           late
         </span>
       )}
       {overdue && !event.late && (
-        <span className="shrink-0 font-mono text-[9.5px] opacity-80">!</span>
+        <span className="shrink-0 font-mono text-[12px] opacity-80">!</span>
       )}
     </button>
   )

@@ -145,8 +145,8 @@ export function GroupsBoard({
             <section key={setId}>
               <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="truncate text-[17px]">{set.name}</h2>
-                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12.5px] text-muted">
+                  <h2 className="truncate">{set.name}</h2>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-muted">
                     <span>{cls ? `${cls.initial} · ${cls.name}` : 'Class'}</span>
                     <span>·</span>
                     <span>{modeLabel(set.mode)}</span>

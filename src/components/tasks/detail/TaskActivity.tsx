@@ -48,20 +48,20 @@ function stamp(iso: string) {
 /** History without the comment noise — the thread has its own tab. */
 function HistoryList({ events }: { events: TaskEvent[] }) {
   if (events.length === 0) {
-    return <p className="text-[13.5px] text-muted">Nothing recorded yet.</p>
+    return <p className="text-[13px] text-muted">Nothing recorded yet.</p>
   }
   return (
     <ol className="space-y-2.5">
       {events.map((e) => (
         <li key={e.id} className="flex items-baseline justify-between gap-3">
-          <p className="min-w-0 text-[13.5px] text-ink">
+          <p className="min-w-0 text-[13px] text-ink">
             <span className="font-medium">
               {e.actor ? `${e.actor.first_name} ${e.actor.last_name}` : 'Somebody'}
             </span>{' '}
             <span className="text-muted">{WORDING[e.kind]}</span>
             {e.detail && <span className="text-faint"> · {e.detail}</span>}
           </p>
-          <p className="shrink-0 font-mono text-[11.5px] text-faint">{stamp(e.at)}</p>
+          <p className="shrink-0 font-mono text-[12px] text-faint">{stamp(e.at)}</p>
         </li>
       ))}
     </ol>
@@ -78,7 +78,7 @@ function AllList({ comments, events }: { comments: TaskComment[]; events: TaskEv
   ].sort((a, b) => b.at.localeCompare(a.at))
 
   if (merged.length === 0) {
-    return <p className="text-[13.5px] text-muted">Nothing has happened here yet.</p>
+    return <p className="text-[13px] text-muted">Nothing has happened here yet.</p>
   }
 
   return (
@@ -102,14 +102,14 @@ function AllList({ comments, events }: { comments: TaskComment[]; events: TaskEv
                 </span>{' '}
                 commented · <span className="font-mono text-faint">{stamp(row.at)}</span>
               </p>
-              <p className="mt-0.5 line-clamp-3 text-[13.5px] leading-relaxed text-ink">
+              <p className="mt-0.5 line-clamp-3 text-[13px] leading-relaxed text-ink">
                 {row.comment.body}
               </p>
             </div>
           </li>
         ) : (
           <li key={row.event.id} className="flex items-baseline justify-between gap-3">
-            <p className="min-w-0 text-[13.5px] text-muted">
+            <p className="min-w-0 text-[13px] text-muted">
               <span className="font-medium text-ink">
                 {row.event.actor
                   ? `${row.event.actor.first_name} ${row.event.actor.last_name}`
@@ -118,7 +118,7 @@ function AllList({ comments, events }: { comments: TaskComment[]; events: TaskEv
               {WORDING[row.event.kind]}
               {row.event.detail && <span className="text-faint"> · {row.event.detail}</span>}
             </p>
-            <p className="shrink-0 font-mono text-[11.5px] text-faint">{stamp(row.at)}</p>
+            <p className="shrink-0 font-mono text-[12px] text-faint">{stamp(row.at)}</p>
           </li>
         ),
       )}
@@ -152,7 +152,7 @@ export function TaskActivity({
   return (
     <section className="space-y-3.5">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="mr-1 text-[15px] font-semibold text-ink">Activity</h3>
+        <h3 className="mr-1 font-semibold text-ink">Activity</h3>
         <div className="flex gap-1 rounded-lg surface-sunken p-0.5">
           {TABS.map((t) => (
             <button
@@ -160,7 +160,7 @@ export function TaskActivity({
               type="button"
               aria-pressed={tab === t.id}
               onClick={() => setTab(t.id)}
-              className={`rounded-md px-2.5 py-1 text-[12.5px] transition-colors ${
+              className={`rounded-md px-2.5 py-1 text-[12px] transition-colors ${
                 tab === t.id
                   ? 'surface font-medium text-ink ring-1 ring-[var(--line-strong)]'
                   : 'text-muted hover:text-ink'
@@ -168,7 +168,7 @@ export function TaskActivity({
             >
               {t.label}
               {t.id === 'comments' && comments.length > 0 && (
-                <span className="ml-1 font-mono text-[11px] text-faint">
+                <span className="ml-1 font-mono text-[12px] text-faint">
                   {comments.length}
                 </span>
               )}

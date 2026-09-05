@@ -82,7 +82,7 @@ export function AgendaList({
                   {e.class_initial} · {e.project_title}
                   {e.group_name ? ` · ${e.group_name}` : ''}
                 </span>
-                <span className="font-mono text-[11.5px] text-faint">
+                <span className="font-mono text-[12px] text-faint">
                   {new Date(e.at).toLocaleTimeString(undefined, {
                     hour: 'numeric',
                     minute: '2-digit',

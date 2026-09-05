@@ -53,11 +53,11 @@ export class ErrorBoundary extends Component<Props, State> {
           <Icon name="alert" size={26} />
         </span>
 
-        <h1 className="mt-5 text-[21px] leading-snug">
+        <h1 className="mt-5 leading-snug">
           {this.props.scope ? `${this.props.scope} stopped working` : 'Something went wrong'}
         </h1>
 
-        <p className="mt-2.5 max-w-[46ch] text-[14.5px] leading-relaxed text-muted">
+        <p className="mt-2.5 max-w-[46ch] text-[14px] leading-relaxed text-muted">
           Nothing you did caused this and nothing you have saved is lost. Try the page again
           — if it keeps happening, tell whoever looks after Collabify what you were doing.
         </p>

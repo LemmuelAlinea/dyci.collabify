@@ -44,8 +44,8 @@ export default function Analytics() {
     <div className="space-y-8">
       <header>
         <p className="eyebrow">Teaching</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Analytics</h1>
-        <p className="mt-2 max-w-[70ch] text-[14.5px] text-muted">
+        <h1 className="mt-1 leading-tight">Analytics</h1>
+        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
           Narrow to a class, a project, a group, one student or a single task. The page then
           answers four questions about whatever you chose: what has happened, why, what is
           coming, and what to do next.
@@ -79,7 +79,7 @@ export default function Analytics() {
           {/* The leaf. Only worth the room once the question is narrow. */}
           {(scope.boardId || scope.studentId || scope.taskId) && (
             <section className="space-y-3 border-t border-line pt-6">
-              <h2 className="text-[17px]">
+              <h2 className="">
                 Tasks
                 <span className="ml-2 font-mono text-[13px] text-faint">
                   {shownTasks.length}
@@ -102,16 +102,16 @@ export default function Analytics() {
                             {t.assignee_names && ` · ${t.assignee_names}`}
                           </span>
                         </span>
-                        <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 font-mono text-[11px] text-muted">
+                        <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 font-mono text-[12px] text-muted">
                           {taskStatusLabel(t.status)}
                         </span>
                         {t.late && (
-                          <span className="shrink-0 rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[10.5px] text-red-700 dark:text-red-300">
+                          <span className="shrink-0 rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[12px] text-red-700 dark:text-red-300">
                             late
                           </span>
                         )}
                         {due && !t.late && (
-                          <span className="shrink-0 font-mono text-[11.5px] text-faint">
+                          <span className="shrink-0 font-mono text-[12px] text-faint">
                             {due}
                           </span>
                         )}

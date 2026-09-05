@@ -13,7 +13,7 @@ export function DeadlineList({
 }) {
   if (deadlines.length === 0) {
     return (
-      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13.5px] text-muted">
+      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
         Nothing due in the next seven days.
       </p>
     )
@@ -43,10 +43,10 @@ export function DeadlineList({
               </span>
 
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-medium text-ink sm:text-[14.5px]">
+                <span className="block truncate text-[14px] font-medium text-ink sm:text-[14px]">
                   {d.title}
                 </span>
-                <span className="block truncate text-[12.5px] text-muted">{d.context}</span>
+                <span className="block truncate text-[12px] text-muted">{d.context}</span>
               </span>
 
               <span

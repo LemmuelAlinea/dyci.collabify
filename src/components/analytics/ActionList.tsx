@@ -48,7 +48,7 @@ export function ActionList({ actions }: { actions: Action[] }) {
           >
             <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
               <div className="min-w-0 flex-1">
-                <h3 className="flex items-start gap-2 text-[15px] leading-snug text-ink">
+                <h3 className="flex items-start gap-2 leading-snug text-ink">
                   <Icon
                     name={a.severity === 1 ? 'alert' : a.severity === 2 ? 'clock' : 'info'}
                     size={15}
@@ -66,7 +66,7 @@ export function ActionList({ actions }: { actions: Action[] }) {
                   {a.evidence}
                 </p>
                 {a.names && a.names.length > 0 && (
-                  <p className="mt-1.5 pl-[23px] text-[12.5px] text-faint">
+                  <p className="mt-1.5 pl-[23px] text-[12px] text-faint">
                     {a.names.slice(0, 6).join(', ')}
                     {a.names.length > 6 && ` and ${a.names.length - 6} more`}
                   </p>
@@ -75,7 +75,7 @@ export function ActionList({ actions }: { actions: Action[] }) {
               {a.to && (
                 <Link
                   to={a.to}
-                  className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-[12.5px] font-medium text-navy-600 transition-colors hover:border-line-strong dark:text-navy-200"
+                  className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-[12px] font-medium text-navy-600 transition-colors hover:border-line-strong dark:text-navy-200"
                 >
                   Open
                 </Link>
@@ -89,7 +89,7 @@ export function ActionList({ actions }: { actions: Action[] }) {
         <button
           type="button"
           onClick={() => setAll((v) => !v)}
-          className="text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+          className="text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
         >
           {all ? 'Show fewer' : `Show the other ${actions.length - SHOWN}`}
         </button>

@@ -87,7 +87,7 @@ export default function StudentGroups() {
         ) : (
           <>
             {tab === 'open' && joinable.length > 0 && (
-              <p className="text-[13.5px] text-muted">
+              <p className="text-[13px] text-muted">
                 Open a group to see who's in it and claim a slot. You can switch while the set
                 stays open.
               </p>

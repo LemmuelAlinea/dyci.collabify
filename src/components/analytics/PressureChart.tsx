@@ -19,7 +19,7 @@ export function PressureChart({ rows }: { rows: Pressure[] }) {
 
   if (!overdue && weeks.length === 0) {
     return (
-      <p className="text-[13.5px] text-muted">
+      <p className="text-[13px] text-muted">
         No open task in view has a date inside the next four weeks.
       </p>
     )
@@ -30,7 +30,7 @@ export function PressureChart({ rows }: { rows: Pressure[] }) {
   return (
     <div className="space-y-2.5">
       {overdue && (
-        <p className="flex items-center gap-2 text-[13.5px]">
+        <p className="flex items-center gap-2 text-[13px]">
           <span className="rounded-md bg-red-500/15 px-2 py-0.5 font-mono text-[12px] text-red-700 dark:text-red-300">
             {overdue.due_count} overdue
           </span>
@@ -46,7 +46,7 @@ export function PressureChart({ rows }: { rows: Pressure[] }) {
           const heavy = w.due_count >= PILE_UP_TASKS
           return (
             <li key={w.week_start} className="flex items-center gap-3">
-              <span className="w-[92px] shrink-0 font-mono text-[11.5px] text-faint">
+              <span className="w-[92px] shrink-0 font-mono text-[12px] text-faint">
                 {new Date(w.week_start ?? '').toLocaleDateString(undefined, {
                   month: 'short',
                   day: 'numeric',
@@ -60,7 +60,7 @@ export function PressureChart({ rows }: { rows: Pressure[] }) {
                   style={{ width: `${Math.round((w.due_count / peak) * 100)}%` }}
                 />
               </span>
-              <span className="w-[132px] shrink-0 text-right font-mono text-[11.5px] text-muted">
+              <span className="w-[132px] shrink-0 text-right font-mono text-[12px] text-muted">
                 {w.due_count} {w.due_count === 1 ? 'task' : 'tasks'} · {w.board_count}{' '}
                 {w.board_count === 1 ? 'board' : 'boards'}
               </span>

@@ -6,7 +6,7 @@ import type { Attention } from '../../lib/api/dashboard'
 export function AttentionList({ items }: { items: Attention[] }) {
   if (items.length === 0) {
     return (
-      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13.5px] text-muted">
+      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
         Nothing is waiting on you.
       </p>
     )
@@ -24,10 +24,10 @@ export function AttentionList({ items }: { items: Attention[] }) {
               <Icon name={i.icon} size={15} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14px] font-medium text-ink sm:text-[14.5px]">
+              <span className="block truncate text-[14px] font-medium text-ink sm:text-[14px]">
                 {i.title}
               </span>
-              <span className="block text-[12.5px] leading-snug text-muted">{i.body}</span>
+              <span className="block text-[12px] leading-snug text-muted">{i.body}</span>
             </span>
             <Icon name="chevronRight" size={15} className="mt-1 shrink-0 text-faint" />
           </Link>

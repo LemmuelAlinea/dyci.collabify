@@ -28,7 +28,7 @@ export function WeekSpanPicker({
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1.5">
-          <span className="block text-[13.5px] font-medium text-ink">From week</span>
+          <span className="block text-[13px] font-medium text-ink">From week</span>
           <Select
             value={String(value.start)}
             onChange={(e) => {
@@ -43,7 +43,7 @@ export function WeekSpanPicker({
         </label>
 
         <label className="space-y-1.5">
-          <span className="block text-[13.5px] font-medium text-ink">To week</span>
+          <span className="block text-[13px] font-medium text-ink">To week</span>
           <Select
             value={String(value.end)}
             onChange={(e) => onChange({ ...value, end: Number(e.target.value) })}
@@ -58,7 +58,7 @@ export function WeekSpanPicker({
       </div>
 
       {remaining.length > 0 && (
-        <p className="text-[12.5px] text-faint">
+        <p className="text-[12px] text-faint">
           {remaining.length} week{remaining.length === 1 ? '' : 's'} left in the term.
         </p>
       )}
@@ -80,7 +80,7 @@ export function WeekSpanPicker({
                 Week {w.week_no}
                 {w.title ? ` · ${w.title}` : ''}
               </p>
-              <p className="font-mono text-[11.5px] text-faint">
+              <p className="font-mono text-[12px] text-faint">
                 {weekRange(w)}
                 {w.phase === 'past' && ' · already passed'}
               </p>
@@ -89,7 +89,7 @@ export function WeekSpanPicker({
               <p className="mt-1 text-[13px] leading-relaxed text-muted">{w.topics}</p>
             )}
             {w.assessments && (
-              <p className="mt-1.5 flex gap-1.5 text-[12.5px] leading-relaxed text-amber-700 dark:text-amber-300">
+              <p className="mt-1.5 flex gap-1.5 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
                 <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
                 {w.assessments}
               </p>

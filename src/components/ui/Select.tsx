@@ -18,7 +18,7 @@ export function Select({ options, placeholder, className = '', ...rest }: Select
   return (
     <div className="relative">
       <select
-        className={`${CONTROL} h-12 appearance-none px-4 pr-10 text-[14.5px] ${className}`}
+        className={`${CONTROL} h-12 appearance-none px-4 pr-10 text-[14px] ${className}`}
         {...rest}
       >
         {placeholder && <option value="">{placeholder}</option>}
@@ -45,7 +45,7 @@ export function Textarea({
   return (
     <textarea
       rows={rows}
-      className={`${CONTROL} resize-y px-4 py-3 text-[14.5px] leading-relaxed ${className}`}
+      className={`${CONTROL} resize-y px-4 py-3 text-[14px] leading-relaxed ${className}`}
       {...rest}
     />
   )

@@ -121,7 +121,7 @@ export function MessageThread({
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-[16px] leading-tight">{conversation.title}</h2>
+          <h2 className="truncate leading-tight">{conversation.title}</h2>
           <p className="truncate text-[12px] text-muted">{conversation.subtitle}</p>
         </div>
       </header>
@@ -143,7 +143,7 @@ export function MessageThread({
                 {pinned[pinned.length - 1].body || 'Attachment'}
               </span>
               {pinned.length > 1 && (
-                <span className="text-[11.5px] text-muted">
+                <span className="text-[12px] text-muted">
                   {showPins ? 'Hide' : `and ${pinned.length - 1} more pinned`}
                 </span>
               )}
@@ -159,7 +159,7 @@ export function MessageThread({
           {showPins && pinned.length > 1 && (
             <ul className="mt-2 space-y-1.5 border-t border-amber-400/25 pt-2">
               {pinned.slice(0, -1).map((m) => (
-                <li key={m.id} className="truncate text-[12.5px] text-muted">
+                <li key={m.id} className="truncate text-[12px] text-muted">
                   {m.body || 'Attachment'}
                 </li>
               ))}
@@ -188,8 +188,8 @@ export function MessageThread({
               <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl surface-sunken text-faint">
                 <Icon name="message" size={22} />
               </span>
-              <p className="mt-4 text-[15px] font-medium text-ink">No messages yet</p>
-              <p className="mt-1 text-[13.5px] text-muted">Say something to get it started.</p>
+              <p className="mt-4 text-[14px] font-medium text-ink">No messages yet</p>
+              <p className="mt-1 text-[13px] text-muted">Say something to get it started.</p>
             </div>
           </div>
         ) : (
@@ -201,7 +201,7 @@ export function MessageThread({
               return (
                 <div key={m.id} className="space-y-2.5">
                   {newDay && (
-                    <p className="py-2 text-center font-mono text-[10.5px] tracking-wider text-faint uppercase">
+                    <p className="py-2 text-center font-mono text-[12px] tracking-wider text-faint uppercase">
                       {dayLabel(m.created_at)}
                     </p>
                   )}

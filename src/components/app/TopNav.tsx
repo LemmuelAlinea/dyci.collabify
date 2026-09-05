@@ -141,7 +141,7 @@ function GroupMenu({
               >
                 <Icon name={item.icon} size={17} />
                 <span className="flex-1">{item.label}</span>
-                <span className="rounded-full border border-line px-1.5 py-0.5 text-[10px]">
+                <span className="rounded-full border border-line px-1.5 py-0.5 text-[12px]">
                   Soon
                 </span>
               </span>
@@ -170,7 +170,7 @@ function AccountMenu() {
         className="flex items-center gap-2 rounded-full py-1 pr-1.5 pl-1 transition-colors hover:bg-[var(--surface-sunken)]"
       >
         <Avatar profile={profile} size={30} />
-        <span className="hidden max-w-[130px] truncate text-[13.5px] font-medium text-ink lg:block">
+        <span className="hidden max-w-[130px] truncate text-[13px] font-medium text-ink lg:block">
           {profile.first_name}
         </span>
         <Icon name="chevronDown" size={15} className="hidden text-faint lg:block" />
@@ -183,7 +183,7 @@ function AccountMenu() {
         >
           <div className="border-b border-line px-4 py-3.5">
             <p className="truncate text-[14px] font-semibold text-ink">{fullName(profile)}</p>
-            <p className="truncate text-[12.5px] text-muted">{profile.email}</p>
+            <p className="truncate text-[12px] text-muted">{profile.email}</p>
             <p className="mt-1 text-[12px] text-faint">{ROLE_LABEL[profile.role]}</p>
           </div>
           <Link
@@ -230,7 +230,7 @@ function MessagesButton({ item }: { item: NavItem }) {
     >
       <Icon name={item.icon} size={19} />
       {unread > 0 && (
-        <span className="absolute top-0.5 right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-navy-600 px-1 font-mono text-[9.5px] font-bold text-white dark:bg-amber-400 dark:text-navy-900">
+        <span className="absolute top-0.5 right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-navy-600 px-1 font-mono text-[12px] font-bold text-white dark:bg-amber-400 dark:text-navy-900">
           {unread > 9 ? '9+' : unread}
         </span>
       )}

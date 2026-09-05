@@ -54,7 +54,7 @@ function WeekRow({
             onBlur={() => commit({ title: draft.title })}
             placeholder="What this week covers"
             aria-label={`Week ${week.week_no} title`}
-            className="w-full rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold text-ink hover:border-[var(--line)] focus:border-navy-400"
+            className="w-full rounded-lg border border-transparent bg-transparent px-2 py-1 text-[14px] font-semibold text-ink hover:border-[var(--line)] focus:border-navy-400"
           />
           <Textarea
             rows={2}
@@ -63,7 +63,7 @@ function WeekRow({
             onBlur={() => commit({ topics: draft.topics })}
             placeholder="Topics"
             aria-label={`Week ${week.week_no} topics`}
-            className="text-[13.5px]"
+            className="text-[13px]"
           />
           <Textarea
             rows={2}
@@ -72,7 +72,7 @@ function WeekRow({
             onBlur={() => commit({ outcomes: draft.outcomes })}
             placeholder="Learning outcomes"
             aria-label={`Week ${week.week_no} outcomes`}
-            className="text-[13.5px]"
+            className="text-[13px]"
           />
           <Textarea
             rows={2}
@@ -81,7 +81,7 @@ function WeekRow({
             onBlur={() => commit({ assessments: draft.assessments })}
             placeholder="Assessments — what this week expects handed in"
             aria-label={`Week ${week.week_no} assessments`}
-            className="text-[13.5px]"
+            className="text-[13px]"
           />
         </div>
 

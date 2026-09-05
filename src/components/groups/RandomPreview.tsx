@@ -80,15 +80,15 @@ export function RandomPreview({
 
       {drafts.length > 0 && (
         <>
-          <p className="text-[12.5px] text-faint">
+          <p className="text-[12px] text-faint">
             Nothing is saved until you choose Create. Reshuffle as many times as you like.
           </p>
           <ul className="space-y-2">
             {drafts.map((d, i) => (
               <li key={i} className="rounded-xl border border-line p-3.5">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-[14.5px] font-semibold text-ink">{d.name}</p>
-                  <span className="font-mono text-[11.5px] text-faint">
+                  <p className="text-[14px] font-semibold text-ink">{d.name}</p>
+                  <span className="font-mono text-[12px] text-faint">
                     {d.students.length}/{d.member_limit}
                   </span>
                 </div>

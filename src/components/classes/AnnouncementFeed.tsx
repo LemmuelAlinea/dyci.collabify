@@ -47,8 +47,8 @@ function AttachmentRow({ attachment }: { attachment: Announcement['attachments']
       className="flex w-full items-center gap-2.5 rounded-xl border border-line px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-sunken)]"
     >
       <Icon name="file" size={17} className="shrink-0 text-muted" />
-      <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">{attachment.file_name}</span>
-      <span className="shrink-0 text-[11.5px] text-faint">{formatBytes(attachment.size_bytes)}</span>
+      <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{attachment.file_name}</span>
+      <span className="shrink-0 text-[12px] text-faint">{formatBytes(attachment.size_bytes)}</span>
     </button>
   )
 }
@@ -154,7 +154,7 @@ export function AnnouncementFeed({
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           {/* Only the professor is told this. A student never sees an
               announcement that has gone, so there is nothing to explain. */}
-          <p className="max-w-[62ch] text-[12.5px] text-muted">
+          <p className="max-w-[62ch] text-[12px] text-muted">
             An announcement is on your students' screens for {NOTICE_HOURS} hours and then
             comes off on its own. You keep all of them here. To say something again, post it
             again.
@@ -199,7 +199,7 @@ export function AnnouncementFeed({
                 <div className="min-w-0">
                   <span className="mb-2 flex flex-wrap items-center gap-1.5">
                     {a.pinned && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/18 px-2.5 py-1 font-mono text-[9.5px] tracking-wider text-amber-700 uppercase dark:text-amber-300">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/18 px-2.5 py-1 font-mono text-[12px] tracking-wider text-amber-700 uppercase dark:text-amber-300">
                         <Icon name="target" size={11} />
                         Pinned
                       </span>
@@ -207,14 +207,14 @@ export function AnnouncementFeed({
                     {/* Only the professor ever sees this — a student cannot
                         read an announcement that has gone. */}
                     {canManage && !isLive(a.created_at) && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full surface-sunken px-2.5 py-1 font-mono text-[9.5px] tracking-wider text-faint uppercase">
+                      <span className="inline-flex items-center gap-1.5 rounded-full surface-sunken px-2.5 py-1 font-mono text-[12px] tracking-wider text-faint uppercase">
                         <Icon name="clock" size={11} />
                         Off the class feed
                       </span>
                     )}
                   </span>
-                  <h3 className="text-[18px] leading-snug">{a.title}</h3>
-                  <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[12.5px] text-faint">
+                  <h3 className=" leading-snug">{a.title}</h3>
+                  <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[12px] text-faint">
                     {a.author && (
                       <span className="flex items-center gap-1.5">
                         <Avatar
@@ -267,7 +267,7 @@ export function AnnouncementFeed({
                 )}
               </div>
 
-              <p className="mt-3 text-[14.5px] leading-relaxed whitespace-pre-wrap text-muted">
+              <p className="mt-3 text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
                 {a.body}
               </p>
 
@@ -340,8 +340,8 @@ export function AnnouncementFeed({
                       className="flex items-center gap-3 rounded-xl border border-line surface-sunken px-4 py-2.5"
                     >
                       <Icon name="file" size={17} className="shrink-0 text-muted" />
-                      <span className="min-w-0 flex-1 truncate text-[13.5px]">{f.name}</span>
-                      <span className="text-[11.5px] text-faint">{formatBytes(f.size)}</span>
+                      <span className="min-w-0 flex-1 truncate text-[13px]">{f.name}</span>
+                      <span className="text-[12px] text-faint">{formatBytes(f.size)}</span>
                       <button
                         type="button"
                         onClick={() => setFiles((list) => list.filter((_, n) => n !== i))}
@@ -359,7 +359,7 @@ export function AnnouncementFeed({
           )}
 
           {editing && editing.attachments.length > 0 && (
-            <p className="text-[12.5px] text-faint">
+            <p className="text-[12px] text-faint">
               Attachments cannot be changed while editing. Delete the announcement and post
               again to swap them.
             </p>

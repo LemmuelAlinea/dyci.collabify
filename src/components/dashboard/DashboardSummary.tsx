@@ -89,7 +89,7 @@ export function DashboardSummary({
       </h1>
 
       <p
-        className={`mt-2 flex items-start gap-2 text-[15px] leading-relaxed ${
+        className={`mt-2 flex items-start gap-2 text-[14px] leading-relaxed ${
           urgent ? 'text-amber-700 dark:text-amber-300' : 'text-muted'
         }`}
       >
@@ -126,7 +126,7 @@ export function DashboardSummary({
               >
                 <CountUp value={t.value} />
               </span>
-              <span className="mt-1.5 block text-[12.5px] leading-snug text-navy-200 dark:text-navy-600">
+              <span className="mt-1.5 block text-[12px] leading-snug text-navy-200 dark:text-navy-600">
                 {t.label}
               </span>
             </>

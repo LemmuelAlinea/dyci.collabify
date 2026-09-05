@@ -10,8 +10,8 @@ import type { ClassSummary, Profile, TeachingResource } from '../../lib/types'
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-3 py-3">
-      <dt className="text-[13.5px] text-muted">{label}</dt>
-      <dd className="text-[14.5px] text-ink">{value}</dd>
+      <dt className="text-[13px] text-muted">{label}</dt>
+      <dd className="text-[14px] text-ink">{value}</dd>
     </div>
   )
 }
@@ -58,15 +58,15 @@ export function ClassAbout({ cls }: { cls: ClassSummary }) {
     <div className="space-y-5">
       {cls.description && (
         <section className="surface rounded-card border border-line p-4 sm:p-6 shadow-card">
-          <h2 className="text-[17px]">About this class</h2>
-          <p className="mt-2.5 text-[14.5px] leading-relaxed whitespace-pre-wrap text-muted">
+          <h2 className="">About this class</h2>
+          <p className="mt-2.5 text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
             {cls.description}
           </p>
         </section>
       )}
 
       <section className="surface rounded-card border border-line p-4 sm:p-6 shadow-card">
-        <h2 className="text-[17px]">Details</h2>
+        <h2 className="">Details</h2>
         <dl className="mt-2 divide-y divide-[var(--line)]">
           <Row label="Section" value={cls.section} />
           <Row label="Year level" value={yearLabel} />
@@ -82,7 +82,7 @@ export function ClassAbout({ cls }: { cls: ClassSummary }) {
 
       {attached.length > 0 && (
         <section className="surface rounded-card border border-line p-4 sm:p-6 shadow-card">
-          <h2 className="text-[17px]">Course documents</h2>
+          <h2 className="">Course documents</h2>
           <div className="mt-3 space-y-2">
             {attached.map((r) => (
               <button

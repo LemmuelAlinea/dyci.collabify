@@ -119,7 +119,7 @@ export function NotificationBell() {
       >
         <Icon name="bell" size={19} />
         {unread > 0 && (
-          <span className="absolute top-1.5 right-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-amber-400 px-1 font-mono text-[9.5px] font-bold text-navy-900">
+          <span className="absolute top-1.5 right-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-amber-400 px-1 font-mono text-[12px] font-bold text-navy-900">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
@@ -150,7 +150,7 @@ export function NotificationBell() {
                   )
                   void refreshCount()
                 }}
-                className="text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+                className="text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
               >
                 Mark all read
               </button>
@@ -159,12 +159,12 @@ export function NotificationBell() {
 
           <div className="max-h-[380px] overflow-y-auto">
             {items === null ? (
-              <div className="flex items-center gap-2.5 px-4 py-8 text-[13.5px] text-muted">
+              <div className="flex items-center gap-2.5 px-4 py-8 text-[13px] text-muted">
                 <Spinner size={15} />
                 Loading…
               </div>
             ) : items.length === 0 ? (
-              <p className="px-4 py-10 text-center text-[13.5px] text-muted">
+              <p className="px-4 py-10 text-center text-[13px] text-muted">
                 Nothing yet. Announcements and new projects land here.
               </p>
             ) : (
@@ -186,11 +186,11 @@ export function NotificationBell() {
                           {n.title}
                         </span>
                         {n.preview && (
-                          <span className="mt-0.5 line-clamp-2 block text-[12.5px] leading-snug text-muted">
+                          <span className="mt-0.5 line-clamp-2 block text-[12px] leading-snug text-muted">
                             {n.preview}
                           </span>
                         )}
-                        <span className="mt-1 block text-[11.5px] text-faint">
+                        <span className="mt-1 block text-[12px] text-faint">
                           {ago(n.created_at)}
                         </span>
                       </span>

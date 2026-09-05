@@ -70,13 +70,13 @@ function Column({
   return (
     <section className="space-y-2">
       <div>
-        <h3 className="text-[15px] font-semibold text-ink">
+        <h3 className=" font-semibold text-ink">
           {title}
           <span className="ml-1.5 font-mono text-[12px] font-normal text-faint">
             {rows.length}
           </span>
         </h3>
-        <p className="text-[12.5px] text-muted">{hint}</p>
+        <p className="text-[12px] text-muted">{hint}</p>
       </div>
 
       {rows.length === 0 ? (
@@ -107,7 +107,7 @@ function Column({
                 </span>
               </span>
               <span
-                className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[11.5px] ${
+                className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[12px] ${
                   tone === 'amber'
                     ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
                     : 'surface-sunken text-muted'
@@ -115,7 +115,7 @@ function Column({
               >
                 {Number(r.held_pct)}% held
               </span>
-              <span className="shrink-0 font-mono text-[11.5px] text-faint">
+              <span className="shrink-0 font-mono text-[12px] text-faint">
                 {r.done_count}/{r.task_count} done
               </span>
             </li>

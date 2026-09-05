@@ -103,7 +103,7 @@ export function CreatePollDialog({
         </Field>
 
         <fieldset>
-          <legend className="mb-2 text-[13.5px] font-medium text-ink">Options</legend>
+          <legend className="mb-2 text-[13px] font-medium text-ink">Options</legend>
           <div className="space-y-2">
             {options.map((value, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -131,7 +131,7 @@ export function CreatePollDialog({
           <button
             type="button"
             onClick={() => setOptions((list) => [...list, ''])}
-            className="mt-2.5 flex items-center gap-1.5 text-[13.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+            className="mt-2.5 flex items-center gap-1.5 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
           >
             <Icon name="plus" size={15} />
             Add option
@@ -142,7 +142,7 @@ export function CreatePollDialog({
           <label className="flex items-start justify-between gap-4">
             <span className="min-w-0">
               <span className="block text-[14px] font-medium text-ink">Allow multiple answers</span>
-              <span className="block text-[12.5px] text-muted">
+              <span className="block text-[12px] text-muted">
                 People can pick more than one option.
               </span>
             </span>
@@ -156,7 +156,7 @@ export function CreatePollDialog({
           <label className="flex items-start justify-between gap-4">
             <span className="min-w-0">
               <span className="block text-[14px] font-medium text-ink">Let others add options</span>
-              <span className="block text-[12.5px] text-muted">
+              <span className="block text-[12px] text-muted">
                 Anyone in the chat can extend the list. You always can.
               </span>
             </span>

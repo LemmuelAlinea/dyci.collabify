@@ -10,7 +10,7 @@ export function CapacityPill({ count, limit }: { count: number; limit: number })
   const full = count >= limit
   return (
     <span
-      className={`shrink-0 rounded-lg px-2 py-1 font-mono text-[11.5px] ${
+      className={`shrink-0 rounded-lg px-2 py-1 font-mono text-[12px] ${
         full
           ? 'bg-navy-50 text-navy-700 dark:bg-navy-500/18 dark:text-navy-100'
           : 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
@@ -56,10 +56,10 @@ export function GroupCard({
       <div className="flex w-full flex-col p-3.5 @min-[240px]:p-5">
       <div className="flex items-start justify-between gap-2 @min-[240px]:gap-3">
         <div className="min-w-0">
-          <h3 className="line-clamp-2 text-[14px] leading-snug @min-[240px]:truncate @min-[240px]:text-[17px]">
+          <h3 className="line-clamp-2 leading-snug @min-[240px]:truncate @min-[240px]:">
             {group.name}
           </h3>
-          <p className="mt-0.5 truncate text-[11px] text-muted @min-[240px]:mt-1 @min-[240px]:text-[12px]">
+          <p className="mt-0.5 truncate text-[12px] text-muted @min-[240px]:mt-1 @min-[240px]:text-[12px]">
             {className}
             {/* The set name repeats down a whole column of these; it is the
                 first thing to go when the card is half a screen wide. */}
@@ -71,7 +71,7 @@ export function GroupCard({
 
       <div className="mt-2.5 flex min-h-[26px] items-center @min-[240px]:mt-4 @min-[240px]:min-h-[30px]">
         {members.length === 0 ? (
-          <span className="text-[12.5px] text-faint">No members yet</span>
+          <span className="text-[12px] text-faint">No members yet</span>
         ) : (
           <div className="flex">
             {faces.map((m) => (
@@ -80,7 +80,7 @@ export function GroupCard({
               </span>
             ))}
             {overflow > 0 && (
-              <span className="-ml-2 grid h-[26px] w-[26px] place-items-center rounded-full surface-sunken text-[10.5px] font-semibold text-muted ring-2 ring-[var(--surface)]">
+              <span className="-ml-2 grid h-[26px] w-[26px] place-items-center rounded-full surface-sunken text-[12px] font-semibold text-muted ring-2 ring-[var(--surface)]">
                 +{overflow}
               </span>
             )}
@@ -99,7 +99,7 @@ export function GroupCard({
         <div className="mt-2.5 border-t border-line pt-2.5 @min-[240px]:mt-3 @min-[240px]:pt-3">
           {/* One line at any width: on a phone it reads "3 · 14/24", which is
               what the icon and the bar underneath are already labelling. */}
-          <p className="flex items-center justify-between gap-2 text-[11.5px] text-muted @min-[240px]:gap-x-3 @min-[240px]:text-[12px]">
+          <p className="flex items-center justify-between gap-2 text-[12px] text-muted @min-[240px]:gap-x-3 @min-[240px]:text-[12px]">
             <span className="flex min-w-0 items-center gap-1.5">
               <Icon name="kanban" size={13} className="shrink-0 text-faint" />
               {work.projects}
@@ -129,7 +129,7 @@ export function GroupCard({
       )}
 
       {highlight && (
-        <p className="mt-2.5 flex items-center gap-1.5 text-[11.5px] font-medium text-amber-600 @min-[240px]:mt-3 @min-[240px]:text-[12px] dark:text-amber-300">
+        <p className="mt-2.5 flex items-center gap-1.5 text-[12px] font-medium text-amber-600 @min-[240px]:mt-3 @min-[240px]:text-[12px] dark:text-amber-300">
           <Icon name="check" size={14} strokeWidth={2.6} className="shrink-0" />
           Your group
         </p>

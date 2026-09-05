@@ -23,7 +23,7 @@ export function ProjectStrip({
 
   if (live.length === 0) {
     return (
-      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13.5px] text-muted">
+      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
         No projects are open right now.
       </p>
     )
@@ -46,7 +46,7 @@ export function ProjectStrip({
                 <Icon name={meta?.icon ?? 'folder'} size={15} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13.5px] font-medium text-ink sm:text-[15px]">
+                <span className="block truncate text-[13px] font-medium text-ink sm:text-[14px]">
                   {p.title}
                 </span>
                 <span className="block truncate text-[12px] text-muted">
@@ -71,7 +71,7 @@ export function ProjectStrip({
                 </p>
               </>
             ) : (
-              <p className="mt-3.5 text-[12.5px] text-amber-700 dark:text-amber-300">
+              <p className="mt-3.5 text-[12px] text-amber-700 dark:text-amber-300">
                 No tasks yet — break it down to get started.
               </p>
             )}

@@ -201,12 +201,12 @@ export default function MyTasks() {
                 <Reveal once delay={0.06 + i * 0.02} key={bucket.id}>
                   <section className="space-y-2.5">
                     <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <h2 className={`flex items-center gap-2 text-[16px] ${bucket.tone}`}>
+                      <h2 className={`flex items-center gap-2 ${bucket.tone}`}>
                         <span className={`h-2.5 w-2.5 rounded-full ${bucket.bar}`} />
                         {bucket.title}
                         <Badge numeric>{list.length}</Badge>
                       </h2>
-                      <p className="text-[12.5px] text-faint">{bucket.blurb}</p>
+                      <p className="text-[12px] text-faint">{bucket.blurb}</p>
                     </header>
 
                     <ul className="space-y-2">
@@ -225,7 +225,7 @@ export default function MyTasks() {
                               className="min-w-0 flex-1 text-left"
                             >
                               <span
-                                className={`block truncate text-[15px] font-medium ${
+                                className={`block truncate text-[14px] font-medium ${
                                   t.status === 'done'
                                     ? 'text-muted line-through'
                                     : 'text-ink group-hover:underline'
@@ -233,7 +233,7 @@ export default function MyTasks() {
                               >
                                 {t.title}
                               </span>
-                              <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-muted">
+                              <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-muted">
                                 <span className="truncate">
                                   {t.project_title} · {t.class_initial}
                                   {t.group_name ? ` · ${t.group_name}` : ''}
@@ -275,7 +275,7 @@ export default function MyTasks() {
                                 </span>
                               )}
                               <span
-                                className={`rounded-lg px-2 py-0.5 font-mono text-[11px] ${
+                                className={`rounded-lg px-2 py-0.5 font-mono text-[12px] ${
                                   t.status === 'in_progress'
                                     ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
                                     : t.status === 'done'
@@ -298,7 +298,7 @@ export default function MyTasks() {
                                     )
                                   }
                                 }}
-                                className="flex items-center gap-1.5 rounded-lg border border-[var(--line-strong)] px-3 py-1.5 text-[12.5px] font-medium text-ink transition-colors hover:bg-[var(--surface-sunken)]"
+                                className="flex items-center gap-1.5 rounded-lg border border-[var(--line-strong)] px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:bg-[var(--surface-sunken)]"
                               >
                                 <Icon name={NEXT[t.status].icon} size={14} />
                                 {NEXT[t.status].label}
@@ -313,7 +313,7 @@ export default function MyTasks() {
               )
             })}
 
-            <p className="text-[12.5px] text-faint">
+            <p className="text-[12px] text-faint">
               Only the people on a task can move it.{' '}
               <Link
                 to="/student/projects"

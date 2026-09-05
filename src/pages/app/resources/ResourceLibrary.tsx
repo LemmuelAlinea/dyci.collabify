@@ -162,7 +162,7 @@ export function ResourceLibrary({
                   <button
                     type="button"
                     onClick={() => void open(r)}
-                    className="shrink-0 text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+                    className="shrink-0 text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
                   >
                     Open
                   </button>
@@ -196,8 +196,8 @@ export function ResourceLibrary({
                   <Icon name="file" size={19} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-medium text-ink">{r.title}</p>
-                  <p className="truncate text-[12.5px] text-faint">
+                  <p className="truncate text-[14px] font-medium text-ink">{r.title}</p>
+                  <p className="truncate text-[12px] text-faint">
                     {r.file_name} · {formatBytes(r.size_bytes)} ·{' '}
                     {new Date(r.uploaded_at).toLocaleDateString()}
                     {kind === 'syllabus' && (

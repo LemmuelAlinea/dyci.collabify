@@ -38,7 +38,7 @@ export function RoleHome({
         <h1 className="text-[clamp(1.9rem,3.4vw,2.6rem)] leading-tight">
           {greeting()}, {profile.first_name}.
         </h1>
-        <p className="mt-3 max-w-[620px] text-[16px] leading-relaxed text-muted">{intro}</p>
+        <p className="mt-3 max-w-[620px] text-[15.5px] leading-relaxed text-muted">{intro}</p>
       </Reveal>
 
       <Reveal once delay={0.08} className="mt-8">
@@ -46,8 +46,8 @@ export function RoleHome({
           <div aria-hidden className="blueprint absolute inset-0 opacity-60" />
           <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div className="max-w-[560px]">
-              <h2 className="text-[22px] md:text-[26px]">{headline}</h2>
-              <p className="mt-2.5 text-[15px] leading-relaxed text-white/68">
+              <h2 className=" md:">{headline}</h2>
+              <p className="mt-2.5 text-[14px] leading-relaxed text-white/68">
                 Your account, appearance, notifications, and security are live today. The
                 boards and milestones below arrive in the next release.
               </p>
@@ -62,8 +62,8 @@ export function RoleHome({
 
       <div className="mt-10">
         <Reveal once className="flex items-baseline justify-between gap-4">
-          <h2 className="text-[20px]">Landing in the next release</h2>
-          <span className="font-mono text-[11px] tracking-wider text-faint uppercase">
+          <h2 className="">Landing in the next release</h2>
+          <span className="font-mono text-[12px] tracking-wider text-faint uppercase">
             Phase 2
           </span>
         </Reveal>
@@ -80,14 +80,14 @@ export function RoleHome({
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--surface-sunken)] text-muted">
                 <Icon name={u.icon} size={20} />
               </span>
-              <h3 className="mt-4 text-[17px]">{u.title}</h3>
+              <h3 className="mt-4">{u.title}</h3>
               <p className="mt-2 text-[14px] leading-relaxed text-muted">{u.body}</p>
             </Reveal>
           ))}
         </div>
       </div>
 
-      <Reveal once className="mt-10 flex flex-wrap items-center gap-2 text-[13.5px] text-muted">
+      <Reveal once className="mt-10 flex flex-wrap items-center gap-2 text-[13px] text-muted">
         <Icon name="info" size={16} className="text-faint" />
         Something not working the way you expect?{' '}
         <Link to="/settings" className="font-medium text-ink hover:underline">

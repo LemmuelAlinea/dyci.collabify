@@ -215,7 +215,7 @@ export function CreateSetWizard({
           </Field>
 
           <fieldset>
-            <legend className="mb-2 text-[13.5px] font-medium text-ink">How to group</legend>
+            <legend className="mb-2 text-[13px] font-medium text-ink">How to group</legend>
             <div className="grid gap-2.5 sm:grid-cols-3">
               {GROUPING_MODES.map((m) => {
                 const active = mode === m.value
@@ -239,7 +239,7 @@ export function CreateSetWizard({
                       <Icon name={m.icon} size={16} />
                       {m.label}
                     </span>
-                    <span className="mt-1.5 block text-[11.5px] leading-snug text-muted">
+                    <span className="mt-1.5 block text-[12px] leading-snug text-muted">
                       {m.blurb}
                     </span>
                   </button>
@@ -293,7 +293,7 @@ export function CreateSetWizard({
               />
             )}
           </Field>
-          <p className="text-[13.5px] leading-relaxed text-muted">
+          <p className="text-[13px] leading-relaxed text-muted">
             {groupCount} empty groups of {limit} will be published as Group 1 to Group{' '}
             {groupCount}. Students pick their own, and can move while the set stays open. Close
             the set when you're happy with the arrangement.

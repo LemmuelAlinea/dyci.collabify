@@ -72,8 +72,8 @@ export default function Messages({ role }: { role: 'professor' | 'student' }) {
                 <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl surface-sunken text-faint">
                   <Icon name="message" size={24} />
                 </span>
-                <p className="mt-5 text-[16px] font-medium text-ink">Pick a conversation</p>
-                <p className="mt-1.5 max-w-[320px] text-[13.5px] leading-relaxed text-muted">
+                <p className="mt-5 text-[15.5px] font-medium text-ink">Pick a conversation</p>
+                <p className="mt-1.5 max-w-[320px] text-[13px] leading-relaxed text-muted">
                   Every class and group you're in has its own chat, created for you
                   automatically.
                 </p>

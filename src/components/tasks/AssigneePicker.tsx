@@ -81,7 +81,7 @@ export function AssigneePicker({
       {shared && (
         <span
           title={`Split ${task.assignees.length} ways`}
-          className="rounded-md bg-amber-400/18 px-1.5 py-0.5 font-mono text-[10.5px] text-amber-700 dark:text-amber-300"
+          className="rounded-md bg-amber-400/18 px-1.5 py-0.5 font-mono text-[12px] text-amber-700 dark:text-amber-300"
         >
           {perPerson}% each
         </span>
@@ -120,7 +120,7 @@ export function AssigneePicker({
         // across the viewport; from sm up it hangs off the control.
         <div className="surface fixed inset-x-3 bottom-3 z-60 overflow-hidden rounded-2xl border border-line shadow-lift sm:absolute sm:inset-x-auto sm:top-8 sm:right-0 sm:bottom-auto sm:z-30 sm:w-[240px] sm:rounded-xl">
           <div className="flex items-start justify-between gap-3 border-b border-line px-3.5 py-2.5 sm:px-3 sm:py-2">
-            <p className="text-[12.5px] leading-snug text-faint sm:text-[12px]">
+            <p className="text-[12px] leading-snug text-faint sm:text-[12px]">
               {releasable
                 ? `Anyone in the group can take this. Splitting it gives each person ${perPerson}% now, less as more join.`
                 : 'Started, so it stays with whoever is on it.'}
@@ -153,13 +153,13 @@ export function AssigneePicker({
                     className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-[var(--surface-sunken)] disabled:pointer-events-none disabled:opacity-45 sm:px-3 sm:py-2"
                   >
                     <Avatar profile={m.profile} size={24} />
-                    <span className="min-w-0 flex-1 truncate text-[14px] text-ink sm:text-[13.5px]">
+                    <span className="min-w-0 flex-1 truncate text-[14px] text-ink sm:text-[13px]">
                       {fullName(m.profile)}
                       {m.student_id === viewerId && (
                         <span className="ml-1 text-[12px] text-faint">you</span>
                       )}
                       {full && (
-                        <span className="block text-[11.5px] text-faint">share is full</span>
+                        <span className="block text-[12px] text-faint">share is full</span>
                       )}
                     </span>
                     {on && <Icon name="check" size={15} className="text-amber-500" />}
@@ -175,7 +175,7 @@ export function AssigneePicker({
                 await onRelease(viewerId)
                 setOpen(false)
               }}
-              className="w-full border-t border-line px-3.5 py-3 text-left text-[13.5px] text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink sm:px-3 sm:py-2 sm:text-[13px]"
+              className="w-full border-t border-line px-3.5 py-3 text-left text-[13px] text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink sm:px-3 sm:py-2 sm:text-[13px]"
             >
               Hand it back to the group
             </button>

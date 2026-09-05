@@ -38,7 +38,7 @@ export function Alert({
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
-      className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-[13.5px] leading-relaxed ${map.cls}`}
+      className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-[13px] leading-relaxed ${map.cls}`}
     >
       <Icon name={map.icon} size={17} className="mt-px shrink-0" />
       <div className="min-w-0 flex-1">{children}</div>
@@ -46,7 +46,7 @@ export function Alert({
         <button
           type="button"
           onClick={() => void onRetry()}
-          className="shrink-0 rounded-lg border border-current/25 px-2.5 py-1 text-[12.5px] font-medium transition-colors hover:bg-current/10"
+          className="shrink-0 rounded-lg border border-current/25 px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-current/10"
         >
           Try again
         </button>

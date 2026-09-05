@@ -100,8 +100,8 @@ export default function ProgramClasses() {
     <div className="space-y-6">
       <header>
         <p className="eyebrow">Oversight</p>
-        <h1 className="mt-1 text-[30px] leading-tight">Classes</h1>
-        <p className="mt-2 max-w-[70ch] text-[14.5px] text-muted">
+        <h1 className="mt-1 leading-tight">Classes</h1>
+        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
           Every class in the program: who teaches it, whether it is set up to run, and how
           much of its syllabus has work against it. Figures only — what is inside a class
           belongs to its professor and their students.
@@ -136,7 +136,7 @@ export default function ProgramClasses() {
             onChange={(e) => setYear(e.target.value)}
             placeholder="Every year"
             options={years.map((y) => ({ value: y, label: y }))}
-            className="!h-10 !text-[13.5px]"
+            className="!h-10 !text-[13px]"
           />
         </FilterField>
         <FilterField label="Semester">
@@ -150,7 +150,7 @@ export default function ProgramClasses() {
               { value: '3rd', label: '3rd semester' },
               { value: 'summer', label: 'Summer' },
             ]}
-            className="!h-10 !text-[13.5px]"
+            className="!h-10 !text-[13px]"
           />
         </FilterField>
         <FilterField label="Year level">
@@ -159,7 +159,7 @@ export default function ProgramClasses() {
             onChange={(e) => setLevel(e.target.value)}
             placeholder="Every year level"
             options={['1st', '2nd', '3rd', '4th'].map((v) => ({ value: v, label: `${v} year` }))}
-            className="!h-10 !text-[13.5px]"
+            className="!h-10 !text-[13px]"
           />
         </FilterField>
         <FilterField label="Professor">
@@ -168,7 +168,7 @@ export default function ProgramClasses() {
             onChange={(e) => setProfessor(e.target.value)}
             placeholder="Everybody"
             options={professors}
-            className="!h-10 !text-[13.5px]"
+            className="!h-10 !text-[13px]"
           />
         </FilterField>
         <FilterField label="Showing">
@@ -177,7 +177,7 @@ export default function ProgramClasses() {
             onChange={(e) => setState(e.target.value as State)}
             placeholder="Every class"
             options={STATES}
-            className="!h-10 !text-[13.5px]"
+            className="!h-10 !text-[13px]"
           />
         </FilterField>
       </FilterPopover>
@@ -224,10 +224,10 @@ function ClassRow({ cls }: { cls: ProgramClass }) {
             {cls.code} · {cls.section} · {cls.year_level} year · {cls.semester} sem{' '}
             {cls.school_year}
           </p>
-          <h2 className="mt-0.5 text-[16px] leading-snug text-ink">
+          <h2 className="mt-0.5 leading-snug text-ink">
             {cls.class_initial} — {cls.class_name}
           </h2>
-          <p className="mt-0.5 text-[12.5px] text-muted">
+          <p className="mt-0.5 text-[12px] text-muted">
             {cls.professor_name}
             {cls.archived_at && ` · term ended ${dayLabel(cls.archived_at)}`}
           </p>
@@ -242,7 +242,7 @@ function ClassRow({ cls }: { cls: ProgramClass }) {
             ['Late', cls.tasks_late],
           ].map(([k, v]) => (
             <div key={k}>
-              <dt className="text-[11px] text-faint">{k}</dt>
+              <dt className="text-[12px] text-faint">{k}</dt>
               <dd className="font-mono text-[14px] text-ink">{v}</dd>
             </div>
           ))}
@@ -250,7 +250,7 @@ function ClassRow({ cls }: { cls: ProgramClass }) {
       </div>
 
       {gaps.length > 0 && (
-        <p className="mt-3 flex flex-wrap items-center gap-2 text-[12.5px]">
+        <p className="mt-3 flex flex-wrap items-center gap-2 text-[12px]">
           <Icon name="alert" size={14} className="shrink-0 text-amber-500" />
           <span className="text-muted">Not ready to run:</span>
           {gaps.map((g) => (

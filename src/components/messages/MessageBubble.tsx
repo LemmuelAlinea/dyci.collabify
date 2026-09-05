@@ -68,7 +68,7 @@ function Attachment({ attachment, mine }: { attachment: MessageAttachment; mine:
     >
       <Icon name="file" size={17} className="shrink-0 opacity-70" />
       <span className="min-w-0 flex-1 truncate text-[13px]">{attachment.file_name}</span>
-      <span className="shrink-0 text-[11px] opacity-60">{formatBytes(attachment.size_bytes)}</span>
+      <span className="shrink-0 text-[12px] opacity-60">{formatBytes(attachment.size_bytes)}</span>
     </button>
   )
 }
@@ -164,7 +164,7 @@ export function MessageBubble({
           >
             {message.pinned && (
               <p
-                className={`mb-1.5 flex items-center gap-1 text-[10.5px] font-medium tracking-wide uppercase ${
+                className={`mb-1.5 flex items-center gap-1 text-[12px] font-medium tracking-wide uppercase ${
                   mine ? 'text-amber-300' : 'text-amber-600 dark:text-amber-300'
                 }`}
               >
@@ -214,7 +214,7 @@ export function MessageBubble({
                   />
                 )}
                 {message.body && (
-                  <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap break-words">
+                  <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
                     {message.body}
                   </p>
                 )}
@@ -226,7 +226,7 @@ export function MessageBubble({
                   </div>
                 )}
                 <p
-                  className={`mt-1 text-[10.5px] ${mine && !poll ? 'text-white/55' : 'text-faint'}`}
+                  className={`mt-1 text-[12px] ${mine && !poll ? 'text-white/55' : 'text-faint'}`}
                 >
                   {clockTime(message.created_at)}
                   {message.edited_at && ' · edited'}
@@ -266,7 +266,7 @@ export function MessageBubble({
                         setEditing(true)
                         setMenuOpen(false)
                       }}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13.5px] text-ink hover:bg-[var(--surface-sunken)]"
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
                     >
                       <Icon name="edit" size={15} className="text-muted" />
                       Edit
@@ -278,7 +278,7 @@ export function MessageBubble({
                       onTogglePin(message)
                       setMenuOpen(false)
                     }}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13.5px] text-ink hover:bg-[var(--surface-sunken)]"
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
                   >
                     <Icon name="pin" size={15} className="text-muted" />
                     {message.pinned ? 'Unpin' : 'Pin to top'}
@@ -289,7 +289,7 @@ export function MessageBubble({
                       onDeleteForMe(message.id)
                       setMenuOpen(false)
                     }}
-                    className="flex w-full items-center gap-2.5 border-t border-line px-3.5 py-2.5 text-left text-[13.5px] text-ink hover:bg-[var(--surface-sunken)]"
+                    className="flex w-full items-center gap-2.5 border-t border-line px-3.5 py-2.5 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
                   >
                     <Icon name="eyeOff" size={15} className="text-muted" />
                     Delete for me
@@ -301,7 +301,7 @@ export function MessageBubble({
                         onDeleteForEveryone(message.id)
                         setMenuOpen(false)
                       }}
-                      className="flex w-full items-center gap-2.5 border-t border-line px-3.5 py-2.5 text-left text-[13.5px] text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                      className="flex w-full items-center gap-2.5 border-t border-line px-3.5 py-2.5 text-left text-[13px] text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
                     >
                       <Icon name="trash" size={15} />
                       Delete for everyone

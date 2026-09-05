@@ -16,8 +16,8 @@ export function UnmeasuredList({ rows }: { rows: ClassUnmeasured[] }) {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-[17px]">Not being measured</h2>
-      <p className="max-w-[66ch] text-[13.5px] text-muted">
+      <h2 className="">Not being measured</h2>
+      <p className="max-w-[66ch] text-[13px] text-muted">
         {rows.length === 1 ? 'This class is' : 'These classes are'} left out of every figure
         above. Nothing is wrong with {rows.length === 1 ? 'it' : 'them'} — there is just
         nothing to measure against yet.
@@ -28,7 +28,7 @@ export function UnmeasuredList({ rows }: { rows: ClassUnmeasured[] }) {
             key={c.class_id}
             className="surface flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-line px-3.5 py-2.5"
           >
-            <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 font-mono text-[11px] text-muted">
+            <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 font-mono text-[12px] text-muted">
               {c.class_initial}
             </span>
             <span className="min-w-0 flex-1">
@@ -44,7 +44,7 @@ export function UnmeasuredList({ rows }: { rows: ClassUnmeasured[] }) {
             </span>
             <Link
               to={`/professor/classes/${c.class_id}`}
-              className="shrink-0 text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+              className="shrink-0 text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
             >
               Open the class
             </Link>

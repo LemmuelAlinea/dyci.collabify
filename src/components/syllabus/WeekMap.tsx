@@ -68,11 +68,11 @@ export function WeekMap({ weeks }: { weeks: ClassWeek[] }) {
               />
               <div className={`surface rounded-card border px-4 py-3.5 ${p.card}`}>
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                  <p className="text-[14.5px] font-semibold text-ink">
+                  <p className="text-[14px] font-semibold text-ink">
                     Week {w.week_no}
                     {w.title ? ` · ${w.title}` : ''}
                   </p>
-                  <p className="flex items-center gap-2 font-mono text-[11.5px] text-faint">
+                  <p className="flex items-center gap-2 font-mono text-[12px] text-faint">
                     {weekRange(w)}
                     {p.label && (
                       <span
@@ -89,17 +89,17 @@ export function WeekMap({ weeks }: { weeks: ClassWeek[] }) {
                 </div>
 
                 {w.topics && (
-                  <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">{w.topics}</p>
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{w.topics}</p>
                 )}
                 {w.outcomes && (
-                  <p className="mt-1.5 flex gap-1.5 text-[12.5px] leading-relaxed text-faint">
+                  <p className="mt-1.5 flex gap-1.5 text-[12px] leading-relaxed text-faint">
                     <Icon name="target" size={13} className="mt-0.5 shrink-0" />
                     {w.outcomes}
                   </p>
                 )}
                 {/* What a project for this week would be built against. */}
                 {w.assessments && (
-                  <p className="mt-2 flex gap-1.5 text-[12.5px] leading-relaxed text-amber-700 dark:text-amber-300">
+                  <p className="mt-2 flex gap-1.5 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
                     <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
                     {w.assessments}
                   </p>

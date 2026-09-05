@@ -116,7 +116,7 @@ export default function Notices() {
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <div className="min-w-0">
             <p className="eyebrow">Program</p>
-            <h1 className="mt-1 text-[26px] leading-tight sm:text-[30px]">Notices</h1>
+            <h1 className="mt-1 leading-tight sm:">Notices</h1>
           </div>
           <Button className="!rounded-xl" onClick={() => setComposing(true)}>
             <Icon name="plus" size={15} />
@@ -128,7 +128,7 @@ export default function Notices() {
           type="button"
           onClick={toggleAbout}
           aria-expanded={about}
-          className="mt-2 flex items-center gap-1 text-[12.5px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+          className="mt-2 flex items-center gap-1 text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
         >
           <Icon
             name="chevronDown"
@@ -145,7 +145,7 @@ export default function Notices() {
               suspension of classes. It appears on every dashboard and notifies anybody who has
               not turned announcements off.
             </p>
-            <p className="mt-2 max-w-[70ch] text-[13.5px] text-muted">
+            <p className="mt-2 max-w-[70ch] text-[13px] text-muted">
               A notice stays on those dashboards for <strong>{NOTICE_HOURS} hours</strong> and
               then comes off on its own. This page keeps every one you have sent, so nothing is
               lost — it is only no longer in front of people. To say something again, send it
@@ -202,7 +202,7 @@ export default function Notices() {
               />
             )}
           </Field>
-          <label className="flex items-center gap-2 text-[13.5px] text-muted">
+          <label className="flex items-center gap-2 text-[13px] text-muted">
             <input
               type="checkbox"
               checked={pinned}
@@ -212,7 +212,7 @@ export default function Notices() {
             Pin it to the top for its {NOTICE_HOURS} hours
           </label>
           {pinned && rows.some((r) => r.pinned) && (
-            <p className="text-[12.5px] text-amber-700 dark:text-amber-300">
+            <p className="text-[12px] text-amber-700 dark:text-amber-300">
               One notice is pinned at a time — sending this will refuse until you unpin the
               current one.
             </p>
@@ -307,7 +307,7 @@ function NoticeCard({
     >
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-[15.5px] text-ink">
+          <h2 className="flex items-center gap-2 text-ink">
             {n.pinned && <Icon name="pin" size={14} className="shrink-0 text-amber-500" />}
             {n.title}
           </h2>
@@ -332,7 +332,7 @@ function NoticeCard({
           </Button>
         </div>
       </div>
-      <p className="mt-2 max-w-[80ch] text-[13.5px] leading-relaxed whitespace-pre-wrap text-muted">
+      <p className="mt-2 max-w-[80ch] text-[13px] leading-relaxed whitespace-pre-wrap text-muted">
         {n.body}
       </p>
     </li>
