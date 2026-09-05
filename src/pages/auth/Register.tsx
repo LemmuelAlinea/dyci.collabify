@@ -70,6 +70,8 @@ export default function Register() {
 
   return (
     <AuthLayout
+      variant="register"
+      compact
       kicker="Get started"
       title="Create your account"
       subtitle="Set up your workspace for this semester."
@@ -82,7 +84,7 @@ export default function Register() {
         </>
       }
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-3">
         {!configured && (
           <Alert tone="info">
             Supabase is not connected yet, so registration is disabled. Add your keys to{' '}
@@ -192,7 +194,7 @@ export default function Register() {
         </p>
       </form>
 
-      <OrDivider />
+      <OrDivider compact />
       <GoogleButton onClick={onGoogle} loading={googleBusy} label="Sign up with Google" />
     </AuthLayout>
   )

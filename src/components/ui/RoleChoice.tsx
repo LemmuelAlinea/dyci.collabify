@@ -22,8 +22,8 @@ export function RoleChoice({
 }) {
   return (
     <fieldset>
-      <legend className="mb-2 text-[13px] font-medium text-ink">I am a</legend>
-      <div className="grid grid-cols-2 gap-3">
+      <legend className="mb-1.5 text-[12px] font-medium text-ink">I am a</legend>
+      <div className="grid grid-cols-2 gap-2">
         {OPTIONS.map((o) => {
           const active = value === o.value
           return (
@@ -32,21 +32,21 @@ export function RoleChoice({
               type="button"
               aria-pressed={active}
               onClick={() => onChange(o.value)}
-              className={`rounded-xl border p-3.5 text-left transition-[border-color,background-color,box-shadow] duration-200 ${
+              className={`rounded-xl border px-3 py-2.5 text-left transition-[border-color,background-color,box-shadow] duration-200 ${
                 active
                   ? 'border-navy-500 bg-navy-50 ring-4 ring-navy-500/12 dark:bg-navy-500/15'
                   : 'surface border-[var(--line)] hover:border-[var(--line-strong)]'
               }`}
             >
               <span
-                className={`flex items-center gap-2 text-[14px] font-semibold ${
+                className={`flex items-center gap-1.5 text-[13px] font-semibold ${
                   active ? 'text-navy-700 dark:text-navy-100' : 'text-ink'
                 }`}
               >
-                <Icon name={o.icon} size={17} />
+                <Icon name={o.icon} size={15} />
                 {o.label}
               </span>
-              <span className="mt-1.5 block text-[12px] leading-snug text-muted">{o.note}</span>
+              <span className="mt-1 block text-[11px] leading-snug text-muted">{o.note}</span>
             </button>
           )
         })}

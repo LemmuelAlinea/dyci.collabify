@@ -50,6 +50,7 @@ export default function Login() {
 
   return (
     <AuthLayout
+      variant="login"
       kicker="Welcome back"
       title="Sign in"
       subtitle="Pick up where your group left off."

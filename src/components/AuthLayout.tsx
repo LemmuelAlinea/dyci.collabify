@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { useReducedMotion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { Logo } from './brand/Logo'
 import { ThemeToggle } from './ThemeToggle'
 import { Icon } from './ui/Icon'
@@ -12,6 +12,8 @@ type Props = {
   subtitle: string
   children: ReactNode
   footer?: ReactNode
+  variant?: 'default' | 'login' | 'register'
+  compact?: boolean
 }
 
 /**
@@ -29,19 +31,46 @@ type Props = {
  * orbit, the mono kicker with its leading rule, and the underline that draws
  * itself under the words the sentence turns on.
  */
-export function AuthLayout({ kicker, title, subtitle, children, footer }: Props) {
+export function AuthLayout({
+  kicker,
+  title,
+  subtitle,
+  children,
+  footer,
+  variant = 'default',
+  compact = false,
+}: Props) {
   const reduce = useReducedMotion()
   const still = !!reduce
+  const mirrored = variant === 'register'
+  const desktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches
+  const animateSwap = !still && desktop && variant !== 'default'
+  const panelTransition = { duration: 0.72, ease: [0.22, 1, 0.36, 1] as const }
+  const brandStart = mirrored ? 'translateX(-117.4%)' : 'translateX(117.4%)'
+  const formStart = mirrored ? 'translateX(85.2%)' : 'translateX(-85.2%)'
 
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[minmax(0,46fr)_minmax(0,54fr)]">
+    <div
+      className={`surface grid min-h-dvh overflow-x-hidden lg:h-dvh lg:min-h-0 lg:overflow-hidden ${
+        mirrored
+          ? 'lg:grid-cols-[minmax(0,54fr)_minmax(0,46fr)]'
+          : 'lg:grid-cols-[minmax(0,46fr)_minmax(0,54fr)]'
+      }`}
+    >
       <a href="#main-content" className="skip-link">
         Skip to the form
       </a>
 
       {/* --------------------------------------------------------- brand */}
       {/* On phones this shrinks to a band so the form stays above the fold. */}
-      <aside className="relative overflow-hidden bg-navy-950 text-amber-50">
+      <motion.aside
+        initial={animateSwap ? { transform: brandStart } : false}
+        animate={{ transform: 'translateX(0%)' }}
+        transition={panelTransition}
+        className={`relative z-20 overflow-hidden bg-navy-950 text-amber-50 lg:h-dvh ${
+          mirrored ? 'lg:order-2' : ''
+        }`}
+      >
         <div
           aria-hidden
           className="pointer-events-none absolute -bottom-64 -left-56 h-[620px] w-[620px] rounded-full blur-[130px]"
@@ -149,10 +178,19 @@ export function AuthLayout({ kicker, title, subtitle, children, footer }: Props)
             © {new Date().getFullYear()} Collabify · Dr. Yanga's Colleges
           </p>
         </div>
-      </aside>
+      </motion.aside>
 
       {/* ---------------------------------------------------------- form */}
-      <main id="main-content" tabIndex={-1} className="surface relative flex flex-col outline-none">
+      <motion.main
+        id="main-content"
+        tabIndex={-1}
+        initial={animateSwap ? { transform: formStart, opacity: 0.82 } : false}
+        animate={{ transform: 'translateX(0%)', opacity: 1 }}
+        transition={panelTransition}
+        className={`surface relative z-10 flex min-h-0 flex-col outline-none lg:h-dvh ${
+          mirrored ? 'lg:order-1' : ''
+        }`}
+      >
         <div className="flex items-center justify-between p-4 md:p-6">
           <Link
             to="/"
@@ -164,8 +202,12 @@ export function AuthLayout({ kicker, title, subtitle, children, footer }: Props)
           <ThemeToggle />
         </div>
 
-        <div className="flex flex-1 items-center justify-center px-5 pb-12 md:px-8">
-          <div className="w-full max-w-[430px]">
+        <div className="flex min-h-0 flex-1 overflow-y-auto px-5 md:px-8">
+          <div
+            className={`mx-auto my-auto w-full max-w-[430px] ${
+              compact ? 'py-4 lg:py-0' : 'py-8 lg:py-10'
+            }`}
+          >
             {kicker && (
               <p className="flex items-center gap-3">
                 <span className="h-px w-7 bg-amber-400" />
@@ -174,22 +216,30 @@ export function AuthLayout({ kicker, title, subtitle, children, footer }: Props)
                 </span>
               </p>
             )}
-            <h1 className="mt-5 font-display text-[clamp(1.9rem,3vw,2.4rem)] leading-[1.05] font-bold tracking-[-0.035em]">
+            <h1
+              className={`${compact ? 'mt-3' : 'mt-5'} font-display text-[clamp(1.9rem,3vw,2.4rem)] leading-[1.05] font-bold tracking-[-0.035em]`}
+            >
               {title}
             </h1>
-            <p className="mt-3 text-[15px] leading-relaxed text-muted">{subtitle}</p>
-            <div className="mt-9">{children}</div>
-            {footer && <div className="mt-8 text-center text-[14px] text-muted">{footer}</div>}
+            <p className={`${compact ? 'mt-2' : 'mt-3'} text-[15px] leading-relaxed text-muted`}>
+              {subtitle}
+            </p>
+            <div className={compact ? 'mt-6' : 'mt-9'}>{children}</div>
+            {footer && (
+              <div className={`${compact ? 'mt-3' : 'mt-8'} text-center text-[14px] text-muted`}>
+                {footer}
+              </div>
+            )}
           </div>
         </div>
-      </main>
+      </motion.main>
     </div>
   )
 }
 
-export function OrDivider() {
+export function OrDivider({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="my-5 flex items-center gap-4">
+    <div className={`${compact ? 'my-4' : 'my-5'} flex items-center gap-4`}>
       <span className="h-px flex-1 bg-[var(--line)]" />
       <span className="font-mono text-[10px] tracking-[0.2em] text-faint uppercase">or</span>
       <span className="h-px flex-1 bg-[var(--line)]" />
