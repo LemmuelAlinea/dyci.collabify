@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BoardSheet } from '../../../components/reports/BoardSheet'
 import { ClassRecordSheet, classRecordCsv } from '../../../components/reports/ClassRecordSheet'
 import { ClassTermSheet } from '../../../components/reports/ClassTermSheet'
@@ -8,6 +9,7 @@ import { ReportBar, ReportSidebar } from '../../../components/reports/ReportPick
 import type { ReportGroup } from '../../../components/reports/ReportPicker'
 import { TermSummarySheet, termSummaryCsv } from '../../../components/reports/TermSummarySheet'
 import { Alert } from '../../../components/ui/Alert'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { Spinner } from '../../../components/ui/Icon'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useAuth } from '../../../context/AuthContext'
@@ -88,6 +90,10 @@ export default function Reports() {
   const r = useReports(profile?.id)
   const professor = profile ? fullName(profile) : ''
 
+  useEffect(() => {
+    document.title = 'Reports · Collabify'
+  }, [])
+
   if (r.loading) {
     return (
       <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
@@ -122,16 +128,21 @@ export default function Reports() {
   const csv = csvFor()
 
   return (
-    <div className="space-y-7">
-      <header className="print:hidden">
-        <p className="eyebrow">Teaching</p>
-        <h1 className="mt-1 leading-tight">Reports</h1>
-        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
-          The record you hand to somebody else. Pick a report, choose what it is about, then
-          print it — your browser's print dialog saves it as a PDF. Classes whose term has
-          ended are still here; a report is usually asked for afterwards.
-        </p>
-      </header>
+    <div className="w-full space-y-7">
+      <div className="print:hidden">
+        <DirectoryHero
+          title="Records ready"
+          accent="to share."
+          description="Choose a report, set its scope and produce a clear printable record for grading, review or the course file."
+          stats={[
+            { value: r.classes.length, label: 'Classes available' },
+            {
+              value: CATALOGUE.reduce((count, group) => count + group.items.length, 0),
+              label: 'Report formats',
+            },
+          ]}
+        />
+      </div>
 
       {r.error && <Alert tone="error">{r.error}</Alert>}
 

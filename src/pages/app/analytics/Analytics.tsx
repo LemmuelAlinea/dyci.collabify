@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FilterChain } from '../../../components/analytics/FilterChain'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
 import { Alert } from '../../../components/ui/Alert'
 import { Spinner } from '../../../components/ui/Icon'
@@ -31,6 +32,10 @@ export default function Analytics() {
   const [openTask, setOpenTask] = useState<string | null>(null)
   const { scope, setScope, shownTasks } = data
 
+  useEffect(() => {
+    document.title = 'Analytics · Collabify'
+  }, [])
+
   if (data.loading) {
     return (
       <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
@@ -41,27 +46,33 @@ export default function Analytics() {
   }
 
   return (
-    <div className="space-y-8">
-      <header>
-        <p className="eyebrow">Teaching</p>
-        <h1 className="mt-1 leading-tight">Analytics</h1>
-        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
-          Narrow to a class, a project, a group, one student or a single task. The page then
-          answers four questions about whatever you chose: what has happened, why, what is
-          coming, and what to do next.
-        </p>
-      </header>
+    <div className="w-full space-y-6">
+      <DirectoryHero
+        title="Analytics,"
+        accent="with context."
+        description="Move from what happened to why it happened, what is coming and what needs attention next."
+        stats={[
+          { value: data.health.length, label: 'Classes measured' },
+          { value: shownTasks.length, label: 'Tasks in view' },
+        ]}
+      />
 
       {data.error && <Alert tone="error" onRetry={data.reload}>{data.error}</Alert>}
 
-      <FilterChain
-        scope={scope}
-        onChange={setScope}
-        classes={data.health}
-        burns={data.burns}
-        members={data.members}
-        tasks={data.tasks}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line surface-sunken px-4 py-3.5 sm:px-5">
+        <div>
+          <p className="text-[12px] font-medium text-faint">Analysis scope</p>
+          <p className="mt-0.5 text-[13px] text-muted">Start broad, then narrow only when needed.</p>
+        </div>
+        <FilterChain
+          scope={scope}
+          onChange={setScope}
+          classes={data.health}
+          burns={data.burns}
+          members={data.members}
+          tasks={data.tasks}
+        />
+      </div>
 
       {data.health.length === 0 ? (
         <EmptyState

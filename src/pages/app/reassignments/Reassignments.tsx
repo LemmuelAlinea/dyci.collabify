@@ -9,6 +9,7 @@ import { Select, Textarea } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { Reveal } from '../../../components/motion/Reveal'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { decideReassignment, listReassignments } from '../../../lib/api/reassignments'
 import { listGroupMembers } from '../../../lib/api/groups'
 import { authErrorMessage } from '../../../lib/authError'
@@ -54,6 +55,10 @@ export default function Reassignments() {
   }, [])
 
   useEffect(() => {
+    document.title = 'Reassignments · Collabify'
+  }, [])
+
+  useEffect(() => {
     void load()
   }, [load])
 
@@ -72,54 +77,66 @@ export default function Reassignments() {
   }
 
   return (
-    <div className="space-y-8">
-      <header>
-        <p className="eyebrow">Teaching</p>
-        <h1 className="mt-1 leading-tight">Reassignments</h1>
-        <p className="mt-2 max-w-[62ch] text-[14px] text-muted">
-          When a task stalls with the person holding it, their group can ask for it to move.
-          You decide, and you are the only one who reads the reason.
-        </p>
-      </header>
+    <div className="w-full space-y-6">
+      <DirectoryHero
+        title="Keep work"
+        accent="moving."
+        description="Review requests to move stalled tasks, understand the reason and decide who should carry the work next."
+        stats={[
+          { value: pending.length, label: 'Waiting on you' },
+          { value: settled.length, label: 'Resolved requests' },
+        ]}
+      />
 
       {error && <Alert tone="error">{error}</Alert>}
 
-      <section className="space-y-3">
-        <h2>
-          Waiting on you
-          {pending.length > 0 && (
-            <span className="ml-2 font-mono text-[13px] text-amber-700 dark:text-amber-300">
-              {pending.length}
-            </span>
-          )}
-        </h2>
+      <section className="overflow-hidden rounded-panel border border-line surface shadow-card">
+        <div className="flex items-center justify-between gap-3 border-b border-line surface-sunken px-5 py-4">
+          <div>
+            <h2>Waiting on you</h2>
+            <p className="mt-1 text-[12px] text-faint">New requests that still need a decision.</p>
+          </div>
+          <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted ring-1 ring-[var(--line)]">
+            {pending.length}
+          </span>
+        </div>
 
         {pending.length === 0 ? (
-          <EmptyState
-            icon="check"
-            art="reassignments"
-            title="Nothing to decide"
-            body="Requests from your classes land here. Students can only ask about work on their own board."
-          />
+          <div className="p-5">
+            <EmptyState
+              icon="check"
+              art="reassignments"
+              title="Nothing to decide"
+              body="Requests from your classes land here. Students can only ask about work on their own board."
+            />
+          </div>
         ) : (
-          <ul className="space-y-3">
+          <div className="grid gap-3 p-4 lg:grid-cols-2 sm:p-5">
             {pending.map((r, i) => (
               <Reveal key={r.id} delay={i * 0.04}>
                 <RequestCard row={r} onDecide={() => setDeciding(r)} />
               </Reveal>
             ))}
-          </ul>
+          </div>
         )}
       </section>
 
       {settled.length > 0 && (
-        <section className="space-y-3">
-          <h2>Already decided</h2>
-          <ul className="space-y-3">
+        <section className="overflow-hidden rounded-panel border border-line surface shadow-card">
+          <div className="flex items-center justify-between gap-3 border-b border-line surface-sunken px-5 py-4">
+            <div>
+              <h2>Decision history</h2>
+              <p className="mt-1 text-[12px] text-faint">Requests already resolved.</p>
+            </div>
+            <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted ring-1 ring-[var(--line)]">
+              {settled.length}
+            </span>
+          </div>
+          <ul className="divide-y divide-[var(--line)]">
             {settled.map((r) => (
               <li
                 key={r.id}
-                className="surface flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line px-4 py-3"
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5"
               >
                 <span
                   className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[12px] ${TONE[r.status]}`}
@@ -153,7 +170,7 @@ export default function Reassignments() {
 
 function RequestCard({ row, onDecide }: { row: ReassignmentRow; onDecide: () => void }) {
   return (
-    <li className="card p-4 sm:p-5 shadow-card">
+    <article className="h-full rounded-card border border-line bg-[var(--surface)] p-4 transition-colors hover:border-line-strong sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="eyebrow">
@@ -185,7 +202,7 @@ function RequestCard({ row, onDecide }: { row: ReassignmentRow; onDecide: () => 
         <Icon name="kanban" size={14} />
         Open the task
       </Link>
-    </li>
+    </article>
   )
 }
 

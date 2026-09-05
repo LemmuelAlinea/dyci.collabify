@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { BoardSheet } from '../../../components/reports/BoardSheet'
 import { ContributionSheet } from '../../../components/reports/ContributionSheet'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { Button } from '../../../components/ui/Button'
 import { Alert } from '../../../components/ui/Alert'
 import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
@@ -48,6 +49,10 @@ export default function StudentReports() {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [requests, setRequests] = useState<ReassignmentRow[]>([])
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    document.title = 'Reports · Collabify'
+  }, [])
 
   const load = useCallback(async () => {
     try {
@@ -124,16 +129,18 @@ export default function StudentReports() {
   }
 
   return (
-    <div className="space-y-7">
-      <header className="print:hidden">
-        <p className="eyebrow">Workspace</p>
-        <h1 className="mt-1 leading-tight">Reports</h1>
-        <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
-          Your own copy of what you did. Print it from here — your browser's print dialog
-          saves it as a PDF — and keep it, or attach it to a defense record. It records
-          effort, never a grade.
-        </p>
-      </header>
+    <div className="w-full space-y-7">
+      <div className="print:hidden">
+        <DirectoryHero
+          title="Your work,"
+          accent="on record."
+          description="Create a printable record of your contribution or your group’s project work without turning effort into a grade."
+          stats={[
+            { value: classes.length, label: 'Classes represented' },
+            { value: groupBoards.length, label: 'Group projects' },
+          ]}
+        />
+      </div>
 
       {error && <Alert tone="error">{error}</Alert>}
 
@@ -145,8 +152,8 @@ export default function StudentReports() {
         />
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-3 print:hidden">
-            <div className="flex rounded-xl surface-sunken p-1">
+          <div className="flex flex-wrap items-center gap-3 rounded-panel border border-line surface-sunken p-3 print:hidden sm:p-4">
+            <div className="flex rounded-lg border border-line bg-[var(--surface)] p-0.5">
               {(
                 [
                   ['mine', 'My work'],
@@ -157,8 +164,8 @@ export default function StudentReports() {
                   key={k}
                   type="button"
                   onClick={() => setKind(k)}
-                  className={`rounded-lg px-3.5 py-1.5 text-[13px] transition-colors ${
-                    kind === k ? 'surface font-medium text-ink ring-1 ring-[var(--line-strong)]' : 'text-muted hover:text-ink'
+                  className={`rounded-md px-3.5 py-1.5 text-[13px] transition-colors ${
+                    kind === k ? 'bg-navy-950 font-medium text-white dark:bg-navy-700' : 'text-muted hover:text-ink'
                   }`}
                 >
                   {label}
@@ -213,6 +220,8 @@ export default function StudentReports() {
             </Button>
           </div>
 
+          <div className="rounded-panel bg-[var(--surface-sunken)] p-0 sm:p-6 print:!bg-transparent print:!p-0">
+          <div className="mx-auto w-full max-w-[900px]">
           {kind === 'group' && groupBoards.length === 0 ? (
             <EmptyState
               icon="users"
@@ -253,6 +262,8 @@ export default function StudentReports() {
               signatureLabel="Prepared by"
             />
           ) : null}
+          </div>
+          </div>
         </>
       )}
     </div>

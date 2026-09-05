@@ -12,6 +12,7 @@ import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import {
   deleteResource,
   listProgramResources,
@@ -128,34 +129,65 @@ export function ResourceLibrary({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1280px]">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow text-amber-500 dark:text-amber-300">{copy.eyebrow}</p>
-          <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">{copy.title}</h1>
-          <p className="mt-2.5 max-w-[560px] text-[15.5px] text-muted">{copy.intro}</p>
-        </div>
-        <Button onClick={() => setAddOpen(true)} className="!rounded-xl">
-          <Icon name="plus" size={17} />
-          {copy.addLabel}
-        </Button>
-      </header>
+    <div className="w-full">
+      {programWide ? (
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="eyebrow text-amber-500 dark:text-amber-300">{copy.eyebrow}</p>
+            <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">{copy.title}</h1>
+            <p className="mt-2.5 max-w-[560px] text-[15.5px] text-muted">{copy.intro}</p>
+          </div>
+          <Button onClick={() => setAddOpen(true)} className="!rounded-xl">
+            <Icon name="plus" size={17} />
+            {copy.addLabel}
+          </Button>
+        </header>
+      ) : (
+        <DirectoryHero
+          title={kind === 'curriculum' ? 'Program' : 'Course'}
+          accent={`${copy.title.toLowerCase()}.`}
+          description={copy.intro}
+          action={
+            <Button
+              variant="onNavy"
+              size="sm"
+              onClick={() => setAddOpen(true)}
+              className="!rounded-lg"
+            >
+              <Icon name="plus" size={16} />
+              {copy.addLabel}
+            </Button>
+          }
+          stats={[
+            { value: items === null ? '—' : items.length, label: 'Your files' },
+            { value: published.length, label: 'Program files' },
+          ]}
+        />
+      )}
 
       <div className="mt-8">
         {loadError && <Alert tone="error">{loadError}</Alert>}
 
+        {!programWide && (
+          <div className="mb-5 border-b border-line pb-4">
+            <p className="text-[12px] font-medium text-faint">Document library</p>
+            <h2 className="mt-1">Your {copy.title.toLowerCase()}</h2>
+          </div>
+        )}
+
         {published.length > 0 && (
-          <section className="mb-6 space-y-2">
-            <p className="eyebrow text-faint">From the program office</p>
-            <p className="max-w-[620px] text-[13px] text-muted">
-              Published for the whole program. Attach one to a class from the class settings
-              and every section of the subject runs the same one.
-            </p>
-            <ul className="space-y-2">
+          <section className="mb-6 overflow-hidden rounded-panel border border-line surface shadow-card">
+            <div className="border-b border-line surface-sunken px-5 py-4">
+              <h3>From the program office</h3>
+              <p className="mt-1 max-w-[620px] text-[12px] text-muted">
+                Shared across the program and ready to attach from class settings.
+              </p>
+            </div>
+            <ul className="divide-y divide-[var(--line)]">
               {published.map((r) => (
                 <li
                   key={r.id}
-                  className="surface flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line px-3.5 py-2.5"
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3.5"
                 >
                   <Icon name="file" size={15} className="shrink-0 text-faint" />
                   <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{r.title}</span>
@@ -189,10 +221,10 @@ export function ResourceLibrary({
             }
           />
         ) : (
-          <ul className="surface divide-y divide-[var(--line)] rounded-card border border-line shadow-card">
+          <ul className="grid gap-3 md:grid-cols-2">
             {items.map((r) => (
-              <li key={r.id} className="flex items-center gap-4 px-5 py-4">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl surface-sunken text-muted">
+              <li key={r.id} className="surface flex min-h-[96px] items-center gap-4 rounded-card border border-line px-5 py-4 transition-colors hover:border-line-strong">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-navy-950 text-amber-300">
                   <Icon name="file" size={19} />
                 </span>
                 <div className="min-w-0 flex-1">
