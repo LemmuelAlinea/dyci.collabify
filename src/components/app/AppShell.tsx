@@ -195,9 +195,9 @@ export function AppShell() {
               aria-modal="true"
               aria-label="Navigation"
               className="app-ui surface absolute inset-y-0 left-0 flex w-[276px] flex-col border-r border-line"
-              initial={reduce ? false : { x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={reduce ? undefined : { x: '-100%' }}
+              initial={reduce ? false : { transform: 'translateX(-100%)' }}
+              animate={{ transform: 'translateX(0)' }}
+              exit={reduce ? undefined : { transform: 'translateX(-100%)' }}
               transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             >
               <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-line px-4">
