@@ -308,7 +308,7 @@ function ProfessorRow({ account, load }: { account: Account; load?: Load }) {
                 <span className="flex w-[86px] shrink-0 justify-end">
                   {gaps.length > 0 && (
                     <span title={gaps.join(', ')}>
-                      <Badge tone="warning" className="whitespace-nowrap">
+                      <Badge tone="warning" className="shrink-0 whitespace-nowrap">
                         not ready
                       </Badge>
                     </span>

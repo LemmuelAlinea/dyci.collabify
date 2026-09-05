@@ -293,13 +293,13 @@ function ClassLine({ cls }: { cls: ProgramClass }) {
       <span className="flex w-[92px] shrink-0 justify-end">
         {gaps.length > 0 ? (
           <span title={gaps.join(', ')}>
-            <Badge tone="warning" className="whitespace-nowrap">
+            <Badge tone="warning" className="shrink-0 whitespace-nowrap">
               not ready
             </Badge>
           </span>
         ) : behind ? (
           <span title="Fewer syllabus weeks covered than the term has used">
-            <Badge tone="danger" className="whitespace-nowrap">
+            <Badge tone="danger" className="shrink-0 whitespace-nowrap">
               behind
             </Badge>
           </span>

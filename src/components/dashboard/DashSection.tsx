@@ -26,7 +26,7 @@ export function DashSection({
         <h2 className="flex items-center gap-2 text-[15.5px] sm:text-[17px]">
           <Icon name={icon} size={17} className="text-faint" />
           {title}
-          {typeof count === 'number' && count > 0 && <Badge>{count}</Badge>}
+          {typeof count === 'number' && count > 0 && <Badge numeric>{count}</Badge>}
         </h2>
         {seeAll && (
           <Link

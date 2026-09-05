@@ -204,7 +204,7 @@ export default function MyTasks() {
                       <h2 className={`flex items-center gap-2 text-[16px] ${bucket.tone}`}>
                         <span className={`h-2.5 w-2.5 rounded-full ${bucket.bar}`} />
                         {bucket.title}
-                        <Badge>{list.length}</Badge>
+                        <Badge numeric>{list.length}</Badge>
                       </h2>
                       <p className="text-[12.5px] text-faint">{bucket.blurb}</p>
                     </header>

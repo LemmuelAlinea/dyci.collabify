@@ -117,7 +117,7 @@ export function ConversationList({
                                 {c.last_body || c.subtitle}
                               </span>
                               {c.unread_count > 0 && (
-                                <Badge tone="accent" className="shrink-0">
+                                <Badge tone="accent" numeric className="shrink-0">
                                   {c.unread_count > 99 ? '99+' : c.unread_count}
                                 </Badge>
                               )}
