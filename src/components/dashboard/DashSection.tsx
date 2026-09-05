@@ -23,7 +23,7 @@ export function DashSection({
   return (
     <section className="space-y-3">
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2 className="flex items-center gap-2 sm:">
+        <h2 className="flex items-center gap-2">
           <Icon name={icon} size={17} className="text-faint" />
           {title}
           {typeof count === 'number' && count > 0 && <Badge numeric>{count}</Badge>}

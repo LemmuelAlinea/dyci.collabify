@@ -146,7 +146,7 @@ export function Modal({
       >
         <header className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
           <div className="min-w-0">
-            <h2 className="">{title}</h2>
+            <h2>{title}</h2>
             {description && <p className="mt-1 text-[13px] text-muted">{description}</p>}
           </div>
           <button

@@ -115,6 +115,7 @@ export default function ProfessorHome() {
           <Reveal once>
             <DashboardSummary
               greeting={greeting()}
+              kicker="Teaching"
               name={profile.first_name}
               line={line}
               urgent={waiting > 0 || stalled > 0}

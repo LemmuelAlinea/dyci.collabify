@@ -326,7 +326,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         {/* The syllabus lines it was built on — the reason the project exists. */}
         <section className="card p-4 sm:p-5 shadow-card sm:p-6">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="">Based on the syllabus</h2>
+            <h2>Based on the syllabus</h2>
             <StatusPill project={project} />
           </div>
           {span.length === 0 ? (
@@ -360,7 +360,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         </section>
 
         <section className="card p-4 sm:p-5 shadow-card sm:p-6">
-          <h2 className="">Guidelines</h2>
+          <h2>Guidelines</h2>
           {project.guidelines ? (
             <p className="mt-3 text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
               {project.guidelines}
@@ -376,7 +376,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
 
         <section className="card p-4 sm:p-5 shadow-card sm:p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 className="">Rubric</h2>
+            <h2>Rubric</h2>
             {criteria.length > 0 && (
               <p className="font-mono text-[12px] text-faint">
                 {rubricTotal} / {project.total_points} points
@@ -409,7 +409,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         </section>
 
         <section className="card p-4 sm:p-5 shadow-card sm:p-6">
-          <h2 className="">Files</h2>
+          <h2>Files</h2>
           {files.length === 0 ? (
             <p className="mt-2 text-[13px] text-faint">Nothing attached.</p>
           ) : (

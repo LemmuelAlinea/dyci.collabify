@@ -335,7 +335,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
 
       <section className="mt-8">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="">Projects and tasks</h2>
+          <h2>Projects and tasks</h2>
           <p className="text-[12px] text-faint">
             Everything set for this group, without leaving it.
           </p>
@@ -345,7 +345,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
 
       <section className="mt-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="">Members</h2>
+          <h2>Members</h2>
           {canManage && unplaced.length > 0 && (
             <div className="w-full sm:w-[260px]">
               <Select

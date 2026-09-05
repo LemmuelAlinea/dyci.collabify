@@ -213,7 +213,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card p-4 sm:p-5 shadow-card">
-          <h3 className="">Where it stands</h3>
+          <h3>Where it stands</h3>
           <p className="mt-1 mb-4 text-[13px] text-muted">
             Every task in view, by status.
             {logged > 0 && ` ${formatMinutes(logged)} logged against them.`}
@@ -233,7 +233,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
         </section>
 
         <section className="surface flex max-h-[380px] flex-col rounded-card border border-line p-4 sm:p-5 shadow-card">
-          <h3 className="">Recent activity</h3>
+          <h3>Recent activity</h3>
           <p className="mt-1 mb-3 text-[13px] text-muted">What has moved lately.</p>
           {events === null ? (
             <p className="flex items-center gap-2 py-4 text-[13px] text-muted">
@@ -269,7 +269,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
 
       {load.size > 0 && (
         <section className="card p-4 sm:p-5 shadow-card">
-          <h3 className="">Who is carrying what</h3>
+          <h3>Who is carrying what</h3>
           <p className="mt-1 mb-3 text-[13px] text-muted">
             Tasks held, and how many of them are finished.
           </p>

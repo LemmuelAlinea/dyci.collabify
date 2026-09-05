@@ -106,7 +106,7 @@ export default function ProfessorApprovals() {
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
 
       <section className="space-y-3">
-        <h2 className="">
+        <h2>
           Waiting on you
           {waiting.length > 0 && (
             <span className="ml-2 font-mono text-[13px] text-amber-700 dark:text-amber-300">
@@ -162,7 +162,7 @@ export default function ProfessorApprovals() {
 
       {settled.length > 0 && (
         <section className="space-y-3">
-          <h2 className="">Already decided</h2>
+          <h2>Already decided</h2>
           <ul className="space-y-3">
             {settled.map((a) => (
               <li

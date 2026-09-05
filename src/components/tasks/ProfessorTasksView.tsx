@@ -53,7 +53,7 @@ export function ProfessorTasksView({
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="">What you set</h3>
+            <h3>What you set</h3>
             <p className="mt-0.5 text-[13px] text-muted">
               Handed to the groups. They decide who does it.
             </p>
@@ -116,7 +116,7 @@ export function ProfessorTasksView({
       </section>
 
       <section className="space-y-3">
-        <h3 className="">{solo ? 'Where the students are' : 'Where the groups are'}</h3>
+        <h3>{solo ? 'Where the students are' : 'Where the groups are'}</h3>
         <GroupProgressTable
           boards={boards ?? []}
           activeId={active?.id}
@@ -177,7 +177,7 @@ export function ProfessorTasksView({
       {active && (
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="">{boardOwnerName(active)}</h3>
+            <h3>{boardOwnerName(active)}</h3>
             <Button variant="ghost" size="sm" onClick={() => t.showBoard(null)}>
               <Icon name="x" size={15} />
               Close

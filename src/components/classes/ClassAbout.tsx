@@ -58,7 +58,7 @@ export function ClassAbout({ cls }: { cls: ClassSummary }) {
     <div className="space-y-5">
       {cls.description && (
         <section className="card p-4 sm:p-6 shadow-card">
-          <h2 className="">About this class</h2>
+          <h2>About this class</h2>
           <p className="mt-2.5 text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
             {cls.description}
           </p>
@@ -66,7 +66,7 @@ export function ClassAbout({ cls }: { cls: ClassSummary }) {
       )}
 
       <section className="card p-4 sm:p-6 shadow-card">
-        <h2 className="">Details</h2>
+        <h2>Details</h2>
         <dl className="mt-2 divide-y divide-[var(--line)]">
           <Row label="Section" value={cls.section} />
           <Row label="Year level" value={yearLabel} />
@@ -82,7 +82,7 @@ export function ClassAbout({ cls }: { cls: ClassSummary }) {
 
       {attached.length > 0 && (
         <section className="card p-4 sm:p-6 shadow-card">
-          <h2 className="">Course documents</h2>
+          <h2>Course documents</h2>
           <div className="mt-3 space-y-2">
             {attached.map((r) => (
               <button

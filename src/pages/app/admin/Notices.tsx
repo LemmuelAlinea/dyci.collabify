@@ -116,7 +116,7 @@ export default function Notices() {
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <div className="min-w-0">
             <p className="eyebrow">Program</p>
-            <h1 className="mt-1 leading-tight sm:">Notices</h1>
+            <h1 className="mt-1 leading-tight">Notices</h1>
           </div>
           <Button className="!rounded-xl" onClick={() => setComposing(true)}>
             <Icon name="plus" size={15} />

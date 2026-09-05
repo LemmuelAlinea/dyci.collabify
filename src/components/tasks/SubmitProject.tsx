@@ -106,7 +106,7 @@ export function SubmitProject({
       <section className="card p-4 sm:p-5 shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="">Ready to hand in?</h3>
+            <h3>Ready to hand in?</h3>
             <p className="mt-1 max-w-[60ch] text-[13px] leading-relaxed text-muted">
               {unfinished > 0
                 ? `${unfinished} ${unfinished === 1 ? 'task is' : 'tasks are'} still unfinished. You can hand in anyway — your professor sees where the work got to.`

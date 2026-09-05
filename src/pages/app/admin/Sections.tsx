@@ -126,7 +126,7 @@ export default function Sections() {
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
           <p className="eyebrow">Program</p>
-          <h1 className="mt-1 leading-tight sm:">Sections</h1>
+          <h1 className="mt-1 leading-tight">Sections</h1>
           <p className="mt-2 max-w-[70ch] text-[14px] text-muted">
             The cohorts the program runs this year. A professor making a class picks from
             this list, so one section is spelled one way everywhere and its figures add up.

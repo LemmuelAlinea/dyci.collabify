@@ -16,7 +16,7 @@ export function UnmeasuredList({ rows }: { rows: ClassUnmeasured[] }) {
 
   return (
     <section className="space-y-3">
-      <h2 className="">Not being measured</h2>
+      <h2>Not being measured</h2>
       <p className="max-w-[66ch] text-[13px] text-muted">
         {rows.length === 1 ? 'This class is' : 'These classes are'} left out of every figure
         above. Nothing is wrong with {rows.length === 1 ? 'it' : 'them'} — there is just

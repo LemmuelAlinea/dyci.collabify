@@ -79,7 +79,7 @@ export default function Analytics() {
           {/* The leaf. Only worth the room once the question is narrow. */}
           {(scope.boardId || scope.studentId || scope.taskId) && (
             <section className="space-y-3 border-t border-line pt-6">
-              <h2 className="">
+              <h2>
                 Tasks
                 <span className="ml-2 font-mono text-[13px] text-faint">
                   {shownTasks.length}

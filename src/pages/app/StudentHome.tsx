@@ -118,6 +118,7 @@ export default function StudentHome() {
           <Reveal once>
             <DashboardSummary
               greeting={greeting()}
+              kicker="Your term"
               name={profile.first_name}
               line={line}
               urgent={overdue > 0}

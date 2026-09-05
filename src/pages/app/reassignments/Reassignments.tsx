@@ -85,7 +85,7 @@ export default function Reassignments() {
       {error && <Alert tone="error">{error}</Alert>}
 
       <section className="space-y-3">
-        <h2 className="">
+        <h2>
           Waiting on you
           {pending.length > 0 && (
             <span className="ml-2 font-mono text-[13px] text-amber-700 dark:text-amber-300">
@@ -114,7 +114,7 @@ export default function Reassignments() {
 
       {settled.length > 0 && (
         <section className="space-y-3">
-          <h2 className="">Already decided</h2>
+          <h2>Already decided</h2>
           <ul className="space-y-3">
             {settled.map((r) => (
               <li

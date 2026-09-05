@@ -81,7 +81,7 @@ function Section({
           <Icon name={icon} size={19} />
         </span>
         <div className="min-w-0">
-          <h2 className="">{title}</h2>
+          <h2>{title}</h2>
           <p className="mt-0.5 text-[13px] text-muted">{description}</p>
         </div>
       </header>

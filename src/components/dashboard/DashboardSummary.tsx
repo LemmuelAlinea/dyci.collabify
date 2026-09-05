@@ -71,33 +71,85 @@ export type Tile = {
 export function DashboardSummary({
   greeting,
   name,
+  kicker,
   line,
   urgent = false,
   tiles,
 }: {
   greeting: string
   name: string
+  /** The mono label above the greeting. Names the surface, not the person. */
+  kicker: string
   /** One sentence of what is true right now, built by the page from its own data. */
   line: string
   urgent?: boolean
   tiles: Tile[]
 }) {
   return (
-    <section>
-      <h1 className="leading-tight">
-        {greeting}, {name}.
-      </h1>
+    /**
+     * The masthead, in the landing page's language.
+     *
+     * A bounded band rather than a whole dark dashboard. `.app-ui` records why
+     * the working surface stays white — a person is in here for an hour
+     * reading dense pages, and every tint is something their eye has to sort
+     * before it reaches the sentence it came for. That reasoning holds for the
+     * panels below and does not hold for this: the greeting and four figures
+     * are glanced at, not read, and giving them the near-black ground is what
+     * makes opening the app feel like the page that sold it.
+     *
+     * It also gives the inverted tiles somewhere to belong. They were already
+     * reversed against the theme; against a dark band they read as part of it
+     * rather than as four dark rectangles on white.
+     *
+     * The hairline is what makes it a band in dark mode. Measured there, the
+     * band is rgb(8,11,33) against a page of rgb(10,14,36) — two units apart,
+     * so fill alone cannot separate them and the edge has to. In light mode it
+     * is a faint highlight along a dark shape, which costs nothing.
+     */
+    <section className="relative overflow-hidden rounded-panel border border-amber-50/10 bg-navy-950 px-5 py-7 text-amber-50 sm:px-7 sm:py-8 lg:px-9 lg:py-10">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-56 -right-40 h-[460px] w-[460px] rounded-full blur-[120px]"
+        style={{
+          background:
+            'radial-gradient(circle, rgb(240 180 41 / 0.18) 0%, rgb(240 180 41 / 0.05) 45%, transparent 70%)',
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px)',
+          backgroundSize: '54px 54px',
+          maskImage: 'radial-gradient(ellipse at 30% 30%, #000, transparent 75%)',
+          WebkitMaskImage: 'radial-gradient(ellipse at 30% 30%, #000, transparent 75%)',
+        }}
+      />
 
-      <p
-        className={`mt-2 flex items-start gap-2 text-[14px] leading-relaxed ${
-          urgent ? 'text-amber-700 dark:text-amber-300' : 'text-muted'
-        }`}
-      >
-        {urgent && <Icon name="alert" size={17} className="mt-0.5 shrink-0" />}
-        {line}
-      </p>
+      <div className="relative">
+        <p className="flex items-center gap-3">
+          <span className="h-px w-7 bg-amber-400" />
+          <span className="font-mono text-[12px] tracking-[0.22em] text-amber-200/75 uppercase">
+            {kicker}
+          </span>
+        </p>
 
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-6 sm:gap-3 lg:grid-cols-4">
+        <h1 className="mt-5 font-display leading-tight text-amber-50">
+          {greeting}, {name}.
+        </h1>
+
+        <p
+          className={`mt-3 flex items-start gap-2 text-[14px] leading-relaxed ${
+            urgent ? 'text-amber-300' : 'text-amber-50/60'
+          }`}
+        >
+          {urgent && <Icon name="alert" size={17} className="mt-0.5 shrink-0" />}
+          {line}
+        </p>
+      </div>
+
+      <div className="relative mt-6 grid grid-cols-2 gap-3 sm:mt-7 lg:grid-cols-4">
         {tiles.map((t) => {
           const body = (
             <>
@@ -105,43 +157,39 @@ export function DashboardSummary({
                 <Icon
                   name={t.icon}
                   size={17}
-                  className={
-                    t.tone === 'warn'
-                      ? 'text-amber-300 dark:text-amber-600'
-                      : 'text-navy-300 dark:text-navy-500'
-                  }
+                  className={t.tone === 'warn' ? 'text-amber-300' : 'text-amber-50/45'}
                 />
                 {t.to && (
                   <Icon
                     name="arrowRight"
                     size={15}
-                    className="text-navy-300 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-navy-500"
+                    className="text-amber-50/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                   />
                 )}
               </span>
               <span
                 className={`mt-2.5 block font-mono text-[24px] leading-none font-bold tabular-nums sm:mt-3 sm:text-[30px] ${
-                  t.tone === 'warn' ? 'text-amber-300 dark:text-amber-600' : 'text-white dark:text-navy-900'
+                  t.tone === 'warn' ? 'text-amber-300' : 'text-amber-50'
                 }`}
               >
                 <CountUp value={t.value} />
               </span>
-              <span className="mt-1.5 block text-[12px] leading-snug text-navy-200 dark:text-navy-600">
+              <span className="mt-1.5 block text-[12px] leading-snug text-amber-50/55">
                 {t.label}
               </span>
             </>
           )
 
-          // Inverted against the page on purpose: a dark tile on the light
-          // theme and a light tile on the dark one. The strip is the one thing
-          // here that is read at a glance rather than scanned, and reversing it
-          // separates it from the panels below without another colour.
+          // A step above the band rather than inverted against the page. The
+          // tiles used to reverse with the theme, which earned them their own
+          // weight on a white dashboard; inside a dark masthead that would read
+          // as four holes punched in it.
           const shell =
             'group flex flex-col rounded-card border px-3.5 py-3 transition-colors duration-200 sm:px-4 sm:py-3.5 ' +
-            'bg-navy-900 dark:bg-navy-50 ' +
+            'bg-amber-50/5 backdrop-blur-sm ' +
             (t.tone === 'warn'
-              ? 'border-amber-400/50 dark:border-amber-500/50'
-              : 'border-navy-700 hover:border-navy-500 dark:border-navy-200 dark:hover:border-navy-300')
+              ? 'border-amber-400/45'
+              : 'border-amber-50/12 hover:border-amber-50/25')
 
           return t.to ? (
             <Link key={t.label} to={t.to} className={shell}>
