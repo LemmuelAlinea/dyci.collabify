@@ -48,7 +48,17 @@ export function ConversationList({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="space-y-3 border-b border-line px-4 py-4">
+      <div className="space-y-3 border-b border-line bg-[var(--surface-sunken)] px-4 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2>Inbox</h2>
+            <p className="mt-0.5 text-[12px] text-muted">
+              {conversations.length}{' '}
+              {conversations.length === 1 ? 'conversation' : 'conversations'}
+            </p>
+          </div>
+          {action}
+        </div>
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Icon
@@ -64,7 +74,6 @@ export function ConversationList({
               className="h-10 w-full rounded-xl border border-[var(--control-line)] bg-[var(--surface)] pr-3 pl-9 text-[14px] text-ink placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12"
             />
           </div>
-          {action}
         </div>
       </div>
 
@@ -81,16 +90,20 @@ export function ConversationList({
             if (rows.length === 0) return null
             return (
               <section key={kind}>
-                <p className="eyebrow px-4 pt-4 pb-1.5 text-faint">{label}</p>
-                <ul>
+                <p className="px-4 pt-4 pb-1.5 text-[11px] font-semibold tracking-[0.08em] text-faint uppercase">
+                  {label}
+                </p>
+                <ul className="space-y-1 px-2">
                   {rows.map((c) => {
                     const active = c.id === activeId
                     return (
                       <li key={c.id}>
                         <Link
                           to={`${linkBase}/${c.id}`}
-                          className={`flex items-center gap-3 px-4 py-3 transition-colors ${
-                            active ? 'bg-[var(--surface-sunken)]' : 'hover:bg-[var(--surface-sunken)]'
+                          className={`flex items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
+                            active
+                              ? 'bg-navy-50 text-navy-800 dark:bg-navy-500/20 dark:text-navy-100'
+                              : 'hover:bg-[var(--surface-sunken)]'
                           }`}
                         >
                           {c.counterpart ? (

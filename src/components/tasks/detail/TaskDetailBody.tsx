@@ -70,25 +70,35 @@ export function TaskDetailBody({
   const yours = solo ? onBoard : viewerId ? isMine(task, viewerId) : false
 
   return (
-    <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="min-w-0 space-y-6">
-        <section>
-          <h3 className=" font-semibold text-ink">Description</h3>
-          {task.details ? (
-            <p className="mt-1.5 text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
-              {task.details}
-            </p>
-          ) : (
-            <p className="mt-1.5 text-[13px] text-faint">
-              No description. {task.status === 'todo' && 'Edit the task to add one.'}
-            </p>
-          )}
-          {yours && (
-            <p className="mt-2 flex items-center gap-2 text-[12px] text-amber-700 dark:text-amber-300">
-              <Icon name="check" size={13} />
-              This one is yours.
-            </p>
-          )}
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_310px]">
+      <div className="min-w-0 space-y-4">
+        <section className="surface overflow-hidden rounded-card border border-line">
+          <header className="flex items-center gap-3 border-b border-line bg-[var(--surface-sunken)] px-4 py-3.5 sm:px-5">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-navy-600 text-amber-300 dark:bg-navy-500">
+              <Icon name="file" size={16} />
+            </span>
+            <div>
+              <h3>Description</h3>
+              <p className="mt-0.5 text-[12px] text-muted">What done looks like.</p>
+            </div>
+            {yours && (
+              <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg bg-navy-50 px-2.5 py-1 text-[12px] font-medium text-navy-700 dark:bg-navy-500/20 dark:text-navy-100">
+                <Icon name="check" size={13} />
+                Assigned to you
+              </span>
+            )}
+          </header>
+          <div className="px-4 py-4 sm:px-5">
+            {task.details ? (
+              <p className="text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
+                {task.details}
+              </p>
+            ) : (
+              <p className="text-[13px] text-faint">
+                No description. {task.status === 'todo' && 'Edit the task to add one.'}
+              </p>
+            )}
+          </div>
         </section>
 
         <TaskFileGrid
@@ -114,10 +124,15 @@ export function TaskDetailBody({
 
       {/* Second in the DOM, which is the desktop order. On a phone it is lifted
           above the thread, which would otherwise push it off the screen. */}
-      <div className="order-first space-y-4 md:order-none">
-        <div>
-          <label className="block space-y-2">
-            <span className="text-[12px] text-faint">Status</span>
+      <aside className="order-first space-y-3 lg:order-none lg:sticky lg:top-0">
+        <section className="surface overflow-hidden rounded-card border border-line">
+          <header className="border-b border-line bg-[var(--surface-sunken)] px-4 py-3.5">
+            <h3>Task status</h3>
+            <p className="mt-0.5 text-[12px] text-muted">Keep the board current.</p>
+          </header>
+          <div className="space-y-3 p-4">
+            <label className="block space-y-2">
+              <span className="sr-only">Status</span>
             <Select
               value={task.status}
               disabled={!onBoard || !yours}
@@ -125,24 +140,25 @@ export function TaskDetailBody({
               options={TASK_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
               className="!h-11"
             />
-          </label>
-          {!onBoard ? (
-            <p className="mt-1.5 text-[12px] text-faint">The group moves its own work.</p>
-          ) : !yours ? (
-            <p className="mt-1.5 text-[12px] text-faint">
-              {task.assignees.length === 0
-                ? 'Claim this task to move it.'
-                : 'Only the people on this task move it.'}
-            </p>
-          ) : null}
-        </div>
+            </label>
+            {!onBoard ? (
+              <p className="text-[12px] text-faint">The group moves its own work.</p>
+            ) : !yours ? (
+              <p className="text-[12px] text-faint">
+                {task.assignees.length === 0
+                  ? 'Claim this task to move it.'
+                  : 'Only the people on this task move it.'}
+              </p>
+            ) : null}
+          </div>
+        </section>
 
         {/* Neglected work is the case this exists for: once a task is started
             nothing else can move it off whoever holds it. */}
         {onBoard && (
           <div>
             {reassignment ? (
-              <div className="rounded-xl border border-line px-3.5 py-3">
+              <div className="surface rounded-card border border-line px-4 py-3.5">
                 <p className="text-[13px] font-medium text-ink">
                   Reassignment requested
                 </p>
@@ -186,7 +202,7 @@ export function TaskDetailBody({
         )}
 
         <TaskDetailPanel task={task} share={taskShare(task, boardWeight || task.weight)} />
-      </div>
+      </aside>
 
       <ReassignRequestModal
         open={askOpen}

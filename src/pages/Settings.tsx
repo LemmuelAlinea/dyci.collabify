@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { ReactNode } from 'react'
 import { Avatar } from '../components/app/Avatar'
+import { DirectoryHero } from '../components/app/DirectoryHero'
 import { Button } from '../components/ui/Button'
 import { Field, Input, Toggle } from '../components/ui/Field'
 import { Alert } from '../components/ui/Alert'
@@ -12,7 +13,6 @@ import { useAuth } from '../context/AuthContext'
 import { useThemePreference } from '../hooks/useThemePreference'
 import { authErrorMessage } from '../lib/authError'
 import { supabase } from '../lib/supabase'
-import { ROLE_LABEL } from '../lib/types'
 import type { NotificationKey, NotificationPrefs, ThemeMode } from '../lib/types'
 
 /**
@@ -64,20 +64,25 @@ const APPEARANCE: { mode: ThemeMode; label: string; icon: IconName; note: string
 ]
 
 function Section({
+  id,
   icon,
   title,
   description,
   children,
 }: {
+  id: string
   icon: IconName
   title: string
   description: string
   children: ReactNode
 }) {
   return (
-    <section className="surface rounded-panel border border-line shadow-card">
-      <header className="flex items-start gap-3.5 border-b border-line px-6 py-5 md:px-8">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-navy-600 text-amber-400 dark:bg-navy-500">
+    <section
+      id={id}
+      className="surface scroll-mt-28 overflow-hidden rounded-panel border border-line"
+    >
+      <header className="flex items-start gap-3.5 border-b border-line bg-[var(--surface-sunken)] px-5 py-4 sm:px-6">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-navy-600 text-amber-300 dark:bg-navy-500">
           <Icon name={icon} size={19} />
         </span>
         <div className="min-w-0">
@@ -85,7 +90,7 @@ function Section({
           <p className="mt-0.5 text-[13px] text-muted">{description}</p>
         </div>
       </header>
-      <div className="px-6 py-6 md:px-8">{children}</div>
+      <div className="px-5 py-5 sm:px-6 sm:py-6">{children}</div>
     </section>
   )
 }
@@ -227,20 +232,60 @@ export default function Settings() {
 
   if (!profile) return null
 
-  return (
-    <div className="mx-auto w-full max-w-[820px]">
-      <header>
-        <p className="eyebrow text-amber-500 dark:text-amber-300">
-          {ROLE_LABEL[profile.role]} account
-        </p>
-        <h1 className="mt-3 text-[clamp(1.9rem,3.4vw,2.5rem)] leading-tight">Settings</h1>
-        <p className="mt-2.5 text-[15.5px] text-muted">
-          Your name, how Collabify looks, what it emails you, and how you sign in.
-        </p>
-      </header>
+  const enabledNotifications = prefs
+    ? NOTIFICATIONS.filter((notification) => prefs[notification.key]).length
+    : '—'
+  const themeLabel = APPEARANCE.find((appearance) => appearance.mode === mode)?.label ?? 'System'
 
-      <div className="mt-8 space-y-5">
-        <Section icon="user" title="Profile" description="How your name appears to your group and advisers.">
+  return (
+    <div className="w-full space-y-6">
+      <DirectoryHero
+        title="Set up Collabify,"
+        accent="your way."
+        description="Manage your identity, appearance, notifications and account access from one place."
+        stats={[
+          { value: themeLabel, label: 'Appearance' },
+          { value: enabledNotifications, label: 'Email notifications on' },
+        ]}
+      />
+
+      <div className="grid items-start gap-6 lg:grid-cols-[240px_minmax(0,820px)] xl:grid-cols-[260px_minmax(0,900px)]">
+        <aside className="surface overflow-hidden rounded-panel border border-line lg:sticky lg:top-28">
+          <div className="flex items-center gap-3 border-b border-line bg-[var(--surface-sunken)] p-4">
+            <Avatar profile={profile} size={42} />
+            <div className="min-w-0">
+              <p className="truncate text-[14px] font-semibold text-ink">
+                {profile.first_name} {profile.last_name}
+              </p>
+              <p className="truncate text-[12px] text-muted">{profile.email}</p>
+            </div>
+          </div>
+          <nav aria-label="Settings sections" className="p-2">
+            {[
+              { id: 'profile', icon: 'user' as IconName, label: 'Profile' },
+              { id: 'appearance', icon: 'palette' as IconName, label: 'Appearance' },
+              { id: 'notifications', icon: 'bell' as IconName, label: 'Notifications' },
+              { id: 'security', icon: 'shield' as IconName, label: 'Security' },
+            ].map((item) => (
+              <a
+                key={item.id}
+                href={`#${item.id}`}
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+              >
+                <Icon name={item.icon} size={16} />
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        </aside>
+
+        <div className="min-w-0 space-y-5">
+          <Section
+            id="profile"
+            icon="user"
+            title="Profile"
+            description="How your name appears to your group and advisers."
+          >
           <div className="flex flex-col gap-6 sm:flex-row">
             <div className="flex flex-col items-center gap-3">
               <div className="relative">
@@ -314,9 +359,14 @@ export default function Settings() {
               </div>
             </form>
           </div>
-        </Section>
+          </Section>
 
-        <Section icon="palette" title="Appearance" description="Applies on this device right away, and follows your account.">
+          <Section
+            id="appearance"
+            icon="palette"
+            title="Appearance"
+            description="Applies on this device right away, and follows your account."
+          >
           <div className="grid grid-cols-3 gap-3 sm:gap-3">
             {APPEARANCE.map((a) => {
               const active = mode === a.mode
@@ -350,9 +400,14 @@ export default function Settings() {
           <div className="mt-4 flex justify-end">
             <Saved show={themeSaved} text="Appearance saved" />
           </div>
-        </Section>
+          </Section>
 
-        <Section icon="bell" title="Notifications" description="Pick what reaches your inbox. Changes save as you flip them.">
+          <Section
+            id="notifications"
+            icon="bell"
+            title="Notifications"
+            description="Pick what reaches your inbox. Changes save as you flip them."
+          >
           {prefsError && (
             <div className="mb-4">
               <Alert tone="error">{prefsError}</Alert>
@@ -393,9 +448,14 @@ export default function Settings() {
           <div className="mt-4 flex justify-end">
             <Saved show={prefsSaved} />
           </div>
-        </Section>
+          </Section>
 
-        <Section icon="shield" title="Security" description="Change your password, or end this session.">
+          <Section
+            id="security"
+            icon="shield"
+            title="Security"
+            description="Change your password, or end this session."
+          >
           <div className="space-y-5">
             {resetError && <Alert tone="error">{resetError}</Alert>}
             {resetSent && (
@@ -437,7 +497,8 @@ export default function Settings() {
               </Button>
             </div>
           </div>
-        </Section>
+          </Section>
+        </div>
       </div>
     </div>
   )

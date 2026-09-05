@@ -12,6 +12,8 @@ type Props = {
   children: ReactNode
   footer?: ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
+  bodyClassName?: string
+  headerTone?: 'default' | 'navy'
   /**
    * Open with the first field focused instead of the close button.
    *
@@ -27,7 +29,7 @@ const WIDTHS = {
   sm: 'max-w-[420px]',
   md: 'max-w-[560px]',
   lg: 'max-w-[720px]',
-  xl: 'max-w-[960px]',
+  xl: 'max-w-[1080px]',
 }
 
 export function Modal({
@@ -39,6 +41,8 @@ export function Modal({
   footer,
   size = 'md',
   focusField = false,
+  bodyClassName = '',
+  headerTone = 'default',
 }: Props) {
   const panel = useRef<HTMLDivElement>(null)
 
@@ -144,22 +148,42 @@ export function Modal({
         data-state={open ? 'open' : 'closed'}
         className={`motion-dialog surface relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-panel shadow-lift outline-none sm:rounded-panel ${WIDTHS[size]}`}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
+        <header
+          className={`flex items-start justify-between gap-4 border-b px-6 py-5 ${
+            headerTone === 'navy'
+              ? 'border-white/10 bg-navy-950 text-amber-50'
+              : 'border-line'
+          }`}
+        >
           <div className="min-w-0">
-            <h2>{title}</h2>
-            {description && <p className="mt-1 text-[13px] text-muted">{description}</p>}
+            <h2 className={headerTone === 'navy' ? 'text-amber-300' : undefined}>{title}</h2>
+            {description && (
+              <p
+                className={`mt-1 text-[13px] ${
+                  headerTone === 'navy' ? 'text-amber-50/60' : 'text-muted'
+                }`}
+              >
+                {description}
+              </p>
+            )}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-mt-1 -mr-2 grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-[background-color,color,scale] duration-(--dur-press) hover:bg-[var(--surface-sunken)] hover:text-ink active:scale-[0.97]"
+            className={`-mt-1 -mr-2 grid h-9 w-9 shrink-0 place-items-center rounded-full transition-[background-color,color,scale] duration-(--dur-press) active:scale-[0.97] ${
+              headerTone === 'navy'
+                ? 'text-amber-50/60 hover:bg-white/10 hover:text-amber-50'
+                : 'text-faint hover:bg-[var(--surface-sunken)] hover:text-ink'
+            }`}
           >
             <Icon name="x" size={18} />
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className={`min-h-0 flex-1 overflow-y-auto px-6 py-5 ${bodyClassName}`}>
+          {children}
+        </div>
 
         {footer && (
           <footer className="flex flex-wrap justify-end gap-3 border-t border-line px-6 py-4">

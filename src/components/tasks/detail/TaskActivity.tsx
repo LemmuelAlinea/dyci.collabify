@@ -150,10 +150,16 @@ export function TaskActivity({
   const [tab, setTab] = useState<TabId>('comments')
 
   return (
-    <section className="space-y-3.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="mr-1 font-semibold text-ink">Activity</h3>
-        <div className="flex gap-1 rounded-lg surface-sunken p-0.5">
+    <section className="surface overflow-hidden rounded-card border border-line">
+      <header className="flex flex-wrap items-center gap-3 border-b border-line bg-[var(--surface-sunken)] px-4 py-3.5 sm:px-5">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-navy-600 text-amber-300 dark:bg-navy-500">
+          <Icon name="message" size={16} />
+        </span>
+        <div className="mr-auto">
+          <h3>Activity</h3>
+          <p className="mt-0.5 text-[12px] text-muted">Discussion, history and time.</p>
+        </div>
+        <div className="flex max-w-full gap-1 overflow-x-auto rounded-lg bg-[var(--surface)] p-0.5">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -175,7 +181,9 @@ export function TaskActivity({
             </button>
           ))}
         </div>
-      </div>
+      </header>
+
+      <div className="px-4 py-4 sm:px-5">
 
       {tab === 'comments' && (
         <CommentList
@@ -198,6 +206,7 @@ export function TaskActivity({
           onChanged={onChanged}
         />
       )}
+      </div>
     </section>
   )
 }

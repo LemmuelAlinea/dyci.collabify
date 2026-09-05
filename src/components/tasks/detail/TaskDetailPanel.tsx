@@ -39,12 +39,12 @@ export function TaskDetailPanel({
   )
 
   return (
-    <section className="rounded-card border border-line">
+    <section className="surface overflow-hidden rounded-card border border-line">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-[var(--surface-sunken)]"
+        className="flex w-full items-center gap-2 bg-[var(--surface-sunken)] px-4 py-3 text-left transition-colors hover:bg-[var(--surface-raised)]"
       >
         <Icon
           name="chevronRight"

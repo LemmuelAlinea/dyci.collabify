@@ -8,6 +8,7 @@ import { useTaskDetail } from '../../../hooks/useTaskDetail'
 import { pendingReassignment } from '../../../lib/api/reassignments'
 import { setTaskStatus } from '../../../lib/api/tasks'
 import { authErrorMessage } from '../../../lib/authError'
+import { taskStatusLabel } from '../../../lib/types'
 import type { ReassignmentRow, Role, TaskStatus } from '../../../lib/types'
 
 /**
@@ -72,7 +73,14 @@ export function TaskDetailModal({
       open={Boolean(taskId)}
       onClose={onClose}
       title={task?.title ?? 'Task'}
+      description={
+        task
+          ? `${taskStatusLabel(task.status)} · ${task.assignees.length} ${task.assignees.length === 1 ? 'assignee' : 'assignees'} · ${files.length} ${files.length === 1 ? 'file' : 'files'}`
+          : undefined
+      }
       size="xl"
+      bodyClassName="!bg-[var(--surface-sunken)] !p-4 sm:!p-5"
+      headerTone="navy"
     >
       {loading && !task ? (
         <div className="flex items-center gap-3 py-10 text-[14px] text-muted">

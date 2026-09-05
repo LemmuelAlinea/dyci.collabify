@@ -35,20 +35,30 @@ export function TaskFileGrid({
   const canAttach = isAssignee && open
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className=" font-semibold text-ink">
-          Files
-          {files.length > 0 && (
-            <span className="ml-1.5 font-mono text-[12px] text-faint">{files.length}</span>
-          )}
-        </h3>
+    <section className="surface overflow-hidden rounded-card border border-line">
+      <header className="flex flex-wrap items-center gap-3 border-b border-line bg-[var(--surface-sunken)] px-4 py-3.5 sm:px-5">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-navy-600 text-amber-300 dark:bg-navy-500">
+          <Icon name="folder" size={16} />
+        </span>
+        <div>
+          <h3>
+            Files
+            {files.length > 0 && (
+              <span className="ml-1.5 font-mono text-[12px] text-faint">
+                {files.length}
+              </span>
+            )}
+          </h3>
+          <p className="mt-0.5 text-[12px] text-muted">Deliverables stay with the task.</p>
+        </div>
         {!open && (
-          <span className="text-[12px] text-faint">
+          <span className="ml-auto text-[12px] text-faint">
             {locked ? 'Locked — the project is closed' : 'Locked — the task is done'}
           </span>
         )}
-      </div>
+      </header>
+
+      <div className="space-y-3 px-4 py-4 sm:px-5">
 
       {files.length === 0 ? (
         <p className="text-[13px] text-muted">
@@ -122,6 +132,7 @@ export function TaskFileGrid({
         body="It is deleted from the task for everyone. This cannot be undone."
         confirmLabel="Remove file"
       />
+      </div>
     </section>
   )
 }

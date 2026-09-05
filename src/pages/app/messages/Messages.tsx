@@ -6,6 +6,7 @@ import { Icon, Spinner } from '../../../components/ui/Icon'
 import { ConversationList } from '../../../components/messages/ConversationList'
 import { MessageThread } from '../../../components/messages/MessageThread'
 import { NewDirectDialog } from '../../../components/messages/NewDirectDialog'
+import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { useConversations } from '../../../hooks/useConversations'
 
@@ -23,15 +24,45 @@ export default function Messages({ role }: { role: 'professor' | 'student' }) {
   }, [])
 
   const active = conversations?.find((c) => c.id === conversationId)
+  const unread =
+    conversations?.reduce((total, conversation) => total + conversation.unread_count, 0) ?? 0
+  const channels =
+    conversations?.filter((conversation) => conversation.kind !== 'direct').length ?? 0
+  const direct =
+    conversations?.filter((conversation) => conversation.kind === 'direct').length ?? 0
 
   if (!profile) return null
 
   return (
-    <div className="w-full">
-      {/* The shell already pads the page; messaging wants the full height. */}
-      <div className="surface -mx-4 -my-7 flex h-[calc(100dvh-70px)] overflow-hidden border-y border-line md:-mx-7 md:-my-9 md:h-[calc(100dvh-70px)] lg:mx-0 lg:my-0 lg:h-[calc(100dvh-134px)] lg:rounded-panel lg:border">
+    <div className="w-full space-y-5">
+      <DirectoryHero
+        title="Every conversation,"
+        accent="within reach."
+        description="Keep class updates, group decisions and direct messages together without losing the work around them."
+        stats={[
+          { value: conversations?.length ?? '—', label: 'Conversations' },
+          { value: unread, label: 'Unread' },
+          { value: channels, label: 'Class & group chats' },
+          { value: direct, label: 'Direct chats' },
+        ]}
+        statsVariant="compact-row"
+        action={
+          role === 'professor' ? (
+            <Button
+              variant="onNavy"
+              onClick={() => setNewOpen(true)}
+              className="!border-amber-50/20 !bg-amber-50/10 !text-amber-50 hover:!bg-amber-50/16"
+            >
+              <Icon name="plus" size={17} />
+              New message
+            </Button>
+          ) : undefined
+        }
+      />
+
+      <div className="surface flex h-[clamp(480px,calc(100dvh-458px),760px)] min-h-0 overflow-hidden rounded-panel border border-line">
         <aside
-          className={`w-full shrink-0 border-line lg:block lg:w-[320px] lg:border-r ${
+          className={`w-full shrink-0 border-line md:block md:w-[320px] md:border-r xl:w-[360px] ${
             conversationId ? 'hidden' : 'block'
           }`}
         >
@@ -45,23 +76,11 @@ export default function Messages({ role }: { role: 'professor' | 'student' }) {
               conversations={conversations}
               activeId={conversationId}
               linkBase={base}
-              action={
-                role === 'professor' ? (
-                  <Button
-                    size="sm"
-                    onClick={() => setNewOpen(true)}
-                    aria-label="New message"
-                    className="!h-10 !w-10 !rounded-xl !px-0"
-                  >
-                    <Icon name="plus" size={17} />
-                  </Button>
-                ) : undefined
-              }
             />
           )}
         </aside>
 
-        <main className={`min-w-0 flex-1 ${conversationId ? 'block' : 'hidden lg:block'}`}>
+        <section className={`min-w-0 flex-1 ${conversationId ? 'block' : 'hidden md:block'}`}>
           {error ? (
             <div className="p-6">
               <Alert tone="error">{error}</Alert>
@@ -69,10 +88,10 @@ export default function Messages({ role }: { role: 'professor' | 'student' }) {
           ) : !conversationId ? (
             <div className="grid h-full place-items-center px-6 text-center">
               <div>
-                <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl surface-sunken text-faint">
+                <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-navy-50 text-navy-600 dark:bg-navy-500/20 dark:text-navy-200">
                   <Icon name="message" size={24} />
                 </span>
-                <p className="mt-5 text-[15.5px] font-medium text-ink">Pick a conversation</p>
+                <h2 className="mt-5">Choose a conversation</h2>
                 <p className="mt-1.5 max-w-[320px] text-[13px] leading-relaxed text-muted">
                   Every class and group you're in has its own chat, created for you
                   automatically.
@@ -99,7 +118,7 @@ export default function Messages({ role }: { role: 'professor' | 'student' }) {
               Loading…
             </div>
           )}
-        </main>
+        </section>
       </div>
 
       {role === 'professor' && (

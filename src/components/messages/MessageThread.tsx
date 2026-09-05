@@ -105,10 +105,10 @@ export function MessageThread({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center gap-3 border-b border-line px-4 py-3 md:px-5">
+      <header className="flex items-center gap-3 border-b border-line bg-[var(--surface-sunken)] px-4 py-3.5 md:px-5">
         <Link
           to={backTo}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted hover:bg-[var(--surface-sunken)] hover:text-ink lg:hidden"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted hover:bg-[var(--surface)] hover:text-ink md:hidden"
           aria-label="Back to conversations"
         >
           <Icon name="arrowLeft" size={18} />
@@ -169,7 +169,7 @@ export function MessageThread({
       )}
 
       <div
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-5"
+        className="min-h-0 flex-1 overflow-y-auto bg-[color-mix(in_srgb,var(--surface-sunken)_35%,var(--surface))] px-4 py-4 md:px-5"
         onScroll={(e) => {
           const el = e.currentTarget
           atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
