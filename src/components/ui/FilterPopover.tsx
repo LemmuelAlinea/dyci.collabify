@@ -97,8 +97,8 @@ export function FilterPopover({
           role="dialog"
           aria-label={label}
           data-state="open"
-          className={`motion-overlay surface absolute top-12 z-40 w-[min(92vw,340px)] origin-top space-y-3 rounded-2xl border border-line p-4 shadow-lift ${
-            align === 'right' ? 'right-0' : 'left-0'
+          className={`motion-overlay surface absolute top-12 z-40 w-[min(92vw,340px)] space-y-3 rounded-2xl border border-line p-4 shadow-lift ${
+            align === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
           }`}
         >
           {children}

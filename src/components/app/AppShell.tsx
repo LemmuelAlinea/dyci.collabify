@@ -195,8 +195,22 @@ export function AppShell() {
               aria-modal="true"
               aria-label="Navigation"
               className="app-ui surface absolute inset-y-0 left-0 flex w-[276px] flex-col border-r border-line"
+              // A `transform` string, not Motion's `x` shorthand: `x` is not in
+              // Motion's `acceleratedValues`, so it animates on the main thread
+              // via rAF and drops frames — and this drawer opens mid-navigation,
+              // exactly when the main thread is busiest. `transform` stays on
+              // the WAAPI path and keeps compositor-only frames.
+              //
+              // `0%`, not the unitless `0`: on the WAAPI path this reads the
+              // same, but `mixComplex` builds its interpolation template from
+              // this target, and a unitless value here (paired with the `-100%`
+              // above) would give it mismatched units and produce an invalid
+              // `translateX` the browser drops — the drawer would pop into
+              // place instead of sliding, on the day something (`onUpdate`, a
+              // `layout` prop, `transformTemplate`) knocks this off the WAAPI
+              // path.
               initial={reduce ? false : { transform: 'translateX(-100%)' }}
-              animate={{ transform: 'translateX(0)' }}
+              animate={{ transform: 'translateX(0%)' }}
               exit={reduce ? undefined : { transform: 'translateX(-100%)' }}
               transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             >

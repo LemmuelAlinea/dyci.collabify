@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 
 type Props = {
   children: ReactNode
-  /** Seconds. Stagger siblings by passing 0, 0.06, 0.12 … */
+  /** Seconds. Stagger siblings with a 40ms interleave: `i * 0.04`. */
   delay?: number
   y?: number
   className?: string

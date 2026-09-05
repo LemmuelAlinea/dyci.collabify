@@ -46,7 +46,7 @@ export function Badge({
 }) {
   return (
     <span
-      className={`inline-flex min-w-5 items-center justify-center rounded-full px-2 py-0.5 text-[11.5px] ${numeric ? 'font-mono font-semibold' : ''} ${TONES[tone]} ${className}`}
+      className={`inline-flex min-w-5 items-center justify-center rounded-full px-2 py-0.5 text-[11.5px]${numeric ? ' font-mono font-semibold' : ''} ${TONES[tone]} ${className}`}
     >
       {children}
     </span>
