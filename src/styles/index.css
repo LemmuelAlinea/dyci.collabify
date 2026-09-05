@@ -613,10 +613,10 @@
   }
 }
 
-/* ------------------------------------------- landing study (/preview) only */
+/* ---------------------------------------------------- landing page only */
 
 /**
- * Keyframes for the combined landing page under `components/landing-v2`.
+ * Keyframes for the landing page under `components/landing`.
  *
  * Appended after every block `scripts/contrast.mjs` looks for, so its
  * string-matched openers keep their order. All four are decorative: the

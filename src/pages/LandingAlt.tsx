@@ -15,9 +15,8 @@ import {
 /**
  * An alternative landing page, in the manner of oryzo.ai.
  *
- * A parallel mock-up, not a replacement: `/` and everything under
- * `components/landing/` are untouched, and this route exists so the two can be
- * looked at side by side before anything is decided.
+ * The minimal study that fed into the live page at `/`. Kept routed so the
+ * restrained version can still be looked at next to the combined one.
  *
  * What was taken from the original is its restraint rather than its styling —
  * near-black ground, one warm bleed per screen, a statement that fills half a
