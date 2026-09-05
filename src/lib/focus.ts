@@ -2,16 +2,19 @@ import { useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 
 /**
- * Everything focusable inside a container, in tab order. `:not([inert] *)` and
- * the hidden checks matter because dialogs here keep closed panels mounted.
+ * Everything focusable inside a container, in tab order. `:not([inert])` and
+ * `:not([inert] *)` and the hidden checks matter because dialogs here keep
+ * closed panels mounted: an inert subtree needs to be skipped whether the
+ * inert attribute sits on the candidate itself or on one of its ancestors.
  */
+const NOT_INERT = ':not([inert]):not([inert] *)'
 const FOCUSABLE = [
-  'a[href]',
-  'button:not([disabled])',
-  'input:not([disabled]):not([type="hidden"])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  '[tabindex]:not([tabindex="-1"])',
+  `a[href]${NOT_INERT}`,
+  `button:not([disabled])${NOT_INERT}`,
+  `input:not([disabled]):not([type="hidden"])${NOT_INERT}`,
+  `select:not([disabled])${NOT_INERT}`,
+  `textarea:not([disabled])${NOT_INERT}`,
+  `[tabindex]:not([tabindex="-1"])${NOT_INERT}`,
 ].join(',')
 
 function focusableIn(root: HTMLElement) {

@@ -353,11 +353,14 @@
 
   /**
    * Overlay motion, said once — true of these durations, not yet of every
-   * duration in the app. `--dur-press/fast/base/overlay` above are the ones
-   * that live here and nowhere else. The drawer in `AppShell.tsx` still
-   * carries its own literal `0.32`, and `Reveal.tsx` its own `.7s` / `.55s`;
-   * neither has a token yet, so a change to those still means finding both
-   * call sites by hand the way this block used to.
+   * duration in the app. `--dur-press/fast/base/overlay` above are the source
+   * of truth for the values, but they are also duplicated as JS numbers in
+   * `src/lib/motion.ts` for `Toast` and `Modal`, which need to know how long
+   * their own exit transition lasts; check 5 of `scripts/motion-lint.mjs`
+   * fails the build if the two ever disagree. The drawer in `AppShell.tsx`
+   * still carries its own literal `0.32`, and `Reveal.tsx` its own `.7s` /
+   * `.55s`; neither has a token yet, so a change to those still means finding
+   * both call sites by hand the way this block used to.
    *
    * Transitions rather than keyframes: all four of these can be fired twice in
    * a second, and a transition retargets from wherever the element currently
