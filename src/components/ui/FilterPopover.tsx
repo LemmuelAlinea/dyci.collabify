@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 import { useFocusTrap } from '../../lib/focus'
+import { DUR } from '../../lib/motion'
 
 /**
  * Every filter in the product lives behind this one button.
@@ -37,8 +38,23 @@ export function FilterPopover({
   const ref = useRef<HTMLDivElement>(null)
   const panel = useRef<HTMLDivElement>(null)
 
+  // `open` is the caller's intent; `render` is what is on screen, staying true
+  // for one transition after `open` goes false so the panel has something to
+  // animate from instead of vanishing on the click. Applied during the render
+  // body (not an effect) on the way in, so the panel exists in the DOM before
+  // useFocusTrap's effect below runs and needs a non-null ref — see Modal.tsx.
+  const [render, setRender] = useState(open)
+  if (open && !render) setRender(true)
+  useEffect(() => {
+    if (open) return
+    const t = setTimeout(() => setRender(false), DUR.fast)
+    return () => clearTimeout(t)
+  }, [open])
+
   // Opening moves focus into the panel and closing hands it back to the icon,
-  // so the filters are reachable without a mouse at all.
+  // so the filters are reachable without a mouse at all. Keyed on `open`, not
+  // `render`: the trap should engage and release on the caller's intent, not
+  // linger for the extra frame the exit animation keeps the panel mounted for.
   useFocusTrap(panel, open)
 
   useEffect(() => {
@@ -91,12 +107,17 @@ export function FilterPopover({
         </>
       )}
 
-      {open && (
+      {render && (
         <div
           ref={panel}
           role="dialog"
           aria-label={label}
-          data-state="open"
+          // Dismissed but still mounted for the exit transition: `inert` pulls
+          // it out of tab order and the accessibility tree so it stops being a
+          // stop for a panel the user just closed. Drops the instant `open`
+          // flips back true, so a genuinely open panel is never inert.
+          inert={!open}
+          data-state={open ? 'open' : 'closed'}
           className={`motion-overlay surface absolute top-12 z-40 w-[min(92vw,340px)] space-y-3 rounded-2xl border border-line p-4 shadow-lift ${
             align === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
           }`}
