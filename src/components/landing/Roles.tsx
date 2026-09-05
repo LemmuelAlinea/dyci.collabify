@@ -76,6 +76,8 @@ const FEATURES = [
 const ROLES = {
   Students: {
     symbol: 'S',
+    number: '01',
+    label: 'Own the work',
     headline: 'Know what is on you, and when.',
     body: 'Claim work off the board up to a fair share, log the time it took, and hand in when the group is ready.',
     points: [
@@ -83,9 +85,16 @@ const ROLES = {
       'Ask a groupmate to take something over',
       'A class is private to the people in it',
     ],
+    signals: [
+      { value: '1 place', label: 'Tasks + deadlines' },
+      { value: 'Fair share', label: 'Claim limit' },
+      { value: 'Private', label: 'Class access' },
+    ],
   },
   Professors: {
     symbol: 'P',
+    number: '02',
+    label: 'See the signal',
     headline: 'See what has stopped moving.',
     body: 'The dashboard surfaces groups that have gone quiet and decisions waiting on you, before a deadline turns them into a problem.',
     points: [
@@ -93,15 +102,27 @@ const ROLES = {
       'Rule on reassignments with the reason attached',
       'Accept a submission, or send it back with a note',
     ],
+    signals: [
+      { value: 'Early', label: 'Stalled groups' },
+      { value: 'In context', label: 'Decisions' },
+      { value: 'One view', label: 'Every class' },
+    ],
   },
   Admins: {
     symbol: 'A',
+    number: '03',
+    label: 'Keep the rules',
     headline: 'Hold the program together.',
     body: 'Approve professors before they can open a class, and keep the curriculum and section registry the rest of the product measures against.',
     points: [
       'Approve or hold a professor account',
       'Curriculum and section registry',
       'An audit trail of who changed what',
+    ],
+    signals: [
+      { value: 'Approved', label: 'Professor access' },
+      { value: 'Canonical', label: 'Curriculum' },
+      { value: 'Recorded', label: 'Every change' },
     ],
   },
 } as const
@@ -190,85 +211,186 @@ export function Roles() {
   const active = ROLES[role]
 
   return (
-    <section id="roles" className="bg-white pb-24 text-navy-900 sm:pb-32">
-      <Shell>
-        <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-14">
-          <div className="lg:col-span-5">
-            <Kicker tone="light">For roles</Kicker>
-            <h2 className="mt-6 font-display text-[clamp(30px,4.4vw,50px)] leading-[1.08] font-bold tracking-[-0.04em]">
-              Everyone sees
-              <br />
-              their own half.
-            </h2>
-            <p className="mt-6 max-w-[42ch] text-[15.5px] leading-[1.8] text-navy-600/75">
-              The same term, read three ways. Pick the one that is yours.
-            </p>
+    <section
+      id="roles"
+      className="relative overflow-hidden bg-[#eef2f8] py-24 text-navy-900 sm:py-32"
+    >
+      <BlueprintField tone="light" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-56 -bottom-64 h-[620px] w-[620px] rounded-full bg-amber-300/25 blur-[150px]"
+      />
 
-            <div
-              role="tablist"
-              aria-label="Choose a role"
-              className="mt-8 inline-flex rounded-xl bg-navy-900/6 p-1.5"
-            >
-              {(Object.keys(ROLES) as RoleName[]).map((name) => (
-                <button
-                  key={name}
-                  role="tab"
-                  aria-selected={role === name}
-                  onClick={() => setRole(name)}
-                  className={`rounded-lg px-4 py-2.5 text-[13.5px] font-semibold transition-[background-color,color,transform] duration-(--dur-press) active:scale-[0.97] ${
-                    role === name
-                      ? 'bg-navy-900 text-white'
-                      : 'text-navy-600 hover:text-navy-900'
-                  }`}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          </div>
-
+      <Shell className="relative">
+        <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-7">
-            <div className="relative overflow-hidden rounded-2xl border border-navy-900/10 bg-navy-50/50 p-9 sm:p-12">
-              <span
-                aria-hidden
-                className="absolute -top-3 right-7 font-display text-[130px] leading-none font-bold text-navy-900/6"
-              >
-                {active.symbol}
-              </span>
+            <Rise>
+              <Kicker tone="light">For roles</Kicker>
+              <h2 className="mt-6 max-w-[760px] font-display text-[clamp(34px,5.4vw,64px)] leading-[1.02] font-bold tracking-[-0.04em]">
+                One term.
+                <br />
+                <span className="text-navy-500">Three clear points of view.</span>
+              </h2>
+            </Rise>
+          </div>
+          <div className="lg:col-span-4 lg:col-start-9">
+            <Rise delay={0.08}>
+              <p className="max-w-[45ch] text-[15.5px] leading-[1.8] text-navy-600/75">
+                The same work, shaped around the decisions each person needs to make next.
+              </p>
+            </Rise>
+          </div>
+        </div>
 
-              {/* Keyed on the role so the panel re-enters when the tab changes,
-                  rather than swapping its text in place. */}
-              <div key={role} className="relative">
-                <Rise>
-                  <Kicker tone="light">{role}</Kicker>
-                  <h3 className="mt-6 max-w-[20ch] font-display text-[clamp(22px,2.6vw,30px)] leading-[1.2] font-bold tracking-[-0.025em]">
-                    {active.headline}
-                  </h3>
-                  <p className="mt-5 max-w-[46ch] text-[14.5px] leading-[1.8] text-navy-600/75">
-                    {active.body}
-                  </p>
-                  <ul className="mt-7 space-y-3">
-                    {active.points.map((p) => (
-                      <li key={p} className="flex gap-3 text-[14px] text-navy-700">
-                        <span aria-hidden className="text-amber-500">
-                          ✓
+        <Rise delay={0.12} className="mt-12 sm:mt-16">
+          <div className="overflow-hidden rounded-[28px] border border-navy-950/10 bg-navy-950 shadow-[0_34px_90px_-42px_rgb(8_11_33_/_0.75)]">
+            <div className="grid lg:grid-cols-[0.8fr_1.5fr]">
+              <div className="border-b border-amber-50/10 p-4 sm:p-6 lg:border-r lg:border-b-0 lg:p-7">
+                <div className="flex items-center justify-between px-2 pb-4">
+                  <span className="font-mono text-[9.5px] tracking-[0.2em] text-amber-50/42 uppercase">
+                    Choose your view
+                  </span>
+                  <span className="font-mono text-[9.5px] tracking-[0.16em] text-amber-300/70 uppercase">
+                    {active.number} / 03
+                  </span>
+                </div>
+
+                <div
+                  role="tablist"
+                  aria-label="Choose a role"
+                  className="grid grid-cols-3 gap-2 lg:grid-cols-1"
+                >
+                  {(Object.keys(ROLES) as RoleName[]).map((name) => {
+                    const item = ROLES[name]
+                    const selected = role === name
+                    return (
+                      <button
+                        key={name}
+                        role="tab"
+                        aria-selected={selected}
+                        onClick={() => setRole(name)}
+                        className={`group rounded-2xl border p-3 text-left transition-[background-color,border-color,color,transform] duration-300 active:scale-[0.98] sm:p-4 lg:p-5 ${
+                          selected
+                            ? 'border-amber-300 bg-amber-300 text-navy-950'
+                            : 'border-amber-50/10 bg-white/[0.035] text-amber-50 hover:border-amber-50/22 hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        <span className="flex items-center justify-between gap-2">
+                          <span
+                            className={`font-mono text-[9px] tracking-[0.16em] uppercase ${
+                              selected ? 'text-navy-700/65' : 'text-amber-50/38'
+                            }`}
+                          >
+                            {item.number}
+                          </span>
+                          <span
+                            aria-hidden
+                            className={`grid h-6 w-6 place-items-center rounded-full text-[11px] transition-transform duration-300 ${
+                              selected
+                                ? 'translate-x-0 bg-navy-950 text-amber-200'
+                                : '-translate-x-1 bg-white/[0.06] text-amber-50/42 group-hover:translate-x-0'
+                            }`}
+                          >
+                            →
+                          </span>
                         </span>
-                        {p}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    to="/register"
-                    className="mt-8 inline-flex items-center gap-2.5 text-[13.5px] font-semibold text-navy-900 transition-colors duration-200 hover:text-amber-600"
-                  >
-                    Create your account
-                    <span aria-hidden>→</span>
-                  </Link>
-                </Rise>
+                        <strong className="mt-4 block font-display text-[14px] font-semibold sm:text-[16px]">
+                          {name}
+                        </strong>
+                        <span
+                          className={`mt-1 hidden text-[11.5px] lg:block ${
+                            selected ? 'text-navy-800/68' : 'text-amber-50/42'
+                          }`}
+                        >
+                          {item.label}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="relative min-h-[520px] overflow-hidden bg-[#f8f7f2] p-6 sm:p-9 lg:p-12">
+                <div
+                  aria-hidden
+                  className="absolute inset-0 opacity-70"
+                  style={{
+                    backgroundImage:
+                      'linear-gradient(rgb(23 37 83 / 0.045) 1px, transparent 1px), linear-gradient(90deg, rgb(23 37 83 / 0.045) 1px, transparent 1px)',
+                    backgroundSize: '42px 42px',
+                    maskImage: 'linear-gradient(120deg, transparent 8%, #000 74%)',
+                    WebkitMaskImage: 'linear-gradient(120deg, transparent 8%, #000 74%)',
+                  }}
+                />
+                <span
+                  aria-hidden
+                  className="absolute -right-2 -bottom-16 font-display text-[clamp(180px,27vw,330px)] leading-none font-bold text-navy-950/[0.035]"
+                >
+                  {active.symbol}
+                </span>
+
+                <div key={role} className="relative flex min-h-[448px] flex-col">
+                  <Rise>
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-10 w-10 place-items-center rounded-xl bg-navy-950 font-display text-[16px] font-bold text-amber-300">
+                        {active.symbol}
+                      </span>
+                      <span className="font-mono text-[10px] tracking-[0.2em] text-navy-500 uppercase">
+                        {role} · {active.label}
+                      </span>
+                    </div>
+
+                    <h3 className="mt-7 max-w-[17ch] font-display text-[clamp(28px,4vw,46px)] leading-[1.08] font-bold tracking-[-0.035em]">
+                      {active.headline}
+                    </h3>
+                    <p className="mt-5 max-w-[54ch] text-[14.5px] leading-[1.8] text-navy-600/75">
+                      {active.body}
+                    </p>
+
+                    <div className="mt-8 grid gap-2.5 sm:grid-cols-3">
+                      {active.signals.map((signal) => (
+                        <div
+                          key={signal.label}
+                          className="rounded-xl border border-navy-950/8 bg-white/75 p-4 backdrop-blur-sm"
+                        >
+                          <strong className="block font-display text-[15px] font-semibold text-navy-900">
+                            {signal.value}
+                          </strong>
+                          <span className="mt-1 block font-mono text-[8.5px] tracking-[0.12em] text-navy-500 uppercase">
+                            {signal.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </Rise>
+
+                  <div className="relative mt-auto flex flex-col gap-5 border-t border-navy-950/10 pt-6 sm:flex-row sm:items-end sm:justify-between">
+                    <ul className="space-y-2.5">
+                      {active.points.map((point) => (
+                        <li key={point} className="flex gap-3 text-[13px] text-navy-700">
+                          <span
+                            aria-hidden
+                            className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-amber-300 text-[9px] font-bold text-navy-950"
+                          >
+                            ✓
+                          </span>
+                          {point}
+                        </li>
+                      ))}
+                    </ul>
+                    <Link
+                      to="/register"
+                      className="inline-flex shrink-0 items-center justify-center gap-2.5 rounded-xl bg-navy-950 px-5 py-3 text-[13px] font-semibold text-amber-50 transition-[background-color,transform] duration-200 hover:bg-navy-800 active:scale-[0.98]"
+                    >
+                      Get started
+                      <span aria-hidden>→</span>
+                    </Link>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </Rise>
       </Shell>
     </section>
   )

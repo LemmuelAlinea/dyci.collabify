@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Hero } from '../components/landing/Hero'
 import { Features, Roles } from '../components/landing/Roles'
 import { Workflow } from '../components/landing/Workflow'
-import { Kicker, Marquee, Rise, Shell } from '../components/landing/parts'
+import { BlueprintField, Kicker, Marquee, Rise, Shell } from '../components/landing/parts'
 
 /**
  * The combined landing page.
@@ -142,9 +142,26 @@ export default function Landing() {
 
         {/* ------------------------------------------------------- closing */}
         <section className="relative overflow-hidden bg-amber-400 py-24 text-navy-950 sm:py-32">
-          <Shell>
-            <div className="flex flex-wrap items-end justify-between gap-10">
-              <div>
+          <BlueprintField tone="light" />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-72 -right-56 h-[720px] w-[720px] rounded-full bg-amber-100/55 blur-[130px]"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -bottom-80 -left-64 h-[620px] w-[620px] rounded-full bg-navy-950/12 blur-[140px]"
+          />
+
+          <Shell className="relative">
+            <Rise>
+              <div className="mb-10 flex items-center justify-between border-b border-navy-950/15 pb-4 font-mono text-[9.5px] tracking-[0.18em] text-navy-800/60 uppercase sm:mb-14">
+                <span>Ready for the term</span>
+                <span>05 / 05</span>
+              </div>
+            </Rise>
+
+            <div className="grid gap-12 lg:grid-cols-12 lg:items-end lg:gap-10">
+              <div className="lg:col-span-7">
                 <Rise>
                   <Kicker tone="light">Start</Kicker>
                 </Rise>
@@ -156,22 +173,69 @@ export default function Landing() {
                   </h2>
                 </Rise>
                 <Rise delay={0.12}>
-                  <Link
-                    to="/register"
-                    className="mt-9 inline-flex items-center gap-4 rounded-xl bg-navy-950 px-7 py-4 text-[15px] font-semibold text-amber-50 transition-[background-color,transform] duration-200 hover:bg-navy-800 active:scale-[0.98]"
-                  >
-                    Create your account
-                    <span aria-hidden>→</span>
-                  </Link>
+                  <div className="mt-9 flex flex-wrap items-center gap-5">
+                    <Link
+                      to="/register"
+                      className="inline-flex items-center gap-4 rounded-xl bg-navy-950 px-7 py-4 text-[15px] font-semibold text-amber-50 shadow-[0_18px_40px_-20px_rgb(8_11_33_/_0.85)] transition-[background-color,transform] duration-200 hover:bg-navy-800 active:scale-[0.98]"
+                    >
+                      Create your account
+                      <span aria-hidden>→</span>
+                    </Link>
+                    <Link
+                      to="/login"
+                      className="text-[13.5px] font-semibold text-navy-900/70 transition-colors duration-200 hover:text-navy-950"
+                    >
+                      Already have an account? Sign in
+                    </Link>
+                  </div>
                 </Rise>
               </div>
 
-              <Rise delay={0.18}>
-                <p className="max-w-[34ch] text-[14.5px] leading-[1.8] text-navy-900/70">
-                  Sign in with Google, or make an account. Professors are approved by the program
-                  before they can open a class.
-                </p>
-              </Rise>
+              <div className="lg:col-span-4 lg:col-start-9">
+                <Rise delay={0.16}>
+                  <aside className="relative overflow-hidden rounded-[26px] border border-navy-950/10 bg-navy-950 p-6 text-amber-50 shadow-[0_28px_70px_-34px_rgb(8_11_33_/_0.9)] sm:p-7">
+                    <div
+                      aria-hidden
+                      className="absolute -top-24 -right-20 h-56 w-56 rounded-full bg-amber-300/16 blur-[70px]"
+                    />
+                    <div className="relative flex items-center gap-3 border-b border-amber-50/10 pb-5">
+                      <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-400 font-display text-[16px] font-bold text-navy-950">
+                        C
+                      </span>
+                      <span>
+                        <strong className="block font-display text-[15px] font-semibold">
+                          Your first steps
+                        </strong>
+                        <span className="font-mono text-[8.5px] tracking-[0.16em] text-amber-50/42 uppercase">
+                          Clear from the start
+                        </span>
+                      </span>
+                    </div>
+
+                    <ol className="relative mt-6 space-y-5">
+                      {[
+                        ['01', 'Choose your role', 'Student, professor or program admin.'],
+                        ['02', 'Create your account', 'Use Google or sign up with your email.'],
+                        ['03', 'Enter the workspace', 'Join your class and start the term together.'],
+                      ].map(([number, title, body]) => (
+                        <li key={number} className="grid grid-cols-[28px_1fr] gap-3.5">
+                          <span className="font-mono text-[10px] text-amber-300">{number}</span>
+                          <span>
+                            <strong className="block text-[13px] font-semibold">{title}</strong>
+                            <span className="mt-1 block text-[11.5px] leading-relaxed text-amber-50/48">
+                              {body}
+                            </span>
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+
+                    <p className="relative mt-7 rounded-xl border border-amber-50/10 bg-white/[0.045] px-4 py-3 text-[11.5px] leading-relaxed text-amber-50/58">
+                      Professors are approved by the program before they can open a class.
+                    </p>
+                  </aside>
+                </Rise>
+              </div>
             </div>
           </Shell>
         </section>
