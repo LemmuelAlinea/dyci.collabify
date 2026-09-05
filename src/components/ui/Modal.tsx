@@ -55,12 +55,21 @@ export function Modal({
   // for one transition on the way out, which is the whole reason a dialog can
   // animate closed at all — without this the element is unmounted on the frame
   // the user clicks, and there is nothing left to fade.
+  //
+  // The open->true edge is applied here, during render, rather than in an
+  // effect. Every <Modal> in this app is permanently mounted and toggled by
+  // `open`, so on that edge this component is already rendering when `open`
+  // flips true — calling setState here makes React redo this render with
+  // `render` already true and commit the panel to the DOM in the SAME commit.
+  // If this were done in an effect instead (as the close edge below still is),
+  // the panel would mount one commit late: the trap and autofocus effects
+  // would run first, see `panel.current === null`, bail, and never re-run,
+  // because their deps (`ref`, `open`) would not have changed on the following
+  // commit. Focus would silently stay on the trigger behind the backdrop.
   const [render, setRender] = useState(open)
+  if (open && !render) setRender(true)
   useEffect(() => {
-    if (open) {
-      setRender(true)
-      return
-    }
+    if (open) return
     const t = setTimeout(() => setRender(false), DUR.base)
     return () => clearTimeout(t)
   }, [open])
