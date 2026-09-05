@@ -5,6 +5,7 @@ import { AttentionList } from '../../components/dashboard/AttentionList'
 import { ClassProgress } from '../../components/dashboard/ClassProgress'
 import { ClassRail } from '../../components/dashboard/ClassRail'
 import { DashSection } from '../../components/dashboard/DashSection'
+import { Bento, BentoCell } from '../../components/dashboard/Bento'
 import { DashboardSummary } from '../../components/dashboard/DashboardSummary'
 import { StalledGroups } from '../../components/dashboard/StalledGroups'
 import { ButtonLink } from '../../components/ui/Button'
@@ -151,50 +152,56 @@ export default function ProfessorHome() {
             <ProgramNotices />
           </div>
 
-          <div className="mt-7 grid gap-5 md:mt-8 md:gap-8 lg:grid-cols-3 lg:gap-7">
-            {/* What needs you. */}
-            <div className="space-y-5 md:space-y-8 lg:col-span-2">
-              <Reveal once delay={0.04}>
-                <DashSection icon="checkCircle" title="Needs your attention" count={waiting}>
-                  <AttentionList items={data.attention} />
-                </DashSection>
-              </Reveal>
+          <div className="mt-7 md:mt-8">
+            <Bento>
+              <BentoCell>
+                <Reveal once delay={0.04}>
+                  <DashSection icon="checkCircle" title="Needs your attention" count={waiting}>
+                    <AttentionList items={data.attention} />
+                  </DashSection>
+                </Reveal>
+              </BentoCell>
 
-              <Reveal once delay={0.12}>
-                <DashSection
-                  icon="alert"
-                  title="Groups that have stalled"
-                  count={stalled}
-                  seeAll="/professor/projects"
-                >
-                  <StalledGroups boards={data.stalled} />
-                </DashSection>
-              </Reveal>
+              <BentoCell>
+                <Reveal once delay={0.08}>
+                  <DashSection
+                    icon="folder"
+                    title="Your classes"
+                    count={classes.length}
+                    seeAll="/professor/classes"
+                  >
+                    <ClassRail classes={classes} />
+                  </DashSection>
+                </Reveal>
+              </BentoCell>
 
-              <Reveal once delay={0.16}>
-                <DashSection
-                  icon="chart"
-                  title="Progress across your classes"
-                  seeAll="/professor/projects"
-                >
-                  <ClassProgress projects={data.projects} boards={data.boards} />
-                </DashSection>
-              </Reveal>
-            </div>
+              <BentoCell>
+                <Reveal once delay={0.12}>
+                  <DashSection
+                    icon="alert"
+                    title="Groups that have stalled"
+                    count={stalled}
+                    seeAll="/professor/projects"
+                  >
+                    <StalledGroups boards={data.stalled} />
+                  </DashSection>
+                </Reveal>
+              </BentoCell>
 
-            {/* What to know. */}
-            <div className="space-y-5 md:space-y-8">
-              <Reveal once delay={0.08}>
-                <DashSection
-                  icon="folder"
-                  title="Your classes"
-                  count={classes.length}
-                  seeAll="/professor/classes"
-                >
-                  <ClassRail classes={classes} />
-                </DashSection>
-              </Reveal>
-            </div>
+              {/* Wide: a progress table across every class needs the full row,
+                  and packing it into a column squeezes the bars to noise. */}
+              <BentoCell wide>
+                <Reveal once delay={0.16}>
+                  <DashSection
+                    icon="chart"
+                    title="Progress across your classes"
+                    seeAll="/professor/projects"
+                  >
+                    <ClassProgress projects={data.projects} boards={data.boards} />
+                  </DashSection>
+                </Reveal>
+              </BentoCell>
+            </Bento>
           </div>
         </>
       )}

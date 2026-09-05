@@ -3,6 +3,7 @@ import { ProgramNotices } from '../../components/app/ProgramNotices'
 import { Reveal } from '../../components/motion/Reveal'
 import { AnnouncementSwiper } from '../../components/dashboard/AnnouncementSwiper'
 import { DashSection } from '../../components/dashboard/DashSection'
+import { Bento, BentoCell } from '../../components/dashboard/Bento'
 import { DeadlineList } from '../../components/dashboard/DeadlineList'
 import { ProjectStrip } from '../../components/dashboard/ProjectStrip'
 import { StandingCard } from '../../components/dashboard/StandingCard'
@@ -154,96 +155,103 @@ export default function StudentHome() {
             <ProgramNotices />
           </div>
 
-          <div className="mt-7 grid gap-5 md:mt-8 md:gap-8 lg:grid-cols-3 lg:gap-7">
-            {/* What is on you. Due first, because a deadline is the only thing
-                here that stops being actionable if it is read too late. */}
-            <div className="space-y-5 md:space-y-8 lg:col-span-2">
-              <Reveal once delay={0.04}>
-                <DashSection
-                  icon="clock"
-                  title="Due this week"
-                  count={deadlines.length}
-                  seeAll="/student/tasks"
-                >
-                  <DeadlineList deadlines={deadlines} />
-                </DashSection>
-              </Reveal>
+          <div className="mt-7 md:mt-8">
+            <Bento>
+              <BentoCell>
+                <Reveal once delay={0.04}>
+                  <DashSection
+                    icon="clock"
+                    title="Due this week"
+                    count={deadlines.length}
+                    seeAll="/student/tasks"
+                  >
+                    <DeadlineList deadlines={deadlines} />
+                  </DashSection>
+                </Reveal>
+              </BentoCell>
 
-              <Reveal once delay={0.12}>
-                <DashSection
-                  icon="check"
-                  title="Your unfinished tasks"
-                  count={data.tasks.length}
-                  seeAll="/student/tasks"
-                >
-                  <TaskDigest tasks={data.tasks} />
-                </DashSection>
-              </Reveal>
-
-              <Reveal once delay={0.20}>
-                <DashSection
-                  icon="kanban"
-                  title="Projects you are on"
-                  seeAll="/student/projects"
-                >
-                  <ProjectStrip
-                    projects={data.projects}
-                    boards={data.boards}
-                    linkBase="/student/projects"
+              <BentoCell>
+                <Reveal once delay={0.08}>
+                  <WaitingOnYou
+                    unclaimed={data.unclaimed}
+                    unread={unread}
+                    openSets={data.openSets}
+                    stacked
                   />
-                </DashSection>
-              </Reveal>
-            </div>
+                </Reveal>
+              </BentoCell>
 
-            {/* What is going on around you. Context, not chores. */}
-            <div className="space-y-5 md:space-y-8">
-              {/* Renders nothing when nothing is waiting, which is why it can
-                  sit at the top of this column without taking up a heading. */}
-              <Reveal once delay={0.08}>
-                <WaitingOnYou
-                  unclaimed={data.unclaimed}
-                  unread={unread}
-                  openSets={data.openSets}
-                  stacked
-                />
-              </Reveal>
+              <BentoCell>
+                <Reveal once delay={0.12}>
+                  <DashSection
+                    icon="check"
+                    title="Your unfinished tasks"
+                    count={data.tasks.length}
+                    seeAll="/student/tasks"
+                  >
+                    <TaskDigest tasks={data.tasks} />
+                  </DashSection>
+                </Reveal>
+              </BentoCell>
 
               {data.announcements.length > 0 && (
-                <Reveal once delay={0.16}>
+                <BentoCell>
+                  <Reveal once delay={0.16}>
+                    <DashSection
+                      icon="message"
+                      title="Announcements"
+                      count={data.announcements.length}
+                      seeAll="/student/classes"
+                      seeAllLabel="All classes"
+                    >
+                      <AnnouncementSwiper
+                        announcements={data.announcements}
+                        classes={data.classes}
+                        linkBase="/student/classes"
+                      />
+                    </DashSection>
+                  </Reveal>
+                </BentoCell>
+              )}
+
+              <BentoCell>
+                <Reveal once delay={0.2}>
                   <DashSection
-                    icon="message"
-                    title="Announcements"
-                    count={data.announcements.length}
-                    seeAll="/student/classes"
-                    seeAllLabel="All classes"
+                    icon="kanban"
+                    title="Projects you are on"
+                    seeAll="/student/projects"
                   >
-                    <AnnouncementSwiper
-                      announcements={data.announcements}
-                      classes={data.classes}
-                      linkBase="/student/classes"
+                    <ProjectStrip
+                      projects={data.projects}
+                      boards={data.boards}
+                      linkBase="/student/projects"
                     />
                   </DashSection>
                 </Reveal>
-              )}
+              </BentoCell>
 
-              <Reveal once delay={0.24}>
-                <DashSection icon="chart" title="Where you stand">
-                  <StandingCard rows={data.standing} />
-                </DashSection>
-              </Reveal>
+              <BentoCell>
+                <Reveal once delay={0.24}>
+                  <DashSection icon="chart" title="Where you stand">
+                    <StandingCard rows={data.standing} />
+                  </DashSection>
+                </Reveal>
+              </BentoCell>
 
               {data.currentWeeks.length > 0 && (
-                <Reveal once delay={0.28}>
-                  <DashSection icon="calendar" title="Where the term is">
-                    <TermStrip
-                      weeks={data.currentWeeks}
-                      classes={data.classes}
-                      linkBase="/student/classes"
-                    />
-                  </DashSection>
-                </Reveal>
+                <BentoCell>
+                  <Reveal once delay={0.28}>
+                    <DashSection icon="calendar" title="Where the term is">
+                      <TermStrip
+                        weeks={data.currentWeeks}
+                        classes={data.classes}
+                        linkBase="/student/classes"
+                      />
+                    </DashSection>
+                  </Reveal>
+                </BentoCell>
               )}
-            </div>
+            </Bento>
           </div>
         </>
       )}
