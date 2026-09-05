@@ -169,7 +169,7 @@ export default function StudentHome() {
                 </DashSection>
               </Reveal>
 
-              <Reveal once delay={0.06}>
+              <Reveal once delay={0.12}>
                 <DashSection
                   icon="check"
                   title="Your unfinished tasks"
@@ -180,7 +180,7 @@ export default function StudentHome() {
                 </DashSection>
               </Reveal>
 
-              <Reveal once delay={0.08}>
+              <Reveal once delay={0.20}>
                 <DashSection
                   icon="kanban"
                   title="Projects you are on"
@@ -199,7 +199,7 @@ export default function StudentHome() {
             <div className="space-y-5 md:space-y-8">
               {/* Renders nothing when nothing is waiting, which is why it can
                   sit at the top of this column without taking up a heading. */}
-              <Reveal once delay={0.05}>
+              <Reveal once delay={0.08}>
                 <WaitingOnYou
                   unclaimed={data.unclaimed}
                   unread={unread}
@@ -209,7 +209,7 @@ export default function StudentHome() {
               </Reveal>
 
               {data.announcements.length > 0 && (
-                <Reveal once delay={0.07}>
+                <Reveal once delay={0.16}>
                   <DashSection
                     icon="message"
                     title="Announcements"
@@ -226,14 +226,14 @@ export default function StudentHome() {
                 </Reveal>
               )}
 
-              <Reveal once delay={0.09}>
+              <Reveal once delay={0.24}>
                 <DashSection icon="chart" title="Where you stand">
                   <StandingCard rows={data.standing} />
                 </DashSection>
               </Reveal>
 
               {data.currentWeeks.length > 0 && (
-                <Reveal once delay={0.11}>
+                <Reveal once delay={0.28}>
                   <DashSection icon="calendar" title="Where the term is">
                     <TermStrip
                       weeks={data.currentWeeks}
