@@ -33,8 +33,10 @@ import Pending from './pages/auth/Pending'
  * visitor sees, and splitting them would trade a smaller download for a blank
  * frame at the worst possible moment.
  */
-// A parallel landing-page study at /preview. Lazy, so the alternative page's
-// weight never lands on anyone who does not ask for it.
+// Landing-page studies. Both lazy, so their weight never lands on anyone who
+// does not ask for one. /preview is the combined page; /preview/study is the
+// earlier minimal one it borrows its restraint from.
+const LandingV2 = lazy(() => import('./pages/LandingV2'))
 const LandingAlt = lazy(() => import('./pages/LandingAlt'))
 const Accounts = lazy(() => import('./pages/app/admin/Accounts'))
 const AdminHome = lazy(() => import('./pages/app/AdminHome'))
@@ -82,7 +84,8 @@ export default function App() {
       <Suspense fallback={<PageLoading />}>
           <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/preview" element={<LandingAlt />} />
+          <Route path="/preview" element={<LandingV2 />} />
+          <Route path="/preview/study" element={<LandingAlt />} />
 
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

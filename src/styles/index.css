@@ -612,3 +612,38 @@
     color: inherit;
   }
 }
+
+/* ------------------------------------------- landing study (/preview) only */
+
+/**
+ * Keyframes for the combined landing page under `components/landing-v2`.
+ *
+ * Appended after every block `scripts/contrast.mjs` looks for, so its
+ * string-matched openers keep their order. All four are decorative: the
+ * reduced-motion block above already stops them, and each component also
+ * skips the animation outright rather than running it at 0.01ms.
+ */
+@keyframes collabify-orbit {
+  to {
+    stroke-dashoffset: -1990;
+  }
+}
+@keyframes collabify-turn {
+  to {
+    rotate: 360deg;
+  }
+}
+@keyframes collabify-bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -10px;
+  }
+}
+@keyframes collabify-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
