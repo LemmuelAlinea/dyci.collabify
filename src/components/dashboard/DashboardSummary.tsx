@@ -105,34 +105,43 @@ export function DashboardSummary({
                 <Icon
                   name={t.icon}
                   size={17}
-                  className={t.tone === 'warn' ? 'text-amber-600 dark:text-amber-300' : 'text-faint'}
+                  className={
+                    t.tone === 'warn'
+                      ? 'text-amber-300 dark:text-amber-600'
+                      : 'text-navy-300 dark:text-navy-500'
+                  }
                 />
                 {t.to && (
                   <Icon
                     name="arrowRight"
                     size={15}
-                    className="text-faint opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                    className="text-navy-300 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-navy-500"
                   />
                 )}
               </span>
               <span
                 className={`mt-2.5 block font-mono text-[24px] leading-none font-bold tabular-nums sm:mt-3 sm:text-[30px] ${
-                  t.tone === 'warn' ? 'text-amber-600 dark:text-amber-300' : 'text-ink'
+                  t.tone === 'warn' ? 'text-amber-300 dark:text-amber-600' : 'text-white dark:text-navy-900'
                 }`}
               >
                 <CountUp value={t.value} />
               </span>
-              <span className="mt-1.5 block text-[12.5px] leading-snug text-muted">
+              <span className="mt-1.5 block text-[12.5px] leading-snug text-navy-200 dark:text-navy-600">
                 {t.label}
               </span>
             </>
           )
 
+          // Inverted against the page on purpose: a dark tile on the light
+          // theme and a light tile on the dark one. The strip is the one thing
+          // here that is read at a glance rather than scanned, and reversing it
+          // separates it from the panels below without another colour.
           const shell =
-            'group surface flex flex-col rounded-card border px-3.5 py-3 transition-colors duration-200 sm:px-4 sm:py-3.5 ' +
+            'group flex flex-col rounded-card border px-3.5 py-3 transition-colors duration-200 sm:px-4 sm:py-3.5 ' +
+            'bg-navy-900 dark:bg-navy-50 ' +
             (t.tone === 'warn'
-              ? 'border-amber-300 dark:border-amber-400/40'
-              : 'border-line hover:border-line-strong')
+              ? 'border-amber-400/50 dark:border-amber-500/50'
+              : 'border-navy-700 hover:border-navy-500 dark:border-navy-200 dark:hover:border-navy-300')
 
           return t.to ? (
             <Link key={t.label} to={t.to} className={shell}>
