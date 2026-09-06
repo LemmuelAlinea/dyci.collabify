@@ -55,8 +55,8 @@ const TAB =
 function tabClass(on: boolean) {
   return `${TAB} ${
     on
-      ? 'border-navy-600 font-semibold text-ink dark:border-amber-400'
-      : 'border-transparent text-muted hover:text-ink'
+      ? 'border-amber-400 font-semibold text-amber-50'
+      : 'border-transparent text-amber-50/58 hover:text-amber-50'
   }`
 }
 
@@ -167,13 +167,13 @@ function AccountMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2 rounded-full py-1 pr-1.5 pl-1 transition-colors hover:bg-[var(--surface-sunken)]"
+        className="flex items-center gap-2 rounded-full py-1 pr-1.5 pl-1 text-amber-50 transition-colors hover:bg-white/8"
       >
         <Avatar profile={profile} size={30} />
-        <span className="hidden max-w-[130px] truncate text-[13px] font-medium text-ink lg:block">
+        <span className="hidden max-w-[130px] truncate text-[13px] font-medium text-amber-50/85 lg:block">
           {profile.first_name}
         </span>
-        <Icon name="chevronDown" size={15} className="hidden text-faint lg:block" />
+        <Icon name="chevronDown" size={15} className="hidden text-amber-50/42 lg:block" />
       </button>
 
       {open && (
@@ -223,14 +223,14 @@ function MessagesButton({ item }: { item: NavItem }) {
       className={({ isActive }) =>
         `relative grid h-9 w-9 place-items-center rounded-lg transition-colors ${
           isActive
-            ? 'bg-[var(--surface-sunken)] text-ink'
-            : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
+            ? 'bg-white/10 text-amber-50'
+            : 'text-amber-50/58 hover:bg-white/8 hover:text-amber-50'
         }`
       }
     >
       <Icon name={item.icon} size={19} />
       {unread > 0 && (
-        <span className="absolute top-0.5 right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-navy-600 px-1 font-mono text-[12px] font-bold text-white dark:bg-amber-400 dark:text-navy-900">
+        <span className="absolute top-0.5 right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-amber-400 px-1 font-mono text-[12px] font-bold text-navy-900">
           {unread > 9 ? '9+' : unread}
         </span>
       )}
@@ -263,16 +263,7 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
     .filter((g) => g.items.length > 0)
 
   return (
-    // The blueprint grid, carried in from the landing page's visual language.
-    //
-    // `blueprint-shell`, not `blueprint-ink`: the latter is tuned for a whole
-    // section of landing page and all but vanished in a 130px strip on plain
-    // white. Both carry a light and a dark value, so the motif reads either way.
-    //
-    // `.surface` sets `background` as a shorthand, which resets
-    // `background-image` — the grid survives only because `.blueprint` is
-    // declared after it in the stylesheet. Worth knowing before either moves.
-    <header className="surface blueprint blueprint-shell sticky top-0 z-40 border-b border-line">
+    <header className="blueprint sticky top-0 z-40 border-b border-white/10 bg-[#050718] text-amber-50">
       {/* Matches main's gutters exactly, so the logo and the page title below it
           sit on the same line down the screen. */}
       <div className="w-full px-4 sm:px-6 md:px-8 xl:px-12 2xl:px-20">
@@ -288,14 +279,14 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
               <Icon name="menu" size={20} />
             </button>
             <Link to={roleHome(profile.role, profile.status)} aria-label="Go to your dashboard">
-              <Logo size={28} showSubtitle={false} />
+              <Logo size={28} tone="onDark" showSubtitle={false} />
             </Link>
           </div>
 
           <div className="flex items-center gap-0.5 sm:gap-1">
             {messages && <MessagesButton item={messages} />}
-            <NotificationBell />
-            <ThemeToggle />
+            <NotificationBell tone="onNavy" />
+            <ThemeToggle tone="onNavy" />
             <AccountMenu />
           </div>
         </div>

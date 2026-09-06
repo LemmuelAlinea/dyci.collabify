@@ -26,7 +26,7 @@ function ago(iso: string) {
   return new Date(iso).toLocaleDateString()
 }
 
-export function NotificationBell() {
+export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }) {
   const { profile } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -115,7 +115,11 @@ export function NotificationBell() {
         onClick={() => setOpen((v) => !v)}
         aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}
         aria-expanded={open}
-        className="relative grid h-10 w-10 place-items-center rounded-full text-muted transition-[background-color,color,scale] duration-(--dur-press) hover:bg-[var(--surface-sunken)] hover:text-ink active:scale-[0.97]"
+        className={`relative grid h-10 w-10 place-items-center rounded-full transition-[background-color,color,scale] duration-(--dur-press) active:scale-[0.97] ${
+          tone === 'onNavy'
+            ? 'text-white/75 hover:bg-white/10 hover:text-white'
+            : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
+        }`}
       >
         <Icon name="bell" size={19} />
         {unread > 0 && (

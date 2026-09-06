@@ -214,18 +214,18 @@ export function AppShell() {
               exit={reduce ? undefined : { transform: 'translateX(-100%)' }}
               transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             >
-              <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-line px-4">
+              <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-white/10 bg-[#050718] px-4 text-amber-50">
                 <Link
                   to={roleHome(profile?.role, profile?.status)}
                   aria-label="Go to your dashboard"
                 >
-                  <Logo size={26} showSubtitle={false} />
+                  <Logo size={26} tone="onDark" showSubtitle={false} />
                 </Link>
                 <button
                   type="button"
                   onClick={() => setDrawer(false)}
                   aria-label="Close navigation"
-                  className="grid h-9 w-9 place-items-center rounded-lg text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"
+                  className="grid h-9 w-9 place-items-center rounded-lg text-amber-50/60 hover:bg-white/10 hover:text-amber-50"
                 >
                   <Icon name="x" size={19} />
                 </button>
