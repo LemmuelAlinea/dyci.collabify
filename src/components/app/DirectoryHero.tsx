@@ -21,7 +21,7 @@ export function DirectoryHero({
   statsVariant?: 'default' | 'compact-row'
 }) {
   return (
-    <section className="relative overflow-hidden rounded-panel border border-amber-50/10 bg-navy-950 px-5 py-7 text-amber-50 sm:px-7 sm:py-8 lg:px-9 lg:py-9">
+    <section className="relative overflow-hidden rounded-panel border border-amber-50/10 bg-navy-950 px-4 py-5 text-amber-50 sm:px-7 sm:py-8 lg:px-9 lg:py-9">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-52 -right-36 h-[430px] w-[430px] rounded-full blur-[110px]"
@@ -39,7 +39,7 @@ export function DirectoryHero({
         }}
       />
 
-      <div className="relative grid gap-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <div className="relative grid gap-5 sm:gap-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div className="max-w-[720px]">
           <h1 className="font-display text-amber-50">
             {title} <span className="text-amber-300">{accent}</span>
@@ -48,14 +48,14 @@ export function DirectoryHero({
             {description}
           </p>
         </div>
-        {action && <div className="lg:pb-1">{action}</div>}
+        {action && <div className="directory-hero__action lg:pb-1">{action}</div>}
       </div>
 
       <dl
-        className={`relative mt-7 grid gap-px overflow-hidden rounded-xl border border-amber-50/12 bg-amber-50/12 ${
+        className={`relative mt-5 grid gap-px overflow-hidden rounded-xl border border-amber-50/12 bg-amber-50/12 sm:mt-7 ${
           statsVariant === 'compact-row'
             ? 'w-full grid-cols-4 sm:w-fit'
-            : 'grid-cols-2 sm:w-fit sm:min-w-[360px]'
+            : 'w-fit min-w-[224px] grid-cols-2 sm:min-w-[360px]'
         }`}
       >
         {stats.map((stat) => (
@@ -63,20 +63,24 @@ export function DirectoryHero({
             key={stat.label}
             className={`min-w-0 bg-navy-950/80 ${
               statsVariant === 'compact-row'
-                ? 'px-2 py-2.5 sm:min-w-[120px] sm:px-3'
-                : 'px-4 py-3.5 sm:min-w-[180px]'
+                ? 'px-1.5 py-2 sm:min-w-[120px] sm:px-3 sm:py-2.5'
+                : 'px-2.5 py-2 sm:min-w-[180px] sm:px-4 sm:py-3.5'
             }`}
           >
             <dt
               className={`truncate text-amber-50/50 ${
-                statsVariant === 'compact-row' ? 'text-[10px] sm:text-[11px]' : 'text-[12px]'
+                statsVariant === 'compact-row'
+                  ? 'text-[8px] sm:text-[11px]'
+                  : 'text-[10px] sm:text-[12px]'
               }`}
             >
               {stat.label}
             </dt>
             <dd
-              className={`mt-1 font-mono font-bold tabular-nums text-amber-50 ${
-                statsVariant === 'compact-row' ? 'text-[17px] sm:text-[19px]' : 'text-[22px]'
+              className={`mt-0.5 font-mono font-bold tabular-nums text-amber-50 sm:mt-1 ${
+                statsVariant === 'compact-row'
+                  ? 'text-[14px] sm:text-[19px]'
+                  : 'text-[17px] sm:text-[22px]'
               }`}
             >
               {stat.value}
