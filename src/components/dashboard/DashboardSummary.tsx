@@ -149,7 +149,7 @@ export function DashboardSummary({
         </p>
       </div>
 
-      <div className="relative mt-6 grid grid-cols-2 gap-3 sm:mt-7 lg:grid-cols-4">
+      <div className="relative mx-auto mt-5 grid w-full max-w-[280px] grid-cols-2 gap-2 sm:mt-7 sm:max-w-none sm:gap-3 lg:grid-cols-4">
         {tiles.map((t) => {
           const body = (
             <>
@@ -157,24 +157,26 @@ export function DashboardSummary({
                 <Icon
                   name={t.icon}
                   size={17}
-                  className={t.tone === 'warn' ? 'text-amber-300' : 'text-amber-50/45'}
+                  className={`h-3.5 w-3.5 sm:h-[17px] sm:w-[17px] ${
+                    t.tone === 'warn' ? 'text-amber-300' : 'text-amber-50/45'
+                  }`}
                 />
                 {t.to && (
                   <Icon
                     name="arrowRight"
                     size={15}
-                    className="text-amber-50/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                    className="h-3 w-3 text-amber-50/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:h-[15px] sm:w-[15px]"
                   />
                 )}
               </span>
               <span
-                className={`mt-2.5 block font-mono text-[24px] leading-none font-bold tabular-nums sm:mt-3 sm:text-[30px] ${
+                className={`mt-1.5 block font-mono text-[20px] leading-none font-bold tabular-nums sm:mt-3 sm:text-[30px] ${
                   t.tone === 'warn' ? 'text-amber-300' : 'text-amber-50'
                 }`}
               >
                 <CountUp value={t.value} />
               </span>
-              <span className="mt-1.5 block text-[12px] leading-snug text-amber-50/55">
+              <span className="mt-1 block text-[10.5px] leading-snug text-amber-50/55 sm:mt-1.5 sm:text-[12px]">
                 {t.label}
               </span>
             </>
@@ -185,7 +187,7 @@ export function DashboardSummary({
           // weight on a white dashboard; inside a dark masthead that would read
           // as four holes punched in it.
           const shell =
-            'group flex flex-col rounded-card border px-3.5 py-3 transition-colors duration-200 sm:px-4 sm:py-3.5 ' +
+            'group flex flex-col rounded-xl border px-3 py-2.5 transition-colors duration-200 sm:rounded-card sm:px-4 sm:py-3.5 ' +
             'bg-amber-50/5 backdrop-blur-sm ' +
             (t.tone === 'warn'
               ? 'border-amber-400/45'
