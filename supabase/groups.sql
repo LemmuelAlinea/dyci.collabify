@@ -58,6 +58,28 @@ create table if not exists public.groups (
 
 create index if not exists groups_set_idx on public.groups (set_id, position);
 
+/**
+ * Put away rather than destroyed.
+ *
+ * Deleting a group takes far more than the group. Four foreign keys cascade
+ * from it — `group_members`, `conversations`, `project_boards` and
+ * `notifications` — and the middle two carry the whole of what the group did:
+ * every message, poll and attachment in its chat, and every task, comment,
+ * work log entry, uploaded file and recorded result on its board. One
+ * statement, no undo. The confirmation dialog said "everything else in the set
+ * is untouched", which was true of the set and wrong about the group.
+ *
+ * Archiving is the everyday action and does none of that: the row stays, its
+ * members stay placed, its board and its conversation stay whole, and undoing
+ * it is setting one column back to null. Deleting stays available for a group
+ * that never held anything — a mis-click during setup — and is refused by
+ * `guard_group_delete()` below the moment it would take somebody's work.
+ */
+alter table public.groups add column if not exists archived_at timestamptz;
+
+create index if not exists groups_archived_idx
+  on public.groups (set_id, archived_at);
+
 create table if not exists public.group_members (
   group_id   uuid not null,
   set_id     uuid not null,
@@ -131,6 +153,10 @@ begin
     new.set_id       := old.set_id;
     new.member_limit := old.member_limit;
     new.position     := old.position;
+    -- `groups_rename_by_member` exists so a group can name itself. Without
+    -- this line it would also let any member archive the group out from under
+    -- the rest of them.
+    new.archived_at  := old.archived_at;
   end if;
   return new;
 end;
@@ -139,6 +165,76 @@ $$;
 drop trigger if exists groups_guard_columns on public.groups;
 create trigger groups_guard_columns before update on public.groups
   for each row execute function public.guard_group_columns();
+
+/**
+ * What a group is holding, in one sentence, or null when it is holding
+ * nothing.
+ *
+ * Members deliberately do not count. A placement is a decision that can be
+ * made again in a moment, and refusing to delete a group because somebody is
+ * standing in it would block the one case deleting is for: undoing a bad
+ * arrangement before any work starts.
+ *
+ * Tasks and messages do count, because neither can be put back.
+ */
+create or replace function public.group_work_summary(p_group uuid)
+returns text language sql stable security definer set search_path = public as $$
+  with counted as (
+    select
+      (select count(*)
+         from public.project_tasks t
+         join public.project_boards b on b.id = t.board_id
+        where b.group_id = p_group)::int as tasks,
+      (select count(*)
+         from public.messages m
+         join public.conversations c on c.id = m.conversation_id
+        where c.group_id = p_group and m.deleted_at is null)::int as msgs
+  )
+  select case
+    when tasks = 0 and msgs = 0 then null
+    when msgs = 0 then tasks || ' task' || case when tasks = 1 then '' else 's' end
+    when tasks = 0 then msgs || ' message' || case when msgs = 1 then '' else 's' end
+    else tasks || ' task' || case when tasks = 1 then '' else 's' end
+         || ' and ' || msgs || ' message' || case when msgs = 1 then '' else 's' end
+  end
+  from counted;
+$$;
+
+/**
+ * A group carrying work cannot be deleted. Archive it.
+ *
+ * The same argument `safety.sql` makes about deleting a professor: the rows
+ * that go are not the deleter's, and a constraint holds where a missing button
+ * does not. This one fires on any delete of a group — the button in the
+ * product, a bulk re-save of an arrangement, the Supabase dashboard, a stray
+ * statement — because every one of those paths reaches the same four cascades.
+ *
+ * `save_group_arrangement` wipes and rebuilds every group in its set, so this
+ * refuses that too once any of those groups has a board with work on it. That
+ * is the right answer and was previously a silent loss: re-saving an
+ * arrangement over a set that had already started destroyed it.
+ *
+ * The message is written to be read by a professor in a toast, not by whoever
+ * is reading this file.
+ */
+create or replace function public.guard_group_delete()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  held text := public.group_work_summary(old.id);
+begin
+  if held is not null then
+    raise exception
+      '% has % on it. Archive it instead — deleting would take that with it.',
+      old.name, held
+      using errcode = 'restrict_violation';
+  end if;
+  return old;
+end;
+$$;
+
+drop trigger if exists groups_guard_delete on public.groups;
+create trigger groups_guard_delete before delete on public.groups
+  for each row execute function public.guard_group_delete();
 
 -- Dropping a student from a class must not leave them on a group roster.
 create or replace function public.drop_group_memberships_on_class_removal()
@@ -434,7 +530,13 @@ create policy group_members_write on public.group_members
 
 -- ---------------------------------------------------------------- views
 
-create or replace view public.group_overview
+-- Dropped rather than replaced. The select is `g.*`, so adding a column to
+-- `groups` shifts every column after it and `create or replace view` refuses
+-- to reorder — it fails with "cannot change name of view column". Nothing
+-- builds on this view, so the drop takes nothing with it.
+drop view if exists public.group_overview;
+
+create view public.group_overview
 with (security_invoker = true) as
 select g.*,
        s.class_id,

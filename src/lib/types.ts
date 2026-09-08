@@ -224,6 +224,8 @@ export type GroupRow = {
   name: string
   member_limit: number
   position: number
+  /** Put away rather than deleted. Null for a live group. */
+  archived_at: string | null
   created_at: string
   updated_at: string
 }

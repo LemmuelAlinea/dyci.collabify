@@ -31,7 +31,12 @@ export default function ProfessorGroups() {
   const [unplaced, setUnplaced] = useState<string[]>([])
   const [boundProjects, setBoundProjects] = useState(0)
 
-  const { sets, groups, members, loading, error, reload } = useGroupsData(classes)
+  const [view, setView] = useState<'active' | 'archived'>('active')
+
+  const { sets, groups, members, loading, error, reload } = useGroupsData(
+    classes,
+    view === 'archived',
+  )
   const pending = loading || classes === null
 
   useEffect(() => {
@@ -89,9 +94,32 @@ export default function ProfessorGroups() {
         ]}
       />
 
-      <div className="mt-8 border-b border-line pb-4">
-        <p className="text-[12px] font-medium text-faint">Group directory</p>
-        <h2 className="mt-1">Teams by class</h2>
+      {/*
+        The same Active/Archived pair the class directory uses, and for the
+        same reason: archiving is only a real alternative to deleting if there
+        is somewhere to go and look at what was put away.
+      */}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
+        <div>
+          <p className="text-[12px] font-medium text-faint">Group directory</p>
+          <h2 className="mt-1">{view === 'active' ? 'Teams by class' : 'Archived groups'}</h2>
+        </div>
+        <div className="flex gap-1 rounded-lg surface-sunken p-1">
+          {(['active', 'archived'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={`rounded-md px-4 py-1.5 text-[13px] transition-colors duration-150 ${
+                view === v
+                  ? 'surface font-medium text-ink ring-1 ring-[var(--line)]'
+                  : 'text-muted hover:text-ink'
+              }`}
+            >
+              {v === 'active' ? 'Active' : 'Archived'}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="mt-5 space-y-4">

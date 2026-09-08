@@ -103,13 +103,19 @@ export async function ungroupedStudents(setId: string) {
 
 /* --------------------------------------------------------------- groups */
 
-export async function listGroups(setIds: string[]) {
+/**
+ * Groups in these sets.
+ *
+ * Live ones by default: an archived group is put away, and a list that keeps
+ * showing it has not put it anywhere. `archived: true` is the other half of
+ * the same switch, for the shelf a professor goes to when they want it back.
+ */
+export async function listGroups(setIds: string[], opts: { archived?: boolean } = {}) {
   if (setIds.length === 0) return []
-  const { data, error } = await supabase
-    .from('group_overview')
-    .select('*')
-    .in('set_id', setIds)
-    .order('position')
+  const query = supabase.from('group_overview').select('*').in('set_id', setIds).order('position')
+  const { data, error } = opts.archived
+    ? await query.not('archived_at', 'is', null)
+    : await query.is('archived_at', null)
   if (error) throw error
   return (data ?? []) as GroupSummary[]
 }
@@ -171,6 +177,34 @@ export async function addGroup(setId: string, name: string, limit: number, posit
   return data as GroupSummary
 }
 
+/**
+ * Put a group away, or bring it back.
+ *
+ * Nothing else moves: its members stay placed, its board and its conversation
+ * stay whole, and restoring it is this call with `false`. That is the whole
+ * reason it exists — the alternative was a delete that took all three.
+ *
+ * A plain update rather than an RPC, the same shape as archiving a class.
+ * `groups_write` already restricts it to the set's professor, and
+ * `guard_group_columns` reverts the column for anybody else, so a member
+ * renaming their own group cannot archive it.
+ */
+export async function archiveGroup(groupId: string, archived: boolean) {
+  const { error } = await supabase
+    .from('groups')
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq('id', groupId)
+  if (error) throw error
+}
+
+/**
+ * Remove a group for good.
+ *
+ * Only works on a group that never held anything. `guard_group_delete()` in
+ * the database refuses it the moment there is a task or a message behind it,
+ * and says what is there — because this delete cascades into the group's board
+ * and its conversation, and neither can be put back.
+ */
 export async function deleteGroup(groupId: string) {
   const { error } = await supabase.from('groups').delete().eq('id', groupId)
   if (error) throw error

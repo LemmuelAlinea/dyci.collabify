@@ -17,6 +17,7 @@ import type { GroupMemberLoad } from '../../../lib/api/groupWork'
 import { useAuth } from '../../../context/AuthContext'
 import { getClass, listMembers } from '../../../lib/api/classes'
 import {
+  archiveGroup,
   deleteGroup,
   getGroup,
   joinGroup,
@@ -81,6 +82,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
   const [applyAll, setApplyAll] = useState(false)
   const [busy, setBusy] = useState(false)
   const [deletePrompt, setDeletePrompt] = useState(false)
+  const [archiving, setArchiving] = useState(false)
 
   const canManage = role === 'professor' && !group?.set_closed_at
   const isMember = members.some((m) => m.student_id === profile?.id)
@@ -251,6 +253,33 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                   onClick={() => setLimitOpen(true)}
                 >
                   Member limit
+                </Button>
+                {/*
+                  Archive first and delete second, in that order and with that
+                  weight. Deleting a group cascades into its board and its
+                  conversation; archiving touches nothing. The everyday action
+                  should be the reversible one and should be the one in reach.
+                */}
+                <Button
+                  variant="onNavy"
+                  size="sm"
+                  className="!h-8 !rounded-lg !px-3"
+                  loading={archiving}
+                  onClick={async () => {
+                    setArchiving(true)
+                    try {
+                      await archiveGroup(group.id, !group.archived_at)
+                      show(group.archived_at ? `${group.name} restored` : `${group.name} archived`)
+                      if (group.archived_at) await load()
+                      else navigate(base)
+                    } catch (err) {
+                      show(authErrorMessage(err, 'Could not archive the group.'), 'error')
+                    } finally {
+                      setArchiving(false)
+                    }
+                  }}
+                >
+                  {group.archived_at ? 'Restore' : 'Archive'}
                 </Button>
                 <button
                   type="button"
@@ -569,16 +598,29 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
         </div>
       </Modal>
 
+      {/*
+        The old copy read "everything else in the set is untouched", which was
+        true of the set and wrong about the group: the delete cascades into the
+        group's board and its whole conversation. The database now refuses it
+        outright once either holds anything, and the message it raises names
+        what is there — so a professor is told, in the toast, the specific
+        reason rather than a generic failure.
+      */}
       <ConfirmDialog
         open={deletePrompt}
         onClose={() => setDeletePrompt(false)}
         onConfirm={async () => {
-          await deleteGroup(group.id)
-          show(`${group.name} deleted`)
-          navigate(base)
+          try {
+            await deleteGroup(group.id)
+            show(`${group.name} deleted`)
+            navigate(base)
+          } catch (err) {
+            setDeletePrompt(false)
+            show(authErrorMessage(err, 'Could not delete the group.'), 'error')
+          }
         }}
         title={`Delete ${group.name}?`}
-        body="The group is removed and its members go back to being unplaced. Everything else in the set is untouched."
+        body="This takes the group's board and its conversation with it — every task, comment, work log entry, file and message. None of it can be brought back. Archive instead if you might want it later."
         confirmLabel="Delete group"
       />
     </div>

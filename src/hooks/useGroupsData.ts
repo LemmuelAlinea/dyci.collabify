@@ -7,8 +7,12 @@ import type { ClassSummary, GroupMember, GroupSet, GroupSummary } from '../lib/t
 /**
  * Sets, groups, and rosters for a list of classes, loaded together so the board
  * can render cards with faces in one pass rather than a query per card.
+ *
+ * `archived` picks which shelf. Live groups by default; the archived ones are
+ * the same query with the filter flipped, so the two views cannot drift into
+ * showing different shapes of the same card.
  */
-export function useGroupsData(classes: ClassSummary[] | null) {
+export function useGroupsData(classes: ClassSummary[] | null, archived = false) {
   const [sets, setSets] = useState<GroupSet[]>([])
   const [groups, setGroups] = useState<GroupSummary[]>([])
   const [members, setMembers] = useState<GroupMember[]>([])
@@ -21,7 +25,7 @@ export function useGroupsData(classes: ClassSummary[] | null) {
     try {
       const classIds = classes.map((c) => c.id)
       const loadedSets = await listSetsForClasses(classIds)
-      const loadedGroups = await listGroups(loadedSets.map((s) => s.id))
+      const loadedGroups = await listGroups(loadedSets.map((s) => s.id), { archived })
       const loadedMembers = await listGroupMembers(loadedGroups.map((g) => g.id))
       setSets(loadedSets)
       setGroups(loadedGroups)
@@ -32,7 +36,7 @@ export function useGroupsData(classes: ClassSummary[] | null) {
     } finally {
       setLoading(false)
     }
-  }, [classes])
+  }, [classes, archived])
 
   useEffect(() => {
     void load()
