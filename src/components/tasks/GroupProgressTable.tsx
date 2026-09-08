@@ -56,6 +56,7 @@ export function GroupProgressTable({
   activeId,
   solo = false,
   onOpen,
+  onAccept,
 }: {
   boards: BoardSummary[]
   /** The board currently open below, so the tile can say so. */
@@ -63,10 +64,13 @@ export function GroupProgressTable({
   /** An individual project: these are students, not groups. */
   solo?: boolean
   onOpen: (board: BoardSummary) => void
+  /** Professors only. Absent for a student, which is what hides the control. */
+  onAccept?: (board: BoardSummary) => Promise<void>
 }) {
   const [sort, setSort] = useState<SortId>(DEFAULT_SORT)
   const [query, setQuery] = useState('')
   const [all, setAll] = useState(false)
+  const [accepting, setAccepting] = useState<string | null>(null)
 
   const sorted = useMemo(() => sortBoards(boards, sort), [boards, sort])
   const matched = useMemo(() => {
@@ -75,6 +79,16 @@ export function GroupProgressTable({
   }, [sorted, query])
 
   const shown = all || matched.length <= PREVIEW ? matched : matched.slice(0, PREVIEW)
+
+  async function run(board: BoardSummary) {
+    if (!onAccept || accepting) return
+    setAccepting(board.id)
+    try {
+      await onAccept(board)
+    } finally {
+      setAccepting(null)
+    }
+  }
 
   const started = boards.filter((b) => b.task_count > 0).length
   const handedIn = boards.filter((b) => b.submitted_at).length
@@ -173,6 +187,39 @@ export function GroupProgressTable({
                         >
                           <Icon name="check" size={11} />
                           In
+                        </span>
+                      )}
+                      {/*
+                        Only on a board that is handed in and not yet answered.
+                        A `span` with a click handler, not a nested `button`:
+                        the whole tile is already a button and nesting one is
+                        invalid HTML that React will render but the browser
+                        will not treat as a button.
+                      */}
+                      {onAccept && b.submitted_at && !b.result_verdict && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Accept ${boardOwnerName(b)}'s work`}
+                          title={`Accept ${boardOwnerName(b)}'s work`}
+                          aria-busy={accepting === b.id}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void run(b)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter' && e.key !== ' ') return
+                            e.preventDefault()
+                            e.stopPropagation()
+                            void run(b)
+                          }}
+                          className={`grid h-6 w-6 place-items-center rounded-md text-emerald-700 transition-colors dark:text-emerald-300 ${
+                            accepting === b.id
+                              ? 'opacity-50'
+                              : 'cursor-pointer hover:bg-emerald-500/20'
+                          }`}
+                        >
+                          <Icon name={accepting === b.id ? 'clock' : 'checkCircle'} size={15} />
                         </span>
                       )}
                       <span className="font-mono text-[12px] text-muted">{pct}%</span>

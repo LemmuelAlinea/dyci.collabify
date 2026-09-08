@@ -16,6 +16,8 @@ import { TaskSummary } from './TaskSummary'
 import { TaskDetailModal } from './detail/TaskDetailModal'
 import { TaskFilterBar, TaskViewSwitch } from './TaskViewSwitch'
 import { deleteProfessorTask } from '../../lib/api/tasks'
+import { recordResult } from '../../lib/api/results'
+import { authErrorMessage } from '../../lib/authError'
 import type { ProfessorTaskGroup } from '../../lib/api/tasks'
 import { boardOwnerName } from '../../lib/types'
 import type { ProjectSummary, Role } from '../../lib/types'
@@ -122,6 +124,15 @@ export function ProfessorTasksView({
           activeId={active?.id}
           solo={solo}
           onOpen={(b) => t.showBoard(b.id === active?.id ? null : b.id)}
+          onAccept={async (b) => {
+            try {
+              await recordResult({ boardId: b.id, verdict: 'accepted' })
+              show(`${boardOwnerName(b)} accepted`)
+              await t.refresh()
+            } catch (err) {
+              show(authErrorMessage(err, 'Could not accept that.'), 'error')
+            }
+          }}
         />
       </section>
 
