@@ -60,8 +60,10 @@ export function ShiftWeeksDialog({
         <p className="text-[13.5px] leading-relaxed text-muted">
           Week {week.week_no}
           {week.title ? ` · ${week.title}` : ''} currently starts on{' '}
-          <strong className="text-ink">{longDay(current)}</strong>. Weeks before it stay where they
-          are.
+          <strong className="text-ink">{longDay(current)}</strong>.
+          {/* Week 1 has nothing before it, and saying so anyway reads as a
+              sentence nobody checked. */}
+          {week.week_no > 1 && ' Weeks before it stay where they are.'}
         </p>
 
         <Field label="It should start on">

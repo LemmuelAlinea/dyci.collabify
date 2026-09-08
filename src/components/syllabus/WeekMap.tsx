@@ -1,5 +1,5 @@
 import { Icon } from '../ui/Icon'
-import { describeRecordedShift } from '../../lib/termShift'
+import { describeRecordedShift, localDay } from '../../lib/termShift'
 import { weekRange } from '../../lib/types'
 import type { ClassWeek, WeekShift } from '../../lib/types'
 
@@ -41,6 +41,21 @@ export function WeekMap({
   const current = weeks.find((w) => w.phase === 'current')
   const undated = weeks.some((w) => w.phase === 'undated')
 
+  /**
+   * The gap a suspension leaves behind.
+   *
+   * Before weeks could move there were only three states, and "no current
+   * week" always meant the term had not started or was over. Moving week 8 two
+   * weeks later opens a fortnight in the middle where no week is running at
+   * all — and saying "the term is outside its dates" there reads as *term
+   * over* to a class that is very much mid-semester.
+   *
+   * Some past and some to come is that gap, and the only thing anybody wants
+   * from this line is the date it ends.
+   */
+  const resumes = !current ? weeks.find((w) => w.phase === 'upcoming') : undefined
+  const inGap = Boolean(resumes) && weeks.some((w) => w.phase === 'past')
+
   return (
     <div className="space-y-5">
       {/*
@@ -81,8 +96,17 @@ export function WeekMap({
                   {current.title ? ` · ${current.title}` : ''}
                 </strong>
               </>
+            ) : inGap && resumes ? (
+              <>
+                No week is running.{' '}
+                <strong className="text-ink">
+                  Week {resumes.week_no} starts {startDay(resumes)}
+                </strong>
+              </>
+            ) : remaining > 0 ? (
+              'The term has not started yet'
             ) : (
-              'The term is outside its dates right now'
+              'Every week of the term is done'
             )}
           </p>
           <p className="text-[14px] text-muted">
@@ -167,4 +191,13 @@ export function WeekMap({
       </ol>
     </div>
   )
+}
+
+/** "Sep 21". `localDay` because a date column is not UTC midnight. */
+function startDay(week: ClassWeek) {
+  if (!week.week_start) return ''
+  return localDay(week.week_start).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })
 }

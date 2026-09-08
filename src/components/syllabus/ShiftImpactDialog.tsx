@@ -61,10 +61,15 @@ export function ShiftImpactDialog({
       <div className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
 
+        {/* One sentence, two number agreements. Splitting it word by word gave
+            "These deadline fell … and has not moved with it", so the whole
+            clause is written twice instead. */}
         <p className="text-[13.5px] leading-relaxed text-muted">
-          The weeks have moved. These {rows.length === 1 ? 'deadline fell' : 'deadlines fall'} in
-          the range that shifted and {rows.length === 1 ? 'has' : 'have'} not moved with{' '}
-          {rows.length === 1 ? 'it' : 'them'}. Untick anything that should stay where it is.
+          The weeks have moved.{' '}
+          {rows.length === 1
+            ? 'This deadline fell in the range that shifted and has not moved with it.'
+            : 'These deadlines fell in the range that shifted and have not moved with them.'}{' '}
+          Untick anything that should stay where it is.
         </p>
 
         <ul className="divide-y divide-[var(--line)] overflow-hidden rounded-card border border-line">
