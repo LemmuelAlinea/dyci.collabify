@@ -9,6 +9,7 @@ import { requestReassignment } from '../../../lib/api/reassignments'
 import { authErrorMessage } from '../../../lib/authError'
 import { REASSIGNMENT_OUTCOMES } from '../../../lib/types'
 import type { ReassignmentOutcome } from '../../../lib/types'
+import { LIMIT } from '../../../lib/limits'
 
 /**
  * Asking for a task to change hands.
@@ -128,6 +129,7 @@ export function ReassignRequestModal({
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={4}
+                maxLength={LIMIT.reassignReason}
                 placeholder="What has happened, and what it is holding up."
               />
               <p className="mt-1.5 text-[12px] text-faint">

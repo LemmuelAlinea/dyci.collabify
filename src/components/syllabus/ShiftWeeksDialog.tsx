@@ -6,6 +6,7 @@ import { Modal } from '../ui/Modal'
 import { Textarea } from '../ui/Select'
 import { describeShift, shiftDays } from '../../lib/termShift'
 import type { ClassWeek } from '../../lib/types'
+import { LIMIT } from '../../lib/limits'
 
 /**
  * Where a professor answers a typhoon.
@@ -86,6 +87,7 @@ export function ShiftWeeksDialog({
             <Textarea
               id={id}
               rows={2}
+              maxLength={LIMIT.shiftReason}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Typhoon Kristine — classes suspended"

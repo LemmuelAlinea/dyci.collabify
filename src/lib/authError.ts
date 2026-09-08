@@ -65,7 +65,9 @@ const KNOWN: [RegExp, string][] = [
   ],
   [
     /user already registered|already been registered/i,
-    'That email already has an account. Sign in instead, or reset the password.',
+    // Reached only if something calls this on a signup failure without going
+    // through `isAlreadyRegistered` first. Says nothing either way.
+    'That address cannot be used to create a new account here. If it is yours, sign in or reset your password.',
   ],
   [/email not confirmed/i, 'Confirm your email first — open the link we sent before signing in.'],
   [/password should be at least \d+/i, 'That password is too short. Use at least 8 characters.'],
@@ -82,6 +84,17 @@ const KNOWN: [RegExp, string][] = [
     'Could not reach the server. Check your connection and try again.',
   ],
 ]
+
+/**
+ * Whether a signup failed because the address is already taken.
+ *
+ * Exported so `Register` can send that case down the same path as success
+ * instead of reporting it. Answering the question at all makes the form an
+ * account oracle — see the note at the call site.
+ */
+export function isAlreadyRegistered(err: unknown): boolean {
+  return /user already registered|already been registered/i.test(rawMessage(err))
+}
 
 export function authErrorMessage(err: unknown, fallback = 'Something went wrong. Try again.') {
   const raw = rawMessage(err)

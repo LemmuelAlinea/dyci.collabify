@@ -19,8 +19,9 @@ export default function CheckEmail() {
     >
       <div className="space-y-5">
         <Alert tone="success">
-          We sent a confirmation link{email ? ' to ' : ''}
-          {email && <strong>{email}</strong>}. Open it to activate your account.
+          If{email ? ' ' : ''}
+          {email && <strong>{email}</strong>} is not already registered, a confirmation link is on
+          its way. Open it to activate your account.
         </Alert>
         <ol className="space-y-3 text-[14px] leading-relaxed text-muted">
           <li className="flex gap-3">
@@ -34,6 +35,27 @@ export default function CheckEmail() {
           <li className="flex gap-3">
             <span className="font-mono text-[12px] font-bold text-amber-500">03</span>
             Not there? Check spam — the sender is your school's Collabify address.
+          </li>
+          {/*
+            The signup form sends an address that already has an account to
+            this same screen, deliberately, so it cannot be used to find out
+            who holds one. That leaves somebody who had simply forgotten
+            waiting for an email nobody sent, so the way out is spelled out
+            here rather than left to be worked out.
+          */}
+          <li className="flex gap-3">
+            <span className="font-mono text-[12px] font-bold text-amber-500">04</span>
+            Nothing arrives and you think you already had an account?{' '}
+            <span>
+              <Link to="/login" className="font-semibold text-ink hover:underline">
+                Sign in
+              </Link>{' '}
+              or{' '}
+              <Link to="/forgot-password" className="font-semibold text-ink hover:underline">
+                reset your password
+              </Link>
+              .
+            </span>
           </li>
         </ol>
         <ButtonLink to="/login" variant="outline" size="lg" full className="!rounded-xl">

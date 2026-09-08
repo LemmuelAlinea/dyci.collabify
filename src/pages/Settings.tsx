@@ -10,6 +10,7 @@ import { Icon } from '../components/ui/Icon'
 import type { IconName } from '../components/ui/Icon'
 import { Spinner } from '../components/ui/Icon'
 import { useAuth } from '../context/AuthContext'
+import { AVATAR_ACCEPT, avatarExtension, avatarProblem } from '../lib/limits'
 import { useThemePreference } from '../hooks/useThemePreference'
 import { authErrorMessage } from '../lib/authError'
 import { supabase } from '../lib/supabase'
@@ -156,14 +157,24 @@ export default function Settings() {
   async function onAvatarPicked(file: File | undefined) {
     if (!file || !profile) return
     setAvatarError(null)
-    if (file.size > 2 * 1024 * 1024) {
-      setAvatarError('Pick an image under 2 MB.')
+    /**
+     * Checked by type, not by extension. `payload.svg` renamed to `photo.png`
+     * passes an extension test and is still an SVG — which the old code would
+     * have stored under a `.png` path in a public bucket that Supabase serves
+     * without `X-Content-Type-Options`.
+     *
+     * The bucket's own allowlist is what actually enforces this; the check
+     * here saves a doomed upload and gives a better sentence than the storage
+     * API's.
+     */
+    const problem = avatarProblem(file)
+    if (problem) {
+      setAvatarError(problem)
       return
     }
     setAvatarBusy(true)
     try {
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-      const path = `${profile.id}/${Date.now()}.${ext}`
+      const path = `${profile.id}/${Date.now()}.${avatarExtension(file)}`
       const { error: upErr } = await supabase.storage
         .from('avatars')
         .upload(path, file, { upsert: true, contentType: file.type })
@@ -323,7 +334,7 @@ export default function Settings() {
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp"
+                accept={AVATAR_ACCEPT}
                 className="hidden"
                 onChange={(e) => onAvatarPicked(e.target.files?.[0])}
               />

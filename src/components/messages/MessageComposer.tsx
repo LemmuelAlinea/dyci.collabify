@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Icon, Spinner } from '../ui/Icon'
 import { formatBytes } from '../ui/FileDrop'
+import { LIMIT } from '../../lib/limits'
 
 const MAX_MB = 10
 
@@ -127,6 +128,7 @@ export function MessageComposer({
         <textarea
           ref={boxRef}
           rows={1}
+          maxLength={LIMIT.messageBody}
           value={body}
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={onKeyDown}

@@ -17,6 +17,7 @@ import {
   listPrivacyRequests,
 } from '../../lib/api/privacy'
 import type { PrivacyRequestRow, PrivacyStatus } from '../../lib/api/privacy'
+import { LIMIT } from '../../lib/limits'
 
 /**
  * The queue for whoever answers privacy requests.
@@ -345,6 +346,7 @@ function AnswerModal({
           <Textarea
             className="mt-1.5"
             rows={4}
+            maxLength={LIMIT.privacyAnswer}
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
             placeholder={

@@ -10,12 +10,8 @@
 
 import Anthropic from 'npm:@anthropic-ai/sdk'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { cors, corsMode, denied } from '../_shared/cors.ts'
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
 
 const MODEL = 'claude-opus-5'
 
@@ -67,14 +63,25 @@ Rules:
 - If the brief is too thin to draft anything honest, return an empty list and
   say so in note.`
 
-function json(body: unknown, status = 200) {
+/**
+ * `headers` is passed in rather than read from a module constant: the
+ * allow-origin value now depends on the request, and a module-level variable
+ * would be shared across the concurrent requests one instance handles.
+ */
+function json(headers: Record<string, string>, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: { ...headers, 'Content-Type': 'application/json' },
   })
 }
 
+// Printed once per cold start. Whether the origin lock is on is not something
+// anybody should have to guess at from behaviour.
+console.log(`[cors] ${corsMode()}`)
+
 Deno.serve(async (req) => {
+  const { headers: CORS, allowed } = cors(req)
+  if (!allowed) return denied(CORS)
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   const url = Deno.env.get('SUPABASE_URL')!
@@ -82,7 +89,7 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
 
   if (!apiKey) {
-    return json({ result: 'failed', message: 'The AI key is not set on the server yet.' })
+    return json(CORS, { result: 'failed', message: 'The AI key is not set on the server yet.' })
   }
 
   try {
@@ -96,7 +103,7 @@ Deno.serve(async (req) => {
     const {
       data: { user },
     } = await caller.auth.getUser()
-    if (!user) return json({ result: 'failed', message: 'Sign in first.' }, 401)
+    if (!user) return json(CORS, { result: 'failed', message: 'Sign in first.' }, 401)
 
     /**
      * How often this person may ask. Enforced in the database rather than here,
@@ -115,7 +122,7 @@ Deno.serve(async (req) => {
       p_message: 'That is twelve drafts in an hour. Take what you have and edit it — the AI is here to start a list, not to write it for you.',
     })
     if (limited.error) {
-      return json({ result: 'failed', message: limited.error.message }, 429)
+      return json(CORS, { result: 'failed', message: limited.error.message }, 429)
     }
 
     const limitedDay = await caller.rpc('rate_limit', {
@@ -125,13 +132,13 @@ Deno.serve(async (req) => {
       p_message: 'That is fifty drafts today. Come back tomorrow.',
     })
     if (limitedDay.error) {
-      return json({ result: 'failed', message: limitedDay.error.message }, 429)
+      return json(CORS, { result: 'failed', message: limitedDay.error.message }, 429)
     }
 
     const body = await req.json().catch(() => ({}))
     const projectId = String(body.project_id ?? '')
     const boardId = body.board_id ? String(body.board_id) : ''
-    if (!projectId) return json({ result: 'failed', message: 'No project given.' }, 400)
+    if (!projectId) return json(CORS, { result: 'failed', message: 'No project given.' }, 400)
 
     const { data: project } = await caller
       .from('project_overview')
@@ -142,7 +149,7 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     if (!project) {
-      return json({ result: 'failed', message: 'That project is not available to you.' }, 403)
+      return json(CORS, { result: 'failed', message: 'That project is not available to you.' }, 403)
     }
 
     const [{ data: criteria }, { data: weeks }] = await Promise.all([
@@ -238,7 +245,7 @@ Deno.serve(async (req) => {
     })
 
     if (message.stop_reason === 'refusal') {
-      return json({ result: 'failed', message: 'No draft could be produced for this brief.' })
+      return json(CORS, { result: 'failed', message: 'No draft could be produced for this brief.' })
     }
 
     const textBlock = message.content.find((b) => b.type === 'text')
@@ -253,13 +260,13 @@ Deno.serve(async (req) => {
         weight: Math.max(1, Math.min(20, Number(t.weight) || 1)),
       }))
 
-    return json({
+    return json(CORS, {
       result: 'ok',
       tasks,
       note: String(parsed.note ?? '').slice(0, 300),
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'The draft could not be produced.'
-    return json({ result: 'failed', message })
+    return json(CORS, { result: 'failed', message })
   }
 })

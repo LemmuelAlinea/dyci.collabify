@@ -22,6 +22,7 @@ import {
 import type { PrivacyKind, PrivacyRequestRow } from '../../lib/api/privacy'
 import { PRIVACY_CONTACT, REGULATOR, SCHOOL_DPO, docBySlug } from '../../lib/legal'
 import { useAuth } from '../../context/AuthContext'
+import { LIMIT } from '../../lib/limits'
 
 /**
  * Where a student exercises a right the privacy policy promises them.
@@ -193,6 +194,7 @@ export default function PrivacyRequest() {
               <Textarea
                 className="mt-1.5"
                 rows={4}
+                maxLength={LIMIT.privacyDetail}
                 value={detail}
                 onChange={(e) => setDetail(e.target.value)}
                 placeholder="Optional. For a correction, say what is wrong and what it should be."

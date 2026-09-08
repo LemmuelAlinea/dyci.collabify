@@ -11,8 +11,9 @@ import { ConsentChecks } from '../../components/legal/ConsentChecks'
 import { allConsented, emptyConsent } from '../../lib/legal'
 import type { ConsentState } from '../../lib/legal'
 import { useAuth } from '../../context/AuthContext'
-import { authErrorMessage } from '../../lib/authError'
+import { authErrorMessage, isAlreadyRegistered } from '../../lib/authError'
 import { useCooldown } from '../../components/auth/useCooldown'
+import { LIMIT } from '../../lib/limits'
 import type { Role } from '../../lib/types'
 
 export default function Register() {
@@ -63,6 +64,23 @@ export default function Register() {
         navigate('/auth/callback', { replace: true })
       }
     } catch (err) {
+      /**
+       * An email that already has an account goes to the same screen as a new
+       * one, and the screen says nothing about which happened.
+       *
+       * The alternative reply — "that email already has an account" — is an
+       * oracle: anybody could put an address in this form and learn whether
+       * the person holds one. That is worth closing even though the roster is
+       * hardly secret, because the answer also confirms the address is live.
+       *
+       * The cost is real and is paid on the CheckEmail screen, which now
+       * covers both outcomes and points somebody who already has an account at
+       * sign-in and password reset.
+       */
+      if (isAlreadyRegistered(err)) {
+        navigate(`/check-email?email=${encodeURIComponent(email.trim())}`, { replace: true })
+        return
+      }
       setError(authErrorMessage(err, 'Could not create your account.'))
       cooldown.refresh()
     } finally {
@@ -122,6 +140,7 @@ export default function Register() {
                 id={id}
                 required
                 autoComplete="given-name"
+                maxLength={LIMIT.firstName}
                 placeholder="Juan"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
@@ -134,6 +153,7 @@ export default function Register() {
                 id={id}
                 required
                 autoComplete="family-name"
+                maxLength={LIMIT.lastName}
                 placeholder="Dela Cruz"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
@@ -147,6 +167,7 @@ export default function Register() {
             <Input
               id={id}
               autoComplete="additional-name"
+              maxLength={LIMIT.middleName}
               placeholder="Santos"
               value={middleName}
               onChange={(e) => setMiddleName(e.target.value)}
@@ -162,6 +183,7 @@ export default function Register() {
               icon="mail"
               required
               autoComplete="email"
+              maxLength={LIMIT.email}
               placeholder="you@school.edu.ph"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

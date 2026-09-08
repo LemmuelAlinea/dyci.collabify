@@ -9,14 +9,10 @@
 
 import Anthropic from 'npm:@anthropic-ai/sdk'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { cors, corsMode, denied } from '../_shared/cors.ts'
 import { extractText, getDocumentProxy } from 'npm:unpdf'
 import { unzipSync, strFromU8 } from 'npm:fflate'
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
 
 const MODEL = 'claude-opus-5'
 
@@ -65,10 +61,15 @@ Rules:
 - Ignore grading tables, class policies, references, and the preamble.
 - If the document has no weekly schedule at all, return an empty list.`
 
-function json(body: unknown, status = 200) {
+/**
+ * `headers` is passed in rather than read from a module constant: the
+ * allow-origin value now depends on the request, and a module-level variable
+ * would be shared across the concurrent requests one instance handles.
+ */
+function json(headers: Record<string, string>, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: { ...headers, 'Content-Type': 'application/json' },
   })
 }
 
@@ -95,7 +96,13 @@ async function pdfToText(bytes: Uint8Array) {
   return (text ?? '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
 }
 
+// Printed once per cold start. Whether the origin lock is on is not something
+// anybody should have to guess at from behaviour.
+console.log(`[cors] ${corsMode()}`)
+
 Deno.serve(async (req) => {
+  const { headers: CORS, allowed } = cors(req)
+  if (!allowed) return denied(CORS)
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   const url = Deno.env.get('SUPABASE_URL')!
@@ -104,10 +111,7 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
 
   if (!apiKey) {
-    return json(
-      { result: 'failed', message: 'The AI key is not set on the server yet.' },
-      200,
-    )
+    return json(CORS, { result: 'failed', message: 'The AI key is not set on the server yet.' })
   }
 
   const admin = createClient(url, serviceKey)
@@ -122,7 +126,7 @@ Deno.serve(async (req) => {
     const {
       data: { user },
     } = await caller.auth.getUser()
-    if (!user) return json({ result: 'failed', message: 'Sign in first.' }, 401)
+    if (!user) return json(CORS, { result: 'failed', message: 'Sign in first.' }, 401)
 
     /**
      * How often this person may ask. Enforced in the database rather than here,
@@ -141,7 +145,7 @@ Deno.serve(async (req) => {
       p_message: 'That is eight syllabus reads in an hour. Wait a while before uploading another.',
     })
     if (limited.error) {
-      return json({ result: 'failed', message: limited.error.message }, 429)
+      return json(CORS, { result: 'failed', message: limited.error.message }, 429)
     }
 
     const limitedDay = await caller.rpc('rate_limit', {
@@ -151,12 +155,12 @@ Deno.serve(async (req) => {
       p_message: 'That is thirty syllabus reads today. Come back tomorrow.',
     })
     if (limitedDay.error) {
-      return json({ result: 'failed', message: limitedDay.error.message }, 429)
+      return json(CORS, { result: 'failed', message: limitedDay.error.message }, 429)
     }
 
     const body = await req.json().catch(() => ({}))
     resourceId = String(body.resource_id ?? '')
-    if (!resourceId) return json({ result: 'failed', message: 'No syllabus given.' }, 400)
+    if (!resourceId) return json(CORS, { result: 'failed', message: 'No syllabus given.' }, 400)
 
     // Ownership is checked against the caller's own JWT, never the id alone.
     const { data: resource } = await caller
@@ -166,7 +170,7 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     if (!resource || resource.professor_id !== user.id) {
-      return json({ result: 'failed', message: 'That syllabus is not yours.' }, 403)
+      return json(CORS, { result: 'failed', message: 'That syllabus is not yours.' }, 403)
     }
 
     await admin
@@ -255,7 +259,7 @@ Deno.serve(async (req) => {
       })
       .eq('id', resourceId)
 
-    return json({ result: weeks.length > 0 ? 'ok' : 'failed', weeks: weeks.length })
+    return json(CORS, { result: weeks.length > 0 ? 'ok' : 'failed', weeks: weeks.length })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'The file could not be read.'
     if (resourceId) {
@@ -264,6 +268,6 @@ Deno.serve(async (req) => {
         .update({ parse_status: 'failed', parse_error: message })
         .eq('id', resourceId)
     }
-    return json({ result: 'failed', message })
+    return json(CORS, { result: 'failed', message })
   }
 })

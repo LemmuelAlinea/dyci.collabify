@@ -9,6 +9,7 @@ import { addComment, deleteComment, editComment } from '../../../lib/api/taskDet
 import { authErrorMessage } from '../../../lib/authError'
 import { fullName } from '../../../lib/types'
 import type { Role, TaskComment } from '../../../lib/types'
+import { LIMIT } from '../../../lib/limits'
 
 function ago(iso: string) {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -92,6 +93,7 @@ export function CommentList({
                     <div className="mt-1.5 space-y-2">
                       <Textarea
                         rows={3}
+                        maxLength={LIMIT.commentBody}
                         value={editDraft}
                         onChange={(e) => setEditDraft(e.target.value)}
                         aria-label="Edit comment"
@@ -166,6 +168,7 @@ export function CommentList({
         <div className="space-y-2">
           <Textarea
             rows={3}
+            maxLength={LIMIT.commentBody}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Ask something, or say what you changed."
