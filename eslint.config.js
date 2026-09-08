@@ -75,4 +75,23 @@ export default tseslint.config(
     files: ['scripts/**/*.mjs', '*.config.{js,ts}'],
     languageOptions: { globals: globals.node },
   },
+
+  /**
+   * The two scripts in `public/` that run before the bundle does.
+   *
+   * They are browser code, but they are not part of the module graph — Vite
+   * copies them across untouched, and `index.html` loads them with a plain
+   * `<script src>`. So they need the browser globals and an older dialect than
+   * the rest of the app: whatever is here has to parse in the browser that is
+   * about to be told it is too old.
+   *
+   * `no-empty` is off for the same reason it is written that way. `theme.js`
+   * swallows a storage failure on purpose — a browser refusing localStorage
+   * should get the default theme, not an exception before first paint.
+   */
+  {
+    files: ['public/**/*.js'],
+    languageOptions: { ecmaVersion: 2019, globals: globals.browser },
+    rules: { 'no-empty': 'off' },
+  },
 )

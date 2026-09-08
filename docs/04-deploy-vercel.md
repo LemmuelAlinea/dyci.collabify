@@ -82,4 +82,59 @@ Run through all of these on the Vercel URL, not localhost:
 - [ ] Settings: flip a notification toggle, reload, it stayed flipped
 - [ ] Settings: sign out, then try to open `/settings` — you get bounced to sign-in
 
+## Response headers
+
+`vercel.json` sets these on every response. JSON takes no comments, so the
+reasoning lives here.
+
+| Header | Why |
+| --- | --- |
+| `Strict-Transport-Security` | A year, `includeSubDomains`, and deliberately **no `preload`** — preloading is hard to undo and would bind every subdomain of the college's domain, including services that are not ours. |
+| `X-Content-Type-Options: nosniff` | Stops a browser guessing a type we did not send. |
+| `X-Frame-Options: DENY` | With `frame-ancestors 'none'` in the CSP. Two headers because older browsers read only the first. |
+| `Referrer-Policy` | `strict-origin-when-cross-origin`. Vercel logs referrers, so this limits what is in them. |
+| `Permissions-Policy` | Denies camera, microphone, geolocation, payment and USB. None are used. |
+| `Cross-Origin-Opener-Policy: same-origin` | Safe **because Google sign-in is a full-page redirect**, not a popup. If `signInWithOAuth` is ever switched to `skipBrowserRedirect` with a popup, this header breaks the handshake. |
+
+`Cross-Origin-Embedder-Policy` is **not** set. It would require CORP on every
+cross-origin resource, which breaks the landing page's 3D model for no gain here.
+
+### The Content-Security-Policy
+
+It ships as **`Content-Security-Policy-Report-Only`**. In that mode the browser
+reports violations to the console and blocks nothing, which is the only safe way
+to find out what a real CSP would break. Flip the header name to
+`Content-Security-Policy` as its own deploy, once the walk below is clean, so it
+can be reverted on its own.
+
+Directive by directive:
+
+- **`script-src 'self'`** — no `'unsafe-inline'` and no `'unsafe-eval'`. The two
+  scripts that used to sit inline in `index.html` are now `/theme.js` and
+  `/browser-check.js`. Nothing in the app evals: the 3D board loads a plain GLB
+  with no DRACO or KTX2 decoder, there are no workers and no wasm, and three.js
+  compiles shaders through WebGL rather than JavaScript.
+- **`style-src` keeps `'unsafe-inline'`**, and this is the policy's real
+  weakness. Motion injects `<style>` elements at runtime, and a statically
+  hosted SPA cannot mint a per-request nonce without middleware. A style
+  injection vector stays open. Worth knowing rather than assuming the policy is
+  complete.
+- **`connect-src` must list `wss://<ref>.supabase.co`.** CSP governs WebSockets,
+  and without it Supabase realtime dies **silently** — the symptom is that other
+  people's changes stop appearing, which is very hard to trace back to a header.
+- **`img-src`** allows the Supabase host (storage, including signed URLs) and
+  `lh3.googleusercontent.com`, which is needed only because Google profile
+  photos are stored as their original URL.
+- The Supabase project ref is **hardcoded** here while `VITE_SUPABASE_URL`
+  carries it at build time. It is not a secret — it is already in the client
+  bundle — but the two must match. If the project changes, change both.
+
+### Walk before flipping it
+
+With report-only deployed, open the console and check it stays quiet through:
+the landing page with the 3D board running a full loop; sign in; open a class
+and load a file; send a message and watch it arrive in a second window
+(realtime, over `wss:`); read a syllabus with AI and generate tasks (both edge
+functions); change a profile photo.
+
 Next: [05-admin.md](05-admin.md)

@@ -9,63 +9,31 @@
       content="Collabify is where BSIT classes at Dr. Yanga's Colleges run their coursework: projects set against the syllabus, boards where everyone claims a fair share, and a professor's answer at the end of it."
     />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Only the two faces the first screen needs. Preloading all twelve would
+      pull 355 kB before anything renders; the rest arrive when a page first
+      asks for them. Outfit 700 is the wordmark and every heading, Instrument
+      Sans 400 is the body.
+    -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/outfit-700.woff2" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/instrument-sans-400.woff2"
+      crossorigin
     />
     <title>Collabify — BSIT coursework at Dr. Yanga's Colleges</title>
-    <script>
-      // Applied before paint so the first frame is never the wrong theme.
-      try {
-        const saved = localStorage.getItem('collabify.theme') || 'system'
-        const dark =
-          saved === 'dark' ||
-          (saved === 'system' &&
-            window.matchMedia('(prefers-color-scheme: dark)').matches)
-        document.documentElement.classList.toggle('dark', dark)
-      } catch {}
-    </script>
+    <script src="/theme.js"></script>
   </head>
   <body>
     <div id="root"></div>
     <!--
-      A browser too old for the stylesheet gets told so, rather than a page
-      with no colours in it.
-
-      Tailwind v4 compiles to `@property`, `color-mix()` and `oklch()`, which
-      is a hard floor at Chrome/Edge 111, Safari 16.4 and Firefox 128 — see
-      `browserslist` in package.json. Below it those functions do not degrade,
-      they fail to parse, so every colour resolves to nothing and the page
-      renders as unreadable black-on-black. A computer lab on a pinned browser
-      would have had no way of knowing why.
-
-      `CSS.supports` rather than a user-agent string: it asks the question that
-      actually matters, and it keeps working for browsers that do not exist yet.
-      The markup is inline and unstyled by the stylesheet on purpose — the
-      stylesheet is the thing that cannot be relied on here.
+      A browser too old for the stylesheet gets told so rather than a page with
+      no colours in it. Stays here, after #root and before the module script:
+      it writes into #root and has to win that race against React.
     -->
-    <script>
-      ;(function () {
-        var ok =
-          window.CSS &&
-          CSS.supports &&
-          CSS.supports('color', 'oklch(0.5 0.1 200)') &&
-          CSS.supports('color', 'color-mix(in oklab, red, blue)')
-        if (ok) return
-        document.documentElement.classList.remove('dark')
-        document.getElementById('root').innerHTML =
-          '<div style="max-width:34rem;margin:14vh auto;padding:0 1.5rem;' +
-          'font:16px/1.6 system-ui,sans-serif;color:#0d1330">' +
-          '<h1 style="font-size:22px;margin:0 0 .75rem">This browser is too old for Collabify</h1>' +
-          '<p style="margin:0 0 1rem">Collabify needs Chrome or Edge 111, Safari 16.4, or ' +
-          'Firefox 128 — or anything newer. On an older browser the page loads but the ' +
-          'colours do not, so nothing on it can be read.</p>' +
-          '<p style="margin:0">Update this browser, or open Collabify on another one. If ' +
-          'this is a college computer, the lab staff will need to do it.</p></div>'
-      })()
-    </script>
+    <script src="/browser-check.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

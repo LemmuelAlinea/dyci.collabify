@@ -1,5 +1,113 @@
 @import 'tailwindcss';
 
+/**
+ * The three faces, served from this origin.
+ *
+ * They used to come from fonts.googleapis.com, which meant every page load —
+ * including a logged-out visitor reading the landing page — told Google that
+ * visitor's IP address, user agent and referrer. That is a disclosure the
+ * privacy policy would have had to declare, for a font.
+ *
+ * Latin subset only, and only the weights the product actually uses: Outfit
+ * 400-800 (800 is the wordmark in Logo.tsx), Instrument Sans 400/500/600 plus
+ * italic 400 (the `· edited` marker and the deleted-message placeholder), and
+ * JetBrains Mono 400/500/700. Twelve files, unmodified from Google Fonts.
+ *
+ * `font-display: swap` matches the `&display=swap` the old link tag carried,
+ * so text is readable while a face is still arriving.
+ *
+ * Placed before `@theme` on purpose. `scripts/contrast.mjs` finds its blocks by
+ * walking seven openers with `indexOf` in order, starting at `@theme`, so
+ * anything above the first one is invisible to it and no boundary moves.
+ * Putting these between two openers would feed them to its variable parser.
+ *
+ * The licence requires its notice to travel with the files: public/fonts/OFL.txt.
+ */
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/instrument-sans-400-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/instrument-sans-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/instrument-sans-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/instrument-sans-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/outfit-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/outfit-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/outfit-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/outfit-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/fonts/outfit-800.woff2') format('woff2');
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {

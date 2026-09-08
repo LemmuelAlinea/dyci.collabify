@@ -67,13 +67,86 @@ type Entry = {
 const PREFIX = 'collabify:rl:'
 
 /**
+ * FNV-1a, 32-bit, as base36.
+ *
+ * Deliberately synchronous. `crypto.subtle.digest` is the stronger hash and it
+ * returns a promise, which does not fit here: `retryAfter` is called from a
+ * `useState` initialiser in useCooldown and `recordFailure` runs inside the
+ * auth calls, so making these async would ripple through AuthContext for no
+ * gain in a module that already says it is not a security control.
+ *
+ * **This does not anonymise the address.** A short non-cryptographic hash of
+ * an email is reversible by anyone who guesses candidate addresses. What it
+ * stops is the casual read — opening devtools on a shared library machine and
+ * seeing a classmate's address sitting in plain text.
+ */
+function digest(value: string) {
+  let h = 0x811c9dc5
+  for (let i = 0; i < value.length; i++) {
+    h ^= value.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return (h >>> 0).toString(36)
+}
+
+/**
  * Keyed by action and identifier so one person's mistyped password does not
  * lock a shared machine out of the whole form. Lower-cased because a person
  * retyping their address does not think of it as a different one.
+ *
+ * The identifier is hashed rather than stored. The key used to read
+ * `collabify:rl:signIn:juan@school.edu.ph`, which survived sign-out and left
+ * the address of whoever last used a shared machine in its localStorage.
  */
 function keyFor(action: Action, identifier: string) {
-  return PREFIX + action + ':' + identifier.trim().toLowerCase()
+  return PREFIX + action + ':' + digest(identifier.trim().toLowerCase())
 }
+
+/**
+ * Every throttle key currently stored.
+ *
+ * Uses `length` and `key(i)` rather than `Object.keys`. Storage does expose
+ * its entries as own properties, so `Object.keys` happens to work in a
+ * browser, but it is not what the interface promises and it returns nothing
+ * for any object standing in for storage. Read to an array first, because
+ * removing while walking the live index skips entries.
+ */
+function throttleKeys(): string[] {
+  const found: string[] = []
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith(PREFIX)) found.push(key)
+    }
+  } catch {
+    // Storage unavailable. An empty list is the right answer.
+  }
+  return found
+}
+
+/**
+ * Drop every throttle key. Called on sign-out, because a counter outliving the
+ * session is half of what made the old keys a problem.
+ */
+export function clearAllRateLimits() {
+  for (const key of throttleKeys()) drop(key)
+}
+
+/**
+ * Remove keys written before the identifier was hashed.
+ *
+ * Those are already sitting in the browser of everyone who has used the app,
+ * so fixing `keyFor` alone would leave the addresses behind and make the
+ * cookies notice true only for new visitors. Runs once at module load; an old
+ * key is recognisable because only the old format could contain an `@`.
+ */
+function dropLegacyKeys() {
+  for (const key of throttleKeys()) {
+    if (key.includes('@')) drop(key)
+  }
+}
+
+dropLegacyKeys()
 
 /** localStorage throws in private mode on some browsers, and may be absent. */
 function read(key: string): Entry | null {

@@ -13,6 +13,7 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import type { NotificationPrefs, Profile, Role } from '../lib/types'
 import {
   RateLimitError,
+  clearAllRateLimits,
   clearFailures,
   recordFailure,
   retryAfter,
@@ -194,6 +195,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
+    // The throttle counters are keyed per identifier and would otherwise
+    // outlive the session, which on a shared machine leaves a record that
+    // somebody signed in here.
+    clearAllRateLimits()
     fetchedFor.current = null
     setProfile(null)
     setSession(null)

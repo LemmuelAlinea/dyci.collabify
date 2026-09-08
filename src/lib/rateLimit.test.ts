@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   attemptsLeft,
+  clearAllRateLimits,
   clearFailures,
   recordFailure,
   retryAfter,
@@ -19,6 +20,12 @@ beforeEach(() => {
     getItem: (k: string) => store.get(k) ?? null,
     setItem: (k: string, v: string) => void store.set(k, v),
     removeItem: (k: string) => void store.delete(k),
+    // `length` and `key(i)` are part of the Storage interface and the module
+    // enumerates through them, so the stand-in has to provide them too.
+    get length() {
+      return store.size
+    },
+    key: (i: number) => [...store.keys()][i] ?? null,
   }
 })
 
@@ -157,5 +164,41 @@ describe('storage failure', () => {
     }
     expect(() => recordFailure('signIn', 'a@b.com', T0)).not.toThrow()
     expect(retryAfter('signIn', 'a@b.com', T0)).toBe(0)
+  })
+})
+
+describe('the stored key', () => {
+  it('never contains the address that was typed', () => {
+    recordFailure('signIn', 'juan@school.edu.ph', T0)
+    recordFailure('passwordReset', 'Maria.Santos@school.edu.ph', T0)
+    const keys = [...store.keys()]
+    expect(keys.length).toBeGreaterThan(0)
+    for (const k of keys) {
+      expect(k).not.toContain('@')
+      expect(k).not.toContain('juan')
+      expect(k).not.toContain('maria')
+    }
+  })
+
+  it('still separates two different addresses', () => {
+    for (let i = 0; i < 5; i++) recordFailure('signIn', 'a@b.com', T0 + i)
+    expect(retryAfter('signIn', 'a@b.com', T0 + 5)).toBeGreaterThan(0)
+    expect(retryAfter('signIn', 'other@b.com', T0 + 5)).toBe(0)
+  })
+})
+
+describe('clearAllRateLimits', () => {
+  it('drops every throttle key', () => {
+    recordFailure('signIn', 'a@b.com', T0)
+    recordFailure('signUp', 'c@d.com', T0)
+    clearAllRateLimits()
+    expect([...store.keys()].filter((k) => k.startsWith('collabify:rl:'))).toHaveLength(0)
+  })
+
+  it('leaves keys that belong to something else alone', () => {
+    store.set('collabify.theme', 'dark')
+    recordFailure('signIn', 'a@b.com', T0)
+    clearAllRateLimits()
+    expect(store.get('collabify.theme')).toBe('dark')
   })
 })

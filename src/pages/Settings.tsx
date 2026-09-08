@@ -170,6 +170,26 @@ export default function Settings() {
       if (upErr) throw upErr
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)
       await updateProfile({ avatar_url: data.publicUrl })
+
+      // Drop what the folder held before this one.
+      //
+      // The name carries a timestamp, so every replacement used to leave the
+      // previous photo behind — and the bucket is public, so each of those
+      // stayed readable by anyone holding its link, for ever. Someone who
+      // changed their picture to a less identifiable one did not actually
+      // withdraw the first.
+      //
+      // After the write, and failing quietly: the new photo is already saved
+      // and a tidy-up that did not run is not worth showing an error over.
+      try {
+        const { data: existing } = await supabase.storage.from('avatars').list(profile.id)
+        const stale = (existing ?? [])
+          .map((f) => `${profile.id}/${f.name}`)
+          .filter((p) => p !== path)
+        if (stale.length) await supabase.storage.from('avatars').remove(stale)
+      } catch {
+        // Left behind rather than surfaced. The next replacement tries again.
+      }
     } catch (err) {
       setAvatarError(authErrorMessage(err, 'Could not upload that photo.'))
     } finally {
