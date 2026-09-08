@@ -1,3 +1,5 @@
+import { localDay } from './termShift'
+
 export type Role = 'student' | 'professor' | 'admin'
 export type AccountStatus = 'active' | 'pending' | 'rejected'
 
@@ -153,6 +155,7 @@ export type AppNotification = {
     | 'deadline_soon'
     | 'comment_posted'
     | 'weekly_digest'
+    | 'term_shifted'
   class_id: string | null
   announcement_id: string | null
   project_id: string | null
@@ -314,9 +317,26 @@ export type ClassWeek = {
   notes: string | null
   term_start: string | null
   term_end: string | null
+  /** Days this week has been moved by `class_week_shifts`. 0 for an untouched term. */
+  offset_days: number
   week_start: string | null
   week_end: string | null
   phase: WeekPhase
+}
+
+/**
+ * A recorded disruption: from this week on, the term moved by this many days.
+ *
+ * Read by students as well as professors — somebody who planned around the old
+ * midterm date is owed the reason, not only the new date.
+ */
+export type WeekShift = {
+  id: string
+  class_id: string
+  from_week: number
+  days: number
+  reason: string
+  created_at: string
 }
 
 export const PARSE_STATUS_LABEL: Record<ParseStatus, string> = {
@@ -330,8 +350,12 @@ export const PARSE_STATUS_LABEL: Record<ParseStatus, string> = {
 export function weekRange(week: Pick<ClassWeek, 'week_start' | 'week_end'>) {
   if (!week.week_start || !week.week_end) return 'No term dates'
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
-  const from = new Date(week.week_start).toLocaleDateString(undefined, opts)
-  const to = new Date(week.week_end).toLocaleDateString(undefined, opts)
+  // `localDay`, not `new Date`: a date column arrives as "2026-07-20", which
+  // `new Date` reads as UTC midnight — the previous day west of Greenwich.
+  // Harmless in Manila, wrong everywhere else, and these dates are now
+  // editable rather than merely derived.
+  const from = localDay(week.week_start).toLocaleDateString(undefined, opts)
+  const to = localDay(week.week_end).toLocaleDateString(undefined, opts)
   return `${from} – ${to}`
 }
 

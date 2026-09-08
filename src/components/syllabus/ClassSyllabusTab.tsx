@@ -8,9 +8,24 @@ import { Icon, Spinner } from '../ui/Icon'
 import { EmptyState } from '../ui/EmptyState'
 import { useToast } from '../ui/Toast'
 import { WeekMap } from './WeekMap'
-import { classWeekMap, setTermDates } from '../../lib/api/syllabus'
+import { ShiftWeeksDialog } from './ShiftWeeksDialog'
+import { ShiftImpactDialog } from './ShiftImpactDialog'
+import {
+  applyShiftToDeadlines,
+  classWeekMap,
+  listWeekShifts,
+  setTermDates,
+  shiftClassWeeks,
+  shiftImpact,
+  siblingClasses,
+} from '../../lib/api/syllabus'
+import type { ShiftImpact } from '../../lib/api/syllabus'
 import { authErrorMessage } from '../../lib/authError'
-import type { ClassSummary, ClassWeek } from '../../lib/types'
+import { localDay } from '../../lib/termShift'
+import type { ClassRow, ClassSummary, ClassWeek, WeekShift } from '../../lib/types'
+
+/** A sibling class offered the same shift. Only what the sentence needs. */
+type Sibling = Pick<ClassRow, 'id' | 'name' | 'initial' | 'section' | 'term_start' | 'syllabus_id'>
 
 export function ClassSyllabusTab({
   cls,
@@ -23,7 +38,21 @@ export function ClassSyllabusTab({
 }) {
   const { show } = useToast()
   const [weeks, setWeeks] = useState<ClassWeek[] | null>(null)
+  const [shifts, setShifts] = useState<WeekShift[]>([])
   const [error, setError] = useState<string | null>(null)
+
+  /**
+   * The shift runs as three steps, so three pieces of state.
+   *
+   * `moving` is the week whose date is being changed. `impact` is what that
+   * shift stranded, held until the professor has answered it. `offer` is the
+   * sibling classes, raised last so it never competes with the deadline
+   * question for attention.
+   */
+  const [moving, setMoving] = useState<ClassWeek | null>(null)
+  const [impact, setImpact] = useState<{ shiftId: string; rows: ShiftImpact[]; days: number } | null>(null)
+  const [offer, setOffer] = useState<{ siblings: Sibling[]; from: number; days: number; reason: string } | null>(null)
+  const [offering, setOffering] = useState(false)
   const [start, setStart] = useState(cls.term_start ?? '')
   const [end, setEnd] = useState(cls.term_end ?? '')
   const [saving, setSaving] = useState(false)
@@ -33,13 +62,49 @@ export function ClassSyllabusTab({
 
   const load = useCallback(async () => {
     try {
-      setWeeks(await classWeekMap(cls.id))
+      const [map, recorded] = await Promise.all([classWeekMap(cls.id), listWeekShifts(cls.id)])
+      setWeeks(map)
+      setShifts(recorded)
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load the week map.'))
       setWeeks([])
     }
   }, [cls.id])
+
+  /**
+   * Move a week, then deal with what that left behind.
+   *
+   * The weeks move first and unconditionally: the term did change, and holding
+   * that back until the deadline question is answered would leave a professor
+   * looking at dates they know are wrong. Everything after it is a follow-up
+   * they can decline.
+   */
+  async function onShift(week: ClassWeek, days: number, reason: string) {
+    const shift = await shiftClassWeeks(cls.id, week.week_no, days, reason)
+    setMoving(null)
+    show(`Week ${week.week_no} onwards moved`)
+    await Promise.all([load(), onClassChanged?.()])
+
+    // Best effort, both of them. The shift is already recorded; a failure here
+    // costs a follow-up prompt, not the edit.
+    try {
+      const rows = await shiftImpact(shift.id)
+      if (rows.length > 0) setImpact({ shiftId: shift.id, rows, days })
+      else await raiseSiblingOffer(week.week_no, days, reason)
+    } catch {
+      await raiseSiblingOffer(week.week_no, days, reason)
+    }
+  }
+
+  async function raiseSiblingOffer(from: number, days: number, reason: string) {
+    try {
+      const siblings = await siblingClasses(cls)
+      if (siblings.length > 0) setOffer({ siblings, from, days, reason })
+    } catch {
+      // A missing offer is a missing convenience, not a failure worth a banner.
+    }
+  }
 
   useEffect(() => {
     void load()
@@ -205,10 +270,14 @@ export function ClassSyllabusTab({
               ? 'Set the term dates above and each week gets its real calendar dates.'
               : 'Your professor has not set the term dates, so these weeks have no dates yet.'}
           </Alert>
-          <WeekMap weeks={weeks} />
+          <WeekMap weeks={weeks} shifts={shifts} />
         </>
       ) : (
-        <WeekMap weeks={weeks} />
+        <WeekMap
+          weeks={weeks}
+          shifts={shifts}
+          onMoveWeek={role === 'professor' ? setMoving : undefined}
+        />
       )}
 
       {role === 'professor' && weeks.length > 0 && (
@@ -220,15 +289,76 @@ export function ClassSyllabusTab({
           Edit the syllabus weeks
         </Link>
       )}
+
+      {moving && (
+        <ShiftWeeksDialog
+          week={moving}
+          weeksAfter={weeks.filter((w) => w.week_no >= moving.week_no).length}
+          onClose={() => setMoving(null)}
+          onShift={(days, reason) => onShift(moving, days, reason)}
+        />
+      )}
+
+      {impact && (
+        <ShiftImpactDialog
+          rows={impact.rows}
+          days={impact.days}
+          onClose={() => setImpact(null)}
+          onApply={async (projectIds, taskIds) => {
+            const moved = await applyShiftToDeadlines(impact.shiftId, projectIds, taskIds)
+            setImpact(null)
+            show(`${moved} ${moved === 1 ? 'deadline' : 'deadlines'} moved`)
+            await load()
+          }}
+        />
+      )}
+
+      {/*
+        Raised last, and as a banner rather than a third modal. A school-wide
+        closure hit every section, but a section that genuinely runs on another
+        calendar must never be re-dated by a click meant for this one — so each
+        is named, and doing nothing is the default.
+      */}
+      {offer && (
+        <Alert tone="info">
+          {offer.siblings.map((s) => `${s.initial} ${s.section}`).join(' and ')}{' '}
+          {offer.siblings.length === 1 ? 'uses' : 'use'} the same syllabus and started on the same
+          day.{' '}
+          <button
+            type="button"
+            disabled={offering}
+            onClick={async () => {
+              setOffering(true)
+              try {
+                for (const sib of offer.siblings) {
+                  await shiftClassWeeks(sib.id, offer.from, offer.days, offer.reason)
+                }
+                show(`Moved ${offer.siblings.length === 1 ? 'it' : 'them'} too`)
+                setOffer(null)
+              } catch (err) {
+                show(authErrorMessage(err, 'Could not move the other class.'), 'error')
+              } finally {
+                setOffering(false)
+              }
+            }}
+            className="font-semibold underline underline-offset-2 disabled:opacity-60"
+          >
+            Move {offer.siblings.length === 1 ? 'it' : 'them'} the same way
+          </button>{' '}
+          <button
+            type="button"
+            onClick={() => setOffer(null)}
+            className="text-muted underline underline-offset-2"
+          >
+            No, just this one
+          </button>
+        </Alert>
+      )}
     </div>
   )
 }
 
-/**
- * A plain date column arrives as "2026-07-20". `new Date` on that reads it as
- * UTC midnight, which is the previous day anywhere west of Greenwich, so the
- * parts are put together by hand.
- */
+/** `localDay` rather than `new Date`: see the note on it in lib/termShift.ts. */
 function termLabel(from: string | null, to: string | null) {
   if (!from || !to) return ''
   const opts: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' }
@@ -239,9 +369,4 @@ function termWeeks(from: string | null, to: string | null) {
   if (!from || !to) return 0
   const days = (localDay(to).getTime() - localDay(from).getTime()) / 86_400_000
   return Math.max(1, Math.ceil((days + 1) / 7))
-}
-
-function localDay(value: string) {
-  const [y, m, d] = value.slice(0, 10).split('-').map(Number)
-  return new Date(y, (m ?? 1) - 1, d ?? 1)
 }

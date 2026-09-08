@@ -76,34 +76,39 @@ grant select on public.class_pace to authenticated;
  *
  * The most useful thing on the page and the least clever: no projection, no
  * threshold. The syllabus said Lab 6 happens in week 11; nothing does.
+ *
+ * Reads `class_week_map` rather than recomputing `term_start + (week_no-1)*7`,
+ * which is what it used to do. Once a term could be shifted by
+ * `class_week_shifts`, the second copy of that formula would have reported a
+ * week as still upcoming while the map showed it already past — and this view
+ * is what tells a professor a deadline was missed.
  */
-drop view if exists public.class_gaps;
+-- `cascade`: `class_actions` in analytics-insight.sql selects from this view,
+-- so a bare drop makes this file unrunnable once the insight views exist.
+-- **Re-run analytics-insight.sql after this file** — it is already the next
+-- entry in the chain in docs/07-backup.md, so a full rebuild handles it.
+drop view if exists public.class_gaps cascade;
 
 create view public.class_gaps
 with (security_invoker = true) as
 select c.id   as class_id,
        c.initial as class_initial,
        c.name  as class_name,
-       w.week_no,
-       w.title as week_title,
-       w.assessments,
-       (c.term_start + ((w.week_no - 1) * 7))::date as week_start,
-       case
-         when c.term_start is null then 'undated'
-         when current_date >  (c.term_start + ((w.week_no - 1) * 7) + 6) then 'past'
-         when current_date >= (c.term_start + ((w.week_no - 1) * 7))     then 'current'
-         else 'upcoming'
-       end as phase
+       m.week_no,
+       m.title as week_title,
+       m.assessments,
+       m.week_start,
+       m.phase
   from public.classes c
-  join public.syllabus_weeks w on w.resource_id = c.syllabus_id
+  join public.class_week_map m on m.class_id = c.id
  where c.archived_at is null
    and public.is_class_professor(c.id)
-   and btrim(w.assessments) <> ''
+   and btrim(m.assessments) <> ''
    and not exists (
      select 1 from public.projects p
       where p.class_id = c.id
         and p.archived_at is null
-        and w.week_no between p.start_week and p.end_week
+        and m.week_no between p.start_week and p.end_week
    );
 
 grant select on public.class_gaps to authenticated;
