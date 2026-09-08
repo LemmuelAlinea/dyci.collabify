@@ -86,6 +86,12 @@ create trigger notification_prefs_touch before update on public.notification_pre
 -- Role and names ride in on raw_user_meta_data from the signup form.
 -- Google users arrive with no role, so they get no profile row and the app
 -- routes them to /onboarding to pick one.
+--
+-- ⚠ supabase/consent.sql redefines this function as a superset that also
+-- records what the person agreed to at signup. Whichever file runs last wins,
+-- so re-running this one afterwards silently stops recording consent and
+-- nothing fails visibly. Always finish a rebuild with consent.sql, which is
+-- where it sits in the chain in docs/07-backup.md.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql

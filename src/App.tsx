@@ -35,6 +35,8 @@ import Pending from './pages/auth/Pending'
 // Lazy so the landing page's 3D board never lands on a signed-in route.
 const Landing = lazy(() => import('./pages/Landing'))
 const LegalDocPage = lazy(() => import('./pages/legal/LegalDoc'))
+const PrivacyRequest = lazy(() => import('./pages/legal/PrivacyRequest'))
+const PrivacyQueue = lazy(() => import('./pages/app/PrivacyQueue'))
 const Accounts = lazy(() => import('./pages/app/admin/Accounts'))
 const AdminHome = lazy(() => import('./pages/app/AdminHome'))
 const Analytics = lazy(() => import('./pages/app/analytics/Analytics'))
@@ -101,6 +103,9 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
             <Route path="/settings" element={<Settings />} />
+            {/* Every role, because every signed-in person is a data subject —
+                a professor asking what is held about them is the same right. */}
+            <Route path="/privacy/request" element={<PrivacyRequest />} />
           </Route>
           </Route>
 
@@ -148,6 +153,11 @@ export default function App() {
             <Route path="/professor/syllabi/:resourceId" element={<SyllabusDetail />} />
             <Route path="/professor/curriculum" element={<Curriculum />} />
             <Route path="/professor/reassignments" element={<Reassignments />} />
+            {/* The queue is the same page for both roles. is_privacy_handler()
+                decides what it returns, so a professor who is not the handler
+                sees only their own requests rather than an empty screen with a
+                nav entry pointing at it. */}
+            <Route path="/professor/privacy" element={<PrivacyQueue />} />
             <Route path="/professor/calendar" element={<Calendar />} />
             <Route path="/professor/analytics" element={<Analytics />} />
             <Route path="/professor/reports" element={<Reports />} />
@@ -165,6 +175,7 @@ export default function App() {
             <Route path="/admin/faculty" element={<Faculty />} />
             <Route path="/admin/cohort" element={<Cohort />} />
             <Route path="/admin/audit" element={<AuditLog />} />
+            <Route path="/admin/privacy" element={<PrivacyQueue />} />
             <Route path="/admin/accounts" element={<Accounts />} />
           </Route>
           </Route>

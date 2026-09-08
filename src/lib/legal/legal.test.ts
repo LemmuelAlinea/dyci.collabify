@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { CONSENT_ITEMS, consentVersions } from './consent'
+import { CONSENT_ITEMS, allConsented, consentVersions, emptyConsent } from './consent'
 import { CONTACT_IS_PLACEHOLDER, LEGAL_DOCS, PRIVACY, docBySlug, hasPlaceholder } from './index'
 import { parseLinks } from './types'
 import type { LegalBlock, LegalDoc } from './types'
@@ -223,6 +223,19 @@ describe('consent', () => {
       const links = parseLinks(item.label).filter((part) => part.to)
       expect(links.map((part) => part.to), item.document).toContain(`/${item.document}`)
     }
+  })
+
+  // The one default that must never be convenient.
+  it('starts every box unticked', () => {
+    const state = emptyConsent()
+    expect(Object.values(state)).toEqual([false, false])
+    expect(allConsented(state)).toBe(false)
+  })
+
+  it('is not satisfied by one box out of two', () => {
+    expect(allConsented({ terms: true, privacy: false })).toBe(false)
+    expect(allConsented({ terms: false, privacy: true })).toBe(false)
+    expect(allConsented({ terms: true, privacy: true })).toBe(true)
   })
 
   it('sends both versions in the shape the database reads', () => {

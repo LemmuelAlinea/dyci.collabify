@@ -11,6 +11,8 @@ import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import type { NotificationPrefs, Profile, Role } from '../lib/types'
+import { consentVersions } from '../lib/legal'
+import { recordAllConsent } from '../lib/api/consent'
 import {
   RateLimitError,
   clearAllRateLimits,
@@ -153,6 +155,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           middle_name: input.middleName?.trim() || null,
           last_name: input.lastName.trim(),
           role: input.role,
+          /**
+           * The versions the boxes on the form were ticked against.
+           *
+           * They travel in the signup metadata because at this moment there is
+           * no session, so the client cannot satisfy the insert policy on
+           * `consent_records`. `handle_new_user()` reads them out and writes
+           * the consent in the same transaction as the account, so the two
+           * either both exist or neither does — see supabase/consent.sql.
+           */
+          ...consentVersions(),
         },
       },
     })
@@ -243,6 +255,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const completeOnboarding = useCallback<AuthValue['completeOnboarding']>(
     async (input) => {
       if (!session?.user) throw new Error('Not signed in.')
+
+      /**
+       * Consent first, before the profile exists.
+       *
+       * This is the only place a Google account's consent can be recorded:
+       * `handle_new_user` returns early for an account with no role, so the
+       * signup trigger never writes one for them, and onboarding is the single
+       * screen every OAuth account passes through.
+       *
+       * Written before the upsert so a failure here stops the account being
+       * completed rather than leaving somebody inside the product with no
+       * record of what they agreed to. `consent_records` references
+       * `auth.users`, not `profiles`, which is what lets this run first.
+       */
+      await recordAllConsent('onboarding')
+
       const row = {
         id: session.user.id,
         email: session.user.email ?? '',

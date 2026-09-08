@@ -61,3 +61,22 @@ export function consentVersions(): Record<string, string> {
   for (const item of CONSENT_ITEMS) out[`consent_${item.document}`] = item.version
   return out
 }
+
+/**
+ * Which boxes are ticked, keyed by document.
+ *
+ * Here rather than beside the checkbox component for two reasons: neither
+ * function renders anything, and `src/lib/**` is what vitest runs over — so
+ * "every box starts unticked" is a claim a test can hold rather than a habit
+ * a future edit can quietly break.
+ */
+export type ConsentState = Record<string, boolean>
+
+/** Every box unticked. Never default to true — that is not consent. */
+export function emptyConsent(): ConsentState {
+  return Object.fromEntries(CONSENT_ITEMS.map((item) => [item.document, false]))
+}
+
+export function allConsented(state: ConsentState): boolean {
+  return CONSENT_ITEMS.every((item) => state[item.document])
+}

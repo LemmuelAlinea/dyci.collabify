@@ -6,12 +6,25 @@ import { Button } from '../../components/ui/Button'
 import { Field, Input } from '../../components/ui/Field'
 import { Alert } from '../../components/ui/Alert'
 import { RoleChoice } from '../../components/ui/RoleChoice'
+import { ConsentChecks } from '../../components/legal/ConsentChecks'
+import { allConsented, emptyConsent } from '../../lib/legal'
+import type { ConsentState } from '../../lib/legal'
 import { useAuth } from '../../context/AuthContext'
 import { authErrorMessage } from '../../lib/authError'
 import { roleHome } from '../../lib/roleHome'
 import type { Role } from '../../lib/types'
 
-/** Google sign-in carries no role, so first-time OAuth users finish their profile here. */
+/**
+ * Google sign-in carries no role, so first-time OAuth users finish their
+ * profile here.
+ *
+ * It is also the only place a Google account's consent can be collected. The
+ * signup trigger writes consent from the metadata the register form sends, and
+ * an OAuth account carries none of it — `handle_new_user` returns early for an
+ * account with no role, so nothing is recorded on that path. Every OAuth
+ * account passes through this screen exactly once, which makes it the one
+ * chance to ask.
+ */
 export default function Onboarding() {
   const { ready, session, profile, user, completeOnboarding } = useAuth()
   const navigate = useNavigate()
@@ -25,6 +38,8 @@ export default function Onboarding() {
   const [lastName, setLastName] = useState(guessed.length > 1 ? guessed[guessed.length - 1] : '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [consent, setConsent] = useState<ConsentState>(emptyConsent)
+  const [showConsentErrors, setShowConsentErrors] = useState(false)
 
   if (ready && !session) return <Navigate to="/login" replace />
   if (ready && profile) return <Navigate to={roleHome(profile.role, profile.status)} replace />
@@ -32,6 +47,10 @@ export default function Onboarding() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    if (!allConsented(consent)) {
+      setShowConsentErrors(true)
+      return
+    }
     setBusy(true)
     try {
       await completeOnboarding({ firstName, middleName, lastName, role })
@@ -94,6 +113,13 @@ export default function Onboarding() {
             />
           )}
         </Field>
+
+        <ConsentChecks
+          value={consent}
+          onChange={setConsent}
+          showErrors={showConsentErrors}
+          disabled={busy}
+        />
 
         <Button type="submit" size="lg" full loading={busy} className="!rounded-xl">
           Enter Collabify

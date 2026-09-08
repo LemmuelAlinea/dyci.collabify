@@ -13,9 +13,26 @@ export type NavItem = {
 
 export type NavGroup = { title: string; items: NavItem[] }
 
+/**
+ * The two rows every role carries.
+ *
+ * "Your data" is where somebody exercises a right under the Data Privacy Act.
+ * It sits in Account rather than anywhere role-specific because a professor
+ * asking what is held about them is exactly the same right as a student's, and
+ * because a page the privacy policy points at has to be findable without
+ * reading the privacy policy.
+ *
+ * The queue for whoever *answers* those requests is deliberately not here. The
+ * handler is one named professor, this list is static per role, and giving
+ * every professor a permanently empty screen would be worse than the link
+ * living on the handler's own request page — which is where it does.
+ */
 const SETTINGS: NavGroup = {
   title: 'Account',
-  items: [{ label: 'Settings', icon: 'settings', to: '/settings' }],
+  items: [
+    { label: 'Settings', icon: 'settings', to: '/settings' },
+    { label: 'Your data', icon: 'shield', to: '/privacy/request' },
+  ],
 }
 
 const BY_ROLE: Record<Role, NavGroup[]> = {
@@ -110,6 +127,9 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
         { label: 'Professor approvals', icon: 'shield', to: '/admin/approvals' },
         { label: 'Accounts', icon: 'users', to: '/admin/accounts' },
         { label: 'Audit log', icon: 'clock', to: '/admin/audit' },
+        // Admins are the fallback handler while nobody is named, so this row
+        // is never dead for them the way it would be for most professors.
+        { label: 'Privacy requests', icon: 'shield', to: '/admin/privacy' },
       ],
     },
     {

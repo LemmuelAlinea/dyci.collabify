@@ -7,6 +7,9 @@ import { Field, Input, PasswordInput } from '../../components/ui/Field'
 import { Alert } from '../../components/ui/Alert'
 import { GoogleButton } from '../../components/ui/GoogleButton'
 import { RoleChoice } from '../../components/ui/RoleChoice'
+import { ConsentChecks } from '../../components/legal/ConsentChecks'
+import { allConsented, emptyConsent } from '../../lib/legal'
+import type { ConsentState } from '../../lib/legal'
 import { useAuth } from '../../context/AuthContext'
 import { authErrorMessage } from '../../lib/authError'
 import { useCooldown } from '../../components/auth/useCooldown'
@@ -25,11 +28,21 @@ export default function Register() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
+  const [consent, setConsent] = useState<ConsentState>(emptyConsent)
+  const [showConsentErrors, setShowConsentErrors] = useState(false)
   const cooldown = useCooldown('signUp', email)
+  const consented = allConsented(consent)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    // Before the password check: an unticked box is the more likely reason the
+    // form did not go through, and reporting the password first would send
+    // somebody to fix the thing that was already fine.
+    if (!consented) {
+      setShowConsentErrors(true)
+      return
+    }
     if (password.length < 8) {
       setError('Use at least 8 characters for your password.')
       return
@@ -170,6 +183,13 @@ export default function Register() {
           )}
         </Field>
 
+        <ConsentChecks
+          value={consent}
+          onChange={setConsent}
+          showErrors={showConsentErrors}
+          disabled={busy}
+        />
+
         {cooldown.blocked && (
           <Alert tone="error">
             Too many sign-up attempts for this email. Try again in {cooldown.label}, or sign in if
@@ -177,6 +197,11 @@ export default function Register() {
           </Alert>
         )}
 
+        {/* The button stays enabled while a box is unticked, deliberately. A
+            disabled button explains nothing and leaves somebody clicking a
+            dead control; submitting shows exactly which box is missing and
+            why. Disabled is right for the cooldown, where the reason is
+            already on screen above it. */}
         <Button
           type="submit"
           variant="accent"

@@ -10,3 +10,7 @@ dist-ssr
 *.tsbuildinfo
 .remember/logs
 .remember/tmp
+
+# Subject access exports. One file is a named student's whole coursework record;
+# committing one would publish exactly what it was produced to protect.
+exports/
