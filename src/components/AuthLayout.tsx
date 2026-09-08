@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from 'motion/react'
 import { Logo } from './brand/Logo'
 import { ThemeToggle } from './ThemeToggle'
 import { Icon } from './ui/Icon'
+import { LEGAL_LINKS } from '../lib/legal'
 
 type Props = {
   /** The mono label above the heading. */
@@ -230,6 +231,24 @@ export function AuthLayout({
                 {footer}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Outside the scroll area, so it is present without having to be
+            scrolled to. These pages could not reach any legal document before,
+            which mattered most on the one page that asks somebody to agree to
+            two of them. */}
+        <div className="border-line shrink-0 border-t px-5 py-3.5 md:px-8">
+          <div className="mx-auto flex w-full max-w-[430px] flex-wrap justify-center gap-x-5 gap-y-1.5">
+            {LEGAL_LINKS.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="text-faint hover:text-ink font-mono text-[10px] tracking-[0.14em] uppercase transition-colors duration-200"
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
         </div>
       </motion.main>

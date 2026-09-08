@@ -34,6 +34,7 @@ import Pending from './pages/auth/Pending'
  */
 // Lazy so the landing page's 3D board never lands on a signed-in route.
 const Landing = lazy(() => import('./pages/Landing'))
+const LegalDocPage = lazy(() => import('./pages/legal/LegalDoc'))
 const Accounts = lazy(() => import('./pages/app/admin/Accounts'))
 const AdminHome = lazy(() => import('./pages/app/AdminHome'))
 const Analytics = lazy(() => import('./pages/app/analytics/Analytics'))
@@ -89,6 +90,13 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/pending" element={<Pending />} />
+
+          {/* Public on purpose. Somebody deciding whether to register has to be
+              able to read what they would be agreeing to before they have an
+              account, and a policy behind a sign-in is not a notice. */}
+          <Route path="/privacy" element={<LegalDocPage slug="privacy" />} />
+          <Route path="/terms" element={<LegalDocPage slug="terms" />} />
+          <Route path="/cookies" element={<LegalDocPage slug="cookies" />} />
 
           <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>

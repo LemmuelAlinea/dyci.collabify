@@ -4,6 +4,7 @@ import { Hero } from '../components/landing/Hero'
 import { Features, Roles } from '../components/landing/Roles'
 import { Workflow } from '../components/landing/Workflow'
 import { BlueprintField, Kicker, Marquee, Rise, Shell } from '../components/landing/parts'
+import { LEGAL_LINKS } from '../lib/legal'
 
 /**
  * The combined landing page.
@@ -262,10 +263,24 @@ export default function Landing() {
               ))}
             </div>
           </Shell>
-          <Shell className="pb-10">
+          <Shell className="flex flex-col gap-5 pb-10 sm:flex-row sm:items-center sm:justify-between">
             <p className="font-mono text-[10px] leading-relaxed tracking-[0.14em] text-amber-50/25 uppercase">
               Collabify · a project workspace for BSIT coursework
             </p>
+            {/* Set apart from the sign-in links above and dimmer than them: a
+                legal document has to be reachable from every page, and it does
+                not have to compete with the thing the page is asking for. */}
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              {LEGAL_LINKS.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className="font-mono text-[10px] tracking-[0.14em] text-amber-50/25 uppercase transition-colors duration-200 hover:text-amber-50/70"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
           </Shell>
         </footer>
       </main>
