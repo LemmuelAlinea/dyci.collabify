@@ -99,7 +99,7 @@ export function ProjectCard({
   return (
     <Link
       to={to}
-      className="group flex min-h-[286px] rounded-card border border-line bg-[var(--surface)] transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-line-strong"
+      className="group flex min-h-[286px] rounded-card border border-line bg-[var(--surface)] transition-[border-color,transform] duration-200 hover-safe hover:border-line-strong"
     >
       <div className="flex w-full flex-col p-5 sm:p-6">
       <div className="flex items-start justify-between gap-3">

@@ -54,7 +54,7 @@ export function ClassCard({
   return (
     <Link
       to={to}
-      className="group relative flex min-h-[248px] overflow-hidden rounded-card border border-line bg-[var(--surface)] transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-line-strong"
+      className="group relative flex min-h-[248px] overflow-hidden rounded-card border border-line bg-[var(--surface)] transition-[border-color,transform] duration-200 hover-safe hover:border-line-strong"
     >
       <div className="flex w-full flex-col p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
