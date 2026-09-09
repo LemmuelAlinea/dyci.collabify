@@ -240,6 +240,32 @@ function MessagesButton({ item }: { item: NavItem }) {
 
 export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   const { profile } = useAuth()
+
+  /**
+   * The bar's own height, published as `--app-bar`.
+   *
+   * `Modal` reads it to keep a dialog below the bar rather than over it. A
+   * literal would have to be two literals — the nav row is hidden below `lg`,
+   * so the bar is 58px on a phone and 105px on a laptop — and a third the next
+   * time a row is added. Measuring is exact and stays exact.
+   */
+  const bar = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const el = bar.current
+    if (!el) return
+    const write = () =>
+      document.documentElement.style.setProperty('--app-bar', `${Math.round(el.offsetHeight)}px`)
+    write()
+    const ro = new ResizeObserver(write)
+    ro.observe(el)
+    return () => {
+      ro.disconnect()
+      // The landing page has no app bar; leaving a stale height behind would
+      // inset a dialog against something that is no longer on screen.
+      document.documentElement.style.removeProperty('--app-bar')
+    }
+  }, [])
+
   if (!profile) return null
 
   const groups = navFor(profile.role)
@@ -263,7 +289,10 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
     .filter((g) => g.items.length > 0)
 
   return (
-    <header className="blueprint sticky top-0 z-40 border-b border-white/10 bg-[#050718] text-amber-50">
+    <header
+      ref={bar}
+      className="blueprint sticky top-0 z-40 border-b border-white/10 bg-[#050718] text-amber-50"
+    >
       {/* Matches main's gutters exactly, so the logo and the page title below it
           sit on the same line down the screen. */}
       <div className="w-full px-4 sm:px-6 md:px-8 xl:px-12 2xl:px-20">

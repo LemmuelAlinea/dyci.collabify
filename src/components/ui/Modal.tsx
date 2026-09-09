@@ -128,7 +128,19 @@ export function Modal({
     // inert.
     <div
       inert={!open}
-      className="fixed inset-0 z-60 flex items-end justify-center p-0 sm:items-center sm:p-6"
+      /**
+       * The backdrop still covers everything, including the bar — the dialog
+       * has to stay modal, and a top bar left clickable behind an open dialog
+       * would fight the focus trap and hand somebody a way out of it that the
+       * keyboard does not have.
+       *
+       * What moves is the panel. Padding the container down by the bar's own
+       * height means the dialog opens *below* it, so on a laptop screen the
+       * whole app no longer disappears behind one card. `--app-bar` is
+       * published by TopNav; the `0px` fallback is what the auth screens and
+       * the landing page get, where there is no bar to sit under.
+       */
+      className="fixed inset-0 z-60 flex items-end justify-center p-0 pt-[var(--app-bar,0px)] sm:items-center sm:p-6 sm:pt-[calc(var(--app-bar,0px)+1.5rem)]"
     >
       {/* Clickable, but not a tab stop: the header already has a real Close
           button, and Escape closes. A focusable full-screen button here just
@@ -146,7 +158,7 @@ export function Modal({
         aria-label={title}
         tabIndex={-1}
         data-state={open ? 'open' : 'closed'}
-        className={`motion-dialog surface relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-panel shadow-lift outline-none sm:rounded-panel ${WIDTHS[size]}`}
+        className={`motion-dialog surface relative flex max-h-[calc(92dvh-var(--app-bar,0px))] w-full flex-col overflow-hidden rounded-t-panel shadow-lift outline-none sm:max-h-[calc(100dvh-var(--app-bar,0px)-3rem)] sm:rounded-panel ${WIDTHS[size]}`}
       >
         <header
           className={`flex items-start justify-between gap-4 border-b px-6 py-5 ${
