@@ -953,6 +953,26 @@ export function boardOwnerName(board: Pick<BoardSummary, 'group_name' | 'student
   return board.group_name ?? board.student_name ?? 'One student'
 }
 
+/**
+ * Whether this board is waiting on the professor.
+ *
+ * Not "handed in and has no verdict". Returning a board keeps the `returned`
+ * row and nulls `submitted_at`, so once the group hands in again the board is
+ * submitted *and* carries a standing verdict — and the first version of this
+ * check, which asked only whether a verdict existed, hid the accept control on
+ * exactly the boards that most needed it.
+ *
+ * The question is which happened last: a submission after the last decision is
+ * work the professor has not answered yet.
+ */
+export function awaitingDecision(
+  board: Pick<BoardSummary, 'submitted_at' | 'result_at'>,
+): boolean {
+  if (!board.submitted_at) return false
+  if (!board.result_at) return true
+  return new Date(board.submitted_at) > new Date(board.result_at)
+}
+
 /** A project stops taking work when its professor closes it, not when it is due. */
 export function isProjectLocked(project: Pick<ProjectRow, 'locked_at'> | null | undefined) {
   return Boolean(project?.locked_at)

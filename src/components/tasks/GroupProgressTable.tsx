@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../ui/Icon'
 import { FilterField, FilterPopover, FilterSearch } from '../ui/FilterPopover'
 import { Select } from '../ui/Select'
-import { boardOwnerName } from '../../lib/types'
+import { awaitingDecision, boardOwnerName } from '../../lib/types'
 import type { BoardSummary } from '../../lib/types'
 
 type SortId = 'attention' | 'progress' | 'name'
@@ -196,7 +196,7 @@ export function GroupProgressTable({
                         invalid HTML that React will render but the browser
                         will not treat as a button.
                       */}
-                      {onAccept && b.submitted_at && !b.result_verdict && (
+                      {onAccept && awaitingDecision(b) && (
                         <span
                           role="button"
                           tabIndex={0}
