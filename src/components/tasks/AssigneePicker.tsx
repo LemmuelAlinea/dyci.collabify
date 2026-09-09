@@ -118,7 +118,14 @@ export function AssigneePicker({
         // The faces sit at the left edge of a card, so anchoring a fixed-width
         // panel to them pushed it off a phone screen. Below sm it is a sheet
         // across the viewport; from sm up it hangs off the control.
-        <div className="surface fixed inset-x-3 bottom-3 z-60 overflow-hidden rounded-2xl border border-line shadow-lift sm:absolute sm:inset-x-auto sm:top-8 sm:right-0 sm:bottom-auto sm:z-30 sm:w-[240px] sm:rounded-xl">
+        //
+        // `left-0`, not `right-0`. Right-aligning it to this wrapper made the
+        // panel grow leftward from the card's left edge, which put it off the
+        // side of the viewport for every card in the first board column — the
+        // names were clipped mid-word on both sides. Opening rightward from
+        // the same anchor keeps it inside the column it belongs to, since the
+        // panel and a column are about the same width.
+        <div className="surface fixed inset-x-3 bottom-3 z-60 overflow-hidden rounded-2xl border border-line shadow-lift sm:absolute sm:inset-x-auto sm:top-8 sm:bottom-auto sm:left-0 sm:z-40 sm:w-[256px] sm:max-w-[calc(100vw-2rem)] sm:rounded-xl">
           <div className="flex items-start justify-between gap-3 border-b border-line px-3.5 py-2.5 sm:px-3 sm:py-2">
             <p className="text-[12px] leading-snug text-faint sm:text-[12px]">
               {releasable
@@ -153,7 +160,7 @@ export function AssigneePicker({
                     className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-[var(--surface-sunken)] disabled:pointer-events-none disabled:opacity-45 sm:px-3 sm:py-2"
                   >
                     <Avatar profile={m.profile} size={24} />
-                    <span className="min-w-0 flex-1 truncate text-[14px] text-ink sm:text-[13px]">
+                    <span className="min-w-0 flex-1 text-[14px] leading-snug break-words text-ink sm:text-[13px]">
                       {fullName(m.profile)}
                       {m.student_id === viewerId && (
                         <span className="ml-1 text-[12px] text-faint">you</span>

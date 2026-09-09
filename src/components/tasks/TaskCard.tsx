@@ -118,7 +118,16 @@ export function TaskCard({
         </p>
       )}
 
-      <div className="relative z-10 mt-3 flex flex-wrap items-center justify-between gap-2">
+      {/*
+        z-30, not z-10 like its siblings. These rows are only lifted to clear
+        the stretched overlay button behind the card, but AssigneePicker opens
+        a panel inside this one — and with both rows at z-10 the panel was
+        trapped in this row's stacking context, so the "Start" row below it,
+        being a later sibling at the same level, painted straight through the
+        panel. Raising this row wins that order. The two never overlap
+        otherwise, so nothing else moves.
+      */}
+      <div className="relative z-30 mt-3 flex flex-wrap items-center justify-between gap-2">
         <AssigneePicker
           task={task}
           members={members}
