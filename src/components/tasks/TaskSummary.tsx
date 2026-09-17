@@ -126,7 +126,23 @@ function StatusDonut({ counts, total }: { counts: Record<TaskStatus, number>; to
  * and what changed lately. Reads the same filtered rows as the board and the
  * list, so the three never disagree.
  */
-export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
+export function TaskSummary({
+  rows,
+  /**
+   * Whether to draw the member breakdown.
+   *
+   * Off when the caller is already showing one. The professor's view, with a
+   * group open, shows `MemberProgress` beside that group's progress bar — and
+   * that answers a different question with the same words: this one counts
+   * tasks held and finished, that one is each member's share of the group's
+   * 100. Two lists of the same three people under one heading is how a page
+   * stops being readable.
+   */
+  showLoad = true,
+}: {
+  rows: ProjectTaskRow[]
+  showLoad?: boolean
+}) {
   const [events, setEvents] = useState<TaskEvent[] | null>(null)
 
   const ids = rows.map((r) => r.id).join(',')
@@ -267,7 +283,7 @@ export function TaskSummary({ rows }: { rows: ProjectTaskRow[] }) {
         </section>
       </div>
 
-      {load.size > 0 && (
+      {showLoad && load.size > 0 && (
         <section className="card p-4 sm:p-5 shadow-card">
           <h3>Who is carrying what</h3>
           <p className="mt-1 mb-3 text-[13px] text-muted">

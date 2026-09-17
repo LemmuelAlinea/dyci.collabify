@@ -348,10 +348,26 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
       </header>
 
       <div className="mt-6">
+        {/*
+          A professor and a student open this tab for different things. A
+          student comes to their own board, so "Tasks" is exactly right. A
+          professor comes to see where every group is and to answer what they
+          handed in — the tasks are what they find once they pick one. The
+          label names the thing they came for.
+        */}
         <Tabs<TabId>
           tabs={[
             { id: 'brief', label: 'Brief', icon: 'file' },
-            { id: 'tasks', label: 'Tasks', icon: 'check' },
+            {
+              id: 'tasks',
+              label:
+                role === 'professor'
+                  ? project.audience === 'group'
+                    ? 'Groups'
+                    : 'Students'
+                  : 'Tasks',
+              icon: role === 'professor' ? 'users' : 'check',
+            },
           ]}
           active={tab}
           onChange={setTab}
