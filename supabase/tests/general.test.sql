@@ -439,13 +439,21 @@ end $$;
 do $$
 declare
   a uuid := (select v from fx where k = 'a');
+  b uuid := (select v from fx where k = 'b');
   d uuid := (select v from fx where k = 'd');
   p2 uuid;
   inv uuid;
 begin
-  -- a left the fixture project above, so a and d share no General project. A
-  -- fresh project keeps the pending invitation this block needs, since d
-  -- already belongs to the fixture project via the join code test.
+  -- d and b both still belong to the fixture project, so this proves
+  -- shares_general_project_with actually depends on general_viewer_active():
+  -- a, by contrast, already left the fixture project above, so a check using
+  -- a would pass whether or not that gate exists.
+  perform pg_temp.act_as(d);
+  perform pg_temp.must_be('an active account reads a project peer''s profile',
+    exists (select 1 from public.profiles where id = b));
+
+  -- A fresh project keeps a genuine pending invitation for the next check,
+  -- since d already belongs to the fixture project via the join code test.
   perform pg_temp.act_as(a);
   select (public.create_general_project('Zz Side Project', '', null, null)).id into p2;
   select id into inv from public.invite_to_general_project(p2, d);
@@ -456,9 +464,28 @@ begin
 
   perform pg_temp.act_as(d);
   perform pg_temp.must_be('a deactivated account reads no project peers',
-    not exists (select 1 from public.profiles where id = a));
+    not exists (select 1 from public.profiles where id = b));
   perform pg_temp.must_refuse('a deactivated account cannot answer an invitation',
     format('select public.respond_general_invitation(%L, true)', inv));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- ------------------------------------------------------------------ ownerless projects skip a deactivated Owner
+
+do $$
+declare
+  b uuid := (select v from fx where k = 'b');
+  d uuid := (select v from fx where k = 'd');
+  p uuid := (select v from fx where k = 'project');
+begin
+  -- b is now the fixture project's sole active Owner (a left above); d is
+  -- already deactivated from the block above.
+  perform pg_temp.act_as(b);
+  perform pg_temp.must_allow('the Owner makes a deactivated account an Owner too',
+    format('select public.set_general_member_level(%L, %L, %L)', p, d, 'owner'));
+  perform pg_temp.must_allow(
+    '...and can still demote that deactivated Owner, despite being the only active one',
+    format('select public.set_general_member_level(%L, %L, %L)', p, d, 'member'));
   perform pg_temp.act_as_service();
 end $$;
 

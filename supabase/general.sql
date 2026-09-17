@@ -665,9 +665,7 @@ language plpgsql security definer set search_path = public as $$
 declare
   p public.general_projects%rowtype;
 begin
-  if auth.uid() is null or not exists (
-    select 1 from public.profiles where id = auth.uid() and status <> 'rejected'
-  ) then
+  if not public.general_viewer_active() then
     raise exception 'Sign in with an active account to create a project'
       using errcode = 'insufficient_privilege';
   end if;
@@ -814,9 +812,7 @@ language plpgsql security definer set search_path = public as $$
 declare
   inv public.general_invitations%rowtype;
 begin
-  if auth.uid() is null or not exists (
-    select 1 from public.profiles where id = auth.uid() and status <> 'rejected'
-  ) then
+  if not public.general_viewer_active() then
     raise exception 'Sign in with an active account to answer an invitation'
       using errcode = 'insufficient_privilege';
   end if;
@@ -976,9 +972,7 @@ language plpgsql security definer set search_path = public as $$
 declare
   p public.general_projects%rowtype;
 begin
-  if auth.uid() is null or not exists (
-    select 1 from public.profiles where id = auth.uid() and status <> 'rejected'
-  ) then
+  if not public.general_viewer_active() then
     raise exception 'Sign in with an active account to join a project'
       using errcode = 'insufficient_privilege';
   end if;
@@ -1038,7 +1032,11 @@ begin
     raise exception 'They are not on this project' using errcode = 'no_data_found';
   end if;
 
-  if target.level = 'owner' and p_level <> 'owner' then
+  -- Stepping down a deactivated Owner never changes how many active Owners
+  -- there are, so it is never blocked by this check — only demoting somebody
+  -- who is still active can leave the project with zero of them.
+  if target.level = 'owner' and p_level <> 'owner'
+     and exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
     select count(*) into owners
       from public.general_members m
       join public.profiles pr on pr.id = m.user_id
@@ -1090,7 +1088,10 @@ begin
     raise exception 'Only an Owner removes an Owner or a Manager'
       using errcode = 'insufficient_privilege';
   end if;
-  if target.level = 'owner' then
+  -- Removing a deactivated Owner never changes how many active Owners there
+  -- are, so it is never blocked by this check.
+  if target.level = 'owner'
+     and exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
     select count(*) into owners
       from public.general_members m
       join public.profiles pr on pr.id = m.user_id
@@ -1111,16 +1112,24 @@ declare
   me public.general_members%rowtype;
   owners int;
 begin
-  -- Membership is checked before the Owner rows are locked, so a non-member
-  -- never takes that lock.
-  select * into me from public.general_members
-   where project_id = p_project and user_id = auth.uid() for update;
-  if me.user_id is null then
+  -- Same lock order as set_general_member_level and remove_general_member: a
+  -- lock-free existence check first, then every Owner row, then the caller's
+  -- own row — so two people leaving the same project at once cannot deadlock
+  -- on each other's locks.
+  if not exists (
+    select 1 from public.general_members where project_id = p_project and user_id = auth.uid()
+  ) then
     raise exception 'You are not on this project' using errcode = 'no_data_found';
   end if;
 
   perform 1 from public.general_members
    where project_id = p_project and level = 'owner' for update;
+
+  select * into me from public.general_members
+   where project_id = p_project and user_id = auth.uid() for update;
+  if me.user_id is null then
+    raise exception 'You are not on this project' using errcode = 'no_data_found';
+  end if;
 
   if me.level = 'owner' then
     select count(*) into owners
