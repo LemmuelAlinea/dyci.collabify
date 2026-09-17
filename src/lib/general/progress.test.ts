@@ -22,6 +22,11 @@ describe('projectProgress', () => {
     expect(projectProgress([], true)).toEqual({ pct: 0, done: 0, total: 0 })
     expect(projectProgress([], false)).toEqual({ pct: 0, done: 0, total: 0 })
   })
+
+  it('rounds to 1 decimal place correctly for exact .X5 boundaries (regression: 23/80)', () => {
+    const tasksRegressionTest = [{ status: 'done' as const, weight: 23 }, { status: 'todo' as const, weight: 57 }]
+    expect(projectProgress(tasksRegressionTest, true)).toEqual({ pct: 28.8, done: 1, total: 2 })
+  })
 })
 
 describe('taskShare', () => {
@@ -31,6 +36,11 @@ describe('taskShare', () => {
 
   it('is zero on an empty project', () => {
     expect(taskShare(1, [])).toBe(0)
+  })
+
+  it('rounds to 1 decimal place correctly for exact .X5 boundaries (regression: 23/80)', () => {
+    const tasksRegressionTest = [{ status: 'done' as const, weight: 23 }, { status: 'todo' as const, weight: 57 }]
+    expect(taskShare(23, tasksRegressionTest)).toBe(28.8)
   })
 })
 

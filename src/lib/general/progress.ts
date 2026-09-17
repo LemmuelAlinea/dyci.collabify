@@ -16,19 +16,19 @@ export const TASK_STATUSES: { value: GeneralTaskStatus; label: string }[] = [
   { value: 'done', label: 'Done' },
 ]
 
-const round1 = (n: number) => Math.round(n * 10) / 10
+const pctOf = (part: number, whole: number) => (whole === 0 ? 0 : Math.round((part * 1000) / whole) / 10)
 
 export function projectProgress(tasks: readonly ProgressTask[], pointsEnabled: boolean) {
   const total = tasks.length
   const done = tasks.filter((t) => t.status === 'done').length
   if (total === 0) return { pct: 0, done: 0, total: 0 }
-  if (!pointsEnabled) return { pct: round1((done / total) * 100), done, total }
+  if (!pointsEnabled) return { pct: pctOf(done, total), done, total }
   const all = tasks.reduce((n, t) => n + Number(t.weight), 0)
   const finished = tasks.filter((t) => t.status === 'done').reduce((n, t) => n + Number(t.weight), 0)
-  return { pct: all === 0 ? 0 : round1((finished / all) * 100), done, total }
+  return { pct: pctOf(finished, all), done, total }
 }
 
 export function taskShare(weight: number, tasks: readonly ProgressTask[]) {
   const all = tasks.reduce((n, t) => n + Number(t.weight), 0)
-  return all === 0 ? 0 : round1((weight / all) * 100)
+  return pctOf(weight, all)
 }
