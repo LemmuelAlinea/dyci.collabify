@@ -78,12 +78,13 @@ $$;
 create or replace function public.log_profile_change()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
+  -- A General account has no Education role; 'none' keeps the log readable and the column non-null.
   if tg_op = 'INSERT' then
     insert into public.audit_events
       (action, actor_id, subject_id, subject_label, after_value)
     values ('account_created', auth.uid(), new.id,
             coalesce(btrim(new.first_name || ' ' || new.last_name), ''),
-            new.role::text || ' · ' || new.status::text);
+            coalesce(new.role::text, 'none') || ' · ' || new.status::text);
     return new;
   end if;
 
@@ -92,7 +93,7 @@ begin
       (action, actor_id, subject_id, subject_label, before_value, after_value)
     values ('role_changed', auth.uid(), new.id,
             coalesce(btrim(new.first_name || ' ' || new.last_name), ''),
-            old.role::text, new.role::text);
+            coalesce(old.role::text, 'none'), coalesce(new.role::text, 'none'));
   end if;
 
   if new.status is distinct from old.status then
