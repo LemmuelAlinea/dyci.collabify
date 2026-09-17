@@ -1372,6 +1372,8 @@ git commit -m "Add the General workplace to accounts and close the profile inser
 
 ### Task 5: General projects, membership and permissions in the database
 
+> **Amended during execution.** Security review found the SQL below let an invitation expose the invitee's profile (including email), missed deactivated accounts in several places, counted deactivated Owners, and rolled back the join-code rate limit on a wrong guess. The committed `supabase/general.sql` and its test supersede this text: invitations are read through `list_my_general_invitations()` and `list_general_project_invitations(p_project)`, and `join_general_project` returns null on a wrong code. Task 8's API already uses these.
+
 **Files:**
 - Create: `supabase/general.sql`
 - Create: `supabase/tests/general.test.sql`
@@ -4961,9 +4963,14 @@ export async function setJoinCode(projectId: string, open: boolean, regenerate =
   return (data as string | null) ?? null
 }
 
+/**
+ * A wrong code comes back as null rather than an error, so the rate limit that
+ * counted the attempt is not rolled back with it.
+ */
 export async function joinGeneralProject(code: string) {
   const { data, error } = await supabase.rpc('join_general_project', { p_code: code })
   if (error) throw error
+  if (!data) throw new Error('That code does not match an open project. Check it with whoever shared it.')
   return data as string
 }
 
@@ -5080,15 +5087,41 @@ export async function inviteToProject(projectId: string, userId: string) {
   if (error) throw error
 }
 
+/**
+ * Through an RPC, not an embed: an invitation must not open the invitee's
+ * profile row (and with it their email) to the project. Names and photos only.
+ */
 export async function listProjectInvitations(projectId: string) {
-  const { data, error } = await supabase
-    .from('general_invitations')
-    .select(`*, invitee_profile:profiles!general_invitations_invitee_fkey (${PERSON})`)
-    .eq('project_id', projectId)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('list_general_project_invitations', {
+    p_project: projectId,
+  })
   if (error) throw error
-  return (data ?? []) as unknown as ProjectInvitation[]
+  type Row = {
+    invitation_id: string
+    invitee_id: string
+    invitee_first_name: string
+    invitee_last_name: string
+    invitee_avatar_url: string | null
+    invited_by: string | null
+    created_at: string
+  }
+  return ((data ?? []) as Row[]).map(
+    (r): ProjectInvitation => ({
+      id: r.invitation_id,
+      project_id: projectId,
+      invitee: r.invitee_id,
+      invited_by: r.invited_by,
+      status: 'pending',
+      created_at: r.created_at,
+      answered_at: null,
+      invitee_profile: {
+        id: r.invitee_id,
+        first_name: r.invitee_first_name,
+        last_name: r.invitee_last_name,
+        avatar_url: r.invitee_avatar_url,
+      },
+    }),
+  )
 }
 
 export async function withdrawInvitation(invitationId: string) {
@@ -5096,17 +5129,41 @@ export async function withdrawInvitation(invitationId: string) {
   if (error) throw error
 }
 
+/** Through an RPC for the same reason as listProjectInvitations. */
 export async function listMyInvitations(userId: string) {
-  const { data, error } = await supabase
-    .from('general_invitations')
-    .select(
-      `*, project:general_projects (id, name, description), inviter:profiles!general_invitations_invited_by_fkey (${PERSON})`,
-    )
-    .eq('invitee', userId)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('list_my_general_invitations')
   if (error) throw error
-  return (data ?? []) as unknown as MyInvitation[]
+  type Row = {
+    invitation_id: string
+    project_id: string
+    project_name: string
+    project_description: string
+    inviter_id: string | null
+    inviter_first_name: string | null
+    inviter_last_name: string | null
+    inviter_avatar_url: string | null
+    created_at: string
+  }
+  return ((data ?? []) as Row[]).map(
+    (r): MyInvitation => ({
+      id: r.invitation_id,
+      project_id: r.project_id,
+      invitee: userId,
+      invited_by: r.inviter_id,
+      status: 'pending',
+      created_at: r.created_at,
+      answered_at: null,
+      project: { id: r.project_id, name: r.project_name, description: r.project_description },
+      inviter: r.inviter_id
+        ? {
+            id: r.inviter_id,
+            first_name: r.inviter_first_name ?? '',
+            last_name: r.inviter_last_name ?? '',
+            avatar_url: r.inviter_avatar_url,
+          }
+        : null,
+    }),
+  )
 }
 
 export async function respondToInvitation(invitationId: string, accept: boolean) {
