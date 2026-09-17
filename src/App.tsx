@@ -59,6 +59,7 @@ const ProgramClasses = lazy(() => import('./pages/app/admin/ProgramClasses'))
 const ProgramLibrary = lazy(() => import('./pages/app/admin/ProgramLibrary'))
 const ProjectDetail = lazy(() => import('./pages/app/projects/ProjectDetail'))
 const Reassignments = lazy(() => import('./pages/app/reassignments/Reassignments'))
+const Submissions = lazy(() => import('./pages/app/submissions/Submissions'))
 const Reports = lazy(() => import('./pages/app/reports/Reports'))
 const Sections = lazy(() => import('./pages/app/admin/Sections'))
 const Settings = lazy(() => import('./pages/Settings'))
@@ -152,6 +153,7 @@ export default function App() {
             <Route path="/professor/syllabi" element={<Syllabi />} />
             <Route path="/professor/syllabi/:resourceId" element={<SyllabusDetail />} />
             <Route path="/professor/curriculum" element={<Curriculum />} />
+            <Route path="/professor/submissions" element={<Submissions />} />
             <Route path="/professor/reassignments" element={<Reassignments />} />
             {/* The queue is the same page for both roles. is_privacy_handler()
                 decides what it returns, so a professor who is not the handler

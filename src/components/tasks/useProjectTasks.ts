@@ -37,11 +37,16 @@ export function useProjectTasks({
   const [mine, setMine] = useState<ProfessorTaskGroup[]>([])
   const [progress, setProgress] = useState<MemberRow[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [filters, setFilters] = useState<TaskFilterState>(EMPTY_TASK_FILTERS)
+  const [params, setParams] = useSearchParams()
+  // `?board=` arrives from a link that means one group's work, so it opens
+  // with that board chosen rather than every board at once.
+  const [filters, setFilters] = useState<TaskFilterState>(() => ({
+    ...EMPTY_TASK_FILTERS,
+    board: role === 'professor' ? (params.get('board') ?? '') : '',
+  }))
   const [view, setView] = useState<'summary' | 'board' | 'list'>(
     role === 'professor' ? 'summary' : 'board',
   )
-  const [params, setParams] = useSearchParams()
 
   const isProfessor = role === 'professor'
   // A passed deadline still takes work — only the professor closing it stops

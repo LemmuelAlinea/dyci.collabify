@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import type { BoardResult, ResultVerdict } from '../types'
+import type { BoardResult, BoardSummary, ResultVerdict } from '../types'
 
 /**
  * The professor's answer to what a group handed in.
@@ -29,4 +29,23 @@ export async function recordResult(input: {
     p_feedback: input.feedback?.trim() ?? '',
   })
   if (error) throw error
+}
+
+/**
+ * Every board on these projects that has been handed in at least once.
+ *
+ * Filtered on the verdict as well as `submitted_at`, because returning work
+ * nulls `submitted_at` — without the second half a returned board would vanish
+ * the moment it was answered. `toSubmissions` then drops the one case the query
+ * cannot: accepted work the group has since taken back.
+ */
+export async function listHandedInBoards(projectIds: string[]) {
+  if (projectIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('task_board_overview')
+    .select('*')
+    .in('project_id', projectIds)
+    .or('submitted_at.not.is.null,result_verdict.not.is.null')
+  if (error) throw error
+  return (data ?? []) as BoardSummary[]
 }

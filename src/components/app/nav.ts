@@ -85,6 +85,8 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
       title: 'Day to day',
       items: [
         { label: 'Calendar', icon: 'calendar', to: '/professor/calendar' },
+        // The two queues that wait on the professor sit together.
+        { label: 'Submissions', icon: 'upload', to: '/professor/submissions' },
         { label: 'Reassignments', icon: 'refresh', to: '/professor/reassignments' },
         { label: 'Messages', icon: 'message', to: '/professor/messages', badge: 'messages' },
       ],

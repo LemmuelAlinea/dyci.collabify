@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Alert } from '../../../components/ui/Alert'
@@ -70,7 +70,14 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [tab, setTab] = useState<TabId>('brief')
+  // A link from another page can name the tab. Submissions and Reassignments
+  // both link straight into a board, which the Brief tab does not show.
+  const [params] = useSearchParams()
+  const [tab, setTab] = useState<TabId>(() =>
+    params.get('tab') === 'tasks' || params.has('board') || params.has('task')
+      ? 'tasks'
+      : 'brief',
+  )
   const [editOpen, setEditOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [removing, setRemoving] = useState<ProjectAttachment | null>(null)
