@@ -268,24 +268,27 @@ create or replace function public.general_can(
      and public.general_has(p_project, p_permission);
 $$;
 
-/** Whether the viewer may see this person's profile because of a General project. */
-create or replace function public.shares_general_project_with(p_user uuid)
+/** Whether the caller is a signed-in, active account. Deactivated accounts read nothing. */
+create or replace function public.general_viewer_active()
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
+    select 1 from public.profiles where id = auth.uid() and status <> 'rejected'
+  );
+$$;
+
+/**
+ * Whether the viewer may see this person's profile because of a General
+ * project. Peers are only people who share an actual membership — a pending
+ * invitation does not qualify, or inviting somebody would let every member of
+ * the project read that invitee's whole profile (email included).
+ */
+create or replace function public.shares_general_project_with(p_user uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select public.general_viewer_active() and exists (
     select 1
       from public.general_members mine
       join public.general_members theirs on theirs.project_id = mine.project_id
      where mine.user_id = auth.uid() and theirs.user_id = p_user
-  )
-  or exists (
-    -- Both sides of a pending invitation see each other: the invitee sees who
-    -- is on the project, and the project sees who it invited.
-    select 1
-      from public.general_invitations i
-      join public.general_members m on m.project_id = i.project_id
-     where i.status = 'pending'
-       and ((m.user_id = auth.uid() and i.invitee = p_user)
-         or (i.invitee = auth.uid() and m.user_id = p_user))
   );
 $$;
 
@@ -441,7 +444,10 @@ begin
       end if;
       new.value := to_jsonb(btrim(txt));
     when 'number' then
-      if kind <> 'number' or abs(txt::numeric) > 1e12 then
+      if kind <> 'number' then
+        raise exception 'Enter a number' using errcode = 'check_violation';
+      end if;
+      if abs(txt::numeric) > 1e12 then
         raise exception 'Enter a number' using errcode = 'check_violation';
       end if;
     when 'money' then
@@ -560,10 +566,13 @@ drop policy if exists general_projects_select on public.general_projects;
 create policy general_projects_select on public.general_projects
   for select using (
     public.is_general_member(id)
-    or exists (
-      select 1 from public.general_invitations i
-       where i.project_id = general_projects.id
-         and i.invitee = auth.uid() and i.status = 'pending'
+    or (
+      public.general_viewer_active()
+      and exists (
+        select 1 from public.general_invitations i
+         where i.project_id = general_projects.id
+           and i.invitee = auth.uid() and i.status = 'pending'
+      )
     )
   );
 
@@ -609,11 +618,17 @@ create policy general_grants_select on public.general_grants
 
 drop policy if exists general_access_requests_select on public.general_access_requests;
 create policy general_access_requests_select on public.general_access_requests
-  for select using (user_id = auth.uid() or public.is_general_owner(project_id));
+  for select using (
+    (user_id = auth.uid() and public.general_viewer_active())
+    or public.is_general_owner(project_id)
+  );
 
 drop policy if exists general_invitations_select on public.general_invitations;
 create policy general_invitations_select on public.general_invitations
-  for select using (invitee = auth.uid() or public.general_has(project_id, 'manage_members'));
+  for select using (
+    (invitee = auth.uid() and public.general_viewer_active())
+    or public.general_has(project_id, 'manage_members')
+  );
 
 drop policy if exists general_fields_select on public.general_fields;
 create policy general_fields_select on public.general_fields
@@ -799,6 +814,13 @@ language plpgsql security definer set search_path = public as $$
 declare
   inv public.general_invitations%rowtype;
 begin
+  if auth.uid() is null or not exists (
+    select 1 from public.profiles where id = auth.uid() and status <> 'rejected'
+  ) then
+    raise exception 'Sign in with an active account to answer an invitation'
+      using errcode = 'insufficient_privilege';
+  end if;
+
   select * into inv from public.general_invitations where id = p_invitation for update;
   if inv.id is null or inv.invitee is distinct from auth.uid() then
     raise exception 'That invitation is not yours to answer' using errcode = 'insufficient_privilege';
@@ -823,6 +845,74 @@ begin
     on conflict do nothing;
   end if;
   return inv;
+end;
+$$;
+
+/**
+ * Pending invitations sent to the caller, with just enough about the project
+ * and the inviter to show a card — never the inviter's or the caller's own
+ * profile row. Returns nothing for a deactivated caller.
+ */
+create or replace function public.list_my_general_invitations()
+returns table (
+  invitation_id       uuid,
+  project_id          uuid,
+  project_name        text,
+  project_description text,
+  inviter_id          uuid,
+  inviter_first_name  text,
+  inviter_last_name   text,
+  inviter_avatar_url  text,
+  created_at          timestamptz
+)
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
+begin
+  if not public.general_viewer_active() then
+    return;
+  end if;
+
+  return query
+    select i.id, i.project_id, gp.name, gp.description,
+           i.invited_by, pr.first_name, pr.last_name, pr.avatar_url, i.created_at
+      from public.general_invitations i
+      join public.general_projects gp on gp.id = i.project_id
+      left join public.profiles pr on pr.id = i.invited_by
+     where i.invitee = auth.uid() and i.status = 'pending'
+     order by i.created_at desc;
+end;
+$$;
+
+/**
+ * Pending invitations sent out by a project, with just enough about each
+ * invitee to show who they are — never their email. Only somebody who can
+ * invite may see who else was invited.
+ */
+create or replace function public.list_general_project_invitations(p_project uuid)
+returns table (
+  invitation_id       uuid,
+  invitee_id          uuid,
+  invitee_first_name  text,
+  invitee_last_name   text,
+  invitee_avatar_url  text,
+  invited_by          uuid,
+  created_at          timestamptz
+)
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
+begin
+  if not public.general_has(p_project, 'manage_members') then
+    raise exception 'You need permission to see this project''s invitations'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  return query
+    select i.id, i.invitee, pr.first_name, pr.last_name, pr.avatar_url,
+           i.invited_by, i.created_at
+      from public.general_invitations i
+      join public.profiles pr on pr.id = i.invitee
+     where i.project_id = p_project and i.status = 'pending'
+     order by i.created_at desc;
 end;
 $$;
 
@@ -874,6 +964,12 @@ begin
 end;
 $$;
 
+/**
+ * A wrong or expired code returns null rather than raising, so the rate-limit
+ * count taken above it is not rolled back by the failure — a miss still costs
+ * an attempt. The caller being deactivated or over the rate limit still
+ * raises: those are refusals, not misses.
+ */
 create or replace function public.join_general_project(p_code text)
 returns uuid
 language plpgsql security definer set search_path = public as $$
@@ -896,8 +992,7 @@ begin
     join public.general_projects pr on pr.id = jc.project_id
    where jc.code = upper(btrim(p_code)) and jc.open and pr.archived_at is null;
   if p.id is null then
-    raise exception 'That code does not match an open project. Check it with whoever shared it.'
-      using errcode = 'no_data_found';
+    return null; -- a miss, not a refusal; the rate-limit count already committed
   end if;
 
   insert into public.general_members (project_id, user_id)
@@ -944,8 +1039,10 @@ begin
   end if;
 
   if target.level = 'owner' and p_level <> 'owner' then
-    select count(*) into owners from public.general_members
-     where project_id = p_project and level = 'owner';
+    select count(*) into owners
+      from public.general_members m
+      join public.profiles pr on pr.id = m.user_id
+     where m.project_id = p_project and m.level = 'owner' and pr.status <> 'rejected';
     if owners <= 1 then
       raise exception 'A project needs at least one Owner. Make someone else an Owner first.'
         using errcode = 'check_violation';
@@ -994,8 +1091,10 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
   if target.level = 'owner' then
-    select count(*) into owners from public.general_members
-     where project_id = p_project and level = 'owner';
+    select count(*) into owners
+      from public.general_members m
+      join public.profiles pr on pr.id = m.user_id
+     where m.project_id = p_project and m.level = 'owner' and pr.status <> 'rejected';
     if owners <= 1 then
       raise exception 'A project needs at least one Owner' using errcode = 'check_violation';
     end if;
@@ -1012,17 +1111,22 @@ declare
   me public.general_members%rowtype;
   owners int;
 begin
-  perform 1 from public.general_members
-   where project_id = p_project and level = 'owner' for update;
+  -- Membership is checked before the Owner rows are locked, so a non-member
+  -- never takes that lock.
   select * into me from public.general_members
    where project_id = p_project and user_id = auth.uid() for update;
   if me.user_id is null then
     raise exception 'You are not on this project' using errcode = 'no_data_found';
   end if;
 
+  perform 1 from public.general_members
+   where project_id = p_project and level = 'owner' for update;
+
   if me.level = 'owner' then
-    select count(*) into owners from public.general_members
-     where project_id = p_project and level = 'owner';
+    select count(*) into owners
+      from public.general_members m
+      join public.profiles pr on pr.id = m.user_id
+     where m.project_id = p_project and m.level = 'owner' and pr.status <> 'rejected';
     if owners <= 1 then
       raise exception 'You are the last Owner. Make someone else an Owner before you leave.'
         using errcode = 'check_violation';
@@ -1083,6 +1187,10 @@ language plpgsql security definer set search_path = public as $$
 begin
   if not public.is_general_owner(p_project) then
     raise exception 'Only an Owner takes permissions back' using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_is_archived(p_project) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'check_violation';
   end if;
   delete from public.general_grants
    where project_id = p_project and user_id = p_user and permission = p_permission;
@@ -1204,6 +1312,8 @@ grant execute on function public.search_general_people(text) to authenticated;
 grant execute on function public.invite_to_general_project(uuid, uuid) to authenticated;
 grant execute on function public.withdraw_general_invitation(uuid) to authenticated;
 grant execute on function public.respond_general_invitation(uuid, boolean) to authenticated;
+grant execute on function public.list_my_general_invitations() to authenticated;
+grant execute on function public.list_general_project_invitations(uuid) to authenticated;
 grant execute on function public.set_general_join_code(uuid, boolean, boolean) to authenticated;
 grant execute on function public.join_general_project(text) to authenticated;
 grant execute on function public.set_general_member_level(uuid, uuid, public.general_level) to authenticated;

@@ -167,6 +167,45 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
+-- ------------------------------------------------------------------ invitations do not expose profiles
+
+do $$
+declare
+  a uuid := (select v from fx where k = 'a');
+  c uuid := (select v from fx where k = 'c');
+  p uuid := (select v from fx where k = 'project');
+  inv uuid;
+  first_name text;
+begin
+  -- b already invited c above; inviting again as the Owner reuses that
+  -- pending invitation rather than creating a second one.
+  perform pg_temp.act_as(a);
+  select id into inv from public.invite_to_general_project(p, c);
+  perform pg_temp.must_be('an Owner invites (or reuses the pending invitation to) a person',
+    inv is not null);
+  perform pg_temp.must_be('an invitation does not expose the invitee''s email',
+    not exists (select 1 from public.profiles where id = c));
+
+  perform pg_temp.act_as(c);
+  perform pg_temp.must_be('the invitee sees their own pending invitations',
+    exists (
+      select 1 from public.list_my_general_invitations() li
+       where li.invitation_id = inv and li.project_name is not null
+    ));
+
+  perform pg_temp.act_as(a);
+  select li.invitee_first_name into first_name
+    from public.list_general_project_invitations(p) li
+   where li.invitation_id = inv;
+  perform pg_temp.must_be('a manager reads the invitee''s first name from the RPC',
+    first_name = 'Zzgen');
+
+  perform pg_temp.act_as(c);
+  perform pg_temp.must_refuse('a non-manager cannot list a project''s invitations',
+    format('select * from public.list_general_project_invitations(%L)', p));
+  perform pg_temp.act_as_service();
+end $$;
+
 -- ------------------------------------------------------------------ editing and extra permissions
 
 do $$
@@ -273,8 +312,36 @@ begin
   perform pg_temp.act_as(a);
   perform public.set_general_join_code(p, false, false);
   perform pg_temp.act_as(e);
-  perform pg_temp.must_refuse('a join code fails once it is off',
-    format('select public.join_general_project(%L)', code));
+  perform pg_temp.must_be('a join code fails once it is off',
+    public.join_general_project(code) is null);
+  perform pg_temp.must_be('...and does not join them',
+    not exists (select 1 from public.general_members where project_id = p and user_id = e));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- ------------------------------------------------------------------ extra guards
+
+do $$
+declare
+  a uuid := (select v from fx where k = 'a');
+  d uuid := (select v from fx where k = 'd');
+  e uuid := (select v from fx where k = 'e');
+  p uuid := (select v from fx where k = 'project');
+begin
+  perform pg_temp.act_as(a);
+  perform pg_temp.must_allow('an Owner makes a Member a Manager, for this check',
+    format('select public.set_general_member_level(%L, %L, %L)', p, d, 'manager'));
+
+  perform pg_temp.act_as(d);
+  perform pg_temp.must_refuse('a Manager cannot grant a permission',
+    format('select public.grant_general_permission(%L, %L, %L)', p, e, 'edit_files'));
+
+  perform pg_temp.act_as(a);
+  perform pg_temp.must_allow('the Owner sets the Manager back to Member',
+    format('select public.set_general_member_level(%L, %L, %L)', p, d, 'member'));
+
+  perform pg_temp.must_refuse('a direct insert into general_members is refused, even for an Owner',
+    format('insert into public.general_members (project_id, user_id) values (%L, %L)', p, e));
   perform pg_temp.act_as_service();
 end $$;
 
@@ -364,6 +431,34 @@ begin
     format('select public.set_general_member_level(%L, %L, %L)', p, b, 'owner'));
   perform pg_temp.must_allow('...and can then leave',
     format('select public.leave_general_project(%L)', p));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- ------------------------------------------------------------------ deactivated accounts
+
+do $$
+declare
+  a uuid := (select v from fx where k = 'a');
+  d uuid := (select v from fx where k = 'd');
+  p2 uuid;
+  inv uuid;
+begin
+  -- a left the fixture project above, so a and d share no General project. A
+  -- fresh project keeps the pending invitation this block needs, since d
+  -- already belongs to the fixture project via the join code test.
+  perform pg_temp.act_as(a);
+  select (public.create_general_project('Zz Side Project', '', null, null)).id into p2;
+  select id into inv from public.invite_to_general_project(p2, d);
+  perform pg_temp.must_be('an invitation exists for the deactivation check', inv is not null);
+
+  perform pg_temp.act_as_service();
+  update public.profiles set status = 'rejected' where id = d;
+
+  perform pg_temp.act_as(d);
+  perform pg_temp.must_be('a deactivated account reads no project peers',
+    not exists (select 1 from public.profiles where id = a));
+  perform pg_temp.must_refuse('a deactivated account cannot answer an invitation',
+    format('select public.respond_general_invitation(%L, true)', inv));
   perform pg_temp.act_as_service();
 end $$;
 
