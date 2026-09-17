@@ -6,12 +6,13 @@ import { EmptyState } from '../../../components/ui/EmptyState'
 import { FilterField, FilterPopover, FilterSearch } from '../../../components/ui/FilterPopover'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { Select } from '../../../components/ui/Select'
+import { useToast } from '../../../components/ui/Toast'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { useLive } from '../../../hooks/useLive'
 import { listProfessorClasses } from '../../../lib/api/classes'
 import { listProjectsForClasses } from '../../../lib/api/projects'
-import { listHandedInBoards } from '../../../lib/api/results'
+import { listHandedInBoards, recordResult } from '../../../lib/api/results'
 import { authErrorMessage } from '../../../lib/authError'
 import {
   EMPTY_SUBMISSION_FILTERS,
@@ -66,14 +67,16 @@ function stamp(iso: string) {
  * class. Sectioned by class because that is how a professor's week is divided,
  * with the project named on every row so two projects in one class never blur.
  *
- * Answering still happens on the project, where the board and its verdict
- * panel are. Every row opens straight onto that group's board.
+ * Work waiting on the professor can be accepted from its row. Returning it
+ * needs a note saying what to fix, so that happens on the project, where the
+ * board and its verdict panel are. Every row opens straight onto that board.
  *
  * Archived classes and archived projects are left out: archiving is how a
  * professor says they are finished with something.
  */
 export default function Submissions() {
   const { profile } = useAuth()
+  const { show } = useToast()
   const [classes, setClasses] = useState<ClassSummary[] | null>(null)
   const [rows, setRows] = useState<Submission[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -106,6 +109,19 @@ export default function Submissions() {
   }, [load])
 
   useLive(load, ['project_boards', 'board_results', 'projects', 'classes'])
+
+  const accept = useCallback(
+    async (row: Submission) => {
+      try {
+        await recordResult({ boardId: row.id, verdict: 'accepted' })
+        show(`${boardOwnerName(row)} accepted`)
+        await load()
+      } catch (err) {
+        show(authErrorMessage(err, 'Could not accept that.'), 'error')
+      }
+    },
+    [load, show],
+  )
 
   const set = (patch: Partial<SubmissionFilters>) => setFilters((f) => ({ ...f, ...patch }))
 
@@ -314,7 +330,12 @@ export default function Submissions() {
             ) : (
               <div className="space-y-6">
                 {sections.map(({ classId, rows: list }) => (
-                  <ClassSection key={classId} klass={classById.get(classId)} rows={list} />
+                  <ClassSection
+                    key={classId}
+                    klass={classById.get(classId)}
+                    rows={list}
+                    onAccept={accept}
+                  />
                 ))}
               </div>
             )}
@@ -361,7 +382,15 @@ function StatusTab({
   )
 }
 
-function ClassSection({ klass, rows }: { klass: ClassSummary | undefined; rows: Submission[] }) {
+function ClassSection({
+  klass,
+  rows,
+  onAccept,
+}: {
+  klass: ClassSummary | undefined
+  rows: Submission[]
+  onAccept: (row: Submission) => Promise<void>
+}) {
   const waiting = rows.filter((r) => r.status === 'waiting').length
   return (
     <section
@@ -391,110 +420,158 @@ function ClassSection({ klass, rows }: { klass: ClassSummary | undefined; rows: 
           its own small card and labels itself. */}
       <div
         aria-hidden
-        className="hidden border-b border-line px-5 py-2 text-[12px] font-medium text-faint lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1fr)_10rem_9.5rem] lg:gap-x-5"
+        className="hidden border-b border-line px-5 py-2 text-[12px] font-medium text-faint lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1fr)_10rem_8.5rem_7rem] lg:gap-x-5"
       >
         <span>Group</span>
         <span>Project</span>
         <span>Handed in</span>
         <span>Work done</span>
         <span>Status</span>
+        <span />
       </div>
 
       <ul className="divide-y divide-[var(--line)]">
         {rows.map((r) => (
-          <SubmissionRow key={r.id} row={r} />
+          <SubmissionRow key={r.id} row={r} onAccept={onAccept} />
         ))}
       </ul>
     </section>
   )
 }
 
-function SubmissionRow({ row }: { row: Submission }) {
+// Stacked rows only get an action row when there is something to press in it,
+// so a finished row does not end on an empty gap.
+const STACKED = "[grid-template-areas:'who_status'_'project_project'_'when_when'_'work_work']"
+const STACKED_WITH_ACTION =
+  "[grid-template-areas:'who_status'_'project_project'_'when_when'_'work_work'_'action_action']"
+
+function SubmissionRow({
+  row,
+  onAccept,
+}: {
+  row: Submission
+  onAccept: (row: Submission) => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
   const pct = Number(row.done_pct)
   const status = SUBMISSION_STATUSES.find((s) => s.value === row.status)?.label
+  // Only work waiting on an answer can be accepted. Accepted work already is,
+  // and returned work is back with the group until they hand it in again.
+  const waiting = row.status === 'waiting'
   return (
-    <li>
-      <Link
-        to={`/professor/projects/${row.project_id}?tab=tasks&board=${row.id}`}
-        aria-label={`${boardOwnerName(row)}, ${row.project_title}: ${status}. Open the board.`}
-        className="group grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 px-4 py-3.5 transition-colors [grid-template-areas:'who_status'_'project_project'_'when_when'_'work_work'] hover:bg-[var(--surface-sunken)] sm:px-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1fr)_10rem_9.5rem] lg:items-center lg:gap-x-5 lg:[grid-template-areas:'who_project_when_work_status']"
-      >
-        <div className="min-w-0 [grid-area:who]">
-          <p className="truncate text-[14px] font-medium text-ink group-hover:underline">
-            {boardOwnerName(row)}
-          </p>
-          <p className="mt-0.5 text-[12px] text-faint">
-            {row.student_id
-              ? 'Individual'
-              : `${row.member_count} ${row.member_count === 1 ? 'member' : 'members'}`}
-          </p>
-        </div>
+    <li
+      className={`group relative grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 px-4 py-3.5 transition-colors hover:bg-[var(--surface-sunken)] sm:px-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1fr)_10rem_8.5rem_7rem] lg:items-center lg:gap-x-5 lg:[grid-template-areas:'who_project_when_work_status_action'] ${
+        waiting ? STACKED_WITH_ACTION : STACKED
+      }`}
+    >
+      <div className="min-w-0 [grid-area:who]">
+        {/* The name is the link, stretched over the whole row, so the row is
+            still one click target and Accept can sit on top of it without
+            putting a button inside a link. */}
+        <Link
+          to={`/professor/projects/${row.project_id}?tab=tasks&board=${row.id}`}
+          aria-label={`${boardOwnerName(row)}, ${row.project_title}: ${status}. Open the board.`}
+          className="block truncate text-[14px] font-medium text-ink group-hover:underline after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-[var(--ring)] focus-visible:after:ring-inset"
+        >
+          {boardOwnerName(row)}
+        </Link>
+        <p className="mt-0.5 text-[12px] text-faint">
+          {row.student_id
+            ? 'Individual'
+            : `${row.member_count} ${row.member_count === 1 ? 'member' : 'members'}`}
+        </p>
+      </div>
 
-        <div className="min-w-0 [grid-area:project]">
-          <p className="flex items-center gap-1.5 text-[13px] text-ink">
-            <Icon name="kanban" size={13} className="shrink-0 text-faint lg:hidden" />
-            <span className="truncate">{row.project_title}</span>
-          </p>
-          <p className="mt-0.5 text-[12px] text-faint">
-            {row.project_due_at ? `Due ${stamp(row.project_due_at)}` : 'No deadline'}
-          </p>
-        </div>
+      <div className="min-w-0 [grid-area:project]">
+        <p className="flex items-center gap-1.5 text-[13px] text-ink">
+          <Icon name="kanban" size={13} className="shrink-0 text-faint lg:hidden" />
+          <span className="truncate">{row.project_title}</span>
+        </p>
+        <p className="mt-0.5 text-[12px] text-faint">
+          {row.project_due_at ? `Due ${stamp(row.project_due_at)}` : 'No deadline'}
+        </p>
+      </div>
 
-        <div className="min-w-0 [grid-area:when]">
-          {row.status === 'returned' ? (
-            <>
-              <p className="text-[13px] text-ink">
-                Returned {row.result_at ? stamp(row.result_at) : ''}
-              </p>
-              <p className="mt-0.5 text-[12px] text-faint">Back with the group to fix</p>
-            </>
-          ) : (
-            <>
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink">
-                {row.submitted_at ? stamp(row.submitted_at) : '—'}
-                {row.late && (
-                  <span className="rounded-md bg-red-500/10 px-1.5 py-0.5 text-[12px] font-medium text-red-700 dark:text-red-300">
-                    Late
-                  </span>
-                )}
-              </p>
-              {row.submitted_by_name && (
-                <p className="mt-0.5 truncate text-[12px] text-faint">
-                  by {row.submitted_by_name}
-                </p>
+      <div className="min-w-0 [grid-area:when]">
+        {row.status === 'returned' ? (
+          <>
+            <p className="text-[13px] text-ink">
+              Returned {row.result_at ? stamp(row.result_at) : ''}
+            </p>
+            <p className="mt-0.5 text-[12px] text-faint">Back with the group to fix</p>
+          </>
+        ) : (
+          <>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink">
+              {row.submitted_at ? stamp(row.submitted_at) : '—'}
+              {row.late && (
+                <span className="rounded-md bg-red-500/10 px-1.5 py-0.5 text-[12px] font-medium text-red-700 dark:text-red-300">
+                  Late
+                </span>
               )}
-            </>
-          )}
-        </div>
+            </p>
+            {row.submitted_by_name && (
+              <p className="mt-0.5 truncate text-[12px] text-faint">
+                by {row.submitted_by_name}
+              </p>
+            )}
+          </>
+        )}
+      </div>
 
-        <div className="min-w-0 [grid-area:work]">
-          <div className="flex items-center justify-between gap-3 text-[12px]">
-            <span className="text-muted">
-              {row.done_count}/{row.task_count} done
-            </span>
-            <span className="font-mono text-faint">{pct}%</span>
-          </div>
-          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full surface-sunken">
-            <span
-              className="block h-full rounded-full bg-emerald-500"
-              style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 [grid-area:status] lg:justify-between">
-          <span
-            className={`rounded-md px-2 py-0.5 text-[12px] font-medium whitespace-nowrap ${TONE[row.status]}`}
-          >
-            {status}
+      <div className="min-w-0 [grid-area:work]">
+        <div className="flex items-center justify-between gap-3 text-[12px]">
+          <span className="text-muted">
+            {row.done_count}/{row.task_count} done
           </span>
-          <Icon
-            name="chevronRight"
-            size={16}
-            className="hidden shrink-0 text-faint transition-colors group-hover:text-ink lg:block"
+          <span className="font-mono text-faint">{pct}%</span>
+        </div>
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full surface-sunken">
+          <span
+            className="block h-full rounded-full bg-emerald-500"
+            style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
           />
         </div>
-      </Link>
+      </div>
+
+      <div className="flex items-center justify-end [grid-area:status] lg:justify-start">
+        <span
+          className={`rounded-md px-2 py-0.5 text-[12px] font-medium whitespace-nowrap ${TONE[row.status]}`}
+        >
+          {status}
+        </span>
+      </div>
+
+      <div
+        className={`items-center justify-end gap-3 [grid-area:action] ${
+          waiting ? 'flex' : 'hidden lg:flex'
+        }`}
+      >
+        {waiting && (
+          <Button
+            size="sm"
+            loading={busy}
+            aria-label={`Accept ${boardOwnerName(row)}, ${row.project_title}`}
+            className="relative z-10 w-full sm:w-auto"
+            onClick={async () => {
+              setBusy(true)
+              try {
+                await onAccept(row)
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            {!busy && <Icon name="check" size={14} />}
+            Accept
+          </Button>
+        )}
+        <Icon
+          name="chevronRight"
+          size={16}
+          className="hidden shrink-0 text-faint transition-colors group-hover:text-ink lg:block"
+        />
+      </div>
     </li>
   )
 }
