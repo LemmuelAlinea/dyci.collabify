@@ -1130,18 +1130,22 @@ alter table public.profiles alter column role drop default;
  */
 create or replace function public.guard_privileged_columns()
 returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  -- Computed before the IF, not inside it: PL/pgSQL ends an IF condition at
+  -- the first THEN it meets, including the THEN inside a CASE expression.
+  wanted public.account_status;
 begin
   if auth.uid() is null then
     return new; -- service role / SQL console
   end if;
   if (new.role is distinct from old.role or new.status is distinct from old.status)
      and not public.is_admin() then
+    wanted := case when new.role = 'professor' then 'pending' else 'active' end;
     if old.role is null
        and old.status = 'active'
        and current_setting('collabify.enter_education', true) = 'on'
        and new.role in ('student', 'professor')
-       and new.status = case when new.role = 'professor' then 'pending' else 'active' end
-                        ::public.account_status then
+       and new.status = wanted then
       return new;
     end if;
     -- Pinned back rather than raised: a client that tries this is not owed an
