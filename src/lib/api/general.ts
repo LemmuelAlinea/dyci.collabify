@@ -589,7 +589,10 @@ export async function updateTask(taskId: string, patch: TaskPatch) {
     .eq('id', taskId)
     .select('id')
   if (error) throw error
-  changed(data, 'You cannot change this task. Take it, or ask somebody who manages tasks.')
+  // Only reached when the row is invisible: not on this project, or the task
+  // is gone. A member who simply does not hold the task is refused earlier, by
+  // guard_general_task, with its own message.
+  changed(data, 'You are not on this project, or this task no longer exists.')
 }
 
 export async function deleteTask(taskId: string) {
