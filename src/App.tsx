@@ -73,6 +73,7 @@ const Syllabi = lazy(() => import('./pages/app/resources/Syllabi'))
 const SyllabusDetail = lazy(() => import('./pages/app/resources/SyllabusDetail'))
 const EnterEducation = lazy(() => import('./pages/auth/EnterEducation'))
 const GeneralHome = lazy(() => import('./pages/general/GeneralHome'))
+const GeneralProject = lazy(() => import('./pages/general/GeneralProject'))
 
 export default function App() {
   return (
@@ -116,6 +117,7 @@ export default function App() {
           <Route element={<ProtectedRoute workplace="general" />}>
           <Route element={<AppShell />}>
             <Route path="/general" element={<GeneralHome />} />
+            <Route path="/general/projects/:projectId" element={<GeneralProject />} />
             <Route path="/general/messages" element={<Messages role="general" />} />
             <Route path="/general/messages/:conversationId" element={<Messages role="general" />} />
           </Route>
