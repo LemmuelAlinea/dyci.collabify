@@ -98,6 +98,11 @@ create table if not exists public.general_task_files (
     references public.general_tasks (id, project_id) on delete cascade
 );
 
+-- Ties the row to the storage path it claims: <project_id>/<task_id>/<...>.
+alter table public.general_task_files drop constraint if exists general_task_files_path_matches;
+alter table public.general_task_files add constraint general_task_files_path_matches
+  check (file_path like project_id::text || '/' || task_id::text || '/%');
+
 create index if not exists general_task_files_task_idx on public.general_task_files (task_id);
 
 create table if not exists public.general_task_logs (
@@ -154,16 +159,43 @@ returns uuid language sql stable security definer set search_path = public as $$
   select project_id from public.general_tasks where id = p_task;
 $$;
 
+-- These read task/assignee facts as the definer, so anon must not call them
+-- directly — only through policies evaluated for a signed-in user.
+revoke execute on function
+  public.is_general_task_assignee(uuid), public.general_task_held(uuid),
+  public.general_task_project(uuid)
+from public, anon;
+grant execute on function
+  public.is_general_task_assignee(uuid), public.general_task_held(uuid),
+  public.general_task_project(uuid)
+to authenticated;
+
+/** Parses a storage path segment as a uuid, or null rather than throwing on garbage. */
+create or replace function public.general_safe_uuid(p text)
+returns uuid language plpgsql immutable as $$
+begin
+  return p::uuid;
+exception
+  when others then return null;
+end;
+$$;
+
 -- ---------------------------------------------------------------- guards
 
 create or replace function public.guard_general_task()
 returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_project uuid := case when tg_op = 'INSERT' then new.project_id else old.project_id end;
 begin
   if auth.uid() is null then
     if tg_op = 'INSERT' then
       new.completed_at := case when new.status = 'done' then now() end;
     end if;
     return new;
+  end if;
+
+  if not public.is_general_member(v_project) then
+    raise exception 'You are not on this project' using errcode = 'insufficient_privilege';
   end if;
 
   if tg_op = 'INSERT' then
@@ -222,6 +254,10 @@ create or replace function public.guard_general_task_child()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
   p uuid;
+  -- Leaving an archived project cascades into general_task_assignees; that
+  -- delete should go through even though the membership row that drove it is
+  -- already gone by the time this trigger fires.
+  v_member_gone boolean := false;
 begin
   if tg_op = 'DELETE' then
     p := old.project_id;
@@ -231,14 +267,34 @@ begin
   if auth.uid() is null then
     return case when tg_op = 'DELETE' then old else new end;
   end if;
-  if public.general_is_archived(p) then
-    raise exception 'This project is archived. An Owner can restore it to make changes.'
-      using errcode = 'check_violation';
+
+  if tg_op = 'DELETE' and tg_table_name = 'general_task_assignees' then
+    v_member_gone := not exists (
+      select 1 from public.general_members
+       where project_id = old.project_id and user_id = old.user_id
+    );
+  end if;
+
+  if not v_member_gone then
+    if not public.is_general_member(p) then
+      raise exception 'You are not on this project' using errcode = 'insufficient_privilege';
+    end if;
+    if public.general_is_archived(p) then
+      raise exception 'This project is archived. An Owner can restore it to make changes.'
+        using errcode = 'check_violation';
+    end if;
   end if;
 
   if tg_op = 'INSERT' then
     case tg_table_name
-      when 'general_task_assignees' then new.assigned_by := auth.uid();
+      when 'general_task_assignees' then
+        new.assigned_by := auth.uid();
+        -- Locks the task row so two simultaneous claims cannot both see it unheld.
+        perform 1 from public.general_tasks where id = new.task_id for update;
+        if not public.general_can(new.project_id, 'manage_tasks')
+           and public.general_task_held(new.task_id) then
+          raise exception 'Somebody already holds this task' using errcode = 'check_violation';
+        end if;
       when 'general_task_comments'  then new.author_id := auth.uid();
       when 'general_task_files'     then new.uploaded_by := auth.uid();
       when 'general_task_logs'      then new.user_id := auth.uid();
@@ -353,6 +409,7 @@ create policy general_tasks_delete on public.general_tasks
   for delete using (
     public.general_can(project_id, 'manage_tasks')
     or (created_by = auth.uid()
+        and public.is_general_member(project_id)
         and not public.general_task_held(id)
         and not public.general_is_archived(project_id))
   );
@@ -364,7 +421,8 @@ create policy general_task_assignees_select on public.general_task_assignees
 drop policy if exists general_task_assignees_insert on public.general_task_assignees;
 create policy general_task_assignees_insert on public.general_task_assignees
   for insert with check (
-    public.general_can(project_id, 'manage_tasks')
+    (public.general_can(project_id, 'manage_tasks')
+     and exists (select 1 from public.profiles p where p.id = user_id and p.status <> 'rejected'))
     or (user_id = auth.uid()
         and public.is_general_member(project_id)
         and not public.general_task_held(task_id))
@@ -384,11 +442,15 @@ create policy general_task_comments_insert on public.general_task_comments
 
 drop policy if exists general_task_comments_update on public.general_task_comments;
 create policy general_task_comments_update on public.general_task_comments
-  for update using (author_id = auth.uid()) with check (author_id = auth.uid());
+  for update using (author_id = auth.uid() and public.is_general_member(project_id))
+  with check (author_id = auth.uid() and public.is_general_member(project_id));
 
 drop policy if exists general_task_comments_delete on public.general_task_comments;
 create policy general_task_comments_delete on public.general_task_comments
-  for delete using (author_id = auth.uid() or public.general_can(project_id, 'manage_tasks'));
+  for delete using (
+    (author_id = auth.uid() and public.is_general_member(project_id))
+    or public.general_can(project_id, 'manage_tasks')
+  );
 
 drop policy if exists general_task_files_select on public.general_task_files;
 create policy general_task_files_select on public.general_task_files
@@ -404,7 +466,10 @@ create policy general_task_files_insert on public.general_task_files
 
 drop policy if exists general_task_files_delete on public.general_task_files;
 create policy general_task_files_delete on public.general_task_files
-  for delete using (uploaded_by = auth.uid() or public.general_can(project_id, 'edit_files'));
+  for delete using (
+    (uploaded_by = auth.uid() and public.is_general_member(project_id))
+    or public.general_can(project_id, 'edit_files')
+  );
 
 drop policy if exists general_task_logs_select on public.general_task_logs;
 create policy general_task_logs_select on public.general_task_logs
@@ -412,11 +477,15 @@ create policy general_task_logs_select on public.general_task_logs
 
 drop policy if exists general_task_logs_insert on public.general_task_logs;
 create policy general_task_logs_insert on public.general_task_logs
-  for insert with check (user_id = auth.uid() and public.is_general_task_assignee(task_id));
+  for insert with check (
+    user_id = auth.uid()
+    and public.is_general_member(project_id)
+    and public.is_general_task_assignee(task_id)
+  );
 
 drop policy if exists general_task_logs_delete on public.general_task_logs;
 create policy general_task_logs_delete on public.general_task_logs
-  for delete using (user_id = auth.uid());
+  for delete using (user_id = auth.uid() and public.is_general_member(project_id));
 
 drop policy if exists general_task_events_select on public.general_task_events;
 create policy general_task_events_select on public.general_task_events
@@ -506,22 +575,28 @@ insert into storage.buckets (id, name, public, file_size_limit)
 values ('general-files', 'general-files', false, 26214400)
 on conflict (id) do update set public = false, file_size_limit = 26214400;
 
--- Paths are <project_id>/<task_id>/<random>-<file name>.
+-- Paths are <project_id>/<task_id>/<random>-<file name>. general_safe_uuid
+-- returns null rather than throwing on a malformed segment, so a bad path is
+-- just refused instead of erroring the request.
 drop policy if exists general_files_read on storage.objects;
 create policy general_files_read on storage.objects
   for select using (
     bucket_id = 'general-files'
-    and public.is_general_member(((storage.foldername(name))[1])::uuid)
+    and public.is_general_member(public.general_safe_uuid((storage.foldername(name))[1]))
   );
 
 drop policy if exists general_files_write on storage.objects;
 create policy general_files_write on storage.objects
   for insert with check (
     bucket_id = 'general-files'
-    and public.general_task_project(((storage.foldername(name))[2])::uuid)
-        = ((storage.foldername(name))[1])::uuid
-    and (public.is_general_task_assignee(((storage.foldername(name))[2])::uuid)
-         or public.general_can(((storage.foldername(name))[1])::uuid, 'edit_files'))
+    and public.general_task_project(public.general_safe_uuid((storage.foldername(name))[2]))
+        = public.general_safe_uuid((storage.foldername(name))[1])
+    and (
+      (public.is_general_task_assignee(public.general_safe_uuid((storage.foldername(name))[2]))
+       and public.is_general_member(public.general_safe_uuid((storage.foldername(name))[1]))
+       and not public.general_is_archived(public.general_safe_uuid((storage.foldername(name))[1])))
+      or public.general_can(public.general_safe_uuid((storage.foldername(name))[1]), 'edit_files')
+    )
   );
 
 drop policy if exists general_files_remove on storage.objects;
@@ -531,17 +606,26 @@ create policy general_files_remove on storage.objects
     and (
       exists (select 1 from public.general_task_files f
                where f.file_path = name and f.uploaded_by = auth.uid())
-      or public.general_can(((storage.foldername(name))[1])::uuid, 'edit_files')
+      or public.general_can(public.general_safe_uuid((storage.foldername(name))[1]), 'edit_files')
     )
   );
 
 -- ---------------------------------------------------------------- realtime
 
+-- Realtime does not apply row-level security to DELETE events, so a delete
+-- from general_task_assignees would broadcast who used to hold a task to
+-- every subscriber on the project, member or not. The client's poll plus the
+-- general_tasks update events already cover assignment changes.
+do $$ begin
+  alter publication supabase_realtime drop table public.general_task_assignees;
+exception when undefined_object then null;
+end $$;
+
 do $$
 declare
   t text;
 begin
-  foreach t in array array['general_tasks', 'general_task_assignees', 'general_task_comments',
+  foreach t in array array['general_tasks', 'general_task_comments',
                            'general_task_files', 'general_task_logs', 'general_task_events'] loop
     begin
       execute format('alter publication supabase_realtime add table public.%I', t);

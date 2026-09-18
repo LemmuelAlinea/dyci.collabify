@@ -261,4 +261,99 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
+-- ------------------------------------------------------------------ file paths tied to their task
+
+do $$
+declare
+  b uuid := (select v from fx where k = 'b');
+  p uuid := (select v from fx where k = 'project');
+  t_b uuid := (select v from fx where k = 't_b');
+begin
+  -- b still holds t_b from the claiming-and-editing block above.
+  perform pg_temp.act_as(b);
+  perform pg_temp.must_refuse('a file path outside its task folder is refused',
+    format($q$insert into public.general_task_files (task_id, project_id, file_path, file_name, size_bytes)
+              values (%L, %L, 'not-the-right-folder/plan.pdf', 'plan.pdf', 10)$q$, t_b, p));
+  perform pg_temp.must_allow('...while a path inside its own task folder is allowed',
+    format($q$insert into public.general_task_files (task_id, project_id, file_path, file_name, size_bytes)
+              values (%L, %L, %L, 'plan.pdf', 10)$q$, t_b, p, p || '/' || t_b || '/4-plan.pdf'));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- ------------------------------------------------------------------ deactivated holder cannot write
+
+do $$
+declare
+  b uuid := (select v from fx where k = 'b');
+  p uuid := (select v from fx where k = 'project');
+  t_b uuid := (select v from fx where k = 't_b');
+begin
+  perform pg_temp.act_as(b);
+  perform pg_temp.must_allow('the holder logs time while active (control)',
+    format($q$insert into public.general_task_logs (task_id, project_id, minutes, note)
+              values (%L, %L, 15, 'Still active')$q$, t_b, p));
+
+  perform pg_temp.act_as_service();
+  update public.profiles set status = 'rejected' where id = b;
+
+  perform pg_temp.act_as(b);
+  perform pg_temp.must_refuse('a deactivated holder cannot log time',
+    format($q$insert into public.general_task_logs (task_id, project_id, minutes)
+              values (%L, %L, 15)$q$, t_b, p));
+
+  perform pg_temp.act_as_service();
+  update public.profiles set status = 'active' where id = b;
+end $$;
+
+-- ------------------------------------------------------------------ a removed member's blind delete
+
+do $$
+declare
+  a uuid := (select v from fx where k = 'a');
+  c uuid := (select v from fx where k = 'c');
+  p uuid := (select v from fx where k = 'project');
+  t_c uuid;
+begin
+  perform pg_temp.act_as(c);
+  insert into public.general_tasks (project_id, title) values (p, 'Fold programs') returning id into t_c;
+
+  perform pg_temp.act_as(a);
+  perform pg_temp.must_allow('an Owner removes the member',
+    format('select public.remove_general_member(%L, %L)', p, c));
+
+  -- An unfiltered delete matches no rows under RLS rather than raising, so this
+  -- is not a must_refuse — the test is that the row survives.
+  perform pg_temp.act_as(c);
+  delete from public.general_tasks where true;
+
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be(
+    'a removed member''s unfiltered delete does not reach their own unheld task',
+    exists (select 1 from public.general_tasks where id = t_c));
+end $$;
+
+-- ------------------------------------------------------------------ leaving an archived project
+
+do $$
+declare
+  a uuid := (select v from fx where k = 'a');
+  b uuid := (select v from fx where k = 'b');
+  p uuid := (select v from fx where k = 'project');
+begin
+  -- b still holds t_b, so leaving cascades into general_task_assignees while
+  -- the project is archived.
+  perform pg_temp.act_as(a);
+  perform pg_temp.must_allow('an Owner archives the project again',
+    format('select public.archive_general_project(%L, true)', p));
+
+  perform pg_temp.act_as(b);
+  perform pg_temp.must_allow('a task holder can leave an archived project',
+    format('select public.leave_general_project(%L)', p));
+
+  perform pg_temp.act_as(a);
+  perform pg_temp.must_allow('the Owner restores the project once more',
+    format('select public.archive_general_project(%L, false)', p));
+  perform pg_temp.act_as_service();
+end $$;
+
 rollback;
