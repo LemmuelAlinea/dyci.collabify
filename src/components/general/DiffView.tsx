@@ -7,7 +7,16 @@ import { collapseUnchanged, describeDiff, diffLines, diffStat, isGap } from '../
  * document, so the one thing this must never do is hide a line. Long untouched
  * stretches collapse to a marked gap rather than disappearing.
  */
-export function DiffView({ before, after }: { before: string; after: string }) {
+export function DiffView({
+  before,
+  after,
+  caption = 'What this change does, line by line',
+}: {
+  before: string
+  after: string
+  /** The table's accessible name. History reads in the past tense; a proposal does not. */
+  caption?: string
+}) {
   const lines = diffLines(before, after)
   const stat = diffStat(lines)
   const rows = collapseUnchanged(lines)
@@ -15,7 +24,7 @@ export function DiffView({ before, after }: { before: string; after: string }) {
   if (stat.added === 0 && stat.removed === 0) {
     return (
       <p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
-        This change leaves the document exactly as it is.
+        This change leaves everything exactly as it is.
       </p>
     )
   }
@@ -25,9 +34,7 @@ export function DiffView({ before, after }: { before: string; after: string }) {
       <p className="mb-1.5 font-mono text-[11px] text-faint">{describeDiff(stat)}</p>
       <div className="overflow-hidden rounded-xl border border-line">
         <table className="w-full border-collapse font-mono text-[12px]">
-          <caption className="sr-only">
-            What this change would do to the document, line by line
-          </caption>
+          <caption className="sr-only">{caption}</caption>
           <tbody>
             {rows.map((row, i) => {
               if (isGap(row)) {

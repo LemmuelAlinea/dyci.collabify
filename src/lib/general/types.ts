@@ -290,3 +290,98 @@ export const DOC_CHANGE_LABEL: Record<DocChangeStatus, string> = {
   declined: 'Declined',
   withdrawn: 'Withdrawn',
 }
+
+/* -------------------------------------------------------------- repository */
+
+export type FileAction = 'added' | 'changed' | 'removed'
+
+/** One file write. The shape a commit and a change both carry. */
+export type RepoFile = { path: string; action: FileAction; content: string }
+
+export type GeneralRepo = {
+  id: string
+  project_id: string
+  name: string
+  description: string
+  commit_count: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type GeneralRepoSummary = GeneralRepo & {
+  file_count: number
+  open_change_count: number
+  last_author: string | null
+  last_message: string | null
+  last_commit_at: string | null
+}
+
+export type GeneralCommit = {
+  id: string
+  repo_id: string
+  project_id: string
+  seq: number
+  message: string
+  author_id: string | null
+  change_id: string | null
+  created_at: string
+}
+
+export type GeneralBlob = {
+  id: string
+  commit_id: string
+  repo_id: string
+  project_id: string
+  seq: number
+  path: string
+  action: FileAction
+  content: string
+  created_at: string
+}
+
+/** general_repo_tree: the newest row per path, minus the removed ones. */
+export type GeneralTreeFile = {
+  id: string
+  repo_id: string
+  project_id: string
+  commit_id: string
+  seq: number
+  path: string
+  content: string
+  size: number
+  created_at: string
+}
+
+export type GeneralRepoChange = {
+  id: string
+  repo_id: string
+  project_id: string
+  author_id: string | null
+  title: string
+  body: string
+  base_seq: number
+  files: RepoFile[]
+  status: DocChangeStatus
+  decided_by: string | null
+  decided_at: string | null
+  decided_note: string
+  created_at: string
+  updated_at: string
+}
+
+export type GeneralRepoComment = {
+  id: string
+  change_id: string
+  project_id: string
+  author_id: string | null
+  path: string | null
+  body: string
+  created_at: string
+}
+
+export const FILE_ACTION_LABEL: Record<FileAction, string> = {
+  added: 'Added',
+  changed: 'Changed',
+  removed: 'Removed',
+}

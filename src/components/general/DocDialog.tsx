@@ -490,7 +490,13 @@ function ChangeRow({
             </Alert>
           )}
 
-          {base !== null && <DiffView before={base} after={change.body} />}
+          {base !== null && (
+            <DiffView
+              before={base}
+              after={change.body}
+              caption="What this change would do to the document, line by line"
+            />
+          )}
 
           <section>
             <h4 className="text-[13px] font-medium text-ink">Comments</h4>

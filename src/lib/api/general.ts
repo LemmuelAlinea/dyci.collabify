@@ -39,6 +39,15 @@ import type {
   GeneralDocComment,
   GeneralDocSummary,
   GeneralDocVersion,
+  FileAction,
+  GeneralBlob,
+  GeneralCommit,
+  GeneralRepo,
+  GeneralRepoChange,
+  GeneralRepoComment,
+  GeneralRepoSummary,
+  GeneralTreeFile,
+  RepoFile,
   ProjectInvitation,
 } from '../general/types'
 
@@ -929,6 +938,198 @@ export async function addDocComment(changeId: string, projectId: string, authorI
 export async function deleteDocComment(commentId: string) {
   const { data, error } = await supabase
     .from('general_doc_comments')
+    .delete()
+    .eq('id', commentId)
+    .select('id')
+  if (error) throw error
+  changed(data, 'That comment is already gone.')
+}
+
+/* -------------------------------------------------------------- repository */
+
+const NO_REPO =
+  'That change did not go through. The repository may be gone, the project may be archived, or you may no longer have permission to write to it. Reload to see where things stand.'
+
+export async function getRepo(projectId: string) {
+  const { data, error } = await supabase
+    .from('general_repo_overview')
+    .select('*')
+    .eq('project_id', projectId)
+    .maybeSingle()
+  if (error) throw error
+  return (data ?? null) as GeneralRepoSummary | null
+}
+
+export async function createRepo(projectId: string, name: string, description = '') {
+  const { data, error } = await supabase.rpc('create_general_repo', {
+    p_project: projectId,
+    p_name: name.trim(),
+    p_description: description,
+  })
+  if (error) throw error
+  return data as GeneralRepo
+}
+
+export async function updateRepo(repoId: string, patch: { name?: string; description?: string }) {
+  const { data, error } = await supabase
+    .from('general_repos')
+    .update(patch)
+    .eq('id', repoId)
+    .select('id')
+  if (error) throw error
+  changed(data, NO_REPO)
+}
+
+export async function listTree(repoId: string) {
+  const { data, error } = await supabase
+    .from('general_repo_tree')
+    .select('*')
+    .eq('repo_id', repoId)
+    .order('path')
+  if (error) throw error
+  return (data ?? []) as GeneralTreeFile[]
+}
+
+export async function listCommits(repoId: string) {
+  const { data, error } = await supabase
+    .from('general_commits')
+    .select('*')
+    .eq('repo_id', repoId)
+    .order('seq', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as GeneralCommit[]
+}
+
+export async function listCommitFiles(commitId: string) {
+  const { data, error } = await supabase
+    .from('general_blobs')
+    .select('*')
+    .eq('commit_id', commitId)
+    .order('path')
+  if (error) throw error
+  return (data ?? []) as GeneralBlob[]
+}
+
+/**
+ * What a path said as of a commit. Used to show what a change would do, since
+ * the tree only ever holds the newest content.
+ */
+export async function contentAt(repoId: string, path: string, seq: number) {
+  const { data, error } = await supabase
+    .from('general_blobs')
+    .select('action, content')
+    .eq('repo_id', repoId)
+    .eq('path', path)
+    .lte('seq', seq)
+    .order('seq', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  const row = (data ?? [])[0] as { action: FileAction; content: string } | undefined
+  return !row || row.action === 'removed' ? null : row.content
+}
+
+export async function commitFiles(input: {
+  repoId: string
+  message: string
+  baseSeq: number
+  files: RepoFile[]
+}) {
+  const { data, error } = await supabase.rpc('commit_general_files', {
+    p_repo: input.repoId,
+    p_message: input.message,
+    p_base_seq: input.baseSeq,
+    p_files: input.files,
+  })
+  if (error) throw error
+  return data as GeneralCommit
+}
+
+export async function listRepoChanges(repoId: string) {
+  const { data, error } = await supabase
+    .from('general_repo_changes')
+    .select('*')
+    .eq('repo_id', repoId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as GeneralRepoChange[]
+}
+
+export async function openRepoChange(input: {
+  repoId: string
+  projectId: string
+  authorId: string
+  title: string
+  body: string
+  baseSeq: number
+  files: RepoFile[]
+}) {
+  const { data, error } = await supabase
+    .from('general_repo_changes')
+    .insert({
+      repo_id: input.repoId,
+      project_id: input.projectId,
+      author_id: input.authorId,
+      title: input.title.trim(),
+      body: input.body,
+      base_seq: input.baseSeq,
+      files: input.files,
+    })
+    .select('*')
+    .single()
+  if (error) throw error
+  return data as GeneralRepoChange
+}
+
+export async function withdrawRepoChange(changeId: string) {
+  const { data, error } = await supabase
+    .from('general_repo_changes')
+    .update({ status: 'withdrawn' })
+    .eq('id', changeId)
+    .select('id')
+  if (error) throw error
+  changed(data, 'That change is no longer yours to withdraw. It may have been answered already.')
+}
+
+export async function answerRepoChange(changeId: string, merge: boolean, note = '') {
+  const { data, error } = await supabase.rpc('answer_general_repo_change', {
+    p_change: changeId,
+    p_merge: merge,
+    p_note: note,
+  })
+  if (error) throw error
+  return data as GeneralRepoChange
+}
+
+export async function listRepoComments(changeId: string) {
+  const { data, error } = await supabase
+    .from('general_repo_comments')
+    .select('*')
+    .eq('change_id', changeId)
+    .order('created_at')
+  if (error) throw error
+  return (data ?? []) as GeneralRepoComment[]
+}
+
+export async function addRepoComment(input: {
+  changeId: string
+  projectId: string
+  authorId: string
+  path: string | null
+  body: string
+}) {
+  const { error } = await supabase.from('general_repo_comments').insert({
+    change_id: input.changeId,
+    project_id: input.projectId,
+    author_id: input.authorId,
+    path: input.path,
+    body: input.body.trim(),
+  })
+  if (error) throw error
+}
+
+export async function deleteRepoComment(commentId: string) {
+  const { data, error } = await supabase
+    .from('general_repo_comments')
     .delete()
     .eq('id', commentId)
     .select('id')
