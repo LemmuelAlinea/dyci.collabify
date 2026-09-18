@@ -43,11 +43,15 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
       <DirectoryHero
         title="Every conversation,"
         accent="within reach."
-        description="Keep class updates, group decisions and direct messages together without losing the work around them."
+        description={
+          role === 'general'
+            ? 'Keep project chats and direct messages together without losing the work around them.'
+            : 'Keep class updates, group decisions and direct messages together without losing the work around them.'
+        }
         stats={[
           { value: conversations?.length ?? '—', label: 'Conversations' },
           { value: unread, label: 'Unread' },
-          { value: channels, label: 'Group chats' },
+          { value: channels, label: role === 'general' ? 'Project chats' : 'Class & group chats' },
           { value: direct, label: 'Direct chats' },
         ]}
         statsVariant="compact-row"
@@ -98,16 +102,18 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
                 </span>
                 <h2 className="mt-5">Choose a conversation</h2>
                 <p className="mt-1.5 max-w-[320px] text-[13px] leading-relaxed text-muted">
-                  Every class and group you're in has its own chat, created for you
-                  automatically.
+                  {role === 'general'
+                    ? "Every project you're on has its own chat, created for you automatically."
+                    : "Every class and group you're in has its own chat, created for you automatically."}
                 </p>
               </div>
             </div>
           ) : conversations && !active ? (
             <div className="p-6">
               <Alert tone="error">
-                That conversation is not available. You may have been removed from the class or
-                group it belongs to.
+                {role === 'general'
+                  ? 'That conversation is not available. The project it belongs to may have been archived, or you may have been removed from it.'
+                  : 'That conversation is not available. You may have been removed from the class or group it belongs to.'}
               </Alert>
             </div>
           ) : active ? (

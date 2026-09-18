@@ -38,4 +38,11 @@ describe('local datetime inputs', () => {
     expect(toLocalInput(null)).toBe('')
     expect(fromLocalInput('')).toBeNull()
   })
+
+  it('reads a half-written value as no date rather than throwing', () => {
+    expect(fromLocalInput('2026-10-10')).toBeNull()
+    expect(fromLocalInput('T14:30')).toBeNull()
+    expect(fromLocalInput('not a date')).toBeNull()
+    expect(fromLocalInput('2026-10-10Tnope')).toBeNull()
+  })
 })

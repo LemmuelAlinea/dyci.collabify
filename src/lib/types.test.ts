@@ -164,6 +164,8 @@ describe('boardOwnerName', () => {
 
 describe('fullName and initials', () => {
   it('leaves out a missing middle name without doubling the space', () => {
+    // General reads people through views that select no middle_name at all.
+    expect(fullName({ first_name: 'Ana', last_name: 'Cruz' })).toBe('Ana Cruz')
     expect(fullName({ first_name: 'Ana', middle_name: null, last_name: 'Cruz' })).toBe('Ana Cruz')
     expect(fullName({ first_name: 'Ana', middle_name: 'Rosa', last_name: 'Cruz' })).toBe(
       'Ana Rosa Cruz',

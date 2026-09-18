@@ -30,8 +30,9 @@ export async function listConversations() {
 }
 
 /**
- * Conversations carry only ids, so titles come from the classes, groups, and
- * profiles behind them. Resolved in three batched queries rather than per row.
+ * Conversations carry only ids, so titles come from the classes, groups,
+ * projects and profiles behind them. Resolved in one batched query per source
+ * rather than one per row.
  */
 export async function decorateConversations(
   rows: ConversationSummary[],

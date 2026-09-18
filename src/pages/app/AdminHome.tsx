@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { RoleHome } from './RoleHome'
 import type { Upcoming } from './RoleHome'
+import { Alert } from '../../components/ui/Alert'
 import { generalCounts } from '../../lib/api/general'
 import type { GeneralCounts } from '../../lib/general/types'
 
@@ -41,12 +42,26 @@ export default function AdminHome() {
 /** Counts only. What happens inside a General project stays with the people on it. */
 function GeneralCountsBand() {
   const [counts, setCounts] = useState<GeneralCounts | null>(null)
+  const [failed, setFailed] = useState(false)
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setFailed(false)
     void generalCounts()
       .then(setCounts)
-      .catch(() => setCounts(null))
+      .catch(() => setFailed(true))
   }, [])
+
+  useEffect(load, [load])
+
+  // Silence would read as "no General projects yet", which is a different fact.
+  if (failed)
+    return (
+      <section className="mt-8">
+        <Alert tone="error" onRetry={load}>
+          The General workplace counts did not load. Try again in a moment.
+        </Alert>
+      </section>
+    )
 
   if (!counts) return null
 

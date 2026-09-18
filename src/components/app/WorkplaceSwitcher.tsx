@@ -10,14 +10,11 @@ import type { Workplace } from '../../lib/workplace'
  * browser's back button and a copied link both behave. Education goes wherever
  * the account belongs there — its dashboard, the pending page, or the one-time
  * role choice.
+ *
+ * It owns its own display, so placing and hiding it is the caller's wrapper,
+ * not a class handed in here that would fight the `flex` below.
  */
-export function WorkplaceSwitcher({
-  tone = 'onNavy',
-  className = '',
-}: {
-  tone?: 'onNavy' | 'surface'
-  className?: string
-}) {
+export function WorkplaceSwitcher({ tone = 'onNavy' }: { tone?: 'onNavy' | 'surface' }) {
   const { profile } = useAuth()
   const location = useLocation()
   if (!profile) return null
@@ -32,9 +29,9 @@ export function WorkplaceSwitcher({
   return (
     <nav
       aria-label="Workplace"
-      className={`items-center gap-0.5 rounded-lg p-0.5 ${
+      className={`flex items-center gap-0.5 rounded-lg p-0.5 ${
         onNavy ? 'bg-white/8' : 'surface-sunken'
-      } ${className || 'flex'}`}
+      }`}
     >
       {options.map((o) => {
         const on = o.value === current

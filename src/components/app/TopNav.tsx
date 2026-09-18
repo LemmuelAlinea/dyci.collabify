@@ -318,7 +318,9 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
             >
               <Logo size={28} tone="onDark" showSubtitle={false} />
             </Link>
-            <WorkplaceSwitcher className="ml-2 hidden sm:flex" />
+            <div className="ml-2 hidden sm:block">
+              <WorkplaceSwitcher />
+            </div>
           </div>
 
           <div className="flex items-center gap-0.5 sm:gap-1">

@@ -45,10 +45,16 @@ export function toLocalInput(iso: string | null) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/**
+ * Null for anything the input would not have produced. A stored value that lost
+ * its time half used to throw here, which took the whole form down with it.
+ */
 export function fromLocalInput(value: string) {
   if (!value) return null
   const [date, time] = value.split('T')
+  if (!date || !time) return null
   const [y, m, d] = date.split('-').map(Number)
   const [hh, mm] = time.split(':').map(Number)
+  if (![y, m, d, hh, mm].every(Number.isFinite)) return null
   return new Date(y, m - 1, d, hh, mm).toISOString()
 }
