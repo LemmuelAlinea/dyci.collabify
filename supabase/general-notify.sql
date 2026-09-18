@@ -12,6 +12,13 @@
 -- three switches Education uses.
 --
 -- Requires supabase/general.sql, supabase/general-tasks.sql and supabase/messages.sql.
+--
+-- conversation_is_writable and conversation_overview are redefined here as
+-- supersets of supabase/messages.sql. Re-running supabase/messages.sql by
+-- itself after this file will fail on conversation_overview ("cannot drop
+-- columns from view") because its copy is missing general_project_id — a
+-- rebuild in the documented order (messages, then general, general-tasks,
+-- general-notify) is unaffected.
 
 begin;
 
@@ -38,6 +45,11 @@ alter table public.notifications
 alter table public.notifications
   add column if not exists general_task_id uuid
   references public.general_tasks (id) on delete cascade;
+
+create index if not exists notifications_general_project_id_idx
+  on public.notifications (general_project_id);
+create index if not exists notifications_general_task_id_idx
+  on public.notifications (general_task_id);
 
 -- ---------------------------------------------------------------- invitations
 
@@ -74,8 +86,8 @@ begin
            'general_access_requested'::public.notification_type,
            p.id,
            p.name,
-           btrim(r.first_name || ' ' || r.last_name) || ' asked for: '
-             || public.general_permission_label(new.permission)
+           coalesce(nullif(btrim(r.first_name || ' ' || r.last_name), ''), 'Somebody')
+             || ' asked for: ' || public.general_permission_label(new.permission)
       from public.general_members o
       join public.general_projects p on p.id = o.project_id
       join public.profiles r on r.id = new.user_id
@@ -128,22 +140,28 @@ drop trigger if exists general_task_assignees_notify on public.general_task_assi
 create trigger general_task_assignees_notify after insert on public.general_task_assignees
   for each row execute function public.notify_general_assignment();
 
+/** Reaches whoever holds the task now, plus whoever has commented on it
+    before — not only the current holder, and not the whole board. */
 create or replace function public.notify_general_comment()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into public.notifications
     (user_id, type, general_project_id, general_task_id, title, preview)
-  select a.user_id,
+  select r.user_id,
          'general_comment_posted'::public.notification_type,
          t.project_id,
          t.id,
          t.title,
          left(new.body, 140)
-    from public.general_task_assignees a
-    join public.general_tasks t on t.id = a.task_id
-    join public.notification_prefs np on np.user_id = a.user_id
-   where a.task_id = new.task_id
-     and a.user_id is distinct from new.author_id
+    from (
+      select a.user_id from public.general_task_assignees a where a.task_id = new.task_id
+      union
+      select c.author_id from public.general_task_comments c
+       where c.task_id = new.task_id and c.author_id is not null and c.id <> new.id
+    ) r
+    join public.general_tasks t on t.id = new.task_id
+    join public.notification_prefs np on np.user_id = r.user_id
+   where r.user_id is distinct from new.author_id
      and np.comments_mentions;
   return new;
 end;
@@ -276,7 +294,25 @@ select c.id, m.user_id
   join public.conversations c on c.kind = 'project' and c.general_project_id = m.project_id
 on conflict do nothing;
 
-/** As supabase/messages.sql, and an archived General project is read-only too. */
+/** As supabase/messages.sql, plus: a deactivated account is a member of
+    nothing, whatever conversation_members rows still exist. This closes
+    Education chat the same way — deactivation blocks both workplaces. */
+create or replace function public.is_conversation_member(p_conversation uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+      from public.conversation_members cm
+      join public.profiles pr on pr.id = cm.user_id
+     where cm.conversation_id = p_conversation
+       and cm.user_id = auth.uid()
+       and pr.status <> 'rejected'
+  );
+$$;
+
+/** As supabase/messages.sql — an archived General project is read-only too —
+    plus: a deactivated caller cannot post even where their membership row
+    remains, so removal from general_members is not the only thing standing
+    between them and the conversation. */
 create or replace function public.conversation_is_writable(p_conversation uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select not exists (
@@ -289,6 +325,9 @@ returns boolean language sql stable security definer set search_path = public as
       left join public.general_projects gp on gp.id = c.general_project_id
      where c.id = p_conversation
        and coalesce(cl.archived_at, gcl.archived_at, gp.archived_at) is not null
+  )
+  and exists (
+    select 1 from public.profiles where id = auth.uid() and status <> 'rejected'
   );
 $$;
 

@@ -121,6 +121,39 @@ begin
   insert into fx values ('convo', convo);
 end $$;
 
+-- ------------------------------------------------------------------ deactivation shuts a member out of the conversation
+
+do $$
+declare
+  b uuid := (select v from fx where k = 'b');
+  convo uuid := (select v from fx where k = 'convo');
+begin
+  perform pg_temp.act_as(b);
+  perform pg_temp.must_be('an active member reads the conversation',
+    exists (select 1 from public.conversation_overview where id = convo));
+  perform pg_temp.must_allow('...and writes in it',
+    format($q$insert into public.messages (conversation_id, sender_id, body) values (%L, %L, 'Still counting cups')$q$, convo, b));
+
+  perform pg_temp.act_as_service();
+  update public.profiles set status = 'rejected' where id = b;
+
+  perform pg_temp.act_as(b);
+  perform pg_temp.must_be('a deactivated member cannot read the conversation through the overview',
+    not exists (select 1 from public.conversation_overview where id = convo));
+  perform pg_temp.must_refuse('...nor post in it, though their membership row is untouched',
+    format($q$insert into public.messages (conversation_id, sender_id, body) values (%L, %L, 'Let me back in')$q$, convo, b));
+
+  perform pg_temp.act_as_service();
+  update public.profiles set status = 'active' where id = b;
+
+  perform pg_temp.act_as(b);
+  perform pg_temp.must_be('reactivated, they read the conversation again',
+    exists (select 1 from public.conversation_overview where id = convo));
+  perform pg_temp.must_allow('...and post in it again',
+    format($q$insert into public.messages (conversation_id, sender_id, body) values (%L, %L, 'Back online')$q$, convo, b));
+  perform pg_temp.act_as_service();
+end $$;
+
 -- ------------------------------------------------------------------ requests, tasks, comments
 
 do $$
@@ -131,6 +164,7 @@ declare
   req uuid;
   t1 uuid;
   t2 uuid;
+  t3 uuid;
 begin
   perform pg_temp.act_as(b);
   select id into req from public.request_general_access(p, 'edit_files', 'Uploading the posters');
@@ -170,6 +204,26 @@ begin
   perform pg_temp.must_be('...but not the person who wrote it',
     not exists (select 1 from public.notifications
                  where user_id = a and type = 'general_comment_posted' and general_task_id = t1));
+
+  -- A reply should reach whoever commented before, not only whoever holds
+  -- the task right now — and a task nobody holds should still tell its
+  -- earlier commenters when somebody answers them.
+  perform pg_temp.act_as(a);
+  insert into public.general_tasks (project_id, title) values (p, 'Sound check') returning id into t3;
+  perform pg_temp.act_as_service();
+
+  perform pg_temp.act_as(b);
+  insert into public.general_task_comments (task_id, project_id, body) values (t3, p, 'Borrowed a mic from AV');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('commenting on a task nobody holds notifies nobody yet',
+    not exists (select 1 from public.notifications where general_task_id = t3));
+
+  perform pg_temp.act_as(a);
+  insert into public.general_task_comments (task_id, project_id, body) values (t3, p, 'Great, return it Friday');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a reply reaches whoever commented before, though they never held the task',
+    exists (select 1 from public.notifications
+             where user_id = b and type = 'general_comment_posted' and general_task_id = t3));
 
   update public.general_tasks set due_at = now() + interval '2 hours' where id = t1;
   perform public.send_general_deadline_reminders();
