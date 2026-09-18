@@ -94,7 +94,7 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
       void refreshCount()
     }
     if (!profile) return
-    const base = ROLE_BASE[profile.role]
+    const base = profile.role ? ROLE_BASE[profile.role] : '/general'
     if (n.project_id && profile.role !== 'admin') {
       navigate(`${base}/projects/${n.project_id}`)
     } else if (n.class_id) {

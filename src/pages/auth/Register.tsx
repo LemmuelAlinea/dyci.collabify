@@ -56,6 +56,7 @@ export default function Register() {
         lastName,
         email,
         password,
+        workplace: 'education',
         role,
       })
       if (needsConfirmation) {

@@ -1,25 +1,25 @@
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { AuthLayout } from '../../components/AuthLayout'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
-import { roleHome } from '../../lib/roleHome'
+import { homeFor } from '../../lib/workplace'
 
 export default function Pending() {
   const { ready, session, profile, signOut, refreshProfile } = useAuth()
 
   if (ready && !session) return <Navigate to="/login" replace />
   if (ready && profile && profile.status === 'active')
-    return <Navigate to={roleHome(profile.role, profile.status)} replace />
+    return <Navigate to={homeFor(profile)} replace />
 
   const rejected = profile?.status === 'rejected'
 
   return (
     <AuthLayout
-      title={rejected ? 'Account not approved' : 'Waiting on approval'}
+      title={rejected ? 'Account not active' : 'Waiting on approval'}
       subtitle={
         rejected
-          ? 'The program admin did not approve this professor account.'
+          ? 'The program admin has not approved this account, or has deactivated it.'
           : 'Your professor account is with the program admin.'
       }
     >
@@ -51,6 +51,14 @@ export default function Pending() {
           <Button variant="outline" size="lg" full className="!rounded-xl" onClick={refreshProfile}>
             Check again
           </Button>
+        )}
+        {!rejected && (
+          <Link
+            to="/general"
+            className="block rounded-xl border border-line px-4 py-3 text-center text-[14px] font-medium text-ink transition-colors hover:bg-[var(--surface-sunken)]"
+          >
+            Use the General workplace while you wait
+          </Link>
         )}
         <Button variant="ghost" size="md" full onClick={signOut}>
           Sign out

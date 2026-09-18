@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Spinner } from '../../components/ui/Icon'
 import { LogoMark } from '../../components/brand/Logo'
 import { useAuth } from '../../context/AuthContext'
-import { roleHome } from '../../lib/roleHome'
+import { homeFor } from '../../lib/workplace'
 
 export default function AuthCallback() {
   const { ready, session, profile } = useAuth()
@@ -15,10 +15,7 @@ export default function AuthCallback() {
       navigate('/login', { replace: true })
       return
     }
-    // Google users arrive with no profile row — send them through onboarding.
-    navigate(profile ? roleHome(profile.role, profile.status) : '/onboarding', {
-      replace: true,
-    })
+    navigate(homeFor(profile), { replace: true })
   }, [ready, session, profile, navigate])
 
   return (

@@ -71,6 +71,7 @@ const StudentProjects = lazy(() => import('./pages/app/projects/StudentProjects'
 const StudentReports = lazy(() => import('./pages/app/reports/StudentReports'))
 const Syllabi = lazy(() => import('./pages/app/resources/Syllabi'))
 const SyllabusDetail = lazy(() => import('./pages/app/resources/SyllabusDetail'))
+const EnterEducation = lazy(() => import('./pages/auth/EnterEducation'))
 
 export default function App() {
   return (
@@ -93,6 +94,7 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/pending" element={<Pending />} />
+          <Route path="/education/enter" element={<EnterEducation />} />
 
           {/* Public on purpose. Somebody deciding whether to register has to be
               able to read what they would be agreeing to before they have an
@@ -110,7 +112,7 @@ export default function App() {
           </Route>
           </Route>
 
-          <Route element={<ProtectedRoute allow={['student']} />}>
+          <Route element={<ProtectedRoute workplace="education" allow={['student']} />}>
           <Route element={<AppShell />}>
             <Route path="/student" element={<StudentHome />} />
             <Route path="/student/classes" element={<StudentClasses />} />
@@ -133,7 +135,7 @@ export default function App() {
           </Route>
           </Route>
 
-          <Route element={<ProtectedRoute allow={['professor']} />}>
+          <Route element={<ProtectedRoute workplace="education" allow={['professor']} />}>
           <Route element={<AppShell />}>
             <Route path="/professor" element={<ProfessorHome />} />
             <Route path="/professor/classes" element={<ProfessorClasses />} />
@@ -166,7 +168,7 @@ export default function App() {
           </Route>
           </Route>
 
-          <Route element={<ProtectedRoute allow={['admin']} />}>
+          <Route element={<ProtectedRoute workplace="education" allow={['admin']} />}>
           <Route element={<AppShell />}>
             <Route path="/admin" element={<AdminHome />} />
             <Route path="/admin/approvals" element={<ProfessorApprovals />} />

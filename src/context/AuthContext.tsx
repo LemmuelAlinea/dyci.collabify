@@ -11,6 +11,7 @@ import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import type { NotificationPrefs, Profile, Role } from '../lib/types'
+import type { Workplace } from '../lib/workplace'
 import { consentVersions } from '../lib/legal'
 import { recordAllConsent } from '../lib/api/consent'
 import {
@@ -27,7 +28,9 @@ type SignUpInput = {
   lastName: string
   email: string
   password: string
-  role: Exclude<Role, 'admin'>
+  workplace: Workplace
+  /** Required for Education, ignored for General. */
+  role: Exclude<Role, 'admin'> | null
 }
 
 type AuthValue = {
@@ -47,8 +50,10 @@ type AuthValue = {
     firstName: string
     middleName?: string
     lastName: string
-    role: Exclude<Role, 'admin'>
+    workplace: Workplace
+    role: Exclude<Role, 'admin'> | null
   }) => Promise<void>
+  enterEducation: (role: Exclude<Role, 'admin'>) => Promise<Profile>
   loadNotificationPrefs: () => Promise<NotificationPrefs | null>
   updateNotificationPrefs: (patch: Partial<NotificationPrefs>) => Promise<void>
   refreshProfile: () => Promise<void>
@@ -154,7 +159,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           first_name: input.firstName.trim(),
           middle_name: input.middleName?.trim() || null,
           last_name: input.lastName.trim(),
-          role: input.role,
+          role: input.workplace === 'education' ? input.role : null,
+          workplace: input.workplace,
           /**
            * The versions the boxes on the form were ticked against.
            *
@@ -271,14 +277,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
        */
       await recordAllConsent('onboarding')
 
+      const role = input.workplace === 'education' ? input.role : null
       const row = {
         id: session.user.id,
         email: session.user.email ?? '',
         first_name: input.firstName.trim(),
         middle_name: input.middleName?.trim() || null,
         last_name: input.lastName.trim(),
-        role: input.role,
-        status: input.role === 'professor' ? 'pending' : 'active',
+        role,
+        // guard_profile_insert derives this anyway; sending the right value
+        // keeps the returned row honest on the first render.
+        status: role === 'professor' ? 'pending' : 'active',
+        home_workplace: input.workplace,
         avatar_url:
           (session.user.user_metadata?.avatar_url as string | undefined) ?? null,
       }
@@ -295,6 +305,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [session],
   )
+
+  const enterEducation = useCallback<AuthValue['enterEducation']>(async (role) => {
+    const { data, error } = await supabase.rpc('enter_education', { p_role: role })
+    if (error) throw error
+    const next = data as Profile
+    setProfile(next)
+    return next
+  }, [])
 
   const loadNotificationPrefs = useCallback(async () => {
     if (!userId) return null
@@ -336,6 +354,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updatePassword,
       updateProfile,
       completeOnboarding,
+      enterEducation,
       loadNotificationPrefs,
       updateNotificationPrefs,
       refreshProfile,
@@ -352,6 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updatePassword,
       updateProfile,
       completeOnboarding,
+      enterEducation,
       loadNotificationPrefs,
       updateNotificationPrefs,
       refreshProfile,

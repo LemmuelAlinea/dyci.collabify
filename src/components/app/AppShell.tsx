@@ -6,11 +6,11 @@ import { Icon } from '../ui/Icon'
 import { PageLoading } from '../ui/PageLoading'
 import { ErrorBoundary } from './ErrorBoundary'
 import { TopNav } from './TopNav'
-import { navFor } from './nav'
+import { navForWorkplace } from './nav'
 import { useAuth } from '../../context/AuthContext'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { useFocusTrap } from '../../lib/focus'
-import { roleHome } from '../../lib/roleHome'
+import { homeFor, workplaceOf } from '../../lib/workplace'
 
 /**
  * The chrome around every signed-in page.
@@ -29,11 +29,12 @@ import { roleHome } from '../../lib/roleHome'
 function DrawerNav({ onNavigate }: { onNavigate: () => void }) {
   const { profile } = useAuth()
   const unread = useUnreadTotal(profile?.id)
+  const location = useLocation()
   if (!profile) return null
 
   return (
     <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-4">
-      {navFor(profile.role).map((group) => (
+      {navForWorkplace(workplaceOf(location.pathname, profile.home_workplace), profile.role).map((group) => (
         <div key={group.title}>
           <p className="px-3 pb-1.5 text-[12px] font-medium tracking-wide text-faint uppercase">
             {group.title}
@@ -215,10 +216,7 @@ export function AppShell() {
               transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             >
               <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-white/10 bg-[#050718] px-4 text-amber-50">
-                <Link
-                  to={roleHome(profile?.role, profile?.status)}
-                  aria-label="Go to your dashboard"
-                >
+                <Link to={homeFor(profile)} aria-label="Go to your dashboard">
                   <Logo size={26} tone="onDark" showSubtitle={false} />
                 </Link>
                 <button
@@ -258,7 +256,7 @@ export function AppShell() {
           <ErrorBoundary
             key={location.pathname}
             scope="This page"
-            home={roleHome(profile?.role, profile?.status)}
+            home={homeFor(profile)}
           >
             {/* Inside the boundary, so a chunk that fails to download is caught
                 and offers Try again rather than hanging on a spinner. */}
