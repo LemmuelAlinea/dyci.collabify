@@ -45,6 +45,18 @@ export default function GeneralProject() {
     )
   }
 
+  // Only `missing` means it is not there. Anything else that left us without a
+  // project is a failure to load, and it has a message worth reading.
+  if (state.error && !p) {
+    return (
+      <div className="py-6">
+        <Alert tone="error" onRetry={() => void state.reload()}>
+          {state.error}
+        </Alert>
+      </div>
+    )
+  }
+
   if (state.missing || !p) {
     return (
       <EmptyState
@@ -90,7 +102,7 @@ export default function GeneralProject() {
               You are {levelLabel(p.my_level)}
             </span>
           </div>
-          <h1 className="mt-2 font-display">{p.name}</h1>
+          <h1 className="mt-2 font-display break-words">{p.name}</h1>
           <p className="mt-1 text-[13px] text-muted">
             {dateRange(p.starts_on, p.ends_on)} · {p.member_count}{' '}
             {p.member_count === 1 ? 'member' : 'members'} · {Number(p.progress_pct)}% done

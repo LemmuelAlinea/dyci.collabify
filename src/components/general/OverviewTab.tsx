@@ -1,5 +1,5 @@
 // src/components/general/OverviewTab.tsx
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -185,17 +185,31 @@ function FieldsPanel({ state }: { state: GeneralProjectState }) {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<GeneralField | null>(null)
   const [removing, setRemoving] = useState<GeneralField | null>(null)
+  const [moving, setMoving] = useState(false)
 
+  /**
+   * Swaps the two fields' own sort values rather than their list positions, so
+   * a list whose stored sorts have drifted apart still moves one step. The two
+   * writes run in order, not together: a failed second write would otherwise
+   * leave both fields holding the same sort.
+   */
   async function move(field: GeneralField, delta: -1 | 1) {
+    if (moving) return
     const list = state.fields
     const i = list.findIndex((f) => f.id === field.id)
     const other = list[i + delta]
     if (!other) return
+    const mine = field.sort === other.sort ? i : field.sort
+    const theirs = field.sort === other.sort ? i + delta : other.sort
+    setMoving(true)
     try {
-      await Promise.all([updateField(field.id, { sort: i + delta }), updateField(other.id, { sort: i })])
+      await updateField(field.id, { sort: theirs })
+      await updateField(other.id, { sort: mine })
       await state.reload()
     } catch (err) {
       show(authErrorMessage(err, 'Could not move that field.'), 'error')
+    } finally {
+      setMoving(false)
     }
   }
 
@@ -288,6 +302,7 @@ function FieldRow({
 }) {
   const { show } = useToast()
   const stored = state.values.find((v) => v.field_id === field.id)
+  const labelId = useId()
   const [draft, setDraft] = useState<unknown>(stored?.value ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -302,7 +317,9 @@ function FieldRow({
     setBusy(true)
     try {
       if (isEmptyValue(draft)) {
-        await clearFieldValue(field.id)
+        // Clearing what was already empty deletes no row, and a write that
+        // changes nothing is reported as a permission refusal. Nothing to do.
+        if (stored) await clearFieldValue(field.id)
       } else {
         const checked = checkFieldValue(field.type, draft, {
           options: field.options,
@@ -326,7 +343,9 @@ function FieldRow({
   return (
     <li className="py-3.5 first:pt-0 last:pb-0">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[13px] font-medium text-ink">{field.name}</p>
+        <p id={labelId} className="text-[13px] font-medium text-ink">
+          {field.name}
+        </p>
         {editable && (
           <div className="flex items-center">
             <button
@@ -369,7 +388,13 @@ function FieldRow({
 
       {editable ? (
         <div className="mt-2 space-y-2">
-          <FieldInput field={field} value={draft} onChange={setDraft} members={state.members} />
+          <FieldInput
+            field={field}
+            value={draft}
+            onChange={setDraft}
+            members={state.members}
+            labelledBy={labelId}
+          />
           {error && <p className="text-[12px] text-red-600 dark:text-red-400">{error}</p>}
           <div className="flex justify-end">
             <Button size="sm" variant="outline" onClick={() => void save()} loading={busy}>

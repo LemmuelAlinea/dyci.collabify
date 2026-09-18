@@ -86,11 +86,28 @@ export function useGeneralProject(
   const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
-    if (!projectId) return
+    if (!projectId) {
+      setLoading(false)
+      return
+    }
     try {
       const found = await getGeneralProject(projectId)
       setProject(found)
-      if (!found) return
+      // Nothing to load, and the last project's rows must not stay on screen.
+      if (!found) {
+        setMembers([])
+        setGrants([])
+        setRequests([])
+        setTeams([])
+        setTeamMembers([])
+        setPositions([])
+        setHolders([])
+        setFields([])
+        setValues([])
+        setTasks([])
+        setError(null)
+        return
+      }
       const [m, g, r, t, tm, p, h, f, tk] = await Promise.all([
         listGeneralMembers(projectId),
         listGrants(projectId),

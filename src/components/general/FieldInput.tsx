@@ -9,6 +9,11 @@ import { fullName } from '../../lib/types'
  * One control per field type. The value it hands back is raw — a string from a
  * text box, a boolean, a list — and `checkFieldValue` turns it into what is
  * stored, so validation lives in one place.
+ *
+ * A caller gives it a name one of two ways: `id`, to be the target of a
+ * `<label htmlFor>`, or `labelledBy`, pointing at text already on the page.
+ * Multiple choice is a group of checkboxes rather than one control, so only
+ * `labelledBy` names it.
  */
 export function FieldInput({
   field,
@@ -16,36 +21,38 @@ export function FieldInput({
   onChange,
   members,
   id,
+  labelledBy,
 }: {
   field: GeneralField
   value: unknown
   onChange: (next: unknown) => void
   members: GeneralMember[]
   id?: string
+  labelledBy?: string
 }) {
   const text = typeof value === 'string' || typeof value === 'number' ? String(value) : ''
 
   switch (field.type) {
     case 'short_text':
       return (
-        <Input id={id} maxLength={FIELD_LIMIT.shortText} value={text} onChange={(e) => onChange(e.target.value)} />
+        <Input id={id} aria-labelledby={labelledBy} maxLength={FIELD_LIMIT.shortText} value={text} onChange={(e) => onChange(e.target.value)} />
       )
     case 'long_text':
       return (
-        <Textarea id={id} rows={4} maxLength={FIELD_LIMIT.longText} value={text} onChange={(e) => onChange(e.target.value)} />
+        <Textarea id={id} aria-labelledby={labelledBy} rows={4} maxLength={FIELD_LIMIT.longText} value={text} onChange={(e) => onChange(e.target.value)} />
       )
     case 'number':
-      return <Input id={id} type="number" value={text} onChange={(e) => onChange(e.target.value)} />
+      return <Input id={id} aria-labelledby={labelledBy} type="number" value={text} onChange={(e) => onChange(e.target.value)} />
     case 'money':
       return (
-        <Input id={id} type="number" min={0} step="0.01" value={text} onChange={(e) => onChange(e.target.value)} />
+        <Input id={id} aria-labelledby={labelledBy} type="number" min={0} step="0.01" value={text} onChange={(e) => onChange(e.target.value)} />
       )
     case 'date':
-      return <Input id={id} type="date" value={text} onChange={(e) => onChange(e.target.value)} />
+      return <Input id={id} aria-labelledby={labelledBy} type="date" value={text} onChange={(e) => onChange(e.target.value)} />
     case 'link':
       return (
         <Input
-          id={id}
+          id={id} aria-labelledby={labelledBy}
           type="url"
           maxLength={FIELD_LIMIT.link}
           placeholder="https://"
@@ -56,7 +63,7 @@ export function FieldInput({
     case 'single_choice':
       return (
         <Select
-          id={id}
+          id={id} aria-labelledby={labelledBy}
           value={text}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Not set"
@@ -66,7 +73,7 @@ export function FieldInput({
     case 'yes_no':
       return (
         <Select
-          id={id}
+          id={id} aria-labelledby={labelledBy}
           value={value === true ? 'yes' : value === false ? 'no' : ''}
           onChange={(e) => onChange(e.target.value === '' ? '' : e.target.value === 'yes')}
           placeholder="Not set"
@@ -79,7 +86,7 @@ export function FieldInput({
     case 'member':
       return (
         <Select
-          id={id}
+          id={id} aria-labelledby={labelledBy}
           value={text}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Nobody"
@@ -92,7 +99,7 @@ export function FieldInput({
     case 'multi_choice': {
       const chosen = Array.isArray(value) ? (value as string[]) : []
       return (
-        <fieldset id={id} className="flex flex-wrap gap-2">
+        <div role="group" aria-labelledby={labelledBy} className="flex flex-wrap gap-2">
           {field.options.map((o) => {
             const on = chosen.includes(o)
             return (
@@ -111,7 +118,7 @@ export function FieldInput({
               </label>
             )
           })}
-        </fieldset>
+        </div>
       )
     }
   }
