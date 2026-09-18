@@ -141,30 +141,39 @@ create index if not exists general_task_events_task_idx
 
 -- ---------------------------------------------------------------- helpers
 
+-- Each of these returns false/null immediately when there is no signed-in
+-- caller, so calling one with no session leaks nothing real — the safety net
+-- underneath the execute grants just below, not a substitute for them.
 create or replace function public.is_general_task_assignee(p_task uuid)
 returns boolean language sql stable security definer set search_path = public as $$
-  select exists (
+  select case when auth.uid() is null then false else exists (
     select 1 from public.general_task_assignees
      where task_id = p_task and user_id = auth.uid()
-  );
+  ) end;
 $$;
 
 create or replace function public.general_task_held(p_task uuid)
 returns boolean language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.general_task_assignees where task_id = p_task);
+  select case when auth.uid() is null then false
+    else exists (select 1 from public.general_task_assignees where task_id = p_task) end;
 $$;
 
 create or replace function public.general_task_project(p_task uuid)
 returns uuid language sql stable security definer set search_path = public as $$
-  select project_id from public.general_tasks where id = p_task;
+  select case when auth.uid() is null then null
+    else (select project_id from public.general_tasks where id = p_task) end;
 $$;
 
--- These read task/assignee facts as the definer, so anon must not call them
--- directly — only through policies evaluated for a signed-in user.
+-- Revoking PUBLIC's default grant closes these to anon (anon never held a
+-- separate direct grant, so there is nothing to revoke from it specifically).
+-- Leaving anon out of the revoke list matters because a policy qual that
+-- calls one of these can still be planned against an anon-owned query
+-- elsewhere in the schema; if that ever happens the null-safe bodies above
+-- make the call harmless rather than a bare "permission denied for function".
 revoke execute on function
   public.is_general_task_assignee(uuid), public.general_task_held(uuid),
   public.general_task_project(uuid)
-from public, anon;
+from public;
 grant execute on function
   public.is_general_task_assignee(uuid), public.general_task_held(uuid),
   public.general_task_project(uuid)
@@ -223,8 +232,24 @@ begin
   end if;
 
   if not public.general_can(old.project_id, 'manage_tasks') then
-    if not (public.is_general_task_assignee(old.id)
-            or (old.created_by = auth.uid() and not public.general_task_held(old.id))) then
+    if not (
+      public.is_general_task_assignee(old.id)
+      or (old.created_by = auth.uid() and not public.general_task_held(old.id))
+      or (
+        -- A team delete cascades into an UPDATE (team_id set null) that runs
+        -- under the deleting caller's own auth.uid(), even though referential
+        -- actions bypass RLS — BEFORE triggers still fire. Someone who
+        -- manages structure but not tasks still needs that cascade to reach
+        -- this row, as long as nothing besides team_id actually changed.
+        new.team_id is null
+        and new.title is not distinct from old.title
+        and new.description is not distinct from old.description
+        and new.status is not distinct from old.status
+        and new.due_at is not distinct from old.due_at
+        and new.weight is not distinct from old.weight
+        and public.general_can(old.project_id, 'manage_structure')
+      )
+    ) then
       raise exception 'Only whoever holds this task, or someone who manages tasks, can change it'
         using errcode = 'insufficient_privilege';
     end if;
@@ -604,8 +629,9 @@ create policy general_files_remove on storage.objects
   for delete using (
     bucket_id = 'general-files'
     and (
-      exists (select 1 from public.general_task_files f
-               where f.file_path = name and f.uploaded_by = auth.uid())
+      (exists (select 1 from public.general_task_files f
+                where f.file_path = name and f.uploaded_by = auth.uid())
+       and not public.general_is_archived(public.general_safe_uuid((storage.foldername(name))[1])))
       or public.general_can(public.general_safe_uuid((storage.foldername(name))[1]), 'edit_files')
     )
   );

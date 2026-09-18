@@ -280,6 +280,58 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
+-- ------------------------------------------------------------------ a team delete lets a structure manager through
+
+do $$
+declare
+  a uuid := (select v from fx where k = 'a');
+  b uuid := (select v from fx where k = 'b');
+  c uuid := (select v from fx where k = 'c');
+  p uuid := (select v from fx where k = 'project');
+  v_team uuid;
+  t_team uuid;
+begin
+  perform pg_temp.act_as(a);
+  insert into public.general_teams (project_id, name) values (p, 'Zz Ushers') returning id into v_team;
+  insert into public.general_tasks (project_id, team_id, title) values (p, v_team, 'Greet guests')
+    returning id into t_team;
+  insert into public.general_task_assignees (task_id, project_id, user_id) values (t_team, p, b);
+  perform pg_temp.must_allow('an Owner grants manage_structure only',
+    format('select public.grant_general_permission(%L, %L, %L)', p, c, 'manage_structure'));
+
+  -- c holds neither manage_tasks nor this task, but deleting the team cascades
+  -- into an UPDATE on general_tasks that only clears team_id.
+  perform pg_temp.act_as(c);
+  perform pg_temp.must_allow(
+    'a Member with manage_structure but not manage_tasks deletes a team holding an assigned task',
+    format('delete from public.general_teams where id = %L', v_team));
+
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('the task survives the team delete with team_id cleared',
+    (select team_id is null from public.general_tasks where id = t_team));
+end $$;
+
+-- ------------------------------------------------------------------ assigning a deactivated member
+
+do $$
+declare
+  a uuid := (select v from fx where k = 'a');
+  c uuid := (select v from fx where k = 'c');
+  p uuid := (select v from fx where k = 'project');
+  t_w uuid := (select v from fx where k = 't_w');
+begin
+  perform pg_temp.act_as_service();
+  update public.profiles set status = 'rejected' where id = c;
+
+  perform pg_temp.act_as(a);
+  perform pg_temp.must_refuse('an Owner cannot assign a deactivated member',
+    format('insert into public.general_task_assignees (task_id, project_id, user_id) values (%L, %L, %L)',
+      t_w, p, c));
+
+  perform pg_temp.act_as_service();
+  update public.profiles set status = 'active' where id = c;
+end $$;
+
 -- ------------------------------------------------------------------ deactivated holder cannot write
 
 do $$
@@ -305,13 +357,14 @@ begin
   update public.profiles set status = 'active' where id = b;
 end $$;
 
--- ------------------------------------------------------------------ a removed member's blind delete
+-- ------------------------------------------------------------------ a removed member's unfiltered writes
 
 do $$
 declare
   a uuid := (select v from fx where k = 'a');
   c uuid := (select v from fx where k = 'c');
   p uuid := (select v from fx where k = 'project');
+  t_b uuid := (select v from fx where k = 't_b');
   t_c uuid;
 begin
   perform pg_temp.act_as(c);
@@ -321,15 +374,33 @@ begin
   perform pg_temp.must_allow('an Owner removes the member',
     format('select public.remove_general_member(%L, %L)', p, c));
 
-  -- An unfiltered delete matches no rows under RLS rather than raising, so this
-  -- is not a must_refuse — the test is that the row survives.
+  -- An unfiltered delete or update matches no rows under RLS rather than
+  -- raising, so these are not must_refuse — the test is that nothing changes.
   perform pg_temp.act_as(c);
   delete from public.general_tasks where true;
+  update public.general_task_comments set body = 'Nope';
 
   perform pg_temp.act_as_service();
   perform pg_temp.must_be(
     'a removed member''s unfiltered delete does not reach their own unheld task',
     exists (select 1 from public.general_tasks where id = t_c));
+  perform pg_temp.must_be(
+    'a removed member''s unfiltered update does not reach their old comment either',
+    (select body = 'Paper is in the office' from public.general_task_comments
+      where task_id = t_b and author_id = c));
+end $$;
+
+-- ------------------------------------------------------------------ catalog assertions
+
+do $$
+begin
+  perform pg_temp.must_be('the helpers are closed to anon',
+    not has_function_privilege('anon', 'public.general_task_held(uuid)', 'execute'));
+  perform pg_temp.must_be('a malformed path segment parses to null',
+    public.general_safe_uuid('not-a-uuid') is null);
+  perform pg_temp.must_be('assignees are not in the realtime publication',
+    not exists (select 1 from pg_publication_tables
+                 where pubname = 'supabase_realtime' and tablename = 'general_task_assignees'));
 end $$;
 
 -- ------------------------------------------------------------------ leaving an archived project
