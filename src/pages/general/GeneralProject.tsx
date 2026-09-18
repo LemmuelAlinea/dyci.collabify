@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { MembersTab } from '../../components/general/MembersTab'
 import { OverviewTab } from '../../components/general/OverviewTab'
+import { DocsTab } from '../../components/general/DocsTab'
 import { TasksTab } from '../../components/general/TasksTab'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 import { Alert } from '../../components/ui/Alert'
@@ -19,7 +20,7 @@ import { dateRange } from '../../lib/general/dates'
 import { levelLabel } from '../../lib/general/permissions'
 import { projectStatusLabel } from '../../lib/general/types'
 
-type TabId = 'overview' | 'tasks' | 'members'
+type TabId = 'overview' | 'tasks' | 'docs' | 'members'
 
 export default function GeneralProject() {
   const { projectId } = useParams()
@@ -28,7 +29,13 @@ export default function GeneralProject() {
   const state = useGeneralProject(projectId, profile?.id)
   const [params] = useSearchParams()
   const [tab, setTab] = useState<TabId>(() =>
-    params.has('task') ? 'tasks' : params.get('tab') === 'members' ? 'members' : 'overview',
+    params.has('task')
+      ? 'tasks'
+      : params.get('tab') === 'members'
+        ? 'members'
+        : params.get('tab') === 'docs'
+          ? 'docs'
+          : 'overview',
   )
   const [archiving, setArchiving] = useState(false)
 
@@ -138,6 +145,7 @@ export default function GeneralProject() {
         tabs={[
           { id: 'overview', label: 'Overview', icon: 'file' },
           { id: 'tasks', label: 'Tasks', icon: 'check', count: state.tasks.length },
+          { id: 'docs', label: 'Documents', icon: 'file' },
           {
             id: 'members',
             label: 'Members',
@@ -151,6 +159,7 @@ export default function GeneralProject() {
 
       {tab === 'overview' && <OverviewTab state={state} />}
       {tab === 'tasks' && <TasksTab state={state} />}
+      {tab === 'docs' && <DocsTab state={state} />}
       {tab === 'members' && <MembersTab state={state} />}
 
       <ConfirmDialog

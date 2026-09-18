@@ -222,3 +222,71 @@ export type GeneralCounts = {
   archived_projects: number
   people: number
 }
+
+/* --------------------------------------------------------------- documents */
+
+export type DocChangeStatus = 'open' | 'applied' | 'declined' | 'withdrawn'
+
+export type GeneralDoc = {
+  id: string
+  project_id: string
+  title: string
+  version: number
+  created_by: string | null
+  archived_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** general_doc_overview: one row per document, with what a list needs. */
+export type GeneralDocSummary = GeneralDoc & {
+  open_change_count: number
+  last_author: string | null
+  last_written_at: string | null
+  body_length: number
+}
+
+export type GeneralDocVersion = {
+  id: string
+  doc_id: string
+  project_id: string
+  version: number
+  body: string
+  note: string
+  author_id: string | null
+  /** Set when this version came from an applied change. */
+  change_id: string | null
+  created_at: string
+}
+
+export type GeneralDocChange = {
+  id: string
+  doc_id: string
+  project_id: string
+  author_id: string | null
+  base_version: number
+  body: string
+  note: string
+  status: DocChangeStatus
+  decided_by: string | null
+  decided_at: string | null
+  decided_note: string
+  created_at: string
+  updated_at: string
+}
+
+export type GeneralDocComment = {
+  id: string
+  change_id: string
+  project_id: string
+  author_id: string | null
+  body: string
+  created_at: string
+}
+
+export const DOC_CHANGE_LABEL: Record<DocChangeStatus, string> = {
+  open: 'Waiting for review',
+  applied: 'Applied',
+  declined: 'Declined',
+  withdrawn: 'Withdrawn',
+}
