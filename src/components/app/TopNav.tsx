@@ -5,6 +5,7 @@ import { Icon } from '../ui/Icon'
 import { ThemeToggle } from '../ThemeToggle'
 import { Avatar } from './Avatar'
 import { NotificationBell } from './NotificationBell'
+import { WorkplaceSwitcher } from './WorkplaceSwitcher'
 import { navForWorkplace } from './nav'
 import type { NavGroup, NavItem } from './nav'
 import { useAuth } from '../../context/AuthContext'
@@ -272,7 +273,7 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   if (!profile) return null
 
   const workplace = workplaceOf(location.pathname, profile.home_workplace)
-  const groups = navForWorkplace(workplace, profile.role)
+  const groups = navForWorkplace(workplace, profile.status === 'active' ? profile.role : null)
   // Settings is reachable from the account menu, and Messages from the bell
   // row. Leaving either in the list as well would be two places to press for
   // one destination, which is how a menu stops being trustworthy.
@@ -317,6 +318,7 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
             >
               <Logo size={28} tone="onDark" showSubtitle={false} />
             </Link>
+            <WorkplaceSwitcher className="ml-2 hidden sm:flex" />
           </div>
 
           <div className="flex items-center gap-0.5 sm:gap-1">

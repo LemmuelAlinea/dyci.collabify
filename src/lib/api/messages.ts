@@ -43,8 +43,9 @@ export async function decorateConversations(
     .filter((r) => r.kind === 'direct')
     .flatMap((r) => (r.direct_key ?? '').split('|'))
     .filter((id) => id && id !== viewerId)
+  const projectIds = rows.map((r) => r.general_project_id).filter(Boolean) as string[]
 
-  const [classes, groups, people] = await Promise.all([
+  const [classes, groups, people, projects] = await Promise.all([
     classIds.length
       ? supabase.from('classes').select('id, name, initial, archived_at').in('id', classIds)
       : Promise.resolve({ data: [] as never[] }),
@@ -56,6 +57,9 @@ export async function decorateConversations(
           .from('profiles')
           .select('id, first_name, last_name, avatar_url')
           .in('id', directIds)
+      : Promise.resolve({ data: [] as never[] }),
+    projectIds.length
+      ? supabase.from('general_projects').select('id, name, archived_at').in('id', projectIds)
       : Promise.resolve({ data: [] as never[] }),
   ])
 
@@ -71,6 +75,11 @@ export async function decorateConversations(
   )
   const personById = new Map(
     ((people.data ?? []) as Profile[]).map((p) => [p.id, p]),
+  )
+  const projectById = new Map(
+    ((projects.data ?? []) as { id: string; name: string; archived_at: string | null }[]).map(
+      (p) => [p.id, p],
+    ),
   )
 
   return rows.map((row) => {
@@ -91,6 +100,15 @@ export async function decorateConversations(
         title: g ? g.name : 'Group chat',
         subtitle: g ? `${g.set_name}${parent ? ` · ${parent.initial}` : ''}` : 'Group chat',
         writable: !parent?.archived_at,
+      }
+    }
+    if (row.kind === 'project') {
+      const gp = row.general_project_id ? projectById.get(row.general_project_id) : undefined
+      return {
+        ...row,
+        title: gp ? gp.name : 'Project chat',
+        subtitle: 'General project · everyone on it',
+        writable: !gp?.archived_at,
       }
     }
     const otherId = (row.direct_key ?? '').split('|').find((id) => id !== viewerId)

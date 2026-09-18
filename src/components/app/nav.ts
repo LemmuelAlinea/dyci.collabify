@@ -170,7 +170,3 @@ export function navForWorkplace(workplace: Workplace, role: Role | null): NavGro
   if (workplace === 'general' || !role) return GENERAL_NAV
   return BY_ROLE[role]
 }
-
-export function navFor(role: Role) {
-  return BY_ROLE[role]
-}

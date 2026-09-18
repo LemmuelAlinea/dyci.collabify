@@ -47,7 +47,9 @@ export const ROLE_LABEL: Record<Role, string> = {
   admin: 'Admin',
 }
 
-export function fullName(p: Pick<Profile, 'first_name' | 'middle_name' | 'last_name'>) {
+export function fullName(
+  p: Pick<Profile, 'first_name' | 'last_name'> & Partial<Pick<Profile, 'middle_name'>>,
+) {
   return [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ').trim()
 }
 
@@ -160,11 +162,19 @@ export type AppNotification = {
     | 'comment_posted'
     | 'weekly_digest'
     | 'term_shifted'
+    | 'general_invited'
+    | 'general_access_requested'
+    | 'general_access_answered'
+    | 'general_task_assigned'
+    | 'general_comment_posted'
+    | 'general_deadline_soon'
   class_id: string | null
   announcement_id: string | null
   project_id: string | null
   task_id: string | null
   group_id: string | null
+  general_project_id: string | null
+  general_task_id: string | null
   title: string
   preview: string | null
   read_at: string | null
@@ -1444,7 +1454,7 @@ export function reassignmentStatusLabel(status: ReassignmentStatus) {
 
 /* ----------------------------------------------------------------- messages */
 
-export type ConversationKind = 'class' | 'group' | 'direct'
+export type ConversationKind = 'class' | 'group' | 'direct' | 'project'
 
 export type ConversationRow = {
   id: string
@@ -1452,6 +1462,8 @@ export type ConversationRow = {
   class_id: string | null
   group_id: string | null
   direct_key: string | null
+  /** Set on a General project's conversation. */
+  general_project_id: string | null
   updated_at: string
 }
 

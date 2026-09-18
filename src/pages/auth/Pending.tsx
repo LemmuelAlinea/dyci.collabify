@@ -43,7 +43,7 @@ export default function Pending() {
           <p className="eyebrow text-faint">Signed in as</p>
           <p className="mt-2 text-[14px] font-medium text-ink">{profile?.email ?? '—'}</p>
           <p className="mt-1 text-[13px] text-muted">
-            Status: {rejected ? 'Not approved' : 'Pending review'}
+            Status: {rejected ? 'Not active' : 'Pending review'}
           </p>
         </div>
 

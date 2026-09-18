@@ -147,7 +147,7 @@ export default function PrivacyRequest() {
       {/* Shown to exactly one person in the college. The navigation is static
           per role and cannot know who was named handler, so the link lives
           here rather than as a rail entry every professor would carry. */}
-      {handler && profile && profile.role !== 'student' && (
+      {handler && profile && profile.role && profile.role !== 'student' && (
         <Alert tone="info">
           You answer privacy requests for the college.{' '}
           <Link

@@ -72,6 +72,7 @@ const StudentReports = lazy(() => import('./pages/app/reports/StudentReports'))
 const Syllabi = lazy(() => import('./pages/app/resources/Syllabi'))
 const SyllabusDetail = lazy(() => import('./pages/app/resources/SyllabusDetail'))
 const EnterEducation = lazy(() => import('./pages/auth/EnterEducation'))
+const GeneralHome = lazy(() => import('./pages/general/GeneralHome'))
 
 export default function App() {
   return (
@@ -109,6 +110,14 @@ export default function App() {
             {/* Every role, because every signed-in person is a data subject —
                 a professor asking what is held about them is the same right. */}
             <Route path="/privacy/request" element={<PrivacyRequest />} />
+          </Route>
+          </Route>
+
+          <Route element={<ProtectedRoute workplace="general" />}>
+          <Route element={<AppShell />}>
+            <Route path="/general" element={<GeneralHome />} />
+            <Route path="/general/messages" element={<Messages role="general" />} />
+            <Route path="/general/messages/:conversationId" element={<Messages role="general" />} />
           </Route>
           </Route>
 

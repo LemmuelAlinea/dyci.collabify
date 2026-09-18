@@ -28,6 +28,7 @@ export default function EnterEducation() {
 
   if (ready && !session) return <Navigate to="/login" replace />
   if (ready && !profile) return <Navigate to="/onboarding" replace />
+  if (profile?.status === 'rejected') return <Navigate to="/pending" replace />
   if (profile?.role) return <Navigate to={educationHome(profile)} replace />
 
   async function onSubmit(e: FormEvent) {

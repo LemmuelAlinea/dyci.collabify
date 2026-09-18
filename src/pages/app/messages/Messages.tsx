@@ -10,11 +10,16 @@ import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { useConversations } from '../../../hooks/useConversations'
 
-export default function Messages({ role }: { role: 'professor' | 'student' }) {
+export default function Messages({ role }: { role: 'professor' | 'student' | 'general' }) {
   const { conversationId } = useParams()
   const { profile } = useAuth()
   const navigate = useNavigate()
-  const base = role === 'professor' ? '/professor/messages' : '/student/messages'
+  const base =
+    role === 'professor'
+      ? '/professor/messages'
+      : role === 'general'
+        ? '/general/messages'
+        : '/student/messages'
 
   const { conversations, error, reload } = useConversations(profile?.id)
   const [newOpen, setNewOpen] = useState(false)
@@ -42,7 +47,7 @@ export default function Messages({ role }: { role: 'professor' | 'student' }) {
         stats={[
           { value: conversations?.length ?? '—', label: 'Conversations' },
           { value: unread, label: 'Unread' },
-          { value: channels, label: 'Class & group chats' },
+          { value: channels, label: 'Group chats' },
           { value: direct, label: 'Direct chats' },
         ]}
         statsVariant="compact-row"

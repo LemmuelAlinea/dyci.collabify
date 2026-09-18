@@ -6,6 +6,7 @@ import { Icon } from '../ui/Icon'
 import { PageLoading } from '../ui/PageLoading'
 import { ErrorBoundary } from './ErrorBoundary'
 import { TopNav } from './TopNav'
+import { WorkplaceSwitcher } from './WorkplaceSwitcher'
 import { navForWorkplace } from './nav'
 import { useAuth } from '../../context/AuthContext'
 import { useUnreadTotal } from '../../hooks/useConversations'
@@ -32,9 +33,15 @@ function DrawerNav({ onNavigate }: { onNavigate: () => void }) {
   const location = useLocation()
   if (!profile) return null
 
+  const groups = navForWorkplace(
+    workplaceOf(location.pathname, profile.home_workplace),
+    profile.status === 'active' ? profile.role : null,
+  )
+
   return (
     <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-4">
-      {navForWorkplace(workplaceOf(location.pathname, profile.home_workplace), profile.role).map((group) => (
+      <WorkplaceSwitcher tone="surface" />
+      {groups.map((group) => (
         <div key={group.title}>
           <p className="px-3 pb-1.5 text-[12px] font-medium tracking-wide text-faint uppercase">
             {group.title}
