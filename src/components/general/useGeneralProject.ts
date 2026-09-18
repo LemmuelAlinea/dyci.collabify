@@ -191,7 +191,9 @@ export function useGeneralProject(
       myOpenRequests,
       archived,
       isOwner: me?.level === 'owner',
-      ownerCount: members.filter((m) => m.level === 'owner').length,
+      ownerCount: members.filter(
+        (m) => m.level === 'owner' && m.profile?.status !== 'rejected',
+      ).length,
       can: (permission: GeneralPermission) =>
         canDo(me?.level ?? null, myGrants, permission, archived),
       nameOf: (userId: string) => names.get(userId) ?? 'A former member',

@@ -83,6 +83,12 @@ const KNOWN: [RegExp, string][] = [
     /failed to fetch|networkerror|load failed/i,
     'Could not reach the server. Check your connection and try again.',
   ],
+  [
+    // Every unique index in this product is over a name, so one line covers
+    // them. Without it the raw Postgres constraint name reached the user.
+    /duplicate key value violates unique constraint/i,
+    'That name is already used here. Pick another one.',
+  ],
 ]
 
 /**

@@ -110,7 +110,9 @@ function MemberList({ state }: { state: GeneralProjectState }) {
                     aria-label={`Access level for ${state.nameOf(m.user_id)}`}
                     value={m.level}
                     onChange={(e) => void changeLevel(m, e.target.value as GeneralLevel)}
-                    options={LEVELS.map((l) => ({ value: l.value, label: l.label }))}
+                    options={LEVELS.filter(
+                      (l) => l.value === m.level || canStepDown(m.level, state.ownerCount),
+                    ).map((l) => ({ value: l.value, label: l.label }))}
                     className="!h-9 !w-[8.5rem] !text-[13px]"
                   />
                 ) : (

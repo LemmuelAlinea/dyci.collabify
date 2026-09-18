@@ -42,17 +42,25 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
   const [positionTeam, setPositionTeam] = useState('')
   const [renaming, setRenaming] = useState<Renaming>(null)
   const [removing, setRemoving] = useState<Removing>(null)
+  const [busy, setBusy] = useState(false)
 
   const project = state.project
   if (!project) return null
 
+  /** Answers whether it went through, so a caller only clears what was taken. */
   async function run(action: () => Promise<void>, done: string, failed: string) {
+    if (busy) return false
+    setBusy(true)
     try {
       await action()
       show(done)
       await state.reload()
+      return true
     } catch (err) {
       show(authErrorMessage(err, failed), 'error')
+      return false
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -133,8 +141,8 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
             onSubmit={(e) => {
               e.preventDefault()
               if (!teamName.trim()) return
-              void run(() => createTeam(project.id, teamName), 'Team added', 'Could not add that team.').then(() =>
-                setTeamName(''),
+              void run(() => createTeam(project.id, teamName), 'Team added', 'Could not add that team.').then(
+                (ok) => ok && setTeamName(''),
               )
             }}
           >
@@ -227,7 +235,7 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
                 () => createPosition(project.id, positionName, positionTeam || null, state.positions.length),
                 'Position added',
                 'Could not add that position.',
-              ).then(() => setPositionName(''))
+              ).then((ok) => ok && setPositionName(''))
             }}
           >
             <Input

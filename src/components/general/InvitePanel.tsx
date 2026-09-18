@@ -1,5 +1,6 @@
 // src/components/general/InvitePanel.tsx
 import { useCallback, useEffect, useState } from 'react'
+import { Alert } from '../ui/Alert'
 import { Avatar } from '../app/Avatar'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
@@ -134,13 +135,16 @@ function Pending({ state }: { state: GeneralProjectState }) {
   const { show } = useToast()
   const projectId = state.project?.id
   const [invites, setInvites] = useState<ProjectInvitation[]>([])
+  const [failed, setFailed] = useState(false)
 
   const load = useCallback(async () => {
     if (!projectId) return
     try {
       setInvites(await listProjectInvitations(projectId))
+      setFailed(false)
     } catch {
       setInvites([])
+      setFailed(true)
     }
   }, [projectId])
 
@@ -149,6 +153,15 @@ function Pending({ state }: { state: GeneralProjectState }) {
   }, [load, state.members.length])
 
   useLive(load, ['general_invitations'])
+
+  if (failed)
+    return (
+      <div className="mt-5">
+        <Alert tone="error" onRetry={load}>
+          The invitations waiting for an answer did not load.
+        </Alert>
+      </div>
+    )
 
   if (invites.length === 0) return null
 

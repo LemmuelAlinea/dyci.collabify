@@ -23,7 +23,7 @@ const STATUS_LABEL: Record<GeneralAccessRequest['status'], string> = {
  * the panel sits at the top of its column.
  */
 export function RequestsPanel({ state }: { state: GeneralProjectState }) {
-  if (state.isOwner) return <OwnerRequests state={state} />
+  if (state.isOwner && !state.archived) return <OwnerRequests state={state} />
   return <MyRequests state={state} />
 }
 

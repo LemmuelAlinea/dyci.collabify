@@ -98,7 +98,10 @@ export async function updateGeneralProject(projectId: string, patch: ProjectPatc
     .eq('id', projectId)
     .select('id')
   if (error) throw error
-  changed(data, 'You do not have permission to edit this project. Ask an Owner for it.')
+  changed(
+    data,
+    'That change did not go through. The project may have been archived, or you may no longer have permission to edit it. Reload to see where things stand.',
+  )
 }
 
 export async function archiveGeneralProject(projectId: string, archived: boolean) {
@@ -135,7 +138,7 @@ export async function joinGeneralProject(code: string) {
 export async function listGeneralMembers(projectId: string) {
   const { data, error } = await supabase
     .from('general_members')
-    .select(`project_id, user_id, level, joined_at, profile:profiles (${PERSON})`)
+    .select(`project_id, user_id, level, joined_at, profile:profiles (${PERSON}, status)`)
     .eq('project_id', projectId)
     .order('joined_at')
   if (error) throw error
@@ -332,7 +335,8 @@ export async function respondToInvitation(invitationId: string, accept: boolean)
 
 /* ---------------------------------------------------------------- teams and positions */
 
-const NO_STRUCTURE = 'You do not have permission to manage teams and positions. Ask an Owner for it.'
+const NO_STRUCTURE =
+  'That change did not go through. It may already be gone, the project may be archived, or you may no longer have permission to manage teams and positions. Reload to see where things stand.'
 
 export async function listTeams(projectId: string) {
   const { data, error } = await supabase
@@ -459,7 +463,8 @@ export async function removePositionHolder(positionId: string, userId: string) {
 
 /* ---------------------------------------------------------------- fields */
 
-const NO_FIELDS = 'You do not have permission to edit this project. Ask an Owner for it.'
+const NO_FIELDS =
+  'That change did not go through. The field may already be gone, the project may be archived, or you may no longer have permission to edit it. Reload to see where things stand.'
 
 export async function listFields(projectId: string) {
   const { data, error } = await supabase

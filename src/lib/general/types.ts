@@ -3,7 +3,7 @@
  * Row shapes for the General workplace, one per table or view in
  * supabase/general.sql, general-tasks.sql and general-notify.sql.
  */
-import type { Profile } from '../types'
+import type { AccountStatus, Profile } from '../types'
 import type { FieldType, FieldValue } from './fields'
 import type { GeneralLevel, GeneralPermission } from './permissions'
 import type { GeneralTaskStatus } from './progress'
@@ -57,7 +57,12 @@ export type GeneralMember = {
   user_id: string
   level: GeneralLevel
   joined_at: string
-  profile: Person | null
+  /**
+   * `status` rides along because the database's last-Owner rules count only
+   * Owners whose account is not deactivated. Null when the profile row is not
+   * readable, which is counted as live so nothing is refused that would work.
+   */
+  profile: (Person & { status: AccountStatus }) | null
 }
 
 export type GeneralTeam = { id: string; project_id: string; name: string; created_at: string }
