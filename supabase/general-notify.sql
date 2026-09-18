@@ -13,12 +13,14 @@
 --
 -- Requires supabase/general.sql, supabase/general-tasks.sql and supabase/messages.sql.
 --
--- conversation_is_writable and conversation_overview are redefined here as
--- supersets of supabase/messages.sql. Re-running supabase/messages.sql by
--- itself after this file will fail on conversation_overview ("cannot drop
--- columns from view") because its copy is missing general_project_id — a
--- rebuild in the documented order (messages, then general, general-tasks,
--- general-notify) is unaffected.
+-- conversation_is_writable, conversation_overview and is_conversation_member
+-- are redefined here as supersets of supabase/messages.sql — is_conversation_member
+-- has the widest reach of the three, with 21 call sites across messages.sql
+-- and polls.sql. Re-running supabase/messages.sql by itself after this file
+-- will fail on conversation_overview ("cannot drop columns from view")
+-- because its copy is missing general_project_id — a rebuild in the
+-- documented order (messages, then general, general-tasks, general-notify)
+-- is unaffected.
 
 begin;
 
@@ -141,7 +143,11 @@ create trigger general_task_assignees_notify after insert on public.general_task
   for each row execute function public.notify_general_assignment();
 
 /** Reaches whoever holds the task now, plus whoever has commented on it
-    before — not only the current holder, and not the whole board. */
+    before — not only the current holder, and not the whole board — but only
+    while they are still on the project. Comment rows outlive membership
+    (author_id is only SET NULL, and general_task_comments has no FK to
+    general_members), so a departed commenter is filtered back out here
+    rather than left to ride along on a stale comment row. */
 create or replace function public.notify_general_comment()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
@@ -160,6 +166,7 @@ begin
        where c.task_id = new.task_id and c.author_id is not null and c.id <> new.id
     ) r
     join public.general_tasks t on t.id = new.task_id
+    join public.general_members gm on gm.project_id = t.project_id and gm.user_id = r.user_id
     join public.notification_prefs np on np.user_id = r.user_id
    where r.user_id is distinct from new.author_id
      and np.comments_mentions;

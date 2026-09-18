@@ -234,6 +234,8 @@ begin
   perform pg_temp.must_be('...once, however often the job runs',
     (select count(*) = 1 from public.notifications
       where user_id = b and type = 'general_deadline_soon' and general_task_id = t1));
+
+  insert into fx values ('t3', t3);
 end $$;
 
 -- ------------------------------------------------------------------ writing, leaving, counts
@@ -244,7 +246,9 @@ declare
   b uuid := (select v from fx where k = 'b');
   p uuid := (select v from fx where k = 'project');
   convo uuid := (select v from fx where k = 'convo');
+  t3 uuid := (select v from fx where k = 't3');
   v_admin uuid := (select id from public.profiles where role = 'admin' order by created_at limit 1);
+  n_before int;
 begin
   perform pg_temp.act_as(b);
   perform pg_temp.must_allow('a member writes in the project conversation',
@@ -258,10 +262,23 @@ begin
 
   perform pg_temp.act_as(a);
   perform public.archive_general_project(p, false);
+
+  perform pg_temp.act_as_service();
+  select count(*) into n_before from public.notifications where user_id = b and general_task_id = t3;
+
+  perform pg_temp.act_as(a);
   perform public.remove_general_member(p, b);
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('removing a member takes them out of the conversation',
     not exists (select 1 from public.conversation_members where conversation_id = convo and user_id = b));
+
+  -- b commented on t3 (without holding it) two blocks ago. Departed now,
+  -- they should not hear about a fresh reply on it.
+  perform pg_temp.act_as(a);
+  insert into public.general_task_comments (task_id, project_id, body) values (t3, p, 'Mic''s back in the AV closet');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a departed commenter gets no notice of a later reply',
+    (select count(*) from public.notifications where user_id = b and general_task_id = t3) = n_before);
 
   perform pg_temp.act_as(a);
   perform pg_temp.must_refuse('only an admin reads the General counts',
