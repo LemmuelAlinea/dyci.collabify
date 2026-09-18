@@ -73,3 +73,26 @@ That choice belongs to piece 5's own design.
 Piece 3 first: it is the smallest, it is already researched, and it gives every
 later piece the project-kind hook. Then piece 4, which serves the larger share
 of the school. Then piece 5, once the infrastructure question is answered.
+
+
+---
+
+## Update, 2026-09-19: pieces 3, 4 and 5 are built
+
+| Piece | State |
+|---|---|
+| 3 — Project presets | **Done.** Ten presets drawn from Philippine school practice, applied in one transaction, nothing they write is locked |
+| 4 — Shared documents | **Done.** A document per project, versioned, with proposed changes, line-by-line review, comments, apply or decline, and download |
+| 5 — Code repository | **Done, without Git.** Files, commits, reviewed changes, diffs, comments and a history nobody can rewrite |
+
+Clauses 5 to 10 of the original request are now answered, with one honest
+exception: `git clone` and `git push` are not possible and will not be without
+a separate host speaking the Git wire protocol. The Code tab says so in place
+rather than letting somebody discover it by trying.
+
+Still open from the list above:
+- The document title and landing copy still read "BSIT coursework at Dr. Yanga's
+  Colleges".
+- General has no calendar, reports or analytics.
+- Progress is still tasks-only — a paper's document state and a repository's
+  commits do not feed it.
