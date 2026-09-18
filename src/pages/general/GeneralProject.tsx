@@ -1,6 +1,7 @@
 // src/pages/general/GeneralProject.tsx
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { MembersTab } from '../../components/general/MembersTab'
 import { OverviewTab } from '../../components/general/OverviewTab'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 import { Alert } from '../../components/ui/Alert'
@@ -136,6 +137,7 @@ export default function GeneralProject() {
       />
 
       {tab === 'overview' && <OverviewTab state={state} />}
+      {tab === 'members' && <MembersTab state={state} />}
 
       <ConfirmDialog
         open={archiving}
