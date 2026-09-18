@@ -3083,6 +3083,8 @@ git commit -m "Add General workplace projects, membership and permissions to the
 
 ### Task 6: General tasks in the database
 
+> **Amended during execution.** Security review found the SQL below let deactivated and removed accounts log time, upload, and edit or delete their own rows; did not tie a file row to its task folder; broke leaving an archived project for task holders; raced on claims; and leaked cross-project facts through guard messages, public helpers, raw uuid casts and realtime assignee deletes. The committed `supabase/general-tasks.sql` and its test supersede this text. `general_task_assignees` is no longer in the realtime publication.
+
 **Files:**
 - Create: `supabase/general-tasks.sql`
 - Create: `supabase/tests/general-tasks.test.sql`
