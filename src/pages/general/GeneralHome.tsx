@@ -24,6 +24,7 @@ import {
 import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
 import { levelLabel } from '../../lib/general/permissions'
+import { presetById } from '../../lib/general/presets'
 import { PROJECT_STATUSES, projectStatusLabel } from '../../lib/general/types'
 import type { GeneralProjectSummary, GeneralStatus, MyInvitation } from '../../lib/general/types'
 import { fullName } from '../../lib/types'
@@ -248,6 +249,7 @@ export default function GeneralHome() {
 
 function ProjectCard({ project: p }: { project: GeneralProjectSummary }) {
   const pct = Number(p.progress_pct)
+  const kind = presetById(p.preset)
   return (
     <Link
       to={`/general/projects/${p.id}`}
@@ -259,6 +261,12 @@ function ProjectCard({ project: p }: { project: GeneralProjectSummary }) {
           {p.archived_at ? 'Archived' : projectStatusLabel(p.status)}
         </span>
       </div>
+      {kind && kind.id !== 'blank' && (
+        <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-faint">
+          <Icon name={kind.icon} size={13} />
+          {kind.name}
+        </p>
+      )}
       {p.description && (
         <p className="mt-1.5 line-clamp-2 text-[13px] text-muted">{p.description}</p>
       )}

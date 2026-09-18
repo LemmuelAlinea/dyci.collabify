@@ -9,11 +9,15 @@ import { Textarea } from '../ui/Select'
 import { createGeneralProject } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { LIMIT } from '../../lib/limits'
+import { presetById, presetPayload } from '../../lib/general/presets'
+import type { PresetAudience } from '../../lib/general/presets'
+import { PresetPicker } from './PresetPicker'
 
 /**
- * Four things, all changeable later. Everything else — fields, teams,
- * positions, people — is added on the project itself, where it can be seen in
- * context rather than guessed at up front.
+ * Four things and a starting shape, all changeable later. A preset writes the
+ * fields, teams, positions and tasks its kind of project usually needs, so
+ * nobody types out a research timeline from memory — but people are still
+ * added on the project itself, where they can be seen in context.
  */
 export function NewProjectDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
@@ -21,6 +25,8 @@ export function NewProjectDialog({ open, onClose }: { open: boolean; onClose: ()
   const [description, setDescription] = useState('')
   const [startsOn, setStartsOn] = useState('')
   const [endsOn, setEndsOn] = useState('')
+  const [preset, setPreset] = useState('blank')
+  const [audience, setAudience] = useState<PresetAudience | ''>('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -31,11 +37,14 @@ export function NewProjectDialog({ open, onClose }: { open: boolean; onClose: ()
     if (startsOn && endsOn && endsOn < startsOn) return setError('The end date is before the start date.')
     setBusy(true)
     try {
+      const chosen = presetById(preset)
       const project = await createGeneralProject({
         name,
         description,
         startsOn: startsOn || null,
         endsOn: endsOn || null,
+        preset: chosen && chosen.id !== 'blank' ? chosen.id : null,
+        content: chosen && chosen.id !== 'blank' ? presetPayload(chosen) : null,
       })
       onClose()
       navigate(`/general/projects/${project.id}`)
@@ -102,6 +111,12 @@ export function NewProjectDialog({ open, onClose }: { open: boolean; onClose: ()
             )}
           </Field>
         </div>
+        <PresetPicker
+          value={preset}
+          onChange={setPreset}
+          audience={audience}
+          onAudienceChange={setAudience}
+        />
       </form>
     </Modal>
   )

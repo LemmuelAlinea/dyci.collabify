@@ -9,6 +9,7 @@
  * turns that silence into a message.
  */
 import { supabase } from '../supabase'
+import type { PresetPayload } from '../general/presets'
 import type { FieldType, FieldValue } from '../general/fields'
 import type { GeneralLevel, GeneralPermission } from '../general/permissions'
 import type { GeneralTaskStatus } from '../general/progress'
@@ -66,17 +67,26 @@ export async function getGeneralProject(projectId: string) {
   return (data as GeneralProjectSummary | null) ?? null
 }
 
+/**
+ * The preset's content goes down with the project so the database applies it in
+ * one transaction. A project is never half set up, and a preset that fails
+ * takes nothing with it.
+ */
 export async function createGeneralProject(input: {
   name: string
   description: string
   startsOn: string | null
   endsOn: string | null
+  preset?: string | null
+  content?: PresetPayload | null
 }) {
   const { data, error } = await supabase.rpc('create_general_project', {
     p_name: input.name,
     p_description: input.description,
     p_starts_on: input.startsOn,
     p_ends_on: input.endsOn,
+    p_preset: input.preset ?? null,
+    p_content: input.content ?? null,
   })
   if (error) throw error
   return data as GeneralProject

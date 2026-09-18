@@ -36,6 +36,8 @@ export type GeneralProject = {
   archived_at: string | null
   created_at: string
   updated_at: string
+  /** Which preset it started from. Reporting only — it constrains nothing. */
+  preset: string | null
 }
 
 /** general_project_overview: one row per project the viewer is on. */
