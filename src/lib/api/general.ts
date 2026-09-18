@@ -98,7 +98,7 @@ export async function updateGeneralProject(projectId: string, patch: ProjectPatc
     .eq('id', projectId)
     .select('id')
   if (error) throw error
-  changed(data, 'You do not have permission to edit this project.')
+  changed(data, 'You do not have permission to edit this project. Ask an Owner for it.')
 }
 
 export async function archiveGeneralProject(projectId: string, archived: boolean) {
@@ -332,7 +332,7 @@ export async function respondToInvitation(invitationId: string, accept: boolean)
 
 /* ---------------------------------------------------------------- teams and positions */
 
-const NO_STRUCTURE = 'You do not have permission to manage teams and positions.'
+const NO_STRUCTURE = 'You do not have permission to manage teams and positions. Ask an Owner for it.'
 
 export async function listTeams(projectId: string) {
   const { data, error } = await supabase
@@ -459,7 +459,7 @@ export async function removePositionHolder(positionId: string, userId: string) {
 
 /* ---------------------------------------------------------------- fields */
 
-const NO_FIELDS = 'You do not have permission to edit this project.'
+const NO_FIELDS = 'You do not have permission to edit this project. Ask an Owner for it.'
 
 export async function listFields(projectId: string) {
   const { data, error } = await supabase
@@ -519,15 +519,22 @@ export async function listFieldValues(fieldIds: string[]) {
 }
 
 export async function setFieldValue(fieldId: string, value: FieldValue) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('general_field_values')
     .upsert({ field_id: fieldId, value }, { onConflict: 'field_id' })
+    .select('field_id')
   if (error) throw error
+  changed(data, NO_FIELDS)
 }
 
 export async function clearFieldValue(fieldId: string) {
-  const { error } = await supabase.from('general_field_values').delete().eq('field_id', fieldId)
+  const { data, error } = await supabase
+    .from('general_field_values')
+    .delete()
+    .eq('field_id', fieldId)
+    .select('field_id')
   if (error) throw error
+  changed(data, NO_FIELDS)
 }
 
 /* ---------------------------------------------------------------- tasks */
@@ -582,7 +589,7 @@ export async function updateTask(taskId: string, patch: TaskPatch) {
     .eq('id', taskId)
     .select('id')
   if (error) throw error
-  changed(data, 'You cannot change this task.')
+  changed(data, 'You cannot change this task. Take it, or ask somebody who manages tasks.')
 }
 
 export async function deleteTask(taskId: string) {
@@ -606,7 +613,7 @@ export async function unassignTask(taskId: string, userId: string) {
     .eq('user_id', userId)
     .select('task_id')
   if (error) throw error
-  changed(data, 'You cannot take this person off the task.')
+  changed(data, 'You cannot take this person off the task. Ask somebody who manages tasks.')
 }
 
 export async function listComments(taskId: string) {
@@ -633,7 +640,7 @@ export async function deleteComment(commentId: string) {
     .eq('id', commentId)
     .select('id')
   if (error) throw error
-  changed(data, 'You cannot remove this comment.')
+  changed(data, 'You cannot remove this comment. Only its author or somebody who manages tasks can.')
 }
 
 export async function listFiles(taskId: string) {
@@ -661,7 +668,7 @@ export async function uploadTaskFile(projectId: string, taskId: string, file: Fi
     task_id: taskId,
     project_id: projectId,
     file_path: path,
-    file_name: file.name.slice(0, 255),
+    file_name: file.name.trim().slice(0, 255) || 'file',
     mime_type: file.type || null,
     size_bytes: file.size,
   })
@@ -682,7 +689,7 @@ export async function deleteTaskFile(file: GeneralFile) {
     .eq('id', file.id)
     .select('id')
   if (error) throw error
-  changed(data, 'You cannot remove this file.')
+  changed(data, 'You cannot remove this file. Only whoever added it, or somebody who can edit files, can.')
 }
 
 /** The bucket is private, so viewing goes through a ten-minute signed URL. */
