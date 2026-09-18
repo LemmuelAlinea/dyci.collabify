@@ -141,6 +141,7 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
         <p className="text-[12px] text-muted">
           {progress.done} of {progress.total} done · {progress.pct}%
           {project.points_enabled ? ' by points' : ''}
+          {shown.length !== state.tasks.length && ` · showing ${shown.length}`}
         </p>
 
         {!state.archived && (

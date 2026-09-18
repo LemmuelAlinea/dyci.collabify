@@ -53,6 +53,27 @@ describe('describeEvent', () => {
     )
   })
 
+  it('does not call a multi-field change a move, even when status is one of them', () => {
+    expect(
+      describeEvent(
+        event({ kind: 'updated', detail: { fields: ['status', 'due_at'], status: 'done' } }),
+        nameOf,
+      ),
+    ).toBe('Ana Reyes changed the status and due date')
+  })
+
+  it('falls back rather than naming a stage or a field it does not know', () => {
+    // `detail` arrives as JSON from the database, so its contents are whatever
+    // was written, not whatever the type says. The cast is the point of the test.
+    const parked = { fields: ['status'], status: 'parked' } as unknown as GeneralTaskEvent['detail']
+    expect(describeEvent(event({ kind: 'updated', detail: parked }), nameOf)).toBe(
+      'Ana Reyes moved it to a new stage',
+    )
+    expect(describeEvent(event({ kind: 'updated', detail: { fields: ['sort'] } }), nameOf)).toBe(
+      'Ana Reyes changed the sort',
+    )
+  })
+
   it('does not invent a name for a missing actor', () => {
     expect(describeEvent(event({ actor_id: null }), nameOf)).toBe('Somebody created this task')
   })

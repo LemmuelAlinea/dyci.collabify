@@ -76,6 +76,7 @@ function TaskBody({
   const [logs, setLogs] = useState<GeneralLog[]>([])
   const [events, setEvents] = useState<GeneralTaskEvent[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   const load = useCallback(async () => {
@@ -114,13 +115,21 @@ function TaskBody({
   const canAttach = !archived && (holds || state.can('edit_files'))
   const canDelete = !archived && (canManage || (createdByMe && task.assignee_ids.length === 0))
 
+  /**
+   * One write at a time. A second press would match a row the first already
+   * removed, and a write that changes nothing comes back as a refusal.
+   */
   async function act(action: () => Promise<void>, done: string, failed: string) {
+    if (busy) return
+    setBusy(true)
     try {
       await action()
       if (done) show(done)
       await Promise.all([state.reload(), load()])
     } catch (err) {
       show(authErrorMessage(err, failed), 'error')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -143,14 +152,15 @@ function TaskBody({
                     <button
                       type="button"
                       aria-label="Remove comment"
+                      disabled={busy}
                       onClick={() => void act(() => deleteComment(c.id), 'Comment removed', 'Could not remove it.')}
-                      className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-red-600"
+                      className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-red-600 dark:hover:text-red-400"
                     >
                       <Icon name="trash" size={13} />
                     </button>
                   )}
                 </div>
-                <p className="mt-1 whitespace-pre-wrap text-[13px] text-ink">{c.body}</p>
+                <p className="mt-1 whitespace-pre-wrap break-words text-[13px] text-ink">{c.body}</p>
               </li>
             ))}
             {loaded && comments.length === 0 && <p className="text-[13px] text-faint">No comments yet.</p>}
@@ -179,6 +189,7 @@ function TaskBody({
                   <button
                     type="button"
                     aria-label={id === me ? 'Release this task' : `Take ${state.nameOf(id)} off`}
+                    disabled={busy}
                     onClick={() =>
                       void act(() => unassignTask(task.id, id), id === me ? 'Released' : 'Taken off', 'Could not change that.')
                     }
@@ -202,7 +213,10 @@ function TaskBody({
                 }}
                 placeholder="Assign someone…"
                 options={state.members
-                  .filter((m) => !task.assignee_ids.includes(m.user_id))
+                  .filter(
+                    (m) =>
+                      !task.assignee_ids.includes(m.user_id) && m.profile?.status !== 'rejected',
+                  )
                   .map((m) => ({ value: m.user_id, label: state.nameOf(m.user_id) }))}
                 className="!h-9 !text-[13px]"
               />
@@ -212,6 +226,7 @@ function TaskBody({
             <Button
               size="sm"
               className="mt-2"
+              loading={busy}
               onClick={() => void act(() => assignTask(task.id, task.project_id, me), 'The task is yours', 'Could not take it.')}
             >
               Take this task
@@ -243,8 +258,9 @@ function TaskBody({
                   <button
                     type="button"
                     aria-label={`Remove ${f.file_name}`}
+                    disabled={busy}
                     onClick={() => void act(() => deleteTaskFile(f), 'File removed', 'Could not remove that file.')}
-                    className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-red-600"
+                    className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-red-600 dark:hover:text-red-400"
                   >
                     <Icon name="trash" size={13} />
                   </button>
@@ -279,14 +295,16 @@ function TaskBody({
                   <button
                     type="button"
                     aria-label="Remove time entry"
+                    disabled={busy}
                     onClick={() => void act(() => deleteLog(l.id), 'Entry removed', 'Could not remove that entry.')}
-                    className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-red-600"
+                    className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-red-600 dark:hover:text-red-400"
                   >
                     <Icon name="trash" size={13} />
                   </button>
                 )}
               </li>
             ))}
+            {loaded && logs.length === 0 && <li className="text-[13px] text-faint">No time logged yet.</li>}
           </ul>
           {holds && !archived && (
             <LogForm
@@ -306,6 +324,7 @@ function TaskBody({
                 <span className="ml-1.5 text-faint">{formatDue(e.created_at)}</span>
               </li>
             ))}
+            {loaded && events.length === 0 && <li className="text-[12px] text-faint">Nothing yet.</li>}
           </ul>
         </section>
 
@@ -379,7 +398,7 @@ function TaskDetails({
           {task.due_at ? `Due ${formatDue(task.due_at)}` : 'No due date'}
           {points && ` · ${taskShare(Number(task.weight), state.tasks)}% of the project`}
         </p>
-        <p className="whitespace-pre-wrap text-ink">{task.description || 'No description.'}</p>
+        <p className="whitespace-pre-wrap break-words text-ink">{task.description || 'No description.'}</p>
       </section>
     )
   }
@@ -533,6 +552,7 @@ function LogForm({ onLog }: { onLog: (minutes: number, note: string) => Promise<
   const [minutes, setMinutes] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   return (
     <form
       className="mt-2 grid gap-2 sm:grid-cols-[6rem_minmax(0,1fr)_auto]"
@@ -544,10 +564,13 @@ function LogForm({ onLog }: { onLog: (minutes: number, note: string) => Promise<
           return
         }
         setError(null)
-        void onLog(m, note).then(() => {
-          setMinutes('')
-          setNote('')
-        })
+        setBusy(true)
+        void onLog(m, note)
+          .then(() => {
+            setMinutes('')
+            setNote('')
+          })
+          .finally(() => setBusy(false))
       }}
     >
       <Input
@@ -568,7 +591,7 @@ function LogForm({ onLog }: { onLog: (minutes: number, note: string) => Promise<
         onChange={(e) => setNote(e.target.value)}
         className="!h-9 !text-[13px]"
       />
-      <Button type="submit" size="sm" variant="outline" className="!h-9">
+      <Button type="submit" size="sm" variant="outline" className="!h-9" loading={busy}>
         Log
       </Button>
       {error && <p className="text-[12px] text-red-600 sm:col-span-3 dark:text-red-400">{error}</p>}
