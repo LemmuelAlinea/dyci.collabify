@@ -34,18 +34,17 @@ import type {
   GeneralTeamMember,
   MyInvitation,
   PersonHit,
-  GeneralDoc,
-  GeneralDocChange,
-  GeneralDocComment,
-  GeneralDocSummary,
-  GeneralDocVersion,
+  DraftConflict,
   FileAction,
+  FileKind,
   GeneralBlob,
   GeneralCommit,
   GeneralRepo,
   GeneralRepoChange,
   GeneralRepoComment,
   GeneralRepoSummary,
+  GeneralDraft,
+  GeneralDraftFile,
   GeneralTreeFile,
   RepoFile,
   ProjectInvitation,
@@ -773,178 +772,6 @@ export async function generalCounts() {
   return row ?? { projects: 0, active_projects: 0, archived_projects: 0, people: 0 }
 }
 
-/* --------------------------------------------------------------- documents */
-
-const NO_DOCS =
-  'That change did not go through. The document may already be gone, the project may be archived, or you may no longer have permission to write to it. Reload to see where things stand.'
-
-export async function listDocs(projectId: string) {
-  const { data, error } = await supabase
-    .from('general_doc_overview')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('updated_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []) as GeneralDocSummary[]
-}
-
-export async function createDoc(projectId: string, title: string, body = '') {
-  const { data, error } = await supabase.rpc('create_general_doc', {
-    p_project: projectId,
-    p_title: title.trim(),
-    p_body: body,
-  })
-  if (error) throw error
-  return data as GeneralDoc
-}
-
-export async function renameDoc(docId: string, title: string) {
-  const { data, error } = await supabase
-    .from('general_docs')
-    .update({ title: title.trim() })
-    .eq('id', docId)
-    .select('id')
-  if (error) throw error
-  changed(data, NO_DOCS)
-}
-
-export async function deleteDoc(docId: string) {
-  const { data, error } = await supabase.from('general_docs').delete().eq('id', docId).select('id')
-  if (error) throw error
-  changed(data, NO_DOCS)
-}
-
-export async function listDocVersions(docId: string) {
-  const { data, error } = await supabase
-    .from('general_doc_versions')
-    .select('*')
-    .eq('doc_id', docId)
-    .order('version', { ascending: false })
-  if (error) throw error
-  return (data ?? []) as GeneralDocVersion[]
-}
-
-export async function getDocVersion(docId: string, version: number) {
-  const { data, error } = await supabase
-    .from('general_doc_versions')
-    .select('*')
-    .eq('doc_id', docId)
-    .eq('version', version)
-    .maybeSingle()
-  if (error) throw error
-  return (data ?? null) as GeneralDocVersion | null
-}
-
-/**
- * `baseVersion` is what the writer was looking at. The database refuses a write
- * against anything older, so two people saving at once never lose one of them.
- */
-export async function writeDoc(docId: string, body: string, baseVersion: number, note = '') {
-  const { data, error } = await supabase.rpc('write_general_doc', {
-    p_doc: docId,
-    p_body: body,
-    p_base_version: baseVersion,
-    p_note: note,
-  })
-  if (error) throw error
-  return data as GeneralDoc
-}
-
-export async function listDocChanges(docId: string) {
-  const { data, error } = await supabase
-    .from('general_doc_changes')
-    .select('*')
-    .eq('doc_id', docId)
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []) as GeneralDocChange[]
-}
-
-export async function listOpenDocChanges(projectId: string) {
-  const { data, error } = await supabase
-    .from('general_doc_changes')
-    .select('*')
-    .eq('project_id', projectId)
-    .eq('status', 'open')
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []) as GeneralDocChange[]
-}
-
-export async function proposeDocChange(input: {
-  docId: string
-  projectId: string
-  authorId: string
-  baseVersion: number
-  body: string
-  note: string
-}) {
-  const { data, error } = await supabase
-    .from('general_doc_changes')
-    .insert({
-      doc_id: input.docId,
-      project_id: input.projectId,
-      author_id: input.authorId,
-      base_version: input.baseVersion,
-      body: input.body,
-      note: input.note.trim(),
-    })
-    .select('*')
-    .single()
-  if (error) throw error
-  return data as GeneralDocChange
-}
-
-export async function withdrawDocChange(changeId: string) {
-  const { data, error } = await supabase
-    .from('general_doc_changes')
-    .update({ status: 'withdrawn' })
-    .eq('id', changeId)
-    .select('id')
-  if (error) throw error
-  changed(data, 'That change is no longer yours to withdraw. It may have been answered already.')
-}
-
-export async function answerDocChange(changeId: string, apply: boolean, note = '') {
-  const { data, error } = await supabase.rpc('answer_general_doc_change', {
-    p_change: changeId,
-    p_apply: apply,
-    p_note: note,
-  })
-  if (error) throw error
-  return data as GeneralDocChange
-}
-
-export async function listDocComments(changeId: string) {
-  const { data, error } = await supabase
-    .from('general_doc_comments')
-    .select('*')
-    .eq('change_id', changeId)
-    .order('created_at')
-  if (error) throw error
-  return (data ?? []) as GeneralDocComment[]
-}
-
-export async function addDocComment(changeId: string, projectId: string, authorId: string, body: string) {
-  const { error } = await supabase.from('general_doc_comments').insert({
-    change_id: changeId,
-    project_id: projectId,
-    author_id: authorId,
-    body: body.trim(),
-  })
-  if (error) throw error
-}
-
-export async function deleteDocComment(commentId: string) {
-  const { data, error } = await supabase
-    .from('general_doc_comments')
-    .delete()
-    .eq('id', commentId)
-    .select('id')
-  if (error) throw error
-  changed(data, 'That comment is already gone.')
-}
-
 /* -------------------------------------------------------------- repository */
 
 const NO_REPO =
@@ -1135,4 +962,101 @@ export async function deleteRepoComment(commentId: string) {
     .select('id')
   if (error) throw error
   changed(data, 'That comment is already gone.')
+}
+
+/* ---------------------------------------------------------------- drafts */
+
+/** Your working copy of this project's files, started if you have none. */
+export async function myDraft(repoId: string) {
+  const { data, error } = await supabase.rpc('my_general_draft', { p_repo: repoId })
+  if (error) throw error
+  return data as GeneralDraft
+}
+
+export async function listDraftFiles(draftId: string) {
+  const { data, error } = await supabase
+    .from('general_draft_files')
+    .select('*')
+    .eq('draft_id', draftId)
+    .order('path')
+  if (error) throw error
+  return (data ?? []) as GeneralDraftFile[]
+}
+
+export async function saveDraftFile(input: {
+  repoId: string
+  path: string
+  action: FileAction
+  kind: FileKind
+  content?: string
+  storagePath?: string | null
+}) {
+  const { data, error } = await supabase.rpc('save_general_draft_file', {
+    p_repo: input.repoId,
+    p_path: input.path,
+    p_action: input.action,
+    p_kind: input.kind,
+    p_content: input.content ?? '',
+    p_storage: input.storagePath ?? null,
+  })
+  if (error) throw error
+  return data as GeneralDraftFile
+}
+
+export async function discardDraftFile(repoId: string, path: string) {
+  const { error } = await supabase.rpc('discard_general_draft_file', {
+    p_repo: repoId,
+    p_path: path,
+  })
+  if (error) throw error
+}
+
+export async function discardDraft(repoId: string) {
+  const { error } = await supabase.rpc('discard_general_draft', { p_repo: repoId })
+  if (error) throw error
+}
+
+/** Which of your draft's files Main has changed since you started. */
+export async function draftConflicts(repoId: string) {
+  const { data, error } = await supabase.rpc('general_draft_conflicts', { p_repo: repoId })
+  if (error) throw error
+  return (data ?? []) as DraftConflict[]
+}
+
+export async function syncDraft(repoId: string) {
+  const { data, error } = await supabase.rpc('sync_general_draft', { p_repo: repoId })
+  if (error) throw error
+  return data as GeneralDraft
+}
+
+export async function submitDraft(repoId: string, title: string, body = '') {
+  const { data, error } = await supabase.rpc('submit_general_draft', {
+    p_repo: repoId,
+    p_title: title.trim(),
+    p_body: body,
+  })
+  if (error) throw error
+  return data as GeneralRepoChange
+}
+
+/**
+ * Uploads a file the site cannot edit and answers where it landed.
+ *
+ * The path is `<project>/files/<random>-<name>`, which is the only shape the
+ * storage policy and `commit_general_files` both accept — so an upload can
+ * never be pointed at another project.
+ */
+export async function uploadProjectFile(projectId: string, file: File) {
+  if (file.size > GENERAL_FILE_LIMIT) throw new Error('Files can be up to 25 MB.')
+  const safe = (file.name || 'file').replace(/[^\w.\- ]+/g, '_').slice(-120)
+  const path = `${projectId}/files/${crypto.randomUUID()}-${safe}`
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
+  if (error) throw error
+  return path
+}
+
+export async function projectFileUrl(storagePath: string) {
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, 60)
+  if (error) throw error
+  return data.signedUrl
 }

@@ -14,10 +14,18 @@
 --
 -- A commit is never edited and never deleted. That is the point of a history.
 --
--- Depends on supabase/general.sql and supabase/general-docs.sql (for
--- general_change_status).
+-- Depends on supabase/general.sql.
 --
 -- Idempotent. Safe to re-run.
+
+begin;
+
+do $$ begin
+  create type public.general_change_status as enum
+    ('open', 'applied', 'declined', 'withdrawn');
+exception when duplicate_object then null; end $$;
+
+commit;
 
 begin;
 

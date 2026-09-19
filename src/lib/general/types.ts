@@ -52,6 +52,8 @@ export type GeneralProjectSummary = GeneralProject & {
   progress_pct: number
   /** Every open request for an Owner; only the viewer's own for anyone else. */
   open_request_count: number
+  /** Whether this project builds software, which shows the code notice in Files. */
+  has_code: boolean
 }
 
 export type GeneralMember = {
@@ -223,68 +225,12 @@ export type GeneralCounts = {
   people: number
 }
 
-/* --------------------------------------------------------------- documents */
+/* ------------------------------------------------------------------ review */
 
-export type DocChangeStatus = 'open' | 'applied' | 'declined' | 'withdrawn'
+/** Where a proposed change stands. Shared by file changes of every kind. */
+export type ChangeStatus = 'open' | 'applied' | 'declined' | 'withdrawn'
 
-export type GeneralDoc = {
-  id: string
-  project_id: string
-  title: string
-  version: number
-  created_by: string | null
-  archived_at: string | null
-  created_at: string
-  updated_at: string
-}
-
-/** general_doc_overview: one row per document, with what a list needs. */
-export type GeneralDocSummary = GeneralDoc & {
-  open_change_count: number
-  last_author: string | null
-  last_written_at: string | null
-  body_length: number
-}
-
-export type GeneralDocVersion = {
-  id: string
-  doc_id: string
-  project_id: string
-  version: number
-  body: string
-  note: string
-  author_id: string | null
-  /** Set when this version came from an applied change. */
-  change_id: string | null
-  created_at: string
-}
-
-export type GeneralDocChange = {
-  id: string
-  doc_id: string
-  project_id: string
-  author_id: string | null
-  base_version: number
-  body: string
-  note: string
-  status: DocChangeStatus
-  decided_by: string | null
-  decided_at: string | null
-  decided_note: string
-  created_at: string
-  updated_at: string
-}
-
-export type GeneralDocComment = {
-  id: string
-  change_id: string
-  project_id: string
-  author_id: string | null
-  body: string
-  created_at: string
-}
-
-export const DOC_CHANGE_LABEL: Record<DocChangeStatus, string> = {
+export const CHANGE_LABEL: Record<ChangeStatus, string> = {
   open: 'Waiting for review',
   applied: 'Applied',
   declined: 'Declined',
@@ -295,8 +241,24 @@ export const DOC_CHANGE_LABEL: Record<DocChangeStatus, string> = {
 
 export type FileAction = 'added' | 'changed' | 'removed'
 
-/** One file write. The shape a commit and a change both carry. */
-export type RepoFile = { path: string; action: FileAction; content: string }
+/**
+ * What a file is, which decides where it lives and how it is compared.
+ *
+ *   text    plain text and code, in `content`, compared line by line
+ *   rich    a Word document, stored as HTML in `content`
+ *   sheet   a spreadsheet, stored as JSON in `content`
+ *   binary  a PDF or an image, in Storage, with `storage_path` pointing at it
+ */
+export type FileKind = 'text' | 'rich' | 'sheet' | 'binary'
+
+/** One file write. The shape a commit, a change and a draft all carry. */
+export type RepoFile = {
+  path: string
+  action: FileAction
+  kind: FileKind
+  content: string
+  storage_path: string | null
+}
 
 export type GeneralRepo = {
   id: string
@@ -336,7 +298,9 @@ export type GeneralBlob = {
   seq: number
   path: string
   action: FileAction
+  kind: FileKind
   content: string
+  storage_path: string | null
   created_at: string
 }
 
@@ -348,7 +312,9 @@ export type GeneralTreeFile = {
   commit_id: string
   seq: number
   path: string
+  kind: FileKind
   content: string
+  storage_path: string | null
   size: number
   created_at: string
 }
@@ -362,7 +328,7 @@ export type GeneralRepoChange = {
   body: string
   base_seq: number
   files: RepoFile[]
-  status: DocChangeStatus
+  status: ChangeStatus
   decided_by: string | null
   decided_at: string | null
   decided_note: string
@@ -384,4 +350,35 @@ export const FILE_ACTION_LABEL: Record<FileAction, string> = {
   added: 'Added',
   changed: 'Changed',
   removed: 'Removed',
+}
+
+/* ---------------------------------------------------------------- drafts */
+
+/** Somebody's working copy of a project's files. Private to them. */
+export type GeneralDraft = {
+  id: string
+  repo_id: string
+  project_id: string
+  user_id: string
+  /** The commit this working copy started from. */
+  base_seq: number
+  created_at: string
+  updated_at: string
+}
+
+export type GeneralDraftFile = RepoFile & {
+  id: string
+  draft_id: string
+  project_id: string
+  updated_at: string
+}
+
+/** A file in the draft that Main has changed underneath it. */
+export type DraftConflict = { path: string; their_seq: number }
+
+export const FILE_KIND_LABEL: Record<FileKind, string> = {
+  text: 'Text',
+  rich: 'Document',
+  sheet: 'Spreadsheet',
+  binary: 'File',
 }

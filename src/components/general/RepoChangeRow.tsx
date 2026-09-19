@@ -14,7 +14,7 @@ import {
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
-import { DOC_CHANGE_LABEL, FILE_ACTION_LABEL } from '../../lib/general/types'
+import { CHANGE_LABEL, FILE_ACTION_LABEL } from '../../lib/general/types'
 import type {
   GeneralRepoChange,
   GeneralRepoComment,
@@ -100,7 +100,7 @@ export function RepoChangeRow({
           <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{change.title}</span>
         </button>
         <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
-          {DOC_CHANGE_LABEL[change.status]}
+          {CHANGE_LABEL[change.status]}
         </span>
       </div>
 
