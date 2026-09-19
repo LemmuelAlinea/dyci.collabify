@@ -205,6 +205,17 @@ describe('groupRows', () => {
     expect(rows[0].tasks.map((t) => t.id)).toEqual(['early', 'late', 'none'])
   })
 
+  it('breaks a tie on the same start by due date, not by title', () => {
+    const rows = groupRows(
+      [
+        task({ id: 'z-early-due', title: 'Z', starts_at: '2026-10-01T00:00:00Z', due_at: '2026-10-03T00:00:00Z' }),
+        task({ id: 'a-late-due', title: 'A', starts_at: '2026-10-01T00:00:00Z', due_at: '2026-10-09T00:00:00Z' }),
+      ],
+      [],
+    )
+    expect(rows[0].tasks.map((t) => t.id)).toEqual(['z-early-due', 'a-late-due'])
+  })
+
   it('returns nothing for a project with no tasks', () => {
     expect(groupRows([], teams)).toEqual([])
   })

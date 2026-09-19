@@ -142,9 +142,12 @@ export function groupRows(
   teams: readonly { id: string; name: string }[],
 ): TimelineRow[] {
   const order = (a: TimelineTask, b: TimelineTask) => {
-    const av = instant(a.starts_at) ?? instant(a.due_at) ?? Number.MAX_SAFE_INTEGER
-    const bv = instant(b.starts_at) ?? instant(b.due_at) ?? Number.MAX_SAFE_INTEGER
-    if (av !== bv) return av - bv
+    const aStart = instant(a.starts_at) ?? instant(a.due_at) ?? Number.MAX_SAFE_INTEGER
+    const bStart = instant(b.starts_at) ?? instant(b.due_at) ?? Number.MAX_SAFE_INTEGER
+    if (aStart !== bStart) return aStart - bStart
+    const aDue = instant(a.due_at) ?? Number.MAX_SAFE_INTEGER
+    const bDue = instant(b.due_at) ?? Number.MAX_SAFE_INTEGER
+    if (aDue !== bDue) return aDue - bDue
     return a.title.localeCompare(b.title)
   }
 
