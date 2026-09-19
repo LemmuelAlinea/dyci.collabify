@@ -28,7 +28,7 @@ export default function GeneralProject() {
   const { profile } = useAuth()
   const { show } = useToast()
   const state = useGeneralProject(projectId, profile?.id)
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [tab, setTab] = useState<TabId>(() =>
     params.has('task')
       ? 'tasks'
@@ -41,6 +41,25 @@ export default function GeneralProject() {
             : 'overview',
   )
   const [archiving, setArchiving] = useState(false)
+
+  // The initializer above only runs once, so it misses a `?task=` that shows up
+  // later — the Progress tab links to one without unmounting this page. Moving
+  // tabs here is what actually opens the task dialog TasksTab reads it into.
+  useEffect(() => {
+    if (params.has('task')) setTab('tasks')
+  }, [params])
+
+  // A person who switches tabs by hand while `?task=` is still in the URL
+  // should not be pulled back to Tasks by the effect above the next time the
+  // params change for an unrelated reason — so leaving Tasks by hand drops it.
+  function changeTab(next: TabId) {
+    setTab(next)
+    if (next !== 'tasks' && params.has('task')) {
+      const cleared = new URLSearchParams(params)
+      cleared.delete('task')
+      setParams(cleared, { replace: true })
+    }
+  }
 
   const p = state.project
   useEffect(() => {
@@ -158,7 +177,7 @@ export default function GeneralProject() {
           },
         ]}
         active={tab}
-        onChange={setTab}
+        onChange={changeTab}
       />
 
       {tab === 'overview' && <OverviewTab state={state} />}
