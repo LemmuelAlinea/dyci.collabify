@@ -78,3 +78,86 @@ describe('describeEvent', () => {
     expect(describeEvent(event({ actor_id: null }), nameOf)).toBe('Somebody created this task')
   })
 })
+
+describe('describeEvent says what a change was, not only that it happened', () => {
+  it('names both stages when a task moves', () => {
+    expect(
+      describeEvent(
+        event({
+          kind: 'updated',
+          detail: { fields: ['status'], status: 'done', status_from: 'in_progress' },
+        }),
+        nameOf,
+      ),
+    ).toBe('Ana Reyes moved it from In progress to Done')
+  })
+
+  it('still reads properly for an event written before the old value was kept', () => {
+    expect(
+      describeEvent(event({ kind: 'updated', detail: { fields: ['status'], status: 'done' } }), nameOf),
+    ).toBe('Ana Reyes moved it to Done')
+  })
+
+  it('quotes both titles on a rename', () => {
+    expect(
+      describeEvent(
+        event({
+          kind: 'updated',
+          detail: { fields: ['title'], title_from: 'Gather requirements', title_to: 'Gather requirements from the client' },
+        }),
+        nameOf,
+      ),
+    ).toBe('Ana Reyes renamed it from "Gather requirements" to "Gather requirements from the client"')
+  })
+
+  it('shortens a title too long to sit in a log line', () => {
+    const long = 'A'.repeat(80)
+    const line = describeEvent(
+      event({ kind: 'updated', detail: { fields: ['title'], title_from: 'Short', title_to: long } }),
+      nameOf,
+    )
+    expect(line).toContain('…')
+    expect(line).not.toContain(long)
+  })
+
+  it('reads a due date being set, moved and taken off', () => {
+    const at = '2026-10-10T06:00:00Z'
+    const later = '2026-10-17T06:00:00Z'
+    expect(
+      describeEvent(event({ kind: 'updated', detail: { fields: ['due_at'], due_from: null, due_to: at } }), nameOf),
+    ).toMatch(/^Ana Reyes set the due date to /)
+    expect(
+      describeEvent(event({ kind: 'updated', detail: { fields: ['due_at'], due_from: at, due_to: later } }), nameOf),
+    ).toMatch(/^Ana Reyes moved the due date from .* to /)
+    expect(
+      describeEvent(event({ kind: 'updated', detail: { fields: ['due_at'], due_from: at, due_to: null } }), nameOf),
+    ).toBe('Ana Reyes took the due date off')
+  })
+
+  it('names both numbers when points change', () => {
+    expect(
+      describeEvent(
+        event({ kind: 'updated', detail: { fields: ['weight'], weight_from: 1, weight_to: 5 } }),
+        nameOf,
+      ),
+    ).toBe('Ana Reyes changed the points from 1 to 5')
+  })
+
+  it('falls back to the field list when several things changed at once', () => {
+    expect(
+      describeEvent(
+        event({
+          kind: 'updated',
+          detail: { fields: ['title', 'status'], status: 'done', status_from: 'todo', title_from: 'a', title_to: 'b' },
+        }),
+        nameOf,
+      ),
+    ).toBe('Ana Reyes changed the title and status')
+  })
+
+  it('does not quote a rename it has no values for', () => {
+    expect(describeEvent(event({ kind: 'updated', detail: { fields: ['title'] } }), nameOf)).toBe(
+      'Ana Reyes changed the title',
+    )
+  })
+})

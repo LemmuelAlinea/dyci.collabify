@@ -392,13 +392,46 @@ function TaskDetails({
   const points = state.project.points_enabled
 
   if (!canEdit) {
+    const teamName = state.teams.find((t) => t.id === task.team_id)?.name
     return (
-      <section className="space-y-2 text-[14px]">
-        <p className={task.due_at && isOverdue(task.due_at, task.status) ? 'text-red-600 dark:text-red-400' : 'text-muted'}>
-          {task.due_at ? `Due ${formatDue(task.due_at)}` : 'No due date'}
-          {points && ` · ${taskShare(Number(task.weight), state.tasks)}% of the project`}
+      <section className="space-y-3 text-[14px]">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] sm:grid-cols-4">
+          <div>
+            <dt className="text-[12px] text-faint">Stage</dt>
+            <dd className="text-ink">{TASK_STATUSES.find((x) => x.value === task.status)?.label}</dd>
+          </div>
+          <div>
+            <dt className="text-[12px] text-faint">Due</dt>
+            <dd
+              className={
+                task.due_at && isOverdue(task.due_at, task.status)
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-ink'
+              }
+            >
+              {task.due_at ? formatDue(task.due_at) : 'Not set'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[12px] text-faint">Team</dt>
+            <dd className="text-ink">{teamName ?? 'Whole project'}</dd>
+          </div>
+          {points && (
+            <div>
+              <dt className="text-[12px] text-faint">Share</dt>
+              <dd className="font-mono text-ink">{taskShare(Number(task.weight), state.tasks)}%</dd>
+            </div>
+          )}
+        </dl>
+        <p className="whitespace-pre-wrap break-words text-ink">
+          {task.description || 'No description.'}
         </p>
-        <p className="whitespace-pre-wrap break-words text-ink">{task.description || 'No description.'}</p>
+        {!state.archived && (
+          <p className="flex flex-wrap items-center gap-2 text-[12px] text-muted">
+            Take this task or ask to manage tasks to change it.
+            <RequestAccessButton state={state} permission="manage_tasks" />
+          </p>
+        )}
       </section>
     )
   }

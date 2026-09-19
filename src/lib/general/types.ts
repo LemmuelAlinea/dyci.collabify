@@ -205,7 +205,24 @@ export type GeneralTaskEvent = {
   project_id: string
   actor_id: string | null
   kind: 'created' | 'updated' | 'assigned' | 'unassigned'
-  detail: { title?: string; fields?: string[]; status?: GeneralTaskStatus; user_id?: string }
+  /**
+   * What the change was. The short fields carry what they changed from, so the
+   * history answers "what did it used to say" rather than only "this moved".
+   * Description is left out on purpose — it belongs in a diff, not a log line.
+   */
+  detail: {
+    title?: string
+    fields?: string[]
+    status?: GeneralTaskStatus
+    user_id?: string
+    title_from?: string
+    title_to?: string
+    status_from?: GeneralTaskStatus
+    due_from?: string | null
+    due_to?: string | null
+    weight_from?: number
+    weight_to?: number
+  }
   created_at: string
 }
 

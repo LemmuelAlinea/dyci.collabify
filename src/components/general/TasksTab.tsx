@@ -195,10 +195,19 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
             </thead>
             <tbody className="divide-y divide-[var(--line)]">
               {shown.map((t) => (
-                <tr key={t.id} className="cursor-pointer hover:bg-[var(--surface-sunken)]" onClick={() => showTask(t.id)}>
+                <tr key={t.id} className="group cursor-pointer hover:bg-[var(--surface-sunken)]" onClick={() => showTask(t.id)}>
                   <td className="px-4 py-3">
-                    <button type="button" className="text-left font-medium text-ink hover:underline">
+                    <button
+                      type="button"
+                      aria-label={`Open ${t.title}`}
+                      className="flex items-center gap-1.5 text-left font-medium text-ink hover:underline"
+                    >
                       {t.title}
+                      <Icon
+                        name="edit"
+                        size={12}
+                        className="shrink-0 text-faint opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                      />
                     </button>
                   </td>
                   <td className="px-4 py-3 text-muted">{TASK_STATUSES.find((s) => s.value === t.status)?.label}</td>
@@ -231,9 +240,17 @@ function TaskCard({ task, state, onOpen }: { task: GeneralTask; state: GeneralPr
     <button
       type="button"
       onClick={onOpen}
-      className="w-full rounded-card border border-line bg-[var(--surface)] p-3 text-left transition-colors hover:border-line-strong"
+      aria-label={`Open ${task.title}`}
+      className="group w-full rounded-card border border-line bg-[var(--surface)] p-3 text-left transition-colors hover:border-line-strong"
     >
-      <p className="text-[14px] font-medium text-ink">{task.title}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 flex-1 text-[14px] font-medium break-words text-ink">{task.title}</p>
+        <Icon
+          name="edit"
+          size={13}
+          className="mt-0.5 shrink-0 text-faint opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+        />
+      </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
         {teamName && <span className="rounded-md surface-sunken px-1.5 py-0.5 text-muted">{teamName}</span>}
         {task.due_at && (
