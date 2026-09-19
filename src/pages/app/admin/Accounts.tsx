@@ -199,7 +199,7 @@ export default function Accounts() {
                 </span>
 
                 <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 font-mono text-[12px] text-muted">
-                  {ROLE_LABEL[a.role]}
+                  {a.role ? ROLE_LABEL[a.role] : 'General only'}
                 </span>
                 <span
                   className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[12px] ${STATUS_TONE[a.status]}`}

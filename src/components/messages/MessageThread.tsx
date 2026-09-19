@@ -117,7 +117,7 @@ export function MessageThread({
           <Avatar profile={conversation.counterpart} size={38} />
         ) : (
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-navy-600 text-amber-400 dark:bg-navy-500">
-            <Icon name={conversation.kind === 'class' ? 'board' : 'users'} size={18} />
+            <Icon name={conversation.kind === 'class' ? 'board' : conversation.kind === 'project' ? 'kanban' : 'users'} size={18} />
           </span>
         )}
         <div className="min-w-0 flex-1">

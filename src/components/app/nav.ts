@@ -1,5 +1,6 @@
 import type { IconName } from '../ui/Icon'
 import type { Role } from '../../lib/types'
+import type { Workplace } from '../../lib/workplace'
 
 export type NavItem = {
   label: string
@@ -148,6 +149,24 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
   ],
 }
 
-export function navFor(role: Role) {
+/**
+ * General is small on purpose. Its projects page is the spine, and a project
+ * holds everything else — tasks, members and positions live inside it rather
+ * than as pages of their own.
+ */
+export const GENERAL_NAV: NavGroup[] = [
+  {
+    title: 'Workplace',
+    items: [
+      { label: 'Projects', icon: 'kanban', to: '/general' },
+      { label: 'Messages', icon: 'message', to: '/general/messages', badge: 'messages' },
+    ],
+  },
+  SETTINGS,
+]
+
+/** An account with no Education role only ever sees General's rail. */
+export function navForWorkplace(workplace: Workplace, role: Role | null): NavGroup[] {
+  if (workplace === 'general' || !role) return GENERAL_NAV
   return BY_ROLE[role]
 }

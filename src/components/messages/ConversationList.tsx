@@ -8,6 +8,7 @@ import type { ConversationCard, ConversationKind } from '../../lib/types'
 const SECTIONS: { kind: ConversationKind; label: string }[] = [
   { kind: 'class', label: 'Classes' },
   { kind: 'group', label: 'Groups' },
+  { kind: 'project', label: 'Projects' },
   { kind: 'direct', label: 'Direct' },
 ]
 
@@ -110,7 +111,7 @@ export function ConversationList({
                             <Avatar profile={c.counterpart} size={38} />
                           ) : (
                             <span className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl bg-navy-600 text-amber-400 dark:bg-navy-500">
-                              <Icon name={kind === 'class' ? 'board' : 'users'} size={18} />
+                              <Icon name={kind === 'class' ? 'board' : kind === 'project' ? 'kanban' : 'users'} size={18} />
                             </span>
                           )}
 

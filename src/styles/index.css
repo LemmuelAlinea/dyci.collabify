@@ -575,6 +575,70 @@
     }
   }
 
+  /* A Word document being written or read.
+     The editor is a contenteditable, so its headings and lists arrive as bare
+     tags with no classes to hang utilities off. Everything here is scoped to
+     `.rich-body` and reads from the same tokens as the rest of the app, so a
+     document looks like part of the product rather than a browser default. */
+  .rich-body h1 {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin: 1rem 0 0.4rem;
+  }
+  .rich-body h2 {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0.9rem 0 0.35rem;
+  }
+  .rich-body h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0.8rem 0 0.3rem;
+  }
+  .rich-body p {
+    margin: 0 0 0.6rem;
+  }
+  .rich-body ul,
+  .rich-body ol {
+    margin: 0 0 0.6rem 1.35rem;
+    list-style-position: outside;
+  }
+  .rich-body ul {
+    list-style-type: disc;
+  }
+  .rich-body ol {
+    list-style-type: decimal;
+  }
+  .rich-body li {
+    margin: 0.15rem 0;
+  }
+  .rich-body a {
+    color: var(--navy-600);
+    text-decoration: underline;
+  }
+  .dark .rich-body a {
+    color: var(--navy-200);
+  }
+  .rich-body table {
+    border-collapse: collapse;
+    margin: 0 0 0.7rem;
+    width: 100%;
+  }
+  .rich-body th,
+  .rich-body td {
+    border: 1px solid var(--line);
+    padding: 0.3rem 0.5rem;
+    text-align: left;
+  }
+  .rich-body blockquote {
+    border-left: 3px solid var(--line-strong);
+    margin: 0 0 0.6rem;
+    padding-left: 0.75rem;
+    color: var(--text-muted);
+  }
+
   /* The blueprint grid — the recurring structural motif. Faint square rule,
      the way a project plan is drafted before anything is built. */
   .blueprint {

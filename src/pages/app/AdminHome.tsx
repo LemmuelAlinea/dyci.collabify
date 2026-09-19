@@ -1,5 +1,9 @@
+import { useCallback, useEffect, useState } from 'react'
 import { RoleHome } from './RoleHome'
 import type { Upcoming } from './RoleHome'
+import { Alert } from '../../components/ui/Alert'
+import { generalCounts } from '../../lib/api/general'
+import type { GeneralCounts } from '../../lib/general/types'
 
 const UPCOMING: Upcoming[] = [
   {
@@ -24,10 +28,61 @@ const UPCOMING: Upcoming[] = [
 
 export default function AdminHome() {
   return (
-    <RoleHome
-      headline="Program overview"
-      intro="Classes, faculty load and cohort progress are live, beside approvals, accounts and the audit log. Everything here is counts — what happens inside a class stays with its professor and their students."
-      upcoming={UPCOMING}
-    />
+    <>
+      <RoleHome
+        headline="Program overview"
+        intro="Classes, faculty load and cohort progress are live, beside approvals, accounts and the audit log. Everything here is counts — what happens inside a class stays with its professor and their students."
+        upcoming={UPCOMING}
+      />
+      <GeneralCountsBand />
+    </>
+  )
+}
+
+/** Counts only. What happens inside a General project stays with the people on it. */
+function GeneralCountsBand() {
+  const [counts, setCounts] = useState<GeneralCounts | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  const load = useCallback(() => {
+    setFailed(false)
+    void generalCounts()
+      .then(setCounts)
+      .catch(() => setFailed(true))
+  }, [])
+
+  useEffect(load, [load])
+
+  // Silence would read as "no General projects yet", which is a different fact.
+  if (failed)
+    return (
+      <section className="mt-8">
+        <Alert tone="error" onRetry={load}>
+          The General workplace counts did not load. Try again in a moment.
+        </Alert>
+      </section>
+    )
+
+  if (!counts) return null
+
+  const items = [
+    { label: 'General projects', value: counts.projects },
+    { label: 'Running', value: counts.active_projects },
+    { label: 'Archived', value: counts.archived_projects },
+    { label: 'People on them', value: counts.people },
+  ]
+
+  return (
+    <section className="mt-8 rounded-panel border border-line surface p-4 sm:p-5">
+      <p className="eyebrow">General workplace</p>
+      <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {items.map((i) => (
+          <div key={i.label} className="rounded-xl surface-sunken px-3 py-2.5">
+            <dt className="text-[12px] text-muted">{i.label}</dt>
+            <dd className="mt-0.5 font-mono text-[20px] font-bold text-ink">{i.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   )
 }

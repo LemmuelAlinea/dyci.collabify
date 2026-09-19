@@ -81,7 +81,7 @@ begin
     raise exception 'That account no longer exists';
   end if;
 
-  if target.role <> 'professor' then
+  if target.role is distinct from 'professor' then
     raise exception 'Only professor accounts go through approval'
       using errcode = 'check_violation';
   end if;

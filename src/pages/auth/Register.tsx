@@ -7,6 +7,7 @@ import { Field, Input, PasswordInput } from '../../components/ui/Field'
 import { Alert } from '../../components/ui/Alert'
 import { GoogleButton } from '../../components/ui/GoogleButton'
 import { RoleChoice } from '../../components/ui/RoleChoice'
+import { WorkplaceChoice } from '../../components/auth/WorkplaceChoice'
 import { ConsentChecks } from '../../components/legal/ConsentChecks'
 import { allConsented, emptyConsent } from '../../lib/legal'
 import type { ConsentState } from '../../lib/legal'
@@ -15,12 +16,14 @@ import { authErrorMessage, isAlreadyRegistered } from '../../lib/authError'
 import { useCooldown } from '../../components/auth/useCooldown'
 import { LIMIT } from '../../lib/limits'
 import type { Role } from '../../lib/types'
+import type { Workplace } from '../../lib/workplace'
 
 export default function Register() {
   const { signUpWithEmail, signInWithGoogle, configured } = useAuth()
   const navigate = useNavigate()
 
   const [role, setRole] = useState<Exclude<Role, 'admin'>>('student')
+  const [workplace, setWorkplace] = useState<Workplace>('education')
   const [firstName, setFirstName] = useState('')
   const [middleName, setMiddleName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -56,7 +59,8 @@ export default function Register() {
         lastName,
         email,
         password,
-        role,
+        workplace,
+        role: workplace === 'education' ? role : null,
       })
       if (needsConfirmation) {
         navigate(`/check-email?email=${encodeURIComponent(email.trim())}`, { replace: true })
@@ -124,12 +128,22 @@ export default function Register() {
         )}
         {error && <Alert tone="error">{error}</Alert>}
 
-        <RoleChoice value={role} onChange={setRole} />
+        <WorkplaceChoice value={workplace} onChange={setWorkplace} />
 
-        {role === 'professor' && (
+        {workplace === 'education' ? (
+          <>
+            <RoleChoice value={role} onChange={setRole} />
+            {role === 'professor' && (
+              <Alert tone="info">
+                Professor accounts are reviewed by the program office. You can sign in straight
+                away; teaching tools open once you are approved.
+              </Alert>
+            )}
+          </>
+        ) : (
           <Alert tone="info">
-            Professor accounts are reviewed by the program office. You can sign in straight
-            away; teaching tools open once you are approved.
+            General opens straight away. You see a project once somebody invites you or you
+            create one, and you can open Education later from the top bar.
           </Alert>
         )}
 

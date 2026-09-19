@@ -94,7 +94,19 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
       void refreshCount()
     }
     if (!profile) return
-    const base = ROLE_BASE[profile.role]
+    // An invitation has nothing to open until it is accepted, and accepting
+    // happens on the General home page.
+    if (n.type === 'general_invited') {
+      navigate('/general')
+      return
+    }
+    if (n.general_project_id) {
+      navigate(
+        `/general/projects/${n.general_project_id}${n.general_task_id ? `?task=${n.general_task_id}` : ''}`,
+      )
+      return
+    }
+    const base = profile.role ? ROLE_BASE[profile.role] : '/general'
     if (n.project_id && profile.role !== 'admin') {
       navigate(`${base}/projects/${n.project_id}`)
     } else if (n.class_id) {
@@ -196,6 +208,7 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
                         )}
                         <span className="mt-1 block text-[12px] text-faint">
                           {ago(n.created_at)}
+                          {n.general_project_id && ' · General'}
                         </span>
                       </span>
                     </button>

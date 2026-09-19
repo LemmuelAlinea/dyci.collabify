@@ -57,6 +57,13 @@ export const LIMIT = {
 
   privacyDetail: 5000,
   privacyAnswer: 5000,
+
+  /* General workplace — supabase/general.sql and general-tasks.sql */
+  generalName: 200,
+  generalDescription: 20000,
+  /** Team, position and field names. */
+  generalShortName: 80,
+  accessReason: 1000,
 } as const
 
 /**

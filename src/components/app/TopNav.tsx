@@ -5,11 +5,12 @@ import { Icon } from '../ui/Icon'
 import { ThemeToggle } from '../ThemeToggle'
 import { Avatar } from './Avatar'
 import { NotificationBell } from './NotificationBell'
-import { navFor } from './nav'
+import { WorkplaceSwitcher } from './WorkplaceSwitcher'
+import { navForWorkplace } from './nav'
 import type { NavGroup, NavItem } from './nav'
 import { useAuth } from '../../context/AuthContext'
 import { useUnreadTotal } from '../../hooks/useConversations'
-import { roleHome } from '../../lib/roleHome'
+import { homeFor, workplaceOf } from '../../lib/workplace'
 import { ROLE_LABEL, fullName } from '../../lib/types'
 
 /**
@@ -184,7 +185,9 @@ function AccountMenu() {
           <div className="border-b border-line px-4 py-3.5">
             <p className="truncate text-[14px] font-semibold text-ink">{fullName(profile)}</p>
             <p className="truncate text-[12px] text-muted">{profile.email}</p>
-            <p className="mt-1 text-[12px] text-faint">{ROLE_LABEL[profile.role]}</p>
+            <p className="mt-1 text-[12px] text-faint">
+              {profile.role ? ROLE_LABEL[profile.role] : 'General workplace'}
+            </p>
           </div>
           <Link
             to="/settings"
@@ -240,6 +243,7 @@ function MessagesButton({ item }: { item: NavItem }) {
 
 export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   const { profile } = useAuth()
+  const location = useLocation()
 
   /**
    * The bar's own height, published as `--app-bar`.
@@ -268,7 +272,8 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
 
   if (!profile) return null
 
-  const groups = navFor(profile.role)
+  const workplace = workplaceOf(location.pathname, profile.home_workplace)
+  const groups = navForWorkplace(workplace, profile.status === 'active' ? profile.role : null)
   // Settings is reachable from the account menu, and Messages from the bell
   // row. Leaving either in the list as well would be two places to press for
   // one destination, which is how a menu stops being trustworthy.
@@ -307,9 +312,15 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
             >
               <Icon name="menu" size={20} />
             </button>
-            <Link to={roleHome(profile.role, profile.status)} aria-label="Go to your dashboard">
+            <Link
+              to={workplace === 'general' ? '/general' : homeFor(profile)}
+              aria-label="Go to your dashboard"
+            >
               <Logo size={28} tone="onDark" showSubtitle={false} />
             </Link>
+            <div className="ml-2 hidden sm:block">
+              <WorkplaceSwitcher />
+            </div>
           </div>
 
           <div className="flex items-center gap-0.5 sm:gap-1">

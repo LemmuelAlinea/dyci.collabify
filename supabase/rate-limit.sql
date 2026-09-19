@@ -364,7 +364,7 @@ begin
   if not found then
     return jsonb_build_object('result', 'not_signed_in');
   end if;
-  if caller.role <> 'student' then
+  if caller.role is distinct from 'student' then
     return jsonb_build_object('result', 'not_student');
   end if;
 

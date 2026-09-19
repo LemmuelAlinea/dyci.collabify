@@ -6,13 +6,15 @@ import { Button } from '../../components/ui/Button'
 import { Field, Input } from '../../components/ui/Field'
 import { Alert } from '../../components/ui/Alert'
 import { RoleChoice } from '../../components/ui/RoleChoice'
+import { WorkplaceChoice } from '../../components/auth/WorkplaceChoice'
 import { ConsentChecks } from '../../components/legal/ConsentChecks'
 import { allConsented, emptyConsent } from '../../lib/legal'
 import type { ConsentState } from '../../lib/legal'
 import { useAuth } from '../../context/AuthContext'
 import { authErrorMessage } from '../../lib/authError'
-import { roleHome } from '../../lib/roleHome'
+import { homeFor } from '../../lib/workplace'
 import type { Role } from '../../lib/types'
+import type { Workplace } from '../../lib/workplace'
 
 /**
  * Google sign-in carries no role, so first-time OAuth users finish their
@@ -33,6 +35,7 @@ export default function Onboarding() {
   const guessed = String(meta.full_name ?? meta.name ?? '').trim().split(/\s+/)
 
   const [role, setRole] = useState<Exclude<Role, 'admin'>>('student')
+  const [workplace, setWorkplace] = useState<Workplace>('education')
   const [firstName, setFirstName] = useState(guessed[0] ?? '')
   const [middleName, setMiddleName] = useState('')
   const [lastName, setLastName] = useState(guessed.length > 1 ? guessed[guessed.length - 1] : '')
@@ -42,7 +45,7 @@ export default function Onboarding() {
   const [showConsentErrors, setShowConsentErrors] = useState(false)
 
   if (ready && !session) return <Navigate to="/login" replace />
-  if (ready && profile) return <Navigate to={roleHome(profile.role, profile.status)} replace />
+  if (ready && profile) return <Navigate to={homeFor(profile)} replace />
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -53,8 +56,17 @@ export default function Onboarding() {
     }
     setBusy(true)
     try {
-      await completeOnboarding({ firstName, middleName, lastName, role })
-      navigate(role === 'professor' ? '/pending' : roleHome(role, 'active'), { replace: true })
+      await completeOnboarding({
+        firstName,
+        middleName,
+        lastName,
+        workplace,
+        role: workplace === 'education' ? role : null,
+      })
+      navigate(
+        workplace === 'general' ? '/general' : role === 'professor' ? '/pending' : '/student',
+        { replace: true },
+      )
     } catch (err) {
       setError(authErrorMessage(err, 'Could not finish setting up your account.'))
     } finally {
@@ -70,11 +82,21 @@ export default function Onboarding() {
       <form onSubmit={onSubmit} className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
 
-        <RoleChoice value={role} onChange={setRole} />
+        <WorkplaceChoice value={workplace} onChange={setWorkplace} />
 
-        {role === 'professor' && (
+        {workplace === 'education' ? (
+          <>
+            <RoleChoice value={role} onChange={setRole} />
+            {role === 'professor' && (
+              <Alert tone="info">
+                The program office reviews professor accounts before teaching tools unlock.
+              </Alert>
+            )}
+          </>
+        ) : (
           <Alert tone="info">
-            The program office reviews professor accounts before teaching tools unlock.
+            General opens straight away. You see a project once somebody invites you or you
+            create one, and you can open Education later from the top bar.
           </Alert>
         )}
 
