@@ -1,5 +1,5 @@
 import { Icon } from '../ui/Icon'
-import { formatDue } from '../../lib/general/dates'
+import { formatDue, isOverdue } from '../../lib/general/dates'
 import { TASK_STATUSES } from '../../lib/general/progress'
 import { axisTicks, groupRows, nowMarker, placeTask, timelineWindow } from '../../lib/general/timeline'
 import type { TimelineTask } from '../../lib/general/timeline'
@@ -23,7 +23,8 @@ function barLabel(task: TimelineTask) {
   const range = task.starts_at && task.due_at
     ? `${formatDue(task.starts_at)} to ${formatDue(task.due_at)}`
     : ''
-  return `${task.title}, ${stageLabel(task.status)}, ${range}`
+  const overdue = isOverdue(task.due_at, task.status) ? ', overdue' : ''
+  return `${task.title}, ${stageLabel(task.status)}, ${range}${overdue}`
 }
 
 /**
@@ -38,7 +39,8 @@ function diamondLabel(task: TimelineTask) {
     : task.due_at
       ? `due ${formatDue(task.due_at)}`
       : 'no date set'
-  return `${task.title}, ${stageLabel(task.status)}, ${when}`
+  const overdue = isOverdue(task.due_at, task.status) ? ', overdue' : ''
+  return `${task.title}, ${stageLabel(task.status)}, ${when}${overdue}`
 }
 
 /**
@@ -134,7 +136,11 @@ export function GanttChart({ state }: { state: GeneralProjectState }) {
                           tabIndex={0}
                           aria-label={barLabel(task)}
                           title={barLabel(task)}
-                          className={`absolute top-1/2 h-3 -translate-y-1/2 rounded-full ${BAR[task.status]}`}
+                          className={`absolute top-1/2 h-3 -translate-y-1/2 rounded-full ${BAR[task.status]} ${
+                            isOverdue(task.due_at, task.status)
+                              ? 'ring-2 ring-red-500 dark:ring-red-400'
+                              : ''
+                          }`}
                           style={{ left: `${place.left}%`, width: `${place.width}%` }}
                         />
                       )}
@@ -144,7 +150,11 @@ export function GanttChart({ state }: { state: GeneralProjectState }) {
                           tabIndex={0}
                           aria-label={diamondLabel(task)}
                           title={diamondLabel(task)}
-                          className={`absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 ${BAR[task.status]}`}
+                          className={`absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 ${BAR[task.status]} ${
+                            isOverdue(task.due_at, task.status)
+                              ? 'ring-2 ring-red-500 dark:ring-red-400'
+                              : ''
+                          }`}
                           style={{ left: `${place.left}%` }}
                         />
                       )}
@@ -172,6 +182,10 @@ export function GanttChart({ state }: { state: GeneralProjectState }) {
         <span className="flex items-center gap-1.5">
           <span className="h-3 w-px bg-amber-400/70" />
           today
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-6 rounded-full bg-navy-500/35 ring-2 ring-red-500 dark:ring-red-400" />
+          overdue
         </span>
         <span className="flex items-center gap-1.5">
           <Icon name="info" size={12} />

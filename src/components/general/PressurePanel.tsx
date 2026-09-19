@@ -72,7 +72,9 @@ export function PressurePanel({
                   counted here can fall due up to six days after that date. "Week
                   of" keeps that reading honest for sighted and screen-reader
                   users alike, instead of presenting the label as a deadline. */}
-              <span className="w-24 shrink-0 font-mono text-[11px] text-faint">Week of {w.label}</span>
+              <span className="w-28 shrink-0 truncate font-mono text-[11px] text-faint">
+                Week of {w.label}
+              </span>
               <span className="h-2.5 flex-1 overflow-hidden rounded-full surface-sunken">
                 <span
                   className="block h-full rounded-full bg-navy-500/45"
