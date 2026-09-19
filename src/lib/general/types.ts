@@ -155,6 +155,8 @@ export type GeneralTask = {
   description: string
   status: GeneralTaskStatus
   due_at: string | null
+  /** When the work is meant to begin. Null until somebody says. */
+  starts_at: string | null
   weight: number
   created_by: string | null
   completed_at: string | null
@@ -220,6 +222,8 @@ export type GeneralTaskEvent = {
     status_from?: GeneralTaskStatus
     due_from?: string | null
     due_to?: string | null
+    starts_from?: string | null
+    starts_to?: string | null
     weight_from?: number
     weight_to?: number
   }

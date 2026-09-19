@@ -298,6 +298,7 @@ function NewTaskDialog({
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [due, setDue] = useState('')
+  const [starts, setStarts] = useState('')
   const [team, setTeam] = useState('')
   const [weight, setWeight] = useState('1')
   const [busy, setBusy] = useState(false)
@@ -309,6 +310,10 @@ function NewTaskDialog({
     if (!project) return
     setError(null)
     if (!title.trim()) return setError('A task needs a title.')
+    const startsAt = fromLocalInput(starts)
+    const dueAt = fromLocalInput(due)
+    if (startsAt && dueAt && startsAt > dueAt)
+      return setError('A task cannot start after it is due. Move one of the two dates.')
     const w = setsPoints ? Number(weight) : 1
     if (!Number.isFinite(w) || w <= 0 || w > 1000) return setError('Points are a number above 0 and up to 1000.')
     setBusy(true)
@@ -317,7 +322,8 @@ function NewTaskDialog({
         projectId: project.id,
         title,
         description,
-        dueAt: fromLocalInput(due),
+        dueAt,
+        startsAt,
         teamId: team || null,
         weight: w,
       })
@@ -325,6 +331,7 @@ function NewTaskDialog({
       setTitle('')
       setDescription('')
       setDue('')
+      setStarts('')
       setTeam('')
       setWeight('1')
       onClose()
@@ -362,6 +369,11 @@ function NewTaskDialog({
           )}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Starts" optional>
+            {(id) => (
+              <Input id={id} type="datetime-local" value={starts} onChange={(e) => setStarts(e.target.value)} />
+            )}
+          </Field>
           <Field label="Due" optional>
             {(id) => <Input id={id} type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />}
           </Field>

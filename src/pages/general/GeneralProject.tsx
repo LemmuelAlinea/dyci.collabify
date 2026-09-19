@@ -4,6 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { MembersTab } from '../../components/general/MembersTab'
 import { OverviewTab } from '../../components/general/OverviewTab'
 import { FilesTab } from '../../components/general/FilesTab'
+import { ProgressTab } from '../../components/general/ProgressTab'
 import { TasksTab } from '../../components/general/TasksTab'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 import { Alert } from '../../components/ui/Alert'
@@ -20,14 +21,14 @@ import { dateRange } from '../../lib/general/dates'
 import { levelLabel } from '../../lib/general/permissions'
 import { projectStatusLabel } from '../../lib/general/types'
 
-type TabId = 'overview' | 'tasks' | 'files' | 'members'
+type TabId = 'overview' | 'tasks' | 'files' | 'progress' | 'members'
 
 export default function GeneralProject() {
   const { projectId } = useParams()
   const { profile } = useAuth()
   const { show } = useToast()
   const state = useGeneralProject(projectId, profile?.id)
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [tab, setTab] = useState<TabId>(() =>
     params.has('task')
       ? 'tasks'
@@ -35,9 +36,30 @@ export default function GeneralProject() {
         ? 'members'
         : params.get('tab') === 'files'
           ? 'files'
-          : 'overview',
+          : params.get('tab') === 'progress'
+            ? 'progress'
+            : 'overview',
   )
   const [archiving, setArchiving] = useState(false)
+
+  // The initializer above only runs once, so it misses a `?task=` that shows up
+  // later — the Progress tab links to one without unmounting this page. Moving
+  // tabs here is what actually opens the task dialog TasksTab reads it into.
+  useEffect(() => {
+    if (params.has('task')) setTab('tasks')
+  }, [params])
+
+  // A person who switches tabs by hand while `?task=` is still in the URL
+  // should not be pulled back to Tasks by the effect above the next time the
+  // params change for an unrelated reason — so leaving Tasks by hand drops it.
+  function changeTab(next: TabId) {
+    setTab(next)
+    if (next !== 'tasks' && params.has('task')) {
+      const cleared = new URLSearchParams(params)
+      cleared.delete('task')
+      setParams(cleared, { replace: true })
+    }
+  }
 
   const p = state.project
   useEffect(() => {
@@ -146,6 +168,7 @@ export default function GeneralProject() {
           { id: 'overview', label: 'Overview', icon: 'file' },
           { id: 'tasks', label: 'Tasks', icon: 'check', count: state.tasks.length },
           { id: 'files', label: 'Files', icon: 'folder' },
+          { id: 'progress', label: 'Progress', icon: 'chart' },
           {
             id: 'members',
             label: 'Members',
@@ -154,12 +177,13 @@ export default function GeneralProject() {
           },
         ]}
         active={tab}
-        onChange={setTab}
+        onChange={changeTab}
       />
 
       {tab === 'overview' && <OverviewTab state={state} />}
       {tab === 'tasks' && <TasksTab state={state} />}
       {tab === 'files' && <FilesTab state={state} />}
+      {tab === 'progress' && <ProgressTab state={state} />}
       {tab === 'members' && <MembersTab state={state} />}
 
       <ConfirmDialog

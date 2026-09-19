@@ -161,3 +161,54 @@ describe('describeEvent says what a change was, not only that it happened', () =
     )
   })
 })
+
+describe('describeEvent on a start date', () => {
+  it('reads a start being set', () => {
+    expect(
+      describeEvent(
+        event({
+          kind: 'updated',
+          detail: { fields: ['starts_at'], starts_from: null, starts_to: '2026-10-10T06:00:00Z' },
+        }),
+        nameOf,
+      ),
+    ).toMatch(/^Ana Reyes set the start to /)
+  })
+
+  it('reads a start moving', () => {
+    expect(
+      describeEvent(
+        event({
+          kind: 'updated',
+          detail: {
+            fields: ['starts_at'],
+            starts_from: '2026-10-03T06:00:00Z',
+            starts_to: '2026-10-10T06:00:00Z',
+          },
+        }),
+        nameOf,
+      ),
+    ).toMatch(/^Ana Reyes moved the start from .* to /)
+  })
+
+  it('reads a start being taken off', () => {
+    expect(
+      describeEvent(
+        event({
+          kind: 'updated',
+          detail: { fields: ['starts_at'], starts_from: '2026-10-03T06:00:00Z', starts_to: null },
+        }),
+        nameOf,
+      ),
+    ).toBe('Ana Reyes took the start date off')
+  })
+
+  it('names the start in a list when several things changed', () => {
+    expect(
+      describeEvent(
+        event({ kind: 'updated', detail: { fields: ['starts_at', 'due_at'] } }),
+        nameOf,
+      ),
+    ).toBe('Ana Reyes changed the start date and due date')
+  })
+})
