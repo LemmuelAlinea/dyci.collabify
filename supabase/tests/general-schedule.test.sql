@@ -108,4 +108,72 @@ begin
   perform pg_temp.ok('a stranger still reads nothing', n = 0);
 end $$;
 
+-- Task 6's exemption test: a Member with manage_structure but not manage_tasks
+-- may clear a task's team through guard_general_task's cascade exemption, and
+-- must not be able to ride a start-date move along with it. Requires
+-- supabase/general-schedule-guard.sql.
+do $$ begin
+  perform set_config('role', 'none', true);
+  perform set_config('request.jwt.claims', '', true);
+end $$;
+
+do $$
+declare
+  owner_id      uuid := gen_random_uuid();
+  structurer_id uuid := gen_random_uuid();
+  proj          public.general_projects%rowtype;
+  team          uuid;
+  t             uuid;
+  inv           uuid;
+  ts            timestamptz := now();
+  v_starts      timestamptz;
+  v_team        uuid;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at,
+                          raw_user_meta_data, created_at, updated_at, aud, role, instance_id)
+  select v.id, v.em, 'x', now(),
+         jsonb_build_object('first_name', 'Sched', 'last_name', v.ln, 'workplace', 'general'),
+         now(), now(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'
+    from (values (owner_id, 'sched-owner2@test.local', 'Owner2'),
+                 (structurer_id, 'sched-structurer@test.local', 'Structurer')) as v(id, em, ln);
+
+  perform pg_temp.act_as(owner_id);
+  proj := public.create_general_project('Schedule guard project', '');
+  insert into public.general_teams (project_id, name) values (proj.id, 'Logistics') returning id into team;
+
+  -- A task the structurer neither holds nor created, already on the team, with
+  -- a start date set.
+  insert into public.general_tasks (project_id, team_id, title, created_by, starts_at, due_at)
+  values (proj.id, team, 'Owned by someone else', owner_id, ts, ts + interval '10 days')
+  returning id into t;
+
+  select id into inv from public.invite_to_general_project(proj.id, structurer_id);
+  perform pg_temp.act_as(structurer_id);
+  perform public.respond_general_invitation(inv, true);
+  perform pg_temp.act_as(owner_id);
+  perform public.grant_general_permission(proj.id, structurer_id, 'manage_structure');
+
+  perform pg_temp.act_as(structurer_id);
+
+  begin
+    update public.general_tasks
+       set team_id = null, starts_at = ts + interval '1 day'
+     where id = t;
+    perform pg_temp.ok(
+      'a Member with only manage_structure may not move the start while clearing the team', false);
+  exception when insufficient_privilege then
+    perform pg_temp.ok(
+      'a Member with only manage_structure may not move the start while clearing the team', true);
+  end;
+
+  select starts_at, team_id into v_starts, v_team from public.general_tasks where id = t;
+  perform pg_temp.ok('the refused update left the start and the team untouched',
+                     v_starts = ts and v_team = team);
+
+  -- Control: the same person, the same exemption, but starts_at untouched.
+  update public.general_tasks set team_id = null where id = t;
+  perform pg_temp.ok('...while clearing the team alone still goes through',
+                     (select team_id from public.general_tasks where id = t) is null);
+end $$;
+
 rollback;
