@@ -4,6 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { MembersTab } from '../../components/general/MembersTab'
 import { OverviewTab } from '../../components/general/OverviewTab'
 import { FilesTab } from '../../components/general/FilesTab'
+import { ProgressTab } from '../../components/general/ProgressTab'
 import { TasksTab } from '../../components/general/TasksTab'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 import { Alert } from '../../components/ui/Alert'
@@ -20,7 +21,7 @@ import { dateRange } from '../../lib/general/dates'
 import { levelLabel } from '../../lib/general/permissions'
 import { projectStatusLabel } from '../../lib/general/types'
 
-type TabId = 'overview' | 'tasks' | 'files' | 'members'
+type TabId = 'overview' | 'tasks' | 'files' | 'progress' | 'members'
 
 export default function GeneralProject() {
   const { projectId } = useParams()
@@ -35,7 +36,9 @@ export default function GeneralProject() {
         ? 'members'
         : params.get('tab') === 'files'
           ? 'files'
-          : 'overview',
+          : params.get('tab') === 'progress'
+            ? 'progress'
+            : 'overview',
   )
   const [archiving, setArchiving] = useState(false)
 
@@ -146,6 +149,7 @@ export default function GeneralProject() {
           { id: 'overview', label: 'Overview', icon: 'file' },
           { id: 'tasks', label: 'Tasks', icon: 'check', count: state.tasks.length },
           { id: 'files', label: 'Files', icon: 'folder' },
+          { id: 'progress', label: 'Progress', icon: 'chart' },
           {
             id: 'members',
             label: 'Members',
@@ -160,6 +164,7 @@ export default function GeneralProject() {
       {tab === 'overview' && <OverviewTab state={state} />}
       {tab === 'tasks' && <TasksTab state={state} />}
       {tab === 'files' && <FilesTab state={state} />}
+      {tab === 'progress' && <ProgressTab state={state} />}
       {tab === 'members' && <MembersTab state={state} />}
 
       <ConfirmDialog
