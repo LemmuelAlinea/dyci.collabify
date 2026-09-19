@@ -7,6 +7,7 @@
  * thing a file is, so the database and the interface agree without either one
  * asking the other.
  */
+import { parseWorkbook, workbookToText } from './sheet'
 import type { FileKind, GeneralTreeFile, RepoFile } from './types'
 
 export const PATH_LIMIT = 400
@@ -168,4 +169,48 @@ export function describeDraft(files: Pick<RepoFile, 'action'>[]) {
  */
 export function actionFor(path: string, tree: { path: string }[]) {
   return tree.some((f) => f.path === path) ? 'changed' : 'added'
+}
+
+/* ---------------------------------------------------------------- reading */
+
+const BLOCK = /<\/?(p|div|h[1-6]|li|tr|br|blockquote|section|article|table|thead|tbody)\b[^>]*>/gi
+const ENTITY: Record<string, string> = {
+  '&nbsp;': ' ',
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+}
+
+/**
+ * A file as the text a person should be shown when comparing two versions.
+ *
+ * Without this a reviewer deciding whether to accept somebody's chapter is
+ * handed `<h1>Chapter 1</h1><p>The problem…`, and a budget arrives as a line of
+ * JSON. What is stored and what is read are not the same thing, and the diff
+ * belongs to the reader.
+ *
+ * Deliberately regex rather than DOMParser: this runs in the same pure layer
+ * the tests do, and a diff that is slightly rough on exotic markup is a far
+ * smaller problem than a diff nobody can read.
+ */
+export function fileText(kind: FileKind, content: string): string {
+  if (kind === 'binary') return ''
+  if (kind === 'text') return content
+  if (kind === 'sheet') return workbookToText(parseWorkbook(content))
+  return content
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+    .replace(/<\/(h[1-6]|p|li|tr|blockquote)>/gi, '\n')
+    .replace(BLOCK, '\n')
+    .replace(/<\/(td|th)>/gi, '\t')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&[a-z#0-9]+;/gi, (e) => ENTITY[e.toLowerCase()] ?? e)
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+$/, '').trimStart())
+    .join('\n')
+    // Adjacent tags each contribute a break, so a list arrives full of blank
+    // lines. A line diff reads better without them.
+    .replace(/\n{2,}/g, '\n')
+    .trim()
 }

@@ -450,3 +450,121 @@ select p.id,
 grant select on public.general_project_overview to authenticated;
 
 commit;
+
+begin;
+
+/*
+ * A new project starts with the code view its preset implies.
+ *
+ * The UPDATE above only ever caught the projects that existed when this file
+ * first ran, so every capstone created afterwards came out with the flag off —
+ * which is the one project kind that always wants it on. Deciding it at
+ * creation instead is the fix; an Owner can still change it either way.
+ */
+create or replace function public.create_general_project(
+  p_name        text,
+  p_description text default '',
+  p_starts_on   date default null,
+  p_ends_on     date default null,
+  p_preset      text default null,
+  p_content     jsonb default null
+) returns public.general_projects
+language plpgsql security definer set search_path = public as $$
+declare
+  p          public.general_projects%rowtype;
+  item       jsonb;
+  team_name  text;
+  team_ids   jsonb := '{}'::jsonb;
+  n          int;
+  v_preset   text := nullif(btrim(coalesce(p_preset, '')), '');
+begin
+  if not public.general_viewer_active() then
+    raise exception 'Sign in with an active account to create a project'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  perform public.rate_limit('general_create', 20, interval '1 hour',
+    'You have created a lot of projects in the last hour. Try again later.');
+
+  insert into public.general_projects
+    (name, description, starts_on, ends_on, created_by, preset, has_code)
+  values (btrim(p_name), coalesce(p_description, ''), p_starts_on, p_ends_on, auth.uid(),
+          v_preset, v_preset is not distinct from 'capstone')
+  returning * into p;
+
+  insert into public.general_members (project_id, user_id, level)
+  values (p.id, auth.uid(), 'owner');
+
+  if p_content is null or jsonb_typeof(p_content) <> 'object' then
+    return p;
+  end if;
+
+  if jsonb_array_length(coalesce(p_content -> 'fields', '[]'::jsonb)) > 40
+     or jsonb_array_length(coalesce(p_content -> 'teams', '[]'::jsonb)) > 20
+     or jsonb_array_length(coalesce(p_content -> 'positions', '[]'::jsonb)) > 40
+     or jsonb_array_length(coalesce(p_content -> 'tasks', '[]'::jsonb)) > 100 then
+    raise exception 'That preset is too large to apply'
+      using errcode = 'check_violation';
+  end if;
+
+  n := 0;
+  for team_name in
+    select value #>> '{}' from jsonb_array_elements(coalesce(p_content -> 'teams', '[]'::jsonb))
+  loop
+    if btrim(coalesce(team_name, '')) <> '' and not team_ids ? team_name then
+      insert into public.general_teams (project_id, name)
+      values (p.id, btrim(team_name))
+      returning jsonb_build_object(team_name, id) into item;
+      team_ids := team_ids || item;
+      n := n + 1;
+    end if;
+  end loop;
+
+  for item in
+    select value from jsonb_array_elements(coalesce(p_content -> 'fields', '[]'::jsonb))
+  loop
+    insert into public.general_fields (project_id, name, type, options, sort)
+    values (
+      p.id,
+      btrim(item ->> 'name'),
+      (item ->> 'type')::public.general_field_type,
+      coalesce(item -> 'options', '[]'::jsonb),
+      coalesce((item ->> 'sort')::int, 0)
+    );
+  end loop;
+
+  n := 0;
+  for item in
+    select value from jsonb_array_elements(coalesce(p_content -> 'positions', '[]'::jsonb))
+  loop
+    insert into public.general_positions (project_id, name, team_id, sort)
+    values (
+      p.id,
+      btrim(item ->> 'name'),
+      case when item ->> 'team' is not null then (team_ids ->> (item ->> 'team'))::uuid end,
+      n
+    );
+    n := n + 1;
+  end loop;
+
+  for item in
+    select value from jsonb_array_elements(coalesce(p_content -> 'tasks', '[]'::jsonb))
+  loop
+    insert into public.general_tasks (project_id, title, description, team_id, created_by)
+    values (
+      p.id,
+      btrim(item ->> 'title'),
+      coalesce(item ->> 'description', ''),
+      case when item ->> 'team' is not null then (team_ids ->> (item ->> 'team'))::uuid end,
+      auth.uid()
+    );
+  end loop;
+
+  return p;
+end;
+$$;
+
+revoke all on function public.create_general_project(text, text, date, date, text, jsonb) from public, anon;
+grant execute on function public.create_general_project(text, text, date, date, text, jsonb) to authenticated;
+
+commit;

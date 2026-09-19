@@ -4,6 +4,7 @@ import {
   buildTree,
   describeDraft,
   extensionOf,
+  fileText,
   fileName,
   folderOf,
   foldersIn,
@@ -153,5 +154,52 @@ describe('actionFor', () => {
     const tree = [{ path: 'README.md' }]
     expect(actionFor('README.md', tree)).toBe('changed')
     expect(actionFor('CHANGELOG.md', tree)).toBe('added')
+  })
+})
+
+describe('fileText', () => {
+  it('leaves plain text and code alone', () => {
+    expect(fileText('text', 'const a = 1\nconst b = 2')).toBe('const a = 1\nconst b = 2')
+  })
+
+  it('reads a document as its words, not its markup', () => {
+    expect(
+      fileText('rich', '<h1>Chapter 1</h1><p>The problem.</p><ul><li>One</li><li>Two</li></ul>'),
+    ).toBe('Chapter 1\nThe problem.\nOne\nTwo')
+  })
+
+  it('keeps emphasis out of the way rather than showing its tags', () => {
+    expect(fileText('rich', '<p>The <strong>main</strong> point</p>')).toBe('The main point')
+  })
+
+  it('turns a line break into a line', () => {
+    expect(fileText('rich', '<p>One<br>Two</p>')).toBe('One\nTwo')
+  })
+
+  it('decodes the entities a document editor produces', () => {
+    expect(fileText('rich', '<p>Tom &amp; Jerry &lt;here&gt;&nbsp;now</p>')).toBe(
+      'Tom & Jerry <here> now',
+    )
+  })
+
+  it('lays a table out by row', () => {
+    expect(fileText('rich', '<table><tr><td>a</td><td>b</td></tr><tr><td>c</td></tr></table>')).toBe(
+      'a\tb\nc',
+    )
+  })
+
+  it('drops a script rather than diffing its source', () => {
+    expect(fileText('rich', '<p>Safe</p><script>alert(1)</script>')).toBe('Safe')
+  })
+
+  it('reads a spreadsheet as its cells, not as JSON', () => {
+    const stored = JSON.stringify({
+      sheets: [{ name: 'Budget', rows: [['Item', 'Cost'], ['Tarpaulin', '1500']] }],
+    })
+    expect(fileText('sheet', stored)).toBe('# Budget\nItem\tCost\nTarpaulin\t1500')
+  })
+
+  it('has nothing to show for a file it cannot open', () => {
+    expect(fileText('binary', '')).toBe('')
   })
 })

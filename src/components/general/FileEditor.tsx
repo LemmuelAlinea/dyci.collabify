@@ -6,7 +6,12 @@ import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
-import { commitFiles, projectFileUrl, saveDraftFile } from '../../lib/api/general'
+import {
+  commitFiles,
+  discardDraftFile,
+  projectFileUrl,
+  saveDraftFile,
+} from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { fileName, isEditable } from '../../lib/general/files'
 import { downloadBlob, htmlToDocx, workbookToXlsx } from '../../lib/general/office'
@@ -120,6 +125,9 @@ function Body({
             },
           ],
         })
+        // What was in the draft for this path is now what Main says, and a
+        // draft row claiming to add a file that exists can never be submitted.
+        await discardDraftFile(repo.id, file.path)
         show(`Committed as ${repo.commit_count + 1}`)
       } else {
         await saveDraftFile({
@@ -219,7 +227,7 @@ function Body({
         <div className="flex flex-wrap items-end gap-2">
           {mayCommit && (
             <div className="min-w-[14rem] flex-1">
-              <Field label="Commit message" optional>
+              <Field label="Commit message">
                 {(id) => (
                   <Input
                     id={id}

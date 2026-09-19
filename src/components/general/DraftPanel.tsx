@@ -14,7 +14,7 @@ import {
   syncDraft,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { describeDraft } from '../../lib/general/files'
+import { describeDraft, fileText } from '../../lib/general/files'
 import { FILE_ACTION_LABEL } from '../../lib/general/types'
 import type {
   DraftConflict,
@@ -200,8 +200,8 @@ export function DraftPanel({
               {open === f.path && (
                 <div className="px-4 pb-4 sm:px-5">
                   <DiffView
-                    before={f.action === 'added' ? '' : mainOf(f.path)}
-                    after={f.action === 'removed' ? '' : f.content}
+                    before={f.action === 'added' ? '' : fileText(f.kind, mainOf(f.path))}
+                    after={f.action === 'removed' ? '' : fileText(f.kind, f.content)}
                     caption={`What your draft would do to ${f.path}, line by line`}
                   />
                 </div>

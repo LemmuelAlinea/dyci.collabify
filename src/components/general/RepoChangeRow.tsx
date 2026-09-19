@@ -14,6 +14,7 @@ import {
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
+import { fileText } from '../../lib/general/files'
 import { CHANGE_LABEL, FILE_ACTION_LABEL } from '../../lib/general/types'
 import type {
   GeneralRepoChange,
@@ -144,8 +145,8 @@ export function RepoChangeRow({
                   </span>
                 </p>
                 <DiffView
-                  before={before[f.path] ?? ''}
-                  after={f.action === 'removed' ? '' : f.content}
+                  before={fileText(f.kind, before[f.path] ?? '')}
+                  after={f.action === 'removed' ? '' : fileText(f.kind, f.content)}
                   caption={`What this change would do to ${f.path}, line by line`}
                 />
               </section>

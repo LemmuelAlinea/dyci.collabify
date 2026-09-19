@@ -23,7 +23,14 @@ import {
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
-import { actionFor, buildTree, fileName, kindForPath, pathProblem } from '../../lib/general/files'
+import {
+  actionFor,
+  buildTree,
+  fileName,
+  fileText,
+  kindForPath,
+  pathProblem,
+} from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
 import { docxToHtml, OFFICE_WARNING, readAsText, xlsxToWorkbook } from '../../lib/general/office'
 import { serializeWorkbook } from '../../lib/general/sheet'
@@ -647,8 +654,8 @@ function CommitFiles({ commit }: { commit: GeneralCommit }) {
             </p>
           ) : (
             <DiffView
-              before={before[f.path] ?? ''}
-              after={f.action === 'removed' ? '' : f.content}
+              before={fileText(f.kind, before[f.path] ?? '')}
+              after={f.action === 'removed' ? '' : fileText(f.kind, f.content)}
               caption={`What commit ${commit.seq} did to ${f.path}, line by line`}
             />
           )}
