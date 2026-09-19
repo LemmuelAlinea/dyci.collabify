@@ -372,6 +372,7 @@ function TaskDetails({
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState<GeneralTaskStatus>('todo')
   const [due, setDue] = useState('')
+  const [starts, setStarts] = useState('')
   const [team, setTeam] = useState('')
   const [weight, setWeight] = useState('1')
   const [busy, setBusy] = useState(false)
@@ -384,6 +385,7 @@ function TaskDetails({
     setDescription(task.description)
     setStatus(task.status)
     setDue(toLocalInput(task.due_at))
+    setStarts(toLocalInput(task.starts_at))
     setTeam(task.team_id ?? '')
     setWeight(String(task.weight))
   }, [updatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -399,6 +401,10 @@ function TaskDetails({
           <div>
             <dt className="text-[12px] text-faint">Stage</dt>
             <dd className="text-ink">{TASK_STATUSES.find((x) => x.value === task.status)?.label}</dd>
+          </div>
+          <div>
+            <dt className="text-[12px] text-faint">Starts</dt>
+            <dd className="text-ink">{task.starts_at ? formatDue(task.starts_at) : 'Not set'}</dd>
           </div>
           <div>
             <dt className="text-[12px] text-faint">Due</dt>
@@ -440,6 +446,10 @@ function TaskDetails({
     if (!task) return
     setError(null)
     if (!title.trim()) return setError('A task needs a title.')
+    const startsAt = fromLocalInput(starts)
+    const dueAt = fromLocalInput(due)
+    if (startsAt && dueAt && startsAt > dueAt)
+      return setError('A task cannot start after it is due. Move one of the two dates.')
     const w = Number(weight)
     if (canManage && points && (!Number.isFinite(w) || w <= 0 || w > 1000))
       return setError('Points are a number above 0 and up to 1000.')
@@ -449,7 +459,8 @@ function TaskDetails({
         title: title.trim(),
         description,
         status,
-        due_at: fromLocalInput(due),
+        due_at: dueAt,
+        starts_at: startsAt,
         team_id: team || null,
         ...(canManage && points ? { weight: w } : {}),
       })
@@ -477,6 +488,11 @@ function TaskDetails({
               onChange={(e) => setStatus(e.target.value as GeneralTaskStatus)}
               options={TASK_STATUSES}
             />
+          )}
+        </Field>
+        <Field label="Starts" optional>
+          {(id) => (
+            <Input id={id} type="datetime-local" value={starts} onChange={(e) => setStarts(e.target.value)} />
           )}
         </Field>
         <Field label="Due" optional>

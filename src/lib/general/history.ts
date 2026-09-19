@@ -9,6 +9,7 @@ const FIELD_WORDS: Record<string, string> = {
   description: 'description',
   status: 'status',
   due_at: 'due date',
+  starts_at: 'start date',
   team_id: 'team',
   weight: 'points',
 }
@@ -55,6 +56,12 @@ export function describeEvent(event: GeneralTaskEvent, nameOf: (id: string) => s
           return d.due_from
             ? `${actor} moved the due date from ${formatDue(d.due_from)} to ${formatDue(d.due_to)}`
             : `${actor} set the due date to ${formatDue(d.due_to)}`
+        }
+        if (fields[0] === 'starts_at' && d.starts_to !== undefined) {
+          if (!d.starts_to) return `${actor} took the start date off`
+          return d.starts_from
+            ? `${actor} moved the start from ${formatDue(d.starts_from)} to ${formatDue(d.starts_to)}`
+            : `${actor} set the start to ${formatDue(d.starts_to)}`
         }
         if (fields[0] === 'weight' && d.weight_to !== undefined) {
           return `${actor} changed the points from ${d.weight_from} to ${d.weight_to}`

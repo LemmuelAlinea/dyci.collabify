@@ -582,6 +582,7 @@ export async function createTask(input: {
   title: string
   description: string
   dueAt: string | null
+  startsAt: string | null
   teamId: string | null
   weight: number
 }) {
@@ -592,6 +593,7 @@ export async function createTask(input: {
       title: input.title.trim(),
       description: input.description,
       due_at: input.dueAt,
+      starts_at: input.startsAt,
       team_id: input.teamId,
       weight: input.weight,
     })
@@ -606,6 +608,7 @@ export type TaskPatch = Partial<{
   description: string
   status: GeneralTaskStatus
   due_at: string | null
+  starts_at: string | null
   team_id: string | null
   weight: number
 }>
