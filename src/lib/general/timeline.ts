@@ -82,8 +82,11 @@ export function placeTask(task: TimelineTask, window: TimelineWindow): Placement
   if (from !== null && to !== null) {
     const left = offset(Math.min(from, to), window)
     const right = offset(Math.max(from, to), window)
-    // A task that starts and ends the same day would otherwise be invisible.
-    return { shape: 'bar', left, width: Math.max(1, Math.min(100 - left, right - left)) }
+    // A task that starts and ends the same day would otherwise be invisible —
+    // but a bar drawn past the right edge reads as missing, which is worse, so
+    // the visibility floor is capped by what is left of the window, not the
+    // other way around.
+    return { shape: 'bar', left, width: Math.min(100 - left, Math.max(1, right - left)) }
   }
 
   const only = from ?? to
@@ -118,6 +121,19 @@ export function axisTicks(window: TimelineWindow): Tick[] {
     else cursor.setDate(cursor.getDate() + 7)
   }
 
+  // A 'tasks' window can start mid-day, so rounding the cursor back to
+  // midnight puts the first candidate before window.start; the step from
+  // there can then clear a short window in one jump and leave nothing behind.
+  // The window itself is always a fair tick.
+  if (out.length === 0) {
+    out.push({
+      at: window.start,
+      left: 0,
+      label: new Date(window.start).toLocaleDateString('en-US',
+        byMonth ? { month: 'short' } : { month: 'short', day: 'numeric' }),
+    })
+  }
+
   return out
 }
 
@@ -135,7 +151,10 @@ export function groupRows(
   const rows: TimelineRow[] = []
 
   // Work that belongs to everybody reads first; it is the project's own spine.
-  const loose = tasks.filter((t) => !t.team_id)
+  // A team_id pointing at no team on this list — deleted since, or filtered
+  // out by the caller — belongs here too rather than nowhere.
+  const knownTeams = new Set(teams.map((t) => t.id))
+  const loose = tasks.filter((t) => !t.team_id || !knownTeams.has(t.team_id))
   if (loose.length) rows.push({ team: null, teamName: 'Whole project', tasks: [...loose].sort(order) })
 
   for (const team of [...teams].sort((a, b) => a.name.localeCompare(b.name))) {

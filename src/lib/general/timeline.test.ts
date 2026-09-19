@@ -112,6 +112,30 @@ describe('placeTask', () => {
     if (p.shape !== 'bar') return
     expect(p.width).toBeGreaterThanOrEqual(1)
   })
+
+  it('keeps a task entirely after the window inside it', () => {
+    const p = placeTask(
+      task({ starts_at: '2026-11-01T00:00:00Z', due_at: '2026-11-05T00:00:00Z' }),
+      w,
+    )
+    expect(p.shape).toBe('bar')
+    if (p.shape !== 'bar') return
+    expect(p.left).toBeGreaterThanOrEqual(0)
+    expect(p.width).toBeGreaterThanOrEqual(0)
+    expect(p.left + p.width).toBeLessThanOrEqual(100)
+  })
+
+  it('keeps a task entirely before the window inside it', () => {
+    const p = placeTask(
+      task({ starts_at: '2026-09-01T00:00:00Z', due_at: '2026-09-05T00:00:00Z' }),
+      w,
+    )
+    expect(p.shape).toBe('bar')
+    if (p.shape !== 'bar') return
+    expect(p.left).toBeGreaterThanOrEqual(0)
+    expect(p.width).toBeGreaterThanOrEqual(0)
+    expect(p.left + p.width).toBeLessThanOrEqual(100)
+  })
 })
 
 describe('axisTicks', () => {
@@ -131,6 +155,18 @@ describe('axisTicks', () => {
 
   it('has nothing to tick with no window', () => {
     expect(axisTicks(timelineWindow(project(null, null), []))).toEqual([])
+  })
+
+  it('always has a tick for a tasks-sourced window that does not start at midnight', () => {
+    const w = timelineWindow(project(null, null), [
+      task({ due_at: '2026-10-05T15:30:00Z' }),
+    ])
+    const ticks = axisTicks(w)
+    expect(ticks.length).toBeGreaterThanOrEqual(1)
+    for (const t of ticks) {
+      expect(t.left).toBeGreaterThanOrEqual(0)
+      expect(t.left).toBeLessThanOrEqual(100)
+    }
   })
 })
 
@@ -171,6 +207,11 @@ describe('groupRows', () => {
 
   it('returns nothing for a project with no tasks', () => {
     expect(groupRows([], teams)).toEqual([])
+  })
+
+  it('keeps a task whose team no longer exists in the whole-project row', () => {
+    const rows = groupRows([task({ team_id: 'missing' })], teams)
+    expect(rows.map((r) => r.teamName)).toEqual(['Whole project'])
   })
 })
 
