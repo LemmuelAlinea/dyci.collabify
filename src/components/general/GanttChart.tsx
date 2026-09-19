@@ -70,6 +70,7 @@ export function GanttChart({ state }: { state: GeneralProjectState }) {
   const rows = groupRows(tasks, state.teams)
   const ticks = axisTicks(window)
   const today = nowMarker(window)
+  const undated = tasks.filter((t) => placeTask(t, window).shape === 'none').length
 
   if (window.source === 'none' || rows.length === 0) {
     return (
@@ -86,6 +87,8 @@ export function GanttChart({ state }: { state: GeneralProjectState }) {
         {window.source === 'project'
           ? "Across this project's own dates."
           : 'Across the dates its tasks carry — the project has no dates of its own.'}
+        {undated > 0 &&
+          ` ${undated} ${undated === 1 ? 'task has' : 'tasks have'} no date yet.`}
       </p>
 
       <div className="overflow-x-auto rounded-panel border border-line surface">
@@ -144,6 +147,11 @@ export function GanttChart({ state }: { state: GeneralProjectState }) {
                           className={`absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 ${BAR[task.status]}`}
                           style={{ left: `${place.left}%` }}
                         />
+                      )}
+                      {place.shape === 'none' && (
+                        <span className="absolute top-1/2 left-0 -translate-y-1/2 text-[11px] text-faint">
+                          No date yet
+                        </span>
                       )}
                     </div>
                   </div>
