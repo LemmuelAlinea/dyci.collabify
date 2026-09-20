@@ -143,8 +143,9 @@ migration has already been applied to the live Supabase database.**
 | `d9f5efd` | `supabase/general-spaces.sql` + `supabase/tests/general-spaces.test.sql`. The tables, helpers, migration, the read widening, the RPCs. 53 passing assertions. |
 | `a5efc4a` | The space-aware pages: routes, picker, space home, members, archive. |
 
-`main` carries only the design document
-(`docs/superpowers/specs/2026-09-20-general-spaces-and-sidebar-design.md`).
+`main` carries the design document
+(`docs/superpowers/specs/2026-09-20-general-spaces-and-sidebar-design.md`) and
+this implementation prompt.
 
 **Live database state:** the space tables exist, `general_projects.space_id` is
 `not null`, the seven existing projects sit in one space named after their
@@ -152,11 +153,14 @@ creator, and twenty SELECT policies already point at
 `can_read_general_project`.
 
 So: **Section 6 (the data model) and Section 7 (the pages) are built.**
-**Section 8 (the sidebar) is not.** Decide with the repo owner whether to build
-on that branch or start again; if you start again, you must first roll the
-database back, which means dropping the new tables and the `space_id` column and
-re-running `supabase/general.sql`, `supabase/general-tasks.sql` and
-`supabase/general-repo.sql` to restore the original policies.
+**Section 8 (the sidebar) is not.** Continue `general-spaces`; do not restart
+and do not roll the live database back. Rebase the branch onto current `main`,
+preserving this prompt and the design document, then audit both existing commits
+before writing the remaining feature. Treat the live migration as canonical.
+
+The local branch contains `a5efc4a` and is one commit ahead of
+`origin/general-spaces`. Push it only after the audit and the remaining work pass
+their review gates.
 
 ---
 
@@ -578,6 +582,59 @@ Fix it by backfilling from `list_general_project_members`, which any reader may
 call and which never returns an email. Take their `status` as active: it is only
 read to decide whether a write is safe, and that reader cannot write at all.
 
+### Shared navigation state
+
+The pages in this section and the sidebar in Section 8 must not maintain
+independent copies of the current space and its project list. Add one shell-level
+General navigation provider, used by the sidebar and the General pages, that
+owns:
+
+- the viewer's spaces;
+- the current space id and row;
+- the current space's projects, loaded with the database-filtered
+  `listSpaceProjects(spaceId)` call;
+- loading, error and reload state.
+
+Resolve the current space in this order:
+
+1. The explicit `:spaceId` on a space route.
+2. A loaded project's `space_id` on `/general/projects/:projectId`.
+3. The remembered id, but only after it is found in the viewer's live
+   memberships.
+4. The sole active space, when exactly one exists.
+5. No current space; `/general` goes to the picker.
+
+On a project deep link, do not briefly show the remembered space's tree while
+the project loads. Leave the General tree pending until the project reports its
+`space_id`, then remember that verified id. If membership disappears, clear the
+current data and the stale stored id before returning to the picker.
+
+Use `useLive` in the provider for spaces, space membership, projects, project
+membership and task-count changes. Refactor the space home and archive page to
+consume the provider's project list rather than issuing the same query again.
+Page-specific data such as invitations stays with its page.
+
+### Project tabs are URL state
+
+The sidebar links cannot work reliably while `GeneralProject` keeps its active
+tab only in a `useState` initializer: navigating from one tab link to another on
+the same project changes the query string without remounting the page.
+
+Make the URL the source of truth:
+
+- no `tab` parameter, or `tab=overview` -> Overview;
+- `tab=tasks` -> Tasks;
+- `tab=files` -> Files;
+- `tab=progress` -> Progress;
+- `tab=members` -> Members;
+- any `task` parameter -> Tasks, regardless of `tab`;
+- an unknown `tab` -> Overview.
+
+Tab presses update the query string. Leaving Tasks removes `task`. Preserve
+unrelated parameters. This must respond to Back, Forward and same-component
+query changes without a remount. Point the project's "All projects" link at
+`/general/spaces/<space_id>` instead of relying on the `/general` redirect.
+
 ---
 
 ## 8. Piece three — the sidebar (not yet built)
@@ -592,21 +649,30 @@ read to decide whether a write is safe, and that reader cannot write at all.
   it and the desktop column renders it. One renderer, so the two cannot drift.
 - Persistent from `lg:` up. Below that the phone drawer stays exactly as it is,
   including `useFocusTrap` and the `Escape` handler.
-- Collapsed state: 64px, icons only, an accessible name on every row, real
-  tooltips. Persist it in `localStorage`; `aria-expanded` on the toggle.
+- Expanded desktop width: 276px. Collapsed state: 64px, icons only, an
+  accessible name on every row, and real hover/focus tooltips — not `title`
+  attributes. Persist it in guarded `localStorage`; `aria-expanded` and
+  `aria-controls` belong on the toggle.
 - `AppShell` sets `overflow-x-clip` — keep it. Re-tune `<main>`'s gutters
   (currently `px-4 … 2xl:px-20`) now that the column is not full width.
+- The content column is `min-w-0 flex-1`; the desktop sidebar owns its vertical
+  scroll and remains viewport-height. Reduced motion disables width and
+  disclosure animation rather than merely shortening it.
 
-`src/components/app/TopNav.tsx` keeps the logo, search, theme toggle, account
-menu and the phone drawer button. Its nav-group rendering is **deleted**, not
-duplicated.
+`src/components/app/TopNav.tsx` becomes a slim utility bar. Keep the logo,
+notification bell, theme toggle, account menu and phone drawer button. There is
+no global search control in the current file; do not invent one. Delete its
+nav-group rendering and promoted Messages button rather than duplicating them.
 
 ### What the sidebar holds
 
 1. `WorkplaceSwitcher` — Education ↔ General, unchanged component.
 2. **General only** — a Space row showing the current space with a chevron.
    Clicking it opens a modal listing your spaces with a **Create space** button.
-   Use the existing `Modal` with focus trapping, not a bespoke popover.
+   Use the existing `Modal` with focus trapping, not a bespoke popover. Extract
+   the existing create-space dialog so the picker and switcher share it. List
+   active spaces, mark the current one, and remember only a successfully loaded
+   selection.
 3. **General only** — a **Projects** section: every project in the current
    space, each collapsible into **Overview · Tasks · Files · Progress ·
    Members**, linking to `/general/projects/:id?tab=…`. This is the "hop between
@@ -614,8 +680,12 @@ duplicated.
 4. **General only** — an **Archive** row for the current space.
 5. The role's nav groups from `src/components/app/nav.ts`, unchanged.
 
-The tree costs no new reads: the space's project list is already loaded, and the
-five tab rows are static links.
+The tree uses the provider's already-loaded, non-archived project list; it does
+not issue its own query. Project disclosures are independent, so two projects
+can stay expanded. The active project opens automatically. In the collapsed
+rail, nested tabs are hidden and each project icon links to Overview with an
+accessible tooltip. The exact links are the bare project URL for Overview and
+`?tab=tasks`, `?tab=files`, `?tab=progress`, and `?tab=members` for the others.
 
 ### `nav.ts` stays static
 
@@ -674,7 +744,38 @@ Every one of these has already cost this project real time or real data.
 
 ---
 
-## 10. Definition of done
+## 10. Execution order and authority
+
+You are authorised to finish this feature end to end: edit the repository,
+apply the reviewed idempotent SQL to the live database, create temporary QA
+records, commit, push, merge to `main`, and verify the Vercel deployment. This
+authority does not permit touching unrelated user data or entering credentials.
+If an authenticated scenario needs another account, stop at that scenario and
+ask the owner to sign in; never create an account or handle a password.
+
+Work in these review gates:
+
+1. Rebase `general-spaces` onto current `main`. Audit `d9f5efd` and `a5efc4a`
+   against this prompt, the live schema and the security invariants. Fix every
+   Critical or Important finding before continuing.
+2. Add the shared General navigation state and URL-driven project tabs. Review
+   route resolution, stale membership, duplicate reads and query-string
+   navigation before continuing.
+3. Build the shared sidebar and slim utility bar. Review both workplaces,
+   collapsed and mobile behavior, keyboard access and reduced motion.
+4. Run a whole-branch review. Fix every Critical and Important finding and
+   explicitly triage every Minor finding.
+5. Run the complete database, client and browser verification below. Commit and
+   push the reviewed branch, merge it into `main`, wait for Vercel, and repeat
+   the essential route and navigation checks on the deployed site.
+
+Do not silently skip a failed command or browser scenario. Quote the failing
+command or scenario in the final report, say what remains unverified, and do not
+claim the feature is complete while a required check is red.
+
+---
+
+## 11. Definition of done
 
 - `node scripts/db.mjs supabase/general-spaces.sql` applied **twice**; the second
   run is a no-op.
@@ -694,15 +795,31 @@ Every one of these has already cost this project real time or real data.
     present-and-failing, and no email is visible anywhere.
   - The sidebar: expand two projects and jump from one project's Files to
     another's Tasks without touching a list page.
+  - Change tabs within the same project from the sidebar, then use Back and
+    Forward. The visible tab always matches the URL without a remount.
   - 375px, 1024px and 1440px; both themes; keyboard only, including the space
     modal's focus trap and `Escape`; reduced motion on.
+  - At 768px high, the professor's full navigation scrolls inside the sidebar
+    without scrolling or clipping the page horizontally.
 
-**Do not create test data in the live database without asking.** There is one
-live database and no staging.
+There is one live database and no staging. Temporary browser-QA data is
+authorised for this feature. Prefix every temporary name with `Codex QA`, record
+every created UUID immediately, and keep all test projects inside the test
+space. For cleanup, first read back the exact space id, creator and contained
+project ids; refuse cleanup if any row is not one of the recorded test rows.
+Then delete only that exact test space id in one transaction and verify that
+none of the recorded UUIDs remain. Never use a name-only delete, wildcard or
+unfiltered statement.
+
+After the merge, verify the deployed `/general`, space picker, one space home,
+one project tab deep link and both workplace sidebars. Report the branch commit,
+merge commit, deployment URL, database assertion totals, client test total,
+lint warning/error counts and any credential-dependent step the owner still
+needs to perform.
 
 ---
 
-## 11. Deliberately out of scope
+## 12. Deliberately out of scope
 
 - **Moving a project between spaces.** Real, and its own design — it has to
   reconcile two member sets, and the honest version asks what happens to people
