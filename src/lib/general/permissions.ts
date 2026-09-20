@@ -97,6 +97,12 @@ export function permissionLabel(p: GeneralPermission): string {
   return PERMISSIONS.find((x) => x.value === p)?.label ?? p
 }
 
-export function levelLabel(l: GeneralLevel): string {
+/**
+ * Null is not a missing value here: it is somebody who reaches the project
+ * through its space rather than through its members, so they read everything
+ * and hold nothing.
+ */
+export function levelLabel(l: GeneralLevel | null): string {
+  if (!l) return 'watching from the space'
   return LEVELS.find((x) => x.value === l)?.label ?? l
 }

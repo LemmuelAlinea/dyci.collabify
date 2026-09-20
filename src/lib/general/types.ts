@@ -45,7 +45,8 @@ export type GeneralProjectSummary = GeneralProject & {
   /** Null unless the viewer can invite. */
   join_code: string | null
   join_open: boolean
-  my_level: GeneralLevel
+  /** Null for somebody who reaches this project through its space, not its members. */
+  my_level: GeneralLevel | null
   member_count: number
   task_count: number
   done_count: number
