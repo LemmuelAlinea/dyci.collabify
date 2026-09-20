@@ -72,7 +72,11 @@ const StudentReports = lazy(() => import('./pages/app/reports/StudentReports'))
 const Syllabi = lazy(() => import('./pages/app/resources/Syllabi'))
 const SyllabusDetail = lazy(() => import('./pages/app/resources/SyllabusDetail'))
 const EnterEducation = lazy(() => import('./pages/auth/EnterEducation'))
+const GeneralLanding = lazy(() => import('./pages/general/GeneralLanding'))
 const GeneralHome = lazy(() => import('./pages/general/GeneralHome'))
+const SpacePicker = lazy(() => import('./pages/general/SpacePicker'))
+const SpaceMembers = lazy(() => import('./pages/general/SpaceMembers'))
+const SpaceArchive = lazy(() => import('./pages/general/SpaceArchive'))
 const GeneralProject = lazy(() => import('./pages/general/GeneralProject'))
 
 export default function App() {
@@ -116,7 +120,16 @@ export default function App() {
 
           <Route element={<ProtectedRoute workplace="general" />}>
           <Route element={<AppShell />}>
-            <Route path="/general" element={<GeneralHome />} />
+            {/* /general keeps working everywhere it is already linked: it
+                picks the space you were last in and redirects. */}
+            <Route path="/general" element={<GeneralLanding />} />
+            <Route path="/general/spaces" element={<SpacePicker />} />
+            <Route path="/general/spaces/:spaceId" element={<GeneralHome />} />
+            <Route path="/general/spaces/:spaceId/members" element={<SpaceMembers />} />
+            <Route path="/general/spaces/:spaceId/archive" element={<SpaceArchive />} />
+            {/* Flat, not nested under the space: a project id is unique on its
+                own, and nesting would break every link and deep link already
+                out there. The space is derived from the project. */}
             <Route path="/general/projects/:projectId" element={<GeneralProject />} />
             <Route path="/general/messages" element={<Messages role="general" />} />
             <Route path="/general/messages/:conversationId" element={<Messages role="general" />} />

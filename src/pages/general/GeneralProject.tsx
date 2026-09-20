@@ -15,56 +15,43 @@ import { Icon, Spinner } from '../../components/ui/Icon'
 import { Tabs } from '../../components/ui/Tabs'
 import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
+import { useGeneralNavigation } from '../../context/generalNavigation'
 import { archiveGeneralProject } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
+import { generalTab } from '../../lib/general/navigation'
+import type { GeneralTabId } from '../../lib/general/navigation'
 import { levelLabel } from '../../lib/general/permissions'
 import { projectStatusLabel } from '../../lib/general/types'
-
-type TabId = 'overview' | 'tasks' | 'files' | 'progress' | 'members'
 
 export default function GeneralProject() {
   const { projectId } = useParams()
   const { profile } = useAuth()
   const { show } = useToast()
+  const { currentSpace, reportProjectSpace } = useGeneralNavigation()
   const state = useGeneralProject(projectId, profile?.id)
   const [params, setParams] = useSearchParams()
-  const [tab, setTab] = useState<TabId>(() =>
-    params.has('task')
-      ? 'tasks'
-      : params.get('tab') === 'members'
-        ? 'members'
-        : params.get('tab') === 'files'
-          ? 'files'
-          : params.get('tab') === 'progress'
-            ? 'progress'
-            : 'overview',
-  )
+  const tab = generalTab(params)
   const [archiving, setArchiving] = useState(false)
 
-  // The initializer above only runs once, so it misses a `?task=` that shows up
-  // later — the Progress tab links to one without unmounting this page. Moving
-  // tabs here is what actually opens the task dialog TasksTab reads it into.
-  useEffect(() => {
-    if (params.has('task')) setTab('tasks')
-  }, [params])
-
-  // A person who switches tabs by hand while `?task=` is still in the URL
-  // should not be pulled back to Tasks by the effect above the next time the
-  // params change for an unrelated reason — so leaving Tasks by hand drops it.
-  function changeTab(next: TabId) {
-    setTab(next)
+  function changeTab(next: GeneralTabId) {
+    const changed = new URLSearchParams(params)
+    if (next === 'overview') changed.delete('tab')
+    else changed.set('tab', next)
     if (next !== 'tasks' && params.has('task')) {
-      const cleared = new URLSearchParams(params)
-      cleared.delete('task')
-      setParams(cleared, { replace: true })
+      changed.delete('task')
     }
+    setParams(changed)
   }
 
   const p = state.project
   useEffect(() => {
     document.title = `${p?.name ?? 'Project'} · Collabify`
   }, [p?.name])
+
+  useEffect(() => {
+    if (projectId && p?.id === projectId) reportProjectSpace(projectId, p.space_id)
+  }, [p?.id, p?.space_id, projectId, reportProjectSpace])
 
   if (state.loading) {
     return (
@@ -117,7 +104,10 @@ export default function GeneralProject() {
 
   return (
     <div className="w-full space-y-6">
-      <Link to="/general" className="inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink">
+      <Link
+        to={currentSpace?.id === p.space_id ? `/general/spaces/${p.space_id}` : '/general'}
+        className="inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink"
+      >
         <Icon name="arrowLeft" size={14} />
         All projects
       </Link>
@@ -163,7 +153,7 @@ export default function GeneralProject() {
         </Alert>
       )}
 
-      <Tabs<TabId>
+      <Tabs<GeneralTabId>
         tabs={[
           { id: 'overview', label: 'Overview', icon: 'file' },
           { id: 'tasks', label: 'Tasks', icon: 'check', count: state.tasks.length },

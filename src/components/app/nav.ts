@@ -157,10 +157,7 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
 export const GENERAL_NAV: NavGroup[] = [
   {
     title: 'Workplace',
-    items: [
-      { label: 'Projects', icon: 'kanban', to: '/general' },
-      { label: 'Messages', icon: 'message', to: '/general/messages', badge: 'messages' },
-    ],
+    items: [{ label: 'Messages', icon: 'message', to: '/general/messages', badge: 'messages' }],
   },
   SETTINGS,
 ]

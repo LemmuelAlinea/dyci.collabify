@@ -104,12 +104,19 @@ begin
   -- on it the moment it is created, and claiming it again is a duplicate key.
 
   create temp table fx (k text primary key, v uuid) on commit drop;
+  create temp table fx_counts (k text primary key, n int) on commit drop;
   grant select on fx to authenticated;
+  grant select on fx_counts to authenticated;
   insert into fx values
     ('class', v_class), ('prof', v_prof), ('a', v_a), ('b', v_b),
     ('gproj', v_group_proj), ('sproj', v_solo_proj),
     ('gboard', v_group_board), ('sboard', v_solo_board),
     ('t1', t[1]), ('t3', t[3]);
+  insert into fx_counts values (
+    'archived_projects',
+    (select count(*) from public.projects
+      where class_id = v_class and archived_at is not null)
+  );
   raise notice 'fixture ready';
 end $$;
 
@@ -126,7 +133,10 @@ begin
   perform pg_temp.must_be('the class is summarised once', r.class_id = v_class);
   perform pg_temp.must_be('its live students are counted', r.students >= 2);
   perform pg_temp.must_be('the fixture projects are in the count', r.projects >= 2);
-  perform pg_temp.must_be('...and none of them is archived yet', r.projects_archived = 0);
+  perform pg_temp.must_be(
+    '...and no fixture project is archived yet',
+    r.projects_archived = (select fc.n from fx_counts fc where fc.k = 'archived_projects')
+  );
   perform pg_temp.must_be('the four fixture tasks are counted', r.tasks >= 4);
   perform pg_temp.must_be('weeks 3, 4 and 7 are covered', r.weeks_covered >= 3);
   perform pg_temp.must_be('and the syllabus is longer than what is covered',
@@ -190,7 +200,10 @@ begin
 
   select * into r from public.report_class_summary where class_id = v_class;
   perform pg_temp.must_be('the report still counts the project', r.projects >= 2);
-  perform pg_temp.must_be('...and says one of them is archived', r.projects_archived = 1);
+  perform pg_temp.must_be(
+    '...and says one more project is archived',
+    r.projects_archived = 1 + (select fc.n from fx_counts fc where fc.k = 'archived_projects')
+  );
 
   select count(*) into n from public.report_board_tasks where board_id = v_board;
   perform pg_temp.must_be('its tasks are still printable', n = 3);
