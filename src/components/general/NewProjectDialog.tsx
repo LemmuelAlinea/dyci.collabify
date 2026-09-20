@@ -19,7 +19,16 @@ import { PresetPicker } from './PresetPicker'
  * nobody types out a research timeline from memory — but people are still
  * added on the project itself, where they can be seen in context.
  */
-export function NewProjectDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function NewProjectDialog({
+  open,
+  onClose,
+  spaceId,
+}: {
+  open: boolean
+  onClose: () => void
+  /** The space it goes into. Left out, the database uses your own. */
+  spaceId?: string | null
+}) {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -45,6 +54,7 @@ export function NewProjectDialog({ open, onClose }: { open: boolean; onClose: ()
         endsOn: endsOn || null,
         preset: chosen && chosen.id !== 'blank' ? chosen.id : null,
         content: chosen && chosen.id !== 'blank' ? presetPayload(chosen) : null,
+        spaceId,
       })
       onClose()
       navigate(`/general/projects/${project.id}`)

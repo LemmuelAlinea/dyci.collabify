@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Avatar } from '../../components/app/Avatar'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { NewProjectDialog } from '../../components/general/NewProjectDialog'
@@ -17,29 +17,43 @@ import { useAuth } from '../../context/AuthContext'
 import { useLive } from '../../hooks/useLive'
 import {
   joinGeneralProject,
-  listMyGeneralProjects,
+  listSpaceProjects,
   listMyInvitations,
   respondToInvitation,
 } from '../../lib/api/general'
+import { getSpace } from '../../lib/api/spaces'
+import { rememberSpace } from '../../hooks/useSpaces'
 import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
 import { levelLabel } from '../../lib/general/permissions'
 import { presetById } from '../../lib/general/presets'
 import { PROJECT_STATUSES, projectStatusLabel } from '../../lib/general/types'
-import type { GeneralProjectSummary, GeneralStatus, MyInvitation } from '../../lib/general/types'
+import type {
+  GeneralProjectSummary,
+  GeneralSpaceSummary,
+  GeneralStatus,
+  MyInvitation,
+} from '../../lib/general/types'
 import { fullName } from '../../lib/types'
 
 /**
- * The General workplace's front door: what is waiting on you, then what you
- * are part of.
+ * One space: what is waiting on you, then the projects inside it.
+ *
+ * Every project here belongs to this space, and everybody in the space can see
+ * all of them — being on a project is what decides who can change it, not who
+ * can see it.
  *
  * Invitations come first because they are the only thing here that needs an
  * answer, and until they are answered the projects behind them are not yours
- * to open.
+ * to open. Archived projects are not here at all: they have their own page, so
+ * this list is only live work.
  */
 export default function GeneralHome() {
+  const { spaceId } = useParams<{ spaceId: string }>()
   const { profile } = useAuth()
   const { show } = useToast()
+  const [space, setSpace] = useState<GeneralSpaceSummary | null>(null)
+  const [gone, setGone] = useState(false)
   const [projects, setProjects] = useState<GeneralProjectSummary[] | null>(null)
   const [invitations, setInvitations] = useState<MyInvitation[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -48,30 +62,46 @@ export default function GeneralHome() {
   const [answering, setAnswering] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<GeneralStatus | ''>('')
-  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
-    document.title = 'General · Collabify'
-  }, [])
+    document.title = space ? `${space.name} · Collabify` : 'General · Collabify'
+  }, [space])
 
   const load = useCallback(async () => {
-    if (!profile) return
+    if (!profile || !spaceId) return
     try {
-      const [p, i] = await Promise.all([listMyGeneralProjects(), listMyInvitations(profile.id)])
+      const [s, p, i] = await Promise.all([
+        getSpace(spaceId),
+        listSpaceProjects(spaceId),
+        listMyInvitations(profile.id),
+      ])
+      // Null means the space is gone, or you were removed from it. Either way
+      // this page is no longer yours to read, so go back to the picker rather
+      // than sit on an empty screen.
+      if (!s) return setGone(true)
+      setSpace(s)
+      rememberSpace(s.id)
       setProjects(p)
       setInvitations(i)
       setError(null)
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not load your projects.'))
+      setError(authErrorMessage(err, 'Could not load this space.'))
       setProjects((prev) => prev ?? [])
     }
-  }, [profile])
+  }, [profile, spaceId])
 
   useEffect(() => {
     void load()
   }, [load])
 
-  useLive(load, ['general_projects', 'general_members', 'general_invitations', 'general_tasks'])
+  useLive(load, [
+    'general_projects',
+    'general_members',
+    'general_invitations',
+    'general_tasks',
+    'general_spaces',
+    'general_space_members',
+  ])
 
   async function answer(inv: MyInvitation, accept: boolean) {
     setAnswering(inv.id)
@@ -86,22 +116,26 @@ export default function GeneralHome() {
     }
   }
 
-  const all = useMemo(() => projects ?? [], [projects])
-  const live = all.filter((p) => !p.archived_at)
+  const all = useMemo(() => (projects ?? []).filter((p) => !p.archived_at), [projects])
+  const live = all
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     return all
-      .filter((p) => (showArchived ? true : !p.archived_at))
       .filter((p) => (status ? p.status === status : true))
       .filter((p) => (q ? `${p.name} ${p.description}`.toLowerCase().includes(q) : true))
-  }, [all, query, status, showArchived])
+  }, [all, query, status])
+
+  if (gone) return <Navigate to="/general/spaces" replace />
 
   return (
     <div className="w-full">
       <DirectoryHero
-        title="Run any project"
-        accent="with your people."
-        description="School events, committees, research, outreach and anything else. You decide the fields, the teams and who holds which position."
+        title={space?.name ?? 'Space'}
+        accent={space?.archived_at ? '(archived)' : 'and everything in it.'}
+        description={
+          space?.description ||
+          'Every project in this space is visible to everyone in it. Being on a project is what decides who can change it.'
+        }
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="accent" onClick={() => setNewOpen(true)}>
@@ -109,15 +143,42 @@ export default function GeneralHome() {
               New project
             </Button>
             <Button variant="onNavy" onClick={() => setJoinOpen(true)}>
-              Join with a code
+              Join a project
             </Button>
           </div>
         }
         stats={[
           { value: projects === null ? '—' : live.length, label: 'Projects' },
+          { value: space?.member_count ?? '—', label: 'Members' },
           { value: invitations.length, label: 'Invitations' },
         ]}
       />
+
+      {spaceId && (
+        <nav className="mt-4 flex flex-wrap gap-2 text-[13px]">
+          <Link
+            to={`/general/spaces/${spaceId}/members`}
+            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-muted hover:border-line-strong hover:text-ink"
+          >
+            <Icon name="users" size={15} />
+            Members
+          </Link>
+          <Link
+            to={`/general/spaces/${spaceId}/archive`}
+            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-muted hover:border-line-strong hover:text-ink"
+          >
+            <Icon name="folder" size={15} />
+            Archive
+          </Link>
+          <Link
+            to="/general/spaces"
+            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-muted hover:border-line-strong hover:text-ink"
+          >
+            <Icon name="refresh" size={15} />
+            Switch space
+          </Link>
+        </nav>
+      )}
 
       <div className="mt-6 space-y-6">
         {error && <Alert tone="error">{error}</Alert>}
@@ -173,7 +234,7 @@ export default function GeneralHome() {
           <EmptyState
             icon="kanban"
             title="No projects yet"
-            body="Create one for anything you are running, or join one with a code somebody shared with you."
+            body="Create one for anything this space is running, or join one with a code somebody shared with you."
             action={
               <Button onClick={() => setNewOpen(true)} className="!rounded-xl">
                 New project
@@ -187,18 +248,13 @@ export default function GeneralHome() {
               <FilterPopover
                 align="right"
                 label="Filter projects"
-                active={[query.trim(), status, showArchived].filter(Boolean).length}
-                summary={[
-                  query.trim() && `“${query.trim()}”`,
-                  status && projectStatusLabel(status),
-                  showArchived && 'Including archived',
-                ]
+                active={[query.trim(), status].filter(Boolean).length}
+                summary={[query.trim() && `“${query.trim()}”`, status && projectStatusLabel(status)]
                   .filter(Boolean)
                   .join(' · ')}
                 onClear={() => {
                   setQuery('')
                   setStatus('')
-                  setShowArchived(false)
                 }}
               >
                 <FilterField label="Search">
@@ -213,14 +269,6 @@ export default function GeneralHome() {
                     className="!h-10 !text-[13px]"
                   />
                 </FilterField>
-                <label className="flex items-center gap-2 text-[13px] text-ink">
-                  <input
-                    type="checkbox"
-                    checked={showArchived}
-                    onChange={(e) => setShowArchived(e.target.checked)}
-                  />
-                  Include archived projects
-                </label>
               </FilterPopover>
             </div>
 
@@ -241,7 +289,7 @@ export default function GeneralHome() {
         )}
       </div>
 
-      <NewProjectDialog open={newOpen} onClose={() => setNewOpen(false)} />
+      <NewProjectDialog open={newOpen} onClose={() => setNewOpen(false)} spaceId={spaceId} />
       <JoinDialog open={joinOpen} onClose={() => setJoinOpen(false)} />
     </div>
   )

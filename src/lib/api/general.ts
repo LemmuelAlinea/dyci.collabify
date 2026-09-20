@@ -48,6 +48,7 @@ import type {
   GeneralTreeFile,
   RepoFile,
   ProjectInvitation,
+  SpacePerson,
 } from '../general/types'
 
 const PERSON = 'id, first_name, last_name, avatar_url'
@@ -65,6 +66,23 @@ export async function listMyGeneralProjects() {
   const { data, error } = await supabase
     .from('general_project_overview')
     .select('*')
+    .order('updated_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as GeneralProjectSummary[]
+}
+
+/**
+ * The projects in one space.
+ *
+ * Filtered in the database rather than in the page: a space member can read
+ * every project in every space they are in, so filtering here would pull all
+ * of them down to show one space's worth.
+ */
+export async function listSpaceProjects(spaceId: string) {
+  const { data, error } = await supabase
+    .from('general_project_overview')
+    .select('*')
+    .eq('space_id', spaceId)
     .order('updated_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as GeneralProjectSummary[]
@@ -92,6 +110,8 @@ export async function createGeneralProject(input: {
   endsOn: string | null
   preset?: string | null
   content?: PresetPayload | null
+  /** Which space it goes into. Left out, the database uses your own. */
+  spaceId?: string | null
 }) {
   const { data, error } = await supabase.rpc('create_general_project', {
     p_name: input.name,
@@ -100,6 +120,7 @@ export async function createGeneralProject(input: {
     p_ends_on: input.endsOn,
     p_preset: input.preset ?? null,
     p_content: input.content ?? null,
+    p_space: input.spaceId ?? null,
   })
   if (error) throw error
   return data as GeneralProject
@@ -158,6 +179,19 @@ export async function joinGeneralProject(code: string) {
 
 /* ---------------------------------------------------------------- members */
 
+/**
+ * Who is on a project.
+ *
+ * The embedded profile is what carries `status`, which the last-Owner rules
+ * need — but profiles stayed narrow when spaces widened everything else, so
+ * somebody reading this project through its space gets a null profile on every
+ * row and a list of nameless people.
+ *
+ * When that happens the names are filled in from list_general_project_members,
+ * which any reader may call and which never returns an email. Their `status`
+ * is taken as active: it is only read to decide whether a write is safe, and
+ * that reader cannot write here at all.
+ */
 export async function listGeneralMembers(projectId: string) {
   const { data, error } = await supabase
     .from('general_members')
@@ -165,7 +199,37 @@ export async function listGeneralMembers(projectId: string) {
     .eq('project_id', projectId)
     .order('joined_at')
   if (error) throw error
-  return (data ?? []) as unknown as GeneralMember[]
+  const rows = (data ?? []) as unknown as GeneralMember[]
+
+  if (!rows.some((r) => !r.profile)) return rows
+
+  const { data: named, error: namedError } = await supabase.rpc('list_general_project_members', {
+    p_project: projectId,
+  })
+  // A failure here costs names, not the page.
+  if (namedError) return rows
+
+  const byId = new Map(
+    ((named ?? []) as SpacePerson[]).map((p) => [p.user_id, p] as const),
+  )
+  return rows.map((r) =>
+    r.profile
+      ? r
+      : {
+          ...r,
+          profile: (() => {
+            const hit = byId.get(r.user_id)
+            if (!hit) return null
+            return {
+              id: hit.user_id,
+              first_name: hit.first_name,
+              last_name: hit.last_name,
+              avatar_url: hit.avatar_url,
+              status: 'active' as const,
+            }
+          })(),
+        },
+  )
 }
 
 export async function setMemberLevel(projectId: string, userId: string, level: GeneralLevel) {

@@ -38,6 +38,68 @@ export type GeneralProject = {
   updated_at: string
   /** Which preset it started from. Reporting only — it constrains nothing. */
   preset: string | null
+  /** The space that holds it. Every project has one. */
+  space_id: string
+}
+
+/**
+ * general_spaces: what holds projects.
+ *
+ * Everyone in a space reads every project in it. Writing still needs project
+ * membership, so a space is a way to see across work, not a way to edit it.
+ */
+export type GeneralSpace = {
+  id: string
+  name: string
+  description: string
+  created_by: string | null
+  archived_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** general_space_overview: one row per space the viewer can see. */
+export type GeneralSpaceSummary = GeneralSpace & {
+  /** Null while an invitation is still unanswered. */
+  my_level: GeneralLevel | null
+  member_count: number
+  /** Live projects. Archived ones are counted separately and live on their own page. */
+  project_count: number
+  archived_count: number
+}
+
+/** list_general_space_members / list_general_project_members. Never an email. */
+export type SpacePerson = {
+  user_id: string
+  first_name: string
+  last_name: string
+  avatar_url: string | null
+  level: GeneralLevel
+  joined_at: string
+}
+
+/** list_my_general_space_invitations. */
+export type MySpaceInvitation = {
+  invitation_id: string
+  space_id: string
+  space_name: string
+  space_description: string
+  inviter_id: string | null
+  inviter_first_name: string | null
+  inviter_last_name: string | null
+  inviter_avatar_url: string | null
+  created_at: string
+}
+
+/** list_general_space_invitations. */
+export type SpaceInvitation = {
+  invitation_id: string
+  invitee_id: string
+  invitee_first_name: string
+  invitee_last_name: string
+  invitee_avatar_url: string | null
+  invited_by: string | null
+  created_at: string
 }
 
 /** general_project_overview: one row per project the viewer is on. */

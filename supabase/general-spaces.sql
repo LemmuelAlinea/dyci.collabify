@@ -411,7 +411,9 @@ select p.id,
        (select count(*) from public.general_access_requests r
          where r.project_id = p.id and r.status = 'open')::int as open_request_count,
        p.preset,
-       p.has_code
+       p.has_code,
+       -- Appended last, which is the only shape `create or replace view` takes.
+       p.space_id
   from public.general_projects p
   left join public.general_members m on m.project_id = p.id and m.user_id = auth.uid()
   left join lateral (
@@ -424,6 +426,38 @@ select p.id,
   ) t on true;
 
 grant select on public.general_project_overview to authenticated;
+
+-- ---------------------------------------------------------------- the space view
+
+/*
+ * One row per space the viewer can see, with what is inside it.
+ *
+ * Left join on membership for the same reason general_project_overview uses
+ * one: somebody holding a pending invitation may read the space row, and an
+ * inner join would hand them nothing to draw a card with. my_level is null for
+ * them, and the counts come back as whatever RLS lets them read — which is
+ * zero until they accept.
+ */
+create or replace view public.general_space_overview
+with (security_invoker = true) as
+select s.id,
+       s.name,
+       s.description,
+       s.created_by,
+       s.archived_at,
+       s.created_at,
+       s.updated_at,
+       m.level as my_level,
+       (select count(*) from public.general_space_members x where x.space_id = s.id)::int
+         as member_count,
+       (select count(*) from public.general_projects p
+         where p.space_id = s.id and p.archived_at is null)::int as project_count,
+       (select count(*) from public.general_projects p
+         where p.space_id = s.id and p.archived_at is not null)::int as archived_count
+  from public.general_spaces s
+  left join public.general_space_members m on m.space_id = s.id and m.user_id = auth.uid();
+
+grant select on public.general_space_overview to authenticated;
 
 -- ---------------------------------------------------------------- RPCs: the space
 
