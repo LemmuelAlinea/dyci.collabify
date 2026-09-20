@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import { PageLoading } from '../../components/ui/PageLoading'
-import { landingSpace, useMySpaces } from '../../hooks/useSpaces'
+import { useGeneralNavigation } from '../../context/generalNavigation'
+import { landingSpace } from '../../hooks/useSpaces'
 
 /**
  * Where /general sends you.
@@ -14,7 +15,7 @@ import { landingSpace, useMySpaces } from '../../hooks/useSpaces'
  * works, and lands somewhere real.
  */
 export default function GeneralLanding() {
-  const { spaces } = useMySpaces()
+  const { spaces } = useGeneralNavigation()
 
   if (spaces === null) return <PageLoading />
 

@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Avatar } from '../../components/app/Avatar'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
+import { JoinSpaceDialog, NewSpaceDialog } from '../../components/general/SpaceDialogs'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Field, Input } from '../../components/ui/Field'
-import { Textarea } from '../../components/ui/Select'
 import { Icon, Spinner } from '../../components/ui/Icon'
-import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../components/ui/Toast'
-import { rememberSpace, useMySpaces } from '../../hooks/useSpaces'
-import { createSpace, joinSpace, respondToSpaceInvitation } from '../../lib/api/spaces'
+import { useGeneralNavigation } from '../../context/generalNavigation'
+import { rememberSpace } from '../../hooks/useSpaces'
+import { respondToSpaceInvitation } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
 import { levelLabel } from '../../lib/general/permissions'
 import type { GeneralSpaceSummary, MySpaceInvitation } from '../../lib/general/types'
@@ -26,7 +24,7 @@ import type { GeneralSpaceSummary, MySpaceInvitation } from '../../lib/general/t
  */
 export default function SpacePicker() {
   const { show } = useToast()
-  const { spaces, invitations, error, reload } = useMySpaces()
+  const { spaces, invitations, error, reload } = useGeneralNavigation()
   const [newOpen, setNewOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
   const [answering, setAnswering] = useState<string | null>(null)
@@ -159,12 +157,11 @@ export default function SpacePicker() {
         )}
       </div>
 
-      <NewSpaceDialog open={newOpen} onClose={() => setNewOpen(false)} />
-      <JoinSpaceDialog open={joinOpen} onClose={() => setJoinOpen(false)} />
+      <NewSpaceDialog open={newOpen} onClose={() => setNewOpen(false)} onCreated={reload} />
+      <JoinSpaceDialog open={joinOpen} onClose={() => setJoinOpen(false)} onJoined={reload} />
     </div>
   )
 }
-
 function SpaceCard({ space: s }: { space: GeneralSpaceSummary }) {
   return (
     <Link
@@ -197,152 +194,5 @@ function SpaceCard({ space: s }: { space: GeneralSpaceSummary }) {
         <span>You are {levelLabel(s.my_level)}</span>
       </div>
     </Link>
-  )
-}
-
-export function NewSpaceDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const navigate = useNavigate()
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setBusy(true)
-    try {
-      const space = await createSpace(name, description)
-      rememberSpace(space.id)
-      onClose()
-      setName('')
-      setDescription('')
-      navigate(`/general/spaces/${space.id}`)
-    } catch (err) {
-      setError(authErrorMessage(err, 'Could not create that space.'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Create space"
-      description="A space holds projects. Everyone you add to it can see every project inside."
-      size="sm"
-      focusField
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            form="new-general-space"
-            loading={busy}
-            disabled={name.trim().length === 0}
-          >
-            Create
-          </Button>
-        </>
-      }
-    >
-      <form id="new-general-space" onSubmit={onSubmit} className="space-y-4">
-        {error && <Alert tone="error">{error}</Alert>}
-        <Field label="Name">
-          {(id) => (
-            <Input
-              id={id}
-              required
-              maxLength={80}
-              placeholder="Student council"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          )}
-        </Field>
-        <Field label="Description" hint="Optional. What the space is for.">
-          {(id) => (
-            <Textarea
-              id={id}
-              rows={3}
-              maxLength={400}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          )}
-        </Field>
-      </form>
-    </Modal>
-  )
-}
-
-export function JoinSpaceDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const navigate = useNavigate()
-  const [code, setCode] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setBusy(true)
-    try {
-      const spaceId = await joinSpace(code)
-      rememberSpace(spaceId)
-      onClose()
-      setCode('')
-      navigate(`/general/spaces/${spaceId}`)
-    } catch (err) {
-      setError(authErrorMessage(err, 'Could not join with that code.'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Join a space"
-      description="Whoever runs the space can give you its eight-character code."
-      size="sm"
-      focusField
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            form="join-general-space"
-            loading={busy}
-            disabled={code.trim().length < 8}
-          >
-            Join
-          </Button>
-        </>
-      }
-    >
-      <form id="join-general-space" onSubmit={onSubmit} className="space-y-4">
-        {error && <Alert tone="error">{error}</Alert>}
-        <Field label="Code">
-          {(id) => (
-            <Input
-              id={id}
-              required
-              autoComplete="off"
-              maxLength={8}
-              placeholder="ABCD2345"
-              className="font-mono uppercase tracking-[0.2em]"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-            />
-          )}
-        </Field>
-      </form>
-    </Modal>
   )
 }

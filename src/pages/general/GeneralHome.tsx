@@ -14,15 +14,13 @@ import { Modal } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
 import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
+import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useLive } from '../../hooks/useLive'
 import {
   joinGeneralProject,
-  listSpaceProjects,
   listMyInvitations,
   respondToInvitation,
 } from '../../lib/api/general'
-import { getSpace } from '../../lib/api/spaces'
-import { rememberSpace } from '../../hooks/useSpaces'
 import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
 import { levelLabel } from '../../lib/general/permissions'
@@ -30,7 +28,6 @@ import { presetById } from '../../lib/general/presets'
 import { PROJECT_STATUSES, projectStatusLabel } from '../../lib/general/types'
 import type {
   GeneralProjectSummary,
-  GeneralSpaceSummary,
   GeneralStatus,
   MyInvitation,
 } from '../../lib/general/types'
@@ -52,11 +49,14 @@ export default function GeneralHome() {
   const { spaceId } = useParams<{ spaceId: string }>()
   const { profile } = useAuth()
   const { show } = useToast()
-  const [space, setSpace] = useState<GeneralSpaceSummary | null>(null)
-  const [gone, setGone] = useState(false)
-  const [projects, setProjects] = useState<GeneralProjectSummary[] | null>(null)
+  const {
+    spaces,
+    currentSpace: space,
+    projects,
+    error: navigationError,
+  } = useGeneralNavigation()
   const [invitations, setInvitations] = useState<MyInvitation[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [invitationError, setInvitationError] = useState<string | null>(null)
   const [newOpen, setNewOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
   const [answering, setAnswering] = useState<string | null>(null)
@@ -67,48 +67,28 @@ export default function GeneralHome() {
     document.title = space ? `${space.name} · Collabify` : 'General · Collabify'
   }, [space])
 
-  const load = useCallback(async () => {
-    if (!profile || !spaceId) return
+  const loadInvitations = useCallback(async () => {
+    if (!profile) return
     try {
-      const [s, p, i] = await Promise.all([
-        getSpace(spaceId),
-        listSpaceProjects(spaceId),
-        listMyInvitations(profile.id),
-      ])
-      // Null means the space is gone, or you were removed from it. Either way
-      // this page is no longer yours to read, so go back to the picker rather
-      // than sit on an empty screen.
-      if (!s) return setGone(true)
-      setSpace(s)
-      rememberSpace(s.id)
-      setProjects(p)
-      setInvitations(i)
-      setError(null)
+      setInvitations(await listMyInvitations(profile.id))
+      setInvitationError(null)
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not load this space.'))
-      setProjects((prev) => prev ?? [])
+      setInvitationError(authErrorMessage(err, 'Could not load your invitations.'))
     }
-  }, [profile, spaceId])
+  }, [profile])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    void loadInvitations()
+  }, [loadInvitations])
 
-  useLive(load, [
-    'general_projects',
-    'general_members',
-    'general_invitations',
-    'general_tasks',
-    'general_spaces',
-    'general_space_members',
-  ])
+  useLive(loadInvitations, ['general_invitations'])
 
   async function answer(inv: MyInvitation, accept: boolean) {
     setAnswering(inv.id)
     try {
       await respondToInvitation(inv.id, accept)
       show(accept ? `You joined ${inv.project?.name ?? 'the project'}` : 'Invitation declined')
-      await load()
+      await loadInvitations()
     } catch (err) {
       show(authErrorMessage(err, 'Could not answer that invitation.'), 'error')
     } finally {
@@ -125,7 +105,11 @@ export default function GeneralHome() {
       .filter((p) => (q ? `${p.name} ${p.description}`.toLowerCase().includes(q) : true))
   }, [all, query, status])
 
-  if (gone) return <Navigate to="/general/spaces" replace />
+  if (spaceId && spaces !== null && !space) {
+    return <Navigate to="/general/spaces" replace />
+  }
+
+  const error = navigationError ?? invitationError
 
   return (
     <div className="w-full">
@@ -136,7 +120,7 @@ export default function GeneralHome() {
           space?.description ||
           'Every project in this space is visible to everyone in it. Being on a project is what decides who can change it.'
         }
-        action={
+        action={!space?.archived_at ? (
           <div className="flex flex-wrap gap-2">
             <Button variant="accent" onClick={() => setNewOpen(true)}>
               <Icon name="plus" size={17} />
@@ -146,7 +130,7 @@ export default function GeneralHome() {
               Join a project
             </Button>
           </div>
-        }
+        ) : undefined}
         stats={[
           { value: projects === null ? '—' : live.length, label: 'Projects' },
           { value: space?.member_count ?? '—', label: 'Members' },

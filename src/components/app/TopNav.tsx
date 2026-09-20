@@ -1,157 +1,30 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+import { ROLE_LABEL, fullName } from '../../lib/types'
+import { homeFor, workplaceOf } from '../../lib/workplace'
 import { Logo } from '../brand/Logo'
-import { Icon } from '../ui/Icon'
 import { ThemeToggle } from '../ThemeToggle'
+import { Icon } from '../ui/Icon'
 import { Avatar } from './Avatar'
 import { NotificationBell } from './NotificationBell'
-import { WorkplaceSwitcher } from './WorkplaceSwitcher'
-import { navForWorkplace } from './nav'
-import type { NavGroup, NavItem } from './nav'
-import { useAuth } from '../../context/AuthContext'
-import { useUnreadTotal } from '../../hooks/useConversations'
-import { homeFor, workplaceOf } from '../../lib/workplace'
-import { ROLE_LABEL, fullName } from '../../lib/types'
 
-/**
- * Navigation across the top instead of down the side.
- *
- * Two rows, and they hold different kinds of thing. The upper one is the
- * product and the person: who you are, what has arrived, how it looks. The
- * lower one is where you can go. Keeping them apart is what lets the second row
- * be read as a single list rather than as whatever is left after the utilities.
- *
- * **Not every destination fits a row, and pretending otherwise is the trap.**
- * A professor has thirteen. So the first group — the spine of the product, the
- * four pages the work actually happens on — sits inline, and the rest fold into
- * one menu that keeps their existing group headings. That is a real hierarchy
- * the rail never had to state, because a rail has room to be flat.
- *
- * Messages moves up to the utilities beside the bell. It carries an unread
- * count, and a count nobody can see until they open a menu is not a count.
- */
-
-/** Closes on a click outside or Escape — the two ways anyone dismisses a menu. */
 function useDismiss(open: boolean, close: () => void) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
-    const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) close()
+    const onDown = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) close()
     }
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close()
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && close()
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open, close])
+  }, [close, open])
   return ref
-}
-
-const TAB =
-  'relative flex shrink-0 items-center gap-2 border-b-2 px-1 py-3 text-[14px] transition-colors duration-150'
-
-function tabClass(on: boolean) {
-  return `${TAB} ${
-    on
-      ? 'border-amber-400 font-semibold text-amber-50'
-      : 'border-transparent text-amber-50/58 hover:text-amber-50'
-  }`
-}
-
-/**
- * One group of the navigation, as a menu in the bar.
- *
- * Everything past the first group used to live behind a single "More", which
- * meant Analytics and Reports and Syllabi were all the same distance away and
- * none of them was named until you opened it. Each group is its own button
- * now — Insights, Course documents, People — so the bar says what the product
- * contains before anybody presses anything, and a group's two or three pages
- * are one press apart rather than two.
- *
- * `openMenu` is held by the bar rather than by each menu, because only one may
- * be open: two dropdowns overlapping is how a nav stops looking like a nav.
- */
-function GroupMenu({
-  title,
-  items,
-  open,
-  onToggle,
-}: {
-  title: string
-  items: NavItem[]
-  open: boolean
-  onToggle: (open: boolean) => void
-}) {
-  const ref = useDismiss(open, () => onToggle(false))
-  const location = useLocation()
-
-  // Shut on navigation. Without this the menu stays open over the page it just
-  // sent you to, which reads as the link not having worked.
-  useEffect(() => onToggle(false), [location.pathname]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const here = items.some((i) => i.to && location.pathname.startsWith(i.to))
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => onToggle(!open)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        className={tabClass(here)}
-      >
-        {title}
-        <Icon
-          name="chevronDown"
-          size={15}
-          className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-
-      {open && (
-        <div
-          role="menu"
-          className="surface absolute left-0 z-50 mt-1 w-[236px] overflow-hidden rounded-xl border border-line py-1.5 shadow-lift"
-        >
-          {items.map((item) =>
-            item.to ? (
-              <NavLink
-                key={item.label}
-                to={item.to}
-                role="menuitem"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-2.5 text-[14px] transition-colors ${
-                    isActive
-                      ? 'bg-[var(--surface-sunken)] font-semibold text-ink'
-                      : 'text-ink hover:bg-[var(--surface-sunken)]'
-                  }`
-                }
-              >
-                <Icon name={item.icon} size={17} className="text-muted" />
-                {item.label}
-              </NavLink>
-            ) : (
-              <span
-                key={item.label}
-                aria-disabled
-                title="Coming in the next release"
-                className="flex cursor-not-allowed items-center gap-3 px-4 py-2.5 text-[14px] text-faint"
-              >
-                <Icon name={item.icon} size={17} />
-                <span className="flex-1">{item.label}</span>
-                <span className="rounded-full border border-line px-1.5 py-0.5 text-[12px]">
-                  Soon
-                </span>
-              </span>
-            ),
-          )}
-        </div>
-      )}
-    </div>
-  )
 }
 
 function AccountMenu() {
@@ -165,7 +38,7 @@ function AccountMenu() {
     <div className="relative" ref={ref}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="menu"
         className="flex items-center gap-2 rounded-full py-1 pr-1.5 pl-1 text-amber-50 transition-colors hover:bg-white/8"
@@ -202,7 +75,7 @@ function AccountMenu() {
             type="button"
             role="menuitem"
             onClick={signOut}
-            className="flex w-full items-center gap-3 border-t border-line px-4 py-3 text-left text-[14px] text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+            className="flex w-full items-center gap-3 border-t border-line px-4 py-3 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
           >
             <Icon name="logout" size={17} />
             Sign out
@@ -213,59 +86,21 @@ function AccountMenu() {
   )
 }
 
-/** The unread count, promoted out of the navigation list into the utilities. */
-function MessagesButton({ item }: { item: NavItem }) {
-  const { profile } = useAuth()
-  const unread = useUnreadTotal(profile?.id)
-  if (!item.to) return null
-
-  return (
-    <NavLink
-      to={item.to}
-      aria-label={unread > 0 ? `Messages, ${unread} unread` : 'Messages'}
-      className={({ isActive }) =>
-        `relative grid h-9 w-9 place-items-center rounded-lg transition-colors ${
-          isActive
-            ? 'bg-white/10 text-amber-50'
-            : 'text-amber-50/58 hover:bg-white/8 hover:text-amber-50'
-        }`
-      }
-    >
-      <Icon name={item.icon} size={19} />
-      {unread > 0 && (
-        <span className="absolute top-0.5 right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-amber-400 px-1 font-mono text-[12px] font-bold text-navy-900">
-          {unread > 9 ? '9+' : unread}
-        </span>
-      )}
-    </NavLink>
-  )
-}
-
 export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   const { profile } = useAuth()
   const location = useLocation()
-
-  /**
-   * The bar's own height, published as `--app-bar`.
-   *
-   * `Modal` reads it to keep a dialog below the bar rather than over it. A
-   * literal would have to be two literals — the nav row is hidden below `lg`,
-   * so the bar is 58px on a phone and 105px on a laptop — and a third the next
-   * time a row is added. Measuring is exact and stays exact.
-   */
   const bar = useRef<HTMLElement>(null)
+
   useEffect(() => {
-    const el = bar.current
-    if (!el) return
+    const element = bar.current
+    if (!element) return
     const write = () =>
-      document.documentElement.style.setProperty('--app-bar', `${Math.round(el.offsetHeight)}px`)
+      document.documentElement.style.setProperty('--app-bar', `${Math.round(element.offsetHeight)}px`)
     write()
-    const ro = new ResizeObserver(write)
-    ro.observe(el)
+    const observer = new ResizeObserver(write)
+    observer.observe(element)
     return () => {
-      ro.disconnect()
-      // The landing page has no app bar; leaving a stale height behind would
-      // inset a dialog against something that is no longer on screen.
+      observer.disconnect()
       document.documentElement.style.removeProperty('--app-bar')
     }
   }, [])
@@ -273,133 +108,36 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   if (!profile) return null
 
   const workplace = workplaceOf(location.pathname, profile.home_workplace)
-  const groups = navForWorkplace(workplace, profile.status === 'active' ? profile.role : null)
-  // Settings is reachable from the account menu, and Messages from the bell
-  // row. Leaving either in the list as well would be two places to press for
-  // one destination, which is how a menu stops being trustworthy.
-  const messages = groups.flatMap((g) => g.items).find((i) => i.badge === 'messages')
-
-  // The first group is the spine of the product — the pages work happens on —
-  // and stays inline, one press each. Everything after it keeps its own name in
-  // the bar and opens to its own pages.
-  //
-  // A group left holding a single page becomes that page's link instead of a
-  // menu: "Your record" opening to nothing but Reports is a door in front of a
-  // door, and the label the reader wants is the one on the far side of it.
-  const spine = groups[0].items.filter((i) => i.badge !== 'messages')
-  const rest = groups
-    .slice(1)
-    .filter((g) => g.title !== 'Account')
-    .map((g) => ({ ...g, items: g.items.filter((i) => i.badge !== 'messages') }))
-    .filter((g) => g.items.length > 0)
 
   return (
     <header
       ref={bar}
-      className="blueprint sticky top-0 z-40 border-b border-white/10 bg-[#050718] text-amber-50"
+      className="blueprint sticky top-0 z-40 border-b border-white/10 bg-navy-950 text-amber-50"
     >
-      {/* Matches main's gutters exactly, so the logo and the page title below it
-          sit on the same line down the screen. */}
-      <div className="w-full px-4 sm:px-6 md:px-8 xl:px-12 2xl:px-20">
-        {/* Who you are, what arrived, how it looks. */}
-        <div className="flex h-[58px] items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={onOpenDrawer}
-              aria-label="Open navigation"
-              className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-[var(--surface-sunken)] lg:hidden"
-            >
-              <Icon name="menu" size={20} />
-            </button>
-            <Link
-              to={workplace === 'general' ? '/general' : homeFor(profile)}
-              aria-label="Go to your dashboard"
-            >
-              <Logo size={28} tone="onDark" showSubtitle={false} />
-            </Link>
-            <div className="ml-2 hidden sm:block">
-              <WorkplaceSwitcher />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-0.5 sm:gap-1">
-            {messages && <MessagesButton item={messages} />}
-            <NotificationBell tone="onNavy" />
-            <ThemeToggle tone="onNavy" />
-            <AccountMenu />
-          </div>
+      <div className="flex h-[58px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onOpenDrawer}
+            aria-label="Open navigation"
+            className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-amber-50/65 hover:bg-white/8 hover:text-amber-50 lg:hidden"
+          >
+            <Icon name="menu" size={20} />
+          </button>
+          <Link
+            to={workplace === 'general' ? '/general' : homeFor(profile)}
+            aria-label="Go to your dashboard"
+          >
+            <Logo size={28} tone="onDark" showSubtitle={false} />
+          </Link>
         </div>
 
-        {/* Where you can go.
-            The More menu sits OUTSIDE the scrolling strip, and that is not a
-            layout preference. `overflow-x: auto` forces the other axis to
-            `auto` as well, so a row that scrolls sideways also clips
-            everything that hangs below it — the dropdown opened, was cut off
-            at the height of the row, and could not even be clicked. Measured,
-            not guessed: a hit test at the middle of the open menu found
-            nothing there. */}
-        <SectionsNav spine={spine} rest={rest} />
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <NotificationBell tone="onNavy" />
+          <ThemeToggle tone="onNavy" />
+          <AccountMenu />
+        </div>
       </div>
     </header>
-  )
-}
-
-/**
- * The row of destinations. Its own component so it can be rendered — and its
- * width measured against a real viewport — without a signed-in session, which
- * is the only way this row has ever been checked.
- */
-export function SectionsNav({ spine, rest }: { spine: NavItem[]; rest: NavGroup[] }) {
-  // Only one menu open at a time: two dropdowns overlapping is how a nav stops
-  // looking like a nav.
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
-
-  return (
-    <>
-        {/* No `overflow-x-auto` anywhere on this row. It forces the other axis
-            to `auto` as well, which clips every dropdown hanging below it —
-            that is what stopped the old menu opening at all. The row is sized
-            to fit instead. */}
-        <nav
-          aria-label="Sections"
-          className="-mb-px hidden items-center gap-5 lg:flex xl:gap-6"
-        >
-          {spine.map((item) =>
-            item.to ? (
-              <NavLink
-                key={item.label}
-                to={item.to}
-                end={item.to.split('/').filter(Boolean).length < 2}
-                className={({ isActive }) => tabClass(isActive)}
-              >
-                <Icon name={item.icon} size={17} />
-                {item.label}
-              </NavLink>
-            ) : null,
-          )}
-
-          {rest.map((g) =>
-            g.items.length === 1 && g.items[0].to ? (
-              <NavLink
-                key={g.title}
-                to={g.items[0].to}
-                className={({ isActive }) => tabClass(isActive)}
-              >
-                <Icon name={g.items[0].icon} size={17} />
-                {g.items[0].label}
-              </NavLink>
-            ) : (
-              <GroupMenu
-                key={g.title}
-                title={g.title}
-                items={g.items}
-                open={openMenu === g.title}
-                onToggle={(next) => setOpenMenu(next ? g.title : null)}
-              />
-            ),
-          )}
-        </nav>
-    </>
   )
 }

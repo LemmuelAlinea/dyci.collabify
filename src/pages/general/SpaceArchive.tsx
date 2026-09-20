@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
@@ -6,13 +6,11 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Icon, Spinner } from '../../components/ui/Icon'
 import { useToast } from '../../components/ui/Toast'
-import { useLive } from '../../hooks/useLive'
-import { archiveGeneralProject, listSpaceProjects } from '../../lib/api/general'
-import { getSpace } from '../../lib/api/spaces'
-import { authErrorMessage } from '../../lib/authError'
+import { useGeneralNavigation } from '../../context/generalNavigation'
+import { archiveGeneralProject } from '../../lib/api/general'
 import { dateRange } from '../../lib/general/dates'
 import { presetById } from '../../lib/general/presets'
-import type { GeneralProjectSummary, GeneralSpaceSummary } from '../../lib/general/types'
+import type { GeneralProjectSummary } from '../../lib/general/types'
 
 /**
  * The archived projects in one space.
@@ -27,35 +25,12 @@ import type { GeneralProjectSummary, GeneralSpaceSummary } from '../../lib/gener
 export default function SpaceArchive() {
   const { spaceId } = useParams<{ spaceId: string }>()
   const { show } = useToast()
-  const [space, setSpace] = useState<GeneralSpaceSummary | null>(null)
-  const [gone, setGone] = useState(false)
-  const [projects, setProjects] = useState<GeneralProjectSummary[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { spaces, currentSpace: space, projects, error, reload } = useGeneralNavigation()
   const [restoring, setRestoring] = useState<GeneralProjectSummary | null>(null)
 
   useEffect(() => {
     document.title = space ? `Archive · ${space.name} · Collabify` : 'Archive · Collabify'
   }, [space])
-
-  const load = useCallback(async () => {
-    if (!spaceId) return
-    try {
-      const [s, p] = await Promise.all([getSpace(spaceId), listSpaceProjects(spaceId)])
-      if (!s) return setGone(true)
-      setSpace(s)
-      setProjects(p)
-      setError(null)
-    } catch (err) {
-      setError(authErrorMessage(err, 'Could not load the archive.'))
-      setProjects((prev) => prev ?? [])
-    }
-  }, [spaceId])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  useLive(load, ['general_projects', 'general_members'])
 
   const archived = useMemo(
     () => (projects ?? []).filter((p) => p.archived_at),
@@ -66,10 +41,12 @@ export default function SpaceArchive() {
     if (!restoring) return
     await archiveGeneralProject(restoring.id, false)
     show(`${restoring.name} is back in ${space?.name ?? 'the space'}`)
-    await load()
+    await reload()
   }
 
-  if (gone) return <Navigate to="/general/spaces" replace />
+  if (spaceId && spaces !== null && !space) {
+    return <Navigate to="/general/spaces" replace />
+  }
 
   return (
     <div className="w-full">

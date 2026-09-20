@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { listMySpaceInvitations, listMySpaces } from '../lib/api/spaces'
 import { authErrorMessage } from '../lib/authError'
+import { chooseLandingSpace } from '../lib/general/navigation'
 import type { GeneralSpaceSummary, MySpaceInvitation } from '../lib/general/types'
 
 const KEY = 'collabify:last-space'
@@ -32,7 +33,7 @@ export function forgetSpace() {
   }
 }
 
-function remembered(): string | null {
+export function rememberedSpace(): string | null {
   try {
     return localStorage.getItem(KEY)
   } catch {
@@ -48,11 +49,7 @@ function remembered(): string | null {
  * when there are several would be guessing.
  */
 export function landingSpace(spaces: GeneralSpaceSummary[]): string | null {
-  const live = spaces.filter((s) => !s.archived_at && s.my_level)
-  const last = remembered()
-  if (last && live.some((s) => s.id === last)) return last
-  if (live.length === 1) return live[0].id
-  return null
+  return chooseLandingSpace(spaces, rememberedSpace())
 }
 
 export type SpacesState = {
@@ -62,7 +59,7 @@ export type SpacesState = {
   reload: () => Promise<void>
 }
 
-export function useMySpaces(): SpacesState {
+export function useMySpaces(enabled = true): SpacesState {
   const [spaces, setSpaces] = useState<GeneralSpaceSummary[] | null>(null)
   const [invitations, setInvitations] = useState<MySpaceInvitation[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -80,8 +77,8 @@ export function useMySpaces(): SpacesState {
   }, [])
 
   useEffect(() => {
-    void reload()
-  }, [reload])
+    if (enabled) void reload()
+  }, [enabled, reload])
 
   return { spaces, invitations, error, reload }
 }

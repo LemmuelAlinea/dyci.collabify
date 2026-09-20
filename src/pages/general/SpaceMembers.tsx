@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Avatar } from '../../components/app/Avatar'
+import { EditSpaceDialog } from '../../components/general/SpaceDialogs'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
@@ -11,11 +12,12 @@ import { Modal } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
 import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
+import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useLive } from '../../hooks/useLive'
 import { forgetSpace } from '../../hooks/useSpaces'
 import { searchPeople } from '../../lib/api/general'
 import {
-  getSpace,
+  archiveSpace,
   inviteToSpace,
   listSpaceInvitations,
   listSpaceMembers,
@@ -28,7 +30,6 @@ import { authErrorMessage } from '../../lib/authError'
 import { LEVELS, levelLabel } from '../../lib/general/permissions'
 import type { GeneralLevel } from '../../lib/general/permissions'
 import type {
-  GeneralSpaceSummary,
   PersonHit,
   SpaceInvitation,
   SpacePerson,
@@ -47,42 +48,49 @@ export default function SpaceMembers() {
   const { profile } = useAuth()
   const { show } = useToast()
   const navigate = useNavigate()
+  const {
+    spaces,
+    currentSpace: space,
+    error: navigationError,
+    reload: reloadNavigation,
+  } = useGeneralNavigation()
 
-  const [space, setSpace] = useState<GeneralSpaceSummary | null>(null)
-  const [gone, setGone] = useState(false)
   const [members, setMembers] = useState<SpacePerson[] | null>(null)
   const [invites, setInvites] = useState<SpaceInvitation[]>([])
   const [code, setCode] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [pageError, setPageError] = useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
   const [removing, setRemoving] = useState<SpacePerson | null>(null)
   const [leaving, setLeaving] = useState(false)
 
-  const canInvite = space?.my_level === 'owner' || space?.my_level === 'manager'
+  const archived = Boolean(space?.archived_at)
+  const canInvite = !archived && (space?.my_level === 'owner' || space?.my_level === 'manager')
   const isOwner = space?.my_level === 'owner'
+  const canManageLevels = isOwner && !archived
 
   useEffect(() => {
     document.title = space ? `Members · ${space.name} · Collabify` : 'Members · Collabify'
   }, [space])
 
   const load = useCallback(async () => {
-    if (!spaceId) return
+    if (!spaceId || !space) return
     try {
-      const s = await getSpace(spaceId)
-      if (!s) return setGone(true)
-      setSpace(s)
       setMembers(await listSpaceMembers(spaceId))
       // Only somebody who may invite can read either of these, so they are
       // asked for separately and their refusal is not the page's failure.
-      if (s.my_level === 'owner' || s.my_level === 'manager') {
+      if (!space.archived_at && (space.my_level === 'owner' || space.my_level === 'manager')) {
         setInvites(await listSpaceInvitations(spaceId))
+      } else {
+        setInvites([])
       }
-      setError(null)
+      setPageError(null)
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not load this space.'))
+      setPageError(authErrorMessage(err, 'Could not load this space.'))
       setMembers((prev) => prev ?? [])
     }
-  }, [spaceId])
+  }, [space, spaceId])
 
   useEffect(() => {
     void load()
@@ -105,7 +113,7 @@ export default function SpaceMembers() {
     try {
       await setSpaceLevel(spaceId, person.user_id, level)
       show(`${person.first_name} is now ${levelLabel(level)}`)
-      await load()
+      await Promise.all([load(), reloadNavigation()])
     } catch (err) {
       show(authErrorMessage(err, 'Could not change that level.'), 'error')
     }
@@ -115,18 +123,23 @@ export default function SpaceMembers() {
     if (!spaceId || !removing) return
     await removeSpaceMember(spaceId, removing.user_id)
     show(`${removing.first_name} is no longer in this space`)
-    await load()
+    await Promise.all([load(), reloadNavigation()])
   }
 
   async function leave() {
     if (!spaceId || !profile) return
     await removeSpaceMember(spaceId, profile.id)
     forgetSpace()
+    await reloadNavigation()
     show('You left the space')
     navigate('/general/spaces', { replace: true })
   }
 
-  if (gone) return <Navigate to="/general/spaces" replace />
+  if (spaceId && spaces !== null && !space) {
+    return <Navigate to="/general/spaces" replace />
+  }
+
+  const error = navigationError ?? pageError
 
   return (
     <div className="w-full">
@@ -155,11 +168,24 @@ export default function SpaceMembers() {
               Invite
             </Button>
           )}
+          {isOwner && !archived && (
+            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+              <Icon name="edit" size={15} />
+              Edit space
+            </Button>
+          )}
         </div>
       </header>
 
       <div className="mt-6 space-y-6">
         {error && <Alert tone="error">{error}</Alert>}
+
+        {archived && (
+          <Alert tone="info">
+            This space is archived. Its projects stay readable, but nothing in the space can
+            change until an Owner restores it.
+          </Alert>
+        )}
 
         {canInvite && (
           <section className="rounded-panel border border-line p-4 sm:p-5">
@@ -259,7 +285,7 @@ export default function SpaceMembers() {
                     {m.first_name} {m.last_name}
                     {m.user_id === profile?.id && <span className="text-faint"> · you</span>}
                   </span>
-                  {isOwner && m.user_id !== profile?.id ? (
+                  {canManageLevels && m.user_id !== profile?.id ? (
                     <Select
                       value={m.level}
                       options={LEVELS}
@@ -289,6 +315,25 @@ export default function SpaceMembers() {
             Leave
           </Button>
         </section>
+
+        {isOwner && (
+          <section className="rounded-panel border border-line p-4 sm:p-5">
+            <h2 className="text-[15px]">Space archive</h2>
+            <p className="mt-1 text-[13px] text-muted">
+              {archived
+                ? 'Restore this space to allow changes and new projects again.'
+                : 'Archiving keeps every project and makes the whole space read-only.'}
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-3"
+              onClick={() => setArchiveOpen(true)}
+            >
+              {archived ? 'Restore space' : 'Archive space'}
+            </Button>
+          </section>
+        )}
       </div>
 
       <InviteDialog
@@ -314,6 +359,34 @@ export default function SpaceMembers() {
         title="Leave this space?"
         body="You stop seeing the projects in it. Any project here you are on stays yours."
         confirmLabel="Leave"
+      />
+
+      {space && (
+        <EditSpaceDialog
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          space={space}
+          onSaved={reloadNavigation}
+        />
+      )}
+
+      <ConfirmDialog
+        open={archiveOpen}
+        onClose={() => setArchiveOpen(false)}
+        onConfirm={async () => {
+          if (!space) return
+          await archiveSpace(space.id, !archived)
+          show(archived ? 'Space restored' : 'Space archived')
+          await reloadNavigation()
+        }}
+        title={archived ? 'Restore this space?' : 'Archive this space?'}
+        body={
+          archived
+            ? 'Projects return to normal and members can make changes again.'
+            : 'Every project stays readable, but no member can change the space until an Owner restores it.'
+        }
+        confirmLabel={archived ? 'Restore space' : 'Archive space'}
+        tone="primary"
       />
     </div>
   )
