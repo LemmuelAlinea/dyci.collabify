@@ -130,7 +130,10 @@ export function AppShell() {
                   transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
                 >
                   <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-white/10 bg-navy-950 px-4 text-amber-50">
-                    <Link to={homeFor(profile)} aria-label="Go to your dashboard">
+                    <Link
+                      to={workplace === 'general' ? '/general' : homeFor(profile)}
+                      aria-label="Go to your dashboard"
+                    >
                       <Logo size={26} tone="onDark" showSubtitle={false} />
                     </Link>
                     <button
