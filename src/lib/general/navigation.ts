@@ -11,7 +11,8 @@ export function generalTab(params: URLSearchParams): GeneralTabId {
 }
 
 export function spaceRouteId(pathname: string): string | null {
-  return /^\/general\/spaces\/([^/]+)/.exec(pathname)?.[1] ?? null
+  const id = /^\/general\/spaces\/([^/]+)/.exec(pathname)?.[1] ?? null
+  return id === 'archive' ? null : id
 }
 
 export function projectRouteId(pathname: string): string | null {

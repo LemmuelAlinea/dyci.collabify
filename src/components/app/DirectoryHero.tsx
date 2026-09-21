@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
 
 type HeroStat = {
   value: string | number
@@ -20,6 +21,11 @@ export function DirectoryHero({
   stats: HeroStat[]
   statsVariant?: 'default' | 'compact-row'
 }) {
+  const { pathname } = useLocation()
+  const hideEducationStats =
+    /^\/(student|professor|admin)\//.test(pathname)
+  const showStats = stats.length > 0 && !hideEducationStats
+
   return (
     <section className="relative overflow-hidden rounded-panel border border-amber-50/10 bg-navy-950 px-4 py-5 text-amber-50 sm:px-7 sm:py-8 lg:px-9 lg:py-9">
       <div
@@ -51,43 +57,45 @@ export function DirectoryHero({
         {action && <div className="directory-hero__action lg:pb-1">{action}</div>}
       </div>
 
-      <dl
-        className={`relative mt-5 grid gap-px overflow-hidden rounded-xl border border-amber-50/12 bg-amber-50/12 sm:mt-7 ${
-          statsVariant === 'compact-row'
-            ? 'w-full grid-cols-4 sm:w-fit'
-            : 'w-fit min-w-[224px] grid-cols-2 sm:min-w-[360px]'
-        }`}
-      >
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className={`min-w-0 bg-navy-950/80 ${
-              statsVariant === 'compact-row'
-                ? 'px-1.5 py-2 sm:min-w-[120px] sm:px-3 sm:py-2.5'
-                : 'px-2.5 py-2 sm:min-w-[180px] sm:px-4 sm:py-3.5'
-            }`}
-          >
-            <dt
-              className={`truncate text-amber-50/50 ${
+      {showStats && (
+        <dl
+          className={`relative mt-5 grid gap-px overflow-hidden rounded-xl border border-amber-50/12 bg-amber-50/12 sm:mt-7 ${
+            statsVariant === 'compact-row'
+              ? 'w-full grid-cols-4 sm:w-fit'
+              : 'w-fit min-w-[224px] grid-cols-2 sm:min-w-[360px]'
+          }`}
+        >
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className={`min-w-0 bg-navy-950/80 ${
                 statsVariant === 'compact-row'
-                  ? 'text-[8px] sm:text-[11px]'
-                  : 'text-[10px] sm:text-[12px]'
+                  ? 'px-1.5 py-2 sm:min-w-[120px] sm:px-3 sm:py-2.5'
+                  : 'px-2.5 py-2 sm:min-w-[180px] sm:px-4 sm:py-3.5'
               }`}
             >
-              {stat.label}
-            </dt>
-            <dd
-              className={`mt-0.5 font-mono font-bold tabular-nums text-amber-50 sm:mt-1 ${
-                statsVariant === 'compact-row'
-                  ? 'text-[14px] sm:text-[19px]'
-                  : 'text-[17px] sm:text-[22px]'
-              }`}
-            >
-              {stat.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
+              <dt
+                className={`truncate text-amber-50/50 ${
+                  statsVariant === 'compact-row'
+                    ? 'text-[8px] sm:text-[11px]'
+                    : 'text-[10px] sm:text-[12px]'
+                }`}
+              >
+                {stat.label}
+              </dt>
+              <dd
+                className={`mt-0.5 font-mono font-bold tabular-nums text-amber-50 sm:mt-1 ${
+                  statsVariant === 'compact-row'
+                    ? 'text-[14px] sm:text-[19px]'
+                    : 'text-[17px] sm:text-[22px]'
+                }`}
+              >
+                {stat.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
     </section>
   )
 }

@@ -6,7 +6,7 @@
  * still goes through project membership, so nothing here grants edit rights to
  * anything — see can_read_general_project in supabase/general-spaces.sql.
  *
- * Membership, levels, invitations, join codes and archiving go through RPCs:
+ * Membership, levels, invitations, join codes, archiving and deletion go through RPCs:
  * general_spaces has no write policy at all, so there is no path that could set
  * created_by or archived_at directly.
  *
@@ -66,8 +66,7 @@ export async function updateSpace(spaceId: string, name: string, description: st
 }
 
 /**
- * Archiving, never deleting. general_projects.space_id cascades, so dropping a
- * space would take every project inside it and everything inside those.
+ * Archive keeps everything readable. Delete is owner-only and permanent.
  */
 export async function archiveSpace(spaceId: string, archived: boolean) {
   const { data, error } = await supabase.rpc('archive_general_space', {
@@ -76,6 +75,11 @@ export async function archiveSpace(spaceId: string, archived: boolean) {
   })
   if (error) throw error
   return data as GeneralSpace
+}
+
+export async function deleteSpace(spaceId: string) {
+  const { error } = await supabase.rpc('delete_general_space', { p_space: spaceId })
+  if (error) throw error
 }
 
 /* ---------------------------------------------------------------- joining */

@@ -21,7 +21,10 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
         ? '/general/messages'
         : '/student/messages'
 
-  const { conversations, error, reload } = useConversations(profile?.id)
+  const { conversations, error, reload } = useConversations(
+    profile?.id,
+    role === 'general' ? 'general' : 'education',
+  )
   const [newOpen, setNewOpen] = useState(false)
 
   useEffect(() => {

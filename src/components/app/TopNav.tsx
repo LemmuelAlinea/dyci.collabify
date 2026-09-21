@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { ROLE_LABEL, fullName } from '../../lib/types'
-import { homeFor, workplaceOf } from '../../lib/workplace'
-import { Logo } from '../brand/Logo'
+import { workplaceOf } from '../../lib/workplace'
 import { ThemeToggle } from '../ThemeToggle'
 import { Icon } from '../ui/Icon'
 import { Avatar } from './Avatar'
 import { NotificationBell } from './NotificationBell'
+import { WorkspaceSearch } from './WorkspaceSearch'
 
 function useDismiss(open: boolean, close: () => void) {
   const ref = useRef<HTMLDivElement>(null)
@@ -41,13 +41,13 @@ function AccountMenu() {
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2 rounded-full py-1 pr-1.5 pl-1 text-amber-50 transition-colors hover:bg-white/8"
+        className="flex items-center gap-2 rounded-full py-1 pr-1.5 pl-1 text-ink transition-colors hover:bg-[var(--surface-sunken)]"
       >
         <Avatar profile={profile} size={30} />
-        <span className="hidden max-w-[130px] truncate text-[13px] font-medium text-amber-50/85 lg:block">
+        <span className="hidden max-w-[130px] truncate text-[13px] font-medium text-muted lg:block">
           {profile.first_name}
         </span>
-        <Icon name="chevronDown" size={15} className="hidden text-amber-50/42 lg:block" />
+        <Icon name="chevronDown" size={15} className="hidden text-faint lg:block" />
       </button>
 
       {open && (
@@ -89,6 +89,7 @@ function AccountMenu() {
 export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   const { profile } = useAuth()
   const location = useLocation()
+  const workplace = workplaceOf(location.pathname, profile?.home_workplace ?? 'education')
   const bar = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -107,34 +108,28 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
 
   if (!profile) return null
 
-  const workplace = workplaceOf(location.pathname, profile.home_workplace)
-
   return (
     <header
       ref={bar}
-      className="blueprint sticky top-0 z-40 border-b border-white/10 bg-navy-950 text-amber-50"
+      className="sticky top-0 z-40 bg-[var(--page)]"
     >
-      <div className="flex h-[58px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
-        <div className="flex min-w-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={onOpenDrawer}
-            aria-label="Open navigation"
-            className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-amber-50/65 hover:bg-white/8 hover:text-amber-50 lg:hidden"
-          >
-            <Icon name="menu" size={20} />
-          </button>
-          <Link
-            to={workplace === 'general' ? '/general' : homeFor(profile)}
-            aria-label="Go to your dashboard"
-          >
-            <Logo size={28} tone="onDark" showSubtitle={false} />
-          </Link>
+      <div className="flex h-[52px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+        <button
+          type="button"
+          onClick={onOpenDrawer}
+          aria-label="Open navigation"
+          className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-[var(--surface-sunken)] hover:text-ink lg:hidden"
+        >
+          <Icon name="menu" size={20} />
+        </button>
+
+        <div className="translate-y-2">
+          <WorkspaceSearch workplace={workplace} />
         </div>
 
         <div className="flex items-center gap-0.5 sm:gap-1">
-          <NotificationBell tone="onNavy" />
-          <ThemeToggle tone="onNavy" />
+          <NotificationBell />
+          <ThemeToggle />
           <AccountMenu />
         </div>
       </div>

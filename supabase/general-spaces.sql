@@ -513,11 +513,6 @@ begin
 end;
 $$;
 
-/**
- * Archiving, never deleting. general_projects.space_id cascades, so dropping a
- * space would drop every project inside it and everything inside those —
- * tasks, files, commits, history. There is deliberately no delete RPC.
- */
 create or replace function public.archive_general_space(
   p_space    uuid,
   p_archived boolean
@@ -535,6 +530,22 @@ begin
    where id = p_space
   returning * into s;
   return s;
+end;
+$$;
+
+create or replace function public.delete_general_space(
+  p_space uuid
+) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_general_space_owner(p_space) then
+    raise exception 'Only an Owner deletes a space' using errcode = 'insufficient_privilege';
+  end if;
+
+  delete from public.general_spaces where id = p_space;
+  if not found then
+    raise exception 'Space not found' using errcode = 'no_data_found';
+  end if;
 end;
 $$;
 
@@ -1120,6 +1131,7 @@ begin
     'create_general_space(text, text)',
     'update_general_space(uuid, text, text)',
     'archive_general_space(uuid, boolean)',
+    'delete_general_space(uuid)',
     'set_general_space_join_code(uuid, boolean, boolean)',
     'join_general_space(text)',
     'invite_to_general_space(uuid, uuid)',

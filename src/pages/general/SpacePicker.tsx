@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Avatar } from '../../components/app/Avatar'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { JoinSpaceDialog, NewSpaceDialog } from '../../components/general/SpaceDialogs'
@@ -24,6 +24,7 @@ import type { GeneralSpaceSummary, MySpaceInvitation } from '../../lib/general/t
  */
 export default function SpacePicker() {
   const { show } = useToast()
+  const location = useLocation()
   const { spaces, invitations, error, reload } = useGeneralNavigation()
   const [newOpen, setNewOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
@@ -48,14 +49,21 @@ export default function SpacePicker() {
 
   const mine = (spaces ?? []).filter((s) => s.my_level)
   const live = mine.filter((s) => !s.archived_at)
+  const archived = mine.filter((s) => s.archived_at)
+  const viewingArchived = location.pathname.endsWith('/archive')
+  const shown = viewingArchived ? archived : live
 
   return (
     <div className="w-full">
       <DirectoryHero
-        title="Your spaces"
-        accent="and the work inside them."
-        description="A space holds projects. Everyone in a space can see every project in it, so keep separate work in separate spaces."
-        action={
+        title={viewingArchived ? 'Archived spaces' : 'Your spaces'}
+        accent={viewingArchived ? 'kept out of the way.' : 'and the work inside them.'}
+        description={
+          viewingArchived
+            ? 'Archived spaces stay readable, but they no longer show in your active spaces.'
+            : 'A space holds projects. Everyone in a space can see every project in it, so keep separate work in separate spaces.'
+        }
+        action={!viewingArchived ? (
           <div className="flex flex-wrap gap-2">
             <Button variant="accent" onClick={() => setNewOpen(true)}>
               <Icon name="plus" size={17} />
@@ -65,17 +73,39 @@ export default function SpacePicker() {
               Join with a code
             </Button>
           </div>
-        }
-        stats={[
-          { value: spaces === null ? '—' : live.length, label: 'Spaces' },
-          { value: invitations.length, label: 'Invitations' },
-        ]}
+        ) : undefined}
+        stats={[]}
       />
 
       <div className="mt-6 space-y-6">
         {error && <Alert tone="error">{error}</Alert>}
 
-        {invitations.length > 0 && (
+        <nav className="flex flex-wrap gap-2 text-[13px]">
+          <Link
+            to="/general/spaces"
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 ${
+              !viewingArchived
+                ? 'border-line-strong surface-sunken text-ink'
+                : 'border-line text-muted hover:border-line-strong hover:text-ink'
+            }`}
+          >
+            <Icon name="folder" size={15} />
+            Active spaces
+          </Link>
+          <Link
+            to="/general/spaces/archive"
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 ${
+              viewingArchived
+                ? 'border-line-strong surface-sunken text-ink'
+                : 'border-line text-muted hover:border-line-strong hover:text-ink'
+            }`}
+          >
+            <Icon name="archive" size={15} />
+            Archived spaces
+          </Link>
+        </nav>
+
+        {!viewingArchived && invitations.length > 0 && (
           <section className="overflow-hidden rounded-panel border border-amber-300 bg-amber-400/6 dark:border-amber-400/40 dark:bg-amber-400/8">
             <header className="flex items-center justify-between gap-3 border-b border-amber-300/60 px-4 py-3.5 sm:px-5 dark:border-amber-400/25">
               <div>
@@ -137,20 +167,24 @@ export default function SpacePicker() {
           <div className="grid place-items-center py-16">
             <Spinner size={26} />
           </div>
-        ) : mine.length === 0 ? (
+        ) : shown.length === 0 ? (
           <EmptyState
             icon="folder"
-            title="No spaces yet"
-            body="Create one to hold your projects, or join a space somebody else has opened with a code."
-            action={
+            title={viewingArchived ? 'No archived spaces' : 'No spaces yet'}
+            body={
+              viewingArchived
+                ? 'Archived spaces appear here after an Owner archives them.'
+                : 'Create one to hold your projects, or join a space somebody else has opened with a code.'
+            }
+            action={!viewingArchived ? (
               <Button variant="accent" onClick={() => setNewOpen(true)}>
                 Create space
               </Button>
-            }
+            ) : undefined}
           />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {mine.map((s) => (
+            {shown.map((s) => (
               <SpaceCard key={s.id} space={s} />
             ))}
           </div>

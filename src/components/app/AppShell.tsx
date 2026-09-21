@@ -91,15 +91,25 @@ export function AppShell() {
 
         <aside
           id="desktop-side-navigation"
-          className={`surface sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line lg:flex ${
+          className={`surface relative sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line lg:flex ${
             collapsed ? 'w-16' : 'w-[276px]'
           } ${reduce ? '' : 'transition-[width] duration-200'}`}
         >
-          <SideNav
-            collapsed={collapsed}
-            collapsible
-            onToggleCollapse={() => setCollapsed((value) => !value)}
-          />
+          <SideNav collapsed={collapsed} />
+          <button
+            type="button"
+            onClick={() => setCollapsed((value) => !value)}
+            aria-expanded={!collapsed}
+            aria-controls="desktop-side-navigation"
+            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+            className="absolute top-1/2 -right-3.5 z-10 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full transition-transform hover:scale-105 focus:outline-none active:scale-95"
+          >
+            <img
+              src="/collapse_button.png"
+              alt=""
+              className={`h-full w-full object-contain ${collapsed ? 'rotate-180' : ''}`}
+            />
+          </button>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">

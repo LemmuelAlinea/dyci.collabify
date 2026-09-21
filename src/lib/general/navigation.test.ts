@@ -30,6 +30,7 @@ describe('general navigation', () => {
   it('extracts only General space and project routes', () => {
     expect(spaceRouteId('/general/spaces/space-1/archive')).toBe('space-1')
     expect(spaceRouteId('/general/spaces')).toBeNull()
+    expect(spaceRouteId('/general/spaces/archive')).toBeNull()
     expect(projectRouteId('/general/projects/project-1')).toBe('project-1')
     expect(projectRouteId('/student/projects/project-1')).toBeNull()
   })

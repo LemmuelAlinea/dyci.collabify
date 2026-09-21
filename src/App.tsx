@@ -124,6 +124,7 @@ export default function App() {
                 picks the space you were last in and redirects. */}
             <Route path="/general" element={<GeneralLanding />} />
             <Route path="/general/spaces" element={<SpacePicker />} />
+            <Route path="/general/spaces/archive" element={<SpacePicker />} />
             <Route path="/general/spaces/:spaceId" element={<GeneralHome />} />
             <Route path="/general/spaces/:spaceId/members" element={<SpaceMembers />} />
             <Route path="/general/spaces/:spaceId/archive" element={<SpaceArchive />} />

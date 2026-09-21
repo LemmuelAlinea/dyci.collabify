@@ -6,6 +6,7 @@ import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { NewProjectDialog } from '../../components/general/NewProjectDialog'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Field, Input } from '../../components/ui/Field'
 import { FilterField, FilterPopover, FilterSearch } from '../../components/ui/FilterPopover'
@@ -16,11 +17,13 @@ import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useLive } from '../../hooks/useLive'
+import { forgetSpace } from '../../hooks/useSpaces'
 import {
   joinGeneralProject,
   listMyInvitations,
   respondToInvitation,
 } from '../../lib/api/general'
+import { archiveSpace, deleteSpace } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
 import { levelLabel } from '../../lib/general/permissions'
@@ -54,11 +57,15 @@ export default function GeneralHome() {
     currentSpace: space,
     projects,
     error: navigationError,
+    reload: reloadNavigation,
   } = useGeneralNavigation()
+  const navigate = useNavigate()
   const [invitations, setInvitations] = useState<MyInvitation[]>([])
   const [invitationError, setInvitationError] = useState<string | null>(null)
   const [newOpen, setNewOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [answering, setAnswering] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<GeneralStatus | ''>('')
@@ -97,7 +104,6 @@ export default function GeneralHome() {
   }
 
   const all = useMemo(() => (projects ?? []).filter((p) => !p.archived_at), [projects])
-  const live = all
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     return all
@@ -110,6 +116,8 @@ export default function GeneralHome() {
   }
 
   const error = navigationError ?? invitationError
+  const isOwner = space?.my_level === 'owner'
+  const archived = Boolean(space?.archived_at)
 
   return (
     <div className="w-full">
@@ -131,11 +139,7 @@ export default function GeneralHome() {
             </Button>
           </div>
         ) : undefined}
-        stats={[
-          { value: projects === null ? '—' : live.length, label: 'Projects' },
-          { value: space?.member_count ?? '—', label: 'Members' },
-          { value: invitations.length, label: 'Invitations' },
-        ]}
+        stats={[]}
       />
 
       {spaceId && (
@@ -161,6 +165,26 @@ export default function GeneralHome() {
             <Icon name="refresh" size={15} />
             Switch space
           </Link>
+          {isOwner && (
+            <>
+              <button
+                type="button"
+                onClick={() => setArchiveOpen(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-muted hover:border-line-strong hover:text-ink"
+              >
+                <Icon name="archive" size={15} />
+                {archived ? 'Restore space' : 'Archive space'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteOpen(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-muted hover:border-red-400 hover:text-red-500"
+              >
+                <Icon name="trash" size={15} />
+                Delete space
+              </button>
+            </>
+          )}
         </nav>
       )}
 
@@ -275,6 +299,39 @@ export default function GeneralHome() {
 
       <NewProjectDialog open={newOpen} onClose={() => setNewOpen(false)} spaceId={spaceId} />
       <JoinDialog open={joinOpen} onClose={() => setJoinOpen(false)} />
+      <ConfirmDialog
+        open={archiveOpen}
+        onClose={() => setArchiveOpen(false)}
+        onConfirm={async () => {
+          if (!space) return
+          await archiveSpace(space.id, !archived)
+          show(archived ? 'Space restored' : 'Space archived')
+          await reloadNavigation()
+        }}
+        title={archived ? 'Restore this space?' : 'Archive this space?'}
+        body={
+          archived
+            ? 'Projects return to normal and members can make changes again.'
+            : 'Every project stays readable, but no member can change the space until an Owner restores it.'
+        }
+        confirmLabel={archived ? 'Restore space' : 'Archive space'}
+        tone="primary"
+      />
+      <ConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={async () => {
+          if (!space) return
+          await deleteSpace(space.id)
+          forgetSpace()
+          await reloadNavigation()
+          show('Space deleted')
+          navigate('/general/spaces', { replace: true })
+        }}
+        title="Delete this space?"
+        body="This permanently deletes the space and everything inside it, including its projects, tasks, files, members, invitations, and project chats."
+        confirmLabel="Delete space"
+      />
     </div>
   )
 }

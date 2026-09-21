@@ -486,6 +486,28 @@
     box-shadow: var(--shadow-lift);
   }
 
+  .general-project-scroll {
+    scrollbar-color: rgb(148 163 184 / 0.72) transparent;
+    scrollbar-width: thin;
+  }
+  .general-project-scroll::-webkit-scrollbar {
+    width: 10px;
+  }
+  .general-project-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .general-project-scroll::-webkit-scrollbar-thumb {
+    background: rgb(148 163 184 / 0.72);
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+  }
+  .general-project-scroll::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
   /**
    * Overlay motion, said once — true of these durations, not yet of every
    * duration in the app. `--dur-press/fast/base/overlay` above are the source
@@ -838,6 +860,10 @@
  * reduced-motion block above already stops them, and each component also
  * skips the animation outright rather than running it at 0.01ms.
  */
+html.has-modal .app-ui {
+  filter: blur(4px);
+  transition: filter 200ms ease;
+}
 @keyframes collabify-orbit {
   to {
     stroke-dashoffset: -1990;

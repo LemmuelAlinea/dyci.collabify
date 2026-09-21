@@ -314,6 +314,19 @@ begin
   perform public.archive_general_space(other.id, false);
   perform pg_temp.ok('and an Owner can restore it',
     (select archived_at from public.general_spaces where id = other.id) is null);
+
+  perform pg_temp.act_as(stranger_id);
+  begin
+    perform public.delete_general_space(other.id);
+    perform pg_temp.ok('a Manager cannot delete a space', false);
+  exception when insufficient_privilege then
+    perform pg_temp.ok('a Manager cannot delete a space', true);
+  end;
+
+  perform pg_temp.act_as(watcher_id);
+  perform public.delete_general_space(other.id);
+  select count(*) into n from public.general_spaces where id = other.id;
+  perform pg_temp.ok('an Owner can delete a space', n = 0);
 end $$;
 
 rollback;

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 import { useFocusTrap } from '../../lib/focus'
@@ -93,8 +94,10 @@ export function Modal({
   useEffect(() => {
     if (!render) return
     document.body.style.overflow = 'hidden'
+    document.documentElement.classList.add('has-modal')
     return () => {
       document.body.style.overflow = ''
+      document.documentElement.classList.remove('has-modal')
     }
   }, [render])
 
@@ -116,7 +119,7 @@ export function Modal({
 
   if (!render) return null
 
-  return (
+  return createPortal(
     // `render` staying true after `open` goes false is what lets the dialog fade
     // out instead of vanishing on the click — but for that one transition the
     // node is still in the DOM, still focusable, and still announced as an open
@@ -140,7 +143,7 @@ export function Modal({
        * published by TopNav; the `0px` fallback is what the auth screens and
        * the landing page get, where there is no bar to sit under.
        */
-      className="fixed inset-0 z-60 flex items-end justify-center p-0 pt-[var(--app-bar,0px)] sm:items-center sm:p-6 sm:pt-[calc(var(--app-bar,0px)+1.5rem)]"
+      className="fixed inset-0 z-[60] flex items-end justify-center p-0 pt-[var(--app-bar,0px)] sm:items-center sm:p-6 sm:pt-[calc(var(--app-bar,0px)+1.5rem)]"
     >
       {/* Clickable, but not a tab stop: the header already has a real Close
           button, and Escape closes. A focusable full-screen button here just
@@ -149,7 +152,7 @@ export function Modal({
         aria-hidden="true"
         onClick={onClose}
         data-state={open ? 'open' : 'closed'}
-        className="motion-scrim absolute inset-0 bg-navy-950/55 backdrop-blur-sm"
+        className="motion-scrim absolute inset-0 bg-navy-950/60"
       />
       <div
         ref={panel}
@@ -203,6 +206,7 @@ export function Modal({
           </footer>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -18,6 +18,7 @@ import { forgetSpace } from '../../hooks/useSpaces'
 import { searchPeople } from '../../lib/api/general'
 import {
   archiveSpace,
+  deleteSpace,
   inviteToSpace,
   listSpaceInvitations,
   listSpaceMembers,
@@ -62,6 +63,7 @@ export default function SpaceMembers() {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [removing, setRemoving] = useState<SpacePerson | null>(null)
   const [leaving, setLeaving] = useState(false)
 
@@ -334,6 +336,23 @@ export default function SpaceMembers() {
             </Button>
           </section>
         )}
+
+        {isOwner && (
+          <section className="rounded-panel border border-red-400/45 p-4 sm:p-5">
+            <h2 className="text-[15px]">Delete space</h2>
+            <p className="mt-1 text-[13px] text-muted">
+              Permanently removes this space and everything inside it.
+            </p>
+            <Button
+              size="sm"
+              variant="danger"
+              className="mt-3"
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete space
+            </Button>
+          </section>
+        )}
       </div>
 
       <InviteDialog
@@ -387,6 +406,21 @@ export default function SpaceMembers() {
         }
         confirmLabel={archived ? 'Restore space' : 'Archive space'}
         tone="primary"
+      />
+      <ConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={async () => {
+          if (!space) return
+          await deleteSpace(space.id)
+          forgetSpace()
+          await reloadNavigation()
+          show('Space deleted')
+          navigate('/general/spaces', { replace: true })
+        }}
+        title="Delete this space?"
+        body="This permanently deletes the space and everything inside it, including its projects, tasks, files, members, invitations, and project chats."
+        confirmLabel="Delete space"
       />
     </div>
   )

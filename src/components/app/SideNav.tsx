@@ -7,13 +7,11 @@ import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { rememberSpace } from '../../hooks/useSpaces'
 import { generalTab, projectRouteId } from '../../lib/general/navigation'
-import { educationHome, workplaceOf } from '../../lib/workplace'
-import { DUR } from '../../lib/motion'
+import { educationHome, homeFor, workplaceOf } from '../../lib/workplace'
+import { Logo, LogoMark } from '../brand/Logo'
 import { NewSpaceDialog } from '../general/SpaceDialogs'
-import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
-import { Modal } from '../ui/Modal'
 import { WorkplaceSwitcher } from './WorkplaceSwitcher'
 import { navForWorkplace } from './nav'
 import type { NavItem } from './nav'
@@ -24,19 +22,14 @@ const ROW = 'relative flex w-full items-center rounded-lg text-[14px] transition
 
 export function SideNav({
   collapsed = false,
-  collapsible = false,
-  onToggleCollapse,
   onNavigate,
 }: {
   collapsed?: boolean
-  collapsible?: boolean
-  onToggleCollapse?: () => void
   onNavigate?: () => void
 }) {
   const { profile } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
-  const unread = useUnreadTotal(profile?.id)
   const navigation = useGeneralNavigation()
   const [spaceOpen, setSpaceOpen] = useState(false)
   const [newSpaceOpen, setNewSpaceOpen] = useState(false)
@@ -45,6 +38,8 @@ export function SideNav({
 
   const activeProjectId = projectRouteId(location.pathname)
   const activeTab = generalTab(new URLSearchParams(location.search))
+  const workplace = profile ? workplaceOf(location.pathname, profile.home_workplace) : 'education'
+  const unread = useUnreadTotal(profile?.id, workplace === 'general' ? 'general' : 'education')
 
   useEffect(() => {
     if (!activeProjectId) return
@@ -60,7 +55,6 @@ export function SideNav({
 
   if (!profile) return null
 
-  const workplace = workplaceOf(location.pathname, profile.home_workplace)
   const groups = navForWorkplace(
     workplace,
     profile.status === 'active' ? profile.role : null,
@@ -94,13 +88,15 @@ export function SideNav({
 
   function openCreateSpace() {
     setSpaceOpen(false)
-    window.setTimeout(() => setNewSpaceOpen(true), DUR.base)
+    setNewSpaceOpen(true)
   }
 
   const liveProjects = (navigation.projects ?? []).filter((project) => !project.archived_at)
   const liveSpaces = (navigation.spaces ?? []).filter(
     (space) => space.my_level && !space.archived_at,
   )
+
+  const home = workplace === 'general' ? '/general' : homeFor(profile)
 
   return (
     <>
@@ -109,6 +105,19 @@ export function SideNav({
         className={`flex min-h-0 flex-1 flex-col overflow-y-auto py-4 ${collapsed ? 'px-2' : 'px-4'}`}
       >
         <div className="space-y-5">
+          <Link
+            to={home}
+            aria-label="Go to your dashboard"
+            onClick={onNavigate}
+            className={`mb-1 flex shrink-0 items-center ${collapsed ? 'justify-center' : 'px-1'}`}
+          >
+            {collapsed ? (
+              <LogoMark size={30} tone="brand" />
+            ) : (
+              <Logo size={24} tone="brand" showSubtitle={false} />
+            )}
+          </Link>
+
           {collapsed ? (
             <div className="space-y-1" aria-label="Workplace">
               <NavLink
@@ -150,10 +159,11 @@ export function SideNav({
                 {!collapsed && <GroupLabel>Space</GroupLabel>}
                 <button
                   type="button"
-                  onClick={() => setSpaceOpen(true)}
+                  onClick={() => setSpaceOpen((value) => !value)}
                   aria-label={navigation.currentSpace?.name ?? 'Choose a space'}
+                  aria-expanded={spaceOpen}
                   {...hintHandlers(navigation.currentSpace?.name ?? 'Choose a space')}
-                  className={`${ROW} h-10 ${collapsed ? 'justify-center px-0' : 'gap-3 px-3'} surface-sunken text-ink`}
+                  className={`${ROW} h-10 ${collapsed ? 'justify-center px-0' : 'gap-3 px-3'} surface-sunken text-navy-700 dark:text-navy-200`}
                 >
                   <Icon name="folder" size={18} className="shrink-0 text-navy-600 dark:text-amber-400" />
                   {!collapsed && (
@@ -161,16 +171,82 @@ export function SideNav({
                       <span className="min-w-0 flex-1 truncate text-left font-medium">
                         {navigation.currentSpace?.name ?? 'Choose a space'}
                       </span>
-                      <Icon name="chevronDown" size={15} className="shrink-0 text-faint" />
+                      <Icon
+                        name="chevronDown"
+                        size={15}
+                        className={`shrink-0 text-faint transition-transform ${spaceOpen ? 'rotate-180' : ''}`}
+                      />
                     </>
                   )}
                 </button>
+                {spaceOpen && !collapsed && (
+                  <div className="mt-2 overflow-hidden rounded-xl border border-line bg-[var(--surface)] shadow-sm">
+                    <div className="border-b border-line px-3 py-2">
+                      <p className="text-[11px] font-medium tracking-wide text-faint uppercase">
+                        Spaces
+                      </p>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto py-1">
+                      {liveSpaces.length === 0 ? (
+                        <p className="px-3 py-3 text-[13px] text-muted">No active spaces yet.</p>
+                      ) : (
+                        liveSpaces.map((space) => (
+                          <button
+                            type="button"
+                            key={space.id}
+                            onClick={() => chooseSpace(space.id)}
+                            aria-current={space.id === navigation.currentSpaceId ? 'page' : undefined}
+                            className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors ${
+                              space.id === navigation.currentSpaceId
+                                ? 'bg-[var(--surface-sunken)] text-navy-700 dark:text-navy-200'
+                                : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-navy-700 dark:hover:text-navy-200'
+                            }`}
+                          >
+                            <Icon
+                              name="folder"
+                              size={17}
+                              className="shrink-0 text-navy-600 dark:text-amber-400"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[14px] font-medium">{space.name}</span>
+                              <span className="block text-[12px] text-faint">
+                                {space.project_count} {space.project_count === 1 ? 'project' : 'projects'}
+                              </span>
+                            </span>
+                            {space.id === navigation.currentSpaceId && (
+                              <Icon name="check" size={16} className="shrink-0" />
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={openCreateSpace}
+                      className="flex w-full items-center gap-2 border-t border-line px-3 py-2.5 text-left text-[13px] font-medium text-navy-600 hover:bg-[var(--surface-sunken)] dark:text-navy-200"
+                    >
+                      <Icon name="plus" size={15} />
+                      Create space
+                    </button>
+                    <Link
+                      to="/general/spaces"
+                      onClick={() => {
+                        setSpaceOpen(false)
+                        onNavigate?.()
+                      }}
+                      className="flex w-full items-center gap-2 border-t border-line px-3 py-2.5 text-[13px] font-medium text-muted hover:bg-[var(--surface-sunken)] hover:text-ink"
+                    >
+                      <Icon name="arrowRight" size={15} />
+                      View all spaces
+                    </Link>
+                  </div>
+                )}
               </div>
 
               {navigation.currentSpace && (
                 <div>
                   {!collapsed && <GroupLabel>Projects</GroupLabel>}
-                  <ul className="space-y-0.5">
+                  <ul className="general-project-scroll max-h-[7.75rem] space-y-0.5 overflow-y-auto pr-1">
                     {navigation.projects === null ? (
                       !collapsed && <li className="px-3 py-2 text-[12px] text-faint">Loading projects…</li>
                     ) : liveProjects.length === 0 ? (
@@ -219,7 +295,11 @@ export function SideNav({
                                     size={14}
                                     className={`shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
                                   />
-                                  <Icon name="kanban" size={17} className="shrink-0" />
+                                  <Icon
+                                    name="folder"
+                                    size={17}
+                                    className={`shrink-0 ${active ? 'text-navy-600 dark:text-amber-400' : 'text-navy-700 dark:text-navy-200'}`}
+                                  />
                                   <span className="truncate">{project.name}</span>
                                 </button>
                                 {expanded && (
@@ -296,77 +376,7 @@ export function SideNav({
             </div>
           ))}
         </div>
-
-        {collapsible && (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            aria-expanded={!collapsed}
-            aria-controls="desktop-side-navigation"
-            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-            {...hintHandlers(collapsed ? 'Expand navigation' : 'Collapse navigation')}
-            className={`${ROW} mt-auto h-10 shrink-0 border border-line ${
-              collapsed ? 'justify-center' : 'gap-3 px-3'
-            } text-muted hover:border-line-strong hover:text-ink`}
-          >
-            <Icon name={collapsed ? 'chevronRight' : 'chevronLeft'} size={18} />
-            {!collapsed && <span>Collapse</span>}
-          </button>
-        )}
       </nav>
-
-      <Modal
-        open={spaceOpen}
-        onClose={() => setSpaceOpen(false)}
-        title="Choose a space"
-        description="Switch the projects shown in your navigation."
-        size="sm"
-        footer={
-          <Button onClick={openCreateSpace}>
-            <Icon name="plus" size={16} />
-            Create space
-          </Button>
-        }
-      >
-        <div className="space-y-2">
-          {liveSpaces.length === 0 ? (
-            <p className="text-[13px] text-muted">You have no active spaces yet.</p>
-          ) : (
-            liveSpaces.map((space) => (
-              <button
-                type="button"
-                key={space.id}
-                onClick={() => chooseSpace(space.id)}
-                aria-current={space.id === navigation.currentSpaceId ? 'page' : undefined}
-                className={`flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left ${
-                  space.id === navigation.currentSpaceId
-                    ? 'border-line-strong surface-sunken'
-                    : 'border-line hover:border-line-strong'
-                }`}
-              >
-                <Icon name="folder" size={18} className="text-navy-600 dark:text-amber-400" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-medium text-ink">{space.name}</span>
-                  <span className="block text-[12px] text-muted">
-                    {space.project_count} {space.project_count === 1 ? 'project' : 'projects'}
-                  </span>
-                </span>
-                {space.id === navigation.currentSpaceId && <Icon name="check" size={16} />}
-              </button>
-            ))
-          )}
-          <Link
-            to="/general/spaces"
-            onClick={() => {
-              setSpaceOpen(false)
-              onNavigate?.()
-            }}
-            className="inline-flex text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
-          >
-            View all spaces
-          </Link>
-        </div>
-      </Modal>
 
       <NewSpaceDialog
         open={newSpaceOpen}
@@ -380,7 +390,7 @@ export function SideNav({
               id="side-nav-tooltip"
               role="tooltip"
               style={{ top: hint.top }}
-              className="surface fixed left-[72px] z-100 -translate-y-1/2 rounded-md border border-line px-2.5 py-1.5 text-[12px] font-medium text-ink shadow-lift"
+              className="surface fixed left-[72px] z-[100] -translate-y-1/2 rounded-md border border-line px-2.5 py-1.5 text-[12px] font-medium text-ink shadow-lift"
             >
               {hint.text}
             </div>,

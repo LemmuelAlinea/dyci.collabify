@@ -151,7 +151,7 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
           // Modal.tsx for the same rule.
           inert={!open}
           data-state={open ? 'open' : 'closed'}
-          className="motion-overlay surface fixed inset-x-3 top-[78px] z-50 origin-top overflow-hidden rounded-2xl border border-line shadow-lift sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[380px] sm:origin-top-right"
+          className="motion-overlay surface fixed inset-x-3 top-[68px] z-50 origin-top overflow-hidden rounded-2xl border border-line shadow-lift sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[380px] sm:origin-top-right"
         >
           <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
             <p className="text-[14px] font-semibold text-ink">Notifications</p>

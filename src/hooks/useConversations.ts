@@ -5,21 +5,31 @@ import { authErrorMessage } from '../lib/authError'
 import { supabase } from '../lib/supabase'
 import type { ConversationCard } from '../lib/types'
 
+type ConversationScope = 'education' | 'general'
+
+function scoped(conversations: ConversationCard[], scope: ConversationScope) {
+  return conversations.filter((conversation) =>
+    scope === 'general'
+      ? conversation.kind === 'project'
+      : conversation.kind !== 'project',
+  )
+}
+
 /** The viewer's conversations, titles resolved, refreshed when a message lands. */
-export function useConversations(viewerId: string | undefined) {
+export function useConversations(viewerId: string | undefined, scope: ConversationScope = 'education') {
   const [conversations, setConversations] = useState<ConversationCard[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!viewerId) return
     try {
-      setConversations(await decorateConversations(await listConversations(), viewerId))
+      setConversations(scoped(await decorateConversations(await listConversations(), viewerId), scope))
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load your conversations.'))
       setConversations([])
     }
-  }, [viewerId])
+  }, [scope, viewerId])
 
   useEffect(() => {
     void load()
@@ -59,7 +69,7 @@ export function useConversations(viewerId: string | undefined) {
 }
 
 /** Total unread across every conversation — the sidebar badge. */
-export function useUnreadTotal(viewerId: string | undefined) {
-  const { conversations } = useConversations(viewerId)
+export function useUnreadTotal(viewerId: string | undefined, scope: ConversationScope = 'education') {
+  const { conversations } = useConversations(viewerId, scope)
   return (conversations ?? []).reduce((sum, c) => sum + c.unread_count, 0)
 }
