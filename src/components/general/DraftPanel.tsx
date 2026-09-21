@@ -5,12 +5,12 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Field, Input } from '../ui/Field'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
-import { Textarea } from '../ui/Select'
+import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import {
   discardDraft,
   discardDraftFile,
-  submitDraft,
+  submitDraftFile,
   syncDraft,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
@@ -22,8 +22,10 @@ import type {
   GeneralDraftFile,
   GeneralRepoSummary,
 } from '../../lib/general/types'
+import { fullName } from '../../lib/types'
 import { DiffView } from './DiffView'
 import type { OpenFile } from './FileEditor'
+import type { GeneralProjectState } from './useGeneralProject'
 
 /**
  * Your working copy, and the one button that hands it over.
@@ -38,6 +40,7 @@ export function DraftPanel({
   files,
   conflicts,
   repo,
+  state,
   mainOf,
   onOpen,
   onDone,
@@ -46,13 +49,14 @@ export function DraftPanel({
   files: GeneralDraftFile[]
   conflicts: DraftConflict[]
   repo: GeneralRepoSummary
+  state: GeneralProjectState
   /** What Main says for a path, so the diff shows what submitting would do. */
   mainOf: (path: string) => string
   onOpen: (file: OpenFile) => void
   onDone: () => Promise<void>
 }) {
   const { show } = useToast()
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting] = useState<GeneralDraftFile | null>(null)
   const [discarding, setDiscarding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
@@ -96,9 +100,6 @@ export function DraftPanel({
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => setDiscarding(true)}>
             Discard it all
-          </Button>
-          <Button size="sm" disabled={busy || behind} onClick={() => setSubmitting(true)}>
-            Submit for review
           </Button>
         </div>
       </div>
@@ -181,6 +182,13 @@ export function DraftPanel({
                 >
                   Open
                 </Button>
+                <Button
+                  size="sm"
+                  disabled={busy || behind}
+                  onClick={() => setSubmitting(f)}
+                >
+                  Submit for review
+                </Button>
                 <button
                   type="button"
                   aria-label={`Drop ${f.path} from your draft`}
@@ -212,11 +220,14 @@ export function DraftPanel({
       </ul>
 
       <SubmitDialog
-        open={submitting}
-        onClose={() => setSubmitting(false)}
-        count={files.length}
-        onSubmit={async (title, body) => {
-          await submitDraft(repo.id, title, body)
+        file={submitting}
+        onClose={() => setSubmitting(null)}
+        reviewers={state.members.filter(
+          (member) => member.user_id !== state.viewerId && member.profile?.status !== 'rejected',
+        )}
+        onSubmit={async (title, body, reviewerId) => {
+          if (!submitting) return
+          await submitDraftFile(repo.id, submitting.path, title, body, reviewerId)
           show('Submitted for review')
           await onDone()
         }}
@@ -240,27 +251,32 @@ export function DraftPanel({
 }
 
 function SubmitDialog({
-  open,
+  file,
   onClose,
-  count,
+  reviewers,
   onSubmit,
 }: {
-  open: boolean
+  file: GeneralDraftFile | null
   onClose: () => void
-  count: number
-  onSubmit: (title: string, body: string) => Promise<void>
+  reviewers: GeneralProjectState['members']
+  onSubmit: (title: string, body: string, reviewerId: string) => Promise<void>
 }) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const [reviewerId, setReviewerId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const options = reviewers.map((member) => ({
+    value: member.user_id,
+    label: member.profile ? fullName(member.profile) : 'A member',
+  }))
 
   return (
     <Modal
-      open={open}
+      open={file !== null}
       onClose={onClose}
-      title="Submit your draft"
-      description={`All ${count} ${count === 1 ? 'file' : 'files'} go over as one change.`}
+      title="Submit this file"
+      description={file ? `${file.path} goes over as one change.` : undefined}
       focusField
       footer={
         <>
@@ -271,12 +287,14 @@ function SubmitDialog({
             loading={busy}
             onClick={async () => {
               if (!title.trim()) return setError('Say what this change is, in a few words.')
+              if (!reviewerId) return setError('Choose who should review this.')
               setError(null)
               setBusy(true)
               try {
-                await onSubmit(title, body)
+                await onSubmit(title, body, reviewerId)
                 setTitle('')
                 setBody('')
+                setReviewerId('')
                 onClose()
               } catch (err) {
                 setError(authErrorMessage(err, 'Could not submit it.'))
@@ -315,6 +333,20 @@ function SubmitDialog({
             />
           )}
         </Field>
+        <Field label="Who should review this?">
+          {(id) => (
+            <Select
+              id={id}
+              value={reviewerId}
+              onChange={(e) => setReviewerId(e.target.value)}
+              placeholder="Choose a project member"
+              options={options}
+            />
+          )}
+        </Field>
+        {options.length === 0 && (
+          <Alert tone="error">Add another project member before submitting for review.</Alert>
+        )}
       </div>
     </Modal>
   )

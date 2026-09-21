@@ -1,6 +1,6 @@
 import type { IconName } from '../ui/Icon'
 import type { Role } from '../../lib/types'
-import type { Workplace } from '../../lib/workplace'
+import { settingsPathFor, type Workplace } from '../../lib/workplace'
 
 export type NavItem = {
   label: string
@@ -32,7 +32,6 @@ const SETTINGS: NavGroup = {
   title: 'Account',
   items: [
     { label: 'Settings', icon: 'settings', to: '/settings' },
-    { label: 'Your data', icon: 'shield', to: '/privacy/request' },
   ],
 }
 
@@ -157,13 +156,23 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
 export const GENERAL_NAV: NavGroup[] = [
   {
     title: 'Workplace',
-    items: [{ label: 'Messages', icon: 'message', to: '/general/messages', badge: 'messages' }],
+    items: [
+      { label: 'Projects', icon: 'kanban', to: '/general/projects' },
+      { label: 'Teams', icon: 'users', to: '/general/teams' },
+      { label: 'Messages', icon: 'message', to: '/general/messages', badge: 'messages' },
+    ],
   },
   SETTINGS,
 ]
 
 /** An account with no Education role only ever sees General's rail. */
 export function navForWorkplace(workplace: Workplace, role: Role | null): NavGroup[] {
-  if (workplace === 'general' || !role) return GENERAL_NAV
-  return BY_ROLE[role]
+  const groups = workplace === 'general' || !role ? GENERAL_NAV : BY_ROLE[role]
+  const settingsPath = settingsPathFor(workplace, role)
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) =>
+      item.to === '/settings' ? { ...item, to: settingsPath } : item,
+    ),
+  }))
 }

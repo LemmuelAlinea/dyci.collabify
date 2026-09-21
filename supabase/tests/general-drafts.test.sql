@@ -132,8 +132,9 @@ begin
   perform pg_temp.ok('one file can be dropped from a draft', n = 1);
 
   ------------------------------------------------------------------ submitting
-  chg := public.submit_general_draft(repo.id, 'Reworded chapter 1', 'Second sentence only.');
+  chg := public.submit_general_draft(repo.id, 'Reworded chapter 1', 'Second sentence only.', owner_id);
   perform pg_temp.ok('a draft becomes one change', chg.id is not null);
+  perform pg_temp.ok('the chosen reviewer is stored', chg.reviewer_id = owner_id);
   perform pg_temp.ok('the change carries the draft''s files',
                      jsonb_array_length(chg.files) = 1);
   perform pg_temp.ok('the change is written against the draft''s commit', chg.base_seq = 1);
@@ -143,7 +144,7 @@ begin
   perform pg_temp.ok('submitting empties the draft', n = 0);
 
   begin
-    perform public.submit_general_draft(repo.id, 'Nothing left', '');
+    perform public.submit_general_draft(repo.id, 'Nothing left', '', owner_id);
     perform pg_temp.ok('an empty draft cannot be submitted', false);
   exception when no_data_found then
     perform pg_temp.ok('an empty draft cannot be submitted', true);
@@ -177,7 +178,7 @@ begin
   perform pg_temp.ok('and told which one', txt = 'documents/Chapter 1.md');
 
   begin
-    perform public.submit_general_draft(repo.id, 'From behind', '');
+    perform public.submit_general_draft(repo.id, 'From behind', '', owner_id);
     perform pg_temp.ok('a draft behind Main cannot be submitted', false);
   exception when serialization_failure then
     perform pg_temp.ok('a draft behind Main cannot be submitted', true);
@@ -190,8 +191,15 @@ begin
   select count(*) into n from public.general_draft_files where draft_id = draft.id;
   perform pg_temp.ok('bringing it up to date keeps the work', n = 2);
 
-  chg := public.submit_general_draft(repo.id, 'After catching up', '');
-  perform pg_temp.ok('it submits once it is up to date', chg.base_seq = 2);
+  chg := public.submit_general_draft_file(repo.id, 'documents/Chapter 1.md', 'Chapter 1 only', '', owner_id);
+  perform pg_temp.ok('one draft file can be submitted by itself', jsonb_array_length(chg.files) = 1);
+  perform pg_temp.ok('a single-file submission keeps the same base commit', chg.base_seq = 2);
+
+  select count(*) into n from public.general_draft_files where draft_id = draft.id;
+  perform pg_temp.ok('submitting one file keeps the rest in the draft', n = 1);
+
+  chg := public.submit_general_draft(repo.id, 'After catching up', '', owner_id);
+  perform pg_temp.ok('the rest submits once it is up to date', chg.base_seq = 2);
 
   ------------------------------------------------------------------ paths
   perform pg_temp.act_as(member_id);

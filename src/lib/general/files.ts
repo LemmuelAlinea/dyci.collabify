@@ -40,8 +40,15 @@ export function extensionOf(path: string) {
   return i <= 0 ? '' : name.slice(i + 1).toLowerCase()
 }
 
+export function pathWithPickedExtension(path: string, pickedName?: string | null) {
+  const p = path.trim()
+  const pickedExt = pickedName ? extensionOf(pickedName) : ''
+  if (!p || extensionOf(p) || !pickedExt) return p
+  return `${p}.${pickedExt}`
+}
+
 const RICH = new Set(['docx', 'doc', 'odt', 'rtf'])
-const SHEET = new Set(['xlsx', 'xls', 'ods', 'csv'])
+const SHEET = new Set(['xlsx', 'xlsm', 'csv'])
 const TEXT = new Set([
   'txt', 'md', 'markdown', 'ts', 'tsx', 'js', 'jsx', 'json', 'html', 'css', 'scss',
   'sql', 'py', 'java', 'c', 'cpp', 'h', 'cs', 'php', 'rb', 'go', 'rs', 'sh', 'yml',
@@ -68,6 +75,16 @@ export function kindForPath(path: string): FileKind {
 
 export function isEditable(kind: FileKind) {
   return kind !== 'binary'
+}
+
+export function looksLikeMisreadOfficeFile(content: string) {
+  const sample = content.slice(0, 50000)
+  return (
+    sample.startsWith('PK') &&
+    (sample.includes('[Content_Types].xml') ||
+      sample.includes('word/document.xml') ||
+      sample.includes('xl/workbook.xml'))
+  )
 }
 
 /* ------------------------------------------------------------------- tree */

@@ -42,3 +42,8 @@ export function workplaceOf(pathname: string, home: Workplace): Workplace {
   if (/^\/(student|professor|admin|education)(\/|$)/.test(pathname)) return 'education'
   return home
 }
+
+export function settingsPathFor(workplace: Workplace, role: Role | null): string {
+  if (workplace === 'general') return '/general/settings'
+  return role ? `/${role}/settings` : '/settings'
+}

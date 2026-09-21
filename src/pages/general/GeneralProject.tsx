@@ -128,12 +128,21 @@ export default function GeneralProject() {
             {p.member_count === 1 ? 'member' : 'members'} · {Number(p.progress_pct)}% done
           </p>
         </div>
-        {state.isOwner && !state.archived && (
-          <Button variant="outline" size="sm" onClick={() => setArchiving(true)}>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to={`/general/projects/${p.id}/archive`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[13px] text-muted hover:border-line-strong hover:text-ink"
+          >
             <Icon name="archive" size={15} />
-            Archive
-          </Button>
-        )}
+            Project archive
+          </Link>
+          {state.isOwner && !state.archived && (
+            <Button variant="outline" size="sm" onClick={() => setArchiving(true)}>
+              <Icon name="archive" size={15} />
+              Archive project
+            </Button>
+          )}
+        </div>
       </header>
 
       {state.error && <Alert tone="error">{state.error}</Alert>}

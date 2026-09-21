@@ -259,8 +259,25 @@ begin
    where repo_id = repo.id and path = 'src/login.ts';
   perform pg_temp.ok('the merged file is in the tree', n = 1);
 
+  insert into public.general_repo_changes
+    (repo_id, project_id, author_id, reviewer_id, title, body, base_seq, files)
+  values (repo.id, proj.id, dev_id, member_id, 'Add review handoff', '', 5,
+          pg_temp.files('src/review.ts', 'added', 'export const review = true'))
+  returning * into chg;
+
+  begin
+    perform public.answer_general_repo_change(chg.id, true, '');
+    perform pg_temp.ok('authors with edit_files cannot merge their own assigned change', false);
+  exception when insufficient_privilege then
+    perform pg_temp.ok('authors with edit_files cannot merge their own assigned change', true);
+  end;
+
+  perform pg_temp.act_as(member_id);
+  chg := public.answer_general_repo_change(chg.id, true, 'Reviewed.');
+  perform pg_temp.ok('the assigned reviewer can merge without edit_files', chg.status = 'applied');
+
   select count(*) into n from public.general_commits
-   where repo_id = repo.id and seq = 5 and change_id = chg.id;
+   where repo_id = repo.id and seq = 6 and change_id = chg.id;
   perform pg_temp.ok('the commit points back at the change it came from', n = 1);
 
   begin
@@ -273,7 +290,7 @@ begin
   ------------------------------------------------------- a stale change is refused
   perform pg_temp.act_as(member_id);
   insert into public.general_repo_changes (repo_id, project_id, author_id, title, base_seq, files)
-  values (repo.id, proj.id, member_id, 'Written against commit 4', 4,
+  values (repo.id, proj.id, member_id, 'Written against commit 5', 5,
           pg_temp.files('src/old.ts', 'added', 'stale'))
   returning * into chg;
 
@@ -285,16 +302,16 @@ begin
     perform pg_temp.ok('a change written against an older commit cannot be merged', true);
   end;
 
-  chg := public.answer_general_repo_change(chg.id, false, 'Rebase it onto commit 5.');
+  chg := public.answer_general_repo_change(chg.id, false, 'Rebase it onto commit 6.');
   perform pg_temp.ok('a stale change can still be declined', chg.status = 'declined');
 
   select commit_count into n from public.general_repos where id = repo.id;
-  perform pg_temp.ok('declining makes no commit', n = 5);
+  perform pg_temp.ok('declining makes no commit', n = 6);
 
   ------------------------------------------------------------------ withdrawing
   perform pg_temp.act_as(member_id);
   insert into public.general_repo_changes (repo_id, project_id, author_id, title, base_seq, files)
-  values (repo.id, proj.id, member_id, 'Second thoughts', 5, '[]'::jsonb)
+  values (repo.id, proj.id, member_id, 'Second thoughts', 6, '[]'::jsonb)
   returning * into chg;
 
   update public.general_repo_changes
@@ -303,7 +320,7 @@ begin
   perform pg_temp.ok('an author withdraws their own change', txt = 'withdrawn');
 
   insert into public.general_repo_changes (repo_id, project_id, author_id, title, base_seq, files)
-  values (repo.id, proj.id, member_id, 'Still open', 5, '[]'::jsonb)
+  values (repo.id, proj.id, member_id, 'Still open', 6, '[]'::jsonb)
   returning * into chg;
 
   perform pg_temp.act_as(owner_id);
@@ -330,7 +347,7 @@ begin
 
   perform pg_temp.act_as(dev_id);
   begin
-    perform public.commit_general_files(repo.id, 'After archiving', 5,
+    perform public.commit_general_files(repo.id, 'After archiving', 6,
       pg_temp.files('src/app.ts', 'changed', 'x'));
     perform pg_temp.ok('an archived project takes no commits', false);
   exception when others then
@@ -346,7 +363,7 @@ begin
 
   perform pg_temp.act_as(dev_id);
   begin
-    perform public.commit_general_files(repo.id, 'From a dead account', 5,
+    perform public.commit_general_files(repo.id, 'From a dead account', 6,
       pg_temp.files('src/app.ts', 'changed', 'x'));
     perform pg_temp.ok('a deactivated account cannot commit', false);
   exception when insufficient_privilege then
@@ -355,13 +372,13 @@ begin
 
   -- A control: an active Owner still can.
   perform pg_temp.act_as(owner_id);
-  cmt := public.commit_general_files(repo.id, 'From a live Owner', 5,
+  cmt := public.commit_general_files(repo.id, 'From a live Owner', 6,
     pg_temp.files('src/app.ts', 'changed', 'still working'));
-  perform pg_temp.ok('an active Owner still commits after that refusal', cmt.seq = 6);
+  perform pg_temp.ok('an active Owner still commits after that refusal', cmt.seq = 7);
 
   ------------------------------------------------------------------ the overview
   select file_count into n from public.general_repo_overview where id = repo.id;
-  perform pg_temp.ok('the overview counts the files in the tree', n = 3);
+  perform pg_temp.ok('the overview counts the files in the tree', n = 4);
 
   select open_change_count into n from public.general_repo_overview where id = repo.id;
   perform pg_temp.ok('the overview counts the one change still open', n = 1);

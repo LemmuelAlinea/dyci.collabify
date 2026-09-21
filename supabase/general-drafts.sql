@@ -339,10 +339,13 @@ $$;
  * touches four files is one decision, and splitting it into four would make a
  * reviewer approve half a thought.
  */
+drop function if exists public.submit_general_draft(uuid, text, text);
+
 create or replace function public.submit_general_draft(
-  p_repo  uuid,
-  p_title text,
-  p_body  text default ''
+  p_repo     uuid,
+  p_title    text,
+  p_body     text default '',
+  p_reviewer uuid default null
 ) returns public.general_repo_changes
 language plpgsql security definer set search_path = public as $$
 declare
@@ -365,6 +368,23 @@ begin
   end if;
   if public.general_is_archived(r.project_id) then
     raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_reviewer is null then
+    raise exception 'Choose a project member to review your change'
+      using errcode = 'invalid_parameter_value';
+  end if;
+  if p_reviewer = auth.uid() then
+    raise exception 'Choose somebody else to review your change'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not exists (
+    select 1 from public.general_members m
+    join public.profiles pr on pr.id = m.user_id
+     where m.project_id = r.project_id and m.user_id = p_reviewer
+       and pr.status <> 'rejected'
+  ) then
+    raise exception 'The reviewer must be on this project'
       using errcode = 'insufficient_privilege';
   end if;
 
@@ -393,12 +413,93 @@ begin
    where f.draft_id = d.id;
 
   insert into public.general_repo_changes
-    (repo_id, project_id, author_id, title, body, base_seq, files)
-  values (r.id, r.project_id, auth.uid(), btrim(p_title), coalesce(p_body, ''),
+    (repo_id, project_id, author_id, reviewer_id, title, body, base_seq, files)
+  values (r.id, r.project_id, auth.uid(), p_reviewer, btrim(p_title), coalesce(p_body, ''),
           d.base_seq, items)
   returning * into ch;
 
   delete from public.general_draft_files where draft_id = d.id;
+  update public.general_drafts set updated_at = now() where id = d.id;
+
+  return ch;
+end;
+$$;
+
+/**
+ * Hands one draft file over for review and leaves the rest in the draft.
+ */
+create or replace function public.submit_general_draft_file(
+  p_repo     uuid,
+  p_path     text,
+  p_title    text,
+  p_body     text default '',
+  p_reviewer uuid default null
+) returns public.general_repo_changes
+language plpgsql security definer set search_path = public as $$
+declare
+  d     public.general_drafts%rowtype;
+  r     public.general_repos%rowtype;
+  f     public.general_draft_files%rowtype;
+  ch    public.general_repo_changes%rowtype;
+  items jsonb;
+begin
+  select * into d from public.general_drafts
+   where repo_id = p_repo and user_id = auth.uid();
+  if not found then
+    raise exception 'You have nothing in your draft' using errcode = 'no_data_found';
+  end if;
+
+  select * into r from public.general_repos where id = p_repo;
+
+  if not public.general_viewer_active() or not public.is_general_member(r.project_id) then
+    raise exception 'You are not on this project' using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_is_archived(r.project_id) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_reviewer is null then
+    raise exception 'Choose a project member to review your change'
+      using errcode = 'invalid_parameter_value';
+  end if;
+  if p_reviewer = auth.uid() then
+    raise exception 'Choose somebody else to review your change'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not exists (
+    select 1 from public.general_members m
+    join public.profiles pr on pr.id = m.user_id
+     where m.project_id = r.project_id and m.user_id = p_reviewer
+       and pr.status <> 'rejected'
+  ) then
+    raise exception 'The reviewer must be on this project'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if d.base_seq <> r.commit_count then
+    raise exception 'Your draft was started from commit % and the repository is now on commit %. Bring it up to date first.', d.base_seq, r.commit_count
+      using errcode = 'serialization_failure';
+  end if;
+
+  select * into f from public.general_draft_files
+   where draft_id = d.id and path = btrim(p_path);
+  if not found then
+    raise exception 'That file is not in your draft' using errcode = 'no_data_found';
+  end if;
+
+  items := jsonb_build_array(jsonb_build_object(
+    'path', f.path,
+    'action', f.action,
+    'kind', f.kind,
+    'content', f.content,
+    'storage_path', f.storage_path));
+
+  insert into public.general_repo_changes
+    (repo_id, project_id, author_id, reviewer_id, title, body, base_seq, files)
+  values (r.id, r.project_id, auth.uid(), p_reviewer, btrim(p_title), coalesce(p_body, ''),
+          d.base_seq, items)
+  returning * into ch;
+
+  delete from public.general_draft_files where id = f.id;
   update public.general_drafts set updated_at = now() where id = d.id;
 
   return ch;
@@ -411,7 +512,9 @@ revoke all on function public.discard_general_draft_file(uuid, text) from public
 revoke all on function public.discard_general_draft(uuid) from public, anon;
 revoke all on function public.general_draft_conflicts(uuid) from public, anon;
 revoke all on function public.sync_general_draft(uuid) from public, anon;
-revoke all on function public.submit_general_draft(uuid, text, text) from public, anon;
+drop function if exists public.submit_general_draft(uuid, text, text);
+revoke all on function public.submit_general_draft(uuid, text, text, uuid) from public, anon;
+revoke all on function public.submit_general_draft_file(uuid, text, text, text, uuid) from public, anon;
 
 grant execute on function public.my_general_draft(uuid) to authenticated;
 grant execute on function public.save_general_draft_file(uuid, text, text, text, text, text) to authenticated;
@@ -419,6 +522,7 @@ grant execute on function public.discard_general_draft_file(uuid, text) to authe
 grant execute on function public.discard_general_draft(uuid) to authenticated;
 grant execute on function public.general_draft_conflicts(uuid) to authenticated;
 grant execute on function public.sync_general_draft(uuid) to authenticated;
-grant execute on function public.submit_general_draft(uuid, text, text) to authenticated;
+grant execute on function public.submit_general_draft(uuid, text, text, uuid) to authenticated;
+grant execute on function public.submit_general_draft_file(uuid, text, text, text, uuid) to authenticated;
 
 commit;

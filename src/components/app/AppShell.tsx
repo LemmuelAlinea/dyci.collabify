@@ -155,7 +155,7 @@ export function AppShell() {
                       <Icon name="x" size={19} />
                     </button>
                   </div>
-                  <SideNav onNavigate={() => setDrawer(false)} />
+                  <SideNav onNavigate={() => setDrawer(false)} showLogo={false} />
                 </motion.div>
               </div>
             )}

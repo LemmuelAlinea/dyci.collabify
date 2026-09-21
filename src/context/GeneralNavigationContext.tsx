@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useLive } from '../hooks/useLive'
 import { forgetSpace, landingSpace, rememberSpace, useMySpaces } from '../hooks/useSpaces'
-import { listSpaceProjects } from '../lib/api/general'
+import { listMyGeneralProjects, listSpaceProjects } from '../lib/api/general'
 import { authErrorMessage } from '../lib/authError'
 import { projectRouteId, spaceRouteId } from '../lib/general/navigation'
 import type { GeneralProjectSummary } from '../lib/general/types'
@@ -45,16 +45,16 @@ export function GeneralNavigationProvider({
   }, [currentSpace])
 
   const loadProjects = useCallback(async () => {
-    if (!enabled || !currentSpaceId) {
+    if (!enabled) {
       setProjects(null)
       setProjectError(null)
       return
     }
     try {
-      setProjects(await listSpaceProjects(currentSpaceId))
+      setProjects(currentSpaceId ? await listSpaceProjects(currentSpaceId) : await listMyGeneralProjects())
       setProjectError(null)
     } catch (err) {
-      setProjectError(authErrorMessage(err, 'Could not load this space’s projects.'))
+      setProjectError(authErrorMessage(err, 'Could not load your projects.'))
       setProjects((previous) => previous ?? [])
     }
   }, [currentSpaceId, enabled])
@@ -76,7 +76,7 @@ export function GeneralNavigationProvider({
   useLive(
     loadProjects,
     ['general_projects', 'general_members', 'general_tasks'],
-    { enabled: enabled && Boolean(currentSpaceId) },
+    { enabled },
   )
 
   const reload = useCallback(async () => {

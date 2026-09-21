@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { ROLE_LABEL, fullName } from '../../lib/types'
-import { workplaceOf } from '../../lib/workplace'
+import { settingsPathFor, workplaceOf } from '../../lib/workplace'
 import { ThemeToggle } from '../ThemeToggle'
 import { Icon } from '../ui/Icon'
 import { Avatar } from './Avatar'
@@ -27,7 +27,7 @@ function useDismiss(open: boolean, close: () => void) {
   return ref
 }
 
-function AccountMenu() {
+function AccountMenu({ settingsTo }: { settingsTo: string }) {
   const { profile, signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const ref = useDismiss(open, () => setOpen(false))
@@ -63,7 +63,7 @@ function AccountMenu() {
             </p>
           </div>
           <Link
-            to="/settings"
+            to={settingsTo}
             role="menuitem"
             onClick={() => setOpen(false)}
             className="flex items-center gap-3 px-4 py-3 text-[14px] text-ink hover:bg-[var(--surface-sunken)]"
@@ -130,7 +130,7 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
         <div className="flex items-center gap-0.5 sm:gap-1">
           <NotificationBell />
           <ThemeToggle />
-          <AccountMenu />
+          <AccountMenu settingsTo={settingsPathFor(workplace, profile.role)} />
         </div>
       </div>
     </header>

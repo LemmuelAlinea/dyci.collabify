@@ -128,8 +128,20 @@ export async function htmlToDocx(html: string, title: string): Promise<Blob> {
 
 /* ------------------------------------------------------------------ excel */
 
-/** A .xlsx as the cell text this site stores. */
+/** A spreadsheet as the cell text this site stores. */
 export async function xlsxToWorkbook(file: File): Promise<Workbook> {
+  if (file.name.toLowerCase().endsWith('.csv')) {
+    return parseWorkbook(serializeWorkbook({ sheets: [{ name: sheetName(file.name), rows: parseCsv(await file.text()) }] }))
+  }
+
+  try {
+    return await xlsxToWorkbookWithExcelJs(file)
+  } catch {
+    return xlsxToWorkbookWithReader(file)
+  }
+}
+
+async function xlsxToWorkbookWithExcelJs(file: File): Promise<Workbook> {
   const ExcelJS = await import('exceljs')
   const book = new ExcelJS.Workbook()
   await book.xlsx.load(await file.arrayBuffer())
@@ -150,6 +162,51 @@ export async function xlsxToWorkbook(file: File): Promise<Workbook> {
   })
 
   return parseWorkbook(serializeWorkbook({ sheets: sheets.length ? sheets : [{ name: 'Sheet 1', rows: [] }] }))
+}
+
+async function xlsxToWorkbookWithReader(file: File): Promise<Workbook> {
+  const { default: readXlsxFile } = await import('read-excel-file/browser')
+  const sheets = (await readXlsxFile(file)).map((sheet, i) => ({
+    name: sheet.sheet || `Sheet ${i + 1}`,
+    rows: trimTrailing(sheet.data.map((row) => row.map(cellText))),
+  }))
+  return parseWorkbook(serializeWorkbook({ sheets: sheets.length ? sheets : [{ name: 'Sheet 1', rows: [] }] }))
+}
+
+function sheetName(name: string) {
+  const base = name.replace(/\.[^.]+$/, '').trim()
+  return (base || 'Sheet 1').slice(0, 31)
+}
+
+function parseCsv(text: string) {
+  const rows: string[][] = []
+  let row: string[] = []
+  let cell = ''
+  let quoted = false
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') {
+        cell += '"'
+        i++
+      } else if (ch === '"') quoted = false
+      else cell += ch
+    } else if (ch === '"') quoted = true
+    else if (ch === ',') {
+      row.push(cell)
+      cell = ''
+    } else if (ch === '\n') {
+      row.push(cell)
+      rows.push(row)
+      row = []
+      cell = ''
+    } else if (ch !== '\r') cell += ch
+  }
+
+  row.push(cell)
+  rows.push(row)
+  return trimTrailing(rows)
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import type { FocusEvent, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
@@ -6,12 +6,10 @@ import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { rememberSpace } from '../../hooks/useSpaces'
-import { generalTab, projectRouteId } from '../../lib/general/navigation'
 import { educationHome, homeFor, workplaceOf } from '../../lib/workplace'
 import { Logo, LogoMark } from '../brand/Logo'
 import { NewSpaceDialog } from '../general/SpaceDialogs'
 import { Icon } from '../ui/Icon'
-import type { IconName } from '../ui/Icon'
 import { WorkplaceSwitcher } from './WorkplaceSwitcher'
 import { navForWorkplace } from './nav'
 import type { NavItem } from './nav'
@@ -23,9 +21,11 @@ const ROW = 'relative flex w-full items-center rounded-lg text-[14px] transition
 export function SideNav({
   collapsed = false,
   onNavigate,
+  showLogo = true,
 }: {
   collapsed?: boolean
   onNavigate?: () => void
+  showLogo?: boolean
 }) {
   const { profile } = useAuth()
   const location = useLocation()
@@ -33,23 +33,10 @@ export function SideNav({
   const navigation = useGeneralNavigation()
   const [spaceOpen, setSpaceOpen] = useState(false)
   const [newSpaceOpen, setNewSpaceOpen] = useState(false)
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set())
   const [hint, setHint] = useState<Hint | null>(null)
 
-  const activeProjectId = projectRouteId(location.pathname)
-  const activeTab = generalTab(new URLSearchParams(location.search))
   const workplace = profile ? workplaceOf(location.pathname, profile.home_workplace) : 'education'
   const unread = useUnreadTotal(profile?.id, workplace === 'general' ? 'general' : 'education')
-
-  useEffect(() => {
-    if (!activeProjectId) return
-    setExpandedProjects((previous) => {
-      if (previous.has(activeProjectId)) return previous
-      const next = new Set(previous)
-      next.add(activeProjectId)
-      return next
-    })
-  }, [activeProjectId])
 
   useEffect(() => setHint(null), [collapsed, location.pathname, location.search])
 
@@ -91,7 +78,6 @@ export function SideNav({
     setNewSpaceOpen(true)
   }
 
-  const liveProjects = (navigation.projects ?? []).filter((project) => !project.archived_at)
   const liveSpaces = (navigation.spaces ?? []).filter(
     (space) => space.my_level && !space.archived_at,
   )
@@ -105,18 +91,20 @@ export function SideNav({
         className={`flex min-h-0 flex-1 flex-col overflow-y-auto py-4 ${collapsed ? 'px-2' : 'px-4'}`}
       >
         <div className="space-y-5">
-          <Link
-            to={home}
-            aria-label="Go to your dashboard"
-            onClick={onNavigate}
-            className={`mb-1 flex shrink-0 items-center ${collapsed ? 'justify-center' : 'px-1'}`}
-          >
-            {collapsed ? (
-              <LogoMark size={30} tone="brand" />
-            ) : (
-              <Logo size={24} tone="brand" showSubtitle={false} />
-            )}
-          </Link>
+          {showLogo && (
+            <Link
+              to={home}
+              aria-label="Go to your dashboard"
+              onClick={onNavigate}
+              className={`mb-1 flex shrink-0 items-center ${collapsed ? 'justify-center' : 'px-1'}`}
+            >
+              {collapsed ? (
+                <LogoMark size={30} tone="brand" />
+              ) : (
+                <Logo size={24} tone="brand" showSubtitle={false} />
+              )}
+            </Link>
+          )}
 
           {collapsed ? (
             <div className="space-y-1" aria-label="Workplace">
@@ -198,18 +186,28 @@ export function SideNav({
                             aria-current={space.id === navigation.currentSpaceId ? 'page' : undefined}
                             className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors ${
                               space.id === navigation.currentSpaceId
-                                ? 'bg-[var(--surface-sunken)] text-navy-700 dark:text-navy-200'
+                                ? 'bg-[var(--surface)] text-amber-500 dark:text-amber-400'
                                 : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-navy-700 dark:hover:text-navy-200'
                             }`}
                           >
                             <Icon
                               name="folder"
                               size={17}
-                              className="shrink-0 text-navy-600 dark:text-amber-400"
+                              className={`shrink-0 ${
+                                space.id === navigation.currentSpaceId
+                                  ? 'text-amber-500 dark:text-amber-400'
+                                  : 'text-navy-600 dark:text-amber-400'
+                              }`}
                             />
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-[14px] font-medium">{space.name}</span>
-                              <span className="block text-[12px] text-faint">
+                              <span
+                                className={`block text-[12px] ${
+                                  space.id === navigation.currentSpaceId
+                                    ? 'text-amber-600/75 dark:text-amber-300/75'
+                                    : 'text-faint'
+                                }`}
+                              >
                                 {space.project_count} {space.project_count === 1 ? 'project' : 'projects'}
                               </span>
                             </span>
@@ -243,118 +241,6 @@ export function SideNav({
                 )}
               </div>
 
-              {navigation.currentSpace && (
-                <div>
-                  {!collapsed && <GroupLabel>Projects</GroupLabel>}
-                  <ul className="general-project-scroll max-h-[7.75rem] space-y-0.5 overflow-y-auto pr-1">
-                    {navigation.projects === null ? (
-                      !collapsed && <li className="px-3 py-2 text-[12px] text-faint">Loading projects…</li>
-                    ) : liveProjects.length === 0 ? (
-                      !collapsed && <li className="px-3 py-2 text-[12px] text-faint">No active projects</li>
-                    ) : (
-                      liveProjects.map((project) => {
-                        const expanded = expandedProjects.has(project.id)
-                        const active = activeProjectId === project.id
-                        return (
-                          <li key={project.id}>
-                            {collapsed ? (
-                              <Link
-                                to={`/general/projects/${project.id}`}
-                                onClick={onNavigate}
-                                aria-label={project.name}
-                                {...hintHandlers(project.name)}
-                                className={`${ROW} h-10 justify-center ${
-                                  active
-                                    ? 'surface-sunken text-navy-600 dark:text-amber-400'
-                                    : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
-                                }`}
-                              >
-                                <Icon name="kanban" size={18} />
-                              </Link>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setExpandedProjects((previous) => {
-                                      const next = new Set(previous)
-                                      if (next.has(project.id)) next.delete(project.id)
-                                      else next.add(project.id)
-                                      return next
-                                    })
-                                  }
-                                  aria-expanded={expanded}
-                                  className={`${ROW} gap-2 px-3 py-2 text-left ${
-                                    active
-                                      ? 'font-semibold text-ink'
-                                      : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
-                                  }`}
-                                >
-                                  <Icon
-                                    name="chevronRight"
-                                    size={14}
-                                    className={`shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
-                                  />
-                                  <Icon
-                                    name="folder"
-                                    size={17}
-                                    className={`shrink-0 ${active ? 'text-navy-600 dark:text-amber-400' : 'text-navy-700 dark:text-navy-200'}`}
-                                  />
-                                  <span className="truncate">{project.name}</span>
-                                </button>
-                                {expanded && (
-                                  <ul className="mt-0.5 ml-7 space-y-0.5 border-l border-line pl-2">
-                                    {PROJECT_TABS.map((tab) => {
-                                      const selected = active && activeTab === tab.id
-                                      const to = tab.id === 'overview'
-                                        ? `/general/projects/${project.id}`
-                                        : `/general/projects/${project.id}?tab=${tab.id}`
-                                      return (
-                                        <li key={tab.id}>
-                                          <Link
-                                            to={to}
-                                            onClick={onNavigate}
-                                            aria-current={selected ? 'page' : undefined}
-                                            className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] ${
-                                              selected
-                                                ? 'surface-sunken font-medium text-ink'
-                                                : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
-                                            }`}
-                                          >
-                                            <Icon name={tab.icon} size={14} />
-                                            {tab.label}
-                                          </Link>
-                                        </li>
-                                      )
-                                    })}
-                                  </ul>
-                                )}
-                              </>
-                            )}
-                          </li>
-                        )
-                      })
-                    )}
-                  </ul>
-
-                  <NavLink
-                    to={`/general/spaces/${navigation.currentSpace.id}/archive`}
-                    onClick={onNavigate}
-                    aria-label="Archive"
-                    {...hintHandlers('Archive')}
-                    className={({ isActive }) =>
-                      `${ROW} mt-1 h-10 ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
-                        isActive
-                          ? 'surface-sunken font-semibold text-ink'
-                          : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
-                      }`
-                    }
-                  >
-                    <Icon name="archive" size={18} />
-                    {!collapsed && <span>Archive</span>}
-                  </NavLink>
-                </div>
-              )}
             </div>
           )}
 
@@ -363,14 +249,23 @@ export function SideNav({
               {!collapsed && <GroupLabel>{group.title}</GroupLabel>}
               <ul className="space-y-0.5">
                 {group.items.map((item) => (
-                  <StaticRow
-                    key={item.label}
-                    item={item}
-                    collapsed={collapsed}
-                    unread={unread}
-                    onNavigate={onNavigate}
-                    hintHandlers={hintHandlers}
-                  />
+                  <Fragment key={item.label}>
+                    <StaticRow
+                      item={item}
+                      collapsed={collapsed}
+                      unread={unread}
+                      onNavigate={onNavigate}
+                      hintHandlers={hintHandlers}
+                    />
+                    {workplace === 'general' && item.label === 'Messages' && navigation.currentSpace && (
+                      <ArchiveRow
+                        spaceId={navigation.currentSpace.id}
+                        collapsed={collapsed}
+                        onNavigate={onNavigate}
+                        hintHandlers={hintHandlers}
+                      />
+                    )}
+                  </Fragment>
                 ))}
               </ul>
             </div>
@@ -400,14 +295,6 @@ export function SideNav({
     </>
   )
 }
-
-const PROJECT_TABS: { id: ReturnType<typeof generalTab>; label: string; icon: IconName }[] = [
-  { id: 'overview', label: 'Overview', icon: 'file' },
-  { id: 'tasks', label: 'Tasks', icon: 'check' },
-  { id: 'files', label: 'Files', icon: 'folder' },
-  { id: 'progress', label: 'Progress', icon: 'chart' },
-  { id: 'members', label: 'Members', icon: 'users' },
-]
 
 function GroupLabel({ children }: { children: string }) {
   return (
@@ -499,6 +386,39 @@ function StaticRow({
             )}
           </>
         )}
+      </NavLink>
+    </li>
+  )
+}
+
+function ArchiveRow({
+  spaceId,
+  collapsed,
+  onNavigate,
+  hintHandlers,
+}: {
+  spaceId: string
+  collapsed: boolean
+  onNavigate?: () => void
+  hintHandlers: (text: string) => Record<string, unknown>
+}) {
+  return (
+    <li>
+      <NavLink
+        to={`/general/spaces/${spaceId}/archive`}
+        onClick={onNavigate}
+        aria-label={collapsed ? 'Archive' : undefined}
+        {...hintHandlers('Archive')}
+        className={({ isActive }) =>
+          `${ROW} h-10 ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
+            isActive
+              ? 'surface-sunken font-semibold text-ink'
+              : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
+          }`
+        }
+      >
+        <Icon name="archive" size={18} />
+        {!collapsed && <span>Archive</span>}
       </NavLink>
     </li>
   )

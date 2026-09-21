@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
+import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
@@ -50,25 +51,21 @@ export default function SpaceArchive() {
 
   return (
     <div className="w-full">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="eyebrow">{space?.name ?? 'Space'}</p>
-          <h1 className="mt-1 font-display">Archive</h1>
-          <p className="mt-1 text-[13px] text-muted">
-            Projects that have been put away. Everything inside them is still here and still
-            readable — an Owner can bring one back at any time.
-          </p>
-        </div>
-        {spaceId && (
+      <DirectoryHero
+        title="Archived projects,"
+        accent="within reach."
+        description="Projects that have been put away stay readable here, and an Owner can bring one back at any time."
+        stats={[]}
+        action={spaceId ? (
           <Link
             to={`/general/spaces/${spaceId}`}
-            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[13px] text-muted hover:border-line-strong hover:text-ink"
+            className="flex items-center gap-1.5 rounded-lg border border-amber-50/20 bg-amber-50/10 px-3 py-1.5 text-[13px] font-medium text-amber-50 hover:bg-amber-50/16"
           >
             <Icon name="board" size={15} />
             Back to projects
           </Link>
-        )}
-      </header>
+        ) : undefined}
+      />
 
       <div className="mt-6 space-y-4">
         {error && <Alert tone="error">{error}</Alert>}

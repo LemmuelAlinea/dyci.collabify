@@ -73,6 +73,10 @@ do $$ begin
   create type public.general_file_action as enum ('added', 'changed', 'removed');
 exception when duplicate_object then null; end $$;
 
+do $$ begin
+  create type public.general_file_kind as enum ('text', 'rich', 'sheet', 'binary');
+exception when duplicate_object then null; end $$;
+
 /*
  * One row per file per commit. The newest row for a path is what the file says
  * now; a row with action 'removed' means the path is gone as of that commit.
@@ -87,7 +91,9 @@ create table if not exists public.general_blobs (
   seq        int not null,
   path       text not null,
   action     public.general_file_action not null,
+  kind       public.general_file_kind not null default 'text',
   content    text not null default '',
+  storage_path text,
   created_at timestamptz not null default now(),
   constraint general_blobs_path_len check (char_length(btrim(path)) between 1 and 400),
   -- No absolute paths, no climbing out, no backslashes, no trailing slash.
@@ -95,6 +101,10 @@ create table if not exists public.general_blobs (
     path !~ '^/' and path !~ '\\' and path !~ '(^|/)\.\.(/|$)' and path !~ '/$'
   ),
   constraint general_blobs_content_len check (char_length(content) <= 400000),
+  constraint general_blobs_storage_shape check (
+    (kind = 'binary' and storage_path is not null and content = '')
+    or (kind <> 'binary' and storage_path is null)
+  ),
   constraint general_blobs_unique unique (commit_id, path),
   foreign key (commit_id, project_id)
     references public.general_commits (id, project_id) on delete cascade
@@ -103,6 +113,11 @@ create table if not exists public.general_blobs (
 create index if not exists general_blobs_tree_idx
   on public.general_blobs (repo_id, path, seq desc);
 create index if not exists general_blobs_commit_idx on public.general_blobs (commit_id);
+
+alter table public.general_blobs
+  add column if not exists kind public.general_file_kind not null default 'text';
+alter table public.general_blobs
+  add column if not exists storage_path text;
 
 create table if not exists public.general_repo_changes (
   id           uuid primary key default gen_random_uuid(),
@@ -116,6 +131,7 @@ create table if not exists public.general_repo_changes (
   /** [{path, action, content}] — the same shape a commit takes. */
   files        jsonb not null default '[]'::jsonb,
   status       public.general_change_status not null default 'open',
+  reviewer_id  uuid references public.profiles (id) on delete set null,
   decided_by   uuid references public.profiles (id) on delete set null,
   decided_at   timestamptz,
   decided_note text not null default '',
@@ -138,6 +154,11 @@ create index if not exists general_repo_changes_author_idx
   on public.general_repo_changes (author_id);
 create index if not exists general_repo_changes_decided_idx
   on public.general_repo_changes (decided_by);
+
+alter table public.general_repo_changes
+  add column if not exists reviewer_id uuid references public.profiles (id) on delete set null;
+create index if not exists general_repo_changes_reviewer_idx
+  on public.general_repo_changes (reviewer_id);
 
 create table if not exists public.general_repo_comments (
   id         uuid primary key default gen_random_uuid(),
@@ -228,6 +249,21 @@ begin
     if new.status <> 'open' or new.decided_by is not null or new.decided_at is not null then
       raise exception 'A change starts open and undecided' using errcode = 'insufficient_privilege';
     end if;
+    if new.reviewer_id is not null then
+      if new.reviewer_id = new.author_id then
+        raise exception 'Choose somebody else to review your change'
+          using errcode = 'insufficient_privilege';
+      end if;
+      if not exists (
+        select 1 from public.general_members m
+        join public.profiles pr on pr.id = m.user_id
+         where m.project_id = new.project_id and m.user_id = new.reviewer_id
+           and pr.status <> 'rejected'
+      ) then
+        raise exception 'The reviewer must be on this project'
+          using errcode = 'insufficient_privilege';
+      end if;
+    end if;
   end if;
 
   if tg_op = 'UPDATE' then
@@ -236,6 +272,10 @@ begin
     end if;
     if new.author_id is distinct from old.author_id or new.created_at <> old.created_at then
       raise exception 'A change keeps who opened it' using errcode = 'insufficient_privilege';
+    end if;
+    if new.reviewer_id is distinct from old.reviewer_id
+       and coalesce(current_setting('collabify.general_repo_op', true), 'off') <> 'on' then
+      raise exception 'A change keeps its reviewer' using errcode = 'insufficient_privilege';
     end if;
     if old.status <> 'open' then
       raise exception 'That change was already answered' using errcode = 'insufficient_privilege';
@@ -415,20 +455,27 @@ create or replace function public.commit_general_files(
 ) returns public.general_commits
 language plpgsql security definer set search_path = public as $$
 declare
-  r      public.general_repos%rowtype;
-  c      public.general_commits%rowtype;
-  item   jsonb;
-  seen   text[] := array[]::text[];
-  v_path text;
-  v_act  text;
-  live   int;
+  r       public.general_repos%rowtype;
+  c       public.general_commits%rowtype;
+  item    jsonb;
+  seen    text[] := array[]::text[];
+  v_path  text;
+  v_act   text;
+  v_kind  text;
+  v_store text;
+  live    int;
 begin
   select * into r from public.general_repos where id = p_repo for update;
   if not found then
     raise exception 'That repository is gone' using errcode = 'no_data_found';
   end if;
 
-  if not public.general_viewer_active() or not public.general_can(r.project_id, 'edit_files') then
+  if not public.general_viewer_active()
+     or not (
+       public.general_can(r.project_id, 'edit_files')
+       or (p_change is not null
+           and coalesce(current_setting('collabify.general_repo_op', true), 'off') = 'on')
+     ) then
     raise exception 'You do not have permission to commit. Open a change instead.'
       using errcode = 'insufficient_privilege';
   end if;
@@ -451,8 +498,10 @@ begin
   returning * into c;
 
   for item in select value from jsonb_array_elements(p_files) loop
-    v_path := btrim(item ->> 'path');
-    v_act  := item ->> 'action';
+    v_path  := btrim(item ->> 'path');
+    v_act   := item ->> 'action';
+    v_kind  := coalesce(item ->> 'kind', 'text');
+    v_store := nullif(btrim(coalesce(item ->> 'storage_path', '')), '');
 
     if v_path is null or v_path = '' then
       raise exception 'A file needs a path' using errcode = 'invalid_parameter_value';
@@ -460,11 +509,25 @@ begin
     if v_act not in ('added', 'changed', 'removed') then
       raise exception 'A file is added, changed or removed' using errcode = 'invalid_parameter_value';
     end if;
+    if v_kind not in ('text', 'rich', 'sheet', 'binary') then
+      raise exception 'A file is text, rich, sheet or binary' using errcode = 'invalid_parameter_value';
+    end if;
     if v_path = any (seen) then
       raise exception 'The same file appears twice in one commit: %', v_path
         using errcode = 'invalid_parameter_value';
     end if;
     seen := seen || v_path;
+
+    if v_kind = 'binary' then
+      if v_store is null then
+        raise exception 'A binary file needs its uploaded object' using errcode = 'invalid_parameter_value';
+      end if;
+      if v_store !~ ('^' || r.project_id::text || '/files/') then
+        raise exception 'That file was not uploaded to this project' using errcode = 'insufficient_privilege';
+      end if;
+    elsif v_store is not null then
+      raise exception 'Only a binary file has an uploaded object' using errcode = 'invalid_parameter_value';
+    end if;
 
     -- What the repository says about this path right now, so a commit cannot
     -- claim to add a file that exists or remove one that does not.
@@ -484,9 +547,13 @@ begin
       raise exception 'That file is not in the repository: %', v_path using errcode = 'no_data_found';
     end if;
 
-    insert into public.general_blobs (commit_id, repo_id, project_id, seq, path, action, content)
+    insert into public.general_blobs
+      (commit_id, repo_id, project_id, seq, path, action, kind, content, storage_path)
     values (c.id, r.id, r.project_id, c.seq, v_path, v_act::public.general_file_action,
-            case when v_act = 'removed' then '' else coalesce(item ->> 'content', '') end);
+            v_kind::public.general_file_kind,
+            case when v_act = 'removed' or v_kind = 'binary' then ''
+                 else coalesce(item ->> 'content', '') end,
+            case when v_kind = 'binary' then v_store end);
   end loop;
 
   update public.general_repos set commit_count = c.seq where id = r.id;
@@ -511,8 +578,17 @@ begin
     raise exception 'That change is gone' using errcode = 'no_data_found';
   end if;
 
-  if not public.general_viewer_active() or not public.general_can(ch.project_id, 'edit_files') then
-    raise exception 'You do not have permission to answer a change. Ask an Owner for it.'
+  if ch.author_id = auth.uid() then
+    raise exception 'You cannot answer your own change'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if not public.general_viewer_active()
+     or (
+       (ch.reviewer_id is not null and ch.reviewer_id <> auth.uid())
+       or (ch.reviewer_id is null and not public.general_can(ch.project_id, 'edit_files'))
+     ) then
+    raise exception 'You are not the reviewer for this change'
       using errcode = 'insufficient_privilege';
   end if;
 
@@ -527,6 +603,7 @@ begin
         using errcode = 'serialization_failure';
     end if;
 
+    perform set_config('collabify.general_repo_op', 'on', true);
     perform public.commit_general_files(
       ch.repo_id,
       left(coalesce(nullif(btrim(ch.title), ''), 'Merged a change'), 2000),
@@ -534,6 +611,7 @@ begin
       ch.files,
       ch.author_id,
       ch.id);
+    perform set_config('collabify.general_repo_op', 'off', true);
   end if;
 
   perform set_config('collabify.general_repo_op', 'on', true);
@@ -582,7 +660,9 @@ select b.id,
        b.commit_id,
        b.seq,
        b.path,
+       b.kind,
        b.content,
+       b.storage_path,
        length(b.content) as size,
        b.created_at
   from (

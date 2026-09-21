@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { educationHome, homeFor, workplaceOf } from './workplace'
+import { educationHome, homeFor, settingsPathFor, workplaceOf } from './workplace'
 
 const p = (
   role: 'student' | 'professor' | 'admin' | null,
@@ -48,6 +48,7 @@ describe('workplaceOf', () => {
   it('reads General from its own section', () => {
     expect(workplaceOf('/general', 'education')).toBe('general')
     expect(workplaceOf('/general/projects/abc', 'education')).toBe('general')
+    expect(workplaceOf('/general/settings', 'education')).toBe('general')
   })
 
   it('does not mistake a lookalike path for General', () => {
@@ -56,6 +57,7 @@ describe('workplaceOf', () => {
 
   it('reads Education from the role sections', () => {
     expect(workplaceOf('/student/tasks', 'general')).toBe('education')
+    expect(workplaceOf('/student/settings', 'general')).toBe('education')
     expect(workplaceOf('/professor', 'general')).toBe('education')
     expect(workplaceOf('/education/enter', 'general')).toBe('education')
   })
@@ -63,5 +65,15 @@ describe('workplaceOf', () => {
   it('uses the home workplace on shared pages', () => {
     expect(workplaceOf('/settings', 'general')).toBe('general')
     expect(workplaceOf('/privacy/request', 'education')).toBe('education')
+  })
+})
+
+describe('settingsPathFor', () => {
+  it('keeps Settings in the active workplace when possible', () => {
+    expect(settingsPathFor('general', 'student')).toBe('/general/settings')
+    expect(settingsPathFor('education', 'student')).toBe('/student/settings')
+    expect(settingsPathFor('education', 'professor')).toBe('/professor/settings')
+    expect(settingsPathFor('education', 'admin')).toBe('/admin/settings')
+    expect(settingsPathFor('education', null)).toBe('/settings')
   })
 })

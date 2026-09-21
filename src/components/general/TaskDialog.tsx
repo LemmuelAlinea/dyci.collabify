@@ -257,12 +257,12 @@ function TaskBody({
                 {!archived && (f.uploaded_by === me || state.can('edit_files')) && (
                   <button
                     type="button"
-                    aria-label={`Remove ${f.file_name}`}
+                    aria-label={`Archive ${f.file_name}`}
                     disabled={busy}
-                    onClick={() => void act(() => deleteTaskFile(f), 'File removed', 'Could not remove that file.')}
+                    onClick={() => void act(() => deleteTaskFile(f), 'File archived', 'Could not archive that file.')}
                     className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-red-600 dark:hover:text-red-400"
                   >
-                    <Icon name="trash" size={13} />
+                    <Icon name="archive" size={13} />
                   </button>
                 )}
               </li>
@@ -330,8 +330,8 @@ function TaskBody({
 
         {canDelete && (
           <Button variant="ghost" size="sm" onClick={() => setDeleting(true)}>
-            <Icon name="trash" size={14} />
-            Remove task
+            <Icon name="archive" size={14} />
+            Archive task
           </Button>
         )}
       </div>
@@ -341,13 +341,14 @@ function TaskBody({
         onClose={() => setDeleting(false)}
         onConfirm={async () => {
           await deleteTask(task.id)
-          show('Task removed')
+          show('Task archived')
           onClose()
           await state.reload()
         }}
-        title={`Remove ${task.title}?`}
-        body="Its comments, files, time and history go with it. This cannot be undone."
-        confirmLabel="Remove task"
+        title={`Archive ${task.title}?`}
+        body="It leaves the active task board, but comments, files, time and history stay recoverable in the project archive."
+        confirmLabel="Archive task"
+        tone="primary"
       />
     </div>
   )

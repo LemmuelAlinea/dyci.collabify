@@ -10,18 +10,21 @@ import {
   contentAt,
   deleteRepoComment,
   listRepoComments,
+  projectFileUrl,
   withdrawRepoChange,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
-import { fileText } from '../../lib/general/files'
+import { extensionOf, fileName, fileText } from '../../lib/general/files'
 import { CHANGE_LABEL, FILE_ACTION_LABEL } from '../../lib/general/types'
 import type {
   GeneralRepoChange,
   GeneralRepoComment,
   GeneralRepoSummary,
+  RepoFile,
 } from '../../lib/general/types'
 import { DiffView } from './DiffView'
+import { PdfPreview } from './PdfPreview'
 import type { GeneralProjectState } from './useGeneralProject'
 
 /**
@@ -51,7 +54,10 @@ export function RepoChangeRow({
   const [busy, setBusy] = useState(false)
 
   const mine = change.author_id === state.viewerId
-  const mayAnswer = state.can('edit_files') && change.status === 'open'
+  const assignedToMe = change.reviewer_id === state.viewerId
+  const mayAnswer = !mine && change.status === 'open' && (
+    change.reviewer_id ? assignedToMe : state.can('edit_files')
+  )
   const stale = change.status === 'open' && change.base_seq !== repo.commit_count
 
   const load = useCallback(async () => {
@@ -109,6 +115,7 @@ export function RepoChangeRow({
         {change.author_id ? state.nameOf(change.author_id) : 'A former member'} ·{' '}
         {change.files.length} {change.files.length === 1 ? 'file' : 'files'} · against commit{' '}
         {change.base_seq} · {formatDue(change.created_at)}
+        {change.reviewer_id ? ` · reviewer: ${state.nameOf(change.reviewer_id)}` : ''}
       </p>
 
       {change.decided_note && (
@@ -131,6 +138,16 @@ export function RepoChangeRow({
             </Alert>
           )}
 
+          {mine && change.status === 'open' && (
+            <Alert tone="info">Somebody else has to review your request.</Alert>
+          )}
+
+          {!mine && change.status === 'open' && change.reviewer_id && !assignedToMe && (
+            <Alert tone="info">
+              Only {state.nameOf(change.reviewer_id)} can accept or close this request.
+            </Alert>
+          )}
+
           {change.files.length === 0 && (
             <p className="text-[13px] text-muted">This change carries no files.</p>
           )}
@@ -149,6 +166,7 @@ export function RepoChangeRow({
                   after={f.action === 'removed' ? '' : fileText(f.kind, f.content)}
                   caption={`What this change would do to ${f.path}, line by line`}
                 />
+                <ReviewFilePreview file={f} />
               </section>
             ))}
 
@@ -284,5 +302,79 @@ export function RepoChangeRow({
         </div>
       )}
     </li>
+  )
+}
+
+function ReviewFilePreview({ file }: { file: RepoFile }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const name = fileName(file.path)
+  const ext = extensionOf(file.path)
+  const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
+  const isPdf = ext === 'pdf'
+  const canPreview = isPdf || isImage
+
+  useEffect(() => {
+    let alive = true
+    setUrl(null)
+    setDownloadUrl(null)
+    setError(null)
+    if (file.kind !== 'binary' || file.action === 'removed' || !file.storage_path) return
+    void Promise.all([
+      isPdf ? Promise.resolve(null) : projectFileUrl(file.storage_path),
+      projectFileUrl(file.storage_path, name),
+    ])
+      .then(([preview, download]) => {
+        if (!alive) return
+        setUrl(preview)
+        setDownloadUrl(download)
+      })
+      .catch((err) => {
+        if (alive) setError(authErrorMessage(err, 'Could not load the file preview.'))
+      })
+    return () => {
+      alive = false
+    }
+  }, [file.action, file.kind, file.storage_path, isPdf, name])
+
+  if (file.kind !== 'binary' || file.action === 'removed') return null
+
+  return (
+    <div className="mt-2 space-y-2">
+      {error && <Alert tone="error">{error}</Alert>}
+      <div className="flex flex-wrap items-center gap-2">
+        {downloadUrl && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => window.open(downloadUrl, '_blank', 'noopener')}
+          >
+            <Icon name="download" size={14} />
+            Download
+          </Button>
+        )}
+        {!canPreview && (
+          <p className="text-[12px] text-muted">
+            This uploaded file can be downloaded, but it cannot be previewed in the browser.
+          </p>
+        )}
+      </div>
+      {canPreview && (
+        <div className="overflow-hidden rounded-xl border border-line bg-[var(--surface-sunken)]">
+          {isPdf && file.storage_path ? (
+            <PdfPreview storagePath={file.storage_path} label={name} />
+          ) : !url ? (
+            <div className="flex min-h-[14rem] items-center justify-center text-[13px] text-muted">
+              Loading preview…
+            </div>
+          ) : (
+            <div className="flex max-h-[70vh] justify-center overflow-auto p-3">
+              <img src={url} alt={name} className="max-w-full rounded-lg" />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

@@ -10,6 +10,8 @@ import {
   foldersIn,
   isEditable,
   kindForPath,
+  looksLikeMisreadOfficeFile,
+  pathWithPickedExtension,
   pathProblem,
 } from './files'
 import type { GeneralTreeFile } from './types'
@@ -79,12 +81,20 @@ describe('naming', () => {
     expect(extensionOf('Dockerfile')).toBe('')
     expect(extensionOf('archive.tar.gz')).toBe('gz')
   })
+
+  it('keeps an uploaded file extension when the typed path has none', () => {
+    expect(pathWithPickedExtension('documents/Chapter 1 and 2', 'Chapt1-2.docx')).toBe(
+      'documents/Chapter 1 and 2.docx',
+    )
+    expect(pathWithPickedExtension('documents/notes.md', 'Chapt1-2.docx')).toBe('documents/notes.md')
+  })
 })
 
 describe('kindForPath', () => {
   it('sends Word and Excel to their editors', () => {
     expect(kindForPath('documents/Chapter 1.docx')).toBe('rich')
     expect(kindForPath('Budget.XLSX')).toBe('sheet')
+    expect(kindForPath('Budget.XLSM')).toBe('sheet')
     expect(kindForPath('data.csv')).toBe('sheet')
   })
 
@@ -96,10 +106,18 @@ describe('kindForPath', () => {
 
   it('leaves anything it does not know alone', () => {
     expect(kindForPath('scan.pdf')).toBe('binary')
+    expect(kindForPath('legacy.xls')).toBe('binary')
     expect(kindForPath('photo.jpg')).toBe('binary')
     expect(kindForPath('slides.pptx')).toBe('binary')
     expect(isEditable('binary')).toBe(false)
     expect(isEditable('rich')).toBe(true)
+  })
+})
+
+describe('looksLikeMisreadOfficeFile', () => {
+  it('spots office zips that were stored as text', () => {
+    expect(looksLikeMisreadOfficeFile('PK!\u0000[Content_Types].xml word/document.xml')).toBe(true)
+    expect(looksLikeMisreadOfficeFile('ordinary project notes')).toBe(false)
   })
 })
 

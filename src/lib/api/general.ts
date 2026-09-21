@@ -14,6 +14,7 @@ import type { FieldType, FieldValue } from '../general/fields'
 import type { GeneralLevel, GeneralPermission } from '../general/permissions'
 import type { GeneralTaskStatus } from '../general/progress'
 import type {
+  ArchivedGeneralFile,
   GeneralAccessRequest,
   GeneralComment,
   GeneralCounts,
@@ -27,6 +28,8 @@ import type {
   GeneralPositionHolder,
   GeneralProject,
   GeneralProjectSummary,
+  GeneralSpaceTeam,
+  GeneralSpaceTeamMember,
   GeneralStatus,
   GeneralTask,
   GeneralTaskEvent,
@@ -46,6 +49,7 @@ import type {
   GeneralDraft,
   GeneralDraftFile,
   GeneralTreeFile,
+  RemovedGeneralRepoPath,
   RepoFile,
   ProjectInvitation,
   SpacePerson,
@@ -54,6 +58,20 @@ import type {
 const PERSON = 'id, first_name, last_name, avatar_url'
 const BUCKET = 'general-files'
 export const GENERAL_FILE_LIMIT = 25 * 1024 * 1024
+
+function cleanGeneralFileContent(content = '') {
+  let out = ''
+  for (let i = 0; i < content.length; i++) {
+    const code = content.charCodeAt(i)
+    if (code === 9 || code === 10 || code === 13 || code >= 32) out += content[i]
+  }
+  return out
+}
+
+function cleanGeneralRepoFile(file: RepoFile): RepoFile {
+  if (file.action === 'removed' || file.kind === 'binary') return file
+  return { ...file, content: cleanGeneralFileContent(file.content) }
+}
 
 function changed<T>(rows: T[] | null, message: string): T[] {
   if (!rows || rows.length === 0) throw new Error(message)
@@ -112,6 +130,8 @@ export async function createGeneralProject(input: {
   content?: PresetPayload | null
   /** Which space it goes into. Left out, the database uses your own. */
   spaceId?: string | null
+  /** A reusable Space team to seed this project from. */
+  spaceTeamId?: string | null
 }) {
   const { data, error } = await supabase.rpc('create_general_project', {
     p_name: input.name,
@@ -121,9 +141,87 @@ export async function createGeneralProject(input: {
     p_preset: input.preset ?? null,
     p_content: input.content ?? null,
     p_space: input.spaceId ?? null,
+    p_space_team: input.spaceTeamId ?? null,
   })
   if (error) throw error
   return data as GeneralProject
+}
+
+/* ---------------------------------------------------------------- space teams */
+
+export async function listSpaceTeams(spaceId: string, archived = false) {
+  const { data, error } = await supabase.rpc('list_general_space_teams', {
+    p_space: spaceId,
+    p_archived: archived,
+  })
+  if (error) throw error
+  return (data ?? []) as GeneralSpaceTeam[]
+}
+
+export async function listSpaceTeamMembers(spaceId: string) {
+  const { data, error } = await supabase.rpc('list_general_space_team_members', {
+    p_space: spaceId,
+  })
+  if (error) throw error
+  return (data ?? []) as GeneralSpaceTeamMember[]
+}
+
+export async function createSpaceTeam(input: {
+  spaceId: string
+  name: string
+  description?: string
+  memberIds?: string[]
+}) {
+  const { data, error } = await supabase.rpc('create_general_space_team', {
+    p_space: input.spaceId,
+    p_name: input.name,
+    p_description: input.description ?? '',
+    p_members: input.memberIds ?? [],
+  })
+  if (error) throw error
+  return data as GeneralSpaceTeam
+}
+
+export async function updateSpaceTeam(teamId: string, name: string, description = '') {
+  const { data, error } = await supabase.rpc('update_general_space_team', {
+    p_team: teamId,
+    p_name: name,
+    p_description: description,
+  })
+  if (error) throw error
+  return data as GeneralSpaceTeam
+}
+
+export async function archiveSpaceTeam(teamId: string, archived: boolean) {
+  const { data, error } = await supabase.rpc('archive_general_space_team', {
+    p_team: teamId,
+    p_archived: archived,
+  })
+  if (error) throw error
+  return data as GeneralSpaceTeam
+}
+
+export async function deleteSpaceTeam(teamId: string) {
+  const { error } = await supabase.rpc('delete_general_space_team', {
+    p_team: teamId,
+  })
+  if (error) throw error
+}
+
+export async function addSpaceTeamMember(teamId: string, userId: string) {
+  const { error } = await supabase.rpc('add_general_space_team_member', {
+    p_team: teamId,
+    p_user: userId,
+  })
+  if (error) throw error
+}
+
+export async function removeSpaceTeamMember(teamId: string, userId: string) {
+  const { error } = await supabase.rpc('remove_general_space_team_member', {
+    p_team: teamId,
+    p_user: userId,
+  })
+  if (error) throw error
 }
 
 export type ProjectPatch = Partial<{
@@ -636,7 +734,19 @@ export async function listTasks(projectId: string) {
     .from('general_task_overview')
     .select('*')
     .eq('project_id', projectId)
+    .is('archived_at', null)
     .order('created_at')
+  if (error) throw error
+  return (data ?? []) as GeneralTask[]
+}
+
+export async function listArchivedTasks(projectId: string) {
+  const { data, error } = await supabase
+    .from('general_task_overview')
+    .select('*')
+    .eq('project_id', projectId)
+    .not('archived_at', 'is', null)
+    .order('archived_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as GeneralTask[]
 }
@@ -690,10 +800,17 @@ export async function updateTask(taskId: string, patch: TaskPatch) {
   changed(data, 'You are not on this project, or this task no longer exists.')
 }
 
-export async function deleteTask(taskId: string) {
-  const { data, error } = await supabase.from('general_tasks').delete().eq('id', taskId).select('id')
+export async function archiveTask(taskId: string, archived: boolean) {
+  const { data, error } = await supabase.rpc('archive_general_task', {
+    p_task: taskId,
+    p_archived: archived,
+  })
   if (error) throw error
-  changed(data, 'Only its creator, before anyone takes it, or someone who manages tasks can remove this.')
+  if (!data) throw new Error('Only its creator, before anyone takes it, or someone who manages tasks can archive this.')
+}
+
+export async function deleteTask(taskId: string) {
+  await archiveTask(taskId, true)
 }
 
 export async function assignTask(taskId: string, projectId: string, userId: string) {
@@ -746,9 +863,18 @@ export async function listFiles(taskId: string) {
     .from('general_task_files')
     .select('*')
     .eq('task_id', taskId)
+    .is('archived_at', null)
     .order('created_at')
   if (error) throw error
   return (data ?? []) as GeneralFile[]
+}
+
+export async function listArchivedTaskFiles(projectId: string) {
+  const { data, error } = await supabase.rpc('list_archived_general_task_files', {
+    p_project: projectId,
+  })
+  if (error) throw error
+  return (data ?? []) as ArchivedGeneralFile[]
 }
 
 export async function uploadTaskFile(projectId: string, taskId: string, file: File) {
@@ -777,17 +903,17 @@ export async function uploadTaskFile(projectId: string, taskId: string, file: Fi
   }
 }
 
-/** Storage first: the remove policy reads the row to know who uploaded it. */
-export async function deleteTaskFile(file: GeneralFile) {
-  const { error: storageError } = await supabase.storage.from(BUCKET).remove([file.file_path])
-  if (storageError) throw storageError
-  const { data, error } = await supabase
-    .from('general_task_files')
-    .delete()
-    .eq('id', file.id)
-    .select('id')
+export async function archiveTaskFile(fileId: string, archived: boolean) {
+  const { data, error } = await supabase.rpc('archive_general_task_file', {
+    p_file: fileId,
+    p_archived: archived,
+  })
   if (error) throw error
-  changed(data, 'You cannot remove this file. Only whoever added it, or somebody who can edit files, can.')
+  if (!data) throw new Error('You cannot archive this file. Only whoever added it, or somebody who can edit files, can.')
+}
+
+export async function deleteTaskFile(file: GeneralFile) {
+  await archiveTaskFile(file.id, true)
 }
 
 /** The bucket is private, so viewing goes through a ten-minute signed URL. */
@@ -884,6 +1010,14 @@ export async function listTree(repoId: string) {
   return (data ?? []) as GeneralTreeFile[]
 }
 
+export async function listRemovedRepoPaths(projectId: string) {
+  const { data, error } = await supabase.rpc('list_removed_general_repo_paths', {
+    p_project: projectId,
+  })
+  if (error) throw error
+  return (data ?? []) as RemovedGeneralRepoPath[]
+}
+
 export async function listCommits(repoId: string) {
   const { data, error } = await supabase
     .from('general_commits')
@@ -932,7 +1066,7 @@ export async function commitFiles(input: {
     p_repo: input.repoId,
     p_message: input.message,
     p_base_seq: input.baseSeq,
-    p_files: input.files,
+    p_files: input.files.map(cleanGeneralRepoFile),
   })
   if (error) throw error
   return data as GeneralCommit
@@ -1063,7 +1197,7 @@ export async function saveDraftFile(input: {
     p_path: input.path,
     p_action: input.action,
     p_kind: input.kind,
-    p_content: input.content ?? '',
+    p_content: input.kind === 'binary' ? '' : cleanGeneralFileContent(input.content),
     p_storage: input.storagePath ?? null,
   })
   if (error) throw error
@@ -1096,11 +1230,24 @@ export async function syncDraft(repoId: string) {
   return data as GeneralDraft
 }
 
-export async function submitDraft(repoId: string, title: string, body = '') {
+export async function submitDraft(repoId: string, title: string, body: string, reviewerId: string) {
   const { data, error } = await supabase.rpc('submit_general_draft', {
     p_repo: repoId,
     p_title: title.trim(),
     p_body: body,
+    p_reviewer: reviewerId,
+  })
+  if (error) throw error
+  return data as GeneralRepoChange
+}
+
+export async function submitDraftFile(repoId: string, path: string, title: string, body: string, reviewerId: string) {
+  const { data, error } = await supabase.rpc('submit_general_draft_file', {
+    p_repo: repoId,
+    p_path: path,
+    p_title: title.trim(),
+    p_body: body,
+    p_reviewer: reviewerId,
   })
   if (error) throw error
   return data as GeneralRepoChange
@@ -1117,13 +1264,45 @@ export async function uploadProjectFile(projectId: string, file: File) {
   if (file.size > GENERAL_FILE_LIMIT) throw new Error('Files can be up to 25 MB.')
   const safe = (file.name || 'file').replace(/[^\w.\- ]+/g, '_').slice(-120)
   const path = `${projectId}/files/${crypto.randomUUID()}-${safe}`
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    upsert: false,
+    contentType: file.type || contentTypeForProjectFile(safe),
+  })
   if (error) throw error
   return path
 }
 
-export async function projectFileUrl(storagePath: string) {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, 60)
+export async function projectFileUrl(storagePath: string, downloadName?: string) {
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(storagePath, 60 * 10, downloadName ? { download: downloadName } : undefined)
   if (error) throw error
   return data.signedUrl
+}
+
+export async function projectFileObjectUrl(storagePath: string, type: string) {
+  const blob = await projectFileBlob(storagePath)
+  return URL.createObjectURL(new Blob([blob], { type }))
+}
+
+export async function projectFileBlob(storagePath: string) {
+  const signed = await projectFileUrl(storagePath)
+  const response = await fetch(signed)
+  if (!response.ok) throw new Error('Could not load that file.')
+  return response.blob()
+}
+
+function contentTypeForProjectFile(name: string) {
+  const ext = name.slice(name.lastIndexOf('.') + 1).toLowerCase()
+  if (ext === 'pdf') return 'application/pdf'
+  if (ext === 'xlsx') return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  if (ext === 'xlsm') return 'application/vnd.ms-excel.sheet.macroEnabled.12'
+  if (ext === 'xls') return 'application/vnd.ms-excel'
+  if (ext === 'csv') return 'text/csv'
+  if (ext === 'png') return 'image/png'
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+  if (ext === 'gif') return 'image/gif'
+  if (ext === 'webp') return 'image/webp'
+  if (ext === 'svg') return 'image/svg+xml'
+  return undefined
 }

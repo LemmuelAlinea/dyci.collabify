@@ -74,10 +74,13 @@ const SyllabusDetail = lazy(() => import('./pages/app/resources/SyllabusDetail')
 const EnterEducation = lazy(() => import('./pages/auth/EnterEducation'))
 const GeneralLanding = lazy(() => import('./pages/general/GeneralLanding'))
 const GeneralHome = lazy(() => import('./pages/general/GeneralHome'))
+const GeneralProjects = lazy(() => import('./pages/general/GeneralProjects'))
+const GeneralTeams = lazy(() => import('./pages/general/GeneralTeams'))
 const SpacePicker = lazy(() => import('./pages/general/SpacePicker'))
 const SpaceMembers = lazy(() => import('./pages/general/SpaceMembers'))
 const SpaceArchive = lazy(() => import('./pages/general/SpaceArchive'))
 const GeneralProject = lazy(() => import('./pages/general/GeneralProject'))
+const ProjectArchive = lazy(() => import('./pages/general/ProjectArchive'))
 
 export default function App() {
   return (
@@ -123,14 +126,21 @@ export default function App() {
             {/* /general keeps working everywhere it is already linked: it
                 picks the space you were last in and redirects. */}
             <Route path="/general" element={<GeneralLanding />} />
+            <Route path="/general/settings" element={<Settings />} />
             <Route path="/general/spaces" element={<SpacePicker />} />
             <Route path="/general/spaces/archive" element={<SpacePicker />} />
             <Route path="/general/spaces/:spaceId" element={<GeneralHome />} />
             <Route path="/general/spaces/:spaceId/members" element={<SpaceMembers />} />
+            <Route path="/general/spaces/:spaceId/teams" element={<GeneralTeams />} />
+            <Route path="/general/spaces/:spaceId/teams/archive" element={<GeneralTeams />} />
             <Route path="/general/spaces/:spaceId/archive" element={<SpaceArchive />} />
+            <Route path="/general/projects" element={<GeneralProjects />} />
+            <Route path="/general/teams" element={<GeneralTeams />} />
+            <Route path="/general/teams/archive" element={<GeneralTeams />} />
             {/* Flat, not nested under the space: a project id is unique on its
                 own, and nesting would break every link and deep link already
                 out there. The space is derived from the project. */}
+            <Route path="/general/projects/:projectId/archive" element={<ProjectArchive />} />
             <Route path="/general/projects/:projectId" element={<GeneralProject />} />
             <Route path="/general/messages" element={<Messages role="general" />} />
             <Route path="/general/messages/:conversationId" element={<Messages role="general" />} />
@@ -140,6 +150,7 @@ export default function App() {
           <Route element={<ProtectedRoute workplace="education" allow={['student']} />}>
           <Route element={<AppShell />}>
             <Route path="/student" element={<StudentHome />} />
+            <Route path="/student/settings" element={<Settings />} />
             <Route path="/student/classes" element={<StudentClasses />} />
             <Route path="/student/classes/:classId" element={<StudentClassDetail />} />
             <Route path="/student/groups" element={<StudentGroups />} />
@@ -163,6 +174,7 @@ export default function App() {
           <Route element={<ProtectedRoute workplace="education" allow={['professor']} />}>
           <Route element={<AppShell />}>
             <Route path="/professor" element={<ProfessorHome />} />
+            <Route path="/professor/settings" element={<Settings />} />
             <Route path="/professor/classes" element={<ProfessorClasses />} />
             <Route path="/professor/classes/:classId" element={<ProfessorClassDetail />} />
             <Route path="/professor/groups" element={<ProfessorGroups />} />
@@ -196,6 +208,7 @@ export default function App() {
           <Route element={<ProtectedRoute workplace="education" allow={['admin']} />}>
           <Route element={<AppShell />}>
             <Route path="/admin" element={<AdminHome />} />
+            <Route path="/admin/settings" element={<Settings />} />
             <Route path="/admin/approvals" element={<ProfessorApprovals />} />
             <Route path="/admin/notices" element={<Notices />} />
             <Route path="/admin/sections" element={<Sections />} />

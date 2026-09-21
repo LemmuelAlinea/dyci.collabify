@@ -136,6 +136,30 @@ export type GeneralTeam = { id: string; project_id: string; name: string; create
 
 export type GeneralTeamMember = { team_id: string; project_id: string; user_id: string }
 
+export type GeneralSpaceTeam = {
+  id: string
+  space_id: string
+  name: string
+  description: string
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  archived_at: string | null
+  my_level: GeneralLevel
+  member_count: number
+  project_count: number
+}
+
+export type GeneralSpaceTeamMember = {
+  team_id: string
+  user_id: string
+  first_name: string
+  last_name: string
+  avatar_url: string | null
+  level: GeneralLevel
+  joined_at: string
+}
+
 export type GeneralPosition = {
   id: string
   project_id: string
@@ -229,6 +253,8 @@ export type GeneralTask = {
   comment_count: number
   file_count: number
   logged_minutes: number
+  archived_at: string | null
+  archived_by: string | null
 }
 
 export type GeneralComment = {
@@ -251,7 +277,11 @@ export type GeneralFile = {
   mime_type: string | null
   size_bytes: number
   created_at: string
+  archived_at: string | null
+  archived_by: string | null
 }
+
+export type ArchivedGeneralFile = GeneralFile & { task_title: string }
 
 export type GeneralLog = {
   id: string
@@ -403,6 +433,15 @@ export type GeneralTreeFile = {
   created_at: string
 }
 
+export type RemovedGeneralRepoPath = {
+  repo_id: string
+  repo_name: string
+  path: string
+  kind: FileKind
+  seq: number
+  removed_at: string
+}
+
 export type GeneralRepoChange = {
   id: string
   repo_id: string
@@ -413,6 +452,7 @@ export type GeneralRepoChange = {
   base_seq: number
   files: RepoFile[]
   status: ChangeStatus
+  reviewer_id: string | null
   decided_by: string | null
   decided_at: string | null
   decided_note: string

@@ -29,6 +29,7 @@ import {
   fileName,
   fileText,
   kindForPath,
+  pathWithPickedExtension,
   pathProblem,
 } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
@@ -206,6 +207,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           files={draftFiles}
           conflicts={conflicts}
           repo={repo}
+          state={state}
           mainOf={mainOf}
           onOpen={setOpen}
           onDone={load}
@@ -425,20 +427,21 @@ function NewFileDialog({
   const [error, setError] = useState<string | null>(null)
   const [picked, setPicked] = useState<File | null>(null)
 
-  const kind = path ? kindForPath(path) : null
+  const savedPath = path ? pathWithPickedExtension(path, picked?.name) : ''
+  const kind = savedPath ? kindForPath(savedPath) : null
   const office = kind === 'rich' || kind === 'sheet'
 
   async function add() {
     if (busy) return
-    const problem = pathProblem(path)
+    const target = pathWithPickedExtension(path, picked?.name)
+    const problem = pathProblem(target)
     if (problem) return setError(problem)
-    if (tree.some((f) => f.path === path.trim())) {
+    if (tree.some((f) => f.path === target)) {
       return setError('The project already has a file at that path. Open it instead.')
     }
     setError(null)
     setBusy(true)
     try {
-      const target = path.trim()
       const k = kindForPath(target)
       let content = ''
       let storagePath: string | null = null
@@ -509,7 +512,9 @@ function NewFileDialog({
             Saved as a {FILE_KIND_LABEL[kind].toLowerCase()}.{' '}
             {kind === 'binary'
               ? 'Kept and versioned here, opened in the program that made it.'
-              : 'You can edit it in the site.'}
+              : kind === 'sheet'
+                ? 'Excel .xlsx, .xlsm and .csv files open in the draft spreadsheet editor.'
+                : 'You can edit it in the site.'}
           </p>
         )}
 
@@ -518,10 +523,11 @@ function NewFileDialog({
             <input
               id={id}
               type="file"
+              accept=".docx,.doc,.odt,.rtf,.xlsx,.xlsm,.xls,.csv,.pdf,.png,.jpg,.jpeg,.gif,.webp,.svg,.txt,.md,.markdown,.ts,.tsx,.js,.jsx,.json,.html,.css,.scss,.sql,.py,.java,.c,.cpp,.h,.cs,.php,.rb,.go,.rs,.sh,.yml,.yaml,.xml,.env,.toml,.ini,.kt,.swift,.dart,.vue"
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null
                 setPicked(f)
-                if (f && !path.trim()) setPath(fileName(f.name))
+                if (f) setPath((p) => (p.trim() ? pathWithPickedExtension(p, f.name) : fileName(f.name)))
               }}
               className="w-full rounded-xl border border-line surface px-3 py-2 text-[13px] text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-sunken)] file:px-3 file:py-1.5 file:text-[13px] file:text-ink"
             />

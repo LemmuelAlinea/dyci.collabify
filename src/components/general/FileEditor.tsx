@@ -13,7 +13,7 @@ import {
   saveDraftFile,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { fileName, isEditable } from '../../lib/general/files'
+import { extensionOf, fileName, isEditable, looksLikeMisreadOfficeFile } from '../../lib/general/files'
 import { downloadBlob, htmlToDocx, workbookToXlsx } from '../../lib/general/office'
 import { parseWorkbook, serializeWorkbook } from '../../lib/general/sheet'
 import type { Workbook } from '../../lib/general/sheet'
@@ -21,6 +21,7 @@ import { FILE_KIND_LABEL } from '../../lib/general/types'
 import type { FileAction, FileKind, GeneralRepoSummary } from '../../lib/general/types'
 import { RichEditor } from './RichEditor'
 import { SheetEditor } from './SheetEditor'
+import { PdfPreview } from './PdfPreview'
 import type { GeneralProjectState } from './useGeneralProject'
 
 export type OpenFile = {
@@ -85,7 +86,10 @@ function Body({
 }) {
   const { show } = useToast()
   const mayCommit = state.can('edit_files') && !state.archived
-  const frozen = state.archived || !isEditable(file.kind)
+  const misreadOfficeFile = file.kind === 'text' && looksLikeMisreadOfficeFile(file.content)
+  const frozen = state.archived || !isEditable(file.kind) || misreadOfficeFile
+  const name = fileName(file.path)
+  const isPdf = file.kind === 'binary' && extensionOf(file.path) === 'pdf'
 
   const [text, setText] = useState(file.kind === 'sheet' ? '' : file.content)
   const [book, setBook] = useState<Workbook>(() =>
@@ -152,10 +156,9 @@ function Body({
   async function download() {
     try {
       if (file.kind === 'binary' && file.storagePath) {
-        window.open(await projectFileUrl(file.storagePath), '_blank', 'noopener')
+        window.open(await projectFileUrl(file.storagePath, name), '_blank', 'noopener')
         return
       }
-      const name = fileName(file.path)
       if (file.kind === 'rich') {
         downloadBlob(await htmlToDocx(current, name), replaceExtension(name, 'docx'))
       } else if (file.kind === 'sheet') {
@@ -165,6 +168,21 @@ function Body({
       }
     } catch (err) {
       show(authErrorMessage(err, 'Could not prepare that download.'), 'error')
+    }
+  }
+
+  async function dropMisreadDraft() {
+    if (busy || !file.fromDraft) return
+    setBusy(true)
+    try {
+      await discardDraftFile(repo.id, file.path)
+      show('Dropped from your draft')
+      onClose()
+      await onSaved()
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not drop that draft file.'))
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -189,11 +207,23 @@ function Body({
 
       {error && <Alert tone="error">{error}</Alert>}
 
-      {file.kind === 'binary' && (
+      {misreadOfficeFile && (
+        <Alert tone="error">
+          This Word or Excel file was uploaded as text, so the original document contents are not
+          recoverable from this draft. Drop it, then upload the file again; the new upload will be
+          saved as an editable document.
+        </Alert>
+      )}
+
+      {file.kind === 'binary' && !isPdf && (
         <Alert tone="info">
           This kind of file is kept and versioned here but opened elsewhere. Download it, change it
           in the program that made it, and upload it again.
         </Alert>
+      )}
+
+      {isPdf && (
+        file.storagePath ? <PdfPreview storagePath={file.storagePath} label={name} /> : null
       )}
 
       {!mayCommit && !state.archived && isEditable(file.kind) && (
@@ -207,7 +237,7 @@ function Body({
         <RichEditor value={text} onChange={setText} readOnly={frozen} />
       )}
       {file.kind === 'sheet' && <SheetEditor workbook={book} onChange={setBook} readOnly={frozen} />}
-      {file.kind === 'text' && (
+      {file.kind === 'text' && !misreadOfficeFile && (
         <Field label="Contents">
           {(id) => (
             <Textarea
@@ -221,6 +251,12 @@ function Body({
             />
           )}
         </Field>
+      )}
+
+      {misreadOfficeFile && file.fromDraft && (
+        <Button variant="outline" onClick={() => void dropMisreadDraft()} loading={busy}>
+          Drop this bad draft file
+        </Button>
       )}
 
       {!frozen && (

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Avatar } from '../components/app/Avatar'
 import { DirectoryHero } from '../components/app/DirectoryHero'
-import { Button } from '../components/ui/Button'
+import { Button, ButtonLink } from '../components/ui/Button'
 import { Field, Input, Toggle } from '../components/ui/Field'
 import { Alert } from '../components/ui/Alert'
 import { Icon } from '../components/ui/Icon'
@@ -15,6 +16,7 @@ import { useThemePreference } from '../hooks/useThemePreference'
 import { authErrorMessage } from '../lib/authError'
 import { supabase } from '../lib/supabase'
 import type { NotificationKey, NotificationPrefs, ThemeMode } from '../lib/types'
+import { workplaceOf } from '../lib/workplace'
 
 /**
  * Each of these controls something real, and the wording says which.
@@ -29,22 +31,22 @@ const NOTIFICATIONS: { key: NotificationKey; label: string; body: string }[] = [
   {
     key: 'task_assignments',
     label: 'Task assignments',
-    body: 'When a task on one of your boards is given to you.',
+    body: 'When an Education or General task is assigned to you.',
   },
   {
     key: 'deadline_reminders',
     label: 'Deadline reminders',
-    body: 'One nudge the day before a task you hold is due. Never twice for the same task.',
+    body: 'One nudge before a task you hold is due. Never twice for the same task.',
   },
   {
     key: 'comments_mentions',
-    label: 'Comments',
-    body: 'When somebody writes on a task you hold, or one you have written on yourself.',
+    label: 'Comments and mentions',
+    body: 'When somebody writes on a task you hold, or one you have joined by commenting.',
   },
   {
     key: 'project_invites',
-    label: 'Groups and new projects',
-    body: 'When you are placed in a group, when a group is made final, and when a project opens to you.',
+    label: 'Project invitations and access',
+    body: 'When you are invited to a General project, placed in an Education group, or given project access.',
   },
   {
     key: 'progress_digest',
@@ -53,8 +55,8 @@ const NOTIFICATIONS: { key: NotificationKey; label: string; body: string }[] = [
   },
   {
     key: 'announcements',
-    label: 'Announcements',
-    body: 'Notices from your class, and from the program office to everybody.',
+    label: 'Announcements and notices',
+    body: 'Class announcements, program notices, and account-wide updates that need your attention.',
   },
 ]
 
@@ -110,6 +112,7 @@ export default function Settings() {
   const { profile, updateProfile, loadNotificationPrefs, updateNotificationPrefs, sendPasswordReset, signOut } =
     useAuth()
   const { mode, choose } = useThemePreference()
+  const location = useLocation()
 
   useEffect(() => {
     document.title = 'Settings · Collabify'
@@ -267,6 +270,8 @@ export default function Settings() {
     ? NOTIFICATIONS.filter((notification) => prefs[notification.key]).length
     : '—'
   const themeLabel = APPEARANCE.find((appearance) => appearance.mode === mode)?.label ?? 'System'
+  const workplace = workplaceOf(location.pathname, profile.home_workplace)
+  const workplaceLabel = workplace === 'general' ? 'General' : 'Education'
 
   return (
     <div className="w-full space-y-6">
@@ -274,10 +279,13 @@ export default function Settings() {
         title="Set up Collabify,"
         accent="your way."
         description="Manage your identity, appearance, notifications and account access from one place."
-        stats={[
-          { value: themeLabel, label: 'Appearance' },
-          { value: enabledNotifications, label: 'Email notifications on' },
-        ]}
+        stats={workplace === 'general'
+          ? []
+          : [
+              { value: 'Account settings', label: `Opened from ${workplaceLabel}` },
+              { value: themeLabel, label: 'Appearance' },
+              { value: enabledNotifications, label: 'Email notifications on' },
+            ]}
       />
 
       <div className="grid items-start gap-6 lg:grid-cols-[240px_minmax(0,820px)] xl:grid-cols-[260px_minmax(0,900px)]">
@@ -315,7 +323,7 @@ export default function Settings() {
             id="profile"
             icon="user"
             title="Profile"
-            description="How your name appears to your group and advisers."
+            description="How your name appears across Collabify."
           >
           <div className="flex flex-col gap-6 sm:flex-row">
             <div className="flex flex-col items-center gap-3">
@@ -495,6 +503,19 @@ export default function Settings() {
                 hour.
               </Alert>
             )}
+
+            <div className="flex flex-col gap-4 rounded-xl border border-line p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[14px] font-medium text-ink">Your data</p>
+                <p className="mt-0.5 text-[13px] leading-relaxed text-muted">
+                  Request a copy of your Collabify data or ask for account data help.
+                </p>
+              </div>
+              <ButtonLink to="/privacy/request" variant="outline" className="!rounded-xl sm:shrink-0">
+                <Icon name="shield" size={17} />
+                Open your data
+              </ButtonLink>
+            </div>
 
             <div className="flex flex-col gap-4 rounded-xl border border-line p-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
