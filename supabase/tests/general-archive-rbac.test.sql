@@ -57,6 +57,7 @@ declare
   t_arch2    uuid;
   t_act      uuid;
   t_arch3    uuid;
+  t_note     uuid;
   f_live     uuid;
   f_gone     uuid;
   who        uuid;
@@ -628,7 +629,29 @@ begin
   perform pg_temp.ok('a manage_tasks grantee and the Owner still assign an active task',
     (select count(*) from public.general_task_assignees where task_id = t_act and user_id in (bob, dave)) = 2);
 
+  ------------------------------------------------------------------ old notifications on a hidden task
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (project_id, title, created_by)
+  values (proj.id, 'Secret plan', manager_id) returning id into t_note;
+  insert into public.general_task_assignees (task_id, project_id, user_id, assigned_by)
+  values (t_note, proj.id, alice, manager_id);
+  perform pg_temp.act_as(alice);
+  perform pg_temp.ok('a holder reads the assignment notification while the task is active',
+    exists (select 1 from public.notifications where general_task_id = t_note));
+  perform pg_temp.act_as(manager_id);
+  perform public.archive_general_task(t_note, true);
+  perform pg_temp.act_as(alice);
+  perform pg_temp.ok('once somebody else archives the task, its old notification is hidden from the holder',
+    not exists (select 1 from public.notifications where general_task_id = t_note)
+    and not exists (select 1 from public.notifications where title = 'Secret plan'));
+  perform pg_temp.act_as(manager_id);
+  perform public.archive_general_task(t_note, false);
+  perform pg_temp.act_as(alice);
+  perform pg_temp.ok('...and comes back when the task is restored',
+    exists (select 1 from public.notifications where general_task_id = t_note));
+
   ------------------------------------------------------------------ deletes on an archived task
+  perform pg_temp.act_as_service();
   insert into public.general_tasks (project_id, title, created_by)
   values (proj.id, 'Archived with history', owner_uid) returning id into t_arch3;
   insert into public.general_task_assignees (task_id, project_id, user_id, assigned_by)

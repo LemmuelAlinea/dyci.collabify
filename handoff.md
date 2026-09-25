@@ -1211,5 +1211,8 @@ file row are all refused. `guard_general_archived_task_child` lets a delete
 through at `pg_trigger_depth() > 1`, so task, project and membership deletes
 still cascade. The two archived-file delete RPCs set the archive-op flag.
 
-**Still open:** notifications sent before a task was archived keep its title. The withdraw path and two-account archive visibility were covered
+**Old notifications on a hidden task:** `notifications_select_own` is redefined in
+`general-archive-rbac.sql` to leave out any notification whose `general_task_id`
+is hidden from the reader (`general_task_hidden`). They return on restore. Re-run
+the rbac file after `classes.sql`. The withdraw path and two-account archive visibility were covered
 by SQL tests, not clicked through with a second account.

@@ -781,3 +781,18 @@ create policy general_files_write on storage.objects
   );
 
 commit;
+
+-- ---------------------------------------------------------------- notifications on hidden tasks
+
+begin;
+
+-- Supersedes classes.sql: a notification about an archived task you may not see
+-- stays out of your list until the task is restored.
+drop policy if exists notifications_select_own on public.notifications;
+create policy notifications_select_own on public.notifications
+  for select using (
+    user_id = auth.uid()
+    and (general_task_id is null or not public.general_task_hidden(general_task_id))
+  );
+
+commit;
