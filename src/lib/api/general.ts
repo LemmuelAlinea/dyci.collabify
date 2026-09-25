@@ -1217,6 +1217,19 @@ export async function answerRepoChange(changeId: string, merge: boolean, note = 
   return data as GeneralRepoChange
 }
 
+/**
+ * Copies a declined or withdrawn request's files back into your draft: all of
+ * them, or one file or folder. Refuses rather than replace anything already there.
+ */
+export async function restoreRepoChange(changeId: string, path?: string) {
+  const { data, error } = await supabase.rpc('restore_general_repo_change', {
+    p_change: changeId,
+    p_path: path ?? null,
+  })
+  if (error) throw error
+  return data as number
+}
+
 export async function listRepoComments(changeId: string) {
   const { data, error } = await supabase
     .from('general_repo_comments')
