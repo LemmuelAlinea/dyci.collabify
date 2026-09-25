@@ -613,7 +613,9 @@ function ChangesView({
   state: GeneralProjectState
   onDone: () => Promise<void>
 }) {
-  if (changes.length === 0) {
+  const { mine, toMe, others } = groupChanges(changes, state.viewerId ?? null)
+
+  if (mine.length + toMe.length + others.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-muted">
         Nothing is waiting for review. Submitting a draft puts it here.
@@ -621,7 +623,6 @@ function ChangesView({
     )
   }
 
-  const { mine, toMe, others } = groupChanges(changes, state.viewerId ?? null)
   return (
     <div className="space-y-6">
       <ChangeSection title="Submitted by me" changes={mine} repo={repo} state={state} onDone={onDone} />
