@@ -18,6 +18,14 @@ begin
 end;
 $$;
 
+create or replace function pg_temp.attempt(p_sql text) returns void
+language plpgsql as $$
+begin
+  execute p_sql;
+exception when others then null;
+end;
+$$;
+
 create or replace function pg_temp.ok(p_label text, p_true boolean) returns void
 language plpgsql as $$
 begin
@@ -45,6 +53,11 @@ declare
   f_alice    uuid;
   f_bob2     uuid;
   t_owner    uuid;
+  t_arch     uuid;
+  t_arch2    uuid;
+  t_act      uuid;
+  who        uuid;
+  who_name   text;
   f_hidden   uuid;
   n          int;
   remove_qual text;
@@ -444,10 +457,12 @@ begin
     cardinality(public.archived_general_task_file_objects(array[f_alice])) = 0);
   ------------------------------------------------------------------ definer functions reading tasks
   -- t_bob2 is archived by Bob, so Alice may not see it; t_alice2 is active.
-  perform pg_temp.act_as(manager_id);
-  insert into public.general_task_assignees (task_id, project_id, user_id)
-  values (t_bob2, proj.id, alice), (t_bob2, proj.id, manager_id), (t_alice2, proj.id, bob);
+  -- Archived tasks refuse new holders and comments, so these arrive as the service
+  -- would write them, to prove the notifications filter on their own.
   perform pg_temp.act_as_service();
+  insert into public.general_task_assignees (task_id, project_id, user_id, assigned_by)
+  values (t_bob2, proj.id, alice, manager_id), (t_bob2, proj.id, manager_id, manager_id),
+         (t_alice2, proj.id, bob, manager_id);
   perform pg_temp.ok('assigning somebody to an archived task they cannot see does not tell them its title',
     not exists (select 1 from public.notifications
                  where user_id = alice and general_task_id = t_bob2));
@@ -455,10 +470,8 @@ begin
     exists (select 1 from public.notifications
              where user_id = bob and general_task_id = t_alice2 and type = 'general_task_assigned'));
 
-  perform pg_temp.act_as(bob);
   insert into public.general_task_comments (task_id, project_id, author_id, body)
   values (t_bob2, proj.id, bob, 'Hidden reply'), (t_alice2, proj.id, bob, 'Open reply');
-  perform pg_temp.act_as_service();
   perform pg_temp.ok('a comment on an archived task does not reach a holder who cannot see it',
     not exists (select 1 from public.notifications
                  where user_id = alice and general_task_id = t_bob2 and type = 'general_comment_posted'));
@@ -499,6 +512,118 @@ begin
   perform pg_temp.act_as(owner_uid);
   perform pg_temp.ok('...while an Owner still sees that file',
     exists (select 1 from public.list_archived_general_task_files(proj.id) where id = f_hidden));
+  perform pg_temp.act_as_service();
+  insert into storage.objects (bucket_id, name)
+  values ('general-files', proj.id || '/' || t_owner || '/1-c.pdf');
+  perform pg_temp.act_as(alice);
+  perform pg_temp.ok('...nor says whether its object is still in Storage',
+    cardinality(public.archived_general_task_file_objects(array[f_hidden])) = 0);
+  perform pg_temp.act_as(owner_uid);
+  perform pg_temp.ok('...which an Owner still learns',
+    cardinality(public.archived_general_task_file_objects(array[f_hidden])) = 1);
+
+  ------------------------------------------------------------------ archived tasks are read-only
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (project_id, title, created_by)
+  values (proj.id, 'Archived held', owner_uid) returning id into t_arch;
+  insert into public.general_tasks (project_id, title, created_by)
+  values (proj.id, 'Archived unheld', owner_uid) returning id into t_arch2;
+  insert into public.general_tasks (project_id, title, created_by)
+  values (proj.id, 'Active', owner_uid) returning id into t_act;
+  insert into public.general_task_assignees (task_id, project_id, user_id, assigned_by)
+  values (t_arch, proj.id, alice, owner_uid), (t_arch, proj.id, carol, owner_uid),
+         (t_arch, proj.id, owner_uid, owner_uid);
+  perform pg_temp.act_as(owner_uid);
+  perform public.archive_general_task(t_arch, true);
+  perform public.archive_general_task(t_arch2, true);
+
+  foreach who in array array[alice, carol, owner_uid] loop
+    who_name := case who when alice then 'a member' when carol then 'a manage_tasks grantee' else 'the Owner' end;
+    perform pg_temp.act_as(who);
+    perform pg_temp.attempt(format(
+      'insert into public.general_task_comments (task_id, project_id, author_id, body) values (%L, %L, %L, %L)',
+      t_arch, proj.id, who, 'late'));
+    perform pg_temp.attempt(format(
+      'insert into public.general_task_assignees (task_id, project_id, user_id) values (%L, %L, %L)',
+      t_arch2, proj.id, who));
+    perform pg_temp.attempt(format(
+      'insert into public.general_task_assignees (task_id, project_id, user_id) values (%L, %L, %L)',
+      t_arch2, proj.id, bob));
+    perform pg_temp.attempt(format(
+      'insert into public.general_task_logs (task_id, project_id, user_id, minutes) values (%L, %L, %L, 5)',
+      t_arch, proj.id, who));
+    perform pg_temp.attempt(format(
+      'insert into public.general_task_files (task_id, project_id, uploaded_by, file_path, file_name, size_bytes) values (%L, %L, %L, %L, %L, 1)',
+      t_arch, proj.id, who, proj.id || '/' || t_arch || '/' || who || '-x.pdf', 'x.pdf'));
+    perform pg_temp.attempt(format(
+      'insert into storage.objects (bucket_id, name) values (%L, %L)',
+      'general-files', proj.id || '/' || t_arch || '/' || who || '-y.pdf'));
+    perform pg_temp.attempt(format(
+      'update public.general_tasks set title = %L where id = %L', 'Edited', t_arch));
+
+    perform pg_temp.act_as_service();
+    perform pg_temp.ok(who_name || ' cannot comment on an archived task',
+      not exists (select 1 from public.general_task_comments where task_id = t_arch));
+    perform pg_temp.ok(who_name || ' cannot claim or assign an archived task',
+      not exists (select 1 from public.general_task_assignees where task_id = t_arch2));
+    perform pg_temp.ok(who_name || ' cannot log time on an archived task',
+      not exists (select 1 from public.general_task_logs where task_id = t_arch));
+    perform pg_temp.ok(who_name || ' cannot add a file row to an archived task',
+      not exists (select 1 from public.general_task_files where task_id = t_arch));
+    perform pg_temp.ok(who_name || ' cannot upload to an archived task in Storage',
+      not exists (select 1 from storage.objects
+                   where bucket_id = 'general-files'
+                     and left(name, char_length(proj.id::text || '/' || t_arch::text) + 1)
+                         = proj.id || '/' || t_arch || '/'));
+    perform pg_temp.ok(who_name || ' cannot edit an archived task',
+      (select title from public.general_tasks where id = t_arch) = 'Archived held');
+  end loop;
+
+  perform pg_temp.act_as(owner_uid);
+  begin
+    insert into public.general_task_comments (task_id, project_id, author_id, body)
+    values (t_arch, proj.id, owner_uid, 'late');
+    perform pg_temp.ok('the refusal says the task is archived', false);
+  exception when check_violation then
+    perform pg_temp.ok('the refusal says the task is archived',
+      sqlerrm = 'This task is archived. Restore it from the project archive to change it.');
+  end;
+
+  perform public.archive_general_task(t_arch, false);
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('the Owner can still restore an archived task',
+    (select archived_at is null from public.general_tasks where id = t_arch));
+
+  -- The same actions on an active task.
+  foreach who in array array[alice, carol, owner_uid] loop
+    who_name := case who when alice then 'a member' when carol then 'a manage_tasks grantee' else 'the Owner' end;
+    perform pg_temp.act_as(who);
+    insert into public.general_task_assignees (task_id, project_id, user_id) values (t_act, proj.id, who);
+    insert into public.general_task_comments (task_id, project_id, author_id, body)
+    values (t_act, proj.id, who, 'fine');
+    insert into public.general_task_logs (task_id, project_id, user_id, minutes) values (t_act, proj.id, who, 5);
+    insert into public.general_task_files (task_id, project_id, uploaded_by, file_path, file_name, size_bytes)
+    values (t_act, proj.id, who, proj.id || '/' || t_act || '/' || who || '-x.pdf', 'x.pdf', 1);
+    insert into storage.objects (bucket_id, name)
+    values ('general-files', proj.id || '/' || t_act || '/' || who || '-y.pdf');
+    update public.general_tasks set title = 'Active by ' || who_name where id = t_act;
+    perform pg_temp.act_as_service();
+    perform pg_temp.ok(who_name || ' claims, comments, logs, uploads and edits an active task',
+      exists (select 1 from public.general_task_assignees where task_id = t_act and user_id = who)
+      and exists (select 1 from public.general_task_comments where task_id = t_act and author_id = who)
+      and exists (select 1 from public.general_task_logs where task_id = t_act and user_id = who)
+      and exists (select 1 from public.general_task_files where task_id = t_act and uploaded_by = who)
+      and exists (select 1 from storage.objects
+                   where bucket_id = 'general-files' and name = proj.id || '/' || t_act || '/' || who || '-y.pdf')
+      and (select title from public.general_tasks where id = t_act) = 'Active by ' || who_name);
+  end loop;
+  perform pg_temp.act_as(carol);
+  insert into public.general_task_assignees (task_id, project_id, user_id) values (t_act, proj.id, bob);
+  perform pg_temp.act_as(owner_uid);
+  insert into public.general_task_assignees (task_id, project_id, user_id) values (t_act, proj.id, dave);
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('a manage_tasks grantee and the Owner still assign an active task',
+    (select count(*) from public.general_task_assignees where task_id = t_act and user_id in (bob, dave)) = 2);
 end $$;
 
 rollback;

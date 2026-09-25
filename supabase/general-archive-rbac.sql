@@ -260,6 +260,7 @@ language sql stable security definer set search_path = public as $$
    where f.id = any(p_files)
      and f.archived_at is not null
      and public.general_sees_archived(f.project_id, f.archived_by)
+     and not public.general_task_hidden(f.task_id)
      and exists (select 1 from storage.objects o
                   where o.bucket_id = 'general-files' and o.name = f.file_path);
 $$;
@@ -437,6 +438,22 @@ begin
 
   if public.general_is_archived(old.project_id) then
     raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- A team delete still cascades team_id to null on an archived task.
+  if old.archived_at is not null
+     and coalesce(current_setting('collabify.general_archive_op', true), 'off') <> 'on'
+     and not (
+       new.team_id is null
+       and new.title is not distinct from old.title
+       and new.description is not distinct from old.description
+       and new.status is not distinct from old.status
+       and new.due_at is not distinct from old.due_at
+       and new.starts_at is not distinct from old.starts_at
+       and new.weight is not distinct from old.weight
+     ) then
+    raise exception 'This task is archived. Restore it from the project archive to change it.'
       using errcode = 'check_violation';
   end if;
 
@@ -628,7 +645,9 @@ end;
 $$;
 
 /** Reaches whoever holds the task now, plus whoever has commented on it
-    before, while they are still on the project and may see the task. */
+    before, while they are still on the project and may see the task.
+    Comment rows outlive membership, so the join to general_members filters a
+    departed commenter back out rather than letting a stale row notify them. */
 create or replace function public.notify_general_comment()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
@@ -693,5 +712,66 @@ end;
 $$;
 
 revoke execute on function public.send_general_deadline_reminders() from public, anon, authenticated;
+
+commit;
+
+-- ---------------------------------------------------------------- archived tasks are read-only
+
+begin;
+
+create or replace function public.general_task_archived(p_task uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.general_tasks where id = p_task and archived_at is not null);
+$$;
+
+revoke all on function public.general_task_archived(uuid) from public, anon;
+grant execute on function public.general_task_archived(uuid) to authenticated;
+
+/** Holders, comments, logs and files of an archived task change only through the archive RPCs. */
+create or replace function public.guard_general_archived_task_child()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null
+     or coalesce(current_setting('collabify.general_archive_op', true), 'off') = 'on' then
+    return new;
+  end if;
+  if public.general_task_archived(new.task_id) then
+    raise exception 'This task is archived. Restore it from the project archive to change it.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.guard_general_archived_task_child() from public, anon;
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'general_task_assignees', 'general_task_comments', 'general_task_logs', 'general_task_files'
+  ] loop
+    execute format('drop trigger if exists %I on public.%I', t || '_archived_task_guard', t);
+    execute format(
+      'create trigger %I before insert or update on public.%I for each row execute function public.guard_general_archived_task_child()',
+      t || '_archived_task_guard', t);
+  end loop;
+end $$;
+
+drop policy if exists general_files_write on storage.objects;
+create policy general_files_write on storage.objects
+  for insert with check (
+    bucket_id = 'general-files'
+    and public.general_task_project(public.general_safe_uuid((storage.foldername(name))[2]))
+        = public.general_safe_uuid((storage.foldername(name))[1])
+    and not public.general_task_archived(public.general_safe_uuid((storage.foldername(name))[2]))
+    and (
+      (public.is_general_task_assignee(public.general_safe_uuid((storage.foldername(name))[2]))
+       and public.is_general_member(public.general_safe_uuid((storage.foldername(name))[1]))
+       and not public.general_is_archived(public.general_safe_uuid((storage.foldername(name))[1])))
+      or public.general_can(public.general_safe_uuid((storage.foldername(name))[1]), 'edit_files')
+    )
+  );
 
 commit;
