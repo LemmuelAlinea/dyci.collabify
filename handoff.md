@@ -1205,9 +1205,11 @@ folder"). Assignment, comment and deadline notifications skip anyone who may not
 see the task (`general_user_sees_task`), and the archived files list leaves out
 files on a task hidden from the caller; all redefined in `general-archive-rbac.sql`.
 
-**Still open:** archived tasks are read-only outside the archive RPCs — new
-holders, comments, logs, files, uploads and task edits are refused — but deleting
-a comment, log or holder on one is not, since task, project and membership
-deletes cascade through those rows. Notifications sent before a task was archived
-keep its title. The withdraw path and two-account archive visibility were covered
+**Archived tasks are read-only outside the archive RPCs**: new holders,
+comments, logs, files, uploads, task edits, and deleting a holder, comment, log or
+file row are all refused. `guard_general_archived_task_child` lets a delete
+through at `pg_trigger_depth() > 1`, so task, project and membership deletes
+still cascade. The two archived-file delete RPCs set the archive-op flag.
+
+**Still open:** notifications sent before a task was archived keep its title. The withdraw path and two-account archive visibility were covered
 by SQL tests, not clicked through with a second account.

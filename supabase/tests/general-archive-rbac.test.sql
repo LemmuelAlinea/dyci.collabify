@@ -56,6 +56,9 @@ declare
   t_arch     uuid;
   t_arch2    uuid;
   t_act      uuid;
+  t_arch3    uuid;
+  f_live     uuid;
+  f_gone     uuid;
   who        uuid;
   who_name   text;
   f_hidden   uuid;
@@ -624,6 +627,86 @@ begin
   perform pg_temp.act_as_service();
   perform pg_temp.ok('a manage_tasks grantee and the Owner still assign an active task',
     (select count(*) from public.general_task_assignees where task_id = t_act and user_id in (bob, dave)) = 2);
+
+  ------------------------------------------------------------------ deletes on an archived task
+  insert into public.general_tasks (project_id, title, created_by)
+  values (proj.id, 'Archived with history', owner_uid) returning id into t_arch3;
+  insert into public.general_task_assignees (task_id, project_id, user_id, assigned_by)
+  values (t_arch3, proj.id, manager_id, owner_uid);
+  insert into public.general_task_comments (task_id, project_id, author_id, body)
+  values (t_arch3, proj.id, manager_id, 'kept'), (t_arch3, proj.id, owner_uid, 'kept');
+  insert into public.general_task_logs (task_id, project_id, user_id, minutes)
+  values (t_arch3, proj.id, manager_id, 5);
+  insert into public.general_task_files (task_id, project_id, uploaded_by, file_path, file_name, size_bytes)
+  values (t_arch3, proj.id, manager_id, proj.id || '/' || t_arch3 || '/live.pdf', 'live.pdf', 1)
+  returning id into f_live;
+  insert into public.general_task_files (task_id, project_id, uploaded_by, file_path, file_name, size_bytes,
+                                         archived_at, archived_by)
+  values (t_arch3, proj.id, manager_id, proj.id || '/' || t_arch3 || '/gone.pdf', 'gone.pdf', 1, now(), owner_uid)
+  returning id into f_gone;
+  perform pg_temp.act_as(owner_uid);
+  perform public.archive_general_task(t_arch3, true);
+
+  foreach who in array array[manager_id, owner_uid] loop
+    who_name := case who when manager_id then 'the Manager, holding it,' else 'the Owner' end;
+    perform pg_temp.act_as(who);
+    perform pg_temp.attempt(format(
+      'delete from public.general_task_assignees where task_id = %L', t_arch3));
+    perform pg_temp.attempt(format(
+      'delete from public.general_task_comments where task_id = %L', t_arch3));
+    perform pg_temp.attempt(format(
+      'delete from public.general_task_logs where task_id = %L', t_arch3));
+    perform pg_temp.attempt(format(
+      'delete from public.general_task_files where id = %L', f_live));
+    perform pg_temp.act_as_service();
+    perform pg_temp.ok(who_name || ' cannot unclaim an archived task',
+      exists (select 1 from public.general_task_assignees where task_id = t_arch3 and user_id = manager_id));
+    perform pg_temp.ok(who_name || ' cannot delete a comment on an archived task',
+      (select count(*) from public.general_task_comments where task_id = t_arch3) = 2);
+    perform pg_temp.ok(who_name || ' cannot delete a log on an archived task',
+      exists (select 1 from public.general_task_logs where task_id = t_arch3));
+    perform pg_temp.ok(who_name || ' cannot delete a file row on an archived task',
+      exists (select 1 from public.general_task_files where id = f_live));
+  end loop;
+
+  perform pg_temp.act_as(manager_id);
+  begin
+    delete from public.general_task_comments where task_id = t_arch3 and author_id = manager_id;
+    perform pg_temp.ok('the delete refusal says the task is archived', false);
+  exception when check_violation then
+    perform pg_temp.ok('the delete refusal says the task is archived',
+      sqlerrm = 'This task is archived. Restore it from the project archive to change it.');
+  end;
+
+  delete from public.general_task_comments where task_id = t_act and author_id = manager_id;
+  delete from public.general_task_logs where task_id = t_act and user_id = manager_id;
+  delete from public.general_task_assignees where task_id = t_act and user_id = manager_id;
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('a holder still unclaims and deletes a comment and a log on an active task',
+    not exists (select 1 from public.general_task_comments where task_id = t_act and author_id = manager_id)
+    and not exists (select 1 from public.general_task_logs where task_id = t_act and user_id = manager_id)
+    and not exists (select 1 from public.general_task_assignees where task_id = t_act and user_id = manager_id));
+
+  perform pg_temp.act_as(owner_uid);
+  perform public.delete_archived_general_task_file(f_gone);
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('an archived file on an archived task is still deleted from the archive',
+    not exists (select 1 from public.general_task_files where id = f_gone));
+
+  perform pg_temp.act_as(owner_uid);
+  perform public.remove_general_member(proj.id, manager_id);
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('removing a member still clears their hold on an archived task',
+    not exists (select 1 from public.general_task_assignees where task_id = t_arch3));
+
+  perform pg_temp.act_as(owner_uid);
+  perform public.delete_archived_general_task(t_arch3);
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('deleting an archived task still clears its comments, logs and files',
+    not exists (select 1 from public.general_tasks where id = t_arch3)
+    and not exists (select 1 from public.general_task_comments where task_id = t_arch3)
+    and not exists (select 1 from public.general_task_logs where task_id = t_arch3)
+    and not exists (select 1 from public.general_task_files where task_id = t_arch3));
 end $$;
 
 rollback;

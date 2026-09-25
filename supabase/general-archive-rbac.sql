@@ -218,7 +218,9 @@ begin
     raise exception 'You can delete only what you archived. An Owner or Manager can delete anything in the archive.'
       using errcode = 'insufficient_privilege';
   end if;
+  perform set_config('collabify.general_archive_op', 'on', true);
   delete from public.general_task_files where id = p_file and archived_at is not null;
+  perform set_config('collabify.general_archive_op', 'off', true);
 end;
 $$;
 
@@ -226,9 +228,11 @@ create or replace function public.delete_archived_general_task_files(p_project u
 returns void language plpgsql security definer set search_path = public as $$
 begin
   perform public.general_archive_guard(p_project);
+  perform set_config('collabify.general_archive_op', 'on', true);
   delete from public.general_task_files
    where project_id = p_project and archived_at is not null
      and public.general_sees_archived(project_id, archived_by);
+  perform set_config('collabify.general_archive_op', 'off', true);
 end;
 $$;
 
@@ -731,15 +735,17 @@ grant execute on function public.general_task_archived(uuid) to authenticated;
 create or replace function public.guard_general_archived_task_child()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
+  -- A delete one trigger level down is a cascade from a task, project or member delete.
   if auth.uid() is null
-     or coalesce(current_setting('collabify.general_archive_op', true), 'off') = 'on' then
-    return new;
+     or coalesce(current_setting('collabify.general_archive_op', true), 'off') = 'on'
+     or (tg_op = 'DELETE' and pg_trigger_depth() > 1) then
+    return coalesce(new, old);
   end if;
-  if public.general_task_archived(new.task_id) then
+  if public.general_task_archived(coalesce(new.task_id, old.task_id)) then
     raise exception 'This task is archived. Restore it from the project archive to change it.'
       using errcode = 'check_violation';
   end if;
-  return new;
+  return coalesce(new, old);
 end;
 $$;
 
@@ -754,7 +760,7 @@ begin
   ] loop
     execute format('drop trigger if exists %I on public.%I', t || '_archived_task_guard', t);
     execute format(
-      'create trigger %I before insert or update on public.%I for each row execute function public.guard_general_archived_task_child()',
+      'create trigger %I before insert or update or delete on public.%I for each row execute function public.guard_general_archived_task_child()',
       t || '_archived_task_guard', t);
   end loop;
 end $$;
