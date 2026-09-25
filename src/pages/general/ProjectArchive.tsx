@@ -298,16 +298,16 @@ export default function ProjectArchive() {
             title="Archived draft files"
             count={archivedDraftFiles.length}
             actions={
-              canActInArchive && repoId && draftFiles.length > 0 ? (
+              canActInArchive && repoId && draftFiles.some((f) => f.owner_id === profile?.id) ? (
                 <SectionActions
-                  label="Actions for all archived draft files"
+                  label="Actions for your archived draft files"
                   onRestore={() =>
-                    void run('draft-files:restore', () => restoreArchivedDraftFiles(repoId), 'Draft files restored', 'Could not restore draft files.')
+                    void run('draft-files:restore', () => restoreArchivedDraftFiles(repoId), 'Your draft files restored', 'Could not restore draft files.')
                   }
                   onDelete={() =>
                     setConfirm({
-                      title: 'Delete all archived draft files?',
-                      body: 'This permanently deletes every archived draft file in this project.',
+                      title: 'Delete your archived draft files?',
+                      body: 'This permanently deletes every file you archived from your draft.',
                       label: 'Delete files',
                       action: () => deleteArchivedDraftFiles(repoId),
                     })
