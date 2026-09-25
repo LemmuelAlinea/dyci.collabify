@@ -13,6 +13,7 @@ import {
   deleteRepoComment,
   listRepoComments,
   projectFileUrl,
+  restoreRepoChange,
   withdrawRepoChange,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
@@ -55,6 +56,7 @@ export function RepoChangeRow({
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [withdrawing, setWithdrawing] = useState(false)
+  const [restoring, setRestoring] = useState(false)
 
   const mine = change.author_id === state.viewerId
   const assignedToMe = change.reviewer_id === state.viewerId
@@ -62,6 +64,9 @@ export function RepoChangeRow({
     change.reviewer_id ? assignedToMe : state.can('edit_files')
   )
   const stale = change.status === 'open' && change.base_seq !== repo.commit_count
+  // Declined or withdrawn work can go back to its author's draft to be reworked.
+  const canRestore =
+    mine && (change.status === 'declined' || change.status === 'withdrawn') && !state.archived
   const { shown, folders } = useMemo(() => shownFiles(change.files), [change.files])
 
   const load = useCallback(async () => {
@@ -94,6 +99,33 @@ export function RepoChangeRow({
     }
   }
 
+  async function bringBack(path?: string) {
+    if (busy) return
+    setBusy(true)
+    try {
+      await restoreRepoChange(change.id, path)
+      show(path ? `${path} is back in your draft` : 'The request is back in your draft')
+      await onDone()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not bring it back to your draft.'), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const bringBackButton = (path: string) =>
+    canRestore && (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void bringBack(path)}
+        className="ml-auto flex items-center gap-1 rounded-md px-1.5 py-0.5 font-sans text-[12px] text-navy-600 hover:bg-[var(--surface-sunken)] disabled:opacity-50 dark:text-navy-200"
+      >
+        <Icon name="refresh" size={12} />
+        Bring back
+      </button>
+    )
+
   return (
     <li className="rounded-xl border border-line surface p-3.5">
       <div className="flex flex-wrap items-center gap-2">
@@ -118,6 +150,13 @@ export function RepoChangeRow({
             label={`Actions for ${change.title}`}
             disabled={busy}
             items={[{ label: 'Withdraw request', icon: 'x', tone: 'danger', onSelect: () => setWithdrawing(true) }]}
+          />
+        )}
+        {canRestore && (
+          <ActionMenu
+            label={`Actions for ${change.title}`}
+            disabled={busy}
+            items={[{ label: 'Bring back to draft', icon: 'refresh', onSelect: () => setRestoring(true) }]}
           />
         )}
       </div>
@@ -168,6 +207,7 @@ export function RepoChangeRow({
             <p key={path} className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-ink">
               {path}
               <span className="rounded-md surface-sunken px-1.5 py-0.5 text-[11px] text-muted">Folder</span>
+              {bringBackButton(path)}
             </p>
           ))}
 
@@ -179,6 +219,7 @@ export function RepoChangeRow({
                   <span className="rounded-md surface-sunken px-1.5 py-0.5 text-[11px] text-muted">
                     {FILE_ACTION_LABEL[f.action]}
                   </span>
+                  {bringBackButton(f.path)}
                 </p>
                 {f.kind === 'binary' ? (
                   <p className="text-[12px] text-muted">
@@ -320,9 +361,18 @@ export function RepoChangeRow({
           await onDone()
         }}
         title="Withdraw this request?"
-        body="The reviewer will no longer see it. The files stay with the withdrawn request and do not go back to your draft."
+        body="The reviewer will no longer see it. The files stay with the withdrawn request, and you can bring them back to your draft later."
         confirmLabel="Withdraw request"
         tone="danger"
+      />
+      <ConfirmDialog
+        open={restoring}
+        onClose={() => setRestoring(false)}
+        onConfirm={() => bringBack()}
+        title="Bring this request back to your draft?"
+        body={`Its ${countShown(shown.length, folders.length)} go back to My draft to rework and submit again. Nothing already in your draft is replaced: if a path is taken, nothing comes back and you are told which.`}
+        confirmLabel="Bring back to draft"
+        tone="primary"
       />
     </li>
   )

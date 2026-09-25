@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Avatar } from '../../components/app/Avatar'
-import { DirectoryHero } from '../../components/app/DirectoryHero'
+import { Reveal } from '../../components/motion/Reveal'
+import { Bento, BentoCell } from '../../components/dashboard/Bento'
+import { DashSection } from '../../components/dashboard/DashSection'
+import { DashboardSummary } from '../../components/dashboard/DashboardSummary'
+import {
+  ComingUpPanel,
+  MyTasksPanel,
+  RecentPanel,
+  WaitingPanel,
+} from '../../components/general/DashboardPanels'
 import { NewProjectDialog } from '../../components/general/NewProjectDialog'
+import { QuickActions } from '../../components/general/QuickActions'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
@@ -16,15 +25,13 @@ import { Select } from '../../components/ui/Select'
 import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
-import { useLive } from '../../hooks/useLive'
+import { useUnreadTotal } from '../../hooks/useConversations'
+import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
 import { forgetSpace } from '../../hooks/useSpaces'
-import {
-  joinGeneralProject,
-  listMyInvitations,
-  respondToInvitation,
-} from '../../lib/api/general'
+import { joinGeneralProject, respondToInvitation } from '../../lib/api/general'
 import { archiveSpace, deleteSpace } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
+import { comingUp, dueCounts, myTasks, recentProjects } from '../../lib/general/dashboard'
 import { dateRange } from '../../lib/general/dates'
 import { levelLabel } from '../../lib/general/permissions'
 import { presetById } from '../../lib/general/presets'
@@ -34,19 +41,28 @@ import type {
   GeneralStatus,
   MyInvitation,
 } from '../../lib/general/types'
-import { fullName } from '../../lib/types'
+import { plural } from '../../lib/plural'
+
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 18) return 'Good afternoon'
+  return 'Good evening'
+}
 
 /**
- * One space: what is waiting on you, then the projects inside it.
+ * One space, as a dashboard: what is on you, where you can go, then every
+ * project in it.
  *
- * Every project here belongs to this space, and everybody in the space can see
- * all of them — being on a project is what decides who can change it, not who
- * can see it.
+ * It reads top to bottom in the order somebody needs it. The masthead says
+ * whether anything is late. The shortcuts are the doors out of the page, big
+ * enough to hit without reading. The panels are the work — what is waiting on
+ * an answer, what is assigned, what is due — each row opening the exact task or
+ * tab it names. The full project grid comes last, because by then somebody
+ * either found what they came for or is browsing.
  *
- * Invitations come first because they are the only thing here that needs an
- * answer, and until they are answered the projects behind them are not yours
- * to open. Archived projects are not here at all: they have their own page, so
- * this list is only live work.
+ * Everything is scoped to the space in the URL. Everybody in the space can see
+ * all of its projects — being on a project is what decides who can change it.
  */
 export default function GeneralHome() {
   const { spaceId } = useParams<{ spaceId: string }>()
@@ -60,8 +76,6 @@ export default function GeneralHome() {
     reload: reloadNavigation,
   } = useGeneralNavigation()
   const navigate = useNavigate()
-  const [invitations, setInvitations] = useState<MyInvitation[]>([])
-  const [invitationError, setInvitationError] = useState<string | null>(null)
   const [newOpen, setNewOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
@@ -74,36 +88,11 @@ export default function GeneralHome() {
     document.title = space ? `${space.name} · Collabify` : 'General · Collabify'
   }, [space])
 
-  const loadInvitations = useCallback(async () => {
-    if (!profile) return
-    try {
-      setInvitations(await listMyInvitations(profile.id))
-      setInvitationError(null)
-    } catch (err) {
-      setInvitationError(authErrorMessage(err, 'Could not load your invitations.'))
-    }
-  }, [profile])
-
-  useEffect(() => {
-    void loadInvitations()
-  }, [loadInvitations])
-
-  useLive(loadInvitations, ['general_invitations'])
-
-  async function answer(inv: MyInvitation, accept: boolean) {
-    setAnswering(inv.id)
-    try {
-      await respondToInvitation(inv.id, accept)
-      show(accept ? `You joined ${inv.project?.name ?? 'the project'}` : 'Invitation declined')
-      await loadInvitations()
-    } catch (err) {
-      show(authErrorMessage(err, 'Could not answer that invitation.'), 'error')
-    } finally {
-      setAnswering(null)
-    }
-  }
-
   const all = useMemo(() => (projects ?? []).filter((p) => !p.archived_at), [projects])
+  const ids = useMemo(() => all.map((p) => p.id), [all])
+  const { data, error: dashError, reload } = useGeneralDashboard(profile?.id, ids)
+  const unread = useUnreadTotal(profile?.id, 'general')
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     return all
@@ -111,62 +100,128 @@ export default function GeneralHome() {
       .filter((p) => (q ? `${p.name} ${p.description}`.toLowerCase().includes(q) : true))
   }, [all, query, status])
 
+  async function answer(inv: MyInvitation, accept: boolean) {
+    setAnswering(inv.id)
+    try {
+      await respondToInvitation(inv.id, accept)
+      show(accept ? `You joined ${inv.project?.name ?? 'the project'}` : 'Invitation declined')
+      await Promise.all([reload(), reloadNavigation()])
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not answer that invitation.'), 'error')
+    } finally {
+      setAnswering(null)
+    }
+  }
+
   if (spaceId && spaces !== null && !space) {
     return <Navigate to="/general/spaces" replace />
   }
 
-  const error = navigationError ?? invitationError
+  const error = navigationError ?? dashError
   const isOwner = space?.my_level === 'owner'
   const archived = Boolean(space?.archived_at)
 
+  const now = data?.at ?? 0
+  const names = new Map(all.map((p) => [p.id, p.name]))
+  const projectName = (id: string) => names.get(id) ?? 'A project'
+  const mine = profile && data ? myTasks(data.tasks, profile.id) : []
+  const { overdue, thisWeek } = dueCounts(mine, now)
+  const invitations = data?.invitations ?? []
+  const reviews = data?.reviews ?? []
+  const requests = all.filter((p) => p.my_level === 'owner' && p.open_request_count > 0)
+  const waiting =
+    invitations.length + reviews.length + requests.reduce((n, p) => n + p.open_request_count, 0)
+  const days = data ? comingUp(data.tasks, all, now) : []
+
+  const line = archived
+    ? 'This space is archived. Everything stays readable, and nothing can change until an Owner restores it.'
+    : overdue > 0
+      ? `${overdue} of your tasks ${plural(overdue, 'is', 'are')} overdue.` +
+        (thisWeek > 0 ? ` Another ${thisWeek} ${plural(thisWeek, 'is', 'are')} due this week.` : '')
+      : thisWeek > 0
+        ? `${thisWeek} ${plural(thisWeek, 'task', 'tasks')} due this week, and nothing overdue.`
+        : waiting > 0
+          ? `${waiting} ${plural(waiting, 'thing is', 'things are')} waiting on your answer.`
+          : mine.length > 0
+            ? `${mine.length} open ${plural(mine.length, 'task', 'tasks')} in hand, and nothing due this week.`
+            : 'Nothing is waiting on you right now.'
+
+  const base = spaceId ? `/general/spaces/${spaceId}` : '/general/spaces'
+
   return (
     <div className="w-full">
-      <DirectoryHero
-        title={space?.name ?? 'Space'}
-        accent={space?.archived_at ? '(archived)' : 'and everything in it.'}
-        description={
-          space?.description ||
-          'Every project in this space is visible to everyone in it. Being on a project is what decides who can change it.'
-        }
-        action={!space?.archived_at ? (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="accent" onClick={() => setNewOpen(true)}>
-              <Icon name="plus" size={17} />
-              New project
-            </Button>
-            <Button variant="onNavy" onClick={() => setJoinOpen(true)}>
-              Join a project
-            </Button>
-          </div>
-        ) : undefined}
-        stats={[]}
-      />
+      <Reveal once>
+        <DashboardSummary
+          greeting={greeting()}
+          name={profile?.first_name ?? 'there'}
+          kicker={space ? `${space.name}${archived ? ' · archived' : ''}` : 'Space'}
+          line={line}
+          urgent={overdue > 0}
+          tiles={[
+            { label: 'My open tasks', value: mine.length, icon: 'check' },
+            { label: 'Due this week', value: thisWeek, icon: 'calendar' },
+            {
+              label: 'Overdue',
+              value: overdue,
+              icon: 'clock',
+              tone: overdue > 0 ? 'warn' : 'plain',
+            },
+            { label: 'Waiting on you', value: waiting, icon: 'bell' },
+          ]}
+        />
+      </Reveal>
 
       {spaceId && (
-        <nav className="mt-4 flex flex-wrap gap-2 text-[13px]">
-          <Link
-            to={`/general/spaces/${spaceId}/members`}
-            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-muted hover:border-line-strong hover:text-ink"
-          >
-            <Icon name="users" size={15} />
-            Members
-          </Link>
-          <Link
-            to={`/general/spaces/${spaceId}/archive`}
-            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-muted hover:border-line-strong hover:text-ink"
-          >
-            <Icon name="folder" size={15} />
-            Archive
-          </Link>
-          <Link
-            to="/general/spaces"
-            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-muted hover:border-line-strong hover:text-ink"
-          >
-            <Icon name="refresh" size={15} />
-            Switch space
-          </Link>
+        <div className="mt-6">
+          <QuickActions
+            actions={[
+              ...(!archived
+                ? [
+                    {
+                      icon: 'plus' as const,
+                      label: 'New project',
+                      hint: 'Start from a preset or blank',
+                      onClick: () => setNewOpen(true),
+                      primary: true,
+                    },
+                    {
+                      icon: 'lock' as const,
+                      label: 'Join with code',
+                      hint: 'Eight characters from an Owner',
+                      onClick: () => setJoinOpen(true),
+                    },
+                  ]
+                : []),
+              {
+                icon: 'users',
+                label: 'Members',
+                hint: space ? `${space.member_count} in this space` : 'Who is in this space',
+                to: `${base}/members`,
+              },
+              {
+                icon: 'target',
+                label: 'Teams',
+                hint: 'Groups across projects',
+                to: `${base}/teams`,
+              },
+              {
+                icon: 'message',
+                label: 'Messages',
+                hint: unread > 0 ? `${unread} unread` : 'Chats and project threads',
+                to: '/general/messages',
+                count: unread,
+              },
+              {
+                icon: 'archive',
+                label: 'Archive',
+                hint: space ? `${space.archived_count} archived ${plural(space.archived_count, 'project', 'projects')}` : 'Finished work',
+                to: `${base}/archive`,
+              },
+            ]}
+          />
           {isOwner && (
-            <>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
+              <span className="eyebrow mr-1 text-faint">Space options</span>
               <button
                 type="button"
                 onClick={() => setArchiveOpen(true)}
@@ -183,117 +238,123 @@ export default function GeneralHome() {
                 <Icon name="trash" size={15} />
                 Delete space
               </button>
-            </>
+            </div>
           )}
-        </nav>
+        </div>
       )}
 
-      <div className="mt-6 space-y-6">
-        {error && <Alert tone="error">{error}</Alert>}
-
-        {invitations.length > 0 && (
-          <section className="overflow-hidden rounded-panel border border-amber-300 bg-amber-400/6 dark:border-amber-400/40 dark:bg-amber-400/8">
-            <header className="flex items-center justify-between gap-3 border-b border-amber-300/60 px-4 py-3.5 sm:px-5 dark:border-amber-400/25">
-              <div>
-                <h2>Invitations</h2>
-                <p className="mt-0.5 text-[12px] text-muted">Projects waiting for your answer.</p>
-              </div>
-              <span className="rounded-full bg-amber-400/25 px-2.5 py-1 font-mono text-[12px] font-medium text-amber-800 dark:text-amber-200">
-                {invitations.length}
-              </span>
-            </header>
-            <ul className="divide-y divide-amber-300/50 dark:divide-amber-400/20">
-              {invitations.map((inv) => (
-                <li key={inv.id} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:px-5">
-                  {inv.inviter && <Avatar profile={inv.inviter} size={34} />}
-                  <div className="min-w-[14rem] flex-1">
-                    <p className="text-[14px] font-medium text-ink">{inv.project?.name ?? 'A project'}</p>
-                    <p className="mt-0.5 text-[12px] text-muted">
-                      {inv.inviter ? `${fullName(inv.inviter)} invited you` : 'You were invited'}
-                      {inv.project?.description ? ` · ${inv.project.description.slice(0, 90)}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={answering === inv.id}
-                      onClick={() => void answer(inv, false)}
-                    >
-                      Decline
-                    </Button>
-                    <Button size="sm" loading={answering === inv.id} onClick={() => void answer(inv, true)}>
-                      <Icon name="check" size={14} />
-                      Join
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
+      <div className="mt-7 space-y-8 md:mt-8">
+        {error && (
+          <Alert tone="error" onRetry={() => void Promise.all([reload(), reloadNavigation()])}>
+            {error}
+          </Alert>
         )}
 
-        {projects === null ? (
+        {projects === null || (!data && !dashError) ? (
           <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
             <Spinner size={16} />
-            Loading projects…
+            Loading this space…
           </div>
-        ) : all.length === 0 ? (
+        ) : all.length === 0 && invitations.length === 0 ? (
           <EmptyState
             icon="kanban"
             title="No projects yet"
             body="Create one for anything this space is running, or join one with a code somebody shared with you."
             action={
-              <Button onClick={() => setNewOpen(true)} className="!rounded-xl">
-                New project
-              </Button>
+              !archived ? (
+                <Button onClick={() => setNewOpen(true)} className="!rounded-xl">
+                  New project
+                </Button>
+              ) : undefined
             }
           />
         ) : (
-          <section className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="mr-auto">Your projects</h2>
-              <FilterPopover
-                align="right"
-                label="Filter projects"
-                active={[query.trim(), status].filter(Boolean).length}
-                summary={[query.trim() && `“${query.trim()}”`, status && projectStatusLabel(status)]
-                  .filter(Boolean)
-                  .join(' · ')}
-                onClear={() => {
-                  setQuery('')
-                  setStatus('')
-                }}
-              >
-                <FilterField label="Search">
-                  <FilterSearch value={query} onChange={setQuery} placeholder="Name or description" />
-                </FilterField>
-                <FilterField label="Status">
-                  <Select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as GeneralStatus | '')}
-                    placeholder="Any status"
-                    options={PROJECT_STATUSES}
-                    className="!h-10 !text-[13px]"
-                  />
-                </FilterField>
-              </FilterPopover>
-            </div>
+          <>
+            <Bento>
+              <BentoCell>
+                <Reveal once delay={0.04}>
+                  <DashSection icon="bell" title="Waiting on you" count={waiting}>
+                    <WaitingPanel
+                      invitations={invitations}
+                      reviews={reviews}
+                      requests={requests}
+                      projectName={projectName}
+                      answering={answering}
+                      onAnswer={(inv, accept) => void answer(inv, accept)}
+                    />
+                  </DashSection>
+                </Reveal>
+              </BentoCell>
+              <BentoCell>
+                <Reveal once delay={0.08}>
+                  <DashSection icon="check" title="My tasks" count={mine.length}>
+                    <MyTasksPanel tasks={mine} projectName={projectName} now={now} />
+                  </DashSection>
+                </Reveal>
+              </BentoCell>
+              <BentoCell>
+                <Reveal once delay={0.12}>
+                  <DashSection icon="calendar" title="Coming up">
+                    <ComingUpPanel days={days} projectName={projectName} now={now} />
+                  </DashSection>
+                </Reveal>
+              </BentoCell>
+              <BentoCell>
+                <Reveal once delay={0.16}>
+                  <DashSection icon="kanban" title="Jump back in">
+                    <RecentPanel projects={recentProjects(all)} />
+                  </DashSection>
+                </Reveal>
+              </BentoCell>
+            </Bento>
 
-            {shown.length === 0 ? (
-              <EmptyState
-                icon="search"
-                title="Nothing matches"
-                body="No project fits these filters. Clear them to see everything you are on."
-              />
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {shown.map((p) => (
-                  <ProjectCard key={p.id} project={p} />
-                ))}
-              </div>
+            {all.length > 0 && (
+              <section id="all-projects" className="space-y-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="mr-auto">All projects</h2>
+                  <FilterPopover
+                    align="right"
+                    label="Filter projects"
+                    active={[query.trim(), status].filter(Boolean).length}
+                    summary={[query.trim() && `“${query.trim()}”`, status && projectStatusLabel(status)]
+                      .filter(Boolean)
+                      .join(' · ')}
+                    onClear={() => {
+                      setQuery('')
+                      setStatus('')
+                    }}
+                  >
+                    <FilterField label="Search">
+                      <FilterSearch value={query} onChange={setQuery} placeholder="Name or description" />
+                    </FilterField>
+                    <FilterField label="Status">
+                      <Select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value as GeneralStatus | '')}
+                        placeholder="Any status"
+                        options={PROJECT_STATUSES}
+                        className="!h-10 !text-[13px]"
+                      />
+                    </FilterField>
+                  </FilterPopover>
+                </div>
+
+                {shown.length === 0 ? (
+                  <EmptyState
+                    icon="search"
+                    title="Nothing matches"
+                    body="No project fits these filters. Clear them to see every project in this space."
+                  />
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {shown.map((p) => (
+                      <ProjectCard key={p.id} project={p} />
+                    ))}
+                  </div>
+                )}
+              </section>
             )}
-          </section>
+          </>
         )}
       </div>
 

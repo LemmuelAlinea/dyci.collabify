@@ -256,6 +256,25 @@ export async function archiveGeneralProject(projectId: string, archived: boolean
   if (error) throw error
 }
 
+/**
+ * Deletes an archived project and everything in it, then clears its uploaded
+ * files out of Storage. The database answers which objects it left behind, and
+ * only objects no project claims any more can be removed.
+ */
+export async function deleteGeneralProject(projectId: string) {
+  const { data, error } = await supabase.rpc('delete_general_project', { p_project: projectId })
+  if (error) throw error
+  const names = (data ?? []) as string[]
+  for (let i = 0; i < names.length; i += 100) {
+    const { error: removeError } = await supabase.storage.from(BUCKET).remove(names.slice(i, i + 100))
+    if (removeError) {
+      throw new Error(
+        'The project is deleted. Some of its uploaded files could not be cleared from storage, but nobody can open them.',
+      )
+    }
+  }
+}
+
 export async function setJoinCode(projectId: string, open: boolean, regenerate = false) {
   const { data, error } = await supabase.rpc('set_general_join_code', {
     p_project: projectId,
@@ -742,6 +761,19 @@ export async function listTasks(projectId: string) {
   return (data ?? []) as GeneralTask[]
 }
 
+/** Every open task across a space's live projects, for its dashboard. */
+export async function listSpaceOpenTasks(projectIds: string[]) {
+  if (projectIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('general_task_overview')
+    .select('*')
+    .in('project_id', projectIds)
+    .is('archived_at', null)
+    .neq('status', 'done')
+  if (error) throw error
+  return (data ?? []) as GeneralTask[]
+}
+
 export async function listArchivedTasks(projectId: string) {
   const { data, error } = await supabase
     .from('general_task_overview')
@@ -1144,6 +1176,20 @@ export async function listRepoChanges(repoId: string) {
   return (data ?? []) as GeneralRepoChange[]
 }
 
+/** Changes somebody asked this person to review, still open, across a space. */
+export async function listMyOpenReviews(projectIds: string[], userId: string) {
+  if (projectIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('general_repo_changes')
+    .select('*')
+    .in('project_id', projectIds)
+    .eq('reviewer_id', userId)
+    .eq('status', 'open')
+    .order('created_at')
+  if (error) throw error
+  return (data ?? []) as GeneralRepoChange[]
+}
+
 export async function openRepoChange(input: {
   repoId: string
   projectId: string
@@ -1188,6 +1234,19 @@ export async function answerRepoChange(changeId: string, merge: boolean, note = 
   })
   if (error) throw error
   return data as GeneralRepoChange
+}
+
+/**
+ * Copies a declined or withdrawn request's files back into your draft: all of
+ * them, or one file or folder. Refuses rather than replace anything already there.
+ */
+export async function restoreRepoChange(changeId: string, path?: string) {
+  const { data, error } = await supabase.rpc('restore_general_repo_change', {
+    p_change: changeId,
+    p_path: path ?? null,
+  })
+  if (error) throw error
+  return data as number
 }
 
 export async function listRepoComments(changeId: string) {

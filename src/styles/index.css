@@ -848,6 +848,23 @@
     text-decoration: none;
     color: inherit;
   }
+
+  /* General reports: a chapter per project starts a page, and a chart or a
+     row of figures is never cut in half. */
+  .report-chapter {
+    break-before: page;
+  }
+
+  .report-chart,
+  .report-kpis,
+  .report-section > h2 {
+    break-inside: avoid;
+    break-after: avoid;
+  }
+
+  .report-section {
+    break-inside: auto;
+  }
 }
 
 /* ---------------------------------------------------- landing page only */

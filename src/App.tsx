@@ -81,6 +81,7 @@ const SpaceMembers = lazy(() => import('./pages/general/SpaceMembers'))
 const SpaceArchive = lazy(() => import('./pages/general/SpaceArchive'))
 const GeneralProject = lazy(() => import('./pages/general/GeneralProject'))
 const ProjectArchive = lazy(() => import('./pages/general/ProjectArchive'))
+const GeneralReports = lazy(() => import('./pages/general/GeneralReports'))
 
 export default function App() {
   return (
@@ -134,6 +135,7 @@ export default function App() {
             <Route path="/general/spaces/:spaceId/teams" element={<GeneralTeams />} />
             <Route path="/general/spaces/:spaceId/teams/archive" element={<GeneralTeams />} />
             <Route path="/general/spaces/:spaceId/archive" element={<SpaceArchive />} />
+            <Route path="/general/spaces/:spaceId/reports" element={<GeneralReports />} />
             <Route path="/general/projects" element={<GeneralProjects />} />
             <Route path="/general/teams" element={<GeneralTeams />} />
             <Route path="/general/teams/archive" element={<GeneralTeams />} />

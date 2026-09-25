@@ -10,6 +10,7 @@ import { educationHome, homeFor, workplaceOf } from '../../lib/workplace'
 import { Logo, LogoMark } from '../brand/Logo'
 import { NewSpaceDialog } from '../general/SpaceDialogs'
 import { Icon } from '../ui/Icon'
+import type { IconName } from '../ui/Icon'
 import { WorkplaceSwitcher } from './WorkplaceSwitcher'
 import { navForWorkplace } from './nav'
 import type { NavItem } from './nav'
@@ -251,19 +252,35 @@ export function SideNav({
                 {group.items.map((item) => (
                   <Fragment key={item.label}>
                     <StaticRow
-                      item={item}
+                      item={
+                        workplace === 'general' && item.to === '/general' && navigation.currentSpace
+                          ? { ...item, to: `/general/spaces/${navigation.currentSpace.id}` }
+                          : item
+                      }
                       collapsed={collapsed}
                       unread={unread}
                       onNavigate={onNavigate}
                       hintHandlers={hintHandlers}
                     />
                     {workplace === 'general' && item.label === 'Messages' && navigation.currentSpace && (
-                      <ArchiveRow
-                        spaceId={navigation.currentSpace.id}
-                        collapsed={collapsed}
-                        onNavigate={onNavigate}
-                        hintHandlers={hintHandlers}
-                      />
+                      <>
+                        <SpaceRow
+                          to={`/general/spaces/${navigation.currentSpace.id}/archive`}
+                          icon="archive"
+                          label="Archive"
+                          collapsed={collapsed}
+                          onNavigate={onNavigate}
+                          hintHandlers={hintHandlers}
+                        />
+                        <SpaceRow
+                          to={`/general/spaces/${navigation.currentSpace.id}/reports`}
+                          icon="chart"
+                          label="Reports"
+                          collapsed={collapsed}
+                          onNavigate={onNavigate}
+                          hintHandlers={hintHandlers}
+                        />
+                      </>
                     )}
                   </Fragment>
                 ))}
@@ -346,7 +363,7 @@ function StaticRow({
     <li>
       <NavLink
         to={item.to}
-        end={item.to.split('/').filter(Boolean).length < 2}
+        end={item.end ?? item.to.split('/').filter(Boolean).length < 2}
         onClick={onNavigate}
         aria-label={collapsed ? label : undefined}
         {...hintHandlers(item.label)}
@@ -391,13 +408,17 @@ function StaticRow({
   )
 }
 
-function ArchiveRow({
-  spaceId,
+function SpaceRow({
+  to,
+  icon,
+  label,
   collapsed,
   onNavigate,
   hintHandlers,
 }: {
-  spaceId: string
+  to: string
+  icon: IconName
+  label: string
   collapsed: boolean
   onNavigate?: () => void
   hintHandlers: (text: string) => Record<string, unknown>
@@ -405,10 +426,10 @@ function ArchiveRow({
   return (
     <li>
       <NavLink
-        to={`/general/spaces/${spaceId}/archive`}
+        to={to}
         onClick={onNavigate}
-        aria-label={collapsed ? 'Archive' : undefined}
-        {...hintHandlers('Archive')}
+        aria-label={collapsed ? label : undefined}
+        {...hintHandlers(label)}
         className={({ isActive }) =>
           `${ROW} h-10 ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
             isActive
@@ -417,8 +438,8 @@ function ArchiveRow({
           }`
         }
       >
-        <Icon name="archive" size={18} />
-        {!collapsed && <span>Archive</span>}
+        <Icon name={icon} size={18} />
+        {!collapsed && <span>{label}</span>}
       </NavLink>
     </li>
   )

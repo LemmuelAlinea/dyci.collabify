@@ -56,3 +56,16 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
 - `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_DB_URL` never appear in frontend code, in
   Vercel, or in any committed file.
 - Avatar uploads are scoped to `avatars/<user-id>/…` by storage policy.
+
+## Agent tooling
+
+Installed under `.claude/` (see `.claude/skills/README.md`):
+
+- **CodeGraph** — MCP server (`.mcp.json`). When `.codegraph/` exists, use
+  `codegraph_explore` (or `codegraph explore "<question>"` in the shell) before
+  grep/Read to locate code and check blast radius. Re-index with `codegraph init`.
+- **Caveman** — `/caveman [lite|full|ultra]` for terse replies; `/caveman-commit`,
+  `/caveman-review`, `/caveman-compress`; `cavecrew-*` subagents. Commit messages still
+  follow this repo's style, and user-facing copy still follows the copy rules above.
+- **Ponytail** — `/ponytail` for the simplest working solution; `/ponytail-review`,
+  `/ponytail-audit`, `/ponytail-debt`. Never simplifies away a security invariant.

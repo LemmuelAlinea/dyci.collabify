@@ -2,32 +2,41 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { Alert } from '../../components/ui/Alert'
-import { Button } from '../../components/ui/Button'
+import { ActionMenu } from '../../components/ui/ActionMenu'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { Input } from '../../components/ui/Field'
 import { Icon, Spinner } from '../../components/ui/Icon'
 import { useToast } from '../../components/ui/Toast'
 import { useGeneralNavigation } from '../../context/generalNavigation'
-import { archiveGeneralProject } from '../../lib/api/general'
+import { archiveGeneralProject, deleteGeneralProject } from '../../lib/api/general'
+import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
 import { presetById } from '../../lib/general/presets'
 import type { GeneralProjectSummary } from '../../lib/general/types'
 
 /**
- * The archived projects in one space.
+ * The archived projects in one space that this person may see.
  *
  * This is why the projects list no longer carries an "include archived"
  * checkbox. Finished work is worth keeping and worth reading back, but it is
  * not what somebody is looking at on a Tuesday — a page you visit deliberately
  * serves it better than a filter that changes a list in place.
  *
- * Restoring is an Owner's call, and the button is only there for one.
+ * Nothing is filtered here. The database only returns an archived project to
+ * whoever archived it and to that project's Owners and Managers, so the list,
+ * its count and the project page all agree.
+ *
+ * Restoring and deleting are an Owner's call, and the menu is only there for one.
+ * Deleting asks for the project's name, because it cannot be undone.
  */
 export default function SpaceArchive() {
   const { spaceId } = useParams<{ spaceId: string }>()
   const { show } = useToast()
   const { spaces, currentSpace: space, projects, error, reload } = useGeneralNavigation()
   const [restoring, setRestoring] = useState<GeneralProjectSummary | null>(null)
+  const [deleting, setDeleting] = useState<GeneralProjectSummary | null>(null)
+  const [typed, setTyped] = useState('')
 
   useEffect(() => {
     document.title = space ? `Archive · ${space.name} · Collabify` : 'Archive · Collabify'
@@ -45,6 +54,18 @@ export default function SpaceArchive() {
     await reload()
   }
 
+  async function remove() {
+    if (!deleting) return
+    try {
+      await deleteGeneralProject(deleting.id)
+    } catch (err) {
+      await reload()
+      throw new Error(authErrorMessage(err, 'Could not delete that project.'), { cause: err })
+    }
+    show(`${deleting.name} deleted`)
+    await reload()
+  }
+
   if (spaceId && spaces !== null && !space) {
     return <Navigate to="/general/spaces" replace />
   }
@@ -54,7 +75,7 @@ export default function SpaceArchive() {
       <DirectoryHero
         title="Archived projects,"
         accent="within reach."
-        description="Projects that have been put away stay readable here, and an Owner can bring one back at any time."
+        description="Projects you archived, or lead, stay readable here. An Owner can bring one back or delete it for good."
         stats={[]}
         action={spaceId ? (
           <Link
@@ -112,9 +133,22 @@ export default function SpaceArchive() {
                     </p>
                   </div>
                   {p.my_level === 'owner' && (
-                    <Button size="sm" variant="outline" onClick={() => setRestoring(p)}>
-                      Restore
-                    </Button>
+                    <ActionMenu
+                      label={`Actions for ${p.name}`}
+                      items={[
+                        { label: 'Restore', icon: 'refresh', onSelect: () => setRestoring(p) },
+                        {
+                          label: 'Delete project',
+                          icon: 'trash',
+                          tone: 'danger',
+                          separated: true,
+                          onSelect: () => {
+                            setTyped('')
+                            setDeleting(p)
+                          },
+                        },
+                      ]}
+                    />
                   )}
                 </li>
               )
@@ -131,6 +165,32 @@ export default function SpaceArchive() {
         body={`${restoring?.name ?? 'The project'} goes back to the projects list and can be edited again.`}
         confirmLabel="Restore"
         tone="primary"
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onClose={() => setDeleting(null)}
+        onConfirm={remove}
+        title="Delete this project for good?"
+        body={
+          <div className="space-y-3">
+            <p>
+              This deletes {deleting?.name ?? 'the project'} and everything in it: its tasks, files,
+              history, drafts, review requests, members and project chat. It cannot be undone.
+            </p>
+            <label htmlFor="delete-project-name" className="block text-[13px] text-ink">
+              Type <span className="font-mono font-medium">{deleting?.name}</span> to confirm
+            </label>
+            <Input
+              id="delete-project-name"
+              autoComplete="off"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+          </div>
+        }
+        confirmLabel="Delete project"
+        blocked={typed.trim() !== (deleting?.name ?? '').trim()}
       />
     </div>
   )
