@@ -180,11 +180,17 @@ export function RepoChangeRow({
                     {FILE_ACTION_LABEL[f.action]}
                   </span>
                 </p>
-                <DiffView
-                  before={fileText(f.kind, before[f.path] ?? '')}
-                  after={f.action === 'removed' ? '' : fileText(f.kind, f.content)}
-                  caption={`What this change would do to ${f.path}, line by line`}
-                />
+                {f.kind === 'binary' ? (
+                  <p className="text-[12px] text-muted">
+                    An uploaded file. Its contents are not compared here.
+                  </p>
+                ) : (
+                  <DiffView
+                    before={fileText(f.kind, before[f.path] ?? '')}
+                    after={f.action === 'removed' ? '' : fileText(f.kind, f.content)}
+                    caption={`What this change would do to ${f.path}, line by line`}
+                  />
+                )}
                 <ReviewFilePreview file={f} />
               </section>
             ))}

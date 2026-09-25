@@ -396,11 +396,17 @@ function DraftNode({
       </div>
       {open && (
         <div className="px-4 pb-4 sm:px-5">
-          <DiffView
-            before={f.action === 'added' ? '' : fileText(f.kind, mainOf(f.path))}
-            after={f.action === 'removed' ? '' : fileText(f.kind, f.content)}
-            caption={`What your draft would do to ${f.path}, line by line`}
-          />
+          {f.kind === 'binary' ? (
+            <p className="text-[12px] text-muted">
+              An uploaded file. Its contents are not compared here.
+            </p>
+          ) : (
+            <DiffView
+              before={f.action === 'added' ? '' : fileText(f.kind, mainOf(f.path))}
+              after={f.action === 'removed' ? '' : fileText(f.kind, f.content)}
+              caption={`What your draft would do to ${f.path}, line by line`}
+            />
+          )}
         </div>
       )}
     </li>
