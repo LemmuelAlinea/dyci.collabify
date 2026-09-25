@@ -3,8 +3,8 @@
 --   node scripts/db.mjs supabase/general-archive-rbac.sql
 --
 -- An archived item is visible to whoever archived it, and to the project's
--- Owners and Managers. Redefines the archive functions from
--- general-project-archive.sql and general-drafts.sql; run after both.
+-- Owners and Managers. No other file defines the functions here; runs after
+-- general-project-archive.sql and general-drafts.sql, which own the columns.
 -- Also redefines policies and the task guard from general-tasks.sql,
 -- general-schedule-guard.sql and general-spaces.sql, so it must run after those too.
 
@@ -278,7 +278,9 @@ returns table (
   archived_at timestamptz, archived_by uuid, owner_id uuid
 )
 language sql security definer set search_path = public as $$
-  select f.id, f.draft_id, f.project_id, f.path, f.action, f.kind, f.content, f.storage_path,
+  select f.id, f.draft_id, f.project_id, f.path, f.action, f.kind,
+         case when d.user_id = auth.uid() then f.content else '' end,
+         case when d.user_id = auth.uid() then f.storage_path end,
          f.updated_at, f.archived_at, f.archived_by, d.user_id
     from public.general_drafts d
     join public.general_draft_files f on f.draft_id = d.id
@@ -306,11 +308,15 @@ begin
     raise exception 'Only its owner, or an Owner or Manager, can delete this.'
       using errcode = 'insufficient_privilege';
   end if;
+  if public.general_is_archived(d.project_id) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
 
   delete from public.general_draft_files
    where draft_id = d.id
      and archived_at is not null
-     and (path = v or path like v || '/%');
+     and (path = v or left(path, char_length(v) + 1) = v || '/');
   update public.general_drafts set updated_at = now() where id = d.id;
 end;
 $$;
@@ -320,11 +326,31 @@ revoke all on function public.general_sees_archived(uuid, uuid) from public, ano
 revoke all on function public.general_archive_guard(uuid) from public, anon;
 revoke all on function public.list_archived_general_draft_files(uuid) from public, anon;
 revoke all on function public.delete_archived_general_draft_path(uuid, text, uuid) from public, anon;
+revoke all on function public.archive_general_task(uuid, boolean) from public, anon;
+revoke all on function public.archive_general_task_file(uuid, boolean) from public, anon;
+revoke all on function public.restore_archived_general_tasks(uuid) from public, anon;
+revoke all on function public.delete_archived_general_task(uuid) from public, anon;
+revoke all on function public.delete_archived_general_tasks(uuid) from public, anon;
+revoke all on function public.restore_archived_general_task_files(uuid) from public, anon;
+revoke all on function public.delete_archived_general_task_file(uuid) from public, anon;
+revoke all on function public.delete_archived_general_task_files(uuid) from public, anon;
+revoke all on function public.list_archived_general_task_files(uuid) from public, anon;
+revoke all on function public.list_removed_general_repo_paths(uuid) from public, anon;
 grant execute on function public.general_leads(uuid) to authenticated;
 grant execute on function public.general_sees_archived(uuid, uuid) to authenticated;
 grant execute on function public.general_archive_guard(uuid) to authenticated;
 grant execute on function public.list_archived_general_draft_files(uuid) to authenticated;
 grant execute on function public.delete_archived_general_draft_path(uuid, text, uuid) to authenticated;
+grant execute on function public.archive_general_task(uuid, boolean) to authenticated;
+grant execute on function public.archive_general_task_file(uuid, boolean) to authenticated;
+grant execute on function public.restore_archived_general_tasks(uuid) to authenticated;
+grant execute on function public.delete_archived_general_task(uuid) to authenticated;
+grant execute on function public.delete_archived_general_tasks(uuid) to authenticated;
+grant execute on function public.restore_archived_general_task_files(uuid) to authenticated;
+grant execute on function public.delete_archived_general_task_file(uuid) to authenticated;
+grant execute on function public.delete_archived_general_task_files(uuid) to authenticated;
+grant execute on function public.list_archived_general_task_files(uuid) to authenticated;
+grant execute on function public.list_removed_general_repo_paths(uuid) to authenticated;
 
 commit;
 
@@ -480,6 +506,11 @@ returns boolean language sql stable security definer set search_path = public as
             or public.general_task_hidden(f.task_id))
   );
 $$;
+
+revoke all on function public.general_task_hidden(uuid) from public, anon;
+revoke all on function public.general_task_file_hidden(text) from public, anon;
+grant execute on function public.general_task_hidden(uuid) to authenticated;
+grant execute on function public.general_task_file_hidden(text) to authenticated;
 
 drop policy if exists general_task_files_select on public.general_task_files;
 create policy general_task_files_select on public.general_task_files

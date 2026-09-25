@@ -303,52 +303,20 @@ begin
   if not found then
     return;
   end if;
+  if public.general_is_archived(d.project_id) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
 
   update public.general_draft_files
      set archived_at = case when p_archived then coalesce(archived_at, now()) else null end,
          archived_by = case when p_archived then coalesce(archived_by, auth.uid()) else null end,
          updated_at = now()
    where draft_id = d.id
-     and (path = v or path like v || '/%');
+     and (path = v or left(path, char_length(v) + 1) = v || '/');
 
   update public.general_drafts set updated_at = now() where id = d.id;
 end;
-$$;
-
-create or replace function public.delete_archived_general_draft_path(
-  p_repo uuid,
-  p_path text
-) returns void
-language plpgsql security definer set search_path = public as $$
-declare
-  d public.general_drafts%rowtype;
-  v text := btrim(p_path);
-begin
-  select * into d from public.general_drafts
-   where repo_id = p_repo and user_id = auth.uid();
-  if not found then
-    return;
-  end if;
-
-  delete from public.general_draft_files
-   where draft_id = d.id
-     and archived_at is not null
-     and (path = v or path like v || '/%');
-
-  update public.general_drafts set updated_at = now() where id = d.id;
-end;
-$$;
-
-create or replace function public.list_archived_general_draft_files(p_repo uuid)
-returns setof public.general_draft_files
-language sql security definer set search_path = public as $$
-  select f.*
-    from public.general_drafts d
-    join public.general_draft_files f on f.draft_id = d.id
-   where d.repo_id = p_repo
-     and d.user_id = auth.uid()
-     and f.archived_at is not null
-   order by f.archived_at desc, f.path;
 $$;
 
 create or replace function public.restore_archived_general_draft_files(p_repo uuid)
@@ -360,6 +328,10 @@ begin
   select * into d from public.general_drafts
    where repo_id = p_repo and user_id = auth.uid();
   if not found then return; end if;
+  if public.general_is_archived(d.project_id) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
 
   update public.general_draft_files
      set archived_at = null, archived_by = null, updated_at = now()
@@ -377,6 +349,10 @@ begin
   select * into d from public.general_drafts
    where repo_id = p_repo and user_id = auth.uid();
   if not found then return; end if;
+  if public.general_is_archived(d.project_id) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
 
   delete from public.general_draft_files
    where draft_id = d.id and archived_at is not null;
@@ -397,7 +373,7 @@ begin
     return;
   end if;
   select * into r from public.general_repos where id = p_repo;
-  delete from public.general_draft_files where draft_id = d.id;
+  delete from public.general_draft_files where draft_id = d.id and archived_at is null;
   update public.general_drafts set base_seq = r.commit_count, updated_at = now()
    where id = d.id;
 end;
@@ -419,6 +395,7 @@ language sql security definer set search_path = public as $$
    where d.repo_id = p_repo
      and d.user_id = auth.uid()
      and b.seq > d.base_seq
+     and f.path !~ '(^|/)\.keep$'
    group by f.path;
 $$;
 
@@ -671,7 +648,7 @@ begin
     from public.general_draft_files f
    where f.draft_id = d.id
      and f.archived_at is null
-     and f.path like v_path || '/%';
+     and left(f.path, char_length(v_path) + 1) = v_path || '/';
 
   if n = 0 then
     raise exception 'That folder has no draft files' using errcode = 'no_data_found';
@@ -691,7 +668,7 @@ begin
     from public.general_draft_files f
    where f.draft_id = d.id
      and f.archived_at is null
-     and f.path like v_path || '/%';
+     and left(f.path, char_length(v_path) + 1) = v_path || '/';
 
   insert into public.general_repo_changes
     (repo_id, project_id, author_id, reviewer_id, title, body, base_seq, files)
@@ -702,7 +679,7 @@ begin
   delete from public.general_draft_files
    where draft_id = d.id
      and archived_at is null
-     and path like v_path || '/%';
+     and left(path, char_length(v_path) + 1) = v_path || '/';
   update public.general_drafts set updated_at = now() where id = d.id;
 
   return ch;
@@ -713,8 +690,6 @@ revoke all on function public.my_general_draft(uuid) from public, anon;
 revoke all on function public.save_general_draft_file(uuid, text, text, text, text, text) from public, anon;
 revoke all on function public.discard_general_draft_file(uuid, text) from public, anon;
 revoke all on function public.archive_general_draft_path(uuid, text, boolean) from public, anon;
-revoke all on function public.delete_archived_general_draft_path(uuid, text) from public, anon;
-revoke all on function public.list_archived_general_draft_files(uuid) from public, anon;
 revoke all on function public.restore_archived_general_draft_files(uuid) from public, anon;
 revoke all on function public.delete_archived_general_draft_files(uuid) from public, anon;
 revoke all on function public.discard_general_draft(uuid) from public, anon;
@@ -729,8 +704,6 @@ grant execute on function public.my_general_draft(uuid) to authenticated;
 grant execute on function public.save_general_draft_file(uuid, text, text, text, text, text) to authenticated;
 grant execute on function public.discard_general_draft_file(uuid, text) to authenticated;
 grant execute on function public.archive_general_draft_path(uuid, text, boolean) to authenticated;
-grant execute on function public.delete_archived_general_draft_path(uuid, text) to authenticated;
-grant execute on function public.list_archived_general_draft_files(uuid) to authenticated;
 grant execute on function public.restore_archived_general_draft_files(uuid) to authenticated;
 grant execute on function public.delete_archived_general_draft_files(uuid) to authenticated;
 grant execute on function public.discard_general_draft(uuid) to authenticated;

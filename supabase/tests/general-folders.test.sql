@@ -151,6 +151,84 @@ begin
     join public.general_drafts d on d.id = f.draft_id
    where d.user_id = owner_id and f.path = 'Chapter 3/own.md';
   perform pg_temp.ok('renaming only ever touches your own draft', n = 1);
+
+  ------------------------------------------------------------------ exact folder prefixes
+  perform pg_temp.act_as(member);
+  perform public.save_general_draft_file(repo.id, 'q_r/1.md', 'added', 'text', '1');
+  perform public.save_general_draft_file(repo.id, 'qxr/2.md', 'added', 'text', '2');
+  perform public.submit_general_draft_folder(repo.id, 'q_r', 'Folder q_r', '', owner_id);
+  select count(*) into n from public.general_draft_files
+   where draft_id = draft.id and path = 'qxr/2.md' and archived_at is null;
+  perform pg_temp.ok('submitting a_b leaves axb/ in the draft', n = 1);
+  select jsonb_array_length(files) into n from public.general_repo_changes
+   where repo_id = repo.id and title = 'Folder q_r';
+  perform pg_temp.ok('...and the change carries only a_b/ files', n = 1);
+
+  perform public.save_general_draft_file(repo.id, 's_t/1.md', 'added', 'text', '1');
+  perform public.save_general_draft_file(repo.id, 'sxt/2.md', 'added', 'text', '2');
+  perform public.archive_general_draft_path(repo.id, 's_t', true);
+  select count(*) into n from public.general_draft_files
+   where draft_id = draft.id and path = 'sxt/2.md' and archived_at is null;
+  perform pg_temp.ok('archiving a_b leaves axb/ in the draft', n = 1);
+
+  perform public.archive_general_draft_path(repo.id, 'sxt', true);
+  perform public.delete_archived_general_draft_path(repo.id, 's_t');
+  select count(*) into n from public.general_draft_files
+   where draft_id = draft.id and path = 'sxt/2.md' and archived_at is not null;
+  perform pg_temp.ok('deleting archived a_b leaves archived axb/', n = 1);
+
+  ------------------------------------------------------------------ discard keeps the archive
+  perform public.save_general_draft_file(repo.id, 'loose.md', 'added', 'text', 'L');
+  perform public.discard_general_draft(repo.id);
+  select count(*) into n from public.general_draft_files where draft_id = draft.id and path = 'loose.md';
+  perform pg_temp.ok('discarding empties the working files', n = 0);
+  select count(*) into n from public.general_draft_files where draft_id = draft.id and path = 'sxt/2.md';
+  perform pg_temp.ok('...and archived draft files survive a discard', n = 1);
+
+  ------------------------------------------------------------------ .keep is not a file
+  perform public.save_general_draft_file(repo.id, 'conf/.keep', 'added', 'text', '');
+  perform public.save_general_draft_file(repo.id, 'conf/real.md', 'added', 'text', 'R');
+  perform pg_temp.act_as(owner_id);
+  perform public.commit_general_files(repo.id, 'Second', 1, jsonb_build_array(
+    jsonb_build_object('path', 'conf/.keep', 'action', 'added', 'kind', 'text', 'content', ''),
+    jsonb_build_object('path', 'conf/real.md', 'action', 'added', 'kind', 'text', 'content', 'Main')));
+  select file_count into n from public.general_repo_overview where id = repo.id;
+  perform pg_temp.ok('the Main file count leaves out .keep', n = 4);
+  perform pg_temp.act_as(member);
+  select count(*) into n from public.general_draft_conflicts(repo.id) c where c.path = 'conf/.keep';
+  perform pg_temp.ok('a .keep never reads as a conflict', n = 0);
+  select count(*) into n from public.general_draft_conflicts(repo.id) c where c.path = 'conf/real.md';
+  perform pg_temp.ok('...while a real file still does', n = 1);
+
+  ------------------------------------------------------------------ archived project
+  perform pg_temp.act_as(owner_id);
+  perform public.archive_general_project(proj.id, true);
+  perform pg_temp.act_as(member);
+
+  begin
+    perform public.archive_general_draft_path(repo.id, 'conf', true);
+    perform pg_temp.ok('archiving a draft path in an archived project is refused', false);
+  exception when check_violation then
+    perform pg_temp.ok('archiving a draft path in an archived project is refused', true);
+  end;
+  begin
+    perform public.delete_archived_general_draft_path(repo.id, 'sxt');
+    perform pg_temp.ok('deleting an archived draft path in an archived project is refused', false);
+  exception when check_violation then
+    perform pg_temp.ok('deleting an archived draft path in an archived project is refused', true);
+  end;
+  begin
+    perform public.restore_archived_general_draft_files(repo.id);
+    perform pg_temp.ok('restoring archived draft files in an archived project is refused', false);
+  exception when check_violation then
+    perform pg_temp.ok('restoring archived draft files in an archived project is refused', true);
+  end;
+  begin
+    perform public.delete_archived_general_draft_files(repo.id);
+    perform pg_temp.ok('deleting archived draft files in an archived project is refused', false);
+  exception when check_violation then
+    perform pg_temp.ok('deleting archived draft files in an archived project is refused', true);
+  end;
 end $$;
 
 rollback;

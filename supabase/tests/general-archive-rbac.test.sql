@@ -45,6 +45,7 @@ declare
   f_alice    uuid;
   f_bob2     uuid;
   n          int;
+  remove_qual text;
 begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at,
                           raw_user_meta_data, created_at, updated_at, aud, role, instance_id)
@@ -402,10 +403,16 @@ begin
    where bucket_id = 'general-files' and name = proj.id || '/' || t_bob2 || '/1-b.pdf';
   perform pg_temp.ok('...and its object in Storage', n = 1);
 
-  -- No WHERE clause, so only the delete policy filters rows, not the read policy.
-  perform pg_temp.act_as(dave);
+  -- A scoped WHERE as dave would also apply the read policy, so run the live
+  -- remove policy's own predicate as dave, limited to this project's objects.
+  perform pg_temp.act_as_service();
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', dave, 'role', 'authenticated')::text, true);
+  select qual into remove_qual from pg_policies
+   where schemaname = 'storage' and tablename = 'objects' and policyname = 'general_files_remove';
   perform set_config('storage.allow_delete_query', 'true', true);
-  delete from storage.objects;
+  execute format('delete from storage.objects where bucket_id = %L and left(name, %s) = %L and (%s)',
+                 'general-files', char_length(proj.id::text) + 1, proj.id || '/', remove_qual);
   perform set_config('storage.allow_delete_query', 'false', true);
   perform pg_temp.act_as_service();
   perform pg_temp.ok('the Storage remove policy on its own refuses a hidden task file',

@@ -6,6 +6,9 @@
 -- `.keep`. Renaming rewrites paths in the caller's draft only; a folder that
 -- already exists in Main becomes remove-old + add-new pairs, so Main still
 -- changes only through review.
+--
+-- Also redefines general_repo_overview from general-files.sql so `file_count`
+-- leaves out `.keep` placeholders; run after it.
 
 begin;
 
@@ -113,5 +116,37 @@ $$;
 
 revoke all on function public.rename_general_draft_folder(uuid, text, text) from public, anon;
 grant execute on function public.rename_general_draft_folder(uuid, text, text) to authenticated;
+
+commit;
+
+begin;
+
+create or replace view public.general_repo_overview
+with (security_invoker = true) as
+select r.id,
+       r.project_id,
+       r.name,
+       r.description,
+       r.commit_count,
+       r.created_by,
+       r.created_at,
+       r.updated_at,
+       (select count(*) from public.general_repo_tree t
+         where t.repo_id = r.id and t.path !~ '(^|/)\.keep$')::int as file_count,
+       (select count(*) from public.general_repo_changes c
+         where c.repo_id = r.id and c.status = 'open')::int as open_change_count,
+       c.author_id as last_author,
+       c.message as last_message,
+       c.created_at as last_commit_at
+  from public.general_repos r
+  left join lateral (
+    select x.author_id, x.message, x.created_at
+      from public.general_commits x
+     where x.repo_id = r.id
+     order by x.seq desc
+     limit 1
+  ) c on true;
+
+grant select on public.general_repo_overview to authenticated;
 
 commit;
