@@ -19,6 +19,7 @@ import {
   nodesAt,
   pathWithPickedExtension,
   pathProblem,
+  shownFiles,
 } from './files'
 import type { GeneralTreeFile } from './types'
 
@@ -286,5 +287,19 @@ describe('site-made folders', () => {
     expect(folderNameProblem('..', [])).toBe('Pick a name other than "." or "..".')
     expect(folderNameProblem('figures', ['Figures'])).toBe('A folder called figures is already here. Pick another name.')
     expect(folderNameProblem('Tables', ['Figures'])).toBeNull()
+  })
+})
+
+describe('shownFiles', () => {
+  it('leaves out .keep placeholders beside real files', () => {
+    const r = shownFiles([{ path: 'a/.keep' }, { path: 'a/b.md' }])
+    expect(r.shown.map((f) => f.path)).toEqual(['a/b.md'])
+    expect(r.folders).toEqual([])
+  })
+
+  it('names the folders when placeholders are all there is', () => {
+    const r = shownFiles([{ path: 'a/.keep' }, { path: 'x/y/.keep' }, { path: 'a/.keep' }])
+    expect(r.shown).toEqual([])
+    expect(r.folders).toEqual(['a', 'x/y'])
   })
 })

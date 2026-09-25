@@ -933,16 +933,21 @@ export async function restoreArchivedTaskFiles(projectId: string) {
   if (error) throw error
 }
 
+// The object goes first: the uploader's Storage remove policy needs the row to still exist.
 export async function deleteArchivedTaskFile(file: ArchivedGeneralFile) {
+  const removed = await supabase.storage.from(BUCKET).remove([file.file_path])
+  if (removed.error) throw removed.error
   const { error } = await supabase.rpc('delete_archived_general_task_file', { p_file: file.id })
   if (error) throw error
-  await supabase.storage.from(BUCKET).remove([file.file_path])
 }
 
 export async function deleteArchivedTaskFiles(projectId: string, files: ArchivedGeneralFile[]) {
+  if (files.length) {
+    const removed = await supabase.storage.from(BUCKET).remove(files.map((f) => f.file_path))
+    if (removed.error) throw removed.error
+  }
   const { error } = await supabase.rpc('delete_archived_general_task_files', { p_project: projectId })
   if (error) throw error
-  if (files.length) await supabase.storage.from(BUCKET).remove(files.map((f) => f.file_path))
 }
 
 export async function deleteTaskFile(file: GeneralFile) {

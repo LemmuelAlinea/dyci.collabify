@@ -22,7 +22,7 @@ import {
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { groupChanges } from '../../lib/general/review'
-import { buildTree, fileText, flatFiles, folderOf, isKeep, nodesAt } from '../../lib/general/files'
+import { buildTree, fileText, flatFiles, folderOf, isKeep, nodesAt, shownFiles } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
 import { matches } from '../../lib/general/search'
 import { FILE_ACTION_LABEL, FILE_KIND_LABEL } from '../../lib/general/types'
@@ -638,7 +638,7 @@ function CommitFiles({ commit }: { commit: GeneralCommit }) {
       if (!alive) return
       setFiles(rows)
       const pairs = await Promise.all(
-        rows.map(async (r) => [r.path, await contentAt(r.repo_id, r.path, r.seq - 1)] as const),
+        shownFiles(rows).shown.map(async (r) => [r.path, await contentAt(r.repo_id, r.path, r.seq - 1)] as const),
       )
       if (alive) setBefore(Object.fromEntries(pairs))
     })()
@@ -656,9 +656,17 @@ function CommitFiles({ commit }: { commit: GeneralCommit }) {
     )
   }
 
+  const { shown, folders } = shownFiles(files)
+
   return (
     <div className="space-y-3 px-4 pb-4">
-      {files.map((f) => (
+      {folders.map((path) => (
+        <p key={path} className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-ink">
+          {path}
+          <span className="rounded-md surface-sunken px-1.5 py-0.5 text-[11px] text-muted">Folder</span>
+        </p>
+      ))}
+      {shown.map((f) => (
         <section key={f.id}>
           <p className="mb-1 flex flex-wrap items-center gap-2 font-mono text-[12px] text-ink">
             {f.path}

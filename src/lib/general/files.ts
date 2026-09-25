@@ -96,6 +96,18 @@ export function isKeep(path: string) {
   return fileName(path) === KEEP
 }
 
+/**
+ * The files a change or commit shows, without `.keep` placeholders. When the
+ * placeholders are all it carries, `folders` names the folders it makes or removes.
+ */
+export function shownFiles<T extends { path: string }>(files: T[]) {
+  const shown = files.filter((f) => !isKeep(f.path))
+  const folders = shown.length
+    ? []
+    : [...new Set(files.map((f) => folderOf(f.path)).filter(Boolean))]
+  return { shown, folders }
+}
+
 export function joinPath(folder: string, name: string) {
   return folder ? `${folder}/${name}` : name
 }

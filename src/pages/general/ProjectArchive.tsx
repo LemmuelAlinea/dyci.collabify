@@ -32,7 +32,7 @@ import {
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
-import { buildTree } from '../../lib/general/files'
+import { buildTree, isKeep } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
 import { TASK_STATUSES } from '../../lib/general/progress'
 import type { ArchivedDraftFile, ArchivedGeneralFile, GeneralDraftFile, GeneralTask, RemovedGeneralRepoPath } from '../../lib/general/types'
@@ -73,7 +73,7 @@ export default function ProjectArchive() {
       setTasks(archivedTasks)
       setFiles(archivedFiles)
       setDraftFiles(archivedDraftFiles)
-      setRepoPaths(removedPaths)
+      setRepoPaths(removedPaths.filter((p) => !isKeep(p.path)))
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load the project archive.'))

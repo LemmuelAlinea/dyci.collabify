@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { ActionMenu } from '../ui/ActionMenu'
@@ -17,7 +17,7 @@ import {
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
-import { extensionOf, fileName, fileText } from '../../lib/general/files'
+import { extensionOf, fileName, fileText, shownFiles } from '../../lib/general/files'
 import { CHANGE_LABEL, FILE_ACTION_LABEL } from '../../lib/general/types'
 import type {
   GeneralRepoChange,
@@ -62,17 +62,18 @@ export function RepoChangeRow({
     change.reviewer_id ? assignedToMe : state.can('edit_files')
   )
   const stale = change.status === 'open' && change.base_seq !== repo.commit_count
+  const { shown, folders } = useMemo(() => shownFiles(change.files), [change.files])
 
   const load = useCallback(async () => {
     if (!open) return
     const pairs = await Promise.all(
-      change.files.map(
+      shown.map(
         async (f) => [f.path, await contentAt(repo.id, f.path, change.base_seq)] as const,
       ),
     )
     setBefore(Object.fromEntries(pairs))
     setComments(await listRepoComments(change.id))
-  }, [open, change.id, change.base_seq, change.files, repo.id])
+  }, [open, change.id, change.base_seq, shown, repo.id])
 
   useEffect(() => {
     void load()
@@ -123,7 +124,10 @@ export function RepoChangeRow({
 
       <p className="mt-1 pl-6 text-[12px] text-faint">
         {change.author_id ? state.nameOf(change.author_id) : 'A former member'} ·{' '}
-        {change.files.length} {change.files.length === 1 ? 'file' : 'files'} · against commit{' '}
+        {folders.length > 0
+          ? `${folders.length} ${folders.length === 1 ? 'folder' : 'folders'}`
+          : `${shown.length} ${shown.length === 1 ? 'file' : 'files'}`}{' '}
+        · against commit{' '}
         {change.base_seq} · {formatDue(change.created_at)}
         {change.reviewer_id ? ` · reviewer: ${state.nameOf(change.reviewer_id)}` : ''}
       </p>
@@ -162,8 +166,15 @@ export function RepoChangeRow({
             <p className="text-[13px] text-muted">This change carries no files.</p>
           )}
 
+          {folders.map((path) => (
+            <p key={path} className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-ink">
+              {path}
+              <span className="rounded-md surface-sunken px-1.5 py-0.5 text-[11px] text-muted">Folder</span>
+            </p>
+          ))}
+
           {before &&
-            change.files.map((f) => (
+            shown.map((f) => (
               <section key={f.path}>
                 <p className="mb-1 flex flex-wrap items-center gap-2 font-mono text-[12px] text-ink">
                   {f.path}
@@ -305,7 +316,7 @@ export function RepoChangeRow({
           await onDone()
         }}
         title="Withdraw this request?"
-        body="The reviewer will no longer see it. Your draft keeps the files."
+        body="The reviewer will no longer see it. The files stay with the withdrawn request and do not go back to your draft."
         confirmLabel="Withdraw request"
         tone="danger"
       />

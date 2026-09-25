@@ -129,7 +129,7 @@ export function DraftPanel({
           path={path}
           onNavigate={onNavigate}
           actions={
-            path ? (
+            path && !state.archived ? (
               <>
                 <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRename(path)}>
                   <Icon name="edit" size={14} />
@@ -195,6 +195,8 @@ export function DraftPanel({
                 <DraftNode
                   key={node.path}
                   node={node}
+                  fullPath
+                  readOnly={state.archived}
                   busy={busy}
                   behind={behind}
                   conflicts={conflicts}
@@ -218,6 +220,7 @@ export function DraftPanel({
             <DraftNode
               key={node.path}
               node={node}
+              readOnly={state.archived}
               busy={busy}
               behind={behind}
               conflicts={conflicts}
@@ -283,6 +286,8 @@ export function DraftPanel({
 
 function DraftNode({
   node,
+  fullPath = false,
+  readOnly,
   busy,
   behind,
   conflicts,
@@ -293,6 +298,8 @@ function DraftNode({
   onSubmit,
 }: {
   node: TreeNode
+  fullPath?: boolean
+  readOnly: boolean
   busy: boolean
   behind: boolean
   conflicts: DraftConflict[]
@@ -318,14 +325,16 @@ function DraftNode({
             <span className="shrink-0 font-mono text-[11px] text-faint">{node.fileCount}</span>
             <Icon name="chevronRight" size={14} className="shrink-0 text-faint" />
           </button>
-          <ActionMenu
-            label={`Actions for ${node.name}`}
-            disabled={busy}
-            items={[
-              { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => onSubmit({ type: 'folder', path: node.path }) },
-              { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'folder', path: node.path }) },
-            ]}
-          />
+          {!readOnly && (
+            <ActionMenu
+              label={`Actions for ${node.name}`}
+              disabled={busy}
+              items={[
+                { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => onSubmit({ type: 'folder', path: node.path }) },
+                { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'folder', path: node.path }) },
+              ]}
+            />
+          )}
         </div>
       </li>
     )
@@ -344,7 +353,9 @@ function DraftNode({
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
           <Icon name={open ? 'chevronDown' : 'chevronRight'} size={14} className="shrink-0 text-faint" />
-          <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink">{f.path}</span>
+          <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink">
+            {fullPath ? f.path : node.name}
+          </span>
         </button>
         <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
           {FILE_ACTION_LABEL[f.action]}
@@ -370,14 +381,16 @@ function DraftNode({
         >
           Open
         </Button>
-        <ActionMenu
-          label={`Actions for ${node.name}`}
-          disabled={busy}
-          items={[
-            { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => onSubmit({ type: 'file', path: f.path }) },
-            { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'file', path: f.path }) },
-          ]}
-        />
+        {!readOnly && (
+          <ActionMenu
+            label={`Actions for ${node.name}`}
+            disabled={busy}
+            items={[
+              { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => onSubmit({ type: 'file', path: f.path }) },
+              { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'file', path: f.path }) },
+            ]}
+          />
+        )}
       </div>
       {open && (
         <div className="px-4 pb-4 sm:px-5">
