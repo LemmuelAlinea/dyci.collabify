@@ -1272,6 +1272,16 @@ export async function deleteArchivedDraftPath(repoId: string, path: string, owne
   if (error) throw error
 }
 
+export async function renameDraftFolder(repoId: string, from: string, to: string) {
+  const { data, error } = await supabase.rpc('rename_general_draft_folder', {
+    p_repo: repoId,
+    p_from: from,
+    p_to: to,
+  })
+  if (error) throw error
+  return data as number
+}
+
 export async function restoreArchivedDraftFiles(repoId: string) {
   const { error } = await supabase.rpc('restore_archived_general_draft_files', { p_repo: repoId })
   if (error) throw error
