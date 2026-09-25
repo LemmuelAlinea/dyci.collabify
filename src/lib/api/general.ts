@@ -9,7 +9,7 @@
  * turns that silence into a message.
  */
 import { supabase } from '../supabase'
-import { pathsNotRemoved } from '../general/storage'
+import { pathsNotRemoved, rowDeleteError } from '../general/storage'
 import type { PresetPayload } from '../general/presets'
 import type { FieldType, FieldValue } from '../general/fields'
 import type { GeneralLevel, GeneralPermission } from '../general/permissions'
@@ -935,14 +935,14 @@ export async function restoreArchivedTaskFiles(projectId: string) {
 }
 
 const STORAGE_REFUSED = 'Could not delete the file from storage. Try again, or ask an Owner or Manager.'
-const ROW_LEFT = 'The file was removed, but its entry is still in the archive. Delete it again to clear it.'
 
 /**
- * Removes the objects of archived task files, and throws if any is still there.
- * The object goes before the row: the uploader's Storage remove policy needs the row.
+ * Removes the objects of archived task files, throws if any is still there, and
+ * returns how many this call removed. The object goes before the row: the
+ * uploader's Storage remove policy needs the row.
  */
 async function removeArchivedObjects(projectId: string, files: ArchivedGeneralFile[]) {
-  if (!files.length) return
+  if (!files.length) return 0
   // Refuse up front what the row delete would refuse, so no object goes for nothing.
   const guard = await supabase.rpc('general_archive_guard', { p_project: projectId })
   if (guard.error) throw guard.error
@@ -950,7 +950,8 @@ async function removeArchivedObjects(projectId: string, files: ArchivedGeneralFi
   const { data, error } = await supabase.storage.from(BUCKET).remove(paths)
   if (error) throw error
   const skipped = new Set(pathsNotRemoved(paths, data))
-  if (!skipped.size) return
+  const removed = paths.length - skipped.size
+  if (!skipped.size) return removed
   // remove() reports a missing object and a refused one the same way. A missing
   // one is fine: a delete whose row step failed left it gone already.
   const { data: left, error: leftErr } = await supabase.rpc('archived_general_task_file_objects', {
@@ -958,18 +959,19 @@ async function removeArchivedObjects(projectId: string, files: ArchivedGeneralFi
   })
   if (leftErr) throw leftErr
   if ((left as string[] | null)?.length) throw new Error(STORAGE_REFUSED)
+  return removed
 }
 
 export async function deleteArchivedTaskFile(file: ArchivedGeneralFile) {
-  await removeArchivedObjects(file.project_id, [file])
+  const removed = await removeArchivedObjects(file.project_id, [file])
   const { error } = await supabase.rpc('delete_archived_general_task_file', { p_file: file.id })
-  if (error) throw new Error(ROW_LEFT)
+  if (error) throw rowDeleteError(error, removed)
 }
 
 export async function deleteArchivedTaskFiles(projectId: string, files: ArchivedGeneralFile[]) {
-  await removeArchivedObjects(projectId, files)
+  const removed = await removeArchivedObjects(projectId, files)
   const { error } = await supabase.rpc('delete_archived_general_task_files', { p_project: projectId })
-  if (error) throw new Error(files.length ? ROW_LEFT : error.message)
+  if (error) throw rowDeleteError(error, removed)
 }
 
 export async function deleteTaskFile(file: GeneralFile) {
