@@ -742,6 +742,19 @@ export async function listTasks(projectId: string) {
   return (data ?? []) as GeneralTask[]
 }
 
+/** Every open task across a space's live projects, for its dashboard. */
+export async function listSpaceOpenTasks(projectIds: string[]) {
+  if (projectIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('general_task_overview')
+    .select('*')
+    .in('project_id', projectIds)
+    .is('archived_at', null)
+    .neq('status', 'done')
+  if (error) throw error
+  return (data ?? []) as GeneralTask[]
+}
+
 export async function listArchivedTasks(projectId: string) {
   const { data, error } = await supabase
     .from('general_task_overview')
@@ -1140,6 +1153,20 @@ export async function listRepoChanges(repoId: string) {
     .select('*')
     .eq('repo_id', repoId)
     .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as GeneralRepoChange[]
+}
+
+/** Changes somebody asked this person to review, still open, across a space. */
+export async function listMyOpenReviews(projectIds: string[], userId: string) {
+  if (projectIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('general_repo_changes')
+    .select('*')
+    .in('project_id', projectIds)
+    .eq('reviewer_id', userId)
+    .eq('status', 'open')
+    .order('created_at')
   if (error) throw error
   return (data ?? []) as GeneralRepoChange[]
 }
