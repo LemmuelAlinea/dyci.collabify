@@ -30,7 +30,7 @@ begin
   if v_to = v_from then
     return 0;
   end if;
-  if v_to like v_from || '/%' then
+  if left(v_to, char_length(v_from) + 1) = v_from || '/' then
     raise exception 'A folder cannot move inside itself.' using errcode = 'check_violation';
   end if;
   v_name := regexp_replace(v_to, '^.*/', '');
@@ -38,7 +38,7 @@ begin
     raise exception 'A folder name can be up to 120 characters.' using errcode = 'check_violation';
   end if;
   if v_to ~ '(^|/)\.\.?(/|$)' or v_to ~ '\\' or v_to ~ '//' then
-    raise exception 'That folder name is not allowed. Use letters, numbers and spaces.'
+    raise exception 'A folder name cannot be "." or "..", or contain a backslash. Pick another name.'
       using errcode = 'check_violation';
   end if;
 
@@ -49,9 +49,11 @@ begin
   end if;
 
   if exists (select 1 from public.general_repo_tree t
-              where t.repo_id = p_repo and (t.path = v_to or t.path like v_to || '/%'))
+              where t.repo_id = p_repo
+                and (t.path = v_to or left(t.path, char_length(v_to) + 1) = v_to || '/'))
      or exists (select 1 from public.general_draft_files f
-                 where f.draft_id = d.id and (f.path = v_to or f.path like v_to || '/%')) then
+                 where f.draft_id = d.id
+                   and (f.path = v_to or left(f.path, char_length(v_to) + 1) = v_to || '/')) then
     raise exception 'A folder called % is already here. Pick another name.', v_name
       using errcode = 'unique_violation';
   end if;
@@ -63,10 +65,11 @@ begin
            f.storage_path as draft_storage
       from (
         select t.path from public.general_repo_tree t
-         where t.repo_id = p_repo and t.path like v_from || '/%'
+         where t.repo_id = p_repo and left(t.path, char_length(v_from) + 1) = v_from || '/'
         union
         select f.path from public.general_draft_files f
-         where f.draft_id = d.id and f.archived_at is null and f.path like v_from || '/%'
+         where f.draft_id = d.id and f.archived_at is null
+           and left(f.path, char_length(v_from) + 1) = v_from || '/'
       ) p
       left join public.general_repo_tree t on t.repo_id = p_repo and t.path = p.path
       left join public.general_draft_files f

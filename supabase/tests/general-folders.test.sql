@@ -72,6 +72,19 @@ begin
    where draft_id = draft.id and path in ('Chapter 3/.keep', 'Chapter 3/notes.md') and action = 'added';
   perform pg_temp.ok('...under the new name, still as additions', n = 2);
 
+  ------------------------------------------------------------------ underscore/percent are not wildcards
+  perform public.save_general_draft_file(repo.id, 'a_b/1.md', 'added', 'text', '1');
+  perform public.save_general_draft_file(repo.id, 'axb/2.md', 'added', 'text', '2');
+  n := public.rename_general_draft_folder(repo.id, 'a_b', 'c');
+  perform pg_temp.ok('renaming a_b moves only its own files', n = 1);
+  select count(*) into n from public.general_draft_files
+   where draft_id = draft.id and path = 'axb/2.md' and action = 'added';
+  perform pg_temp.ok('...and a lookalike folder is left untouched', n = 1);
+
+  perform public.save_general_draft_file(repo.id, 'my-docs/note.md', 'added', 'text', 'M');
+  n := public.rename_general_draft_folder(repo.id, 'c', 'my_docs');
+  perform pg_temp.ok('an underscore in the new name does not collide with a similar dash name', n = 1);
+
   ------------------------------------------------------------------ Main folder
   perform public.save_general_draft_file(repo.id, 'docs/two.md', 'changed', 'text', 'Two, edited');
   n := public.rename_general_draft_folder(repo.id, 'docs', 'papers');
@@ -85,6 +98,12 @@ begin
   perform pg_temp.ok('a file already edited in the draft carries the edit', txt = 'Two, edited');
   select count(*) into n from public.general_repo_tree where repo_id = repo.id and path like 'docs/%';
   perform pg_temp.ok('Main is untouched until review', n = 2);
+
+  ------------------------------------------------------------------ isolation setup: the owner drafts under the same name
+  perform pg_temp.act_as(owner_id);
+  perform public.my_general_draft(repo.id);
+  perform public.save_general_draft_file(repo.id, 'Chapter 3/own.md', 'added', 'text', 'Owner draft');
+  perform pg_temp.act_as(member);
 
   ------------------------------------------------------------------ refusals
   begin
@@ -123,11 +142,15 @@ begin
     perform pg_temp.ok('somebody not on the project cannot rename', true);
   end;
 
+  perform pg_temp.act_as(member);
+  n := public.rename_general_draft_folder(repo.id, 'Chapter 3', 'Renamed');
+  perform pg_temp.ok('the member can still rename Chapter 3 afterwards', n = 2);
+
   perform pg_temp.act_as(owner_id);
-  n := coalesce((select count(*) from public.general_draft_files f
-                   join public.general_drafts d on d.id = f.draft_id
-                  where d.user_id = owner_id and f.path like 'Chapter 3/%'), 0);
-  perform pg_temp.ok('renaming only ever touches your own draft', n = 0);
+  select count(*) into n from public.general_draft_files f
+    join public.general_drafts d on d.id = f.draft_id
+   where d.user_id = owner_id and f.path = 'Chapter 3/own.md';
+  perform pg_temp.ok('renaming only ever touches your own draft', n = 1);
 end $$;
 
 rollback;
