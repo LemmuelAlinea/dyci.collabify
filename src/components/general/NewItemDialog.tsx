@@ -108,6 +108,9 @@ export function NewItemDialog({
     if (targets.some((t) => tree.some((f) => f.path === t))) {
       return setError('The project already has a file with that name here. Open it instead, or pick another name.')
     }
+    if (targets.some((t) => draftFiles.some((f) => f.path === t))) {
+      return setError('Your draft already has a file with that name here. Open it instead, or pick another name.')
+    }
 
     setError(null)
     setBusy(true)

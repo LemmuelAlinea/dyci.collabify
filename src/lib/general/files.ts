@@ -209,16 +209,17 @@ export function foldersIn(files: { path: string }[]) {
  * "1 file added, 2 changed" rather than a count, because the three actions are
  * not equally reversible and a reviewer reads the removals first.
  */
-export function describeDraft(files: Pick<RepoFile, 'action'>[]) {
-  if (files.length === 0) return 'Nothing changed yet'
+export function describeDraft(files: Pick<RepoFile, 'action' | 'path'>[]) {
+  const counted = files.filter((f) => !isKeep(f.path))
+  if (counted.length === 0) return 'Nothing changed yet'
   const n = { added: 0, changed: 0, removed: 0 }
-  for (const f of files) n[f.action]++
+  for (const f of counted) n[f.action]++
   const parts: string[] = []
   if (n.added) parts.push(`${n.added} added`)
   if (n.changed) parts.push(`${n.changed} changed`)
   if (n.removed) parts.push(`${n.removed} removed`)
-  const word = files.length === 1 ? 'file' : 'files'
-  return `${files.length} ${word}: ${parts.join(', ')}`
+  const word = counted.length === 1 ? 'file' : 'files'
+  return `${counted.length} ${word}: ${parts.join(', ')}`
 }
 
 /**

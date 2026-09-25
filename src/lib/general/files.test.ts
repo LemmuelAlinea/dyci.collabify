@@ -166,10 +166,24 @@ describe('buildTree', () => {
 describe('describeDraft', () => {
   it('says what a draft would do, not just how much', () => {
     expect(describeDraft([])).toBe('Nothing changed yet')
-    expect(describeDraft([{ action: 'added' }])).toBe('1 file: 1 added')
+    expect(describeDraft([{ path: 'a.txt', action: 'added' }])).toBe('1 file: 1 added')
     expect(
-      describeDraft([{ action: 'added' }, { action: 'changed' }, { action: 'removed' }]),
+      describeDraft([
+        { path: 'a.txt', action: 'added' },
+        { path: 'b.txt', action: 'changed' },
+        { path: 'c.txt', action: 'removed' },
+      ]),
     ).toBe('3 files: 1 added, 1 changed, 1 removed')
+  })
+
+  it('never counts the hidden empty-folder placeholder', () => {
+    const withKeep = [
+      { path: 'Figures/.keep', action: 'added' as const },
+      { path: 'a.txt', action: 'changed' as const },
+    ]
+    const withoutKeep = [{ path: 'a.txt', action: 'changed' as const }]
+    expect(describeDraft(withKeep)).toBe(describeDraft(withoutKeep))
+    expect(describeDraft(withKeep)).toBe('1 file: 1 changed')
   })
 })
 

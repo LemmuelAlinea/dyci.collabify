@@ -21,7 +21,7 @@ import {
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { groupChanges } from '../../lib/general/review'
-import { buildTree, fileText, folderOf, nodesAt } from '../../lib/general/files'
+import { buildTree, fileText, folderOf, isKeep, nodesAt } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
 import { FILE_ACTION_LABEL, FILE_KIND_LABEL } from '../../lib/general/types'
 import type {
@@ -224,8 +224,8 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
 
       <Tabs<View>
         tabs={[
-          { id: 'main', label: 'Main', icon: 'folder', count: tree.length },
-          { id: 'draft', label: 'My draft', icon: 'edit', count: draftFiles.length },
+          { id: 'main', label: 'Main', icon: 'folder', count: tree.filter((f) => !isKeep(f.path)).length },
+          { id: 'draft', label: 'My draft', icon: 'edit', count: draftFiles.filter((f) => !isKeep(f.path)).length },
           { id: 'changes', label: 'For review', icon: 'refresh', count: openChanges.length },
           { id: 'history', label: 'History', icon: 'clock', count: commits.length },
         ]}
