@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
+import { Input } from '../ui/Field'
 import { Icon, Spinner } from '../ui/Icon'
 import { Tabs } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
@@ -21,8 +22,9 @@ import {
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { groupChanges } from '../../lib/general/review'
-import { buildTree, fileText, folderOf, isKeep, nodesAt } from '../../lib/general/files'
+import { buildTree, fileText, flatFiles, folderOf, isKeep, nodesAt } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
+import { matches } from '../../lib/general/search'
 import { FILE_ACTION_LABEL, FILE_KIND_LABEL } from '../../lib/general/types'
 import type {
   DraftConflict,
@@ -75,6 +77,11 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   const [renaming, setRenaming] = useState<string | null>(null)
   const [open, setOpen] = useState<OpenFile | null>(null)
   const [adding, setAdding] = useState(false)
+  const [query, setQuery] = useState('')
+
+  useEffect(() => {
+    setQuery('')
+  }, [view])
 
   const load = useCallback(async () => {
     if (!projectId) return
@@ -118,6 +125,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   useLive(load, ['general_repos', 'general_commits', 'general_repo_changes'])
 
   function go(nextView: View, nextPath = '') {
+    if (nextView !== view) setQuery('')
     const changed = new URLSearchParams(params)
     if (nextView === 'main') changed.delete('view')
     else changed.set('view', nextView)
@@ -234,6 +242,17 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
         variant="panel"
       />
 
+      <Input
+        icon="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={
+          view === 'main' ? 'Search Main' : view === 'draft' ? 'Search your draft' : view === 'changes' ? 'Search requests' : 'Search history'
+        }
+        aria-label="Search this tab"
+        className="max-w-md"
+      />
+
       {view === 'main' && (
         <MainView
           repo={repo}
@@ -241,6 +260,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           draftFiles={draftFiles}
           state={state}
           path={folder}
+          query={query}
           onNavigate={(p) => go(view, p)}
           onRename={setRenaming}
           onOpen={setOpen}
@@ -255,6 +275,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           state={state}
           mainOf={mainOf}
           path={folder}
+          query={query}
           onNavigate={(p) => go(view, p)}
           onRename={setRenaming}
           onOpen={setOpen}
@@ -262,9 +283,23 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
         />
       )}
       {view === 'changes' && (
-        <ChangesView repo={repo} changes={changes} state={state} onDone={load} />
+        <ChangesView
+          repo={repo}
+          changes={changes.filter((c) =>
+            matches(query, c.title, c.author_id ? state.nameOf(c.author_id) : '', ...c.files.map((f) => f.path)),
+          )}
+          state={state}
+          onDone={load}
+          query={query}
+        />
       )}
-      {view === 'history' && <HistoryView commits={commits} state={state} />}
+      {view === 'history' && (
+        <HistoryView
+          commits={commits.filter((c) => matches(query, c.message, c.author_id ? state.nameOf(c.author_id) : ''))}
+          state={state}
+          query={query}
+        />
+      )}
 
       <FileEditor file={open} repo={repo} state={state} onClose={() => setOpen(null)} onSaved={load} />
       <NewItemDialog
@@ -343,6 +378,7 @@ function MainView({
   draftFiles,
   state,
   path,
+  query,
   onNavigate,
   onRename,
   onOpen,
@@ -352,11 +388,12 @@ function MainView({
   draftFiles: GeneralDraftFile[]
   state: GeneralProjectState
   path: string
+  query: string
   onNavigate: (path: string) => void
   onRename: (path: string) => void
   onOpen: (file: OpenFile) => void
 }) {
-  const level = nodesAt(buildTree(tree), path)
+  const all = buildTree(tree)
 
   if (tree.length === 0) {
     return (
@@ -365,6 +402,25 @@ function MainView({
       </p>
     )
   }
+
+  if (query.trim()) {
+    const hits = flatFiles(all).filter((n) => matches(query, n.path))
+    return hits.length === 0 ? (
+      <p className="rounded-xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-muted">
+        Nothing in Main matches “{query.trim()}”.
+      </p>
+    ) : (
+      <ul className="divide-y divide-[var(--line)] overflow-hidden rounded-panel border border-line surface">
+        {hits.map((node) => (
+          <li key={node.path}>
+            <MainFileRow node={{ ...node, name: node.path }} draftFiles={draftFiles} onOpen={onOpen} />
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  const level = nodesAt(all, path)
 
   if (level === null) return null
 
@@ -451,18 +507,20 @@ function ChangesView({
   changes,
   state,
   onDone,
+  query,
 }: {
   repo: GeneralRepoSummary
   changes: GeneralRepoChange[]
   state: GeneralProjectState
   onDone: () => Promise<void>
+  query?: string
 }) {
   const { mine, toMe, others } = groupChanges(changes, state.viewerId ?? null)
 
   if (mine.length + toMe.length + others.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-muted">
-        Nothing is waiting for review. Submitting a draft puts it here.
+        {query?.trim() ? `Nothing matches “${query.trim()}”.` : 'Nothing is waiting for review. Submitting a draft puts it here.'}
       </p>
     )
   }
@@ -518,13 +576,21 @@ function ChangeSection({
 
 /* ----------------------------------------------------------------- history */
 
-function HistoryView({ commits, state }: { commits: GeneralCommit[]; state: GeneralProjectState }) {
+function HistoryView({
+  commits,
+  state,
+  query,
+}: {
+  commits: GeneralCommit[]
+  state: GeneralProjectState
+  query?: string
+}) {
   const [open, setOpen] = useState<string | null>(null)
 
   if (commits.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-muted">
-        No commits yet.
+        {query?.trim() ? `Nothing matches “${query.trim()}”.` : 'No commits yet.'}
       </p>
     )
   }

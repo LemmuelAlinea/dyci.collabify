@@ -16,8 +16,9 @@ import {
   syncDraft,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { buildTree, describeDraft, fileText, nodesAt } from '../../lib/general/files'
+import { buildTree, describeDraft, fileText, flatFiles, nodesAt } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
+import { matches } from '../../lib/general/search'
 import { FILE_ACTION_LABEL } from '../../lib/general/types'
 import type {
   DraftConflict,
@@ -49,6 +50,7 @@ export function DraftPanel({
   state,
   mainOf,
   path,
+  query,
   onNavigate,
   onRename,
   onOpen,
@@ -62,6 +64,7 @@ export function DraftPanel({
   /** What Main says for a path, so the diff shows what submitting would do. */
   mainOf: (path: string) => string
   path: string
+  query?: string
   onNavigate: (path: string) => void
   onRename: (path: string) => void
   onOpen: (file: OpenFile) => void
@@ -120,29 +123,31 @@ export function DraftPanel({
         </div>
       </div>
 
-      <FolderBar
-        rootLabel="My draft"
-        path={path}
-        onNavigate={onNavigate}
-        actions={
-          path ? (
-            <>
-              <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRename(path)}>
-                <Icon name="edit" size={14} />
-                Rename
-              </Button>
-              <ActionMenu
-                label={`Actions for ${path}`}
-                disabled={busy}
-                items={[
-                  { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => setSubmitting({ type: 'folder', path }) },
-                  { label: 'Archive', icon: 'archive', onSelect: () => setArchiving({ type: 'folder', path }) },
-                ]}
-              />
-            </>
-          ) : undefined
-        }
-      />
+      {!query?.trim() && (
+        <FolderBar
+          rootLabel="My draft"
+          path={path}
+          onNavigate={onNavigate}
+          actions={
+            path ? (
+              <>
+                <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRename(path)}>
+                  <Icon name="edit" size={14} />
+                  Rename
+                </Button>
+                <ActionMenu
+                  label={`Actions for ${path}`}
+                  disabled={busy}
+                  items={[
+                    { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => setSubmitting({ type: 'folder', path }) },
+                    { label: 'Archive', icon: 'archive', onSelect: () => setArchiving({ type: 'folder', path }) },
+                  ]}
+                />
+              </>
+            ) : undefined
+          }
+        />
+      )}
 
       {behind && (
         <Alert tone="error">
@@ -177,7 +182,33 @@ export function DraftPanel({
         </Alert>
       )}
 
-      {level.length === 0 ? (
+      {query?.trim() ? (
+        (() => {
+          const hits = flatFiles(all).filter((n) => matches(query, n.path))
+          return hits.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-muted">
+              Nothing in your draft matches “{query.trim()}”.
+            </p>
+          ) : (
+            <ul className="divide-y divide-[var(--line)] overflow-hidden rounded-panel border border-line surface">
+              {hits.map((node) => (
+                <DraftNode
+                  key={node.path}
+                  node={node}
+                  busy={busy}
+                  behind={behind}
+                  conflicts={conflicts}
+                  mainOf={mainOf}
+                  onNavigate={onNavigate}
+                  onOpen={onOpen}
+                  onArchive={setArchiving}
+                  onSubmit={setSubmitting}
+                />
+              ))}
+            </ul>
+          )
+        })()
+      ) : level.length === 0 ? (
         <p className="rounded-xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-muted">
           This folder is empty. Use New to add a file or folder.
         </p>
