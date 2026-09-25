@@ -116,11 +116,13 @@ export function DraftPanel({
           {describeDraft(files)}
           {draft && <span className="text-faint"> · started from commit {draft.base_seq}</span>}
         </p>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setDiscarding(true)}>
-            Discard it all
-          </Button>
-        </div>
+        {!state.archived && (
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setDiscarding(true)}>
+              Discard it all
+            </Button>
+          </div>
+        )}
       </div>
 
       {!query?.trim() && (
