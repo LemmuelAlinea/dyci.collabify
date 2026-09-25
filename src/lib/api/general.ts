@@ -256,6 +256,25 @@ export async function archiveGeneralProject(projectId: string, archived: boolean
   if (error) throw error
 }
 
+/**
+ * Deletes an archived project and everything in it, then clears its uploaded
+ * files out of Storage. The database answers which objects it left behind, and
+ * only objects no project claims any more can be removed.
+ */
+export async function deleteGeneralProject(projectId: string) {
+  const { data, error } = await supabase.rpc('delete_general_project', { p_project: projectId })
+  if (error) throw error
+  const names = (data ?? []) as string[]
+  for (let i = 0; i < names.length; i += 100) {
+    const { error: removeError } = await supabase.storage.from(BUCKET).remove(names.slice(i, i + 100))
+    if (removeError) {
+      throw new Error(
+        'The project is deleted. Some of its uploaded files could not be cleared from storage, but nobody can open them.',
+      )
+    }
+  }
+}
+
 export async function setJoinCode(projectId: string, open: boolean, regenerate = false) {
   const { data, error } = await supabase.rpc('set_general_join_code', {
     p_project: projectId,

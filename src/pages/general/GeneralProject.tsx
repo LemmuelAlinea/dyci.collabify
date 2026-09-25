@@ -80,7 +80,7 @@ export default function GeneralProject() {
       <EmptyState
         icon="kanban"
         title="Project not found"
-        body="It does not exist, or you are not on it. Ask whoever runs it for an invitation or its join code."
+        body="It was deleted or archived, or you are not on it. Ask whoever runs it for an invitation or its join code."
         action={
           <Link to="/general" className="text-[14px] font-medium text-navy-600 hover:underline dark:text-navy-200">
             Back to your projects
@@ -126,6 +126,13 @@ export default function GeneralProject() {
           >
             <Icon name="archive" size={15} />
             Project archive
+          </Link>
+          <Link
+            to={`/general/spaces/${p.space_id}/reports?s=project&p=${p.id}`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-[13px] text-amber-50/80 hover:bg-white/10 hover:text-amber-50"
+          >
+            <Icon name="chart" size={15} />
+            Report
           </Link>
           {state.isOwner && !state.archived && (
             <Button variant="onNavy" size="sm" onClick={() => setArchiving(true)}>
