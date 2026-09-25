@@ -248,6 +248,20 @@ language sql security definer set search_path = public as $$
    order by f.archived_at desc;
 $$;
 
+-- Storage's remove() skips a missing object and a refused one alike, so the app
+-- asks which of the archived files it just removed still have an object.
+create or replace function public.archived_general_task_file_objects(p_files uuid[])
+returns text[]
+language sql stable security definer set search_path = public as $$
+  select coalesce(array_agg(f.file_path order by f.file_path), '{}')
+    from public.general_task_files f
+   where f.id = any(p_files)
+     and f.archived_at is not null
+     and public.general_sees_archived(f.project_id, f.archived_by)
+     and exists (select 1 from storage.objects o
+                  where o.bucket_id = 'general-files' and o.name = f.file_path);
+$$;
+
 create or replace function public.list_removed_general_repo_paths(p_project uuid)
 returns table (
   repo_id uuid, repo_name text, path text, kind public.general_file_kind,
@@ -336,6 +350,7 @@ revoke all on function public.delete_archived_general_task_file(uuid) from publi
 revoke all on function public.delete_archived_general_task_files(uuid) from public, anon;
 revoke all on function public.list_archived_general_task_files(uuid) from public, anon;
 revoke all on function public.list_removed_general_repo_paths(uuid) from public, anon;
+revoke all on function public.archived_general_task_file_objects(uuid[]) from public, anon;
 grant execute on function public.general_leads(uuid) to authenticated;
 grant execute on function public.general_sees_archived(uuid, uuid) to authenticated;
 grant execute on function public.general_archive_guard(uuid) to authenticated;
@@ -351,6 +366,7 @@ grant execute on function public.delete_archived_general_task_file(uuid) to auth
 grant execute on function public.delete_archived_general_task_files(uuid) to authenticated;
 grant execute on function public.list_archived_general_task_files(uuid) to authenticated;
 grant execute on function public.list_removed_general_repo_paths(uuid) to authenticated;
+grant execute on function public.archived_general_task_file_objects(uuid[]) to authenticated;
 
 commit;
 

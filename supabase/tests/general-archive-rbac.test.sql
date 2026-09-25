@@ -424,6 +424,22 @@ begin
   perform pg_temp.ok('...while it still removes what the grantee may remove',
     not exists (select 1 from storage.objects
                  where bucket_id = 'general-files' and name = proj.id || '/files/keep.md'));
+  ------------------------------------------------------------------ objects left behind
+  perform pg_temp.act_as(alice);
+  perform pg_temp.ok('whoever archived a file learns its object is still in Storage',
+    public.archived_general_task_file_objects(array[f_alice])
+      = array[proj.id || '/' || t_alice2 || '/1-a.pdf']);
+  perform pg_temp.act_as(bob);
+  perform pg_temp.ok('...while a member who cannot see it learns nothing',
+    cardinality(public.archived_general_task_file_objects(array[f_alice])) = 0);
+  perform pg_temp.act_as_service();
+  perform set_config('storage.allow_delete_query', 'true', true);
+  delete from storage.objects
+   where bucket_id = 'general-files' and name = proj.id || '/' || t_alice2 || '/1-a.pdf';
+  perform set_config('storage.allow_delete_query', 'false', true);
+  perform pg_temp.act_as(alice);
+  perform pg_temp.ok('...and once the object is gone, nothing is left to remove',
+    cardinality(public.archived_general_task_file_objects(array[f_alice])) = 0);
 end $$;
 
 rollback;
