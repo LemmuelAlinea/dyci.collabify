@@ -1152,3 +1152,53 @@ the rest of the timing work is — see the note on `visibilityState: hidden` abo
 **Open, and mine to raise rather than decide:** the board still averages a very
 dark navy against the navy hero. It reads because of the specular highlights and
 the lighter plate, but it is close to the line the brief drew.
+
+## Session — 2026-09-25: files, archive visibility, folders
+
+Spec `docs/superpowers/specs/2026-09-25-general-files-archive-folders-design.md`,
+plan `docs/superpowers/plans/2026-09-25-general-files-archive-folders.md`. Built
+`8ee9f5e..3cf8078` on main, task by task with a review after each, plus a
+whole-branch review and one fix round.
+
+**What changed for users.** Every 3-dot menu is one `ActionMenu` rendered through a
+portal, so it is never clipped by a closed folder or an `overflow-hidden` card, and
+the trigger is darker in light mode and lighter in dark. Archive rows and sections
+act through menus. For review is split into Submitted by me / Submitted to me /
+Other open requests, and withdrawing asks first. Archive task sits at the top of
+the task dialog. Files browse one folder at a time with breadcrumbs in the URL
+(`?tab=files&view=draft&path=…`), folders rename, "+ New" offers New folder /
+Upload a file / Upload a folder, and all four Files tabs search.
+
+**The archive rule lives in Postgres.** An archived item is visible to whoever
+archived it plus the project's Owners and Managers. `general-archive-rbac.sql`
+enforces it in the task view, the RPCs, table RLS for tasks and task files, their
+child tables (comments, logs, assignees, events), Storage, and guard triggers that
+refuse direct writes to `archived_at`/`archived_by` unless an RPC set
+`collabify.general_archive_op`. That file is now the only home of every archive
+function; re-run it after any earlier General file (see `docs/07-backup.md`).
+
+**Folders.** A folder is a path prefix; an empty one made in the site holds a
+hidden `<folder>/.keep`, so submit, review, archive, restore and delete need no
+new machinery. `.keep` is filtered wherever files are listed or counted, including
+the server's `file_count`. `rename_general_draft_folder` (`general-folders.sql`)
+moves draft-only folders, and turns a folder already in Main into remove + add
+pairs in your own draft, so Main still changes only by review. Every path-prefix
+match uses `left(path, n+1) = v || '/'`, never `LIKE` — folder names may contain
+`_` and `%`.
+
+**Verified.** 402 unit tests, lint 23 warnings / 0 errors, build, contrast,
+a11y-names, schema-drift, motion-lint, legal-ready; every `general*` SQL suite
+0 FAIL. In the browser: menus unclipped in both themes, archive per account,
+New folder → folder page → rename → breadcrumbs → Back, archive and permanent
+delete of a site-made folder, search on all four tabs.
+
+**`npm run check` fails at lint** on the untracked `docs/redesign/serve-dashboard-preview.mjs`
+(3 no-undef errors). Not from this work; commit it with an eslint env or ignore it.
+
+**Follow-ups, not done:** "Discard it all" still shows on an archived project (the
+server refuses it); deleting a task file removes the Storage object before the row,
+so a failed RPC leaves a row with no file, and `remove()` can silently skip objects
+a policy hides; a change mixing real files and a new empty folder doesn't name the
+folder; security-definer RPCs in `general-notify.sql` / `presets.sql` still read
+archived task titles; the withdraw path and two-account archive visibility were
+covered by SQL tests, not clicked through with a second account.

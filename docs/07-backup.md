@@ -29,7 +29,9 @@ node scripts/db.mjs supabase/schema.sql supabase/classes.sql supabase/groups.sql
 After re-running any of `general-tasks.sql`, `general-schedule-guard.sql`,
 `general-spaces.sql`, `general-project-archive.sql` or `general-drafts.sql` on
 its own, re-run `general-archive-rbac.sql` — it restores the archive policies
-and guard those files would otherwise put back to their older form.
+and guard those files would otherwise put back to their older form. Likewise
+re-run `general-folders.sql` after `general-repo.sql` or `general-files.sql`,
+which would otherwise put back a file count that includes hidden `.keep` files.
 
 `consent.sql` sits near the end for a reason: it redefines
 `handle_new_user()` as a superset that also records what a person agreed to at
