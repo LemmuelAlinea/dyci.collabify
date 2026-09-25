@@ -251,7 +251,11 @@ export function SideNav({
                 {group.items.map((item) => (
                   <Fragment key={item.label}>
                     <StaticRow
-                      item={item}
+                      item={
+                        workplace === 'general' && item.to === '/general' && navigation.currentSpace
+                          ? { ...item, to: `/general/spaces/${navigation.currentSpace.id}` }
+                          : item
+                      }
                       collapsed={collapsed}
                       unread={unread}
                       onNavigate={onNavigate}
@@ -346,7 +350,7 @@ function StaticRow({
     <li>
       <NavLink
         to={item.to}
-        end={item.to.split('/').filter(Boolean).length < 2}
+        end={item.end ?? item.to.split('/').filter(Boolean).length < 2}
         onClick={onNavigate}
         aria-label={collapsed ? label : undefined}
         {...hintHandlers(item.label)}

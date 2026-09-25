@@ -10,6 +10,8 @@ export type NavItem = {
   soon?: boolean
   /** Named counter the shell fills in live, e.g. unread messages. */
   badge?: 'messages'
+  /** Match this path exactly, so a parent page is not lit on its children. */
+  end?: boolean
 }
 
 export type NavGroup = { title: string; items: NavItem[] }
@@ -157,6 +159,9 @@ export const GENERAL_NAV: NavGroup[] = [
   {
     title: 'Workplace',
     items: [
+      // The current space's home, which is its dashboard. SideNav points this at
+      // the space in view; bare /general lands on the last one.
+      { label: 'Dashboard', icon: 'board', to: '/general', end: true },
       { label: 'Projects', icon: 'kanban', to: '/general/projects' },
       { label: 'Teams', icon: 'users', to: '/general/teams' },
       { label: 'Messages', icon: 'message', to: '/general/messages', badge: 'messages' },
