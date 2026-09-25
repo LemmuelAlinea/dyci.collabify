@@ -1216,3 +1216,47 @@ still cascade. The two archived-file delete RPCs set the archive-op flag.
 is hidden from the reader (`general_task_hidden`). They return on restore. Re-run
 the rbac file after `classes.sql`. The withdraw path and two-account archive visibility were covered
 by SQL tests, not clicked through with a second account.
+
+## Session — 2026-09-25 (later): General workplace reports
+
+Built from `2026-09-25-general-reports-design.md`. Delivered as a patch, not committed.
+
+**Database — `supabase/general-reports.sql`** (last in the chain; also needs
+`general-space-teams.sql`, which is not in the `docs/07-backup.md` restore line).
+
+- Access lives in the functions: `general_report_is_lead` (project Owner/Manager, or
+  space Owner/Manager) sees everyone; anybody else gets totals plus their own rows,
+  forced in `general_report_people_of`, whatever `p_people` says. Names of others come
+  back null (`general_report_name`). Comment bodies and drafts are never read.
+- `general_project_events` + three triggers record task archive/restore, project
+  status/archive, member join/leave/remove/level. Only from install time
+  (`general_report_history_since`); cascades from a project delete record nothing.
+- `general_report_templates` with RLS (private / shared, author or space Owner edits)
+  and a 50-per-person-per-space cap.
+- Nine RPCs. `set jit = off` on each: JIT compile cost ~0.8 s against ~0.1 s of work on
+  a 5,000-task project. All under 160 ms there with JIT on at the server.
+- Progress per day is rebuilt from `general_task_events.status_from`; tasks archived now
+  are left out of every day unless archived work is asked for.
+- `supabase/tests/general-reports.test.sql`: 47 checks, all PASS on a local Postgres 16
+  with Supabase stubs. The earlier `general-draft-restore` (15) and
+  `general-project-archive-rbac` (22) suites also pass there.
+
+**Client**
+
+- `src/lib/general/report{Config,Range,Score,Narrative,Data}.ts` — pure, 26 Vitest tests.
+  The URL is the source of truth (`toSearchParams`/`fromSearchParams`).
+- `src/lib/api/generalReports.ts`, `src/hooks/useGeneralReport.ts` (debounced, abortable,
+  only the enabled sections' RPCs).
+- `src/pages/general/GeneralReports.tsx`, `src/components/general/reports/*`
+  (builder rail, document, SVG charts, CSV), `src/components/ui/CheckboxList.tsx`.
+- `Sheet` takes `letterhead`, `footerNote` and `id`; Education output is unchanged.
+- Sidebar `ArchiveRow` became `SpaceRow`; Reports sits under Archive. Projects have a
+  **Report** link in their header.
+
+**Not checked here:** two real accounts in a browser, a real print to PDF, Excel opening
+the CSV. The page was checked in a mocked harness at 1440 and 390, light, dark and print.
+
+**Pre-existing, seen while testing, not fixed:** `general-notify` admin-count check and
+`general-repo` "reviewer merges without edit_files" fail on the local stub chain;
+`classes.sql`/`syllabus.sql` and `groups.sql`/`projects.sql` depend on each other, so a
+fresh restore needs two passes.
