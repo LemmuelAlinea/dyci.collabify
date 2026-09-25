@@ -43,6 +43,7 @@ declare
   t_alice3   uuid;
   t_alice4   uuid;
   f_alice    uuid;
+  f_bob2     uuid;
   n          int;
 begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at,
@@ -367,6 +368,55 @@ begin
   perform pg_temp.ok('...and its events', n >= 1);
   select count(*) into n from public.general_task_logs where task_id = t_bob2;
   perform pg_temp.ok('...and its time logs', n = 1);
+  ------------------------------------------------------------------ files on an archived task
+  perform pg_temp.act_as_service();
+  insert into public.general_task_files (task_id, project_id, uploaded_by, file_path, file_name, size_bytes)
+  values (t_bob2, proj.id, bob, proj.id || '/' || t_bob2 || '/1-b.pdf', 'b.pdf', 10)
+  returning id into f_bob2;
+  insert into storage.objects (bucket_id, name)
+  values ('general-files', proj.id || '/' || t_bob2 || '/1-b.pdf');
+
+  perform pg_temp.act_as(alice);
+  select count(*) into n from public.general_task_files where id = f_bob2;
+  perform pg_temp.ok('a member cannot read a file on another member''s archived task', n = 0);
+  select count(*) into n from storage.objects
+   where bucket_id = 'general-files' and name = proj.id || '/' || t_bob2 || '/1-b.pdf';
+  perform pg_temp.ok('...nor its object in Storage', n = 0);
+
+  perform pg_temp.act_as(dave);
+  delete from public.general_task_files where id = f_bob2;
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('an edit_files grantee cannot delete a file on another member''s archived task',
+    exists (select 1 from public.general_task_files where id = f_bob2));
+
+  perform pg_temp.act_as(bob);
+  select count(*) into n from public.general_task_files where id = f_bob2;
+  perform pg_temp.ok('whoever archived the task still reads its file', n = 1);
+  select count(*) into n from storage.objects
+   where bucket_id = 'general-files' and name = proj.id || '/' || t_bob2 || '/1-b.pdf';
+  perform pg_temp.ok('...and its object in Storage', n = 1);
+  perform pg_temp.act_as(owner_uid);
+  select count(*) into n from public.general_task_files where id = f_bob2;
+  perform pg_temp.ok('an Owner reads a file on an archived task', n = 1);
+  select count(*) into n from storage.objects
+   where bucket_id = 'general-files' and name = proj.id || '/' || t_bob2 || '/1-b.pdf';
+  perform pg_temp.ok('...and its object in Storage', n = 1);
+
+  -- No WHERE clause, so only the delete policy filters rows, not the read policy.
+  perform pg_temp.act_as(dave);
+  perform set_config('storage.allow_delete_query', 'true', true);
+  delete from storage.objects;
+  perform set_config('storage.allow_delete_query', 'false', true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('the Storage remove policy on its own refuses a hidden task file',
+    exists (select 1 from storage.objects
+             where bucket_id = 'general-files' and name = proj.id || '/' || t_bob2 || '/1-b.pdf'));
+  perform pg_temp.ok('...and a hidden archived file',
+    exists (select 1 from storage.objects
+             where bucket_id = 'general-files' and name = proj.id || '/' || t_alice2 || '/1-a.pdf'));
+  perform pg_temp.ok('...while it still removes what the grantee may remove',
+    not exists (select 1 from storage.objects
+                 where bucket_id = 'general-files' and name = proj.id || '/files/keep.md'));
 end $$;
 
 rollback;

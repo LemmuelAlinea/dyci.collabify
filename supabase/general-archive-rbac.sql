@@ -350,21 +350,6 @@ create policy general_tasks_delete on public.general_tasks
     and (archived_at is null or public.general_sees_archived(project_id, archived_by))
   );
 
-drop policy if exists general_task_files_select on public.general_task_files;
-create policy general_task_files_select on public.general_task_files
-  for select using (
-    public.can_read_general_project(project_id)
-    and (archived_at is null or public.general_sees_archived(project_id, archived_by))
-  );
-
-drop policy if exists general_task_files_delete on public.general_task_files;
-create policy general_task_files_delete on public.general_task_files
-  for delete using (
-    ((uploaded_by = auth.uid() and public.is_general_member(project_id))
-     or public.general_can(project_id, 'edit_files'))
-    and (archived_at is null or public.general_sees_archived(project_id, archived_by))
-  );
-
 create or replace function public.guard_general_task()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
@@ -489,10 +474,29 @@ create or replace function public.general_task_file_hidden(p_path text)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.general_task_files f
-     where f.file_path = p_path and f.archived_at is not null
-       and not public.general_sees_archived(f.project_id, f.archived_by)
+     where f.file_path = p_path
+       and ((f.archived_at is not null
+             and not public.general_sees_archived(f.project_id, f.archived_by))
+            or public.general_task_hidden(f.task_id))
   );
 $$;
+
+drop policy if exists general_task_files_select on public.general_task_files;
+create policy general_task_files_select on public.general_task_files
+  for select using (
+    public.can_read_general_project(project_id)
+    and (archived_at is null or public.general_sees_archived(project_id, archived_by))
+    and not public.general_task_hidden(task_id)
+  );
+
+drop policy if exists general_task_files_delete on public.general_task_files;
+create policy general_task_files_delete on public.general_task_files
+  for delete using (
+    ((uploaded_by = auth.uid() and public.is_general_member(project_id))
+     or public.general_can(project_id, 'edit_files'))
+    and (archived_at is null or public.general_sees_archived(project_id, archived_by))
+    and not public.general_task_hidden(task_id)
+  );
 
 do $$
 declare
