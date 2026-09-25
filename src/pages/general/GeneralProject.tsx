@@ -10,6 +10,7 @@ import { useGeneralProject } from '../../components/general/useGeneralProject'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Icon, Spinner } from '../../components/ui/Icon'
 import { Tabs } from '../../components/ui/Tabs'
@@ -112,38 +113,29 @@ export default function GeneralProject() {
         All projects
       </Link>
 
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
-              {p.archived_at ? 'Archived' : projectStatusLabel(p.status)}
-            </span>
-            <span className="rounded-md bg-navy-500/10 px-2 py-0.5 text-[12px] text-navy-700 dark:text-navy-200">
-              You are {levelLabel(p.my_level)}
-            </span>
-          </div>
-          <h1 className="mt-2 font-display break-words">{p.name}</h1>
-          <p className="mt-1 text-[13px] text-muted">
-            {dateRange(p.starts_on, p.ends_on)} · {p.member_count}{' '}
-            {p.member_count === 1 ? 'member' : 'members'} · {Number(p.progress_pct)}% done
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <DirectoryHero
+        title={p.name}
+        accent={p.archived_at ? 'archived.' : 'project.'}
+        description={`${projectStatusLabel(p.status)} · You are ${levelLabel(p.my_level)} · ${dateRange(p.starts_on, p.ends_on)} · ${p.member_count} ${p.member_count === 1 ? 'member' : 'members'} · ${Number(p.progress_pct)}% done`}
+        stats={[]}
+        action={
+          <div className="flex flex-wrap gap-2">
           <Link
             to={`/general/projects/${p.id}/archive`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[13px] text-muted hover:border-line-strong hover:text-ink"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-[13px] text-amber-50/80 hover:bg-white/10 hover:text-amber-50"
           >
             <Icon name="archive" size={15} />
             Project archive
           </Link>
           {state.isOwner && !state.archived && (
-            <Button variant="outline" size="sm" onClick={() => setArchiving(true)}>
+            <Button variant="onNavy" size="sm" onClick={() => setArchiving(true)}>
               <Icon name="archive" size={15} />
               Archive project
             </Button>
           )}
-        </div>
-      </header>
+          </div>
+        }
+      />
 
       {state.error && <Alert tone="error">{state.error}</Alert>}
 

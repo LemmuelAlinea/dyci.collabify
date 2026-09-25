@@ -3,22 +3,39 @@ import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { Input } from '../../components/ui/Field'
 import { Icon, Spinner } from '../../components/ui/Icon'
 import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import {
   archiveTask,
   archiveTaskFile,
+  archiveDraftPath,
+  deleteArchivedDraftFiles,
+  deleteArchivedDraftPath,
+  deleteArchivedTask,
+  deleteArchivedTaskFile,
+  deleteArchivedTaskFiles,
+  deleteArchivedTasks,
   generalFileUrl,
+  getRepo,
+  listArchivedDraftFiles,
   listArchivedTaskFiles,
   listArchivedTasks,
   listRemovedRepoPaths,
+  restoreArchivedDraftFiles,
+  restoreArchivedTaskFiles,
+  restoreArchivedTasks,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
+import { buildTree } from '../../lib/general/files'
+import type { TreeNode } from '../../lib/general/files'
 import { TASK_STATUSES } from '../../lib/general/progress'
-import type { ArchivedGeneralFile, GeneralTask, RemovedGeneralRepoPath } from '../../lib/general/types'
+import type { ArchivedGeneralFile, GeneralDraftFile, GeneralTask, RemovedGeneralRepoPath } from '../../lib/general/types'
 import { formatBytes } from '../../components/ui/FileDrop'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 
@@ -29,26 +46,40 @@ export default function ProjectArchive() {
   const state = useGeneralProject(projectId, profile?.id)
   const [tasks, setTasks] = useState<GeneralTask[] | null>(null)
   const [files, setFiles] = useState<ArchivedGeneralFile[] | null>(null)
+  const [draftFiles, setDraftFiles] = useState<GeneralDraftFile[] | null>(null)
   const [repoPaths, setRepoPaths] = useState<RemovedGeneralRepoPath[] | null>(null)
+  const [repoId, setRepoId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [confirm, setConfirm] = useState<{
+    title: string
+    body: ReactNode
+    label: string
+    action: () => Promise<void>
+  } | null>(null)
 
   const load = useCallback(async () => {
     if (!projectId) return
     try {
-      const [archivedTasks, archivedFiles, removedPaths] = await Promise.all([
+      const repo = await getRepo(projectId)
+      setRepoId(repo?.id ?? null)
+      const [archivedTasks, archivedFiles, archivedDraftFiles, removedPaths] = await Promise.all([
         listArchivedTasks(projectId),
         listArchivedTaskFiles(projectId),
+        repo ? listArchivedDraftFiles(repo.id) : Promise.resolve([]),
         listRemovedRepoPaths(projectId),
       ])
       setTasks(archivedTasks)
       setFiles(archivedFiles)
+      setDraftFiles(archivedDraftFiles)
       setRepoPaths(removedPaths)
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load the project archive.'))
       setTasks([])
       setFiles([])
+      setDraftFiles([])
       setRepoPaths([])
     }
   }, [projectId])
@@ -62,12 +93,24 @@ export default function ProjectArchive() {
   }, [load])
 
   const empty = useMemo(
-    () => tasks?.length === 0 && files?.length === 0 && repoPaths?.length === 0,
-    [files, repoPaths, tasks],
+    () => tasks?.length === 0 && files?.length === 0 && draftFiles?.length === 0 && repoPaths?.length === 0,
+    [draftFiles, files, repoPaths, tasks],
   )
-  const loading = state.loading || tasks === null || files === null || repoPaths === null
-  const canRestoreTasks = state.can('manage_tasks') && !state.archived
-  const canRestoreFiles = state.can('edit_files') && !state.archived
+  const loading = state.loading || tasks === null || files === null || draftFiles === null || repoPaths === null
+  const canActInArchive = !state.archived
+  const q = query.trim().toLowerCase()
+  const archivedTasks = q
+    ? tasks?.filter((task) => `${task.title} ${task.status}`.toLowerCase().includes(q)) ?? []
+    : tasks ?? []
+  const archivedFiles = q
+    ? files?.filter((file) => `${file.file_name} ${file.task_title}`.toLowerCase().includes(q)) ?? []
+    : files ?? []
+  const archivedDraftFiles = q
+    ? draftFiles?.filter((file) => `${file.path} ${file.kind} ${file.action}`.toLowerCase().includes(q)) ?? []
+    : draftFiles ?? []
+  const removedPaths = q
+    ? repoPaths?.filter((path) => `${path.path} ${path.repo_name} ${path.kind}`.toLowerCase().includes(q)) ?? []
+    : repoPaths ?? []
 
   async function run(id: string, action: () => Promise<void>, success: string, failure: string) {
     setBusy(id)
@@ -94,15 +137,12 @@ export default function ProjectArchive() {
         Back to project
       </Link>
 
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="eyebrow">{state.project?.name ?? 'Project'}</p>
-          <h1 className="mt-1 font-display">Project archive</h1>
-          <p className="mt-1 max-w-2xl text-[13px] text-muted">
-            Archived tasks and task files stay out of active work without being deleted. Removed repository paths are shown here from file history.
-          </p>
-        </div>
-      </header>
+      <DirectoryHero
+        title="Project"
+        accent="archive."
+        description="Archived tasks, draft files, folders and removed paths stay recoverable until you choose to delete them."
+        stats={[]}
+      />
 
       {(error || state.error) && <Alert tone="error">{error ?? state.error}</Alert>}
 
@@ -119,12 +159,40 @@ export default function ProjectArchive() {
         />
       ) : (
         <div className="space-y-5">
-          <ArchiveSection title="Archived tasks" count={tasks.length}>
-            {tasks.length === 0 ? (
+          <Input
+            icon="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search archive"
+            className="max-w-md"
+          />
+
+          <ArchiveSection
+            title="Archived tasks"
+            count={archivedTasks.length}
+            actions={
+              canActInArchive && tasks.length > 0 ? (
+                <SectionActions
+                  onRestore={() =>
+                    void run('tasks:restore', () => restoreArchivedTasks(projectId), 'Tasks restored', 'Could not restore tasks.')
+                  }
+                  onDelete={() =>
+                    setConfirm({
+                      title: 'Delete all archived tasks?',
+                      body: 'This permanently deletes every archived task in this project.',
+                      label: 'Delete tasks',
+                      action: () => deleteArchivedTasks(projectId),
+                    })
+                  }
+                />
+              ) : null
+            }
+          >
+            {archivedTasks.length === 0 ? (
               <p className="px-4 py-5 text-[13px] text-faint">No archived tasks.</p>
             ) : (
               <ul className="divide-y divide-line">
-                {tasks.map((task) => (
+                {archivedTasks.map((task) => (
                   <li key={task.id} className="flex flex-wrap items-center gap-3 px-4 py-3.5 sm:px-5">
                     <div className="min-w-[14rem] flex-1">
                       <p className="font-medium text-ink">{task.title}</p>
@@ -134,22 +202,33 @@ export default function ProjectArchive() {
                         {task.archived_at ? ` · Archived ${formatDue(task.archived_at)}` : ''}
                       </p>
                     </div>
-                    {canRestoreTasks && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        loading={busy === task.id}
-                        onClick={() =>
-                          void run(
-                            task.id,
-                            () => archiveTask(task.id, false),
-                            'Task restored',
-                            'Could not restore that task.',
-                          )
-                        }
-                      >
-                        Restore
-                      </Button>
+                    {canActInArchive && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          loading={busy === task.id}
+                          onClick={() =>
+                            void run(task.id, () => archiveTask(task.id, false), 'Task restored', 'Could not restore that task.')
+                          }
+                        >
+                          Restore
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() =>
+                            setConfirm({
+                              title: 'Delete this task?',
+                              body: 'This permanently deletes this archived task.',
+                              label: 'Delete',
+                              action: () => deleteArchivedTask(task.id),
+                            })
+                          }
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     )}
                   </li>
                 ))}
@@ -157,12 +236,32 @@ export default function ProjectArchive() {
             )}
           </ArchiveSection>
 
-          <ArchiveSection title="Archived task files" count={files.length}>
-            {files.length === 0 ? (
+          <ArchiveSection
+            title="Archived task files"
+            count={archivedFiles.length}
+            actions={
+              canActInArchive && files.length > 0 ? (
+                <SectionActions
+                  onRestore={() =>
+                    void run('task-files:restore', () => restoreArchivedTaskFiles(projectId), 'Task files restored', 'Could not restore task files.')
+                  }
+                  onDelete={() =>
+                    setConfirm({
+                      title: 'Delete all archived task files?',
+                      body: 'This permanently deletes every archived task file in this project.',
+                      label: 'Delete files',
+                      action: () => deleteArchivedTaskFiles(projectId, files),
+                    })
+                  }
+                />
+              ) : null
+            }
+          >
+            {archivedFiles.length === 0 ? (
               <p className="px-4 py-5 text-[13px] text-faint">No archived task files.</p>
             ) : (
               <ul className="divide-y divide-line">
-                {files.map((file) => (
+                {archivedFiles.map((file) => (
                   <li key={file.id} className="flex flex-wrap items-center gap-3 px-4 py-3.5 sm:px-5">
                     <div className="min-w-[14rem] flex-1">
                       <button
@@ -181,22 +280,33 @@ export default function ProjectArchive() {
                         {file.archived_at ? ` · Archived ${formatDue(file.archived_at)}` : ''}
                       </p>
                     </div>
-                    {canRestoreFiles && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        loading={busy === file.id}
-                        onClick={() =>
-                          void run(
-                            file.id,
-                            () => archiveTaskFile(file.id, false),
-                            'File restored',
-                            'Could not restore that file.',
-                          )
-                        }
-                      >
-                        Restore
-                      </Button>
+                    {canActInArchive && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          loading={busy === file.id}
+                          onClick={() =>
+                            void run(file.id, () => archiveTaskFile(file.id, false), 'File restored', 'Could not restore that file.')
+                          }
+                        >
+                          Restore
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() =>
+                            setConfirm({
+                              title: 'Delete this task file?',
+                              body: 'This permanently deletes this archived task file.',
+                              label: 'Delete',
+                              action: () => deleteArchivedTaskFile(file),
+                            })
+                          }
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     )}
                   </li>
                 ))}
@@ -204,12 +314,63 @@ export default function ProjectArchive() {
             )}
           </ArchiveSection>
 
-          <ArchiveSection title="Removed project file paths" count={repoPaths.length}>
-            {repoPaths.length === 0 ? (
+          <ArchiveSection
+            title="Archived draft files"
+            count={archivedDraftFiles.length}
+            actions={
+              canActInArchive && repoId && draftFiles.length > 0 ? (
+                <SectionActions
+                  onRestore={() =>
+                    void run('draft-files:restore', () => restoreArchivedDraftFiles(repoId), 'Draft files restored', 'Could not restore draft files.')
+                  }
+                  onDelete={() =>
+                    setConfirm({
+                      title: 'Delete all archived draft files?',
+                      body: 'This permanently deletes every archived draft file in this project.',
+                      label: 'Delete files',
+                      action: () => deleteArchivedDraftFiles(repoId),
+                    })
+                  }
+                />
+              ) : null
+            }
+          >
+            {archivedDraftFiles.length === 0 ? (
+              <p className="px-4 py-5 text-[13px] text-faint">No archived draft files.</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {buildTree(archivedDraftFiles as unknown as Parameters<typeof buildTree>[0]).map((node) => (
+                  <DraftArchiveNode
+                    key={node.path}
+                    node={node}
+                    depth={0}
+                    canEdit={canActInArchive && Boolean(repoId)}
+                    busy={busy}
+                    restore={(path) =>
+                      repoId
+                        ? run(`draft:${path}:restore`, () => archiveDraftPath(repoId, path, false), 'Draft restored', 'Could not restore it.')
+                        : Promise.resolve()
+                    }
+                    remove={(path) =>
+                      setConfirm({
+                        title: 'Delete this archived draft item?',
+                        body: 'This permanently deletes this archived draft file or folder.',
+                        label: 'Delete',
+                        action: () => (repoId ? deleteArchivedDraftPath(repoId, path) : Promise.resolve()),
+                      })
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </ArchiveSection>
+
+          <ArchiveSection title="Removed project file paths" count={removedPaths.length}>
+            {removedPaths.length === 0 ? (
               <p className="px-4 py-5 text-[13px] text-faint">No removed project file paths.</p>
             ) : (
               <ul className="divide-y divide-line">
-                {repoPaths.map((path) => (
+                {removedPaths.map((path) => (
                   <li key={`${path.repo_id}:${path.path}`} className="px-4 py-3.5 sm:px-5">
                     <p className="font-medium text-ink">{path.path}</p>
                     <p className="mt-0.5 text-[12px] text-muted">
@@ -222,6 +383,20 @@ export default function ProjectArchive() {
           </ArchiveSection>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirm !== null}
+        onClose={() => setConfirm(null)}
+        onConfirm={async () => {
+          if (!confirm) return
+          await confirm.action()
+          show('Deleted')
+          await Promise.all([load(), state.reload()])
+        }}
+        title={confirm?.title ?? 'Delete?'}
+        body={confirm?.body ?? ''}
+        confirmLabel={confirm?.label ?? 'Delete'}
+      />
     </div>
   )
 }
@@ -229,19 +404,104 @@ export default function ProjectArchive() {
 function ArchiveSection({
   title,
   count,
+  actions,
   children,
 }: {
   title: string
   count: number
+  actions?: ReactNode
   children: ReactNode
 }) {
   return (
     <section className="overflow-hidden rounded-panel border border-line surface">
       <header className="flex items-center justify-between gap-3 border-b border-line bg-[var(--surface-sunken)] px-4 py-3 sm:px-5">
         <h2>{title}</h2>
-        <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted">{count}</span>
+        <div className="flex items-center gap-2">
+          {actions}
+          <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted">{count}</span>
+        </div>
       </header>
       {children}
     </section>
+  )
+}
+
+function SectionActions({ onRestore, onDelete }: { onRestore: () => void; onDelete: () => void }) {
+  return (
+    <div className="flex gap-1.5">
+      <Button size="sm" variant="outline" onClick={onRestore}>
+        Restore all
+      </Button>
+      <Button size="sm" variant="danger" onClick={onDelete}>
+        Delete all
+      </Button>
+    </div>
+  )
+}
+
+function DraftArchiveNode({
+  node,
+  depth,
+  canEdit,
+  busy,
+  restore,
+  remove,
+}: {
+  node: TreeNode
+  depth: number
+  canEdit: boolean
+  busy: string | null
+  restore: (path: string) => Promise<void>
+  remove: (path: string) => void
+}) {
+  const [open, setOpen] = useState(depth === 0)
+  const f = node.type === 'file' ? (node.file as unknown as GeneralDraftFile) : null
+
+  return (
+    <li>
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3.5 sm:px-5" style={{ paddingLeft: `${depth * 1.25 + 1}rem` }}>
+        {node.type === 'folder' ? (
+          <button type="button" className="flex min-w-[14rem] flex-1 items-center gap-2 text-left" onClick={() => setOpen(!open)}>
+            <Icon name={open ? 'chevronDown' : 'chevronRight'} size={14} className="text-faint" />
+            <Icon name="folder" size={15} className="text-faint" />
+            <span className="font-medium text-ink">{node.path}</span>
+            <span className="font-mono text-[11px] text-faint">{node.fileCount}</span>
+          </button>
+        ) : (
+          <div className="min-w-[14rem] flex-1">
+            <p className="font-medium text-ink">{f?.path}</p>
+            <p className="mt-0.5 text-[12px] text-muted">
+              {f?.kind} · {f?.action}
+              {f?.archived_at ? ` · Archived ${formatDue(f.archived_at)}` : ''}
+            </p>
+          </div>
+        )}
+        {canEdit && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" loading={busy === `draft:${node.path}:restore`} onClick={() => void restore(node.path)}>
+              Restore
+            </Button>
+            <Button size="sm" variant="danger" onClick={() => remove(node.path)}>
+              Delete
+            </Button>
+          </div>
+        )}
+      </div>
+      {node.type === 'folder' && open && (
+        <ul>
+          {node.children.map((child) => (
+            <DraftArchiveNode
+              key={child.path}
+              node={child}
+              depth={depth + 1}
+              canEdit={canEdit}
+              busy={busy}
+              restore={restore}
+              remove={remove}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
   )
 }

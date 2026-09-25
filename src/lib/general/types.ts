@@ -495,6 +495,8 @@ export type GeneralDraftFile = RepoFile & {
   draft_id: string
   project_id: string
   updated_at: string
+  archived_at: string | null
+  archived_by: string | null
 }
 
 /** A file in the draft that Main has changed underneath it. */

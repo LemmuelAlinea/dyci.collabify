@@ -166,7 +166,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           {!state.archived && (
             <Button size="sm" onClick={() => setAdding(true)}>
               <Icon name="plus" size={14} />
-              New file
+              New file / folder
             </Button>
           )}
         </div>
@@ -426,13 +426,63 @@ function NewFileDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [picked, setPicked] = useState<File | null>(null)
+  const [folderFiles, setFolderFiles] = useState<File[]>([])
 
   const savedPath = path ? pathWithPickedExtension(path, picked?.name) : ''
   const kind = savedPath ? kindForPath(savedPath) : null
   const office = kind === 'rich' || kind === 'sheet'
 
+  async function savePickedFile(file: File, target: string) {
+    const k = kindForPath(target)
+    let content = ''
+    let storagePath: string | null = null
+
+    if (k === 'rich') content = (await docxToHtml(file)).html
+    else if (k === 'sheet') content = serializeWorkbook(await xlsxToWorkbook(file))
+    else if (k === 'text') content = await readAsText(file)
+    else storagePath = await uploadProjectFile(repo.project_id, file)
+
+    await saveDraftFile({
+      repoId: repo.id,
+      path: target,
+      action: actionFor(target, tree),
+      kind: k,
+      content,
+      storagePath,
+    })
+  }
+
   async function add() {
     if (busy) return
+    if (folderFiles.length > 0) {
+      const prefix = path.trim().replace(/\/+$/, '')
+      const targets = folderFiles.map((file) => {
+        const rel = ((file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name).replace(/\\/g, '/')
+        return prefix ? `${prefix}/${rel}` : rel
+      })
+      const problem = targets.map(pathProblem).find(Boolean)
+      if (problem) return setError(problem)
+      if (targets.some((target) => tree.some((f) => f.path === target))) {
+        return setError('The project already has one of those files. Open it instead.')
+      }
+      setError(null)
+      setBusy(true)
+      try {
+        for (let i = 0; i < folderFiles.length; i += 1) await savePickedFile(folderFiles[i], targets[i])
+        show('Folder added to your draft')
+        setPath('')
+        setPicked(null)
+        setFolderFiles([])
+        onClose()
+        await onDone()
+      } catch (err) {
+        setError(authErrorMessage(err, 'Could not add that folder.'))
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
+
     const target = pathWithPickedExtension(path, picked?.name)
     const problem = pathProblem(target)
     if (problem) return setError(problem)
@@ -442,28 +492,12 @@ function NewFileDialog({
     setError(null)
     setBusy(true)
     try {
-      const k = kindForPath(target)
-      let content = ''
-      let storagePath: string | null = null
-
-      if (picked) {
-        if (k === 'rich') content = (await docxToHtml(picked)).html
-        else if (k === 'sheet') content = serializeWorkbook(await xlsxToWorkbook(picked))
-        else if (k === 'text') content = await readAsText(picked)
-        else storagePath = await uploadProjectFile(repo.project_id, picked)
-      }
-
-      await saveDraftFile({
-        repoId: repo.id,
-        path: target,
-        action: actionFor(target, tree),
-        kind: k,
-        content,
-        storagePath,
-      })
+      if (picked) await savePickedFile(picked, target)
+      else await saveDraftFile({ repoId: repo.id, path: target, action: actionFor(target, tree), kind: kindForPath(target) })
       show('Added to your draft')
       setPath('')
       setPicked(null)
+      setFolderFiles([])
       onClose()
       await onDone()
     } catch (err) {
@@ -477,8 +511,8 @@ function NewFileDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="New file"
-      description="It goes into your draft. Submit the draft when you want the group to see it."
+      title="New file or folder"
+      description="It goes into your draft. Submit one file or a whole folder when it is ready."
       focusField
       footer={
         <>
@@ -494,12 +528,12 @@ function NewFileDialog({
       <div className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
 
-        <Field label="Path in the project">
+        <Field label={folderFiles.length > 0 ? 'Put the folder under' : 'Path in the project'} optional={folderFiles.length > 0}>
           {(id) => (
             <Input
               id={id}
               maxLength={400}
-              placeholder="documents/Chapter 1.docx"
+              placeholder={folderFiles.length > 0 ? 'documents' : 'documents/Chapter 1.docx'}
               value={path}
               onChange={(e) => setPath(e.target.value)}
               className="!font-mono"
@@ -527,12 +561,37 @@ function NewFileDialog({
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null
                 setPicked(f)
+                setFolderFiles([])
                 if (f) setPath((p) => (p.trim() ? pathWithPickedExtension(p, f.name) : fileName(f.name)))
               }}
               className="w-full rounded-xl border border-line surface px-3 py-2 text-[13px] text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-sunken)] file:px-3 file:py-1.5 file:text-[13px] file:text-ink"
             />
           )}
         </Field>
+
+        <Field label="Or upload a folder" optional>
+          {(id) => (
+            <input
+              id={id}
+              type="file"
+              multiple
+              {...{ webkitdirectory: '', directory: '' }}
+              onChange={(e) => {
+                const files = [...(e.target.files ?? [])]
+                setFolderFiles(files)
+                setPicked(null)
+                if (files.length > 0) setPath('')
+              }}
+              className="w-full rounded-xl border border-line surface px-3 py-2 text-[13px] text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-sunken)] file:px-3 file:py-1.5 file:text-[13px] file:text-ink"
+            />
+          )}
+        </Field>
+
+        {folderFiles.length > 0 && (
+          <p className="text-[12px] text-muted">
+            {folderFiles.length} {folderFiles.length === 1 ? 'file' : 'files'} selected.
+          </p>
+        )}
 
         {picked && office && <Alert tone="info">{OFFICE_WARNING}</Alert>}
       </div>

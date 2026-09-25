@@ -809,6 +809,21 @@ export async function archiveTask(taskId: string, archived: boolean) {
   if (!data) throw new Error('Only its creator, before anyone takes it, or someone who manages tasks can archive this.')
 }
 
+export async function restoreArchivedTasks(projectId: string) {
+  const { error } = await supabase.rpc('restore_archived_general_tasks', { p_project: projectId })
+  if (error) throw error
+}
+
+export async function deleteArchivedTask(taskId: string) {
+  const { error } = await supabase.rpc('delete_archived_general_task', { p_task: taskId })
+  if (error) throw error
+}
+
+export async function deleteArchivedTasks(projectId: string) {
+  const { error } = await supabase.rpc('delete_archived_general_tasks', { p_project: projectId })
+  if (error) throw error
+}
+
 export async function deleteTask(taskId: string) {
   await archiveTask(taskId, true)
 }
@@ -910,6 +925,23 @@ export async function archiveTaskFile(fileId: string, archived: boolean) {
   })
   if (error) throw error
   if (!data) throw new Error('You cannot archive this file. Only whoever added it, or somebody who can edit files, can.')
+}
+
+export async function restoreArchivedTaskFiles(projectId: string) {
+  const { error } = await supabase.rpc('restore_archived_general_task_files', { p_project: projectId })
+  if (error) throw error
+}
+
+export async function deleteArchivedTaskFile(file: ArchivedGeneralFile) {
+  const { error } = await supabase.rpc('delete_archived_general_task_file', { p_file: file.id })
+  if (error) throw error
+  await supabase.storage.from(BUCKET).remove([file.file_path])
+}
+
+export async function deleteArchivedTaskFiles(projectId: string, files: ArchivedGeneralFile[]) {
+  const { error } = await supabase.rpc('delete_archived_general_task_files', { p_project: projectId })
+  if (error) throw error
+  if (files.length) await supabase.storage.from(BUCKET).remove(files.map((f) => f.file_path))
 }
 
 export async function deleteTaskFile(file: GeneralFile) {
@@ -1179,7 +1211,16 @@ export async function listDraftFiles(draftId: string) {
     .from('general_draft_files')
     .select('*')
     .eq('draft_id', draftId)
+    .is('archived_at', null)
     .order('path')
+  if (error) throw error
+  return (data ?? []) as GeneralDraftFile[]
+}
+
+export async function listArchivedDraftFiles(repoId: string) {
+  const { data, error } = await supabase.rpc('list_archived_general_draft_files', {
+    p_repo: repoId,
+  })
   if (error) throw error
   return (data ?? []) as GeneralDraftFile[]
 }
@@ -1209,6 +1250,33 @@ export async function discardDraftFile(repoId: string, path: string) {
     p_repo: repoId,
     p_path: path,
   })
+  if (error) throw error
+}
+
+export async function archiveDraftPath(repoId: string, path: string, archived: boolean) {
+  const { error } = await supabase.rpc('archive_general_draft_path', {
+    p_repo: repoId,
+    p_path: path,
+    p_archived: archived,
+  })
+  if (error) throw error
+}
+
+export async function deleteArchivedDraftPath(repoId: string, path: string) {
+  const { error } = await supabase.rpc('delete_archived_general_draft_path', {
+    p_repo: repoId,
+    p_path: path,
+  })
+  if (error) throw error
+}
+
+export async function restoreArchivedDraftFiles(repoId: string) {
+  const { error } = await supabase.rpc('restore_archived_general_draft_files', { p_repo: repoId })
+  if (error) throw error
+}
+
+export async function deleteArchivedDraftFiles(repoId: string) {
+  const { error } = await supabase.rpc('delete_archived_general_draft_files', { p_repo: repoId })
   if (error) throw error
 }
 
@@ -1243,6 +1311,18 @@ export async function submitDraft(repoId: string, title: string, body: string, r
 
 export async function submitDraftFile(repoId: string, path: string, title: string, body: string, reviewerId: string) {
   const { data, error } = await supabase.rpc('submit_general_draft_file', {
+    p_repo: repoId,
+    p_path: path,
+    p_title: title.trim(),
+    p_body: body,
+    p_reviewer: reviewerId,
+  })
+  if (error) throw error
+  return data as GeneralRepoChange
+}
+
+export async function submitDraftFolder(repoId: string, path: string, title: string, body: string, reviewerId: string) {
+  const { data, error } = await supabase.rpc('submit_general_draft_folder', {
     p_repo: repoId,
     p_path: path,
     p_title: title.trim(),
