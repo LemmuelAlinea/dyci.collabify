@@ -44,6 +44,8 @@ declare
   t_alice4   uuid;
   f_alice    uuid;
   f_bob2     uuid;
+  t_owner    uuid;
+  f_hidden   uuid;
   n          int;
   remove_qual text;
 begin
@@ -440,6 +442,63 @@ begin
   perform pg_temp.act_as(alice);
   perform pg_temp.ok('...and once the object is gone, nothing is left to remove',
     cardinality(public.archived_general_task_file_objects(array[f_alice])) = 0);
+  ------------------------------------------------------------------ definer functions reading tasks
+  -- t_bob2 is archived by Bob, so Alice may not see it; t_alice2 is active.
+  perform pg_temp.act_as(manager_id);
+  insert into public.general_task_assignees (task_id, project_id, user_id)
+  values (t_bob2, proj.id, alice), (t_bob2, proj.id, manager_id), (t_alice2, proj.id, bob);
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('assigning somebody to an archived task they cannot see does not tell them its title',
+    not exists (select 1 from public.notifications
+                 where user_id = alice and general_task_id = t_bob2));
+  perform pg_temp.ok('...while assigning an active task still notifies',
+    exists (select 1 from public.notifications
+             where user_id = bob and general_task_id = t_alice2 and type = 'general_task_assigned'));
+
+  perform pg_temp.act_as(bob);
+  insert into public.general_task_comments (task_id, project_id, author_id, body)
+  values (t_bob2, proj.id, bob, 'Hidden reply'), (t_alice2, proj.id, bob, 'Open reply');
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('a comment on an archived task does not reach a holder who cannot see it',
+    not exists (select 1 from public.notifications
+                 where user_id = alice and general_task_id = t_bob2 and type = 'general_comment_posted'));
+  perform pg_temp.ok('...but still reaches a Manager who holds it',
+    exists (select 1 from public.notifications
+             where user_id = manager_id and general_task_id = t_bob2 and type = 'general_comment_posted'));
+  perform pg_temp.ok('...and a comment on an active task still notifies',
+    exists (select 1 from public.notifications
+             where user_id = alice and general_task_id = t_alice2 and type = 'general_comment_posted'));
+
+  update public.general_tasks set due_at = now() + interval '2 hours', status = 'todo'
+   where id in (t_bob2, t_alice2);
+  delete from public.notifications where general_task_id in (t_bob2, t_alice2);
+  perform public.send_general_deadline_reminders();
+  perform pg_temp.ok('a deadline reminder skips a holder who cannot see the archived task',
+    not exists (select 1 from public.notifications
+                 where user_id = alice and general_task_id = t_bob2 and type = 'general_deadline_soon'));
+  perform pg_temp.ok('...but reaches a Manager who holds it',
+    exists (select 1 from public.notifications
+             where user_id = manager_id and general_task_id = t_bob2 and type = 'general_deadline_soon'));
+  perform pg_temp.ok('...and active tasks still get reminders',
+    exists (select 1 from public.notifications
+             where user_id = bob and general_task_id = t_alice2 and type = 'general_deadline_soon'));
+
+  insert into public.general_tasks (project_id, title, created_by)
+  values (proj.id, 'Owner hid this', alice) returning id into t_owner;
+  insert into public.general_task_files (task_id, project_id, uploaded_by, file_path, file_name, size_bytes)
+  values (t_owner, proj.id, alice, proj.id || '/' || t_owner || '/1-c.pdf', 'c.pdf', 10)
+  returning id into f_hidden;
+  perform pg_temp.act_as(alice);
+  perform public.archive_general_task_file(f_hidden, true);
+  perform pg_temp.act_as(owner_uid);
+  perform public.archive_general_task(t_owner, true);
+  perform pg_temp.act_as(alice);
+  perform pg_temp.ok('the archived files list does not name a task somebody else archived',
+    not exists (select 1 from public.list_archived_general_task_files(proj.id)
+                 where task_title = 'Owner hid this'));
+  perform pg_temp.act_as(owner_uid);
+  perform pg_temp.ok('...while an Owner still sees that file',
+    exists (select 1 from public.list_archived_general_task_files(proj.id) where id = f_hidden));
 end $$;
 
 rollback;

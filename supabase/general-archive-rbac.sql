@@ -6,7 +6,8 @@
 -- Owners and Managers. No other file defines the functions here; runs after
 -- general-project-archive.sql and general-drafts.sql, which own the columns.
 -- Also redefines policies and the task guard from general-tasks.sql,
--- general-schedule-guard.sql and general-spaces.sql, so it must run after those too.
+-- general-schedule-guard.sql and general-spaces.sql, and the task notifications
+-- from general-notify.sql, so it must run after those too.
 
 begin;
 
@@ -245,6 +246,7 @@ language sql security definer set search_path = public as $$
    where f.project_id = p_project
      and f.archived_at is not null
      and public.general_sees_archived(p_project, f.archived_by)
+     and not public.general_task_hidden(f.task_id)
    order by f.archived_at desc;
 $$;
 
@@ -579,5 +581,117 @@ create policy general_files_remove on storage.objects
     )
     and not public.general_task_file_hidden(name)
   );
+
+commit;
+
+-- ---------------------------------------------------------------- notifications
+
+begin;
+
+-- Whether p_user, not the caller, may see the task: notifications go to other people.
+create or replace function public.general_user_sees_task(p_task uuid, p_user uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.general_tasks t
+     where t.id = p_task
+       and (t.archived_at is null
+            or exists (select 1 from public.general_members m
+                        where m.project_id = t.project_id and m.user_id = p_user
+                          and (m.user_id = t.archived_by or m.level in ('owner', 'manager'))))
+  );
+$$;
+
+revoke all on function public.general_user_sees_task(uuid, uuid) from public, anon, authenticated;
+
+create or replace function public.notify_general_assignment()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  -- Claiming a task yourself is not news to you.
+  if new.assigned_by is null or new.assigned_by = new.user_id then
+    return new;
+  end if;
+  insert into public.notifications
+    (user_id, type, general_project_id, general_task_id, title, preview)
+  select new.user_id,
+         'general_task_assigned'::public.notification_type,
+         t.project_id,
+         t.id,
+         t.title,
+         p.name
+    from public.general_tasks t
+    join public.general_projects p on p.id = t.project_id
+    join public.notification_prefs np on np.user_id = new.user_id
+   where t.id = new.task_id and np.task_assignments
+     and public.general_user_sees_task(t.id, new.user_id);
+  return new;
+end;
+$$;
+
+/** Reaches whoever holds the task now, plus whoever has commented on it
+    before, while they are still on the project and may see the task. */
+create or replace function public.notify_general_comment()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.notifications
+    (user_id, type, general_project_id, general_task_id, title, preview)
+  select r.user_id,
+         'general_comment_posted'::public.notification_type,
+         t.project_id,
+         t.id,
+         t.title,
+         left(new.body, 140)
+    from (
+      select a.user_id from public.general_task_assignees a where a.task_id = new.task_id
+      union
+      select c.author_id from public.general_task_comments c
+       where c.task_id = new.task_id and c.author_id is not null and c.id <> new.id
+    ) r
+    join public.general_tasks t on t.id = new.task_id
+    join public.general_members gm on gm.project_id = t.project_id and gm.user_id = r.user_id
+    join public.notification_prefs np on np.user_id = r.user_id
+   where r.user_id is distinct from new.author_id
+     and np.comments_mentions
+     and public.general_user_sees_task(t.id, r.user_id);
+  return new;
+end;
+$$;
+
+/** One nudge per task per person, the day before, on a live project. */
+create or replace function public.send_general_deadline_reminders()
+returns integer language plpgsql security definer set search_path = public as $$
+declare
+  sent integer;
+begin
+  insert into public.notifications
+    (user_id, type, general_project_id, general_task_id, title, preview)
+  select a.user_id,
+         'general_deadline_soon'::public.notification_type,
+         t.project_id,
+         t.id,
+         t.title,
+         'Due ' || to_char(t.due_at at time zone 'Asia/Manila', 'FMDay, FMMon FMDD at FMHH12:MI AM')
+    from public.general_tasks t
+    join public.general_task_assignees a on a.task_id = t.id
+    join public.general_projects p on p.id = t.project_id
+    join public.notification_prefs np on np.user_id = a.user_id
+   where t.due_at is not null
+     and t.status <> 'done'
+     and t.due_at > now()
+     and t.due_at <= now() + interval '24 hours'
+     and p.archived_at is null
+     and np.deadline_reminders
+     and public.general_user_sees_task(t.id, a.user_id)
+     and not exists (
+       select 1 from public.notifications n
+        where n.user_id = a.user_id
+          and n.general_task_id = t.id
+          and n.type = 'general_deadline_soon'
+     );
+  get diagnostics sent = row_count;
+  return sent;
+end;
+$$;
+
+revoke execute on function public.send_general_deadline_reminders() from public, anon, authenticated;
 
 commit;
