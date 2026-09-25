@@ -299,6 +299,74 @@ begin
   perform pg_temp.act_as(owner_uid);
   select count(*) into n from public.list_removed_general_repo_paths(proj.id);
   perform pg_temp.ok('...and an Owner sees every removed path', n = 2);
+  ------------------------------------------------------------------ storage and activity
+  perform pg_temp.act_as_service();
+  insert into storage.objects (bucket_id, name)
+  values ('general-files', proj.id || '/' || t_alice2 || '/1-a.pdf'),
+         ('general-files', proj.id || '/files/keep.md');
+  insert into public.general_task_comments (task_id, project_id, author_id, body)
+  values (t_bob2, proj.id, bob, 'Bob note'), (t_alice2, proj.id, alice, 'Alice note');
+  insert into public.general_task_logs (task_id, project_id, user_id, minutes)
+  values (t_bob2, proj.id, bob, 15);
+  insert into public.general_task_assignees (task_id, project_id, user_id)
+  values (t_bob2, proj.id, bob);
+
+  perform pg_temp.act_as(bob);
+  select count(*) into n from storage.objects
+   where bucket_id = 'general-files' and name = proj.id || '/' || t_alice2 || '/1-a.pdf';
+  perform pg_temp.ok('a member cannot read another member''s archived file in Storage', n = 0);
+  select count(*) into n from storage.objects
+   where bucket_id = 'general-files' and name = proj.id || '/files/keep.md';
+  perform pg_temp.ok('...while project files in the same bucket stay readable', n = 1);
+
+  perform pg_temp.act_as(alice);
+  select count(*) into n from storage.objects
+   where bucket_id = 'general-files' and name = proj.id || '/' || t_alice2 || '/1-a.pdf';
+  perform pg_temp.ok('whoever archived a file still reads it in Storage', n = 1);
+  perform pg_temp.act_as(owner_uid);
+  select count(*) into n from storage.objects
+   where bucket_id = 'general-files' and name = proj.id || '/' || t_alice2 || '/1-a.pdf';
+  perform pg_temp.ok('an Owner reads an archived file in Storage', n = 1);
+
+  perform pg_temp.act_as(dave);
+  select count(*) into n from storage.objects
+   where bucket_id = 'general-files' and name = proj.id || '/' || t_alice2 || '/1-a.pdf';
+  perform pg_temp.ok('an edit_files grantee cannot see another member''s archived file in Storage', n = 0);
+  -- Storage's own API sets this; without it a direct delete is refused before RLS.
+  perform set_config('storage.allow_delete_query', 'true', true);
+  delete from storage.objects
+   where bucket_id = 'general-files' and name = proj.id || '/' || t_alice2 || '/1-a.pdf';
+  perform set_config('storage.allow_delete_query', 'false', true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('...nor remove it',
+    exists (select 1 from storage.objects
+             where bucket_id = 'general-files' and name = proj.id || '/' || t_alice2 || '/1-a.pdf'));
+
+  perform pg_temp.act_as(alice);
+  select count(*) into n from public.general_task_comments where task_id = t_bob2;
+  perform pg_temp.ok('a member cannot read comments on another member''s archived task', n = 0);
+  select count(*) into n from public.general_task_events where task_id = t_bob2;
+  perform pg_temp.ok('...nor its events', n = 0);
+  select count(*) into n from public.general_task_logs where task_id = t_bob2;
+  perform pg_temp.ok('...nor its time logs', n = 0);
+  select count(*) into n from public.general_task_assignees where task_id = t_bob2;
+  perform pg_temp.ok('...nor who holds it', n = 0);
+
+  perform pg_temp.act_as(bob);
+  select count(*) into n from public.general_task_comments where task_id = t_bob2;
+  perform pg_temp.ok('whoever archived a task still reads its comments', n = 1);
+  select count(*) into n from public.general_task_events where task_id = t_alice2;
+  perform pg_temp.ok('events of an active task stay visible to every member', n >= 1);
+  select count(*) into n from public.general_task_comments where task_id = t_alice2;
+  perform pg_temp.ok('...and so do its comments', n = 1);
+
+  perform pg_temp.act_as(owner_uid);
+  select count(*) into n from public.general_task_comments where task_id = t_bob2;
+  perform pg_temp.ok('an Owner reads comments on an archived task', n = 1);
+  select count(*) into n from public.general_task_events where task_id = t_bob2;
+  perform pg_temp.ok('...and its events', n >= 1);
+  select count(*) into n from public.general_task_logs where task_id = t_bob2;
+  perform pg_temp.ok('...and its time logs', n = 1);
 end $$;
 
 rollback;

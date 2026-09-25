@@ -5,6 +5,8 @@
 -- An archived item is visible to whoever archived it, and to the project's
 -- Owners and Managers. Redefines the archive functions from
 -- general-project-archive.sql and general-drafts.sql; run after both.
+-- Also redefines policies and the task guard from general-tasks.sql,
+-- general-schedule-guard.sql and general-spaces.sql, so it must run after those too.
 
 begin;
 
@@ -467,5 +469,64 @@ $$;
 drop trigger if exists general_task_files_archive_guard on public.general_task_files;
 create trigger general_task_files_archive_guard before update on public.general_task_files
   for each row execute function public.guard_general_task_file_archive();
+
+commit;
+
+-- ---------------------------------------------------------------- storage and task activity
+
+begin;
+
+create or replace function public.general_task_hidden(p_task uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.general_tasks t
+     where t.id = p_task and t.archived_at is not null
+       and not public.general_sees_archived(t.project_id, t.archived_by)
+  );
+$$;
+
+create or replace function public.general_task_file_hidden(p_path text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.general_task_files f
+     where f.file_path = p_path and f.archived_at is not null
+       and not public.general_sees_archived(f.project_id, f.archived_by)
+  );
+$$;
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'general_task_assignees', 'general_task_comments', 'general_task_logs', 'general_task_events'
+  ] loop
+    execute format('drop policy if exists %I on public.%I', t || '_select', t);
+    execute format(
+      'create policy %I on public.%I for select using (public.can_read_general_project(project_id) and not public.general_task_hidden(task_id))',
+      t || '_select', t);
+  end loop;
+end $$;
+
+drop policy if exists general_files_read on storage.objects;
+create policy general_files_read on storage.objects
+  for select using (
+    bucket_id = 'general-files'
+    and public.is_general_member(public.general_safe_uuid((storage.foldername(name))[1]))
+    and not public.general_task_file_hidden(name)
+  );
+
+drop policy if exists general_files_remove on storage.objects;
+create policy general_files_remove on storage.objects
+  for delete using (
+    bucket_id = 'general-files'
+    and (
+      (exists (select 1 from public.general_task_files f
+                where f.file_path = name and f.uploaded_by = auth.uid())
+       and not public.general_is_archived(public.general_safe_uuid((storage.foldername(name))[1])))
+      or public.general_can(public.general_safe_uuid((storage.foldername(name))[1]), 'edit_files')
+    )
+    and not public.general_task_file_hidden(name)
+  );
 
 commit;
