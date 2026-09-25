@@ -2,15 +2,21 @@ import { describe, expect, it } from 'vitest'
 import {
   actionFor,
   buildTree,
+  crumbs,
   describeDraft,
   extensionOf,
   fileText,
   fileName,
+  flatFiles,
+  folderNameProblem,
   folderOf,
   foldersIn,
   isEditable,
+  isKeep,
+  joinPath,
   kindForPath,
   looksLikeMisreadOfficeFile,
+  nodesAt,
   pathWithPickedExtension,
   pathProblem,
 } from './files'
@@ -219,5 +225,52 @@ describe('fileText', () => {
 
   it('has nothing to show for a file it cannot open', () => {
     expect(fileText('binary', '')).toBe('')
+  })
+})
+
+describe('site-made folders', () => {
+  const tree = buildTree([file('Chapter 1/.keep'), file('Chapter 2/intro.md'), file('Chapter 2/Figures/.keep'), file('readme.md')])
+
+  it('shows a folder that holds only .keep, empty', () => {
+    const ch1 = tree.find((n) => n.name === 'Chapter 1')
+    expect(ch1?.type).toBe('folder')
+    expect(ch1?.type === 'folder' && ch1.children).toEqual([])
+    expect(ch1?.type === 'folder' && ch1.fileCount).toBe(0)
+  })
+
+  it('never lists or counts .keep', () => {
+    expect(flatFiles(tree).map((f) => f.path)).toEqual(['Chapter 2/intro.md', 'readme.md'])
+    expect(isKeep('a/b/.keep')).toBe(true)
+    expect(isKeep('a/keep.md')).toBe(false)
+  })
+
+  it('finds the children of a folder by path', () => {
+    expect(nodesAt(tree, '')).toBe(tree)
+    expect(nodesAt(tree, 'Chapter 2')?.map((n) => n.name)).toEqual(['Figures', 'intro.md'])
+    expect(nodesAt(tree, 'Chapter 2/Figures')).toEqual([])
+    expect(nodesAt(tree, 'Nope')).toBeNull()
+    expect(nodesAt(tree, 'readme.md')).toBeNull()
+  })
+
+  it('builds breadcrumbs from a path', () => {
+    expect(crumbs('')).toEqual([])
+    expect(crumbs('a/b')).toEqual([
+      { name: 'a', path: 'a' },
+      { name: 'b', path: 'a/b' },
+    ])
+  })
+
+  it('joins a folder and a name', () => {
+    expect(joinPath('', 'x')).toBe('x')
+    expect(joinPath('a/b', 'x')).toBe('a/b/x')
+  })
+
+  it('checks a folder name against its neighbours', () => {
+    expect(folderNameProblem('  ', [])).toBe('Give the folder a name.')
+    expect(folderNameProblem('a'.repeat(121), [])).toBe('A folder name can be up to 120 characters.')
+    expect(folderNameProblem('a/b', [])).toBe('A folder name cannot have a slash in it.')
+    expect(folderNameProblem('..', [])).toBe('Pick a name other than "." or "..".')
+    expect(folderNameProblem('figures', ['Figures'])).toBe('A folder called figures is already here. Pick another name.')
+    expect(folderNameProblem('Tables', ['Figures'])).toBeNull()
   })
 })

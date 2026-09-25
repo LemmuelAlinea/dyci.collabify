@@ -89,6 +89,17 @@ export function looksLikeMisreadOfficeFile(content: string) {
 
 /* ------------------------------------------------------------------- tree */
 
+/** An empty folder made in the site holds one hidden file with this name. */
+export const KEEP = '.keep'
+
+export function isKeep(path: string) {
+  return fileName(path) === KEEP
+}
+
+export function joinPath(folder: string, name: string) {
+  return folder ? `${folder}/${name}` : name
+}
+
 export type TreeNode =
   | { type: 'folder'; name: string; path: string; children: TreeNode[]; fileCount: number }
   | { type: 'file'; name: string; path: string; file: GeneralTreeFile }
@@ -129,7 +140,7 @@ export function buildTree(files: GeneralTreeFile[]): TreeNode[] {
         }
       })
     const leaves: TreeNode[] = folder.files
-      .slice()
+      .filter((f) => !isKeep(f.path))
       .sort((a, b) => a.path.localeCompare(b.path))
       .map((f) => ({ type: 'file' as const, name: fileName(f.path), path: f.path, file: f }))
     return [...folders, ...leaves]
@@ -140,6 +151,39 @@ export function buildTree(files: GeneralTreeFile[]): TreeNode[] {
 
 export function countFiles(nodes: TreeNode[]): number {
   return nodes.reduce((n, node) => n + (node.type === 'file' ? 1 : countFiles(node.children)), 0)
+}
+
+export function folderNameProblem(name: string, siblings: string[]): string | null {
+  const n = name.trim()
+  if (!n) return 'Give the folder a name.'
+  if (n.length > 120) return 'A folder name can be up to 120 characters.'
+  if (n.includes('/') || n.includes('\\')) return 'A folder name cannot have a slash in it.'
+  if (n === '.' || n === '..') return 'Pick a name other than "." or "..".'
+  if (siblings.some((s) => s.toLowerCase() === n.toLowerCase())) {
+    return `A folder called ${n} is already here. Pick another name.`
+  }
+  return null
+}
+
+export function nodesAt(nodes: TreeNode[], path: string): TreeNode[] | null {
+  if (!path) return nodes
+  let here = nodes
+  for (const part of path.split('/')) {
+    const next = here.find((n) => n.type === 'folder' && n.name === part)
+    if (!next || next.type !== 'folder') return null
+    here = next.children
+  }
+  return here
+}
+
+export function crumbs(path: string) {
+  if (!path) return []
+  const parts = path.split('/')
+  return parts.map((name, i) => ({ name, path: parts.slice(0, i + 1).join('/') }))
+}
+
+export function flatFiles(nodes: TreeNode[]): Extract<TreeNode, { type: 'file' }>[] {
+  return nodes.flatMap((n) => (n.type === 'file' ? [n] : flatFiles(n.children)))
 }
 
 /** Every folder in the tree, as paths, so a picker can offer them. */
