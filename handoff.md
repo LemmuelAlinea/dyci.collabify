@@ -1205,10 +1205,9 @@ folder"). Assignment, comment and deadline notifications skip anyone who may not
 see the task (`general_user_sees_task`), and the archived files list leaves out
 files on a task hidden from the caller; all redefined in `general-archive-rbac.sql`.
 
-**Still open:** writes to an archived task you cannot see, given its id — any
-member can self-claim an unheld one or comment on it, a manage_tasks grantee can
-assign it, an edit_files grantee can upload to it (the insert policies do not
-check `general_task_hidden`); notifications sent
-before a task was archived keep its title; the withdraw path and two-account
-archive visibility were covered by SQL tests, not clicked through with a second
-account.
+**Still open:** archived tasks are read-only outside the archive RPCs — new
+holders, comments, logs, files, uploads and task edits are refused — but deleting
+a comment, log or holder on one is not, since task, project and membership
+deletes cascade through those rows. Notifications sent before a task was archived
+keep its title. The withdraw path and two-account archive visibility were covered
+by SQL tests, not clicked through with a second account.
