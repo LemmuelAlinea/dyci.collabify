@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ActionMenu } from '../ui/ActionMenu'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
@@ -16,7 +16,7 @@ import {
   syncDraft,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { buildTree, describeDraft, fileText } from '../../lib/general/files'
+import { buildTree, describeDraft, fileText, nodesAt } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
 import { FILE_ACTION_LABEL } from '../../lib/general/types'
 import type {
@@ -28,6 +28,7 @@ import type {
 import { fullName } from '../../lib/types'
 import { DiffView } from './DiffView'
 import type { OpenFile } from './FileEditor'
+import { FolderBar } from './FolderBar'
 import type { GeneralProjectState } from './useGeneralProject'
 
 type SubmitTarget = { type: 'file' | 'folder'; path: string }
@@ -47,6 +48,9 @@ export function DraftPanel({
   repo,
   state,
   mainOf,
+  path,
+  onNavigate,
+  onRename,
   onOpen,
   onDone,
 }: {
@@ -57,6 +61,9 @@ export function DraftPanel({
   state: GeneralProjectState
   /** What Main says for a path, so the diff shows what submitting would do. */
   mainOf: (path: string) => string
+  path: string
+  onNavigate: (path: string) => void
+  onRename: (path: string) => void
   onOpen: (file: OpenFile) => void
   onDone: () => Promise<void>
 }) {
@@ -67,7 +74,13 @@ export function DraftPanel({
   const [busy, setBusy] = useState(false)
 
   const behind = draft !== null && draft.base_seq !== repo.commit_count
-  const nodes = buildTree(files as unknown as Parameters<typeof buildTree>[0])
+  const all = buildTree(files as unknown as Parameters<typeof buildTree>[0])
+  const level = nodesAt(all, path)
+  const missing = level === null
+
+  useEffect(() => {
+    if (missing) onNavigate('')
+  }, [missing, onNavigate])
 
   async function run(action: () => Promise<void>, done: string, failed: string) {
     if (busy) return
@@ -83,7 +96,9 @@ export function DraftPanel({
     }
   }
 
-  if (files.length === 0) {
+  if (level === null) return null
+
+  if (files.length === 0 && path === '') {
     return (
       <div className="rounded-panel border border-dashed border-line px-4 py-10 text-center">
         <Icon name="edit" size={26} className="mx-auto text-faint" />
@@ -109,6 +124,30 @@ export function DraftPanel({
           </Button>
         </div>
       </div>
+
+      <FolderBar
+        rootLabel="My draft"
+        path={path}
+        onNavigate={onNavigate}
+        actions={
+          path ? (
+            <>
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRename(path)}>
+                <Icon name="edit" size={14} />
+                Rename
+              </Button>
+              <ActionMenu
+                label={`Actions for ${path}`}
+                disabled={busy}
+                items={[
+                  { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => setSubmitting({ type: 'folder', path }) },
+                  { label: 'Archive', icon: 'archive', onSelect: () => setArchiving({ type: 'folder', path }) },
+                ]}
+              />
+            </>
+          ) : undefined
+        }
+      />
 
       {behind && (
         <Alert tone="error">
@@ -143,22 +182,28 @@ export function DraftPanel({
         </Alert>
       )}
 
-      <ul className="divide-y divide-[var(--line)] overflow-hidden rounded-panel border border-line surface">
-        {nodes.map((node) => (
-          <DraftNode
-            key={node.path}
-            node={node}
-            depth={0}
-            busy={busy}
-            behind={behind}
-            conflicts={conflicts}
-            mainOf={mainOf}
-            onOpen={onOpen}
-            onArchive={setArchiving}
-            onSubmit={setSubmitting}
-          />
-        ))}
-      </ul>
+      {level.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-muted">
+          This folder is empty. Use New to add a file or folder.
+        </p>
+      ) : (
+        <ul className="divide-y divide-[var(--line)] overflow-hidden rounded-panel border border-line surface">
+          {level.map((node) => (
+            <DraftNode
+              key={node.path}
+              node={node}
+              busy={busy}
+              behind={behind}
+              conflicts={conflicts}
+              mainOf={mainOf}
+              onNavigate={onNavigate}
+              onOpen={onOpen}
+              onArchive={setArchiving}
+              onSubmit={setSubmitting}
+            />
+          ))}
+        </ul>
+      )}
 
       <SubmitDialog
         target={submitting}
@@ -212,41 +257,40 @@ export function DraftPanel({
 
 function DraftNode({
   node,
-  depth,
   busy,
   behind,
   conflicts,
   mainOf,
+  onNavigate,
   onOpen,
   onArchive,
   onSubmit,
 }: {
   node: TreeNode
-  depth: number
   busy: boolean
   behind: boolean
   conflicts: DraftConflict[]
   mainOf: (path: string) => string
+  onNavigate: (path: string) => void
   onOpen: (file: OpenFile) => void
   onArchive: (target: SubmitTarget) => void
   onSubmit: (target: SubmitTarget) => void
 }) {
-  const [open, setOpen] = useState(depth === 0)
+  const [open, setOpen] = useState(true)
 
   if (node.type === 'folder') {
     return (
       <li>
-        <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 sm:px-5" style={{ paddingLeft: `${depth * 1.25 + 1.25}rem` }}>
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 sm:px-5">
           <button
             type="button"
-            onClick={() => setOpen(!open)}
-            aria-expanded={open}
+            onClick={() => onNavigate(node.path)}
             className="flex min-w-0 flex-1 items-center gap-2 text-left"
           >
-            <Icon name={open ? 'chevronDown' : 'chevronRight'} size={14} className="shrink-0 text-faint" />
             <Icon name="folder" size={15} className="shrink-0 text-faint" />
-            <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink">{node.path}</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink">{node.name}</span>
             <span className="shrink-0 font-mono text-[11px] text-faint">{node.fileCount}</span>
+            <Icon name="chevronRight" size={14} className="shrink-0 text-faint" />
           </button>
           <ActionMenu
             label={`Actions for ${node.name}`}
@@ -257,24 +301,6 @@ function DraftNode({
             ]}
           />
         </div>
-        {open && (
-          <ul>
-            {node.children.map((child) => (
-              <DraftNode
-                key={child.path}
-                node={child}
-                depth={depth + 1}
-                busy={busy}
-                behind={behind}
-                conflicts={conflicts}
-                mainOf={mainOf}
-                onOpen={onOpen}
-                onArchive={onArchive}
-                onSubmit={onSubmit}
-              />
-            ))}
-          </ul>
-        )}
       </li>
     )
   }
@@ -284,7 +310,7 @@ function DraftNode({
 
   return (
     <li>
-      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 sm:px-5" style={{ paddingLeft: `${depth * 1.25 + 1.25}rem` }}>
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 sm:px-5">
         <button
           type="button"
           onClick={() => setOpen(!open)}

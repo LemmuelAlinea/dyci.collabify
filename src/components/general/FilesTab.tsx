@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Field'
@@ -29,7 +30,9 @@ import {
   buildTree,
   fileName,
   fileText,
+  folderOf,
   kindForPath,
+  nodesAt,
   pathWithPickedExtension,
   pathProblem,
 } from '../../lib/general/files'
@@ -51,11 +54,14 @@ import { DiffView } from './DiffView'
 import { DraftPanel } from './DraftPanel'
 import { FileEditor } from './FileEditor'
 import type { OpenFile } from './FileEditor'
+import { FolderBar } from './FolderBar'
+import { RenameFolderDialog } from './RenameFolderDialog'
 import { RepoChangeRow } from './RepoChangeRow'
 import { RequestAccessButton } from './RequestAccessButton'
 import type { GeneralProjectState } from './useGeneralProject'
 
 type View = 'main' | 'draft' | 'changes' | 'history'
+const VIEWS: View[] = ['main', 'draft', 'changes', 'history']
 
 /**
  * A project's files: a main folder everything is committed to, and a draft
@@ -77,7 +83,11 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   const [conflicts, setConflicts] = useState<DraftConflict[]>([])
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
-  const [view, setView] = useState<View>('main')
+  const [params, setParams] = useSearchParams()
+  const rawView = params.get('view') as View | null
+  const view: View = rawView && VIEWS.includes(rawView) ? rawView : 'main'
+  const folder = view === 'main' || view === 'draft' ? params.get('path') ?? '' : ''
+  const [renaming, setRenaming] = useState<string | null>(null)
   const [open, setOpen] = useState<OpenFile | null>(null)
   const [adding, setAdding] = useState(false)
 
@@ -121,6 +131,15 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   }, [load])
 
   useLive(load, ['general_repos', 'general_commits', 'general_repo_changes'])
+
+  function go(nextView: View, nextPath = '') {
+    const changed = new URLSearchParams(params)
+    if (nextView === 'main') changed.delete('view')
+    else changed.set('view', nextView)
+    if (nextPath) changed.set('path', nextPath)
+    else changed.delete('path')
+    setParams(changed)
+  }
 
   const mainOf = useCallback(
     (path: string) => tree.find((f) => f.path === path)?.content ?? '',
@@ -189,7 +208,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           { id: 'history', label: 'History', icon: 'clock', count: commits.length },
         ]}
         active={view}
-        onChange={setView}
+        onChange={(v) => go(v)}
         variant="panel"
       />
 
@@ -199,6 +218,9 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           tree={tree}
           draftFiles={draftFiles}
           state={state}
+          path={folder}
+          onNavigate={(p) => go(view, p)}
+          onRename={setRenaming}
           onOpen={setOpen}
         />
       )}
@@ -210,6 +232,9 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           repo={repo}
           state={state}
           mainOf={mainOf}
+          path={folder}
+          onNavigate={(p) => go(view, p)}
+          onRename={setRenaming}
           onOpen={setOpen}
           onDone={load}
         />
@@ -226,6 +251,16 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
         repo={repo}
         tree={tree}
         onDone={load}
+      />
+      <RenameFolderDialog
+        repoId={repo.id}
+        path={renaming}
+        siblings={(nodesAt(buildTree([...tree, ...(draftFiles as unknown as GeneralTreeFile[])]), renaming ? folderOf(renaming) : '') ?? []).map((n) => n.name)}
+        onClose={() => setRenaming(null)}
+        onRenamed={async (next) => {
+          await load()
+          go('draft', next)
+        }}
       />
     </div>
   )
@@ -286,15 +321,26 @@ function MainView({
   tree,
   draftFiles,
   state,
+  path,
+  onNavigate,
+  onRename,
   onOpen,
 }: {
   repo: GeneralRepoSummary
   tree: GeneralTreeFile[]
   draftFiles: GeneralDraftFile[]
   state: GeneralProjectState
+  path: string
+  onNavigate: (path: string) => void
+  onRename: (path: string) => void
   onOpen: (file: OpenFile) => void
 }) {
-  const nodes = buildTree(tree)
+  const level = nodesAt(buildTree(tree), path)
+  const missing = tree.length > 0 && level === null
+
+  useEffect(() => {
+    if (missing) onNavigate('')
+  }, [missing, onNavigate])
 
   if (tree.length === 0) {
     return (
@@ -304,106 +350,81 @@ function MainView({
     )
   }
 
+  if (level === null) return null
+
   return (
     <div className="space-y-2">
-      <p className="text-[12px] text-muted">
-        Everything the project holds as of commit {repo.commit_count}.
-      </p>
-      <ul className="overflow-hidden rounded-panel border border-line surface">
-        {nodes.map((node) => (
-          <Node
-            key={node.path}
-            node={node}
-            depth={0}
-            draftFiles={draftFiles}
-            state={state}
-            onOpen={onOpen}
-          />
-        ))}
-      </ul>
+      <FolderBar
+        rootLabel="Main"
+        path={path}
+        onNavigate={onNavigate}
+        actions={
+          path && !state.archived ? (
+            <Button size="sm" variant="ghost" onClick={() => onRename(path)}>
+              <Icon name="edit" size={14} />
+              Rename
+            </Button>
+          ) : undefined
+        }
+      />
+      <p className="text-[12px] text-muted">Everything the project holds as of commit {repo.commit_count}.</p>
+      {level.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-muted">
+          This folder is empty.
+        </p>
+      ) : (
+        <ul className="divide-y divide-[var(--line)] overflow-hidden rounded-panel border border-line surface">
+          {level.map((node) => (
+            <li key={node.path}>
+              {node.type === 'folder' ? (
+                <button
+                  type="button"
+                  onClick={() => onNavigate(node.path)}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[var(--surface-sunken)]"
+                >
+                  <Icon name="folder" size={15} className="shrink-0 text-faint" />
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{node.name}</span>
+                  <span className="shrink-0 font-mono text-[11px] text-faint">{node.fileCount}</span>
+                  <Icon name="chevronRight" size={14} className="shrink-0 text-faint" />
+                </button>
+              ) : (
+                <MainFileRow node={node} draftFiles={draftFiles} onOpen={onOpen} />
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
 
-function Node({
+function MainFileRow({
   node,
-  depth,
   draftFiles,
-  state,
   onOpen,
 }: {
-  node: TreeNode
-  depth: number
+  node: Extract<TreeNode, { type: 'file' }>
   draftFiles: GeneralDraftFile[]
-  state: GeneralProjectState
   onOpen: (file: OpenFile) => void
 }) {
-  const [open, setOpen] = useState(depth === 0)
-
-  if (node.type === 'folder') {
-    return (
-      <li>
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          aria-expanded={open}
-          className="flex w-full items-center gap-2 border-b border-line px-4 py-2 text-left hover:bg-[var(--surface-sunken)]"
-          style={{ paddingLeft: `${depth * 1.25 + 1}rem` }}
-        >
-          <Icon name={open ? 'chevronDown' : 'chevronRight'} size={14} className="shrink-0 text-faint" />
-          <Icon name="folder" size={15} className="shrink-0 text-faint" />
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{node.name}</span>
-          <span className="shrink-0 font-mono text-[11px] text-faint">{node.fileCount}</span>
-        </button>
-        {open && (
-          <ul>
-            {node.children.map((child) => (
-              <Node
-                key={child.path}
-                node={child}
-                depth={depth + 1}
-                draftFiles={draftFiles}
-                state={state}
-                onOpen={onOpen}
-              />
-            ))}
-          </ul>
-        )}
-      </li>
-    )
-  }
-
   const inDraft = draftFiles.some((f) => f.path === node.path)
-
   return (
-    <li>
-      <button
-        type="button"
-        onClick={() =>
-          onOpen({
-            path: node.path,
-            kind: node.file.kind,
-            content: node.file.content,
-            storagePath: node.file.storage_path,
-            action: 'changed',
-            fromDraft: false,
-          })
-        }
-        className="flex w-full items-center gap-2 border-b border-line px-4 py-2 text-left hover:bg-[var(--surface-sunken)]"
-        style={{ paddingLeft: `${depth * 1.25 + 1}rem` }}
-      >
-        <Icon name="file" size={15} className="ml-[1.375rem] shrink-0 text-faint" />
-        <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink">{node.name}</span>
-        {inDraft && (
-          <span className="shrink-0 rounded-md bg-amber-400/25 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:text-amber-200">
-            In your draft
-          </span>
-        )}
-        <span className="shrink-0 rounded-md surface-sunken px-1.5 py-0.5 text-[11px] text-muted">
-          {FILE_KIND_LABEL[node.file.kind]}
+    <button
+      type="button"
+      onClick={() =>
+        onOpen({ path: node.path, kind: node.file.kind, content: node.file.content, storagePath: node.file.storage_path, action: 'changed', fromDraft: false })
+      }
+      className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[var(--surface-sunken)]"
+    >
+      <Icon name="file" size={15} className="shrink-0 text-faint" />
+      <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink">{node.name}</span>
+      {inDraft && (
+        <span className="shrink-0 rounded-md bg-amber-400/25 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:text-amber-200">
+          In your draft
         </span>
-      </button>
-    </li>
+      )}
+      <span className="shrink-0 rounded-md surface-sunken px-1.5 py-0.5 text-[11px] text-muted">{FILE_KIND_LABEL[node.file.kind]}</span>
+    </button>
   )
 }
 
