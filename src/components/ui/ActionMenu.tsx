@@ -76,6 +76,9 @@ export function ActionMenu({
         const next = e.key === 'ArrowDown' ? (i + 1) % buttons.length : (i - 1 + buttons.length) % buttons.length
         buttons[next]?.focus()
       }
+      if (e.key === 'Tab') {
+        setOpen(false)
+      }
     }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey, true)
