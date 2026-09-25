@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
+import { ActionMenu } from '../ui/ActionMenu'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Input } from '../ui/Field'
 import { Icon } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
@@ -52,6 +54,7 @@ export function RepoChangeRow({
   const [body, setBody] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const [withdrawing, setWithdrawing] = useState(false)
 
   const mine = change.author_id === state.viewerId
   const assignedToMe = change.reviewer_id === state.viewerId
@@ -109,6 +112,13 @@ export function RepoChangeRow({
         <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
           {CHANGE_LABEL[change.status]}
         </span>
+        {mine && change.status === 'open' && !state.archived && (
+          <ActionMenu
+            label={`Actions for ${change.title}`}
+            disabled={busy}
+            items={[{ label: 'Withdraw request', icon: 'x', tone: 'danger', onSelect: () => setWithdrawing(true) }]}
+          />
+        )}
       </div>
 
       <p className="mt-1 pl-6 text-[12px] text-faint">
@@ -241,22 +251,6 @@ export function RepoChangeRow({
 
           {!state.archived && (
             <div className="flex flex-wrap items-center gap-2">
-              {mine && change.status === 'open' && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(
-                      () => withdrawRepoChange(change.id),
-                      'Change withdrawn',
-                      'Could not withdraw it.',
-                    )
-                  }
-                >
-                  Withdraw
-                </Button>
-              )}
               {mayAnswer && (
                 <div className="ml-auto flex flex-wrap items-center gap-2">
                   <Input
@@ -301,6 +295,20 @@ export function RepoChangeRow({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={withdrawing}
+        onClose={() => setWithdrawing(false)}
+        onConfirm={async () => {
+          await withdrawRepoChange(change.id)
+          show('Request withdrawn')
+          await onDone()
+        }}
+        title="Withdraw this request?"
+        body="The reviewer will no longer see it. Your draft keeps the files."
+        confirmLabel="Withdraw request"
+        tone="danger"
+      />
     </li>
   )
 }

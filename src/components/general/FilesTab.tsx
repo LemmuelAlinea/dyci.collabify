@@ -23,6 +23,7 @@ import {
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
+import { groupChanges } from '../../lib/general/review'
 import {
   actionFor,
   buildTree,
@@ -620,12 +621,53 @@ function ChangesView({
     )
   }
 
+  const { mine, toMe, others } = groupChanges(changes, state.viewerId ?? null)
   return (
-    <ul className="space-y-3">
-      {changes.map((c) => (
-        <RepoChangeRow key={c.id} change={c} repo={repo} state={state} onDone={onDone} />
-      ))}
-    </ul>
+    <div className="space-y-6">
+      <ChangeSection title="Submitted by me" changes={mine} repo={repo} state={state} onDone={onDone} />
+      <ChangeSection title="Submitted to me" changes={toMe} repo={repo} state={state} onDone={onDone} />
+      <ChangeSection title="Other open requests" changes={others} repo={repo} state={state} onDone={onDone} collapsed />
+    </div>
+  )
+}
+
+function ChangeSection({
+  title,
+  changes,
+  repo,
+  state,
+  onDone,
+  collapsed = false,
+}: {
+  title: string
+  changes: GeneralRepoChange[]
+  repo: GeneralRepoSummary
+  state: GeneralProjectState
+  onDone: () => Promise<void>
+  collapsed?: boolean
+}) {
+  const [open, setOpen] = useState(!collapsed)
+  if (changes.length === 0) return null
+  return (
+    <section>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="mb-2 flex items-center gap-2 text-left"
+      >
+        <Icon name={open ? 'chevronDown' : 'chevronRight'} size={14} className="text-faint" />
+        <h3 className="text-[14px]">{title}</h3>
+        <span className="rounded-full surface-sunken px-2 py-0.5 font-mono text-[11px] text-muted">{changes.length}</span>
+      </button>
+      {open && (
+        <ul className="space-y-3">
+          {changes.map((c) => (
+            <RepoChangeRow key={c.id} change={c} repo={repo} state={state} onDone={onDone} />
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
