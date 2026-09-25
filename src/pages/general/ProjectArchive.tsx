@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ActionMenu } from '../../components/ui/ActionMenu'
 import { Alert } from '../../components/ui/Alert'
-import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -173,6 +173,7 @@ export default function ProjectArchive() {
             actions={
               canActInArchive && tasks.length > 0 ? (
                 <SectionActions
+                  label="Actions for all archived tasks"
                   onRestore={() =>
                     void run('tasks:restore', () => restoreArchivedTasks(projectId), 'Tasks restored', 'Could not restore tasks.')
                   }
@@ -203,32 +204,21 @@ export default function ProjectArchive() {
                       </p>
                     </div>
                     {canActInArchive && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          loading={busy === task.id}
-                          onClick={() =>
-                            void run(task.id, () => archiveTask(task.id, false), 'Task restored', 'Could not restore that task.')
-                          }
-                        >
-                          Restore
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() =>
-                            setConfirm({
-                              title: 'Delete this task?',
-                              body: 'This permanently deletes this archived task.',
-                              label: 'Delete',
-                              action: () => deleteArchivedTask(task.id),
-                            })
-                          }
-                        >
-                          Delete
-                        </Button>
-                      </div>
+                      <ActionMenu
+                        label={`Actions for ${task.title}`}
+                        disabled={busy === task.id}
+                        items={[
+                          { label: 'Restore', icon: 'refresh', onSelect: () => void run(task.id, () => archiveTask(task.id, false), 'Task restored', 'Could not restore that task.') },
+                          {
+                            label: 'Delete permanently',
+                            icon: 'trash',
+                            tone: 'danger',
+                            separated: true,
+                            onSelect: () =>
+                              setConfirm({ title: 'Delete this task?', body: 'This permanently deletes this archived task.', label: 'Delete', action: () => deleteArchivedTask(task.id) }),
+                          },
+                        ]}
+                      />
                     )}
                   </li>
                 ))}
@@ -242,6 +232,7 @@ export default function ProjectArchive() {
             actions={
               canActInArchive && files.length > 0 ? (
                 <SectionActions
+                  label="Actions for all archived task files"
                   onRestore={() =>
                     void run('task-files:restore', () => restoreArchivedTaskFiles(projectId), 'Task files restored', 'Could not restore task files.')
                   }
@@ -281,32 +272,21 @@ export default function ProjectArchive() {
                       </p>
                     </div>
                     {canActInArchive && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          loading={busy === file.id}
-                          onClick={() =>
-                            void run(file.id, () => archiveTaskFile(file.id, false), 'File restored', 'Could not restore that file.')
-                          }
-                        >
-                          Restore
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() =>
-                            setConfirm({
-                              title: 'Delete this task file?',
-                              body: 'This permanently deletes this archived task file.',
-                              label: 'Delete',
-                              action: () => deleteArchivedTaskFile(file),
-                            })
-                          }
-                        >
-                          Delete
-                        </Button>
-                      </div>
+                      <ActionMenu
+                        label={`Actions for ${file.file_name}`}
+                        disabled={busy === file.id}
+                        items={[
+                          { label: 'Restore', icon: 'refresh', onSelect: () => void run(file.id, () => archiveTaskFile(file.id, false), 'File restored', 'Could not restore that file.') },
+                          {
+                            label: 'Delete permanently',
+                            icon: 'trash',
+                            tone: 'danger',
+                            separated: true,
+                            onSelect: () =>
+                              setConfirm({ title: 'Delete this task file?', body: 'This permanently deletes this archived task file.', label: 'Delete', action: () => deleteArchivedTaskFile(file) }),
+                          },
+                        ]}
+                      />
                     )}
                   </li>
                 ))}
@@ -320,6 +300,7 @@ export default function ProjectArchive() {
             actions={
               canActInArchive && repoId && draftFiles.length > 0 ? (
                 <SectionActions
+                  label="Actions for all archived draft files"
                   onRestore={() =>
                     void run('draft-files:restore', () => restoreArchivedDraftFiles(repoId), 'Draft files restored', 'Could not restore draft files.')
                   }
@@ -426,16 +407,15 @@ function ArchiveSection({
   )
 }
 
-function SectionActions({ onRestore, onDelete }: { onRestore: () => void; onDelete: () => void }) {
+function SectionActions({ label, onRestore, onDelete }: { label: string; onRestore: () => void; onDelete: () => void }) {
   return (
-    <div className="flex gap-1.5">
-      <Button size="sm" variant="outline" onClick={onRestore}>
-        Restore all
-      </Button>
-      <Button size="sm" variant="danger" onClick={onDelete}>
-        Delete all
-      </Button>
-    </div>
+    <ActionMenu
+      label={label}
+      items={[
+        { label: 'Restore all', icon: 'refresh', onSelect: onRestore },
+        { label: 'Delete all permanently', icon: 'trash', tone: 'danger', separated: true, onSelect: onDelete },
+      ]}
+    />
   )
 }
 
@@ -477,14 +457,14 @@ function DraftArchiveNode({
           </div>
         )}
         {canEdit && (
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" loading={busy === `draft:${node.path}:restore`} onClick={() => void restore(node.path)}>
-              Restore
-            </Button>
-            <Button size="sm" variant="danger" onClick={() => remove(node.path)}>
-              Delete
-            </Button>
-          </div>
+          <ActionMenu
+            label={`Actions for ${node.name}`}
+            disabled={busy === `draft:${node.path}:restore`}
+            items={[
+              { label: 'Restore', icon: 'refresh', onSelect: () => void restore(node.path) },
+              { label: 'Delete permanently', icon: 'trash', tone: 'danger', separated: true, onSelect: () => remove(node.path) },
+            ]}
+          />
         )}
       </div>
       {node.type === 'folder' && open && (
