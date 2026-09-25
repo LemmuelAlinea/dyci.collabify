@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Avatar } from '../app/Avatar'
+import { ActionMenu } from '../ui/ActionMenu'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { formatBytes } from '../ui/FileDrop'
@@ -98,20 +99,9 @@ export function MessageBubble({
   onDeleteForEveryone,
   onTogglePin,
 }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(message.body)
   const [busy, setBusy] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const onDown = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [menuOpen])
 
   const deleted = Boolean(message.deleted_at)
   const poll = message.poll ?? null
@@ -236,80 +226,30 @@ export function MessageBubble({
           </div>
 
           {!editing && (
-            <div className="relative shrink-0" ref={menuRef}>
-              <button
-                type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                aria-label="Message actions"
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                // Always visible: hover-only hid this entirely on touch devices.
-                className={`grid h-7 w-7 place-items-center rounded-full transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink ${
-                  menuOpen ? 'bg-[var(--surface-sunken)] text-ink' : 'text-faint'
-                }`}
-              >
-                <Icon name="dots" size={15} />
-              </button>
-
-              {menuOpen && (
-                <div
-                  role="menu"
-                  className={`surface absolute top-8 z-30 w-52 overflow-hidden rounded-xl border border-line shadow-lift ${
-                    mine ? 'right-0' : 'left-0'
-                  }`}
-                >
-                  {canEdit && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDraft(message.body)
-                        setEditing(true)
-                        setMenuOpen(false)
-                      }}
-                      className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
-                    >
-                      <Icon name="edit" size={15} className="text-muted" />
-                      Edit
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onTogglePin(message)
-                      setMenuOpen(false)
-                    }}
-                    className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
-                  >
-                    <Icon name="pin" size={15} className="text-muted" />
-                    {message.pinned ? 'Unpin' : 'Pin to top'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onDeleteForMe(message.id)
-                      setMenuOpen(false)
-                    }}
-                    className="flex w-full items-center gap-3 border-t border-line px-3.5 py-2.5 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
-                  >
-                    <Icon name="eyeOff" size={15} className="text-muted" />
-                    Delete for me
-                  </button>
-                  {canDeleteForEveryone && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onDeleteForEveryone(message.id)
-                        setMenuOpen(false)
-                      }}
-                      className="flex w-full items-center gap-3 border-t border-line px-3.5 py-2.5 text-left text-[13px] text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
-                    >
-                      <Icon name="trash" size={15} />
-                      Delete for everyone
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+            <ActionMenu
+              label="Message actions"
+              size="sm"
+              align={mine ? 'end' : 'start'}
+              items={[
+                canEdit && {
+                  label: 'Edit',
+                  icon: 'edit',
+                  onSelect: () => {
+                    setDraft(message.body)
+                    setEditing(true)
+                  },
+                },
+                { label: message.pinned ? 'Unpin' : 'Pin to top', icon: 'pin', onSelect: () => onTogglePin(message) },
+                { label: 'Delete for me', icon: 'eyeOff', separated: true, onSelect: () => onDeleteForMe(message.id) },
+                canDeleteForEveryone && {
+                  label: 'Delete for everyone',
+                  icon: 'trash',
+                  tone: 'danger',
+                  separated: true,
+                  onSelect: () => onDeleteForEveryone(message.id),
+                },
+              ]}
+            />
           )}
         </div>
       </div>

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
+import { ActionMenu } from '../ui/ActionMenu'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -247,11 +248,13 @@ function DraftNode({
             <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink">{node.path}</span>
             <span className="shrink-0 font-mono text-[11px] text-faint">{node.fileCount}</span>
           </button>
-          <DraftActionMenu
+          <ActionMenu
+            label={`Actions for ${node.name}`}
             disabled={busy}
-            submitDisabled={behind}
-            onSubmit={() => onSubmit({ type: 'folder', path: node.path })}
-            onArchive={() => onArchive({ type: 'folder', path: node.path })}
+            items={[
+              { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => onSubmit({ type: 'folder', path: node.path }) },
+              { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'folder', path: node.path }) },
+            ]}
           />
         </div>
         {open && (
@@ -315,11 +318,13 @@ function DraftNode({
         >
           Open
         </Button>
-        <DraftActionMenu
+        <ActionMenu
+          label={`Actions for ${node.name}`}
           disabled={busy}
-          submitDisabled={behind}
-          onSubmit={() => onSubmit({ type: 'file', path: f.path })}
-          onArchive={() => onArchive({ type: 'file', path: f.path })}
+          items={[
+            { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => onSubmit({ type: 'file', path: f.path }) },
+            { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'file', path: f.path }) },
+          ]}
         />
       </div>
       {open && (
@@ -332,78 +337,6 @@ function DraftNode({
         </div>
       )}
     </li>
-  )
-}
-
-function DraftActionMenu({
-  disabled,
-  submitDisabled,
-  onSubmit,
-  onArchive,
-}: {
-  disabled: boolean
-  submitDisabled: boolean
-  onSubmit: () => void
-  onArchive: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const box = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function close(e: MouseEvent) {
-      if (!box.current?.contains(e.target as Node)) setOpen(false)
-    }
-    function escape(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('keydown', escape)
-    return () => {
-      document.removeEventListener('mousedown', close)
-      document.removeEventListener('keydown', escape)
-    }
-  }, [open])
-
-  return (
-    <div ref={box} className="relative">
-      <button
-        type="button"
-        aria-label="Draft actions"
-        disabled={disabled}
-        onClick={() => setOpen(!open)}
-        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"
-      >
-        <Icon name="dots" size={16} />
-      </button>
-      {open && (
-        <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-xl border border-line surface shadow-lg">
-          <button
-            type="button"
-            disabled={submitDisabled}
-            onClick={() => {
-              setOpen(false)
-              onSubmit()
-            }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)] disabled:opacity-50"
-          >
-            <Icon name="refresh" size={14} />
-            Submit for review
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false)
-              onArchive()
-            }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)]"
-          >
-            <Icon name="archive" size={14} />
-            Archive
-          </button>
-        </div>
-      )}
-    </div>
   )
 }
 

@@ -860,7 +860,7 @@
  * reduced-motion block above already stops them, and each component also
  * skips the animation outright rather than running it at 0.01ms.
  */
-html.has-modal .app-ui {
+html.has-modal .app-ui:not([role='menu']) {
   filter: blur(4px);
   transition: filter 200ms ease;
 }
