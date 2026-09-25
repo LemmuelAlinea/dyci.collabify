@@ -82,15 +82,19 @@ begin
     or (t.created_by = auth.uid() and not public.general_task_held(t.id))
     or (not p_archived and t.archived_by = auth.uid())
   ) then
-    raise exception 'Only its creator, before anyone takes it, or someone who manages tasks can archive this.'
+    raise exception '%', case when p_archived
+        then 'Only its creator, before anyone takes it, or someone who manages tasks can archive this.'
+        else 'Only its creator, before anyone takes it, or someone who manages tasks can restore this.' end
       using errcode = 'insufficient_privilege';
   end if;
 
+  perform set_config('collabify.general_archive_op', 'on', true);
   update public.general_tasks
      set archived_at = case when p_archived then coalesce(archived_at, now()) else null end,
          archived_by = case when p_archived then coalesce(archived_by, auth.uid()) else null end
    where id = p_task
    returning * into t;
+  perform set_config('collabify.general_archive_op', 'off', true);
   return t;
 end;
 $$;
@@ -123,11 +127,13 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
+  perform set_config('collabify.general_archive_op', 'on', true);
   update public.general_task_files
      set archived_at = case when p_archived then coalesce(archived_at, now()) else null end,
          archived_by = case when p_archived then coalesce(archived_by, auth.uid()) else null end
    where id = p_file
    returning * into f;
+  perform set_config('collabify.general_archive_op', 'off', true);
   return f;
 end;
 $$;
@@ -149,10 +155,12 @@ create or replace function public.restore_archived_general_tasks(p_project uuid)
 returns void language plpgsql security definer set search_path = public as $$
 begin
   perform public.general_archive_guard(p_project);
+  perform set_config('collabify.general_archive_op', 'on', true);
   update public.general_tasks
      set archived_at = null, archived_by = null
    where project_id = p_project and archived_at is not null
      and public.general_sees_archived(project_id, archived_by);
+  perform set_config('collabify.general_archive_op', 'off', true);
 end;
 $$;
 
@@ -186,10 +194,12 @@ create or replace function public.restore_archived_general_task_files(p_project 
 returns void language plpgsql security definer set search_path = public as $$
 begin
   perform public.general_archive_guard(p_project);
+  perform set_config('collabify.general_archive_op', 'on', true);
   update public.general_task_files
      set archived_at = null, archived_by = null
    where project_id = p_project and archived_at is not null
      and public.general_sees_archived(project_id, archived_by);
+  perform set_config('collabify.general_archive_op', 'off', true);
 end;
 $$;
 
@@ -313,5 +323,149 @@ grant execute on function public.general_sees_archived(uuid, uuid) to authentica
 grant execute on function public.general_archive_guard(uuid) to authenticated;
 grant execute on function public.list_archived_general_draft_files(uuid) to authenticated;
 grant execute on function public.delete_archived_general_draft_path(uuid, text, uuid) to authenticated;
+
+commit;
+
+-- ---------------------------------------------------------------- the tables themselves
+
+begin;
+
+drop policy if exists general_tasks_select on public.general_tasks;
+create policy general_tasks_select on public.general_tasks
+  for select using (
+    public.can_read_general_project(project_id)
+    and (archived_at is null or public.general_sees_archived(project_id, archived_by))
+  );
+
+drop policy if exists general_tasks_delete on public.general_tasks;
+create policy general_tasks_delete on public.general_tasks
+  for delete using (
+    (public.general_can(project_id, 'manage_tasks')
+     or (created_by = auth.uid()
+         and public.is_general_member(project_id)
+         and not public.general_task_held(id)
+         and not public.general_is_archived(project_id)))
+    and (archived_at is null or public.general_sees_archived(project_id, archived_by))
+  );
+
+drop policy if exists general_task_files_select on public.general_task_files;
+create policy general_task_files_select on public.general_task_files
+  for select using (
+    public.can_read_general_project(project_id)
+    and (archived_at is null or public.general_sees_archived(project_id, archived_by))
+  );
+
+drop policy if exists general_task_files_delete on public.general_task_files;
+create policy general_task_files_delete on public.general_task_files
+  for delete using (
+    ((uploaded_by = auth.uid() and public.is_general_member(project_id))
+     or public.general_can(project_id, 'edit_files'))
+    and (archived_at is null or public.general_sees_archived(project_id, archived_by))
+  );
+
+create or replace function public.guard_general_task()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_project uuid := case when tg_op = 'INSERT' then new.project_id else old.project_id end;
+begin
+  if auth.uid() is null then
+    if tg_op = 'INSERT' then
+      new.completed_at := case when new.status = 'done' then now() end;
+    end if;
+    return new;
+  end if;
+
+  if not public.is_general_member(v_project) then
+    raise exception 'You are not on this project' using errcode = 'insufficient_privilege';
+  end if;
+
+  if tg_op = 'INSERT' then
+    if public.general_is_archived(new.project_id) then
+      raise exception 'This project is archived. An Owner can restore it to make changes.'
+        using errcode = 'check_violation';
+    end if;
+    new.created_by := auth.uid();
+    if new.weight <> 1 and not public.general_can(new.project_id, 'manage_tasks') then
+      raise exception 'Only someone who manages tasks sets points'
+        using errcode = 'insufficient_privilege';
+    end if;
+    new.completed_at := case when new.status = 'done' then now() end;
+    return new;
+  end if;
+
+  -- UPDATE
+  new.project_id := old.project_id;
+  new.created_by := old.created_by;
+  new.created_at := old.created_at;
+
+  if (new.archived_at is distinct from old.archived_at or new.archived_by is distinct from old.archived_by)
+     and coalesce(current_setting('collabify.general_archive_op', true), 'off') <> 'on' then
+    raise exception 'Archive and restore through the archive buttons.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if public.general_is_archived(old.project_id) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+
+  if not public.general_can(old.project_id, 'manage_tasks') then
+    if not (
+      public.is_general_task_assignee(old.id)
+      or (old.created_by = auth.uid() and not public.general_task_held(old.id))
+      or (
+        -- A team delete cascades into an UPDATE (team_id set null) that runs
+        -- under the deleting caller's own auth.uid(), even though referential
+        -- actions bypass RLS — BEFORE triggers still fire. Someone who
+        -- manages structure but not tasks still needs that cascade to reach
+        -- this row, as long as nothing besides team_id actually changed.
+        new.team_id is null
+        and new.title is not distinct from old.title
+        and new.description is not distinct from old.description
+        and new.status is not distinct from old.status
+        and new.due_at is not distinct from old.due_at
+        and new.starts_at is not distinct from old.starts_at
+        and new.weight is not distinct from old.weight
+        and public.general_can(old.project_id, 'manage_structure')
+      )
+    ) then
+      raise exception 'Only whoever holds this task, or someone who manages tasks, can change it'
+        using errcode = 'insufficient_privilege';
+    end if;
+    if new.weight is distinct from old.weight then
+      raise exception 'Only someone who manages tasks changes points'
+        using errcode = 'insufficient_privilege';
+    end if;
+  end if;
+
+  if new.status = 'done' and old.status <> 'done' then
+    new.completed_at := now();
+  elsif new.status <> 'done' then
+    new.completed_at := null;
+  else
+    new.completed_at := old.completed_at;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.guard_general_task_file_archive()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then
+    return new;
+  end if;
+  if (new.archived_at is distinct from old.archived_at or new.archived_by is distinct from old.archived_by)
+     and coalesce(current_setting('collabify.general_archive_op', true), 'off') <> 'on' then
+    raise exception 'Archive and restore through the archive buttons.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists general_task_files_archive_guard on public.general_task_files;
+create trigger general_task_files_archive_guard before update on public.general_task_files
+  for each row execute function public.guard_general_task_file_archive();
 
 commit;

@@ -36,6 +36,13 @@ declare
   repo       public.general_repos%rowtype;
   t_alice    uuid;
   t_bob      uuid;
+  carol      uuid := gen_random_uuid();
+  dave       uuid := gen_random_uuid();
+  t_bob2     uuid;
+  t_alice2   uuid;
+  t_alice3   uuid;
+  t_alice4   uuid;
+  f_alice    uuid;
   n          int;
 begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at,
@@ -46,7 +53,9 @@ begin
     from (values (owner_uid, 'arc-owner@test.local', 'Owner'),
                  (manager_id, 'arc-manager@test.local', 'Manager'),
                  (alice, 'arc-alice@test.local', 'Alice'),
-                 (bob, 'arc-bob@test.local', 'Bob')) as v(id, em, ln);
+                 (bob, 'arc-bob@test.local', 'Bob'),
+                 (carol, 'arc-carol@test.local', 'Carol'),
+                 (dave, 'arc-dave@test.local', 'Dave')) as v(id, em, ln);
 
   perform pg_temp.act_as(owner_uid);
   proj := public.create_general_project('Archive project', '');
@@ -57,7 +66,8 @@ begin
 
   perform pg_temp.act_as_service();
   insert into public.general_members (project_id, user_id, level)
-  values (proj.id, manager_id, 'manager'), (proj.id, alice, 'member'), (proj.id, bob, 'member');
+  values (proj.id, manager_id, 'manager'), (proj.id, alice, 'member'), (proj.id, bob, 'member'),
+         (proj.id, carol, 'member'), (proj.id, dave, 'member');
   insert into public.general_tasks (project_id, title, created_by)
   values (proj.id, 'Alice task', alice) returning id into t_alice;
   insert into public.general_tasks (project_id, title, created_by)
@@ -154,6 +164,141 @@ begin
   perform pg_temp.act_as_service();
   perform pg_temp.ok('a Manager can delete anybody''s archived task',
     not exists (select 1 from public.general_tasks where id = t_bob));
+
+  ------------------------------------------------------------------ the tables themselves
+  perform pg_temp.act_as_service();
+  insert into public.general_grants (project_id, user_id, permission, granted_by)
+  values (proj.id, carol, 'manage_tasks', owner_uid), (proj.id, dave, 'edit_files', owner_uid);
+  insert into public.general_tasks (project_id, title, created_by)
+  values (proj.id, 'Bob second', bob) returning id into t_bob2;
+  insert into public.general_tasks (project_id, title, created_by)
+  values (proj.id, 'Alice second', alice) returning id into t_alice2;
+  insert into public.general_tasks (project_id, title, created_by)
+  values (proj.id, 'Alice third', alice) returning id into t_alice3;
+  insert into public.general_tasks (project_id, title, created_by)
+  values (proj.id, 'Alice fourth', alice) returning id into t_alice4;
+  insert into public.general_task_files (task_id, project_id, uploaded_by, file_path, file_name, size_bytes)
+  values (t_alice2, proj.id, alice, proj.id || '/' || t_alice2 || '/1-a.pdf', 'a.pdf', 10)
+  returning id into f_alice;
+
+  perform pg_temp.act_as(bob);
+  perform public.archive_general_task(t_bob2, true);
+  perform pg_temp.act_as(owner_uid);
+  perform public.archive_general_task(t_alice3, true);
+  perform pg_temp.act_as(alice);
+  perform public.archive_general_task(t_alice4, true);
+  perform public.archive_general_task_file(f_alice, true);
+
+  -- A manage_tasks grantee who is not an Owner or Manager.
+  perform pg_temp.act_as(carol);
+  begin
+    perform public.archive_general_task(t_bob2, false);
+    perform pg_temp.ok('a manage_tasks grantee cannot restore another member''s archived task', false);
+  exception when insufficient_privilege then
+    perform pg_temp.ok('a manage_tasks grantee cannot restore another member''s archived task', true);
+  end;
+  begin
+    perform public.delete_archived_general_task(t_bob2);
+    perform pg_temp.ok('a manage_tasks grantee cannot delete another member''s archived task', false);
+  exception when insufficient_privilege then
+    perform pg_temp.ok('a manage_tasks grantee cannot delete another member''s archived task', true);
+  end;
+  perform public.restore_archived_general_tasks(proj.id);
+  perform public.delete_archived_general_tasks(proj.id);
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('...and their bulk restore and delete leave it archived',
+    (select archived_at is not null from public.general_tasks where id = t_bob2));
+
+  perform pg_temp.act_as(carol);
+  select count(*) into n from public.general_tasks where id = t_bob2;
+  perform pg_temp.ok('a manage_tasks grantee cannot read another member''s archived task from the table', n = 0);
+  begin
+    update public.general_tasks set archived_at = null where id = t_bob2;
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    delete from public.general_tasks where id = t_bob2;
+  exception when insufficient_privilege then null;
+  end;
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('a manage_tasks grantee cannot restore it by writing the table',
+    (select archived_at is not null from public.general_tasks where id = t_bob2));
+  perform pg_temp.ok('a manage_tasks grantee cannot delete it from the table',
+    exists (select 1 from public.general_tasks where id = t_bob2));
+
+  -- A plain member.
+  perform pg_temp.act_as(alice);
+  select count(*) into n from public.general_tasks where id = t_bob2;
+  perform pg_temp.ok('a member cannot read another member''s archived task from the table', n = 0);
+  begin
+    update public.general_tasks set archived_at = null where id = t_bob2;
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.general_tasks set archived_by = alice where id = t_alice3;
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.general_tasks set archived_at = null where id = t_alice4;
+    perform pg_temp.ok('a member cannot restore their own archive by writing the table', false);
+  exception when insufficient_privilege then
+    perform pg_temp.ok('a member cannot restore their own archive by writing the table', true);
+  end;
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('a member cannot restore another member''s archived task by writing the table',
+    (select archived_at is not null from public.general_tasks where id = t_bob2));
+  perform pg_temp.ok('a member cannot claim an archive somebody else made',
+    (select archived_by = owner_uid from public.general_tasks where id = t_alice3));
+  perform pg_temp.ok('...and their own archive stays archived',
+    (select archived_at is not null from public.general_tasks where id = t_alice4));
+  update public.general_tasks set archived_at = null, archived_by = null where id = t_alice4;
+  perform pg_temp.ok('a service session can still write the archive columns',
+    (select archived_at is null from public.general_tasks where id = t_alice4));
+
+  -- Task files.
+  perform pg_temp.act_as(bob);
+  select count(*) into n from public.list_archived_general_task_files(proj.id);
+  perform pg_temp.ok('a member does not see another member''s archived task file', n = 0);
+  select count(*) into n from public.general_task_files where id = f_alice;
+  perform pg_temp.ok('...nor read it from the table', n = 0);
+  begin
+    perform public.delete_archived_general_task_file(f_alice);
+    perform pg_temp.ok('a member cannot delete another member''s archived task file', false);
+  exception when insufficient_privilege then
+    perform pg_temp.ok('a member cannot delete another member''s archived task file', true);
+  end;
+
+  perform pg_temp.act_as(dave);
+  begin
+    delete from public.general_task_files where id = f_alice;
+  exception when insufficient_privilege then null;
+  end;
+  perform pg_temp.act_as(alice);
+  begin
+    update public.general_task_files set archived_at = null where id = f_alice;
+  exception when insufficient_privilege then null;
+  end;
+  perform pg_temp.act_as_service();
+  perform pg_temp.ok('an edit_files grantee cannot delete another member''s archived file from the table',
+    exists (select 1 from public.general_task_files where id = f_alice));
+  perform pg_temp.ok('a member cannot restore a task file by writing the table',
+    (select archived_at is not null from public.general_task_files where id = f_alice));
+
+  perform pg_temp.act_as(owner_uid);
+  select count(*) into n from public.list_archived_general_task_files(proj.id);
+  perform pg_temp.ok('an Owner sees a member''s archived task file', n = 1);
+  select count(*) into n from public.general_task_files where id = f_alice;
+  perform pg_temp.ok('...and reads it from the table', n = 1);
+
+  -- A member who removed a Main path (edit_files lets them commit).
+  perform pg_temp.act_as(dave);
+  perform public.commit_general_files(repo.id, 'Drop a', 2, jsonb_build_array(
+    jsonb_build_object('path', 'a.md', 'action', 'removed', 'kind', 'text', 'content', '')));
+  select count(*) into n from public.list_removed_general_repo_paths(proj.id);
+  perform pg_temp.ok('a member who removed a path sees it', n = 1);
+  perform pg_temp.act_as(owner_uid);
+  select count(*) into n from public.list_removed_general_repo_paths(proj.id);
+  perform pg_temp.ok('...and an Owner sees every removed path', n = 2);
 end $$;
 
 rollback;
