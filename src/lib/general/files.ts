@@ -97,15 +97,28 @@ export function isKeep(path: string) {
 }
 
 /**
- * The files a change or commit shows, without `.keep` placeholders. When the
- * placeholders are all it carries, `folders` names the folders it makes or removes.
+ * The files a change or commit shows, without `.keep` placeholders. `folders`
+ * names each folder a placeholder makes or removes that no shown file lives under.
  */
 export function shownFiles<T extends { path: string }>(files: T[]) {
   const shown = files.filter((f) => !isKeep(f.path))
-  const folders = shown.length
-    ? []
-    : [...new Set(files.map((f) => folderOf(f.path)).filter(Boolean))]
+  const folders = [
+    ...new Set(
+      files
+        .filter((f) => isKeep(f.path))
+        .map((f) => folderOf(f.path))
+        .filter((dir) => dir && !shown.some((s) => s.path.startsWith(`${dir}/`))),
+    ),
+  ]
   return { shown, folders }
+}
+
+/** "2 files, 1 folder", naming folders only when there are some. */
+export function countShown(files: number, folders: number) {
+  const fileWords = `${files} ${files === 1 ? 'file' : 'files'}`
+  const folderWords = `${folders} ${folders === 1 ? 'folder' : 'folders'}`
+  if (!folders) return fileWords
+  return files ? `${fileWords}, ${folderWords}` : folderWords
 }
 
 export function joinPath(folder: string, name: string) {

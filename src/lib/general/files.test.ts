@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   actionFor,
   buildTree,
+  countShown,
   crumbs,
   describeDraft,
   extensionOf,
@@ -301,5 +302,32 @@ describe('shownFiles', () => {
     const r = shownFiles([{ path: 'a/.keep' }, { path: 'x/y/.keep' }, { path: 'a/.keep' }])
     expect(r.shown).toEqual([])
     expect(r.folders).toEqual(['a', 'x/y'])
+  })
+
+  it('names a new empty folder beside real files elsewhere', () => {
+    const r = shownFiles([{ path: 'a/b.md' }, { path: 'a/.keep' }, { path: 'x/.keep' }, { path: 'x/y/.keep' }])
+    expect(r.shown.map((f) => f.path)).toEqual(['a/b.md'])
+    expect(r.folders).toEqual(['x', 'x/y'])
+  })
+
+  it('does not name a folder a shown file already lives under, at any depth', () => {
+    const r = shownFiles([{ path: 'a/.keep' }, { path: 'a/deep/c.md' }, { path: 'ab/.keep' }])
+    expect(r.folders).toEqual(['ab'])
+  })
+
+  it('ignores a .keep at the top level', () => {
+    expect(shownFiles([{ path: '.keep' }, { path: 'b.md' }]).folders).toEqual([])
+  })
+})
+
+describe('countShown', () => {
+  it('counts files and folders in the same words', () => {
+    expect(countShown(0, 0)).toBe('0 files')
+    expect(countShown(1, 0)).toBe('1 file')
+    expect(countShown(3, 0)).toBe('3 files')
+    expect(countShown(0, 1)).toBe('1 folder')
+    expect(countShown(0, 2)).toBe('2 folders')
+    expect(countShown(2, 1)).toBe('2 files, 1 folder')
+    expect(countShown(1, 2)).toBe('1 file, 2 folders')
   })
 })

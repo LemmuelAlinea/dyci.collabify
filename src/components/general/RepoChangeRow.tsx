@@ -17,7 +17,7 @@ import {
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
-import { extensionOf, fileName, fileText, shownFiles } from '../../lib/general/files'
+import { countShown, extensionOf, fileName, fileText, shownFiles } from '../../lib/general/files'
 import { CHANGE_LABEL, FILE_ACTION_LABEL } from '../../lib/general/types'
 import type {
   GeneralRepoChange,
@@ -124,9 +124,7 @@ export function RepoChangeRow({
 
       <p className="mt-1 pl-6 text-[12px] text-faint">
         {change.author_id ? state.nameOf(change.author_id) : 'A former member'} ·{' '}
-        {folders.length > 0
-          ? `${folders.length} ${folders.length === 1 ? 'folder' : 'folders'}`
-          : `${shown.length} ${shown.length === 1 ? 'file' : 'files'}`}{' '}
+        {countShown(shown.length, folders.length)}{' '}
         · against commit{' '}
         {change.base_seq} · {formatDue(change.created_at)}
         {change.reviewer_id ? ` · reviewer: ${state.nameOf(change.reviewer_id)}` : ''}
