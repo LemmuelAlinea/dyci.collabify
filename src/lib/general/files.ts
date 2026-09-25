@@ -235,8 +235,8 @@ export function foldersIn(files: { path: string }[]) {
  * not equally reversible and a reviewer reads the removals first.
  */
 export function describeDraft(files: Pick<RepoFile, 'action' | 'path'>[]) {
-  const counted = files.filter((f) => !isKeep(f.path))
-  if (counted.length === 0) return 'Nothing changed yet'
+  const { shown: counted, folders } = shownFiles(files)
+  if (counted.length === 0) return folders.length ? countShown(0, folders.length) : 'Nothing changed yet'
   const n = { added: 0, changed: 0, removed: 0 }
   for (const f of counted) n[f.action]++
   const parts: string[] = []

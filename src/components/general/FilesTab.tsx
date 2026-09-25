@@ -196,6 +196,8 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   if (!repo) return <StartFiles state={state} onDone={load} />
 
   const openChanges = changes.filter((c) => c.status === 'open')
+  const draftShown = shownFiles(draftFiles)
+  const draftCount = draftShown.shown.length + draftShown.folders.length
 
   return (
     <div className="space-y-4">
@@ -233,7 +235,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
       <Tabs<View>
         tabs={[
           { id: 'main', label: 'Main', icon: 'folder', count: tree.filter((f) => !isKeep(f.path)).length },
-          { id: 'draft', label: 'My draft', icon: 'edit', count: draftFiles.filter((f) => !isKeep(f.path)).length },
+          { id: 'draft', label: 'My draft', icon: 'edit', count: draftCount },
           { id: 'changes', label: 'For review', icon: 'refresh', count: openChanges.length },
           { id: 'history', label: 'History', icon: 'clock', count: commits.length },
         ]}

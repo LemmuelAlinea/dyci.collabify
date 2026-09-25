@@ -187,6 +187,16 @@ describe('describeDraft', () => {
     expect(describeDraft(withKeep)).toBe(describeDraft(withoutKeep))
     expect(describeDraft(withKeep)).toBe('1 file: 1 changed')
   })
+
+  it('names a draft that only makes empty folders', () => {
+    expect(describeDraft([{ path: 'Figures/.keep', action: 'added' }])).toBe('1 folder')
+    expect(
+      describeDraft([
+        { path: 'Figures/.keep', action: 'added' },
+        { path: 'Tables/.keep', action: 'added' },
+      ]),
+    ).toBe('2 folders')
+  })
 })
 
 describe('actionFor', () => {

@@ -10,6 +10,7 @@ import { Input } from '../../components/ui/Field'
 import { Icon, Spinner } from '../../components/ui/Icon'
 import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
+import { useGeneralNavigation } from '../../context/generalNavigation'
 import {
   archiveTask,
   archiveTaskFile,
@@ -43,6 +44,7 @@ export default function ProjectArchive() {
   const { projectId } = useParams<{ projectId: string }>()
   const { profile } = useAuth()
   const { show } = useToast()
+  const { reportProjectSpace } = useGeneralNavigation()
   const state = useGeneralProject(projectId, profile?.id)
   const [tasks, setTasks] = useState<GeneralTask[] | null>(null)
   const [files, setFiles] = useState<ArchivedGeneralFile[] | null>(null)
@@ -87,6 +89,11 @@ export default function ProjectArchive() {
   useEffect(() => {
     document.title = state.project ? `Archive · ${state.project.name} · Collabify` : 'Project archive · Collabify'
   }, [state.project])
+
+  const p = state.project
+  useEffect(() => {
+    if (projectId && p?.id === projectId) reportProjectSpace(projectId, p.space_id)
+  }, [p?.id, p?.space_id, projectId, reportProjectSpace])
 
   useEffect(() => {
     void load()
@@ -155,7 +162,7 @@ export default function ProjectArchive() {
         <EmptyState
           icon="archive"
           title="Nothing archived"
-          body="Archived tasks, task files, and removed file paths will appear here."
+          body="Archived tasks, task files, draft files, folders and removed file paths will appear here."
         />
       ) : (
         <div className="space-y-5">
