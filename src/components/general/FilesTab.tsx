@@ -2,9 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
-import { Field, Input } from '../ui/Field'
 import { Icon, Spinner } from '../ui/Icon'
-import { Modal } from '../ui/Modal'
 import { Tabs } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
 import { useLive } from '../../hooks/useLive'
@@ -19,26 +17,12 @@ import {
   listRepoChanges,
   listTree,
   myDraft,
-  saveDraftFile,
-  uploadProjectFile,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { groupChanges } from '../../lib/general/review'
-import {
-  actionFor,
-  buildTree,
-  fileName,
-  fileText,
-  folderOf,
-  kindForPath,
-  nodesAt,
-  pathWithPickedExtension,
-  pathProblem,
-} from '../../lib/general/files'
+import { buildTree, fileText, folderOf, nodesAt } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
-import { docxToHtml, OFFICE_WARNING, readAsText, xlsxToWorkbook } from '../../lib/general/office'
-import { serializeWorkbook } from '../../lib/general/sheet'
 import { FILE_ACTION_LABEL, FILE_KIND_LABEL } from '../../lib/general/types'
 import type {
   DraftConflict,
@@ -55,6 +39,7 @@ import { DraftPanel } from './DraftPanel'
 import { FileEditor } from './FileEditor'
 import type { OpenFile } from './FileEditor'
 import { FolderBar } from './FolderBar'
+import { NewItemDialog } from './NewItemDialog'
 import { RenameFolderDialog } from './RenameFolderDialog'
 import { RepoChangeRow } from './RepoChangeRow'
 import { RequestAccessButton } from './RequestAccessButton'
@@ -141,10 +126,23 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
     setParams(changed)
   }
 
-  // A rename points the URL at a folder the tree only gains once the reload
-  // lands, so that one path is exempt from the unresolved-path reset until then.
+  // A rename or a new item points the URL at a folder the tree only gains once
+  // the reload lands, so that one path is exempt from the unresolved-path reset
+  // until then.
   const pendingPath = useRef<string | null>(null)
   const [renameSettled, setRenameSettled] = useState(0)
+  async function goAfterReload(path: string) {
+    pendingPath.current = path
+    go('draft', path)
+    try {
+      await load()
+    } finally {
+      if (pendingPath.current === path) {
+        pendingPath.current = null
+        setRenameSettled((n) => n + 1)
+      }
+    }
+  }
   const resolved =
     !loaded ||
     !folder ||
@@ -210,7 +208,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           {!state.archived && (
             <Button size="sm" onClick={() => setAdding(true)}>
               <Icon name="plus" size={14} />
-              New file / folder
+              New
             </Button>
           )}
         </div>
@@ -269,30 +267,21 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
       {view === 'history' && <HistoryView commits={commits} state={state} />}
 
       <FileEditor file={open} repo={repo} state={state} onClose={() => setOpen(null)} onSaved={load} />
-      <NewFileDialog
+      <NewItemDialog
         open={adding}
         onClose={() => setAdding(false)}
         repo={repo}
         tree={tree}
-        onDone={load}
+        draftFiles={draftFiles}
+        folder={folder}
+        onDone={goAfterReload}
       />
       <RenameFolderDialog
         repoId={repo.id}
         path={renaming}
         siblings={(nodesAt(buildTree([...tree, ...(draftFiles as unknown as GeneralTreeFile[])]), renaming ? folderOf(renaming) : '') ?? []).map((n) => n.name)}
         onClose={() => setRenaming(null)}
-        onRenamed={async (next) => {
-          pendingPath.current = next
-          go('draft', next)
-          try {
-            await load()
-          } finally {
-            if (pendingPath.current === next) {
-              pendingPath.current = null
-              setRenameSettled((n) => n + 1)
-            }
-          }
-        }}
+        onRenamed={goAfterReload}
       />
     </div>
   )
@@ -452,199 +441,6 @@ function MainFileRow({
       )}
       <span className="shrink-0 rounded-md surface-sunken px-1.5 py-0.5 text-[11px] text-muted">{FILE_KIND_LABEL[node.file.kind]}</span>
     </button>
-  )
-}
-
-/* ---------------------------------------------------------------- new file */
-
-function NewFileDialog({
-  open,
-  onClose,
-  repo,
-  tree,
-  onDone,
-}: {
-  open: boolean
-  onClose: () => void
-  repo: GeneralRepoSummary
-  tree: GeneralTreeFile[]
-  onDone: () => Promise<void>
-}) {
-  const { show } = useToast()
-  const [path, setPath] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [picked, setPicked] = useState<File | null>(null)
-  const [folderFiles, setFolderFiles] = useState<File[]>([])
-
-  const savedPath = path ? pathWithPickedExtension(path, picked?.name) : ''
-  const kind = savedPath ? kindForPath(savedPath) : null
-  const office = kind === 'rich' || kind === 'sheet'
-
-  async function savePickedFile(file: File, target: string) {
-    const k = kindForPath(target)
-    let content = ''
-    let storagePath: string | null = null
-
-    if (k === 'rich') content = (await docxToHtml(file)).html
-    else if (k === 'sheet') content = serializeWorkbook(await xlsxToWorkbook(file))
-    else if (k === 'text') content = await readAsText(file)
-    else storagePath = await uploadProjectFile(repo.project_id, file)
-
-    await saveDraftFile({
-      repoId: repo.id,
-      path: target,
-      action: actionFor(target, tree),
-      kind: k,
-      content,
-      storagePath,
-    })
-  }
-
-  async function add() {
-    if (busy) return
-    if (folderFiles.length > 0) {
-      const prefix = path.trim().replace(/\/+$/, '')
-      const targets = folderFiles.map((file) => {
-        const rel = ((file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name).replace(/\\/g, '/')
-        return prefix ? `${prefix}/${rel}` : rel
-      })
-      const problem = targets.map(pathProblem).find(Boolean)
-      if (problem) return setError(problem)
-      if (targets.some((target) => tree.some((f) => f.path === target))) {
-        return setError('The project already has one of those files. Open it instead.')
-      }
-      setError(null)
-      setBusy(true)
-      try {
-        for (let i = 0; i < folderFiles.length; i += 1) await savePickedFile(folderFiles[i], targets[i])
-        show('Folder added to your draft')
-        setPath('')
-        setPicked(null)
-        setFolderFiles([])
-        onClose()
-        await onDone()
-      } catch (err) {
-        setError(authErrorMessage(err, 'Could not add that folder.'))
-      } finally {
-        setBusy(false)
-      }
-      return
-    }
-
-    const target = pathWithPickedExtension(path, picked?.name)
-    const problem = pathProblem(target)
-    if (problem) return setError(problem)
-    if (tree.some((f) => f.path === target)) {
-      return setError('The project already has a file at that path. Open it instead.')
-    }
-    setError(null)
-    setBusy(true)
-    try {
-      if (picked) await savePickedFile(picked, target)
-      else await saveDraftFile({ repoId: repo.id, path: target, action: actionFor(target, tree), kind: kindForPath(target) })
-      show('Added to your draft')
-      setPath('')
-      setPicked(null)
-      setFolderFiles([])
-      onClose()
-      await onDone()
-    } catch (err) {
-      setError(authErrorMessage(err, 'Could not add that file.'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="New file or folder"
-      description="It goes into your draft. Submit one file or a whole folder when it is ready."
-      focusField
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button loading={busy} onClick={() => void add()}>
-            Add to my draft
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        {error && <Alert tone="error">{error}</Alert>}
-
-        <Field label={folderFiles.length > 0 ? 'Put the folder under' : 'Path in the project'} optional={folderFiles.length > 0}>
-          {(id) => (
-            <Input
-              id={id}
-              maxLength={400}
-              placeholder={folderFiles.length > 0 ? 'documents' : 'documents/Chapter 1.docx'}
-              value={path}
-              onChange={(e) => setPath(e.target.value)}
-              className="!font-mono"
-            />
-          )}
-        </Field>
-
-        {kind && (
-          <p className="text-[12px] text-muted">
-            Saved as a {FILE_KIND_LABEL[kind].toLowerCase()}.{' '}
-            {kind === 'binary'
-              ? 'Kept and versioned here, opened in the program that made it.'
-              : kind === 'sheet'
-                ? 'Excel .xlsx, .xlsm and .csv files open in the draft spreadsheet editor.'
-                : 'You can edit it in the site.'}
-          </p>
-        )}
-
-        <Field label="Start from a file on your computer" optional>
-          {(id) => (
-            <input
-              id={id}
-              type="file"
-              accept=".docx,.doc,.odt,.rtf,.xlsx,.xlsm,.xls,.csv,.pdf,.png,.jpg,.jpeg,.gif,.webp,.svg,.txt,.md,.markdown,.ts,.tsx,.js,.jsx,.json,.html,.css,.scss,.sql,.py,.java,.c,.cpp,.h,.cs,.php,.rb,.go,.rs,.sh,.yml,.yaml,.xml,.env,.toml,.ini,.kt,.swift,.dart,.vue"
-              onChange={(e) => {
-                const f = e.target.files?.[0] ?? null
-                setPicked(f)
-                setFolderFiles([])
-                if (f) setPath((p) => (p.trim() ? pathWithPickedExtension(p, f.name) : fileName(f.name)))
-              }}
-              className="w-full rounded-xl border border-line surface px-3 py-2 text-[13px] text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-sunken)] file:px-3 file:py-1.5 file:text-[13px] file:text-ink"
-            />
-          )}
-        </Field>
-
-        <Field label="Or upload a folder" optional>
-          {(id) => (
-            <input
-              id={id}
-              type="file"
-              multiple
-              {...{ webkitdirectory: '', directory: '' }}
-              onChange={(e) => {
-                const files = [...(e.target.files ?? [])]
-                setFolderFiles(files)
-                setPicked(null)
-                if (files.length > 0) setPath('')
-              }}
-              className="w-full rounded-xl border border-line surface px-3 py-2 text-[13px] text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-sunken)] file:px-3 file:py-1.5 file:text-[13px] file:text-ink"
-            />
-          )}
-        </Field>
-
-        {folderFiles.length > 0 && (
-          <p className="text-[12px] text-muted">
-            {folderFiles.length} {folderFiles.length === 1 ? 'file' : 'files'} selected.
-          </p>
-        )}
-
-        {picked && office && <Alert tone="info">{OFFICE_WARNING}</Alert>}
-      </div>
-    </Modal>
   )
 }
 
