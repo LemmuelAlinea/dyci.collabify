@@ -499,6 +499,8 @@ export type GeneralDraftFile = RepoFile & {
   archived_by: string | null
 }
 
+export type ArchivedDraftFile = GeneralDraftFile & { owner_id: string }
+
 /** A file in the draft that Main has changed underneath it. */
 export type DraftConflict = { path: string; their_seq: number }
 

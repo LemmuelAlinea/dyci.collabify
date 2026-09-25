@@ -35,7 +35,7 @@ import { formatDue } from '../../lib/general/dates'
 import { buildTree } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
 import { TASK_STATUSES } from '../../lib/general/progress'
-import type { ArchivedGeneralFile, GeneralDraftFile, GeneralTask, RemovedGeneralRepoPath } from '../../lib/general/types'
+import type { ArchivedDraftFile, ArchivedGeneralFile, GeneralDraftFile, GeneralTask, RemovedGeneralRepoPath } from '../../lib/general/types'
 import { formatBytes } from '../../components/ui/FileDrop'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 
@@ -46,7 +46,7 @@ export default function ProjectArchive() {
   const state = useGeneralProject(projectId, profile?.id)
   const [tasks, setTasks] = useState<GeneralTask[] | null>(null)
   const [files, setFiles] = useState<ArchivedGeneralFile[] | null>(null)
-  const [draftFiles, setDraftFiles] = useState<GeneralDraftFile[] | null>(null)
+  const [draftFiles, setDraftFiles] = useState<ArchivedDraftFile[] | null>(null)
   const [repoPaths, setRepoPaths] = useState<RemovedGeneralRepoPath[] | null>(null)
   const [repoId, setRepoId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -319,30 +319,48 @@ export default function ProjectArchive() {
             {archivedDraftFiles.length === 0 ? (
               <p className="px-4 py-5 text-[13px] text-faint">No archived draft files.</p>
             ) : (
-              <ul className="divide-y divide-line">
-                {buildTree(archivedDraftFiles as unknown as Parameters<typeof buildTree>[0]).map((node) => (
-                  <DraftArchiveNode
-                    key={node.path}
-                    node={node}
-                    depth={0}
-                    canEdit={canActInArchive && Boolean(repoId)}
-                    busy={busy}
-                    restore={(path) =>
-                      repoId
-                        ? run(`draft:${path}:restore`, () => archiveDraftPath(repoId, path, false), 'Draft restored', 'Could not restore it.')
-                        : Promise.resolve()
-                    }
-                    remove={(path) =>
-                      setConfirm({
-                        title: 'Delete this archived draft item?',
-                        body: 'This permanently deletes this archived draft file or folder.',
-                        label: 'Delete',
-                        action: () => (repoId ? deleteArchivedDraftPath(repoId, path) : Promise.resolve()),
-                      })
-                    }
-                  />
-                ))}
-              </ul>
+              <div className="divide-y divide-line">
+                {[...new Set(archivedDraftFiles.map((f) => f.owner_id))]
+                  .sort((a, b) => (a === profile?.id ? -1 : b === profile?.id ? 1 : 0))
+                  .map((ownerId) => {
+                    const yours = ownerId === profile?.id
+                    const rows = archivedDraftFiles.filter((f) => f.owner_id === ownerId)
+                    return (
+                      <div key={ownerId}>
+                        {!yours && (
+                          <p className="bg-[var(--surface-sunken)] px-4 py-2 text-[12px] font-medium text-muted sm:px-5">
+                            From {state.nameOf(ownerId)}'s draft
+                          </p>
+                        )}
+                        <ul className="divide-y divide-line">
+                          {buildTree(rows as unknown as Parameters<typeof buildTree>[0]).map((node) => (
+                            <DraftArchiveNode
+                              key={node.path}
+                              node={node}
+                              depth={0}
+                              canEdit={canActInArchive && Boolean(repoId)}
+                              canRestore={yours}
+                              busy={busy}
+                              restore={(path) =>
+                                repoId
+                                  ? run(`draft:${path}:restore`, () => archiveDraftPath(repoId, path, false), 'Draft restored', 'Could not restore it.')
+                                  : Promise.resolve()
+                              }
+                              remove={(path) =>
+                                setConfirm({
+                                  title: 'Delete this archived draft item?',
+                                  body: 'This permanently deletes this archived draft file or folder.',
+                                  label: 'Delete',
+                                  action: () => (repoId ? deleteArchivedDraftPath(repoId, path, yours ? undefined : ownerId) : Promise.resolve()),
+                                })
+                              }
+                            />
+                          ))}
+                        </ul>
+                      </div>
+                    )
+                  })}
+              </div>
             )}
           </ArchiveSection>
 
@@ -423,6 +441,7 @@ function DraftArchiveNode({
   node,
   depth,
   canEdit,
+  canRestore,
   busy,
   restore,
   remove,
@@ -430,6 +449,7 @@ function DraftArchiveNode({
   node: TreeNode
   depth: number
   canEdit: boolean
+  canRestore: boolean
   busy: string | null
   restore: (path: string) => Promise<void>
   remove: (path: string) => void
@@ -461,7 +481,7 @@ function DraftArchiveNode({
             label={`Actions for ${node.name}`}
             disabled={busy === `draft:${node.path}:restore`}
             items={[
-              { label: 'Restore', icon: 'refresh', onSelect: () => void restore(node.path) },
+              canRestore && { label: 'Restore', icon: 'refresh', onSelect: () => void restore(node.path) },
               { label: 'Delete permanently', icon: 'trash', tone: 'danger', separated: true, onSelect: () => remove(node.path) },
             ]}
           />
@@ -475,6 +495,7 @@ function DraftArchiveNode({
               node={child}
               depth={depth + 1}
               canEdit={canEdit}
+              canRestore={canRestore}
               busy={busy}
               restore={restore}
               remove={remove}

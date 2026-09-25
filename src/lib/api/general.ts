@@ -14,6 +14,7 @@ import type { FieldType, FieldValue } from '../general/fields'
 import type { GeneralLevel, GeneralPermission } from '../general/permissions'
 import type { GeneralTaskStatus } from '../general/progress'
 import type {
+  ArchivedDraftFile,
   ArchivedGeneralFile,
   GeneralAccessRequest,
   GeneralComment,
@@ -1222,7 +1223,7 @@ export async function listArchivedDraftFiles(repoId: string) {
     p_repo: repoId,
   })
   if (error) throw error
-  return (data ?? []) as GeneralDraftFile[]
+  return (data ?? []) as ArchivedDraftFile[]
 }
 
 export async function saveDraftFile(input: {
@@ -1262,10 +1263,11 @@ export async function archiveDraftPath(repoId: string, path: string, archived: b
   if (error) throw error
 }
 
-export async function deleteArchivedDraftPath(repoId: string, path: string) {
+export async function deleteArchivedDraftPath(repoId: string, path: string, ownerId?: string) {
   const { error } = await supabase.rpc('delete_archived_general_draft_path', {
     p_repo: repoId,
     p_path: path,
+    p_owner: ownerId ?? null,
   })
   if (error) throw error
 }
