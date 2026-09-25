@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ActionMenu } from '../ui/ActionMenu'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
@@ -76,11 +76,6 @@ export function DraftPanel({
   const behind = draft !== null && draft.base_seq !== repo.commit_count
   const all = buildTree(files as unknown as Parameters<typeof buildTree>[0])
   const level = nodesAt(all, path)
-  const missing = level === null
-
-  useEffect(() => {
-    if (missing) onNavigate('')
-  }, [missing, onNavigate])
 
   async function run(action: () => Promise<void>, done: string, failed: string) {
     if (busy) return
@@ -276,7 +271,7 @@ function DraftNode({
   onArchive: (target: SubmitTarget) => void
   onSubmit: (target: SubmitTarget) => void
 }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
 
   if (node.type === 'folder') {
     return (

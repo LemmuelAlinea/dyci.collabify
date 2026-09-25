@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
@@ -141,6 +141,30 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
     setParams(changed)
   }
 
+  // A rename points the URL at a folder the tree only gains once the reload
+  // lands, so that one path is exempt from the unresolved-path reset until then.
+  const pendingPath = useRef<string | null>(null)
+  const [renameSettled, setRenameSettled] = useState(0)
+  const resolved =
+    !loaded ||
+    !folder ||
+    (view === 'main'
+      ? tree.length === 0 || nodesAt(buildTree(tree), folder) !== null
+      : nodesAt(buildTree(draftFiles as unknown as GeneralTreeFile[]), folder) !== null)
+
+  useEffect(() => {
+    if (resolved) {
+      if (pendingPath.current === folder) pendingPath.current = null
+      return
+    }
+    if (pendingPath.current === folder) return
+    setParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('path')
+      return next
+    })
+  }, [resolved, folder, renameSettled, setParams])
+
   const mainOf = useCallback(
     (path: string) => tree.find((f) => f.path === path)?.content ?? '',
     [tree],
@@ -258,8 +282,16 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
         siblings={(nodesAt(buildTree([...tree, ...(draftFiles as unknown as GeneralTreeFile[])]), renaming ? folderOf(renaming) : '') ?? []).map((n) => n.name)}
         onClose={() => setRenaming(null)}
         onRenamed={async (next) => {
-          await load()
+          pendingPath.current = next
           go('draft', next)
+          try {
+            await load()
+          } finally {
+            if (pendingPath.current === next) {
+              pendingPath.current = null
+              setRenameSettled((n) => n + 1)
+            }
+          }
         }}
       />
     </div>
@@ -336,11 +368,6 @@ function MainView({
   onOpen: (file: OpenFile) => void
 }) {
   const level = nodesAt(buildTree(tree), path)
-  const missing = tree.length > 0 && level === null
-
-  useEffect(() => {
-    if (missing) onNavigate('')
-  }, [missing, onNavigate])
 
   if (tree.length === 0) {
     return (
