@@ -1195,10 +1195,20 @@ delete of a site-made folder, search on all four tabs.
 **`npm run check` fails at lint** on the untracked `docs/redesign/serve-dashboard-preview.mjs`
 (3 no-undef errors). Not from this work; commit it with an eslint env or ignore it.
 
-**Follow-ups, not done:** "Discard it all" still shows on an archived project (the
-server refuses it); deleting a task file removes the Storage object before the row,
-so a failed RPC leaves a row with no file, and `remove()` can silently skip objects
-a policy hides; a change mixing real files and a new empty folder doesn't name the
-folder; security-definer RPCs in `general-notify.sql` / `presets.sql` still read
-archived task titles; the withdraw path and two-account archive visibility were
-covered by SQL tests, not clicked through with a second account.
+**Follow-ups, since fixed:** "Discard it all" hides on an archived project.
+Deleting an archived task file checks the project guard first, then asks
+`archived_general_task_file_objects` about any path `remove()` did not report, so
+a refused object stops the delete and a missing one does not; if the row step
+still fails the message says the entry remains and deleting again clears it. A
+change mixing files and a new empty folder names the folder ("2 files, 1
+folder"). Assignment, comment and deadline notifications skip anyone who may not
+see the task (`general_user_sees_task`), and the archived files list leaves out
+files on a task hidden from the caller; all redefined in `general-archive-rbac.sql`.
+
+**Still open:** writes to an archived task you cannot see, given its id — any
+member can self-claim an unheld one or comment on it, a manage_tasks grantee can
+assign it, an edit_files grantee can upload to it (the insert policies do not
+check `general_task_hidden`); notifications sent
+before a task was archived keep its title; the withdraw path and two-account
+archive visibility were covered by SQL tests, not clicked through with a second
+account.
