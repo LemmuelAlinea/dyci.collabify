@@ -135,6 +135,14 @@ function TaskBody({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      {canDelete && (
+        <div className="flex justify-end lg:col-span-2">
+          <Button variant="outline" size="sm" onClick={() => setDeleting(true)}>
+            <Icon name="archive" size={14} />
+            Archive task
+          </Button>
+        </div>
+      )}
       <div className="space-y-6">
         <TaskDetails state={state} taskId={task.id} canEdit={canEdit} canManage={canManage} onSaved={load} />
 
@@ -327,13 +335,6 @@ function TaskBody({
             {loaded && events.length === 0 && <li className="text-[12px] text-faint">Nothing yet.</li>}
           </ul>
         </section>
-
-        {canDelete && (
-          <Button variant="ghost" size="sm" onClick={() => setDeleting(true)}>
-            <Icon name="archive" size={14} />
-            Archive task
-          </Button>
-        )}
       </div>
 
       <ConfirmDialog
