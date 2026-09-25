@@ -19,21 +19,34 @@ export function Sheet({
   children,
   footnote,
   signatureLabel = 'Signature over printed name',
+  letterhead,
+  footerNote,
+  id,
 }: {
   title: string
   /** What the report is about: the class, the group, the student. */
   subject: string
   /** Short facts under the subject — term, section, dates. */
   meta?: string[]
-  professor: string
+  /** Who signs. Unused when `footerNote` replaces the signature block. */
+  professor?: string
   children: ReactNode
   /** An extra line above the standing note, when the report needs one. */
   footnote?: string
   /** What the name under the rule means. A student prepares; a professor attests. */
   signatureLabel?: string
+  /**
+   * Replaces the school letterhead. General reports are not the school's
+   * record, so they carry Collabify's mark instead of the school's name.
+   */
+  letterhead?: ReactNode
+  /** Replaces the footer — the not-a-grade note and the signature line. */
+  footerNote?: ReactNode
+  id?: string
 }) {
   return (
-    <article className="sheet card p-4 sm:p-5 sm:p-8 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none">
+    <article id={id} className="sheet card p-4 sm:p-5 sm:p-8 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none">
+      {letterhead ?? (
       <header className="flex items-start gap-4 border-b border-line-strong pb-4">
         <img src={logo} alt="" className="h-14 w-14 shrink-0 object-contain" />
         <div className="min-w-0 flex-1">
@@ -46,6 +59,7 @@ export function Sheet({
           {generatedOn()}
         </p>
       </header>
+      )}
 
       <div className="mt-5">
         <p className="eyebrow text-faint">{title}</p>
@@ -57,6 +71,9 @@ export function Sheet({
 
       <div className="mt-5 space-y-5">{children}</div>
 
+      {footerNote !== undefined ? (
+        <footer className="mt-8 border-t border-line pt-4">{footerNote}</footer>
+      ) : (
       <footer className="mt-8 border-t border-line pt-4">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <p className="max-w-[62ch] text-[12px] leading-relaxed text-faint">
@@ -75,6 +92,7 @@ export function Sheet({
           </div>
         </div>
       </footer>
+      )}
     </article>
   )
 }

@@ -29,7 +29,7 @@ reassignments results syllabus syllabus-assessments polls messages dashboard
 realtime recover-work removed-visible class-restore approvals accounts audit
 admin-rename calendar analytics analytics-insight reports student-reports
 admin-program program-notices program-registry safety live notifications rate-limit class-notices
-consent privacy-requests term-shifts hardening workplaces general general-tasks general-notify presets general-repo general-files general-drafts general-history general-schedule general-schedule-guard general-spaces general-project-archive general-archive-rbac general-folders`.split(/\s+/)
+consent privacy-requests term-shifts hardening workplaces general general-tasks general-notify presets general-repo general-files general-drafts general-history general-schedule general-schedule-guard general-spaces general-project-archive general-archive-rbac general-folders general-draft-restore general-project-archive-rbac general-reports`.split(/\s+/)
 
 const seen = new Map()
 for (const name of ORDER) {
