@@ -53,6 +53,8 @@ create table if not exists public.general_draft_files (
   content      text not null default '',
   storage_path text,
   updated_at   timestamptz not null default now(),
+  archived_at  timestamptz,
+  archived_by  uuid references public.profiles (id) on delete set null,
   constraint general_draft_files_path_len check (char_length(btrim(path)) between 1 and 400),
   -- The same path rules Main enforces, so nothing can pass review that could
   -- not have been committed directly.
@@ -71,6 +73,13 @@ create table if not exists public.general_draft_files (
 
 create index if not exists general_draft_files_draft_idx
   on public.general_draft_files (draft_id, path);
+
+alter table public.general_draft_files
+  add column if not exists archived_at timestamptz,
+  add column if not exists archived_by uuid references public.profiles (id) on delete set null;
+
+create index if not exists general_draft_files_archive_idx
+  on public.general_draft_files (draft_id, archived_at) where archived_at is not null;
 
 drop trigger if exists general_drafts_touch on public.general_drafts;
 create trigger general_drafts_touch before update on public.general_drafts
@@ -252,6 +261,8 @@ begin
          kind = excluded.kind,
          content = excluded.content,
          storage_path = excluded.storage_path,
+         archived_at = null,
+         archived_by = null,
          updated_at = now()
   returning * into f;
 
@@ -273,6 +284,102 @@ begin
     return;
   end if;
   delete from public.general_draft_files where draft_id = d.id and path = btrim(p_path);
+  update public.general_drafts set updated_at = now() where id = d.id;
+end;
+$$;
+
+create or replace function public.archive_general_draft_path(
+  p_repo uuid,
+  p_path text,
+  p_archived boolean default true
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  d public.general_drafts%rowtype;
+  v text := btrim(p_path);
+begin
+  select * into d from public.general_drafts
+   where repo_id = p_repo and user_id = auth.uid();
+  if not found then
+    return;
+  end if;
+
+  update public.general_draft_files
+     set archived_at = case when p_archived then coalesce(archived_at, now()) else null end,
+         archived_by = case when p_archived then coalesce(archived_by, auth.uid()) else null end,
+         updated_at = now()
+   where draft_id = d.id
+     and (path = v or path like v || '/%');
+
+  update public.general_drafts set updated_at = now() where id = d.id;
+end;
+$$;
+
+create or replace function public.delete_archived_general_draft_path(
+  p_repo uuid,
+  p_path text
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  d public.general_drafts%rowtype;
+  v text := btrim(p_path);
+begin
+  select * into d from public.general_drafts
+   where repo_id = p_repo and user_id = auth.uid();
+  if not found then
+    return;
+  end if;
+
+  delete from public.general_draft_files
+   where draft_id = d.id
+     and archived_at is not null
+     and (path = v or path like v || '/%');
+
+  update public.general_drafts set updated_at = now() where id = d.id;
+end;
+$$;
+
+create or replace function public.list_archived_general_draft_files(p_repo uuid)
+returns setof public.general_draft_files
+language sql security definer set search_path = public as $$
+  select f.*
+    from public.general_drafts d
+    join public.general_draft_files f on f.draft_id = d.id
+   where d.repo_id = p_repo
+     and d.user_id = auth.uid()
+     and f.archived_at is not null
+   order by f.archived_at desc, f.path;
+$$;
+
+create or replace function public.restore_archived_general_draft_files(p_repo uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  d public.general_drafts%rowtype;
+begin
+  select * into d from public.general_drafts
+   where repo_id = p_repo and user_id = auth.uid();
+  if not found then return; end if;
+
+  update public.general_draft_files
+     set archived_at = null, archived_by = null, updated_at = now()
+   where draft_id = d.id and archived_at is not null;
+  update public.general_drafts set updated_at = now() where id = d.id;
+end;
+$$;
+
+create or replace function public.delete_archived_general_draft_files(p_repo uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  d public.general_drafts%rowtype;
+begin
+  select * into d from public.general_drafts
+   where repo_id = p_repo and user_id = auth.uid();
+  if not found then return; end if;
+
+  delete from public.general_draft_files
+   where draft_id = d.id and archived_at is not null;
   update public.general_drafts set updated_at = now() where id = d.id;
 end;
 $$;
@@ -388,7 +495,7 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
-  select count(*) into n from public.general_draft_files where draft_id = d.id;
+  select count(*) into n from public.general_draft_files where draft_id = d.id and archived_at is null;
   if n = 0 then
     raise exception 'You have nothing in your draft' using errcode = 'no_data_found';
   end if;
@@ -410,7 +517,8 @@ begin
            'storage_path', f.storage_path) order by f.path)
     into items
     from public.general_draft_files f
-   where f.draft_id = d.id;
+   where f.draft_id = d.id
+     and f.archived_at is null;
 
   insert into public.general_repo_changes
     (repo_id, project_id, author_id, reviewer_id, title, body, base_seq, files)
@@ -418,7 +526,7 @@ begin
           d.base_seq, items)
   returning * into ch;
 
-  delete from public.general_draft_files where draft_id = d.id;
+  delete from public.general_draft_files where draft_id = d.id and archived_at is null;
   update public.general_drafts set updated_at = now() where id = d.id;
 
   return ch;
@@ -481,7 +589,7 @@ begin
   end if;
 
   select * into f from public.general_draft_files
-   where draft_id = d.id and path = btrim(p_path);
+   where draft_id = d.id and path = btrim(p_path) and archived_at is null;
   if not found then
     raise exception 'That file is not in your draft' using errcode = 'no_data_found';
   end if;
@@ -506,23 +614,130 @@ begin
 end;
 $$;
 
+create or replace function public.submit_general_draft_folder(
+  p_repo     uuid,
+  p_path     text,
+  p_title    text,
+  p_body     text default '',
+  p_reviewer uuid default null
+) returns public.general_repo_changes
+language plpgsql security definer set search_path = public as $$
+declare
+  d     public.general_drafts%rowtype;
+  r     public.general_repos%rowtype;
+  ch    public.general_repo_changes%rowtype;
+  items jsonb;
+  v_path text := btrim(p_path);
+  n int;
+begin
+  select * into d from public.general_drafts
+   where repo_id = p_repo and user_id = auth.uid();
+  if not found then
+    raise exception 'You have nothing in your draft' using errcode = 'no_data_found';
+  end if;
+
+  select * into r from public.general_repos where id = p_repo;
+
+  if not public.general_viewer_active() or not public.is_general_member(r.project_id) then
+    raise exception 'You are not on this project' using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_is_archived(r.project_id) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_reviewer is null then
+    raise exception 'Choose a project member to review your change'
+      using errcode = 'invalid_parameter_value';
+  end if;
+  if p_reviewer = auth.uid() then
+    raise exception 'Choose somebody else to review your change'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not exists (
+    select 1 from public.general_members m
+    join public.profiles pr on pr.id = m.user_id
+     where m.project_id = r.project_id and m.user_id = p_reviewer
+       and pr.status <> 'rejected'
+  ) then
+    raise exception 'The reviewer must be on this project'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if d.base_seq <> r.commit_count then
+    raise exception 'Your draft was started from commit % and the repository is now on commit %. Bring it up to date first.', d.base_seq, r.commit_count
+      using errcode = 'serialization_failure';
+  end if;
+
+  select count(*) into n
+    from public.general_draft_files f
+   where f.draft_id = d.id
+     and f.archived_at is null
+     and f.path like v_path || '/%';
+
+  if n = 0 then
+    raise exception 'That folder has no draft files' using errcode = 'no_data_found';
+  end if;
+  if n > 100 then
+    raise exception 'A change can carry up to 100 files. Submit a smaller folder first.'
+      using errcode = 'check_violation';
+  end if;
+
+  select jsonb_agg(jsonb_build_object(
+           'path', f.path,
+           'action', f.action,
+           'kind', f.kind,
+           'content', f.content,
+           'storage_path', f.storage_path) order by f.path)
+    into items
+    from public.general_draft_files f
+   where f.draft_id = d.id
+     and f.archived_at is null
+     and f.path like v_path || '/%';
+
+  insert into public.general_repo_changes
+    (repo_id, project_id, author_id, reviewer_id, title, body, base_seq, files)
+  values (r.id, r.project_id, auth.uid(), p_reviewer, btrim(p_title), coalesce(p_body, ''),
+          d.base_seq, items)
+  returning * into ch;
+
+  delete from public.general_draft_files
+   where draft_id = d.id
+     and archived_at is null
+     and path like v_path || '/%';
+  update public.general_drafts set updated_at = now() where id = d.id;
+
+  return ch;
+end;
+$$;
+
 revoke all on function public.my_general_draft(uuid) from public, anon;
 revoke all on function public.save_general_draft_file(uuid, text, text, text, text, text) from public, anon;
 revoke all on function public.discard_general_draft_file(uuid, text) from public, anon;
+revoke all on function public.archive_general_draft_path(uuid, text, boolean) from public, anon;
+revoke all on function public.delete_archived_general_draft_path(uuid, text) from public, anon;
+revoke all on function public.list_archived_general_draft_files(uuid) from public, anon;
+revoke all on function public.restore_archived_general_draft_files(uuid) from public, anon;
+revoke all on function public.delete_archived_general_draft_files(uuid) from public, anon;
 revoke all on function public.discard_general_draft(uuid) from public, anon;
 revoke all on function public.general_draft_conflicts(uuid) from public, anon;
 revoke all on function public.sync_general_draft(uuid) from public, anon;
 drop function if exists public.submit_general_draft(uuid, text, text);
 revoke all on function public.submit_general_draft(uuid, text, text, uuid) from public, anon;
 revoke all on function public.submit_general_draft_file(uuid, text, text, text, uuid) from public, anon;
+revoke all on function public.submit_general_draft_folder(uuid, text, text, text, uuid) from public, anon;
 
 grant execute on function public.my_general_draft(uuid) to authenticated;
 grant execute on function public.save_general_draft_file(uuid, text, text, text, text, text) to authenticated;
 grant execute on function public.discard_general_draft_file(uuid, text) to authenticated;
+grant execute on function public.archive_general_draft_path(uuid, text, boolean) to authenticated;
+grant execute on function public.delete_archived_general_draft_path(uuid, text) to authenticated;
+grant execute on function public.list_archived_general_draft_files(uuid) to authenticated;
+grant execute on function public.restore_archived_general_draft_files(uuid) to authenticated;
+grant execute on function public.delete_archived_general_draft_files(uuid) to authenticated;
 grant execute on function public.discard_general_draft(uuid) to authenticated;
 grant execute on function public.general_draft_conflicts(uuid) to authenticated;
 grant execute on function public.sync_general_draft(uuid) to authenticated;
 grant execute on function public.submit_general_draft(uuid, text, text, uuid) to authenticated;
 grant execute on function public.submit_general_draft_file(uuid, text, text, text, uuid) to authenticated;
+grant execute on function public.submit_general_draft_folder(uuid, text, text, text, uuid) to authenticated;
 
 commit;

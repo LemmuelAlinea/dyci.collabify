@@ -201,6 +201,30 @@ begin
   chg := public.submit_general_draft(repo.id, 'After catching up', '', owner_id);
   perform pg_temp.ok('the rest submits once it is up to date', chg.base_seq = 2);
 
+  perform public.save_general_draft_file(repo.id, 'folder/a.md', 'added', 'text', 'A');
+  perform public.save_general_draft_file(repo.id, 'folder/b.md', 'added', 'text', 'B');
+  chg := public.submit_general_draft_folder(repo.id, 'folder', 'Folder ready', '', owner_id);
+  perform pg_temp.ok('a draft folder can be submitted together', jsonb_array_length(chg.files) = 2);
+  select count(*) into n from public.general_draft_files
+   where draft_id = draft.id and path like 'folder/%';
+  perform pg_temp.ok('submitting a folder removes those draft files', n = 0);
+
+  perform public.save_general_draft_file(repo.id, 'scratch/a.md', 'added', 'text', 'A');
+  perform public.save_general_draft_file(repo.id, 'scratch/b.md', 'added', 'text', 'B');
+  perform public.archive_general_draft_path(repo.id, 'scratch', true);
+  select count(*) into n from public.list_archived_general_draft_files(repo.id)
+   where path like 'scratch/%';
+  perform pg_temp.ok('a draft folder archives before permanent deletion', n = 2);
+  perform public.archive_general_draft_path(repo.id, 'scratch', false);
+  select count(*) into n from public.list_archived_general_draft_files(repo.id)
+   where path like 'scratch/%';
+  perform pg_temp.ok('an archived draft folder can be restored', n = 0);
+  perform public.archive_general_draft_path(repo.id, 'scratch', true);
+  perform public.delete_archived_general_draft_path(repo.id, 'scratch');
+  select count(*) into n from public.general_draft_files
+   where draft_id = draft.id and path like 'scratch/%';
+  perform pg_temp.ok('only archived draft files can be permanently deleted', n = 0);
+
   ------------------------------------------------------------------ paths
   perform pg_temp.act_as(member_id);
   begin

@@ -174,6 +174,90 @@ begin
 end;
 $$;
 
+create or replace function public.restore_archived_general_tasks(p_project uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.general_can(p_project, 'manage_tasks') then
+    raise exception 'Only somebody who manages tasks can restore archived tasks.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  update public.general_tasks
+     set archived_at = null, archived_by = null
+   where project_id = p_project and archived_at is not null;
+end;
+$$;
+
+create or replace function public.delete_archived_general_task(p_task uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  t public.general_tasks%rowtype;
+begin
+  select * into t from public.general_tasks where id = p_task and archived_at is not null;
+  if not found then return; end if;
+  if not public.general_can(t.project_id, 'manage_tasks') then
+    raise exception 'Only somebody who manages tasks can delete archived tasks.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  delete from public.general_tasks where id = p_task and archived_at is not null;
+end;
+$$;
+
+create or replace function public.delete_archived_general_tasks(p_project uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.general_can(p_project, 'manage_tasks') then
+    raise exception 'Only somebody who manages tasks can delete archived tasks.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  delete from public.general_tasks where project_id = p_project and archived_at is not null;
+end;
+$$;
+
+create or replace function public.restore_archived_general_task_files(p_project uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.general_can(p_project, 'edit_files') then
+    raise exception 'Only somebody who can edit files can restore archived files.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  update public.general_task_files
+     set archived_at = null, archived_by = null
+   where project_id = p_project and archived_at is not null;
+end;
+$$;
+
+create or replace function public.delete_archived_general_task_file(p_file uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  f public.general_task_files%rowtype;
+begin
+  select * into f from public.general_task_files where id = p_file and archived_at is not null;
+  if not found then return; end if;
+  if not public.general_can(f.project_id, 'edit_files') then
+    raise exception 'Only somebody who can edit files can delete archived files.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  delete from public.general_task_files where id = p_file and archived_at is not null;
+end;
+$$;
+
+create or replace function public.delete_archived_general_task_files(p_project uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.general_can(p_project, 'edit_files') then
+    raise exception 'Only somebody who can edit files can delete archived files.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  delete from public.general_task_files where project_id = p_project and archived_at is not null;
+end;
+$$;
+
 create or replace function public.list_archived_general_task_files(p_project uuid)
 returns table (
   id uuid,
@@ -232,10 +316,22 @@ $$;
 
 revoke all on function public.archive_general_task(uuid, boolean) from public, anon;
 revoke all on function public.archive_general_task_file(uuid, boolean) from public, anon;
+revoke all on function public.restore_archived_general_tasks(uuid) from public, anon;
+revoke all on function public.delete_archived_general_task(uuid) from public, anon;
+revoke all on function public.delete_archived_general_tasks(uuid) from public, anon;
+revoke all on function public.restore_archived_general_task_files(uuid) from public, anon;
+revoke all on function public.delete_archived_general_task_file(uuid) from public, anon;
+revoke all on function public.delete_archived_general_task_files(uuid) from public, anon;
 revoke all on function public.list_archived_general_task_files(uuid) from public, anon;
 revoke all on function public.list_removed_general_repo_paths(uuid) from public, anon;
 grant execute on function public.archive_general_task(uuid, boolean) to authenticated;
 grant execute on function public.archive_general_task_file(uuid, boolean) to authenticated;
+grant execute on function public.restore_archived_general_tasks(uuid) to authenticated;
+grant execute on function public.delete_archived_general_task(uuid) to authenticated;
+grant execute on function public.delete_archived_general_tasks(uuid) to authenticated;
+grant execute on function public.restore_archived_general_task_files(uuid) to authenticated;
+grant execute on function public.delete_archived_general_task_file(uuid) to authenticated;
+grant execute on function public.delete_archived_general_task_files(uuid) to authenticated;
 grant execute on function public.list_archived_general_task_files(uuid) to authenticated;
 grant execute on function public.list_removed_general_repo_paths(uuid) to authenticated;
 
