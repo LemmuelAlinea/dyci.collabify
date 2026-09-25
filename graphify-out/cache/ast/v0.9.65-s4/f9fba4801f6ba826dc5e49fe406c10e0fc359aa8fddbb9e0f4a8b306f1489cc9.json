@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_supabase_realtime_sql", "label": "realtime.sql", "file_type": "code", "source_file": "supabase/realtime.sql", "source_location": null}, {"id": "public_polls", "label": "public.polls", "file_type": "code", "source_file": "", "source_location": "", "origin_file": "$graphify-root$/supabase/realtime.sql"}], "edges": []}
