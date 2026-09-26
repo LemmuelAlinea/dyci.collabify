@@ -611,7 +611,7 @@ begin;
 
 /** rate-limit.sql's join_class, plus the class's size limit. */
 create or replace function public.join_class(p_code text)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
 declare
   target   public.classes%rowtype;
   caller   public.profiles%rowtype;
@@ -630,7 +630,8 @@ begin
     return jsonb_build_object('result', 'too_many');
   end if;
 
-  select * into target from public.classes where upper(code) = upper(trim(p_code));
+  -- Locked, so two students taking the last seat at once queue rather than both fit.
+  select * into target from public.classes where upper(code) = upper(trim(p_code)) for update;
   if not found then
     return jsonb_build_object('result', 'not_found');
   end if;
