@@ -14,6 +14,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
 import { presetById } from '../../lib/general/presets'
 import type { GeneralProjectSummary } from '../../lib/general/types'
+import { paths } from '../../lib/paths'
 
 /**
  * The archived projects in one space that this person may see.
@@ -68,6 +69,9 @@ export default function SpaceArchive() {
 
   if (spaceId && spaces !== null && !space) {
     return <Navigate to="/general/spaces" replace />
+  }
+  if (space?.kind === 'education' && space.class_id) {
+    return <Navigate to={paths.class(space.class_id)} replace />
   }
 
   return (

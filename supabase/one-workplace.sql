@@ -876,3 +876,33 @@ revoke execute on function public.class_join_preview(text) from public, anon;
 grant execute on function public.class_join_preview(text) to authenticated, service_role;
 
 commit;
+
+begin;
+
+-- ---------------------------------------------------------------- the space list knows its class
+
+/** One more column on the end: which class owns an education space, so a link can open it. */
+create or replace view public.general_space_overview
+with (security_invoker = true) as
+select s.id,
+       s.name,
+       s.description,
+       s.created_by,
+       s.archived_at,
+       s.created_at,
+       s.updated_at,
+       m.level as my_level,
+       (select count(*) from public.general_space_members x where x.space_id = s.id)::int
+         as member_count,
+       (select count(*) from public.general_projects p
+         where p.space_id = s.id and p.archived_at is null)::int as project_count,
+       (select count(*) from public.general_projects p
+         where p.space_id = s.id and p.archived_at is not null)::int as archived_count,
+       s.kind,
+       (select c.id from public.classes c where c.space_id = s.id) as class_id
+  from public.general_spaces s
+  left join public.general_space_members m on m.space_id = s.id and m.user_id = auth.uid();
+
+grant select on public.general_space_overview to authenticated;
+
+commit;

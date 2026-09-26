@@ -35,6 +35,7 @@ import type {
   SpaceInvitation,
   SpacePerson,
 } from '../../lib/general/types'
+import { paths } from '../../lib/paths'
 
 /**
  * Who is in a space, and the two doors into it.
@@ -139,6 +140,9 @@ export default function SpaceMembers() {
 
   if (spaceId && spaces !== null && !space) {
     return <Navigate to="/general/spaces" replace />
+  }
+  if (space?.kind === 'education' && space.class_id) {
+    return <Navigate to={paths.class(space.class_id)} replace />
   }
 
   const error = navigationError ?? pageError

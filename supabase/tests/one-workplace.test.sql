@@ -620,4 +620,17 @@ begin
   update public.classes set join_open = true where id = v_class;
 end $$;
 
+-- ------------------------------------------------------------------ the space list knows its class
+
+do $$
+declare
+  v_teacher uuid := (select v from fx where k = 'teacher');
+  v_class   uuid := (select v from fx where k = 'class');
+  v_space   uuid := (select v from fx where k = 'space');
+begin
+  perform pg_temp.act_as(v_teacher);
+  perform pg_temp.must_be('a class space names its class in the space list',
+    (select class_id = v_class from public.general_space_overview where id = v_space));
+end $$;
+
 rollback;

@@ -23,7 +23,7 @@ export function chooseLandingSpace(
   spaces: readonly GeneralSpaceSummary[],
   rememberedId: string | null,
 ): string | null {
-  const live = spaces.filter((space) => !space.archived_at && space.my_level)
+  const live = spaces.filter((space) => space.kind === 'work' && !space.archived_at && space.my_level)
   if (rememberedId && live.some((space) => space.id === rememberedId)) return rememberedId
   return live.length === 1 ? live[0].id : null
 }

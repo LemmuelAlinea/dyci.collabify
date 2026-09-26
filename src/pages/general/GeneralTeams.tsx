@@ -31,6 +31,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { levelLabel } from '../../lib/general/permissions'
 import type { GeneralSpaceTeam, GeneralSpaceTeamMember, SpacePerson } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
+import { paths } from '../../lib/paths'
 import { fullName } from '../../lib/types'
 
 export default function GeneralTeams() {
@@ -118,6 +119,9 @@ export default function GeneralTeams() {
   }
 
   if (routeSpaceId && spaces !== null && !space) return <Navigate to="/general/spaces" replace />
+  if (space?.kind === 'education' && space.class_id) {
+    return <Navigate to={paths.class(space.class_id)} replace />
+  }
 
   const pageError = navigationError ?? error
 

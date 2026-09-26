@@ -40,6 +40,7 @@ import type {
   GeneralStatus,
   MyInvitation,
 } from '../../lib/general/types'
+import { paths } from '../../lib/paths'
 import { plural } from '../../lib/plural'
 
 function greeting() {
@@ -114,6 +115,9 @@ export default function SpaceHome() {
 
   if (spaceId && spaces !== null && !space) {
     return <Navigate to="/general/spaces" replace />
+  }
+  if (space?.kind === 'education' && space.class_id) {
+    return <Navigate to={paths.class(space.class_id)} replace />
   }
 
   const error = navigationError ?? dashError

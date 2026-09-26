@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { chooseLandingSpace, generalTab, projectRouteId, spaceRouteId } from './navigation'
 import type { GeneralSpaceSummary } from './types'
 
-const space = (id: string, archived = false, member = true): GeneralSpaceSummary => ({
+const space = (
+  id: string,
+  archived = false,
+  member = true,
+  kind: GeneralSpaceSummary['kind'] = 'work',
+): GeneralSpaceSummary => ({
   id,
-  kind: 'work',
+  kind,
   name: id,
   description: '',
   created_by: null,
@@ -15,6 +20,7 @@ const space = (id: string, archived = false, member = true): GeneralSpaceSummary
   member_count: 1,
   project_count: 0,
   archived_count: 0,
+  class_id: null,
 })
 
 describe('general navigation', () => {
@@ -41,5 +47,11 @@ describe('general navigation', () => {
     expect(chooseLandingSpace([space('a'), space('b')], 'gone')).toBeNull()
     expect(chooseLandingSpace([space('a'), space('b', true)], null)).toBe('a')
     expect(chooseLandingSpace([space('a', false, false)], 'a')).toBeNull()
+  })
+
+  it('never lands on an education space', () => {
+    expect(chooseLandingSpace([space('a', false, true, 'education')], null)).toBeNull()
+    expect(chooseLandingSpace([space('a', false, true, 'education')], 'a')).toBeNull()
+    expect(chooseLandingSpace([space('a', false, true, 'education'), space('b')], null)).toBe('b')
   })
 })

@@ -16,6 +16,7 @@ import { respondToSpaceInvitation } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
 import { levelLabel } from '../../lib/general/permissions'
 import type { GeneralSpaceSummary, MySpaceInvitation } from '../../lib/general/types'
+import { paths } from '../../lib/paths'
 
 /**
  * Every space you are in.
@@ -52,8 +53,10 @@ export default function SpacePicker() {
   }
 
   const mine = (spaces ?? []).filter((s) => s.my_level)
-  const live = mine.filter((s) => !s.archived_at)
-  const archived = mine.filter((s) => s.archived_at)
+  const classSpaces = mine.filter((s) => s.kind === 'education')
+  const workSpaces = mine.filter((s) => s.kind === 'work')
+  const live = workSpaces.filter((s) => !s.archived_at)
+  const archived = workSpaces.filter((s) => s.archived_at)
   const viewingArchived = location.pathname.endsWith('/archive')
   const shown = viewingArchived ? archived : live
 
@@ -167,6 +170,17 @@ export default function SpacePicker() {
           </section>
         )}
 
+        {spaces !== null && !viewingArchived && classSpaces.length > 0 && (
+          <section className="space-y-3">
+            <h2 className="text-[15px]">Your classes</h2>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {classSpaces.map((s) => (
+                <SpaceCard key={s.id} space={s} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {spaces === null ? (
           <div className="grid place-items-center py-16">
             <Spinner size={26} />
@@ -203,18 +217,27 @@ export default function SpacePicker() {
   )
 }
 function SpaceCard({ space: s }: { space: GeneralSpaceSummary }) {
+  const isClass = s.kind === 'education' && s.class_id
   return (
     <Link
-      to={`/general/spaces/${s.id}`}
-      onClick={() => rememberSpace(s.id)}
+      to={isClass ? paths.class(s.class_id as string) : paths.space(s.id)}
+      onClick={() => {
+        if (!isClass) rememberSpace(s.id)
+      }}
       className="group flex flex-col rounded-card border border-line bg-[var(--surface)] p-4 transition-colors hover:border-line-strong sm:p-5"
     >
       <div className="flex items-start justify-between gap-3">
         <h3 className="min-w-0 leading-snug group-hover:underline">{s.name}</h3>
-        {s.archived_at && (
-          <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
-            Archived
+        {isClass ? (
+          <span className="shrink-0 rounded-md bg-amber-400/18 px-2 py-0.5 text-[12px] text-amber-700 dark:text-amber-300">
+            Class
           </span>
+        ) : (
+          s.archived_at && (
+            <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
+              Archived
+            </span>
+          )
         )}
       </div>
       {s.description && (

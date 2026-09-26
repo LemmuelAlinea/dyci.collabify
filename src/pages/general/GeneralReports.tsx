@@ -33,6 +33,7 @@ import { fromSearchParams, parseConfig, presetConfig, toSearchParams } from '../
 import type { ReportConfig, ReportPresetId } from '../../lib/general/reportConfig'
 import { reportCsvName, slug } from '../../lib/general/reportData'
 import { rangeLabel } from '../../lib/general/reportRange'
+import { paths } from '../../lib/paths'
 import { downloadCsv } from '../../lib/report'
 import { fullName } from '../../lib/types'
 
@@ -196,6 +197,9 @@ export default function GeneralReports() {
   }
 
   if (spaceId && spaces !== null && !space) return <Navigate to="/general/spaces" replace />
+  if (space?.kind === 'education' && space.class_id) {
+    return <Navigate to={paths.class(space.class_id)} replace />
+  }
 
   const builder = profile && (
     <ReportBuilder

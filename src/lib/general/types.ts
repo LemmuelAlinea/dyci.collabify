@@ -58,6 +58,8 @@ export type GeneralSpace = {
   archived_at: string | null
   created_at: string
   updated_at: string
+  /** The class that owns an education space; null for a work space. */
+  class_id: string | null
 }
 
 /** general_space_overview: one row per space the viewer can see. */

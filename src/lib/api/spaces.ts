@@ -26,11 +26,9 @@ import type {
 /* ---------------------------------------------------------------- reading */
 
 export async function listMySpaces() {
-  // Class spaces run through the class pages until phase 3 makes the space the page.
   const { data, error } = await supabase
     .from('general_space_overview')
     .select('*')
-    .eq('kind', 'work')
     .order('name')
   if (error) throw error
   return (data ?? []) as GeneralSpaceSummary[]
