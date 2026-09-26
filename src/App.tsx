@@ -72,8 +72,8 @@ const StudentReports = lazy(() => import('./pages/app/reports/StudentReports'))
 const Syllabi = lazy(() => import('./pages/app/resources/Syllabi'))
 const SyllabusDetail = lazy(() => import('./pages/app/resources/SyllabusDetail'))
 const EnterEducation = lazy(() => import('./pages/auth/EnterEducation'))
-const GeneralLanding = lazy(() => import('./pages/general/GeneralLanding'))
 const GeneralHome = lazy(() => import('./pages/general/GeneralHome'))
+const SpaceHome = lazy(() => import('./pages/general/SpaceHome'))
 const GeneralProjects = lazy(() => import('./pages/general/GeneralProjects'))
 const GeneralTeams = lazy(() => import('./pages/general/GeneralTeams'))
 const SpacePicker = lazy(() => import('./pages/general/SpacePicker'))
@@ -126,11 +126,11 @@ export default function App() {
           <Route element={<AppShell />}>
             {/* /general keeps working everywhere it is already linked: it
                 picks the space you were last in and redirects. */}
-            <Route path="/general" element={<GeneralLanding />} />
+            <Route path="/general" element={<GeneralHome />} />
             <Route path="/general/settings" element={<Settings />} />
             <Route path="/general/spaces" element={<SpacePicker />} />
             <Route path="/general/spaces/archive" element={<SpacePicker />} />
-            <Route path="/general/spaces/:spaceId" element={<GeneralHome />} />
+            <Route path="/general/spaces/:spaceId" element={<SpaceHome />} />
             <Route path="/general/spaces/:spaceId/members" element={<SpaceMembers />} />
             <Route path="/general/spaces/:spaceId/teams" element={<GeneralTeams />} />
             <Route path="/general/spaces/:spaceId/teams/archive" element={<GeneralTeams />} />

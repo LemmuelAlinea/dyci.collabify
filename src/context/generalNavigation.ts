@@ -10,7 +10,10 @@ export type GeneralNavigationValue = {
   invitations: MySpaceInvitation[]
   currentSpaceId: string | null
   currentSpace: GeneralSpaceSummary | null
+  /** What the space in view holds, which may include projects you are not on. */
   projects: GeneralProjectSummary[] | null
+  /** The projects that are yours, across every space. Never space-scoped. */
+  myProjects: GeneralProjectSummary[] | null
   error: string | null
   reload: () => Promise<void>
   reportProjectSpace: (projectId: string, spaceId: string) => void

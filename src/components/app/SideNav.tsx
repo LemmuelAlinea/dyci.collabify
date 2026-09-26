@@ -1,14 +1,13 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import type { FocusEvent, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useUnreadTotal } from '../../hooks/useConversations'
-import { rememberSpace } from '../../hooks/useSpaces'
+import { recentProjects } from '../../lib/general/dashboard'
 import { educationHome, homeFor, workplaceOf } from '../../lib/workplace'
 import { Logo, LogoMark } from '../brand/Logo'
-import { NewSpaceDialog } from '../general/SpaceDialogs'
 import { Icon } from '../ui/Icon'
 import { WorkplaceSwitcher } from './WorkplaceSwitcher'
 import { navForWorkplace } from './nav'
@@ -29,10 +28,7 @@ export function SideNav({
 }) {
   const { profile } = useAuth()
   const location = useLocation()
-  const navigate = useNavigate()
   const navigation = useGeneralNavigation()
-  const [spaceOpen, setSpaceOpen] = useState(false)
-  const [newSpaceOpen, setNewSpaceOpen] = useState(false)
   const [hint, setHint] = useState<Hint | null>(null)
 
   const workplace = profile ? workplaceOf(location.pathname, profile.home_workplace) : 'education'
@@ -63,20 +59,11 @@ export function SideNav({
     }
   }
 
-  function chooseSpace(spaceId: string) {
-    rememberSpace(spaceId)
-    setSpaceOpen(false)
-    navigate(`/general/spaces/${spaceId}`)
-    onNavigate?.()
-  }
-
-  function openCreateSpace() {
-    setSpaceOpen(false)
-    setNewSpaceOpen(true)
-  }
-
   const liveSpaces = (navigation.spaces ?? []).filter(
     (space) => space.my_level && !space.archived_at,
+  )
+  const liveProjects = (navigation.myProjects ?? []).filter(
+    (project) => project.my_level && !project.archived_at,
   )
 
   const home = workplace === 'general' ? '/general' : homeFor(profile)
@@ -138,133 +125,65 @@ export function SideNav({
             <WorkplaceSwitcher tone="surface" />
           )}
 
-          {workplace === 'general' && (
-            <div className="space-y-5">
+          {groups.map((group, index) => (
+            <Fragment key={group.title}>
               <div>
-                <button
-                  type="button"
-                  onClick={() => setSpaceOpen((value) => !value)}
-                  aria-label={navigation.currentSpace?.name ?? 'Choose a space'}
-                  aria-expanded={spaceOpen}
-                  {...hintHandlers(navigation.currentSpace?.name ?? 'Choose a space')}
-                  className={`${ROW} h-10 ${collapsed ? 'justify-center px-0' : 'gap-3 px-3'} surface-sunken text-navy-700 dark:text-navy-200`}
-                >
-                  <Icon name="folder" size={18} className="shrink-0 text-navy-600 dark:text-amber-400" />
-                  {!collapsed && (
-                    <>
-                      <span className="min-w-0 flex-1 truncate text-left font-medium">
-                        {navigation.currentSpace?.name ?? 'Choose a space'}
-                      </span>
-                      <Icon
-                        name="chevronDown"
-                        size={15}
-                        className={`shrink-0 text-faint transition-transform ${spaceOpen ? 'rotate-180' : ''}`}
-                      />
-                    </>
-                  )}
-                </button>
-                {spaceOpen && !collapsed && (
-                  <div className="mt-2 overflow-hidden rounded-xl border border-line bg-[var(--surface)] shadow-sm">
-                    <div className="border-b border-line px-3 py-2">
-                      <p className="text-[11px] font-medium tracking-wide text-faint uppercase">
-                        Spaces
-                      </p>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto py-1">
-                      {liveSpaces.length === 0 ? (
-                        <p className="px-3 py-3 text-[13px] text-muted">No active spaces yet.</p>
-                      ) : (
-                        liveSpaces.map((space) => (
-                          <button
-                            type="button"
-                            key={space.id}
-                            onClick={() => chooseSpace(space.id)}
-                            aria-current={space.id === navigation.currentSpaceId ? 'page' : undefined}
-                            className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors ${
-                              space.id === navigation.currentSpaceId
-                                ? 'bg-[var(--surface)] text-amber-500 dark:text-amber-400'
-                                : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-navy-700 dark:hover:text-navy-200'
-                            }`}
-                          >
-                            <Icon
-                              name="folder"
-                              size={17}
-                              className={`shrink-0 ${
-                                space.id === navigation.currentSpaceId
-                                  ? 'text-amber-500 dark:text-amber-400'
-                                  : 'text-navy-600 dark:text-amber-400'
-                              }`}
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[14px] font-medium">{space.name}</span>
-                              <span
-                                className={`block text-[12px] ${
-                                  space.id === navigation.currentSpaceId
-                                    ? 'text-amber-600/75 dark:text-amber-300/75'
-                                    : 'text-faint'
-                                }`}
-                              >
-                                {space.project_count} {space.project_count === 1 ? 'project' : 'projects'}
-                              </span>
-                            </span>
-                            {space.id === navigation.currentSpaceId && (
-                              <Icon name="check" size={16} className="shrink-0" />
-                            )}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={openCreateSpace}
-                      className="flex w-full items-center gap-2 border-t border-line px-3 py-2.5 text-left text-[13px] font-medium text-navy-600 hover:bg-[var(--surface-sunken)] dark:text-navy-200"
-                    >
-                      <Icon name="plus" size={15} />
-                      Create space
-                    </button>
-                    <Link
-                      to="/general/spaces"
-                      onClick={() => {
-                        setSpaceOpen(false)
-                        onNavigate?.()
-                      }}
-                      className="flex w-full items-center gap-2 border-t border-line px-3 py-2.5 text-[13px] font-medium text-muted hover:bg-[var(--surface-sunken)] hover:text-ink"
-                    >
-                      <Icon name="arrowRight" size={15} />
-                      View all spaces
-                    </Link>
-                  </div>
-                )}
+                {!collapsed && <GroupLabel>{group.title}</GroupLabel>}
+                <ul className="space-y-0.5">
+                  {group.items.map((item) => (
+                    <StaticRow
+                      key={item.label}
+                      item={item}
+                      collapsed={collapsed}
+                      unread={unread}
+                      onNavigate={onNavigate}
+                      hintHandlers={hintHandlers}
+                    />
+                  ))}
+                </ul>
               </div>
 
-            </div>
-          )}
-
-          {groups.map((group) => (
-            <div key={group.title}>
-              {!collapsed && <GroupLabel>{group.title}</GroupLabel>}
-              <ul className="space-y-0.5">
-                {group.items.map((item) => (
-                  <StaticRow
-                    key={item.label}
-                    item={item}
+              {/* The reader's own work, between the fixed rows and Account.
+                  These lists change as the work does, which is the one kind of
+                  movement a rail should have. */}
+              {workplace === 'general' && index === 0 && (
+                <>
+                  <LiveGroup
+                    title="Your projects"
+                    empty="No projects yet."
+                    moreTo="/general/projects"
+                    moreLabel="All projects"
                     collapsed={collapsed}
-                    unread={unread}
+                    loading={navigation.myProjects === null}
                     onNavigate={onNavigate}
                     hintHandlers={hintHandlers}
+                    rows={recentProjects(liveProjects).map((project) => ({
+                      id: project.id,
+                      name: project.name,
+                      to: `/general/projects/${project.id}`,
+                    }))}
                   />
-                ))}
-              </ul>
-            </div>
+                  <LiveGroup
+                    title="Your spaces"
+                    empty="No spaces yet."
+                    moreTo="/general/spaces"
+                    moreLabel="All spaces"
+                    collapsed={collapsed}
+                    loading={navigation.spaces === null}
+                    onNavigate={onNavigate}
+                    hintHandlers={hintHandlers}
+                    rows={liveSpaces.slice(0, 4).map((space) => ({
+                      id: space.id,
+                      name: space.name,
+                      to: `/general/spaces/${space.id}`,
+                    }))}
+                  />
+                </>
+              )}
+            </Fragment>
           ))}
         </div>
       </nav>
-
-      <NewSpaceDialog
-        open={newSpaceOpen}
-        onClose={() => setNewSpaceOpen(false)}
-        onCreated={navigation.reload}
-      />
 
       {collapsed && hint && typeof document !== 'undefined'
         ? createPortal(
@@ -280,6 +199,109 @@ export function SideNav({
           )
         : null}
     </>
+  )
+}
+
+/**
+ * A named list of the reader's own things — projects, spaces — ending in a link
+ * to all of them.
+ *
+ * Collapsed, a row is its first letter rather than an icon: five identical
+ * folder glyphs tell nobody which space is which, and the tooltip carries the
+ * full name either way.
+ */
+function LiveGroup({
+  title,
+  empty,
+  rows,
+  moreTo,
+  moreLabel,
+  collapsed,
+  loading,
+  onNavigate,
+  hintHandlers,
+}: {
+  title: string
+  empty: string
+  rows: { id: string; name: string; to: string }[]
+  moreTo: string
+  moreLabel: string
+  collapsed: boolean
+  loading: boolean
+  onNavigate?: () => void
+  hintHandlers: (text: string) => Record<string, unknown>
+}) {
+  return (
+    <div>
+      {!collapsed && <GroupLabel>{title}</GroupLabel>}
+      <ul className="space-y-0.5">
+        {rows.map((row) => (
+          <li key={row.id}>
+            <NavLink
+              to={row.to}
+              onClick={onNavigate}
+              aria-label={collapsed ? row.name : undefined}
+              {...hintHandlers(row.name)}
+              className={({ isActive }) =>
+                `${ROW} h-9 ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
+                  isActive
+                    ? 'surface-sunken font-semibold text-ink'
+                    : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-amber-400"
+                    />
+                  )}
+                  <span
+                    aria-hidden
+                    className={`grid h-5 w-5 shrink-0 place-items-center rounded font-mono text-[10px] font-bold ${
+                      isActive
+                        ? 'bg-navy-600 text-white dark:bg-amber-400 dark:text-navy-900'
+                        : 'surface-sunken text-muted'
+                    }`}
+                  >
+                    {row.name.trim().charAt(0).toUpperCase()}
+                  </span>
+                  {!collapsed && <span className="flex-1 truncate">{row.name}</span>}
+                </>
+              )}
+            </NavLink>
+          </li>
+        ))}
+
+        {!collapsed && rows.length === 0 && !loading && (
+          <li className="px-3 py-1 text-[13px] text-faint">{empty}</li>
+        )}
+
+        <li>
+          {/* `end`, so the list page lights this row while a project or space
+              below it lights its own. */}
+          <NavLink
+            to={moreTo}
+            end
+            onClick={onNavigate}
+            aria-label={collapsed ? moreLabel : undefined}
+            {...hintHandlers(moreLabel)}
+            className={({ isActive }) =>
+              `${ROW} h-9 ${collapsed ? 'justify-center' : 'gap-3 px-3'} text-[13px] ${
+                isActive
+                  ? 'surface-sunken font-semibold text-ink'
+                  : 'text-faint hover:bg-[var(--surface-sunken)] hover:text-ink'
+              }`
+            }
+          >
+            <Icon name="arrowRight" size={16} className="shrink-0" />
+            {!collapsed && <span className="flex-1 truncate">{moreLabel}</span>}
+          </NavLink>
+        </li>
+      </ul>
+    </div>
   )
 }
 

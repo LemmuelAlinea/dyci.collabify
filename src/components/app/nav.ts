@@ -151,31 +151,24 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
 }
 
 /**
- * General is static, and that is the point.
+ * General's fixed rows. The shell puts the reader's own projects and spaces
+ * between this group and Account — see `SideNav`.
  *
- * Membership in a project and membership in its space are separate: joining a
- * project by code or by invitation never adds anybody to the space, and the
- * space row is then unreadable to them. A rail keyed to "the space in view"
- * therefore emptied itself whenever such a reader opened their own project —
- * and, because the space arrives from a post-fetch effect, it flickered on the
- * first paint of every project page for everybody else. Rows that come and go
- * under somebody are worse than rows that are one click further away.
+ * What is fixed and what is listed is the whole design. Membership in a project
+ * and in its space are separate things: joining a project never joins its space,
+ * and the space row is then unreadable. A rail whose *chrome* was keyed to "the
+ * space in view" emptied itself whenever such a reader opened their own project.
+ * So the chrome never moves, and what does change is a list of the reader's own
+ * work — which is content, and is supposed to change.
  *
- * So one row covers everything space-shaped. `/general/spaces` is the picker,
- * `/general/spaces/<id>` the space's own dashboard, and Teams, Members, Reports
- * and Archive hang off that dashboard's quick actions. None of the three needs
- * `end`: each has two path segments, so each lights across its own subtree and
- * none of them overlaps another.
- *
- * A project holds its own tasks, files, members and positions, so none of those
- * are rows here either.
+ * Home is `end` because `/general` is a real page now, not a redirect, and
+ * everything else in General hangs below it.
  */
 export const GENERAL_NAV: NavGroup[] = [
   {
     title: 'Workplace',
     items: [
-      { label: 'Spaces', icon: 'folder', to: '/general/spaces' },
-      { label: 'Projects', icon: 'kanban', to: '/general/projects' },
+      { label: 'Home', icon: 'board', to: '/general', end: true },
       { label: 'Messages', icon: 'message', to: '/general/messages', badge: 'messages' },
     ],
   },

@@ -23,6 +23,7 @@ export function GeneralNavigationProvider({
   const { spaces, invitations, error: spacesError, reload: reloadSpaces } = useMySpaces(enabled)
   const [reported, setReported] = useState<ProjectSpace | null>(null)
   const [projects, setProjects] = useState<GeneralProjectSummary[] | null>(null)
+  const [myProjects, setMyProjects] = useState<GeneralProjectSummary[] | null>(null)
   const [projectError, setProjectError] = useState<string | null>(null)
 
   const explicitSpaceId = enabled ? spaceRouteId(location.pathname) : null
@@ -71,10 +72,34 @@ export function GeneralNavigationProvider({
     }
   }, [currentSpaceId, enabled])
 
+  /**
+   * Kept apart from `projects`, which is whatever the space in view holds — a
+   * space member reads every project in it, including ones they are not on.
+   * This is the other list: the projects that are the reader's own, wherever
+   * they live. The sidebar and the home page are built from it, so neither
+   * changes when the space does.
+   */
+  const loadMine = useCallback(async () => {
+    if (!enabled) {
+      setMyProjects(null)
+      return
+    }
+    try {
+      setMyProjects(await listMyGeneralProjects())
+    } catch {
+      // The banner belongs to loadProjects; this list just stays as it was.
+      setMyProjects((previous) => previous ?? [])
+    }
+  }, [enabled])
+
   useEffect(() => {
     setProjects(null)
     void loadProjects()
   }, [loadProjects])
+
+  useEffect(() => {
+    void loadMine()
+  }, [loadMine])
 
   // Nothing forgets the remembered space here any more. It used to be wiped
   // whenever a space URL resolved to nothing — which is somebody following a
@@ -90,11 +115,11 @@ export function GeneralNavigationProvider({
     ['general_projects', 'general_members', 'general_tasks'],
     { enabled },
   )
+  useLive(loadMine, ['general_projects', 'general_members'], { enabled })
 
   const reload = useCallback(async () => {
-    await reloadSpaces()
-    await loadProjects()
-  }, [loadProjects, reloadSpaces])
+    await Promise.all([reloadSpaces(), loadProjects(), loadMine()])
+  }, [loadMine, loadProjects, reloadSpaces])
 
   const reportProjectSpace = useCallback((projectId: string, spaceId: string) => {
     setReported({ projectId, spaceId })
@@ -107,6 +132,7 @@ export function GeneralNavigationProvider({
       currentSpaceId,
       currentSpace,
       projects,
+      myProjects,
       error: spacesError ?? projectError,
       reload,
       reportProjectSpace,
@@ -115,6 +141,7 @@ export function GeneralNavigationProvider({
       currentSpace,
       currentSpaceId,
       invitations,
+      myProjects,
       projectError,
       projects,
       reload,

@@ -153,13 +153,16 @@ export function MyTasksPanel({
   projectName,
   now,
   limit = 6,
+  empty = 'No open tasks are assigned to you in this space.',
 }: {
   tasks: GeneralTask[]
   projectName: (id: string) => string
   now: number
   limit?: number
+  /** The space dashboard says "in this space"; the home page speaks for all of them. */
+  empty?: string
 }) {
-  if (tasks.length === 0) return <Quiet>No open tasks are assigned to you in this space.</Quiet>
+  if (tasks.length === 0) return <Quiet>{empty}</Quiet>
   return (
     <ul className="space-y-2">
       {tasks.slice(0, limit).map((t) => {
