@@ -446,6 +446,13 @@ create trigger general_members_student_level
   before insert or update of level on public.general_members
   for each row execute function public.guard_student_level();
 
+-- Space teams too: creating one makes its creator Owner, so this is also what
+-- stops a student opening a team.
+drop trigger if exists general_space_team_members_student_level on public.general_space_team_members;
+create trigger general_space_team_members_student_level
+  before insert or update of level on public.general_space_team_members
+  for each row execute function public.guard_student_level();
+
 -- ---------------------------------------------------------------- inviting students
 
 /** A student comes into a work space only because a faculty member asked them. */

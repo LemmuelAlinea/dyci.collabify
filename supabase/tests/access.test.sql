@@ -379,6 +379,75 @@ begin
   perform pg_temp.must_be('...and is admitted from then on', public.am_i_admitted());
 end $$;
 
+-- ------------------------------------------------------------------ space teams
+
+do $$
+declare
+  v_student uuid := (select v from fx where k = 'student');
+  v_staff   uuid := (select v from fx where k = 'staff');
+  v_space   uuid := (select v from fx where k = 'space');
+  v_team    uuid;
+begin
+  perform pg_temp.act_as(v_student);
+  perform pg_temp.must_refuse('a student in a work space cannot create a space team',
+    format('select public.create_general_space_team(%L, %L)', v_space, 'Zz student team'));
+
+  perform pg_temp.act_as(v_staff);
+  perform pg_temp.must_allow('faculty create a space team',
+    format('select public.create_general_space_team(%L, %L)', v_space, 'Zz staff team'));
+  select id into v_team from public.general_space_teams
+   where space_id = v_space and name = 'Zz staff team';
+  perform public.add_general_space_team_member(v_team, v_student);
+  perform pg_temp.must_be('...and add a student to it, as a member',
+    (select level = 'member' from public.general_space_team_members
+      where team_id = v_team and user_id = v_student));
+  perform pg_temp.must_refuse('a student cannot be made a Manager of a space team',
+    format('select public.set_general_space_team_level(%L, %L, %L)', v_team, v_student, 'manager'));
+  perform pg_temp.must_refuse('...or an Owner',
+    format('select public.set_general_space_team_level(%L, %L, %L)', v_team, v_student, 'owner'));
+end $$;
+
+-- ------------------------------------------------------------------ the invite trigger on its own
+
+/** Refused, and refused with this text: proves which check did the refusing. */
+create or replace function pg_temp.must_refuse_with(p_label text, p_sql text, p_text text)
+returns void language plpgsql as $$
+declare
+  v_err text;
+begin
+  begin
+    execute p_sql;
+  exception
+    when others then
+      v_err := sqlerrm;
+  end;
+  if v_err is null then
+    raise exception 'FAIL  % — it went through and should not have', p_label;
+  elsif position(p_text in v_err) = 0 then
+    raise exception 'FAIL  % — refused, but by something else: %', p_label, v_err;
+  end if;
+  raise notice 'PASS  %  (refused: %)', p_label, left(v_err, 56);
+end;
+$$;
+
+do $$
+declare
+  v_student2 uuid := (select v from fx where k = 'student2');
+  v_student3 uuid := (select v from fx where k = 'student3');
+  v_space    uuid := (select v from fx where k = 'space');
+begin
+  -- A student left as Owner from before the level trigger existed. The service
+  -- role is exempt from that trigger, which is how such a row still exists.
+  perform pg_temp.act_as_service();
+  insert into public.general_space_members (space_id, user_id, level)
+  values (v_space, v_student3, 'owner');
+
+  perform pg_temp.act_as(v_student3);
+  perform pg_temp.must_refuse_with('a grandfathered student Owner still cannot invite a student',
+    format('select public.invite_to_general_space(%L, %L)', v_space, v_student2),
+    'Only faculty can invite a student');
+end $$;
+
 -- ------------------------------------------------------------------ anonymous callers
 
 do $$
