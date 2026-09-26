@@ -240,4 +240,86 @@ begin
                and column_name = 'kind'));
 end $$;
 
+-- ------------------------------------------------------------------ the roster writes the space
+
+do $$
+declare
+  v_teacher uuid := (select v from fx where k = 'teacher');
+  v_s1      uuid := (select v from fx where k = 's1');
+  v_class   uuid := (select v from fx where k = 'class');
+  v_space   uuid := (select v from fx where k = 'space');
+  v_result  text;
+begin
+  perform pg_temp.act_as(v_s1);
+  select public.join_class('ZZOW-0001') ->> 'result' into v_result;
+  perform pg_temp.must_be('a student joins the class with its code', v_result = 'joined');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and is a member of its space',
+    (select level = 'member' from public.general_space_members
+      where space_id = v_space and user_id = v_s1));
+
+  perform pg_temp.act_as(v_teacher);
+  update public.class_members set status = 'removed', removed_at = now(), removed_by = v_teacher
+   where class_id = v_class and student_id = v_s1;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('removing a student from the roster takes them out of the space',
+    not exists (select 1 from public.general_space_members
+                 where space_id = v_space and user_id = v_s1));
+
+  perform pg_temp.act_as(v_teacher);
+  update public.class_members set status = 'active', removed_at = null, removed_by = null
+   where class_id = v_class and student_id = v_s1;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('putting them back puts them back in the space',
+    exists (select 1 from public.general_space_members
+             where space_id = v_space and user_id = v_s1));
+end $$;
+
+-- ------------------------------------------------------------------ nothing else writes a class's space
+
+do $$
+declare
+  v_teacher uuid := (select v from fx where k = 'teacher');
+  v_cot     uuid := (select v from fx where k = 'cot');
+  v_s1      uuid := (select v from fx where k = 's1');
+  v_s2      uuid := (select v from fx where k = 's2');
+  v_space   uuid := (select v from fx where k = 'space');
+  v_inv     uuid;
+begin
+  perform pg_temp.act_as(v_teacher);
+  perform pg_temp.must_refuse('a student cannot be invited into a class space', format(
+    'select public.invite_to_general_space(%L, %L)', v_space, v_s2));
+  perform pg_temp.must_refuse('a student cannot be removed from a class space directly', format(
+    'select public.remove_general_space_member(%L, %L)', v_space, v_s1));
+  perform pg_temp.must_refuse('a class space has no General join code', format(
+    'select public.set_general_space_join_code(%L, true, true)', v_space));
+  perform pg_temp.must_refuse('a class space is not archived from General', format(
+    'select public.archive_general_space(%L, true)', v_space));
+  perform pg_temp.must_refuse('a class space is not deleted from General', format(
+    'select public.delete_general_space(%L)', v_space));
+  perform pg_temp.act_as_owner_for(v_teacher);
+  perform pg_temp.must_refuse('a class space is not renamed from General', format(
+    'update public.general_spaces set name = %L where id = %L', 'Zz renamed', v_space));
+  perform pg_temp.must_refuse('a class space holds no General projects', format(
+    $q$select public.create_general_project('Zz project', '', null, null, null, null, %L)$q$, v_space));
+  perform pg_temp.must_refuse('the professor cannot be demoted in the class space', format(
+    'select public.set_general_space_level(%L, %L, %L)', v_space, v_teacher, 'manager'));
+  perform pg_temp.must_refuse('a space cannot change kind', format(
+    $q$update public.general_spaces set kind = 'work' where id = %L$q$, v_space));
+  perform pg_temp.must_refuse('an education space cannot be made from General',
+    $q$insert into public.general_spaces (name, kind) values ('Zz fake class', 'education')$q$);
+
+  perform pg_temp.act_as(v_teacher);
+  perform pg_temp.must_allow('faculty can be invited into a class space', format(
+    'select public.invite_to_general_space(%L, %L)', v_space, v_cot));
+  perform pg_temp.act_as(v_cot);
+  select id into v_inv from public.general_space_invitations
+   where space_id = v_space and invitee = v_cot and status = 'pending';
+  perform public.respond_general_space_invitation(v_inv, true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and joins it as a member',
+    (select level = 'member' from public.general_space_members
+      where space_id = v_space and user_id = v_cot));
+end $$;
+
 rollback;

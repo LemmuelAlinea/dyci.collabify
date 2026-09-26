@@ -248,3 +248,172 @@ select s.id,
 grant select on public.general_space_overview to authenticated;
 
 commit;
+
+begin;
+
+-- ---------------------------------------------------------------- the roster writes the space
+
+/**
+ * class_members stays the roster: join_class, the professor's removals and the
+ * restore paths all write it, and its history (removed_at, removed_by) is what
+ * recover-work.sql and removed-visible.sql read. This mirrors it into the
+ * class's space, so there is one list of who is in, whichever way somebody
+ * came in or left.
+ */
+create or replace function public.class_member_space_sync()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  sid  uuid;
+  prev text;
+begin
+  prev := public.class_sync_on();
+
+  if tg_op in ('UPDATE', 'DELETE') then
+    select space_id into sid from public.classes where id = old.class_id;
+    if sid is not null and (tg_op = 'DELETE' or new.status <> 'active') then
+      delete from public.general_space_members where space_id = sid and user_id = old.student_id;
+    end if;
+  end if;
+
+  if tg_op in ('INSERT', 'UPDATE') and new.status = 'active' then
+    select space_id into sid from public.classes where id = new.class_id;
+    if sid is not null then
+      insert into public.general_space_members (space_id, user_id, level)
+      values (sid, new.student_id, 'member')
+      on conflict (space_id, user_id) do nothing;
+    end if;
+  end if;
+
+  perform public.class_sync_restore(prev);
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists class_members_sync_space on public.class_members;
+create trigger class_members_sync_space
+  after insert or update of status or delete on public.class_members
+  for each row execute function public.class_member_space_sync();
+
+-- ---------------------------------------------------------------- guards
+
+create or replace function public.is_education_space(p_space uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.general_spaces where id = p_space and kind = 'education');
+$$;
+
+/** A space keeps its kind, and a class's space is renamed, archived and deleted by its class. */
+create or replace function public.guard_space_kind()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or public.class_syncing() then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+
+  if tg_op = 'INSERT' then
+    if new.kind = 'education' then
+      raise exception 'Open a class to make an education space.' using errcode = 'check_violation';
+    end if;
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' and new.kind is distinct from old.kind then
+    raise exception 'A space keeps the kind it was made with.' using errcode = 'check_violation';
+  end if;
+
+  if old.kind = 'education' then
+    if tg_op = 'DELETE' then
+      raise exception 'Delete the class instead. Its space goes with it.'
+        using errcode = 'check_violation';
+    end if;
+    if new.name is distinct from old.name or new.archived_at is distinct from old.archived_at then
+      raise exception 'Rename or archive the class instead. Its space follows.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  return case when tg_op = 'DELETE' then old else new end;
+end;
+$$;
+
+drop trigger if exists general_spaces_kind on public.general_spaces;
+create trigger general_spaces_kind before insert or update or delete on public.general_spaces
+  for each row execute function public.guard_space_kind();
+
+/**
+ * Who sits in a class's space. Students arrive and leave through the roster.
+ * The class's professor stays its Owner until the admin hands the class over.
+ * Faculty (co-teachers) come and go the General way.
+ */
+create or replace function public.guard_class_space_member()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  sid  uuid := case when tg_op = 'DELETE' then old.space_id else new.space_id end;
+  prof uuid;
+begin
+  if auth.uid() is null or public.class_syncing() or not public.is_education_space(sid) then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+
+  select professor_id into prof from public.classes where space_id = sid;
+
+  if tg_op = 'INSERT' and public.is_student(new.user_id) then
+    raise exception 'Students join a class with its class code.' using errcode = 'check_violation';
+  end if;
+  if tg_op = 'DELETE' and public.is_student(old.user_id) then
+    raise exception 'Remove a student from the class roster instead.'
+      using errcode = 'check_violation';
+  end if;
+  if (tg_op = 'DELETE' and old.user_id = prof)
+     or (tg_op = 'UPDATE' and old.user_id = prof and new.level <> 'owner') then
+    raise exception 'The class''s professor stays its Owner. The program admin can hand the class over.'
+      using errcode = 'check_violation';
+  end if;
+
+  return case when tg_op = 'DELETE' then old else new end;
+end;
+$$;
+
+drop trigger if exists general_space_members_class on public.general_space_members;
+create trigger general_space_members_class
+  before insert or update of level or delete on public.general_space_members
+  for each row execute function public.guard_class_space_member();
+
+/** The side doors: invitations for students, General join codes, General projects. */
+create or replace function public.guard_class_space_side()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or public.class_syncing()
+     or new.space_id is null or not public.is_education_space(new.space_id) then
+    return new;
+  end if;
+
+  if tg_table_name = 'general_space_invitations' then
+    if public.is_student(new.invitee) then
+      raise exception 'Students join a class with its class code.'
+        using errcode = 'check_violation';
+    end if;
+  elsif tg_table_name = 'general_space_join_codes' then
+    raise exception 'A class uses its class code. Share that instead.'
+      using errcode = 'check_violation';
+  elsif tg_table_name = 'general_projects' then
+    raise exception 'Make class projects from the class itself.'
+      using errcode = 'check_violation';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists general_space_invitations_class on public.general_space_invitations;
+create trigger general_space_invitations_class before insert on public.general_space_invitations
+  for each row execute function public.guard_class_space_side();
+
+drop trigger if exists general_space_join_codes_class on public.general_space_join_codes;
+create trigger general_space_join_codes_class before insert or update on public.general_space_join_codes
+  for each row execute function public.guard_class_space_side();
+
+drop trigger if exists general_projects_class on public.general_projects;
+create trigger general_projects_class before insert or update of space_id on public.general_projects
+  for each row execute function public.guard_class_space_side();
+
+commit;
