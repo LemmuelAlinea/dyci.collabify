@@ -9,6 +9,7 @@ export default function Pending() {
   const { ready, session, profile, signOut, refreshProfile } = useAuth()
 
   if (ready && !session) return <Navigate to="/login" replace />
+  if (ready && !profile) return <Navigate to="/onboarding" replace />
   if (ready && profile && profile.status === 'active' && profile.role)
     return <Navigate to={homeFor(profile)} replace />
 

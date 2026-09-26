@@ -26,6 +26,7 @@ import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
 import { forgetSpace } from '../../hooks/useSpaces'
+import { isFaculty } from '../../lib/access'
 import { respondToInvitation } from '../../lib/api/general'
 import { archiveSpace, deleteSpace } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
@@ -118,6 +119,8 @@ export default function SpaceHome() {
   const error = navigationError ?? dashError
   const isOwner = space?.my_level === 'owner'
   const archived = Boolean(space?.archived_at)
+  // Students are invited onto projects; only faculty open or join one here.
+  const canStart = !archived && isFaculty(profile)
 
   const now = data?.at ?? 0
   const names = new Map(all.map((p) => [p.id, p.name]))
@@ -173,7 +176,7 @@ export default function SpaceHome() {
         <div className="mt-6">
           <QuickActions
             actions={[
-              ...(!archived
+              ...(canStart
                 ? [
                     {
                       icon: 'plus' as const,
@@ -263,9 +266,13 @@ export default function SpaceHome() {
           <EmptyState
             icon="kanban"
             title="No projects yet"
-            body="Create one for anything this space is running, or join one with a code somebody shared with you."
+            body={
+              isFaculty(profile)
+                ? 'Create one for anything this space is running, or join one with a code somebody shared with you.'
+                : 'A faculty member can add you to a project in this space.'
+            }
             action={
-              !archived ? (
+              canStart ? (
                 <Button onClick={() => setNewOpen(true)} className="!rounded-xl">
                   New project
                 </Button>

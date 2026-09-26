@@ -132,7 +132,7 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
         { label: 'Accounts', icon: 'users', to: '/admin/accounts' },
         { label: 'Audit log', icon: 'clock', to: '/admin/audit' },
         // Admins are the fallback handler while nobody is named, so this row
-        // is never dead for them the way it would be for most professors.
+        // is never dead for them the way it would be for most faculty.
         { label: 'Privacy requests', icon: 'shield', to: '/admin/privacy' },
       ],
     },

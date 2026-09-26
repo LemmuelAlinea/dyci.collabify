@@ -15,6 +15,7 @@ import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useLive } from '../../hooks/useLive'
+import { isFaculty } from '../../lib/access'
 import {
   addSpaceTeamMember,
   archiveSpaceTeam,
@@ -154,7 +155,7 @@ export default function GeneralTeams() {
               {archivePage ? 'Active teams' : 'Archived teams'}
             </Link>
           )}
-          {!archivePage && !archived && spaceId && (
+          {!archivePage && !archived && spaceId && isFaculty(profile) && (
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Icon name="plus" size={15} />
               Create team
@@ -177,7 +178,11 @@ export default function GeneralTeams() {
         <EmptyState
           icon="users"
           title="No teams yet"
-          body="Create a team here, then reuse it when creating projects in this Space."
+          body={
+            isFaculty(profile)
+              ? 'Create a team here, then reuse it when creating projects in this Space.'
+              : 'Teams a faculty member makes in this Space show up here.'
+          }
         />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">

@@ -16,7 +16,8 @@
 -- join_general_project (general.sql), join_general_space (general-spaces.sql),
 -- the professor_accounts view (admin-rename.sql), the classes_insert policy
 -- (classes.sql) and set_account_role and set_account_active (accounts.sql).
--- Re-run this file after re-running any of those.
+-- It also drops decide_professor, which approvals.sql recreates. Re-run this
+-- file after re-running any of those, approvals.sql included.
 --
 -- Idempotent. Safe to re-run.
 

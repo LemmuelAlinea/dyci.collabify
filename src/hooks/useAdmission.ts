@@ -16,7 +16,8 @@ export function useAdmission(userId: string | undefined) {
     if (!userId) return
     try {
       setAdmitted(await amIAdmitted())
-    } catch {
+    } catch (err) {
+      console.warn('[collabify] admission check failed', err)
       setAdmitted(true)
     }
   }, [userId])

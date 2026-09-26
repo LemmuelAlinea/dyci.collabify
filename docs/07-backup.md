@@ -38,6 +38,7 @@ name the projects page reads.
 
 `access.sql` runs last and redefines, as supersets, functions from
 `workplaces.sql`, `consent.sql`, `audit.sql`, `admin-rename.sql`,
+`approvals.sql` (which recreates `decide_professor`), `accounts.sql`,
 `general.sql`, `general-spaces.sql` and the `classes_insert` policy from
 `classes.sql`. Re-run it after re-running any of those on its own, or the
 admission gates go back to their older, open form.
