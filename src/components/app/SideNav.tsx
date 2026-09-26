@@ -42,20 +42,7 @@ export function SideNav({
 
   if (!profile) return null
 
-  // A space row points at the space in view. Without one it falls back to its
-  // space-less path, and drops out when it has none — an empty group goes with
-  // it rather than leaving a heading over nothing.
-  const spaceId = navigation.currentSpace?.id
   const groups = navForWorkplace(workplace, profile.status === 'active' ? profile.role : null)
-    .map((group) => ({
-      ...group,
-      items: group.items.flatMap((item) => {
-        if (item.space === undefined) return [item]
-        if (!spaceId) return item.to ? [item] : []
-        return [{ ...item, to: `/general/spaces/${spaceId}${item.space && `/${item.space}`}` }]
-      }),
-    }))
-    .filter((group) => group.items.length > 0)
 
   function revealHint(
     text: string,

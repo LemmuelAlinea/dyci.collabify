@@ -72,7 +72,10 @@ export function useMySpaces(enabled = true): SpacesState {
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load your spaces.'))
-      setSpaces((prev) => prev ?? [])
+      // Deliberately left null on a first failure rather than emptied. An empty
+      // list means "you are in no spaces", which routes somebody to a page
+      // telling them to create one — the wrong answer to a network error.
+      setSpaces((prev) => prev)
     }
   }, [])
 

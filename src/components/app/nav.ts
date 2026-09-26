@@ -12,13 +12,6 @@ export type NavItem = {
   badge?: 'messages'
   /** Match this path exactly, so a parent page is not lit on its children. */
   end?: boolean
-  /**
-   * A General row that belongs to whichever space is in view: the path under
-   * `/general/spaces/<id>/`, or `''` for the space itself. The shell fills the
-   * id in. Without a space in view the row falls back to `to`, and a row with
-   * no `to` is left out entirely — there is nothing for it to point at.
-   */
-  space?: string
 }
 
 export type NavGroup = { title: string; items: NavItem[] }
@@ -158,37 +151,30 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
 }
 
 /**
- * General splits by reach, because that is the only line a reader can draw
- * without opening the pages. Five rows answer questions about the space named
- * in the picker directly above them; two answer questions about everything the
- * account touches. Mixing the two under one heading, which is what this rail
- * used to do, made "Projects" look like it belonged to the space in view when
- * it lists projects from every space.
+ * General is static, and that is the point.
+ *
+ * Membership in a project and membership in its space are separate: joining a
+ * project by code or by invitation never adds anybody to the space, and the
+ * space row is then unreadable to them. A rail keyed to "the space in view"
+ * therefore emptied itself whenever such a reader opened their own project —
+ * and, because the space arrives from a post-fetch effect, it flickered on the
+ * first paint of every project page for everybody else. Rows that come and go
+ * under somebody are worse than rows that are one click further away.
+ *
+ * So one row covers everything space-shaped. `/general/spaces` is the picker,
+ * `/general/spaces/<id>` the space's own dashboard, and Teams, Members, Reports
+ * and Archive hang off that dashboard's quick actions. None of the three needs
+ * `end`: each has two path segments, so each lights across its own subtree and
+ * none of them overlaps another.
  *
  * A project holds its own tasks, files, members and positions, so none of those
- * are rows here.
+ * are rows here either.
  */
 export const GENERAL_NAV: NavGroup[] = [
   {
-    title: 'This space',
+    title: 'Workplace',
     items: [
-      // Widest to narrowest: the space itself, then how its people are split,
-      // then who they are. Reports and Archive read the space back rather than
-      // run it, so they come last.
-      // Dashboard is the only one that keeps a space-less path, because it is
-      // the way back: bare /general lands on the last space that was open.
-      { label: 'Dashboard', icon: 'board', space: '', to: '/general', end: true },
-      { label: 'Teams', icon: 'users', space: 'teams' },
-      { label: 'Members', icon: 'user', space: 'members' },
-      { label: 'Reports', icon: 'chart', space: 'reports' },
-      { label: 'Archive', icon: 'archive', space: 'archive' },
-    ],
-  },
-  {
-    // Both of these cross space boundaries: the projects page lists every
-    // project the account joined, and a conversation is not owned by a space.
-    title: 'All spaces',
-    items: [
+      { label: 'Spaces', icon: 'folder', to: '/general/spaces' },
       { label: 'Projects', icon: 'kanban', to: '/general/projects' },
       { label: 'Messages', icon: 'message', to: '/general/messages', badge: 'messages' },
     ],

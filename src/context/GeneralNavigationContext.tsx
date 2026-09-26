@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useLive } from '../hooks/useLive'
-import { forgetSpace, landingSpace, rememberSpace, useMySpaces } from '../hooks/useSpaces'
+import { landingSpace, rememberSpace, useMySpaces } from '../hooks/useSpaces'
 import { listMyGeneralProjects, listSpaceProjects } from '../lib/api/general'
 import { authErrorMessage } from '../lib/authError'
 import { projectRouteId, spaceRouteId } from '../lib/general/navigation'
@@ -27,13 +27,25 @@ export function GeneralNavigationProvider({
 
   const explicitSpaceId = enabled ? spaceRouteId(location.pathname) : null
   const routeProjectId = enabled ? projectRouteId(location.pathname) : null
-  const fallbackId = enabled && spaces && !explicitSpaceId && !routeProjectId
-    ? landingSpace(spaces)
-    : null
-  const candidateId = explicitSpaceId
-    ?? (routeProjectId && reported?.projectId === routeProjectId ? reported.spaceId : null)
-    ?? fallbackId
-  const currentSpace = spaces?.find((space) => space.id === candidateId && space.my_level) ?? null
+  const reportedId =
+    routeProjectId && reported?.projectId === routeProjectId ? reported.spaceId : null
+  const mine = (id: string | null) =>
+    (id && spaces?.find((space) => space.id === id && space.my_level)) || null
+
+  /**
+   * A space URL names the space, full stop: when it resolves to nothing the
+   * answer is nothing, and the page bounces to the picker.
+   *
+   * Anywhere else the reader keeps their own space. That matters most on a
+   * project route, where the project's space may be one they were never in —
+   * joining a project does not join its space — and letting that null out the
+   * answer made the whole rail change under somebody who had only opened a
+   * project of their own.
+   */
+  const fallbackId = enabled && spaces && !explicitSpaceId ? landingSpace(spaces) : null
+  const currentSpace = explicitSpaceId
+    ? mine(explicitSpaceId)
+    : mine(reportedId) ?? mine(fallbackId)
   const currentSpaceId = currentSpace?.id ?? null
 
   useEffect(() => {
@@ -64,11 +76,11 @@ export function GeneralNavigationProvider({
     void loadProjects()
   }, [loadProjects])
 
-  useEffect(() => {
-    if (!enabled || spaces === null || !candidateId) return
-    if (currentSpace) return
-    if (!routeProjectId) forgetSpace()
-  }, [candidateId, currentSpace, enabled, routeProjectId, spaces])
+  // Nothing forgets the remembered space here any more. It used to be wiped
+  // whenever a space URL resolved to nothing — which is somebody following a
+  // link into a space they are not in, and cost them the space they did have.
+  // A remembered id that has gone stale is already ignored by
+  // chooseLandingSpace, so there is nothing to clean up.
 
   useLive(reloadSpaces, ['general_spaces', 'general_space_members', 'general_space_invitations'], {
     enabled,

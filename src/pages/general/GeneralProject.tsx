@@ -82,7 +82,7 @@ export default function GeneralProject() {
         title="Project not found"
         body="It was deleted or archived, or you are not on it. Ask whoever runs it for an invitation or its join code."
         action={
-          <Link to="/general" className="text-[14px] font-medium text-navy-600 hover:underline dark:text-navy-200">
+          <Link to="/general/projects" className="text-[14px] font-medium text-navy-600 hover:underline dark:text-navy-200">
             Back to your projects
           </Link>
         }
@@ -106,7 +106,9 @@ export default function GeneralProject() {
   return (
     <div className="w-full space-y-6">
       <Link
-        to={currentSpace?.id === p.space_id ? `/general/spaces/${p.space_id}` : '/general'}
+        // Straight to the projects list when the space is not the reader's to
+        // read, which is the case for anybody who joined this project by code.
+        to={currentSpace?.id === p.space_id ? `/general/spaces/${p.space_id}` : '/general/projects'}
         className="inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink"
       >
         <Icon name="arrowLeft" size={14} />
@@ -127,13 +129,17 @@ export default function GeneralProject() {
             <Icon name="archive" size={15} />
             Project archive
           </Link>
-          <Link
-            to={`/general/spaces/${p.space_id}/reports?s=project&p=${p.id}`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-[13px] text-amber-50/80 hover:bg-white/10 hover:text-amber-50"
-          >
-            <Icon name="chart" size={15} />
-            Report
-          </Link>
+          {/* A report is built from the space, so it is offered only to somebody
+              who can read that space. Joining this project by code does not. */}
+          {currentSpace?.id === p.space_id && (
+            <Link
+              to={`/general/spaces/${p.space_id}/reports?s=project&p=${p.id}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-[13px] text-amber-50/80 hover:bg-white/10 hover:text-amber-50"
+            >
+              <Icon name="chart" size={15} />
+              Report
+            </Link>
+          )}
           {state.isOwner && !state.archived && (
             <Button variant="onNavy" size="sm" onClick={() => setArchiving(true)}>
               <Icon name="archive" size={15} />

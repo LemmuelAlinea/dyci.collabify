@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { ThemeSync } from './components/ThemeSync'
 import { AppShell } from './components/app/AppShell'
 import { ErrorBoundary } from './components/app/ErrorBoundary'
@@ -137,8 +137,14 @@ export default function App() {
             <Route path="/general/spaces/:spaceId/archive" element={<SpaceArchive />} />
             <Route path="/general/spaces/:spaceId/reports" element={<GeneralReports />} />
             <Route path="/general/projects" element={<GeneralProjects />} />
-            <Route path="/general/teams" element={<GeneralTeams />} />
-            <Route path="/general/teams/archive" element={<GeneralTeams />} />
+            {/* Teams belong to a space and are reached through it. These two
+                guessed the space from wherever the reader happened to be, and
+                with no space to guess from they only ever spun. */}
+            <Route path="/general/teams" element={<Navigate to="/general/spaces" replace />} />
+            <Route
+              path="/general/teams/archive"
+              element={<Navigate to="/general/spaces" replace />}
+            />
             {/* Flat, not nested under the space: a project id is unique on its
                 own, and nesting would break every link and deep link already
                 out there. The space is derived from the project. */}

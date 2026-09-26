@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
+import { JoinProjectDialog } from '../../components/general/JoinProjectDialog'
 import { Alert } from '../../components/ui/Alert'
+import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { FilterField, FilterPopover, FilterSearch } from '../../components/ui/FilterPopover'
 import { Icon, Spinner } from '../../components/ui/Icon'
@@ -27,6 +29,7 @@ export default function GeneralProjects() {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<GeneralStatus | ''>('')
   const [space, setSpace] = useState('')
+  const [joinOpen, setJoinOpen] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -90,7 +93,17 @@ export default function GeneralProjects() {
         description="Every General workplace project you joined, across all spaces, in one place."
         stats={[]}
         statsVariant="compact-row"
+        action={
+          <Button variant="onNavy" size="sm" onClick={() => setJoinOpen(true)}>
+            <Icon name="lock" size={15} />
+            Join with code
+          </Button>
+        }
       />
+
+      {/* Also on the space dashboard, but a project code does not need a space
+          and somebody who has none can only reach this page. */}
+      <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} onJoined={load} />
 
       {error && <Alert tone="error">{error}</Alert>}
 

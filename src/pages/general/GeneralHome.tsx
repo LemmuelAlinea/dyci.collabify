@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Reveal } from '../../components/motion/Reveal'
 import { Bento, BentoCell } from '../../components/dashboard/Bento'
@@ -17,18 +16,17 @@ import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Field, Input } from '../../components/ui/Field'
 import { FilterField, FilterPopover, FilterSearch } from '../../components/ui/FilterPopover'
 import { Icon, Spinner } from '../../components/ui/Icon'
-import { Modal } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
 import { useToast } from '../../components/ui/Toast'
+import { JoinProjectDialog } from '../../components/general/JoinProjectDialog'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
 import { forgetSpace } from '../../hooks/useSpaces'
-import { joinGeneralProject, respondToInvitation } from '../../lib/api/general'
+import { respondToInvitation } from '../../lib/api/general'
 import { archiveSpace, deleteSpace } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
 import { comingUp, dueCounts, myTasks, recentProjects } from '../../lib/general/dashboard'
@@ -205,6 +203,12 @@ export default function GeneralHome() {
                 to: `${base}/teams`,
               },
               {
+                icon: 'chart',
+                label: 'Reports',
+                hint: 'Who did what, over any dates',
+                to: `${base}/reports`,
+              },
+              {
                 icon: 'message',
                 label: 'Messages',
                 hint: unread > 0 ? `${unread} unread` : 'Chats and project threads',
@@ -359,7 +363,7 @@ export default function GeneralHome() {
       </div>
 
       <NewProjectDialog open={newOpen} onClose={() => setNewOpen(false)} spaceId={spaceId} />
-      <JoinDialog open={joinOpen} onClose={() => setJoinOpen(false)} />
+      <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} />
       <ConfirmDialog
         open={archiveOpen}
         onClose={() => setArchiveOpen(false)}
@@ -451,64 +455,3 @@ function ProjectCard({ project: p }: { project: GeneralProjectSummary }) {
   )
 }
 
-function JoinDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const navigate = useNavigate()
-  const [code, setCode] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setBusy(true)
-    try {
-      const projectId = await joinGeneralProject(code)
-      onClose()
-      setCode('')
-      navigate(`/general/projects/${projectId}`)
-    } catch (err) {
-      setError(authErrorMessage(err, 'Could not join with that code.'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Join with a code"
-      description="Whoever runs the project can give you its eight-character code."
-      size="sm"
-      focusField
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button type="submit" form="join-general-project" loading={busy} disabled={code.trim().length < 8}>
-            Join
-          </Button>
-        </>
-      }
-    >
-      <form id="join-general-project" onSubmit={onSubmit} className="space-y-4">
-        {error && <Alert tone="error">{error}</Alert>}
-        <Field label="Code">
-          {(id) => (
-            <Input
-              id={id}
-              required
-              autoComplete="off"
-              maxLength={8}
-              placeholder="ABCD2345"
-              className="font-mono uppercase tracking-[0.2em]"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-            />
-          )}
-        </Field>
-      </form>
-    </Modal>
-  )
-}
