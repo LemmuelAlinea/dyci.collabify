@@ -71,7 +71,6 @@ const StudentProjects = lazy(() => import('./pages/app/projects/StudentProjects'
 const StudentReports = lazy(() => import('./pages/app/reports/StudentReports'))
 const Syllabi = lazy(() => import('./pages/app/resources/Syllabi'))
 const SyllabusDetail = lazy(() => import('./pages/app/resources/SyllabusDetail'))
-const EnterEducation = lazy(() => import('./pages/auth/EnterEducation'))
 const GeneralHome = lazy(() => import('./pages/general/GeneralHome'))
 const SpaceHome = lazy(() => import('./pages/general/SpaceHome'))
 const GeneralProjects = lazy(() => import('./pages/general/GeneralProjects'))
@@ -104,7 +103,6 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/pending" element={<Pending />} />
-          <Route path="/education/enter" element={<EnterEducation />} />
 
           {/* Public on purpose. Somebody deciding whether to register has to be
               able to read what they would be agreeing to before they have an

@@ -20,11 +20,11 @@ function Booting() {
 /**
  * `workplace` says which door this is.
  *
- * - Education needs a role and an active account, as every page did before.
- * - General needs only an account that is not deactivated, so a professor
- *   waiting on approval can still work there.
- * - No workplace (Settings, Your data) is the same as General: every account
- *   is owed its own settings and its own data.
+ * - Both workplaces need an admitted account: active, with a role. Faculty
+ *   waiting on the admin used to be let into General; nothing opens before
+ *   approval now.
+ * - No workplace (Settings, Your data) stays open to every signed-in account
+ *   that is not deactivated: those are owed to everybody, admitted or not.
  */
 export function ProtectedRoute({ allow, workplace }: { allow?: Role[]; workplace?: Workplace }) {
   const { ready, session, profile } = useAuth()
@@ -34,10 +34,10 @@ export function ProtectedRoute({ allow, workplace }: { allow?: Role[]; workplace
   if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />
   if (!profile) return <Navigate to="/onboarding" replace />
   if (profile.status === 'rejected') return <Navigate to="/pending" replace />
-  if (workplace !== 'education') return <Outlet />
+  if (!workplace) return <Outlet />
 
-  if (!profile.role) return <Navigate to="/education/enter" replace />
-  if (profile.status !== 'active') return <Navigate to="/pending" replace />
+  if (profile.status !== 'active' || !profile.role) return <Navigate to="/pending" replace />
+  if (workplace === 'general') return <Outlet />
   if (allow && !allow.includes(profile.role)) return <Navigate to={homeFor(profile)} replace />
 
   return <Outlet />

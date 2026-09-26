@@ -4,11 +4,16 @@ import type { Role } from '../../lib/types'
 type Choice = Exclude<Role, 'admin'>
 
 const OPTIONS: { value: Choice; label: string; note: string; icon: 'user' | 'users' }[] = [
-  { value: 'student', label: 'Student', note: 'Join a group and work the board', icon: 'user' },
+  {
+    value: 'student',
+    label: 'Student',
+    note: 'Join your classes with a code from your professor',
+    icon: 'user',
+  },
   {
     value: 'professor',
-    label: 'Professor',
-    note: 'Advise groups · needs admin approval',
+    label: 'Faculty',
+    note: 'Professors and school staff · needs admin approval',
     icon: 'users',
   },
 ]

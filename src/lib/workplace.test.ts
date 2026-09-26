@@ -17,29 +17,33 @@ describe('homeFor', () => {
     expect(homeFor(p(null, 'rejected', 'general'))).toBe('/pending')
   })
 
+  it('parks faculty waiting on the admin, whichever workplace they last used', () => {
+    expect(homeFor(p('professor', 'pending', 'general'))).toBe('/pending')
+    expect(homeFor(p('professor', 'pending', 'education'))).toBe('/pending')
+  })
+
+  it('parks an old account that never got a role', () => {
+    expect(homeFor(p(null, 'active', 'general'))).toBe('/pending')
+    expect(homeFor(p(null, 'active', 'education'))).toBe('/pending')
+  })
+
   it('keeps the admin on the console', () => {
     expect(homeFor(p('admin', 'active', 'education'))).toBe('/admin')
   })
 
-  it('lands a General account in General, even as a pending professor', () => {
-    expect(homeFor(p(null, 'active', 'general'))).toBe('/general')
-    expect(homeFor(p('professor', 'pending', 'general'))).toBe('/general')
-  })
-
-  it('lands an Education account where it always did', () => {
+  it('lands an admitted account in its home workplace', () => {
     expect(homeFor(p('student', 'active', 'education'))).toBe('/student')
-    expect(homeFor(p('professor', 'pending', 'education'))).toBe('/pending')
-    expect(homeFor(p(null, 'active', 'education'))).toBe('/education/enter')
+    expect(homeFor(p('professor', 'active', 'general'))).toBe('/general')
   })
 })
 
 describe('educationHome', () => {
-  it('asks for a role before anything else', () => {
-    expect(educationHome(p(null, 'active', 'general'))).toBe('/education/enter')
+  it('parks anybody not yet admitted', () => {
+    expect(educationHome(p(null, 'active', 'general'))).toBe('/pending')
+    expect(educationHome(p('professor', 'pending', 'general'))).toBe('/pending')
   })
 
-  it('parks a pending professor and opens an approved one', () => {
-    expect(educationHome(p('professor', 'pending', 'general'))).toBe('/pending')
+  it('opens an approved professor', () => {
     expect(educationHome(p('professor', 'active', 'general'))).toBe('/professor')
   })
 })
@@ -59,7 +63,6 @@ describe('workplaceOf', () => {
     expect(workplaceOf('/student/tasks', 'general')).toBe('education')
     expect(workplaceOf('/student/settings', 'general')).toBe('education')
     expect(workplaceOf('/professor', 'general')).toBe('education')
-    expect(workplaceOf('/education/enter', 'general')).toBe('education')
   })
 
   it('uses the home workplace on shared pages', () => {
