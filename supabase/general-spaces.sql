@@ -437,7 +437,14 @@ grant select on public.general_project_overview to authenticated;
  * inner join would hand them nothing to draw a card with. my_level is null for
  * them, and the counts come back as whatever RLS lets them read — which is
  * zero until they accept.
+ *
+ * Dropped first: one-workplace.sql appends a `kind` column to this view, and
+ * `create or replace` cannot drop a column, so re-running this file alone
+ * after one-workplace.sql has run would fail with "cannot drop columns from
+ * view". Nothing else depends on the view, so the drop is safe.
  */
+drop view if exists public.general_space_overview;
+
 create or replace view public.general_space_overview
 with (security_invoker = true) as
 select s.id,
@@ -912,6 +919,12 @@ begin
 end;
 $$;
 
+-- Dropped first: one-workplace.sql redefines this with an extra `is_student`
+-- output column, and `create or replace function` cannot change a function's
+-- return type. Re-running this file alone after one-workplace.sql has run
+-- would otherwise fail.
+drop function if exists public.list_general_space_members(uuid);
+
 /** Who is in a space. Never their email. */
 create or replace function public.list_general_space_members(p_space uuid)
 returns table (
@@ -947,6 +960,8 @@ $$;
  * across, and like the invitation lists it hands back a name and an avatar and
  * never an email.
  */
+drop function if exists public.list_general_project_members(uuid);
+
 create or replace function public.list_general_project_members(p_project uuid)
 returns table (
   user_id    uuid,

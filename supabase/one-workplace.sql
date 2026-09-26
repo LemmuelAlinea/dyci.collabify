@@ -10,13 +10,14 @@
 -- positions live, the same way they do for a work space.
 --
 -- Runs after access.sql. Redefines, as supersets: the general_space_overview
--- view (general-spaces.sql), join_class (rate-limit.sql), is_class_professor and
--- the classes_select/classes_update policies (classes.sql), is_set_professor
--- (groups.sql), is_project_professor (projects.sql), is_board_professor
--- (tasks.sql), shares_class_with (removed-visible.sql), can_read_syllabus
--- (syllabus.sql), can_moderate_conversation and start_direct_conversation
--- (messages.sql), list_general_space_members and list_general_project_members
--- (general-spaces.sql). Re-run this file after re-running any of those.
+-- view (general-spaces.sql), join_class (rate-limit.sql), class_overview,
+-- is_class_professor and the classes_select/classes_update policies
+-- (classes.sql), is_set_professor (groups.sql), is_project_professor
+-- (projects.sql), is_board_professor (tasks.sql), shares_class_with
+-- (removed-visible.sql), can_read_syllabus (syllabus.sql), can_moderate_conversation
+-- and start_direct_conversation (messages.sql), list_general_space_members and
+-- list_general_project_members (general-spaces.sql). Re-run this file after
+-- re-running any of those.
 --
 -- Idempotent. Safe to re-run.
 
@@ -179,6 +180,7 @@ begin
     insert into public.general_space_members (space_id, user_id, level)
     values (new.space_id, new.professor_id, 'owner')
     on conflict (space_id, user_id) do update set level = 'owner';
+    update public.general_spaces set created_by = new.professor_id where id = new.space_id;
   end if;
 
   perform public.class_sync_restore(prev);
@@ -246,6 +248,44 @@ select s.id,
   left join public.general_space_members m on m.space_id = s.id and m.user_id = auth.uid();
 
 grant select on public.general_space_overview to authenticated;
+
+-- ---------------------------------------------------------------- the class overview
+
+/**
+ * classes.sql's view, with the class's space and size cap appended. Without
+ * these, ClassForm reads an empty cap on edit and re-saves it as null, and
+ * ClassHeader has no "of N" to show.
+ */
+create or replace view public.class_overview
+with (security_invoker = true) as
+select c.id,
+       c.professor_id,
+       c.name,
+       c.initial,
+       c.code,
+       c.section,
+       c.year_level,
+       c.semester,
+       c.school_year,
+       c.description,
+       c.syllabus_id,
+       c.curriculum_id,
+       c.join_open,
+       c.term_start,
+       c.term_end,
+       c.archived_at,
+       c.created_at,
+       c.updated_at,
+       (
+         select count(*)
+           from public.class_members m
+          where m.class_id = c.id and m.status = 'active'
+       )::int as student_count,
+       c.space_id,
+       c.student_cap
+  from public.classes c;
+
+grant select on public.class_overview to authenticated;
 
 commit;
 
@@ -365,7 +405,7 @@ begin
   end if;
   if (tg_op = 'DELETE' and old.user_id = prof)
      or (tg_op = 'UPDATE' and old.user_id = prof and new.level <> 'owner') then
-    raise exception 'The class''s professor stays its Owner. The program admin can hand the class over.'
+    raise exception 'The class''s professor stays its Owner. Ask the program admin to hand the class to someone else.'
       using errcode = 'check_violation';
   end if;
 
@@ -415,6 +455,33 @@ create trigger general_space_join_codes_class before insert or update on public.
 drop trigger if exists general_projects_class on public.general_projects;
 create trigger general_projects_class before insert or update of space_id on public.general_projects
   for each row execute function public.guard_class_space_side();
+
+-- ---------------------------------------------------------------- roster column lockdown
+
+-- `authenticated` had table-wide UPDATE on class_members, and the RLS policy
+-- let a professor rewrite class_id/student_id — columns the space mirror
+-- trigger (fires only on update of status) never follows. The app only ever
+-- writes status, removed_at and removed_by (removeMember, restoreMember's
+-- underlying RPCs); nothing else needs a wider grant.
+revoke update on public.class_members from anon, authenticated;
+grant update (status, removed_at, removed_by) on public.class_members to authenticated;
+
+/** A roster row keeps its class and student for life; only its status moves. */
+create or replace function public.guard_class_member_identity()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null and (
+       new.class_id is distinct from old.class_id
+       or new.student_id is distinct from old.student_id) then
+    raise exception 'A roster row keeps its class and student.' using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists class_members_guard_identity on public.class_members;
+create trigger class_members_guard_identity before update on public.class_members
+  for each row execute function public.guard_class_member_identity();
 
 commit;
 
@@ -511,6 +578,11 @@ $$;
 /**
  * removed-visible.sql's version, plus co-teachers: they see the class's
  * students, and the class's students see them.
+ *
+ * The professor/student branch used to start from `classes` and cross-join
+ * class_members, which forced a scan of every class on the RLS path
+ * (profiles_select_general_peer calls this per row). Both halves now start
+ * from class_members instead, which carries the index on student_id.
  */
 create or replace function public.shares_class_with(p_user uuid)
 returns boolean language sql stable security definer set search_path = public as $$
@@ -524,10 +596,14 @@ returns boolean language sql stable security definer set search_path = public as
        and c.archived_at is null
     union all
     select 1
-      from public.classes c
-      join public.class_members m on m.class_id = c.id
-     where (public.is_class_professor(c.id) and m.student_id = p_user)
-        or (c.professor_id = p_user and m.student_id = auth.uid() and m.status = 'active')
+      from public.class_members m
+      join public.classes c on c.id = m.class_id
+     where m.student_id = p_user and public.is_class_professor(c.id)
+    union all
+    select 1
+      from public.class_members m
+      join public.classes c on c.id = m.class_id
+     where m.student_id = auth.uid() and m.status = 'active' and c.professor_id = p_user
     union all
     select 1
       from public.classes c
@@ -552,7 +628,7 @@ begin
   if me is null then
     return jsonb_build_object('result', 'not_signed_in');
   end if;
-  if not exists (select 1 from public.profiles where id = me and role = 'professor') then
+  if not exists (select 1 from public.profiles where id = me and role in ('professor', 'admin')) then
     return jsonb_build_object('result', 'not_professor');
   end if;
 
@@ -634,7 +710,8 @@ begin
   end if;
 
   -- Locked, so two students taking the last seat at once queue rather than both fit.
-  select * into target from public.classes where upper(code) = upper(trim(p_code)) for update;
+  select * into target from public.classes
+   where upper(code) = upper(trim(p_code)) for no key update;
   if not found then
     return jsonb_build_object('result', 'not_found');
   end if;

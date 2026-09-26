@@ -275,6 +275,69 @@ begin
              where space_id = v_space and user_id = v_s1));
 end $$;
 
+-- ------------------------------------------------------------------ a roster row keeps its class and student
+
+do $$
+declare
+  v_teacher uuid := (select v from fx where k = 'teacher');
+  v_class   uuid := (select v from fx where k = 'class');
+  v_s1      uuid := (select v from fx where k = 's1');
+  v_s2      uuid := (select v from fx where k = 's2');
+  v_space   uuid := (select v from fx where k = 'space');
+  v_other   uuid;
+  v_msg     text;
+  v_refused boolean := false;
+begin
+  perform pg_temp.act_as(v_teacher);
+  insert into public.classes
+    (professor_id, name, initial, code, section, year_level, semester, school_year)
+  values (v_teacher, 'Zz Roster Lock', 'ZZRL', 'ZZOW-0004', 'BSIT 3A', '3rd', '1st', '2026-2027')
+  returning id into v_other;
+
+  -- The narrowed column grant refuses these outright, before any trigger runs.
+  perform pg_temp.must_refuse('the app role cannot move a roster row to another class', format(
+    'update public.class_members set class_id = %L where class_id = %L and student_id = %L',
+    v_other, v_class, v_s1));
+  perform pg_temp.must_refuse('the app role cannot swap who a roster row is for', format(
+    'update public.class_members set student_id = %L where class_id = %L and student_id = %L',
+    v_s2, v_class, v_s1));
+  perform pg_temp.must_allow('a plain status update still goes through', format(
+    $q$update public.class_members set status = 'removed', removed_at = now(), removed_by = %L
+        where class_id = %L and student_id = %L$q$,
+    v_teacher, v_class, v_s1));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and takes them out of the space',
+    not exists (select 1 from public.general_space_members
+                 where space_id = v_space and user_id = v_s1));
+
+  perform pg_temp.act_as(v_teacher);
+  perform pg_temp.must_allow('putting them back also still goes through', format(
+    $q$update public.class_members set status = 'active', removed_at = null, removed_by = null
+        where class_id = %L and student_id = %L$q$,
+    v_class, v_s1));
+
+  -- With full table privilege (superuser role) but auth.uid() still set, the
+  -- column grant is out of the way — this isolates the trigger's own rule.
+  perform pg_temp.act_as_owner_for(v_teacher);
+  begin
+    update public.class_members set student_id = v_s2 where class_id = v_class and student_id = v_s1;
+  exception
+    when others then
+      v_refused := true;
+      v_msg := sqlerrm;
+  end;
+  perform pg_temp.must_be('the trigger itself refuses a student swap', v_refused);
+  perform pg_temp.must_be('...with the roster''s own message',
+    v_msg like '%keeps its class and student%');
+  perform pg_temp.must_allow('...but a status update through the same role still works',
+    format($q$update public.class_members set status = 'removed', removed_at = now(), removed_by = %L
+             where class_id = %L and student_id = %L$q$, v_teacher, v_class, v_s1));
+
+  perform pg_temp.act_as_service();
+  update public.class_members set status = 'active', removed_at = null, removed_by = null
+   where class_id = v_class and student_id = v_s1;
+end $$;
+
 -- ------------------------------------------------------------------ nothing else writes a class's space
 
 do $$
@@ -457,6 +520,9 @@ begin
   -- s1 is already in; a cap of 1 means the class is full.
   perform pg_temp.act_as(v_teacher);
   update public.classes set student_cap = 1 where id = v_class;
+
+  perform pg_temp.must_be('class_overview carries the cap back',
+    (select student_cap = 1 from public.class_overview where id = v_class));
 
   perform pg_temp.act_as(v_s2);
   select public.join_class('ZZOW-0001') ->> 'result' into v_result;

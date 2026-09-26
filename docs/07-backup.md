@@ -46,11 +46,13 @@ admission gates go back to their older, open form.
 `one-workplace.sql` runs after `access.sql`. It gives every class an education
 space and redefines, as supersets, the `general_space_overview` view and the
 member lists (`general-spaces.sql`), `join_class` (`rate-limit.sql`),
-`is_class_professor` and the class policies (`classes.sql`), the teaching
-helpers in `groups.sql`, `projects.sql`, `tasks.sql`, `syllabus.sql`,
-`removed-visible.sql` and `messages.sql`. Re-run it after any of those. Re-running
-`general-spaces.sql` alone fails on the view ("cannot drop columns from view")
-until `one-workplace.sql` runs again.
+`class_overview`, `is_class_professor` and the class policies (`classes.sql`),
+the teaching helpers in `groups.sql`, `projects.sql`, `tasks.sql`,
+`syllabus.sql`, `removed-visible.sql` and `messages.sql`. Re-run it after any
+of those. Re-run `general-spaces.sql`, then `one-workplace.sql` — the first
+now drops its view and its two member-list functions before recreating them,
+so running it alone no longer fails, but it still puts back their narrower,
+pre-education-space shape until `one-workplace.sql` runs again.
 
 `consent.sql` sits near the end for a reason: it redefines
 `handle_new_user()` as a superset that also records what a person agreed to at
