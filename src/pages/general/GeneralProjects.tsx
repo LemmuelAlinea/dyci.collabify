@@ -8,7 +8,9 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { FilterField, FilterPopover, FilterSearch } from '../../components/ui/FilterPopover'
 import { Icon, Spinner } from '../../components/ui/Icon'
 import { Select } from '../../components/ui/Select'
+import { useAuth } from '../../context/AuthContext'
 import { useLive } from '../../hooks/useLive'
+import { isFaculty } from '../../lib/access'
 import { listMyGeneralProjects } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
@@ -24,6 +26,8 @@ import type { GeneralProjectSummary, GeneralStatus } from '../../lib/general/typ
 const UNNAMED_SPACE = 'unnamed'
 
 export default function GeneralProjects() {
+  const { profile } = useAuth()
+  const faculty = isFaculty(profile)
   const [projects, setProjects] = useState<GeneralProjectSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -94,16 +98,20 @@ export default function GeneralProjects() {
         stats={[]}
         statsVariant="compact-row"
         action={
-          <Button variant="onNavy" size="sm" onClick={() => setJoinOpen(true)}>
-            <Icon name="lock" size={15} />
-            Join with code
-          </Button>
+          faculty ? (
+            <Button variant="onNavy" size="sm" onClick={() => setJoinOpen(true)}>
+              <Icon name="lock" size={15} />
+              Join with code
+            </Button>
+          ) : undefined
         }
       />
 
       {/* Also on the space dashboard, but a project code does not need a space
           and somebody who has none can only reach this page. */}
-      <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} onJoined={load} />
+      {faculty && (
+        <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} onJoined={load} />
+      )}
 
       {error && <Alert tone="error">{error}</Alert>}
 
@@ -116,7 +124,11 @@ export default function GeneralProjects() {
         <EmptyState
           icon="kanban"
           title="No projects yet"
-          body="Projects appear here after you create one or accept an invitation."
+          body={
+            faculty
+              ? 'Projects appear here after you create one or accept an invitation.'
+              : 'Projects appear here after a faculty member invites you to one.'
+          }
         />
       ) : (
         <section className="space-y-4">

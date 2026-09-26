@@ -8,8 +8,10 @@ import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Icon, Spinner } from '../../components/ui/Icon'
 import { useToast } from '../../components/ui/Toast'
+import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { rememberSpace } from '../../hooks/useSpaces'
+import { isFaculty } from '../../lib/access'
 import { respondToSpaceInvitation } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
 import { levelLabel } from '../../lib/general/permissions'
@@ -25,6 +27,8 @@ import type { GeneralSpaceSummary, MySpaceInvitation } from '../../lib/general/t
 export default function SpacePicker() {
   const { show } = useToast()
   const location = useLocation()
+  const { profile } = useAuth()
+  const faculty = isFaculty(profile)
   const { spaces, invitations, error, reload } = useGeneralNavigation()
   const [newOpen, setNewOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
@@ -63,7 +67,7 @@ export default function SpacePicker() {
             ? 'Archived spaces stay readable, but they no longer show in your active spaces.'
             : 'A space holds projects. Everyone in a space can see every project in it, so keep separate work in separate spaces.'
         }
-        action={!viewingArchived ? (
+        action={!viewingArchived && faculty ? (
           <div className="flex flex-wrap gap-2">
             <Button variant="accent" onClick={() => setNewOpen(true)}>
               <Icon name="plus" size={17} />
@@ -174,9 +178,11 @@ export default function SpacePicker() {
             body={
               viewingArchived
                 ? 'Archived spaces appear here after an Owner archives them.'
-                : 'Create one to hold your projects, or join a space somebody else has opened with a code.'
+                : faculty
+                  ? 'Create one to hold your projects, or join a space somebody else has opened with a code.'
+                  : 'A faculty member can invite you into a space.'
             }
-            action={!viewingArchived ? (
+            action={!viewingArchived && faculty ? (
               <Button variant="accent" onClick={() => setNewOpen(true)}>
                 Create space
               </Button>

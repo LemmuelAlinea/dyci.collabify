@@ -10,6 +10,7 @@ import { ClassCard } from '../../../components/classes/ClassCard'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { ClassForm } from '../../../components/classes/ClassForm'
 import { useAuth } from '../../../context/AuthContext'
+import { canTeach } from '../../../lib/access'
 import { createClass, listProfessorClasses } from '../../../lib/api/classes'
 import type { ClassInput } from '../../../lib/api/classes'
 import { listResources } from '../../../lib/api/resources'
@@ -20,6 +21,7 @@ type View = 'active' | 'archived'
 
 export default function ProfessorClasses() {
   const { profile } = useAuth()
+  const teaching = canTeach(profile)
   const { show } = useToast()
 
   const [view, setView] = useState<View>('active')
@@ -96,10 +98,12 @@ export default function ProfessorClasses() {
         accent="the term."
         description="Build each section around one syllabus, then keep its people, projects and decisions moving from the same place."
         action={
-          <Button variant="accent" onClick={() => setCreateOpen(true)}>
-            <Icon name="plus" size={17} />
-            Create class
-          </Button>
+          teaching ? (
+            <Button variant="accent" onClick={() => setCreateOpen(true)}>
+              <Icon name="plus" size={17} />
+              Create class
+            </Button>
+          ) : undefined
         }
         stats={[
           { value: classes === null ? '—' : classes.length, label: view === 'active' ? 'Active classes' : 'Archived classes' },
@@ -145,11 +149,13 @@ export default function ProfessorClasses() {
             title={view === 'active' ? 'No classes yet' : 'Nothing archived'}
             body={
               view === 'active'
-                ? 'Create your first class and share its code with your section. Students join with the code — you never add them by hand.'
+                ? teaching
+                  ? 'Create your first class and share its code with your section. Students join with the code — you never add them by hand.'
+                  : 'Classes open once the program admin turns on teaching for your account. Work spaces are open to you now, in General.'
                 : 'Archived classes disappear for students but stay here for your records.'
             }
             action={
-              view === 'active' ? (
+              view === 'active' && teaching ? (
                 <Button onClick={() => setCreateOpen(true)} className="!rounded-xl">
                   Create class
                 </Button>

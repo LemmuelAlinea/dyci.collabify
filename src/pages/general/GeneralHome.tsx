@@ -20,6 +20,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
+import { isFaculty } from '../../lib/access'
 import { respondToInvitation } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { comingUp, dueCounts, myTasks, recentProjects } from '../../lib/general/dashboard'
@@ -46,6 +47,7 @@ function greeting() {
  */
 export default function GeneralHome() {
   const { profile } = useAuth()
+  const faculty = isFaculty(profile)
   const { show } = useToast()
   const { myProjects, spaces, error, reload } = useGeneralNavigation()
   const unread = useUnreadTotal(profile?.id, 'general')
@@ -128,19 +130,23 @@ export default function GeneralHome() {
       <div className="mt-6">
         <QuickActions
           actions={[
-            {
-              icon: 'plus',
-              label: 'New space',
-              hint: 'A place to hold projects',
-              onClick: () => setNewSpaceOpen(true),
-              primary: true,
-            },
-            {
-              icon: 'lock',
-              label: 'Join with code',
-              hint: 'Eight characters from an Owner',
-              onClick: () => setJoinOpen(true),
-            },
+            ...(faculty
+              ? [
+                  {
+                    icon: 'plus' as const,
+                    label: 'New space',
+                    hint: 'A place to hold projects',
+                    onClick: () => setNewSpaceOpen(true),
+                    primary: true,
+                  },
+                  {
+                    icon: 'lock' as const,
+                    label: 'Join with code',
+                    hint: 'Eight characters from an Owner',
+                    onClick: () => setJoinOpen(true),
+                  },
+                ]
+              : []),
             {
               icon: 'kanban',
               label: 'Projects',
@@ -226,15 +232,18 @@ export default function GeneralHome() {
             <div className="mt-6 rounded-card border border-line bg-[var(--surface)] p-6">
               <h2 className="text-[15px] font-semibold text-ink">Nothing here yet</h2>
               <p className="mt-1.5 max-w-[60ch] text-[13.5px] text-muted">
-                Make a space to hold your own projects, or join a project somebody else runs with
-                the code they give you.
+                {faculty
+                  ? 'Make a space to hold your own projects, or join a project somebody else runs with the code they give you.'
+                  : 'A faculty member can invite you into a space or onto a project. Your classes are in Education.'}
               </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button onClick={() => setNewSpaceOpen(true)}>New space</Button>
-                <Button variant="ghost" onClick={() => setJoinOpen(true)}>
-                  Join with code
-                </Button>
-              </div>
+              {faculty && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button onClick={() => setNewSpaceOpen(true)}>New space</Button>
+                  <Button variant="ghost" onClick={() => setJoinOpen(true)}>
+                    Join with code
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>

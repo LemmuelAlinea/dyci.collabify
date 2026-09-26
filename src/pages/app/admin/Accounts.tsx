@@ -272,7 +272,7 @@ export default function Accounts() {
         body={
           <p>
             {promoting && fullName(promoting)} becomes a professor and lands in{' '}
-            <strong className="text-ink">Professor approvals</strong>, waiting on you — a
+            <strong className="text-ink">Faculty approvals</strong>, waiting on you — a
             promotion is not a verification, so they still go through the same check as
             anyone who signed up as one.
           </p>

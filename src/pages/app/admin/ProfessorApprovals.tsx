@@ -9,7 +9,7 @@ import { Icon, Spinner } from '../../../components/ui/Icon'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { Reveal } from '../../../components/motion/Reveal'
-import { decideFaculty, listProfessorAccounts } from '../../../lib/api/admin'
+import { decideFaculty, listProfessorAccounts, setFacultyTeaching } from '../../../lib/api/admin'
 import { authErrorMessage } from '../../../lib/authError'
 import { fullName } from '../../../lib/types'
 import type { AccountStatus, ProfessorAccount } from '../../../lib/types'
@@ -50,6 +50,7 @@ export default function ProfessorApprovals() {
   const [error, setError] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState<ProfessorAccount | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [teach, setTeach] = useState<Record<string, boolean>>({})
 
   const load = useCallback(async () => {
     try {
@@ -62,7 +63,7 @@ export default function ProfessorApprovals() {
   }, [])
 
   useEffect(() => {
-    document.title = 'Professor approvals · Collabify'
+    document.title = 'Faculty approvals · Collabify'
     void load()
   }, [load])
 
@@ -74,12 +75,32 @@ export default function ProfessorApprovals() {
   async function decide(account: ProfessorAccount, approve: boolean) {
     setBusy(account.id)
     try {
-      await decideFaculty(account.id, approve)
+      // Teaching is only sent with a first approval. A turn-down, or putting a
+      // settled account back, keeps whatever was set.
+      const canTeach = approve && account.status === 'pending' ? (teach[account.id] ?? true) : undefined
+      await decideFaculty(account.id, approve, canTeach)
       show(approve ? `${fullName(account)} approved` : `${fullName(account)} turned down`)
       setRejecting(null)
       await load()
     } catch (err) {
       show(authErrorMessage(err, 'Could not record that.'), 'error')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function toggleTeaching(account: ProfessorAccount) {
+    setBusy(account.id)
+    try {
+      await setFacultyTeaching(account.id, !account.can_teach)
+      show(
+        account.can_teach
+          ? `${fullName(account)} can no longer open classes`
+          : `${fullName(account)} can open classes`,
+      )
+      await load()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not change teaching.'), 'error')
     } finally {
       setBusy(null)
     }
@@ -99,10 +120,10 @@ export default function ProfessorApprovals() {
       <DirectoryHero
         title="Verify faculty,"
         accent="protect access."
-        description="Review professor sign-ups before their class and group tools unlock."
+        description="Review faculty sign-ups before their tools unlock, and decide who can open classes."
         statsVariant="compact-row"
         stats={[
-          { value: rows.length, label: 'Professors' },
+          { value: rows.length, label: 'Faculty' },
           { value: waiting.length, label: 'Waiting' },
           { value: settled.filter((account) => account.status === 'active').length, label: 'Approved' },
           { value: settled.filter((account) => account.status === 'rejected').length, label: 'Turned down' },
@@ -129,7 +150,7 @@ export default function ProfessorApprovals() {
           <EmptyState
             icon="shield"
             title="Nobody is waiting"
-            body="New professor sign-ups land here for verification before their adviser tools unlock."
+            body="New faculty sign-ups land here for review before anything unlocks for them."
           />
         ) : (
           <ul className="space-y-3">
@@ -145,6 +166,15 @@ export default function ProfessorApprovals() {
                       {a.email} · signed up {when(a.created_at)}
                     </span>
                   </span>
+                  <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[13px] text-ink">
+                    <input
+                      type="checkbox"
+                      checked={teach[a.id] ?? true}
+                      disabled={busy === a.id}
+                      onChange={(e) => setTeach((t) => ({ ...t, [a.id]: e.target.checked }))}
+                    />
+                    Can teach
+                  </label>
                   <span className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
@@ -196,10 +226,25 @@ export default function ProfessorApprovals() {
                 >
                   {LABEL[a.status]}
                 </span>
+                {a.status === 'active' && (
+                  <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 font-mono text-[12px] text-muted">
+                    {a.can_teach ? 'Teaches' : 'Does not teach'}
+                  </span>
+                )}
                 <span className="shrink-0 text-[12px] text-faint">
                   {a.decided_by_name ? `${a.decided_by_name} · ` : ''}
                   {when(a.decided_at)}
                 </span>
+                {a.status === 'active' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy === a.id}
+                    onClick={() => void toggleTeaching(a)}
+                  >
+                    {a.can_teach ? 'Stop teaching' : 'Allow teaching'}
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -223,7 +268,7 @@ export default function ProfessorApprovals() {
         body={
           <p>
             {rejecting && fullName(rejecting)} will be told the account was not approved, and
-            cannot open a class or see any group. You can put it back from this page at any
+            cannot open a class, a space or any group. You can put it back from this page at any
             time.
             {rejecting && rejecting.class_count > 0 && (
               <>
