@@ -209,6 +209,21 @@ export async function joinClass(code: string) {
   return payload
 }
 
+export type JoinPreview = {
+  result: JoinResult | 'ok'
+  class_id?: string
+  name?: string
+  section?: string
+  professor?: string
+}
+
+/** What an invite link shows before joining. Joins nothing. */
+export async function previewJoin(code: string) {
+  const { data, error } = await supabase.rpc('class_join_preview', { p_code: code })
+  if (error) throw error
+  return data as JoinPreview
+}
+
 export const JOIN_MESSAGE: Record<Exclude<JoinResult, 'joined'>, string> = {
   already_member: "You're already in that class.",
   not_found: 'No class uses that code. Check it with your professor.',

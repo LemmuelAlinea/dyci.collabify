@@ -798,3 +798,79 @@ grant execute on function public.list_general_space_members(uuid) to authenticat
 grant execute on function public.list_general_project_members(uuid) to authenticated, service_role;
 
 commit;
+
+begin;
+
+-- ---------------------------------------------------------------- previewing a class before joining
+
+/**
+ * What an invite link shows before the student says yes: the class, its
+ * section and its professor, and whether joining would work. A student cannot
+ * read a class they are not in, so this is the one window onto it, and it
+ * says no more than the class card will once they join.
+ *
+ * Counted on its own rate limit, so looking first does not spend a join attempt.
+ * Declared volatile, not stable: rate_limit_ok writes a counter row.
+ */
+create or replace function public.class_join_preview(p_code text)
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
+declare
+  caller public.profiles%rowtype;
+  target public.classes%rowtype;
+  prof   public.profiles%rowtype;
+  mine   public.class_members%rowtype;
+  state  text := 'ok';
+begin
+  select * into caller from public.profiles where id = auth.uid();
+  if not found then
+    return jsonb_build_object('result', 'not_signed_in');
+  end if;
+  if caller.role is distinct from 'student' then
+    return jsonb_build_object('result', 'not_student');
+  end if;
+  if caller.status is distinct from 'active' then
+    return jsonb_build_object('result', 'inactive');
+  end if;
+  if not public.rate_limit_ok('class_preview', 30, interval '1 hour') then
+    return jsonb_build_object('result', 'too_many');
+  end if;
+
+  select * into target from public.classes where upper(code) = upper(trim(p_code));
+  if not found then
+    return jsonb_build_object('result', 'not_found');
+  end if;
+
+  select * into mine from public.class_members
+   where class_id = target.id and student_id = caller.id;
+
+  if target.archived_at is not null then
+    state := 'archived';
+  elsif found and mine.status = 'removed' then
+    state := 'blocked';
+  elsif found then
+    state := 'already_member';
+  elsif not target.join_open then
+    state := 'closed';
+  elsif target.student_cap is not null and (
+          select count(*) from public.class_members
+           where class_id = target.id and status = 'active'
+        ) >= target.student_cap then
+    state := 'full';
+  end if;
+
+  select * into prof from public.profiles where id = target.professor_id;
+
+  return jsonb_build_object(
+    'result', state,
+    'class_id', case when state = 'already_member' then target.id end,
+    'name', target.name,
+    'section', target.section,
+    'professor', btrim(coalesce(prof.first_name, '') || ' ' || coalesce(prof.last_name, ''))
+  );
+end;
+$$;
+
+revoke execute on function public.class_join_preview(text) from public, anon;
+grant execute on function public.class_join_preview(text) to authenticated, service_role;
+
+commit;

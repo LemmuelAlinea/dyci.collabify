@@ -578,4 +578,35 @@ begin
   update public.profiles set status = 'active' where id = v_s3;
 end $$;
 
+-- ------------------------------------------------------------------ invite link preview
+
+do $$
+declare
+  v_teacher uuid := (select v from fx where k = 'teacher');
+  v_s1      uuid := (select v from fx where k = 's1');
+  v_s3      uuid := (select v from fx where k = 's3');
+  v_class   uuid := (select v from fx where k = 'class');
+  v_p       jsonb;
+begin
+  perform pg_temp.act_as(v_s3);
+  v_p := public.class_join_preview('zzow-0001');
+  perform pg_temp.must_be('a student sees the class before joining',
+    v_p ->> 'result' = 'ok' and v_p ->> 'section' is not null and v_p ->> 'professor' like 'Zz%');
+  perform pg_temp.must_be('...and looking does not join them',
+    not exists (select 1 from public.class_members where class_id = v_class and student_id = v_s3));
+
+  perform pg_temp.act_as(v_s1);
+  v_p := public.class_join_preview('ZZOW-0001');
+  perform pg_temp.must_be('a member is told they are already in, with the class id',
+    v_p ->> 'result' = 'already_member' and (v_p ->> 'class_id')::uuid = v_class);
+
+  perform pg_temp.act_as(v_s3);
+  perform pg_temp.must_be('an unknown code says so',
+    public.class_join_preview('ZZOW-NOPE') ->> 'result' = 'not_found');
+
+  perform pg_temp.act_as(v_teacher);
+  perform pg_temp.must_be('faculty are told the link is for students',
+    public.class_join_preview('ZZOW-0001') ->> 'result' = 'not_student');
+end $$;
+
 rollback;
