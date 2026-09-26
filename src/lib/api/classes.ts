@@ -235,5 +235,5 @@ export const JOIN_MESSAGE: Record<Exclude<JoinResult, 'joined'>, string> = {
   not_signed_in: 'Sign in first, then try the code again.',
   inactive: 'This account is not active. Contact the program admin.',
   too_many:
-    'That is ten codes tried in an hour. Check the code with your professor and try again later.',
+    'Too many codes tried in the last hour. Check the code with your professor and try again later.',
 }

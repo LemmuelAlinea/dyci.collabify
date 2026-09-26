@@ -78,6 +78,7 @@ export default function JoinClassLink() {
       setPreview(null)
       setMessage(JOIN_MESSAGE[result as Exclude<JoinResult, 'joined'>])
     } catch (err) {
+      setPreview(null)
       setMessage(authErrorMessage(err, 'Could not join that class.'))
     } finally {
       setJoining(false)

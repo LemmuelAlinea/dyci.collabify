@@ -863,9 +863,11 @@ begin
   return jsonb_build_object(
     'result', state,
     'class_id', case when state = 'already_member' then target.id end,
-    'name', target.name,
-    'section', target.section,
-    'professor', btrim(coalesce(prof.first_name, '') || ' ' || coalesce(prof.last_name, ''))
+    'name', case when state in ('ok', 'already_member') then target.name end,
+    'section', case when state in ('ok', 'already_member') then target.section end,
+    'professor', case when state in ('ok', 'already_member')
+                   then btrim(coalesce(prof.first_name, '') || ' ' || coalesce(prof.last_name, ''))
+                 end
   );
 end;
 $$;

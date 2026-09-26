@@ -607,6 +607,17 @@ begin
   perform pg_temp.act_as(v_teacher);
   perform pg_temp.must_be('faculty are told the link is for students',
     public.class_join_preview('ZZOW-0001') ->> 'result' = 'not_student');
+
+  perform pg_temp.act_as(v_teacher);
+  update public.classes set join_open = false where id = v_class;
+
+  perform pg_temp.act_as(v_s3);
+  v_p := public.class_join_preview('ZZOW-0001');
+  perform pg_temp.must_be('a closed class says so and nothing else',
+    v_p ->> 'result' = 'closed' and v_p ->> 'name' is null);
+
+  perform pg_temp.act_as(v_teacher);
+  update public.classes set join_open = true where id = v_class;
 end $$;
 
 rollback;
