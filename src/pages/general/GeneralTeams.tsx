@@ -118,7 +118,7 @@ export default function GeneralTeams() {
     }
   }
 
-  if (routeSpaceId && spaces !== null && !space) return <Navigate to="/general/spaces" replace />
+  if (routeSpaceId && spaces !== null && !space) return <Navigate to={paths.spaces} replace />
   if (space?.kind === 'education' && space.class_id) {
     return <Navigate to={paths.class(space.class_id)} replace />
   }
@@ -143,7 +143,7 @@ export default function GeneralTeams() {
         <div className="flex flex-wrap gap-2">
           {spaceId && (
             <Link
-              to={`/general/spaces/${spaceId}`}
+              to={paths.space(spaceId)}
               className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[13px] text-muted hover:border-line-strong hover:text-ink"
             >
               <Icon name="board" size={15} />
@@ -152,7 +152,7 @@ export default function GeneralTeams() {
           )}
           {spaceId && (
             <Link
-              to={archivePage ? `/general/spaces/${spaceId}/teams` : `/general/spaces/${spaceId}/teams/archive`}
+              to={archivePage ? paths.spaceTeams(spaceId) : paths.spaceTeamsArchive(spaceId)}
               className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[13px] text-muted hover:border-line-strong hover:text-ink"
             >
               <Icon name={archivePage ? 'users' : 'archive'} size={15} />

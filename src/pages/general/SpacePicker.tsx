@@ -89,7 +89,7 @@ export default function SpacePicker() {
 
         <nav className="flex flex-wrap gap-2 text-[13px]">
           <Link
-            to="/general/spaces"
+            to={paths.spaces}
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 ${
               !viewingArchived
                 ? 'border-line-strong surface-sunken text-ink'
@@ -100,7 +100,7 @@ export default function SpacePicker() {
             Active spaces
           </Link>
           <Link
-            to="/general/spaces/archive"
+            to={paths.spacesArchive}
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 ${
               viewingArchived
                 ? 'border-line-strong surface-sunken text-ink'

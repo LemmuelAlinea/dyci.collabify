@@ -18,6 +18,7 @@ import { levelLabel } from '../../lib/general/permissions'
 import { presetById } from '../../lib/general/presets'
 import { PROJECT_STATUSES, projectStatusLabel } from '../../lib/general/types'
 import type { GeneralProjectSummary, GeneralStatus } from '../../lib/general/types'
+import { paths } from '../../lib/paths'
 
 /**
  * Every project whose space the reader is not in filters as one group. A space
@@ -204,7 +205,7 @@ function ProjectCard({ project: p }: { project: GeneralProjectSummary }) {
   const shape = kind && kind.id !== 'blank' ? kind : null
   return (
     <Link
-      to={`/general/projects/${p.id}`}
+      to={paths.project(p.id)}
       className="group flex flex-col rounded-card border border-line bg-[var(--surface)] p-4 transition-colors hover:border-line-strong sm:p-5"
     >
       <div className="flex items-start justify-between gap-3">

@@ -114,7 +114,7 @@ export default function SpaceHome() {
   }
 
   if (spaceId && spaces !== null && !space) {
-    return <Navigate to="/general/spaces" replace />
+    return <Navigate to={paths.spaces} replace />
   }
   if (space?.kind === 'education' && space.class_id) {
     return <Navigate to={paths.class(space.class_id)} replace />
@@ -150,8 +150,6 @@ export default function SpaceHome() {
           : mine.length > 0
             ? `${mine.length} open ${plural(mine.length, 'task', 'tasks')} in hand, and nothing due this week.`
             : 'Nothing is waiting on you right now.'
-
-  const base = spaceId ? `/general/spaces/${spaceId}` : '/general/spaces'
 
   return (
     <div className="w-full">
@@ -201,32 +199,32 @@ export default function SpaceHome() {
                 icon: 'users',
                 label: 'Members',
                 hint: space ? `${space.member_count} in this space` : 'Who is in this space',
-                to: `${base}/members`,
+                to: spaceId ? paths.spaceMembers(spaceId) : paths.spaces,
               },
               {
                 icon: 'target',
                 label: 'Teams',
                 hint: 'Groups across projects',
-                to: `${base}/teams`,
+                to: spaceId ? paths.spaceTeams(spaceId) : paths.spaces,
               },
               {
                 icon: 'chart',
                 label: 'Reports',
                 hint: 'Who did what, over any dates',
-                to: `${base}/reports`,
+                to: spaceId ? paths.spaceReports(spaceId) : paths.spaces,
               },
               {
                 icon: 'message',
                 label: 'Messages',
                 hint: unread > 0 ? `${unread} unread` : 'Chats and project threads',
-                to: '/general/messages',
+                to: paths.messages,
                 count: unread,
               },
               {
                 icon: 'archive',
                 label: 'Archive',
                 hint: space ? `${space.archived_count} archived ${plural(space.archived_count, 'project', 'projects')}` : 'Finished work',
-                to: `${base}/archive`,
+                to: spaceId ? paths.spaceArchive(spaceId) : paths.spaces,
               },
             ]}
           />
@@ -402,7 +400,7 @@ export default function SpaceHome() {
           forgetSpace()
           await reloadNavigation()
           show('Space deleted')
-          navigate('/general/spaces', { replace: true })
+          navigate(paths.spaces, { replace: true })
         }}
         title="Delete this space?"
         body="This permanently deletes the space and everything inside it, including its projects, tasks, files, members, invitations, and project chats."
@@ -417,7 +415,7 @@ function ProjectCard({ project: p }: { project: GeneralProjectSummary }) {
   const kind = presetById(p.preset)
   return (
     <Link
-      to={`/general/projects/${p.id}`}
+      to={paths.project(p.id)}
       className="group flex flex-col rounded-card border border-line bg-[var(--surface)] p-4 transition-colors hover:border-line-strong sm:p-5"
     >
       <div className="flex items-start justify-between gap-3">

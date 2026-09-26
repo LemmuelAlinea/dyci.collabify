@@ -26,6 +26,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { comingUp, dueCounts, myTasks, recentProjects } from '../../lib/general/dashboard'
 import type { MyInvitation } from '../../lib/general/types'
 import { plural } from '../../lib/plural'
+import { paths } from '../../lib/paths'
 
 function greeting() {
   const h = new Date().getHours()
@@ -151,19 +152,19 @@ export default function GeneralHome() {
               icon: 'kanban',
               label: 'Projects',
               hint: `${mineProjects.length} ${plural(mineProjects.length, 'project', 'projects')} you are on`,
-              to: '/general/projects',
+              to: paths.projects,
             },
             {
               icon: 'folder',
               label: 'Spaces',
               hint: `${liveSpaces.length} ${plural(liveSpaces.length, 'space', 'spaces')} you are in`,
-              to: '/general/spaces',
+              to: paths.spaces,
             },
             {
               icon: 'message',
               label: 'Messages',
               hint: unread > 0 ? `${unread} unread` : 'Chats and project threads',
-              to: '/general/messages',
+              to: paths.messages,
               count: unread,
             },
           ]}

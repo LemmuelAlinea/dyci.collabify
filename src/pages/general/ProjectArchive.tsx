@@ -11,6 +11,7 @@ import { Icon, Spinner } from '../../components/ui/Icon'
 import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
+import { paths } from '../../lib/paths'
 import {
   archiveTask,
   archiveTaskFile,
@@ -137,7 +138,7 @@ export default function ProjectArchive() {
   return (
     <div className="w-full space-y-6">
       <Link
-        to={`/general/projects/${projectId}`}
+        to={paths.project(projectId)}
         className="inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink"
       >
         <Icon name="arrowLeft" size={14} />

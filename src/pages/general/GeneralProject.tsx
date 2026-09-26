@@ -24,6 +24,7 @@ import { generalTab } from '../../lib/general/navigation'
 import type { GeneralTabId } from '../../lib/general/navigation'
 import { levelLabel } from '../../lib/general/permissions'
 import { projectStatusLabel } from '../../lib/general/types'
+import { paths } from '../../lib/paths'
 
 export default function GeneralProject() {
   const { projectId } = useParams()
@@ -82,7 +83,7 @@ export default function GeneralProject() {
         title="Project not found"
         body="It was deleted or archived, or you are not on it. Ask whoever runs it for an invitation or its join code."
         action={
-          <Link to="/general/projects" className="text-[14px] font-medium text-navy-600 hover:underline dark:text-navy-200">
+          <Link to={paths.projects} className="text-[14px] font-medium text-navy-600 hover:underline dark:text-navy-200">
             Back to your projects
           </Link>
         }
@@ -108,7 +109,7 @@ export default function GeneralProject() {
       <Link
         // Straight to the projects list when the space is not the reader's to
         // read, which is the case for anybody who joined this project by code.
-        to={currentSpace?.id === p.space_id ? `/general/spaces/${p.space_id}` : '/general/projects'}
+        to={currentSpace?.id === p.space_id ? paths.space(p.space_id) : paths.projects}
         className="inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink"
       >
         <Icon name="arrowLeft" size={14} />
@@ -123,7 +124,7 @@ export default function GeneralProject() {
         action={
           <div className="flex flex-wrap gap-2">
           <Link
-            to={`/general/projects/${p.id}/archive`}
+            to={paths.projectArchive(p.id)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-[13px] text-amber-50/80 hover:bg-white/10 hover:text-amber-50"
           >
             <Icon name="archive" size={15} />
@@ -133,7 +134,7 @@ export default function GeneralProject() {
               who can read that space. Joining this project by code does not. */}
           {currentSpace?.id === p.space_id && (
             <Link
-              to={`/general/spaces/${p.space_id}/reports?s=project&p=${p.id}`}
+              to={`${paths.spaceReports(p.space_id)}?s=project&p=${p.id}`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-[13px] text-amber-50/80 hover:bg-white/10 hover:text-amber-50"
             >
               <Icon name="chart" size={15} />

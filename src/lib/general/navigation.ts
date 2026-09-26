@@ -11,12 +11,12 @@ export function generalTab(params: URLSearchParams): GeneralTabId {
 }
 
 export function spaceRouteId(pathname: string): string | null {
-  const id = /^\/general\/spaces\/([^/]+)/.exec(pathname)?.[1] ?? null
+  const id = /^\/spaces\/([^/]+)/.exec(pathname)?.[1] ?? null
   return id === 'archive' ? null : id
 }
 
 export function projectRouteId(pathname: string): string | null {
-  return /^\/general\/projects\/([^/]+)/.exec(pathname)?.[1] ?? null
+  return /^\/projects\/([^/]+)/.exec(pathname)?.[1] ?? null
 }
 
 export function chooseLandingSpace(

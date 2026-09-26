@@ -4,7 +4,7 @@ import { legacyPath } from '../lib/paths'
 import NotFound from '../pages/NotFound'
 
 /**
- * Where an old `/student`, `/professor`, `/general`, `/admin` or `/education`
+ * Where an old student, professor, general, admin or education section's
  * URL is now.
  *
  * Bookmarks, emails and links already out in the wild point at the sections

@@ -68,7 +68,7 @@ export default function SpaceArchive() {
   }
 
   if (spaceId && spaces !== null && !space) {
-    return <Navigate to="/general/spaces" replace />
+    return <Navigate to={paths.spaces} replace />
   }
   if (space?.kind === 'education' && space.class_id) {
     return <Navigate to={paths.class(space.class_id)} replace />
@@ -83,7 +83,7 @@ export default function SpaceArchive() {
         stats={[]}
         action={spaceId ? (
           <Link
-            to={`/general/spaces/${spaceId}`}
+            to={paths.space(spaceId)}
             className="flex items-center gap-1.5 rounded-lg border border-amber-50/20 bg-amber-50/10 px-3 py-1.5 text-[13px] font-medium text-amber-50 hover:bg-amber-50/16"
           >
             <Icon name="board" size={15} />
@@ -117,7 +117,7 @@ export default function SpaceArchive() {
                 >
                   <div className="min-w-[14rem] flex-1">
                     <Link
-                      to={`/general/projects/${p.id}`}
+                      to={paths.project(p.id)}
                       className="font-medium text-ink hover:underline"
                     >
                       {p.name}

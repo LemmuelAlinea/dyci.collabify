@@ -135,11 +135,11 @@ export default function SpaceMembers() {
     forgetSpace()
     await reloadNavigation()
     show('You left the space')
-    navigate('/general/spaces', { replace: true })
+    navigate(paths.spaces, { replace: true })
   }
 
   if (spaceId && spaces !== null && !space) {
-    return <Navigate to="/general/spaces" replace />
+    return <Navigate to={paths.spaces} replace />
   }
   if (space?.kind === 'education' && space.class_id) {
     return <Navigate to={paths.class(space.class_id)} replace />
@@ -161,7 +161,7 @@ export default function SpaceMembers() {
         <div className="flex flex-wrap gap-2">
           {spaceId && (
             <Link
-              to={`/general/spaces/${spaceId}`}
+              to={paths.space(spaceId)}
               className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[13px] text-muted hover:border-line-strong hover:text-ink"
             >
               <Icon name="board" size={15} />
@@ -420,7 +420,7 @@ export default function SpaceMembers() {
           forgetSpace()
           await reloadNavigation()
           show('Space deleted')
-          navigate('/general/spaces', { replace: true })
+          navigate(paths.spaces, { replace: true })
         }}
         title="Delete this space?"
         body="This permanently deletes the space and everything inside it, including its projects, tasks, files, members, invitations, and project chats."

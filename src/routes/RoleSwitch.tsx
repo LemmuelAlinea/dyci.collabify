@@ -6,11 +6,11 @@ import { paths } from '../lib/paths'
 /**
  * One URL, read differently by role.
  *
- * `/classes` used to be `/student/classes` or `/professor/classes` — two
- * routes, two links, one page. Now there is one route, and this decides which
- * element it renders from the signed-in profile's role rather than from the
- * path. Admin has no page of its own here more often than not, so it falls
- * back to Home instead of forcing every call site to supply one.
+ * `/classes` used to be a separate student section and a separate professor
+ * section — two routes, two links, one page. Now there is one route, and this
+ * decides which element it renders from the signed-in profile's role rather
+ * than from the path. Admin has no page of its own here more often than not,
+ * so it falls back to Home instead of forcing every call site to supply one.
  */
 export function RoleSwitch({
   student,

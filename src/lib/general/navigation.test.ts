@@ -34,12 +34,12 @@ describe('general navigation', () => {
     expect(generalTab(new URLSearchParams('tab=members&task=abc'))).toBe('tasks')
   })
 
-  it('extracts only General space and project routes', () => {
-    expect(spaceRouteId('/general/spaces/space-1/archive')).toBe('space-1')
-    expect(spaceRouteId('/general/spaces')).toBeNull()
-    expect(spaceRouteId('/general/spaces/archive')).toBeNull()
-    expect(projectRouteId('/general/projects/project-1')).toBe('project-1')
-    expect(projectRouteId('/student/projects/project-1')).toBeNull()
+  it('extracts only Space and project routes', () => {
+    expect(spaceRouteId('/spaces/space-1/archive')).toBe('space-1')
+    expect(spaceRouteId('/spaces')).toBeNull()
+    expect(spaceRouteId('/spaces/archive')).toBeNull()
+    expect(projectRouteId('/projects/project-1')).toBe('project-1')
+    expect(projectRouteId('/class-projects/project-1')).toBeNull()
   })
 
   it('uses remembered membership, then the sole active space', () => {

@@ -196,7 +196,7 @@ export default function GeneralReports() {
     }
   }
 
-  if (spaceId && spaces !== null && !space) return <Navigate to="/general/spaces" replace />
+  if (spaceId && spaces !== null && !space) return <Navigate to={paths.spaces} replace />
   if (space?.kind === 'education' && space.class_id) {
     return <Navigate to={paths.class(space.class_id)} replace />
   }
