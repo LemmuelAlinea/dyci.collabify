@@ -5,15 +5,15 @@ import { useLoop } from './useLoop'
 /**
  * The board, playing the thing the page claims.
  *
- * The headline says nobody carries the work alone. This is that sentence as a
- * mechanism: a task is claimed, the person's share of the board goes up, the
- * next claim is **refused** because they are at their share, the work is
- * finished, the group hands in and the board freezes, and the professor
- * answers. Six beats, on a loop, and every one of them is a rule that really
- * exists in the database.
+ * The headline says the work is shared and nobody writes over anybody. This is
+ * that sentence as a mechanism: a task is picked up, the person's share of the
+ * work goes up, their file is **held for review** because they cannot write to
+ * the main copy, the work is finished, the change waits on its reviewer, and it
+ * is applied with the history keeping it. Six beats, on a loop, and every one
+ * of them is a rule that really exists in the database.
  *
  * A still screenshot could show any of those states. It could not show the
- * refusal, which is the only part somebody would not otherwise believe.
+ * review gate, which is the only part somebody would not otherwise believe.
  *
  * The travel between columns is Motion's shared-layout animation — a card is
  * one element that changes parent, not two elements cross-fading — which is
@@ -39,35 +39,35 @@ function boardAt(step: number): Card[] {
   return [
     {
       id: 'distribution',
-      title: 'Fit the input distribution',
+      title: 'Clean the responses',
       meta: finished
         ? 'Bianca · finished today'
         : claimed
           ? 'Bianca · started just now'
-          : 'Unclaimed · due Fri',
+          : 'Unassigned · due Fri',
       col: finished ? 'done' : claimed ? 'doing' : 'todo',
       tone: claimed && !finished ? 'amber' : 'plain',
     },
-    { id: 'summary', title: 'Write the summary', meta: 'Unclaimed', col: 'todo' },
+    { id: 'summary', title: 'Write the summary', meta: 'Unassigned', col: 'todo' },
     {
       id: 'collect',
-      title: 'Collect the input data',
+      title: 'Collect the survey data',
       meta: 'Ann · started Mon',
       col: 'doing',
     },
-    { id: 'erd', title: 'Build the ERD', meta: 'Miguel · started Tue', col: 'doing' },
-    { id: 'model', title: 'Conceptual model', meta: 'Ann · finished Aug 19', col: 'done' },
+    { id: 'erd', title: 'Cost the materials', meta: 'Miguel · started Tue', col: 'doing' },
+    { id: 'model', title: 'Draft chapter two', meta: 'Ann · finished Aug 19', col: 'done' },
     {
       id: 'statement',
       title: 'Problem statement',
-      meta: 'Handed in late',
+      meta: 'Finished late',
       col: 'done',
       tone: 'late',
     },
   ]
 }
 
-/** Share of the board each member holds — what the claim limit is checked against. */
+/** Share of the work each member holds, the figure a report's contribution table is built from. */
 function shareAt(step: number) {
   const up = step >= 1
   return [
@@ -78,12 +78,12 @@ function shareAt(step: number) {
 }
 
 const CAPTIONS = [
-  'Two tasks on the board that nobody has taken.',
-  'Bianca claims one. Her share of the board goes up with it.',
-  'She cannot take the next one — she is at her share. That is the whole point.',
+  'Two tasks on the board that nobody has picked up.',
+  'Bianca picks one up. Her share of the work goes up with it.',
+  'Her file cannot go straight to the main copy — it goes for review first.',
   'Finished, and the board says who finished it.',
-  'The group hands in, and the board freezes.',
-  'The professor answers. Returned would have handed it straight back.',
+  'The change waits on its reviewer.',
+  'Applied, and the history keeps it. Declined would have sent it back with a note.',
 ]
 
 const COLUMNS: { key: Col; name: string }[] = [
@@ -110,10 +110,10 @@ export function BoardPreview() {
   return (
     <figure ref={ref} className="relative m-0">
       <figcaption className="sr-only">
-        A group's project board. A task moves from "To do" to "In progress" when a student
-        claims it, their share of the board rises, a second claim is refused because they
-        are at their share, the task is finished, the group hands in and the board freezes,
-        and the professor accepts it.
+        A project board. A task moves from "To do" to "In progress" when somebody picks it
+        up, their share of the work rises, a file has to go through review instead of
+        straight to the main copy, the task is finished, the change waits on its reviewer,
+        and it is applied and kept in the history.
       </figcaption>
 
       <div
@@ -124,9 +124,9 @@ export function BoardPreview() {
         <div className="mb-4 flex items-center justify-between gap-3 px-1">
           <div className="min-w-0">
             <p className="truncate font-display text-[15px] font-semibold text-white">
-              Project Milestone 2 · Group 1
+              Feasibility study · Marketing team
             </p>
-            <p className="eyebrow mt-1 text-white/45">Weeks 5–6 · due in 6 days</p>
+            <p className="eyebrow mt-1 text-white/45">Due in 6 days</p>
           </div>
           <div className="flex -space-x-2">
             {['AD', 'BD', 'MS'].map((i, n) => (
@@ -141,8 +141,8 @@ export function BoardPreview() {
           </div>
         </div>
 
-        {/* The board. Dimmed rather than hidden once it freezes: a frozen board
-            is still readable, which is what "frozen" means here. */}
+        {/* The board. Dimmed rather than hidden once the change is in review:
+            attention belongs on the strip below, and the board stays readable. */}
         <motion.div
           animate={{ opacity: frozen ? 0.55 : 1 }}
           transition={{ duration: reduce ? 0 : 0.5 }}
@@ -197,7 +197,7 @@ export function BoardPreview() {
                           {c.meta}
                         </p>
 
-                        {/* The refusal, drawn on the card it was tried on. */}
+                        {/* The review gate, drawn on the card it applies to. */}
                         {refused && c.id === 'summary' && (
                           <motion.p
                             initial={reduce ? false : { opacity: 0, height: 0 }}
@@ -206,7 +206,7 @@ export function BoardPreview() {
                             className="mt-2 flex items-center gap-1 overflow-hidden text-[10px] leading-tight font-medium text-amber-200"
                           >
                             <Icon name="lock" size={11} className="shrink-0" />
-                            Bianca is at her share
+                            Her draft goes through review
                           </motion.p>
                         )}
                       </motion.div>
@@ -218,11 +218,11 @@ export function BoardPreview() {
           </LayoutGroup>
         </motion.div>
 
-        {/* Share of the board. The bar is the figure the claim limit is
-            enforced against, so it moves when a claim lands and not otherwise. */}
+        {/* Share of the work. The bar is what a report's contribution table
+            counts, so it moves when somebody picks work up and not otherwise. */}
         <div className="mt-4 rounded-2xl bg-navy-950/28 px-3.5 py-3.5">
           <div className="flex items-center justify-between">
-            <span className="eyebrow text-white/55">Share of the board</span>
+            <span className="eyebrow text-white/55">Share of the work</span>
             <span className="flex items-center gap-1.5 text-[10.5px] text-white/45">
               <Icon name="users" size={12} />3 members
             </span>
@@ -259,7 +259,7 @@ export function BoardPreview() {
           </ul>
         </div>
 
-        {/* Handed in, then answered. One strip that changes what it says rather
+        {/* In review, then applied. One strip that changes what it says rather
             than two that stack, because the board only ever has one of them. */}
         {frozen && (
           <motion.div
@@ -284,12 +284,12 @@ export function BoardPreview() {
                 </span>
                 <div className="min-w-0">
                   <p className="text-[12px] font-semibold text-white">
-                    {verdict ? 'Accepted' : 'Handed in · board frozen'}
+                    {verdict ? 'Applied' : 'In review · waiting on the reviewer'}
                   </p>
                   <p className="truncate text-[10.5px] text-white/50">
                     {verdict
-                      ? 'Answered by Prof. Alinea'
-                      : 'Nobody can change a task until it is answered'}
+                      ? 'The history keeps who changed what'
+                      : 'The main copy does not change until it is applied'}
                   </p>
                 </div>
             </div>

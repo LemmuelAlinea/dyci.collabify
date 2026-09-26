@@ -22,33 +22,33 @@ import { BlueprintField, Glow, Kicker, Shell } from './parts'
 const STEPS = [
   {
     n: '01',
-    title: 'A class, with its syllabus',
-    body: 'The syllabus and term dates go in. Its weeks become the measure for everything after.',
+    title: 'A space for your people',
+    body: 'A class, a department, an org or an office. Everyone in it can read the work; writing belongs to the project.',
   },
   {
     n: '02',
-    title: 'Groups the class has',
-    body: 'Built by hand, or opened for students to form their own up to a size limit.',
+    title: 'A project, from a starting shape',
+    body: 'Ten to choose from — capstone, research, event, outreach, accreditation — or start from nothing at all.',
   },
   {
     n: '03',
-    title: 'A project bound to weeks',
-    body: 'It names the weeks it covers, carries the brief, and gives every group a board.',
+    title: 'Teams and positions you name',
+    body: 'Split the people the way your group already splits them. A position can be called anything, and grants nothing on its own.',
   },
   {
     n: '04',
     title: 'Work that has an owner',
-    body: 'Students claim tasks off the board, up to a fair share, so nobody holds all of it.',
+    body: 'Tasks carry dates, a team and whoever picked them up. Points count only if your group wants them to.',
   },
   {
     n: '05',
-    title: 'Work that changes hands',
-    body: 'Somebody goes quiet, a groupmate asks with a reason, and the professor rules on it.',
+    title: 'Files that go through review',
+    body: 'Draft in private, send it to a reviewer, and the change lands on the main copy with its history kept.',
   },
   {
     n: '06',
-    title: 'Handing in, and an answer',
-    body: 'Handing in freezes the board. The professor accepts it, or sends it back with a note.',
+    title: 'A report at the end of it',
+    body: 'Any stretch of dates, printed or exported. Leads see everyone; everybody else sees their own work.',
   },
 ]
 
@@ -120,9 +120,9 @@ export function Workflow() {
                     </span>
                   </div>
                   <h2 className="mt-5 font-display text-[clamp(25px,3.8vw,40px)] leading-[1.1] font-bold tracking-[-0.035em] text-amber-50">
-                    A term, from the
+                    A project, from the
                     <br />
-                    <span className="text-amber-300">syllabus to the answer.</span>
+                    <span className="text-amber-300">blank page to the report.</span>
                   </h2>
 
                   <ol className="mt-6 space-y-1">
@@ -201,7 +201,7 @@ export function Workflow() {
                   }
                 >
                   <div className="mb-2.5 flex items-center justify-between px-2 py-1 font-mono text-[9px] tracking-[0.18em] text-amber-50/45 uppercase">
-                    <span>Group 1 · Project Milestone 2</span>
+                    <span>Research team · Feasibility study</span>
                     <span>Live example</span>
                   </div>
 
@@ -246,10 +246,10 @@ export function Workflow() {
                               <p className="mt-2 text-[10.5px] leading-snug font-semibold">
                                 {
                                   [
-                                    'Collect input data',
-                                    'Fit the distributions',
+                                    'Collect the survey data',
+                                    'Clean the responses',
                                     'Draft chapter two',
-                                    'Run the simulation',
+                                    'Cost the materials',
                                     'Check the results',
                                     'Write the summary',
                                   ][(ci * 2 + r) % 6]
@@ -260,7 +260,7 @@ export function Workflow() {
                                   {['MS', 'AB', 'JR'][(ci + r) % 3]}
                                 </span>
                                 <span className="font-mono text-[7.5px] text-navy-400">
-                                  W{5 + ci}
+                                  {['Mon', 'Wed', 'Fri'][ci]}
                                 </span>
                               </div>
                             </div>
@@ -287,13 +287,13 @@ export function Workflow() {
                         Yours
                       </span>
                       <p className="mt-2 text-[10.5px] leading-snug font-semibold">
-                        Summarize with descriptive statistics
+                        Draft the recommendation
                       </p>
                       <div className="mt-3 flex items-center justify-between">
                         <span className="grid h-5 w-5 place-items-center rounded-full bg-navy-950 font-mono text-[7px] text-amber-200">
                           LA
                         </span>
-                        <span className="font-mono text-[7.5px] text-navy-400">W5</span>
+                        <span className="font-mono text-[7.5px] text-navy-400">Fri</span>
                       </div>
                     </div>
                   </div>
@@ -305,12 +305,12 @@ export function Workflow() {
                     <span className="text-[11px] text-amber-50/65">
                       {
                         [
-                          'The class and its syllabus are in.',
-                          'Groups are set for the term.',
-                          'A project covers weeks 4 to 8.',
+                          'The space is up, and its people are in.',
+                          'A project started from a shape that fits.',
+                          'Teams and positions are named.',
                           'The task has an owner.',
-                          'A reassignment is waiting on the professor.',
-                          'Handed in. The board is frozen.',
+                          'A change is waiting on its reviewer.',
+                          'The report covers the whole stretch.',
                         ][step]
                       }
                     </span>

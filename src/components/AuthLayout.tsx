@@ -131,14 +131,14 @@ export function AuthLayout({
             <p className="flex items-center gap-3">
               <span className="h-px w-7 bg-amber-400" />
               <span className="font-mono text-[10.5px] tracking-[0.22em] text-amber-200/80 uppercase">
-                Dr. Yanga's Colleges · BSIT
+                Dr. Yanga's Colleges · Any program
               </span>
             </p>
 
             <h2 className="mt-7 max-w-[13ch] font-display text-[clamp(2rem,3.1vw,2.9rem)] leading-[1.02] font-bold tracking-[-0.04em]">
-              Where BSIT programs{' '}
+              Every project at Dr. Yanga's,{' '}
               <span className="relative inline-block">
-                <span className="text-amber-400">run the term.</span>
+                <span className="text-amber-400">its own way.</span>
                 <svg
                   aria-hidden
                   viewBox="0 0 300 14"
@@ -164,14 +164,14 @@ export function AuthLayout({
             </h2>
 
             <p className="mt-8 max-w-[38ch] text-[15.5px] leading-[1.8] text-amber-50/60">
-              Projects, boards and deadlines for classes at Dr. Yanga's Colleges. Six steps, each
-              blocked by the one before it.
+              Projects, boards, files and deadlines for any group at Dr. Yanga's Colleges — a
+              class, a research team, an org, an office. Each one shaped by the people in it.
             </p>
 
             <div className="mt-10 flex gap-9 border-t border-amber-50/12 pt-6 font-mono text-[10.5px] tracking-[0.16em] text-amber-50/45 uppercase">
-              <span>6 steps</span>
-              <span>3 roles</span>
-              <span>1 board per group</span>
+              <span>2 workplaces</span>
+              <span>10 presets</span>
+              <span>1 account</span>
             </div>
           </div>
 

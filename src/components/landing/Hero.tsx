@@ -142,23 +142,23 @@ export function Hero() {
               <p className="flex items-center gap-3">
                 <span className="h-px w-7 bg-amber-400" />
                 <span className="font-mono text-[10.5px] tracking-[0.22em] text-amber-200/80 uppercase">
-                  Dr. Yanga's Colleges · BSIT
+                  Dr. Yanga's Colleges · Any program
                 </span>
               </p>
             </Rise>
 
             <Rise delay={0.06}>
               <h1 className="mt-7 font-display text-[clamp(44px,6.6vw,78px)] leading-[0.98] font-bold tracking-[-0.045em] text-amber-50">
-                Where BSIT
+                Every project
                 <br />
-                programs
+                at Dr. Yanga's,
                 <br />
                 {/* The underlined word is the zip's one flourish, kept because
                     it lands on the word the sentence turns on. The stroke draws
                     itself once; under reduced motion it is simply already
                     drawn. */}
                 <span className="relative inline-block">
-                  <span className="text-amber-400">run the term.</span>
+                  <span className="text-amber-400">its own way.</span>
                   <svg
                     aria-hidden
                     viewBox="0 0 300 14"
@@ -186,8 +186,8 @@ export function Hero() {
 
             <Rise delay={0.14}>
               <p className="mt-9 max-w-[46ch] text-[16px] leading-[1.8] text-amber-50/60">
-                Projects, boards and deadlines for classes at Dr. Yanga's Colleges. Six steps, each
-                blocked by the one before it.
+                Projects, boards, files and deadlines for any group at Dr. Yanga's Colleges — a
+                class, a research team, an org, an office. Each one shaped by the people in it.
               </p>
             </Rise>
 
@@ -218,9 +218,9 @@ export function Hero() {
               <p className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[10.5px] tracking-[0.14em] text-amber-50/40 uppercase">
                 <span>Google sign-in</span>
                 <span aria-hidden>·</span>
-                <span>Professors approved by the program</span>
+                <span>Shaped by each group</span>
                 <span aria-hidden>·</span>
-                <span>A class is private to the people in it</span>
+                <span>A space is private to its members</span>
               </p>
             </Rise>
           </div>
@@ -232,15 +232,15 @@ export function Hero() {
             <FloatingLabel
               className="top-6 left-2 rotate-[-3deg] lg:left-8"
               icon="◧"
-              title="Project Milestone 2"
-              meta="QM · Week 5"
+              title="Feasibility study"
+              meta="Marketing team · due Fri"
               still={still}
             />
             <FloatingLabel
               className="right-2 bottom-16 rotate-[2deg] lg:right-6"
               icon="✓"
               title="4 of 11 done"
-              meta="Group 1"
+              meta="Outreach 2026"
               delay="-3s"
               still={still}
             />
@@ -257,15 +257,14 @@ export function Hero() {
         <Rise delay={0.32}>
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-amber-50/12 py-7">
             <p className="max-w-[52ch] text-[13px] leading-relaxed text-amber-50/45">
-              <strong className="font-semibold text-amber-50/80">
-                The syllabus is the measure.
-              </strong>{' '}
-              Its weeks become what every deadline after it is counted against.
+              <strong className="font-semibold text-amber-50/80">Nothing here is fixed.</strong>{' '}
+              Levels, teams, positions and who may do what are set by the group, and change when it
+              does.
             </p>
             <div className="flex items-center gap-7 font-mono text-[10.5px] tracking-[0.16em] text-amber-50/40 uppercase">
-              <span>6 steps</span>
-              <span>3 roles</span>
-              <span>1 board per group</span>
+              <span>2 workplaces</span>
+              <span>10 presets</span>
+              <span>1 account</span>
             </div>
           </div>
         </Rise>

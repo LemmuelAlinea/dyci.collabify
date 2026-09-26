@@ -10,33 +10,35 @@ import { BlueprintField, Kicker, Rise, Shell, Statement } from './parts'
  * alternation is what stops five sections of dark reading as one long one.
  *
  * The switcher is tabs rather than three stacked panels because the three
- * roles answer the same question and only one answer applies to any reader.
+ * answer the same question and only one of them applies to any reader at a
+ * time. They are activities, not job titles — the same person moves between
+ * them as the work moves.
  */
 
 const FEATURES = [
   {
     n: '01',
     title: 'A home for every project',
-    body: 'A project names the weeks it covers, carries the brief, and gives every group a board of its own.',
+    body: 'A project carries its brief, its dates, its people, and whatever else your group decides is worth tracking.',
     demo: (
       <div className="mt-6 flex min-h-[84px] items-center gap-3 rounded-xl border border-amber-50/12 bg-white/7 p-4">
         <span className="grid h-9 w-9 place-items-center rounded-lg bg-amber-400 font-mono text-[12px] font-bold text-navy-950">
-          PM
+          FS
         </span>
         <span className="min-w-0">
-          <strong className="block text-[13px] font-semibold">Project Milestone 2</strong>
+          <strong className="block text-[13px] font-semibold">Feasibility study</strong>
           <span className="font-mono text-[10px] tracking-[0.12em] text-amber-50/55 uppercase">
-            QM · weeks 4–8
+            Business · 2nd sem
           </span>
         </span>
-        <span className="ml-auto font-mono text-[11px] text-amber-50/55">3 groups</span>
+        <span className="ml-auto font-mono text-[11px] text-amber-50/55">3 teams</span>
       </div>
     ),
   },
   {
     n: '02',
     title: 'Keep everyone in the loop',
-    body: 'Announcements, group chat and files sit inside the class, so nothing important lives in somebody else’s inbox.',
+    body: 'Announcements, project chat and files sit with the work, so nothing important lives in somebody else’s inbox.',
     demo: (
       <div className="mt-6 flex min-h-[84px] items-center gap-3 rounded-xl bg-navy-950 p-4 text-amber-50">
         <span className="grid h-9 w-9 place-items-center rounded-full bg-amber-400 font-mono text-[10px] font-bold text-navy-950">
@@ -45,7 +47,7 @@ const FEATURES = [
         <span className="min-w-0">
           <strong className="block text-[13px] font-semibold">Maria posted an update</strong>
           <span className="font-mono text-[10px] tracking-[0.12em] text-amber-50/55 uppercase">
-            Group 1 · 2 hours ago
+            Research team · 2 hours ago
           </span>
         </span>
       </div>
@@ -54,7 +56,7 @@ const FEATURES = [
   {
     n: '03',
     title: 'See the whole picture',
-    body: 'A professor sees what has stopped moving and what is waiting on a decision, across every class at once.',
+    body: 'A lead sees what has stopped moving and what is waiting on a decision, across every project at once.',
     demo: (
       <div className="mt-6 min-h-[84px] rounded-xl border border-navy-900/10 bg-white p-4">
         <span className="font-mono text-[10px] tracking-[0.12em] text-navy-500 uppercase">
@@ -74,55 +76,55 @@ const FEATURES = [
 ]
 
 const ROLES = {
-  Students: {
-    symbol: 'S',
+  'Doing the work': {
+    symbol: 'W',
     number: '01',
-    label: 'Own the work',
+    label: 'Own your part',
     headline: 'Know what is on you, and when.',
-    body: 'Claim work off the board up to a fair share, log the time it took, and hand in when the group is ready.',
+    body: 'Pick up tasks, log the time they took, draft files where nobody can see them, and send them for review when they are ready.',
     points: [
       'Your tasks and deadlines in one place',
-      'Ask a groupmate to take something over',
-      'A class is private to the people in it',
+      'Drafts nobody else sees until you submit them',
+      'Ask for more access when you need it',
     ],
     signals: [
       { value: '1 place', label: 'Tasks + deadlines' },
-      { value: 'Fair share', label: 'Claim limit' },
-      { value: 'Private', label: 'Class access' },
+      { value: 'Private', label: 'Your drafts' },
+      { value: 'On request', label: 'More access' },
     ],
   },
-  Professors: {
-    symbol: 'P',
+  'Leading a project': {
+    symbol: 'L',
     number: '02',
     label: 'See the signal',
     headline: 'See what has stopped moving.',
-    body: 'The dashboard surfaces groups that have gone quiet and decisions waiting on you, before a deadline turns them into a problem.',
+    body: 'The dashboard surfaces what is overdue, what is waiting on you, and who is carrying the project, across every project you lead.',
     points: [
-      'Groups that have stalled, ranked',
-      'Rule on reassignments with the reason attached',
-      'Accept a submission, or send it back with a note',
+      'Work that has stalled, and who holds it',
+      'Apply a change, or send it back with a note',
+      'Give one person one more permission',
     ],
     signals: [
-      { value: 'Early', label: 'Stalled groups' },
-      { value: 'In context', label: 'Decisions' },
-      { value: 'One view', label: 'Every class' },
+      { value: 'Early', label: 'Stalled work' },
+      { value: 'In context', label: 'Reviews' },
+      { value: 'Per person', label: 'Permissions' },
     ],
   },
-  Admins: {
-    symbol: 'A',
+  'Running the space': {
+    symbol: 'R',
     number: '03',
-    label: 'Keep the rules',
-    headline: 'Hold the program together.',
-    body: 'Approve professors before they can open a class, and keep the curriculum and section registry the rest of the product measures against.',
+    label: 'Set the shape',
+    headline: 'Make it fit how you work.',
+    body: 'Name the teams and positions your group actually uses, choose what a project tracks, and decide who may do what.',
     points: [
-      'Approve or hold a professor account',
-      'Curriculum and section registry',
-      'An audit trail of who changed what',
+      'Teams and positions you name yourself',
+      'Fields, dates and points, per project',
+      'Levels that change when the group does',
     ],
     signals: [
-      { value: 'Approved', label: 'Professor access' },
-      { value: 'Canonical', label: 'Curriculum' },
-      { value: 'Recorded', label: 'Every change' },
+      { value: 'Yours', label: 'Teams + positions' },
+      { value: 'Per project', label: 'What it tracks' },
+      { value: 'Anytime', label: 'Levels change' },
     ],
   },
 } as const
@@ -148,7 +150,7 @@ export function Features() {
       <Shell className="relative">
         <Statement
           tone="light"
-          kicker="Inside a class"
+          kicker="Inside a project"
           headline={
             <>
               Many moving parts.
@@ -156,7 +158,7 @@ export function Features() {
               One place they live.
             </>
           }
-          body="Groups, projects, boards, deadlines and the syllabus they are measured against — all of it inside the class it belongs to."
+          body="Tasks, files, deadlines, teams and the decisions behind them — all of it inside the project it belongs to."
         />
 
         <div className="mt-16 grid gap-4 sm:mt-20 md:grid-cols-3">
@@ -207,7 +209,7 @@ export function Features() {
 }
 
 export function Roles() {
-  const [role, setRole] = useState<RoleName>('Students')
+  const [role, setRole] = useState<RoleName>('Doing the work')
   const active = ROLES[role]
 
   return (
@@ -225,18 +227,19 @@ export function Roles() {
         <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-7">
             <Rise>
-              <Kicker tone="light">For roles</Kicker>
+              <Kicker tone="light">Ways to work</Kicker>
               <h2 className="mt-6 max-w-[760px] font-display text-[clamp(34px,5.4vw,64px)] leading-[1.02] font-bold tracking-[-0.04em]">
-                One term.
+                One account.
                 <br />
-                <span className="text-navy-500">Three clear points of view.</span>
+                <span className="text-navy-500">Three ways to work.</span>
               </h2>
             </Rise>
           </div>
           <div className="lg:col-span-4 lg:col-start-9">
             <Rise delay={0.08}>
               <p className="max-w-[45ch] text-[15.5px] leading-[1.8] text-navy-600/75">
-                The same work, shaped around the decisions each person needs to make next.
+                The same work, shaped around the decision in front of you. Nobody is stuck in one
+                of these — a group moves people between them as the work moves.
               </p>
             </Rise>
           </div>
@@ -257,7 +260,7 @@ export function Roles() {
 
                 <div
                   role="tablist"
-                  aria-label="Choose a role"
+                  aria-label="Choose a way to work"
                   className="grid grid-cols-3 gap-2 lg:grid-cols-1"
                 >
                   {(Object.keys(ROLES) as RoleName[]).map((name) => {

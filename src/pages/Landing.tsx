@@ -57,9 +57,9 @@ function Nav() {
 
         <nav className="hidden items-center gap-8 md:flex">
           {[
-            ['Inside a class', '#workspace'],
+            ['Inside a project', '#workspace'],
             ['How it runs', '#how'],
-            ['For roles', '#roles'],
+            ['Ways to work', '#roles'],
           ].map(([label, href]) => (
             <a
               key={href}
@@ -127,7 +127,7 @@ function ScrollRail() {
 
 export default function Landing() {
   useEffect(() => {
-    document.title = 'Collabify — where BSIT programs run the term'
+    document.title = "Collabify — every project at Dr. Yanga's Colleges"
   }, [])
 
   return (
@@ -156,7 +156,7 @@ export default function Landing() {
           <Shell className="relative">
             <Rise>
               <div className="mb-10 flex items-center justify-between border-b border-navy-950/15 pb-4 font-mono text-[9.5px] tracking-[0.18em] text-navy-800/60 uppercase sm:mb-14">
-                <span>Ready for the term</span>
+                <span>Ready when you are</span>
                 <span>05 / 05</span>
               </div>
             </Rise>
@@ -215,9 +215,13 @@ export default function Landing() {
 
                     <ol className="relative mt-6 space-y-5">
                       {[
-                        ['01', 'Choose your role', 'Student, professor or program admin.'],
-                        ['02', 'Create your account', 'Use Google or sign up with your email.'],
-                        ['03', 'Enter the workspace', 'Join your class and start the term together.'],
+                        ['01', 'Create your account', 'Use Google, or sign up with your email.'],
+                        ['02', 'Pick where you are working', 'Class coursework, or everything else.'],
+                        [
+                          '03',
+                          'Open a space',
+                          'Join with a code, or start one and invite your people.',
+                        ],
                       ].map(([number, title, body]) => (
                         <li key={number} className="grid grid-cols-[28px_1fr] gap-3.5">
                           <span className="font-mono text-[10px] text-amber-300">{number}</span>
@@ -232,7 +236,8 @@ export default function Landing() {
                     </ol>
 
                     <p className="relative mt-7 rounded-xl border border-amber-50/10 bg-white/[0.045] px-4 py-3 text-[11.5px] leading-relaxed text-amber-50/58">
-                      Professors are approved by the program before they can open a class.
+                      Teaching a class needs the program's approval first. Everything else you can
+                      start today.
                     </p>
                   </aside>
                 </Rise>
@@ -265,7 +270,7 @@ export default function Landing() {
           </Shell>
           <Shell className="flex flex-col gap-5 pb-10 sm:flex-row sm:items-center sm:justify-between">
             <p className="font-mono text-[10px] leading-relaxed tracking-[0.14em] text-amber-50/25 uppercase">
-              Collabify · a project workspace for BSIT coursework
+              Collabify · a place for the projects a school runs
             </p>
             {/* Set apart from the sign-in links above and dimmer than them: a
                 legal document has to be reachable from every page, and it does
