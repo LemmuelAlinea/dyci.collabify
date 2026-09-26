@@ -91,6 +91,8 @@ export function legacyPath(pathname: string, _role: LegacyRole): string | null {
     const rest = general[1] ?? ''
     if (rest === '') return '/home'
     if (rest === '/settings') return '/settings'
+    // Teams only ever lived under a space; the old space-less links went to the picker.
+    if (/^\/teams(\/archive)?$/.test(rest)) return '/spaces'
     return rest
   }
 

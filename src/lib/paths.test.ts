@@ -33,6 +33,8 @@ describe('legacyPath', () => {
     expect(legacyPath('/general/spaces/s1/members', null)).toBe('/spaces/s1/members')
     expect(legacyPath('/general/projects/p1', null)).toBe('/projects/p1')
     expect(legacyPath('/general/messages/c1', null)).toBe('/messages/c1')
+    expect(legacyPath('/general/teams', null)).toBe('/spaces')
+    expect(legacyPath('/general/teams/archive', null)).toBe('/spaces')
   })
 
   it('maps the class side', () => {
