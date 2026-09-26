@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FocusEvent, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
@@ -10,7 +10,6 @@ import { educationHome, homeFor, workplaceOf } from '../../lib/workplace'
 import { Logo, LogoMark } from '../brand/Logo'
 import { NewSpaceDialog } from '../general/SpaceDialogs'
 import { Icon } from '../ui/Icon'
-import type { IconName } from '../ui/Icon'
 import { WorkplaceSwitcher } from './WorkplaceSwitcher'
 import { navForWorkplace } from './nav'
 import type { NavItem } from './nav'
@@ -43,10 +42,20 @@ export function SideNav({
 
   if (!profile) return null
 
-  const groups = navForWorkplace(
-    workplace,
-    profile.status === 'active' ? profile.role : null,
-  )
+  // A space row points at the space in view. Without one it falls back to its
+  // space-less path, and drops out when it has none — an empty group goes with
+  // it rather than leaving a heading over nothing.
+  const spaceId = navigation.currentSpace?.id
+  const groups = navForWorkplace(workplace, profile.status === 'active' ? profile.role : null)
+    .map((group) => ({
+      ...group,
+      items: group.items.flatMap((item) => {
+        if (item.space === undefined) return [item]
+        if (!spaceId) return item.to ? [item] : []
+        return [{ ...item, to: `/general/spaces/${spaceId}${item.space && `/${item.space}`}` }]
+      }),
+    }))
+    .filter((group) => group.items.length > 0)
 
   function revealHint(
     text: string,
@@ -145,7 +154,6 @@ export function SideNav({
           {workplace === 'general' && (
             <div className="space-y-5">
               <div>
-                {!collapsed && <GroupLabel>Space</GroupLabel>}
                 <button
                   type="button"
                   onClick={() => setSpaceOpen((value) => !value)}
@@ -250,39 +258,14 @@ export function SideNav({
               {!collapsed && <GroupLabel>{group.title}</GroupLabel>}
               <ul className="space-y-0.5">
                 {group.items.map((item) => (
-                  <Fragment key={item.label}>
-                    <StaticRow
-                      item={
-                        workplace === 'general' && item.to === '/general' && navigation.currentSpace
-                          ? { ...item, to: `/general/spaces/${navigation.currentSpace.id}` }
-                          : item
-                      }
-                      collapsed={collapsed}
-                      unread={unread}
-                      onNavigate={onNavigate}
-                      hintHandlers={hintHandlers}
-                    />
-                    {workplace === 'general' && item.label === 'Messages' && navigation.currentSpace && (
-                      <>
-                        <SpaceRow
-                          to={`/general/spaces/${navigation.currentSpace.id}/archive`}
-                          icon="archive"
-                          label="Archive"
-                          collapsed={collapsed}
-                          onNavigate={onNavigate}
-                          hintHandlers={hintHandlers}
-                        />
-                        <SpaceRow
-                          to={`/general/spaces/${navigation.currentSpace.id}/reports`}
-                          icon="chart"
-                          label="Reports"
-                          collapsed={collapsed}
-                          onNavigate={onNavigate}
-                          hintHandlers={hintHandlers}
-                        />
-                      </>
-                    )}
-                  </Fragment>
+                  <StaticRow
+                    key={item.label}
+                    item={item}
+                    collapsed={collapsed}
+                    unread={unread}
+                    onNavigate={onNavigate}
+                    hintHandlers={hintHandlers}
+                  />
                 ))}
               </ul>
             </div>
@@ -408,39 +391,3 @@ function StaticRow({
   )
 }
 
-function SpaceRow({
-  to,
-  icon,
-  label,
-  collapsed,
-  onNavigate,
-  hintHandlers,
-}: {
-  to: string
-  icon: IconName
-  label: string
-  collapsed: boolean
-  onNavigate?: () => void
-  hintHandlers: (text: string) => Record<string, unknown>
-}) {
-  return (
-    <li>
-      <NavLink
-        to={to}
-        onClick={onNavigate}
-        aria-label={collapsed ? label : undefined}
-        {...hintHandlers(label)}
-        className={({ isActive }) =>
-          `${ROW} h-10 ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
-            isActive
-              ? 'surface-sunken font-semibold text-ink'
-              : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
-          }`
-        }
-      >
-        <Icon name={icon} size={18} />
-        {!collapsed && <span>{label}</span>}
-      </NavLink>
-    </li>
-  )
-}

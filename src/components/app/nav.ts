@@ -12,6 +12,13 @@ export type NavItem = {
   badge?: 'messages'
   /** Match this path exactly, so a parent page is not lit on its children. */
   end?: boolean
+  /**
+   * A General row that belongs to whichever space is in view: the path under
+   * `/general/spaces/<id>/`, or `''` for the space itself. The shell fills the
+   * id in. Without a space in view the row falls back to `to`, and a row with
+   * no `to` is left out entirely — there is nothing for it to point at.
+   */
+  space?: string
 }
 
 export type NavGroup = { title: string; items: NavItem[] }
@@ -151,19 +158,38 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
 }
 
 /**
- * General is small on purpose. Its projects page is the spine, and a project
- * holds everything else — tasks, members and positions live inside it rather
- * than as pages of their own.
+ * General splits by reach, because that is the only line a reader can draw
+ * without opening the pages. Five rows answer questions about the space named
+ * in the picker directly above them; two answer questions about everything the
+ * account touches. Mixing the two under one heading, which is what this rail
+ * used to do, made "Projects" look like it belonged to the space in view when
+ * it lists projects from every space.
+ *
+ * A project holds its own tasks, files, members and positions, so none of those
+ * are rows here.
  */
 export const GENERAL_NAV: NavGroup[] = [
   {
-    title: 'Workplace',
+    title: 'This space',
     items: [
-      // The current space's home, which is its dashboard. SideNav points this at
-      // the space in view; bare /general lands on the last one.
-      { label: 'Dashboard', icon: 'board', to: '/general', end: true },
+      // Widest to narrowest: the space itself, then how its people are split,
+      // then who they are. Reports and Archive read the space back rather than
+      // run it, so they come last.
+      // Dashboard is the only one that keeps a space-less path, because it is
+      // the way back: bare /general lands on the last space that was open.
+      { label: 'Dashboard', icon: 'board', space: '', to: '/general', end: true },
+      { label: 'Teams', icon: 'users', space: 'teams' },
+      { label: 'Members', icon: 'user', space: 'members' },
+      { label: 'Reports', icon: 'chart', space: 'reports' },
+      { label: 'Archive', icon: 'archive', space: 'archive' },
+    ],
+  },
+  {
+    // Both of these cross space boundaries: the projects page lists every
+    // project the account joined, and a conversation is not owned by a space.
+    title: 'All spaces',
+    items: [
       { label: 'Projects', icon: 'kanban', to: '/general/projects' },
-      { label: 'Teams', icon: 'users', to: '/general/teams' },
       { label: 'Messages', icon: 'message', to: '/general/messages', badge: 'messages' },
     ],
   },
