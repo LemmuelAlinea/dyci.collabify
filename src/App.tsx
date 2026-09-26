@@ -133,7 +133,9 @@ export default function App() {
             <Route path="/tasks" element={<MyTasks />} />
             <Route
               path="/calendar"
-              element={<RoleSwitch student={<Calendar />} professor={<Calendar />} />}
+              element={
+                <RoleSwitch student={<Calendar />} professor={<Calendar />} admin={<Calendar />} />
+              }
             />
             <Route path="/messages" element={<Messages />} />
             <Route path="/messages/:conversationId" element={<Messages />} />

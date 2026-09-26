@@ -11,20 +11,27 @@ import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { FilterField, FilterPopover } from '../../../components/ui/FilterPopover'
 import { Select } from '../../../components/ui/Select'
+import { ScopeFilter } from '../../../components/ui/ScopeFilter'
 import { useAuth } from '../../../context/AuthContext'
+import { useGeneralNavigation } from '../../../context/generalNavigation'
+import { useGeneralDashboard } from '../../../hooks/useGeneralDashboard'
 import { listCalendar, listWeekBands } from '../../../lib/api/calendar'
 import { authErrorMessage } from '../../../lib/authError'
 import { paths } from '../../../lib/paths'
+import { readScope, writeScope } from '../../../lib/scope'
 import { CALENDAR_KINDS } from '../../../lib/types'
 import type { CalendarEvent, ClassWeek } from '../../../lib/types'
 
 type View = 'month' | 'agenda'
 
 /**
- * Every dated thing across a viewer's classes, over the syllabus that produced
- * it. What each role sees is decided by the database, not here — the view is
- * security_invoker, so a student's own policies already keep other groups' work
- * and unreleased projects out.
+ * Every dated thing across a viewer's classes and General work, over the
+ * syllabus that produced it. What each role's class rows are is decided by the
+ * database, not here — the calendar_events view is security_invoker, so a
+ * student's own policies already keep other groups' work and unreleased
+ * projects out. Work dates are not in that view (a General project has no
+ * class), so they are read separately and merged in on the day they land,
+ * the same way My tasks merges class tasks with General ones.
  */
 export default function Calendar() {
   const { profile } = useAuth()
@@ -45,9 +52,18 @@ export default function Calendar() {
 
   const role = profile?.role
   const openTask = params.get('task')
+  const scope = readScope(params)
 
   const load = useCallback(async () => {
-    if (!role || role === 'admin') return
+    if (!role) return
+    // Admins have no classes, so the class calendar is always empty for them —
+    // but they still get their work dates below, so the page is not gated.
+    if (role === 'admin') {
+      setEvents([])
+      setWeeks([])
+      setError(null)
+      return
+    }
     try {
       const rows = await listCalendar(role)
       setEvents(rows)
@@ -69,18 +85,74 @@ export default function Calendar() {
 
   useLive(load, ['projects', 'project_tasks', 'project_boards', 'syllabus_weeks', 'classes'])
 
+  // Work dates: the reader's live General projects, and every open task on
+  // them with a due date — not only the ones assigned to the reader, since a
+  // project's calendar shows the project.
+  const {
+    myProjects,
+    error: navError,
+    reload: reloadNav,
+  } = useGeneralNavigation()
+  const mineProjects = useMemo(
+    () => (myProjects ?? []).filter((p) => p.my_level && !p.archived_at),
+    [myProjects],
+  )
+  const projectIds = useMemo(() => mineProjects.map((p) => p.id), [mineProjects])
+  const {
+    data: dashData,
+    error: dashError,
+    reload: reloadDash,
+  } = useGeneralDashboard(profile?.id, projectIds)
+  const projectName = useCallback(
+    (id: string) => mineProjects.find((p) => p.id === id)?.name ?? 'A project',
+    [mineProjects],
+  )
+
+  // Shaped as calendar events so the month grid and agenda list can draw them
+  // without knowing General work exists. `class_id` empty is what marks a row
+  // as a work date rather than a class one — a real class_id is never blank.
+  const workEvents = useMemo<CalendarEvent[]>(() => {
+    if (!dashData) return []
+    return dashData.tasks
+      .filter((t) => t.due_at && t.status !== 'done')
+      .map((t): CalendarEvent => ({
+        kind: 'project_due',
+        ref_id: t.id,
+        title: t.title,
+        at: t.due_at as string,
+        class_id: '',
+        class_initial: '',
+        class_name: '',
+        project_id: t.project_id,
+        project_title: projectName(t.project_id),
+        task_id: t.id,
+        group_name: null,
+        done: false,
+        late: false,
+      }))
+  }, [dashData, projectName])
+
   const classes = useMemo(() => {
     const map = new Map<string, string>()
     for (const e of events ?? []) map.set(e.class_id, `${e.class_initial} · ${e.class_name}`)
     return [...map].map(([value, label]) => ({ value, label }))
   }, [events])
 
-  const shown = useMemo(
+  // The class and kind filters only make sense against class events, so they
+  // never touch work dates — which is also why work dates ignore them.
+  const classShown = useMemo(
     () =>
-      (events ?? [])
-        .filter((e) => (classFilter ? e.class_id === classFilter : true))
-        .filter((e) => (kindFilter ? e.kind === kindFilter : true)),
-    [events, classFilter, kindFilter],
+      scope === 'work'
+        ? []
+        : (events ?? [])
+            .filter((e) => (classFilter ? e.class_id === classFilter : true))
+            .filter((e) => (kindFilter ? e.kind === kindFilter : true)),
+    [events, classFilter, kindFilter, scope],
+  )
+  const workShown = useMemo(() => (scope === 'classes' ? [] : workEvents), [scope, workEvents])
+  const shown = useMemo(
+    () => [...classShown, ...workShown].sort((a, b) => a.at.localeCompare(b.at)),
+    [classShown, workShown],
   )
 
   const bands = useMemo(
@@ -96,19 +168,18 @@ export default function Calendar() {
   }
 
   function open(event: CalendarEvent) {
+    if (!event.class_id) {
+      navigate(`${paths.project(event.project_id)}?task=${event.ref_id}`)
+      return
+    }
     if (event.task_id) return showTask(event.task_id)
     navigate(paths.classProject(event.project_id))
   }
 
-  if (!role || role === 'admin') {
-    return (
-      <Alert tone="info">
-        The calendar follows classes, so it is for students and professors.
-      </Alert>
-    )
-  }
+  const loaded = events !== null && myProjects !== null && dashData !== null
+  const loadError = error ?? navError ?? dashError
 
-  if (events === null) {
+  if (!role || !loaded) {
     return (
       <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
         <Spinner size={16} />
@@ -127,7 +198,9 @@ export default function Calendar() {
         description={
           role === 'professor'
             ? 'Deadlines and releases across your classes, mapped against the syllabus weeks they belong to.'
-            : 'See every deadline across your classes and the syllabus week behind each one.'
+            : role === 'student'
+              ? 'See every deadline across your classes and the syllabus week behind each one.'
+              : 'Every due date across the projects you are part of.'
         }
         stats={[
           { value: shown.length, label: 'Dates in view' },
@@ -135,7 +208,11 @@ export default function Calendar() {
         ]}
       />
 
-      {error && <Alert tone="error" onRetry={load}>{error}</Alert>}
+      {loadError && (
+        <Alert tone="error" onRetry={() => void Promise.all([load(), reloadNav(), reloadDash()])}>
+          {loadError}
+        </Alert>
+      )}
 
       <section className="overflow-hidden rounded-panel border border-line surface shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line surface-sunken px-4 py-3 sm:px-5">
@@ -158,46 +235,60 @@ export default function Calendar() {
             ))}
           </div>
 
-          <FilterPopover
-            active={[classFilter, kindFilter].filter(Boolean).length}
-            summary={[
-              classes.find((c) => c.value === classFilter)?.label,
-              CALENDAR_KINDS.find((k) => k.value === kindFilter)?.label,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-            onClear={() => {
-              setClassFilter('')
-              setKindFilter('')
-            }}
-            label="Filter the calendar"
-            align="right"
-          >
-            {classes.length > 1 && (
-              <FilterField label="Class">
-                <Select
-                  value={classFilter}
-                  onChange={(e) => setClassFilter(e.target.value)}
-                  placeholder="Every class"
-                  options={classes}
-                  className="!h-10 !text-[13px]"
-                />
-              </FilterField>
-            )}
-            <FilterField label="What to show">
-              <Select
-                value={kindFilter}
-                onChange={(e) => setKindFilter(e.target.value)}
-                placeholder="Everything"
-                options={CALENDAR_KINDS.filter(
-                  (k) =>
-                    (role === 'professor' && k.value !== 'task_due') ||
-                    (role !== 'professor' && k.value !== 'project_release'),
+          <div className="flex flex-wrap items-center gap-3">
+            <ScopeFilter
+              value={scope}
+              onChange={(next) => setParams(writeScope(params, next), { replace: true })}
+              counts={{
+                all: (events?.length ?? 0) + workEvents.length,
+                classes: events?.length ?? 0,
+                work: workEvents.length,
+              }}
+            />
+
+            {scope !== 'work' && (
+              <FilterPopover
+                active={[classFilter, kindFilter].filter(Boolean).length}
+                summary={[
+                  classes.find((c) => c.value === classFilter)?.label,
+                  CALENDAR_KINDS.find((k) => k.value === kindFilter)?.label,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                onClear={() => {
+                  setClassFilter('')
+                  setKindFilter('')
+                }}
+                label="Filter the calendar"
+                align="right"
+              >
+                {classes.length > 1 && (
+                  <FilterField label="Class">
+                    <Select
+                      value={classFilter}
+                      onChange={(e) => setClassFilter(e.target.value)}
+                      placeholder="Every class"
+                      options={classes}
+                      className="!h-10 !text-[13px]"
+                    />
+                  </FilterField>
                 )}
-                className="!h-10 !text-[13px]"
-              />
-            </FilterField>
-          </FilterPopover>
+                <FilterField label="What to show">
+                  <Select
+                    value={kindFilter}
+                    onChange={(e) => setKindFilter(e.target.value)}
+                    placeholder="Everything"
+                    options={CALENDAR_KINDS.filter(
+                      (k) =>
+                        (role === 'professor' && k.value !== 'task_due') ||
+                        (role !== 'professor' && k.value !== 'project_release'),
+                    )}
+                    className="!h-10 !text-[13px]"
+                  />
+                </FilterField>
+              </FilterPopover>
+            )}
+          </div>
         </div>
 
         {view === 'month' ? (

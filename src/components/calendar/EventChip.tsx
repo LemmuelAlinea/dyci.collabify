@@ -59,12 +59,15 @@ export function EventChip({
     event.kind !== 'project_release' &&
     !event.done &&
     new Date(event.at).getTime() < Date.now()
+  // A work date (see Calendar.tsx) carries no class, so the detail line is the
+  // project name alone rather than a blank class initial before it.
+  const detail = [event.class_initial, event.project_title].filter(Boolean).join(' · ')
 
   return (
     <button
       type="button"
       onClick={() => onOpen(event)}
-      title={`${event.title} — ${event.class_initial} · ${event.project_title}`}
+      title={`${event.title} — ${detail}`}
       className={`flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-opacity hover:opacity-85 ${look.cls} ${
         compact ? 'text-[12px]' : 'text-[12px]'
       } ${event.done && event.kind === 'task_due' ? 'line-through opacity-60' : ''}`}

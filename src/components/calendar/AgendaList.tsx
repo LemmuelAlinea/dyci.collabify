@@ -79,8 +79,7 @@ export function AgendaList({
                   <EventChip event={e} onOpen={onOpen} />
                 </span>
                 <span className="text-[12px] text-faint">
-                  {e.class_initial} · {e.project_title}
-                  {e.group_name ? ` · ${e.group_name}` : ''}
+                  {[e.class_initial, e.project_title, e.group_name].filter(Boolean).join(' · ')}
                 </span>
                 <span className="font-mono text-[12px] text-faint">
                   {new Date(e.at).toLocaleTimeString(undefined, {
