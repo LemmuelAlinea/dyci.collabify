@@ -122,6 +122,7 @@ export default function GeneralProjects() {
 function ProjectCard({ project: p }: { project: GeneralProjectSummary }) {
   const pct = Number(p.progress_pct)
   const kind = presetById(p.preset)
+  const shape = kind && kind.id !== 'blank' ? kind : null
   return (
     <Link
       to={`/general/projects/${p.id}`}
@@ -133,12 +134,26 @@ function ProjectCard({ project: p }: { project: GeneralProjectSummary }) {
           {projectStatusLabel(p.status)}
         </span>
       </div>
-      {kind && kind.id !== 'blank' && (
-        <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-faint">
-          <Icon name={kind.icon} size={13} />
-          {kind.name}
-        </p>
-      )}
+      {/* Where it lives, then what shape it is. This page spans every space, so
+          the space is the fact that tells two same-named projects apart. */}
+      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-faint">
+        <span className="flex min-w-0 max-w-full items-center gap-1.5">
+          <Icon name="folder" size={13} className="shrink-0" />
+          {/* Null when the reader joined this project by code and never joined
+              its space, so the space row that names it is not theirs to read.
+              Said plainly beats a blank where every other card has a space. */}
+          <span className="truncate">{p.space_name ?? 'A space you are not in'}</span>
+        </span>
+        {shape && (
+          <>
+            <span aria-hidden>·</span>
+            <span className="flex items-center gap-1.5">
+              <Icon name={shape.icon} size={13} className="shrink-0" />
+              {shape.name}
+            </span>
+          </>
+        )}
+      </p>
       {p.description && <p className="mt-1.5 line-clamp-2 text-[13px] text-muted">{p.description}</p>}
       <p className="mt-3 text-[12px] text-faint">{dateRange(p.starts_on, p.ends_on)}</p>
 

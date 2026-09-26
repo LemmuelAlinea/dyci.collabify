@@ -117,6 +117,11 @@ export type GeneralProjectSummary = GeneralProject & {
   open_request_count: number
   /** Whether this project builds software, which shows the code notice in Files. */
   has_code: boolean
+  /**
+   * Null for a project whose space the viewer is not in — somebody who joined
+   * by project code can read the project but not the space row that names it.
+   */
+  space_name: string | null
 }
 
 export type GeneralMember = {
