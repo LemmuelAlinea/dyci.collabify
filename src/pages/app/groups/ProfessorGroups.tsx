@@ -17,6 +17,7 @@ import {
   ungroupedStudents,
 } from '../../../lib/api/groups'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import type { ClassSummary, GroupSet } from '../../../lib/types'
 
 export default function ProfessorGroups() {
@@ -143,7 +144,7 @@ export default function ProfessorGroups() {
             sets={sets}
             groups={groups}
             members={members}
-            linkBase="/professor/groups"
+            linkBase={paths.groups}
             emptyTitle="No groups yet"
             emptyBody="Create a set to split one of your classes into teams. You can place students by hand, shuffle them randomly, or publish empty groups for them to pick."
             emptyAction={

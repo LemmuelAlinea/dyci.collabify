@@ -13,6 +13,7 @@ import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { decideReassignment, listReassignments } from '../../../lib/api/reassignments'
 import { listGroupMembers } from '../../../lib/api/groups'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import { fullName, reassignmentStatusLabel } from '../../../lib/types'
 import type { GroupMember, ReassignmentRow } from '../../../lib/types'
 
@@ -196,7 +197,7 @@ function RequestCard({ row, onDecide }: { row: ReassignmentRow; onDecide: () => 
       </blockquote>
 
       <Link
-        to={`/professor/projects/${row.project_id}?tab=tasks&task=${row.task_id}`}
+        to={`${paths.classProject(row.project_id)}?tab=tasks&task=${row.task_id}`}
         className="mt-3 inline-flex items-center gap-2 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
       >
         <Icon name="kanban" size={14} />

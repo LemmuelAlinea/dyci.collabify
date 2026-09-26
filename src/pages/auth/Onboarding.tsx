@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext'
 import { authErrorMessage } from '../../lib/authError'
 import { joinPath, pendingJoin } from '../../lib/pendingJoin'
 import { homeFor } from '../../lib/workplace'
+import { paths } from '../../lib/paths'
 import type { Role } from '../../lib/types'
 
 /**
@@ -61,7 +62,7 @@ export default function Onboarding() {
         role,
       })
       const waiting = role === 'student' ? pendingJoin() : null
-      navigate(waiting ? joinPath(waiting) : role === 'professor' ? '/pending' : '/student', {
+      navigate(waiting ? joinPath(waiting) : role === 'professor' ? '/pending' : paths.home, {
         replace: true,
       })
     } catch (err) {

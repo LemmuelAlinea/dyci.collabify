@@ -34,6 +34,7 @@ import {
 import type { CriterionInput } from '../../../lib/api/projects'
 import { classWeekMap } from '../../../lib/api/syllabus'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import {
   PROJECT_TYPES,
   projectTypeLabel,
@@ -83,7 +84,6 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   const [removing, setRemoving] = useState<ProjectAttachment | null>(null)
   const [deletePrompt, setDeletePrompt] = useState(false)
 
-  const base = role === 'professor' ? '/professor' : '/student'
   const canManage = role === 'professor'
 
   const load = useCallback(async () => {
@@ -166,7 +166,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   return (
     <div className="mx-auto w-full max-w-[1280px]">
       <Link
-        to={`${base}/projects`}
+        to={paths.classProjects}
         className="inline-flex items-center gap-2 text-[13px] font-medium text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={15} />
@@ -309,7 +309,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
               <div className="min-w-0">
                 <h1 className="text-balance text-amber-50">{project.title}</h1>
                 <p className="mt-2 text-[13px] text-amber-50/55">
-                  <Link to={`${base}/classes/${project.class_id}`} className="hover:text-amber-200 hover:underline">
+                  <Link to={paths.class(project.class_id)} className="hover:text-amber-200 hover:underline">
                     {project.class_initial} · {project.class_name}
                   </Link>
                   {project.group_set_name && ` · ${project.group_set_name}`}
@@ -667,7 +667,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         onConfirm={async () => {
           await deleteProject(project.id)
           show(`${project.title} deleted`)
-          navigate(`${base}/projects`)
+          navigate(paths.classProjects)
         }}
         title={`Delete ${project.title}?`}
         body="The project, its rubric, and its files are destroyed. This cannot be undone. Archive it instead if you only want it out of the way."

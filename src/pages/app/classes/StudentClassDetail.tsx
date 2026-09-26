@@ -15,6 +15,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { listAnnouncements } from '../../../lib/api/announcements'
 import { getClass, listMembers } from '../../../lib/api/classes'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import type { Announcement, ClassMember, ClassSummary } from '../../../lib/types'
 
 type TabId = 'announcements' | 'classmates' | 'groups' | 'projects' | 'syllabus' | 'about'
@@ -82,7 +83,7 @@ export default function StudentClassDetail() {
 
   return (
     <div className="w-full">
-      <ClassHeader cls={cls} backTo="/student/classes" canManage={false} />
+      <ClassHeader cls={cls} backTo={paths.classes} canManage={false} />
 
       <div className="mt-6">
         <Tabs<TabId>

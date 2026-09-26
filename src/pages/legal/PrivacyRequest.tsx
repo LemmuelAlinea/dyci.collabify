@@ -22,6 +22,7 @@ import {
 import type { PrivacyKind, PrivacyRequestRow } from '../../lib/api/privacy'
 import { PRIVACY_CONTACT, REGULATOR, SCHOOL_DPO, docBySlug } from '../../lib/legal'
 import { useAuth } from '../../context/AuthContext'
+import { paths } from '../../lib/paths'
 import { LIMIT } from '../../lib/limits'
 
 /**
@@ -151,7 +152,7 @@ export default function PrivacyRequest() {
         <Alert tone="info">
           You answer privacy requests for the college.{' '}
           <Link
-            to={profile.role === 'admin' ? '/admin/privacy' : '/professor/privacy'}
+            to={profile.role === 'admin' ? paths.admin.privacy : paths.privacyQueue}
             className="font-semibold underline underline-offset-[3px]"
           >
             Open the queue

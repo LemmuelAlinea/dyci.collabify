@@ -14,6 +14,7 @@ import { Select } from '../../../components/ui/Select'
 import { useAuth } from '../../../context/AuthContext'
 import { listCalendar, listWeekBands } from '../../../lib/api/calendar'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import { CALENDAR_KINDS } from '../../../lib/types'
 import type { CalendarEvent, ClassWeek } from '../../../lib/types'
 
@@ -96,8 +97,7 @@ export default function Calendar() {
 
   function open(event: CalendarEvent) {
     if (event.task_id) return showTask(event.task_id)
-    const base = role === 'professor' ? '/professor' : '/student'
-    navigate(`${base}/projects/${event.project_id}`)
+    navigate(paths.classProject(event.project_id))
   }
 
   if (!role || role === 'admin') {

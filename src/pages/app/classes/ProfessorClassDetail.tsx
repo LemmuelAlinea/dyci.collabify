@@ -28,6 +28,7 @@ import {
   updateClass,
 } from '../../../lib/api/classes'
 import type { ClassInput } from '../../../lib/api/classes'
+import { paths } from '../../../lib/paths'
 import { listResources } from '../../../lib/api/resources'
 import { authErrorMessage } from '../../../lib/authError'
 import type { Announcement, ClassMember, ClassSummary, TeachingResource } from '../../../lib/types'
@@ -134,7 +135,7 @@ export default function ProfessorClassDetail() {
     <div className="w-full">
       <ClassHeader
         cls={cls}
-        backTo="/professor/classes"
+        backTo={paths.classes}
         canManage
         onToggleJoin={async (open) => {
           try {
@@ -291,7 +292,7 @@ export default function ProfessorClassDetail() {
         onConfirm={async () => {
           await deleteClassPermanently(classId)
           show(`${cls.name} deleted`)
-          navigate('/professor/classes')
+          navigate(paths.classes)
         }}
         title={`Delete ${cls.name} for good?`}
         // It said "the class, its roster, and every announcement", which is

@@ -32,6 +32,7 @@ import {
   JOIN_GROUP_MESSAGE,
 } from '../../../lib/api/groups'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import { fullName, modeLabel } from '../../../lib/types'
 import type { ClassMember, ClassSummary, GroupMember, GroupSummary } from '../../../lib/types'
 
@@ -62,8 +63,6 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
   const { profile } = useAuth()
   const { show } = useToast()
   const navigate = useNavigate()
-
-  const base = role === 'professor' ? '/professor/groups' : '/student/groups'
 
   const [group, setGroup] = useState<GroupSummary | null>(null)
   const [siblings, setSiblings] = useState<GroupSummary[]>([])
@@ -202,7 +201,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
   return (
     <div className="mx-auto w-full max-w-[1280px]">
       <Link
-        to={base}
+        to={paths.groups}
         className="inline-flex items-center gap-2 text-[13px] font-medium text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={16} />
@@ -271,7 +270,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                       await archiveGroup(group.id, !group.archived_at)
                       show(group.archived_at ? `${group.name} restored` : `${group.name} archived`)
                       if (group.archived_at) await load()
-                      else navigate(base)
+                      else navigate(paths.groups)
                     } catch (err) {
                       show(authErrorMessage(err, 'Could not archive the group.'), 'error')
                     } finally {
@@ -613,7 +612,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
           try {
             await deleteGroup(group.id)
             show(`${group.name} deleted`)
-            navigate(base)
+            navigate(paths.groups)
           } catch (err) {
             setDeletePrompt(false)
             show(authErrorMessage(err, 'Could not delete the group.'), 'error')

@@ -13,6 +13,7 @@ import { useConversations } from '../../../hooks/useConversations'
 import { useLive } from '../../../hooks/useLive'
 import { listMyInvitations, respondToInvitation } from '../../../lib/api/general'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import type { MyInvitation } from '../../../lib/general/types'
 import { fullName } from '../../../lib/types'
 import { useToast } from '../../../components/ui/Toast'
@@ -22,13 +23,6 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
   const { profile } = useAuth()
   const { show } = useToast()
   const navigate = useNavigate()
-  const base =
-    role === 'professor'
-      ? '/professor/messages'
-      : role === 'general'
-        ? '/general/messages'
-        : '/student/messages'
-
   const { conversations, error, reload } = useConversations(
     profile?.id,
     role === 'general' ? 'general' : 'education',
@@ -176,7 +170,7 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
             <ConversationList
               conversations={conversations}
               activeId={conversationId}
-              linkBase={base}
+              linkBase={paths.messages}
             />
           )}
         </aside>
@@ -213,7 +207,7 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
               conversation={active}
               viewerId={profile.id}
               canModerate={role === 'professor'}
-              backTo={base}
+              backTo={paths.messages}
             />
           ) : (
             <div className="flex items-center gap-3 p-6 text-[14px] text-muted">
@@ -231,7 +225,7 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
           professorId={profile.id}
           onStarted={async (id) => {
             await reload()
-            navigate(`${base}/${id}`)
+            navigate(paths.conversation(id))
           }}
         />
       )}

@@ -8,6 +8,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { membersOf, useGroupsData } from '../../../hooks/useGroupsData'
 import { listStudentClasses } from '../../../lib/api/classes'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import type { ClassSummary } from '../../../lib/types'
 
 type TabId = 'mine' | 'open'
@@ -104,7 +105,7 @@ export default function StudentGroups() {
               sets={sets}
               groups={shown}
               members={members}
-              linkBase="/student/groups"
+              linkBase={paths.groups}
               viewerId={profile?.id}
               showSetFilter={false}
               emptyTitle={tab === 'mine' ? "You're not in a group yet" : 'Nothing to join'}

@@ -10,6 +10,7 @@ import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { listStudentClasses } from '../../../lib/api/classes'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import type { ClassSummary } from '../../../lib/types'
 
 export default function StudentClasses() {
@@ -91,7 +92,7 @@ export default function StudentClasses() {
               <ClassCard
                 key={c.id}
                 cls={c}
-                to={`/student/classes/${c.id}`}
+                to={paths.class(c.id)}
                 audience="student"
                 index={index}
               />

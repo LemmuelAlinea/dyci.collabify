@@ -9,6 +9,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useProjectsData } from '../../../hooks/useProjectsData'
 import { listProfessorClasses } from '../../../lib/api/classes'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import type { ClassSummary } from '../../../lib/types'
 
 export default function ProfessorProjects() {
@@ -90,7 +91,7 @@ export default function ProfessorProjects() {
           <ProjectsBoard
             projects={projects}
             classes={classes}
-            linkBase="/professor/projects"
+            linkBase={paths.classProjects}
             audience="class"
             emptyTitle="No projects yet"
             emptyBody="Pick a class, choose the weeks it covers, and the syllabus tells you what the project should be for. You can schedule it to open later."

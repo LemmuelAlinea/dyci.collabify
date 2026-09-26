@@ -21,6 +21,7 @@ import {
   uploadResource,
 } from '../../../lib/api/resources'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import { PARSE_STATUS_LABEL } from '../../../lib/types'
 import type { ResourceKind, TeachingResource } from '../../../lib/types'
 
@@ -248,7 +249,7 @@ export function ResourceLibrary({
                 <div className="flex shrink-0 items-center gap-1">
                   {kind === 'syllabus' && (
                     <Link
-                      to={`/professor/syllabi/${r.id}`}
+                      to={paths.syllabus(r.id)}
                       aria-label={`Week map for ${r.title}`}
                       title="Week map"
                       className="grid h-9 w-9 place-items-center rounded-full text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"

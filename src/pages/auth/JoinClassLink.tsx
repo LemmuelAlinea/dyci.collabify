@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext'
 import { JOIN_MESSAGE, joinClass, previewJoin, type JoinPreview } from '../../lib/api/classes'
 import { authErrorMessage } from '../../lib/authError'
 import { forgetJoin, rememberJoin } from '../../lib/pendingJoin'
+import { paths } from '../../lib/paths'
 import type { JoinResult } from '../../lib/types'
 import { homeFor } from '../../lib/workplace'
 
@@ -53,7 +54,7 @@ export default function JoinClassLink() {
       try {
         const p = await previewJoin(code)
         if (p.result === 'already_member' && p.class_id) {
-          navigate(`/student/classes/${p.class_id}`, { replace: true })
+          navigate(paths.class(p.class_id), { replace: true })
           return
         }
         if (p.result !== 'ok') {
@@ -72,7 +73,7 @@ export default function JoinClassLink() {
     try {
       const { result, class_id } = await joinClass(code)
       if ((result === 'joined' || result === 'already_member') && class_id) {
-        navigate(`/student/classes/${class_id}`, { replace: true })
+        navigate(paths.class(class_id), { replace: true })
         return
       }
       setPreview(null)

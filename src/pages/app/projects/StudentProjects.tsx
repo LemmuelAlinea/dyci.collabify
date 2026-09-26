@@ -7,6 +7,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useProjectsData } from '../../../hooks/useProjectsData'
 import { listStudentClasses } from '../../../lib/api/classes'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import type { ClassSummary } from '../../../lib/types'
 
 export default function StudentProjects() {
@@ -61,7 +62,7 @@ export default function StudentProjects() {
             projects={projects}
             classes={classes}
             audience="mine"
-            linkBase="/student/projects"
+            linkBase={paths.classProjects}
             emptyTitle="Nothing set yet"
             emptyBody="When a professor releases a project in one of your classes, it appears here with its deadline."
           />

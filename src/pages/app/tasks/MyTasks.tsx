@@ -12,6 +12,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { myTasks, setTaskStatus } from '../../../lib/api/tasks'
 import type { MyTask } from '../../../lib/api/tasks'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import { formatMinutes, taskShare, taskStatusLabel } from '../../../lib/types'
 import type { TaskStatus } from '../../../lib/types'
 
@@ -158,7 +159,7 @@ export default function MyTasks() {
         description="What you have taken on across every project, ordered by what needs you first."
         action={
           <Link
-            to="/student/projects"
+            to={paths.classProjects}
             className="inline-flex items-center gap-2 rounded-lg border border-amber-50/20 bg-amber-50/8 px-4 py-2.5 text-[13px] font-medium text-amber-50 transition-colors hover:bg-amber-50/14"
           >
             Find work on project boards

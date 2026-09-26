@@ -14,6 +14,7 @@ import {
   setParseStatus,
 } from '../../../lib/api/syllabus'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import { PARSE_STATUS_LABEL } from '../../../lib/types'
 import type { SyllabusWeek, TeachingResource } from '../../../lib/types'
 
@@ -99,7 +100,7 @@ export default function SyllabusDetail() {
   return (
     <div className="mx-auto w-full max-w-[1180px]">
       <Link
-        to="/professor/syllabi"
+        to={paths.syllabi}
         className="inline-flex items-center gap-2 text-[13px] text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={16} />

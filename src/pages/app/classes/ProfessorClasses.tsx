@@ -15,6 +15,7 @@ import { createClass, listProfessorClasses } from '../../../lib/api/classes'
 import type { ClassInput } from '../../../lib/api/classes'
 import { listResources } from '../../../lib/api/resources'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import type { ClassSummary, TeachingResource } from '../../../lib/types'
 
 type View = 'active' | 'archived'
@@ -168,7 +169,7 @@ export default function ProfessorClasses() {
               <ClassCard
                 key={c.id}
                 cls={c}
-                to={`/professor/classes/${c.id}`}
+                to={paths.class(c.id)}
                 audience="professor"
                 index={index}
               />
