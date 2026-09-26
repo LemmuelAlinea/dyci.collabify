@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { educationHome, homeFor, settingsPathFor, workplaceOf } from './workplace'
+import { homeFor, workplaceOf } from './workplace'
 
 const p = (
   role: 'student' | 'professor' | 'admin' | null,
@@ -27,24 +27,10 @@ describe('homeFor', () => {
     expect(homeFor(p(null, 'active', 'education'))).toBe('/pending')
   })
 
-  it('keeps the admin on the console', () => {
-    expect(homeFor(p('admin', 'active', 'education'))).toBe('/admin')
-  })
-
-  it('lands an admitted account in its home workplace', () => {
-    expect(homeFor(p('student', 'active', 'education'))).toBe('/student')
-    expect(homeFor(p('professor', 'active', 'general'))).toBe('/general')
-  })
-})
-
-describe('educationHome', () => {
-  it('parks anybody not yet admitted', () => {
-    expect(educationHome(p(null, 'active', 'general'))).toBe('/pending')
-    expect(educationHome(p('professor', 'pending', 'general'))).toBe('/pending')
-  })
-
-  it('opens an approved professor', () => {
-    expect(educationHome(p('professor', 'active', 'general'))).toBe('/professor')
+  it('lands any admitted account on the one dashboard', () => {
+    expect(homeFor(p('admin', 'active', 'education'))).toBe('/home')
+    expect(homeFor(p('student', 'active', 'education'))).toBe('/home')
+    expect(homeFor(p('professor', 'active', 'general'))).toBe('/home')
   })
 })
 
@@ -68,15 +54,5 @@ describe('workplaceOf', () => {
   it('uses the home workplace on shared pages', () => {
     expect(workplaceOf('/settings', 'general')).toBe('general')
     expect(workplaceOf('/privacy/request', 'education')).toBe('education')
-  })
-})
-
-describe('settingsPathFor', () => {
-  it('keeps Settings in the active workplace when possible', () => {
-    expect(settingsPathFor('general', 'student')).toBe('/general/settings')
-    expect(settingsPathFor('education', 'student')).toBe('/student/settings')
-    expect(settingsPathFor('education', 'professor')).toBe('/professor/settings')
-    expect(settingsPathFor('education', 'admin')).toBe('/admin/settings')
-    expect(settingsPathFor('education', null)).toBe('/settings')
   })
 })

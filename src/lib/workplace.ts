@@ -16,23 +16,16 @@ export type Workplace = 'education' | 'general'
 
 export type HomeProfile = Pick<Profile, 'role' | 'status' | 'home_workplace'>
 
-const EDUCATION_HOME: Record<Role, string> = {
-  student: '/student',
-  professor: '/professor',
-  admin: '/admin',
-}
-
+/** Phase 4 retires this; kept exported so its few remaining callers still resolve. */
 export function educationHome(profile: HomeProfile): string {
   if (profile.status !== 'active' || !profile.role) return '/pending'
-  return EDUCATION_HOME[profile.role]
+  return '/home'
 }
 
 export function homeFor(profile: HomeProfile | null | undefined): string {
   if (!profile) return '/onboarding'
   if (profile.status !== 'active' || !profile.role) return '/pending'
-  if (profile.role === 'admin') return '/admin'
-  if (profile.home_workplace === 'general') return '/general'
-  return EDUCATION_HOME[profile.role]
+  return '/home'
 }
 
 export function workplaceOf(pathname: string, home: Workplace): Workplace {

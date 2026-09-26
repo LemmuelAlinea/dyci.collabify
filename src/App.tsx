@@ -4,7 +4,10 @@ import { ThemeSync } from './components/ThemeSync'
 import { AppShell } from './components/app/AppShell'
 import { ErrorBoundary } from './components/app/ErrorBoundary'
 import { ProtectedRoute } from './routes/ProtectedRoute'
+import { RoleSwitch } from './routes/RoleSwitch'
+import { LegacyRedirect } from './routes/LegacyRedirect'
 import { PageLoading } from './components/ui/PageLoading'
+import { paths } from './lib/paths'
 
 import NotFound from './pages/NotFound'
 
@@ -39,7 +42,6 @@ const LegalDocPage = lazy(() => import('./pages/legal/LegalDoc'))
 const PrivacyRequest = lazy(() => import('./pages/legal/PrivacyRequest'))
 const PrivacyQueue = lazy(() => import('./pages/app/PrivacyQueue'))
 const Accounts = lazy(() => import('./pages/app/admin/Accounts'))
-const AdminHome = lazy(() => import('./pages/app/AdminHome'))
 const Analytics = lazy(() => import('./pages/app/analytics/Analytics'))
 const AuditLog = lazy(() => import('./pages/app/admin/AuditLog'))
 const Calendar = lazy(() => import('./pages/app/calendar/Calendar'))
@@ -47,6 +49,7 @@ const Cohort = lazy(() => import('./pages/app/admin/Cohort'))
 const Curriculum = lazy(() => import('./pages/app/resources/Curriculum'))
 const Faculty = lazy(() => import('./pages/app/admin/Faculty'))
 const GroupDetail = lazy(() => import('./pages/app/groups/GroupDetail'))
+const Home = lazy(() => import('./pages/Home'))
 const Messages = lazy(() => import('./pages/app/messages/Messages'))
 const MyTasks = lazy(() => import('./pages/app/tasks/MyTasks'))
 const Notices = lazy(() => import('./pages/app/admin/Notices'))
@@ -54,7 +57,6 @@ const ProfessorApprovals = lazy(() => import('./pages/app/admin/ProfessorApprova
 const ProfessorClassDetail = lazy(() => import('./pages/app/classes/ProfessorClassDetail'))
 const ProfessorClasses = lazy(() => import('./pages/app/classes/ProfessorClasses'))
 const ProfessorGroups = lazy(() => import('./pages/app/groups/ProfessorGroups'))
-const ProfessorHome = lazy(() => import('./pages/app/ProfessorHome'))
 const ProfessorProjects = lazy(() => import('./pages/app/projects/ProfessorProjects'))
 const ProgramClasses = lazy(() => import('./pages/app/admin/ProgramClasses'))
 const ProgramLibrary = lazy(() => import('./pages/app/admin/ProgramLibrary'))
@@ -67,12 +69,10 @@ const Settings = lazy(() => import('./pages/Settings'))
 const StudentClassDetail = lazy(() => import('./pages/app/classes/StudentClassDetail'))
 const StudentClasses = lazy(() => import('./pages/app/classes/StudentClasses'))
 const StudentGroups = lazy(() => import('./pages/app/groups/StudentGroups'))
-const StudentHome = lazy(() => import('./pages/app/StudentHome'))
 const StudentProjects = lazy(() => import('./pages/app/projects/StudentProjects'))
 const StudentReports = lazy(() => import('./pages/app/reports/StudentReports'))
 const Syllabi = lazy(() => import('./pages/app/resources/Syllabi'))
 const SyllabusDetail = lazy(() => import('./pages/app/resources/SyllabusDetail'))
-const GeneralHome = lazy(() => import('./pages/general/GeneralHome'))
 const SpaceHome = lazy(() => import('./pages/general/SpaceHome'))
 const GeneralProjects = lazy(() => import('./pages/general/GeneralProjects'))
 const GeneralTeams = lazy(() => import('./pages/general/GeneralTeams'))
@@ -113,110 +113,140 @@ export default function App() {
           <Route path="/terms" element={<LegalDocPage slug="terms" />} />
           <Route path="/cookies" element={<LegalDocPage slug="cookies" />} />
 
-          <Route element={<ProtectedRoute />}>
+          {/* Owed to every signed-in account, admitted or not: Settings and the
+              right to ask what Collabify holds about you. */}
+          <Route element={<ProtectedRoute open />}>
           <Route element={<AppShell />}>
             <Route path="/settings" element={<Settings />} />
-            {/* Every role, because every signed-in person is a data subject —
-                a professor asking what is held about them is the same right. */}
             <Route path="/privacy/request" element={<PrivacyRequest />} />
           </Route>
           </Route>
 
-          <Route element={<ProtectedRoute workplace="general" />}>
+          {/* One rail for every admitted account, whatever their role. Which
+              page a role-shaped route renders is decided inside it by
+              RoleSwitch, not by which URL got you there. */}
+          <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
-            {/* /general keeps working everywhere it is already linked: it
-                picks the space you were last in and redirects. */}
-            <Route path="/general" element={<GeneralHome />} />
-            <Route path="/general/settings" element={<Settings />} />
-            <Route path="/general/spaces" element={<SpacePicker />} />
-            <Route path="/general/spaces/archive" element={<SpacePicker />} />
-            <Route path="/general/spaces/:spaceId" element={<SpaceHome />} />
-            <Route path="/general/spaces/:spaceId/members" element={<SpaceMembers />} />
-            <Route path="/general/spaces/:spaceId/teams" element={<GeneralTeams />} />
-            <Route path="/general/spaces/:spaceId/teams/archive" element={<GeneralTeams />} />
-            <Route path="/general/spaces/:spaceId/archive" element={<SpaceArchive />} />
-            <Route path="/general/spaces/:spaceId/reports" element={<GeneralReports />} />
-            <Route path="/general/projects" element={<GeneralProjects />} />
-            {/* Teams belong to a space and are reached through it. These two
-                guessed the space from wherever the reader happened to be, and
-                with no space to guess from they only ever spun. */}
-            <Route path="/general/teams" element={<Navigate to="/general/spaces" replace />} />
+            <Route path="/home" element={<Home />} />
             <Route
-              path="/general/teams/archive"
-              element={<Navigate to="/general/spaces" replace />}
+              path="/tasks"
+              element={<RoleSwitch student={<MyTasks />} professor={<MyTasks />} />}
             />
+            <Route
+              path="/calendar"
+              element={<RoleSwitch student={<Calendar />} professor={<Calendar />} />}
+            />
+            <Route
+              path="/messages"
+              element={
+                <RoleSwitch
+                  student={<Messages role="student" />}
+                  professor={<Messages role="professor" />}
+                  admin={<Messages role="professor" />}
+                />
+              }
+            />
+            <Route
+              path="/messages/:conversationId"
+              element={
+                <RoleSwitch
+                  student={<Messages role="student" />}
+                  professor={<Messages role="professor" />}
+                  admin={<Messages role="professor" />}
+                />
+              }
+            />
+
+            {/* Work spaces, open to every admitted account — a professor's
+                capstone side project is exactly as valid as a student's. */}
+            <Route path="/spaces" element={<SpacePicker />} />
+            <Route path="/spaces/archive" element={<SpacePicker />} />
+            <Route path="/spaces/:spaceId" element={<SpaceHome />} />
+            <Route path="/spaces/:spaceId/members" element={<SpaceMembers />} />
+            <Route path="/spaces/:spaceId/teams" element={<GeneralTeams />} />
+            <Route path="/spaces/:spaceId/teams/archive" element={<GeneralTeams />} />
+            <Route path="/spaces/:spaceId/archive" element={<SpaceArchive />} />
+            <Route path="/spaces/:spaceId/reports" element={<GeneralReports />} />
+
             {/* Flat, not nested under the space: a project id is unique on its
                 own, and nesting would break every link and deep link already
                 out there. The space is derived from the project. */}
-            <Route path="/general/projects/:projectId/archive" element={<ProjectArchive />} />
-            <Route path="/general/projects/:projectId" element={<GeneralProject />} />
-            <Route path="/general/messages" element={<Messages role="general" />} />
-            <Route path="/general/messages/:conversationId" element={<Messages role="general" />} />
+            <Route path="/projects" element={<GeneralProjects />} />
+            <Route path="/projects/:projectId" element={<GeneralProject />} />
+            <Route path="/projects/:projectId/archive" element={<ProjectArchive />} />
+
+            <Route
+              path="/classes"
+              element={
+                <RoleSwitch
+                  student={<StudentClasses />}
+                  professor={<ProfessorClasses />}
+                  admin={<Navigate to={paths.admin.classes} replace />}
+                />
+              }
+            />
+            <Route
+              path="/classes/:classId"
+              element={
+                <RoleSwitch student={<StudentClassDetail />} professor={<ProfessorClassDetail />} />
+              }
+            />
+
+            <Route
+              path="/groups"
+              element={<RoleSwitch student={<StudentGroups />} professor={<ProfessorGroups />} />}
+            />
+            <Route
+              path="/groups/:groupId"
+              element={
+                <RoleSwitch
+                  student={<GroupDetail role="student" />}
+                  professor={<GroupDetail role="professor" />}
+                />
+              }
+            />
+
+            <Route
+              path="/class-projects"
+              element={<RoleSwitch student={<StudentProjects />} professor={<ProfessorProjects />} />}
+            />
+            <Route
+              path="/class-projects/:projectId"
+              element={
+                <RoleSwitch
+                  student={<ProjectDetail role="student" />}
+                  professor={<ProjectDetail role="professor" />}
+                />
+              }
+            />
           </Route>
           </Route>
 
-          <Route element={<ProtectedRoute workplace="education" allow={['student']} />}>
+          <Route element={<ProtectedRoute allow={['student']} />}>
           <Route element={<AppShell />}>
-            <Route path="/student" element={<StudentHome />} />
-            <Route path="/student/settings" element={<Settings />} />
-            <Route path="/student/classes" element={<StudentClasses />} />
-            <Route path="/student/classes/:classId" element={<StudentClassDetail />} />
-            <Route path="/student/groups" element={<StudentGroups />} />
-            <Route path="/student/projects" element={<StudentProjects />} />
-            <Route path="/student/calendar" element={<Calendar />} />
-            <Route path="/student/reports" element={<StudentReports />} />
-            <Route path="/student/tasks" element={<MyTasks />} />
-            <Route
-              path="/student/projects/:projectId"
-              element={<ProjectDetail role="student" />}
-            />
-            <Route path="/student/groups/:groupId" element={<GroupDetail role="student" />} />
-            <Route path="/student/messages" element={<Messages role="student" />} />
-            <Route
-              path="/student/messages/:conversationId"
-              element={<Messages role="student" />}
-            />
+            <Route path="/record" element={<StudentReports />} />
           </Route>
           </Route>
 
-          <Route element={<ProtectedRoute workplace="education" allow={['professor']} />}>
+          <Route element={<ProtectedRoute allow={['professor', 'admin']} />}>
           <Route element={<AppShell />}>
-            <Route path="/professor" element={<ProfessorHome />} />
-            <Route path="/professor/settings" element={<Settings />} />
-            <Route path="/professor/classes" element={<ProfessorClasses />} />
-            <Route path="/professor/classes/:classId" element={<ProfessorClassDetail />} />
-            <Route path="/professor/groups" element={<ProfessorGroups />} />
-            <Route path="/professor/projects" element={<ProfessorProjects />} />
-            <Route
-              path="/professor/projects/:projectId"
-              element={<ProjectDetail role="professor" />}
-            />
-            <Route path="/professor/groups/:groupId" element={<GroupDetail role="professor" />} />
-            <Route path="/professor/messages" element={<Messages role="professor" />} />
-            <Route
-              path="/professor/messages/:conversationId"
-              element={<Messages role="professor" />}
-            />
-            <Route path="/professor/syllabi" element={<Syllabi />} />
-            <Route path="/professor/syllabi/:resourceId" element={<SyllabusDetail />} />
-            <Route path="/professor/curriculum" element={<Curriculum />} />
-            <Route path="/professor/submissions" element={<Submissions />} />
-            <Route path="/professor/reassignments" element={<Reassignments />} />
+            <Route path="/teaching/submissions" element={<Submissions />} />
+            <Route path="/teaching/reassignments" element={<Reassignments />} />
+            <Route path="/teaching/analytics" element={<Analytics />} />
+            <Route path="/teaching/reports" element={<Reports />} />
+            <Route path="/teaching/syllabi" element={<Syllabi />} />
+            <Route path="/teaching/syllabi/:resourceId" element={<SyllabusDetail />} />
+            <Route path="/teaching/curriculum" element={<Curriculum />} />
             {/* The queue is the same page for both roles. is_privacy_handler()
                 decides what it returns, so a professor who is not the handler
                 sees only their own requests rather than an empty screen with a
                 nav entry pointing at it. */}
-            <Route path="/professor/privacy" element={<PrivacyQueue />} />
-            <Route path="/professor/calendar" element={<Calendar />} />
-            <Route path="/professor/analytics" element={<Analytics />} />
-            <Route path="/professor/reports" element={<Reports />} />
+            <Route path="/privacy/queue" element={<PrivacyQueue />} />
           </Route>
           </Route>
 
-          <Route element={<ProtectedRoute workplace="education" allow={['admin']} />}>
+          <Route element={<ProtectedRoute allow={['admin']} />}>
           <Route element={<AppShell />}>
-            <Route path="/admin" element={<AdminHome />} />
-            <Route path="/admin/settings" element={<Settings />} />
             <Route path="/admin/approvals" element={<ProfessorApprovals />} />
             <Route path="/admin/notices" element={<Notices />} />
             <Route path="/admin/sections" element={<Sections />} />
@@ -229,6 +259,19 @@ export default function App() {
             <Route path="/admin/accounts" element={<Accounts />} />
           </Route>
           </Route>
+
+          {/* Old sections, kept working for whatever still links to them. Listed
+              before the 404 catch-all, and /admin plus /admin/settings are
+              named exactly so they never shadow the real admin pages above. */}
+          <Route path="/student/*" element={<LegacyRedirect />} />
+          <Route path="/professor/*" element={<LegacyRedirect />} />
+          <Route path="/general/*" element={<LegacyRedirect />} />
+          <Route path="/general" element={<LegacyRedirect />} />
+          <Route path="/student" element={<LegacyRedirect />} />
+          <Route path="/professor" element={<LegacyRedirect />} />
+          <Route path="/admin" element={<LegacyRedirect />} />
+          <Route path="/admin/settings" element={<LegacyRedirect />} />
+          <Route path="/education/*" element={<LegacyRedirect />} />
 
           <Route path="*" element={<NotFound />} />
           </Routes>

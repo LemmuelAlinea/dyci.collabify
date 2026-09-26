@@ -3,7 +3,6 @@ import { LogoMark } from '../components/brand/Logo'
 import { Spinner } from '../components/ui/Icon'
 import { useAuth } from '../context/AuthContext'
 import { homeFor } from '../lib/workplace'
-import type { Workplace } from '../lib/workplace'
 import type { Role } from '../lib/types'
 
 function Booting() {
@@ -18,15 +17,16 @@ function Booting() {
 }
 
 /**
- * `workplace` says which door this is.
+ * The one gate every signed-in page sits behind.
  *
- * - Both workplaces need an admitted account: active, with a role. Faculty
- *   waiting on the admin used to be let into General; nothing opens before
- *   approval now.
- * - No workplace (Settings, Your data) stays open to every signed-in account
- *   that is not deactivated: those are owed to everybody, admitted or not.
+ * `open` marks a page every signed-in account is owed regardless of role or
+ * admission — Settings, the privacy request — so it renders as soon as there
+ * is a session and a profile, before the pending check. Everything else needs
+ * an admitted account: active, with a role. `allow` narrows further, to the
+ * roles that page is actually for; anyone else is sent home rather than shown
+ * a page that is not theirs.
  */
-export function ProtectedRoute({ allow, workplace }: { allow?: Role[]; workplace?: Workplace }) {
+export function ProtectedRoute({ allow, open }: { allow?: Role[]; open?: boolean }) {
   const { ready, session, profile } = useAuth()
   const location = useLocation()
 
@@ -34,11 +34,9 @@ export function ProtectedRoute({ allow, workplace }: { allow?: Role[]; workplace
   if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />
   if (!profile) return <Navigate to="/onboarding" replace />
   if (profile.status === 'rejected') return <Navigate to="/pending" replace />
-  if (!workplace) return <Outlet />
+  if (open) return <Outlet />
 
   if (profile.status !== 'active' || !profile.role) return <Navigate to="/pending" replace />
-  if (workplace === 'general') return <Outlet />
   if (allow && !allow.includes(profile.role)) return <Navigate to={homeFor(profile)} replace />
-
   return <Outlet />
 }
