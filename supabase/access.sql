@@ -14,8 +14,9 @@
 -- workplaces.sql), guard_privileged_columns and guard_profile_insert
 -- (workplaces.sql), log_profile_change (audit.sql), general_viewer_active and
 -- join_general_project (general.sql), join_general_space (general-spaces.sql),
--- the professor_accounts view (admin-rename.sql) and the classes_insert policy
--- (classes.sql). Re-run this file after re-running any of those.
+-- the professor_accounts view (admin-rename.sql), the classes_insert policy
+-- (classes.sql) and set_account_role and set_account_active (accounts.sql).
+-- Re-run this file after re-running any of those.
 --
 -- Idempotent. Safe to re-run.
 
@@ -295,14 +296,22 @@ language plpgsql security definer set search_path = public as $$
 declare
   target public.profiles%rowtype;
 begin
-  if auth.uid() is not null and not public.is_admin() then
+  -- Through the API only the admin or the service role gets past here; an
+  -- anonymous caller has no auth.uid() and must not slip through on that.
+  -- A direct database session (SQL console, scripts, the test harness) keeps
+  -- the old rule: a session impersonating a user must be the admin.
+  if not public.is_admin()
+     and (case when session_user = 'authenticator'
+               then coalesce(auth.role(), '') <> 'service_role'
+               else auth.uid() is not null end) then
     raise exception 'Only the program admin approves faculty accounts'
       using errcode = 'insufficient_privilege';
   end if;
 
   select * into target from public.profiles where id = p_user for update;
   if target.id is null then
-    raise exception 'That account no longer exists';
+    raise exception 'That account no longer exists'
+      using errcode = 'no_data_found';
   end if;
   if target.role is distinct from 'professor' then
     raise exception 'Only faculty accounts go through approval'
@@ -330,14 +339,22 @@ language plpgsql security definer set search_path = public as $$
 declare
   target public.profiles%rowtype;
 begin
-  if auth.uid() is not null and not public.is_admin() then
+  if not public.is_admin()
+     and (case when session_user = 'authenticator'
+               then coalesce(auth.role(), '') <> 'service_role'
+               else auth.uid() is not null end) then
     raise exception 'Only the program admin decides who teaches'
       using errcode = 'insufficient_privilege';
+  end if;
+  if p_can_teach is null then
+    raise exception 'Choose whether this account can teach'
+      using errcode = 'check_violation';
   end if;
 
   select * into target from public.profiles where id = p_user for update;
   if target.id is null then
-    raise exception 'That account no longer exists';
+    raise exception 'That account no longer exists'
+      using errcode = 'no_data_found';
   end if;
   if target.role is distinct from 'professor' then
     raise exception 'Only faculty accounts can teach'
@@ -541,5 +558,162 @@ create policy classes_insert on public.classes
   for insert with check (
     professor_id = auth.uid() and public.is_teaching_faculty(auth.uid())
   );
+
+commit;
+
+begin;
+
+-- ---------------------------------------------------------------- anonymous callers
+
+/**
+ * Every security-definer function below used to guard with
+ * `auth.uid() is not null and not <allowed>`, which exists so the SQL console
+ * and the test harness can call them without a JWT. An anonymous PostgREST
+ * caller has no auth.uid() either, so it skipped the check.
+ *
+ * The admin functions now ask who is really on the line: through the API
+ * (session_user is always 'authenticator' there) only the admin or the service
+ * role passes. A direct database session keeps the old rule.
+ *
+ * set_account_role and set_account_active are accounts.sql's, copied with
+ * only the guard changed. This file supersedes accounts.sql for them: re-run
+ * it after accounts.sql.
+ */
+create or replace function public.set_account_role(
+  p_user uuid,
+  p_role public.user_role
+) returns public.profiles
+language plpgsql security definer set search_path = public as $$
+declare
+  target  public.profiles%rowtype;
+  holding int;
+begin
+  if not public.is_admin()
+     and (case when session_user = 'authenticator'
+               then coalesce(auth.role(), '') <> 'service_role'
+               else auth.uid() is not null end) then
+    raise exception 'Only the program admin changes an account''s role'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if p_role = 'admin' then
+    raise exception 'An admin is made from the command line, not from here'
+      using errcode = 'check_violation';
+  end if;
+
+  select * into target from public.profiles where id = p_user for update;
+  if target.id is null then
+    raise exception 'That account no longer exists';
+  end if;
+
+  if target.role = 'admin' then
+    raise exception 'An admin''s own role is not changed from here'
+      using errcode = 'check_violation';
+  end if;
+
+  if target.id = auth.uid() then
+    raise exception 'You cannot change your own role';
+  end if;
+
+  if target.role = p_role then
+    return target; -- already there, and saying so twice is not an error
+  end if;
+
+  -- A class with no professor is unreachable to everybody. Hand it over first,
+  -- which is the same reasoning that keeps delete off this page.
+  if target.role = 'professor' and p_role = 'student' then
+    select count(*) into holding from public.classes
+     where professor_id = p_user and archived_at is null;
+    if holding > 0 then
+      raise exception
+        'They still run % active %. Hand those over first, or archive them.',
+        holding, case when holding = 1 then 'class' else 'classes' end
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  update public.profiles
+     set role = p_role,
+         -- A new professor is unverified; a student needs no verifying.
+         status = case when p_role = 'professor' then 'pending' else 'active' end
+                  ::public.account_status,
+         decided_by = auth.uid(),
+         decided_at = now()
+   where id = p_user
+  returning * into target;
+
+  return target;
+end;
+$$;
+
+create or replace function public.set_account_active(
+  p_user   uuid,
+  p_active boolean
+) returns public.profiles
+language plpgsql security definer set search_path = public as $$
+declare
+  target public.profiles%rowtype;
+begin
+  if not public.is_admin()
+     and (case when session_user = 'authenticator'
+               then coalesce(auth.role(), '') <> 'service_role'
+               else auth.uid() is not null end) then
+    raise exception 'Only the program admin deactivates an account'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  select * into target from public.profiles where id = p_user for update;
+  if target.id is null then
+    raise exception 'That account no longer exists';
+  end if;
+
+  if target.role = 'admin' then
+    raise exception 'An admin account is not deactivated from here'
+      using errcode = 'check_violation';
+  end if;
+
+  if target.id = auth.uid() then
+    raise exception 'You cannot deactivate yourself';
+  end if;
+
+  update public.profiles
+     set status = case when p_active then 'active' else 'rejected' end
+                  ::public.account_status,
+         decided_by = auth.uid(),
+         decided_at = now()
+   where id = p_user
+  returning * into target;
+
+  return target;
+end;
+$$;
+
+/**
+ * Nobody signed out has any business calling these. The four admin functions
+ * above, plus the class and board functions whose guards skip a null
+ * auth.uid() the same way (classes, terms, results, reassignments). Revoking
+ * is their fix; their bodies are unchanged.
+ */
+do $$
+declare
+  fn text;
+begin
+  foreach fn in array array[
+    'public.decide_faculty(uuid, boolean, boolean)',
+    'public.set_faculty_teaching(uuid, boolean)',
+    'public.set_account_role(uuid, public.user_role)',
+    'public.set_account_active(uuid, boolean)',
+    'public.apply_shift_to_deadlines(uuid, uuid[], uuid[])',
+    'public.class_shift_impact(uuid)',
+    'public.decide_reassignment(uuid, boolean, uuid, text)',
+    'public.record_board_result(uuid, public.result_verdict, text)',
+    'public.set_board_submitted(uuid, boolean)',
+    'public.shift_class_weeks(uuid, integer, integer, text)',
+    'public.withdraw_reassignment(uuid)'
+  ] loop
+    execute format('revoke execute on function %s from public, anon', fn);
+    execute format('grant execute on function %s to authenticated, service_role', fn);
+  end loop;
+end $$;
 
 commit;

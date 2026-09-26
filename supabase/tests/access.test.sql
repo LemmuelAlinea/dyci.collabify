@@ -379,4 +379,39 @@ begin
   perform pg_temp.must_be('...and is admitted from then on', public.am_i_admitted());
 end $$;
 
+-- ------------------------------------------------------------------ anonymous callers
+
+do $$
+declare
+  v_pending uuid := (select v from fx where k = 'pending');
+  fn text;
+begin
+  perform pg_temp.act_as_service();
+  foreach fn in array array[
+    'public.decide_faculty(uuid, boolean, boolean)',
+    'public.set_faculty_teaching(uuid, boolean)',
+    'public.set_account_role(uuid, public.user_role)',
+    'public.set_account_active(uuid, boolean)',
+    'public.apply_shift_to_deadlines(uuid, uuid[], uuid[])',
+    'public.class_shift_impact(uuid)',
+    'public.decide_reassignment(uuid, boolean, uuid, text)',
+    'public.record_board_result(uuid, public.result_verdict, text)',
+    'public.set_board_submitted(uuid, boolean)',
+    'public.shift_class_weeks(uuid, integer, integer, text)',
+    'public.withdraw_reassignment(uuid)'
+  ] loop
+    perform pg_temp.must_be('signed out cannot execute ' || fn,
+      not has_function_privilege('anon', fn::regprocedure, 'execute'));
+  end loop;
+
+  perform set_config('role', 'anon', true);
+  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  perform pg_temp.must_refuse('a signed-out caller cannot approve faculty',
+    format('select public.decide_faculty(%L, true, true)', v_pending));
+
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and the account is still waiting',
+    (select status = 'pending' from public.profiles where id = v_pending));
+end $$;
+
 rollback;
