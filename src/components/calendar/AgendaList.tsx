@@ -57,7 +57,7 @@ export function AgendaList({
         title="Nothing ahead"
         body={
           showPast
-            ? 'No dates on any of your classes yet.'
+            ? 'Nothing in your classes or projects has a date yet.'
             : 'Nothing is coming up. Turn on past dates to see what has already gone by.'
         }
       />
