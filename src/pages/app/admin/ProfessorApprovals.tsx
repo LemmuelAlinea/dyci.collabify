@@ -9,7 +9,7 @@ import { Icon, Spinner } from '../../../components/ui/Icon'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { Reveal } from '../../../components/motion/Reveal'
-import { decideProfessor, listProfessorAccounts } from '../../../lib/api/admin'
+import { decideFaculty, listProfessorAccounts } from '../../../lib/api/admin'
 import { authErrorMessage } from '../../../lib/authError'
 import { fullName } from '../../../lib/types'
 import type { AccountStatus, ProfessorAccount } from '../../../lib/types'
@@ -74,7 +74,7 @@ export default function ProfessorApprovals() {
   async function decide(account: ProfessorAccount, approve: boolean) {
     setBusy(account.id)
     try {
-      await decideProfessor(account.id, approve)
+      await decideFaculty(account.id, approve)
       show(approve ? `${fullName(account)} approved` : `${fullName(account)} turned down`)
       setRejecting(null)
       await load()

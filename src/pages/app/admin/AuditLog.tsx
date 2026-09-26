@@ -15,6 +15,7 @@ const ICON: Record<AuditAction, 'user' | 'shield' | 'folder' | 'trash' | 'refres
   account_created: 'user',
   role_changed: 'shield',
   status_changed: 'shield',
+  teaching_changed: 'shield',
   class_created: 'folder',
   class_archived: 'archive',
   class_restored: 'refresh',
@@ -26,6 +27,7 @@ const TONE: Record<AuditAction, string> = {
   account_created: 'surface-sunken text-muted',
   role_changed: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
   status_changed: 'bg-navy-50 text-navy-700 dark:bg-navy-500/18 dark:text-navy-100',
+  teaching_changed: 'bg-navy-50 text-navy-700 dark:bg-navy-500/18 dark:text-navy-100',
   class_created: 'surface-sunken text-muted',
   class_archived: 'surface-sunken text-muted',
   class_restored: 'surface-sunken text-muted',
@@ -109,7 +111,9 @@ export default function AuditLog() {
   }
 
   const accountEvents = rows.filter((event) =>
-    ['account_created', 'role_changed', 'status_changed'].includes(event.action),
+    ['account_created', 'role_changed', 'status_changed', 'teaching_changed'].includes(
+      event.action,
+    ),
   ).length
   const classEvents = rows.length - accountEvents
   const recordedDays = new Set(rows.map((event) => dayOf(event.at))).size

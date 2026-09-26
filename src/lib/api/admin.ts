@@ -18,11 +18,24 @@ export async function listProfessorAccounts() {
   return (data ?? []) as ProfessorAccount[]
 }
 
-/** Approve a waiting professor, or turn one down. Reversible either way. */
-export async function decideProfessor(userId: string, approve: boolean) {
-  const { error } = await supabase.rpc('decide_professor', {
+/**
+ * Approve a waiting faculty account, or turn one down. Reversible either way.
+ * `canTeach` is sent only on an approval; leaving it out keeps what is set.
+ */
+export async function decideFaculty(userId: string, approve: boolean, canTeach?: boolean) {
+  const { error } = await supabase.rpc('decide_faculty', {
     p_user: userId,
     p_approve: approve,
+    p_can_teach: canTeach ?? null,
+  })
+  if (error) throw error
+}
+
+/** Let an approved faculty account open classes, or stop it. */
+export async function setFacultyTeaching(userId: string, canTeach: boolean) {
+  const { error } = await supabase.rpc('set_faculty_teaching', {
+    p_user: userId,
+    p_can_teach: canTeach,
   })
   if (error) throw error
 }

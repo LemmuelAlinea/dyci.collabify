@@ -21,6 +21,8 @@ export type Profile = {
   /** Null until the account enters the Education workplace. */
   role: Role | null
   status: AccountStatus
+  /** Set by the admin. Faculty with this on can open classes. */
+  can_teach: boolean
   avatar_url: string | null
   theme: ThemeMode
   /** Where sign-in lands. Both workplaces stay open either way. */
@@ -1238,6 +1240,7 @@ export type AuditAction =
   | 'class_restored'
   | 'class_professor_changed'
   | 'class_deleted'
+  | 'teaching_changed'
 
 export type AuditEvent = {
   id: string
@@ -1259,6 +1262,7 @@ export const AUDIT_ACTIONS: { value: AuditAction; label: string }[] = [
   { value: 'account_created', label: 'Account created' },
   { value: 'role_changed', label: 'Role changed' },
   { value: 'status_changed', label: 'Status changed' },
+  { value: 'teaching_changed', label: 'Teaching changed' },
   { value: 'class_created', label: 'Class created' },
   { value: 'class_archived', label: 'Class archived' },
   { value: 'class_restored', label: 'Class restored' },
@@ -1275,6 +1279,8 @@ export function auditSentence(e: AuditEvent) {
     case 'role_changed':
       return `${who} went from ${e.before_value} to ${e.after_value}`
     case 'status_changed':
+      return `${who} went from ${e.before_value} to ${e.after_value}`
+    case 'teaching_changed':
       return `${who} went from ${e.before_value} to ${e.after_value}`
     case 'class_created':
       return `${e.class_label} was created${who ? ` for ${who}` : ''}`
@@ -1306,6 +1312,8 @@ export type ProfessorAccount = {
   decided_by_name: string | null
   /** Classes they already run. A rejection is heavier when this is not zero. */
   class_count: number
+  /** Whether the admin lets this account open classes. */
+  can_teach: boolean
 }
 
 /* ----------------------------------------------------------------- results */
