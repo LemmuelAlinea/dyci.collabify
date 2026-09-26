@@ -93,6 +93,10 @@ export type ClassRow = {
   year_level: YearLevel
   semester: Semester
   school_year: string
+  /** The class's education space. Every class has one. */
+  space_id: string
+  /** Most active students it takes. Null is no limit. */
+  student_cap: number | null
   description: string | null
   syllabus_id: string | null
   curriculum_id: string | null
@@ -188,6 +192,7 @@ export type JoinResult =
   | 'already_member'
   | 'not_found'
   | 'closed'
+  | 'full'
   | 'archived'
   | 'blocked'
   | 'not_student'

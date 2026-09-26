@@ -116,7 +116,9 @@ export function ClassHeader({
                 <dt className="text-[11px] text-amber-50/45">Roster</dt>
                 <dd className="mt-1.5 flex items-center gap-2 font-mono text-[15px] font-bold text-amber-50">
                   <Icon name="users" size={15} className="text-amber-50/45" />
-                  {cls.student_count} {cls.student_count === 1 ? 'student' : 'students'}
+                  {cls.student_count}
+                  {cls.student_cap ? ` of ${cls.student_cap}` : ''}{' '}
+                  {(cls.student_cap ?? cls.student_count) === 1 ? 'student' : 'students'}
                 </dd>
               </div>
             </dl>

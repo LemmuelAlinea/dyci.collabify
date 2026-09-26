@@ -42,6 +42,7 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
   const [description, setDescription] = useState(defaults?.description ?? '')
   const [syllabusId, setSyllabusId] = useState(defaults?.syllabus_id ?? '')
   const [curriculumId, setCurriculumId] = useState(defaults?.curriculum_id ?? '')
+  const [cap, setCap] = useState(defaults?.student_cap ? String(defaults.student_cap) : '')
   const [sections, setSections] = useState<ProgramSection[]>([])
   const [published, setPublished] = useState<TeachingResource[]>([])
 
@@ -94,6 +95,7 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
       description,
       syllabus_id: syllabusId || null,
       curriculum_id: curriculumId || null,
+      student_cap: cap.trim() ? Number(cap) : null,
     })
   }
 
@@ -208,6 +210,25 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
             value={schoolYear}
             onChange={(e) => setSchoolYear(e.target.value)}
             options={SCHOOL_YEARS}
+          />
+        )}
+      </Field>
+
+      <Field
+        label="Class size limit"
+        optional
+        hint={<span className="text-[12px] text-faint">Leave empty for no limit</span>}
+      >
+        {(id) => (
+          <Input
+            id={id}
+            type="number"
+            min={1}
+            max={500}
+            inputMode="numeric"
+            value={cap}
+            onChange={(e) => setCap(e.target.value)}
+            placeholder="40"
           />
         )}
       </Field>

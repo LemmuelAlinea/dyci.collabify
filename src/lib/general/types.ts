@@ -3,7 +3,7 @@
  * Row shapes for the General workplace, one per table or view in
  * supabase/general.sql, general-tasks.sql and general-notify.sql.
  */
-import type { AccountStatus, Profile } from '../types'
+import type { AccountStatus, Profile, Role } from '../types'
 import type { FieldType, FieldValue } from './fields'
 import type { GeneralLevel, GeneralPermission } from './permissions'
 import type { GeneralTaskStatus } from './progress'
@@ -50,6 +50,8 @@ export type GeneralProject = {
  */
 export type GeneralSpace = {
   id: string
+  /** education: a class's space, written only by the class. Shown in phase 3. */
+  kind: 'work' | 'education'
   name: string
   description: string
   created_by: string | null
@@ -76,6 +78,8 @@ export type SpacePerson = {
   avatar_url: string | null
   level: GeneralLevel
   joined_at: string
+  /** Students only ever hold Member, so the level pickers offer nothing else. */
+  is_student: boolean
 }
 
 /** list_my_general_space_invitations. */
@@ -134,7 +138,7 @@ export type GeneralMember = {
    * Owners whose account is not deactivated. Null when the profile row is not
    * readable, which is counted as live so nothing is refused that would work.
    */
-  profile: (Person & { status: AccountStatus }) | null
+  profile: (Person & { status: AccountStatus; role: Role | null }) | null
 }
 
 export type GeneralTeam = { id: string; project_id: string; name: string; created_at: string }

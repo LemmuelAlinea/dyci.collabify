@@ -290,7 +290,7 @@ export default function SpaceMembers() {
                   {canManageLevels && m.user_id !== profile?.id ? (
                     <Select
                       value={m.level}
-                      options={LEVELS}
+                      options={m.is_student ? LEVELS.filter((l) => l.value === 'member') : LEVELS}
                       className="!h-9 !w-[9.5rem] !text-[13px]"
                       onChange={(e) => void changeLevel(m, e.target.value as GeneralLevel)}
                     />

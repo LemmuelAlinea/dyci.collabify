@@ -111,7 +111,9 @@ function MemberList({ state }: { state: GeneralProjectState }) {
                     value={m.level}
                     onChange={(e) => void changeLevel(m, e.target.value as GeneralLevel)}
                     options={LEVELS.filter(
-                      (l) => l.value === m.level || canStepDown(m.level, state.ownerCount),
+                      (l) =>
+                        (l.value === m.level || canStepDown(m.level, state.ownerCount)) &&
+                        (m.profile?.role !== 'student' || l.value === 'member'),
                     ).map((l) => ({ value: l.value, label: l.label }))}
                     className="!h-9 !w-[8.5rem] !text-[13px]"
                   />

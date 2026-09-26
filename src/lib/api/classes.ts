@@ -76,6 +76,7 @@ export type ClassInput = {
   description?: string | null
   syllabus_id?: string | null
   curriculum_id?: string | null
+  student_cap?: number | null
 }
 
 export async function createClass(professorId: string, input: ClassInput) {
@@ -212,6 +213,7 @@ export const JOIN_MESSAGE: Record<Exclude<JoinResult, 'joined'>, string> = {
   already_member: "You're already in that class.",
   not_found: 'No class uses that code. Check it with your professor.',
   closed: 'That class has closed joining. Ask your professor to reopen it.',
+  full: 'That class is full. Ask your professor to raise its size limit.',
   archived: 'That class has been archived and no longer accepts students.',
   blocked: 'You were removed from that class. Contact your professor to be let back in.',
   not_student: 'Only student accounts can join a class.',

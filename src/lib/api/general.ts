@@ -314,7 +314,7 @@ export async function joinGeneralProject(code: string) {
 export async function listGeneralMembers(projectId: string) {
   const { data, error } = await supabase
     .from('general_members')
-    .select(`project_id, user_id, level, joined_at, profile:profiles (${PERSON}, status)`)
+    .select(`project_id, user_id, level, joined_at, profile:profiles (${PERSON}, status, role)`)
     .eq('project_id', projectId)
     .order('joined_at')
   if (error) throw error
@@ -345,6 +345,7 @@ export async function listGeneralMembers(projectId: string) {
               last_name: hit.last_name,
               avatar_url: hit.avatar_url,
               status: 'active' as const,
+              role: hit.is_student ? ('student' as const) : null,
             }
           })(),
         },

@@ -4,6 +4,7 @@ import type { GeneralSpaceSummary } from './types'
 
 const space = (id: string, archived = false, member = true): GeneralSpaceSummary => ({
   id,
+  kind: 'work',
   name: id,
   description: '',
   created_by: null,
