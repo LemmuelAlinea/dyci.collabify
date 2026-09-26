@@ -5,6 +5,7 @@ import { Toggle } from '../ui/Field'
 import { useToast } from '../ui/Toast'
 import { classMeta, fullName } from '../../lib/types'
 import type { ClassSummary } from '../../lib/types'
+import { inviteLink } from '../../lib/pendingJoin'
 
 export function ClassHeader({
   cls,
@@ -21,6 +22,7 @@ export function ClassHeader({
 }) {
   const { show } = useToast()
   const [copied, setCopied] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   async function copyCode() {
     try {
@@ -29,6 +31,16 @@ export function ClassHeader({
       setTimeout(() => setCopied(false), 1800)
     } catch {
       show('Could not copy. Select the code and copy it manually.', 'error')
+    }
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(inviteLink(cls.code, window.location.origin))
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 1800)
+    } catch {
+      show('Could not copy. Share the class code instead.', 'error')
     }
   }
 
@@ -110,6 +122,16 @@ export function ClassHeader({
                     {cls.code}
                     <Icon name={copied ? 'check' : 'copy'} size={14} />
                   </button>
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={copyLink}
+                      className="mt-1.5 flex items-center gap-1.5 text-[12px] text-amber-50/60 transition-colors hover:text-amber-50"
+                    >
+                      <Icon name={linkCopied ? 'check' : 'copy'} size={13} />
+                      {linkCopied ? 'Invite link copied' : 'Copy invite link'}
+                    </button>
+                  )}
                 </dd>
               </div>
               <div className="bg-navy-950/85 px-4 py-3.5">

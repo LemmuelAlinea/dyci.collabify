@@ -16,6 +16,7 @@ import CheckEmail from './pages/auth/CheckEmail'
 import AuthCallback from './pages/auth/AuthCallback'
 import Onboarding from './pages/auth/Onboarding'
 import Pending from './pages/auth/Pending'
+import JoinClassLink from './pages/auth/JoinClassLink'
 
 
 
@@ -103,6 +104,7 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/pending" element={<Pending />} />
+          <Route path="/join/:code" element={<JoinClassLink />} />
 
           {/* Public on purpose. Somebody deciding whether to register has to be
               able to read what they would be agreeing to before they have an

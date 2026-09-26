@@ -11,6 +11,7 @@ import { allConsented, emptyConsent } from '../../lib/legal'
 import type { ConsentState } from '../../lib/legal'
 import { useAuth } from '../../context/AuthContext'
 import { authErrorMessage } from '../../lib/authError'
+import { joinPath, pendingJoin } from '../../lib/pendingJoin'
 import { homeFor } from '../../lib/workplace'
 import type { Role } from '../../lib/types'
 
@@ -59,7 +60,10 @@ export default function Onboarding() {
         lastName,
         role,
       })
-      navigate(role === 'professor' ? '/pending' : '/student', { replace: true })
+      const waiting = role === 'student' ? pendingJoin() : null
+      navigate(waiting ? joinPath(waiting) : role === 'professor' ? '/pending' : '/student', {
+        replace: true,
+      })
     } catch (err) {
       setError(authErrorMessage(err, 'Could not finish setting up your account.'))
     } finally {
