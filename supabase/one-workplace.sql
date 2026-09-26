@@ -417,3 +417,190 @@ create trigger general_projects_class before insert or update of space_id on pub
   for each row execute function public.guard_class_space_side();
 
 commit;
+
+begin;
+
+-- ---------------------------------------------------------------- co-teachers
+
+/**
+ * Active faculty at Owner or Manager in this space. Reads only the space's
+ * members, never `classes`, so the class policies can use it on a row that the
+ * same INSERT … RETURNING or UPDATE … RETURNING is still writing.
+ */
+create or replace function public.teaches_in_space(p_space uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+      from public.general_space_members m
+      join public.profiles p on p.id = m.user_id
+     where m.space_id = p_space
+       and m.user_id = auth.uid()
+       and m.level in ('owner', 'manager')
+       and p.role in ('professor', 'admin')
+       and p.status = 'active'
+  );
+$$;
+
+/**
+ * Who teaches a class: its professor, or active faculty the class's space holds
+ * at Owner or Manager. Every check below that used to compare professor_id with
+ * the caller now asks this instead, so a co-teacher is never half let in.
+ * Co-teachers can moderate the class conversation but are not yet its members;
+ * phase 3 adds them.
+ */
+create or replace function public.is_class_professor(p_class uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.classes c
+     where c.id = p_class
+       and (c.professor_id = auth.uid() or public.teaches_in_space(c.space_id))
+  );
+$$;
+
+create or replace function public.is_set_professor(p_set uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.group_sets s
+     where s.id = p_set and public.is_class_professor(s.class_id)
+  );
+$$;
+
+create or replace function public.is_project_professor(p_project uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.projects p
+     where p.id = p_project and public.is_class_professor(p.class_id)
+  );
+$$;
+
+create or replace function public.is_board_professor(p_board uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.project_boards b
+      join public.projects p on p.id = b.project_id
+     where b.id = p_board and public.is_class_professor(p.class_id)
+  );
+$$;
+
+create or replace function public.can_read_syllabus(p_resource uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+      from public.classes c
+      left join public.class_members m
+        on m.class_id = c.id and m.student_id = auth.uid() and m.status = 'active'
+     where c.syllabus_id = p_resource
+       and c.archived_at is null
+       and (public.is_class_professor(c.id) or m.student_id is not null)
+  );
+$$;
+
+create or replace function public.can_moderate_conversation(p_conversation uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+      from public.conversations c
+      left join public.classes cl on cl.id = c.class_id
+      left join public.groups g on g.id = c.group_id
+      left join public.group_sets gs on gs.id = g.set_id
+     where c.id = p_conversation
+       and public.is_class_professor(coalesce(cl.id, gs.class_id))
+  );
+$$;
+
+/**
+ * removed-visible.sql's version, plus co-teachers: they see the class's
+ * students, and the class's students see them.
+ */
+create or replace function public.shares_class_with(p_user uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+      from public.class_members me
+      join public.class_members them on them.class_id = me.class_id
+      join public.classes c on c.id = me.class_id
+     where me.student_id = auth.uid() and me.status = 'active'
+       and them.student_id = p_user and them.status = 'active'
+       and c.archived_at is null
+    union all
+    select 1
+      from public.classes c
+      join public.class_members m on m.class_id = c.id
+     where (public.is_class_professor(c.id) and m.student_id = p_user)
+        or (c.professor_id = p_user and m.student_id = auth.uid() and m.status = 'active')
+    union all
+    select 1
+      from public.classes c
+      join public.general_space_members staff
+        on staff.space_id = c.space_id and staff.level in ('owner', 'manager')
+     where staff.user_id = p_user
+       and (public.is_class_professor(c.id)
+            or exists (select 1 from public.class_members m
+                        where m.class_id = c.id and m.student_id = auth.uid()
+                          and m.status = 'active'))
+  );
+$$;
+
+/** messages.sql's version: any teacher of the student's class may start the thread. */
+create or replace function public.start_direct_conversation(p_student uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  me    uuid := auth.uid();
+  key   text;
+  convo uuid;
+begin
+  if me is null then
+    return jsonb_build_object('result', 'not_signed_in');
+  end if;
+  if not exists (select 1 from public.profiles where id = me and role = 'professor') then
+    return jsonb_build_object('result', 'not_professor');
+  end if;
+
+  -- The student must actually be in one of the classes this person teaches.
+  if not exists (
+    select 1 from public.class_members m
+     where m.student_id = p_student and m.status = 'active'
+       and public.is_class_professor(m.class_id)
+  ) then
+    return jsonb_build_object('result', 'not_your_student');
+  end if;
+
+  key := least(me::text, p_student::text) || '|' || greatest(me::text, p_student::text);
+
+  select id into convo from public.conversations where direct_key = key and kind = 'direct';
+  if convo is null then
+    insert into public.conversations (kind, direct_key) values ('direct', key)
+    returning id into convo;
+    insert into public.conversation_members (conversation_id, user_id)
+    values (convo, me), (convo, p_student);
+  end if;
+
+  return jsonb_build_object('result', 'ok', 'conversation_id', convo);
+end;
+$$;
+
+/**
+ * classes.sql's policies, plus co-teachers. These read the row's own
+ * professor_id/space_id directly rather than calling is_class_professor(id):
+ * is_class_professor re-selects from `classes` by id, and `classes`'s own
+ * INSERT … RETURNING / UPDATE … RETURNING checks this policy against a row
+ * that same command is still writing — a self-select like that can't see it,
+ * and the write would be refused for the actual professor too, not just a
+ * co-teacher. teaches_in_space(space_id) never touches `classes`, so it has
+ * no such blind spot. Deleting a class stays the professor's alone.
+ */
+drop policy if exists classes_select on public.classes;
+create policy classes_select on public.classes
+  for select using (
+    professor_id = auth.uid()
+    or public.teaches_in_space(space_id)
+    or public.is_admin()
+    or (archived_at is null and public.is_active_member(id))
+  );
+
+drop policy if exists classes_update on public.classes;
+create policy classes_update on public.classes
+  for update using (professor_id = auth.uid() or public.teaches_in_space(space_id))
+  with check (professor_id = auth.uid() or public.teaches_in_space(space_id));
+
+commit;
