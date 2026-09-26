@@ -15,7 +15,9 @@ import type { NavItem } from './nav'
 
 type Hint = { text: string; top: number }
 
-const ROW = 'relative flex w-full items-center rounded-lg text-[14px] transition-colors'
+// No font-size here on purpose: each kind of row sets its own, and two
+// arbitrary text-[] utilities on one element resolve by stylesheet order.
+const ROW = 'relative flex w-full items-center rounded-lg transition-colors'
 
 export function SideNav({
   collapsed = false,
@@ -97,7 +99,7 @@ export function SideNav({
                 aria-label="Education workplace"
                 {...hintHandlers('Education')}
                 className={({ isActive }) =>
-                  `${ROW} h-10 justify-center ${
+                  `${ROW} h-10 text-[14px] justify-center ${
                     isActive && workplace === 'education'
                       ? 'surface-sunken text-navy-600 dark:text-amber-400'
                       : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
@@ -111,7 +113,7 @@ export function SideNav({
                 aria-label="General workplace"
                 {...hintHandlers('General')}
                 className={({ isActive }) =>
-                  `${ROW} h-10 justify-center ${
+                  `${ROW} h-10 text-[14px] justify-center ${
                     (isActive || workplace === 'general')
                       ? 'surface-sunken text-navy-600 dark:text-amber-400'
                       : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
@@ -145,24 +147,10 @@ export function SideNav({
 
               {/* The reader's own work, between the fixed rows and Account.
                   These lists change as the work does, which is the one kind of
-                  movement a rail should have. */}
+                  movement a rail should have. Spaces first: a space holds
+                  projects, so the rail reads widest to narrowest. */}
               {workplace === 'general' && index === 0 && (
                 <>
-                  <LiveGroup
-                    title="Your projects"
-                    empty="No projects yet."
-                    moreTo="/general/projects"
-                    moreLabel="All projects"
-                    collapsed={collapsed}
-                    loading={navigation.myProjects === null}
-                    onNavigate={onNavigate}
-                    hintHandlers={hintHandlers}
-                    rows={recentProjects(liveProjects).map((project) => ({
-                      id: project.id,
-                      name: project.name,
-                      to: `/general/projects/${project.id}`,
-                    }))}
-                  />
                   <LiveGroup
                     title="Your spaces"
                     empty="No spaces yet."
@@ -176,6 +164,21 @@ export function SideNav({
                       id: space.id,
                       name: space.name,
                       to: `/general/spaces/${space.id}`,
+                    }))}
+                  />
+                  <LiveGroup
+                    title="Your projects"
+                    empty="No projects yet."
+                    moreTo="/general/projects"
+                    moreLabel="All projects"
+                    collapsed={collapsed}
+                    loading={navigation.myProjects === null}
+                    onNavigate={onNavigate}
+                    hintHandlers={hintHandlers}
+                    rows={recentProjects(liveProjects).map((project) => ({
+                      id: project.id,
+                      name: project.name,
+                      to: `/general/projects/${project.id}`,
                     }))}
                   />
                 </>
@@ -243,7 +246,7 @@ function LiveGroup({
               aria-label={collapsed ? row.name : undefined}
               {...hintHandlers(row.name)}
               className={({ isActive }) =>
-                `${ROW} h-9 ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
+                `${ROW} h-9 text-[13.5px] ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
                   isActive
                     ? 'surface-sunken font-semibold text-ink'
                     : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
@@ -289,7 +292,7 @@ function LiveGroup({
             aria-label={collapsed ? moreLabel : undefined}
             {...hintHandlers(moreLabel)}
             className={({ isActive }) =>
-              `${ROW} h-9 ${collapsed ? 'justify-center' : 'gap-3 px-3'} text-[13px] ${
+              `${ROW} h-9 ${collapsed ? 'justify-center' : 'gap-3 px-3'} text-[12.5px] ${
                 isActive
                   ? 'surface-sunken font-semibold text-ink'
                   : 'text-faint hover:bg-[var(--surface-sunken)] hover:text-ink'
@@ -305,9 +308,22 @@ function LiveGroup({
   )
 }
 
+/**
+ * The rail reads in four steps, and each one is a step down in size, weight and
+ * colour together: a section label, the rows that go somewhere fixed, the
+ * reader's own things, then the way to all of them.
+ *
+ *   label   11px  semibold  text-faint   (uppercase, tracked)
+ *   fixed   14px  medium    text-ink
+ *   live  13.5px  normal    text-muted
+ *   more  12.5px  normal    text-faint
+ *
+ * Whichever row is active takes text-ink and semibold wherever it sits, so the
+ * current page reads above its own level without another colour.
+ */
 function GroupLabel({ children }: { children: string }) {
   return (
-    <p className="px-3 pb-1.5 text-[12px] font-medium tracking-wide text-faint uppercase">
+    <p className="px-3 pb-2 text-[11px] font-semibold tracking-[0.1em] text-faint uppercase">
       {children}
     </p>
   )
@@ -337,7 +353,7 @@ function StaticRow({
           aria-disabled
           aria-label={collapsed ? item.label : undefined}
           {...hintHandlers(item.label)}
-          className={`${ROW} h-10 ${collapsed ? 'justify-center' : 'gap-3 px-3'} cursor-not-allowed text-faint`}
+          className={`${ROW} h-10 text-[14px] ${collapsed ? 'justify-center' : 'gap-3 px-3'} cursor-not-allowed text-faint`}
         >
           <Icon name={item.icon} size={18} />
           {!collapsed && (
@@ -360,10 +376,10 @@ function StaticRow({
         aria-label={collapsed ? label : undefined}
         {...hintHandlers(item.label)}
         className={({ isActive }) =>
-          `${ROW} h-10 ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
+          `${ROW} h-10 text-[14px] ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
             isActive
               ? 'surface-sunken font-semibold text-ink'
-              : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
+              : 'font-medium text-ink hover:bg-[var(--surface-sunken)]'
           }`
         }
       >
