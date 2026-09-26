@@ -136,26 +136,8 @@ export default function App() {
               path="/calendar"
               element={<RoleSwitch student={<Calendar />} professor={<Calendar />} />}
             />
-            <Route
-              path="/messages"
-              element={
-                <RoleSwitch
-                  student={<Messages role="student" />}
-                  professor={<Messages role="professor" />}
-                  admin={<Messages role="professor" />}
-                />
-              }
-            />
-            <Route
-              path="/messages/:conversationId"
-              element={
-                <RoleSwitch
-                  student={<Messages role="student" />}
-                  professor={<Messages role="professor" />}
-                  admin={<Messages role="professor" />}
-                />
-              }
-            />
+            <Route path="/messages" element={<Messages />} />
+            <Route path="/messages/:conversationId" element={<Messages />} />
 
             {/* Work spaces, open to every admitted account — a professor's
                 capstone side project is exactly as valid as a student's. */}

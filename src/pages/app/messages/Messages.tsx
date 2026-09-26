@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Avatar } from '../../../components/app/Avatar'
 import { Button } from '../../../components/ui/Button'
 import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
+import { ScopeFilter } from '../../../components/ui/ScopeFilter'
 import { ConversationList } from '../../../components/messages/ConversationList'
 import { MessageThread } from '../../../components/messages/MessageThread'
 import { NewDirectDialog } from '../../../components/messages/NewDirectDialog'
@@ -14,30 +15,32 @@ import { useLive } from '../../../hooks/useLive'
 import { listMyInvitations, respondToInvitation } from '../../../lib/api/general'
 import { authErrorMessage } from '../../../lib/authError'
 import { paths } from '../../../lib/paths'
+import { readScope, writeScope } from '../../../lib/scope'
 import type { MyInvitation } from '../../../lib/general/types'
 import { fullName } from '../../../lib/types'
 import { useToast } from '../../../components/ui/Toast'
 
-export default function Messages({ role }: { role: 'professor' | 'student' | 'general' }) {
+export default function Messages() {
   const { conversationId } = useParams()
   const { profile } = useAuth()
   const { show } = useToast()
   const navigate = useNavigate()
-  const { conversations, error, reload } = useConversations(
-    profile?.id,
-    role === 'general' ? 'general' : 'education',
-  )
+  const [params, setParams] = useSearchParams()
+  const scope = readScope(params)
+  const { conversations, error, reload } = useConversations(profile?.id, 'all')
   const [newOpen, setNewOpen] = useState(false)
   const [invitations, setInvitations] = useState<MyInvitation[]>([])
   const [invitationError, setInvitationError] = useState<string | null>(null)
   const [answering, setAnswering] = useState<string | null>(null)
+
+  const canModerateHere = profile?.role === 'professor' || profile?.role === 'admin'
 
   useEffect(() => {
     document.title = 'Messages · Collabify'
   }, [])
 
   const loadInvitations = useCallback(async () => {
-    if (!profile || role !== 'general') {
+    if (!profile) {
       setInvitations([])
       setInvitationError(null)
       return
@@ -48,13 +51,13 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
     } catch (err) {
       setInvitationError(authErrorMessage(err, 'Could not load your invitations.'))
     }
-  }, [profile, role])
+  }, [profile])
 
   useEffect(() => {
     void loadInvitations()
   }, [loadInvitations])
 
-  useLive(loadInvitations, ['general_invitations'], { enabled: role === 'general' })
+  useLive(loadInvitations, ['general_invitations'])
 
   async function answer(inv: MyInvitation, accept: boolean) {
     setAnswering(inv.id)
@@ -70,6 +73,15 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
     }
   }
 
+  const classesCount = conversations?.filter((c) => c.kind !== 'project').length ?? 0
+  const workCount = conversations?.filter((c) => c.kind === 'project').length ?? 0
+  const visible = useMemo(() => {
+    if (!conversations) return conversations
+    if (scope === 'classes') return conversations.filter((c) => c.kind !== 'project')
+    if (scope === 'work') return conversations.filter((c) => c.kind === 'project')
+    return conversations
+  }, [conversations, scope])
+
   const active = conversations?.find((c) => c.id === conversationId)
   const unread =
     conversations?.reduce((total, conversation) => total + conversation.unread_count, 0) ?? 0
@@ -77,6 +89,7 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
     conversations?.filter((conversation) => conversation.kind !== 'direct').length ?? 0
   const direct =
     conversations?.filter((conversation) => conversation.kind === 'direct').length ?? 0
+  const canModerate = canModerateHere && (active?.kind === 'class' || active?.kind === 'group')
 
   if (!profile) return null
 
@@ -85,12 +98,8 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
       <DirectoryHero
         title="Every conversation,"
         accent="within reach."
-        description={
-          role === 'general'
-            ? 'Keep project chats and direct messages together without losing the work around them.'
-            : 'Keep class updates, group decisions and direct messages together without losing the work around them.'
-        }
-        stats={role === 'general' ? [] : [
+        description="Class, group and project chats, and your direct messages, in one place."
+        stats={[
           { value: conversations?.length ?? '—', label: 'Conversations' },
           { value: unread, label: 'Unread' },
           { value: channels, label: 'Class & group chats' },
@@ -98,7 +107,7 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
         ]}
         statsVariant="compact-row"
         action={
-          role === 'professor' ? (
+          canModerateHere ? (
             <Button
               variant="onNavy"
               onClick={() => setNewOpen(true)}
@@ -111,9 +120,9 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
         }
       />
 
-      {role === 'general' && invitationError && <Alert tone="error">{invitationError}</Alert>}
+      {invitationError && <Alert tone="error">{invitationError}</Alert>}
 
-      {role === 'general' && invitations.length > 0 && (
+      {invitations.length > 0 && (
         <section className="overflow-hidden rounded-panel border border-amber-300 bg-amber-400/6 dark:border-amber-400/40 dark:bg-amber-400/8">
           <header className="flex items-center justify-between gap-3 border-b border-amber-300/60 px-4 py-3.5 sm:px-5 dark:border-amber-400/25">
             <div>
@@ -155,20 +164,28 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
         </section>
       )}
 
+      <div className="flex justify-end">
+        <ScopeFilter
+          value={scope}
+          onChange={(next) => setParams(writeScope(params, next), { replace: true })}
+          counts={{ all: conversations?.length ?? 0, classes: classesCount, work: workCount }}
+        />
+      </div>
+
       <div className="surface flex h-[clamp(480px,calc(100dvh-458px),760px)] min-h-0 overflow-hidden rounded-panel border border-line">
         <aside
           className={`w-full shrink-0 border-line md:block md:w-[320px] md:border-r xl:w-[360px] ${
             conversationId ? 'hidden' : 'block'
           }`}
         >
-          {conversations === null ? (
+          {visible === null ? (
             <div className="flex items-center gap-3 px-4 py-10 text-[14px] text-muted">
               <Spinner size={16} />
               Loading…
             </div>
           ) : (
             <ConversationList
-              conversations={conversations}
+              conversations={visible}
               activeId={conversationId}
               linkBase={paths.messages}
             />
@@ -188,25 +205,23 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
                 </span>
                 <h2 className="mt-5">Choose a conversation</h2>
                 <p className="mt-1.5 max-w-[320px] text-[13px] leading-relaxed text-muted">
-                  {role === 'general'
-                    ? "Every project you're on has its own chat, created for you automatically."
-                    : "Every class and group you're in has its own chat, created for you automatically."}
+                  Every class, group and project you're in has its own chat, created for you
+                  automatically.
                 </p>
               </div>
             </div>
           ) : conversations && !active ? (
             <div className="p-6">
               <Alert tone="error">
-                {role === 'general'
-                  ? 'That conversation is not available. The project it belongs to may have been archived, or you may have been removed from it.'
-                  : 'That conversation is not available. You may have been removed from the class or group it belongs to.'}
+                That conversation is not available. You may have been removed from the class,
+                group or project it belongs to.
               </Alert>
             </div>
           ) : active ? (
             <MessageThread
               conversation={active}
               viewerId={profile.id}
-              canModerate={role === 'professor'}
+              canModerate={canModerate}
               backTo={paths.messages}
             />
           ) : (
@@ -218,7 +233,7 @@ export default function Messages({ role }: { role: 'professor' | 'student' | 'ge
         </section>
       </div>
 
-      {role === 'professor' && (
+      {canModerateHere && (
         <NewDirectDialog
           open={newOpen}
           onClose={() => setNewOpen(false)}
