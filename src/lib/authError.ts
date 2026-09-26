@@ -70,6 +70,10 @@ const KNOWN: [RegExp, string][] = [
     'That address cannot be used to create a new account here. If it is yours, sign in or reset your password.',
   ],
   [/email not confirmed/i, 'Confirm your email first — open the link we sent before signing in.'],
+  [
+    /classes_student_cap_sane/i,
+    'The class size limit has to be a whole number from 1 to 500. Leave it empty for no limit.',
+  ],
   [/password should be at least \d+/i, 'That password is too short. Use at least 8 characters.'],
   [
     /new password should be different/i,
