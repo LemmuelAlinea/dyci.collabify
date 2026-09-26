@@ -15,11 +15,18 @@ import { presetById } from '../../lib/general/presets'
 import { PROJECT_STATUSES, projectStatusLabel } from '../../lib/general/types'
 import type { GeneralProjectSummary, GeneralStatus } from '../../lib/general/types'
 
+/**
+ * Every project whose space the reader is not in filters as one group. A space
+ * id is a uuid, so this cannot collide with a real one.
+ */
+const UNNAMED_SPACE = 'unnamed'
+
 export default function GeneralProjects() {
   const [projects, setProjects] = useState<GeneralProjectSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<GeneralStatus | ''>('')
+  const [space, setSpace] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -39,12 +46,41 @@ export default function GeneralProjects() {
   useLive(load, ['general_projects', 'general_members', 'general_tasks'])
 
   const live = useMemo(() => (projects ?? []).filter((p) => p.my_level && !p.archived_at), [projects])
+
+  // Built from the projects themselves rather than from the reader's spaces:
+  // this page also lists projects they joined by code, whose space is not
+  // theirs to read and so is not in that list.
+  const spaceOptions = useMemo(() => {
+    const named = new Map<string, string>()
+    let unnamed = false
+    for (const p of live) {
+      if (p.space_name) named.set(p.space_id, p.space_name)
+      else unnamed = true
+    }
+    const options = [...named]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+    if (unnamed) options.push({ value: UNNAMED_SPACE, label: 'A space you are not in' })
+    return options
+  }, [live])
+
+  const spaceLabel = spaceOptions.find((o) => o.value === space)?.label ?? ''
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     return live
       .filter((p) => (status ? p.status === status : true))
+      .filter((p) =>
+        space ? (space === UNNAMED_SPACE ? !p.space_name : p.space_id === space) : true,
+      )
       .filter((p) => (q ? `${p.name} ${p.description}`.toLowerCase().includes(q) : true))
-  }, [live, query, status])
+  }, [live, query, space, status])
+
+  // A space that no longer has a project under the other filters would leave a
+  // chosen value selected but unlistable, so it is cleared rather than stuck.
+  useEffect(() => {
+    if (space && !spaceOptions.some((o) => o.value === space)) setSpace('')
+  }, [space, spaceOptions])
 
   return (
     <div className="w-full space-y-6">
@@ -76,18 +112,36 @@ export default function GeneralProjects() {
             <FilterPopover
               align="right"
               label="Filter projects"
-              active={[query.trim(), status].filter(Boolean).length}
-              summary={[query.trim() && `“${query.trim()}”`, status && projectStatusLabel(status)]
+              active={[query.trim(), status, space].filter(Boolean).length}
+              summary={[
+                query.trim() && `“${query.trim()}”`,
+                spaceLabel,
+                status && projectStatusLabel(status),
+              ]
                 .filter(Boolean)
                 .join(' · ')}
               onClear={() => {
                 setQuery('')
                 setStatus('')
+                setSpace('')
               }}
             >
               <FilterField label="Search">
                 <FilterSearch value={query} onChange={setQuery} placeholder="Name or description" />
               </FilterField>
+              {/* Only worth a row once the projects actually span more than one
+                  space; below that it filters nothing. */}
+              {spaceOptions.length > 1 && (
+                <FilterField label="Space">
+                  <Select
+                    value={space}
+                    onChange={(e) => setSpace(e.target.value)}
+                    placeholder="Any space"
+                    options={spaceOptions}
+                    className="!h-10 !text-[13px]"
+                  />
+                </FilterField>
+              )}
               <FilterField label="Status">
                 <Select
                   value={status}
