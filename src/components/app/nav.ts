@@ -63,7 +63,8 @@ function classesGroup(role: Role): NavGroup {
   return {
     title: 'Classes',
     items: [
-      { label: 'Classes', icon: 'folder', to: paths.classes },
+      // `end`: a class page lights its own row under Your spaces, not this one too.
+      { label: 'Classes', icon: 'folder', to: paths.classes, end: true },
       { label: 'Groups', icon: 'users', to: paths.groups },
       { label: 'Class projects', icon: 'kanban', to: paths.classProjects },
       ...(role === 'student'
