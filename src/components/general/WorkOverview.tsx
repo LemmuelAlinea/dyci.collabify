@@ -29,9 +29,11 @@ import { paths } from '../../lib/paths'
  * Spaces here are work spaces only; class spaces (`kind: 'education'`) belong
  * to the classes side of the rail and never count toward this section.
  *
- * Renders nothing when there is truly nothing to show: no projects, no work
- * spaces, no invitations, and the person is not faculty (who always keep the
- * New space / Join with code doors open).
+ * Renders nothing for a non-faculty person until we know there is something
+ * to show — no flash while `myProjects` is still loading, and nothing at all
+ * once loaded if there are no projects, no work spaces and no invitations.
+ * Faculty always keep the New space / Join with code doors open, including
+ * while this is loading.
  */
 export function WorkOverview() {
   const { profile } = useAuth()
@@ -78,57 +80,62 @@ export function WorkOverview() {
   }
 
   const loaded = myProjects !== null
-  const nothingToShow =
-    loaded &&
-    mineProjects.length === 0 &&
-    liveSpaces.length === 0 &&
-    invitations.length === 0 &&
-    !faculty
+  const hasSomething = mineProjects.length > 0 || liveSpaces.length > 0 || invitations.length > 0
 
-  if (nothingToShow) return null
+  // Faculty always keep the New space / Join with code doors open, including
+  // while this is still loading. Everyone else sees nothing until we know
+  // there is something to show — no flash of an empty section on the way in.
+  if (!faculty && (!loaded || !hasSomething)) return null
 
   return (
-    <DashSection icon="kanban" title="Your work">
-      <QuickActions
-        actions={[
-          ...(faculty
-            ? [
-                {
-                  icon: 'plus' as const,
-                  label: 'New space',
-                  hint: 'A place to hold projects',
-                  onClick: () => setNewSpaceOpen(true),
-                  primary: true,
-                },
-                {
-                  icon: 'lock' as const,
-                  label: 'Join with code',
-                  hint: 'Eight characters from an Owner',
-                  onClick: () => setJoinOpen(true),
-                },
-              ]
-            : []),
-          {
-            icon: 'kanban',
-            label: 'Projects',
-            hint: `${mineProjects.length} ${plural(mineProjects.length, 'project', 'projects')} you are on`,
-            to: paths.projects,
-          },
-          {
-            icon: 'folder',
-            label: 'Spaces',
-            hint: `${liveSpaces.length} ${plural(liveSpaces.length, 'space', 'spaces')} you are in`,
-            to: paths.spaces,
-          },
-          {
-            icon: 'message',
-            label: 'Messages',
-            hint: unread > 0 ? `${unread} unread` : 'Chats and project threads',
-            to: paths.messages,
-            count: unread,
-          },
-        ]}
-      />
+    <div>
+      <div className="border-b border-line pb-4">
+        <p className="text-[12px] font-medium text-faint">Beyond your classes</p>
+        <h2 className="mt-1">Your work</h2>
+      </div>
+
+      <div className="mt-6">
+        <QuickActions
+          actions={[
+            ...(faculty
+              ? [
+                  {
+                    icon: 'plus' as const,
+                    label: 'New space',
+                    hint: 'A place to hold projects',
+                    onClick: () => setNewSpaceOpen(true),
+                    primary: true,
+                  },
+                  {
+                    icon: 'lock' as const,
+                    label: 'Join with code',
+                    hint: 'Eight characters from an Owner',
+                    onClick: () => setJoinOpen(true),
+                  },
+                ]
+              : []),
+            {
+              icon: 'kanban',
+              label: 'Projects',
+              hint: `${mineProjects.length} ${plural(mineProjects.length, 'project', 'projects')} you are on`,
+              to: paths.projects,
+            },
+            {
+              icon: 'folder',
+              label: 'Spaces',
+              hint: `${liveSpaces.length} ${plural(liveSpaces.length, 'space', 'spaces')} you are in`,
+              to: paths.spaces,
+            },
+            {
+              icon: 'message',
+              label: 'Messages',
+              hint: unread > 0 ? `${unread} unread` : 'Chats and project threads',
+              to: paths.messages,
+              count: unread,
+            },
+          ]}
+        />
+      </div>
 
       {(error || dashError) && (
         <div className="mt-6">
@@ -211,6 +218,6 @@ export function WorkOverview() {
 
       <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} />
       <NewSpaceDialog open={newSpaceOpen} onClose={() => setNewSpaceOpen(false)} onCreated={reload} />
-    </DashSection>
+    </div>
   )
 }
