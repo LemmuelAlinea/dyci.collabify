@@ -34,7 +34,14 @@ cheap. The cost is in the logic.
   create education spaces. Any admitted faculty can create work spaces.
 - **Education-space roles:** faculty hold owner or manager (co-teachers and
   advisers). Students are always members and can hold free-text positions.
+  Decided 2026-09-27: any active faculty at Owner or Manager gets the full
+  teaching tools, including grading, whether or not *Can teach* is on.
+  *Can teach* only decides who may open a class.
 - **Number of students** is an optional join cap.
+- **Invite links ask first** (decided 2026-09-27): opening `/join/<code>`
+  shows the class and its professor, and joins only when the student confirms.
+- **Signed-out callers** (decided 2026-09-27): the anonymous role can execute
+  only what the signed-out screens actually use; everything else is revoked.
 
 ## Section 1: Access model
 
