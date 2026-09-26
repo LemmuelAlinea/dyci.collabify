@@ -20,6 +20,7 @@ import {
 import type { CriterionInput } from '../../lib/api/projects'
 import { classWeekMap } from '../../lib/api/syllabus'
 import { authErrorMessage } from '../../lib/authError'
+import { paths } from '../../lib/paths'
 import type { ClassSummary, ClassWeek, ProjectSummary, SeriesMember } from '../../lib/types'
 
 const FORM_ID = 'project-form'
@@ -228,7 +229,7 @@ export function ProjectWizard({
               a project on.
             </p>
             <Link
-              to="/professor/classes"
+              to={paths.classes}
               className="mt-2 inline-flex items-center gap-2 font-medium hover:underline"
             >
               <Icon name="edit" size={14} />
@@ -239,7 +240,7 @@ export function ProjectWizard({
           <Alert tone="info">
             <p>The syllabus on this class has no weeks yet.</p>
             <Link
-              to={`/professor/syllabi/${cls.syllabus_id}`}
+              to={paths.syllabus(cls.syllabus_id)}
               className="mt-2 inline-flex items-center gap-2 font-medium hover:underline"
             >
               <Icon name="calendar" size={14} />

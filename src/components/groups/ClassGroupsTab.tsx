@@ -9,6 +9,7 @@ import { useGroupsData } from '../../hooks/useGroupsData'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { deleteSet, projectsUsingSet, setClosed } from '../../lib/api/groups'
 import { authErrorMessage } from '../../lib/authError'
+import { paths } from '../../lib/paths'
 import type { ClassSummary, GroupSet } from '../../lib/types'
 
 /** The Groups tab inside a class — same board, scoped to one class. */
@@ -57,7 +58,7 @@ export function ClassGroupsTab({
         sets={sets}
         groups={groups}
         members={members}
-        linkBase={role === 'professor' ? '/professor/groups' : '/student/groups'}
+        linkBase={paths.groups}
         viewerId={viewerId}
         showFilters={groups.length > 6}
         showSetFilter={role === 'professor'}

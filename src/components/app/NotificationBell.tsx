@@ -8,14 +8,9 @@ import {
   markRead,
   unreadCount,
 } from '../../lib/api/notifications'
-import type { AppNotification, Role } from '../../lib/types'
+import type { AppNotification } from '../../lib/types'
 import { DUR } from '../../lib/motion'
-
-const ROLE_BASE: Record<Role, string> = {
-  student: '/student',
-  professor: '/professor',
-  admin: '/admin',
-}
+import { paths } from '../../lib/paths'
 
 function ago(iso: string) {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -97,26 +92,25 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
     // An invitation has nothing to open until it is accepted, and accepting
     // happens on the General home page.
     if (n.type === 'general_invited') {
-      navigate('/general')
+      navigate(paths.home)
       return
     }
     if (n.general_project_id) {
       navigate(
-        `/general/projects/${n.general_project_id}${n.general_task_id ? `?task=${n.general_task_id}` : ''}`,
+        `${paths.project(n.general_project_id)}${n.general_task_id ? `?task=${n.general_task_id}` : ''}`,
       )
       return
     }
-    const base = profile.role ? ROLE_BASE[profile.role] : '/general'
     if (n.project_id && profile.role !== 'admin') {
-      navigate(`${base}/projects/${n.project_id}`)
+      navigate(paths.classProject(n.project_id))
     } else if (n.class_id) {
-      navigate(profile.role === 'admin' ? base : `${base}/classes/${n.class_id}`)
+      navigate(profile.role === 'admin' ? paths.home : paths.class(n.class_id))
     } else if (n.type === 'weekly_digest' && profile.role === 'student') {
       // The digest is about everything at once, so it has no one project to
       // open. My tasks is the page it is a summary of. Only students have it.
-      navigate('/student/tasks')
+      navigate(paths.tasks)
     } else {
-      navigate(base)
+      navigate(paths.home)
     }
   }
 

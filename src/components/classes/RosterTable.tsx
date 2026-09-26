@@ -9,6 +9,7 @@ import { useToast } from '../ui/Toast'
 import { START_DM_MESSAGE, startDirectConversation } from '../../lib/api/messages'
 import { recoverMemberWork, recoverableWorkCount } from '../../lib/api/classes'
 import { authErrorMessage } from '../../lib/authError'
+import { paths } from '../../lib/paths'
 import { fullName } from '../../lib/types'
 import type { ClassMember } from '../../lib/types'
 
@@ -73,7 +74,7 @@ export function RosterTable({
         show(START_DM_MESSAGE[res.result as keyof typeof START_DM_MESSAGE], 'error')
         return
       }
-      navigate(`/professor/messages/${res.conversation_id}`)
+      navigate(paths.conversation(res.conversation_id))
     } catch (err) {
       show(authErrorMessage(err, 'Could not open that conversation.'), 'error')
     } finally {

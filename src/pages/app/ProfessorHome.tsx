@@ -15,6 +15,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { useAuth } from '../../context/AuthContext'
 import { plural } from '../../lib/plural'
 import { useProfessorDashboard } from '../../hooks/useProfessorDashboard'
+import { paths } from '../../lib/paths'
 
 function greeting() {
   const h = new Date().getHours()
@@ -103,7 +104,7 @@ export default function ProfessorHome() {
               title="No classes yet"
               body="Create a class and share its code with your section. Groups, projects, and everything on this page follow from it."
               action={
-                <ButtonLink to="/professor/classes" className="!rounded-xl">
+                <ButtonLink to={paths.classes} className="!rounded-xl">
                   Create a class
                 </ButtonLink>
               }
@@ -129,20 +130,20 @@ export default function ProfessorHome() {
                 {
                   label: stalled === 1 ? 'Group not moving' : 'Groups not moving',
                   value: stalled,
-                  to: '/professor/projects',
+                  to: paths.classProjects,
                   icon: 'alert',
                   tone: stalled > 0 ? 'warn' : 'plain',
                 },
                 {
                   label: 'Projects open',
                   value: live.length,
-                  to: '/professor/projects',
+                  to: paths.classProjects,
                   icon: 'kanban',
                 },
                 {
                   label: students === 1 ? 'Student' : 'Students',
                   value: students,
-                  to: '/professor/classes',
+                  to: paths.classes,
                   icon: 'users',
                 },
               ]}
@@ -169,7 +170,7 @@ export default function ProfessorHome() {
                     icon="folder"
                     title="Your classes"
                     count={classes.length}
-                    seeAll="/professor/classes"
+                    seeAll={paths.classes}
                   >
                     <ClassRail classes={classes} />
                   </DashSection>
@@ -182,7 +183,7 @@ export default function ProfessorHome() {
                     icon="alert"
                     title="Groups that have stalled"
                     count={stalled}
-                    seeAll="/professor/projects"
+                    seeAll={paths.classProjects}
                   >
                     <StalledGroups boards={data.stalled} />
                   </DashSection>
@@ -196,7 +197,7 @@ export default function ProfessorHome() {
                   <DashSection
                     icon="chart"
                     title="Progress across your classes"
-                    seeAll="/professor/projects"
+                    seeAll={paths.classProjects}
                   >
                     <ClassProgress projects={data.projects} boards={data.boards} />
                   </DashSection>

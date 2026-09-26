@@ -9,6 +9,7 @@ import { Select, Textarea } from '../ui/Select'
 import { createGeneralProject, createSpaceTeam, listSpaceTeams } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { LIMIT } from '../../lib/limits'
+import { paths } from '../../lib/paths'
 import { presetById, presetPayload } from '../../lib/general/presets'
 import type { PresetAudience } from '../../lib/general/presets'
 import { PresetPicker } from './PresetPicker'
@@ -101,7 +102,7 @@ export function NewProjectDialog({
         spaceTeamId: chosenTeamId,
       })
       onClose()
-      navigate(`/general/projects/${project.id}`)
+      navigate(paths.project(project.id))
     } catch (err) {
       setError(authErrorMessage(err, 'Could not create the project.'))
     } finally {

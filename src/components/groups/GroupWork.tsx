@@ -10,6 +10,7 @@ import { listTasks } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import { boardWeight, dueSoonLabel, taskStatusLabel } from '../../lib/types'
 import type { BoardSummary, ProjectTask, Role } from '../../lib/types'
+import { paths } from '../../lib/paths'
 
 const STATUS_TONE: Record<string, string> = {
   todo: 'surface-sunken text-muted',
@@ -38,8 +39,6 @@ export function GroupWork({
   const [loadingTasks, setLoadingTasks] = useState(false)
   const [params, setParams] = useSearchParams()
   const openTask = params.get('task')
-
-  const projectBase = role === 'professor' ? '/professor/projects' : '/student/projects'
 
   const load = useCallback(async () => {
     try {
@@ -159,7 +158,7 @@ export function GroupWork({
                 </span>
                 <span className="font-mono text-[12px] text-faint">{pct}%</span>
                 <Link
-                  to={`${projectBase}/${board.project_id}`}
+                  to={paths.classProject(board.project_id)}
                   className="flex items-center gap-1 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
                 >
                   Project
@@ -179,7 +178,7 @@ export function GroupWork({
                   <p className="py-2 text-[13px] text-muted">
                     Nothing on this board yet.{' '}
                     <Link
-                      to={`${projectBase}/${board.project_id}?tab=tasks`}
+                      to={`${paths.classProject(board.project_id)}?tab=tasks`}
                       className="font-medium text-navy-600 hover:underline dark:text-navy-200"
                     >
                       Break the project down

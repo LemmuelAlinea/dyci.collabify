@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { educationHome, workplaceOf } from '../../lib/workplace'
 import type { Workplace } from '../../lib/workplace'
+import { paths } from '../../lib/paths'
 
 /**
  * Education or General, always one press apart.
@@ -22,7 +23,7 @@ export function WorkplaceSwitcher({ tone = 'onNavy' }: { tone?: 'onNavy' | 'surf
   const current = workplaceOf(location.pathname, profile.home_workplace)
   const options: { value: Workplace; label: string; to: string }[] = [
     { value: 'education', label: 'Education', to: educationHome(profile) },
-    { value: 'general', label: 'General', to: '/general' },
+    { value: 'general', label: 'General', to: paths.home },
   ]
   const onNavy = tone === 'onNavy'
 

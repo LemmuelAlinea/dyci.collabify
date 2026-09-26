@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { dueSoonLabel, taskStatusLabel } from '../../lib/types'
+import { paths } from '../../lib/paths'
 import type { MyTask } from '../../lib/api/tasks'
 
 /** What the student has taken on and not finished, soonest first. */
@@ -25,7 +26,7 @@ export function TaskDigest({ tasks, limit = 5 }: { tasks: MyTask[]; limit?: numb
         return (
           <li key={t.id}>
             <Link
-              to={`/student/projects/${t.project_id}`}
+              to={paths.classProject(t.project_id)}
               className="surface flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl border border-line px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:gap-x-3 sm:gap-y-1.5 sm:px-4 sm:py-3"
             >
               <span className="min-w-0 flex-1">

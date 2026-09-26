@@ -7,6 +7,7 @@ import { formatDue, isOverdue } from '../../lib/general/dates'
 import { dayLabel } from '../../lib/general/dashboard'
 import type { ComingDay } from '../../lib/general/dashboard'
 import { TASK_STATUSES } from '../../lib/general/progress'
+import { paths } from '../../lib/paths'
 import { fullName } from '../../lib/types'
 import type {
   GeneralProjectSummary,
@@ -125,7 +126,7 @@ export function WaitingPanel({
           {reviews.map((r) => (
             <Row
               key={r.id}
-              to={`/general/projects/${r.project_id}?tab=files`}
+              to={`${paths.project(r.project_id)}?tab=files`}
               icon="eye"
               title={r.title || 'A change to review'}
               context={`Review · ${projectName(r.project_id)}`}
@@ -135,7 +136,7 @@ export function WaitingPanel({
           {requests.map((p) => (
             <Row
               key={p.id}
-              to={`/general/projects/${p.id}?tab=members`}
+              to={`${paths.project(p.id)}?tab=members`}
               icon="shield"
               title={`${p.open_request_count} access ${p.open_request_count === 1 ? 'request' : 'requests'}`}
               context={p.name}
@@ -171,7 +172,7 @@ export function MyTasksPanel({
         return (
           <Row
             key={t.id}
-            to={`/general/projects/${t.project_id}?task=${t.id}`}
+            to={`${paths.project(t.project_id)}?task=${t.id}`}
             icon="check"
             title={t.title}
             context={`${projectName(t.project_id)} · ${stage}`}
@@ -205,7 +206,7 @@ export function ComingUpPanel({
               i.kind === 'task' ? (
                 <Row
                   key={`t-${i.id}`}
-                  to={`/general/projects/${i.projectId}?task=${i.id}`}
+                  to={`${paths.project(i.projectId)}?task=${i.id}`}
                   icon="clock"
                   title={i.title}
                   context={projectName(i.projectId)}
@@ -214,7 +215,7 @@ export function ComingUpPanel({
               ) : (
                 <Row
                   key={`p-${i.id}`}
-                  to={`/general/projects/${i.id}`}
+                  to={paths.project(i.id)}
                   icon="target"
                   title={`${i.title} ends`}
                   context="Project end date"
@@ -238,7 +239,7 @@ export function RecentPanel({ projects }: { projects: GeneralProjectSummary[] })
         return (
           <li key={p.id}>
             <Link
-              to={`/general/projects/${p.id}`}
+              to={paths.project(p.id)}
               className="surface block rounded-xl border border-line px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:px-4 sm:py-3"
             >
               <span className="flex items-baseline justify-between gap-3">

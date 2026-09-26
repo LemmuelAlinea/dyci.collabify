@@ -8,6 +8,7 @@ import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
 import { JOIN_MESSAGE, joinClass } from '../../lib/api/classes'
 import { authErrorMessage } from '../../lib/authError'
+import { paths } from '../../lib/paths'
 
 /**
  * Entering a class code. The one thing a student can do before anybody has let
@@ -44,10 +45,10 @@ export function JoinClassDialog({
         close()
         show('You joined the class')
         await onJoined?.()
-        if (class_id) navigate(`/student/classes/${class_id}`)
+        if (class_id) navigate(paths.class(class_id))
       } else if (result === 'already_member' && class_id) {
         close()
-        navigate(`/student/classes/${class_id}`)
+        navigate(paths.class(class_id))
       } else {
         setError(JOIN_MESSAGE[result])
       }

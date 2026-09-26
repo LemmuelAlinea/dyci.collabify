@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { paths } from '../../lib/paths'
 import type { MemberProgress } from '../../lib/types'
 
 type Row = MemberProgress & { project_title: string }
@@ -41,7 +42,7 @@ export function StandingCard({ rows }: { rows: Row[] }) {
         {rows.map((r) => (
           <li key={r.board_id}>
             <Link
-              to={`/student/projects/${r.project_id}`}
+              to={paths.classProject(r.project_id)}
               className="flex items-center gap-3 py-2.5 transition-colors hover:opacity-80"
             >
               <span className="min-w-0 flex-1">

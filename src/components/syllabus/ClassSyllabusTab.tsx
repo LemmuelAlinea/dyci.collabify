@@ -21,6 +21,7 @@ import {
 } from '../../lib/api/syllabus'
 import type { ShiftImpact } from '../../lib/api/syllabus'
 import { authErrorMessage } from '../../lib/authError'
+import { paths } from '../../lib/paths'
 import { localDay } from '../../lib/termShift'
 import type { ClassRow, ClassSummary, ClassWeek, WeekShift } from '../../lib/types'
 
@@ -141,7 +142,7 @@ export function ClassSyllabusTab({
         action={
           role === 'professor' ? (
             <Link
-              to="/professor/syllabi"
+              to={paths.syllabi}
               className="text-[14px] font-medium text-navy-600 hover:underline dark:text-navy-200"
             >
               Go to Syllabi
@@ -255,7 +256,7 @@ export function ClassSyllabusTab({
           action={
             role === 'professor' ? (
               <Link
-                to={`/professor/syllabi/${cls.syllabus_id}`}
+                to={paths.syllabus(cls.syllabus_id)}
                 className="text-[14px] font-medium text-navy-600 hover:underline dark:text-navy-200"
               >
                 Open the syllabus
@@ -282,7 +283,7 @@ export function ClassSyllabusTab({
 
       {role === 'professor' && weeks.length > 0 && (
         <Link
-          to={`/professor/syllabi/${cls.syllabus_id}`}
+          to={paths.syllabus(cls.syllabus_id)}
           className="inline-flex items-center gap-2 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
         >
           <Icon name="edit" size={14} />

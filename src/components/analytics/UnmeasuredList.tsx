@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
+import { paths } from '../../lib/paths'
 import type { ClassUnmeasured } from '../../lib/types'
 
 /**
@@ -43,7 +44,7 @@ export function UnmeasuredList({ rows }: { rows: ClassUnmeasured[] }) {
               </span>
             </span>
             <Link
-              to={`/professor/classes/${c.class_id}`}
+              to={paths.class(c.class_id)}
               className="shrink-0 text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
             >
               Open the class

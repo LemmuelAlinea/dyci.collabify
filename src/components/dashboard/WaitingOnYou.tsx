@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
+import { paths } from '../../lib/paths'
 
 type Item = { icon: IconName; label: string; to: string; count: number }
 
@@ -21,19 +22,19 @@ export function WaitingOnYou({
     {
       icon: 'check',
       label: unclaimed === 1 ? 'task nobody has taken' : 'tasks nobody has taken',
-      to: '/student/tasks',
+      to: paths.tasks,
       count: unclaimed,
     },
     {
       icon: 'message',
       label: unread === 1 ? 'unread message' : 'unread messages',
-      to: '/student/messages',
+      to: paths.messages,
       count: unread,
     },
     {
       icon: 'users',
       label: openSets === 1 ? 'group set open to join' : 'group sets open to join',
-      to: '/student/groups',
+      to: paths.groups,
       count: openSets,
     },
   ] as Item[]).filter((i) => i.count > 0)

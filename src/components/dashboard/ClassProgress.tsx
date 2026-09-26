@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { projectAverage } from '../../lib/api/dashboard'
+import { paths } from '../../lib/paths'
 import { weekSpanLabel } from '../../lib/types'
 import type { BoardSummary, ProjectSummary } from '../../lib/types'
 
@@ -31,7 +32,7 @@ export function ClassProgress({
         return (
           <li key={p.id}>
             <Link
-              to={`/professor/projects/${p.id}`}
+              to={paths.classProject(p.id)}
               className="surface block rounded-xl border border-line px-3 py-3 shadow-card transition-colors hover:border-line-strong sm:px-4 sm:py-3.5"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">

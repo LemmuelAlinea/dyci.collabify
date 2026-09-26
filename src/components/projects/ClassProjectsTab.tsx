@@ -5,6 +5,7 @@ import { Icon, Spinner } from '../ui/Icon'
 import { ProjectsBoard } from './ProjectsBoard'
 import { ProjectWizard } from './ProjectWizard'
 import { useProjectsData } from '../../hooks/useProjectsData'
+import { paths } from '../../lib/paths'
 import type { ClassSummary } from '../../lib/types'
 
 /** The Projects tab inside a class — same board, scoped to one class. */
@@ -55,7 +56,7 @@ export function ClassProjectsTab({
       <ProjectsBoard
         projects={projects}
         classes={classes}
-        linkBase={role === 'professor' ? '/professor/projects' : '/student/projects'}
+        linkBase={paths.classProjects}
         showClass={false}
         // A professor is looking at the whole class, not at a board of their
         // own — without this the cards speak to them in the second person and

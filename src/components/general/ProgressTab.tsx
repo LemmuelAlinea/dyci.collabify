@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { dateRange } from '../../lib/general/dates'
 import { projectProgress } from '../../lib/general/progress'
+import { paths } from '../../lib/paths'
 import { ForecastPanel } from './ForecastPanel'
 import { GanttChart } from './GanttChart'
 import { PressurePanel } from './PressurePanel'
@@ -65,7 +66,7 @@ export function ProgressTab({ state }: { state: GeneralProjectState }) {
           </p>
           <PressurePanel
             state={state}
-            onOpen={(taskId) => navigate(`/general/projects/${project.id}?task=${taskId}`)}
+            onOpen={(taskId) => navigate(`${paths.project(project.id)}?task=${taskId}`)}
           />
         </section>
       </div>

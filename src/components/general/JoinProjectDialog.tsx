@@ -7,6 +7,7 @@ import { Field, Input } from '../ui/Field'
 import { Modal } from '../ui/Modal'
 import { joinGeneralProject } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
+import { paths } from '../../lib/paths'
 
 /**
  * Joining a project by its code.
@@ -41,7 +42,7 @@ export function JoinProjectDialog({
       onClose()
       setCode('')
       onJoined?.()
-      navigate(`/general/projects/${projectId}`)
+      navigate(paths.project(projectId))
     } catch (err) {
       setError(authErrorMessage(err, 'Could not join with that code.'))
     } finally {

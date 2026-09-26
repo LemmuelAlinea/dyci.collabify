@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
+import { paths } from '../../lib/paths'
 import type { StalledBoard } from '../../lib/api/dashboard'
 
 /**
@@ -20,7 +21,7 @@ export function StalledGroups({ boards }: { boards: StalledBoard[] }) {
       {boards.map((b) => (
         <li key={b.id}>
           <Link
-            to={`/professor/projects/${b.project_id}`}
+            to={paths.classProject(b.project_id)}
             className="surface flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-amber-300 px-4 py-3 shadow-card transition-colors hover:border-amber-500 dark:border-amber-400/40"
           >
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-400/18 text-amber-700 dark:text-amber-300">

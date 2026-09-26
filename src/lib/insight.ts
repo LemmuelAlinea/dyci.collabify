@@ -1,5 +1,6 @@
 import { CARRYING_ALONE_PCT, burnOwner, calendarDaysUntil, projectBurn } from './types'
 import type { BoardBurn } from './types'
+import { paths } from './paths'
 
 /**
  * The reading half of the analytics page: why a board is behind, when its work
@@ -296,17 +297,17 @@ export const shortDate = (d: Date) =>
 function routeFor(a: ActionRow): string | null {
   switch (a.kind) {
     case 'pending_reassignment':
-      return '/professor/reassignments'
+      return paths.reassignments
     case 'syllabus_gap':
     case 'class_unmeasured':
-      return `/professor/classes/${a.class_id}`
+      return paths.class(a.class_id)
     case 'deadline_pile_up':
-      return '/professor/calendar'
+      return paths.calendar
     case 'not_in_a_group':
     case 'holding_nothing':
-      return '/professor/groups'
+      return paths.groups
     default:
-      return a.project_id ? `/professor/projects/${a.project_id}` : null
+      return a.project_id ? paths.classProject(a.project_id) : null
   }
 }
 
@@ -452,7 +453,7 @@ export function rankActions(rows: ActionRow[], burns: BoardBurn[]): Action[] {
         `${projectBurnRate(b)} a day. The remaining ${b.task_count - b.done_count} need about ` +
         `${f.burn.state === 'projected' ? f.burn.daysNeeded : 0} days and ${b.days_left} are left, ` +
         `so it lands around ${f.finishOn ? shortDate(f.finishOn) : '—'}, ${f.lateBy} days late.`,
-      to: `/professor/projects/${b.project_id}`,
+      to: paths.classProject(b.project_id),
       classId: b.class_id,
       boardId: b.board_id,
       projectId: b.project_id,

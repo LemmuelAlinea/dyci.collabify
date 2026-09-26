@@ -4,6 +4,7 @@ import { listStudentClasses } from './classes'
 import { listProjectsForClasses } from './projects'
 import { listBoards, myTasks } from './tasks'
 import type { MyTask } from './tasks'
+import { paths } from '../paths'
 import type {
   Announcement,
   BoardSummary,
@@ -69,7 +70,7 @@ export async function studentDashboard(studentId: string): Promise<StudentDashbo
         title: t.title,
         context: `${t.project_title} · ${t.class_initial}`,
         due_at: t.due_at as string,
-        to: `/student/projects/${t.project_id}`,
+        to: paths.classProject(t.project_id),
         done: t.status === 'done',
       })),
     ...projects
@@ -80,7 +81,7 @@ export async function studentDashboard(studentId: string): Promise<StudentDashbo
         title: p.title,
         context: `${p.class_initial} · ${p.class_name}`,
         due_at: p.due_at as string,
-        to: `/student/projects/${p.id}`,
+        to: paths.classProject(p.id),
         done: false,
       })),
   ]
@@ -246,7 +247,7 @@ export async function professorDashboard(
         icon: 'calendar' as const,
         title: `${c.initial} has no term dates`,
         body: 'Its syllabus weeks have no calendar dates until you set them.',
-        to: `/professor/classes/${c.id}`,
+        to: paths.class(c.id),
       })),
     ...((resources ?? []) as { id: string; title: string; parse_status?: string }[])
       .filter((r) => r.parse_status && r.parse_status !== 'verified')
@@ -255,7 +256,7 @@ export async function professorDashboard(
         icon: 'file' as const,
         title: `${r.title} is not verified`,
         body: 'Check the weeks it drafted, then mark it verified.',
-        to: `/professor/syllabi/${r.id}`,
+        to: paths.syllabus(r.id),
       })),
     ...projects
       .filter((p) => p.scheduled)
@@ -264,7 +265,7 @@ export async function professorDashboard(
         icon: 'clock' as const,
         title: `${p.title} is scheduled`,
         body: `Students see it on ${new Date(p.release_at as string).toLocaleString()}.`,
-        to: `/professor/projects/${p.id}`,
+        to: paths.classProject(p.id),
       })),
     ...projects
       .filter((p) => !p.archived_at && !p.scheduled && !withTasks.has(p.id))
@@ -273,7 +274,7 @@ export async function professorDashboard(
         icon: 'kanban' as const,
         title: `${p.title} has no tasks yet`,
         body: 'Nobody has broken it down — set the first task, or let the group.',
-        to: `/professor/projects/${p.id}`,
+        to: paths.classProject(p.id),
       })),
   ]
 

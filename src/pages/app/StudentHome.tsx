@@ -20,6 +20,7 @@ import { useAuth } from '../../context/AuthContext'
 import { plural } from '../../lib/plural'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { useStudentDashboard } from '../../hooks/useStudentDashboard'
+import { paths } from '../../lib/paths'
 
 function greeting() {
   const h = new Date().getHours()
@@ -128,26 +129,26 @@ export default function StudentHome() {
                 {
                   label: 'Tasks to finish',
                   value: data.tasks.length,
-                  to: '/student/tasks',
+                  to: paths.tasks,
                   icon: 'check',
                 },
                 {
                   label: overdue === 1 ? 'Deadline passed' : 'Deadlines passed',
                   value: overdue,
-                  to: '/student/tasks',
+                  to: paths.tasks,
                   icon: 'clock',
                   tone: overdue > 0 ? 'warn' : 'plain',
                 },
                 {
                   label: 'Projects open',
                   value: openProjects,
-                  to: '/student/projects',
+                  to: paths.classProjects,
                   icon: 'kanban',
                 },
                 {
                   label: data.classes.length === 1 ? 'Class' : 'Classes',
                   value: data.classes.length,
-                  to: '/student/classes',
+                  to: paths.classes,
                   icon: 'folder',
                 },
               ]}
@@ -166,7 +167,7 @@ export default function StudentHome() {
                     icon="clock"
                     title="Due this week"
                     count={deadlines.length}
-                    seeAll="/student/tasks"
+                    seeAll={paths.tasks}
                   >
                     <DeadlineList deadlines={deadlines} />
                   </DashSection>
@@ -190,7 +191,7 @@ export default function StudentHome() {
                     icon="check"
                     title="Your unfinished tasks"
                     count={data.tasks.length}
-                    seeAll="/student/tasks"
+                    seeAll={paths.tasks}
                   >
                     <TaskDigest tasks={data.tasks} />
                   </DashSection>
@@ -204,13 +205,13 @@ export default function StudentHome() {
                       icon="message"
                       title="Announcements"
                       count={data.announcements.length}
-                      seeAll="/student/classes"
+                      seeAll={paths.classes}
                       seeAllLabel="All classes"
                     >
                       <AnnouncementSwiper
                         announcements={data.announcements}
                         classes={data.classes}
-                        linkBase="/student/classes"
+                        linkBase={paths.classes}
                       />
                     </DashSection>
                   </Reveal>
@@ -222,12 +223,12 @@ export default function StudentHome() {
                   <DashSection
                     icon="kanban"
                     title="Projects you are on"
-                    seeAll="/student/projects"
+                    seeAll={paths.classProjects}
                   >
                     <ProjectStrip
                       projects={data.projects}
                       boards={data.boards}
-                      linkBase="/student/projects"
+                      linkBase={paths.classProjects}
                     />
                   </DashSection>
                 </Reveal>
@@ -248,7 +249,7 @@ export default function StudentHome() {
                       <TermStrip
                         weeks={data.currentWeeks}
                         classes={data.classes}
-                        linkBase="/student/classes"
+                        linkBase={paths.classes}
                       />
                     </DashSection>
                   </Reveal>

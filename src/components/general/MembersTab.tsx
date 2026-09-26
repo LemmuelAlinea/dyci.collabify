@@ -16,6 +16,7 @@ import {
   setMemberLevel,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
+import { paths } from '../../lib/paths'
 import { LEVELS, PERMISSIONS, canStepDown, levelLabel, permissionLabel } from '../../lib/general/permissions'
 import type { GeneralLevel } from '../../lib/general/permissions'
 import type { GeneralMember } from '../../lib/general/types'
@@ -182,7 +183,7 @@ function MemberList({ state }: { state: GeneralProjectState }) {
         onConfirm={async () => {
           await leaveProject(project.id)
           show('You left the project')
-          navigate('/general')
+          navigate(paths.home)
         }}
         title={`Leave ${project.name}?`}
         body="You lose access to the project and its conversation until somebody invites you back."

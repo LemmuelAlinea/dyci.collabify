@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { rememberSpace } from '../../hooks/useSpaces'
 import { createSpace, joinSpace, updateSpace } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
+import { paths } from '../../lib/paths'
 import type { GeneralSpaceSummary } from '../../lib/general/types'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
@@ -37,7 +38,7 @@ export function NewSpaceDialog({
       onClose()
       setName('')
       setDescription('')
-      navigate(`/general/spaces/${space.id}`)
+      navigate(paths.space(space.id))
     } catch (err) {
       setError(authErrorMessage(err, 'Could not create that space.'))
     } finally {
@@ -123,7 +124,7 @@ export function JoinSpaceDialog({
       await onJoined?.()
       onClose()
       setCode('')
-      navigate(`/general/spaces/${spaceId}`)
+      navigate(paths.space(spaceId))
     } catch (err) {
       setError(authErrorMessage(err, 'Could not join with that code.'))
     } finally {
