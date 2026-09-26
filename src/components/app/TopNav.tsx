@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { paths } from '../../lib/paths'
 import { ROLE_LABEL, fullName } from '../../lib/types'
-import { settingsPathFor, workplaceOf } from '../../lib/workplace'
 import { ThemeToggle } from '../ThemeToggle'
 import { Icon } from '../ui/Icon'
 import { Avatar } from './Avatar'
@@ -88,8 +88,6 @@ function AccountMenu({ settingsTo }: { settingsTo: string }) {
 
 export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   const { profile } = useAuth()
-  const location = useLocation()
-  const workplace = workplaceOf(location.pathname, profile?.home_workplace ?? 'education')
   const bar = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -124,13 +122,13 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
         </button>
 
         <div className="translate-y-2">
-          <WorkspaceSearch workplace={workplace} />
+          <WorkspaceSearch />
         </div>
 
         <div className="flex items-center gap-0.5 sm:gap-1">
           <NotificationBell />
           <ThemeToggle />
-          <AccountMenu settingsTo={settingsPathFor(workplace, profile.role)} />
+          <AccountMenu settingsTo={paths.settings} />
         </div>
       </div>
     </header>

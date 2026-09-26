@@ -1,29 +1,74 @@
 import { describe, expect, it } from 'vitest'
-import { navForWorkplace } from './nav'
+import { navFor } from './nav'
 import type { NavGroup } from './nav'
 
 const labels = (groups: NavGroup[]) => groups.flatMap((g) => g.items.map((i) => i.label))
+const tos = (groups: NavGroup[]) => groups.flatMap((g) => g.items.map((i) => i.to))
 
-describe('navForWorkplace', () => {
-  it('gives a student nobody has let in only the dashboard and settings', () => {
-    expect(labels(navForWorkplace('education', 'student', false))).toEqual(['Dashboard', 'Settings'])
+describe('navFor', () => {
+  it('gives a student nobody has let in only Home and Settings', () => {
+    expect(labels(navFor({ role: 'student', status: 'active' }, false))).toEqual([
+      'Home',
+      'Settings',
+    ])
   })
 
-  it('gives an admitted student the whole rail', () => {
-    expect(labels(navForWorkplace('education', 'student', true))).toContain('Classes')
-    expect(labels(navForWorkplace('education', 'student'))).toContain('My tasks')
+  it('gives an admitted student Main, Classes with Your record, and Account, no Teaching or Admin', () => {
+    const groups = navFor({ role: 'student', status: 'active' }, true)
+    const titles = groups.map((g) => g.title)
+    expect(titles).toEqual(['Main', 'Classes', 'Account'])
+    expect(labels(groups)).toContain('Your record')
+    expect(titles).not.toContain('Teaching')
+    expect(titles).not.toContain('Admin')
+  })
+
+  it('gives a professor Teaching, and no Your record', () => {
+    const groups = navFor({ role: 'professor', status: 'active' }, true)
+    const titles = groups.map((g) => g.title)
+    expect(titles).toContain('Teaching')
+    expect(labels(groups)).not.toContain('Your record')
   })
 
   it('never narrows faculty on the admission flag', () => {
-    expect(labels(navForWorkplace('education', 'professor', false))).toContain('Classes')
+    expect(labels(navFor({ role: 'professor', status: 'active' }, false))).toContain('Classes')
   })
 
-  it('calls the approval queue by what it approves', () => {
-    expect(labels(navForWorkplace('education', 'admin'))).toContain('Faculty approvals')
+  it('gives an admin Admin with Faculty approvals, and no Classes', () => {
+    const groups = navFor({ role: 'admin', status: 'active' }, true)
+    const titles = groups.map((g) => g.title)
+    expect(labels(groups)).toContain('Faculty approvals')
+    expect(titles).not.toContain('Classes')
   })
 
-  it('keeps settings inside the workplace', () => {
-    const settings = navForWorkplace('education', 'student', false).at(-1)?.items[0]
-    expect(settings?.to).toBe('/student/settings')
+  it('gives an account with no role, or one not active, only Settings', () => {
+    expect(labels(navFor({ role: null, status: 'pending' }, true))).toEqual(['Settings'])
+    expect(labels(navFor({ role: 'professor', status: 'pending' }, true))).toEqual(['Settings'])
+    expect(labels(navFor(null, true))).toEqual(['Settings'])
+  })
+
+  it('routes every item through one of the allowed prefixes', () => {
+    const allowed = [
+      '/home',
+      '/tasks',
+      '/calendar',
+      '/messages',
+      '/settings',
+      '/classes',
+      '/groups',
+      '/class-projects',
+      '/record',
+      '/teaching/',
+      '/admin/',
+    ]
+    const everyone = [
+      navFor({ role: 'student', status: 'active' }, true),
+      navFor({ role: 'professor', status: 'active' }, true),
+      navFor({ role: 'admin', status: 'active' }, true),
+    ]
+    for (const groups of everyone) {
+      for (const to of tos(groups)) {
+        expect(allowed.some((prefix) => to?.startsWith(prefix))).toBe(true)
+      }
+    }
   })
 })

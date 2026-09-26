@@ -5,10 +5,10 @@ import { useGeneralNavigation } from '../../context/generalNavigation'
 import { listProfessorClasses, listStudentClasses } from '../../lib/api/classes'
 import { listProjectsForClasses } from '../../lib/api/projects'
 import { authErrorMessage } from '../../lib/authError'
-import type { ClassSummary, ProjectSummary, Role } from '../../lib/types'
-import type { Workplace } from '../../lib/workplace'
+import { paths } from '../../lib/paths'
+import type { AccountStatus, ClassSummary, ProjectSummary, Role } from '../../lib/types'
 import { Icon } from '../ui/Icon'
-import { navForWorkplace } from './nav'
+import { navFor } from './nav'
 
 type Result = {
   key: string
@@ -35,8 +35,8 @@ function useDismiss(open: boolean, close: () => void) {
   return ref
 }
 
-function staticResults(workplace: Workplace, role: Role | null): Result[] {
-  return navForWorkplace(workplace, role).flatMap((group) =>
+function staticResults(profile: { role: Role | null; status: AccountStatus }): Result[] {
+  return navFor(profile, true).flatMap((group) =>
     group.items
       .filter((item) => item.to && !item.soon)
       .map((item) => ({
@@ -48,7 +48,7 @@ function staticResults(workplace: Workplace, role: Role | null): Result[] {
   )
 }
 
-export function WorkspaceSearch({ workplace }: { workplace: Workplace }) {
+export function WorkspaceSearch() {
   const { profile } = useAuth()
   const general = useGeneralNavigation()
   const [query, setQuery] = useState('')
@@ -60,7 +60,7 @@ export function WorkspaceSearch({ workplace }: { workplace: Workplace }) {
   useEffect(() => {
     let cancelled = false
     async function loadEducation() {
-      if (!profile || workplace !== 'education' || !profile.role) {
+      if (!profile || !profile.role) {
         setEducationResults([])
         setError(null)
         return
@@ -76,19 +76,18 @@ export function WorkspaceSearch({ workplace }: { workplace: Workplace }) {
             : []
         if (cancelled) return
 
-        const roleRoot = `/${profile.role}`
         setEducationResults([
           ...classes.map((cls) => ({
             key: `class:${cls.id}`,
             label: cls.name,
             detail: `Class · ${cls.initial}`,
-            to: `${roleRoot}/classes/${cls.id}`,
+            to: paths.class(cls.id),
           })),
           ...projects.map((project) => ({
             key: `project:${project.id}`,
             label: project.title,
             detail: `Project · ${project.class_initial}`,
-            to: `${roleRoot}/projects/${project.id}`,
+            to: paths.classProject(project.id),
           })),
         ])
         setError(null)
@@ -100,31 +99,28 @@ export function WorkspaceSearch({ workplace }: { workplace: Workplace }) {
     return () => {
       cancelled = true
     }
-  }, [profile, workplace])
+  }, [profile])
 
   const allResults = useMemo<Result[]>(() => {
     if (!profile) return []
-    if (workplace === 'general') {
-      const spaces = (general.spaces ?? [])
-        .filter((space) => space.my_level && !space.archived_at)
-        .map((space) => ({
-          key: `space:${space.id}`,
-          label: space.name,
-          detail: 'Space',
-          to: `/general/spaces/${space.id}`,
-        }))
-      const projects = (general.projects ?? [])
-        .filter((project) => !project.archived_at)
-        .map((project) => ({
-          key: `general-project:${project.id}`,
-          label: project.name,
-          detail: general.currentSpace ? `Project · ${general.currentSpace.name}` : 'Project',
-          to: `/general/projects/${project.id}`,
-        }))
-      return [...staticResults(workplace, profile.role), ...spaces, ...projects]
-    }
-    return [...staticResults(workplace, profile.role), ...educationResults]
-  }, [educationResults, general.currentSpace, general.projects, general.spaces, profile, workplace])
+    const spaces = (general.spaces ?? [])
+      .filter((space) => space.my_level && !space.archived_at && space.kind === 'work')
+      .map((space) => ({
+        key: `space:${space.id}`,
+        label: space.name,
+        detail: 'Space',
+        to: paths.space(space.id),
+      }))
+    const projects = (general.projects ?? [])
+      .filter((project) => !project.archived_at)
+      .map((project) => ({
+        key: `general-project:${project.id}`,
+        label: project.name,
+        detail: general.currentSpace ? `Project · ${general.currentSpace.name}` : 'Project',
+        to: paths.project(project.id),
+      }))
+    return [...staticResults(profile), ...educationResults, ...spaces, ...projects]
+  }, [educationResults, general.currentSpace, general.projects, general.spaces, profile])
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -154,7 +150,7 @@ export function WorkspaceSearch({ workplace }: { workplace: Workplace }) {
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
-        placeholder={`Search ${workplace === 'general' ? 'General' : 'Education'}`}
+        placeholder="Search Collabify"
         autoComplete="off"
         className="h-10 w-full rounded-xl border border-line bg-[var(--surface)] pr-3 pl-9 text-[14px] text-ink outline-none transition focus:border-navy-300 focus:ring-4 focus:ring-navy-200/40 dark:focus:border-amber-300/50 dark:focus:ring-amber-300/10"
       />
@@ -164,7 +160,7 @@ export function WorkspaceSearch({ workplace }: { workplace: Workplace }) {
           {error ? (
             <p className="px-4 py-3 text-[13px] text-red-600 dark:text-red-300">{error}</p>
           ) : results.length === 0 ? (
-            <p className="px-4 py-3 text-[13px] text-muted">No results in this workspace.</p>
+            <p className="px-4 py-3 text-[13px] text-muted">No results.</p>
           ) : (
             <ul className="py-1">
               {results.map((result) => (

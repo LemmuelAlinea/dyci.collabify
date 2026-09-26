@@ -5,9 +5,10 @@ import { authErrorMessage } from '../lib/authError'
 import { supabase } from '../lib/supabase'
 import type { ConversationCard } from '../lib/types'
 
-type ConversationScope = 'education' | 'general'
+type ConversationScope = 'education' | 'general' | 'all'
 
 function scoped(conversations: ConversationCard[], scope: ConversationScope) {
+  if (scope === 'all') return conversations
   return conversations.filter((conversation) =>
     scope === 'general'
       ? conversation.kind === 'project'

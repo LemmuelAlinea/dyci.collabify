@@ -7,18 +7,28 @@ import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useAdmission } from '../../hooks/useAdmission'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { recentProjects } from '../../lib/general/dashboard'
-import { educationHome, homeFor, workplaceOf } from '../../lib/workplace'
+import type { GeneralSpaceSummary } from '../../lib/general/types'
+import { paths } from '../../lib/paths'
 import { Logo, LogoMark } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
-import { WorkplaceSwitcher } from './WorkplaceSwitcher'
-import { navForWorkplace } from './nav'
+import { navFor } from './nav'
 import type { NavItem } from './nav'
 
 type Hint = { text: string; top: number }
+type LiveRow = { id: string; name: string; to: string; tone?: 'education' | 'work' }
 
 // No font-size here on purpose: each kind of row sets its own, and two
 // arbitrary text-[] utilities on one element resolve by stylesheet order.
 const ROW = 'relative flex w-full items-center rounded-lg transition-colors'
+
+/** A row for Your spaces. Education opens the class it belongs to; a work
+ * space opens itself — joining a project never joins its space, so a class
+ * space is the only kind whose own page is somewhere else. */
+function spaceRow(space: GeneralSpaceSummary): LiveRow {
+  return space.kind === 'education'
+    ? { id: space.id, name: space.name, to: paths.class(space.class_id ?? space.id), tone: 'education' }
+    : { id: space.id, name: space.name, to: paths.space(space.id), tone: 'work' }
+}
 
 export function SideNav({
   collapsed = false,
@@ -34,8 +44,7 @@ export function SideNav({
   const navigation = useGeneralNavigation()
   const [hint, setHint] = useState<Hint | null>(null)
 
-  const workplace = profile ? workplaceOf(location.pathname, profile.home_workplace) : 'education'
-  const unread = useUnreadTotal(profile?.id, workplace === 'general' ? 'general' : 'education')
+  const unread = useUnreadTotal(profile?.id, 'all')
   const admitted = useAdmission(profile?.role === 'student' ? profile.id : undefined)
 
   useEffect(() => setHint(null), [collapsed, location.pathname, location.search])
@@ -44,11 +53,13 @@ export function SideNav({
 
   // Null while it loads counts as admitted, so the rail never flashes empty
   // for a student who has classes.
-  const groups = navForWorkplace(
-    workplace,
-    profile.status === 'active' ? profile.role : null,
-    admitted !== false,
-  )
+  const groups = navFor(profile, admitted !== false)
+
+  // Whether this account gets the reader's own spaces and projects under
+  // Main — everyone whose Main is the full spine, not the waiting page's
+  // Home-only stub or an unadmitted account's Settings-only rail.
+  const showLiveGroups =
+    profile.status === 'active' && Boolean(profile.role) && (profile.role !== 'student' || admitted !== false)
 
   function revealHint(
     text: string,
@@ -69,14 +80,17 @@ export function SideNav({
     }
   }
 
-  const liveSpaces = (navigation.spaces ?? []).filter(
-    (space) => space.my_level && !space.archived_at,
-  )
+  // Education first, then name — a space holds projects, so within a kind the
+  // rail still reads widest to narrowest, and education leads because a class
+  // is where most accounts' work actually sits.
+  const liveSpaces = [...(navigation.spaces ?? [])]
+    .filter((space) => space.my_level && !space.archived_at)
+    .sort((a, b) =>
+      a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'education' ? -1 : 1,
+    )
   const liveProjects = (navigation.myProjects ?? []).filter(
     (project) => project.my_level && !project.archived_at,
   )
-
-  const home = workplace === 'general' ? '/general' : homeFor(profile)
 
   return (
     <>
@@ -87,7 +101,7 @@ export function SideNav({
         <div className="space-y-5">
           {showLogo && (
             <Link
-              to={home}
+              to={paths.home}
               aria-label="Go to your dashboard"
               onClick={onNavigate}
               className={`mb-1 flex shrink-0 items-center ${collapsed ? 'justify-center' : 'px-1'}`}
@@ -98,41 +112,6 @@ export function SideNav({
                 <Logo size={24} tone="brand" showSubtitle={false} />
               )}
             </Link>
-          )}
-
-          {collapsed ? (
-            <div className="space-y-1" aria-label="Workplace">
-              <NavLink
-                to={educationHome(profile)}
-                aria-label="Education workplace"
-                {...hintHandlers('Education')}
-                className={({ isActive }) =>
-                  `${ROW} h-10 text-[14px] justify-center ${
-                    isActive && workplace === 'education'
-                      ? 'surface-sunken text-navy-600 dark:text-amber-400'
-                      : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
-                  }`
-                }
-              >
-                <Icon name="board" size={18} />
-              </NavLink>
-              <NavLink
-                to="/general"
-                aria-label="General workplace"
-                {...hintHandlers('General')}
-                className={({ isActive }) =>
-                  `${ROW} h-10 text-[14px] justify-center ${
-                    (isActive || workplace === 'general')
-                      ? 'surface-sunken text-navy-600 dark:text-amber-400'
-                      : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
-                  }`
-                }
-              >
-                <Icon name="kanban" size={18} />
-              </NavLink>
-            </div>
-          ) : (
-            <WorkplaceSwitcher tone="surface" />
           )}
 
           {groups.map((group, index) => (
@@ -153,31 +132,28 @@ export function SideNav({
                 </ul>
               </div>
 
-              {/* The reader's own work, between the fixed rows and Account.
-                  These lists change as the work does, which is the one kind of
-                  movement a rail should have. Spaces first: a space holds
-                  projects, so the rail reads widest to narrowest. */}
-              {workplace === 'general' && index === 0 && (
+              {/* The reader's own work, between the fixed rows and everything
+                  their role adds. These lists change as the work does, which
+                  is the one kind of movement a rail should have. Spaces
+                  first: a space holds projects, so the rail reads widest to
+                  narrowest. */}
+              {showLiveGroups && index === 0 && (
                 <>
                   <LiveGroup
                     title="Your spaces"
                     empty="No spaces yet."
-                    moreTo="/general/spaces"
+                    moreTo={paths.spaces}
                     moreLabel="All spaces"
                     collapsed={collapsed}
                     loading={navigation.spaces === null}
                     onNavigate={onNavigate}
                     hintHandlers={hintHandlers}
-                    rows={liveSpaces.slice(0, 4).map((space) => ({
-                      id: space.id,
-                      name: space.name,
-                      to: `/general/spaces/${space.id}`,
-                    }))}
+                    rows={liveSpaces.slice(0, 6).map((space) => spaceRow(space))}
                   />
                   <LiveGroup
                     title="Your projects"
                     empty="No projects yet."
-                    moreTo="/general/projects"
+                    moreTo={paths.projects}
                     moreLabel="All projects"
                     collapsed={collapsed}
                     loading={navigation.myProjects === null}
@@ -186,7 +162,7 @@ export function SideNav({
                     rows={recentProjects(liveProjects).map((project) => ({
                       id: project.id,
                       name: project.name,
-                      to: `/general/projects/${project.id}`,
+                      to: paths.project(project.id),
                     }))}
                   />
                 </>
@@ -234,7 +210,7 @@ function LiveGroup({
 }: {
   title: string
   empty: string
-  rows: { id: string; name: string; to: string }[]
+  rows: LiveRow[]
   moreTo: string
   moreLabel: string
   collapsed: boolean
@@ -274,7 +250,9 @@ function LiveGroup({
                     className={`grid h-5 w-5 shrink-0 place-items-center rounded font-mono text-[10px] font-bold ${
                       isActive
                         ? 'bg-navy-600 text-white dark:bg-amber-400 dark:text-navy-900'
-                        : 'surface-sunken text-muted'
+                        : row.tone === 'education'
+                          ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
+                          : 'surface-sunken text-muted'
                     }`}
                   >
                     {row.name.trim().charAt(0).toUpperCase()}
@@ -379,7 +357,7 @@ function StaticRow({
     <li>
       <NavLink
         to={item.to}
-        end={item.end ?? item.to.split('/').filter(Boolean).length < 2}
+        end={item.end}
         onClick={onNavigate}
         aria-label={collapsed ? label : undefined}
         {...hintHandlers(item.label)}

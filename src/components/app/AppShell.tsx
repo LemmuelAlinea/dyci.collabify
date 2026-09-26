@@ -4,7 +4,8 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { GeneralNavigationProvider } from '../../context/GeneralNavigationContext'
 import { useFocusTrap } from '../../lib/focus'
-import { homeFor, workplaceOf } from '../../lib/workplace'
+import { paths } from '../../lib/paths'
+import { homeFor } from '../../lib/workplace'
 import { Logo } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
 import { PageLoading } from '../ui/PageLoading'
@@ -59,7 +60,6 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(initialCollapsed)
   const drawerPanel = useRef<HTMLDivElement>(null)
   const location = useLocation()
-  const workplace = workplaceOf(location.pathname, profile?.home_workplace ?? 'education')
 
   useEffect(() => setDrawer(false), [location.pathname, location.search])
   useEffect(() => {
@@ -83,7 +83,7 @@ export function AppShell() {
   useFocusTrap(drawerPanel, drawer)
 
   return (
-    <GeneralNavigationProvider enabled={workplace === 'general'}>
+    <GeneralNavigationProvider enabled={Boolean(profile && profile.status === 'active' && profile.role)}>
       <div className="app-ui flex min-h-dvh overflow-x-clip">
         <a href="#main-content" className="skip-link">
           Skip to main content
@@ -140,10 +140,7 @@ export function AppShell() {
                   transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
                 >
                   <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-white/10 bg-navy-950 px-4 text-amber-50">
-                    <Link
-                      to={workplace === 'general' ? '/general' : homeFor(profile)}
-                      aria-label="Go to your dashboard"
-                    >
+                    <Link to={paths.home} aria-label="Go to your dashboard">
                       <Logo size={26} tone="onDark" showSubtitle={false} />
                     </Link>
                     <button

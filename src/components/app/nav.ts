@@ -1,6 +1,6 @@
 import type { IconName } from '../ui/Icon'
-import type { Role } from '../../lib/types'
-import { settingsPathFor, type Workplace } from '../../lib/workplace'
+import type { AccountStatus, Role } from '../../lib/types'
+import { paths } from '../../lib/paths'
 
 export type NavItem = {
   label: string
@@ -17,8 +17,27 @@ export type NavItem = {
 export type NavGroup = { title: string; items: NavItem[] }
 
 /**
- * The two rows every role carries.
+ * One rail, for everyone.
  *
+ * There used to be a rail per workplace — Education's and General's — chosen
+ * by which URL you were under. Now there is one workplace and one rail: it
+ * opens on the spine every account shares (Main), then the reader's own
+ * spaces and projects (added by `SideNav`, not here — they are live data, not
+ * a static list), then whatever their role adds on top. A professor is not
+ * "in General with extra rows"; they are one account whose rail happens to be
+ * longer than a student's.
+ */
+const MAIN: NavGroup = {
+  title: 'Main',
+  items: [
+    { label: 'Home', icon: 'board', to: paths.home, end: true },
+    { label: 'My tasks', icon: 'check', to: paths.tasks },
+    { label: 'Calendar', icon: 'calendar', to: paths.calendar },
+    { label: 'Messages', icon: 'message', to: paths.messages, badge: 'messages' },
+  ],
+}
+
+/**
  * "Your data" is where somebody exercises a right under the Data Privacy Act.
  * It sits in Account rather than anywhere role-specific because a professor
  * asking what is held about them is exactly the same right as a student's, and
@@ -30,182 +49,100 @@ export type NavGroup = { title: string; items: NavItem[] }
  * every professor a permanently empty screen would be worse than the link
  * living on the handler's own request page — which is where it does.
  */
-const SETTINGS: NavGroup = {
+const ACCOUNT: NavGroup = {
   title: 'Account',
-  items: [
-    { label: 'Settings', icon: 'settings', to: '/settings' },
-  ],
+  items: [{ label: 'Settings', icon: 'settings', to: paths.settings }],
 }
 
-const BY_ROLE: Record<Role, NavGroup[]> = {
-  student: [
-    // Same shape as the professor's rail: the spine first, then what arrives on
-    // its own schedule, then the pages that read the work back. Eight rows
-    // under one heading said nothing about what belonged where.
-    {
-      title: 'Workspace',
-      // Classes hold groups, groups hold projects, projects hold the tasks —
-      // widest to narrowest.
-      items: [
-        { label: 'Dashboard', icon: 'board', to: '/student' },
-        { label: 'Classes', icon: 'folder', to: '/student/classes' },
-        { label: 'Groups', icon: 'users', to: '/student/groups' },
-        { label: 'Projects', icon: 'kanban', to: '/student/projects' },
-      ],
-    },
-    {
-      title: 'Day to day',
-      // What is on you now, when it is due, and who is asking. My tasks leads:
-      // it is the only one of the three that is work rather than about work.
-      items: [
-        { label: 'My tasks', icon: 'check', to: '/student/tasks' },
-        { label: 'Calendar', icon: 'calendar', to: '/student/calendar' },
-        { label: 'Messages', icon: 'message', to: '/student/messages', badge: 'messages' },
-      ],
-    },
-    {
-      // Yours to keep, rather than yours to do.
-      title: 'Your record',
-      items: [{ label: 'Reports', icon: 'file', to: '/student/reports' }],
-    },
-    SETTINGS,
-  ],
-  professor: [
-    // Classes hold groups, groups hold projects: the spine reads widest to
-    // narrowest. Then the things that arrive on their own schedule — a date, a
-    // request, a message — and only then the pages that read the work back.
-    {
-      title: 'Teaching',
-      items: [
-        { label: 'Dashboard', icon: 'board', to: '/professor' },
-        { label: 'Classes', icon: 'folder', to: '/professor/classes' },
-        { label: 'Groups', icon: 'users', to: '/professor/groups' },
-        { label: 'Projects', icon: 'kanban', to: '/professor/projects' },
-      ],
-    },
-    {
-      title: 'Day to day',
-      items: [
-        { label: 'Calendar', icon: 'calendar', to: '/professor/calendar' },
-        // The two queues that wait on the professor sit together.
-        { label: 'Submissions', icon: 'upload', to: '/professor/submissions' },
-        { label: 'Reassignments', icon: 'refresh', to: '/professor/reassignments' },
-        { label: 'Messages', icon: 'message', to: '/professor/messages', badge: 'messages' },
-      ],
-    },
-    {
-      // Reading the work back, rather than running it. Analytics answers what is
-      // happening now; reports are the record of it to hand somebody else.
-      title: 'Insights',
-      items: [
-        { label: 'Analytics', icon: 'chart', to: '/professor/analytics' },
-        { label: 'Reports', icon: 'file', to: '/professor/reports' },
-      ],
-    },
-    {
-      title: 'Course documents',
-      items: [
-        { label: 'Curriculum', icon: 'target', to: '/professor/curriculum' },
-        { label: 'Syllabi', icon: 'file', to: '/professor/syllabi' },
-      ],
-    },
-    SETTINGS,
-  ],
-  admin: [
-    // The same three bands as the other two rails: what the office sets up,
-    // who is in the program, and the program read back as figures.
-    {
-      title: 'Program',
-      items: [
-        { label: 'Dashboard', icon: 'board', to: '/admin' },
-        { label: 'Notices', icon: 'bell', to: '/admin/notices' },
-        { label: 'Sections', icon: 'kanban', to: '/admin/sections' },
-        { label: 'Library', icon: 'file', to: '/admin/library' },
-      ],
-    },
-    {
-      // Who is in the program, and the record of what was done to their
-      // accounts. The audit log belongs with the people it is about.
-      title: 'People',
-      items: [
-        { label: 'Faculty approvals', icon: 'shield', to: '/admin/approvals' },
-        { label: 'Accounts', icon: 'users', to: '/admin/accounts' },
-        { label: 'Audit log', icon: 'clock', to: '/admin/audit' },
-        // Admins are the fallback handler while nobody is named, so this row
-        // is never dead for them the way it would be for most faculty.
-        { label: 'Privacy requests', icon: 'shield', to: '/admin/privacy' },
-      ],
-    },
-    {
-      // Counts, never content: the chair reads figures and asks the professor
-      // for anything inside a class.
-      title: 'Oversight',
-      items: [
-        { label: 'Classes', icon: 'folder', to: '/admin/classes' },
-        { label: 'Faculty', icon: 'user', to: '/admin/faculty' },
-        { label: 'Cohort', icon: 'chart', to: '/admin/cohort' },
-      ],
-    },
-    SETTINGS,
+/**
+ * Classes hold groups, groups hold class projects: the spine reads widest to
+ * narrowest. A student also keeps their own record here, since it is theirs to
+ * keep rather than theirs to do.
+ */
+function classesGroup(role: Role): NavGroup {
+  return {
+    title: 'Classes',
+    items: [
+      { label: 'Classes', icon: 'folder', to: paths.classes },
+      { label: 'Groups', icon: 'users', to: paths.groups },
+      { label: 'Class projects', icon: 'kanban', to: paths.classProjects },
+      ...(role === 'student'
+        ? [{ label: 'Your record', icon: 'file' as IconName, to: paths.record }]
+        : []),
+    ],
+  }
+}
+
+/**
+ * The two queues that wait on a professor, then the pages that read the work
+ * back rather than run it, then the documents a class hangs off.
+ */
+const TEACHING: NavGroup = {
+  title: 'Teaching',
+  items: [
+    { label: 'Submissions', icon: 'upload', to: paths.submissions },
+    { label: 'Reassignments', icon: 'refresh', to: paths.reassignments },
+    { label: 'Analytics', icon: 'chart', to: paths.analytics },
+    { label: 'Reports', icon: 'file', to: paths.teachingReports },
+    { label: 'Syllabi', icon: 'file', to: paths.syllabi },
+    { label: 'Curriculum', icon: 'target', to: paths.curriculum },
   ],
 }
 
 /**
- * General's fixed rows. The shell puts the reader's own projects and spaces
- * between this group and Account — see `SideNav`.
- *
- * What is fixed and what is listed is the whole design. Membership in a project
- * and in its space are separate things: joining a project never joins its space,
- * and the space row is then unreadable. A rail whose *chrome* was keyed to "the
- * space in view" emptied itself whenever such a reader opened their own project.
- * So the chrome never moves, and what does change is a list of the reader's own
- * work — which is content, and is supposed to change.
- *
- * Home is `end` because `/general` is a real page now, not a redirect, and
- * everything else in General hangs below it.
+ * What the office sets up, who is in the program, and the program read back
+ * as figures — the same three bands the admin rail always had.
  */
-export const GENERAL_NAV: NavGroup[] = [
-  {
-    title: 'Main',
-    items: [
-      { label: 'Home', icon: 'board', to: '/general', end: true },
-      { label: 'Messages', icon: 'message', to: '/general/messages', badge: 'messages' },
-    ],
-  },
-  SETTINGS,
-]
+const ADMIN: NavGroup = {
+  title: 'Admin',
+  items: [
+    { label: 'Faculty approvals', icon: 'shield', to: paths.admin.approvals },
+    { label: 'Accounts', icon: 'users', to: paths.admin.accounts },
+    { label: 'Audit log', icon: 'clock', to: paths.admin.audit },
+    // Admins are the fallback handler while nobody is named, so this row is
+    // never dead for them the way it would be for most faculty.
+    { label: 'Privacy requests', icon: 'shield', to: paths.admin.privacy },
+    { label: 'Notices', icon: 'bell', to: paths.admin.notices },
+    { label: 'Sections', icon: 'kanban', to: paths.admin.sections },
+    { label: 'Library', icon: 'file', to: paths.admin.library },
+    { label: 'Classes', icon: 'folder', to: paths.admin.classes },
+    { label: 'Faculty', icon: 'user', to: paths.admin.faculty },
+    { label: 'Cohort', icon: 'chart', to: paths.admin.cohort },
+  ],
+}
 
 /**
  * A student nobody has let in yet. Every other row would open onto an empty
- * page, so the rail offers only the dashboard, whose one job for them is
- * joining a class.
+ * page, so the rail offers only Home, whose one job for them is joining a
+ * class.
  */
-const STUDENT_WAITING: NavGroup[] = [
-  { title: 'Workspace', items: [{ label: 'Dashboard', icon: 'board', to: '/student' }] },
-  SETTINGS,
-]
+const MAIN_WAITING: NavGroup = {
+  title: 'Main',
+  items: [{ label: 'Home', icon: 'board', to: paths.home, end: true }],
+}
 
 /**
- * An account with no Education role only ever sees General's rail. `admitted`
- * narrows only a student's Education rail; faculty are admitted by approval,
- * which the route guard has already checked.
+ * The static half of the rail — everything that isn't the reader's own
+ * spaces and projects, which `SideNav` adds between Main and whatever role
+ * group comes next because those lists are live data, not a fixed menu.
+ *
+ * `admitted` narrows only a student's Main group, to just Home; faculty and
+ * admins are admitted by approval, which the route guard has already
+ * checked before this ever renders. An account with no role yet, or one that
+ * isn't active, has nothing to open but Settings — every other page here
+ * needs an admitted account.
  */
-export function navForWorkplace(
-  workplace: Workplace,
-  role: Role | null,
-  admitted = true,
+export function navFor(
+  profile: { role: Role | null; status: AccountStatus } | null,
+  admitted: boolean,
 ): NavGroup[] {
-  const groups =
-    workplace === 'general' || !role
-      ? GENERAL_NAV
-      : role === 'student' && !admitted
-        ? STUDENT_WAITING
-        : BY_ROLE[role]
-  const settingsPath = settingsPathFor(workplace, role)
-  return groups.map((group) => ({
-    ...group,
-    items: group.items.map((item) =>
-      item.to === '/settings' ? { ...item, to: settingsPath } : item,
-    ),
-  }))
+  if (!profile || profile.status !== 'active' || !profile.role) return [ACCOUNT]
+
+  const { role } = profile
+  if (role === 'student' && !admitted) return [MAIN_WAITING, ACCOUNT]
+
+  const roleGroups: NavGroup[] =
+    role === 'admin' ? [ADMIN] : role === 'professor' ? [classesGroup(role), TEACHING] : [classesGroup(role)]
+
+  return [MAIN, ...roleGroups, ACCOUNT]
 }
