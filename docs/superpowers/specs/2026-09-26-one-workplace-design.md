@@ -123,17 +123,18 @@ cheap. The cost is in the logic.
 
 ## Section 4: Migration, phases, testing
 
-**Migration.** New file `supabase/one-workplace.sql`, idempotent. Take a backup
-per `docs/07-backup.md` first. It renames the enum value, adds `can_teach`,
-`general_spaces.kind`, `classes.space_id` (unique FK) and `classes.student_cap`,
-and backfills one space per class (professor as owner, active class members as
-members). It drops `enter_education`. It leaves `home_workplace` unread until
-phase 4. Register it in the `scripts/schema-drift.mjs` ORDER and the restore
-line in `docs/07-backup.md`.
+**Migration.** Two idempotent files, each registered in the `scripts/schema-drift.mjs`
+ORDER and the restore line in `docs/07-backup.md`. Phase 1's `supabase/access.sql`
+adds `can_teach`, the admission gates and `decide_faculty`, and drops
+`enter_education`. Phase 2's `supabase/one-workplace.sql` (take a backup per
+`docs/07-backup.md` first) adds `general_spaces.kind`, `classes.space_id`
+(unique FK) and `classes.student_cap`, and backfills one space per class
+(professor as owner, active class members as members). `home_workplace` stays
+unread until phase 4, which also renames the `professor` enum value.
 
 **Phases.** Each has its own implementation plan, and each ships leaving the
 site working:
-1. **Faculty wording (enum rename in phase 4).** `can_teach`, SQL gates,
+1. **Access.** Faculty wording (enum rename in phase 4), `can_teach`, SQL gates,
    Student/Faculty registration, the approval checkbox, the empty home for
    unadmitted students.
 2. **Education spaces underneath.** `kind`, `space_id`,
