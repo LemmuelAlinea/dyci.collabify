@@ -1,21 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Bento, BentoCell } from '../../components/dashboard/Bento'
-import { DashSection } from '../../components/dashboard/DashSection'
-import { DashboardSummary } from '../../components/dashboard/DashboardSummary'
-import { Reveal } from '../../components/motion/Reveal'
-import {
-  ComingUpPanel,
-  MyTasksPanel,
-  RecentPanel,
-  WaitingPanel,
-} from '../../components/general/DashboardPanels'
-import { JoinProjectDialog } from '../../components/general/JoinProjectDialog'
-import { QuickActions } from '../../components/general/QuickActions'
-import { NewSpaceDialog } from '../../components/general/SpaceDialogs'
-import { Alert } from '../../components/ui/Alert'
-import { Button } from '../../components/ui/Button'
-import { Spinner } from '../../components/ui/Icon'
-import { useToast } from '../../components/ui/Toast'
+import { useMemo, useState } from 'react'
+import { Bento, BentoCell } from '../dashboard/Bento'
+import { DashSection } from '../dashboard/DashSection'
+import { Reveal } from '../motion/Reveal'
+import { ComingUpPanel, MyTasksPanel, RecentPanel, WaitingPanel } from './DashboardPanels'
+import { JoinProjectDialog } from './JoinProjectDialog'
+import { QuickActions } from './QuickActions'
+import { NewSpaceDialog } from './SpaceDialogs'
+import { Alert } from '../ui/Alert'
+import { Button } from '../ui/Button'
+import { Spinner } from '../ui/Icon'
+import { useToast } from '../ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useUnreadTotal } from '../../hooks/useConversations'
@@ -23,30 +17,23 @@ import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
 import { isFaculty } from '../../lib/access'
 import { respondToInvitation } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { comingUp, dueCounts, myTasks, recentProjects } from '../../lib/general/dashboard'
+import { comingUp, myTasks, recentProjects } from '../../lib/general/dashboard'
 import type { MyInvitation } from '../../lib/general/types'
 import { plural } from '../../lib/plural'
 import { paths } from '../../lib/paths'
 
-function greeting() {
-  const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
-  return 'Good evening'
-}
-
 /**
- * Where /general lands: everything on the reader, across every space.
+ * "Your work" — the General home's panels, without its own greeting or
+ * summary, stacked under the role dashboard on `/home`.
  *
- * It used to redirect into a space, which meant somebody holding projects and
- * no space — the state a project join code puts you in, since joining a project
- * never joins its space — was sent to a page headed "No spaces yet". Nothing
- * here is space-scoped, so it answers for every account.
+ * Spaces here are work spaces only; class spaces (`kind: 'education'`) belong
+ * to the classes side of the rail and never count toward this section.
  *
- * The space dashboard in SpaceHome is the same panels narrowed to one space,
- * and keeps the space's own management alongside them.
+ * Renders nothing when there is truly nothing to show: no projects, no work
+ * spaces, no invitations, and the person is not faculty (who always keep the
+ * New space / Join with code doors open).
  */
-export default function GeneralHome() {
+export function WorkOverview() {
   const { profile } = useAuth()
   const faculty = isFaculty(profile)
   const { show } = useToast()
@@ -55,10 +42,6 @@ export default function GeneralHome() {
   const [answering, setAnswering] = useState<string | null>(null)
   const [joinOpen, setJoinOpen] = useState(false)
   const [newSpaceOpen, setNewSpaceOpen] = useState(false)
-
-  useEffect(() => {
-    document.title = 'Home · Collabify'
-  }, [])
 
   const mineProjects = useMemo(
     () => (myProjects ?? []).filter((p) => p.my_level && !p.archived_at),
@@ -71,14 +54,15 @@ export default function GeneralHome() {
   const names = new Map(mineProjects.map((p) => [p.id, p.name]))
   const projectName = (id: string) => names.get(id) ?? 'A project'
   const mine = profile && data ? myTasks(data.tasks, profile.id) : []
-  const { overdue, thisWeek } = dueCounts(mine, now)
   const invitations = data?.invitations ?? []
   const reviews = data?.reviews ?? []
   const requests = mineProjects.filter((p) => p.my_level === 'owner' && p.open_request_count > 0)
   const waiting =
     invitations.length + reviews.length + requests.reduce((n, p) => n + p.open_request_count, 0)
   const days = data ? comingUp(data.tasks, mineProjects, now) : []
-  const liveSpaces = (spaces ?? []).filter((s) => s.my_level && !s.archived_at)
+  // Class spaces live under Education; "Your work" only ever counts work spaces.
+  const workSpaces = useMemo(() => (spaces ?? []).filter((s) => s.kind === 'work'), [spaces])
+  const liveSpaces = workSpaces.filter((s) => s.my_level && !s.archived_at)
 
   async function answer(inv: MyInvitation, accept: boolean) {
     setAnswering(inv.id)
@@ -93,83 +77,58 @@ export default function GeneralHome() {
     }
   }
 
-  const line =
-    overdue > 0
-      ? `${overdue} of your tasks ${plural(overdue, 'is', 'are')} overdue.` +
-        (thisWeek > 0 ? ` Another ${thisWeek} ${plural(thisWeek, 'is', 'are')} due this week.` : '')
-      : thisWeek > 0
-        ? `${thisWeek} ${plural(thisWeek, 'task', 'tasks')} due this week, and nothing overdue.`
-        : waiting > 0
-          ? `${waiting} ${plural(waiting, 'thing is', 'things are')} waiting on your answer.`
-          : mine.length > 0
-            ? `${mine.length} open ${plural(mine.length, 'task', 'tasks')} in hand, and nothing due this week.`
-            : 'Nothing is waiting on you right now.'
+  const loaded = myProjects !== null
+  const nothingToShow =
+    loaded &&
+    mineProjects.length === 0 &&
+    liveSpaces.length === 0 &&
+    invitations.length === 0 &&
+    !faculty
+
+  if (nothingToShow) return null
 
   return (
-    <div className="w-full">
-      <Reveal once>
-        <DashboardSummary
-          greeting={greeting()}
-          name={profile?.first_name ?? 'there'}
-          kicker="Your work"
-          line={line}
-          urgent={overdue > 0}
-          tiles={[
-            { label: 'My open tasks', value: mine.length, icon: 'check' },
-            { label: 'Due this week', value: thisWeek, icon: 'calendar' },
-            {
-              label: 'Overdue',
-              value: overdue,
-              icon: 'clock',
-              tone: overdue > 0 ? 'warn' : 'plain',
-            },
-            { label: 'Waiting on you', value: waiting, icon: 'bell' },
-          ]}
-        />
-      </Reveal>
-
-      <div className="mt-6">
-        <QuickActions
-          actions={[
-            ...(faculty
-              ? [
-                  {
-                    icon: 'plus' as const,
-                    label: 'New space',
-                    hint: 'A place to hold projects',
-                    onClick: () => setNewSpaceOpen(true),
-                    primary: true,
-                  },
-                  {
-                    icon: 'lock' as const,
-                    label: 'Join with code',
-                    hint: 'Eight characters from an Owner',
-                    onClick: () => setJoinOpen(true),
-                  },
-                ]
-              : []),
-            {
-              icon: 'kanban',
-              label: 'Projects',
-              hint: `${mineProjects.length} ${plural(mineProjects.length, 'project', 'projects')} you are on`,
-              to: paths.projects,
-            },
-            {
-              icon: 'folder',
-              label: 'Spaces',
-              hint: `${liveSpaces.length} ${plural(liveSpaces.length, 'space', 'spaces')} you are in`,
-              to: paths.spaces,
-            },
-            {
-              icon: 'message',
-              label: 'Messages',
-              hint: unread > 0 ? `${unread} unread` : 'Chats and project threads',
-              to: paths.messages,
-              count: unread,
-            },
-          ]}
-        />
-      </div>
+    <DashSection icon="kanban" title="Your work">
+      <QuickActions
+        actions={[
+          ...(faculty
+            ? [
+                {
+                  icon: 'plus' as const,
+                  label: 'New space',
+                  hint: 'A place to hold projects',
+                  onClick: () => setNewSpaceOpen(true),
+                  primary: true,
+                },
+                {
+                  icon: 'lock' as const,
+                  label: 'Join with code',
+                  hint: 'Eight characters from an Owner',
+                  onClick: () => setJoinOpen(true),
+                },
+              ]
+            : []),
+          {
+            icon: 'kanban',
+            label: 'Projects',
+            hint: `${mineProjects.length} ${plural(mineProjects.length, 'project', 'projects')} you are on`,
+            to: paths.projects,
+          },
+          {
+            icon: 'folder',
+            label: 'Spaces',
+            hint: `${liveSpaces.length} ${plural(liveSpaces.length, 'space', 'spaces')} you are in`,
+            to: paths.spaces,
+          },
+          {
+            icon: 'message',
+            label: 'Messages',
+            hint: unread > 0 ? `${unread} unread` : 'Chats and project threads',
+            to: paths.messages,
+            count: unread,
+          },
+        ]}
+      />
 
       {(error || dashError) && (
         <div className="mt-6">
@@ -251,11 +210,7 @@ export default function GeneralHome() {
       )}
 
       <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} />
-      <NewSpaceDialog
-        open={newSpaceOpen}
-        onClose={() => setNewSpaceOpen(false)}
-        onCreated={reload}
-      />
-    </div>
+      <NewSpaceDialog open={newSpaceOpen} onClose={() => setNewSpaceOpen(false)} onCreated={reload} />
+    </DashSection>
   )
 }

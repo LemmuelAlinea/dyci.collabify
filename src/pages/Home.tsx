@@ -1,5 +1,6 @@
 import { lazy } from 'react'
 import { RoleSwitch } from '../routes/RoleSwitch'
+import { WorkOverview } from '../components/general/WorkOverview'
 
 // Lazy, same as every other role page: a student opening /home never fetches
 // the admin console, and the reverse.
@@ -15,5 +16,12 @@ const AdminHome = lazy(() => import('./app/AdminHome'))
  * page, so a dashboard reads as one place instead of two workplaces to check.
  */
 export default function Home() {
-  return <RoleSwitch student={<StudentHome />} professor={<ProfessorHome />} admin={<AdminHome />} />
+  return (
+    <>
+      <RoleSwitch student={<StudentHome />} professor={<ProfessorHome />} admin={<AdminHome />} />
+      <div className="mt-10">
+        <WorkOverview />
+      </div>
+    </>
+  )
 }
