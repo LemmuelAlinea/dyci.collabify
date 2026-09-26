@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ProgramNotices } from '../../components/app/ProgramNotices'
 import { Reveal } from '../../components/motion/Reveal'
 import { AnnouncementSwiper } from '../../components/dashboard/AnnouncementSwiper'
@@ -11,10 +11,11 @@ import { DashboardSummary } from '../../components/dashboard/DashboardSummary'
 import { TaskDigest } from '../../components/dashboard/TaskDigest'
 import { TermStrip } from '../../components/dashboard/TermStrip'
 import { WaitingOnYou } from '../../components/dashboard/WaitingOnYou'
-import { ButtonLink } from '../../components/ui/Button'
+import { Button } from '../../components/ui/Button'
 import { Alert } from '../../components/ui/Alert'
 import { Spinner } from '../../components/ui/Icon'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { JoinClassDialog } from '../../components/classes/JoinClassDialog'
 import { useAuth } from '../../context/AuthContext'
 import { plural } from '../../lib/plural'
 import { useUnreadTotal } from '../../hooks/useConversations'
@@ -49,6 +50,7 @@ export default function StudentHome() {
   const { profile } = useAuth()
   const { data, error, reload } = useStudentDashboard(profile?.id)
   const unread = useUnreadTotal(profile?.id)
+  const [joinOpen, setJoinOpen] = useState(false)
 
   useEffect(() => {
     document.title = 'Dashboard · Collabify'
@@ -104,11 +106,11 @@ export default function StudentHome() {
               icon="folder"
               art="classes"
               title="You are not in a class yet"
-              body="Ask your professor for the class code, then join. Everything else — projects, groups, tasks — arrives with the class."
+              body="Enter the code your professor gives you. Your projects, groups and tasks arrive with the class."
               action={
-                <ButtonLink to="/student/classes" className="!rounded-xl">
+                <Button onClick={() => setJoinOpen(true)} className="!rounded-xl">
                   Join a class
-                </ButtonLink>
+                </Button>
               }
             />
           </div>
@@ -256,6 +258,8 @@ export default function StudentHome() {
           </div>
         </>
       )}
+
+      <JoinClassDialog open={joinOpen} onClose={() => setJoinOpen(false)} onJoined={reload} />
     </div>
   )
 }

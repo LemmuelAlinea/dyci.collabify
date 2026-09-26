@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
+import { useAdmission } from '../../hooks/useAdmission'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { recentProjects } from '../../lib/general/dashboard'
 import { educationHome, homeFor, workplaceOf } from '../../lib/workplace'
@@ -35,12 +36,19 @@ export function SideNav({
 
   const workplace = profile ? workplaceOf(location.pathname, profile.home_workplace) : 'education'
   const unread = useUnreadTotal(profile?.id, workplace === 'general' ? 'general' : 'education')
+  const admitted = useAdmission(profile?.role === 'student' ? profile.id : undefined)
 
   useEffect(() => setHint(null), [collapsed, location.pathname, location.search])
 
   if (!profile) return null
 
-  const groups = navForWorkplace(workplace, profile.status === 'active' ? profile.role : null)
+  // Null while it loads counts as admitted, so the rail never flashes empty
+  // for a student who has classes.
+  const groups = navForWorkplace(
+    workplace,
+    profile.status === 'active' ? profile.role : null,
+    admitted !== false,
+  )
 
   function revealHint(
     text: string,

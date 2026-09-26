@@ -128,7 +128,7 @@ const BY_ROLE: Record<Role, NavGroup[]> = {
       // accounts. The audit log belongs with the people it is about.
       title: 'People',
       items: [
-        { label: 'Professor approvals', icon: 'shield', to: '/admin/approvals' },
+        { label: 'Faculty approvals', icon: 'shield', to: '/admin/approvals' },
         { label: 'Accounts', icon: 'users', to: '/admin/accounts' },
         { label: 'Audit log', icon: 'clock', to: '/admin/audit' },
         // Admins are the fallback handler while nobody is named, so this row
@@ -175,9 +175,32 @@ export const GENERAL_NAV: NavGroup[] = [
   SETTINGS,
 ]
 
-/** An account with no Education role only ever sees General's rail. */
-export function navForWorkplace(workplace: Workplace, role: Role | null): NavGroup[] {
-  const groups = workplace === 'general' || !role ? GENERAL_NAV : BY_ROLE[role]
+/**
+ * A student nobody has let in yet. Every other row would open onto an empty
+ * page, so the rail offers only the dashboard, whose one job for them is
+ * joining a class.
+ */
+const STUDENT_WAITING: NavGroup[] = [
+  { title: 'Workspace', items: [{ label: 'Dashboard', icon: 'board', to: '/student' }] },
+  SETTINGS,
+]
+
+/**
+ * An account with no Education role only ever sees General's rail. `admitted`
+ * narrows only a student's Education rail; faculty are admitted by approval,
+ * which the route guard has already checked.
+ */
+export function navForWorkplace(
+  workplace: Workplace,
+  role: Role | null,
+  admitted = true,
+): NavGroup[] {
+  const groups =
+    workplace === 'general' || !role
+      ? GENERAL_NAV
+      : role === 'student' && !admitted
+        ? STUDENT_WAITING
+        : BY_ROLE[role]
   const settingsPath = settingsPathFor(workplace, role)
   return groups.map((group) => ({
     ...group,

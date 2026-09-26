@@ -1,32 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
-import type { FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
-import { Field, Input } from '../../../components/ui/Field'
 import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
-import { Modal } from '../../../components/ui/Modal'
 import { EmptyState } from '../../../components/ui/EmptyState'
-import { useToast } from '../../../components/ui/Toast'
 import { ClassCard } from '../../../components/classes/ClassCard'
+import { JoinClassDialog } from '../../../components/classes/JoinClassDialog'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
-import { JOIN_MESSAGE, joinClass, listStudentClasses } from '../../../lib/api/classes'
+import { listStudentClasses } from '../../../lib/api/classes'
 import { authErrorMessage } from '../../../lib/authError'
 import type { ClassSummary } from '../../../lib/types'
 
 export default function StudentClasses() {
   const { profile } = useAuth()
-  const { show } = useToast()
-  const navigate = useNavigate()
 
   const [classes, setClasses] = useState<ClassSummary[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [joinOpen, setJoinOpen] = useState(false)
-  const [code, setCode] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [joinError, setJoinError] = useState<string | null>(null)
 
   useEffect(() => {
     document.title = 'Classes · Collabify'
@@ -48,32 +39,6 @@ export default function StudentClasses() {
   }, [load])
 
   useLive(load, ['classes', 'class_members'])
-
-  async function submit(e: FormEvent) {
-    e.preventDefault()
-    setJoinError(null)
-    setBusy(true)
-    try {
-      const { result, class_id } = await joinClass(code)
-      if (result === 'joined') {
-        setJoinOpen(false)
-        setCode('')
-        show('You joined the class')
-        await load()
-        if (class_id) navigate(`/student/classes/${class_id}`)
-      } else if (result === 'already_member' && class_id) {
-        setJoinOpen(false)
-        setCode('')
-        navigate(`/student/classes/${class_id}`)
-      } else {
-        setJoinError(JOIN_MESSAGE[result])
-      }
-    } catch (err) {
-      setJoinError(authErrorMessage(err, 'Could not join that class.'))
-    } finally {
-      setBusy(false)
-    }
-  }
 
   const peerTotal = classes?.reduce((total, cls) => total + cls.student_count, 0) ?? 0
 
@@ -135,40 +100,7 @@ export default function StudentClasses() {
         )}
       </div>
 
-      <Modal
-        open={joinOpen}
-        onClose={() => setJoinOpen(false)}
-        title="Join a class"
-        description="Enter the code your professor gave you."
-        size="sm"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setJoinOpen(false)} disabled={busy}>
-              Cancel
-            </Button>
-            <Button form="join-class" type="submit" loading={busy} className="!rounded-xl">
-              Join class
-            </Button>
-          </>
-        }
-      >
-        <form id="join-class" onSubmit={submit} className="space-y-4">
-          {joinError && <Alert tone="error">{joinError}</Alert>}
-          <Field label="Class code">
-            {(id) => (
-              <Input
-                id={id}
-                required
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="DBM-7823"
-                autoComplete="off"
-                className="font-mono tracking-widest"
-              />
-            )}
-          </Field>
-        </form>
-      </Modal>
+      <JoinClassDialog open={joinOpen} onClose={() => setJoinOpen(false)} onJoined={load} />
     </div>
   )
 }
