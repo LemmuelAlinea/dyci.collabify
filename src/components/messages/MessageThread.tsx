@@ -37,11 +37,14 @@ export function MessageThread({
   viewerId,
   canModerate,
   backTo,
+  search,
 }: {
   conversation: ConversationCard
   viewerId: string
   canModerate: boolean
   backTo: string
+  /** Query string (e.g. the scope filter) to keep when going back to the list. */
+  search?: string
 }) {
   const { show } = useToast()
   const [messages, setMessages] = useState<ChatMessage[] | null>(null)
@@ -107,7 +110,7 @@ export function MessageThread({
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex items-center gap-3 border-b border-line bg-[var(--surface-sunken)] px-4 py-3.5 md:px-5">
         <Link
-          to={backTo}
+          to={{ pathname: backTo, search }}
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted hover:bg-[var(--surface)] hover:text-ink md:hidden"
           aria-label="Back to conversations"
         >

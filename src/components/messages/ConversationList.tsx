@@ -26,11 +26,14 @@ export function ConversationList({
   conversations,
   activeId,
   linkBase,
+  search,
   action,
 }: {
   conversations: ConversationCard[]
   activeId?: string
   linkBase: string
+  /** Query string (e.g. the scope filter) to keep when opening a conversation. */
+  search?: string
   /** "New message" button for professors. */
   action?: React.ReactNode
 }) {
@@ -100,7 +103,7 @@ export function ConversationList({
                     return (
                       <li key={c.id}>
                         <Link
-                          to={`${linkBase}/${c.id}`}
+                          to={{ pathname: `${linkBase}/${c.id}`, search }}
                           className={`flex items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
                             active
                               ? 'bg-navy-50 text-navy-800 dark:bg-navy-500/20 dark:text-navy-100'

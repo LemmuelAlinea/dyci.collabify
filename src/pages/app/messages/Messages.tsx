@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Avatar } from '../../../components/app/Avatar'
 import { Button } from '../../../components/ui/Button'
 import { Alert } from '../../../components/ui/Alert'
@@ -25,6 +25,7 @@ export default function Messages() {
   const { profile } = useAuth()
   const { show } = useToast()
   const navigate = useNavigate()
+  const location = useLocation()
   const [params, setParams] = useSearchParams()
   const scope = readScope(params)
   const { conversations, error, reload } = useConversations(profile?.id, 'all')
@@ -188,6 +189,7 @@ export default function Messages() {
               conversations={visible}
               activeId={conversationId}
               linkBase={paths.messages}
+              search={location.search}
             />
           )}
         </aside>
@@ -223,6 +225,7 @@ export default function Messages() {
               viewerId={profile.id}
               canModerate={canModerate}
               backTo={paths.messages}
+              search={location.search}
             />
           ) : (
             <div className="flex items-center gap-3 p-6 text-[14px] text-muted">

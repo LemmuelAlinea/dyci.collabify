@@ -20,11 +20,12 @@ export function ScopeFilter({
   counts?: Partial<Record<Scope, number>>
 }) {
   return (
-    <div className="flex gap-1 rounded-lg surface-sunken p-1">
+    <div role="group" aria-label="Show" className="flex gap-1 rounded-lg surface-sunken p-1">
       {OPTIONS.map((option) => (
         <button
           key={option.value}
           type="button"
+          aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
           className={`rounded-md px-4 py-1.5 text-[13px] transition-colors duration-150 ${
             value === option.value
