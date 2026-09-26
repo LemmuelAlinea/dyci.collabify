@@ -373,3 +373,176 @@ select p.id,
  where p.role = 'professor';
 
 commit;
+
+begin;
+
+-- ---------------------------------------------------------------- who may create
+
+/**
+ * Spaces and projects are opened by faculty. A student's work lives in the
+ * classes and spaces somebody let them into.
+ *
+ * A trigger rather than a check in each function: `create_general_space`,
+ * `create_general_project` and every restore or duplicate path that inserts a
+ * row all pass through here, including ones written after this file.
+ */
+create or replace function public.guard_general_creator()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null and not public.is_faculty(auth.uid()) then
+    raise exception '%', case tg_table_name
+        when 'general_spaces' then 'Only faculty can create a space. Ask a faculty member to invite you to one.'
+        else 'Only faculty can create a project. Ask a faculty member to invite you to one.'
+      end
+      using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists general_spaces_creator on public.general_spaces;
+create trigger general_spaces_creator before insert on public.general_spaces
+  for each row execute function public.guard_general_creator();
+
+drop trigger if exists general_projects_creator on public.general_projects;
+create trigger general_projects_creator before insert on public.general_projects
+  for each row execute function public.guard_general_creator();
+
+-- ---------------------------------------------------------------- student levels
+
+/** Owner and Manager are faculty levels. A student is always a member. */
+create or replace function public.guard_student_level()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null and new.level <> 'member' and public.is_student(new.user_id) then
+    raise exception 'A student can only be a member. Owner and Manager are for faculty.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists general_space_members_student_level on public.general_space_members;
+create trigger general_space_members_student_level
+  before insert or update of level on public.general_space_members
+  for each row execute function public.guard_student_level();
+
+drop trigger if exists general_members_student_level on public.general_members;
+create trigger general_members_student_level
+  before insert or update of level on public.general_members
+  for each row execute function public.guard_student_level();
+
+-- ---------------------------------------------------------------- inviting students
+
+/** A student comes into a work space only because a faculty member asked them. */
+create or replace function public.guard_student_invite()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null
+     and public.is_student(new.invitee)
+     and not public.is_faculty(auth.uid()) then
+    raise exception 'Only faculty can invite a student.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists general_space_invitations_student on public.general_space_invitations;
+create trigger general_space_invitations_student before insert on public.general_space_invitations
+  for each row execute function public.guard_student_invite();
+
+drop trigger if exists general_invitations_student on public.general_invitations;
+create trigger general_invitations_student before insert on public.general_invitations
+  for each row execute function public.guard_student_invite();
+
+-- ---------------------------------------------------------------- joining by code
+
+/** general-spaces.sql's version, refusing students before a guess is counted. */
+create or replace function public.join_general_space(p_code text)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  s public.general_spaces%rowtype;
+begin
+  if not public.general_viewer_active() then
+    raise exception 'Sign in with an active account to join a space'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if public.is_student(auth.uid()) then
+    raise exception 'Students join classes with a class code. A faculty member can invite you to a space.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  -- Counted before the code is read, so a wrong guess costs an attempt.
+  perform public.rate_limit('general_space_join', 10, interval '10 minutes',
+    'Too many join attempts. Wait a few minutes and try again.');
+
+  select sp.* into s
+    from public.general_space_join_codes jc
+    join public.general_spaces sp on sp.id = jc.space_id
+   where jc.code = upper(btrim(p_code)) and jc.open and sp.archived_at is null;
+  if s.id is null then
+    return null; -- a miss, not a refusal; the rate-limit count already committed
+  end if;
+
+  insert into public.general_space_members (space_id, user_id)
+  values (s.id, auth.uid())
+  on conflict do nothing;
+
+  update public.general_space_invitations
+     set status = 'accepted', answered_at = now()
+   where space_id = s.id and invitee = auth.uid() and status = 'pending';
+
+  return s.id;
+end;
+$$;
+
+/** general.sql's version, refusing students before a guess is counted. */
+create or replace function public.join_general_project(p_code text)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  p public.general_projects%rowtype;
+begin
+  if not public.general_viewer_active() then
+    raise exception 'Sign in with an active account to join a project'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if public.is_student(auth.uid()) then
+    raise exception 'Students join classes with a class code. A faculty member can invite you to a project.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  -- Counted before the code is read, so a wrong guess costs an attempt.
+  perform public.rate_limit('general_join', 10, interval '10 minutes',
+    'Too many join attempts. Wait a few minutes and try again.');
+
+  select pr.* into p
+    from public.general_join_codes jc
+    join public.general_projects pr on pr.id = jc.project_id
+   where jc.code = upper(btrim(p_code)) and jc.open and pr.archived_at is null;
+  if p.id is null then
+    return null; -- a miss, not a refusal; the rate-limit count already committed
+  end if;
+
+  insert into public.general_members (project_id, user_id)
+  values (p.id, auth.uid())
+  on conflict do nothing;
+
+  update public.general_invitations
+     set status = 'accepted', answered_at = now()
+   where project_id = p.id and invitee = auth.uid() and status = 'pending';
+
+  return p.id;
+end;
+$$;
+
+-- ---------------------------------------------------------------- opening a class
+
+/** classes.sql's policy, plus teaching: approval alone no longer opens classes. */
+drop policy if exists classes_insert on public.classes;
+create policy classes_insert on public.classes
+  for insert with check (
+    professor_id = auth.uid() and public.is_teaching_faculty(auth.uid())
+  );
+
+commit;

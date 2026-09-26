@@ -244,4 +244,139 @@ begin
   perform pg_temp.must_be('...and can read General', public.general_viewer_active());
 end $$;
 
+-- ------------------------------------------------------------------ creating spaces and projects
+
+do $$
+declare
+  v_student uuid := (select v from fx where k = 'student');
+  v_pending uuid := (select v from fx where k = 'pending');
+  v_staff   uuid := (select v from fx where k = 'staff');
+  v_space   uuid;
+begin
+  perform pg_temp.act_as(v_student);
+  perform pg_temp.must_refuse('a student cannot create a space',
+    $q$select public.create_general_space('Zz student space', '')$q$);
+  perform pg_temp.must_refuse('a student cannot create a project',
+    $q$select public.create_general_project('Zz student project')$q$);
+
+  perform pg_temp.act_as(v_pending);
+  perform pg_temp.must_refuse('pending faculty cannot create a space',
+    $q$select public.create_general_space('Zz pending space', '')$q$);
+
+  perform pg_temp.act_as(v_staff);
+  perform pg_temp.must_allow('approved faculty create a space, teaching or not',
+    $q$select public.create_general_space('Zz office', '')$q$);
+
+  perform pg_temp.act_as_service();
+  select id into v_space from public.general_spaces where name = 'Zz office' and created_by = v_staff;
+  insert into fx values ('space', v_space);
+
+  perform pg_temp.act_as(v_staff);
+  insert into fx
+  select 'project', (public.create_general_project('Zz office project', '', null, null, null, null, v_space)).id;
+end $$;
+
+-- ------------------------------------------------------------------ joining by code
+
+do $$
+declare
+  v_student uuid := (select v from fx where k = 'student');
+  v_teacher uuid := (select v from fx where k = 'teacher');
+  v_staff   uuid := (select v from fx where k = 'staff');
+  v_space   uuid := (select v from fx where k = 'space');
+  v_project uuid := (select v from fx where k = 'project');
+  v_space_code   text;
+  v_project_code text;
+begin
+  perform pg_temp.act_as(v_staff);
+  v_space_code := public.set_general_space_join_code(v_space, true, true);
+  v_project_code := public.set_general_join_code(v_project, true, true);
+
+  perform pg_temp.act_as(v_student);
+  perform pg_temp.must_refuse('a student cannot join a work space by code',
+    format('select public.join_general_space(%L)', v_space_code));
+  perform pg_temp.must_refuse('a student cannot join a work-space project by code',
+    format('select public.join_general_project(%L)', v_project_code));
+
+  perform pg_temp.act_as(v_teacher);
+  perform pg_temp.must_allow('faculty join a work space by code',
+    format('select public.join_general_space(%L)', v_space_code));
+  perform pg_temp.must_allow('...and a project by code',
+    format('select public.join_general_project(%L)', v_project_code));
+end $$;
+
+-- ------------------------------------------------------------------ invitations and levels
+
+do $$
+declare
+  v_student  uuid := (select v from fx where k = 'student');
+  v_student2 uuid := (select v from fx where k = 'student2');
+  v_staff    uuid := (select v from fx where k = 'staff');
+  v_space    uuid := (select v from fx where k = 'space');
+  v_project  uuid := (select v from fx where k = 'project');
+  v_inv      uuid;
+begin
+  perform pg_temp.act_as(v_staff);
+  v_inv := (public.invite_to_general_space(v_space, v_student)).id;
+  perform pg_temp.act_as(v_student);
+  perform public.respond_general_space_invitation(v_inv, true);
+  perform pg_temp.must_be('a student let into a space is admitted', public.am_i_admitted());
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('faculty invite a student into a work space, as a member',
+    (select level = 'member' from public.general_space_members
+      where space_id = v_space and user_id = v_student));
+
+  perform pg_temp.act_as(v_staff);
+  perform pg_temp.must_refuse('a student cannot be made a Manager of a space',
+    format('select public.set_general_space_level(%L, %L, %L)', v_space, v_student, 'manager'));
+
+  perform pg_temp.act_as(v_student);
+  perform pg_temp.must_refuse('a student cannot invite another student into a space',
+    format('select public.invite_to_general_space(%L, %L)', v_space, v_student2));
+
+  perform pg_temp.act_as(v_staff);
+  v_inv := (public.invite_to_general_project(v_project, v_student2)).id;
+  perform pg_temp.act_as(v_student2);
+  perform public.respond_general_invitation(v_inv, true);
+  perform pg_temp.must_be('a student let onto a project is admitted', public.am_i_admitted());
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('faculty invite a student onto a project, as a member',
+    (select level = 'member' from public.general_members
+      where project_id = v_project and user_id = v_student2));
+
+  perform pg_temp.act_as(v_staff);
+  perform pg_temp.must_refuse('a student cannot be made a Manager of a project',
+    format('select public.set_general_member_level(%L, %L, %L)', v_project, v_student2, 'manager'));
+end $$;
+
+-- ------------------------------------------------------------------ classes
+
+do $$
+declare
+  v_teacher  uuid := (select v from fx where k = 'teacher');
+  v_staff    uuid := (select v from fx where k = 'staff');
+  v_student3 uuid := (select v from fx where k = 'student3');
+  v_result   text;
+begin
+  perform pg_temp.act_as(v_staff);
+  perform pg_temp.must_refuse('faculty who do not teach cannot open a class', format(
+    $q$insert into public.classes
+         (professor_id, name, initial, code, section, year_level, semester, school_year)
+       values (%L, 'Zz Staff class', 'ZZS', 'ZZACC-STAFF', 'BSIT 1A', '1st', '1st', '2026-2027')$q$,
+    v_staff));
+
+  perform pg_temp.act_as(v_teacher);
+  perform pg_temp.must_allow('teaching faculty open a class', format(
+    $q$insert into public.classes
+         (professor_id, name, initial, code, section, year_level, semester, school_year)
+       values (%L, 'Zz Teacher class', 'ZZT', 'ZZACC-TEACH', 'BSIT 1A', '1st', '1st', '2026-2027')$q$,
+    v_teacher));
+
+  perform pg_temp.act_as(v_student3);
+  perform pg_temp.must_be('a student in nothing is not admitted yet', not public.am_i_admitted());
+  select public.join_class('ZZACC-TEACH') ->> 'result' into v_result;
+  perform pg_temp.must_be('a student joins a class with its code', v_result = 'joined');
+  perform pg_temp.must_be('...and is admitted from then on', public.am_i_admitted());
+end $$;
+
 rollback;
