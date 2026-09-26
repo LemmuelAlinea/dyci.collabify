@@ -37,6 +37,10 @@ export default function JoinClassLink() {
     }
     started.current = true
     forgetJoin()
+    if (profile.status !== 'active') {
+      navigate('/pending', { replace: true })
+      return
+    }
     if (profile.role !== 'student') {
       setMessage('Class links are for student accounts. Faculty open classes from their own dashboard.')
       return

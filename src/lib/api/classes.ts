@@ -218,6 +218,7 @@ export const JOIN_MESSAGE: Record<Exclude<JoinResult, 'joined'>, string> = {
   blocked: 'You were removed from that class. Contact your professor to be let back in.',
   not_student: 'Only student accounts can join a class.',
   not_signed_in: 'Sign in first, then try the code again.',
+  inactive: 'This account is not active. Contact the program admin.',
   too_many:
     'That is ten codes tried in an hour. Check the code with your professor and try again later.',
 }

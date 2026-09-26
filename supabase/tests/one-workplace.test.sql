@@ -493,4 +493,23 @@ begin
                and 'is_student' = any (p.proargnames)));
 end $$;
 
+-- ------------------------------------------------------------------ a deactivated student can't join
+
+do $$
+declare
+  v_s3     uuid := (select v from fx where k = 's3');
+  v_result text;
+begin
+  perform pg_temp.act_as_service();
+  update public.profiles set status = 'rejected' where id = v_s3;
+
+  perform pg_temp.act_as(v_s3);
+  select public.join_class('ZZOW-0001') ->> 'result' into v_result;
+  perform pg_temp.must_be('a deactivated student is refused, not silently joined',
+    v_result = 'inactive');
+
+  perform pg_temp.act_as_service();
+  update public.profiles set status = 'active' where id = v_s3;
+end $$;
+
 rollback;

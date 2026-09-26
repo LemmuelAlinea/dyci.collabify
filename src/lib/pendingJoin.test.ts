@@ -34,4 +34,11 @@ describe('class invite links', () => {
     expect(() => rememberJoin('x', undefined)).not.toThrow()
     expect(pendingJoin(undefined)).toBeNull()
   })
+
+  it('forgets a code after an hour', () => {
+    const s = memory()
+    const t = Date.parse('2026-01-01T00:00:00Z')
+    rememberJoin('dbm-7823', s, t)
+    expect(pendingJoin(s, t + 61 * 60 * 1000)).toBeNull()
+  })
 })

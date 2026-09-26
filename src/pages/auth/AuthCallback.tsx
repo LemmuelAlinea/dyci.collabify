@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Spinner } from '../../components/ui/Icon'
 import { LogoMark } from '../../components/brand/Logo'
 import { useAuth } from '../../context/AuthContext'
-import { joinPath, pendingJoin } from '../../lib/pendingJoin'
+import { forgetJoin, joinPath, pendingJoin } from '../../lib/pendingJoin'
 import { homeFor } from '../../lib/workplace'
 
 export default function AuthCallback() {
@@ -16,8 +16,13 @@ export default function AuthCallback() {
       navigate('/login', { replace: true })
       return
     }
-    const waiting = profile ? pendingJoin() : null
-    navigate(waiting ? joinPath(waiting) : homeFor(profile), { replace: true })
+    if (profile?.role === 'student') {
+      const waiting = pendingJoin()
+      navigate(waiting ? joinPath(waiting) : homeFor(profile), { replace: true })
+      return
+    }
+    if (profile) forgetJoin()
+    navigate(homeFor(profile), { replace: true })
   }, [ready, session, profile, navigate])
 
   return (

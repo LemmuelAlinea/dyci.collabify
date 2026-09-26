@@ -197,6 +197,7 @@ export type JoinResult =
   | 'blocked'
   | 'not_student'
   | 'not_signed_in'
+  | 'inactive'
   /** Too many codes tried in an hour. Guessing a code is the reason this exists. */
   | 'too_many'
 

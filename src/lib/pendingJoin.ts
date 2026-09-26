@@ -11,6 +11,9 @@ export type KeyStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
 const KEY = 'collabify.pendingJoin'
 
+/** A code older than this is treated as stale rather than auto-joined. */
+const MAX_AGE_MS = 60 * 60 * 1000
+
 function browserStore(): KeyStore | undefined {
   try {
     return window.localStorage
@@ -31,17 +34,31 @@ export function inviteLink(code: string, origin: string) {
   return `${origin}${joinPath(code)}`
 }
 
-export function rememberJoin(code: string, s: KeyStore | undefined = browserStore()) {
+export function rememberJoin(
+  code: string,
+  s: KeyStore | undefined = browserStore(),
+  now: number = Date.now(),
+) {
   try {
-    s?.setItem(KEY, normalizeCode(code))
+    s?.setItem(KEY, `${normalizeCode(code)}|${now}`)
   } catch {
     // Private windows and blocked storage: the link just has to be opened again.
   }
 }
 
-export function pendingJoin(s: KeyStore | undefined = browserStore()): string | null {
+export function pendingJoin(
+  s: KeyStore | undefined = browserStore(),
+  now: number = Date.now(),
+): string | null {
   try {
-    return s?.getItem(KEY) || null
+    const raw = s?.getItem(KEY)
+    if (!raw) return null
+    const [code, savedAt] = raw.split('|')
+    if (!code || !savedAt || now - Number(savedAt) > MAX_AGE_MS) {
+      s?.removeItem(KEY)
+      return null
+    }
+    return code
   } catch {
     return null
   }

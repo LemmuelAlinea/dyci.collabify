@@ -624,6 +624,9 @@ begin
   if caller.role is distinct from 'student' then
     return jsonb_build_object('result', 'not_student');
   end if;
+  if caller.status is distinct from 'active' then
+    return jsonb_build_object('result', 'inactive');
+  end if;
 
   -- Counted before the code is read, so a wrong guess costs an attempt.
   if not public.rate_limit_ok('class_join', 10, interval '1 hour') then
