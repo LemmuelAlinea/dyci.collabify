@@ -1298,3 +1298,46 @@ it); the member payload has no role yet — due in phase 2. `general-space-teams
 still missing from the restore line.
 
 **Next:** phase 2 — education spaces underneath (classes become spaces).
+
+## Session — 2026-09-27: one workplace, phase 2 (education spaces underneath)
+
+Plan `docs/superpowers/plans/2026-09-26-one-workplace-phase-2-education-spaces.md`.
+Pushed through `1e2ee58`. Owner ran the browser check; all as expected.
+
+**Database — `supabase/one-workplace.sql`** (after `access.sql`, applied live).
+- `general_spaces.kind` (`work` | `education`). Every class owns an education space
+  (`classes.space_id`, not null, unique). Triggers on `classes` create the space, keep
+  its name/description/archive in step, swap the Owner on handover, delete it with the
+  class. `classes.student_cap` (null or 1–500).
+- `class_members` stays the roster; a trigger mirrors it into `general_space_members`
+  under the transaction-local `collabify.class_sync` flag. Guards refuse every other
+  write to a class space. Teachers can only update `status/removed_at/removed_by` on
+  roster rows (column grants + identity guard).
+- Co-teachers: active faculty at Owner/Manager (`teaches_in_space`). Class policies read
+  the row's own `professor_id/space_id` — never `is_class_professor(id)` (a policy that
+  re-reads its own table breaks INSERT/UPDATE … RETURNING). Owner decided advisers
+  (no *Can teach*) get full teaching tools too. They moderate but aren't yet members of
+  the class conversation (phase 3).
+- `join_class`: size cap (row lock), refuses inactive accounts, results `full`/`inactive`.
+  `class_join_preview` shows the class only when joinable. Member lists return `is_student`.
+  `class_overview` carries `space_id`, `student_cap`.
+
+**`supabase/anon-lockdown.sql`** runs LAST: the signed-out role executes no public
+function (192 → 0); signed-in access unchanged (293). Re-run it after adding or
+redefining any function — `supabase/tests/anon-lockdown.test.sql` fails until you do.
+
+**Client:** General hides class spaces until phase 3; level pickers offer students only
+Member; class form has a size limit; `/join/:code` invite link (1-hour pending code,
+students only, asks before joining); "Copy invite link" on the class header.
+
+**Tests:** 40/40 SQL suites (`one-workplace.test.sql` 73 checks); 457 Vitest.
+
+**Deferred:** `create_general_project`'s oldest-owned-space fallback ignores kind;
+deactivated professors keep teaching via `professor_id`; restoring a student can pass
+the cap; space description can drift via `update_general_space`; `project_boards_write`
+has the self-reference policy shape (unreachable today); `general-space-teams.sql`
+missing from the rebuild line; `dotenv` 17 prints promo tips (pass `quiet: true` in
+`scripts/db.mjs` to silence).
+
+**Next:** phase 3 — one workplace on screen (routes, one rail, merged home, class pages
+as space tabs, co-teachers in the UI and the class conversation).
