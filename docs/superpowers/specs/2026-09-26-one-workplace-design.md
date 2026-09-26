@@ -107,16 +107,27 @@ cheap. The cost is in the logic.
   `2026-2027`), description, syllabus and curriculum (from
   `teaching_resources`), optional student cap, an auto-generated regenerable
   code, and an invite link `/join/<code>` that survives sign-up and sign-in.
-- `create_education_space(...)` inserts `general_spaces(kind='education')`,
-  `classes(space_id)` and the owner membership in one transaction.
-- Membership: `general_space_members` is the source of truth for who is in.
-  `class_members` stays as the student roster, because its removal and restore
-  history is used by `recover-work.sql` and `removed-visible.sql`. It is
-  written only by the join and remove functions, in the same transaction as
-  the space row. `join_class` enforces the cap.
+- Creating a class creates its space: a trigger on `classes` inserts
+  `general_spaces(kind='education')` and the Owner membership in the same
+  statement, so the class form, its API and every other insert path need no
+  change. Phase 3's New space dialog creates an education space by creating a
+  class.
+- Membership: `class_members` stays the roster and the only thing that adds or
+  removes a student. A trigger mirrors it into `general_space_members`, which
+  is the one list of who is in. Guards refuse every other way of changing a
+  class's space (General invitations for students, join codes, direct
+  removal, renaming, archiving, deleting, General projects, demoting the
+  class's professor). `join_class` enforces the cap. Co-teachers can moderate
+  the class conversation but are not yet its members; phase 3 adds them.
 - `is_class_professor(class)` (`classes.sql:138`) is redefined as "faculty at
   owner or manager level in the class's space", so co-teachers get the full
-  teaching tools. Other `professor_id` checks go through that helper.
+  teaching tools. Other `professor_id` checks go through that helper. The
+  class policies themselves check the row's own `professor_id`/`space_id`
+  through `teaches_in_space`, never `is_class_professor(id)`, because a policy
+  that re-reads its own table breaks `INSERT`/`UPDATE … RETURNING`.
+  The co-teacher checks are in the database from phase 2. The screens that
+  list a professor's classes still filter on `professor_id`, so co-teachers
+  see co-taught classes in phase 3, when the space becomes the page.
 - Everything else in the engine is unchanged: week tracking, the project wizard
   and its suggestions, group sets, tasks and claiming, reassignments,
   submissions and grading, announcements, analytics, reports.
@@ -137,10 +148,10 @@ site working:
 1. **Access.** Faculty wording (enum rename in phase 4), `can_teach`, SQL gates,
    Student/Faculty registration, the approval checkbox, the empty home for
    unadmitted students.
-2. **Education spaces underneath.** `kind`, `space_id`,
-   `create_education_space`, dual-write join and remove, co-teacher levels,
-   backfill, the `is_class_professor` redefinition, the `/join/<code>` invite
-   link. The old UI still works.
+2. **Education spaces underneath.** `kind`, `space_id`, the class-to-space
+   triggers, the roster mirror and the space guards, co-teacher levels,
+   backfill, the `is_class_professor` redefinition, member lists that mark
+   students, the `/join/<code>` invite link. The old UI still works.
 3. **One workplace UI.** Routes, the one rail, the merged home, space tabs
    hosting the education pages, redirects.
 4. **Cleanup.** Remove the switcher, `src/lib/workplace.ts`, `home_workplace`,
