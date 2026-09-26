@@ -52,8 +52,8 @@ cheap. The cost is in the logic.
   p_approve, p_can_teach)`). Can teach can be toggled later on the Faculty
   approvals page, which lists every faculty account and its standing.
 - SQL gates, in the security-definer functions and not only in the UI:
-  - `create_general_space` / `create_education_space` refuse students and
-    non-active faculty. The education variant also refuses when `can_teach` is
+  - Creating a work space refuses students and non-active faculty. Creating
+    a class (and with it an education space) also refuses when `can_teach` is
     false.
   - `join_general_space` refuses students when the space is a work space.
     `join_general_project` refuses students when the project's space is a work
