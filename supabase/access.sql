@@ -390,10 +390,7 @@ create or replace function public.guard_general_creator()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is not null and not public.is_faculty(auth.uid()) then
-    raise exception '%', case tg_table_name
-        when 'general_spaces' then 'Only faculty can create a space. Ask a faculty member to invite you to one.'
-        else 'Only faculty can create a project. Ask a faculty member to invite you to one.'
-      end
+    raise exception 'Only faculty can create spaces and projects. Ask a faculty member to invite you to one.'
       using errcode = 'insufficient_privilege';
   end if;
   return new;
@@ -441,7 +438,7 @@ begin
   if auth.uid() is not null
      and public.is_student(new.invitee)
      and not public.is_faculty(auth.uid()) then
-    raise exception 'Only faculty can invite a student.'
+    raise exception 'Only faculty can invite a student. Ask a faculty member to send the invitation.'
       using errcode = 'insufficient_privilege';
   end if;
   return new;
