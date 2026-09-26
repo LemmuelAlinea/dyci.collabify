@@ -1260,3 +1260,41 @@ the CSV. The page was checked in a mocked harness at 1440 and 390, light, dark a
 `general-repo` "reviewer merges without edit_files" fail on the local stub chain;
 `classes.sql`/`syllabus.sql` and `groups.sql`/`projects.sql` depend on each other, so a
 fresh restore needs two passes.
+
+## Session — 2026-09-26: one workplace, phase 1 (admission-gated access)
+
+Spec `docs/superpowers/specs/2026-09-26-one-workplace-design.md` (four phases);
+plan `docs/superpowers/plans/2026-09-26-one-workplace-phase-1-access.md`. Pushed
+`c56fa85..46910d4`. Owner ran the five-account browser walk; all as expected.
+
+**Database — `supabase/access.sql`** (last in the chain, applied live). Re-run it after
+re-running `workplaces.sql`, `consent.sql`, `audit.sql`, `admin-rename.sql`,
+`approvals.sql`, `accounts.sql`, `general.sql`, `general-spaces.sql` or `classes.sql`.
+
+- `profiles.can_teach` (admin-only, pinned by `guard_privileged_columns`); audit action
+  `teaching_changed`. Helpers `is_faculty`, `is_student`, `is_teaching_faculty`,
+  `am_i_admitted()`.
+- `decide_faculty(user, approve, can_teach)` replaces `decide_professor`;
+  `set_faculty_teaching`. `enter_education` and the role-less General signup are gone.
+  `general_viewer_active` now needs an active account with a role.
+- Triggers: only faculty insert `general_spaces`/`general_projects`; students stay
+  `member` on spaces, projects and space teams; only faculty invite a student. Students
+  can't join spaces or projects by code. `classes_insert` needs `can_teach`.
+- **Security fix:** the admin RPCs (and seven older class/reassignment RPCs) were
+  executable by `anon`, and their guards skipped a null `auth.uid()`. Execute is revoked
+  from `anon`; the admin guards now refuse any API caller that isn't admin or service role.
+- Role value is still `professor`; the UI says Faculty. Renamed in phase 4.
+- Owner chose to delete the 4 student-owned General spaces and the Robotics project.
+
+**Client:** Student/Faculty registration; `/pending` for pending or role-less accounts;
+`src/lib/access.ts`, `useAdmission`; students nobody has admitted see Dashboard +
+Settings; `JoinClassDialog`; Faculty approvals page with *Can teach*; create/join
+buttons for faculty only.
+
+**Tests:** `supabase/tests/access.test.sql` (66 checks); 38/38 SQL suites; 452 Vitest.
+
+**Open:** the member level pickers still offer Owner/Manager for students (the DB refuses
+it); the member payload has no role yet — due in phase 2. `general-space-teams.sql` is
+still missing from the restore line.
+
+**Next:** phase 2 — education spaces underneath (classes become spaces).
