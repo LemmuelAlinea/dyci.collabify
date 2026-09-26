@@ -136,9 +136,9 @@ export function AuthLayout({
             </p>
 
             <h2 className="mt-7 max-w-[13ch] font-display text-[clamp(2rem,3.1vw,2.9rem)] leading-[1.02] font-bold tracking-[-0.04em]">
-              Every project at Dr. Yanga's,{' '}
+              Work together.{' '}
               <span className="relative inline-block">
-                <span className="text-amber-400">its own way.</span>
+                <span className="text-amber-400">Build better.</span>
                 <svg
                   aria-hidden
                   viewBox="0 0 300 14"

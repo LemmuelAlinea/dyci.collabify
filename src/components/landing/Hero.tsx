@@ -148,17 +148,15 @@ export function Hero() {
             </Rise>
 
             <Rise delay={0.06}>
-              <h1 className="mt-7 font-display text-[clamp(44px,6.6vw,78px)] leading-[0.98] font-bold tracking-[-0.045em] text-amber-50">
-                Every project
-                <br />
-                at Dr. Yanga's,
+              <h1 className="mt-7 font-display text-[clamp(44px,5.5vw,74px)] leading-[0.98] font-bold tracking-[-0.045em] text-amber-50">
+                Work together.
                 <br />
                 {/* The underlined word is the zip's one flourish, kept because
                     it lands on the word the sentence turns on. The stroke draws
                     itself once; under reduced motion it is simply already
                     drawn. */}
                 <span className="relative inline-block">
-                  <span className="text-amber-400">its own way.</span>
+                  <span className="text-amber-400">Build better.</span>
                   <svg
                     aria-hidden
                     viewBox="0 0 300 14"
