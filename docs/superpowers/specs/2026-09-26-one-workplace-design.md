@@ -39,16 +39,18 @@ cheap. The cost is in the logic.
 ## Section 1: Access model
 
 - Registration offers Student or Faculty. The workplace choice goes away.
-- The `user_role` enum becomes `student | faculty | admin` (`alter type …
-  rename value 'professor' to 'faculty'`). A new admin-only `profiles.can_teach
+- The product calls the role **Faculty** from phase 1. The enum value stays
+  `professor` until phase 4, where it is renamed once the code that spells it
+  (84 frontend and 21 SQL sites, most of them rewritten by phase 3) has
+  settled. A new admin-only `profiles.can_teach
   boolean not null default false` column is protected by
   `guard_privileged_columns`, alongside role and status.
 - Student: active at sign-up, but with no space membership home shows only
   "Join a class" (code or invite link), and the rail shows Home and Settings.
 - Faculty: `pending` at sign-up, lands on `/pending`. The admin approves with a
   Can teach checkbox (`decide_professor` becomes `decide_faculty(p_user,
-  p_approve, p_can_teach)`). Can teach can be toggled later on the admin
-  Faculty page.
+  p_approve, p_can_teach)`). Can teach can be toggled later on the Faculty
+  approvals page, which lists every faculty account and its standing.
 - SQL gates, in the security-definer functions and not only in the UI:
   - `create_general_space` / `create_education_space` refuse students and
     non-active faculty. The education variant also refuses when `can_teach` is
@@ -131,15 +133,18 @@ line in `docs/07-backup.md`.
 
 **Phases.** Each has its own implementation plan, and each ships leaving the
 site working:
-1. **Access.** Role rename, `can_teach`, SQL gates, Student/Faculty
-   registration, the approval checkbox, the empty home for unadmitted students.
+1. **Faculty wording (enum rename in phase 4).** `can_teach`, SQL gates,
+   Student/Faculty registration, the approval checkbox, the empty home for
+   unadmitted students.
 2. **Education spaces underneath.** `kind`, `space_id`,
    `create_education_space`, dual-write join and remove, co-teacher levels,
-   backfill, the `is_class_professor` redefinition. The old UI still works.
+   backfill, the `is_class_professor` redefinition, the `/join/<code>` invite
+   link. The old UI still works.
 3. **One workplace UI.** Routes, the one rail, the merged home, space tabs
    hosting the education pages, redirects.
 4. **Cleanup.** Remove the switcher, `src/lib/workplace.ts`, `home_workplace`,
    dead routes and docs. Update the landing and auth copy to say faculty.
+   Rename the `professor` enum value to `faculty`.
 
 **Testing.**
 - A new SQL suite in `supabase/tests/` (NOTICE PASS/FAIL inside `begin …

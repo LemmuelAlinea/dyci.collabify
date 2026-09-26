@@ -90,17 +90,17 @@ declare
 begin
   perform pg_temp.act_as(v_student);
   perform pg_temp.must_refuse('a student cannot approve a professor',
-    format('select public.decide_professor(%L, true)', v_new));
+    format('select public.decide_faculty(%L, true)', v_new));
 
   -- Not even another professor: this is the program admin's alone.
   perform pg_temp.act_as(v_prof);
   perform pg_temp.must_refuse('nor can another professor',
-    format('select public.decide_professor(%L, true)', v_new));
+    format('select public.decide_faculty(%L, true)', v_new));
 
   -- And the pending account cannot wave itself through.
   perform pg_temp.act_as(v_new);
   perform pg_temp.must_refuse('nor the account itself',
-    format('select public.decide_professor(%L, true)', v_new));
+    format('select public.decide_faculty(%L, true)', v_new));
   perform pg_temp.act_as_service();
 end $$;
 
@@ -132,7 +132,7 @@ begin
   perform pg_temp.must_be('the admin sees the waiting account', n >= 1);
 
   perform pg_temp.must_allow('the admin approves it',
-    format('select public.decide_professor(%L, true)', v_new));
+    format('select public.decide_faculty(%L, true)', v_new));
   perform pg_temp.act_as_service();
 
   perform pg_temp.must_be('...and it is active',
@@ -151,14 +151,14 @@ declare
 begin
   perform pg_temp.act_as(v_admin);
   perform pg_temp.must_allow('the admin turns it down',
-    format('select public.decide_professor(%L, false)', v_new));
+    format('select public.decide_faculty(%L, false)', v_new));
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('...and it is rejected',
     (select status = 'rejected' from public.profiles where id = v_new));
 
   perform pg_temp.act_as(v_admin);
   perform pg_temp.must_allow('the admin can put it back',
-    format('select public.decide_professor(%L, true)', v_new));
+    format('select public.decide_faculty(%L, true)', v_new));
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('...and it is active again',
     (select status = 'active' from public.profiles where id = v_new));
@@ -173,7 +173,7 @@ declare
 begin
   perform pg_temp.act_as(v_admin);
   perform pg_temp.must_refuse('a student account is not an approval matter',
-    format('select public.decide_professor(%L, false)', v_student));
+    format('select public.decide_faculty(%L, false)', v_student));
 
   select count(*) into n from public.professor_accounts where id = v_student;
   perform pg_temp.must_be('...and does not appear in the console', n = 0);

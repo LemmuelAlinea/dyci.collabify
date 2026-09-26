@@ -41,11 +41,13 @@ begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at,
                           raw_user_meta_data, created_at, updated_at, aud, role, instance_id)
   select v.id, v.em, 'x', now(),
-         jsonb_build_object('first_name', 'Space', 'last_name', v.ln, 'workplace', 'general'),
+         jsonb_build_object('first_name', 'Space', 'last_name', v.ln, 'role', 'professor'),
          now(), now(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'
     from (values (owner_id,    'space-owner@test.local',    'Owner'),
                  (watcher_id,  'space-watcher@test.local',  'Watcher'),
                  (stranger_id, 'space-stranger@test.local', 'Stranger')) as v(id, em, ln);
+  -- General accounts are approved faculty now: supabase/access.sql.
+  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
 
   ------------------------------------------------------------------ setup
   perform pg_temp.act_as(owner_id);

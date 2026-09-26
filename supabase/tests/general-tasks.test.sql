@@ -72,8 +72,10 @@ begin
     values (v_ids[i], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
             'zz-gtask-' || lower(v_names[i]) || '@example.test', '',
             jsonb_build_object('first_name', 'Zzgtask', 'last_name', v_names[i],
-                               'workplace', 'general'),
+                               'role', 'professor'),
             now(), now());
+  -- General accounts are approved faculty now: supabase/access.sql.
+  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
   end loop;
 
   perform pg_temp.act_as(v_ids[1]);

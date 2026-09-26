@@ -70,10 +70,12 @@ begin
   values
     (a, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
      'zz-gnote-owner@example.test', '',
-     jsonb_build_object('first_name', 'Zzgnote', 'last_name', 'Owner', 'workplace', 'general'), now(), now()),
+     jsonb_build_object('first_name', 'Zzgnote', 'last_name', 'Owner', 'role', 'professor'), now(), now()),
     (b, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
      'zz-gnote-bravo@example.test', '',
-     jsonb_build_object('first_name', 'Zzgnote', 'last_name', 'Bravo', 'workplace', 'general'), now(), now());
+     jsonb_build_object('first_name', 'Zzgnote', 'last_name', 'Bravo', 'role', 'professor'), now(), now());
+  -- General accounts are approved faculty now: supabase/access.sql.
+  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
 
   perform pg_temp.act_as(a);
   select (public.create_general_project('Zz Science fair')).id into p;

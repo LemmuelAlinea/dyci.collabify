@@ -16,11 +16,13 @@ begin
                           aud, role, instance_id)
   values
     (owner_id, 'preset-owner@test.local', 'x', now(),
-     jsonb_build_object('first_name', 'Pres', 'last_name', 'Owner', 'workplace', 'general'),
+     jsonb_build_object('first_name', 'Pres', 'last_name', 'Owner', 'role', 'professor'),
      now(), now(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'),
     (other_id, 'preset-other@test.local', 'x', now(),
-     jsonb_build_object('first_name', 'Pres', 'last_name', 'Other', 'workplace', 'general'),
+     jsonb_build_object('first_name', 'Pres', 'last_name', 'Other', 'role', 'professor'),
      now(), now(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000');
+  -- General accounts are approved faculty now: supabase/access.sql.
+  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
 
   perform set_config('request.jwt.claims',
     json_build_object('sub', owner_id, 'role', 'authenticated')::text, true);

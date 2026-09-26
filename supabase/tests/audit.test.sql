@@ -103,7 +103,7 @@ declare
   n int;
 begin
   perform pg_temp.act_as(v_admin);
-  perform public.decide_professor(v_new, true);
+  perform public.decide_faculty(v_new, true);
   perform pg_temp.act_as_service();
 
   select count(*) into n from public.audit_events

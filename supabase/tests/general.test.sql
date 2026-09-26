@@ -79,8 +79,10 @@ begin
     values (v_ids[i], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
             'zz-gen-' || lower(v_names[i]) || '@example.test', '',
             jsonb_build_object('first_name', 'Zzgen', 'last_name', v_names[i],
-                               'workplace', 'general'),
+                               'role', 'professor'),
             now(), now());
+  -- General accounts are approved faculty now: supabase/access.sql.
+  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
   end loop;
 
   create temp table fx (k text primary key, v uuid) on commit drop;

@@ -31,10 +31,12 @@ begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at,
                           raw_user_meta_data, created_at, updated_at, aud, role, instance_id)
   select v.id, v.em, 'x', now(),
-         jsonb_build_object('first_name', 'Sched', 'last_name', v.ln, 'workplace', 'general'),
+         jsonb_build_object('first_name', 'Sched', 'last_name', v.ln, 'role', 'professor'),
          now(), now(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'
     from (values (owner_id, 'sched-owner@test.local', 'Owner'),
                  (other_id, 'sched-other@test.local', 'Other')) as v(id, em, ln);
+  -- General accounts are approved faculty now: supabase/access.sql.
+  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
 
   perform pg_temp.act_as(owner_id);
   proj := public.create_general_project('Schedule project', '');
@@ -132,10 +134,12 @@ begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at,
                           raw_user_meta_data, created_at, updated_at, aud, role, instance_id)
   select v.id, v.em, 'x', now(),
-         jsonb_build_object('first_name', 'Sched', 'last_name', v.ln, 'workplace', 'general'),
+         jsonb_build_object('first_name', 'Sched', 'last_name', v.ln, 'role', 'professor'),
          now(), now(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'
     from (values (owner_id, 'sched-owner2@test.local', 'Owner2'),
                  (structurer_id, 'sched-structurer@test.local', 'Structurer')) as v(id, em, ln);
+  -- General accounts are approved faculty now: supabase/access.sql.
+  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
 
   perform pg_temp.act_as(owner_id);
   proj := public.create_general_project('Schedule guard project', '');
