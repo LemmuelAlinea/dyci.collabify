@@ -604,3 +604,116 @@ create policy classes_update on public.classes
   with check (professor_id = auth.uid() or public.teaches_in_space(space_id));
 
 commit;
+
+begin;
+
+-- ---------------------------------------------------------------- class size limit
+
+/** rate-limit.sql's join_class, plus the class's size limit. */
+create or replace function public.join_class(p_code text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  target   public.classes%rowtype;
+  caller   public.profiles%rowtype;
+  existing public.class_members%rowtype;
+begin
+  select * into caller from public.profiles where id = auth.uid();
+  if not found then
+    return jsonb_build_object('result', 'not_signed_in');
+  end if;
+  if caller.role is distinct from 'student' then
+    return jsonb_build_object('result', 'not_student');
+  end if;
+
+  -- Counted before the code is read, so a wrong guess costs an attempt.
+  if not public.rate_limit_ok('class_join', 10, interval '1 hour') then
+    return jsonb_build_object('result', 'too_many');
+  end if;
+
+  select * into target from public.classes where upper(code) = upper(trim(p_code));
+  if not found then
+    return jsonb_build_object('result', 'not_found');
+  end if;
+  if target.archived_at is not null then
+    return jsonb_build_object('result', 'archived');
+  end if;
+
+  select * into existing from public.class_members
+   where class_id = target.id and student_id = caller.id;
+
+  if found and existing.status = 'removed' then
+    return jsonb_build_object('result', 'blocked');
+  end if;
+  if found then
+    return jsonb_build_object('result', 'already_member', 'class_id', target.id);
+  end if;
+  if not target.join_open then
+    return jsonb_build_object('result', 'closed');
+  end if;
+  if target.student_cap is not null and (
+       select count(*) from public.class_members
+        where class_id = target.id and status = 'active'
+     ) >= target.student_cap then
+    return jsonb_build_object('result', 'full');
+  end if;
+
+  insert into public.class_members (class_id, student_id) values (target.id, caller.id);
+  return jsonb_build_object('result', 'joined', 'class_id', target.id);
+end;
+$$;
+
+-- ---------------------------------------------------------------- who is a student
+
+/**
+ * general-spaces.sql's member lists, plus is_student, so the level pickers can
+ * stop offering Owner and Manager for a student. A changed column list needs a
+ * drop, not a replace.
+ */
+drop function if exists public.list_general_space_members(uuid);
+create function public.list_general_space_members(p_space uuid)
+returns table (user_id uuid, first_name text, last_name text, avatar_url text,
+               level public.general_level, joined_at timestamptz, is_student boolean)
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
+begin
+  if not public.is_general_space_member(p_space) then
+    raise exception 'You are not in this space' using errcode = 'insufficient_privilege';
+  end if;
+
+  return query
+    select m.user_id, pr.first_name, pr.last_name, pr.avatar_url, m.level, m.joined_at,
+           pr.role = 'student'
+      from public.general_space_members m
+      join public.profiles pr on pr.id = m.user_id
+     where m.space_id = p_space
+     order by m.level, pr.last_name, pr.first_name;
+end;
+$$;
+
+drop function if exists public.list_general_project_members(uuid);
+create function public.list_general_project_members(p_project uuid)
+returns table (user_id uuid, first_name text, last_name text, avatar_url text,
+               level public.general_level, joined_at timestamptz, is_student boolean)
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
+begin
+  if not public.can_read_general_project(p_project) then
+    raise exception 'You cannot see this project' using errcode = 'insufficient_privilege';
+  end if;
+
+  return query
+    select m.user_id, pr.first_name, pr.last_name, pr.avatar_url, m.level, m.joined_at,
+           pr.role = 'student'
+      from public.general_members m
+      join public.profiles pr on pr.id = m.user_id
+     where m.project_id = p_project
+     order by m.level, pr.last_name, pr.first_name;
+end;
+$$;
+
+revoke execute on function public.list_general_space_members(uuid) from public, anon;
+revoke execute on function public.list_general_project_members(uuid) from public, anon;
+grant execute on function public.list_general_space_members(uuid) to authenticated, service_role;
+grant execute on function public.list_general_project_members(uuid) to authenticated, service_role;
+
+commit;

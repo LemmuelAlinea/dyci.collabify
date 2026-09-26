@@ -444,4 +444,53 @@ begin
   perform public.set_general_space_level(v_space, v_cot, 'manager');
 end $$;
 
+-- ------------------------------------------------------------------ class size limit
+
+do $$
+declare
+  v_teacher uuid := (select v from fx where k = 'teacher');
+  v_s2      uuid := (select v from fx where k = 's2');
+  v_s3      uuid := (select v from fx where k = 's3');
+  v_class   uuid := (select v from fx where k = 'class');
+  v_result  text;
+begin
+  -- s1 is already in; a cap of 1 means the class is full.
+  perform pg_temp.act_as(v_teacher);
+  update public.classes set student_cap = 1 where id = v_class;
+
+  perform pg_temp.act_as(v_s2);
+  select public.join_class('ZZOW-0001') ->> 'result' into v_result;
+  perform pg_temp.must_be('a full class turns a new student away', v_result = 'full');
+
+  perform pg_temp.act_as(v_teacher);
+  update public.classes set student_cap = null where id = v_class;
+
+  perform pg_temp.act_as(v_s2);
+  select public.join_class('ZZOW-0001') ->> 'result' into v_result;
+  perform pg_temp.must_be('with no limit the same student gets in', v_result = 'joined');
+
+  perform pg_temp.act_as(v_teacher);
+  perform pg_temp.must_refuse('a limit of zero is refused', format(
+    'update public.classes set student_cap = 0 where id = %L', v_class));
+end $$;
+
+-- ------------------------------------------------------------------ member lists say who is a student
+
+do $$
+declare
+  v_teacher uuid := (select v from fx where k = 'teacher');
+  v_s1      uuid := (select v from fx where k = 's1');
+  v_space   uuid := (select v from fx where k = 'space');
+begin
+  perform pg_temp.act_as(v_teacher);
+  perform pg_temp.must_be('the space member list marks students',
+    (select is_student from public.list_general_space_members(v_space) where user_id = v_s1));
+  perform pg_temp.must_be('...and not faculty',
+    (select not is_student from public.list_general_space_members(v_space) where user_id = v_teacher));
+  perform pg_temp.must_be('the project member list has the same column',
+    exists (select 1 from pg_proc p
+             where p.proname = 'list_general_project_members'
+               and 'is_student' = any (p.proargnames)));
+end $$;
+
 rollback;
