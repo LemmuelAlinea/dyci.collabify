@@ -3,16 +3,23 @@ import { useLive } from '../../../hooks/useLive'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Reveal } from '../../../components/motion/Reveal'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
+import { MyTasksPanel } from '../../../components/general/DashboardPanels'
 import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
 import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { EmptyState } from '../../../components/ui/EmptyState'
+import { ScopeFilter } from '../../../components/ui/ScopeFilter'
 import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
-import { myTasks, setTaskStatus } from '../../../lib/api/tasks'
+import { useGeneralNavigation } from '../../../context/generalNavigation'
+import { useGeneralDashboard } from '../../../hooks/useGeneralDashboard'
+import { myTasks as myClassTasks, setTaskStatus } from '../../../lib/api/tasks'
 import type { MyTask } from '../../../lib/api/tasks'
 import { authErrorMessage } from '../../../lib/authError'
+import { isOverdue } from '../../../lib/general/dates'
+import { myTasks as myOpenWorkTasks } from '../../../lib/general/dashboard'
 import { paths } from '../../../lib/paths'
+import { readScope, writeScope } from '../../../lib/scope'
 import { formatMinutes, taskShare, taskStatusLabel } from '../../../lib/types'
 import type { TaskStatus } from '../../../lib/types'
 
@@ -101,21 +108,31 @@ function dueStamp(iso: string | null) {
 export default function MyTasks() {
   const { profile } = useAuth()
   const { show } = useToast()
-  const [tasks, setTasks] = useState<MyTask[] | null>(null)
+  const isStudent = profile?.role === 'student'
+  const [classTasks, setClassTasks] = useState<MyTask[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
   const openTask = params.get('task')
+  const scope = readScope(params)
 
+  // Class boards only ever assign work to students — a professor or admin
+  // reading this page has none, so their load is a no-op rather than a
+  // request that always comes back empty.
   const load = useCallback(async () => {
     if (!profile) return
+    if (!isStudent) {
+      setClassTasks([])
+      setError(null)
+      return
+    }
     try {
-      setTasks(await myTasks(profile.id))
+      setClassTasks(await myClassTasks(profile.id))
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load your tasks.'))
-      setTasks([])
+      setClassTasks([])
     }
-  }, [profile])
+  }, [profile, isStudent])
 
   useEffect(() => {
     document.title = 'My tasks · Collabify'
@@ -127,6 +144,33 @@ export default function MyTasks() {
 
   useLive(load, ['project_tasks', 'task_assignees', 'project_boards', 'projects'])
 
+  // Work tasks: the same read the General home uses for "My tasks", open to
+  // every role since work spaces are not education-only.
+  const {
+    myProjects,
+    error: navError,
+    reload: reloadNav,
+  } = useGeneralNavigation()
+  const mineProjects = useMemo(
+    () => (myProjects ?? []).filter((p) => p.my_level && !p.archived_at),
+    [myProjects],
+  )
+  const projectIds = useMemo(() => mineProjects.map((p) => p.id), [mineProjects])
+  const {
+    data: dashData,
+    error: dashError,
+    reload: reloadDash,
+  } = useGeneralDashboard(profile?.id, projectIds)
+  const now = dashData?.at ?? Date.now()
+  const projectName = useCallback(
+    (id: string) => mineProjects.find((p) => p.id === id)?.name ?? 'A project',
+    [mineProjects],
+  )
+  const workTasks = useMemo(
+    () => (profile && dashData ? myOpenWorkTasks(dashData.tasks, profile.id) : []),
+    [profile, dashData],
+  )
+
   function showTask(id: string | null) {
     const next = new URLSearchParams(params)
     if (id) next.set('task', id)
@@ -134,9 +178,13 @@ export default function MyTasks() {
     setParams(next, { replace: !id })
   }
 
+  // Scoped down to what the All · Classes · Work filter should show.
+  const classFiltered = scope === 'work' ? [] : (classTasks ?? [])
+  const workFiltered = scope === 'classes' ? [] : workTasks
+
   const grouped = useMemo(() => {
     const map = new Map<BucketId, MyTask[]>()
-    for (const t of tasks ?? []) {
+    for (const t of classFiltered) {
       const b = bucketOf(t)
       map.set(b, [...(map.get(b) ?? []), t])
     }
@@ -144,12 +192,26 @@ export default function MyTasks() {
       list.sort((a, b) => (a.due_at ?? '9999').localeCompare(b.due_at ?? '9999'))
     }
     return map
-  }, [tasks])
+  }, [classFiltered])
 
-  const open = (tasks ?? []).filter((t) => t.status !== 'done')
-  const overdue = grouped.get('overdue')?.length ?? 0
-  const loggedTotal = (tasks ?? []).reduce((n, t) => n + t.logged_minutes, 0)
-  const activeBoard = (tasks ?? []).find((t) => t.id === openTask)
+  const loaded = (isStudent ? classTasks !== null : true) && myProjects !== null && dashData !== null
+  const classOpenCount = classFiltered.filter((t) => t.status !== 'done').length
+  const classDoneCount = classFiltered.length - classOpenCount
+  const classOverdueCount = classFiltered.filter((t) => isOverdue(t.due_at, t.status, now)).length
+  const workOverdueCount = workFiltered.filter((t) => isOverdue(t.due_at, t.status, now)).length
+  const loggedTotal = classFiltered.reduce((n, t) => n + t.logged_minutes, 0)
+  const stillOpen = classOpenCount + workFiltered.length
+  const pastDue = classOverdueCount + workOverdueCount
+  const totalShown = classFiltered.length + workFiltered.length
+  const activeBoard = (classTasks ?? []).find((t) => t.id === openTask)
+  const loadError = error ?? navError ?? dashError
+
+  const emptyCopy =
+    scope === 'classes'
+      ? { title: 'No class tasks', body: 'No class tasks are assigned to you.' }
+      : scope === 'work'
+        ? { title: 'No work tasks', body: 'No open work tasks are assigned to you.' }
+        : { title: 'Nothing claimed yet', body: 'Nothing is assigned to you right now.' }
 
   return (
     <div className="w-full">
@@ -167,29 +229,40 @@ export default function MyTasks() {
           </Link>
         }
         stats={[
-          { label: 'Still open', value: tasks === null ? '—' : open.length },
-          { label: 'Past due', value: tasks === null ? '—' : overdue },
-          { label: 'Finished', value: tasks === null ? '—' : (tasks?.length ?? 0) - open.length },
-          { label: 'Time logged', value: tasks === null ? '—' : formatMinutes(loggedTotal) },
+          { label: 'Still open', value: !loaded ? '—' : stillOpen },
+          { label: 'Past due', value: !loaded ? '—' : pastDue },
+          { label: 'Finished', value: !loaded ? '—' : classDoneCount },
+          { label: 'Time logged', value: !loaded ? '—' : formatMinutes(loggedTotal) },
         ]}
         statsVariant="compact-row"
       />
 
       <div className="mt-6 space-y-7">
-        {error && <Alert tone="error">{error}</Alert>}
+        {loadError && (
+          <Alert tone="error" onRetry={() => void Promise.all([load(), reloadNav(), reloadDash()])}>
+            {loadError}
+          </Alert>
+        )}
 
-        {tasks === null ? (
+        <div className="flex justify-end">
+          <ScopeFilter
+            value={scope}
+            onChange={(next) => setParams(writeScope(params, next), { replace: true })}
+            counts={{
+              all: (classTasks?.length ?? 0) + workTasks.length,
+              classes: classTasks?.length ?? 0,
+              work: workTasks.length,
+            }}
+          />
+        </div>
+
+        {!loaded ? (
           <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
             <Spinner size={16} />
             Loading your tasks…
           </div>
-        ) : tasks.length === 0 ? (
-          <EmptyState
-            icon="check"
-            art="tasks"
-            title="Nothing claimed yet"
-            body="Open a project, find your group's board, and take a task. Work nobody has claimed is waiting on somebody."
-          />
+        ) : totalShown === 0 ? (
+          <EmptyState icon="check" art="tasks" title={emptyCopy.title} body={emptyCopy.body} />
         ) : (
           <>
             <nav aria-label="Jump to task group" className="flex flex-wrap items-center gap-2">
@@ -209,6 +282,16 @@ export default function MyTasks() {
                   </a>
                 )
               })}
+              {workFiltered.length > 0 && (
+                <a
+                  href="#tasks-work"
+                  className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-navy-500" />
+                  Work
+                  <span className="font-mono text-faint">{workFiltered.length}</span>
+                </a>
+              )}
             </nav>
 
             {BUCKETS.map((bucket, i) => {
@@ -334,6 +417,40 @@ export default function MyTasks() {
                 </Reveal>
               )
             })}
+
+            {workFiltered.length > 0 && (
+              <Reveal once delay={0.06 + BUCKETS.length * 0.02}>
+                <section
+                  id="tasks-work"
+                  className="scroll-mt-28 overflow-hidden rounded-card border border-line surface"
+                >
+                  <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line surface-sunken px-4 py-3.5 sm:px-5">
+                    <div className="flex items-center gap-3">
+                      <span className="h-2 w-2 rounded-full bg-navy-500" />
+                      <div>
+                        <h2 className="text-navy-700 dark:text-navy-300">Work</h2>
+                        <p className="mt-0.5 text-[12px] text-faint">
+                          Open tasks on your projects, across every space.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted ring-1 ring-[var(--line)]">
+                      {workFiltered.length}
+                    </span>
+                  </header>
+
+                  <div className="p-4 sm:p-5">
+                    <MyTasksPanel
+                      tasks={workFiltered}
+                      projectName={projectName}
+                      now={now}
+                      limit={workFiltered.length}
+                      empty="No open work tasks are assigned to you."
+                    />
+                  </div>
+                </section>
+              </Reveal>
+            )}
 
             <p className="text-[12px] text-faint">Only the people on a task can move it.</p>
           </>

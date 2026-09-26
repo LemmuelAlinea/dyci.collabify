@@ -128,10 +128,9 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
             <Route path="/home" element={<Home />} />
-            <Route
-              path="/tasks"
-              element={<RoleSwitch student={<MyTasks />} professor={<MyTasks />} />}
-            />
+            {/* One My tasks for every role: it reads class boards for students
+                and General work for everyone, so admin belongs here too. */}
+            <Route path="/tasks" element={<MyTasks />} />
             <Route
               path="/calendar"
               element={<RoleSwitch student={<Calendar />} professor={<Calendar />} />}
