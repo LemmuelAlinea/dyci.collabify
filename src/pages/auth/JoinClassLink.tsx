@@ -21,10 +21,10 @@ export default function JoinClassLink() {
   const { ready, session, profile } = useAuth()
   const navigate = useNavigate()
   const [message, setMessage] = useState<string | null>(null)
-  const started = useRef(false)
+  const started = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!ready || started.current) return
+    if (!ready || started.current === code) return
     if (!session) {
       rememberJoin(code)
       navigate('/login', { replace: true })
@@ -35,7 +35,7 @@ export default function JoinClassLink() {
       navigate('/onboarding', { replace: true })
       return
     }
-    started.current = true
+    started.current = code
     forgetJoin()
     if (profile.status !== 'active') {
       navigate('/pending', { replace: true })
@@ -65,7 +65,7 @@ export default function JoinClassLink() {
         <div className="space-y-4">
           <Alert tone="error">{message}</Alert>
           <Link
-            to={profile ? homeFor(profile) : '/login'}
+            to={homeFor(profile!)}
             className="block rounded-xl border border-line px-4 py-3 text-center text-[14px] font-medium text-ink transition-colors hover:bg-[var(--surface-sunken)]"
           >
             Go to your dashboard

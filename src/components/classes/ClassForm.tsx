@@ -83,8 +83,9 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
           label: `${x.name} — ${x.year_level} year, ${x.school_year}`,
         }))
 
-  function submit(e: FormEvent) {
+  function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (!e.currentTarget.reportValidity()) return
     onSubmit({
       name,
       initial,
@@ -225,6 +226,7 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
             type="number"
             min={1}
             max={500}
+            step={1}
             inputMode="numeric"
             value={cap}
             onChange={(e) => setCap(e.target.value)}
