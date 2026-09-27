@@ -176,7 +176,11 @@ export default function Calendar() {
     navigate(paths.classProject(event.project_id))
   }
 
-  const loaded = events !== null && myProjects !== null && dashData !== null
+  // A General failure settles the work side rather than holding the class
+  // side hostage — the error Alert below shows it, with a retry, and the
+  // class calendar still renders.
+  const loaded =
+    events !== null && myProjects !== null && (dashData !== null || dashError !== null)
   const loadError = error ?? navError ?? dashError
 
   if (!role || !loaded) {

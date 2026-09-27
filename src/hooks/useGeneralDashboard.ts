@@ -20,6 +20,10 @@ export type GeneralDashboard = {
  */
 export function useGeneralDashboard(userId: string | undefined, projectIds: string[]) {
   const [data, setData] = useState<GeneralDashboard | null>(null)
+  // The key `data` was loaded for. While a load for a new key is in flight,
+  // this still names the old one, so a page switching project ids doesn't
+  // flash the previous ids' numbers as if they belonged to the new ones.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const key = projectIds.join(',')
   const ids = useMemo(() => (key ? key.split(',') : []), [key])
@@ -33,11 +37,12 @@ export function useGeneralDashboard(userId: string | undefined, projectIds: stri
         listMyInvitations(userId),
       ])
       setData({ tasks, reviews, invitations, at: Date.now() })
+      setLoadedKey(key)
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load this space’s dashboard.'))
     }
-  }, [userId, ids])
+  }, [userId, ids, key])
 
   useEffect(() => {
     void load()
@@ -45,5 +50,5 @@ export function useGeneralDashboard(userId: string | undefined, projectIds: stri
 
   useLive(load, ['general_tasks', 'general_task_assignees', 'general_repo_changes', 'general_invitations'])
 
-  return { data, error, reload: load }
+  return { data: loadedKey === key ? data : null, error, reload: load }
 }

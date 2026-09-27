@@ -194,7 +194,13 @@ export default function MyTasks() {
     return map
   }, [classFiltered])
 
-  const loaded = (isStudent ? classTasks !== null : true) && myProjects !== null && dashData !== null
+  // A General failure settles the work side rather than holding class tasks
+  // hostage — the error Alert below shows it, with a retry, and class tasks
+  // still render.
+  const loaded =
+    (isStudent ? classTasks !== null : true) &&
+    myProjects !== null &&
+    (dashData !== null || dashError !== null)
   const classOpenCount = classFiltered.filter((t) => t.status !== 'done').length
   const classDoneCount = classFiltered.length - classOpenCount
   const classOverdueCount = classFiltered.filter((t) => isOverdue(t.due_at, t.status, now)).length
