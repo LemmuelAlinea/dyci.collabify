@@ -97,7 +97,7 @@ export default function JoinClassLink() {
             </p>
           </div>
           <p className="text-[13.5px] text-muted">
-            Your professor and classmates will see your name and profile once you join.
+            Your faculty member and classmates will see your name and profile once you join.
           </p>
           <div className="flex gap-3">
             <Button variant="primary" full loading={joining} onClick={handleJoin}>

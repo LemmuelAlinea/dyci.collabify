@@ -7,13 +7,13 @@ const OPTIONS: { value: Choice; label: string; note: string; icon: 'user' | 'use
   {
     value: 'student',
     label: 'Student',
-    note: 'Join your classes with a code from your professor',
+    note: 'Join your classes with a code from a faculty member',
     icon: 'user',
   },
   {
     value: 'faculty',
     label: 'Faculty',
-    note: 'Professors and school staff · needs admin approval',
+    note: 'Faculty and school staff · needs admin approval',
     icon: 'users',
   },
 ]

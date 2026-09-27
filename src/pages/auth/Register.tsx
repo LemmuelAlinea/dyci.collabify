@@ -132,7 +132,7 @@ export default function Register() {
           </Alert>
         ) : (
           <Alert tone="info">
-            Your classes open once you join one with the code your professor gives you.
+            Your classes open once you join one with the code a faculty member gives you.
           </Alert>
         )}
 
