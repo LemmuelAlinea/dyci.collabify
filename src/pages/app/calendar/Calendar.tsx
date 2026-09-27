@@ -84,8 +84,9 @@ export default function Calendar() {
     void load()
   }, [load])
 
+  // Professors have class dates too; only an admin's class load is a no-op.
   useLive(load, ['projects', 'project_tasks', 'project_boards', 'syllabus_weeks', 'classes'], {
-    enabled: role === 'student',
+    enabled: role === 'student' || role === 'professor',
   })
 
   // Work dates: the reader's live General projects, and every open task on
