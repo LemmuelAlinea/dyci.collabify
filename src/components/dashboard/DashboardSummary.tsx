@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useReducedMotion } from 'motion/react'
@@ -75,9 +76,12 @@ export function DashboardSummary({
   line,
   urgent = false,
   tiles,
+  action,
 }: {
   greeting: string
   name: string
+  /** Buttons for the page itself, set at the band's top right. */
+  action?: ReactNode
   /** The mono label above the greeting. Names the surface, not the person. */
   kicker: string
   /** One sentence of what is true right now, built by the page from its own data. */
@@ -129,12 +133,15 @@ export function DashboardSummary({
       />
 
       <div className="relative">
-        <p className="flex items-center gap-3">
-          <span className="h-px w-7 bg-amber-400" />
-          <span className="font-mono text-[12px] tracking-[0.22em] text-amber-200/75 uppercase">
-            {kicker}
-          </span>
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="flex min-w-0 items-center gap-3">
+            <span className="h-px w-7 shrink-0 bg-amber-400" />
+            <span className="truncate font-mono text-[12px] tracking-[0.22em] text-amber-200/75 uppercase">
+              {kicker}
+            </span>
+          </p>
+          {action && <div className="flex flex-wrap items-center gap-1.5">{action}</div>}
+        </div>
 
         <h1 className="mt-5 font-display leading-tight text-amber-50">
           {greeting}, {name}.

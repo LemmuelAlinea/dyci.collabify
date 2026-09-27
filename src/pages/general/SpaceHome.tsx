@@ -140,6 +140,33 @@ export default function SpaceHome() {
           kicker={space ? `${space.name}${archived ? ' · archived' : ''}` : 'Space'}
           line={line}
           urgent={overdue > 0}
+          action={
+            isOwner && space ? (
+              <>
+                <Button
+                  variant="onNavy"
+                  size="sm"
+                  className="!h-8 !rounded-lg !px-3"
+                  onClick={() => setArchiveOpen(true)}
+                >
+                  <Icon name={archived ? 'refresh' : 'archive'} size={14} />
+                  {archived ? 'Restore space' : 'Archive space'}
+                </Button>
+                {/* Deleting is the second of two steps: archive first, then delete. */}
+                {archived && (
+                  <Button
+                    variant="onNavy"
+                    size="sm"
+                    className="!h-8 !rounded-lg !px-3 hover:!border-red-300/50 hover:!bg-red-500/15 hover:!text-red-200"
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    <Icon name="trash" size={14} />
+                    Delete space
+                  </Button>
+                )}
+              </>
+            ) : undefined
+          }
         />
       </Reveal>
 
@@ -197,27 +224,6 @@ export default function SpaceHome() {
               },
             ]}
           />
-          {isOwner && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
-              <span className="eyebrow mr-1 text-faint">Space options</span>
-              <button
-                type="button"
-                onClick={() => setArchiveOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-muted hover:border-line-strong hover:text-ink"
-              >
-                <Icon name="archive" size={15} />
-                {archived ? 'Restore space' : 'Archive space'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeleteOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-muted hover:border-red-400 hover:text-red-500"
-              >
-                <Icon name="trash" size={15} />
-                Delete space
-              </button>
-            </div>
-          )}
         </div>
       )}
 
