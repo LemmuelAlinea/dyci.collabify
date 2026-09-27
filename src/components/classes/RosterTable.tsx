@@ -20,7 +20,9 @@ type Props = {
   showEmail: boolean
   onRemove?: (member: ClassMember) => Promise<void>
   /** Puts them back with what they held. Returns what came back. */
-  onRestore?: (member: ClassMember) => Promise<{ groups?: number; tasks?: number } | void>
+  onRestore?: (
+    member: ClassMember,
+  ) => Promise<{ result?: string; groups?: number; tasks?: number } | void>
   emptyBody: string
   /** Professors only: open a direct thread from the roster. */
   canMessage?: boolean
@@ -196,6 +198,14 @@ export function RosterTable({
                     setRestoring(m.student_id)
                     try {
                       const back = await onRestore?.(m)
+                      if (back?.result === 'full') {
+                        show('The class is full. Raise its class size limit, then put them back.', 'error')
+                        return
+                      }
+                      if (back?.result === 'not_allowed') {
+                        show('Only a teacher of this class can put a student back.', 'error')
+                        return
+                      }
                       const bits = [
                         back?.groups ? `${back.groups} group` : '',
                         back?.tasks

@@ -139,6 +139,22 @@ begin
     not exists (select 1 from public.general_members where project_id = gp and user_id = v_b));
   perform pg_temp.ok('...without a removal notice',
     not exists (select 1 from public.notifications where user_id = v_b and type = 'membership_changed'));
+
+  ------------------------------------------------------------------ deleting
+  perform pg_temp.act_as(v_prof);
+  delete from public.projects where id = v_proj;
+  perform pg_temp.svc();
+  perform pg_temp.ok('deleting a class project whose Files have commits goes through',
+    not exists (select 1 from public.projects where id = v_proj));
+  perform pg_temp.ok('...and takes the hidden Files project and its history with it',
+    not exists (select 1 from public.general_projects where id = gp)
+    and not exists (select 1 from public.general_commits where project_id = gp));
+  begin
+    delete from public.general_commits where repo_id in (select id from public.general_repos limit 1);
+    perform pg_temp.ok('a commit on its own still cannot be deleted', not exists (select 1 from public.general_commits));
+  exception when insufficient_privilege then
+    perform pg_temp.ok('a commit on its own still cannot be deleted', true);
+  end;
 end;
 $$;
 

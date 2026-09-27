@@ -1506,3 +1506,29 @@ label only. Owner checked all five changes in the browser; merged to `main` as `
 status pill coloured by status, a monogram showing the preset icon (or the initial), a
 meta line (space · kind · dates), a description, a progress bar, and a footer with your
 role, members and access requests. Build and 528 tests pass.
+
+## Session — 2026-09-28 (later): three teaching guards, class board deletes
+
+**`supabase/teaching-guards.sql`** (after `general-draft-commit.sql`, applied live):
+1. A deactivated professor no longer teaches. `is_class_professor`, `owns_resource`,
+   `is_privacy_handler` and the `classes_select/update/delete` and
+   `teaching_resources_own` policies now also require `general_viewer_active()` when
+   they trust `professor_id` directly. Reactivating restores everything.
+2. `restore_class_member` checks `student_cap` under the same row lock `join_class`
+   uses, and returns `full` when there is no seat. `RosterTable` now shows an error for
+   `full` and `not_allowed` instead of always saying the student is back.
+3. A `classes_guard_syllabus` trigger allows a new `syllabus_id` only when the resource
+   is a syllabus the caller owns or one marked `program_wide`. An unchanged syllabus
+   on re-save is not checked. The UI picker already offered only those.
+Test: `supabase/tests/teaching-guards.test.sql` (14 PASS).
+
+**Class board delete bug (found by `analytics.test.sql`):** deleting a class project
+whose board had Files commits failed with "A commit cannot be changed or removed". The
+cascade reached the hidden Files project's commits. `class-files.sql` now has a
+`project_boards` before-delete trigger that notes the board's Files project in
+`collabify.class_board_delete`, and a superset `guard_general_commit` lets those
+commits go. A lone commit delete is still refused. `class-files.test.sql` gained 3
+checks. Storage objects under a deleted board's Files are not cleaned up (deferred).
+
+**Checks:** all 45 SQL suites pass with no failures; `npm run build`; `npx vitest run`
+(528).

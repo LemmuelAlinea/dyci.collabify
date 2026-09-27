@@ -177,7 +177,7 @@ export async function restoreMember(classId: string, studentId: string) {
   })
   if (error) throw error
   return data as {
-    result: 'restored' | 'not_allowed' | 'not_removed'
+    result: 'restored' | 'not_allowed' | 'not_removed' | 'full'
     groups?: number
     tasks?: number
   }

@@ -368,8 +368,52 @@ begin
 end;
 $$;
 
+-- ---------------------------------------------------------------- deleting
+
+/**
+ * Deleting a class project (or one of its boards) cascades to the board's
+ * hidden Files project, and from there to its commits, which refuse to be
+ * removed. Each board being deleted notes its Files project first, and the
+ * commit guard lets those go. Whoever may delete the board already decided;
+ * the history goes with the work it belonged to.
+ */
+create or replace function public.class_board_files_release()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  gp uuid;
+begin
+  select id into gp from public.general_projects where class_board_id = old.id;
+  if gp is not null then
+    perform set_config('collabify.class_board_delete',
+      concat_ws(',', nullif(current_setting('collabify.class_board_delete', true), ''), gp::text), true);
+  end if;
+  return old;
+end;
+$$;
+
+drop trigger if exists project_boards_release_files on public.project_boards;
+create trigger project_boards_release_files before delete on public.project_boards
+  for each row execute function public.class_board_files_release();
+
+/** general-project-archive-rbac.sql's guard, plus a class board being deleted. */
+create or replace function public.guard_general_commit()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'DELETE'
+     and (current_setting('collabify.general_project_delete', true) = old.project_id::text
+          or old.project_id::text = any (
+               string_to_array(coalesce(current_setting('collabify.class_board_delete', true), ''), ','))) then
+    return old;
+  end if;
+  raise exception 'A commit cannot be changed or removed once it is made'
+    using errcode = 'insufficient_privilege';
+end;
+$$;
+
 -- ---------------------------------------------------------------- grants
 
+revoke execute on function public.class_board_files_release() from public, anon;
+revoke execute on function public.guard_general_commit() from public, anon;
 revoke execute on function public.ensure_class_board_repo(uuid) from public, anon;
 grant execute on function public.ensure_class_board_repo(uuid) to authenticated;
 revoke execute on function public.board_student_ids(uuid) from public, anon;
