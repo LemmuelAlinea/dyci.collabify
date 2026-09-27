@@ -1,6 +1,7 @@
 // src/components/general/TaskDialog.tsx
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert } from '../ui/Alert'
+import { ActionMenu } from '../ui/ActionMenu'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Field, Input } from '../ui/Field'
@@ -27,6 +28,7 @@ import {
   updateTask,
   uploadTaskFile,
 } from '../../lib/api/general'
+import { trashTaskFile } from '../../lib/api/trash'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue, toLocalInput } from '../../lib/general/dates'
 import { describeEvent } from '../../lib/general/history'
@@ -269,15 +271,21 @@ function TaskBody({
                   {f.file_name}
                 </button>
                 {!archived && (f.uploaded_by === me || state.can('edit_files')) && (
-                  <button
-                    type="button"
-                    aria-label={`Archive ${f.file_name}`}
+                  <ActionMenu
+                    label={`Actions for ${f.file_name}`}
                     disabled={busy}
-                    onClick={() => void act(() => deleteTaskFile(f), 'File archived', 'Could not archive that file.')}
-                    className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-red-600 dark:hover:text-red-400"
-                  >
-                    <Icon name="archive" size={13} />
-                  </button>
+                    items={[
+                      { label: 'Archive', icon: 'archive', onSelect: () => void act(() => deleteTaskFile(f), 'File archived', 'Could not archive that file.') },
+                      {
+                        label: 'Move to trash',
+                        icon: 'trash',
+                        tone: 'danger',
+                        separated: true,
+                        onSelect: () =>
+                          void act(() => trashTaskFile(f.id), 'File moved to Trash. It stays there for 30 days.', 'Could not move it to Trash.'),
+                      },
+                    ]}
+                  />
                 )}
               </li>
             ))}

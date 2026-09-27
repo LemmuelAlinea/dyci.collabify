@@ -20,8 +20,8 @@ const nonTeacher = account('faculty')
 const admin = account('admin')
 
 describe('navFor', () => {
-  it('gives a student nobody has let in only Home and Settings', () => {
-    expect(labels(navFor(student, false))).toEqual(['Home', 'Settings'])
+  it('gives a student nobody has let in only Home, Trash and Settings', () => {
+    expect(labels(navFor(student, false))).toEqual(['Home', 'Trash', 'Settings'])
   })
 
   it('gives a student with only classes Main, Classes with Your record, and Account', () => {
@@ -100,10 +100,10 @@ describe('navFor', () => {
     }
   })
 
-  it('gives an account with no role, or one not active, only Settings', () => {
-    expect(labels(navFor(account(null, 'pending'), true))).toEqual(['Settings'])
-    expect(labels(navFor(account('faculty', 'pending', true), true))).toEqual(['Settings'])
-    expect(labels(navFor(null, true))).toEqual(['Settings'])
+  it('gives an account with no role, or one not active, only Trash and Settings', () => {
+    expect(labels(navFor(account(null, 'pending'), true))).toEqual(['Trash', 'Settings'])
+    expect(labels(navFor(account('faculty', 'pending', true), true))).toEqual(['Trash', 'Settings'])
+    expect(labels(navFor(null, true))).toEqual(['Trash', 'Settings'])
   })
 
   it('routes every item through one of the allowed prefixes', () => {
@@ -113,6 +113,7 @@ describe('navFor', () => {
       '/calendar',
       '/inbox',
       '/settings',
+      '/trash',
       '/spaces',
       '/projects',
       '/classes',

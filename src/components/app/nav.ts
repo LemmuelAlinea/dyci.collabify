@@ -51,6 +51,9 @@ const MAIN: NavGroup = {
 }
 
 /**
+ * Trash sits in Account because it is the one list every account has: what
+ * you threw away is yours, whatever your role, so the row never goes away.
+ *
  * "Your data" is where somebody exercises a right under the Data Privacy Act.
  * It sits in Account rather than anywhere role-specific because a professor
  * asking what is held about them is exactly the same right as a student's, and
@@ -64,7 +67,10 @@ const MAIN: NavGroup = {
  */
 const ACCOUNT: NavGroup = {
   title: 'Account',
-  items: [{ label: 'Settings', icon: 'settings', to: paths.settings }],
+  items: [
+    { label: 'Trash', icon: 'trash', to: paths.trash },
+    { label: 'Settings', icon: 'settings', to: paths.settings },
+  ],
 }
 
 /**

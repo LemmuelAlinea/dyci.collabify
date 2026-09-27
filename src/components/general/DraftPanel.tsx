@@ -16,6 +16,7 @@ import {
   submitDraftFile,
   syncDraft,
 } from '../../lib/api/general'
+import { trashDraftPath } from '../../lib/api/trash'
 import { authErrorMessage } from '../../lib/authError'
 import { buildTree, describeDraft, fileText, flatFiles, nodesAt } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
@@ -101,6 +102,17 @@ export function DraftPanel({
     }
   }
 
+  function moveToTrash(target: SubmitTarget) {
+    void run(
+      async () => {
+        await trashDraftPath(repo.id, target.path)
+        if (target.path === path) onNavigate(path.split('/').slice(0, -1).join('/'))
+      },
+      `${target.type === 'folder' ? 'Folder' : 'File'} moved to Trash. It stays there for 30 days.`,
+      'Could not move it to Trash.',
+    )
+  }
+
   if (level === null) return null
 
   if (files.length === 0 && path === '') {
@@ -153,6 +165,7 @@ export function DraftPanel({
                       ? [{ label: 'Commit to main', icon: 'check' as const, disabled: behind, onSelect: () => setCommitting({ type: 'folder', path }) }]
                       : []),
                     { label: 'Archive', icon: 'archive', onSelect: () => setArchiving({ type: 'folder', path }) },
+                    { label: 'Move to trash', icon: 'trash', tone: 'danger', separated: true, onSelect: () => moveToTrash({ type: 'folder', path }) },
                   ]}
                 />
               </>
@@ -216,6 +229,7 @@ export function DraftPanel({
                   onNavigate={onNavigate}
                   onOpen={onOpen}
                   onArchive={setArchiving}
+                  onTrash={moveToTrash}
                   onSubmit={setSubmitting}
                   onCommit={mayCommit ? setCommitting : undefined}
                 />
@@ -241,6 +255,7 @@ export function DraftPanel({
               onNavigate={onNavigate}
               onOpen={onOpen}
               onArchive={setArchiving}
+              onTrash={moveToTrash}
               onSubmit={setSubmitting}
               onCommit={mayCommit ? setCommitting : undefined}
             />
@@ -347,6 +362,7 @@ function DraftNode({
   onNavigate,
   onOpen,
   onArchive,
+  onTrash,
   onSubmit,
   onCommit,
 }: {
@@ -360,6 +376,7 @@ function DraftNode({
   onNavigate: (path: string) => void
   onOpen: (file: OpenFile) => void
   onArchive: (target: SubmitTarget) => void
+  onTrash: (target: SubmitTarget) => void
   onSubmit: (target: SubmitTarget) => void
   /** Only for whoever may commit to Main without a review. */
   onCommit?: (target: SubmitTarget) => void
@@ -390,6 +407,7 @@ function DraftNode({
                   ? [{ label: 'Commit to main', icon: 'check' as const, disabled: behind, onSelect: () => onCommit({ type: 'folder', path: node.path }) }]
                   : []),
                 { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'folder', path: node.path }) },
+                { label: 'Move to trash', icon: 'trash', tone: 'danger', separated: true, onSelect: () => onTrash({ type: 'folder', path: node.path }) },
               ]}
             />
           )}
@@ -449,6 +467,7 @@ function DraftNode({
                 ? [{ label: 'Commit to main', icon: 'check' as const, disabled: behind, onSelect: () => onCommit({ type: 'file', path: f.path }) }]
                 : []),
               { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'file', path: f.path }) },
+              { label: 'Move to trash', icon: 'trash', tone: 'danger', separated: true, onSelect: () => onTrash({ type: 'file', path: f.path }) },
             ]}
           />
         )}

@@ -65,6 +65,7 @@ const Submissions = lazy(() => import('./pages/app/submissions/Submissions'))
 const Reports = lazy(() => import('./pages/app/reports/Reports'))
 const Sections = lazy(() => import('./pages/app/admin/Sections'))
 const Settings = lazy(() => import('./pages/Settings'))
+const Trash = lazy(() => import('./pages/app/Trash'))
 const ClassSpace = lazy(() => import('./pages/app/classes/ClassSpace'))
 const StudentClasses = lazy(() => import('./pages/app/classes/StudentClasses'))
 const StudentGroups = lazy(() => import('./pages/app/groups/StudentGroups'))
@@ -127,6 +128,7 @@ export default function App() {
           <Route element={<ProtectedRoute open />}>
           <Route element={<AppShell />}>
             <Route path="/settings" element={<Settings />} />
+            <Route path="/trash" element={<Trash />} />
             <Route path="/privacy/request" element={<PrivacyRequest />} />
 
             {/* One rail for every admitted account, whatever their role. Which

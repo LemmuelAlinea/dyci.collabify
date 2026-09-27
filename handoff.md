@@ -1562,3 +1562,23 @@ Also fixed `general_files_remove_orphans`, whose subquery read `name` as
 `general_projects.name` and so never let the app clear a deleted project's files.
 Test: `supabase/tests/storage-sweep.test.sql` (9 PASS). All 47 SQL suites pass.
 `schema-drift` adds one length hint (`is_privacy_handler`, which I rewrote on purpose).
+
+**Trash (2026-09-28):** files and folders now have Trash, separate from Archive. Archive
+hides a file inside its project for anyone who can read that archive. Trash belongs to
+whoever trashed it, shows on the new `/trash` page (the Account section of every rail,
+so every account always sees it), and is deleted for good after 30 days by the pg_cron
+job `collabify-trash-purge` (daily, 18:30 UTC). The storage sweep then takes the bytes.
+In scope: draft files and folders (My draft, work and class project Files) and work task
+files, which are everything Archive takes. "Move to trash" sits under Archive in the
+DraftPanel menus and in a task file's new menu in TaskDialog. `supabase/trash.sql`
+(after `storage-sweep.sql`, applied live) adds `trashed_at`/`trashed_by` (+ `trash_root`
+on draft files, so a folder comes back whole). A trashed row keeps `archived_at` set,
+so every live listing, count, submit and commit already skips it. The archive functions
+are redefined as supersets to leave trashed rows out, and `guard_trash_columns` clears
+the trash columns whenever a row goes live again (saving over a trashed path brings it
+back). RPCs: `trash_general_draft_path`, `trash_general_task_file`, `list_my_trash`,
+`restore_trashed_*`, `delete_trashed_*`, `empty_my_trash`, and `purge_trash`
+(service-only). Items in an archived or handed-in project show "Project locked" until
+it reopens. Test: `supabase/tests/trash.test.sql` (24 PASS). All 48 SQL suites and 528
+Vitest tests pass. Not done: the work reports still count a trashed task file as
+archived in their activity feed.
