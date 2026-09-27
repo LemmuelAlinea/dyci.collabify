@@ -4,7 +4,7 @@ import { Spinner } from '../../components/ui/Icon'
 import { LogoMark } from '../../components/brand/Logo'
 import { useAuth } from '../../context/AuthContext'
 import { forgetJoin, joinPath, pendingJoin } from '../../lib/pendingJoin'
-import { homeFor } from '../../lib/workplace'
+import { homeFor } from '../../lib/access'
 
 export default function AuthCallback() {
   const { ready, session, profile } = useAuth()

@@ -37,17 +37,29 @@ $$;
 
 do $$
 declare
-  v_prof uuid; v_class uuid; v_stud uuid; v_other uuid;
+  v_prof uuid; v_class uuid; v_stud uuid; v_other uuid := gen_random_uuid();
 begin
   select professor_id, id into v_prof, v_class
     from public.classes where archived_at is null limit 1;
   select student_id into v_stud from public.class_members
    where class_id = v_class and status = 'active' limit 1;
 
-  -- A professor of some other class, to prove the window is not what stops
-  -- them: they must see nothing here at any age.
-  select id into v_other from public.profiles
-   where role = 'professor' and id <> v_prof order by created_at limit 1;
+  -- A professor who teaches no part of this class, to prove the window is not
+  -- what stops them: they must see nothing here at any age.
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          raw_user_meta_data, created_at, updated_at)
+  values (
+    v_other,
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'zz-class-notice-other@example.test',
+    '',
+    jsonb_build_object('first_name', 'Zz', 'last_name', 'Other', 'role', 'professor'),
+    now(),
+    now()
+  );
+  update public.profiles set status = 'active' where id = v_other;
 
   insert into public.announcements (class_id, author_id, title, body, created_at)
   values

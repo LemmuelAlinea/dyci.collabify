@@ -12,8 +12,8 @@
 -- Widening it would hand every space member the email of every person in every
 -- project in the space.
 --
--- "Space", not "workplace": public.workplace is already the Education/General
--- enum and profiles.home_workplace is already which one you land in.
+-- "Space", not "workplace": the app now has one shell; spaces are work or
+-- education containers inside it.
 --
 -- Idempotent. Safe to re-run.
 

@@ -282,7 +282,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // guard_profile_insert derives this anyway; sending the right value
         // keeps the returned row honest on the first render.
         status: role === 'professor' ? 'pending' : 'active',
-        home_workplace: 'education',
         avatar_url:
           (session.user.user_metadata?.avatar_url as string | undefined) ?? null,
       }

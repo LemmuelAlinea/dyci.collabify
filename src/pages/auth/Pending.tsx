@@ -3,7 +3,7 @@ import { AuthLayout } from '../../components/AuthLayout'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
-import { homeFor } from '../../lib/workplace'
+import { homeFor } from '../../lib/access'
 
 export default function Pending() {
   const { ready, session, profile, signOut, refreshProfile } = useAuth()

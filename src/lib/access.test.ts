@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canTeach, isFaculty } from './access'
+import { canTeach, homeFor, isFaculty } from './access'
 
 const p = (
   role: 'student' | 'professor' | 'admin' | null,
@@ -28,5 +28,27 @@ describe('canTeach', () => {
     expect(canTeach(p('professor', 'active', false))).toBe(false)
     expect(canTeach(p('professor', 'pending', true))).toBe(false)
     expect(canTeach(p('student', 'active', true))).toBe(false)
+  })
+})
+
+describe('homeFor', () => {
+  it('sends somebody with no profile to onboarding', () => {
+    expect(homeFor(null)).toBe('/onboarding')
+  })
+
+  it('stops inactive accounts at the door', () => {
+    expect(homeFor(p('student', 'rejected'))).toBe('/pending')
+    expect(homeFor(p(null, 'rejected'))).toBe('/pending')
+    expect(homeFor(p('professor', 'pending'))).toBe('/pending')
+  })
+
+  it('parks an old account that never got a role', () => {
+    expect(homeFor(p(null, 'active'))).toBe('/pending')
+  })
+
+  it('lands any admitted account on the one dashboard', () => {
+    expect(homeFor(p('admin', 'active'))).toBe('/home')
+    expect(homeFor(p('student', 'active'))).toBe('/home')
+    expect(homeFor(p('professor', 'active'))).toBe('/home')
   })
 })

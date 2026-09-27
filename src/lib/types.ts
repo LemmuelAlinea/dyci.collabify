@@ -1,5 +1,4 @@
 import { localDay } from './termShift'
-import type { Workplace } from './workplace'
 
 export type Role = 'student' | 'professor' | 'admin'
 export type AccountStatus = 'active' | 'pending' | 'rejected'
@@ -25,8 +24,6 @@ export type Profile = {
   can_teach: boolean
   avatar_url: string | null
   theme: ThemeMode
-  /** Where sign-in lands. Both workplaces stay open either way. */
-  home_workplace: Workplace
   created_at: string
   updated_at: string
 }

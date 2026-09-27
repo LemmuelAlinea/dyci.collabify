@@ -12,7 +12,7 @@ import type { ConsentState } from '../../lib/legal'
 import { useAuth } from '../../context/AuthContext'
 import { authErrorMessage } from '../../lib/authError'
 import { joinPath, pendingJoin } from '../../lib/pendingJoin'
-import { homeFor } from '../../lib/workplace'
+import { homeFor } from '../../lib/access'
 import { paths } from '../../lib/paths'
 import type { Role } from '../../lib/types'
 

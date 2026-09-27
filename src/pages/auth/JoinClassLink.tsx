@@ -10,7 +10,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { forgetJoin, rememberJoin } from '../../lib/pendingJoin'
 import { paths } from '../../lib/paths'
 import type { JoinResult } from '../../lib/types'
-import { homeFor } from '../../lib/workplace'
+import { homeFor } from '../../lib/access'
 
 /**
  * /join/:code — a class invite link.

@@ -1,11 +1,6 @@
--- Collabify — two workplaces.
+-- Collabify — nullable Education role guards.
 --
 --   node scripts/db.mjs supabase/workplaces.sql
---
--- Everything that existed before this file is the Education workplace. The
--- General workplace is for projects anybody at the school runs, and needs no
--- student or professor role. One account uses both; `home_workplace` is only
--- where sign-in lands.
 --
 -- `role` becomes nullable: null means the account has not entered Education.
 -- Entering it later goes through `enter_education`, once, and a professor still
@@ -15,13 +10,6 @@
 -- and after admin-rename.sql, whose `guard_privileged_columns` it redefines.
 
 begin;
-
-do $$ begin
-  create type public.workplace as enum ('education', 'general');
-exception when duplicate_object then null; end $$;
-
-alter table public.profiles
-  add column if not exists home_workplace public.workplace not null default 'education';
 
 alter table public.profiles alter column role drop not null;
 alter table public.profiles alter column role drop default;
@@ -103,7 +91,6 @@ set search_path = public
 as $$
 declare
   meta_role text := nullif(new.raw_user_meta_data ->> 'role', '');
-  meta_workplace text := nullif(new.raw_user_meta_data ->> 'workplace', '');
   resolved_role public.user_role;
   doc text;
   ver text;
@@ -135,30 +122,6 @@ begin
     end if;
   end loop;
 
-  -- General needs no role, and nobody approves it.
-  if meta_workplace = 'general' then
-    insert into public.profiles
-      (id, email, first_name, middle_name, last_name, role, status, avatar_url, home_workplace)
-    values (
-      new.id,
-      coalesce(new.email, ''),
-      coalesce(new.raw_user_meta_data ->> 'first_name', ''),
-      nullif(new.raw_user_meta_data ->> 'middle_name', ''),
-      coalesce(new.raw_user_meta_data ->> 'last_name', ''),
-      null,
-      'active',
-      nullif(new.raw_user_meta_data ->> 'avatar_url', ''),
-      'general'
-    )
-    on conflict (id) do nothing;
-
-    insert into public.notification_prefs (user_id)
-    values (new.id)
-    on conflict (user_id) do nothing;
-
-    return new;
-  end if;
-
   if meta_role is null or meta_role not in ('student', 'professor') then
     return new;
   end if;
@@ -166,7 +129,7 @@ begin
   resolved_role := meta_role::public.user_role;
 
   insert into public.profiles
-    (id, email, first_name, middle_name, last_name, role, status, avatar_url, home_workplace)
+    (id, email, first_name, middle_name, last_name, role, status, avatar_url)
   values (
     new.id,
     coalesce(new.email, ''),
@@ -175,8 +138,7 @@ begin
     coalesce(new.raw_user_meta_data ->> 'last_name', ''),
     resolved_role,
     case when resolved_role = 'professor' then 'pending' else 'active' end::public.account_status,
-    nullif(new.raw_user_meta_data ->> 'avatar_url', ''),
-    'education'
+    nullif(new.raw_user_meta_data ->> 'avatar_url', '')
   )
   on conflict (id) do nothing;
 

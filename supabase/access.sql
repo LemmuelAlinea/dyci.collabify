@@ -211,7 +211,7 @@ begin
   resolved_role := meta_role::public.user_role;
 
   insert into public.profiles
-    (id, email, first_name, middle_name, last_name, role, status, avatar_url, home_workplace)
+    (id, email, first_name, middle_name, last_name, role, status, avatar_url)
   values (
     new.id,
     coalesce(new.email, ''),
@@ -220,8 +220,7 @@ begin
     coalesce(new.raw_user_meta_data ->> 'last_name', ''),
     resolved_role,
     case when resolved_role = 'professor' then 'pending' else 'active' end::public.account_status,
-    nullif(new.raw_user_meta_data ->> 'avatar_url', ''),
-    'education'
+    nullif(new.raw_user_meta_data ->> 'avatar_url', '')
   )
   on conflict (id) do nothing;
 
