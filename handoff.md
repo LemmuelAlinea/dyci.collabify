@@ -1423,3 +1423,34 @@ intentional leftovers: historical docs/plans still mention the old two-workplace
 **Browser walk:** owner confirmed 2026-09-27: Faculty signup copy/ pending state,
 admin approval + Can teach toggle, faculty class creation with Can teach, legacy
 `/professor/submissions` redirect, and student join copy all work.
+
+## Session — 2026-09-27: phase 4 SQL apply and fixes
+
+**Applied SQL to live DB.** Files applied in order: `schema.sql`, `consent.sql`,
+`approvals.sql`, `accounts.sql`, `admin-rename.sql`, `workplaces.sql`, `access.sql`,
+`one-workplace.sql`, `cleanup.sql`, `anon-lockdown.sql`. Worked around view-column
+conflicts in `messages.sql` and `general-spaces.sql` by extracting only the changed
+function bodies (`start_direct_message`) into a temp file.
+
+**Bugs found and fixed during apply:**
+1. Applying `schema.sql` overwrote `profiles_select_own` policy, removing the
+   `shares_class_with(id)` check that `classes.sql` adds. This broke four test suites
+   (`insight`, `reassignments`, `reports`, `student-reports`) because professors could
+   not see student profiles through security-invoker views. Fixed by re-applying the
+   policy from `classes.sql`.
+2. Applying `audit.sql` (to fix a pre-existing `prefs_select_own` drift) overwrote
+   `log_profile_change` from `access.sql`, losing the `can_teach` audit tracking.
+   Fixed by re-applying `access.sql`.
+3. Messages.tsx admin moderation bug (already committed as `ad294cb`): Codex dropped
+   `|| profile?.role === 'admin'` from `canModerateHere`.
+
+**Lesson:** when applying SQL files individually, respect the file order in
+`schema-drift.mjs`. Later files redefine objects from earlier ones; applying them
+out of order (e.g. `audit.sql` after `access.sql`) overwrites the authoritative
+definition. The safe order for manual applies: follow the ORDER array, and always
+finish with `anon-lockdown.sql`.
+
+**Checks:** `npm run build` passes; 41/41 SQL test suites pass clean.
+
+**Next:** browser walk for phases 3a+3b (needs user sign-in); the open owner question
+about admin "New message" in Messages.
