@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { FileDrop } from '../../ui/FileDrop'
 import { Icon, Spinner } from '../../ui/Icon'
 import { useToast } from '../../ui/Toast'
 import { FilePreview } from './FilePreview'
+import { ProjectFilePicker } from '../../general/ProjectFilePicker'
+import { ensureClassBoardRepo } from '../../../lib/api/tasks'
+import { attachFromRepo, attachSummary, repoTree } from '../../../lib/general/attachFromRepo'
 import { deleteTaskFile, uploadTaskFile } from '../../../lib/api/taskDetail'
 import { authErrorMessage } from '../../../lib/authError'
 import { canChangeFiles } from '../../../lib/types'
@@ -33,6 +36,12 @@ export function TaskFileGrid({
 
   const open = canChangeFiles(task, locked)
   const canAttach = isAssignee && open
+  // The group's Files, opened (and set up the first time) only when asked for.
+  const boardId = task.board_id
+  const loadRepoTree = useCallback(
+    async () => repoTree(await ensureClassBoardRepo(boardId)),
+    [boardId],
+  )
 
   return (
     <section className="surface overflow-hidden rounded-card border border-line">
@@ -98,6 +107,25 @@ export function TaskFileGrid({
                 await onChanged()
               } catch (err) {
                 show(authErrorMessage(err, 'Could not attach that file.'), 'error')
+              } finally {
+                setBusy(false)
+              }
+            }}
+          />
+          <ProjectFilePicker
+            loadTree={loadRepoTree}
+            onPick={async (picked, fromFolder) => {
+              setBusy(true)
+              try {
+                const result = await attachFromRepo(
+                  picked,
+                  fromFolder,
+                  (file) => uploadTaskFile(task.id, file),
+                  20 * 1024 * 1024,
+                )
+                const summary = attachSummary(result)
+                show(summary.message, summary.tone)
+                await onChanged()
               } finally {
                 setBusy(false)
               }

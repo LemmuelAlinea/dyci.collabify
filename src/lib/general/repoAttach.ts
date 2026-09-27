@@ -14,8 +14,9 @@ function replaceExtension(name: string, extension: string) {
  * as it was. Attaching it to a task keeps that copy, so the task shows what
  * the file said when it was attached even after Main moves on.
  */
-export async function repoFileAsUpload(file: GeneralTreeFile): Promise<File> {
-  const name = fileName(file.path)
+export async function repoFileAsUpload(file: GeneralTreeFile, keepPath = false): Promise<File> {
+  // Picked through a folder, a file keeps where it came from: docs/report.docx.
+  const name = keepPath ? file.path : fileName(file.path)
   if (file.kind === 'binary') {
     if (!file.storage_path) throw new Error('That file has nothing stored behind it.')
     const blob = await projectFileBlob(file.storage_path)

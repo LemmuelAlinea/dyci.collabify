@@ -17,6 +17,7 @@ import {
   deleteLog,
   deleteTask,
   deleteTaskFile,
+  GENERAL_FILE_LIMIT,
   generalFileUrl,
   listComments,
   listFiles,
@@ -31,7 +32,7 @@ import { formatDue, fromLocalInput, isOverdue, toLocalInput } from '../../lib/ge
 import { describeEvent } from '../../lib/general/history'
 import { TASK_STATUSES, taskShare } from '../../lib/general/progress'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
-import { repoFileAsUpload } from '../../lib/general/repoAttach'
+import { attachFromRepo, attachSummary, repoTree } from '../../lib/general/attachFromRepo'
 import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
@@ -73,6 +74,9 @@ function TaskBody({
 }) {
   const { show } = useToast()
   const task = state.tasks.find((t) => t.id === taskId)
+  // A task's project is the one on screen, so its Files are the project's.
+  const projectId = state.project?.id
+  const loadRepoTree = useCallback(async () => (projectId ? repoTree(projectId) : []), [projectId])
   const [comments, setComments] = useState<GeneralComment[]>([])
   const [files, setFiles] = useState<GeneralFile[]>([])
   const [logs, setLogs] = useState<GeneralLog[]>([])
@@ -287,12 +291,21 @@ function TaskBody({
                 }
               />
               <ProjectFilePicker
-                projectId={task.project_id}
-                onPick={(file) =>
+                loadTree={loadRepoTree}
+                onPick={(picked, fromFolder) =>
                   act(
-                    async () => uploadTaskFile(task.project_id, task.id, await repoFileAsUpload(file)),
-                    'File added',
-                    'Could not attach that file. Try again.',
+                    async () => {
+                      const result = await attachFromRepo(
+                        picked,
+                        fromFolder,
+                        (file) => uploadTaskFile(task.project_id, task.id, file),
+                        GENERAL_FILE_LIMIT,
+                      )
+                      const summary = attachSummary(result)
+                      show(summary.message, summary.tone)
+                    },
+                    '',
+                    'Could not attach those files. Try again.',
                   )
                 }
               />
