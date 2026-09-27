@@ -121,7 +121,7 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
           <Icon name="menu" size={20} />
         </button>
 
-        <div className="translate-y-2">
+        <div>
           <WorkspaceSearch />
         </div>
 
