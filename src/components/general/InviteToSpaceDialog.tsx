@@ -34,7 +34,7 @@ export function InviteToSpaceDialog({
   useEffect(() => {
     if (!open) return
     const q = query.trim()
-    if (q.length < 2) return setHits([])
+    if (q.length < 3) return setHits([])
     // Debounced: a search on every keystroke is a request per keystroke.
     const t = setTimeout(() => {
       void search(q)
@@ -97,7 +97,7 @@ export function InviteToSpaceDialog({
               </Button>
             </li>
           ))}
-          {query.trim().length >= 2 && hits.length === 0 && (
+          {query.trim().length >= 3 && hits.length === 0 && (
             <li className="px-1 py-2 text-[13px] text-muted">Nobody by that name.</li>
           )}
         </ul>
