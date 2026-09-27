@@ -14,6 +14,7 @@ import { Select } from '../../../components/ui/Select'
 import { ScopeFilter } from '../../../components/ui/ScopeFilter'
 import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
+import { showsClassScope } from '../../../lib/access'
 import { useGeneralDashboard } from '../../../hooks/useGeneralDashboard'
 import { listCalendar, listWeekBands } from '../../../lib/api/calendar'
 import { authErrorMessage } from '../../../lib/authError'
@@ -53,13 +54,17 @@ export default function Calendar() {
 
   const role = profile?.role
   const openTask = params.get('task')
-  const scope = readScope(params)
+  // Someone in no class reads a work calendar: no filter, and a stale
+  // `?show=classes` cannot empty it.
+  const { spaces } = useGeneralNavigation()
+  const classScope = showsClassScope(profile, spaces)
+  const scope = classScope ? readScope(params) : 'work'
 
   const load = useCallback(async () => {
     if (!role) return
-    // Admins have no classes, so the class calendar is always empty for them —
-    // but they still get their work dates below, so the page is not gated.
-    if (role === 'admin') {
+    // Nobody outside a class has class dates — admins never, faculty until
+    // one invites them — but their work dates below still fill the page.
+    if (!classScope) {
       setEvents([])
       setWeeks([])
       setError(null)
@@ -74,7 +79,7 @@ export default function Calendar() {
       setError(authErrorMessage(err, 'Could not load the calendar.'))
       setEvents([])
     }
-  }, [role])
+  }, [role, classScope])
 
   useEffect(() => {
     document.title = 'Calendar · Collabify'
@@ -193,7 +198,7 @@ export default function Calendar() {
         title="Plan the"
         accent="term."
         description={
-          role === 'faculty'
+          role === 'faculty' && classScope
             ? 'Deadlines and releases across your classes, mapped against the syllabus weeks they belong to.'
             : role === 'student'
               ? 'See every deadline across your classes and the syllabus week behind each one.'
@@ -237,15 +242,17 @@ export default function Calendar() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <ScopeFilter
-              value={scope}
-              onChange={(next) => setParams(writeScope(params, next), { replace: true })}
-              counts={{
-                all: (events?.length ?? 0) + workEvents.length,
-                classes: events?.length ?? 0,
-                work: workEvents.length,
-              }}
-            />
+            {classScope && (
+              <ScopeFilter
+                value={scope}
+                onChange={(next) => setParams(writeScope(params, next), { replace: true })}
+                counts={{
+                  all: (events?.length ?? 0) + workEvents.length,
+                  classes: events?.length ?? 0,
+                  work: workEvents.length,
+                }}
+              />
+            )}
 
             {scope !== 'work' && (
               <FilterPopover

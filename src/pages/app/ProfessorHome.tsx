@@ -39,16 +39,29 @@ function greeting() {
  * **Stalled groups** second: they are a person's problem rather than a
  * setting's, and they get worse quietly. Progress across the classes is last,
  * because it is a reading rather than a task.
+ *
+ * Faculty the admin has not let teach get only the greeting: their home is
+ * work, which `WorkOverview` stacks underneath, even when a class has invited
+ * them in — that class is on their Spaces page.
  */
 export default function ProfessorHome() {
   const { profile } = useAuth()
-  const { data, error, reload } = useProfessorDashboard(profile?.id)
+  const teaching = canTeach(profile)
+  const { data, error, reload } = useProfessorDashboard(teaching ? profile?.id : undefined)
 
   useEffect(() => {
     document.title = 'Dashboard · Collabify'
   }, [])
 
   if (!profile) return null
+
+  if (!teaching) {
+    return (
+      <h1 className="leading-tight">
+        {greeting()}, {profile.first_name}.
+      </h1>
+    )
+  }
 
   const live = (data?.projects ?? []).filter((p) => !p.archived_at && !p.scheduled)
   const classes = data?.classes ?? []
@@ -103,19 +116,11 @@ export default function ProfessorHome() {
               icon="folder"
               art="classes"
               title="No classes yet"
-              // Only faculty who teach can open a class; the rest join one when
-              // its Owner invites them, so offering the button would dead-end.
-              body={
-                canTeach(profile)
-                  ? 'Create a class and share its code with your section. Groups, projects, and everything on this page follow from it.'
-                  : "A class's Owner can invite you to teach it with them. Until then, your projects and spaces are below."
-              }
+              body="Create a class and share its code with your section. Groups, projects, and everything on this page follow from it."
               action={
-                canTeach(profile) ? (
-                  <ButtonLink to={paths.classes} className="!rounded-xl">
-                    Create a class
-                  </ButtonLink>
-                ) : undefined
+                <ButtonLink to={paths.classes} className="!rounded-xl">
+                  Create a class
+                </ButtonLink>
               }
             />
           </div>

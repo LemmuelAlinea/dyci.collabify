@@ -14,7 +14,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
-import { isFaculty } from '../../lib/access'
+import { canTeach, isFaculty } from '../../lib/access'
 import { respondToInvitation } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { comingUp, myTasks, recentProjects } from '../../lib/general/dashboard'
@@ -38,7 +38,6 @@ import { paths } from '../../lib/paths'
 export function WorkOverview() {
   const { profile } = useAuth()
   const faculty = isFaculty(profile)
-  const isAdmin = profile?.role === 'admin'
   const { show } = useToast()
   const { myProjects, spaces, error, reload } = useGeneralNavigation()
   const unread = useUnreadTotal(profile?.id, 'general')
@@ -92,7 +91,7 @@ export function WorkOverview() {
     <div className="mt-10">
       <div className="border-b border-line pb-4">
         <p className="text-[12px] font-medium text-faint">
-          {isAdmin ? 'Projects and spaces' : 'Beyond your classes'}
+          {profile?.role === 'student' || canTeach(profile) ? 'Beyond your classes' : 'Spaces and projects'}
         </p>
         <h2 className="mt-1">Your work</h2>
       </div>

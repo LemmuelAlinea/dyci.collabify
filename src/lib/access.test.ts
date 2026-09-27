@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canTeach, homeFor, isFaculty } from './access'
+import { canTeach, homeFor, inAnyClass, isFaculty, showsClassScope } from './access'
 
 const p = (
   role: 'student' | 'faculty' | 'admin' | null,
@@ -51,5 +51,34 @@ describe('homeFor', () => {
     expect(homeFor(p('admin', 'active'))).toBe('/home')
     expect(homeFor(p('student', 'active'))).toBe('/home')
     expect(homeFor(p('faculty', 'active'))).toBe('/home')
+  })
+})
+
+const classSpace = { kind: 'education' as const, my_level: 'manager' as const }
+const workSpace = { kind: 'work' as const, my_level: 'owner' as const }
+
+describe('inAnyClass', () => {
+  it('is true only for a class space the account is in', () => {
+    expect(inAnyClass([workSpace, classSpace])).toBe(true)
+    expect(inAnyClass([workSpace])).toBe(false)
+    expect(inAnyClass([{ ...classSpace, my_level: null }])).toBe(false)
+    expect(inAnyClass(null)).toBe(false)
+  })
+})
+
+describe('showsClassScope', () => {
+  it('always offers it to students', () => {
+    expect(showsClassScope(p('student', 'active'), [])).toBe(true)
+  })
+
+  it('offers it to faculty only once they are in a class, teaching or not', () => {
+    expect(showsClassScope(p('faculty', 'active', true), [workSpace])).toBe(false)
+    expect(showsClassScope(p('faculty', 'active', true), [classSpace])).toBe(true)
+    expect(showsClassScope(p('faculty', 'active'), [classSpace])).toBe(true)
+    expect(showsClassScope(p('faculty', 'active'), null)).toBe(false)
+  })
+
+  it('never offers it to admins', () => {
+    expect(showsClassScope(p('admin', 'active'), [classSpace])).toBe(false)
   })
 })

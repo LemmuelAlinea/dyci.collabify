@@ -12,7 +12,7 @@ import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { rememberSpace } from '../../hooks/useSpaces'
-import { canTeach, isFaculty } from '../../lib/access'
+import { canTeach, inAnyClass, isFaculty } from '../../lib/access'
 import { respondToSpaceInvitation } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
 import { levelLabel } from '../../lib/general/permissions'
@@ -74,10 +74,7 @@ export default function SpacePicker() {
 
   // Whether this page sorts into Classes and Spaces at all. Judged on every
   // class, archived or not, so the filter does not come and go between tabs.
-  const split =
-    profile?.role === 'faculty' &&
-    !canTeach(profile) &&
-    classSpaces.length + archivedClassSpaces.length > 0
+  const split = profile?.role === 'faculty' && !canTeach(profile) && inAnyClass(spaces)
   const requested = params.get('show')
   const filter: Show = split && (requested === 'classes' || requested === 'spaces') ? requested : 'all'
 

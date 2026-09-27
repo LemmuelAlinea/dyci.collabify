@@ -113,7 +113,9 @@ export default function MyTasks() {
   const [error, setError] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
   const openTask = params.get('task')
-  const scope = readScope(params)
+  // Only students are ever given class tasks, so everyone else reads work
+  // alone, with no filter — and a stale `?show=classes` cannot empty it.
+  const scope = isStudent ? readScope(params) : 'work'
 
   // Class boards only ever assign work to students — a professor or admin
   // reading this page has none, so their load is a no-op rather than a
@@ -244,8 +246,13 @@ export default function MyTasks() {
         stats={[
           { label: 'Still open', value: !loaded ? '—' : stillOpen },
           { label: 'Past due', value: !loaded ? '—' : pastDue },
-          { label: 'Finished', value: !loaded ? '—' : classDoneCount },
-          { label: 'Time logged', value: !loaded ? '—' : formatMinutes(loggedTotal) },
+          // Both count class tasks only, so they are a student's figures.
+          ...(isStudent
+            ? [
+                { label: 'Finished', value: !loaded ? '—' : classDoneCount },
+                { label: 'Time logged', value: !loaded ? '—' : formatMinutes(loggedTotal) },
+              ]
+            : []),
         ]}
         statsVariant="compact-row"
       />
@@ -257,21 +264,23 @@ export default function MyTasks() {
           </Alert>
         )}
 
-        <div className="flex justify-end">
-          <ScopeFilter
-            value={scope}
-            onChange={(next) => setParams(writeScope(params, next), { replace: true })}
-            counts={
-              loaded
-                ? {
-                    all: (classTasks?.length ?? 0) + workTasks.length,
-                    classes: classTasks?.length ?? 0,
-                    work: workTasks.length,
-                  }
-                : undefined
-            }
-          />
-        </div>
+        {isStudent && (
+          <div className="flex justify-end">
+            <ScopeFilter
+              value={scope}
+              onChange={(next) => setParams(writeScope(params, next), { replace: true })}
+              counts={
+                loaded
+                  ? {
+                      all: (classTasks?.length ?? 0) + workTasks.length,
+                      classes: classTasks?.length ?? 0,
+                      work: workTasks.length,
+                    }
+                  : undefined
+              }
+            />
+          </div>
+        )}
 
         {!loaded ? (
           <div className="flex items-center gap-3 py-10 text-[14px] text-muted">

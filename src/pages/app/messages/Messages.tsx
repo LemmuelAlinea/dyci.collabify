@@ -10,9 +10,10 @@ import { MessageThread } from '../../../components/messages/MessageThread'
 import { NewDirectDialog } from '../../../components/messages/NewDirectDialog'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
+import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useConversations } from '../../../hooks/useConversations'
 import { useLive } from '../../../hooks/useLive'
-import { canTeach } from '../../../lib/access'
+import { canTeach, showsClassScope } from '../../../lib/access'
 import { listMyInvitations, respondToInvitation } from '../../../lib/api/general'
 import { authErrorMessage } from '../../../lib/authError'
 import { paths } from '../../../lib/paths'
@@ -28,7 +29,11 @@ export default function Messages() {
   const navigate = useNavigate()
   const location = useLocation()
   const [params, setParams] = useSearchParams()
-  const scope = readScope(params)
+  // Outside every class there is nothing to split, so show every
+  // conversation — a direct chat somebody else started included.
+  const { spaces } = useGeneralNavigation()
+  const classScope = showsClassScope(profile, spaces)
+  const scope = classScope ? readScope(params) : 'all'
   const { conversations, error, reload } = useConversations(profile?.id, 'all')
   const [newOpen, setNewOpen] = useState(false)
   const [invitations, setInvitations] = useState<MyInvitation[]>([])
@@ -172,15 +177,17 @@ export default function Messages() {
         </section>
       )}
 
-      <div className="flex justify-end">
-        <ScopeFilter
-          value={scope}
-          onChange={(next) => setParams(writeScope(params, next), { replace: true })}
-          counts={
-            conversations ? { all: conversations.length, classes: classesCount, work: workCount } : undefined
-          }
-        />
-      </div>
+      {classScope && (
+        <div className="flex justify-end">
+          <ScopeFilter
+            value={scope}
+            onChange={(next) => setParams(writeScope(params, next), { replace: true })}
+            counts={
+              conversations ? { all: conversations.length, classes: classesCount, work: workCount } : undefined
+            }
+          />
+        </div>
+      )}
 
       <div className="surface flex h-[clamp(480px,calc(100dvh-458px),760px)] min-h-0 overflow-hidden rounded-panel border border-line">
         <aside
