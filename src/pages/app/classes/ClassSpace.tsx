@@ -159,27 +159,29 @@ function ClassSpaceView({ classId }: { classId: string }) {
 
   return (
     <div className="w-full">
-      <ClassHeader
-        cls={cls}
-        backTo={paths.classes}
-        canManage={teaching}
-        onToggleJoin={
-          teaching
-            ? async (open) => {
-                try {
-                  await updateClass(classId, { join_open: open })
-                  setCls({ ...cls, join_open: open })
-                  show(open ? 'Students can join again' : 'Joining closed')
-                } catch (err) {
-                  show(authErrorMessage(err, 'Could not change that.'), 'error')
+      <div className="print:hidden">
+        <ClassHeader
+          cls={cls}
+          backTo={paths.classes}
+          canManage={teaching}
+          onToggleJoin={
+            teaching
+              ? async (open) => {
+                  try {
+                    await updateClass(classId, { join_open: open })
+                    setCls({ ...cls, join_open: open })
+                    show(open ? 'Students can join again' : 'Joining closed')
+                  } catch (err) {
+                    show(authErrorMessage(err, 'Could not change that.'), 'error')
+                  }
                 }
-              }
-            : undefined
-        }
-      />
+              : undefined
+          }
+        />
 
-      <div className="mt-6">
-        <Tabs<ClassTab> tabs={tabs} active={tab} onChange={setTab} variant="panel" />
+        <div className="mt-6">
+          <Tabs<ClassTab> tabs={tabs} active={tab} onChange={setTab} variant="panel" />
+        </div>
       </div>
 
       <div className="mx-auto mt-6 w-full max-w-[1280px]">
