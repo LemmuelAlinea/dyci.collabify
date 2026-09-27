@@ -667,6 +667,11 @@ begin
   perform pg_temp.must_refuse('faculty cannot be set to Member in a class space', format(
     'select public.set_general_space_level(%L, %L, %L)', v_space, v_staff, 'member'));
 
+  perform pg_temp.act_as(v_cot);
+  perform pg_temp.must_refuse('a Manager cannot remove another co-teacher', format(
+    'select public.remove_general_space_member(%L, %L)', v_space, v_staff));
+
+  perform pg_temp.act_as(v_teacher);
   perform public.remove_general_space_member(v_space, v_staff);
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('removing a co-teacher takes them out of the class chat',
@@ -676,11 +681,17 @@ begin
     exists (select 1 from public.conversation_members
              where conversation_id = v_convo and user_id = v_s1));
 
+  perform pg_temp.act_as(v_cot);
+  perform pg_temp.must_refuse('a Manager cannot invite faculty into a class', format(
+    'select public.invite_to_general_space(%L, %L)', v_space, v_staff));
+
   perform pg_temp.act_as(v_teacher);
   perform pg_temp.must_be('faculty search finds faculty',
     exists (select 1 from public.search_faculty('Zz C') where person_id = v_cot));
+  perform pg_temp.must_be('faculty search finds any matching faculty',
+    exists (select 1 from public.search_faculty('Zz S') where person_id = v_staff));
   perform pg_temp.must_be('...and never a student',
-    not exists (select 1 from public.search_faculty('Zz C') where person_id = v_s1));
+    not exists (select 1 from public.search_faculty('Zz S') where person_id = v_s1));
   perform pg_temp.act_as(v_s1);
   perform pg_temp.must_refuse('a student cannot search faculty',
     $q$select * from public.search_faculty('Zz')$q$);

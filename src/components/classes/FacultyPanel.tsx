@@ -48,17 +48,16 @@ export function FacultyPanel({ cls }: { cls: ClassSummary }) {
   const myId = profile?.id
   const myLevel = people?.find((p) => p.user_id === myId)?.level ?? null
   const archived = Boolean(cls.archived_at)
-  const canInvite = !archived && (myLevel === 'owner' || myLevel === 'manager')
-  const canSetLevels = !archived && myLevel === 'owner'
+  const isOwner = myLevel === 'owner'
+  const canInvite = !archived && isOwner
+  const canSetLevels = !archived && isOwner
 
   const load = useCallback(async () => {
     try {
       const everyone = await listSpaceMembers(cls.space_id)
       setPeople(everyone.filter((p) => !p.is_student))
       const mine = everyone.find((p) => p.user_id === myId)?.level
-      setInvites(
-        mine === 'owner' || mine === 'manager' ? await listSpaceInvitations(cls.space_id) : [],
-      )
+      setInvites(mine === 'owner' ? await listSpaceInvitations(cls.space_id) : [])
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load the faculty.'))
@@ -93,10 +92,7 @@ export function FacultyPanel({ cls }: { cls: ClassSummary }) {
   }
 
   const canRemove = (p: SpacePerson) =>
-    canInvite &&
-    p.user_id !== myId &&
-    p.user_id !== cls.professor_id &&
-    (p.level !== 'owner' || myLevel === 'owner')
+    !archived && isOwner && p.user_id !== myId && p.user_id !== cls.professor_id
 
   return (
     <section className="overflow-hidden rounded-panel border border-line">

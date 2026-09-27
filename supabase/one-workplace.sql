@@ -393,7 +393,9 @@ create trigger general_spaces_kind before insert or update or delete on public.g
  * The class's professor stays its Owner until the admin hands the class over.
  * Other faculty come and go the General way, but always as Owner or Manager:
  * faculty in a class teach it (co-teachers and advisers alike), so an accepted
- * invitation seats them at Manager and nobody can set them to Member.
+ * invitation seats them at Manager and nobody can set them to Member. Only the
+ * class's Owner invites faculty or removes another co-teacher; leaving stays
+ * allowed for anyone.
  */
 create or replace function public.guard_class_space_member()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -429,6 +431,9 @@ begin
     raise exception 'Faculty in a class are Owner or Manager. Remove them instead.'
       using errcode = 'check_violation';
   end if;
+  if tg_op = 'DELETE' and old.user_id <> auth.uid() and not public.is_general_space_owner(sid) then
+    raise exception 'Only the class''s Owner removes faculty.' using errcode = 'insufficient_privilege';
+  end if;
 
   return case when tg_op = 'DELETE' then old else new end;
 end;
@@ -452,6 +457,9 @@ begin
     if public.is_student(new.invitee) then
       raise exception 'Students join a class with its class code.'
         using errcode = 'check_violation';
+    end if;
+    if not public.is_general_space_owner(new.space_id) then
+      raise exception 'Only the class''s Owner invites faculty.' using errcode = 'insufficient_privilege';
     end if;
   elsif tg_table_name = 'general_space_join_codes' then
     raise exception 'A class uses its class code. Share that instead.'
