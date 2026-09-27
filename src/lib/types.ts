@@ -37,6 +37,8 @@ export type NotificationPrefs = {
   comments_mentions: boolean
   progress_digest: boolean
   announcements: boolean
+  submissions: boolean
+  project_updates: boolean
 }
 
 export type NotificationKey = Exclude<keyof NotificationPrefs, 'user_id'>
@@ -172,6 +174,14 @@ export type AppNotification = {
     | 'general_task_assigned'
     | 'general_comment_posted'
     | 'general_deadline_soon'
+    | 'privacy_request'
+    | 'space_invited'
+    | 'invite_accepted'
+    | 'board_submitted'
+    | 'review_requested'
+    | 'review_answered'
+    | 'project_updated'
+    | 'membership_changed'
   class_id: string | null
   announcement_id: string | null
   project_id: string | null
@@ -179,6 +189,7 @@ export type AppNotification = {
   group_id: string | null
   general_project_id: string | null
   general_task_id: string | null
+  general_space_id: string | null
   title: string
   preview: string | null
   read_at: string | null

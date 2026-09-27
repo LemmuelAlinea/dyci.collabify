@@ -10,52 +10,103 @@ import { Icon } from '../components/ui/Icon'
 import type { IconName } from '../components/ui/Icon'
 import { Spinner } from '../components/ui/Icon'
 import { useAuth } from '../context/AuthContext'
+import { useGeneralNavigation } from '../context/generalNavigation'
 import { AVATAR_ACCEPT, avatarExtension, avatarProblem } from '../lib/limits'
 import { useThemePreference } from '../hooks/useThemePreference'
+import { canTeach, membershipOf } from '../lib/access'
 import { authErrorMessage } from '../lib/authError'
 import { supabase } from '../lib/supabase'
 import { ROLE_LABEL } from '../lib/types'
-import type { NotificationKey, NotificationPrefs, ThemeMode } from '../lib/types'
+import type { NotificationKey, NotificationPrefs, Role, ThemeMode } from '../lib/types'
 
 /**
- * Each of these controls something real, and the wording says which.
- *
- * They did not always. Three of the six were wired to nothing at all and a
- * fourth was reading the wrong switch, so "Deadline reminders" was a control
- * that changed no behaviour in either position. `supabase/notifications.sql`
- * put a trigger or a scheduled job behind each one; the copy here is what it
- * actually does now, not what it sounded like it should.
+ * Each switch controls something real, and each person sees only the ones that
+ * can reach them. supabase/notifications.sql and notification-coverage.sql are
+ * the map; the copy here is what each switch actually does for this reader.
  */
-const NOTIFICATIONS: { key: NotificationKey; label: string; body: string }[] = [
+type Reader = {
+  role: Role | null
+  teaching: boolean
+  inClass: boolean
+  hasWork: boolean
+}
+
+type NotificationRow = {
+  key: NotificationKey
+  label: (r: Reader) => string
+  body: (r: Reader) => string
+  shown: (r: Reader) => boolean
+}
+
+const isStudent = (r: Reader) => r.role === 'student'
+/** An admin in nothing gets program notices and nothing else. */
+const inSomething = (r: Reader) => r.role !== 'admin' || r.inClass || r.hasWork
+
+const NOTIFICATIONS: NotificationRow[] = [
+  {
+    key: 'submissions',
+    label: (r) => (r.teaching ? 'Hand-ins and reviews' : 'Reviews'),
+    body: (r) =>
+      r.teaching
+        ? 'When a group or student hands work in to your class, or a change in a work project waits for your review.'
+        : 'When a change in a work project waits for your review.',
+    shown: (r) => (isStudent(r) ? r.hasWork : inSomething(r)),
+  },
   {
     key: 'task_assignments',
-    label: 'Task assignments',
-    body: 'When a class or work task is assigned to you.',
+    label: () => 'Task assignments',
+    body: (r) =>
+      isStudent(r)
+        ? r.hasWork
+          ? 'When a class or work task is assigned to you.'
+          : 'When a class task is assigned to you.'
+        : 'When a work task is assigned to you.',
+    shown: inSomething,
   },
   {
     key: 'deadline_reminders',
-    label: 'Deadline reminders',
-    body: 'One nudge before a task you hold is due. Never twice for the same task.',
+    label: () => 'Deadline reminders',
+    body: () => 'One nudge the day before a task you hold is due. Never twice for the same task.',
+    shown: inSomething,
   },
   {
     key: 'comments_mentions',
-    label: 'Comments and mentions',
-    body: 'When somebody writes on a task you hold, or one you have joined by commenting.',
+    label: () => 'Comments',
+    body: () => 'When somebody writes on a task you hold, or one you have commented on.',
+    shown: inSomething,
   },
   {
     key: 'project_invites',
-    label: 'Project invitations and access',
-    body: 'When you are invited to a project, placed in a group, or given project access.',
+    label: (r) => (isStudent(r) ? 'New projects and groups' : 'Accepted invitations'),
+    body: (r) =>
+      isStudent(r)
+        ? 'When a class project opens to you, you are placed in a group, or somebody accepts an invitation you sent.'
+        : 'When somebody accepts an invitation you sent to a space, class or project.',
+    shown: inSomething,
+  },
+  {
+    key: 'project_updates',
+    label: () => 'Project changes',
+    body: (r) =>
+      isStudent(r)
+        ? "When a class project's due date moves or it closes, a work project you are on is archived or restored, or your role in a space or project changes."
+        : 'When a work project you are on is archived or restored, or your role in a space or project changes.',
+    shown: inSomething,
   },
   {
     key: 'progress_digest',
-    label: 'Weekly progress digest',
-    body: 'Monday morning: what you finished last week, what is due next, and anything past its date.',
+    label: () => 'Weekly digest',
+    body: () => 'Monday morning: what you finished last week, what is due next, and anything past its date.',
+    shown: isStudent,
   },
   {
     key: 'announcements',
-    label: 'Announcements and notices',
-    body: 'Class announcements, program notices, and account-wide updates that need your attention.',
+    label: () => 'Announcements',
+    body: (r) =>
+      isStudent(r) || r.teaching || r.inClass
+        ? 'Class announcements and program notices.'
+        : 'Program notices.',
+    shown: () => true,
   },
 ]
 
@@ -110,6 +161,8 @@ function Saved({ show, text = 'Saved' }: { show: boolean; text?: string }) {
 export default function Settings() {
   const { profile, updateProfile, loadNotificationPrefs, updateNotificationPrefs, sendPasswordReset, signOut } =
     useAuth()
+  const navigation = useGeneralNavigation()
+  const membership = membershipOf(navigation.spaces, navigation.myProjects)
   const { mode, choose } = useThemePreference()
 
   useEffect(() => {
@@ -264,9 +317,14 @@ export default function Settings() {
 
   if (!profile) return null
 
-  const enabledNotifications = prefs
-    ? NOTIFICATIONS.filter((notification) => prefs[notification.key]).length
-    : '—'
+  const reader: Reader = {
+    role: profile.role,
+    teaching: canTeach(profile),
+    inClass: membership?.inClass ?? false,
+    hasWork: membership?.hasWork ?? false,
+  }
+  const rows = NOTIFICATIONS.filter((n) => n.shown(reader))
+  const enabledNotifications = prefs ? rows.filter((n) => prefs[n.key]).length : '—'
   const themeLabel = APPEARANCE.find((appearance) => appearance.mode === mode)?.label ?? 'System'
 
   return (
@@ -278,7 +336,7 @@ export default function Settings() {
         stats={[
           { value: profile.role ? ROLE_LABEL[profile.role] : 'Account', label: 'Signed in as' },
           { value: themeLabel, label: 'Appearance' },
-          { value: enabledNotifications, label: 'Email notifications on' },
+          { value: enabledNotifications, label: 'Notifications on' },
         ]}
       />
 
@@ -439,7 +497,7 @@ export default function Settings() {
             id="notifications"
             icon="bell"
             title="Notifications"
-            description="Pick what reaches your inbox. Changes save as you flip them."
+            description="Choose what shows up under the bell. Changes save as you flip them."
           >
           {prefsError && (
             <div className="mb-4">
@@ -453,28 +511,30 @@ export default function Settings() {
             </div>
           ) : (
             <ul className="divide-y divide-[var(--line)]">
-              {NOTIFICATIONS.map((n) => (
+              {rows.map((n) => (
                 <li key={n.key} className="flex items-start justify-between gap-5 py-4 first:pt-0">
                   <div className="min-w-0">
-                    <p className="text-[14px] font-medium text-ink">{n.label}</p>
-                    <p className="mt-0.5 text-[13px] leading-relaxed text-muted">{n.body}</p>
+                    <p className="text-[14px] font-medium text-ink">{n.label(reader)}</p>
+                    <p className="mt-0.5 text-[13px] leading-relaxed text-muted">{n.body(reader)}</p>
                   </div>
                   <Toggle
-                    label={n.label}
+                    label={n.label(reader)}
                     checked={Boolean(prefs[n.key])}
                     onChange={(next) => togglePref(n.key, next)}
                   />
                 </li>
               ))}
+              {/* Anything somebody must act on, or asked for, arrives regardless. */}
               <li className="flex items-start justify-between gap-5 py-4">
                 <div className="min-w-0">
-                  <p className="text-[14px] font-medium text-ink">Security alerts</p>
+                  <p className="text-[14px] font-medium text-ink">Always on</p>
                   <p className="mt-0.5 text-[13px] leading-relaxed text-muted">
-                    Password changes and new sign-ins. Always on, so a stolen account cannot
-                    hide itself.
+                    {isStudent(reader)
+                      ? 'Invitations to a space or project, answers to reassignment and access requests, and results for work you handed in. You need these to act, so they cannot be turned off.'
+                      : 'Invitations to a space, class or project, requests waiting on you, and answers to things you asked for. You need these to act, so they cannot be turned off.'}
                   </p>
                 </div>
-                <Toggle label="Security alerts" checked disabled onChange={() => {}} />
+                <Toggle label="Always on" checked disabled onChange={() => {}} />
               </li>
             </ul>
           )}

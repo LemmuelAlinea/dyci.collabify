@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon, Spinner } from '../ui/Icon'
 import { useAuth } from '../../context/AuthContext'
+import { useLive } from '../../hooks/useLive'
 import {
   listNotifications,
   markAllRead,
   markRead,
   unreadCount,
 } from '../../lib/api/notifications'
-import type { AppNotification } from '../../lib/types'
+import type { AppNotification, Role } from '../../lib/types'
 import { DUR } from '../../lib/motion'
 import { paths } from '../../lib/paths'
 
@@ -19,6 +20,35 @@ function ago(iso: string) {
   if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`
   if (secs < 604800) return `${Math.floor(secs / 86400)}d ago`
   return new Date(iso).toLocaleDateString()
+}
+
+/** Where a notification opens. An invitation opens the list you answer it from. */
+function destination(n: AppNotification, role: Role | null): string {
+  switch (n.type) {
+    case 'general_invited':
+      return paths.home
+    case 'space_invited':
+      return paths.spaces
+    case 'privacy_request':
+      if (role === 'admin') return paths.admin.privacy
+      return n.title.startsWith('Privacy request') ? paths.privacyQueue : paths.privacyRequest
+    case 'weekly_digest':
+      // About everything at once, so My tasks, the page it summarises.
+      return role === 'student' ? paths.tasks : paths.home
+    case 'review_requested':
+    case 'review_answered':
+      return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=files` : paths.home
+    case 'general_access_requested':
+      return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=members` : paths.home
+  }
+  if (n.general_project_id) {
+    return `${paths.project(n.general_project_id)}${n.general_task_id ? `?task=${n.general_task_id}` : ''}`
+  }
+  // A class space opens its class; a work space opens itself.
+  if (n.general_space_id && !n.class_id) return paths.space(n.general_space_id)
+  if (n.project_id && role !== 'admin') return paths.classProject(n.project_id)
+  if (n.class_id) return role === 'admin' ? paths.home : paths.class(n.class_id)
+  return paths.home
 }
 
 export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }) {
@@ -52,11 +82,17 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
     }
   }, [profile])
 
-  useEffect(() => {
-    void refreshCount()
-    const id = setInterval(refreshCount, 60_000)
-    return () => clearInterval(id)
-  }, [refreshCount])
+  // A new notification lights the badge within a second; an open panel
+  // refreshes its list too.
+  const refresh = useCallback(async () => {
+    await refreshCount()
+    if (open && profile) {
+      await listNotifications(profile.id)
+        .then(setItems)
+        .catch(() => undefined)
+    }
+  }, [open, profile, refreshCount])
+  useLive(refresh, ['notifications'], { every: 60_000, enabled: Boolean(profile) })
 
   useEffect(() => {
     if (!open || !profile) return
@@ -89,29 +125,7 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
       void refreshCount()
     }
     if (!profile) return
-    // An invitation has nothing to open until it is accepted, and accepting
-    // happens on the General home page.
-    if (n.type === 'general_invited') {
-      navigate(paths.home)
-      return
-    }
-    if (n.general_project_id) {
-      navigate(
-        `${paths.project(n.general_project_id)}${n.general_task_id ? `?task=${n.general_task_id}` : ''}`,
-      )
-      return
-    }
-    if (n.project_id && profile.role !== 'admin') {
-      navigate(paths.classProject(n.project_id))
-    } else if (n.class_id) {
-      navigate(profile.role === 'admin' ? paths.home : paths.class(n.class_id))
-    } else if (n.type === 'weekly_digest' && profile.role === 'student') {
-      // The digest is about everything at once, so it has no one project to
-      // open. My tasks is the page it is a summary of. Only students have it.
-      navigate(paths.tasks)
-    } else {
-      navigate(paths.home)
-    }
+    navigate(destination(n, profile.role))
   }
 
   return (
@@ -175,7 +189,7 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
               </div>
             ) : items.length === 0 ? (
               <p className="px-4 py-10 text-center text-[13px] text-muted">
-                Nothing yet. Announcements and new projects land here.
+                Nothing yet. Invitations, hand-ins and changes to your work land here.
               </p>
             ) : (
               <ul className="divide-y divide-[var(--line)]">
