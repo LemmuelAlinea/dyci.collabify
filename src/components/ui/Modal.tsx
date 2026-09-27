@@ -143,7 +143,7 @@ export function Modal({
        * published by TopNav; the `0px` fallback is what the auth screens and
        * the landing page get, where there is no bar to sit under.
        */
-      className="fixed inset-0 z-[60] flex items-end justify-center p-0 pt-[var(--app-bar,0px)] sm:items-center sm:p-6 sm:pt-[calc(var(--app-bar,0px)+1.5rem)]"
+      className="depth-ground fixed inset-0 z-[60] flex items-end justify-center p-0 pt-[var(--app-bar,0px)] sm:items-center sm:p-6 sm:pt-[calc(var(--app-bar,0px)+1.5rem)]"
     >
       {/* Clickable, but not a tab stop: the header already has a real Close
           button, and Escape closes. A focusable full-screen button here just
@@ -152,7 +152,7 @@ export function Modal({
         aria-hidden="true"
         onClick={onClose}
         data-state={open ? 'open' : 'closed'}
-        className="motion-scrim absolute inset-0 bg-navy-950/60"
+        className="motion-scrim absolute inset-0 bg-[color-mix(in_oklab,var(--scrim,var(--color-navy-950))_60%,transparent)]"
       />
       <div
         ref={panel}

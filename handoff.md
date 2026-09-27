@@ -1642,3 +1642,10 @@ Presets: High contrast now has solid banners and Ocean has gradient ones.
 `valid_palette_colors` accepts the new keys and rejects bad styles, and rejects depth that
 is in light mode, fractional, out of range or not a number. `appearance.test.sql` has 28
 PASS and `palette.test.ts` has 19.
+
+**Dialogs follow background depth (2026-09-28):** `Modal` (and so `ConfirmDialog`) and the
+collapsed rail's tooltip are portaled outside `.app-ui`, so they used to keep the
+marketing `.dark` grounds. They now carry `.depth-ground`, which in dark mode reads the
+person's `--u-*` depth first, backdrop (`--scrim`) included. The fallbacks are the old
+`.dark` values, so nothing changes without depth. `ActionMenu` already rendered with
+`.app-ui` and followed it.

@@ -461,6 +461,24 @@
   }
 
   /**
+   * Dialogs and the collapsed rail's tooltip are portaled to <body>, outside
+   * `.app-ui`, so they keep the `.dark` grounds above. In dark mode they follow
+   * the person's background depth too (`--u-*`, from Settings → Appearance),
+   * so a dialog opened over a black page is black as well. The fallbacks are
+   * the `.dark` values, so nothing changes until depth is set.
+   *
+   * Placed after `.app-ui .btn` on purpose: scripts/contrast.mjs reads the app
+   * block up to that opener, and these fallbacks must not land in it.
+   */
+  .dark .depth-ground {
+    --page: var(--u-page, #080b21);
+    --surface: var(--u-surface, #131a3f);
+    --surface-sunken: var(--u-sunken, #0c1130);
+    --surface-raised: var(--u-raised, #1a2255);
+    --scrim: var(--u-page, var(--color-navy-950));
+  }
+
+  /**
    * One heading size in here, and one weight.
    *
    * The pages had four: `text-[30px]`, two different `clamp()` ramps and a

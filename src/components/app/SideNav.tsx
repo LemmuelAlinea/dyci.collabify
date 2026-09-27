@@ -193,7 +193,7 @@ export function SideNav({
               id="side-nav-tooltip"
               role="tooltip"
               style={{ top: hint.top }}
-              className="surface fixed left-[72px] z-[100] -translate-y-1/2 rounded-md border border-line px-2.5 py-1.5 text-[12px] font-medium text-ink shadow-lift"
+              className="depth-ground surface fixed left-[72px] z-[100] -translate-y-1/2 rounded-md border border-line px-2.5 py-1.5 text-[12px] font-medium text-ink shadow-lift"
             >
               {hint.text}
             </div>,
