@@ -28,6 +28,7 @@ export function GeneralNavigationProvider({
   const [spaceProjects, setSpaceProjects] = useState<GeneralProjectSummary[] | null>(null)
   const [myProjects, setMyProjects] = useState<GeneralProjectSummary[] | null>(null)
   const [projectError, setProjectError] = useState<string | null>(null)
+  const [mineError, setMineError] = useState<string | null>(null)
 
   const explicitSpaceId = enabled ? spaceRouteId(location.pathname) : null
   const routeProjectId = enabled ? projectRouteId(location.pathname) : null
@@ -95,8 +96,11 @@ export function GeneralNavigationProvider({
     }
     try {
       setMyProjects(await listMyGeneralProjects())
-    } catch {
-      // The banner belongs to loadProjects; this list just stays as it was.
+      setMineError(null)
+    } catch (err) {
+      // With no space in view this is the only project fetch, so a failure has
+      // to say so; an empty list would read as "you have no projects".
+      setMineError(authErrorMessage(err, 'Could not load your projects.'))
       setMyProjects((previous) => previous ?? [])
     }
   }, [enabled])
@@ -147,7 +151,7 @@ export function GeneralNavigationProvider({
       currentSpace,
       projects,
       myProjects,
-      error: spacesError ?? projectError,
+      error: spacesError ?? projectError ?? mineError,
       reload,
       reportProjectSpace,
     }),
@@ -157,6 +161,7 @@ export function GeneralNavigationProvider({
       invitations,
       myProjects,
       projectError,
+      mineError,
       projects,
       reload,
       reportProjectSpace,

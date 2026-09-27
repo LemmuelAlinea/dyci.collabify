@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLive } from './useLive'
 import { listMyInvitations, listMyOpenReviews, listSpaceOpenTasks } from '../lib/api/general'
 import { authErrorMessage } from '../lib/authError'
@@ -28,6 +28,17 @@ export function useGeneralDashboard(userId: string | undefined, projectIds: stri
   const key = projectIds.join(',')
   const ids = useMemo(() => (key ? key.split(',') : []), [key])
 
+  // The key the newest load was started for. A slower answer for an older key
+  // must not land on top of it and leave the page waiting for data it will
+  // never report as current.
+  const latest = useRef(key)
+  // Declared before the load effect, so the ref names the new key before that
+  // load starts. A new key also drops the old key's error.
+  useEffect(() => {
+    latest.current = key
+    setError(null)
+  }, [key])
+
   const load = useCallback(async () => {
     if (!userId) return
     try {
@@ -36,10 +47,12 @@ export function useGeneralDashboard(userId: string | undefined, projectIds: stri
         listMyOpenReviews(ids, userId),
         listMyInvitations(userId),
       ])
+      if (latest.current !== key) return
       setData({ tasks, reviews, invitations, at: Date.now() })
       setLoadedKey(key)
       setError(null)
     } catch (err) {
+      if (latest.current !== key) return
       setError(authErrorMessage(err, 'Could not load this space’s dashboard.'))
     }
   }, [userId, ids, key])
