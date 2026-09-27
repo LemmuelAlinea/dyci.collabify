@@ -54,7 +54,7 @@ function GeneralCountsBand() {
 
   useEffect(load, [load])
 
-  // Silence would read as "no General projects yet", which is a different fact.
+  // Silence would read as "no projects yet", which is a different fact.
   if (failed)
     return (
       <section className="mt-8">

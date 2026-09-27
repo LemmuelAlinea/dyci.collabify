@@ -85,7 +85,7 @@ export default function SpaceHome() {
   const [status, setStatus] = useState<GeneralStatus | ''>('')
 
   useEffect(() => {
-    document.title = space ? `${space.name} · Collabify` : 'General · Collabify'
+    document.title = space ? `${space.name} · Collabify` : 'Space · Collabify'
   }, [space])
 
   const all = useMemo(() => (projects ?? []).filter((p) => !p.archived_at), [projects])

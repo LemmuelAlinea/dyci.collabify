@@ -30,7 +30,7 @@ const NOTIFICATIONS: { key: NotificationKey; label: string; body: string }[] = [
   {
     key: 'task_assignments',
     label: 'Task assignments',
-    body: 'When an Education or General task is assigned to you.',
+    body: 'When a class or work task is assigned to you.',
   },
   {
     key: 'deadline_reminders',
@@ -45,7 +45,7 @@ const NOTIFICATIONS: { key: NotificationKey; label: string; body: string }[] = [
   {
     key: 'project_invites',
     label: 'Project invitations and access',
-    body: 'When you are invited to a General project, placed in an Education group, or given project access.',
+    body: 'When you are invited to a project, placed in a group, or given project access.',
   },
   {
     key: 'progress_digest',

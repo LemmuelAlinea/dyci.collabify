@@ -59,7 +59,7 @@ function AccountMenu({ settingsTo }: { settingsTo: string }) {
             <p className="truncate text-[14px] font-semibold text-ink">{fullName(profile)}</p>
             <p className="truncate text-[12px] text-muted">{profile.email}</p>
             <p className="mt-1 text-[12px] text-faint">
-              {profile.role ? ROLE_LABEL[profile.role] : 'General workplace'}
+              {profile.role ? ROLE_LABEL[profile.role] : 'Account'}
             </p>
           </div>
           <Link

@@ -47,7 +47,7 @@ export default function GeneralProjects() {
   }, [])
 
   useEffect(() => {
-    document.title = 'General projects · Collabify'
+    document.title = 'Projects · Collabify'
     void load()
   }, [load])
 

@@ -202,7 +202,7 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
                         )}
                         <span className="mt-1 block text-[12px] text-faint">
                           {ago(n.created_at)}
-                          {n.general_project_id && ' · General'}
+                          {n.general_project_id && ' · Project'}
                         </span>
                       </span>
                     </button>
