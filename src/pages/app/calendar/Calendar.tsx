@@ -21,6 +21,7 @@ import { paths } from '../../../lib/paths'
 import { readScope, writeScope } from '../../../lib/scope'
 import { CALENDAR_KINDS } from '../../../lib/types'
 import type { CalendarEvent, ClassWeek } from '../../../lib/types'
+import { workCalendarEvents } from './workDates'
 
 type View = 'month' | 'agenda'
 
@@ -110,29 +111,10 @@ export default function Calendar() {
     [mineProjects],
   )
 
-  // Shaped as calendar events so the month grid and agenda list can draw them
-  // without knowing General work exists. `class_id` empty is what marks a row
-  // as a work date rather than a class one — a real class_id is never blank.
-  const workEvents = useMemo<CalendarEvent[]>(() => {
-    if (!dashData) return []
-    return dashData.tasks
-      .filter((t) => t.due_at && t.status !== 'done')
-      .map((t): CalendarEvent => ({
-        kind: 'project_due',
-        ref_id: t.id,
-        title: t.title,
-        at: t.due_at as string,
-        class_id: '',
-        class_initial: '',
-        class_name: '',
-        project_id: t.project_id,
-        project_title: projectName(t.project_id),
-        task_id: t.id,
-        group_name: null,
-        done: false,
-        late: false,
-      }))
-  }, [dashData, projectName])
+  const workEvents = useMemo<CalendarEvent[]>(
+    () => (dashData ? workCalendarEvents(dashData.tasks, projectName) : []),
+    [dashData, projectName],
+  )
 
   const classes = useMemo(() => {
     const map = new Map<string, string>()
@@ -151,7 +133,15 @@ export default function Calendar() {
             .filter((e) => (kindFilter ? e.kind === kindFilter : true)),
     [events, classFilter, kindFilter, scope],
   )
-  const workShown = useMemo(() => (scope === 'classes' ? [] : workEvents), [scope, workEvents])
+  // Work dates are all `project_due`, so a kind filter narrowed to any other
+  // kind is a class-only view — task_due, project_release and submitted never
+  // apply to work. With no kind filter (All) or with project_due itself, work
+  // dates still show.
+  const workVisible = !kindFilter || kindFilter === 'project_due'
+  const workShown = useMemo(
+    () => (scope === 'classes' || !workVisible ? [] : workEvents),
+    [scope, workVisible, workEvents],
+  )
   const shown = useMemo(
     () => [...classShown, ...workShown].sort((a, b) => a.at.localeCompare(b.at)),
     [classShown, workShown],
@@ -208,10 +198,14 @@ export default function Calendar() {
               ? 'See every deadline across your classes and the syllabus week behind each one.'
               : 'Every due date across the projects you are part of.'
         }
-        stats={[
-          { value: shown.length, label: 'Dates in view' },
-          { value: classes.length, label: 'Classes represented' },
-        ]}
+        stats={
+          role === 'admin' || scope === 'work'
+            ? [{ value: shown.length, label: 'Dates in view' }]
+            : [
+                { value: shown.length, label: 'Dates in view' },
+                { value: classes.length, label: 'Classes represented' },
+              ]
+        }
       />
 
       {loadError && (
@@ -337,18 +331,20 @@ export default function Calendar() {
               </div>
             </div>
 
-            <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2 border-y border-line py-2.5">
-              {CALENDAR_KINDS.filter(
-                (kind) =>
-                  (role === 'professor' && kind.value !== 'task_due') ||
-                  (role !== 'professor' && kind.value !== 'project_release'),
-              ).map((kind) => (
-                <span key={kind.value} className="flex items-center gap-1.5 text-[11px] text-muted">
-                  <span className={`h-1.5 w-1.5 rounded-full ${eventDot(kind.value)}`} />
-                  {kind.label}
-                </span>
-              ))}
-            </div>
+            {role !== 'admin' && scope !== 'work' && (
+              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2 border-y border-line py-2.5">
+                {CALENDAR_KINDS.filter(
+                  (kind) =>
+                    (role === 'professor' && kind.value !== 'task_due') ||
+                    (role !== 'professor' && kind.value !== 'project_release'),
+                ).map((kind) => (
+                  <span key={kind.value} className="flex items-center gap-1.5 text-[11px] text-muted">
+                    <span className={`h-1.5 w-1.5 rounded-full ${eventDot(kind.value)}`} />
+                    {kind.label}
+                  </span>
+                ))}
+              </div>
+            )}
 
             <MonthGrid month={month} events={shown} weeks={bands} onOpen={open} />
           </div>
