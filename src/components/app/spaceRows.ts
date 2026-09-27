@@ -3,7 +3,8 @@ import { paths } from '../../lib/paths'
 
 export type LiveRow = { id: string; name: string; to: string; tone?: 'education' | 'work' }
 
-const CAP = 6
+/** Two per section: the rest are one click away behind the header's All link. */
+const CAP = 2
 
 function mine(spaces: GeneralSpaceSummary[], kind: GeneralSpaceSummary['kind']) {
   return spaces

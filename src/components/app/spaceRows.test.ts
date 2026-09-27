@@ -43,13 +43,13 @@ describe('classRows', () => {
     expect(rows[0]).toMatchObject({ to: '/classes/class-1', tone: 'education' })
   })
 
-  it('sorts by name and caps at six', () => {
+  it('sorts by name and caps at two', () => {
     const rows = classRows(
       Array.from({ length: 10 }, (_, i) =>
         space({ id: `c${9 - i}`, kind: 'education', class_id: `c${i}`, name: `Class ${9 - i}` }),
       ),
     )
-    expect(rows.map((r) => r.id)).toEqual(['c0', 'c1', 'c2', 'c3', 'c4', 'c5'])
+    expect(rows.map((r) => r.id)).toEqual(['c0', 'c1'])
   })
 })
 
@@ -65,13 +65,13 @@ describe('workSpaceRows', () => {
     expect(rows[0]).toMatchObject({ to: '/spaces/mine', tone: 'work' })
   })
 
-  it('sorts by name and caps at six', () => {
+  it('sorts by name and caps at two', () => {
     const rows = workSpaceRows([
       space({ id: 'z', name: 'Zeta' }),
       space({ id: 'a', name: 'Alpha' }),
       ...Array.from({ length: 8 }, (_, i) => space({ id: `m${i}`, name: `Mid ${i}` })),
     ])
-    expect(rows).toHaveLength(6)
+    expect(rows).toHaveLength(2)
     expect(rows[0].id).toBe('a')
     expect(rows.map((r) => r.id)).not.toContain('z')
   })
