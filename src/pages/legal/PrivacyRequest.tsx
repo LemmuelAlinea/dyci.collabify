@@ -119,8 +119,6 @@ export default function PrivacyRequest() {
     }
   }
 
-  const open = (rows ?? []).filter((r) => r.status === 'open' || r.status === 'acknowledged')
-  const closed = (rows ?? []).filter((r) => r.status === 'completed' || r.status === 'refused')
 
   if (rows === null) {
     return (
@@ -137,10 +135,6 @@ export default function PrivacyRequest() {
         title="Ask about"
         accent="your data."
         description="Every right in the privacy policy is exercised here. Requests are acknowledged within five working days and answered within fifteen."
-        stats={[
-          { value: open.length, label: 'Open requests' },
-          { value: closed.length, label: 'Answered' },
-        ]}
       />
 
       {error && <Alert tone="error">{error}</Alert>}

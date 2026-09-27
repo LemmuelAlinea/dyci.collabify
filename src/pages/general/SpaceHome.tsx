@@ -160,17 +160,6 @@ export default function SpaceHome() {
           kicker={space ? `${space.name}${archived ? ' · archived' : ''}` : 'Space'}
           line={line}
           urgent={overdue > 0}
-          tiles={[
-            { label: 'My open tasks', value: mine.length, icon: 'check' },
-            { label: 'Due this week', value: thisWeek, icon: 'calendar' },
-            {
-              label: 'Overdue',
-              value: overdue,
-              icon: 'clock',
-              tone: overdue > 0 ? 'warn' : 'plain',
-            },
-            { label: 'Waiting on you', value: waiting, icon: 'bell' },
-          ]}
         />
       </Reveal>
 

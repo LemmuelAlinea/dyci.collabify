@@ -83,7 +83,8 @@ export function DashboardSummary({
   /** One sentence of what is true right now, built by the page from its own data. */
   line: string
   urgent?: boolean
-  tiles: Tile[]
+  /** The Home dashboards' four counts. Every other page shows the band alone. */
+  tiles?: Tile[]
 }) {
   return (
     /**
@@ -149,61 +150,63 @@ export function DashboardSummary({
         </p>
       </div>
 
-      <div className="relative mt-5 grid w-full grid-cols-4 gap-1.5 sm:mt-7 sm:gap-3">
-        {tiles.map((t) => {
-          const body = (
-            <>
-              <span className="flex items-center justify-between gap-2">
-                <Icon
-                  name={t.icon}
-                  size={17}
-                  className={`h-3 w-3 sm:h-[17px] sm:w-[17px] ${
-                    t.tone === 'warn' ? 'text-amber-300' : 'text-amber-50/45'
-                  }`}
-                />
-                {t.to && (
+      {tiles && tiles.length > 0 && (
+        <div className="relative mt-5 grid w-full grid-cols-4 gap-1.5 sm:mt-7 sm:gap-3">
+          {tiles.map((t) => {
+            const body = (
+              <>
+                <span className="flex items-center justify-between gap-2">
                   <Icon
-                    name="arrowRight"
-                    size={15}
-                    className="hidden text-amber-50/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:block sm:h-[15px] sm:w-[15px]"
+                    name={t.icon}
+                    size={17}
+                    className={`h-3 w-3 sm:h-[17px] sm:w-[17px] ${
+                      t.tone === 'warn' ? 'text-amber-300' : 'text-amber-50/45'
+                    }`}
                   />
-                )}
-              </span>
-              <span
-                className={`mt-1 block font-mono text-[18px] leading-none font-bold tabular-nums sm:mt-3 sm:text-[30px] ${
-                  t.tone === 'warn' ? 'text-amber-300' : 'text-amber-50'
-                }`}
-              >
-                <CountUp value={t.value} />
-              </span>
-              <span className="mt-1 line-clamp-2 block min-h-[18px] text-[8.5px] leading-[1.1] text-amber-50/55 sm:mt-1.5 sm:min-h-0 sm:text-[12px] sm:leading-snug">
-                {t.label}
-              </span>
-            </>
-          )
-
-          // A step above the band rather than inverted against the page. The
-          // tiles used to reverse with the theme, which earned them their own
-          // weight on a white dashboard; inside a dark masthead that would read
-          // as four holes punched in it.
-          const shell =
-            'group flex min-w-0 flex-col rounded-lg border px-2 py-2 transition-colors duration-200 sm:rounded-card sm:px-4 sm:py-3.5 ' +
-            'bg-amber-50/5 backdrop-blur-sm ' +
-            (t.tone === 'warn'
-              ? 'border-amber-400/45'
-              : 'border-amber-50/12 hover:border-amber-50/25')
-
-          return t.to ? (
-            <Link key={t.label} to={t.to} className={shell}>
-              {body}
-            </Link>
-          ) : (
-            <div key={t.label} className={shell}>
-              {body}
-            </div>
-          )
-        })}
-      </div>
+                  {t.to && (
+                    <Icon
+                      name="arrowRight"
+                      size={15}
+                      className="hidden text-amber-50/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:block sm:h-[15px] sm:w-[15px]"
+                    />
+                  )}
+                </span>
+                <span
+                  className={`mt-1 block font-mono text-[18px] leading-none font-bold tabular-nums sm:mt-3 sm:text-[30px] ${
+                    t.tone === 'warn' ? 'text-amber-300' : 'text-amber-50'
+                  }`}
+                >
+                  <CountUp value={t.value} />
+                </span>
+                <span className="mt-1 line-clamp-2 block min-h-[18px] text-[8.5px] leading-[1.1] text-amber-50/55 sm:mt-1.5 sm:min-h-0 sm:text-[12px] sm:leading-snug">
+                  {t.label}
+                </span>
+              </>
+            )
+  
+            // A step above the band rather than inverted against the page. The
+            // tiles used to reverse with the theme, which earned them their own
+            // weight on a white dashboard; inside a dark masthead that would read
+            // as four holes punched in it.
+            const shell =
+              'group flex min-w-0 flex-col rounded-lg border px-2 py-2 transition-colors duration-200 sm:rounded-card sm:px-4 sm:py-3.5 ' +
+              'bg-amber-50/5 backdrop-blur-sm ' +
+              (t.tone === 'warn'
+                ? 'border-amber-400/45'
+                : 'border-amber-50/12 hover:border-amber-50/25')
+  
+            return t.to ? (
+              <Link key={t.label} to={t.to} className={shell}>
+                {body}
+              </Link>
+            ) : (
+              <div key={t.label} className={shell}>
+                {body}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </section>
   )
 }

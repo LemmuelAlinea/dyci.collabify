@@ -107,9 +107,6 @@ export default function Accounts() {
     )
   }
 
-  const activeAccounts = rows.filter((account) => account.status === 'active').length
-  const students = rows.filter((account) => account.role === 'student').length
-  const faculty = rows.filter((account) => account.role === 'faculty').length
 
   return (
     <div className="space-y-6">
@@ -117,13 +114,6 @@ export default function Accounts() {
         title="Every account,"
         accent="clearly managed."
         description="Find anyone in the program, review their access, and make reversible role or status changes."
-        statsVariant="compact-row"
-        stats={[
-          { value: rows.length, label: 'Accounts' },
-          { value: activeAccounts, label: 'Active' },
-          { value: students, label: 'Students' },
-          { value: faculty, label: 'Faculty' },
-        ]}
       />
 
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}

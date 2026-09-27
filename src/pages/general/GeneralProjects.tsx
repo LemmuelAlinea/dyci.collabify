@@ -96,8 +96,6 @@ export default function GeneralProjects() {
         title="Your General"
         accent="projects."
         description="Every General workplace project you joined, across all spaces, in one place."
-        stats={[]}
-        statsVariant="compact-row"
         action={
           faculty ? (
             <Button variant="onNavy" size="sm" onClick={() => setJoinOpen(true)}>

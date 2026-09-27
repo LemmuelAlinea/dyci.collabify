@@ -160,11 +160,6 @@ export default function PrivacyQueue() {
         title="Answer within"
         accent="fifteen days."
         description="Requests students have made under the Data Privacy Act. The steps for each kind are beside it; this screen records what was done."
-        stats={[
-          { value: live.length, label: 'Waiting on you' },
-          { value: overdue, label: 'Past their date' },
-          { value: settled.length, label: 'Answered' },
-        ]}
       />
 
       {error && <Alert tone="error">{error}</Alert>}

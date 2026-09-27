@@ -125,7 +125,6 @@ export default function SpacePicker() {
             </Button>
           </div>
         ) : undefined}
-        stats={[]}
       />
 
       <div className="mt-6 space-y-6">

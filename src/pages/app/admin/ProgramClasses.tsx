@@ -97,11 +97,6 @@ export default function ProgramClasses() {
 
   const years = [...new Set(all.map((c) => c.school_year))].sort().reverse()
   const active = [year, semester, level, professor, state].filter(Boolean).length
-  const notReady = all.filter((item) => readiness(item).length > 0).length
-  const behind = all.filter((item) => {
-    const pace = paceOf(item)
-    return pace ? pace.weeks_covered < pace.weeks_elapsed : false
-  }).length
 
   return (
     <div className="space-y-6">
@@ -109,13 +104,6 @@ export default function ProgramClasses() {
         title="Every class,"
         accent="ready to run."
         description="Compare setup, syllabus pace, enrolment, and delivery across the program without opening private class work."
-        statsVariant="compact-row"
-        stats={[
-          { value: all.length, label: 'Classes' },
-          { value: all.reduce((sum, item) => sum + item.students, 0), label: 'Students' },
-          { value: notReady, label: 'Not ready' },
-          { value: behind, label: 'Behind' },
-        ]}
       />
 
       {error && <Alert tone="error">{error}</Alert>}

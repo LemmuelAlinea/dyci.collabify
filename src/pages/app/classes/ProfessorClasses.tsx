@@ -48,7 +48,6 @@ export default function ProfessorClasses() {
 
   useLive(load, ['classes', 'class_members'])
 
-  const studentTotal = classes?.reduce((total, cls) => total + cls.student_count, 0) ?? 0
 
   return (
     <div className="w-full">
@@ -64,10 +63,6 @@ export default function ProfessorClasses() {
             </Button>
           ) : undefined
         }
-        stats={[
-          { value: classes === null ? '—' : classes.length, label: view === 'active' ? 'Active classes' : 'Archived classes' },
-          { value: classes === null ? '—' : studentTotal, label: 'Students represented' },
-        ]}
       />
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">

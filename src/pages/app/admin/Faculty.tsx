@@ -101,10 +101,6 @@ export default function Faculty() {
 
   const years = [...new Set(all.map((c) => c.school_year))].sort().reverse()
   const active = [year, semester].filter(Boolean).length
-  const activeFaculty = accounts.filter((account) => account.status === 'active')
-  const teaching = activeFaculty.filter((account) => (load.get(account.id)?.classes.length ?? 0) > 0)
-  const students = [...load.values()].reduce((sum, item) => sum + item.students, 0)
-  const notReady = [...load.values()].reduce((sum, item) => sum + item.not_ready, 0)
 
   return (
     <div className="space-y-6">
@@ -112,13 +108,6 @@ export default function Faculty() {
         title="Teaching load,"
         accent="made visible."
         description="See who is teaching this term, where classes need setup, and where faculty capacity remains."
-        statsVariant="compact-row"
-        stats={[
-          { value: `${teaching.length}/${activeFaculty.length}`, label: 'With a load' },
-          { value: inTerm.length, label: 'Classes' },
-          { value: students, label: 'Students' },
-          { value: notReady, label: 'Not ready' },
-        ]}
       />
 
       {error && <Alert tone="error">{error}</Alert>}

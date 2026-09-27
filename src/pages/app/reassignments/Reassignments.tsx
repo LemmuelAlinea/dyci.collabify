@@ -83,10 +83,6 @@ export default function Reassignments() {
         title="Keep work"
         accent="moving."
         description="Review requests to move stalled tasks, understand the reason and decide who should carry the work next."
-        stats={[
-          { value: pending.length, label: 'Waiting on you' },
-          { value: settled.length, label: 'Resolved requests' },
-        ]}
       />
 
       {error && <Alert tone="error">{error}</Alert>}

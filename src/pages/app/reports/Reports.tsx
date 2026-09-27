@@ -142,13 +142,6 @@ export default function Reports({ classId }: { classId?: string }) {
             title="Records ready"
             accent="to share."
             description="Choose a report, set its scope and produce a clear printable record for grading, review or the course file."
-            stats={[
-              { value: r.classes.length, label: 'Classes available' },
-              {
-                value: CATALOGUE.reduce((count, group) => count + group.items.length, 0),
-                label: 'Report formats',
-              },
-            ]}
           />
         </div>
       )}

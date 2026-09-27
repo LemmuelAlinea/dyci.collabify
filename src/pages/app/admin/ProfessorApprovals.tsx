@@ -121,13 +121,6 @@ export default function ProfessorApprovals() {
         title="Verify faculty,"
         accent="protect access."
         description="Review faculty sign-ups before their tools unlock, and decide who can open classes."
-        statsVariant="compact-row"
-        stats={[
-          { value: rows.length, label: 'Faculty' },
-          { value: waiting.length, label: 'Waiting' },
-          { value: settled.filter((account) => account.status === 'active').length, label: 'Approved' },
-          { value: settled.filter((account) => account.status === 'rejected').length, label: 'Turned down' },
-        ]}
       />
 
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}

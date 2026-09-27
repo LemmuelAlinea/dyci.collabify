@@ -124,13 +124,6 @@ export default function Notices() {
             Send a notice
           </Button>
         }
-        statsVariant="compact-row"
-        stats={[
-          { value: rows.length, label: 'Notices' },
-          { value: rows.filter((notice) => !notice.expired).length, label: 'Live now' },
-          { value: rows.filter((notice) => notice.pinned && !notice.expired).length, label: 'Pinned' },
-          { value: rows.filter((notice) => notice.expired).length, label: 'Archived' },
-        ]}
       />
 
       <section className="surface overflow-hidden rounded-panel border border-line">

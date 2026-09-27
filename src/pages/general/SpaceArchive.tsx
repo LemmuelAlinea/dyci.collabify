@@ -80,7 +80,6 @@ export default function SpaceArchive() {
         title="Archived projects,"
         accent="within reach."
         description="Projects you archived, or lead, stay readable here. An Owner can bring one back or delete it for good."
-        stats={[]}
         action={spaceId ? (
           <Link
             to={paths.space(spaceId)}

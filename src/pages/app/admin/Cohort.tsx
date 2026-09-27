@@ -73,9 +73,6 @@ export default function Cohort() {
 
   const years = [...new Set(all.map((c) => c.school_year))].sort().reverse()
   const active = [year, semester].filter(Boolean).length
-  const totalStudents = cohorts.reduce((sum, cohort) => sum + cohort.students, 0)
-  const totalTasks = cohorts.reduce((sum, cohort) => sum + cohort.tasks, 0)
-  const totalDone = cohorts.reduce((sum, cohort) => sum + cohort.tasks_done, 0)
 
   return (
     <div className="space-y-6">
@@ -83,13 +80,6 @@ export default function Cohort() {
         title="Every cohort,"
         accent="progress in context."
         description="Compare year levels, completed work, and classes that need attention across the current term."
-        statsVariant="compact-row"
-        stats={[
-          { value: cohorts.length, label: 'Year levels' },
-          { value: shown.length, label: 'Classes' },
-          { value: totalStudents, label: 'Students' },
-          { value: totalTasks === 0 ? '0%' : `${Math.round((totalDone / totalTasks) * 100)}%`, label: 'Finished' },
-        ]}
       />
 
       {error && <Alert tone="error">{error}</Alert>}

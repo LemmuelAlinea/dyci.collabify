@@ -120,7 +120,6 @@ export default function GeneralProject() {
         title={p.name}
         accent={p.archived_at ? 'archived.' : 'project.'}
         description={`${projectStatusLabel(p.status)} · You are ${levelLabel(p.my_level)} · ${dateRange(p.starts_on, p.ends_on)} · ${p.member_count} ${p.member_count === 1 ? 'member' : 'members'} · ${Number(p.progress_pct)}% done`}
-        stats={[]}
         action={
           <div className="flex flex-wrap gap-2">
           <Link

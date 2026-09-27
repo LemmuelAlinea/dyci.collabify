@@ -95,13 +95,6 @@ export default function Messages() {
   }, [conversations, scope])
 
   const active = conversations?.find((c) => c.id === conversationId)
-  const unread =
-    conversations?.reduce((total, conversation) => total + conversation.unread_count, 0) ?? 0
-  const channels =
-    conversations?.filter((conversation) => conversation.kind === 'class' || conversation.kind === 'group')
-      .length ?? 0
-  const direct =
-    conversations?.filter((conversation) => conversation.kind === 'direct').length ?? 0
   const canModerate = canModerateHere && (active?.kind === 'class' || active?.kind === 'group')
 
   if (!profile) return null
@@ -112,13 +105,6 @@ export default function Messages() {
         title="Every conversation,"
         accent="within reach."
         description="Class, group and project chats, and your direct messages, in one place."
-        stats={[
-          { value: conversations?.length ?? '—', label: 'Conversations' },
-          { value: unread, label: 'Unread' },
-          { value: channels, label: 'Class & group chats' },
-          { value: direct, label: 'Direct chats' },
-        ]}
-        statsVariant="compact-row"
         action={
           canStartMessages ? (
             <Button

@@ -110,13 +110,6 @@ export default function AuditLog() {
     )
   }
 
-  const accountEvents = rows.filter((event) =>
-    ['account_created', 'role_changed', 'status_changed', 'teaching_changed'].includes(
-      event.action,
-    ),
-  ).length
-  const classEvents = rows.length - accountEvents
-  const recordedDays = new Set(rows.map((event) => dayOf(event.at))).size
 
   return (
     <div className="space-y-6">
@@ -124,13 +117,6 @@ export default function AuditLog() {
         title="Every access change,"
         accent="on record."
         description="Review account and class changes in one read-only timeline."
-        statsVariant="compact-row"
-        stats={[
-          { value: rows.length, label: 'Events' },
-          { value: accountEvents, label: 'Account changes' },
-          { value: classEvents, label: 'Class changes' },
-          { value: recordedDays, label: 'Recorded days' },
-        ]}
       />
 
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}

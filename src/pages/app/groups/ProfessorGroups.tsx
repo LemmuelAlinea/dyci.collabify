@@ -38,7 +38,6 @@ export default function ProfessorGroups() {
     classes,
     view === 'archived',
   )
-  const pending = loading || classes === null
 
   useEffect(() => {
     document.title = 'Groups · Collabify'
@@ -89,10 +88,6 @@ export default function ProfessorGroups() {
             Create groups
           </Button>
         }
-        stats={[
-          { value: pending ? '—' : sets.length, label: 'Group sets' },
-          { value: pending ? '—' : groups.length, label: 'Working teams' },
-        ]}
       />
 
       {/*

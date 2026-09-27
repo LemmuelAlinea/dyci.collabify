@@ -149,7 +149,6 @@ export default function ProjectArchive() {
         title="Project"
         accent="archive."
         description="Archived tasks, draft files, folders and removed paths stay recoverable until you choose to delete them."
-        stats={[]}
       />
 
       {(error || state.error) && <Alert tone="error">{error ?? state.error}</Alert>}

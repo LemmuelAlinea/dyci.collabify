@@ -16,7 +16,6 @@ import { useThemePreference } from '../hooks/useThemePreference'
 import { canTeach, membershipOf } from '../lib/access'
 import { authErrorMessage } from '../lib/authError'
 import { supabase } from '../lib/supabase'
-import { ROLE_LABEL } from '../lib/types'
 import type { NotificationKey, NotificationPrefs, Role, ThemeMode } from '../lib/types'
 
 /**
@@ -324,20 +323,12 @@ export default function Settings() {
     hasWork: membership?.hasWork ?? false,
   }
   const rows = NOTIFICATIONS.filter((n) => n.shown(reader))
-  const enabledNotifications = prefs ? rows.filter((n) => prefs[n.key]).length : '—'
-  const themeLabel = APPEARANCE.find((appearance) => appearance.mode === mode)?.label ?? 'System'
-
   return (
     <div className="w-full space-y-6">
       <DirectoryHero
         title="Set up Collabify,"
         accent="your way."
         description="Manage your identity, appearance, notifications and account access from one place."
-        stats={[
-          { value: profile.role ? ROLE_LABEL[profile.role] : 'Account', label: 'Signed in as' },
-          { value: themeLabel, label: 'Appearance' },
-          { value: enabledNotifications, label: 'Notifications on' },
-        ]}
       />
 
       <div className="grid items-start gap-6 lg:grid-cols-[240px_minmax(0,820px)] xl:grid-cols-[260px_minmax(0,900px)]">

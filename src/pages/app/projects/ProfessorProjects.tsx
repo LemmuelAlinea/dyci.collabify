@@ -35,8 +35,6 @@ export default function ProfessorProjects() {
   }, [profile])
 
   const withSyllabus = (classes ?? []).filter((c) => c.syllabus_id)
-  const openProjects = projects.filter((p) => !p.archived_at && !p.scheduled && !p.locked_at)
-  const scheduledProjects = projects.filter((p) => p.scheduled)
 
   return (
     <div className="w-full">
@@ -54,10 +52,6 @@ export default function ProfessorProjects() {
             New project
           </Button>
         }
-        stats={[
-          { value: loading || classes === null ? '—' : openProjects.length, label: 'Open projects' },
-          { value: loading || classes === null ? '—' : scheduledProjects.length, label: 'Scheduled next' },
-        ]}
       />
 
       <div className="mt-8 border-b border-line pb-4">

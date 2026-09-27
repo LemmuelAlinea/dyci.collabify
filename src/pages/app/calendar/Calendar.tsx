@@ -216,14 +216,6 @@ export default function Calendar() {
               ? 'See every deadline across your classes and the syllabus week behind each one.'
               : 'Every due date across the projects you are part of.'
         }
-        stats={
-          scope === 'work'
-            ? [{ value: shown.length, label: 'Dates in view' }]
-            : [
-                { value: shown.length, label: 'Dates in view' },
-                { value: classes.length, label: 'Classes represented' },
-              ]
-        }
       />
 
       {loadError && (

@@ -131,8 +131,6 @@ export default function GeneralTeams() {
         title="Space"
         accent="teams."
         description="Reusable teams live inside the current Space. Use one when creating a project to bring the same people in together."
-        stats={[]}
-        statsVariant="compact-row"
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">

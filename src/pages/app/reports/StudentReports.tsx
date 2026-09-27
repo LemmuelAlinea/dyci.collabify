@@ -135,10 +135,6 @@ export default function StudentReports() {
           title="Your work,"
           accent="on record."
           description="Create a printable record of your contribution or your group’s project work without turning effort into a grade."
-          stats={[
-            { value: classes.length, label: 'Classes represented' },
-            { value: groupBoards.length, label: 'Group projects' },
-          ]}
         />
       </div>
 

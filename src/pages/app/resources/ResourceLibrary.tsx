@@ -144,10 +144,6 @@ export function ResourceLibrary({
               {copy.addLabel}
             </Button>
           }
-          stats={[
-            { value: items === null ? '—' : items.length, label: 'Published files' },
-            { value: items === null ? '—' : formatBytes(items.reduce((sum, item) => sum + item.size_bytes, 0)), label: 'Stored' },
-          ]}
         />
       ) : (
         <DirectoryHero
@@ -165,10 +161,6 @@ export function ResourceLibrary({
               {copy.addLabel}
             </Button>
           }
-          stats={[
-            { value: items === null ? '—' : items.length, label: 'Your files' },
-            { value: published.length, label: 'Program files' },
-          ]}
         />
       )}
 

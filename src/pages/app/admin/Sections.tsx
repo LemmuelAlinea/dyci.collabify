@@ -135,13 +135,6 @@ export default function Sections() {
             Add a section
           </Button>
         }
-        statsVariant="compact-row"
-        stats={[
-          { value: rows.length, label: 'Sections' },
-          { value: rows.filter((section) => !section.archived_at).length, label: 'Active' },
-          { value: rows.reduce((sum, section) => sum + section.classes, 0), label: 'Classes' },
-          { value: rows.reduce((sum, section) => sum + section.students, 0), label: 'Students' },
-        ]}
       />
 
       {error && <Alert tone="error" onRetry={load}>{error}</Alert>}

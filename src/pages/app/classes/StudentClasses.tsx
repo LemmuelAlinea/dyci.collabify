@@ -41,7 +41,6 @@ export default function StudentClasses() {
 
   useLive(load, ['classes', 'class_members'])
 
-  const peerTotal = classes?.reduce((total, cls) => total + cls.student_count, 0) ?? 0
 
   return (
     <div className="w-full">
@@ -55,10 +54,6 @@ export default function StudentClasses() {
             Join a class
           </Button>
         }
-        stats={[
-          { value: classes === null ? '—' : classes.length, label: 'Classes this term' },
-          { value: classes === null ? '—' : peerTotal, label: 'Classmates across classes' },
-        ]}
       />
 
       <div className="mt-8 border-b border-line pb-4">

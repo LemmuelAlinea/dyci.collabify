@@ -37,10 +37,6 @@ export default function StudentProjects() {
         title="Every brief, deadline"
         accent="and board."
         description="See the work your classes have set, the syllabus weeks behind it and how far your own board has moved."
-        stats={[
-          { value: loading || classes === null ? '—' : projects.length, label: 'Projects in view' },
-          { value: classes === null ? '—' : classes.length, label: 'Classes represented' },
-        ]}
       />
 
       <div className="mt-8 border-b border-line pb-4">

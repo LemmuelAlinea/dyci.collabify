@@ -17,7 +17,6 @@ import { myTasks as myClassTasks, setTaskStatus } from '../../../lib/api/tasks'
 import type { MyTask } from '../../../lib/api/tasks'
 import { membershipOf, showsClassScope } from '../../../lib/access'
 import { authErrorMessage } from '../../../lib/authError'
-import { isOverdue } from '../../../lib/general/dates'
 import { myTasks as myOpenWorkTasks } from '../../../lib/general/dashboard'
 import { paths } from '../../../lib/paths'
 import { readScope, writeScope } from '../../../lib/scope'
@@ -213,13 +212,6 @@ export default function MyTasks() {
     (isStudent ? classTasks !== null : true) &&
     myProjects !== null &&
     (dashData !== null || dashError !== null)
-  const classOpenCount = classFiltered.filter((t) => t.status !== 'done').length
-  const classDoneCount = classFiltered.length - classOpenCount
-  const classOverdueCount = classFiltered.filter((t) => isOverdue(t.due_at, t.status, now)).length
-  const workOverdueCount = workFiltered.filter((t) => isOverdue(t.due_at, t.status, now)).length
-  const loggedTotal = classFiltered.reduce((n, t) => n + t.logged_minutes, 0)
-  const stillOpen = classOpenCount + workFiltered.length
-  const pastDue = classOverdueCount + workOverdueCount
   const totalShown = classFiltered.length + workFiltered.length
   const activeBoard = (classTasks ?? []).find((t) => t.id === openTask)
   const loadError = error ?? navError ?? dashError
@@ -248,18 +240,6 @@ export default function MyTasks() {
             </Link>
           ) : undefined
         }
-        stats={[
-          { label: 'Still open', value: !loaded ? '—' : stillOpen },
-          { label: 'Past due', value: !loaded ? '—' : pastDue },
-          // Both count class tasks only, so they are a student's figures.
-          ...(isStudent
-            ? [
-                { label: 'Finished', value: !loaded ? '—' : classDoneCount },
-                { label: 'Time logged', value: !loaded ? '—' : formatMinutes(loggedTotal) },
-              ]
-            : []),
-        ]}
-        statsVariant="compact-row"
       />
 
       <div className="mt-6 space-y-7">

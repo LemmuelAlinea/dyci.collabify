@@ -61,10 +61,6 @@ export default function StudentGroups() {
         title="Your team, in"
         accent="every class."
         description="See the people you work with, the projects your group holds and any open team you can still join."
-        stats={[
-          { value: loading || classes === null ? '—' : mine.length, label: 'My groups' },
-          { value: loading || classes === null ? '—' : joinable.length, label: 'Open to join' },
-        ]}
       />
 
       <div className="mt-8 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-4">

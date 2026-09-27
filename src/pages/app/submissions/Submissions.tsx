@@ -129,7 +129,6 @@ export default function Submissions({ classId }: { classId?: string }) {
   const set = (patch: Partial<SubmissionFilters>) => setFilters((f) => ({ ...f, ...patch }))
 
   const all = useMemo(() => rows ?? [], [rows])
-  const allCounts = useMemo(() => countByStatus(all), [all])
   // The status tabs count what the other filters leave, so a number never
   // promises rows that clicking it will not show.
   const counts = useMemo(() => countByStatus(narrowSubmissions(all, filters)), [all, filters])
@@ -170,13 +169,6 @@ export default function Submissions({ classId }: { classId?: string }) {
           title="Work that was"
           accent="handed in."
           description="Every group that handed in a project, sorted by class. See what is waiting on you, what you accepted and what went back to be fixed."
-          stats={[
-            { label: 'Waiting on you', value: loading ? '—' : allCounts.waiting },
-            { label: 'Accepted', value: loading ? '—' : allCounts.accepted },
-            { label: 'Returned', value: loading ? '—' : allCounts.returned },
-            { label: 'Classes', value: loading ? '—' : new Set(all.map((r) => r.class_id)).size },
-          ]}
-          statsVariant="compact-row"
         />
       )}
 

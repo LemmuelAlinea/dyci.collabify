@@ -52,10 +52,6 @@ export default function Analytics({ classId }: { classId?: string }) {
           title="Analytics,"
           accent="with context."
           description="Move from what happened to why it happened, what is coming and what needs attention next."
-          stats={[
-            { value: data.health.length, label: 'Classes measured' },
-            { value: shownTasks.length, label: 'Tasks in view' },
-          ]}
         />
       )}
 
