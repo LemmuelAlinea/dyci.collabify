@@ -15,6 +15,8 @@ type TabId = 'mine' | 'open'
 
 export default function StudentGroups() {
   const { profile } = useAuth()
+  // The filter renders into the section header, beside the heading.
+  const [filterSlot, setFilterSlot] = useState<HTMLDivElement | null>(null)
 
   const [tab, setTab] = useState<TabId>('mine')
   const [classes, setClasses] = useState<ClassSummary[] | null>(null)
@@ -68,15 +70,18 @@ export default function StudentGroups() {
           <p className="text-[12px] font-medium text-faint">Team directory</p>
           <h2 className="mt-1">{tab === 'mine' ? 'Your teams' : 'Available teams'}</h2>
         </div>
-        <Tabs<TabId>
-          tabs={[
-            { id: 'mine', label: 'My groups', icon: 'users', count: mine.length },
-            { id: 'open', label: 'Open to join', icon: 'plus', count: joinable.length },
-          ]}
-          active={tab}
-          onChange={setTab}
-          variant="panel"
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <div ref={setFilterSlot} className="flex items-center gap-3" />
+          <Tabs<TabId>
+            tabs={[
+              { id: 'mine', label: 'My groups', icon: 'users', count: mine.length },
+              { id: 'open', label: 'Open to join', icon: 'plus', count: joinable.length },
+            ]}
+            active={tab}
+            onChange={setTab}
+            variant="panel"
+          />
+        </div>
       </div>
 
       <div className="mt-5 space-y-4">
@@ -102,6 +107,7 @@ export default function StudentGroups() {
               groups={shown}
               members={members}
               linkBase={paths.groups}
+              filterSlot={filterSlot}
               viewerId={profile?.id}
               showSetFilter={false}
               emptyTitle={tab === 'mine' ? "You're not in a group yet" : 'Nothing to join'}

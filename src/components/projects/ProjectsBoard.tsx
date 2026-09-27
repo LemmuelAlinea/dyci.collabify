@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { boardProgressFor } from '../../lib/api/tasks'
 import { FilterField, FilterPopover, FilterSearch } from '../ui/FilterPopover'
@@ -49,6 +50,7 @@ export function ProjectsBoard({
    * card has to summarise rather than pick one.
    */
   audience,
+  filterSlot,
 }: {
   projects: ProjectSummary[]
   classes: ClassSummary[]
@@ -64,6 +66,11 @@ export function ProjectsBoard({
    * places, because the second call site never had to think about it.
    */
   audience: 'mine' | 'class'
+  /**
+   * A spot in the page's section header to put the filter in, beside the
+   * heading. Left out, the filter sits in its own row above the cards.
+   */
+  filterSlot?: HTMLElement | null
 }) {
   const [query, setQuery] = useState('')
   const [classId, setClassId] = useState('')
@@ -130,10 +137,17 @@ export function ProjectsBoard({
     )
   }
 
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
+  const inHeader = filterSlot !== undefined
+  const count = (
+    <p className={`shrink-0 font-mono text-[12px] text-faint ${inHeader ? '' : 'ml-auto'}`}>
+      {shown.length === projects.length
+        ? `${projects.length} projects`
+        : `${shown.length} of ${projects.length}`}
+    </p>
+  )
+  const filter = (
         <FilterPopover
+          align={inHeader ? 'right' : 'left'}
           active={
             [query, classId, type, status].filter(Boolean).length
           }
@@ -189,13 +203,25 @@ export function ProjectsBoard({
             />
           </FilterField>
         </FilterPopover>
+  )
 
-        <p className="ml-auto shrink-0 font-mono text-[12px] text-faint">
-          {shown.length === projects.length
-            ? `${projects.length} projects`
-            : `${shown.length} of ${projects.length}`}
-        </p>
-      </div>
+  return (
+    <div className="space-y-5">
+      {inHeader ? (
+        filterSlot &&
+        createPortal(
+          <>
+            {count}
+            {filter}
+          </>,
+          filterSlot,
+        )
+      ) : (
+        <div className="flex items-center gap-3">
+          {filter}
+          {count}
+        </div>
+      )}
 
       {shown.length === 0 ? (
         <EmptyState

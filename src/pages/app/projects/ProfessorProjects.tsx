@@ -14,6 +14,8 @@ import type { ClassSummary } from '../../../lib/types'
 
 export default function ProfessorProjects() {
   const { profile } = useAuth()
+  // The filter renders into the section header, beside the heading.
+  const [filterSlot, setFilterSlot] = useState<HTMLDivElement | null>(null)
   const [classes, setClasses] = useState<ClassSummary[] | null>(null)
   const [classError, setClassError] = useState<string | null>(null)
   const [wizardOpen, setWizardOpen] = useState(false)
@@ -54,9 +56,12 @@ export default function ProfessorProjects() {
         }
       />
 
-      <div className="mt-8 border-b border-line pb-4">
-        <p className="text-[12px] font-medium text-faint">Project directory</p>
-        <h2 className="mt-1">Work across classes</h2>
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
+        <div>
+          <p className="text-[12px] font-medium text-faint">Project directory</p>
+          <h2 className="mt-1">Work across classes</h2>
+        </div>
+        <div ref={setFilterSlot} className="flex items-center gap-3" />
       </div>
 
       <div className="mt-5 space-y-4">
@@ -87,6 +92,7 @@ export default function ProfessorProjects() {
             classes={classes}
             linkBase={paths.classProjects}
             audience="class"
+            filterSlot={filterSlot}
             emptyTitle="No projects yet"
             emptyBody="Pick a class, choose the weeks it covers, and the syllabus tells you what the project should be for. You can schedule it to open later."
             emptyAction={

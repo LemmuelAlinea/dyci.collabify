@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { GroupCard } from './GroupCard'
 import { EMPTY_FILTERS, GroupFilters } from './GroupFilters'
@@ -29,6 +30,11 @@ type Props = {
   showFilters?: boolean
   /** Students never browse by set — they only see their own groups. */
   showSetFilter?: boolean
+  /**
+   * A spot in the page's section header to put the filter in, beside the
+   * heading. Left out, the filter sits in its own row above the cards.
+   */
+  filterSlot?: HTMLElement | null
 }
 
 export function GroupsBoard({
@@ -44,6 +50,7 @@ export function GroupsBoard({
   setActions,
   showFilters = true,
   showSetFilter = true,
+  filterSlot,
 }: Props) {
   const [filters, setFilters] = useState<GroupFilterState>(EMPTY_FILTERS)
   const [work, setWork] = useState(new Map<string, GroupWorkSummary>())
@@ -113,15 +120,30 @@ export function GroupsBoard({
 
   return (
     <div className="space-y-6">
-      {showFilters && groups.length > 0 && (
-        <GroupFilters
-          value={filters}
-          onChange={setFilters}
-          classes={classes}
-          sets={filterableSets}
-          showSetFilter={showSetFilter}
-        />
-      )}
+      {showFilters &&
+        groups.length > 0 &&
+        (filterSlot === undefined ? (
+          <GroupFilters
+            value={filters}
+            onChange={setFilters}
+            classes={classes}
+            sets={filterableSets}
+            showSetFilter={showSetFilter}
+          />
+        ) : (
+          filterSlot &&
+          createPortal(
+            <GroupFilters
+              value={filters}
+              onChange={setFilters}
+              classes={classes}
+              sets={filterableSets}
+              showSetFilter={showSetFilter}
+              align="right"
+            />,
+            filterSlot,
+          )
+        ))}
 
       {groups.length === 0 ? (
         <EmptyState

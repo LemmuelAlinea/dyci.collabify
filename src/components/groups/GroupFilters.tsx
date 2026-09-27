@@ -16,6 +16,7 @@ export function GroupFilters({
   classes,
   sets,
   showSetFilter = true,
+  align = 'left',
 }: {
   value: GroupFilterState
   onChange: (next: GroupFilterState) => void
@@ -24,6 +25,7 @@ export function GroupFilters({
   /** Off for students: they only ever see their own groups, so browsing by set
       would imply there is something else to find. */
   showSetFilter?: boolean
+  align?: 'left' | 'right'
 }) {
   // Only offer sets belonging to the chosen class, so the two filters cannot
   // combine into an empty result by accident.
@@ -37,6 +39,7 @@ export function GroupFilters({
 
   return (
     <FilterPopover
+      align={align}
       active={on.length}
       summary={on.join(' · ')}
       onClear={() => onChange(EMPTY_FILTERS)}

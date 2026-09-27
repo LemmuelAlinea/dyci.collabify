@@ -22,6 +22,8 @@ import type { ClassSummary, GroupSet } from '../../../lib/types'
 
 export default function ProfessorGroups() {
   const { profile } = useAuth()
+  // The filter renders into the section header, beside the heading.
+  const [filterSlot, setFilterSlot] = useState<HTMLDivElement | null>(null)
   const { show } = useToast()
 
   const [classes, setClasses] = useState<ClassSummary[] | null>(null)
@@ -100,21 +102,24 @@ export default function ProfessorGroups() {
           <p className="text-[12px] font-medium text-faint">Group directory</p>
           <h2 className="mt-1">{view === 'active' ? 'Teams by class' : 'Archived groups'}</h2>
         </div>
-        <div className="flex gap-1 rounded-lg surface-sunken p-1">
-          {(['active', 'archived'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setView(v)}
-              className={`rounded-md px-4 py-1.5 text-[13px] transition-colors duration-150 ${
-                view === v
-                  ? 'surface font-medium text-ink ring-1 ring-[var(--line)]'
-                  : 'text-muted hover:text-ink'
-              }`}
-            >
-              {v === 'active' ? 'Active' : 'Archived'}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div ref={setFilterSlot} className="flex items-center gap-3" />
+          <div className="flex gap-1 rounded-lg surface-sunken p-1">
+            {(['active', 'archived'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                className={`rounded-md px-4 py-1.5 text-[13px] transition-colors duration-150 ${
+                  view === v
+                    ? 'surface font-medium text-ink ring-1 ring-[var(--line)]'
+                    : 'text-muted hover:text-ink'
+                }`}
+              >
+                {v === 'active' ? 'Active' : 'Archived'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -140,6 +145,7 @@ export default function ProfessorGroups() {
             groups={groups}
             members={members}
             linkBase={paths.groups}
+            filterSlot={filterSlot}
             emptyTitle="No groups yet"
             emptyBody="Create a set to split one of your classes into teams. You can place students by hand, shuffle them randomly, or publish empty groups for them to pick."
             emptyAction={
