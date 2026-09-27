@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classTabs, readClassTab, teachesClass, teachingClassFilter } from './classSpace'
+import { classTabs, readClassTab, seatKnown, teachesClass, teachingClassFilter } from './classSpace'
 
 describe('teachingClassFilter', () => {
   it('is null with no seats, so the caller filters on professor_id alone', () => {
@@ -45,6 +45,25 @@ describe('classTabs', () => {
       'overview', 'projects', 'groups', 'members', 'syllabus',
       'submissions', 'analytics', 'reports', 'settings',
     ])
+  })
+})
+
+describe('seatKnown', () => {
+  it('is known for a student, before spaces ever load', () => {
+    expect(seatKnown('student', 's1', 'p1', false)).toBe(true)
+  })
+
+  it('is known for the class professor, before spaces ever load', () => {
+    expect(seatKnown('professor', 'p1', 'p1', false)).toBe(true)
+  })
+
+  it('is known once spaces have loaded, for anyone', () => {
+    expect(seatKnown('professor', 'other', 'p1', true)).toBe(true)
+    expect(seatKnown(null, 'other', 'p1', true)).toBe(true)
+  })
+
+  it('is unknown for a co-teacher whose spaces have not loaded yet', () => {
+    expect(seatKnown('professor', 'cot1', 'p1', false)).toBe(false)
   })
 })
 

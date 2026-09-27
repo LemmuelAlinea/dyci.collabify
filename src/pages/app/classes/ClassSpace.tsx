@@ -22,7 +22,7 @@ import { listAnnouncements } from '../../../lib/api/announcements'
 import { getClass, listMembers, removeMember, restoreMember, updateClass } from '../../../lib/api/classes'
 import { currentWeekFor } from '../../../lib/api/dashboard'
 import { authErrorMessage } from '../../../lib/authError'
-import { classTabs, readClassTab, teachesClass } from '../../../lib/classSpace'
+import { classTabs, readClassTab, seatKnown, teachesClass } from '../../../lib/classSpace'
 import type { ClassTab } from '../../../lib/classSpace'
 import { paths } from '../../../lib/paths'
 import type { Announcement, ClassMember, ClassSummary, ClassWeek } from '../../../lib/types'
@@ -52,7 +52,7 @@ const TAB_META: Record<ClassTab, { label: string; icon: IconName }> = {
  */
 function ClassSpaceView({ classId }: { classId: string }) {
   const { profile } = useAuth()
-  const { spaces } = useGeneralNavigation()
+  const { spaces, error: navError, reload: reloadNav } = useGeneralNavigation()
   const { show } = useToast()
   const [params, setParams] = useSearchParams()
 
@@ -72,7 +72,7 @@ function ClassSpaceView({ classId }: { classId: string }) {
         getClass(classId),
         listMembers(classId, !student),
         listAnnouncements(classId),
-        currentWeekFor([classId]),
+        currentWeekFor([classId]).catch(() => [] as ClassWeek[]),
       ])
       setCls(c)
       setMembers(m)
@@ -104,7 +104,9 @@ function ClassSpaceView({ classId }: { classId: string }) {
   const teaching = cls ? teachesClass(profile ?? null, cls.professor_id, myLevel) : false
   // A co-teacher's seat comes from the space list; until it arrives, don't
   // draw the student version of the page and then swap it.
-  const seatKnown = student || spaces !== null || cls?.professor_id === profile?.id
+  const knowsSeat = cls
+    ? seatKnown(profile?.role, profile?.id, cls.professor_id, spaces !== null)
+    : false
   const tab = readClassTab(params.get('tab'), teaching)
 
   const setTab = (next: ClassTab) =>
@@ -118,7 +120,17 @@ function ClassSpaceView({ classId }: { classId: string }) {
       { replace: true },
     )
 
-  if (loading || (cls && !seatKnown)) {
+  if (cls && !knowsSeat && navError) {
+    return (
+      <div className="mx-auto w-full max-w-[560px] py-10">
+        <Alert tone="error" onRetry={reloadNav}>
+          {navError}
+        </Alert>
+      </div>
+    )
+  }
+
+  if (loading || (cls && !knowsSeat)) {
     return (
       <div className="flex items-center gap-3 py-16 text-[14px] text-muted">
         <Spinner size={16} />

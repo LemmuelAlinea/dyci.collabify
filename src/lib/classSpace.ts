@@ -42,7 +42,22 @@ export function teachesClass(
 }
 
 export function classTabs(teaching: boolean): ClassTab[] {
-  return teaching ? [...SHARED, ...TEACHING] : SHARED
+  return teaching ? [...SHARED, ...TEACHING] : [...SHARED]
+}
+
+/**
+ * Whether the page knows enough to pick student or teaching tabs. A student's
+ * seat is never in question, and neither is the class professor's — everyone
+ * else's teaching seat lives in the space list, so it isn't known until that
+ * has loaded at least once.
+ */
+export function seatKnown(
+  role: Role | null | undefined,
+  viewerId: string | undefined,
+  professorId: string,
+  spacesLoaded: boolean,
+): boolean {
+  return role === 'student' || viewerId === professorId || spacesLoaded
 }
 
 /** The `?tab=` value, if the viewer has that tab; Overview otherwise. */
