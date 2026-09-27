@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { spaceRows } from './spaceRows'
+import { classRows, workSpaceRows } from './spaceRows'
 import type { GeneralSpaceSummary } from '../../lib/general/types'
 
 let n = 0
@@ -23,69 +23,56 @@ function space(overrides: Partial<GeneralSpaceSummary> = {}): GeneralSpaceSummar
   }
 }
 
-describe('spaceRows', () => {
-  it('drops a space the reader is not in, and an archived one', () => {
-    const rows = spaceRows([
-      space({ id: 'not-mine', my_level: null }),
-      space({ id: 'archived', archived_at: '2026-01-01' }),
-      space({ id: 'mine' }),
+describe('classRows', () => {
+  it('lists only class spaces the reader is in and not archived', () => {
+    const rows = classRows([
+      space({ id: 'not-mine', kind: 'education', class_id: 'a', my_level: null }),
+      space({ id: 'archived', kind: 'education', class_id: 'b', archived_at: '2026-01-01' }),
+      space({ id: 'work', kind: 'work' }),
+      space({ id: 'mine', kind: 'education', class_id: 'c' }),
     ])
     expect(rows.map((r) => r.id)).toEqual(['mine'])
   })
 
   it('drops a class space with no class_id instead of linking to /classes/<spaceId>', () => {
-    const rows = spaceRows([
+    const rows = classRows([
       space({ id: 'orphan', kind: 'education', class_id: null, name: 'Orphan class' }),
       space({ id: 'k1', kind: 'education', class_id: 'class-1', name: 'Real class' }),
     ])
     expect(rows.map((r) => r.id)).toEqual(['k1'])
-    expect(rows[0].to).toBe('/classes/class-1')
+    expect(rows[0]).toMatchObject({ to: '/classes/class-1', tone: 'education' })
   })
 
-  it('sorts classes before work, and alphabetically within a kind', () => {
-    const rows = spaceRows([
-      space({ id: 'w2', kind: 'work', name: 'Zeta' }),
-      space({ id: 'w1', kind: 'work', name: 'Alpha' }),
-      space({ id: 'c2', kind: 'education', class_id: 'c2', name: 'Zoology' }),
-      space({ id: 'c1', kind: 'education', class_id: 'c1', name: 'Algebra' }),
+  it('sorts by name and caps at six', () => {
+    const rows = classRows(
+      Array.from({ length: 10 }, (_, i) =>
+        space({ id: `c${9 - i}`, kind: 'education', class_id: `c${i}`, name: `Class ${9 - i}` }),
+      ),
+    )
+    expect(rows.map((r) => r.id)).toEqual(['c0', 'c1', 'c2', 'c3', 'c4', 'c5'])
+  })
+})
+
+describe('workSpaceRows', () => {
+  it('lists only work spaces the reader is in and not archived', () => {
+    const rows = workSpaceRows([
+      space({ id: 'not-mine', my_level: null }),
+      space({ id: 'archived', archived_at: '2026-01-01' }),
+      space({ id: 'class', kind: 'education', class_id: 'k' }),
+      space({ id: 'mine' }),
     ])
-    expect(rows.map((r) => r.id)).toEqual(['c1', 'c2', 'w1', 'w2'])
+    expect(rows.map((r) => r.id)).toEqual(['mine'])
+    expect(rows[0]).toMatchObject({ to: '/spaces/mine', tone: 'work' })
   })
 
-  it('sets tone and link per kind', () => {
-    const rows = spaceRows([
-      space({ id: 'c1', kind: 'education', class_id: 'k1', name: 'Class' }),
-      space({ id: 'w1', kind: 'work', name: 'Work' }),
+  it('sorts by name and caps at six', () => {
+    const rows = workSpaceRows([
+      space({ id: 'z', name: 'Zeta' }),
+      space({ id: 'a', name: 'Alpha' }),
+      ...Array.from({ length: 8 }, (_, i) => space({ id: `m${i}`, name: `Mid ${i}` })),
     ])
-    expect(rows.find((r) => r.id === 'c1')).toMatchObject({ to: '/classes/k1', tone: 'education' })
-    expect(rows.find((r) => r.id === 'w1')).toMatchObject({ to: '/spaces/w1', tone: 'work' })
-  })
-
-  it('caps the list at six', () => {
-    const classes = Array.from({ length: 10 }, (_, i) =>
-      space({ id: `c${i}`, kind: 'education', class_id: `c${i}`, name: `Class ${i}` }),
-    )
-    const rows = spaceRows(classes)
     expect(rows).toHaveLength(6)
-  })
-
-  it('always shows at least two work spaces when the reader has any, even past the cap', () => {
-    const classes = Array.from({ length: 8 }, (_, i) =>
-      space({ id: `c${i}`, kind: 'education', class_id: `c${i}`, name: `Class ${i}` }),
-    )
-    const work = Array.from({ length: 3 }, (_, i) => space({ id: `w${i}`, kind: 'work', name: `Work ${i}` }))
-    const rows = spaceRows([...classes, ...work])
-    expect(rows).toHaveLength(6)
-    expect(rows.filter((r) => r.tone === 'work')).toHaveLength(2)
-    expect(rows.filter((r) => r.tone === 'education')).toHaveLength(4)
-  })
-
-  it('does not reserve work slots that do not exist', () => {
-    const classes = Array.from({ length: 8 }, (_, i) =>
-      space({ id: `c${i}`, kind: 'education', class_id: `c${i}`, name: `Class ${i}` }),
-    )
-    const rows = spaceRows(classes)
-    expect(rows).toHaveLength(6)
-    expect(rows.every((r) => r.tone === 'education')).toBe(true)
+    expect(rows[0].id).toBe('a')
+    expect(rows.map((r) => r.id)).not.toContain('z')
   })
 })

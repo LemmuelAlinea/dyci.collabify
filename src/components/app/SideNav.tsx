@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FocusEvent, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation } from 'react-router-dom'
@@ -11,8 +11,8 @@ import { paths } from '../../lib/paths'
 import { Logo, LogoMark } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
 import { navFor } from './nav'
-import type { NavItem } from './nav'
-import { spaceRows } from './spaceRows'
+import type { NavGroup, NavItem } from './nav'
+import { classRows, workSpaceRows } from './spaceRows'
 import type { LiveRow } from './spaceRows'
 
 type Hint = { text: string; top: number }
@@ -20,6 +20,8 @@ type Hint = { text: string; top: number }
 // No font-size here on purpose: each kind of row sets its own, and two
 // arbitrary text-[] utilities on one element resolve by stylesheet order.
 const ROW = 'relative flex w-full items-center rounded-lg transition-colors'
+const ACTIVE = 'surface-sunken font-semibold text-ink'
+const IDLE = 'font-medium text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
 
 export function SideNav({
   collapsed = false,
@@ -46,12 +48,6 @@ export function SideNav({
   // for a student who has classes.
   const groups = navFor(profile, admitted !== false)
 
-  // Whether this account gets the reader's own spaces and projects under
-  // Main — everyone whose Main is the full spine, not the waiting page's
-  // Home-only stub or an unadmitted account's Settings-only rail.
-  const showLiveGroups =
-    profile.status === 'active' && Boolean(profile.role) && (profile.role !== 'student' || admitted !== false)
-
   function revealHint(
     text: string,
     event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>,
@@ -71,10 +67,27 @@ export function SideNav({
     }
   }
 
-  const liveSpaceRows = spaceRows(navigation.spaces ?? [])
+  const spaces = navigation.spaces ?? []
   const liveProjects = (navigation.myProjects ?? []).filter(
     (project) => project.my_level && !project.archived_at,
   )
+
+  function live(kind: NonNullable<NavGroup['live']>): { rows: LiveRow[]; loading: boolean } {
+    if (kind === 'projects') {
+      return {
+        loading: navigation.myProjects === null,
+        rows: recentProjects(liveProjects).map((project) => ({
+          id: project.id,
+          name: project.name,
+          to: paths.project(project.id),
+        })),
+      }
+    }
+    return {
+      loading: navigation.spaces === null,
+      rows: kind === 'classes' ? classRows(spaces) : workSpaceRows(spaces),
+    }
+  }
 
   return (
     <>
@@ -98,11 +111,49 @@ export function SideNav({
             </Link>
           )}
 
-          {groups.map((group, index) => (
-            <Fragment key={group.title}>
-              <div>
-                {!collapsed && <GroupLabel>{group.title}</GroupLabel>}
+          {groups.map((group) => {
+            const { rows, loading } = group.live ? live(group.live) : { rows: [], loading: false }
+            // Hidden while loading too, so a student with no spaces never sees
+            // the section flash in and back out.
+            if (group.hideWhenEmpty && (loading || rows.length === 0)) return null
+
+            return (
+              <div key={group.title}>
+                {!collapsed && (
+                  <GroupHeader title={group.title} more={group.more} onNavigate={onNavigate} />
+                )}
                 <ul className="space-y-0.5">
+                  {rows.map((row) => (
+                    <LiveRowLink
+                      key={row.id}
+                      row={row}
+                      collapsed={collapsed}
+                      onNavigate={onNavigate}
+                      hintHandlers={hintHandlers}
+                    />
+                  ))}
+
+                  {/* Classes always has its own rows below, so it needs no
+                      empty line; Spaces and Projects do. */}
+                  {!collapsed && group.live && group.items.length === 0 && rows.length === 0 && !loading && (
+                    <li className="px-3 py-1 text-[13px] text-faint">
+                      {group.live === 'projects' ? 'No projects yet.' : 'No spaces yet.'}
+                    </li>
+                  )}
+
+                  {/* Collapsed there is no header to hang the link on. */}
+                  {collapsed && group.more && (
+                    <MoreRow
+                      more={group.more}
+                      onNavigate={onNavigate}
+                      hintHandlers={hintHandlers}
+                    />
+                  )}
+
+                  {rows.length > 0 && group.items.length > 0 && (
+                    <li aria-hidden className={`my-2 border-t border-line ${collapsed ? 'mx-2' : 'mx-3'}`} />
+                  )}
+
                   {group.items.map((item) => (
                     <StaticRow
                       key={item.label}
@@ -115,44 +166,8 @@ export function SideNav({
                   ))}
                 </ul>
               </div>
-
-              {/* The reader's own work, between the fixed rows and everything
-                  their role adds. These lists change as the work does, which
-                  is the one kind of movement a rail should have. Spaces
-                  first: a space holds projects, so the rail reads widest to
-                  narrowest. */}
-              {showLiveGroups && index === 0 && (
-                <>
-                  <LiveGroup
-                    title="Your spaces"
-                    empty="No spaces yet."
-                    moreTo={paths.spaces}
-                    moreLabel="All spaces"
-                    collapsed={collapsed}
-                    loading={navigation.spaces === null}
-                    onNavigate={onNavigate}
-                    hintHandlers={hintHandlers}
-                    rows={liveSpaceRows}
-                  />
-                  <LiveGroup
-                    title="Your projects"
-                    empty="No projects yet."
-                    moreTo={paths.projects}
-                    moreLabel="All projects"
-                    collapsed={collapsed}
-                    loading={navigation.myProjects === null}
-                    onNavigate={onNavigate}
-                    hintHandlers={hintHandlers}
-                    rows={recentProjects(liveProjects).map((project) => ({
-                      id: project.id,
-                      name: project.name,
-                      to: paths.project(project.id),
-                    }))}
-                  />
-                </>
-              )}
-            </Fragment>
-          ))}
+            )
+          })}
         </div>
       </nav>
 
@@ -174,128 +189,132 @@ export function SideNav({
 }
 
 /**
- * A named list of the reader's own things — projects, spaces — ending in a link
- * to all of them.
+ * One of the reader's own things — a class, space or project.
  *
  * Collapsed, a row is its first letter rather than an icon: five identical
  * folder glyphs tell nobody which space is which, and the tooltip carries the
  * full name either way.
  */
-function LiveGroup({
-  title,
-  empty,
-  rows,
-  moreTo,
-  moreLabel,
+function LiveRowLink({
+  row,
   collapsed,
-  loading,
   onNavigate,
   hintHandlers,
 }: {
-  title: string
-  empty: string
-  rows: LiveRow[]
-  moreTo: string
-  moreLabel: string
+  row: LiveRow
   collapsed: boolean
-  loading: boolean
   onNavigate?: () => void
   hintHandlers: (text: string) => Record<string, unknown>
 }) {
   return (
-    <div>
-      {!collapsed && <GroupLabel>{title}</GroupLabel>}
-      <ul className="space-y-0.5">
-        {rows.map((row) => (
-          <li key={row.id}>
-            <NavLink
-              to={row.to}
-              onClick={onNavigate}
-              aria-label={collapsed ? row.name : undefined}
-              {...hintHandlers(row.name)}
-              className={({ isActive }) =>
-                `${ROW} h-9 text-[13.5px] ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
-                  isActive
-                    ? 'surface-sunken font-semibold text-ink'
-                    : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <span
-                      aria-hidden
-                      className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-amber-400"
-                    />
-                  )}
-                  <span
-                    aria-hidden
-                    className={`grid h-5 w-5 shrink-0 place-items-center rounded font-mono text-[10px] font-bold ${
-                      isActive
-                        ? 'bg-navy-600 text-white dark:bg-amber-400 dark:text-navy-900'
-                        : row.tone === 'education'
-                          ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
-                          : 'surface-sunken text-muted'
-                    }`}
-                  >
-                    {row.name.trim().charAt(0).toUpperCase()}
-                  </span>
-                  {!collapsed && <span className="flex-1 truncate">{row.name}</span>}
-                </>
-              )}
-            </NavLink>
-          </li>
-        ))}
-
-        {!collapsed && rows.length === 0 && !loading && (
-          <li className="px-3 py-1 text-[13px] text-faint">{empty}</li>
-        )}
-
-        <li>
-          {/* `end`, so the list page lights this row while a project or space
-              below it lights its own. */}
-          <NavLink
-            to={moreTo}
-            end
-            onClick={onNavigate}
-            aria-label={collapsed ? moreLabel : undefined}
-            {...hintHandlers(moreLabel)}
-            className={({ isActive }) =>
-              `${ROW} h-9 ${collapsed ? 'justify-center' : 'gap-3 px-3'} text-[12.5px] ${
+    <li>
+      <NavLink
+        to={row.to}
+        onClick={onNavigate}
+        aria-label={collapsed ? row.name : undefined}
+        {...hintHandlers(row.name)}
+        className={({ isActive }) =>
+          `${ROW} h-9 text-[14px] ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
+            isActive ? ACTIVE : IDLE
+          }`
+        }
+      >
+        {({ isActive }) => (
+          <>
+            {isActive && <ActiveBar />}
+            <span
+              aria-hidden
+              className={`grid h-5 w-5 shrink-0 place-items-center rounded font-mono text-[10px] font-bold ${
                 isActive
-                  ? 'surface-sunken font-semibold text-ink'
-                  : 'text-faint hover:bg-[var(--surface-sunken)] hover:text-ink'
-              }`
-            }
-          >
-            <Icon name="arrowRight" size={16} className="shrink-0" />
-            {!collapsed && <span className="flex-1 truncate">{moreLabel}</span>}
-          </NavLink>
-        </li>
-      </ul>
-    </div>
+                  ? 'bg-navy-600 text-white dark:bg-amber-400 dark:text-navy-900'
+                  : row.tone === 'education'
+                    ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
+                    : 'border border-line text-muted'
+              }`}
+            >
+              {row.name.trim().charAt(0).toUpperCase()}
+            </span>
+            {!collapsed && <span className="flex-1 truncate">{row.name}</span>}
+          </>
+        )}
+      </NavLink>
+    </li>
+  )
+}
+
+/** The link to every class, space or project, as a row — collapsed rail only. */
+function MoreRow({
+  more,
+  onNavigate,
+  hintHandlers,
+}: {
+  more: { to: string; label: string }
+  onNavigate?: () => void
+  hintHandlers: (text: string) => Record<string, unknown>
+}) {
+  return (
+    <li>
+      {/* `end`, so the list page lights this row while a project or space
+          below it lights its own. */}
+      <NavLink
+        to={more.to}
+        end
+        onClick={onNavigate}
+        aria-label={more.label}
+        {...hintHandlers(more.label)}
+        className={({ isActive }) => `${ROW} h-9 justify-center ${isActive ? ACTIVE : 'text-faint hover:bg-[var(--surface-sunken)] hover:text-ink'}`}
+      >
+        <Icon name="arrowRight" size={16} className="shrink-0" />
+      </NavLink>
+    </li>
   )
 }
 
 /**
- * The rail reads in four steps, and each one is a step down in size, weight and
- * colour together: a section label, the rows that go somewhere fixed, the
- * reader's own things, then the way to all of them.
+ * The rail reads in three steps, and each one differs in more than colour:
  *
- *   label   11px  semibold  text-faint   (uppercase, tracked)
- *   fixed   14px  medium    text-ink
- *   live  13.5px  normal    text-muted
- *   more  12.5px  normal    text-faint
+ *   label   11px  semibold  text-faint  uppercase, tracked — structure, not a place
+ *   row     14px  medium    text-muted  every destination, fixed or live alike
+ *   active  14px  semibold  text-ink    plus the amber bar and a lit icon
  *
- * Whichever row is active takes text-ink and semibold wherever it sits, so the
- * current page reads above its own level without another colour.
+ * The link to all of a section's things sits in its header at 12px text-faint,
+ * so the list ends on the reader's own rows instead of on one more row.
  */
-function GroupLabel({ children }: { children: string }) {
+function GroupHeader({
+  title,
+  more,
+  onNavigate,
+}: {
+  title: string
+  more?: { to: string; label: string }
+  onNavigate?: () => void
+}) {
   return (
-    <p className="px-3 pb-2 text-[11px] font-semibold tracking-[0.1em] text-faint uppercase">
-      {children}
-    </p>
+    <div className="flex items-center justify-between gap-2 px-3 pb-2">
+      <p className="text-[11px] font-semibold tracking-[0.1em] text-faint uppercase">{title}</p>
+      {more && (
+        <NavLink
+          to={more.to}
+          end
+          onClick={onNavigate}
+          aria-label={more.label}
+          className={({ isActive }) =>
+            `-my-1 flex items-center gap-1 rounded px-1 py-1 text-[12px] transition-colors ${
+              isActive ? 'font-semibold text-ink' : 'text-faint hover:text-ink'
+            }`
+          }
+        >
+          All
+          <Icon name="arrowRight" size={12} />
+        </NavLink>
+      )}
+    </div>
+  )
+}
+
+function ActiveBar() {
+  return (
+    <span aria-hidden className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-amber-400" />
   )
 }
 
@@ -347,20 +366,13 @@ function StaticRow({
         {...hintHandlers(item.label)}
         className={({ isActive }) =>
           `${ROW} h-10 text-[14px] ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
-            isActive
-              ? 'surface-sunken font-semibold text-ink'
-              : 'font-medium text-ink hover:bg-[var(--surface-sunken)]'
+            isActive ? ACTIVE : IDLE
           }`
         }
       >
         {({ isActive }) => (
           <>
-            {isActive && (
-              <span
-                aria-hidden
-                className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-amber-400"
-              />
-            )}
+            {isActive && <ActiveBar />}
             <Icon
               name={item.icon}
               size={18}

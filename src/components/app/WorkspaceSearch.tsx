@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { listProfessorClasses, listStudentClasses } from '../../lib/api/classes'
 import { listProjectsForClasses } from '../../lib/api/projects'
+import type { AccessProfile } from '../../lib/access'
 import { authErrorMessage } from '../../lib/authError'
 import { paths } from '../../lib/paths'
-import type { AccountStatus, ClassSummary, ProjectSummary, Role } from '../../lib/types'
+import type { ClassSummary, ProjectSummary } from '../../lib/types'
 import { Icon } from '../ui/Icon'
 import { navFor } from './nav'
 
@@ -35,16 +36,12 @@ function useDismiss(open: boolean, close: () => void) {
   return ref
 }
 
-function staticResults(profile: { role: Role | null; status: AccountStatus }): Result[] {
+function staticResults(profile: AccessProfile): Result[] {
   return navFor(profile, true).flatMap((group) =>
-    group.items
-      .filter((item) => item.to && !item.soon)
-      .map((item) => ({
-        key: `nav:${item.to}`,
-        label: item.label,
-        detail: group.title,
-        to: item.to!,
-      })),
+    [...(group.more ? [group.more] : []), ...group.items.filter((item) => !item.soon)].flatMap(
+      (item) =>
+        item.to ? [{ key: `nav:${item.to}`, label: item.label, detail: group.title, to: item.to }] : [],
+    ),
   )
 }
 

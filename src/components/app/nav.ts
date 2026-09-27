@@ -1,5 +1,7 @@
 import type { IconName } from '../ui/Icon'
-import type { AccountStatus, Role } from '../../lib/types'
+import { canTeach } from '../../lib/access'
+import type { AccessProfile } from '../../lib/access'
+import type { Role } from '../../lib/types'
 import { paths } from '../../lib/paths'
 
 export type NavItem = {
@@ -14,18 +16,26 @@ export type NavItem = {
   end?: boolean
 }
 
-export type NavGroup = { title: string; items: NavItem[] }
+export type NavGroup = {
+  title: string
+  items: NavItem[]
+  /** Live rows `SideNav` fills in above `items`: the reader's own classes, spaces or projects. */
+  live?: 'classes' | 'spaces' | 'projects'
+  /** The page listing all of them, linked from the section header. */
+  more?: { to: string; label: string }
+  /** Leave the whole section out until there is at least one live row. */
+  hideWhenEmpty?: boolean
+}
 
 /**
  * One rail, for everyone.
  *
- * There used to be a rail per workplace — Education's and General's — chosen
- * by which URL you were under. Now there is one workplace and one rail: it
- * opens on the spine every account shares (Main), then the reader's own
- * spaces and projects (added by `SideNav`, not here — they are live data, not
- * a static list), then whatever their role adds on top. A professor is not
- * "in General with extra rows"; they are one account whose rail happens to be
- * longer than a student's.
+ * It opens on the spine every account shares (Main), then the reader's own
+ * classes, spaces and projects — live data `SideNav` fills in, but placed
+ * here so the order lives in one file — then whatever their role adds on top.
+ * A section someone cannot use is not shown to them: faculty the admin has
+ * not let teach get no Classes or Teaching, and an account that cannot make a
+ * space of its own sees Spaces only once somebody has invited it into one.
  */
 const MAIN: NavGroup = {
   title: 'Main',
@@ -55,16 +65,17 @@ const ACCOUNT: NavGroup = {
 }
 
 /**
- * Classes hold groups, groups hold class projects: the spine reads widest to
- * narrowest. A student also keeps their own record here, since it is theirs to
- * keep rather than theirs to do.
+ * The reader's classes, then what hangs off them: classes hold groups, groups
+ * hold class projects, so the section reads widest to narrowest. A student
+ * also keeps their own record here, since it is theirs to keep rather than
+ * theirs to do.
  */
 function classesGroup(role: Role): NavGroup {
   return {
     title: 'Classes',
+    live: 'classes',
+    more: { to: paths.classes, label: 'All classes' },
     items: [
-      // `end`: a class page lights its own row under Your spaces, not this one too.
-      { label: 'Classes', icon: 'folder', to: paths.classes, end: true },
       { label: 'Groups', icon: 'users', to: paths.groups },
       { label: 'Class projects', icon: 'kanban', to: paths.classProjects },
       ...(role === 'student'
@@ -72,6 +83,24 @@ function classesGroup(role: Role): NavGroup {
         : []),
     ],
   }
+}
+
+/** Work spaces. A class space is listed under Classes, never here. */
+function spacesGroup(hideWhenEmpty: boolean): NavGroup {
+  return {
+    title: 'Spaces',
+    live: 'spaces',
+    more: { to: paths.spaces, label: 'All spaces' },
+    hideWhenEmpty,
+    items: [],
+  }
+}
+
+const PROJECTS: NavGroup = {
+  title: 'Projects',
+  live: 'projects',
+  more: { to: paths.projects, label: 'All projects' },
+  items: [],
 }
 
 /**
@@ -123,27 +152,30 @@ const MAIN_WAITING: NavGroup = {
 }
 
 /**
- * The static half of the rail — everything that isn't the reader's own
- * spaces and projects, which `SideNav` adds between Main and whatever role
- * group comes next because those lists are live data, not a fixed menu.
+ * The rail for one account, top to bottom.
  *
  * `admitted` narrows only a student's Main group, to just Home; faculty and
  * admins are admitted by approval, which the route guard has already
  * checked before this ever renders. An account with no role yet, or one that
  * isn't active, has nothing to open but Settings — every other page here
  * needs an admitted account.
+ *
+ * Spaces hides while empty for anyone who cannot open a class — students and
+ * faculty who do not teach. Teaching faculty and admins keep it, empty or not,
+ * because making spaces is part of their job. Home's New space button stays
+ * the way in for everyone else.
  */
-export function navFor(
-  profile: { role: Role | null; status: AccountStatus } | null,
-  admitted: boolean,
-): NavGroup[] {
+export function navFor(profile: AccessProfile, admitted: boolean): NavGroup[] {
   if (!profile || profile.status !== 'active' || !profile.role) return [ACCOUNT]
 
   const { role } = profile
-  if (role === 'student' && !admitted) return [MAIN_WAITING, ACCOUNT]
-
-  const roleGroups: NavGroup[] =
-    role === 'admin' ? [ADMIN] : role === 'faculty' ? [classesGroup(role), TEACHING] : [classesGroup(role)]
-
-  return [MAIN, ...roleGroups, ACCOUNT]
+  if (role === 'admin') return [MAIN, spacesGroup(false), PROJECTS, ADMIN, ACCOUNT]
+  if (role === 'student') {
+    if (!admitted) return [MAIN_WAITING, ACCOUNT]
+    return [MAIN, classesGroup(role), spacesGroup(true), PROJECTS, ACCOUNT]
+  }
+  if (canTeach(profile)) {
+    return [MAIN, classesGroup(role), spacesGroup(false), PROJECTS, TEACHING, ACCOUNT]
+  }
+  return [MAIN, spacesGroup(true), PROJECTS, ACCOUNT]
 }
