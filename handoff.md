@@ -1495,3 +1495,7 @@ changes only the label: late work is still accepted.
 anon-lockdown suite pass.
 
 **Browser walk:** pending the owner's sign-in.
+
+**Owner decision (2026-09-28):** a class project locks only when a professor closes it.
+Past the deadline, students can still upload and hand in; the header's "Closed" is a
+label only. Owner checked all five changes in the browser; merged to `main` as `79639ef`.
