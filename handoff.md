@@ -1341,3 +1341,49 @@ missing from the rebuild line; `dotenv` 17 prints promo tips (pass `quiet: true`
 
 **Next:** phase 3 — one workplace on screen (routes, one rail, merged home, class pages
 as space tabs, co-teachers in the UI and the class conversation).
+
+## Session — 2026-09-27: one workplace, phase 3 (one shell + education space page)
+Plans `docs/superpowers/plans/2026-09-27-one-workplace-phase-3a-shell.md` and
+`…-phase-3b-education-space.md`. 3a pushed through `27ce821`; 3b through `d0c1445`.
+Browser walk for both is still to do (owner signs in: student, professor, admin).
+
+**3a — one shell.** `src/lib/paths.ts` owns every URL; `legacyPath()` redirects old
+`/student`, `/professor`, `/general`, `/admin`, `/education` links (query and hash kept).
+One `<ProtectedRoute open>` + `<AppShell>` parent; guard-only layouts via
+`src/routes/gate.ts`. `RoleSwitch` picks the page by role behind one route. One rail
+(`navFor`): MAIN, YOUR SPACES (classes amber, work navy), YOUR PROJECTS, CLASSES,
+TEACHING, ADMIN, ACCOUNT. Home is stacked (role dashboard, then "Your work"). Messages,
+My tasks and Calendar are one list with an All · Classes · Work filter in `?show=`.
+The workplace switcher and its helpers are gone.
+
+**3b — a class is its education space.** `/classes/:classId` renders `ClassSpace`
+(keyed by class), tab in `?tab=`. Everyone: Overview (this week, announcements, about),
+Projects, Groups, Members (Faculty panel, then Students), Syllabus. Faculty who teach it
+(`teachesClass` = class professor or active faculty at Owner/Manager, same rule as
+`is_class_professor`): + Submissions, Analytics, Reports (the teaching pages with a
+`classId` prop that locks them to the class) and Settings (`ClassSettings`: edit,
+archive/restore, delete for the professor only). The two old class detail pages are gone.
+- Co-teachers: faculty in a class space always sit at Owner/Manager (accepted invite →
+  Manager; Member refused). **Owner decision:** only a class's Owner invites or removes
+  faculty; anyone can leave. Their seat puts them in the class chat
+  (`class_space_conversation_sync`, handovers included). `search_faculty` RPC for the
+  invite dialog. `listProfessorClasses` includes co-taught classes, so every professor
+  list shows them.
+- New space asks Education or Work for teaching faculty; "Create class" opens it at
+  Education and lands in the new class.
+- Printing a report from a class hides the class banner (join code).
+
+**Tests:** 40/40 SQL suites; 505 Vitest; build clean.
+
+**Deferred:** everything from phase 2's list, plus: space-level student positions
+(positions exist only on projects); Analytics empty-state copy inside a class; an
+archived class's Submissions tab is empty (lists exclude archived); losing a seat
+mid-session keeps loaded data until reload; `listProfessorClasses` takes two queries;
+`general_space_overview` is defined twice in `one-workplace.sql`; any teaching professor
+can point `syllabus_id` at a known resource UUID (pre-existing); month-view work chips
+look like class chips; `useConversations` subscribes three times on Home; `gate.test`
+matrix gaps. **Open owner question:** should an admin without *Can teach* keep
+"New message" in Messages (hidden now)?
+
+**Next:** browser walk, then phase 4 cleanup (drop `home_workplace` and dead routes,
+rename `professor` → `faculty`, landing/auth copy).
