@@ -1649,3 +1649,7 @@ marketing `.dark` grounds. They now carry `.depth-ground`, which in dark mode re
 person's `--u-*` depth first, backdrop (`--scrim`) included. The fallbacks are the old
 `.dark` values, so nothing changes without depth. `ActionMenu` already rendered with
 `.app-ui` and followed it.
+Dialogs also have an edge in dark mode: `.dialog-panel` (on `Modal`'s panel) adds a 1px
+white rim, from 8% to 28% as `--u-depth` (0–1, set with the depth) goes from 0 to 1, plus
+a white halo up to 13%, so a dark dialog stays visible on a black page. Light mode keeps
+the plain shadow.

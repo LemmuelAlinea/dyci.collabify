@@ -349,6 +349,7 @@ export const PALETTE_VARS: readonly string[] = [
   '--u-surface',
   '--u-sunken',
   '--u-raised',
+  '--u-depth',
 ]
 
 /** The text colour that reads best on every one of `grounds` at once. */
@@ -453,6 +454,9 @@ export function toCssVars(picks: Picks | undefined, mode: Mode): Record<string, 
     vars['--u-surface'] = g.surface
     vars['--u-sunken'] = g.sunken
     vars['--u-raised'] = g.raised
+    // 0–1, for what the grounds alone cannot say: how bright a dialog's edge
+    // has to be to stand off a page this dark (`.dialog-panel`).
+    vars['--u-depth'] = String(Math.min(100, Math.max(0, picks.depth)) / 100)
   }
   return vars
 }

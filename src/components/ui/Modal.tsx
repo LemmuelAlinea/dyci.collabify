@@ -161,7 +161,7 @@ export function Modal({
         aria-label={title}
         tabIndex={-1}
         data-state={open ? 'open' : 'closed'}
-        className={`motion-dialog surface relative flex max-h-[calc(92dvh-var(--app-bar,0px))] w-full flex-col overflow-hidden rounded-t-panel shadow-lift outline-none sm:max-h-[calc(100dvh-var(--app-bar,0px)-3rem)] sm:rounded-panel ${WIDTHS[size]}`}
+        className={`motion-dialog surface relative flex max-h-[calc(92dvh-var(--app-bar,0px))] w-full flex-col overflow-hidden rounded-t-panel dialog-panel outline-none sm:max-h-[calc(100dvh-var(--app-bar,0px)-3rem)] sm:rounded-panel ${WIDTHS[size]}`}
       >
         <header
           className={`flex items-start justify-between gap-4 border-b px-6 py-5 ${

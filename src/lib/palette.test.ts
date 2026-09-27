@@ -85,7 +85,7 @@ describe('toCssVars', () => {
       expect(vars['--icon-tile']).toBe('#3366cc')
       expect(vars['--pending-soft']).toContain('#3366cc')
       // Depth is dark mode's alone.
-      expect(Object.keys(vars).length).toBe(PALETTE_VARS.length - (mode === 'light' ? 4 : 0))
+      expect(Object.keys(vars).length).toBe(PALETTE_VARS.length - (mode === 'light' ? 5 : 0))
     }
   })
 
@@ -112,6 +112,8 @@ describe('toCssVars', () => {
 
   it('takes dark mode to black at full depth and leaves light mode alone', () => {
     expect(toCssVars({ depth: 100 }, 'dark')['--u-page']).toBe('#000000')
+    expect(toCssVars({ depth: 100 }, 'dark')['--u-depth']).toBe('1')
+    expect(toCssVars({ depth: 35 }, 'dark')['--u-depth']).toBe('0.35')
     expect(toCssVars({ depth: 100 }, 'light')['--u-page']).toBeUndefined()
     const half = toCssVars({ depth: 50 }, 'dark')['--u-surface']
     expect(luminance(half)).toBeLessThan(luminance('#10152f'))

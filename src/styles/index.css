@@ -574,6 +574,21 @@
   .banner-deco {
     visibility: var(--banner-deco, visible);
   }
+  /**
+   * A dialog's own edge. In light mode the shadow is enough. In dark mode a
+   * dark panel on a dark page needs a rim: a hairline and a faint halo that
+   * brighten as the person's background depth (`--u-depth`, 0–1) takes the
+   * page toward black, so a dialog never sinks into it.
+   */
+  .dialog-panel {
+    box-shadow: var(--shadow-lift);
+  }
+  .dark .dialog-panel {
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / calc(0.08 + 0.2 * var(--u-depth, 0))),
+      0 0 60px -6px rgb(255 255 255 / calc(0.13 * var(--u-depth, 0))),
+      var(--shadow-lift);
+  }
   /* A level slider, like a volume control, for dark mode's background depth.
      The track runs between the two grounds it chooses from. */
   .level-range {
