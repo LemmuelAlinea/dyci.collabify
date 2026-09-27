@@ -19,6 +19,7 @@ import type {
   GeneralSpace,
   GeneralSpaceSummary,
   MySpaceInvitation,
+  PersonHit,
   SpaceInvitation,
   SpacePerson,
 } from '../general/types'
@@ -138,6 +139,13 @@ export async function leaveSpace(spaceId: string, userId: string) {
 }
 
 /* ---------------------------------------------------------------- invitations */
+
+/** Approved faculty only, for inviting a co-teacher into a class. */
+export async function searchFaculty(query: string) {
+  const { data, error } = await supabase.rpc('search_faculty', { p_query: query })
+  if (error) throw error
+  return (data ?? []) as PersonHit[]
+}
 
 export async function inviteToSpace(spaceId: string, userId: string) {
   const { error } = await supabase.rpc('invite_to_general_space', {
