@@ -37,7 +37,9 @@ function destination(n: AppNotification, role: Role | null): string {
       return role === 'student' ? paths.tasks : paths.home
     case 'review_requested':
     case 'review_answered':
-      return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=files` : paths.home
+      if (n.general_project_id) return `${paths.project(n.general_project_id)}?tab=files`
+      // A class project's Files.
+      return n.project_id ? `${paths.classProject(n.project_id)}?tab=files` : paths.home
     case 'general_access_requested':
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=members` : paths.home
   }

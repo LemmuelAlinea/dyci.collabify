@@ -3,11 +3,8 @@ import { Alert } from '../ui/Alert'
 import { Icon, Spinner } from '../ui/Icon'
 import { EmptyState } from '../ui/EmptyState'
 import { useToast } from '../ui/Toast'
-import { BoardProgress } from './BoardProgress'
 import { BoardVerdict } from './BoardVerdict'
 import { GenerateTasksModal } from './GenerateTasksModal'
-import { MemberProgress } from './MemberProgress'
-import { SubmitProject } from './SubmitProject'
 import { TaskBoard } from './TaskBoard'
 import { TaskList } from './TaskList'
 import { TaskSummary } from './TaskSummary'
@@ -71,15 +68,8 @@ export function StudentTasksView({
         </div>
       ) : (
         <>
+          {/* Handing in sits in the project header; progress has its own tab. */}
           <BoardVerdict board={active} role={role} onChanged={t.refresh} />
-          <SubmitProject board={active} locked={locked} onChanged={t.refresh} />
-          <BoardProgress board={active} />
-          <MemberProgress
-            rows={t.progress}
-            viewerId={viewerId}
-            dense
-            title={active.group_id ? 'Your group' : 'Your progress'}
-          />
 
           {/* Drafting is planning, and planning is over once the board is
               handed in — accepting leaves it that way, returning gives it back.

@@ -86,6 +86,8 @@ export async function listMyGeneralProjects() {
   const { data, error } = await supabase
     .from('general_project_overview')
     .select('*')
+    // A class board's Files project is part of that class project, not work.
+    .or('preset.is.null,preset.neq.class-board')
     .order('updated_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as GeneralProjectSummary[]

@@ -1,6 +1,6 @@
 // src/pages/general/GeneralProject.tsx
 import { useEffect, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { MembersTab } from '../../components/general/MembersTab'
 import { OverviewTab } from '../../components/general/OverviewTab'
 import { FilesTab } from '../../components/general/FilesTab'
@@ -75,6 +75,9 @@ export default function GeneralProject() {
       </div>
     )
   }
+
+  // A class board's Files project is only ever opened from its class project.
+  if (p?.preset === 'class-board') return <Navigate to={paths.classProjects} replace />
 
   if (state.missing || !p) {
     return (

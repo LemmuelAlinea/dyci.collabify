@@ -2,7 +2,7 @@ import { Spinner } from '../ui/Icon'
 import { EmptyState } from '../ui/EmptyState'
 import { ProfessorTasksView } from './ProfessorTasksView'
 import { StudentTasksView } from './StudentTasksView'
-import { useProjectTasks } from './useProjectTasks'
+import type { ProjectTasks } from './useProjectTasks'
 import { isReleased } from '../../lib/types'
 import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
 
@@ -18,12 +18,14 @@ import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
 export function ProjectTasksTab({
   project, role,
   viewerId,
+  t,
 }: {
   project: ProjectSummary
   role: TeachingViewRole
   viewerId: string | undefined
+  /** Owned by the project page, which shares it with Files, Progress and the hand-in. */
+  t: ProjectTasks
 }) {
-  const t = useProjectTasks({ project, role })
 
   if (t.boards === null) {
     return (

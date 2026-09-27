@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
@@ -11,7 +12,12 @@ import { Tabs } from '../../../components/ui/Tabs'
 import { dueLabel, StatusPill } from '../../../components/projects/ProjectCard'
 import { ProjectWizard } from '../../../components/projects/ProjectWizard'
 import { SeriesActionDialog } from '../../../components/projects/SeriesActionDialog'
+import { ClassFilesTab } from '../../../components/tasks/ClassFilesTab'
+import { ProgressTab } from '../../../components/tasks/ProgressTab'
 import { ProjectTasksTab } from '../../../components/tasks/ProjectTasksTab'
+import { SubmitProject } from '../../../components/tasks/SubmitProject'
+import { useProjectTasks } from '../../../components/tasks/useProjectTasks'
+import type { ProjectTasks } from '../../../components/tasks/useProjectTasks'
 import { useAuth } from '../../../context/AuthContext'
 import { listProfessorClasses } from '../../../lib/api/classes'
 import {
@@ -36,6 +42,7 @@ import { classWeekMap } from '../../../lib/api/syllabus'
 import { authErrorMessage } from '../../../lib/authError'
 import { paths } from '../../../lib/paths'
 import {
+  isReleased,
   PROJECT_TYPES,
   projectTypeLabel,
   weekRange,
@@ -50,10 +57,29 @@ import type {
   SeriesMember,
 } from '../../../lib/types'
 
-type TabId = 'brief' | 'tasks'
+type TabId = 'brief' | 'tasks' | 'files' | 'progress'
+
+const LINKED_TABS: TabId[] = ['tasks', 'files', 'progress']
 
 /** Which scoped action the professor opened, when the project runs in several. */
 type SeriesAction = 'due' | 'lock' | 'archive' | 'release'
+
+/**
+ * One set of board state for the whole page: the header's hand-in, and the
+ * Tasks, Files and Progress tabs, all read the same boards.
+ */
+function WithProjectTasks({
+  project,
+  role,
+  children,
+}: {
+  project: ProjectSummary
+  role: 'professor' | 'student'
+  children: (t: ProjectTasks) => ReactNode
+}) {
+  const t = useProjectTasks({ project, role })
+  return <>{children(t)}</>
+}
 
 export default function ProjectDetail({ role }: { role: 'professor' | 'student' }) {
   const { projectId = '' } = useParams()
@@ -74,11 +100,11 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   // A link from another page can name the tab. Submissions and Reassignments
   // both link straight into a board, which the Brief tab does not show.
   const [params] = useSearchParams()
-  const [tab, setTab] = useState<TabId>(() =>
-    params.get('tab') === 'tasks' || params.has('board') || params.has('task')
-      ? 'tasks'
-      : 'brief',
-  )
+  const [tab, setTab] = useState<TabId>(() => {
+    const named = params.get('tab') as TabId | null
+    if (named && LINKED_TABS.includes(named)) return named
+    return params.has('board') || params.has('task') ? 'tasks' : 'brief'
+  })
   const [editOpen, setEditOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [removing, setRemoving] = useState<ProjectAttachment | null>(null)
@@ -164,6 +190,8 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   const others = members.filter((m) => m.project_id !== project.id)
 
   return (
+    <WithProjectTasks project={project} role={role}>
+      {(t) => (
     <div className="mx-auto w-full max-w-[1280px]">
       <Link
         to={paths.classProjects}
@@ -218,6 +246,11 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                       : 'Active'}
               </span>
             </div>
+
+            {/* A student hands in from here, whichever tab they are on. */}
+            {!canManage && t.active && (
+              <SubmitProject variant="header" board={t.active} locked={t.locked} onChanged={t.refresh} />
+            )}
 
             {canManage && (
               <div className="flex flex-wrap items-center gap-1.5">
@@ -375,6 +408,8 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                   : 'Tasks',
               icon: role === 'professor' ? 'users' : 'check',
             },
+            { id: 'files', label: 'Files', icon: 'folder' },
+            ...(role === 'student' ? [{ id: 'progress' as const, label: 'Progress', icon: 'chart' as const }] : []),
           ]}
           active={tab}
           onChange={setTab}
@@ -384,7 +419,21 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
 
       {tab === 'tasks' && (
         <div className="mt-6">
-          <ProjectTasksTab project={project} role={role} viewerId={profile?.id} />
+          <ProjectTasksTab project={project} role={role} viewerId={profile?.id} t={t} />
+        </div>
+      )}
+      {tab === 'files' && (
+        <div className="mt-6">
+          {isReleased(project) || role === 'professor' ? (
+            <ClassFilesTab t={t} viewerId={profile?.id} />
+          ) : (
+            <Alert tone="info">This project has not been released yet, so there are no files to work on.</Alert>
+          )}
+        </div>
+      )}
+      {tab === 'progress' && role === 'student' && (
+        <div className="mt-6">
+          <ProgressTab t={t} viewerId={profile?.id} />
         </div>
       )}
 
@@ -674,5 +723,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         confirmLabel="Delete permanently"
       />
     </div>
+      )}
+    </WithProjectTasks>
   )
 }

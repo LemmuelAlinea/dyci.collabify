@@ -28,10 +28,13 @@ export function SubmitProject({
   /** The professor has closed the project, so nothing here can change. */
   locked,
   onChanged,
+  variant = 'card',
 }: {
   board: BoardSummary
   locked: boolean
   onChanged: () => Promise<void> | void
+  /** `header`: compact controls for the project's dark header band. */
+  variant?: 'card' | 'header'
 }) {
   const { show } = useToast()
   const [confirm, setConfirm] = useState(false)
@@ -55,6 +58,85 @@ export function SubmitProject({
     } finally {
       setBusy(false)
     }
+  }
+
+  const dialog = (
+    <ConfirmDialog
+      open={confirm}
+      onClose={() => setConfirm(false)}
+      onConfirm={() => set(true)}
+      tone="primary"
+      title="Hand in this project?"
+      confirmLabel="Hand it in"
+      body={
+        <>
+          {unfinished > 0 && (
+            <p className="mb-2 font-medium text-ink">
+              {unfinished} of {board.task_count}{' '}
+              {unfinished === 1 ? 'task is' : 'tasks are'} not finished.
+            </p>
+          )}
+          <p>
+            {group ? 'Your group' : 'You'} will not be able to move, edit or attach anything,
+            or change the project's files, after this. Comments stay open, and{' '}
+            {group ? 'any member' : 'you'} can take the submission back while the project is
+            still open.
+          </p>
+        </>
+      }
+    />
+  )
+
+  if (variant === 'header') {
+    if (submitted) {
+      return (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-400/15 px-3 text-[12px] font-medium text-emerald-200"
+            title={
+              board.submitted_by_name
+                ? `${board.submitted_by_name} handed this in on ${when(board.submitted_at as string)}`
+                : `Handed in on ${when(board.submitted_at as string)}`
+            }
+          >
+            <Icon name="check" size={14} />
+            Handed in
+          </span>
+          {!locked && (
+            <Button
+              variant="onNavy"
+              size="sm"
+              className="!h-8 !rounded-lg !px-3"
+              disabled={busy}
+              onClick={() => void set(false)}
+            >
+              <Icon name="refresh" size={14} />
+              Take it back
+            </Button>
+          )}
+        </div>
+      )
+    }
+    if (locked) return null
+    return (
+      <>
+        <Button
+          variant="accent"
+          size="sm"
+          className="!h-8 !rounded-lg !px-3"
+          onClick={() => setConfirm(true)}
+          title={
+            unfinished > 0
+              ? `${unfinished} ${unfinished === 1 ? 'task is' : 'tasks are'} still unfinished`
+              : 'Every task is done'
+          }
+        >
+          <Icon name="check" size={14} />
+          Hand in the project
+        </Button>
+        {dialog}
+      </>
+    )
   }
 
   if (submitted) {
@@ -120,29 +202,7 @@ export function SubmitProject({
         </div>
       </section>
 
-      <ConfirmDialog
-        open={confirm}
-        onClose={() => setConfirm(false)}
-        onConfirm={() => set(true)}
-        tone="primary"
-        title="Hand in this project?"
-        confirmLabel="Hand it in"
-        body={
-          <>
-            {unfinished > 0 && (
-              <p className="mb-2 font-medium text-ink">
-                {unfinished} of {board.task_count}{' '}
-                {unfinished === 1 ? 'task is' : 'tasks are'} not finished.
-              </p>
-            )}
-            <p>
-              {group ? 'Your group' : 'You'} will not be able to move, edit or attach anything
-              after this. Comments stay open, and {group ? 'any member' : 'you'} can take the
-              submission back while the project is still open.
-            </p>
-          </>
-        }
-      />
+      {dialog}
     </>
   )
 }

@@ -537,3 +537,14 @@ export async function setBoardSubmitted(boardId: string, submitted: boolean) {
   })
   if (error) throw error
 }
+
+/**
+ * The hidden work project that holds a board's Files, made the first time
+ * anyone opens them and brought in step with the group every time after.
+ * Only the board's students and their teachers may call it.
+ */
+export async function ensureClassBoardRepo(boardId: string) {
+  const { data, error } = await supabase.rpc('ensure_class_board_repo', { p_board: boardId })
+  if (error) throw error
+  return data as string
+}
