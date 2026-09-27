@@ -1420,7 +1420,6 @@ pre-existing parse warning remains `src/lib/api/generalReports.ts`.
 intentional leftovers: historical docs/plans still mention the old two-workplace fields;
 `supabase/cleanup.sql` and `cleanup.test.sql` mention them to remove/prove removal.
 
-**Next browser walk:** register as Faculty, confirm auth says faculty and lands pending;
-admin approves and toggles Can teach; approved faculty can create a class only with Can
-teach on and old `/professor/submissions` redirects to `/teaching/submissions`; student
-joins with code/link and join text says faculty.
+**Browser walk:** owner confirmed 2026-09-27: Faculty signup copy/ pending state,
+admin approval + Can teach toggle, faculty class creation with Can teach, legacy
+`/professor/submissions` redirect, and student join copy all work.
