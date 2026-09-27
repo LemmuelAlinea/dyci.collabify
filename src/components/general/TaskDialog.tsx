@@ -31,9 +31,11 @@ import { formatDue, fromLocalInput, isOverdue, toLocalInput } from '../../lib/ge
 import { describeEvent } from '../../lib/general/history'
 import { TASK_STATUSES, taskShare } from '../../lib/general/progress'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
+import { repoFileAsUpload } from '../../lib/general/repoAttach'
 import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
+import { ProjectFilePicker } from './ProjectFilePicker'
 import { RequestAccessButton } from './RequestAccessButton'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -278,11 +280,23 @@ function TaskBody({
             {loaded && files.length === 0 && <li className="text-[13px] text-faint">No files.</li>}
           </ul>
           {canAttach && (
-            <FilePicker
-              onPick={(file) =>
-                act(() => uploadTaskFile(task.project_id, task.id, file), 'File added', 'Could not upload that file.')
-              }
-            />
+            <div className="flex flex-wrap items-start gap-2">
+              <FilePicker
+                onPick={(file) =>
+                  act(() => uploadTaskFile(task.project_id, task.id, file), 'File added', 'Could not upload that file.')
+                }
+              />
+              <ProjectFilePicker
+                projectId={task.project_id}
+                onPick={(file) =>
+                  act(
+                    async () => uploadTaskFile(task.project_id, task.id, await repoFileAsUpload(file)),
+                    'File added',
+                    'Could not attach that file. Try again.',
+                  )
+                }
+              />
+            </div>
           )}
         </section>
 
