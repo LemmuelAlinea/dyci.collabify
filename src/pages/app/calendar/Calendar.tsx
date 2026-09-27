@@ -208,7 +208,7 @@ export default function Calendar() {
     <div className="w-full space-y-6">
       <DirectoryHero
         title="Plan the"
-        accent="term."
+        accent={hasClassDates ? 'term.' : 'work.'}
         description={
           staff && hasClassDates
             ? 'Deadlines and releases across your classes, mapped against the syllabus weeks they belong to.'
@@ -358,7 +358,13 @@ export default function Calendar() {
               </div>
             )}
 
-            <MonthGrid month={month} events={shown} weeks={bands} onOpen={open} />
+            <MonthGrid
+              month={month}
+              events={shown}
+              weeks={scope === 'work' ? [] : bands}
+              onOpen={open}
+              showSyllabus={scope !== 'work'}
+            />
           </div>
         ) : (
           <div className="p-4 sm:p-5">

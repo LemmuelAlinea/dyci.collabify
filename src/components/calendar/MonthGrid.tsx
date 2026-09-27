@@ -50,10 +50,13 @@ export function MonthGrid({
   events,
   weeks,
   onOpen,
+  showSyllabus = true,
 }: {
   month: Date
   events: CalendarEvent[]
   weeks: ClassWeek[]
+  /** Off for work alone: a work project has no syllabus, so the band is dropped. */
+  showSyllabus?: boolean
   onOpen: (event: CalendarEvent) => void
 }) {
   const gridStart = useMemo(() => startOfGrid(month), [month])
@@ -86,6 +89,9 @@ export function MonthGrid({
     })
   }, [gridStart, weeks])
 
+  // The grid's columns: the syllabus band plus seven days, or just the days.
+  const cols = showSyllabus ? '@min-[720px]:grid-cols-[132px_repeat(7,minmax(0,1fr))]' : ''
+
   const todayKey = dayKey(new Date())
   const [picked, setPicked] = useState<string | null>(null)
 
@@ -104,9 +110,11 @@ export function MonthGrid({
     <div className="@container">
       <div className={`@min-[720px]:min-w-[760px] @min-[720px]:overflow-x-auto`}>
         <div
-          className={`grid grid-cols-7 gap-px @min-[720px]:grid-cols-[132px_repeat(7,minmax(0,1fr))]`}
+          className={`grid grid-cols-7 gap-px ${cols}`}
         >
-          <div className={`hidden px-2 py-2 text-[12px] text-faint @min-[720px]:block`}>Syllabus</div>
+          {showSyllabus && (
+            <div className={`hidden px-2 py-2 text-[12px] text-faint @min-[720px]:block`}>Syllabus</div>
+          )}
           {DAY_NAMES.map((d) => (
             <div
               key={d}
@@ -124,33 +132,35 @@ export function MonthGrid({
           {rows.map(({ start, week }, r) => (
             <div
               key={r}
-              className={`grid grid-cols-7 border-b border-line last:border-0 @min-[720px]:grid-cols-[132px_repeat(7,minmax(0,1fr))]`}
+              className={`grid grid-cols-7 border-b border-line last:border-0 ${cols}`}
             >
               {/* The band. Empty when the term has not been dated yet. */}
-              <div
-                className={`hidden border-r border-line px-2.5 py-2 @min-[720px]:block ${
-                  week?.phase === 'current' ? 'bg-amber-400/12' : 'surface-sunken'
-                }`}
-              >
-                {week ? (
-                  <>
-                    <p className="font-mono text-[12px] text-faint">Week {week.week_no}</p>
-                    <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug font-medium text-ink">
-                      {week.title}
-                    </p>
-                    {week.assessments && (
-                      <p
-                        title={week.assessments}
-                        className="mt-1 line-clamp-3 text-[12px] leading-snug text-amber-700 dark:text-amber-300"
-                      >
-                        {week.assessments}
+              {showSyllabus && (
+                <div
+                  className={`hidden border-r border-line px-2.5 py-2 @min-[720px]:block ${
+                    week?.phase === 'current' ? 'bg-amber-400/12' : 'surface-sunken'
+                  }`}
+                >
+                  {week ? (
+                    <>
+                      <p className="font-mono text-[12px] text-faint">Week {week.week_no}</p>
+                      <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug font-medium text-ink">
+                        {week.title}
                       </p>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-[12px] text-faint">—</p>
-                )}
-              </div>
+                      {week.assessments && (
+                        <p
+                          title={week.assessments}
+                          className="mt-1 line-clamp-3 text-[12px] leading-snug text-amber-700 dark:text-amber-300"
+                        >
+                          {week.assessments}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-[12px] text-faint">—</p>
+                  )}
+                </div>
+              )}
 
               {Array.from({ length: 7 }, (_, i) => {
                 const date = addDays(start, i)
