@@ -8,10 +8,12 @@ export function TermStrip({
   weeks,
   classes,
   linkBase,
+  hrefFor,
 }: {
   weeks: ClassWeek[]
   classes: ClassSummary[]
   linkBase: string
+  hrefFor?: (classId: string) => string
 }) {
   if (weeks.length === 0) return null
 
@@ -22,7 +24,7 @@ export function TermStrip({
         return (
           <Link
             key={w.week_id}
-            to={`${linkBase}/${w.class_id}`}
+            to={hrefFor ? hrefFor(w.class_id) : `${linkBase}/${w.class_id}`}
             className="surface rounded-card border border-amber-400 bg-amber-400/8 p-4 transition-colors hover:border-amber-500"
           >
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">

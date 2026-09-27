@@ -1,3 +1,6 @@
+import type { GeneralLevel } from './general/permissions'
+import type { Role } from './types'
+
 /**
  * The classes somebody teaches: the ones they own, and the ones whose space
  * holds them at Owner or Manager (co-teaching). As a PostgREST `or` filter,
@@ -8,4 +11,42 @@
 export function teachingClassFilter(userId: string, spaceIds: string[]): string | null {
   if (spaceIds.length === 0) return null
   return `professor_id.eq.${userId},space_id.in.(${spaceIds.join(',')})`
+}
+
+export type ClassTab =
+  | 'overview'
+  | 'projects'
+  | 'groups'
+  | 'members'
+  | 'syllabus'
+  | 'submissions'
+  | 'analytics'
+  | 'reports'
+  | 'settings'
+
+const SHARED: ClassTab[] = ['overview', 'projects', 'groups', 'members', 'syllabus']
+const TEACHING: ClassTab[] = ['submissions', 'analytics', 'reports', 'settings']
+
+/**
+ * Whether this viewer teaches the class: its professor, or faculty holding
+ * Owner or Manager in its space. The same rule as is_class_professor, so the
+ * page never offers a tool the database would then refuse.
+ */
+export function teachesClass(
+  viewer: { id: string; role: Role | null } | null,
+  professorId: string,
+  myLevel: GeneralLevel | null,
+): boolean {
+  if (!viewer || (viewer.role !== 'professor' && viewer.role !== 'admin')) return false
+  return viewer.id === professorId || myLevel === 'owner' || myLevel === 'manager'
+}
+
+export function classTabs(teaching: boolean): ClassTab[] {
+  return teaching ? [...SHARED, ...TEACHING] : SHARED
+}
+
+/** The `?tab=` value, if the viewer has that tab; Overview otherwise. */
+export function readClassTab(value: string | null, teaching: boolean): ClassTab {
+  const tabs = classTabs(teaching)
+  return tabs.includes(value as ClassTab) ? (value as ClassTab) : 'overview'
 }

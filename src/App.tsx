@@ -54,7 +54,6 @@ const Messages = lazy(() => import('./pages/app/messages/Messages'))
 const MyTasks = lazy(() => import('./pages/app/tasks/MyTasks'))
 const Notices = lazy(() => import('./pages/app/admin/Notices'))
 const ProfessorApprovals = lazy(() => import('./pages/app/admin/ProfessorApprovals'))
-const ProfessorClassDetail = lazy(() => import('./pages/app/classes/ProfessorClassDetail'))
 const ProfessorClasses = lazy(() => import('./pages/app/classes/ProfessorClasses'))
 const ProfessorGroups = lazy(() => import('./pages/app/groups/ProfessorGroups'))
 const ProfessorProjects = lazy(() => import('./pages/app/projects/ProfessorProjects'))
@@ -66,7 +65,7 @@ const Submissions = lazy(() => import('./pages/app/submissions/Submissions'))
 const Reports = lazy(() => import('./pages/app/reports/Reports'))
 const Sections = lazy(() => import('./pages/app/admin/Sections'))
 const Settings = lazy(() => import('./pages/Settings'))
-const StudentClassDetail = lazy(() => import('./pages/app/classes/StudentClassDetail'))
+const ClassSpace = lazy(() => import('./pages/app/classes/ClassSpace'))
 const StudentClasses = lazy(() => import('./pages/app/classes/StudentClasses'))
 const StudentGroups = lazy(() => import('./pages/app/groups/StudentGroups'))
 const StudentProjects = lazy(() => import('./pages/app/projects/StudentProjects'))
@@ -170,9 +169,7 @@ export default function App() {
               />
               <Route
                 path="/classes/:classId"
-                element={
-                  <RoleSwitch student={<StudentClassDetail />} professor={<ProfessorClassDetail />} />
-                }
+                element={<RoleSwitch student={<ClassSpace />} professor={<ClassSpace />} />}
               />
 
               <Route
