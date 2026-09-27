@@ -19,6 +19,9 @@
 -- list_general_project_members (general-spaces.sql). Re-run this file after
 -- re-running any of those.
 --
+-- Phase 3b adds class_space_conversation_sync (faculty seats drive the class
+-- chat) and search_faculty.
+--
 -- Idempotent. Safe to re-run.
 
 begin;
@@ -226,7 +229,12 @@ alter table public.classes alter column space_id set not null;
 
 -- ---------------------------------------------------------------- the General list
 
-/** general-spaces.sql's view, with the kind on the end. Columns only ever append. */
+/**
+ * general-spaces.sql's view, with the kind and class_id on the end (class_id
+ * is defined further below in this same file; stated here too so this
+ * create-or-replace matches the view's final shape and the file stays
+ * re-runnable in one pass). Columns only ever append.
+ */
 create or replace view public.general_space_overview
 with (security_invoker = true) as
 select s.id,
@@ -243,7 +251,8 @@ select s.id,
          where p.space_id = s.id and p.archived_at is null)::int as project_count,
        (select count(*) from public.general_projects p
          where p.space_id = s.id and p.archived_at is not null)::int as archived_count,
-       s.kind
+       s.kind,
+       (select c.id from public.classes c where c.space_id = s.id) as class_id
   from public.general_spaces s
   left join public.general_space_members m on m.space_id = s.id and m.user_id = auth.uid();
 
@@ -382,7 +391,9 @@ create trigger general_spaces_kind before insert or update or delete on public.g
 /**
  * Who sits in a class's space. Students arrive and leave through the roster.
  * The class's professor stays its Owner until the admin hands the class over.
- * Faculty (co-teachers) come and go the General way.
+ * Other faculty come and go the General way, but always as Owner or Manager:
+ * faculty in a class teach it (co-teachers and advisers alike), so an accepted
+ * invitation seats them at Manager and nobody can set them to Member.
  */
 create or replace function public.guard_class_space_member()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -390,6 +401,12 @@ declare
   sid  uuid := case when tg_op = 'DELETE' then old.space_id else new.space_id end;
   prof uuid;
 begin
+  -- Before the sync/service bypass, so the rule holds however the row arrives.
+  if tg_op = 'INSERT' and public.is_education_space(sid)
+     and not public.is_student(new.user_id) and new.level = 'member' then
+    new.level := 'manager';
+  end if;
+
   if auth.uid() is null or public.class_syncing() or not public.is_education_space(sid) then
     return case when tg_op = 'DELETE' then old else new end;
   end if;
@@ -406,6 +423,10 @@ begin
   if (tg_op = 'DELETE' and old.user_id = prof)
      or (tg_op = 'UPDATE' and old.user_id = prof and new.level <> 'owner') then
     raise exception 'The class''s professor stays its Owner. Ask the program admin to hand the class to someone else.'
+      using errcode = 'check_violation';
+  end if;
+  if tg_op = 'UPDATE' and not public.is_student(new.user_id) and new.level = 'member' then
+    raise exception 'Faculty in a class are Owner or Manager. Remove them instead.'
       using errcode = 'check_violation';
   end if;
 
@@ -512,8 +533,7 @@ $$;
  * Who teaches a class: its professor, or active faculty the class's space holds
  * at Owner or Manager. Every check below that used to compare professor_id with
  * the caller now asks this instead, so a co-teacher is never half let in.
- * Co-teachers can moderate the class conversation but are not yet its members;
- * phase 3 adds them.
+ * Co-teachers sit in the class conversation too (class_space_conversation_sync).
  */
 create or replace function public.is_class_professor(p_class uuid)
 returns boolean language sql stable security definer set search_path = public as $$
@@ -904,5 +924,121 @@ select s.id,
   left join public.general_space_members m on m.space_id = s.id and m.user_id = auth.uid();
 
 grant select on public.general_space_overview to authenticated;
+
+commit;
+
+begin;
+
+-- ---------------------------------------------------------------- faculty seats follow the class chat
+
+/**
+ * Whoever teaches a class sits in its conversation. Students come and go with
+ * the roster (messages.sql's sync_class_conversation_member); faculty come and
+ * go with their Owner/Manager seat in the class's space, which also covers a
+ * handover, since class_space_follow moves the Owner seat.
+ *
+ * A class being created has no conversation yet when its Owner seat is written
+ * (the space is made before the class row exists); create_class_conversation
+ * seats the professor then. A class being deleted has already gone, so there
+ * is nothing to update.
+ */
+create or replace function public.class_space_conversation_sync()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  sid   uuid := case when tg_op = 'DELETE' then old.space_id else new.space_id end;
+  convo uuid;
+begin
+  select x.id into convo
+    from public.classes c
+    join public.conversations x on x.class_id = c.id and x.kind = 'class'
+   where c.space_id = sid;
+  if convo is null then
+    return null;
+  end if;
+
+  if tg_op in ('UPDATE', 'DELETE') and not public.is_student(old.user_id)
+     and (tg_op = 'DELETE' or new.level not in ('owner', 'manager')) then
+    delete from public.conversation_members
+     where conversation_id = convo and user_id = old.user_id;
+  end if;
+
+  if tg_op in ('INSERT', 'UPDATE') and not public.is_student(new.user_id)
+     and new.level in ('owner', 'manager') then
+    insert into public.conversation_members (conversation_id, user_id)
+    values (convo, new.user_id)
+    on conflict do nothing;
+  end if;
+
+  return null;
+end;
+$$;
+
+drop trigger if exists general_space_members_class_chat on public.general_space_members;
+create trigger general_space_members_class_chat
+  after insert or update of level or delete on public.general_space_members
+  for each row execute function public.class_space_conversation_sync();
+
+-- Faculty who joined a class space before seats were fixed at Manager.
+update public.general_space_members m
+   set level = 'manager'
+  from public.general_spaces s
+ where s.id = m.space_id
+   and s.kind = 'education'
+   and m.level = 'member'
+   and not public.is_student(m.user_id);
+
+-- Co-teachers already seated, into their class chats.
+insert into public.conversation_members (conversation_id, user_id)
+select x.id, m.user_id
+  from public.general_space_members m
+  join public.classes c on c.space_id = m.space_id
+  join public.conversations x on x.class_id = c.id and x.kind = 'class'
+ where m.level in ('owner', 'manager')
+   and not public.is_student(m.user_id)
+on conflict do nothing;
+
+-- ---------------------------------------------------------------- finding faculty to invite
+
+/**
+ * search_general_people narrowed to approved faculty, for inviting a
+ * co-teacher into a class. Only faculty can ask. It shares the people-search
+ * rate limit, since it is the same lookup.
+ */
+create or replace function public.search_faculty(p_query text)
+returns table (person_id uuid, first_name text, last_name text, avatar_url text, email text)
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
+declare
+  q text := btrim(coalesce(p_query, ''));
+  pattern text;
+begin
+  if not public.is_faculty(auth.uid()) then
+    raise exception 'Only faculty can look up faculty' using errcode = 'insufficient_privilege';
+  end if;
+  if char_length(q) < 3 then
+    return;
+  end if;
+
+  perform public.rate_limit('general_people_search', 60, interval '1 minute',
+    'Too many searches at once. Wait a minute and try again.');
+
+  pattern := '%' || replace(replace(replace(q, '\', '\\'), '%', '\%'), '_', '\_') || '%';
+
+  return query
+    select pr.id, pr.first_name, pr.last_name, pr.avatar_url,
+           case when lower(pr.email) = lower(q) then pr.email end
+      from public.profiles pr
+     where pr.status = 'active'
+       and pr.role in ('professor', 'admin')
+       and pr.id <> auth.uid()
+       and (lower(pr.email) = lower(q)
+            or btrim(pr.first_name || ' ' || pr.last_name) ilike pattern)
+     order by pr.last_name, pr.first_name
+     limit 10;
+end;
+$$;
+
+revoke execute on function public.search_faculty(text) from public, anon;
+grant execute on function public.search_faculty(text) to authenticated, service_role;
 
 commit;

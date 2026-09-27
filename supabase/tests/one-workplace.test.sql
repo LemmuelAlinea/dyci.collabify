@@ -77,7 +77,7 @@ do $$
 declare
   v_teacher  uuid := gen_random_uuid();  -- teaches, owns the class
   v_cot      uuid := gen_random_uuid();  -- faculty, becomes a co-teacher
-  v_staff    uuid := gen_random_uuid();  -- faculty, stays a plain member
+  v_staff    uuid := gen_random_uuid();  -- faculty, joins and is removed again
   v_s1       uuid := gen_random_uuid();
   v_s2       uuid := gen_random_uuid();
   v_s3       uuid := gen_random_uuid();
@@ -380,8 +380,8 @@ begin
    where space_id = v_space and invitee = v_cot and status = 'pending';
   perform public.respond_general_space_invitation(v_inv, true);
   perform pg_temp.act_as_service();
-  perform pg_temp.must_be('...and joins it as a member',
-    (select level = 'member' from public.general_space_members
+  perform pg_temp.must_be('...and joins it as a Manager, since faculty in a class teach it',
+    (select level = 'manager' from public.general_space_members
       where space_id = v_space and user_id = v_cot));
 end $$;
 
@@ -403,19 +403,12 @@ begin
   insert into public.group_sets (class_id, name, mode, default_limit)
   values (v_class, 'Zz teams', 'manual', 5) returning id into v_set;
 
-  -- Staff comes in as a plain member; the co-teacher is raised to Manager.
+  -- Staff comes in too. Faculty in a class sit at Manager.
   perform public.invite_to_general_space(v_space, v_staff);
   perform pg_temp.act_as(v_staff);
   select id into v_inv from public.general_space_invitations
    where space_id = v_space and invitee = v_staff and status = 'pending';
   perform public.respond_general_space_invitation(v_inv, true);
-
-  perform pg_temp.act_as(v_cot);
-  perform pg_temp.must_be('a faculty member of the class space is not a co-teacher yet',
-    not public.is_class_professor(v_class));
-
-  perform pg_temp.act_as(v_teacher);
-  perform public.set_general_space_level(v_space, v_cot, 'manager');
 
   perform pg_temp.act_as(v_cot);
   perform pg_temp.must_be('a Manager of the class space is a co-teacher',
@@ -443,8 +436,10 @@ begin
   perform pg_temp.must_be('a co-teacher cannot delete the class',
     exists (select 1 from public.classes where id = v_class));
 
+  perform pg_temp.act_as(v_teacher);
+  perform public.remove_general_space_member(v_space, v_staff);
   perform pg_temp.act_as(v_staff);
-  perform pg_temp.must_be('a faculty Member of the space is not a co-teacher',
+  perform pg_temp.must_be('faculty removed from the class space no longer teach it',
     not public.is_class_professor(v_class));
   update public.classes set description = 'Zz edited by staff' where id = v_class;
   perform pg_temp.act_as_service();
@@ -631,6 +626,74 @@ begin
   perform pg_temp.act_as(v_teacher);
   perform pg_temp.must_be('a class space names its class in the space list',
     (select class_id = v_class from public.general_space_overview where id = v_space));
+end $$;
+
+-- ------------------------------------------------------------------ faculty seats and the class chat
+
+do $$
+declare
+  v_teacher uuid := (select v from fx where k = 'teacher');
+  v_cot     uuid := (select v from fx where k = 'cot');
+  v_staff   uuid := (select v from fx where k = 'staff');
+  v_s1      uuid := (select v from fx where k = 's1');
+  v_class   uuid := (select v from fx where k = 'class');
+  v_space   uuid := (select v from fx where k = 'space');
+  v_convo   uuid;
+  v_inv     uuid;
+begin
+  perform pg_temp.act_as_service();
+  select id into v_convo from public.conversations where class_id = v_class and kind = 'class';
+
+  perform pg_temp.must_be('a co-teacher sits in the class chat',
+    exists (select 1 from public.conversation_members
+             where conversation_id = v_convo and user_id = v_cot));
+
+  -- Staff was removed in the co-teacher block; bring them back.
+  perform pg_temp.act_as(v_teacher);
+  perform public.invite_to_general_space(v_space, v_staff);
+  perform pg_temp.act_as(v_staff);
+  select id into v_inv from public.general_space_invitations
+   where space_id = v_space and invitee = v_staff and status = 'pending';
+  perform public.respond_general_space_invitation(v_inv, true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('faculty who accept a class invitation sit at Manager',
+    (select level = 'manager' from public.general_space_members
+      where space_id = v_space and user_id = v_staff));
+  perform pg_temp.must_be('...and join the class chat',
+    exists (select 1 from public.conversation_members
+             where conversation_id = v_convo and user_id = v_staff));
+
+  perform pg_temp.act_as(v_teacher);
+  perform pg_temp.must_refuse('faculty cannot be set to Member in a class space', format(
+    'select public.set_general_space_level(%L, %L, %L)', v_space, v_staff, 'member'));
+
+  perform public.remove_general_space_member(v_space, v_staff);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('removing a co-teacher takes them out of the class chat',
+    not exists (select 1 from public.conversation_members
+                 where conversation_id = v_convo and user_id = v_staff));
+  perform pg_temp.must_be('...and leaves the students in it',
+    exists (select 1 from public.conversation_members
+             where conversation_id = v_convo and user_id = v_s1));
+
+  perform pg_temp.act_as(v_teacher);
+  perform pg_temp.must_be('faculty search finds faculty',
+    exists (select 1 from public.search_faculty('Zz C') where person_id = v_cot));
+  perform pg_temp.must_be('...and never a student',
+    not exists (select 1 from public.search_faculty('Zz C') where person_id = v_s1));
+  perform pg_temp.act_as(v_s1);
+  perform pg_temp.must_refuse('a student cannot search faculty',
+    $q$select * from public.search_faculty('Zz')$q$);
+
+  -- Handover last: it takes the old professor out of the space entirely.
+  perform pg_temp.act_as_service();
+  update public.classes set professor_id = v_cot where id = v_class;
+  perform pg_temp.must_be('a handover keeps the new professor in the class chat',
+    exists (select 1 from public.conversation_members
+             where conversation_id = v_convo and user_id = v_cot));
+  perform pg_temp.must_be('...and takes the old one out',
+    not exists (select 1 from public.conversation_members
+                 where conversation_id = v_convo and user_id = v_teacher));
 end $$;
 
 rollback;

@@ -124,8 +124,9 @@ cheap. The cost is in the logic.
   is the one list of who is in. Guards refuse every other way of changing a
   class's space (General invitations for students, join codes, direct
   removal, renaming, archiving, deleting, General projects, demoting the
-  class's professor). `join_class` enforces the cap. Co-teachers can moderate
-  the class conversation but are not yet its members; phase 3 adds them.
+  class's professor). `join_class` enforces the cap. Faculty in a class space
+  always sit at Owner or Manager (an accepted invitation seats them at
+  Manager), and those seats put them in the class conversation.
 - `is_class_professor(class)` (`classes.sql:138`) is redefined as "faculty at
   owner or manager level in the class's space", so co-teachers get the full
   teaching tools. Other `professor_id` checks go through that helper. The
