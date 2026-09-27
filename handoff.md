@@ -1345,7 +1345,7 @@ as space tabs, co-teachers in the UI and the class conversation).
 ## Session — 2026-09-27: one workplace, phase 3 (one shell + education space page)
 Plans `docs/superpowers/plans/2026-09-27-one-workplace-phase-3a-shell.md` and
 `…-phase-3b-education-space.md`. 3a pushed through `27ce821`; 3b through `d0c1445`.
-Browser walk for both is still to do (owner signs in: student, professor, admin).
+Browser walk for both is done (owner confirmed 2026-09-27).
 
 **3a — one shell.** `src/lib/paths.ts` owns every URL; `legacyPath()` redirects old
 `/student`, `/professor`, `/general`, `/admin`, `/education` links (query and hash kept).
@@ -1385,5 +1385,7 @@ look like class chips; `useConversations` subscribes three times on Home; `gate.
 matrix gaps. **Open owner question:** should an admin without *Can teach* keep
 "New message" in Messages (hidden now)?
 
-**Next:** browser walk, then phase 4 cleanup (drop `home_workplace` and dead routes,
-rename `professor` → `faculty`, landing/auth copy).
+**Browser walk:** 3a + 3b browser walk done.
+
+**Next:** answer the open owner question, then phase 4 cleanup (drop `home_workplace`
+and dead routes, rename `professor` → `faculty`, landing/auth copy).
