@@ -142,11 +142,12 @@ const ADMIN: NavGroup = {
 }
 
 /**
- * A student nobody has let in yet. Every other row would open onto an empty
- * page, so the rail offers only Home, whose one job for them is joining a
- * class.
+ * Home alone. A student nobody has let in yet gets it because every other row
+ * would open onto an empty page, and Home's one job for them is joining a
+ * class. An admin gets it because they are never a member of anything — no
+ * class, space or project — so there are no tasks, dates or chats to open.
  */
-const MAIN_WAITING: NavGroup = {
+const HOME_ONLY: NavGroup = {
   title: 'Main',
   items: [{ label: 'Home', icon: 'board', to: paths.home, end: true }],
 }
@@ -161,17 +162,17 @@ const MAIN_WAITING: NavGroup = {
  * needs an admitted account.
  *
  * Spaces hides while empty for anyone who cannot open a class — students and
- * faculty who do not teach. Teaching faculty and admins keep it, empty or not,
- * because making spaces is part of their job. Home's New space button stays
+ * faculty who do not teach. Teaching faculty keep it, empty or not, because
+ * making spaces is part of their job. Home's New space button stays
  * the way in for everyone else.
  */
 export function navFor(profile: AccessProfile, admitted: boolean): NavGroup[] {
   if (!profile || profile.status !== 'active' || !profile.role) return [ACCOUNT]
 
   const { role } = profile
-  if (role === 'admin') return [MAIN, spacesGroup(false), PROJECTS, ADMIN, ACCOUNT]
+  if (role === 'admin') return [HOME_ONLY, ADMIN, ACCOUNT]
   if (role === 'student') {
-    if (!admitted) return [MAIN_WAITING, ACCOUNT]
+    if (!admitted) return [HOME_ONLY, ACCOUNT]
     return [MAIN, classesGroup(role), spacesGroup(true), PROJECTS, ACCOUNT]
   }
   if (canTeach(profile)) {

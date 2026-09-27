@@ -44,9 +44,10 @@ describe('navFor', () => {
     expect(titles(navFor(teacher, false))).toContain('Classes')
   })
 
-  it('gives an admin Admin with Faculty approvals, and no Classes', () => {
+  it('gives an admin Home, Admin and Account only — no tasks, calendar, messages, spaces or projects', () => {
     const groups = navFor(admin, true)
-    expect(titles(groups)).toEqual(['Main', 'Spaces', 'Projects', 'Admin', 'Account'])
+    expect(titles(groups)).toEqual(['Main', 'Admin', 'Account'])
+    expect(groups[0].items.map((i) => i.label)).toEqual(['Home'])
     expect(labels(groups)).toContain('Faculty approvals')
   })
 
@@ -54,11 +55,10 @@ describe('navFor', () => {
     expect(spaces(navFor(student, true))?.hideWhenEmpty).toBe(true)
     expect(spaces(navFor(nonTeacher, true))?.hideWhenEmpty).toBe(true)
     expect(spaces(navFor(teacher, true))?.hideWhenEmpty).toBe(false)
-    expect(spaces(navFor(admin, true))?.hideWhenEmpty).toBe(false)
   })
 
   it('never hides Projects', () => {
-    for (const who of [student, teacher, nonTeacher, admin]) {
+    for (const who of [student, teacher, nonTeacher]) {
       expect(navFor(who, true).find((g) => g.title === 'Projects')?.hideWhenEmpty).toBeFalsy()
     }
   })

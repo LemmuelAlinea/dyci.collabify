@@ -127,35 +127,33 @@ export default function App() {
                 RoleSwitch, not by which URL got you there. */}
             <Route element={<RequireAdmitted />}>
               <Route path="/home" element={<Home />} />
-              {/* One My tasks for every role: it reads class boards for students
-                  and General work for everyone, so admin belongs here too. */}
-              <Route path="/tasks" element={<MyTasks />} />
-              <Route
-                path="/calendar"
-                element={
-                  <RoleSwitch student={<Calendar />} faculty={<Calendar />} admin={<Calendar />} />
-                }
-              />
-              <Route path="/messages" element={<Messages />} />
-              <Route path="/messages/:conversationId" element={<Messages />} />
+              {/* Everything a member does. An admin is never a member of a
+                  class, space or project, so none of it is theirs to open. */}
+              <Route element={<RequireAdmitted allow={['student', 'faculty']} />}>
+                <Route path="/tasks" element={<MyTasks />} />
+                <Route path="/calendar" element={<Calendar />} />
+                <Route path="/messages" element={<Messages />} />
+                <Route path="/messages/:conversationId" element={<Messages />} />
 
-              {/* Work spaces, open to every admitted account — a professor's
-                  capstone side project is exactly as valid as a student's. */}
-              <Route path="/spaces" element={<SpacePicker />} />
-              <Route path="/spaces/archive" element={<SpacePicker />} />
-              <Route path="/spaces/:spaceId" element={<SpaceHome />} />
-              <Route path="/spaces/:spaceId/members" element={<SpaceMembers />} />
-              <Route path="/spaces/:spaceId/teams" element={<GeneralTeams />} />
-              <Route path="/spaces/:spaceId/teams/archive" element={<GeneralTeams />} />
-              <Route path="/spaces/:spaceId/archive" element={<SpaceArchive />} />
-              <Route path="/spaces/:spaceId/reports" element={<GeneralReports />} />
+                {/* Work spaces, open to every student and faculty member — a
+                    professor's capstone side project is exactly as valid as a
+                    student's. */}
+                <Route path="/spaces" element={<SpacePicker />} />
+                <Route path="/spaces/archive" element={<SpacePicker />} />
+                <Route path="/spaces/:spaceId" element={<SpaceHome />} />
+                <Route path="/spaces/:spaceId/members" element={<SpaceMembers />} />
+                <Route path="/spaces/:spaceId/teams" element={<GeneralTeams />} />
+                <Route path="/spaces/:spaceId/teams/archive" element={<GeneralTeams />} />
+                <Route path="/spaces/:spaceId/archive" element={<SpaceArchive />} />
+                <Route path="/spaces/:spaceId/reports" element={<GeneralReports />} />
 
-              {/* Flat, not nested under the space: a project id is unique on its
-                  own, and nesting would break every link and deep link already
-                  out there. The space is derived from the project. */}
-              <Route path="/projects" element={<GeneralProjects />} />
-              <Route path="/projects/:projectId" element={<GeneralProject />} />
-              <Route path="/projects/:projectId/archive" element={<ProjectArchive />} />
+                {/* Flat, not nested under the space: a project id is unique on its
+                    own, and nesting would break every link and deep link already
+                    out there. The space is derived from the project. */}
+                <Route path="/projects" element={<GeneralProjects />} />
+                <Route path="/projects/:projectId" element={<GeneralProject />} />
+                <Route path="/projects/:projectId/archive" element={<ProjectArchive />} />
+              </Route>
 
               <Route
                 path="/classes"
