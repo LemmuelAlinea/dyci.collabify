@@ -73,7 +73,7 @@ export function ClassCard({
         </div>
 
         <div className="mt-5 flex items-start gap-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-navy-950 font-display text-[14px] font-bold text-amber-300 ring-1 ring-white/10">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-icon-tile font-display text-[14px] font-bold text-icon-glyph ring-1 ring-white/10">
             {cls.initial}
           </span>
           <div className="min-w-0 flex-1">

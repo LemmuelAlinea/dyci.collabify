@@ -223,6 +223,8 @@
   --color-nav-marker: var(--nav-marker);
   --color-badge: var(--badge);
   --color-badge-ink: var(--badge-ink);
+  --color-icon-tile: var(--icon-tile);
+  --color-icon-glyph: var(--icon-glyph);
 }
 
 /* Semantic surface tokens. Every component reads these, never raw ramp stops,
@@ -269,6 +271,8 @@
     --nav-marker: #f0b429;
     --badge: #f0b429;
     --badge-ink: #101637;
+    --icon-tile: #080b21;
+    --icon-glyph: #f7c74a;
   }
 
   .dark {
@@ -424,10 +428,12 @@
   }
 
   .dark .app-ui {
-    --page: #0a0e24;
-    --surface: #10152f;
-    --surface-sunken: #161c3c;
-    --surface-raised: #1a2145;
+    /* `--u-*` is the person's background depth from Settings → Appearance,
+       set on <html> by lib/palette.ts; without it these are the defaults. */
+    --page: var(--u-page, #0a0e24);
+    --surface: var(--u-surface, #10152f);
+    --surface-sunken: var(--u-sunken, #161c3c);
+    --surface-raised: var(--u-raised, #1a2145);
 
     --ink: #eef1fa;
     --ink-muted: #a8b0cd;
@@ -541,6 +547,47 @@
 }
 
 @layer utilities {
+  /* A page banner's ground: a colour, or a two-colour gradient laid over it. */
+  .banner-fill {
+    background-color: var(--banner);
+    background-image: var(--banner-image, none);
+  }
+  /* The glow and grid on a banner. A solid or gradient banner turns them off. */
+  .banner-deco {
+    visibility: var(--banner-deco, visible);
+  }
+  /* A level slider, like a volume control, for dark mode's background depth.
+     The track runs between the two grounds it chooses from. */
+  .level-range {
+    appearance: none;
+    height: 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: linear-gradient(90deg, var(--level-from), var(--level-to));
+    cursor: pointer;
+  }
+  .level-range::-webkit-slider-thumb {
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 2px solid var(--ring);
+    box-shadow: var(--shadow-lift);
+  }
+  .level-range::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 2px solid var(--ring);
+    box-shadow: var(--shadow-lift);
+  }
+  /* A figure cell sitting on a banner. Solid by default; see-through over a
+     gradient, where a block of one colour would cut it in two. */
+  .banner-cell {
+    background: var(--banner-cell, color-mix(in oklab, var(--banner) 85%, transparent));
+  }
   .surface {
     background: var(--surface);
   }

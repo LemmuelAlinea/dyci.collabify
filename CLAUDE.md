@@ -29,7 +29,11 @@ Do not hardcode colors. Everything reads from tokens in `src/styles/index.css`:
   `danger-*` (late, errors), and `pending-soft` / `pending-ink` (not started). Never
   `emerald-*`, `red-*`, or brand amber for a status.
 - Personal slots: `banner`, `banner-ink`, `banner-accent`, `banner-glow` (page
-  banners), `progress`, `nav-icon`, `nav-active`, `nav-marker`, `badge`.
+  banners; the ground itself is the `.banner-fill` class, its glow and grid carry
+  `.banner-deco`, figure cells on it `.banner-cell`), `progress`, `nav-icon`,
+  `nav-active`, `nav-marker`, `badge`, `icon-tile` / `icon-glyph` (card icon squares).
+- Dark mode's app grounds read `--u-page`, `--u-surface`, `--u-sunken`, `--u-raised`
+  first (the person's background depth), then fall back to the defaults.
 
 Status ramps and personal slots can be recolored per person in Settings → Appearance
 (`lib/palette.ts` sets them inline on `<html>`). Give them defaults in `:root` / `.dark`

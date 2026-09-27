@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  HEX_KEYS,
+  bannerReadable,
   PALETTE_VARS,
-  PICK_KEYS,
   STOPS,
   cleanColors,
   contrast,
@@ -73,7 +74,7 @@ describe('toCssVars', () => {
   })
 
   it('covers every slot, and only variables the page knows to clear', () => {
-    const all = Object.fromEntries(PICK_KEYS.map((k) => [k, '#3366cc']))
+    const all = { ...Object.fromEntries(HEX_KEYS.map((k) => [k, '#3366cc'])), bannerStyle: 'gradient' as const, depth: 60 }
     for (const mode of ['light', 'dark'] as const) {
       const vars = toCssVars(all, mode)
       for (const name of Object.keys(vars)) expect(PALETTE_VARS).toContain(name)
@@ -81,9 +82,45 @@ describe('toCssVars', () => {
       expect(vars['--color-warning-400']).toBe('#3366cc')
       expect(vars['--banner']).toBe('#3366cc')
       expect(vars['--progress']).toBe('#3366cc')
+      expect(vars['--icon-tile']).toBe('#3366cc')
       expect(vars['--pending-soft']).toContain('#3366cc')
-      expect(Object.keys(vars).length).toBe(PALETTE_VARS.length)
+      // Depth is dark mode's alone.
+      expect(Object.keys(vars).length).toBe(PALETTE_VARS.length - (mode === 'light' ? 4 : 0))
     }
+  })
+
+  it('paints a gradient banner, turns off the glow, and reads on both ends', () => {
+    const vars = toCssVars({ bannerStyle: 'gradient', banner: '#000000', banner2: '#26327a' }, 'light')
+    expect(vars['--banner-image']).toBe('linear-gradient(90deg, #000000, #26327a)')
+    expect(vars['--banner-deco']).toBe('hidden')
+    const ink = vars['--banner-ink']
+    expect(Math.min(contrast(ink, '#000000'), contrast(ink, '#26327a'))).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('owns up when no text colour reads across a gradient', () => {
+    expect(bannerReadable({ bannerStyle: 'gradient', banner: '#000000', banner2: '#ffe066' }, 'light')).toBe(false)
+    expect(bannerReadable({ bannerStyle: 'gradient', banner: '#000000', banner2: '#26327a' }, 'light')).toBe(true)
+    expect(bannerReadable({}, 'dark')).toBe(true)
+  })
+
+  it('turns off the glow for a solid banner, even in the default colour', () => {
+    const vars = toCssVars({ bannerStyle: 'solid' }, 'dark')
+    expect(vars['--banner-deco']).toBe('hidden')
+    expect(vars['--banner']).toBe('#080b21')
+    expect(vars['--banner-image']).toBeUndefined()
+  })
+
+  it('takes dark mode to black at full depth and leaves light mode alone', () => {
+    expect(toCssVars({ depth: 100 }, 'dark')['--u-page']).toBe('#000000')
+    expect(toCssVars({ depth: 100 }, 'light')['--u-page']).toBeUndefined()
+    const half = toCssVars({ depth: 50 }, 'dark')['--u-surface']
+    expect(luminance(half)).toBeLessThan(luminance('#10152f'))
+    expect(luminance(half)).toBeGreaterThan(luminance('#0b0b0d'))
+  })
+
+  it('keeps a card icon visible on its tile', () => {
+    const vars = toCssVars({ iconTile: '#ffffff', iconGlyph: '#fff3bf' }, 'light')
+    expect(contrast(vars['--icon-glyph'], '#ffffff')).toBeGreaterThanOrEqual(3)
   })
 
   it('turns banner text dark on a light banner', () => {
@@ -109,6 +146,13 @@ describe('cleanColors and normalizeHex', () => {
       }),
     ).toEqual({ light: { banner: '#123456' } })
     expect(cleanColors(null)).toEqual({})
+    expect(
+      cleanColors({
+        light: { bannerStyle: 'gradient', depth: 40 },
+        dark: { bannerStyle: 'plaid', depth: 40.5 },
+      }),
+    ).toEqual({ light: { bannerStyle: 'gradient' } })
+    expect(cleanColors({ dark: { bannerStyle: 'glow', depth: 70 } })).toEqual({ dark: { depth: 70 } })
   })
 
   it('reads the ways people type a colour', () => {

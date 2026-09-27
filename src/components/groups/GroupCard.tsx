@@ -53,7 +53,7 @@ export function GroupCard({
       <div className="flex w-full flex-col p-5 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3.5">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-navy-950 text-amber-300">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-icon-tile text-icon-glyph">
             <Icon name="users" size={18} />
           </span>
           <div className="min-w-0">

@@ -16,9 +16,10 @@
 --   appearance_palettes  palettes they saved by name, to go back to later
 --
 -- `colors` is {"light": {key: "#rrggbb"}, "dark": {...}}; a missing key means
--- the default. `valid_palette_colors` rejects any other key and anything that
--- is not a six-digit hex, so the column can never carry CSS the page would
--- then set on <html>.
+-- the default. Two keys are not colours: `bannerStyle` (glow, solid or
+-- gradient) and, in dark only, `depth` (1–100, how close the grounds go to
+-- black). `valid_palette_colors` rejects any other key and any other value, so
+-- the column can never carry CSS the page would then set on <html>.
 --
 -- Runs after trash.sql and before anon-lockdown.sql. Idempotent.
 
@@ -37,10 +38,24 @@ as $$
            or jsonb_typeof(m.value) <> 'object'
            or exists (
                 select 1 from jsonb_each(m.value) e
-                 where e.key not in ('banner', 'bannerAccent', 'success', 'warning', 'danger',
-                                     'pending', 'navIcon', 'navActive', 'progress', 'badge')
-                    or jsonb_typeof(e.value) <> 'string'
-                    or (e.value #>> '{}') !~ '^#[0-9a-f]{6}$'))
+                 where case
+                         -- How a banner is filled.
+                         when e.key = 'bannerStyle' then
+                           jsonb_typeof(e.value) <> 'string'
+                           or (e.value #>> '{}') not in ('glow', 'solid', 'gradient')
+                         -- Dark mode's background depth, a whole number 1–100.
+                         when e.key = 'depth' then
+                           m.key <> 'dark'
+                           or jsonb_typeof(e.value) <> 'number'
+                           or (e.value #>> '{}') !~ '^[0-9]{1,3}$'
+                           or (e.value #>> '{}')::int not between 1 and 100
+                         when e.key in ('banner', 'banner2', 'bannerAccent', 'success', 'warning',
+                                        'danger', 'pending', 'navIcon', 'navActive', 'progress',
+                                        'badge', 'iconTile', 'iconGlyph') then
+                           jsonb_typeof(e.value) <> 'string'
+                           or (e.value #>> '{}') !~ '^#[0-9a-f]{6}$'
+                         else true
+                       end))
 $$;
 
 -- ---------------------------------------------------------------- in use now

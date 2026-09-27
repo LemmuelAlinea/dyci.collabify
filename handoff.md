@@ -1619,3 +1619,26 @@ and key whitelist check, and the 12-palette cap trigger. They are not on `profil
 because peers can read profiles. Tests: `appearance.test.sql` (22 PASS),
 `src/lib/palette.test.ts` (14). All 49 SQL suites and 542 Vitest tests pass. Contrast
 checks now cover the defaults.
+
+**Your colors, second pass (2026-09-28):** the editor moved out of the Appearance section
+into a modal (`ColorCustomizer.tsx`), opened by "Customize colors". The section itself now
+keeps a one-line summary with swatches. Each group has its own live preview: banners,
+status highlights, sidebar, progress bars, notifications, project icons, and background
+depth. They are drawn from the picks, so dark previews work while the site is light.
+Naming, resetting and deleting happen in the modal's footer rather than in a second
+dialog. New settings:
+- **Project icons:** `iconTile` / `iconGlyph` drive `bg-icon-tile text-icon-glyph` on the
+  icon squares of project, work project, class, group, space and syllabus cards and on
+  the RoleHome tiles. The glyph is pushed to 3:1 on its tile.
+- **Banner style:** `bannerStyle` is glow (default), solid or gradient, and gradients use
+  `banner2` as their right color. The banners use `.banner-fill`, `.banner-deco` (hidden
+  when solid or gradient) and `.banner-cell`. Banner text picks the ink that reads on both
+  ends, and the editor warns when no ink can (`bannerReadable`).
+- **Background depth (dark only):** `depth` is 1–100, set by a level slider. It is
+  interpolated toward black in `groundFor` and applied as `--u-*`, which `.dark .app-ui`
+  reads before its defaults.
+
+Presets: High contrast now has solid banners and Ocean has gradient ones.
+`valid_palette_colors` accepts the new keys and rejects bad styles, and rejects depth that
+is in light mode, fractional, out of range or not a number. `appearance.test.sql` has 28
+PASS and `palette.test.ts` has 19.

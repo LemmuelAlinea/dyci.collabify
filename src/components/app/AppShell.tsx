@@ -139,7 +139,7 @@ export function AppShell() {
                   exit={reduce ? undefined : { transform: 'translateX(-100%)' }}
                   transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-banner-ink/10 bg-banner px-4 text-banner-ink">
+                  <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-banner-ink/10 banner-fill px-4 text-banner-ink">
                     <Link to={paths.home} aria-label="Go to your dashboard">
                       <Logo size={26} tone="onDark" showSubtitle={false} />
                     </Link>

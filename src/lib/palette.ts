@@ -13,8 +13,10 @@
 
 export type Mode = 'light' | 'dark'
 
-export const PICK_KEYS = [
+/** The slots that take a colour. */
+export const HEX_KEYS = [
   'banner',
+  'banner2',
   'bannerAccent',
   'success',
   'warning',
@@ -24,11 +26,29 @@ export const PICK_KEYS = [
   'navActive',
   'progress',
   'badge',
+  'iconTile',
+  'iconGlyph',
 ] as const
 
-export type PickKey = (typeof PICK_KEYS)[number]
-export type Picks = Partial<Record<PickKey, string>>
+export type PickKey = (typeof HEX_KEYS)[number]
+
+/**
+ * How a banner is filled: `glow` is the product's own (a colour with a soft
+ * accent glow and a faint grid), `solid` is the colour alone, `gradient` runs
+ * from `banner` on the left to `banner2` on the right.
+ */
+export const BANNER_STYLES = ['glow', 'solid', 'gradient'] as const
+export type BannerStyle = (typeof BANNER_STYLES)[number]
+
+export type Picks = Partial<Record<PickKey, string>> & {
+  bannerStyle?: BannerStyle
+  /** Dark mode only: 0 is the product's navy grounds, 100 is black. */
+  depth?: number
+}
 export type PaletteColors = Partial<Record<Mode, Picks>>
+
+/** Every key a mode can hold, for comparing palettes. */
+export const PICK_KEYS = [...HEX_KEYS, 'bannerStyle', 'depth'] as const
 
 /**
  * What each slot looks like untouched, as the nearest hex. Only for showing a
@@ -47,6 +67,9 @@ export const DEFAULT_PICKS: Record<Mode, Record<PickKey, string>> = {
     navActive: '#26327a',
     progress: '#00bc7d',
     badge: '#f0b429',
+    banner2: '#26327a',
+    iconTile: '#080b21',
+    iconGlyph: '#f7c74a',
   },
   dark: {
     banner: '#080b21',
@@ -59,6 +82,9 @@ export const DEFAULT_PICKS: Record<Mode, Record<PickKey, string>> = {
     navActive: '#f0b429',
     progress: '#00bc7d',
     badge: '#f0b429',
+    banner2: '#26327a',
+    iconTile: '#080b21',
+    iconGlyph: '#f7c74a',
   },
 }
 
@@ -83,10 +109,19 @@ export function cleanColors(raw: unknown): PaletteColors {
   for (const mode of ['light', 'dark'] as const) {
     const src = (raw as Record<string, unknown>)[mode]
     if (!src || typeof src !== 'object') continue
+    const from = src as Record<string, unknown>
     const picks: Picks = {}
-    for (const key of PICK_KEYS) {
-      const v = (src as Record<string, unknown>)[key]
+    for (const key of HEX_KEYS) {
+      const v = from[key]
       if (isHex(v)) picks[key] = v
+    }
+    const style = from.bannerStyle
+    if (typeof style === 'string' && style !== 'glow' && (BANNER_STYLES as readonly string[]).includes(style)) {
+      picks.bannerStyle = style as BannerStyle
+    }
+    const depth = from.depth
+    if (mode === 'dark' && Number.isInteger(depth) && (depth as number) > 0 && (depth as number) <= 100) {
+      picks.depth = depth as number
     }
     if (Object.keys(picks).length) out[mode] = picks
   }
@@ -163,33 +198,54 @@ export function contrast(a: string, b: string): number {
   return (x + 0.05) / (y + 0.05)
 }
 
+type Ground = { page: string; surface: string; sunken: string; raised: string }
+
 /** The app's own grounds, from the `.app-ui` blocks. */
-const GROUND: Record<Mode, { surface: string; sunken: string }> = {
-  light: { surface: '#ffffff', sunken: '#f4f6fb' },
-  dark: { surface: '#10152f', sunken: '#161c3c' },
+const BASE_GROUND: Record<Mode, Ground> = {
+  light: { page: '#ffffff', surface: '#ffffff', sunken: '#f4f6fb', raised: '#ffffff' },
+  dark: { page: '#0a0e24', surface: '#10152f', sunken: '#161c3c', raised: '#1a2145' },
 }
+/** Where dark mode's depth slider ends: black, with the layers still telling apart. */
+const BLACK_GROUND: Ground = { page: '#000000', surface: '#0b0b0d', sunken: '#131316', raised: '#18181c' }
+
+function mix(a: string, b: string, t: number): string {
+  const [x, y] = [hexToRgb(a), hexToRgb(b)]
+  return rgbToHex([0, 1, 2].map((i) => x[i] + (y[i] - x[i]) * t) as RGB)
+}
+
+/** The grounds for a mode, with dark mode's depth (0–100) applied. */
+export function groundFor(mode: Mode, depth = 0): Ground {
+  const base = BASE_GROUND[mode]
+  if (mode === 'light' || !depth) return base
+  const t = Math.min(100, Math.max(0, depth)) / 100
+  return {
+    page: mix(base.page, BLACK_GROUND.page, t),
+    surface: mix(base.surface, BLACK_GROUND.surface, t),
+    sunken: mix(base.sunken, BLACK_GROUND.sunken, t),
+    raised: mix(base.raised, BLACK_GROUND.raised, t),
+  }
+}
+
+const GROUND = BASE_GROUND
+
 /**
- * The same grounds as variables, for the editor's preview: it shows the mode
- * being edited, which need not be the mode the page is in, so it cannot lean on
- * `.dark` the way everything else does. Mirrors `.app-ui` / `.dark .app-ui`.
+ * The grounds as variables, for the editor's previews: they show the mode
+ * being edited, which need not be the mode the page is in, so they cannot lean
+ * on `.dark` the way everything else does. Mirrors `.app-ui` / `.dark .app-ui`.
  */
-export const PREVIEW_GROUND: Record<Mode, Record<string, string>> = {
-  light: {
-    '--surface': '#ffffff',
-    '--surface-sunken': '#f4f6fb',
-    '--ink': '#10162e',
-    '--ink-muted': '#59627f',
-    '--ink-faint': '#6b738f',
-    '--line': 'rgb(16 22 55 / 0.12)',
-  },
-  dark: {
-    '--surface': '#10152f',
-    '--surface-sunken': '#161c3c',
-    '--ink': '#eef1fa',
-    '--ink-muted': '#a8b0cd',
-    '--ink-faint': '#8890ad',
-    '--line': 'rgb(255 255 255 / 0.11)',
-  },
+export function previewGround(mode: Mode, depth = 0): Record<string, string> {
+  const g = groundFor(mode, depth)
+  const ink =
+    mode === 'light'
+      ? { '--ink': '#10162e', '--ink-muted': '#59627f', '--ink-faint': '#6b738f', '--line': 'rgb(16 22 55 / 0.12)' }
+      : { '--ink': '#eef1fa', '--ink-muted': '#a8b0cd', '--ink-faint': '#8890ad', '--line': 'rgb(255 255 255 / 0.11)' }
+  return {
+    '--page': g.page,
+    '--surface': g.surface,
+    '--surface-sunken': g.sunken,
+    '--surface-raised': g.raised,
+    ...ink,
+  }
 }
 
 const LIGHT_INK = '#fef7e6'
@@ -272,6 +328,9 @@ export const PALETTE_VARS: readonly string[] = [
     STOPS.map((s) => `--color-${r}-${s}`),
   ),
   '--banner',
+  '--banner-image',
+  '--banner-deco',
+  '--banner-cell',
   '--banner-ink',
   '--banner-accent',
   '--banner-glow',
@@ -284,13 +343,52 @@ export const PALETTE_VARS: readonly string[] = [
   '--progress',
   '--badge',
   '--badge-ink',
+  '--icon-tile',
+  '--icon-glyph',
+  '--u-page',
+  '--u-surface',
+  '--u-sunken',
+  '--u-raised',
 ]
+
+/** The text colour that reads best on every one of `grounds` at once. */
+function inkForAll(grounds: string[]): string {
+  const worst = (ink: string) => Math.min(...grounds.map((g) => contrast(ink, g)))
+  const preferred = worst(LIGHT_INK) >= worst(DARK_INK) ? LIGHT_INK : DARK_INK
+  if (worst(preferred) >= 4.5) return preferred
+  return [LIGHT_INK, DARK_INK, '#ffffff', '#000000'].reduce((a, b) => (worst(b) > worst(a) ? b : a))
+}
+
+/**
+ * Whether banner text can reach 4.5:1 across the whole banner. A gradient
+ * between two far-apart colours (black to yellow) has no text colour that
+ * reads on both ends, and the editor says so rather than pretending.
+ */
+export function bannerReadable(picks: Picks, mode: Mode): boolean {
+  const d = DEFAULT_PICKS[mode]
+  const first = picks.banner ?? d.banner
+  const grounds = picks.bannerStyle === 'gradient' ? [first, picks.banner2 ?? d.banner2] : [first]
+  const ink = inkForAll(grounds)
+  return Math.min(...grounds.map((g) => contrast(ink, g))) >= 4.5
+}
+
+/** Pushes `fg` until it reads at `ratio` on the worse of `grounds`. */
+function withContrastAll(fg: string, grounds: string[], ratio: number): string {
+  let out = fg
+  for (let i = 0; i < 3; i++) {
+    const worst = grounds.reduce((a, b) => (contrast(out, b) < contrast(out, a) ? b : a))
+    if (contrast(out, worst) >= ratio) break
+    out = withContrast(out, worst, ratio)
+  }
+  return out
+}
 
 /** The variables for one mode's picks. Slots left untouched set nothing. */
 export function toCssVars(picks: Picks | undefined, mode: Mode): Record<string, string> {
   const vars: Record<string, string> = {}
   if (!picks) return vars
-  const g = GROUND[mode]
+  const d = DEFAULT_PICKS[mode]
+  const g = groundFor(mode, mode === 'dark' ? picks.depth : 0)
 
   for (const [key, anchor] of [
     ['success', 500],
@@ -303,25 +401,32 @@ export function toCssVars(picks: Picks | undefined, mode: Mode): Record<string, 
     for (const s of STOPS) vars[`--color-${key}-${s}`] = r[s]
   }
 
-  if (isHex(picks.banner)) {
-    vars['--banner'] = picks.banner
-    vars['--banner-ink'] = inkFor(picks.banner)
-  }
-  const bannerBg = picks.banner ?? DEFAULT_PICKS[mode].banner
-  if (isHex(picks.bannerAccent) || isHex(picks.banner)) {
-    // A new banner can make the old accent unreadable, so the accent is checked
-    // against whichever banner is showing, picked or not.
-    const accent = withContrast(picks.bannerAccent ?? DEFAULT_PICKS[mode].bannerAccent, bannerBg, 3)
+  // ---- banners
+  const style = picks.bannerStyle ?? 'glow'
+  const first = picks.banner ?? d.banner
+  const grounds = style === 'gradient' ? [first, picks.banner2 ?? d.banner2] : [first]
+  if (style !== 'glow' || isHex(picks.banner) || isHex(picks.bannerAccent)) {
+    vars['--banner'] = first
+    vars['--banner-ink'] = inkForAll(grounds)
+    // The accent is checked against whatever banner is showing, picked or not:
+    // a new banner can make the old accent unreadable.
+    const accent = withContrastAll(picks.bannerAccent ?? d.bannerAccent, grounds, 3)
     vars['--banner-accent'] = accent
     vars['--banner-glow'] = accent
   }
+  if (style !== 'glow') vars['--banner-deco'] = 'hidden'
+  if (style === 'gradient') {
+    vars['--banner-image'] = `linear-gradient(90deg, ${grounds[0]}, ${grounds[1]})`
+    vars['--banner-cell'] = `color-mix(in oklab, ${vars['--banner-ink']} 7%, transparent)`
+  }
 
+  // ---- statuses
   if (isHex(picks.pending)) {
     vars['--pending-soft'] = `color-mix(in oklab, ${picks.pending} 16%, transparent)`
     vars['--pending-ink'] = withContrast(picks.pending, mode === 'light' ? '#ffffff' : g.surface, 4.5)
   }
 
-  // Icons are graphics, not text: 3:1 is the bar (WCAG 1.4.11).
+  // ---- sidebar. Icons are graphics, not text: 3:1 is the bar (WCAG 1.4.11).
   if (isHex(picks.navIcon)) vars['--nav-icon'] = withContrast(picks.navIcon, g.surface, 3)
   if (isHex(picks.navActive)) {
     const active = withContrast(picks.navActive, g.sunken, 3)
@@ -330,10 +435,24 @@ export function toCssVars(picks: Picks | undefined, mode: Mode): Record<string, 
     vars['--nav-marker'] = active
   }
 
+  // ---- progress, badges, card icons
   if (isHex(picks.progress)) vars['--progress'] = picks.progress
   if (isHex(picks.badge)) {
     vars['--badge'] = picks.badge
     vars['--badge-ink'] = inkFor(picks.badge)
+  }
+  if (isHex(picks.iconTile) || isHex(picks.iconGlyph)) {
+    const tile = picks.iconTile ?? d.iconTile
+    vars['--icon-tile'] = tile
+    vars['--icon-glyph'] = withContrast(picks.iconGlyph ?? d.iconGlyph, tile, 3)
+  }
+
+  // ---- background depth, dark mode only
+  if (mode === 'dark' && picks.depth) {
+    vars['--u-page'] = g.page
+    vars['--u-surface'] = g.surface
+    vars['--u-sunken'] = g.sunken
+    vars['--u-raised'] = g.raised
   }
   return vars
 }
@@ -392,9 +511,11 @@ export function readCachedPicks(): PaletteColors {
 
 /** Whether two palettes set the same colours, ignoring key order. */
 export function samePalette(a: PaletteColors, b: PaletteColors): boolean {
-  const flat = (c: PaletteColors) =>
-    (['light', 'dark'] as const)
-      .flatMap((m) => PICK_KEYS.map((k) => `${m}.${k}=${cleanColors(c)[m]?.[k] ?? ''}`))
+  const flat = (c: PaletteColors) => {
+    const clean = cleanColors(c)
+    return (['light', 'dark'] as const)
+      .flatMap((m) => PICK_KEYS.map((k) => `${m}.${k}=${clean[m]?.[k] ?? ''}`))
       .join('|')
+  }
   return flat(a) === flat(b)
 }

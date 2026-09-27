@@ -16,15 +16,15 @@ export function DirectoryHero({
   action?: ReactNode
 }) {
   return (
-    <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 bg-banner px-4 py-5 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-9">
+    <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-4 py-5 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-9">
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-52 -right-36 h-[430px] w-[430px] rounded-full blur-[110px]"
+        className="banner-deco pointer-events-none absolute -top-52 -right-36 h-[430px] w-[430px] rounded-full blur-[110px]"
         style={{ background: 'color-mix(in oklab, var(--banner-glow) 16%, transparent)' }}
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-70"
+        className="banner-deco pointer-events-none absolute inset-0 opacity-70"
         style={{
           backgroundImage:
             'linear-gradient(color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px)',

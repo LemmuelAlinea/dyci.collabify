@@ -40,9 +40,10 @@ const appDark = vars(css.slice(at('.dark .app-ui {'), at('.app-ui .btn {')))
 
 function rgb(value, scope) {
   let v = (value || '').trim()
-  // one level of indirection: --ring: var(--color-navy-500)
-  const ref = v.match(/^var\((--[\w-]+)\)$/)
-  if (ref) v = scope[ref[1]] ?? theme[ref[1]] ?? ''
+  // one level of indirection: --ring: var(--color-navy-500), or a variable a
+  // person can override with the default after the comma: var(--u-page, #0a0e24)
+  const ref = v.match(/^var\((--[\w-]+)(?:,\s*([^)]+))?\)$/)
+  if (ref) v = scope[ref[1]] ?? theme[ref[1]] ?? ref[2]?.trim() ?? ''
   let m = v.match(/^#([0-9a-f]{6})$/i)
   if (m) {
     const n = parseInt(m[1], 16)

@@ -260,7 +260,7 @@ export function ResourceLibrary({
           <ul className="grid gap-3 md:grid-cols-2">
             {items.map((r) => (
               <li key={r.id} className="surface flex min-h-[96px] items-center gap-4 rounded-card border border-line px-5 py-4 transition-colors hover:border-line-strong">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-navy-950 text-amber-300">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-icon-tile text-icon-glyph">
                   <Icon name="file" size={19} />
                 </span>
                 <div className="min-w-0 flex-1">

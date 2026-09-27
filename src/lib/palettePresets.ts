@@ -36,10 +36,11 @@ export const PRESETS: Preset[] = [
   {
     id: 'contrast',
     name: 'High contrast',
-    note: 'Black banners and stronger colors, for bright rooms and projectors.',
+    note: 'Flat black banners and stronger colors, for bright rooms and projectors.',
     colors: {
       light: {
         banner: '#000000',
+        bannerStyle: 'solid',
         bannerAccent: '#ffd000',
         success: '#007a3d',
         warning: '#b36b00',
@@ -52,6 +53,7 @@ export const PRESETS: Preset[] = [
       },
       dark: {
         banner: '#000000',
+        bannerStyle: 'solid',
         bannerAccent: '#ffd000',
         success: '#3ddc84',
         warning: '#ffb000',
@@ -94,10 +96,12 @@ export const PRESETS: Preset[] = [
   {
     id: 'ocean',
     name: 'Ocean',
-    note: 'Sea-blue banners, with progress in blue.',
+    note: 'Sea-blue gradient banners, with progress in blue.',
     colors: {
       light: {
         banner: '#0b2540',
+        bannerStyle: 'gradient',
+        banner2: '#1c5d99',
         bannerAccent: '#5ec8e5',
         success: '#12b886',
         warning: '#fab005',
@@ -108,6 +112,8 @@ export const PRESETS: Preset[] = [
       },
       dark: {
         banner: '#0b2540',
+        bannerStyle: 'gradient',
+        banner2: '#1c5d99',
         bannerAccent: '#5ec8e5',
         success: '#20c997',
         warning: '#fab005',

@@ -38,10 +38,10 @@ export function RoleHome({
           use. This role's home has no figures to put in it, so the greeting and
           the intro carry the band on their own. */}
       <Reveal once>
-        <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 bg-banner px-5 py-7 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-10">
+        <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-5 py-7 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-10">
           <div
             aria-hidden
-            className="pointer-events-none absolute -top-56 -right-40 h-[460px] w-[460px] rounded-full blur-[120px]"
+            className="banner-deco pointer-events-none absolute -top-56 -right-40 h-[460px] w-[460px] rounded-full blur-[120px]"
             style={{
               background:
                 'radial-gradient(circle, color-mix(in oklab, var(--banner-glow) 18%, transparent) 0%, color-mix(in oklab, var(--banner-glow) 5%, transparent) 45%, transparent 70%)',
@@ -49,7 +49,7 @@ export function RoleHome({
           />
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0"
+            className="banner-deco pointer-events-none absolute inset-0"
             style={{
               backgroundImage:
                 'linear-gradient(color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px)',
@@ -90,7 +90,7 @@ export function RoleHome({
               className="h-full"
             >
               <Link to={u.to} className="surface block h-full rounded-card border border-line p-4 transition-colors hover:border-line-strong sm:p-6">
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-navy-950 text-amber-300">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-icon-tile text-icon-glyph">
                   <Icon name={u.icon} size={20} />
                 </span>
                 <h3 className="mt-4">{u.title}</h3>

@@ -54,14 +54,14 @@ export function ClassHeader({
         All classes
       </Link>
 
-      <div className="relative mt-4 overflow-hidden rounded-panel border border-banner-ink/10 bg-banner px-5 py-6 text-banner-ink sm:px-7 sm:py-8 lg:px-9">
+      <div className="relative mt-4 overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-5 py-6 text-banner-ink sm:px-7 sm:py-8 lg:px-9">
         <div
           aria-hidden
-          className="pointer-events-none absolute -top-48 -right-40 h-[420px] w-[420px] rounded-full bg-banner-glow/10 blur-[115px]"
+          className="banner-deco pointer-events-none absolute -top-48 -right-40 h-[420px] w-[420px] rounded-full bg-banner-glow/10 blur-[115px]"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-60"
+          className="banner-deco pointer-events-none absolute inset-0 opacity-60"
           style={{
             backgroundImage:
               'linear-gradient(color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px)',
@@ -110,7 +110,7 @@ export function ClassHeader({
             </div>
 
             <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-banner-ink/12 bg-banner-ink/12">
-              <div className="bg-banner/85 px-4 py-3.5">
+              <div className="banner-cell px-4 py-3.5">
                 <dt className="text-[11px] text-banner-ink/45">Class code</dt>
                 <dd className="mt-1.5">
                   <button
@@ -134,7 +134,7 @@ export function ClassHeader({
                   )}
                 </dd>
               </div>
-              <div className="bg-banner/85 px-4 py-3.5">
+              <div className="banner-cell px-4 py-3.5">
                 <dt className="text-[11px] text-banner-ink/45">Roster</dt>
                 <dd className="mt-1.5 flex items-center gap-2 font-mono text-[15px] font-bold text-banner-ink">
                   <Icon name="users" size={15} className="text-banner-ink/45" />

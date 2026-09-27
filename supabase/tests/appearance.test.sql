@@ -78,6 +78,49 @@ begin
   end;
   perform pg_temp.ok('a mode other than light or dark is refused', refused);
 
+  update public.user_appearance
+     set colors = '{"light": {"bannerStyle": "gradient", "banner2": "#223344", "iconTile": "#101010", "iconGlyph": "#ffcc00"},
+                    "dark": {"bannerStyle": "solid", "depth": 100}}'
+   where user_id = me;
+  select count(*) into n from public.user_appearance
+   where user_id = me and colors #>> '{dark,depth}' = '100';
+  perform pg_temp.ok('banner style, second banner colour, card icons and depth save', n = 1);
+
+  refused := false;
+  begin
+    update public.user_appearance set colors = '{"light": {"bannerStyle": "plaid"}}' where user_id = me;
+  exception when check_violation then refused := true;
+  end;
+  perform pg_temp.ok('a banner style outside glow, solid and gradient is refused', refused);
+
+  refused := false;
+  begin
+    update public.user_appearance set colors = '{"light": {"depth": 50}}' where user_id = me;
+  exception when check_violation then refused := true;
+  end;
+  perform pg_temp.ok('depth is refused for light mode', refused);
+
+  refused := false;
+  begin
+    update public.user_appearance set colors = '{"dark": {"depth": 150}}' where user_id = me;
+  exception when check_violation then refused := true;
+  end;
+  perform pg_temp.ok('a depth past 100 is refused', refused);
+
+  refused := false;
+  begin
+    update public.user_appearance set colors = '{"dark": {"depth": "50; color: red"}}' where user_id = me;
+  exception when check_violation then refused := true;
+  end;
+  perform pg_temp.ok('a depth that is not a number is refused', refused);
+
+  refused := false;
+  begin
+    update public.user_appearance set colors = '{"dark": {"depth": 12.5}}' where user_id = me;
+  exception when check_violation then refused := true;
+  end;
+  perform pg_temp.ok('a depth that is not a whole number is refused', refused);
+
   perform pg_temp.act_as(other);
   select count(*) into n from public.user_appearance;
   perform pg_temp.ok('someone else sees none of it', n = 0);

@@ -111,10 +111,10 @@ export function DashboardSummary({
      * so fill alone cannot separate them and the edge has to. In light mode it
      * is a faint highlight along a dark shape, which costs nothing.
      */
-    <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 bg-banner px-5 py-7 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-10">
+    <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-5 py-7 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-10">
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-56 -right-40 h-[460px] w-[460px] rounded-full blur-[120px]"
+        className="banner-deco pointer-events-none absolute -top-56 -right-40 h-[460px] w-[460px] rounded-full blur-[120px]"
         style={{
           background:
             'radial-gradient(circle, color-mix(in oklab, var(--banner-glow) 18%, transparent) 0%, color-mix(in oklab, var(--banner-glow) 5%, transparent) 45%, transparent 70%)',
@@ -122,7 +122,7 @@ export function DashboardSummary({
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0"
+        className="banner-deco pointer-events-none absolute inset-0"
         style={{
           backgroundImage:
             'linear-gradient(color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px)',
