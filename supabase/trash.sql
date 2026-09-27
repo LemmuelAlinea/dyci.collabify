@@ -803,3 +803,20 @@ end;
 $$;
 
 commit;
+
+begin;
+
+-- ---------------------------------------------------------------- work reports
+
+-- general-reports.sql's check, now leaving Trash out. A trashed file keeps
+-- archived_at, so without this the activity feed logged the trashing as
+-- "archived" and the counts kept it when archived work was asked for. Trash
+-- is on its way to deletion, and a report treats it as already gone.
+create or replace function public.general_report_file_ok(
+  f public.general_task_files, p_include_archived boolean
+) returns boolean language sql stable set search_path = public as $$
+  select f.trashed_at is null
+     and (f.archived_at is null or coalesce(p_include_archived, false));
+$$;
+
+commit;

@@ -1580,8 +1580,7 @@ back). RPCs: `trash_general_draft_path`, `trash_general_task_file`, `list_my_tra
 `restore_trashed_*`, `delete_trashed_*`, `empty_my_trash`, and `purge_trash`
 (service-only). Items in an archived or handed-in project show "Project locked" until
 it reopens. Test: `supabase/tests/trash.test.sql` (24 PASS). All 48 SQL suites and 528
-Vitest tests pass. Not done: the work reports still count a trashed task file as
-archived in their activity feed.
+Vitest tests pass. (The work-report gap noted here was closed later the same day.)
 
 **Syllabi and Curriculum archive and Trash (2026-09-28):** `teaching_resources` gained
 `archived_at`, `trashed_at` and `trashed_by` (in `trash.sql`, applied live). On the
@@ -1653,3 +1652,11 @@ Dialogs also have an edge in dark mode: `.dialog-panel` (on `Modal`'s panel) add
 white rim, from 8% to 28% as `--u-depth` (0–1, set with the depth) goes from 0 to 1, plus
 a white halo up to 13%, so a dark dialog stays visible on a black page. Light mode keeps
 the plain shadow.
+
+**Work reports leave Trash out (2026-09-28):** a trashed task file keeps `archived_at`, so
+with archived work included the reports listed trashing as "archived" and still counted
+the file. `general-reports.sql` now asks `general_report_file_ok(f, p_include_archived)`
+everywhere it filters task files: summary, people, the activity feed's `file_added`
+and `file_archived`, and the per-task file count. `trash.sql` redefines it to also require
+`trashed_at is null` (a new last block, applied live). Trash is treated as already gone.
+`trash.test.sql` now has 36 PASS, and all 49 SQL suites pass.

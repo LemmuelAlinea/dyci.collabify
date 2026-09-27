@@ -181,6 +181,18 @@ create or replace function public.general_report_task_ok(
       or (coalesce(p_include_archived, false) and not public.general_task_hidden(p_task));
 $$;
 
+/**
+ * Whether a task file belongs in a report: live, or archived and asked for.
+ * trash.sql redefines it to leave out a file in somebody's Trash, which also
+ * carries archived_at — without that, trashing a file read as "archived" in the
+ * activity feed. Takes the row, so the check can grow without every caller.
+ */
+create or replace function public.general_report_file_ok(
+  f public.general_task_files, p_include_archived boolean
+) returns boolean language sql stable set search_path = public as $$
+  select f.archived_at is null or coalesce(p_include_archived, false);
+$$;
+
 -- ---------------------------------------------------------------- history
 
 alter table public.general_project_events enable row level security;
@@ -413,7 +425,7 @@ language sql stable security definer set search_path = public set jit = off as $
       join public.general_tasks t on t.id = f.task_id
      where f.created_at >= p_from and f.created_at < p_to
        and (pj.ppl is null or f.uploaded_by = any (pj.ppl))
-       and (f.archived_at is null or coalesce(p_include_archived, false))
+       and public.general_report_file_ok(f, p_include_archived)
        and public.general_report_task_ok(t.archived_at, t.id, p_include_archived)
     union all
     select pj.project_id, cm.author_id, cm.created_at, 'commit', 1
@@ -647,7 +659,7 @@ language sql stable security definer set search_path = public set jit = off as $
             join public.general_tasks t on t.id = f.task_id
            where f.project_id = pe.project_id and f.uploaded_by = pe.user_id
              and f.created_at >= p_from and f.created_at < p_to
-             and (f.archived_at is null or coalesce(p_include_archived, false))
+             and public.general_report_file_ok(f, p_include_archived)
              and public.general_report_task_ok(t.archived_at, t.id, p_include_archived))::int,
          (select count(*) from public.general_commits cm
            where cm.project_id = pe.project_id and cm.author_id = pe.user_id
@@ -723,7 +735,7 @@ language sql stable security definer set search_path = public set jit = off as $
       from pj join public.general_task_files f on f.project_id = pj.project_id
       join public.general_tasks t on t.id = f.task_id
      where f.created_at >= p_from and f.created_at < p_to
-       and (f.archived_at is null or coalesce(p_include_archived, false))
+       and public.general_report_file_ok(f, p_include_archived)
        and public.general_report_task_ok(t.archived_at, t.id, p_include_archived)
     union all
     select f.archived_at, f.id, f.project_id, f.archived_by, null, 'file_archived', f.task_id,
@@ -732,6 +744,7 @@ language sql stable security definer set search_path = public set jit = off as $
       join public.general_tasks t on t.id = f.task_id
      where f.archived_at >= p_from and f.archived_at < p_to
        and coalesce(p_include_archived, false)
+       and public.general_report_file_ok(f, true)
        and public.general_sees_archived(f.project_id, f.archived_by)
        and public.general_report_task_ok(t.archived_at, t.id, p_include_archived)
     union all
@@ -844,7 +857,7 @@ language sql stable security definer set search_path = public set jit = off as $
          coalesce((select sum(l.minutes) from public.general_task_logs l where l.task_id = tk.id), 0)::int,
          (select count(*) from public.general_task_comments c where c.task_id = tk.id)::int,
          (select count(*) from public.general_task_files f where f.task_id = tk.id
-             and (f.archived_at is null or coalesce(p_include_archived, false)))::int,
+             and public.general_report_file_ok(f, p_include_archived))::int,
          tk.archived_at is not null,
          tk.n > 2000
     from tk;

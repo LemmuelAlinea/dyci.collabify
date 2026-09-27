@@ -139,6 +139,34 @@ begin
   select count(*) into n from public.list_my_trash() where kind = 'task_file' and id = file_a and task_title = 'Trash task';
   perform pg_temp.ok('...and shows in Trash with its task', n = 1);
 
+  -- Work reports, with archived work asked for: Trash is not the archive.
+  perform public.archive_general_task_file(file_b, true);
+  select count(*) into n
+    from public.general_report_activity(proj.space_id, array[proj.id], now() - interval '1 day',
+                                        now() + interval '1 day', null, null, true)
+   where kind = 'file_archived' and id = file_a;
+  perform pg_temp.ok('the report does not log trashing a file as archiving it', n = 0);
+  select count(*) into n
+    from public.general_report_activity(proj.space_id, array[proj.id], now() - interval '1 day',
+                                        now() + interval '1 day', null, null, true)
+   where kind = 'file_archived' and id = file_b;
+  perform pg_temp.ok('...while a file really archived still shows', n = 1);
+  select count(*) into n
+    from public.general_report_activity(proj.space_id, array[proj.id], now() - interval '1 day',
+                                        now() + interval '1 day', null, null, true)
+   where kind = 'file_added' and id = file_a;
+  perform pg_temp.ok('...and a trashed file drops out of the feed', n = 0);
+  select files into n
+    from public.general_report_tasks(proj.space_id, array[proj.id], now() - interval '1 day',
+                                     now() + interval '1 day', null, null, true)
+   where task_id = t_id;
+  perform pg_temp.ok('...and out of the task''s file count', n = 1);
+  select files_in_range into n
+    from public.general_report_summary(proj.space_id, array[proj.id], now() - interval '1 day',
+                                       now() + interval '1 day', null, null, true);
+  perform pg_temp.ok('...and out of the summary', n = 1);
+  perform public.archive_general_task_file(file_b, false);
+
   perform pg_temp.act_as(member);
   select count(*) into n from public.list_my_trash();
   perform pg_temp.ok('nobody else sees your Trash', n = 0);
