@@ -70,6 +70,11 @@ export function NewSpaceDialog({
       })
   }, [open, kind, profile])
 
+  function pick(next: SpaceKind | null) {
+    setError(null)
+    setKind(next)
+  }
+
   async function createWork(event: FormEvent) {
     event.preventDefault()
     setError(null)
@@ -107,7 +112,7 @@ export function NewSpaceDialog({
   }
 
   const back = choosing ? (
-    <Button variant="ghost" onClick={() => setKind(null)} disabled={busy}>
+    <Button variant="ghost" onClick={() => pick(null)} disabled={busy}>
       Back
     </Button>
   ) : null
@@ -132,14 +137,14 @@ export function NewSpaceDialog({
             tone="education"
             title="Education"
             body="A class. Students join with its code, and it has syllabus weeks, groups, projects and grading."
-            onPick={() => setKind('education')}
+            onPick={() => pick('education')}
           />
           <KindOption
             icon="kanban"
             tone="work"
             title="Work"
             body="Projects, teams and reports for anything that isn't a class."
-            onPick={() => setKind('work')}
+            onPick={() => pick('work')}
           />
         </div>
       </Modal>
