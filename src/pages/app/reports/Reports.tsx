@@ -85,14 +85,14 @@ const CATALOGUE: ReportGroup[] = [
  * report is asked for after the term ends, which is exactly when analytics
  * stops answering.
  */
-export default function Reports() {
+export default function Reports({ classId }: { classId?: string }) {
   const { profile } = useAuth()
-  const r = useReports(profile?.id)
+  const r = useReports(profile?.id, classId)
   const professor = profile ? fullName(profile) : ''
 
   useEffect(() => {
-    document.title = 'Reports · Collabify'
-  }, [])
+    if (!classId) document.title = 'Reports · Collabify'
+  }, [classId])
 
   if (r.loading) {
     return (
@@ -102,6 +102,13 @@ export default function Reports() {
       </div>
     )
   }
+
+  // Inside one class, the cross-class term summary doesn't apply.
+  const catalogue = classId
+    ? CATALOGUE.map((g) => ({ ...g, items: g.items.filter((i) => i.kind !== 'term_summary') })).filter(
+        (g) => g.items.length > 0,
+      )
+    : CATALOGUE
 
   const csvFor = () => {
     if (!r.cls && r.kind !== 'term_summary') return null
@@ -129,20 +136,22 @@ export default function Reports() {
 
   return (
     <div className="w-full space-y-7">
-      <div className="print:hidden">
-        <DirectoryHero
-          title="Records ready"
-          accent="to share."
-          description="Choose a report, set its scope and produce a clear printable record for grading, review or the course file."
-          stats={[
-            { value: r.classes.length, label: 'Classes available' },
-            {
-              value: CATALOGUE.reduce((count, group) => count + group.items.length, 0),
-              label: 'Report formats',
-            },
-          ]}
-        />
-      </div>
+      {!classId && (
+        <div className="print:hidden">
+          <DirectoryHero
+            title="Records ready"
+            accent="to share."
+            description="Choose a report, set its scope and produce a clear printable record for grading, review or the course file."
+            stats={[
+              { value: r.classes.length, label: 'Classes available' },
+              {
+                value: CATALOGUE.reduce((count, group) => count + group.items.length, 0),
+                label: 'Report formats',
+              },
+            ]}
+          />
+        </div>
+      )}
 
       {r.error && <Alert tone="error">{r.error}</Alert>}
 
@@ -156,13 +165,13 @@ export default function Reports() {
         <div className="@container">
         <div className="grid gap-5 @min-[860px]:grid-cols-[300px_minmax(0,1fr)] @min-[860px]:gap-6">
           <ReportBar
-            catalogue={CATALOGUE}
+            catalogue={catalogue}
             r={r}
             csv={Boolean(csv)}
             onCsv={() => csv && downloadCsv(csv.name, toCsv(csv.headers, csv.body))}
           />
           <ReportSidebar
-            catalogue={CATALOGUE}
+            catalogue={catalogue}
             r={r}
             csv={Boolean(csv)}
             onCsv={() => csv && downloadCsv(csv.name, toCsv(csv.headers, csv.body))}

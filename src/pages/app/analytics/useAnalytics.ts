@@ -41,7 +41,7 @@ import type {
  * of its own, so those bands disappear once the question narrows below a class
  * rather than answering a question nobody asked.
  */
-export function useAnalytics() {
+export function useAnalytics(classId?: string) {
   const [pace, setPace] = useState<ClassPace[] | null>(null)
   const [unmeasured, setUnmeasured] = useState<ClassUnmeasured[]>([])
   const [gaps, setGaps] = useState<ClassGap[]>([])
@@ -54,7 +54,12 @@ export function useAnalytics() {
   const [pressure, setPressure] = useState<Pressure[]>([])
   const [actionRows, setActionRows] = useState<ActionRow[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [scope, setScope] = useState<Scope>(EMPTY_SCOPE)
+  const [scope, setScopeState] = useState<Scope>({ ...EMPTY_SCOPE, classId: classId ?? '' })
+  // Locked to one class (inside a class's own page), every narrowing keeps it.
+  const setScope = useCallback(
+    (next: Scope) => setScopeState(classId ? { ...next, classId } : next),
+    [classId],
+  )
 
   const load = useCallback(async () => {
     try {

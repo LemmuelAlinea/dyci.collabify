@@ -75,7 +75,7 @@ function stamp(iso: string) {
  * Archived classes and archived projects are left out: archiving is how a
  * professor says they are finished with something.
  */
-export default function Submissions() {
+export default function Submissions({ classId }: { classId?: string }) {
   const { profile } = useAuth()
   const { show } = useToast()
   const [classes, setClasses] = useState<ClassSummary[] | null>(null)
@@ -84,13 +84,15 @@ export default function Submissions() {
   const [filters, setFilters] = useState<SubmissionFilters>(EMPTY_SUBMISSION_FILTERS)
 
   useEffect(() => {
-    document.title = 'Submissions · Collabify'
-  }, [])
+    if (!classId) document.title = 'Submissions · Collabify'
+  }, [classId])
 
   const load = useCallback(async () => {
     if (!profile) return
     try {
-      const found = await listProfessorClasses(profile.id)
+      const found = (await listProfessorClasses(profile.id)).filter(
+        (c) => !classId || c.id === classId,
+      )
       const projects = await listProjectsForClasses(found.map((c) => c.id))
       const boards = await listHandedInBoards(
         projects.filter((p) => !p.archived_at).map((p) => p.id),
@@ -103,7 +105,7 @@ export default function Submissions() {
       setClasses((c) => c ?? [])
       setRows((r) => r ?? [])
     }
-  }, [profile])
+  }, [profile, classId])
 
   useEffect(() => {
     void load()
@@ -163,20 +165,22 @@ export default function Submissions() {
 
   return (
     <div className="w-full">
-      <DirectoryHero
-        title="Work that was"
-        accent="handed in."
-        description="Every group that handed in a project, sorted by class. See what is waiting on you, what you accepted and what went back to be fixed."
-        stats={[
-          { label: 'Waiting on you', value: loading ? '—' : allCounts.waiting },
-          { label: 'Accepted', value: loading ? '—' : allCounts.accepted },
-          { label: 'Returned', value: loading ? '—' : allCounts.returned },
-          { label: 'Classes', value: loading ? '—' : new Set(all.map((r) => r.class_id)).size },
-        ]}
-        statsVariant="compact-row"
-      />
+      {!classId && (
+        <DirectoryHero
+          title="Work that was"
+          accent="handed in."
+          description="Every group that handed in a project, sorted by class. See what is waiting on you, what you accepted and what went back to be fixed."
+          stats={[
+            { label: 'Waiting on you', value: loading ? '—' : allCounts.waiting },
+            { label: 'Accepted', value: loading ? '—' : allCounts.accepted },
+            { label: 'Returned', value: loading ? '—' : allCounts.returned },
+            { label: 'Classes', value: loading ? '—' : new Set(all.map((r) => r.class_id)).size },
+          ]}
+          statsVariant="compact-row"
+        />
+      )}
 
-      <div className="mt-6 space-y-5">
+      <div className={classId ? 'space-y-5' : 'mt-6 space-y-5'}>
         {error && <Alert tone="error">{error}</Alert>}
 
         {loading ? (

@@ -26,15 +26,15 @@ import { useAnalytics } from './useAnalytics'
  * and each prints the division beside it. A model over one class and sixteen
  * finished tasks would be a confident number with nothing behind it.
  */
-export default function Analytics() {
+export default function Analytics({ classId }: { classId?: string }) {
   const { profile } = useAuth()
-  const data = useAnalytics()
+  const data = useAnalytics(classId)
   const [openTask, setOpenTask] = useState<string | null>(null)
   const { scope, setScope, shownTasks } = data
 
   useEffect(() => {
-    document.title = 'Analytics · Collabify'
-  }, [])
+    if (!classId) document.title = 'Analytics · Collabify'
+  }, [classId])
 
   if (data.loading) {
     return (
@@ -47,15 +47,17 @@ export default function Analytics() {
 
   return (
     <div className="w-full space-y-6">
-      <DirectoryHero
-        title="Analytics,"
-        accent="with context."
-        description="Move from what happened to why it happened, what is coming and what needs attention next."
-        stats={[
-          { value: data.health.length, label: 'Classes measured' },
-          { value: shownTasks.length, label: 'Tasks in view' },
-        ]}
-      />
+      {!classId && (
+        <DirectoryHero
+          title="Analytics,"
+          accent="with context."
+          description="Move from what happened to why it happened, what is coming and what needs attention next."
+          stats={[
+            { value: data.health.length, label: 'Classes measured' },
+            { value: shownTasks.length, label: 'Tasks in view' },
+          ]}
+        />
+      )}
 
       {data.error && <Alert tone="error" onRetry={data.reload}>{data.error}</Alert>}
 
@@ -67,14 +69,15 @@ export default function Analytics() {
         <FilterChain
           scope={scope}
           onChange={setScope}
-          classes={data.health}
+          classes={classId ? data.health.filter((c) => c.class_id === classId) : data.health}
           burns={data.burns}
           members={data.members}
           tasks={data.tasks}
+          lockClass={Boolean(classId)}
         />
       </div>
 
-      {data.health.length === 0 ? (
+      {(classId ? !data.health.some((c) => c.class_id === classId) : data.health.length === 0) ? (
         <EmptyState
           icon="chart"
           title="Nothing to measure yet"

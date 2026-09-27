@@ -38,7 +38,7 @@ export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student
  * front the way the analytics page does. A professor prints one report at a
  * time, and the class list alone is enough to draw the page.
  */
-export function useReports(professorId: string | undefined) {
+export function useReports(professorId: string | undefined, lockedClassId?: string) {
   const [kind, setKind] = useState<ReportKind>('class_term')
   const [classId, setClassId] = useState('')
   const [projectId, setProjectId] = useState('')
@@ -60,7 +60,9 @@ export function useReports(professorId: string | undefined) {
   const loadClasses = useCallback(async () => {
     if (!professorId) return
     try {
-      const rows = await classReports()
+      const rows = (await classReports()).filter(
+        (row) => !lockedClassId || row.class_id === lockedClassId,
+      )
       setClasses(rows)
       setClassId((id) => id || (rows[0]?.class_id ?? ''))
       setError(null)
@@ -68,7 +70,7 @@ export function useReports(professorId: string | undefined) {
       setError(authErrorMessage(err, 'Could not load your classes.'))
       setClasses([])
     }
-  }, [professorId])
+  }, [professorId, lockedClassId])
 
   useEffect(() => {
     void loadClasses()

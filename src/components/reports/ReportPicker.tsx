@@ -80,7 +80,7 @@ function About({ r }: { r: PickerState }) {
 
   return (
     <>
-      {needs.includes('class') && (
+      {needs.includes('class') && r.classes.length > 1 && (
         <Select
           aria-label="Class"
           value={r.classId}

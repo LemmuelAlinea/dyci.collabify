@@ -40,6 +40,7 @@ export function FilterChain({
   burns,
   members,
   tasks,
+  lockClass = false,
 }: {
   scope: Scope
   onChange: (next: Scope) => void
@@ -49,6 +50,7 @@ export function FilterChain({
   burns: BoardBurn[]
   members: MemberLoad[]
   tasks: TaskState[]
+  lockClass?: boolean
 }) {
   const projects = useMemo(() => {
     const seen = new Map<string, string>()
@@ -117,18 +119,20 @@ export function FilterChain({
     <FilterPopover
       active={on.length}
       summary={on.join(' → ')}
-      onClear={() => onChange(EMPTY_SCOPE)}
+      onClear={() => onChange(lockClass ? { ...EMPTY_SCOPE, classId: scope.classId } : EMPTY_SCOPE)}
       label="Narrow the page"
     >
-      <FilterField label="Class">
-        <Select
-          value={scope.classId}
-          onChange={(e) => set('classId', e.target.value)}
-          placeholder="Every class"
-          options={classOptions}
-          className="!h-10 !text-[13px]"
-        />
-      </FilterField>
+      {!lockClass && (
+        <FilterField label="Class">
+          <Select
+            value={scope.classId}
+            onChange={(e) => set('classId', e.target.value)}
+            placeholder="Every class"
+            options={classOptions}
+            className="!h-10 !text-[13px]"
+          />
+        </FilterField>
+      )}
       <FilterField label="Project">
         <Select
           value={scope.projectId}
