@@ -1499,3 +1499,10 @@ anon-lockdown suite pass.
 **Owner decision (2026-09-28):** a class project locks only when a professor closes it.
 Past the deadline, students can still upload and hand in; the header's "Closed" is a
 label only. Owner checked all five changes in the browser; merged to `main` as `79639ef`.
+
+**Work project cards:** `components/general/WorkProjectCard.tsx` replaces the two local
+`ProjectCard`s in `GeneralProjects` (All projects, with `showSpace`) and `SpaceHome`
+(a space's All projects). It is built like `ClassCard`: an eyebrow with a number, a
+status pill coloured by status, a monogram showing the preset icon (or the initial), a
+meta line (space · kind · dates), a description, a progress bar, and a footer with your
+role, members and access requests. Build and 528 tests pass.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Reveal } from '../../components/motion/Reveal'
 import { Bento, BentoCell } from '../../components/dashboard/Bento'
 import { DashSection } from '../../components/dashboard/DashSection'
@@ -21,6 +21,7 @@ import { Icon, Spinner } from '../../components/ui/Icon'
 import { Select } from '../../components/ui/Select'
 import { useToast } from '../../components/ui/Toast'
 import { JoinProjectDialog } from '../../components/general/JoinProjectDialog'
+import { WorkProjectCard } from '../../components/general/WorkProjectCard'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useUnreadTotal } from '../../hooks/useConversations'
@@ -29,12 +30,8 @@ import { forgetSpace } from '../../hooks/useSpaces'
 import { isFaculty } from '../../lib/access'
 import { archiveSpace, deleteSpace } from '../../lib/api/spaces'
 import { comingUp, dueCounts, myTasks, recentProjects } from '../../lib/general/dashboard'
-import { dateRange } from '../../lib/general/dates'
-import { levelLabel } from '../../lib/general/permissions'
-import { presetById } from '../../lib/general/presets'
 import { PROJECT_STATUSES, projectStatusLabel } from '../../lib/general/types'
 import type {
-  GeneralProjectSummary,
   GeneralStatus,
 } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
@@ -325,8 +322,8 @@ export default function SpaceHome() {
                   />
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {shown.map((p) => (
-                      <ProjectCard key={p.id} project={p} />
+                    {shown.map((p, index) => (
+                      <WorkProjectCard key={p.id} project={p} index={index} />
                     ))}
                   </div>
                 )}
@@ -374,58 +371,3 @@ export default function SpaceHome() {
     </div>
   )
 }
-
-function ProjectCard({ project: p }: { project: GeneralProjectSummary }) {
-  const pct = Number(p.progress_pct)
-  const kind = presetById(p.preset)
-  return (
-    <Link
-      to={paths.project(p.id)}
-      className="group flex flex-col rounded-card border border-line bg-[var(--surface)] p-4 transition-colors hover:border-line-strong sm:p-5"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="min-w-0 leading-snug group-hover:underline">{p.name}</h3>
-        <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
-          {p.archived_at ? 'Archived' : projectStatusLabel(p.status)}
-        </span>
-      </div>
-      {kind && kind.id !== 'blank' && (
-        <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-faint">
-          <Icon name={kind.icon} size={13} />
-          {kind.name}
-        </p>
-      )}
-      {p.description && (
-        <p className="mt-1.5 line-clamp-2 text-[13px] text-muted">{p.description}</p>
-      )}
-      <p className="mt-3 text-[12px] text-faint">{dateRange(p.starts_on, p.ends_on)}</p>
-
-      <div className="mt-4">
-        <div className="flex items-center justify-between text-[12px]">
-          <span className="text-muted">
-            {p.done_count}/{p.task_count} tasks done
-          </span>
-          <span className="font-mono text-faint">{pct}%</span>
-        </div>
-        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full surface-sunken">
-          <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, pct)}%` }} />
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-[12px] text-muted">
-        <span className="flex items-center gap-1.5">
-          <Icon name="users" size={14} />
-          {p.member_count} {p.member_count === 1 ? 'member' : 'members'}
-        </span>
-        <span className="text-faint">·</span>
-        <span>You are {levelLabel(p.my_level)}</span>
-        {p.my_level === 'owner' && p.open_request_count > 0 && (
-          <span className="ml-auto rounded-full bg-amber-400/25 px-2 py-0.5 font-medium text-amber-800 dark:text-amber-200">
-            {p.open_request_count} access {p.open_request_count === 1 ? 'request' : 'requests'}
-          </span>
-        )}
-      </div>
-    </Link>
-  )
-}
-
