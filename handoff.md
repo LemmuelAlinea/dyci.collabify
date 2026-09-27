@@ -1545,3 +1545,20 @@ space Owner may not be on every project, and the caller is restored straight aft
 Test: `supabase/tests/space-delete.test.sql` (6 PASS); `general-spaces` and
 `notification-coverage` now archive before they delete. All 46 SQL suites pass.
 Storage objects under deleted projects are still left behind (deferred).
+
+**Storage sweep (2026-09-28):** `supabase/storage-sweep.sql` (after `teaching-guards.sql`,
+applied live) adds `storage_orphans()`, `sweep_storage()` and the pg_cron job
+`collabify-storage-sweep` (every 15 minutes). It removes files that nothing references
+once they are a day old, through the Storage API via `pg_net` bulk DELETE. Direct SQL
+deletes are blocked by `storage.protect_delete` and would leave the bytes anyway. The
+references are listed per bucket in `storage_orphans`. Avatars are excluded, and files
+in declined or withdrawn changes are kept because they can be restored. The job reads
+`collabify_supabase_url` and `collabify_service_role_key` from Supabase Vault, stored by
+`node scripts/sweeper-secrets.mjs` (owner approved keeping the key in Vault; it is still
+not in code, Vercel or git). Requests are logged in `storage_sweep_requests` and
+retried after a day. The first run removed 286 files (283 test uploads in Capstone 2,
+2 task files, 1 chat file, about 98 MB), and Storage returned 200 for each bucket.
+Also fixed `general_files_remove_orphans`, whose subquery read `name` as
+`general_projects.name` and so never let the app clear a deleted project's files.
+Test: `supabase/tests/storage-sweep.test.sql` (9 PASS). All 47 SQL suites pass.
+`schema-drift` adds one length hint (`is_privacy_handler`, which I rewrote on purpose).

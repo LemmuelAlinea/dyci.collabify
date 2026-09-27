@@ -193,10 +193,10 @@ drop policy if exists general_files_remove_orphans on storage.objects;
 create policy general_files_remove_orphans on storage.objects
   for delete to authenticated using (
     bucket_id = 'general-files'
-    and public.general_safe_uuid((storage.foldername(name))[1]) is not null
+    and public.general_safe_uuid((storage.foldername(objects.name))[1]) is not null
     and not exists (
       select 1 from public.general_projects gp
-       where gp.id = public.general_safe_uuid((storage.foldername(name))[1])
+       where gp.id = public.general_safe_uuid((storage.foldername(objects.name))[1])
     )
   );
 
