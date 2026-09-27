@@ -49,7 +49,7 @@ begin
                  (member_id, 'arch-member@test.local', 'Member'),
                  (neighbour, 'arch-neighbour@test.local', 'Neighbour')) as v(id, em, ln);
   -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
+  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
 
   perform pg_temp.act_as(owner_id);
   proj := public.create_general_project('Archived one', '');

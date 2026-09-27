@@ -8,14 +8,14 @@ import type { CalendarEvent, ClassWeek, Role } from '../types'
  * back — a student never sees another group's tasks or an unreleased project,
  * without this file knowing anything about roles.
  *
- * The one role-shaped thing here is dropping task rows for a professor. A class
+ * The one role-shaped thing here is dropping task rows for faculty. A class
  * of sixteen carrying nine tasks each is a hundred and forty-four chips in one
  * month, none of which are the professor's to act on. It is filtered in the
  * query rather than thrown away in the browser.
  */
 export async function listCalendar(role: Role) {
   let q = supabase.from('calendar_events').select('*').order('at')
-  if (role === 'professor') q = q.neq('kind', 'task_due')
+  if (role === 'faculty') q = q.neq('kind', 'task_due')
   const { data, error } = await q
   if (error) throw error
   return (data ?? []) as CalendarEvent[]

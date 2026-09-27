@@ -86,7 +86,7 @@ export default function Calendar() {
 
   // Professors have class dates too; only an admin's class load is a no-op.
   useLive(load, ['projects', 'project_tasks', 'project_boards', 'syllabus_weeks', 'classes'], {
-    enabled: role === 'student' || role === 'professor',
+    enabled: role === 'student' || role === 'faculty',
   })
 
   // Work dates: the reader's live General projects, and every open task on
@@ -193,7 +193,7 @@ export default function Calendar() {
         title="Plan the"
         accent="term."
         description={
-          role === 'professor'
+          role === 'faculty'
             ? 'Deadlines and releases across your classes, mapped against the syllabus weeks they belong to.'
             : role === 'student'
               ? 'See every deadline across your classes and the syllabus week behind each one.'
@@ -281,8 +281,8 @@ export default function Calendar() {
                     placeholder="Everything"
                     options={CALENDAR_KINDS.filter(
                       (k) =>
-                        (role === 'professor' && k.value !== 'task_due') ||
-                        (role !== 'professor' && k.value !== 'project_release'),
+                        (role === 'faculty' && k.value !== 'task_due') ||
+                        (role !== 'faculty' && k.value !== 'project_release'),
                     )}
                     className="!h-10 !text-[13px]"
                   />
@@ -336,8 +336,8 @@ export default function Calendar() {
               <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2 border-y border-line py-2.5">
                 {CALENDAR_KINDS.filter(
                   (kind) =>
-                    (role === 'professor' && kind.value !== 'task_due') ||
-                    (role !== 'professor' && kind.value !== 'project_release'),
+                    (role === 'faculty' && kind.value !== 'task_due') ||
+                    (role !== 'faculty' && kind.value !== 'project_release'),
                 ).map((kind) => (
                   <span key={kind.value} className="flex items-center gap-1.5 text-[11px] text-muted">
                     <span className={`h-1.5 w-1.5 rounded-full ${eventDot(kind.value)}`} />
@@ -375,7 +375,7 @@ export default function Calendar() {
         taskId={openTask}
         onClose={() => showTask(null)}
         viewerId={profile?.id}
-        role={role}
+        role={role === 'student' ? 'student' : 'professor'}
         boardWeight={0}
         onChanged={load}
       />

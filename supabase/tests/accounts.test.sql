@@ -82,7 +82,7 @@ begin
   values (v_free, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
           'zz-free@example.test', '', now(), now());
   insert into public.profiles (id, first_name, last_name, email, role, status)
-  values (v_free, 'Zz', 'Free', 'zz-free@example.test', 'professor', 'active');
+  values (v_free, 'Zz', 'Free', 'zz-free@example.test', 'faculty', 'active');
 
   create temp table fx (k text primary key, v uuid) on commit drop;
   grant select, insert on fx to authenticated;
@@ -101,7 +101,7 @@ declare
 begin
   perform pg_temp.act_as(v_stud);
   perform pg_temp.must_refuse('a student cannot change a role',
-    format('select public.set_account_role(%L, ''professor''::public.user_role)', v_stud));
+    format('select public.set_account_role(%L, ''faculty''::public.user_role)', v_stud));
   perform pg_temp.must_refuse('a student cannot deactivate anybody',
     format('select public.set_account_active(%L, false)', v_free));
 
@@ -144,18 +144,18 @@ declare
 begin
   perform pg_temp.act_as(v_admin);
   perform pg_temp.must_allow('a student is promoted to professor',
-    format('select public.set_account_role(%L, ''professor''::public.user_role)', v_stud));
+    format('select public.set_account_role(%L, ''faculty''::public.user_role)', v_stud));
   perform pg_temp.act_as_service();
 
   -- The whole point: a promotion is not a verification.
   perform pg_temp.must_be('...and lands pending, not active',
-    (select role = 'professor' and status = 'pending'
+    (select role = 'faculty' and status = 'pending'
        from public.profiles where id = v_stud));
 
   perform pg_temp.must_be('the change is in the audit log',
     exists (select 1 from public.audit_events
              where action = 'role_changed' and subject_id = v_stud
-               and before_value = 'student' and after_value = 'professor'));
+               and before_value = 'student' and after_value = 'faculty'));
 end $$;
 
 -- -------------------------------------------------- demoting, and the guard

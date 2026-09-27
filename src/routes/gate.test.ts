@@ -26,8 +26,8 @@ describe('gate', () => {
   })
 
   it('sends a pending account to pending, unless the route is open', () => {
-    expect(gate(true, p('professor', 'pending'))).toBe('/pending')
-    expect(gate(true, p('professor', 'pending'), { open: true })).toBe('ok')
+    expect(gate(true, p('faculty', 'pending'))).toBe('/pending')
+    expect(gate(true, p('faculty', 'pending'), { open: true })).toBe('ok')
   })
 
   it('sends a role-less active account to pending, unless the route is open', () => {
@@ -42,19 +42,19 @@ describe('gate', () => {
 
   it('admits any role when there is no allow list', () => {
     expect(gate(true, p('student', 'active'))).toBe('ok')
-    expect(gate(true, p('professor', 'active'))).toBe('ok')
+    expect(gate(true, p('faculty', 'active'))).toBe('ok')
     expect(gate(true, p('admin', 'active'))).toBe('ok')
   })
 
   it('admits a role on the allow list', () => {
     expect(gate(true, p('student', 'active'), { allow: ['student'] })).toBe('ok')
-    expect(gate(true, p('professor', 'active'), { allow: ['professor', 'admin'] })).toBe('ok')
-    expect(gate(true, p('admin', 'active'), { allow: ['professor', 'admin'] })).toBe('ok')
+    expect(gate(true, p('faculty', 'active'), { allow: ['faculty', 'admin'] })).toBe('ok')
+    expect(gate(true, p('admin', 'active'), { allow: ['faculty', 'admin'] })).toBe('ok')
   })
 
   it('sends home a role not on the allow list', () => {
-    expect(gate(true, p('student', 'active'), { allow: ['professor', 'admin'] })).toBe('/home')
-    expect(gate(true, p('professor', 'active'), { allow: ['admin'] })).toBe('/home')
+    expect(gate(true, p('student', 'active'), { allow: ['faculty', 'admin'] })).toBe('/home')
+    expect(gate(true, p('faculty', 'active'), { allow: ['admin'] })).toBe('/home')
     expect(gate(true, p('admin', 'active'), { allow: ['student'] })).toBe('/home')
   })
 })

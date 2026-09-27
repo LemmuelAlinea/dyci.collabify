@@ -1,6 +1,7 @@
 import { localDay } from './termShift'
 
-export type Role = 'student' | 'professor' | 'admin'
+export type Role = 'student' | 'faculty' | 'admin'
+export type TeachingViewRole = 'professor' | 'student'
 export type AccountStatus = 'active' | 'pending' | 'rejected'
 
 /** Shared by the accounts page and the faculty load, so both say the same word. */
@@ -42,7 +43,7 @@ export type NotificationKey = Exclude<keyof NotificationPrefs, 'user_id'>
 
 export const ROLE_LABEL: Record<Role, string> = {
   student: 'Student',
-  professor: 'Professor',
+  faculty: 'Faculty',
   admin: 'Admin',
 }
 
@@ -818,7 +819,7 @@ export function taskStatusLabel(status: TaskStatus) {
 }
 
 /** Editable by the group only until somebody starts it. */
-export function isTaskEditable(task: Pick<ProjectTask, 'status'>, role: Role) {
+export function isTaskEditable(task: Pick<ProjectTask, 'status'>, role: TeachingViewRole) {
   return role === 'professor' || task.status === 'todo'
 }
 

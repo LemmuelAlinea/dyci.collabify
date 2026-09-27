@@ -62,7 +62,7 @@ declare
 begin
   select id into v_admin from public.profiles where role = 'admin' limit 1;
   select id into v_student from public.profiles where role = 'student' limit 1;
-  select id into v_prof from public.profiles where role = 'professor' limit 1;
+  select id into v_prof from public.profiles where role = 'faculty' limit 1;
 
   -- A freshly signed-up professor, waiting.
   v_new := gen_random_uuid();
@@ -71,7 +71,7 @@ begin
   values (v_new, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
           'zz-pending-prof@example.test', '', now(), now());
   insert into public.profiles (id, first_name, last_name, email, role, status)
-  values (v_new, 'Zz', 'Pending', 'zz-pending-prof@example.test', 'professor', 'pending');
+  values (v_new, 'Zz', 'Pending', 'zz-pending-prof@example.test', 'faculty', 'pending');
 
   create temp table fx (k text primary key, v uuid) on commit drop;
   grant select, insert on fx to authenticated;

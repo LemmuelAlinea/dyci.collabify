@@ -125,7 +125,7 @@ export default function Register() {
         {error && <Alert tone="error">{error}</Alert>}
 
         <RoleChoice value={role} onChange={setRole} />
-        {role === 'professor' ? (
+        {role === 'faculty' ? (
           <Alert tone="info">
             The program admin reviews faculty accounts. You can sign in straight away, and your
             tools open once you are approved.

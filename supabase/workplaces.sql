@@ -3,7 +3,7 @@
 --   node scripts/db.mjs supabase/workplaces.sql
 --
 -- `role` becomes nullable: null means the account has not entered Education.
--- Entering it later goes through `enter_education`, once, and a professor still
+-- Entering it later goes through `enter_education`, once, and faculty still
 -- waits for approval exactly as at registration.
 --
 -- Runs after consent.sql, whose `handle_new_user` this redefines as a superset,
@@ -18,10 +18,10 @@ alter table public.profiles alter column role drop default;
 
 /**
  * Role and status are the admin's to set, with one exception: an account that
- * has no role may take student or professor once, through `enter_education`.
+ * has no role may take student or faculty once, through `enter_education`.
  * That function raises a transaction-local flag; the flag is not reachable
  * through the REST interface, and even with it the guard still insists the
- * status matches the role, so a professor can never arrive active.
+ * status matches the role, so faculty can never arrive active.
  */
 create or replace function public.guard_privileged_columns()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -35,11 +35,11 @@ begin
   end if;
   if (new.role is distinct from old.role or new.status is distinct from old.status)
      and not public.is_admin() then
-    wanted := case when new.role = 'professor' then 'pending' else 'active' end;
+    wanted := case when new.role = 'faculty' then 'pending' else 'active' end;
     if old.role is null
        and old.status = 'active'
        and current_setting('collabify.enter_education', true) = 'on'
-       and new.role in ('student', 'professor')
+       and new.role in ('student', 'faculty')
        and new.status = wanted then
       return new;
     end if;
@@ -55,7 +55,7 @@ $$;
 /**
  * Onboarding writes the profile row itself, and `profiles_insert_own` checks
  * nothing but the id. Without this a Google account could insert itself as an
- * active admin, or as a professor who skipped approval.
+ * active admin, or as faculty who skipped approval.
  */
 create or replace function public.guard_profile_insert()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -67,11 +67,11 @@ begin
     raise exception 'You can only create your own profile'
       using errcode = 'insufficient_privilege';
   end if;
-  if new.role is not null and new.role not in ('student', 'professor') then
-    raise exception 'Choose student or professor'
+  if new.role is not null and new.role not in ('student', 'faculty') then
+    raise exception 'Choose student or faculty'
       using errcode = 'check_violation';
   end if;
-  new.status := case when new.role = 'professor' then 'pending' else 'active' end
+  new.status := case when new.role = 'faculty' then 'pending' else 'active' end
                 ::public.account_status;
   return new;
 end;
@@ -122,7 +122,11 @@ begin
     end if;
   end loop;
 
-  if meta_role is null or meta_role not in ('student', 'professor') then
+  if meta_role = 'professor' then
+    meta_role := 'faculty';
+  end if;
+
+  if meta_role is null or meta_role not in ('student', 'faculty') then
     return new;
   end if;
 
@@ -137,7 +141,7 @@ begin
     nullif(new.raw_user_meta_data ->> 'middle_name', ''),
     coalesce(new.raw_user_meta_data ->> 'last_name', ''),
     resolved_role,
-    case when resolved_role = 'professor' then 'pending' else 'active' end::public.account_status,
+    case when resolved_role = 'faculty' then 'pending' else 'active' end::public.account_status,
     nullif(new.raw_user_meta_data ->> 'avatar_url', '')
   )
   on conflict (id) do nothing;
@@ -165,8 +169,8 @@ begin
   if auth.uid() is null then
     raise exception 'Sign in first' using errcode = 'insufficient_privilege';
   end if;
-  if p_role not in ('student', 'professor') then
-    raise exception 'Choose student or professor' using errcode = 'check_violation';
+  if p_role not in ('student', 'faculty') then
+    raise exception 'Choose student or faculty' using errcode = 'check_violation';
   end if;
 
   select * into me from public.profiles where id = auth.uid() for update;
@@ -185,7 +189,7 @@ begin
   perform set_config('collabify.enter_education', 'on', true);
   update public.profiles
      set role = p_role,
-         status = case when p_role = 'professor' then 'pending' else 'active' end
+         status = case when p_role = 'faculty' then 'pending' else 'active' end
                   ::public.account_status
    where id = auth.uid()
   returning * into me;

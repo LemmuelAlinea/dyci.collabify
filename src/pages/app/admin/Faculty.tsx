@@ -40,7 +40,7 @@ export default function Faculty() {
     try {
       const [classes, people] = await Promise.all([programClasses(), listAccounts()])
       setRows(classes)
-      setAccounts(people.filter((a) => a.role === 'professor'))
+      setAccounts(people.filter((a) => a.role === 'faculty'))
       setYear((y) => y || currentSchoolYear(classes))
       setError(null)
     } catch (err) {
@@ -351,4 +351,3 @@ function Stat({ value, label }: { value: number; label: string }) {
     </div>
   )
 }
-

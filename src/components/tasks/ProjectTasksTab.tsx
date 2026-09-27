@@ -4,7 +4,7 @@ import { ProfessorTasksView } from './ProfessorTasksView'
 import { StudentTasksView } from './StudentTasksView'
 import { useProjectTasks } from './useProjectTasks'
 import { isReleased } from '../../lib/types'
-import type { ProjectSummary, Role } from '../../lib/types'
+import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
 
 /**
  * Tasks inside one project. A student sees their own board; a professor sees
@@ -16,12 +16,11 @@ import type { ProjectSummary, Role } from '../../lib/types'
  * together, and reading either one meant scrolling past the other.
  */
 export function ProjectTasksTab({
-  project,
-  role,
+  project, role,
   viewerId,
 }: {
   project: ProjectSummary
-  role: Role
+  role: TeachingViewRole
   viewerId: string | undefined
 }) {
   const t = useProjectTasks({ project, role })

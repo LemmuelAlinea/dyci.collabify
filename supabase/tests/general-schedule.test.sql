@@ -36,7 +36,7 @@ begin
     from (values (owner_id, 'sched-owner@test.local', 'Owner'),
                  (other_id, 'sched-other@test.local', 'Other')) as v(id, em, ln);
   -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
+  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
 
   perform pg_temp.act_as(owner_id);
   proj := public.create_general_project('Schedule project', '');
@@ -139,7 +139,7 @@ begin
     from (values (owner_id, 'sched-owner2@test.local', 'Owner2'),
                  (structurer_id, 'sched-structurer@test.local', 'Structurer')) as v(id, em, ln);
   -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
+  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
 
   perform pg_temp.act_as(owner_id);
   proj := public.create_general_project('Schedule guard project', '');

@@ -9,7 +9,7 @@ import { pendingReassignment } from '../../../lib/api/reassignments'
 import { setTaskStatus } from '../../../lib/api/tasks'
 import { authErrorMessage } from '../../../lib/authError'
 import { taskStatusLabel } from '../../../lib/types'
-import type { ReassignmentRow, Role, TaskStatus } from '../../../lib/types'
+import type { ReassignmentRow, TeachingViewRole, TaskStatus } from '../../../lib/types'
 
 /**
  * One task, whole. Opened from a card or a deep link; the board stays mounted
@@ -18,8 +18,7 @@ import type { ReassignmentRow, Role, TaskStatus } from '../../../lib/types'
 export function TaskDetailModal({
   taskId,
   onClose,
-  viewerId,
-  role,
+  viewerId, role,
   /** Total weight on the board, so the share can be shown honestly. */
   boardWeight,
   /** The project is closed: the board still reads, nothing writes. */
@@ -29,7 +28,7 @@ export function TaskDetailModal({
   taskId: string | null
   onClose: () => void
   viewerId: string | undefined
-  role: Role
+  role: TeachingViewRole
   boardWeight: number
   locked?: boolean
   onChanged: () => Promise<void> | void

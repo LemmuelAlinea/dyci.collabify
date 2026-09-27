@@ -8,7 +8,7 @@ import { Select, Textarea } from '../ui/Select'
 import { addTask, createProfessorTask, generateTasks } from '../../lib/api/tasks'
 import type { TaskDraft } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
-import type { BoardSummary, ProjectSummary, Role } from '../../lib/types'
+import type { BoardSummary, ProjectSummary, TeachingViewRole } from '../../lib/types'
 
 type Row = TaskDraft & { keep: boolean }
 
@@ -22,8 +22,7 @@ export function GenerateTasksModal({
   onClose,
   project,
   board,
-  boards,
-  role,
+  boards, role,
   viewerId,
   onSaved,
 }: {
@@ -34,7 +33,7 @@ export function GenerateTasksModal({
   board: BoardSummary | null
   /** Every board, for a professor choosing who gets them. */
   boards: BoardSummary[]
-  role: Role
+  role: TeachingViewRole
   viewerId: string | undefined
   onSaved: (message: string) => Promise<void> | void
 }) {

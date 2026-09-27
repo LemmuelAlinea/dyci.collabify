@@ -92,9 +92,9 @@ begin
     raise exception 'fixture needs one syllabus of 17+ weeks and one of 10-16';
   end if;
 
-  select id into v_prof  from public.profiles where role = 'professor'
+  select id into v_prof  from public.profiles where role = 'faculty'
    and exists (select 1 from public.classes c where c.professor_id = profiles.id) limit 1;
-  select id into v_other from public.profiles where role = 'professor' and id <> v_prof limit 1;
+  select id into v_other from public.profiles where role = 'faculty' and id <> v_prof limit 1;
   select id into v_stu   from public.profiles where role = 'student' limit 1;
   if v_other is null then raise exception 'fixture needs a second professor'; end if;
 

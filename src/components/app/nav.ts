@@ -143,7 +143,7 @@ export function navFor(
   if (role === 'student' && !admitted) return [MAIN_WAITING, ACCOUNT]
 
   const roleGroups: NavGroup[] =
-    role === 'admin' ? [ADMIN] : role === 'professor' ? [classesGroup(role), TEACHING] : [classesGroup(role)]
+    role === 'admin' ? [ADMIN] : role === 'faculty' ? [classesGroup(role), TEACHING] : [classesGroup(role)]
 
   return [MAIN, ...roleGroups, ACCOUNT]
 }

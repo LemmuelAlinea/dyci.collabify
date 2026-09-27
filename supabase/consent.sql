@@ -246,7 +246,11 @@ begin
     end if;
   end loop;
 
-  if meta_role is null or meta_role not in ('student', 'professor') then
+  if meta_role = 'professor' then
+    meta_role := 'faculty';
+  end if;
+
+  if meta_role is null or meta_role not in ('student', 'faculty') then
     return new;
   end if;
 
@@ -260,7 +264,7 @@ begin
     nullif(new.raw_user_meta_data ->> 'middle_name', ''),
     coalesce(new.raw_user_meta_data ->> 'last_name', ''),
     resolved_role,
-    case when resolved_role = 'professor' then 'pending' else 'active' end::public.account_status,
+    case when resolved_role = 'faculty' then 'pending' else 'active' end::public.account_status,
     nullif(new.raw_user_meta_data ->> 'avatar_url', '')
   )
   on conflict (id) do nothing;

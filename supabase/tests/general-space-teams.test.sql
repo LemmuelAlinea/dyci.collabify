@@ -52,7 +52,7 @@ begin
                  (teammate_id, 'space-team-member@test.local', 'Member'),
                  (stranger_id, 'space-team-stranger@test.local', 'Stranger')) as v(id, em, ln);
   -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
+  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
 
   perform pg_temp.act_as(owner_id);
   space := public.create_general_space('Production space', '');

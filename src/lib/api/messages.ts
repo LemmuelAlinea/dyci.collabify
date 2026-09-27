@@ -139,7 +139,7 @@ export async function markRead(conversationId: string) {
 }
 
 export const START_DM_MESSAGE = {
-  not_professor: 'Only professors can start a direct message.',
+  not_professor: 'Only faculty can start a direct message.',
   not_your_student: 'You can only message students in your own classes.',
   not_signed_in: 'Sign in first, then try again.',
 } as const

@@ -11,12 +11,12 @@ export type HomeProfile = Pick<Profile, 'role' | 'status'> | null | undefined
 
 /** Approved faculty, and the admin. Mirrors `is_faculty`. */
 export function isFaculty(p: AccessProfile): boolean {
-  return Boolean(p && p.status === 'active' && (p.role === 'professor' || p.role === 'admin'))
+  return Boolean(p && p.status === 'active' && (p.role === 'faculty' || p.role === 'admin'))
 }
 
 /** Faculty the admin lets open classes. Mirrors `is_teaching_faculty`. */
 export function canTeach(p: AccessProfile): boolean {
-  return isFaculty(p) && Boolean(p?.can_teach)
+  return Boolean(p && p.status === 'active' && p.role === 'faculty' && p.can_teach)
 }
 
 /** Where an admitted account lands. */

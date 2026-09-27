@@ -1,9 +1,9 @@
--- Collabify — the program admin verifies a professor before they get advisers' tools.
+-- Collabify — the program admin verifies faculty before they get advisers' tools.
 -- Idempotent: safe to run repeatedly.
 -- Run with:  node scripts/db.mjs supabase/approvals.sql
 
 /**
- * A professor signing up lands `pending` and waits at /pending. Until now the
+ * Faculty signing up land `pending` and wait at /pending. Until now the
  * only way past that was an admin editing the row by hand, which is why
  * the console has always said "coming soon".
  *
@@ -24,7 +24,7 @@ alter table public.profiles
   add column if not exists decided_at timestamptz;
 
 /**
- * Approve or turn down a professor.
+ * Approve or turn down faculty.
  *
  * Reversible in both directions on purpose: an account turned down by mistake
  * is otherwise dead, and the person it belongs to cannot do anything about it.
@@ -38,7 +38,7 @@ declare
   target public.profiles%rowtype;
 begin
   if auth.uid() is not null and not public.is_admin() then
-    raise exception 'Only the program admin approves professor accounts'
+    raise exception 'Only the program admin approves faculty accounts'
       using errcode = 'insufficient_privilege';
   end if;
 
@@ -47,8 +47,8 @@ begin
     raise exception 'That account no longer exists';
   end if;
 
-  if target.role is distinct from 'professor' then
-    raise exception 'Only professor accounts go through approval'
+  if target.role is distinct from 'faculty' then
+    raise exception 'Only faculty accounts go through approval'
       using errcode = 'check_violation';
   end if;
 
@@ -65,7 +65,7 @@ $$;
 
 grant execute on function public.decide_professor(uuid, boolean) to authenticated;
 
-/** Professor accounts with the admin who decided them, for the console. */
+/** Faculty accounts with the admin who decided them, for the console. */
 drop view if exists public.professor_accounts;
 
 create view public.professor_accounts
@@ -84,7 +84,7 @@ select p.id,
        (select count(*) from public.classes c where c.professor_id = p.id)::int as class_count
   from public.profiles p
   left join public.profiles d on d.id = p.decided_by
- where p.role = 'professor';
+ where p.role = 'faculty';
 
 grant select on public.professor_accounts to authenticated;
 

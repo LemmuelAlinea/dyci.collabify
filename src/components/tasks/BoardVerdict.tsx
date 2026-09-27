@@ -10,7 +10,7 @@ import { useToast } from '../ui/Toast'
 import { boardResult, recordResult } from '../../lib/api/results'
 import { authErrorMessage } from '../../lib/authError'
 import { resultLabel } from '../../lib/types'
-import type { BoardResult, BoardSummary, Role } from '../../lib/types'
+import type { BoardResult, BoardSummary, TeachingViewRole } from '../../lib/types'
 
 function when(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -30,12 +30,11 @@ function when(iso: string) {
  * understands.
  */
 export function BoardVerdict({
-  board,
-  role,
+  board, role,
   onChanged,
 }: {
   board: BoardSummary
-  role: Role
+  role: TeachingViewRole
   onChanged: () => Promise<void> | void
 }) {
   const { show } = useToast()

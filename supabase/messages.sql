@@ -311,7 +311,7 @@ begin
   if me is null then
     return jsonb_build_object('result', 'not_signed_in');
   end if;
-  if not exists (select 1 from public.profiles where id = me and role = 'professor') then
+  if not exists (select 1 from public.profiles where id = me and role = 'faculty') then
     return jsonb_build_object('result', 'not_professor');
   end if;
 

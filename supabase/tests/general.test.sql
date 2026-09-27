@@ -82,7 +82,7 @@ begin
                                'role', 'professor'),
             now(), now());
   -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
+  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
   end loop;
 
   create temp table fx (k text primary key, v uuid) on commit drop;

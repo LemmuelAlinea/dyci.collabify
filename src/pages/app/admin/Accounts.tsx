@@ -44,7 +44,7 @@ function when(iso: string) {
  */
 const ROLE_FILTERS = [
   { value: 'student', label: 'Students' },
-  { value: 'professor', label: 'Professors' },
+  { value: 'faculty', label: 'Faculty' },
   { value: 'admin', label: 'Admins' },
 ]
 
@@ -109,7 +109,7 @@ export default function Accounts() {
 
   const activeAccounts = rows.filter((account) => account.status === 'active').length
   const students = rows.filter((account) => account.role === 'student').length
-  const professors = rows.filter((account) => account.role === 'professor').length
+  const faculty = rows.filter((account) => account.role === 'faculty').length
 
   return (
     <div className="space-y-6">
@@ -122,7 +122,7 @@ export default function Accounts() {
           { value: rows.length, label: 'Accounts' },
           { value: activeAccounts, label: 'Active' },
           { value: students, label: 'Students' },
-          { value: professors, label: 'Professors' },
+          { value: faculty, label: 'Faculty' },
         ]}
       />
 
@@ -226,7 +226,7 @@ export default function Accounts() {
                             )
                       }
                     >
-                      {a.role === 'student' ? 'Make professor' : 'Make student'}
+                      {a.role === 'student' ? 'Make faculty' : 'Make student'}
                     </Button>
                     <Button
                       variant="ghost"
@@ -261,17 +261,17 @@ export default function Accounts() {
           promoting
             ? run(
                 promoting.id,
-                () => setAccountRole(promoting.id, 'professor'),
+                () => setAccountRole(promoting.id, 'faculty'),
                 `${fullName(promoting)} is waiting for approval`,
               )
             : undefined
         }
         tone="primary"
-        title="Make this account a professor?"
-        confirmLabel="Make professor"
+        title="Make this account faculty?"
+        confirmLabel="Make faculty"
         body={
           <p>
-            {promoting && fullName(promoting)} becomes a professor and lands in{' '}
+            {promoting && fullName(promoting)} becomes faculty and lands in{' '}
             <strong className="text-ink">Faculty approvals</strong>, waiting on you — a
             promotion is not a verification, so they still go through the same check as
             anyone who signed up as one.

@@ -18,7 +18,7 @@ const AdminHome = lazy(() => import('./app/AdminHome'))
 export default function Home() {
   return (
     <>
-      <RoleSwitch student={<StudentHome />} professor={<ProfessorHome />} admin={<AdminHome />} />
+      <RoleSwitch student={<StudentHome />} faculty={<ProfessorHome />} admin={<AdminHome />} />
       <WorkOverview />
     </>
   )

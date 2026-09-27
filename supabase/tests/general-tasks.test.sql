@@ -75,7 +75,7 @@ begin
                                'role', 'professor'),
             now(), now());
   -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
+  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
   end loop;
 
   perform pg_temp.act_as(v_ids[1]);

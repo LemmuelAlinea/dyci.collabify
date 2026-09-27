@@ -55,7 +55,7 @@ declare
   v_class uuid; v_proj uuid; v_board uuid;
   v_student uuid; v_syllabus uuid;
 begin
-  select id into v_other from public.profiles where role = 'professor' order by created_at limit 1;
+  select id into v_other from public.profiles where role = 'faculty' order by created_at limit 1;
   select student_id into v_student from public.class_members where status = 'active' limit 1;
 
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
@@ -63,7 +63,7 @@ begin
   values (v_prof, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
           'zz-safety@example.test', '', now(), now());
   insert into public.profiles (id, first_name, last_name, email, role, status)
-  values (v_prof, 'Zz', 'Safety', 'zz-safety@example.test', 'professor', 'active');
+  values (v_prof, 'Zz', 'Safety', 'zz-safety@example.test', 'faculty', 'active');
 
   -- Borrow a syllabus that already has weeks: a project refuses a week span the
   -- class's syllabus does not cover, which is the guard doing its job.

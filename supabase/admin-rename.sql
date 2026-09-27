@@ -72,7 +72,7 @@ declare
   target public.profiles%rowtype;
 begin
   if auth.uid() is not null and not public.is_admin() then
-    raise exception 'Only the program admin approves professor accounts'
+    raise exception 'Only the program admin approves faculty accounts'
       using errcode = 'insufficient_privilege';
   end if;
 
@@ -81,8 +81,8 @@ begin
     raise exception 'That account no longer exists';
   end if;
 
-  if target.role is distinct from 'professor' then
-    raise exception 'Only professor accounts go through approval'
+  if target.role is distinct from 'faculty' then
+    raise exception 'Only faculty accounts go through approval'
       using errcode = 'check_violation';
   end if;
 

@@ -4,7 +4,7 @@ import { Icon } from '../../ui/Icon'
 import { CommentList } from './CommentList'
 import { WorkLogList } from './WorkLogList'
 import type {
-  Role,
+  TeachingViewRole,
   TaskComment,
   TaskDetail,
   TaskEvent,
@@ -131,8 +131,7 @@ export function TaskActivity({
   comments,
   events,
   worklog,
-  viewerId,
-  role,
+  viewerId, role,
   canPost,
   isAssignee,
   onChanged,
@@ -142,7 +141,7 @@ export function TaskActivity({
   events: TaskEvent[]
   worklog: WorkLogEntry[]
   viewerId: string | undefined
-  role: Role
+  role: TeachingViewRole
   canPost: boolean
   isAssignee: boolean
   onChanged: () => Promise<void> | void

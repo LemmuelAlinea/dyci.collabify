@@ -68,10 +68,10 @@ export function WorkspaceSearch() {
       try {
         let classes: ClassSummary[] = []
         if (profile.role === 'student') classes = await listStudentClasses(profile.id)
-        if (profile.role === 'professor') classes = await listProfessorClasses(profile.id)
+        if (profile.role === 'faculty') classes = await listProfessorClasses(profile.id)
 
         const projects: ProjectSummary[] =
-          profile.role === 'student' || profile.role === 'professor'
+          profile.role === 'student' || profile.role === 'faculty'
             ? await listProjectsForClasses(classes.map((c) => c.id))
             : []
         if (cancelled) return

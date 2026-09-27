@@ -37,7 +37,7 @@ export function teachesClass(
   professorId: string,
   myLevel: GeneralLevel | null,
 ): boolean {
-  if (!viewer || (viewer.role !== 'professor' && viewer.role !== 'admin')) return false
+  if (!viewer || viewer.role !== 'faculty') return false
   return viewer.id === professorId || myLevel === 'owner' || myLevel === 'manager'
 }
 

@@ -94,8 +94,8 @@ begin
     from (values (prof), (other), (student)) as u(id);
 
   insert into public.profiles (id, email, first_name, last_name, role, status)
-  values (prof,    prof::text    || '@test.invalid', 'Term', 'Prof',  'professor', 'active'),
-         (other,   other::text   || '@test.invalid', 'Other','Prof',  'professor', 'active'),
+  values (prof,    prof::text    || '@test.invalid', 'Term', 'Prof',  'faculty', 'active'),
+         (other,   other::text   || '@test.invalid', 'Other','Prof',  'faculty', 'active'),
          (student, student::text || '@test.invalid', 'Term', 'Student','student',  'active');
 
   insert into public.teaching_resources (professor_id, kind, title, file_path, file_name)

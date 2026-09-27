@@ -4,8 +4,7 @@ import { dueSoonLabel, isMine } from '../../lib/types'
 import type {
   GroupMember,
   MemberProgress,
-  ProjectTask,
-  Role,
+  ProjectTask, TeachingViewRole,
   TaskStatus,
 } from '../../lib/types'
 
@@ -20,8 +19,7 @@ export function TaskCard({
   share,
   members,
   progress,
-  viewerId,
-  role,
+  viewerId, role,
   canWork,
   onStatus,
   onEdit,
@@ -38,7 +36,7 @@ export function TaskCard({
   members: GroupMember[]
   progress: MemberProgress[]
   viewerId: string | undefined
-  role: Role
+  role: TeachingViewRole
   /** False for a professor: they write the work, the group does it. */
   canWork: boolean
   onStatus: (status: TaskStatus) => Promise<void> | void

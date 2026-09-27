@@ -9,7 +9,7 @@ import {
 import type { ProfessorTaskGroup, ProjectTaskRow } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import { boardOwnerName, isProjectLocked } from '../../lib/types'
-import type { BoardSummary, MemberProgress as MemberRow, ProjectSummary, Role } from '../../lib/types'
+import type { BoardSummary, MemberProgress as MemberRow, ProjectSummary, TeachingViewRole } from '../../lib/types'
 import { EMPTY_TASK_FILTERS, applyTaskFilters } from './TaskFilters'
 import type { TaskFilterState } from './TaskFilters'
 
@@ -26,11 +26,10 @@ import type { TaskFilterState } from './TaskFilters'
  * belongs in a component instead.
  */
 export function useProjectTasks({
-  project,
-  role,
+  project, role,
 }: {
   project: ProjectSummary
-  role: Role
+  role: TeachingViewRole
 }) {
   const [boards, setBoards] = useState<BoardSummary[] | null>(null)
   const [rows, setRows] = useState<ProjectTaskRow[]>([])

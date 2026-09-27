@@ -59,7 +59,7 @@ export default function Sections() {
       ])
       setRows(sections)
       setClasses(cls)
-      setAdvisers(people.filter((a) => a.role === 'professor' && a.status === 'active'))
+      setAdvisers(people.filter((a) => a.role === 'faculty' && a.status === 'active'))
       setYear((y) => y || currentSchoolYear(cls))
       setError(null)
     } catch (err) {

@@ -8,7 +8,7 @@ import { useToast } from '../../ui/Toast'
 import { addComment, deleteComment, editComment } from '../../../lib/api/taskDetail'
 import { authErrorMessage } from '../../../lib/authError'
 import { fullName } from '../../../lib/types'
-import type { Role, TaskComment } from '../../../lib/types'
+import type { TeachingViewRole, TaskComment } from '../../../lib/types'
 import { LIMIT } from '../../../lib/limits'
 
 function ago(iso: string) {
@@ -23,15 +23,14 @@ function ago(iso: string) {
 export function CommentList({
   taskId,
   comments,
-  viewerId,
-  role,
+  viewerId, role,
   canPost,
   onChanged,
 }: {
   taskId: string
   comments: TaskComment[]
   viewerId: string | undefined
-  role: Role
+  role: TeachingViewRole
   /** A professor reads the thread but does not join it. */
   canPost: boolean
   onChanged: () => Promise<void> | void

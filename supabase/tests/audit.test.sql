@@ -53,7 +53,7 @@ declare
 begin
   select id into v_admin from public.profiles where role = 'admin' limit 1;
   select id into v_student from public.profiles where role = 'student' limit 1;
-  select id into v_prof from public.profiles where role = 'professor' limit 1;
+  select id into v_prof from public.profiles where role = 'faculty' limit 1;
   -- Live, and ordered. An unordered pick handed back an already-archived
   -- class, and setting archived_at on one that is already set is not a
   -- transition — so the trigger correctly logged nothing and the test blamed
@@ -83,7 +83,7 @@ declare
   n int;
 begin
   insert into public.profiles (id, first_name, last_name, email, role, status)
-  values (v_new, 'Zz', 'Audit', 'zz-audit@example.test', 'professor', 'pending');
+  values (v_new, 'Zz', 'Audit', 'zz-audit@example.test', 'faculty', 'pending');
 
   select count(*) into n from public.audit_events
    where action = 'account_created' and subject_id = v_new;
@@ -130,7 +130,7 @@ begin
    where action = 'role_changed' and subject_id = v_new;
   perform pg_temp.must_be('a blocked promotion is not logged as one', n = 0);
   perform pg_temp.must_be('...and the role really did not change',
-    (select role = 'professor' from public.profiles where id = v_new));
+    (select role = 'faculty' from public.profiles where id = v_new));
 end $$;
 
 -- Class lifecycle, metadata only.

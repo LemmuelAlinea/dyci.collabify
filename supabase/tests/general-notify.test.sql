@@ -75,7 +75,7 @@ begin
      'zz-gnote-bravo@example.test', '',
      jsonb_build_object('first_name', 'Zzgnote', 'last_name', 'Bravo', 'role', 'professor'), now(), now());
   -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
+  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
 
   perform pg_temp.act_as(a);
   select (public.create_general_project('Zz Science fair')).id into p;

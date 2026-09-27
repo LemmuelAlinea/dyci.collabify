@@ -11,7 +11,7 @@ const OPTIONS: { value: Choice; label: string; note: string; icon: 'user' | 'use
     icon: 'user',
   },
   {
-    value: 'professor',
+    value: 'faculty',
     label: 'Faculty',
     note: 'Professors and school staff · needs admin approval',
     icon: 'users',

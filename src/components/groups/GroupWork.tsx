@@ -9,7 +9,7 @@ import { listGroupBoards } from '../../lib/api/groupWork'
 import { listTasks } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import { boardWeight, dueSoonLabel, taskStatusLabel } from '../../lib/types'
-import type { BoardSummary, ProjectTask, Role } from '../../lib/types'
+import type { BoardSummary, ProjectTask, TeachingViewRole } from '../../lib/types'
 import { paths } from '../../lib/paths'
 
 const STATUS_TONE: Record<string, string> = {
@@ -24,12 +24,11 @@ const STATUS_TONE: Record<string, string> = {
  * tasks that belong to the very group they were looking at.
  */
 export function GroupWork({
-  groupId,
-  role,
+  groupId, role,
   viewerId,
 }: {
   groupId: string
-  role: Role
+  role: TeachingViewRole
   viewerId: string | undefined
 }) {
   const [boards, setBoards] = useState<BoardSummary[] | null>(null)

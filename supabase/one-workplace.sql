@@ -532,7 +532,7 @@ returns boolean language sql stable security definer set search_path = public as
      where m.space_id = p_space
        and m.user_id = auth.uid()
        and m.level in ('owner', 'manager')
-       and p.role in ('professor', 'admin')
+       and p.role = 'faculty'
        and p.status = 'active'
   );
 $$;
@@ -656,7 +656,7 @@ begin
   if me is null then
     return jsonb_build_object('result', 'not_signed_in');
   end if;
-  if not exists (select 1 from public.profiles where id = me and role in ('professor', 'admin')) then
+  if not exists (select 1 from public.profiles where id = me and role = 'faculty') then
     return jsonb_build_object('result', 'not_professor');
   end if;
 
@@ -1007,7 +1007,7 @@ begin
            case when lower(pr.email) = lower(q) then pr.email end
       from public.profiles pr
      where pr.status = 'active'
-       and pr.role in ('professor', 'admin')
+       and pr.role = 'faculty'
        and pr.id <> auth.uid()
        and (lower(pr.email) = lower(q)
             or btrim(pr.first_name || ' ' || pr.last_name) ilike pattern)

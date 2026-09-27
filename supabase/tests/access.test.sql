@@ -152,7 +152,7 @@ begin
   perform pg_temp.act_as(v_bare2);
   perform pg_temp.must_allow('onboarding as faculty is allowed', format(
     $q$insert into public.profiles (id, email, first_name, last_name, role, status, can_teach)
-       values (%L, 'zz-acc-bare2@example.test', 'Zz', 'Baretwo', 'professor', 'active', true)$q$,
+       values (%L, 'zz-acc-bare2@example.test', 'Zz', 'Baretwo', 'faculty', 'active', true)$q$,
     v_bare2));
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('...but it waits for approval and does not teach, whatever was sent',
@@ -166,7 +166,7 @@ declare
   v_student uuid := (select v from fx where k = 'student');
 begin
   perform pg_temp.act_as(v_student);
-  update public.profiles set role = 'professor', status = 'active', can_teach = true
+  update public.profiles set role = 'faculty', status = 'active', can_teach = true
    where id = v_student;
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('an account cannot write its own role, status or teaching',

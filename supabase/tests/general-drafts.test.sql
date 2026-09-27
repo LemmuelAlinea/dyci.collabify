@@ -49,7 +49,7 @@ begin
                  (other_id, 'draft-other@test.local', 'Other'),
                  (outsider, 'draft-out@test.local', 'Out')) as v(id, em, ln);
   -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
+  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
 
   perform pg_temp.act_as(owner_id);
   proj := public.create_general_project('Draft project', '');

@@ -22,7 +22,7 @@ begin
      jsonb_build_object('first_name', 'Pres', 'last_name', 'Other', 'role', 'professor'),
      now(), now(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000');
   -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
+  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
 
   perform set_config('request.jwt.claims',
     json_build_object('sub', owner_id, 'role', 'authenticated')::text, true);

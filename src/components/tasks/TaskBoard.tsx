@@ -25,8 +25,7 @@ import type {
   BoardSummary,
   GroupMember,
   MemberProgress,
-  ProjectTask,
-  Role,
+  ProjectTask, TeachingViewRole,
   TaskStatus,
 } from '../../lib/types'
 
@@ -41,8 +40,7 @@ export function TaskBoard({
   tasks,
   members,
   progress,
-  viewerId,
-  role,
+  viewerId, role,
   canWork,
   onChanged,
 }: {
@@ -52,7 +50,7 @@ export function TaskBoard({
   /** Who still has room under their share — drives the claim controls. */
   progress: MemberProgress[]
   viewerId: string | undefined
-  role: Role
+  role: TeachingViewRole
   /** A professor writes the work; only the board's own people move it. */
   canWork: boolean
   onChanged: () => Promise<void> | void

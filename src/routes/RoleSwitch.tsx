@@ -6,7 +6,7 @@ import { paths } from '../lib/paths'
 /**
  * One URL, read differently by role.
  *
- * `/classes` used to be a separate student section and a separate professor
+ * `/classes` used to be a separate student section and a separate faculty
  * section — two routes, two links, one page. Now there is one route, and this
  * decides which element it renders from the signed-in profile's role rather
  * than from the path. Admin has no page of its own here more often than not,
@@ -14,17 +14,17 @@ import { paths } from '../lib/paths'
  */
 export function RoleSwitch({
   student,
-  professor,
+  faculty,
   admin,
 }: {
   student: ReactNode
-  professor: ReactNode
+  faculty: ReactNode
   admin?: ReactNode
 }) {
   const { profile } = useAuth()
 
   if (profile?.role === 'student') return <>{student}</>
-  if (profile?.role === 'professor') return <>{professor}</>
+  if (profile?.role === 'faculty') return <>{faculty}</>
   if (profile?.role === 'admin') return admin !== undefined ? <>{admin}</> : <Navigate to={paths.home} replace />
   return <Navigate to={paths.home} replace />
 }

@@ -29,9 +29,9 @@
 begin;
 
 /**
- * Move somebody between student and professor.
+ * Move somebody between student and faculty.
  *
- * Promotion lands them `pending`, so a new professor still goes through
+ * Promotion lands them `pending`, so new faculty still go through
  * approval rather than around it — the point of approval is that somebody
  * verified them, and a promotion is not that.
  */
@@ -74,7 +74,7 @@ begin
 
   -- A class with no professor is unreachable to everybody. Hand it over first,
   -- which is the same reasoning that keeps delete off this page.
-  if target.role = 'professor' and p_role = 'student' then
+  if target.role = 'faculty' and p_role = 'student' then
     select count(*) into holding from public.classes
      where professor_id = p_user and archived_at is null;
     if holding > 0 then
@@ -87,8 +87,8 @@ begin
 
   update public.profiles
      set role = p_role,
-         -- A new professor is unverified; a student needs no verifying.
-         status = case when p_role = 'professor' then 'pending' else 'active' end
+         -- New faculty are unverified; a student needs no verifying.
+         status = case when p_role = 'faculty' then 'pending' else 'active' end
                   ::public.account_status,
          decided_by = auth.uid(),
          decided_at = now()

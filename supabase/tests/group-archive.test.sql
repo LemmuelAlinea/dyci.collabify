@@ -93,7 +93,7 @@ begin
     from (values (prof), (student)) as u(id);
 
   insert into public.profiles (id, email, first_name, last_name, role, status)
-  values (prof,    prof::text    || '@test.invalid', 'Group', 'Prof',    'professor', 'active'),
+  values (prof,    prof::text    || '@test.invalid', 'Group', 'Prof',    'faculty',   'active'),
          (student, student::text || '@test.invalid', 'Group', 'Student', 'student',   'active');
 
   -- `guard_project_weeks` refuses a project whose weeks the class's syllabus

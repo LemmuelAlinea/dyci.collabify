@@ -47,7 +47,7 @@ begin
                  (watcher_id,  'space-watcher@test.local',  'Watcher'),
                  (stranger_id, 'space-stranger@test.local', 'Stranger')) as v(id, em, ln);
   -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
+  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
 
   ------------------------------------------------------------------ setup
   perform pg_temp.act_as(owner_id);

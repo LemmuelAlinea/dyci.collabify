@@ -7,8 +7,8 @@
 -- code or an invitation. A student can never make a space, and never walks into
 -- a work space or a work-space project on a code.
 --
--- The enum value is still 'professor'; the product calls it Faculty. The value
--- itself is renamed in phase 4, once the code that spells it has settled.
+-- The account enum value is `faculty`. Teaching-domain names such as
+-- professor_id and is_class_professor stay as teaching names.
 --
 -- Runs last. Redefines, as supersets: handle_new_user (consent.sql,
 -- workplaces.sql), guard_privileged_columns and guard_profile_insert
@@ -45,7 +45,7 @@ begin
     alter table public.profiles add column can_teach boolean not null default false;
     -- Everybody who could run a class yesterday still can. Done only when the
     -- column is new, so a re-run never turns back on what the admin turned off.
-    update public.profiles set can_teach = true where role = 'professor';
+    update public.profiles set can_teach = true where role = 'faculty';
   end if;
 end $$;
 
@@ -59,7 +59,7 @@ create or replace function public.is_faculty(p_user uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.profiles
-     where id = p_user and role in ('professor', 'admin') and status = 'active'
+     where id = p_user and role in ('faculty', 'admin') and status = 'active'
   );
 $$;
 
@@ -73,7 +73,7 @@ create or replace function public.is_teaching_faculty(p_user uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.profiles
-     where id = p_user and role in ('professor', 'admin') and status = 'active' and can_teach
+     where id = p_user and role = 'faculty' and status = 'active' and can_teach
   );
 $$;
 
@@ -91,7 +91,7 @@ returns boolean language sql stable security definer set search_path = public as
      where p.id = auth.uid()
        and p.status = 'active'
        and (
-         p.role in ('professor', 'admin')
+         p.role in ('faculty', 'admin')
          or exists (select 1 from public.class_members m
                      where m.student_id = p.id and m.status = 'active')
          or exists (select 1 from public.general_space_members s where s.user_id = p.id)
@@ -157,11 +157,11 @@ begin
     raise exception 'You can only create your own profile'
       using errcode = 'insufficient_privilege';
   end if;
-  if new.role is null or new.role not in ('student', 'professor') then
+  if new.role is null or new.role not in ('student', 'faculty') then
     raise exception 'Choose student or faculty to finish your profile'
       using errcode = 'check_violation';
   end if;
-  new.status := case when new.role = 'professor' then 'pending' else 'active' end
+  new.status := case when new.role = 'faculty' then 'pending' else 'active' end
                 ::public.account_status;
   new.can_teach := false;
   return new;
@@ -204,7 +204,11 @@ begin
     end if;
   end loop;
 
-  if meta_role is null or meta_role not in ('student', 'professor') then
+  if meta_role = 'professor' then
+    meta_role := 'faculty';
+  end if;
+
+  if meta_role is null or meta_role not in ('student', 'faculty') then
     return new;
   end if;
 
@@ -219,7 +223,7 @@ begin
     nullif(new.raw_user_meta_data ->> 'middle_name', ''),
     coalesce(new.raw_user_meta_data ->> 'last_name', ''),
     resolved_role,
-    case when resolved_role = 'professor' then 'pending' else 'active' end::public.account_status,
+    case when resolved_role = 'faculty' then 'pending' else 'active' end::public.account_status,
     nullif(new.raw_user_meta_data ->> 'avatar_url', '')
   )
   on conflict (id) do nothing;
@@ -313,7 +317,7 @@ begin
     raise exception 'That account no longer exists'
       using errcode = 'no_data_found';
   end if;
-  if target.role is distinct from 'professor' then
+  if target.role is distinct from 'faculty' then
     raise exception 'Only faculty accounts go through approval'
       using errcode = 'check_violation';
   end if;
@@ -356,7 +360,7 @@ begin
     raise exception 'That account no longer exists'
       using errcode = 'no_data_found';
   end if;
-  if target.role is distinct from 'professor' then
+  if target.role is distinct from 'faculty' then
     raise exception 'Only faculty accounts can teach'
       using errcode = 'check_violation';
   end if;
@@ -387,7 +391,7 @@ select p.id,
        p.can_teach
   from public.profiles p
   left join public.profiles d on d.id = p.decided_by
- where p.role = 'professor';
+ where p.role = 'faculty';
 
 commit;
 
@@ -628,7 +632,7 @@ begin
 
   -- A class with no professor is unreachable to everybody. Hand it over first,
   -- which is the same reasoning that keeps delete off this page.
-  if target.role = 'professor' and p_role = 'student' then
+  if target.role = 'faculty' and p_role = 'student' then
     select count(*) into holding from public.classes
      where professor_id = p_user and archived_at is null;
     if holding > 0 then
@@ -641,8 +645,8 @@ begin
 
   update public.profiles
      set role = p_role,
-         -- A new professor is unverified; a student needs no verifying.
-         status = case when p_role = 'professor' then 'pending' else 'active' end
+         -- New faculty are unverified; a student needs no verifying.
+         status = case when p_role = 'faculty' then 'pending' else 'active' end
                   ::public.account_status,
          decided_by = auth.uid(),
          decided_at = now()

@@ -23,14 +23,14 @@ describe('navFor', () => {
   })
 
   it('gives a professor Teaching, and no Your record', () => {
-    const groups = navFor({ role: 'professor', status: 'active' }, true)
+    const groups = navFor({ role: 'faculty', status: 'active' }, true)
     const titles = groups.map((g) => g.title)
     expect(titles).toContain('Teaching')
     expect(labels(groups)).not.toContain('Your record')
   })
 
   it('never narrows faculty on the admission flag', () => {
-    expect(labels(navFor({ role: 'professor', status: 'active' }, false))).toContain('Classes')
+    expect(labels(navFor({ role: 'faculty', status: 'active' }, false))).toContain('Classes')
   })
 
   it('gives an admin Admin with Faculty approvals, and no Classes', () => {
@@ -42,7 +42,7 @@ describe('navFor', () => {
 
   it('gives an account with no role, or one not active, only Settings', () => {
     expect(labels(navFor({ role: null, status: 'pending' }, true))).toEqual(['Settings'])
-    expect(labels(navFor({ role: 'professor', status: 'pending' }, true))).toEqual(['Settings'])
+    expect(labels(navFor({ role: 'faculty', status: 'pending' }, true))).toEqual(['Settings'])
     expect(labels(navFor(null, true))).toEqual(['Settings'])
   })
 
@@ -62,7 +62,7 @@ describe('navFor', () => {
     ]
     const everyone = [
       navFor({ role: 'student', status: 'active' }, true),
-      navFor({ role: 'professor', status: 'active' }, true),
+      navFor({ role: 'faculty', status: 'active' }, true),
       navFor({ role: 'admin', status: 'active' }, true),
     ]
     for (const groups of everyone) {

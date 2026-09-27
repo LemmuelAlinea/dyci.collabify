@@ -15,19 +15,18 @@ import { TaskDetailModal } from './detail/TaskDetailModal'
 import { EMPTY_TASK_FILTERS } from './TaskFilters'
 import { TaskFilterBar, TaskViewSwitch } from './TaskViewSwitch'
 import { canPlanBoard, isBoardSubmitted } from '../../lib/types'
-import type { ProjectSummary, Role } from '../../lib/types'
+import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
 import type { ProjectTasks } from './useProjectTasks'
 import { useState } from 'react'
 
 /** One student's own board: what they hold, and what they can still change. */
 export function StudentTasksView({
-  project,
-  role,
+  project, role,
   viewerId,
   t,
 }: {
   project: ProjectSummary
-  role: Role
+  role: TeachingViewRole
   viewerId: string | undefined
   t: ProjectTasks
 }) {

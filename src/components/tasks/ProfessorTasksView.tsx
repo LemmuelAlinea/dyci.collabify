@@ -21,7 +21,7 @@ import { recordResult } from '../../lib/api/results'
 import type { ProfessorTaskGroup } from '../../lib/api/tasks'
 import { boardOwnerName } from '../../lib/types'
 import { authErrorMessage } from '../../lib/authError'
-import type { ProjectSummary, Role } from '../../lib/types'
+import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
 import type { ProjectTasks } from './useProjectTasks'
 
 /**
@@ -53,13 +53,12 @@ import type { ProjectTasks } from './useProjectTasks'
  *      already done by the time any of the above matters.
  */
 export function ProfessorTasksView({
-  project,
-  role,
+  project, role,
   viewerId,
   t,
 }: {
   project: ProjectSummary
-  role: Role
+  role: TeachingViewRole
   viewerId: string | undefined
   t: ProjectTasks
 }) {

@@ -78,7 +78,7 @@ begin
                  (carol, 'arc-carol@test.local', 'Carol'),
                  (dave, 'arc-dave@test.local', 'Dave')) as v(id, em, ln);
   -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
+  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
 
   perform pg_temp.act_as(owner_uid);
   proj := public.create_general_project('Archive project', '');

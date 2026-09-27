@@ -91,7 +91,7 @@ begin
   insert into public.profiles (id, email, first_name, last_name, role, status)
   values (student, student::text || '@test.invalid', 'Test', 'Student', 'student', 'active'),
          (other,   other::text   || '@test.invalid', 'Other', 'Student', 'student', 'active'),
-         (prof,    prof::text    || '@test.invalid', 'Test', 'Prof',    'professor', 'active'),
+         (prof,    prof::text    || '@test.invalid', 'Test', 'Prof',    'faculty',   'active'),
          (boss,    boss::text    || '@test.invalid', 'Test', 'Admin',   'admin',   'active');
 
   select version into live from public.legal_versions where document = 'privacy' limit 1;

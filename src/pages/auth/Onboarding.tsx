@@ -62,7 +62,7 @@ export default function Onboarding() {
         role,
       })
       const waiting = role === 'student' ? pendingJoin() : null
-      navigate(waiting ? joinPath(waiting) : role === 'professor' ? '/pending' : paths.home, {
+      navigate(waiting ? joinPath(waiting) : role === 'faculty' ? '/pending' : paths.home, {
         replace: true,
       })
     } catch (err) {
@@ -81,7 +81,7 @@ export default function Onboarding() {
         {error && <Alert tone="error">{error}</Alert>}
 
         <RoleChoice value={role} onChange={setRole} />
-        {role === 'professor' ? (
+        {role === 'faculty' ? (
           <Alert tone="info">
             The program admin reviews faculty accounts. You can sign in straight away, and your
             tools open once you are approved.

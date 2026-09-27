@@ -16,7 +16,7 @@ import {
 } from '../../../lib/types'
 import type {
   ReassignmentRow,
-  Role,
+  TeachingViewRole,
   TaskComment,
   TaskDetail,
   TaskEvent,
@@ -36,8 +36,7 @@ export function TaskDetailBody({
   events,
   files,
   worklog,
-  viewerId,
-  role,
+  viewerId, role,
   boardWeight,
   locked = false,
   /** The live request on this task, when the viewer is allowed to see one. */
@@ -52,7 +51,7 @@ export function TaskDetailBody({
   files: TaskFile[]
   worklog: WorkLogEntry[]
   viewerId: string | undefined
-  role: Role
+  role: TeachingViewRole
   boardWeight: number
   /** The project is closed, so nothing on the task may change. */
   locked?: boolean

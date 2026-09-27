@@ -45,7 +45,7 @@ begin
     from (values (owner_id, 'file-owner@test.local', 'Owner'),
                  (other_id, 'file-other@test.local', 'Other')) as v(id, em, ln);
   -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'professor' and status = 'pending';
+  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
 
   perform pg_temp.act_as(owner_id);
   proj  := public.create_general_project('File project', '');
