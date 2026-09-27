@@ -65,7 +65,7 @@ export function RubricEditor({
                 type="button"
                 onClick={() => onChange(rows.filter((_, n) => n !== i))}
                 aria-label={`Remove criterion ${i + 1}`}
-                className="grid h-10 w-10 place-items-center justify-self-end rounded-full text-faint transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/12 dark:hover:text-red-400"
+                className="grid h-10 w-10 place-items-center justify-self-end rounded-full text-faint transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
               >
                 <Icon name="trash" size={16} />
               </button>
@@ -89,7 +89,7 @@ export function RubricEditor({
         {named > 0 && (
           <p
             className={`font-mono text-[12px] ${
-              mismatch ? 'text-amber-700 dark:text-amber-300' : 'text-faint'
+              mismatch ? 'text-warning-700 dark:text-warning-300' : 'text-faint'
             }`}
           >
             {sum} / {totalPoints} points

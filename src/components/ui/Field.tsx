@@ -30,7 +30,7 @@ export function Field({ label, hint, error, optional, children }: FieldProps) {
       </div>
       {children(id)}
       {error && (
-        <p className="flex items-center gap-2 text-[12px] text-red-600 dark:text-red-400">
+        <p className="flex items-center gap-2 text-[12px] text-danger-600 dark:text-danger-400">
           <Icon name="alert" size={14} />
           {error}
         </p>

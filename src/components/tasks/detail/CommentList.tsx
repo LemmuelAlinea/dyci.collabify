@@ -150,7 +150,7 @@ export function CommentList({
                       <button
                         type="button"
                         onClick={() => setDeleting(c)}
-                        className="text-[12px] text-faint transition-colors hover:text-red-600 dark:hover:text-red-400"
+                        className="text-[12px] text-faint transition-colors hover:text-danger-600 dark:hover:text-danger-400"
                       >
                         Delete
                       </button>

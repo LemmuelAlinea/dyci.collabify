@@ -25,14 +25,14 @@ const ICON: Record<AuditAction, 'user' | 'shield' | 'folder' | 'trash' | 'refres
 
 const TONE: Record<AuditAction, string> = {
   account_created: 'surface-sunken text-muted',
-  role_changed: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
+  role_changed: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
   status_changed: 'bg-navy-50 text-navy-700 dark:bg-navy-500/18 dark:text-navy-100',
   teaching_changed: 'bg-navy-50 text-navy-700 dark:bg-navy-500/18 dark:text-navy-100',
   class_created: 'surface-sunken text-muted',
   class_archived: 'surface-sunken text-muted',
   class_restored: 'surface-sunken text-muted',
-  class_professor_changed: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
-  class_deleted: 'bg-red-500/15 text-red-700 dark:text-red-300',
+  class_professor_changed: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
+  class_deleted: 'bg-danger-500/15 text-danger-700 dark:text-danger-300',
 }
 
 function when(iso: string) {

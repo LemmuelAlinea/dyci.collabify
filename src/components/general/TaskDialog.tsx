@@ -170,7 +170,7 @@ function TaskBody({
                       aria-label="Remove comment"
                       disabled={busy}
                       onClick={() => void act(() => deleteComment(c.id), 'Comment removed', 'Could not remove it.')}
-                      className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-red-600 dark:hover:text-red-400"
+                      className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-danger-600 dark:hover:text-danger-400"
                     >
                       <Icon name="trash" size={13} />
                     </button>
@@ -340,7 +340,7 @@ function TaskBody({
                     aria-label="Remove time entry"
                     disabled={busy}
                     onClick={() => void act(() => deleteLog(l.id), 'Entry removed', 'Could not remove that entry.')}
-                    className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-red-600 dark:hover:text-red-400"
+                    className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-danger-600 dark:hover:text-danger-400"
                   >
                     <Icon name="trash" size={13} />
                   </button>
@@ -448,7 +448,7 @@ function TaskDetails({
             <dd
               className={
                 task.due_at && isOverdue(task.due_at, task.status)
-                  ? 'text-red-600 dark:text-red-400'
+                  ? 'text-danger-600 dark:text-danger-400'
                   : 'text-ink'
               }
             >
@@ -680,7 +680,7 @@ function LogForm({ onLog }: { onLog: (minutes: number, note: string) => Promise<
       <Button type="submit" size="sm" variant="outline" className="!h-9" loading={busy}>
         Log
       </Button>
-      {error && <p className="text-[12px] text-red-600 sm:col-span-3 dark:text-red-400">{error}</p>}
+      {error && <p className="text-[12px] text-danger-600 sm:col-span-3 dark:text-danger-400">{error}</p>}
     </form>
   )
 }

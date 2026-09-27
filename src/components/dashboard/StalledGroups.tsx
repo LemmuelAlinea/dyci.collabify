@@ -22,9 +22,9 @@ export function StalledGroups({ boards }: { boards: StalledBoard[] }) {
         <li key={b.id}>
           <Link
             to={paths.classProject(b.project_id)}
-            className="surface flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-amber-300 px-4 py-3 shadow-card transition-colors hover:border-amber-500 dark:border-amber-400/40"
+            className="surface flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-warning-300 px-4 py-3 shadow-card transition-colors hover:border-warning-500 dark:border-warning-400/40"
           >
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-400/18 text-amber-700 dark:text-amber-300">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-warning-400/18 text-warning-700 dark:text-warning-300">
               <Icon name={b.reason === 'empty' ? 'alert' : 'clock'} size={15} />
             </span>
 
@@ -38,7 +38,7 @@ export function StalledGroups({ boards }: { boards: StalledBoard[] }) {
             </span>
 
             <span className="shrink-0 text-right">
-              <span className="block text-[12px] text-amber-700 dark:text-amber-300">
+              <span className="block text-[12px] text-warning-700 dark:text-warning-300">
                 {b.reason === 'empty'
                   ? 'No tasks at all'
                   : `Quiet for ${b.days} day${b.days === 1 ? '' : 's'}`}

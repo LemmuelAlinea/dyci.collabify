@@ -233,7 +233,7 @@ function Figure({
     <div className="border-l-2 border-line pl-3">
       <p
         className={`font-mono text-[22px] leading-none ${
-          tone === 'warn' ? 'text-amber-600 dark:text-amber-400' : 'text-ink'
+          tone === 'warn' ? 'text-warning-600 dark:text-warning-400' : 'text-ink'
         }`}
       >
         {value}

@@ -29,15 +29,15 @@ const DAY = 86_400_000
 
 /** The same column colours as a class board. */
 const COLUMN_TONE: Record<GeneralTaskStatus, string> = {
-  todo: 'text-muted',
-  in_progress: 'text-amber-700 dark:text-amber-300',
-  done: 'text-emerald-700 dark:text-emerald-300',
+  todo: 'text-pending-ink',
+  in_progress: 'text-warning-700 dark:text-warning-300',
+  done: 'text-success-700 dark:text-success-300',
 }
 
 const STATUS_TONE: Record<GeneralTaskStatus, string> = {
-  todo: 'surface-sunken text-muted',
-  in_progress: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
-  done: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  todo: 'bg-pending-soft text-pending-ink',
+  in_progress: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
+  done: 'bg-success-500/15 text-success-700 dark:text-success-300',
 }
 
 const NEXT: Record<GeneralTaskStatus, { to: GeneralTaskStatus; label: string; icon: 'check' | 'refresh' }> = {
@@ -187,7 +187,7 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
             {unassigned > 0 && (
               <>
                 {' · '}
-                <span className="text-amber-700 dark:text-amber-300">{unassigned} with nobody on them</span>
+                <span className="text-warning-700 dark:text-warning-300">{unassigned} with nobody on them</span>
               </>
             )}
           </p>
@@ -259,7 +259,7 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
 
 function Holders({ task, state, size = 22 }: { task: GeneralTask; state: GeneralProjectState; size?: number }) {
   if (task.assignee_ids.length === 0) {
-    return <span className="text-[12px] text-amber-700 dark:text-amber-300">Nobody yet</span>
+    return <span className="text-[12px] text-warning-700 dark:text-warning-300">Nobody yet</span>
   }
   const profiles = task.assignee_ids.map((id) => ({ id, profile: state.members.find((m) => m.user_id === id)?.profile }))
   const first = state.nameOf(task.assignee_ids[0])
@@ -308,7 +308,7 @@ function TaskCard({
     <article
       className={`surface group relative rounded-xl border p-3.5 shadow-card transition-colors duration-200 ${
         yours
-          ? 'border-amber-300 hover:border-amber-400 dark:border-amber-400/50'
+          ? 'border-warning-300 hover:border-warning-400 dark:border-warning-400/50'
           : 'border-line hover:border-line-strong'
       }`}
     >
@@ -366,7 +366,7 @@ function TaskCard({
         {task.due_at && (
           <span
             className={`flex items-center gap-1 font-mono text-[12px] ${
-              overdue ? 'text-red-600 dark:text-red-400' : 'text-faint'
+              overdue ? 'text-danger-600 dark:text-danger-400' : 'text-faint'
             }`}
           >
             <Icon name="clock" size={12} />
@@ -477,7 +477,7 @@ function TaskTable({
                     {taskShare(Number(t.weight), state.tasks)}%
                   </td>
                 )}
-                <td className={`py-2.5 pr-3 font-mono text-[12px] ${overdue ? 'text-red-600 dark:text-red-400' : 'text-faint'}`}>
+                <td className={`py-2.5 pr-3 font-mono text-[12px] ${overdue ? 'text-danger-600 dark:text-danger-400' : 'text-faint'}`}>
                   {t.due_at ? formatDue(t.due_at) : '—'}
                 </td>
                 <td className="py-2.5 pr-4 text-right">
@@ -544,7 +544,7 @@ function WorkTaskSummary({ tasks, state }: { tasks: GeneralTask[]; state: Genera
           </p>
           <StatusDonut counts={counts} total={tasks.length} />
           {unassigned > 0 && (
-            <p className="mt-4 flex items-center gap-2 text-[12px] text-amber-700 dark:text-amber-300">
+            <p className="mt-4 flex items-center gap-2 text-[12px] text-warning-700 dark:text-warning-300">
               <Icon name="alert" size={13} />
               {unassigned} {unassigned === 1 ? 'task has' : 'tasks have'} nobody on them
             </p>
@@ -568,7 +568,7 @@ function WorkTaskSummary({ tasks, state }: { tasks: GeneralTask[]; state: Genera
                       <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{state.nameOf(id)}</span>
                       <span className="h-1.5 w-24 overflow-hidden rounded-full surface-sunken">
                         <span
-                          className="block h-full rounded-full bg-emerald-500"
+                          className="block h-full rounded-full bg-progress"
                           style={{ width: `${p.held ? (p.done / p.held) * 100 : 0}%` }}
                         />
                       </span>

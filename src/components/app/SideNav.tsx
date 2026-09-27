@@ -242,7 +242,7 @@ function LiveRowLink({
               aria-hidden
               className={`grid h-5 w-5 shrink-0 place-items-center rounded font-mono text-[10px] font-bold ${
                 isActive
-                  ? 'bg-navy-600 text-white dark:bg-amber-400 dark:text-navy-900'
+                  ? 'bg-nav-active text-nav-active-ink'
                   : row.tone === 'education'
                     ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
                     : 'border border-line text-muted'
@@ -330,7 +330,7 @@ function GroupHeader({
 
 function ActiveBar() {
   return (
-    <span aria-hidden className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-amber-400" />
+    <span aria-hidden className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-nav-marker" />
   )
 }
 
@@ -392,13 +392,13 @@ function StaticRow({
             <Icon
               name={item.icon}
               size={18}
-              className={isActive ? 'text-navy-600 dark:text-amber-400' : ''}
+              className={isActive ? 'text-nav-active' : 'text-nav-icon'}
             />
             {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
             {item.badge === 'inbox' && unread > 0 && (
               <span
                 aria-hidden
-                className={`grid place-items-center rounded-full bg-navy-600 font-mono text-[12px] font-bold text-white dark:bg-amber-400 dark:text-navy-900 ${
+                className={`grid place-items-center rounded-full bg-badge font-mono text-[12px] font-bold text-badge-ink ${
                   collapsed
                     ? 'absolute top-0.5 right-0.5 h-4 min-w-4 px-1'
                     : 'h-5 min-w-5 px-1.5'

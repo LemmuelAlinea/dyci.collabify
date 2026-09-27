@@ -34,7 +34,7 @@ export function PressurePanel({
       {late.length > 0 && (
         <div>
           <p className="flex items-center gap-2 text-[13px]">
-            <span className="rounded-md bg-red-500/15 px-2 py-0.5 font-mono text-[12px] text-red-700 dark:text-red-300">
+            <span className="rounded-md bg-danger-500/15 px-2 py-0.5 font-mono text-[12px] text-danger-700 dark:text-danger-300">
               {late.length} overdue
             </span>
             <span className="text-muted">past the date and not done</span>
@@ -48,7 +48,7 @@ export function PressurePanel({
                   className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-[var(--surface-sunken)]"
                 >
                   <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{t.title}</span>
-                  <span className="shrink-0 text-[12px] text-red-700 dark:text-red-300">
+                  <span className="shrink-0 text-[12px] text-danger-700 dark:text-danger-300">
                     {t.due_at ? formatDue(t.due_at) : ''}
                   </span>
                 </button>

@@ -44,7 +44,7 @@ export function ClassProgress({
 
               <div className="mt-2 h-1.5 overflow-hidden rounded-full surface-sunken">
                 <span
-                  className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                  className="block h-full rounded-full bg-progress transition-[width] duration-300"
                   style={{ width: `${pct}%` }}
                 />
               </div>

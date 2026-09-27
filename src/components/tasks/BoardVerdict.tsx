@@ -112,7 +112,7 @@ export function BoardVerdict({
           onClick={() => setDetails(true)}
           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition-colors ${
             accepted
-              ? 'bg-emerald-400/12 text-emerald-200 ring-emerald-300/25 hover:bg-emerald-400/20'
+              ? 'bg-success-400/12 text-success-200 ring-success-300/25 hover:bg-success-400/20'
               : result
                 ? 'bg-amber-400/15 text-amber-200 ring-amber-300/25 hover:bg-amber-400/25'
                 : 'bg-amber-50/8 text-amber-50/65 ring-amber-50/10 hover:bg-amber-50/15'
@@ -157,7 +157,7 @@ export function BoardVerdict({
       <section
         className={`surface rounded-card border p-4 sm:p-5 shadow-card ${
           accepted
-            ? 'border-emerald-300 dark:border-emerald-500/40'
+            ? 'border-success-300 dark:border-success-500/40'
             : result
               ? 'border-amber-300 dark:border-amber-400/40'
               : 'border-line'
@@ -170,7 +170,7 @@ export function BoardVerdict({
                 <span
                   className={`grid h-7 w-7 place-items-center rounded-full ${
                     accepted
-                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                      ? 'bg-success-500/15 text-success-700 dark:text-success-300'
                       : 'bg-amber-400/20 text-amber-700 dark:text-amber-300'
                   }`}
                 >

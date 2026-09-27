@@ -12,11 +12,11 @@ const ToastContext = createContext<{ show: (message: string, tone?: Tone) => voi
 const STYLES: Record<Tone, { icon: IconName; cls: string }> = {
   success: {
     icon: 'checkCircle',
-    cls: 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950 dark:text-emerald-100',
+    cls: 'border-success-200 bg-success-50 text-success-900 dark:border-success-500/40 dark:bg-success-950 dark:text-success-100',
   },
   error: {
     icon: 'alert',
-    cls: 'border-red-200 bg-red-50 text-red-900 dark:border-red-500/40 dark:bg-red-950 dark:text-red-100',
+    cls: 'border-danger-200 bg-danger-50 text-danger-900 dark:border-danger-500/40 dark:bg-danger-950 dark:text-danger-100',
   },
   info: {
     icon: 'info',

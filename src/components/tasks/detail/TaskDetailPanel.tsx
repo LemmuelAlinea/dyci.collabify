@@ -85,9 +85,9 @@ export function TaskDetailPanel({
             <span
               className={`rounded-lg px-2 py-0.5 font-mono text-[12px] ${
                 task.status === 'done'
-                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                  ? 'bg-success-500/15 text-success-700 dark:text-success-300'
                   : task.status === 'in_progress'
-                    ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
+                    ? 'bg-warning-400/18 text-warning-700 dark:text-warning-300'
                     : 'surface-sunken text-muted'
               }`}
             >

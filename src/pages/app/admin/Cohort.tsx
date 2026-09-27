@@ -325,7 +325,7 @@ function Bar({ pct, className = 'h-2' }: { pct: number; className?: string }) {
   return (
     <span className={`block overflow-hidden rounded-full surface-sunken ${className}`}>
       <span
-        className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+        className="block h-full rounded-full bg-progress transition-[width] duration-300"
         style={{ width: `${pct}%` }}
       />
     </span>

@@ -55,7 +55,7 @@ export function StatusPill({ project }: { project: ProjectSummary }) {
   }
   if (project.scheduled) {
     return (
-      <span className="flex shrink-0 items-center gap-1 rounded-lg bg-amber-400/18 px-2 py-1 font-mono text-[12px] text-amber-700 dark:text-amber-300">
+      <span className="flex shrink-0 items-center gap-1 rounded-lg bg-warning-400/18 px-2 py-1 font-mono text-[12px] text-warning-700 dark:text-warning-300">
         <Icon name="clock" size={12} />
         Scheduled
       </span>
@@ -160,12 +160,12 @@ export function ProjectCard({
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full surface-sunken">
             <span
-              className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+              className="block h-full rounded-full bg-progress transition-[width] duration-300"
               style={{ width: `${across.pct}%` }}
             />
           </div>
           {across.notStarted > 0 && (
-            <p className="mt-1.5 text-[12px] text-amber-700 dark:text-amber-300">
+            <p className="mt-1.5 text-[12px] text-warning-700 dark:text-warning-300">
               {across.notStarted} {across.notStarted === 1 ? 'group has' : 'groups have'} not
               started
             </p>
@@ -180,7 +180,7 @@ export function ProjectCard({
         <p
           className={`mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium ${
             progress.result_verdict === 'accepted'
-              ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200'
+              ? 'bg-success-500/15 text-success-800 dark:text-success-200'
               : 'bg-amber-400/20 text-amber-800 dark:text-amber-200'
           }`}
         >
@@ -214,7 +214,7 @@ export function ProjectCard({
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full surface-sunken">
             <span
-              className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+              className="block h-full rounded-full bg-progress transition-[width] duration-300"
               style={{ width: `${Number(progress.done_pct)}%` }}
             />
           </div>

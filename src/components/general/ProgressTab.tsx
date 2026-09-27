@@ -35,7 +35,7 @@ export function ProgressTab({ state }: { state: GeneralProjectState }) {
         </div>
         <div className="mt-3 h-2 overflow-hidden rounded-full surface-sunken">
           <span
-            className="block h-full rounded-full bg-emerald-500"
+            className="block h-full rounded-full bg-progress"
             style={{ width: `${Math.min(100, progress.pct)}%` }}
           />
         </div>

@@ -99,7 +99,7 @@ export function ProjectFilePicker({
         </button>
       </div>
       {error ? (
-        <p className="px-3 py-3 text-[13px] text-red-600 dark:text-red-400">{error}</p>
+        <p className="px-3 py-3 text-[13px] text-danger-600 dark:text-danger-400">{error}</p>
       ) : files === null ? (
         <p className="flex items-center gap-2 px-3 py-3 text-[13px] text-muted">
           <Spinner size={14} /> Loading project files…

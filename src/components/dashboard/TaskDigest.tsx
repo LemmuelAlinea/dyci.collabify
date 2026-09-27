@@ -42,7 +42,7 @@ export function TaskDigest({ tasks, limit = 5 }: { tasks: MyTask[]; limit?: numb
               <span
                 className={`shrink-0 rounded-lg px-2 py-0.5 font-mono text-[12px] ${
                   t.status === 'in_progress'
-                    ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
+                    ? 'bg-warning-400/18 text-warning-700 dark:text-warning-300'
                     : 'surface-sunken text-muted'
                 }`}
               >
@@ -52,7 +52,7 @@ export function TaskDigest({ tasks, limit = 5 }: { tasks: MyTask[]; limit?: numb
               {label && (
                 <span
                   className={`flex shrink-0 items-center gap-1 font-mono text-[12px] ${
-                    late ? 'text-red-600 dark:text-red-400' : 'text-faint'
+                    late ? 'text-danger-600 dark:text-danger-400' : 'text-faint'
                   }`}
                 >
                   <Icon name="clock" size={12} />

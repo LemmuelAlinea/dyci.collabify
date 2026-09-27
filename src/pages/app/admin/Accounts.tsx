@@ -21,8 +21,8 @@ import { ACCOUNT_STATUS_LABEL, fullName, ROLE_LABEL } from '../../../lib/types'
 import type { Account, AccountStatus } from '../../../lib/types'
 
 const STATUS_TONE: Record<AccountStatus, string> = {
-  active: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  pending: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
+  active: 'bg-success-500/15 text-success-700 dark:text-success-300',
+  pending: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
   rejected: 'surface-sunken text-muted',
 }
 

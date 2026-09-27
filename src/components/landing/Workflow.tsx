@@ -225,7 +225,7 @@ export function Workflow() {
                             ? 'bg-white/75'
                             : ci === 1
                               ? 'bg-amber-50/85'
-                              : 'bg-emerald-50/75'
+                              : 'bg-success-50/75'
                         }`}
                       >
                         <div className="mb-3 flex items-center justify-between px-1">

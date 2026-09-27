@@ -29,13 +29,13 @@ export function DeadlineList({
             <Link
               to={d.to}
               className={`surface flex items-center gap-3 rounded-xl border px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:gap-3 sm:px-4 sm:py-3 ${
-                late ? 'border-red-300 dark:border-red-500/40' : 'border-line'
+                late ? 'border-danger-300 dark:border-danger-500/40' : 'border-line'
               }`}
             >
               <span
                 className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
                   late
-                    ? 'bg-red-50 text-red-600 dark:bg-red-500/12 dark:text-red-400'
+                    ? 'bg-danger-50 text-danger-600 dark:bg-danger-500/12 dark:text-danger-400'
                     : 'surface-sunken text-muted'
                 }`}
               >
@@ -51,7 +51,7 @@ export function DeadlineList({
 
               <span
                 className={`shrink-0 font-mono text-[12px] ${
-                  late ? 'text-red-600 dark:text-red-400' : 'text-faint'
+                  late ? 'text-danger-600 dark:text-danger-400' : 'text-faint'
                 }`}
               >
                 {label}

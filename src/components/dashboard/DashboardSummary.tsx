@@ -111,13 +111,13 @@ export function DashboardSummary({
      * so fill alone cannot separate them and the edge has to. In light mode it
      * is a faint highlight along a dark shape, which costs nothing.
      */
-    <section className="relative overflow-hidden rounded-panel border border-amber-50/10 bg-navy-950 px-5 py-7 text-amber-50 sm:px-7 sm:py-8 lg:px-9 lg:py-10">
+    <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 bg-banner px-5 py-7 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-10">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-56 -right-40 h-[460px] w-[460px] rounded-full blur-[120px]"
         style={{
           background:
-            'radial-gradient(circle, rgb(240 180 41 / 0.18) 0%, rgb(240 180 41 / 0.05) 45%, transparent 70%)',
+            'radial-gradient(circle, color-mix(in oklab, var(--banner-glow) 18%, transparent) 0%, color-mix(in oklab, var(--banner-glow) 5%, transparent) 45%, transparent 70%)',
         }}
       />
       <div
@@ -125,7 +125,7 @@ export function DashboardSummary({
         className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage:
-            'linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px)',
+            'linear-gradient(color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px)',
           backgroundSize: '54px 54px',
           maskImage: 'radial-gradient(ellipse at 30% 30%, #000, transparent 75%)',
           WebkitMaskImage: 'radial-gradient(ellipse at 30% 30%, #000, transparent 75%)',
@@ -135,21 +135,21 @@ export function DashboardSummary({
       <div className="relative">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="flex min-w-0 items-center gap-3">
-            <span className="h-px w-7 shrink-0 bg-amber-400" />
-            <span className="truncate font-mono text-[12px] tracking-[0.22em] text-amber-200/75 uppercase">
+            <span className="h-px w-7 shrink-0 bg-banner-glow" />
+            <span className="truncate font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft/75 uppercase">
               {kicker}
             </span>
           </p>
           {action && <div className="flex flex-wrap items-center gap-1.5">{action}</div>}
         </div>
 
-        <h1 className="mt-5 font-display leading-tight text-amber-50">
+        <h1 className="mt-5 font-display leading-tight text-banner-ink">
           {greeting}, {name}.
         </h1>
 
         <p
           className={`mt-3 flex items-start gap-2 text-[14px] leading-relaxed ${
-            urgent ? 'text-amber-300' : 'text-amber-50/60'
+            urgent ? 'text-banner-accent' : 'text-banner-ink/60'
           }`}
         >
           {urgent && <Icon name="alert" size={17} className="mt-0.5 shrink-0" />}
@@ -167,25 +167,25 @@ export function DashboardSummary({
                     name={t.icon}
                     size={17}
                     className={`h-3 w-3 sm:h-[17px] sm:w-[17px] ${
-                      t.tone === 'warn' ? 'text-amber-300' : 'text-amber-50/45'
+                      t.tone === 'warn' ? 'text-banner-accent' : 'text-banner-ink/45'
                     }`}
                   />
                   {t.to && (
                     <Icon
                       name="arrowRight"
                       size={15}
-                      className="hidden text-amber-50/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:block sm:h-[15px] sm:w-[15px]"
+                      className="hidden text-banner-ink/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:block sm:h-[15px] sm:w-[15px]"
                     />
                   )}
                 </span>
                 <span
                   className={`mt-1 block font-mono text-[18px] leading-none font-bold tabular-nums sm:mt-3 sm:text-[30px] ${
-                    t.tone === 'warn' ? 'text-amber-300' : 'text-amber-50'
+                    t.tone === 'warn' ? 'text-banner-accent' : 'text-banner-ink'
                   }`}
                 >
                   <CountUp value={t.value} />
                 </span>
-                <span className="mt-1 line-clamp-2 block min-h-[18px] text-[8.5px] leading-[1.1] text-amber-50/55 sm:mt-1.5 sm:min-h-0 sm:text-[12px] sm:leading-snug">
+                <span className="mt-1 line-clamp-2 block min-h-[18px] text-[8.5px] leading-[1.1] text-banner-ink/55 sm:mt-1.5 sm:min-h-0 sm:text-[12px] sm:leading-snug">
                   {t.label}
                 </span>
               </>
@@ -197,10 +197,10 @@ export function DashboardSummary({
             // as four holes punched in it.
             const shell =
               'group flex min-w-0 flex-col rounded-lg border px-2 py-2 transition-colors duration-200 sm:rounded-card sm:px-4 sm:py-3.5 ' +
-              'bg-amber-50/5 backdrop-blur-sm ' +
+              'bg-banner-ink/5 backdrop-blur-sm ' +
               (t.tone === 'warn'
-                ? 'border-amber-400/45'
-                : 'border-amber-50/12 hover:border-amber-50/25')
+                ? 'border-banner-glow/45'
+                : 'border-banner-ink/12 hover:border-banner-ink/25')
   
             return t.to ? (
               <Link key={t.label} to={t.to} className={shell}>

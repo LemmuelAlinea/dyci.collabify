@@ -260,7 +260,7 @@ export function RepoChangeRow({
                           'Could not remove it.',
                         )
                       }
-                      className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-faint hover:text-red-600 dark:hover:text-red-400"
+                      className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-faint hover:text-danger-600 dark:hover:text-danger-400"
                     >
                       <Icon name="trash" size={12} />
                     </button>

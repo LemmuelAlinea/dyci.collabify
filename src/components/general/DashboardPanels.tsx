@@ -42,12 +42,12 @@ function Row({
       <Link
         to={to}
         className={`surface flex items-center gap-3 rounded-xl border px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:px-4 sm:py-3 ${
-          late ? 'border-red-300 dark:border-red-500/40' : 'border-line'
+          late ? 'border-danger-300 dark:border-danger-500/40' : 'border-line'
         }`}
       >
         <span
           className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
-            late ? 'bg-red-50 text-red-600 dark:bg-red-500/12 dark:text-red-400' : 'surface-sunken text-muted'
+            late ? 'bg-danger-50 text-danger-600 dark:bg-danger-500/12 dark:text-danger-400' : 'surface-sunken text-muted'
           }`}
         >
           <Icon name={icon} size={15} />
@@ -57,7 +57,7 @@ function Row({
           <span className="block truncate text-[12px] text-muted">{context}</span>
         </span>
         {aside && (
-          <span className={`shrink-0 font-mono text-[12px] ${late ? 'text-red-600 dark:text-red-400' : 'text-faint'}`}>
+          <span className={`shrink-0 font-mono text-[12px] ${late ? 'text-danger-600 dark:text-danger-400' : 'text-faint'}`}>
             {aside}
           </span>
         )}
@@ -211,7 +211,7 @@ export function RecentPanel({ projects }: { projects: GeneralProjectSummary[] })
                 <span className="shrink-0 font-mono text-[12px] text-faint">{pct}%</span>
               </span>
               <span className="mt-2 block h-1.5 overflow-hidden rounded-full surface-sunken">
-                <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                <span className="block h-full rounded-full bg-progress" style={{ width: `${pct}%` }} />
               </span>
               <span className="mt-1.5 block text-[12px] text-muted">
                 {p.done_count}/{p.task_count} tasks done

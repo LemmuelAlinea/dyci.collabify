@@ -179,7 +179,7 @@ export function BoardPreview() {
                           c.tone === 'amber'
                             ? 'border-amber-400/45 bg-amber-400/12'
                             : c.tone === 'late'
-                              ? 'border-red-400/40 bg-red-400/10'
+                              ? 'border-danger-400/40 bg-danger-400/10'
                               : 'border-white/10 bg-white/8'
                         }`}
                       >
@@ -191,7 +191,7 @@ export function BoardPreview() {
                         </motion.p>
                         <p
                           className={`mt-1.5 truncate text-[10.5px] ${
-                            c.tone === 'late' ? 'text-red-200/80' : 'text-white/45'
+                            c.tone === 'late' ? 'text-danger-200/80' : 'text-white/45'
                           }`}
                         >
                           {c.meta}
@@ -271,13 +271,13 @@ export function BoardPreview() {
               <div
                 className={`mt-3 flex items-center gap-2.5 rounded-2xl border px-3.5 py-3 ${
                   verdict
-                    ? 'border-emerald-400/40 bg-emerald-400/12'
+                    ? 'border-success-400/40 bg-success-400/12'
                     : 'border-white/14 bg-white/8'
                 }`}
               >
                 <span
                   className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
-                    verdict ? 'bg-emerald-400/22 text-emerald-200' : 'bg-white/12 text-white/70'
+                    verdict ? 'bg-success-400/22 text-success-200' : 'bg-white/12 text-white/70'
                   }`}
                 >
                   <Icon name={verdict ? 'checkCircle' : 'lock'} size={15} />

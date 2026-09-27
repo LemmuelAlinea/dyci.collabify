@@ -35,7 +35,7 @@ export function UnmeasuredList({ rows }: { rows: ClassUnmeasured[] }) {
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[14px] text-ink">{c.class_name}</span>
               <span className="flex items-center gap-2 text-[12px] text-muted">
-                <Icon name="alert" size={13} className="shrink-0 text-amber-500" />
+                <Icon name="alert" size={13} className="shrink-0 text-warning-500" />
                 {c.needs_term && c.needs_syllabus
                   ? 'Set this class’s term dates and add its syllabus to measure its pace'
                   : c.needs_term

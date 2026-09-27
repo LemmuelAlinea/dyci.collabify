@@ -56,7 +56,7 @@ export function StatRow({
           <>
             <p
               className={`font-mono text-[24px] leading-none ${
-                s.tone === 'warn' ? 'text-amber-600 dark:text-amber-300' : 'text-ink'
+                s.tone === 'warn' ? 'text-warning-600 dark:text-warning-300' : 'text-ink'
               }`}
             >
               {s.value}

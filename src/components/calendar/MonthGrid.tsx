@@ -150,7 +150,7 @@ export function MonthGrid({
                       {week.assessments && (
                         <p
                           title={week.assessments}
-                          className="mt-1 line-clamp-3 text-[12px] leading-snug text-amber-700 dark:text-amber-300"
+                          className="mt-1 line-clamp-3 text-[12px] leading-snug text-warning-700 dark:text-warning-300"
                         >
                           {week.assessments}
                         </p>
@@ -263,7 +263,7 @@ export function MonthGrid({
                 </p>
               )}
               {pickedRow?.week?.assessments && (
-                <p className="mt-0.5 text-[12px] leading-snug text-amber-700 dark:text-amber-300">
+                <p className="mt-0.5 text-[12px] leading-snug text-warning-700 dark:text-warning-300">
                   {pickedRow.week.assessments}
                 </p>
               )}

@@ -25,9 +25,9 @@ const LOOK: Record<CalendarKind, { cls: string; icon: IconName; dot: string }> =
     dot: 'bg-[var(--line-strong)]',
   },
   submitted: {
-    cls: 'bg-emerald-500/18 text-emerald-800 dark:text-emerald-200',
+    cls: 'bg-success-500/18 text-success-800 dark:text-success-200',
     icon: 'checkCircle',
-    dot: 'bg-emerald-500',
+    dot: 'bg-success-500',
   },
 }
 
@@ -75,7 +75,7 @@ export function EventChip({
       <Icon name={look.icon} size={compact ? 10 : 12} className="shrink-0" />
       <span className="min-w-0 flex-1 truncate">{event.title}</span>
       {event.late && (
-        <span className="shrink-0 rounded bg-red-500/25 px-1 font-mono text-[12px] text-red-700 dark:text-red-200">
+        <span className="shrink-0 rounded bg-danger-500/25 px-1 font-mono text-[12px] text-danger-700 dark:text-danger-200">
           late
         </span>
       )}

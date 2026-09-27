@@ -29,22 +29,22 @@ export function BoardProgress({ board }: { board: BoardSummary }) {
 
       <div className="mt-4 flex h-2.5 overflow-hidden rounded-full surface-sunken">
         <span
-          className="bg-emerald-500 transition-[width] duration-300"
+          className="bg-success-500 transition-[width] duration-300"
           style={{ width: `${done}%` }}
         />
         <span
-          className="bg-amber-400 transition-[width] duration-300"
+          className="bg-warning-400 transition-[width] duration-300"
           style={{ width: `${doing}%` }}
         />
         <span className="flex-1" />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px]">
-        <Legend colour="bg-emerald-500" label="Done" value={done} />
-        <Legend colour="bg-amber-400" label="In progress" value={doing} />
+        <Legend colour="bg-success-500" label="Done" value={done} />
+        <Legend colour="bg-warning-400" label="In progress" value={doing} />
         <Legend colour="surface-sunken border border-line" label="Not started" value={left} />
         {unclaimed > 0 && (
-          <span className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+          <span className="flex items-center gap-2 text-warning-700 dark:text-warning-300">
             <Icon name="alert" size={13} />
             {unclaimed}% belongs to nobody yet
           </span>

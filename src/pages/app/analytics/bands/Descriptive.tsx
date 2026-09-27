@@ -11,7 +11,7 @@ function Tile({ value, label, tone }: { value: number | string; label: string; t
     <div className="card px-3 py-2.5 shadow-card sm:px-4 sm:py-3">
       <p
         className={`font-mono text-[19px] ${
-          tone === 'warn' && value !== 0 ? 'text-red-600 dark:text-red-400' : 'text-ink'
+          tone === 'warn' && value !== 0 ? 'text-danger-600 dark:text-danger-400' : 'text-ink'
         }`}
       >
         {value}
@@ -47,7 +47,7 @@ export function Descriptive({ data }: { data: ReturnType<typeof useAnalytics> })
 
       {(totals.empty > 0 || totals.unclaimed > 0) && (
         <p className="flex items-start gap-2 text-[13px] text-muted">
-          <Icon name="alert" size={14} className="mt-0.5 shrink-0 text-amber-500" />
+          <Icon name="alert" size={14} className="mt-0.5 shrink-0 text-warning-500" />
           {totals.empty > 0 &&
             `${totals.empty} board${totals.empty === 1 ? '' : 's'} with no tasks`}
           {totals.empty > 0 && totals.unclaimed > 0 && ' · '}

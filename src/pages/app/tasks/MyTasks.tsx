@@ -45,15 +45,15 @@ const BUCKETS: {
     id: 'overdue',
     title: 'Past due',
     blurb: 'These were expected already.',
-    tone: 'text-red-600 dark:text-red-400',
-    bar: 'bg-red-500',
+    tone: 'text-danger-600 dark:text-danger-400',
+    bar: 'bg-danger-500',
   },
   {
     id: 'today',
     title: 'Due today',
     blurb: 'Finish these before the day is out.',
-    tone: 'text-amber-700 dark:text-amber-300',
-    bar: 'bg-amber-400',
+    tone: 'text-warning-700 dark:text-warning-300',
+    bar: 'bg-warning-400',
   },
   {
     id: 'week',
@@ -80,8 +80,8 @@ const BUCKETS: {
     id: 'done',
     title: 'Finished',
     blurb: 'Done, and counting toward your grade.',
-    tone: 'text-emerald-700 dark:text-emerald-300',
-    bar: 'bg-emerald-500',
+    tone: 'text-success-700 dark:text-success-300',
+    bar: 'bg-success-500',
   },
 ]
 
@@ -383,7 +383,7 @@ export default function MyTasks() {
                                 <span
                                   className={`hidden font-mono text-[12px] sm:block ${
                                     bucket.id === 'overdue'
-                                      ? 'text-red-600 dark:text-red-400'
+                                      ? 'text-danger-600 dark:text-danger-400'
                                       : 'text-faint'
                                   }`}
                                 >
@@ -393,9 +393,9 @@ export default function MyTasks() {
                               <span
                                 className={`rounded-lg px-2 py-0.5 font-mono text-[12px] ${
                                   t.status === 'in_progress'
-                                    ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
+                                    ? 'bg-warning-400/18 text-warning-700 dark:text-warning-300'
                                     : t.status === 'done'
-                                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                      ? 'bg-success-500/15 text-success-700 dark:text-success-300'
                                       : 'surface-sunken text-muted'
                                 }`}
                               >

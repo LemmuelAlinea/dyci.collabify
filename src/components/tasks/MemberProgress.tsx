@@ -69,7 +69,7 @@ export function MemberProgress({
                 <div className="mt-1.5 h-1.5 overflow-hidden rounded-full surface-sunken">
                   <span
                     className={`block h-full rounded-full transition-[width] duration-300 ${
-                      personal === null ? 'bg-transparent' : 'bg-emerald-500'
+                      personal === null ? 'bg-transparent' : 'bg-progress'
                     }`}
                     style={{ width: `${personal ?? 0}%` }}
                   />

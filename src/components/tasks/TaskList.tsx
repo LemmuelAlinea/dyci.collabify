@@ -11,9 +11,9 @@ import {
 import type { ProjectTaskRow } from '../../lib/api/tasks'
 
 const STATUS_TONE: Record<string, string> = {
-  todo: 'surface-sunken text-muted',
-  in_progress: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
-  done: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  todo: 'bg-pending-soft text-pending-ink',
+  in_progress: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
+  done: 'bg-success-500/15 text-success-700 dark:text-success-300',
 }
 
 /**
@@ -113,7 +113,7 @@ export function TaskList({
 
                 <td className="py-2.5 pr-3">
                   {t.assignees.length === 0 ? (
-                    <span className="text-[12px] text-amber-700 dark:text-amber-300">
+                    <span className="text-[12px] text-warning-700 dark:text-warning-300">
                       Unclaimed
                     </span>
                   ) : (
@@ -157,12 +157,12 @@ export function TaskList({
                   {handedInLate ? (
                     <span
                       title="Finished after the deadline"
-                      className="rounded-md bg-red-500/15 px-1.5 py-0.5 text-[12px] text-red-700 dark:text-red-300"
+                      className="rounded-md bg-danger-500/15 px-1.5 py-0.5 text-[12px] text-danger-700 dark:text-danger-300"
                     >
                       Late
                     </span>
                   ) : (
-                    <span className={overdue ? 'text-red-600 dark:text-red-400' : 'text-faint'}>
+                    <span className={overdue ? 'text-danger-600 dark:text-danger-400' : 'text-faint'}>
                       {due ?? '—'}
                     </span>
                   )}

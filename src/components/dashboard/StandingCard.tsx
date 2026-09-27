@@ -49,7 +49,7 @@ export function StandingCard({ rows }: { rows: Row[] }) {
                 <span className="block truncate text-[14px] text-ink">{r.project_title}</span>
                 <span className="mt-1 block h-1.5 overflow-hidden rounded-full surface-sunken">
                   <span
-                    className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                    className="block h-full rounded-full bg-progress transition-[width] duration-300"
                     style={{ width: `${r.personal_pct ?? 0}%` }}
                   />
                 </span>

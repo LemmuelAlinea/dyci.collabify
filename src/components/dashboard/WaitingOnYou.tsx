@@ -47,9 +47,9 @@ export function WaitingOnYou({
         <Link
           key={i.label}
           to={i.to}
-          className="surface flex items-center gap-3 rounded-card border border-amber-300 px-4 py-3.5 shadow-card transition-colors duration-250 hover:border-line-strong dark:border-amber-400/40"
+          className="surface flex items-center gap-3 rounded-card border border-warning-300 px-4 py-3.5 shadow-card transition-colors duration-250 hover:border-line-strong dark:border-warning-400/40"
         >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-400/18 text-amber-700 dark:text-amber-300">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-warning-400/18 text-warning-700 dark:text-warning-300">
             <Icon name={i.icon} size={17} />
           </span>
           <span className="min-w-0">

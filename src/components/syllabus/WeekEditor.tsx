@@ -91,7 +91,7 @@ function WeekRow({
             type="button"
             onClick={() => onDelete(week)}
             aria-label={`Delete week ${week.week_no}`}
-            className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/12 dark:hover:text-red-400"
+            className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
           >
             <Icon name="trash" size={15} />
           </button>

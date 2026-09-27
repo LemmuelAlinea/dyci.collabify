@@ -222,7 +222,7 @@ function ClassRow({ cls }: { cls: ProgramClass }) {
         gaps.length > 0
           ? 'border-line'
           : behind
-            ? 'border-red-200 dark:border-red-500/30'
+            ? 'border-danger-200 dark:border-danger-500/30'
             : 'border-line'
       }`}
     >
@@ -259,7 +259,7 @@ function ClassRow({ cls }: { cls: ProgramClass }) {
 
       {gaps.length > 0 && (
         <p className="mt-3 flex flex-wrap items-center gap-2 text-[12px]">
-          <Icon name="alert" size={14} className="shrink-0 text-amber-500" />
+          <Icon name="alert" size={14} className="shrink-0 text-warning-500" />
           <span className="text-muted">Not ready to run:</span>
           {gaps.map((g) => (
             <Badge key={g} tone="warning">

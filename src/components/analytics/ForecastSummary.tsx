@@ -64,12 +64,12 @@ export function ForecastSummary({ burns }: { burns: BoardBurn[] }) {
             .map(({ b, f }) => (
               <li
                 key={b.board_id}
-                className="surface flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-red-200 px-3.5 py-2.5 dark:border-red-500/30"
+                className="surface flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-danger-200 px-3.5 py-2.5 dark:border-danger-500/30"
               >
                 <Icon
                   name="clock"
                   size={14}
-                  className="shrink-0 text-red-600 dark:text-red-400"
+                  className="shrink-0 text-danger-600 dark:text-danger-400"
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] text-ink">{burnOwner(b)}</span>
@@ -81,7 +81,7 @@ export function ForecastSummary({ burns }: { burns: BoardBurn[] }) {
                 <span className="shrink-0 font-mono text-[12px] text-muted">
                   lands {f.finishOn && shortDate(f.finishOn)}
                 </span>
-                <span className="shrink-0 rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[12px] text-red-700 dark:text-red-300">
+                <span className="shrink-0 rounded-md bg-danger-500/15 px-1.5 py-0.5 font-mono text-[12px] text-danger-700 dark:text-danger-300">
                   {f.lateBy} {f.lateBy === 1 ? 'day' : 'days'} late
                 </span>
               </li>

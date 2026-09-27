@@ -40,9 +40,9 @@ export function ActionList({ actions }: { actions: Action[] }) {
             key={a.key}
             className={`surface rounded-card border p-3 shadow-card sm:p-4 ${
               a.severity === 1
-                ? 'border-red-200 dark:border-red-500/30'
+                ? 'border-danger-200 dark:border-danger-500/30'
                 : a.severity === 2
-                  ? 'border-amber-300 dark:border-amber-400/40'
+                  ? 'border-warning-300 dark:border-warning-400/40'
                   : 'border-line'
             }`}
           >
@@ -54,9 +54,9 @@ export function ActionList({ actions }: { actions: Action[] }) {
                     size={15}
                     className={`mt-[3px] shrink-0 ${
                       a.severity === 1
-                        ? 'text-red-600 dark:text-red-400'
+                        ? 'text-danger-600 dark:text-danger-400'
                         : a.severity === 2
-                          ? 'text-amber-600 dark:text-amber-400'
+                          ? 'text-warning-600 dark:text-warning-400'
                           : 'text-faint'
                     }`}
                   />

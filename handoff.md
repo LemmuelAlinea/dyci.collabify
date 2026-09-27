@@ -1595,3 +1595,27 @@ the class links to null and drops the week map (existing FKs). `list_my_trash` g
 a `resource_kind` column (dropped and recreated). RPCs: `archive_teaching_resource`,
 `trash_teaching_resource`, `restore_trashed_resource`, `delete_trashed_resource`.
 Test: `trash.test.sql` now 31 PASS; all 48 SQL suites pass.
+
+**Personal colors in Appearance (2026-09-28):** Settings → Appearance now has "Your
+colors" under Light/Dark/System. Each person can recolor ten slots, separately for light
+and dark: page banner background and accent, the status set (done, in progress, late,
+pending), sidebar icons and current-page color, progress bars, and unread badges. There is
+a live preview that shows either mode, "Default colors" (resets the mode being edited),
+"Save as palette" (up to 12, named, rename/update/delete from a ⋯ menu), and five built-in
+presets (default, colorblind-friendly, high contrast, Forest, Ocean) in
+`lib/palettePresets.ts`. To make this possible without touching layouts, the status colors
+moved onto their own tokens: `emerald-*` → `success-*`, `red-*` → `danger-*` (codemod,
+every use), status-meaning amber → `warning-*` (brand amber untouched), `todo`/`planning`
+pills → `pending-soft`/`pending-ink`, single progress fills → `bg-progress`, the banners
+(DirectoryHero plus the six hand-built ones) → `banner*`, and SideNav → `nav-*`/`badge`.
+Defaults equal the old values, with one deliberate change: the sidebar's unread count is
+now amber in light mode too, matching the bell. `lib/palette.ts` turns a pick into a full
+OKLCH ramp, flips banner/badge text to stay 4.5:1, nudges icons to 3:1, and sets the
+variables inline on `<html>`. It caches them in localStorage `collabify.palette`, which
+`public/theme.js` applies before first paint. `ThemeSync` loads the account's colors once
+per sign-in and clears them on sign-out. Storage is `supabase/appearance.sql` (after
+trash, applied live): `user_appearance` and `appearance_palettes`, owner-only RLS, a hex
+and key whitelist check, and the 12-palette cap trigger. They are not on `profiles`
+because peers can read profiles. Tests: `appearance.test.sql` (22 PASS),
+`src/lib/palette.test.ts` (14). All 49 SQL suites and 542 Vitest tests pass. Contrast
+checks now cover the defaults.

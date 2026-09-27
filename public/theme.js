@@ -14,4 +14,17 @@ try {
     saved === 'dark' ||
     (saved === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   document.documentElement.classList.toggle('dark', dark)
+
+  // The person's own colours from Settings → Appearance, cached by
+  // src/lib/palette.ts as ready-made variables for each mode. Only names that
+  // look like a custom property are set.
+  var palette = JSON.parse(localStorage.getItem('collabify.palette') || 'null')
+  var vars = palette && palette[dark ? 'dark' : 'light']
+  if (vars) {
+    for (var name in vars) {
+      if (/^--[a-z0-9-]+$/.test(name) && typeof vars[name] === 'string') {
+        document.documentElement.style.setProperty(name, vars[name])
+      }
+    }
+  }
 } catch {}

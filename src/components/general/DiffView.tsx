@@ -48,9 +48,9 @@ export function DiffView({
               }
               const tone =
                 row.kind === 'added'
-                  ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+                  ? 'bg-success-500/10 text-success-800 dark:text-success-200'
                   : row.kind === 'removed'
-                    ? 'bg-red-500/10 text-red-800 dark:text-red-200'
+                    ? 'bg-danger-500/10 text-danger-800 dark:text-danger-200'
                     : ''
               return (
                 <tr key={`${row.kind}-${i}`} className={tone}>

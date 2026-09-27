@@ -22,8 +22,8 @@ export function PaceCard({ pace }: { pace: ClassPace }) {
         !started
           ? 'border-line'
           : good
-            ? 'border-emerald-300 dark:border-emerald-500/40'
-            : 'border-red-300 dark:border-red-500/40'
+            ? 'border-success-300 dark:border-success-500/40'
+            : 'border-danger-300 dark:border-danger-500/40'
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -35,8 +35,8 @@ export function PaceCard({ pace }: { pace: ClassPace }) {
                 !started
                   ? 'surface-sunken text-muted'
                   : good
-                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                    : 'bg-red-500/15 text-red-700 dark:text-red-300'
+                    ? 'bg-success-500/15 text-success-700 dark:text-success-300'
+                    : 'bg-danger-500/15 text-danger-700 dark:text-danger-300'
               }`}
             >
               <Icon name={good ? 'check' : 'alert'} size={15} />

@@ -180,7 +180,7 @@ export default function ProfessorGroups() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="!rounded-lg !text-red-600 dark:!text-red-400"
+                    className="!rounded-lg !text-danger-600 dark:!text-danger-400"
                     onClick={() => void promptDelete(set)}
                   >
                     <Icon name="trash" size={15} />

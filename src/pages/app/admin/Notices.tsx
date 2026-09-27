@@ -220,7 +220,7 @@ export default function Notices() {
             Pin it to the top for its {NOTICE_HOURS} hours
           </label>
           {pinned && rows.some((r) => r.pinned) && (
-            <p className="text-[12px] text-amber-700 dark:text-amber-300">
+            <p className="text-[12px] text-warning-700 dark:text-warning-300">
               One notice is pinned at a time — sending this will refuse until you unpin the
               current one.
             </p>
@@ -315,7 +315,7 @@ function NoticeCard({
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-ink">
-            {n.pinned && <Icon name="pin" size={14} className="shrink-0 text-amber-500" />}
+            {n.pinned && <Icon name="pin" size={14} className="shrink-0 text-warning-500" />}
             {n.title}
           </h2>
           <p className="mt-0.5 text-[12px] text-faint">

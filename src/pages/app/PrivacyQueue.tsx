@@ -67,9 +67,9 @@ const STEPS: Record<string, string[]> = {
 }
 
 const STATUS_TONE: Record<string, string> = {
-  open: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
+  open: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
   acknowledged: 'bg-navy-500/15 text-navy-700 dark:text-navy-200',
-  completed: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  completed: 'bg-success-500/15 text-success-700 dark:text-success-300',
   refused: 'surface-sunken text-muted',
 }
 
@@ -204,7 +204,7 @@ export default function PrivacyQueue() {
                     </span>
                     <span
                       className={`ml-auto text-[12px] ${
-                        clock(r).late ? 'font-medium text-amber-700 dark:text-amber-300' : 'text-faint'
+                        clock(r).late ? 'font-medium text-warning-700 dark:text-warning-300' : 'text-faint'
                       }`}
                     >
                       {clock(r).text}

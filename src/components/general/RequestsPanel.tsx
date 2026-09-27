@@ -67,7 +67,7 @@ function OwnerRequestRow({ request, state }: { request: GeneralAccessRequest; st
   }
 
   return (
-    <li className="rounded-xl border border-amber-300 bg-amber-400/6 p-3.5 dark:border-amber-400/40 dark:bg-amber-400/8">
+    <li className="rounded-xl border border-warning-300 bg-warning-400/6 p-3.5 dark:border-warning-400/40 dark:bg-warning-400/8">
       <p className="text-[14px] text-ink">
         <strong className="font-medium">{state.nameOf(request.user_id)}</strong> asked for{' '}
         <strong className="font-medium">{permissionLabel(request.permission)}</strong>

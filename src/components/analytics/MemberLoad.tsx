@@ -109,7 +109,7 @@ function Column({
               <span
                 className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[12px] ${
                   tone === 'amber'
-                    ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
+                    ? 'bg-warning-400/18 text-warning-700 dark:text-warning-300'
                     : 'surface-sunken text-muted'
                 }`}
               >

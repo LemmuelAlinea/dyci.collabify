@@ -147,7 +147,7 @@ export function StateBand({
           name={icon}
           size={18}
           className={`shrink-0 ${
-            tone === 'attention' ? 'text-amber-600 dark:text-amber-300' : 'text-muted'
+            tone === 'attention' ? 'text-warning-600 dark:text-warning-300' : 'text-muted'
           }`}
         />
       )}
@@ -177,7 +177,7 @@ export function Stat({
     <div>
       <p
         className={`font-mono text-[26px] leading-none font-bold tabular-nums ${
-          tone === 'attention' ? 'text-amber-600 dark:text-amber-300' : 'text-ink'
+          tone === 'attention' ? 'text-warning-600 dark:text-warning-300' : 'text-ink'
         }`}
       >
         {value}

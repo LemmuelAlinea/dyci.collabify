@@ -148,7 +148,7 @@ export function SectionPicker({
         hint={hint}
       >
         {otherSyllabus && chosenHere && (
-          <p className="flex gap-2 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
+          <p className="flex gap-2 text-[12px] leading-relaxed text-warning-700 dark:text-warning-300">
             <Icon name="clock" size={13} className="mt-0.5 shrink-0" />
             This section follows a different syllabus, so the same week numbers may not
             be the same topic.

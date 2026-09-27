@@ -59,7 +59,7 @@ export function ProjectStrip({
               <>
                 <div className="mt-3.5 h-1.5 overflow-hidden rounded-full surface-sunken">
                   <span
-                    className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                    className="block h-full rounded-full bg-progress transition-[width] duration-300"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
@@ -71,7 +71,7 @@ export function ProjectStrip({
                 </p>
               </>
             ) : (
-              <p className="mt-3.5 text-[12px] text-amber-700 dark:text-amber-300">
+              <p className="mt-3.5 text-[12px] text-warning-700 dark:text-warning-300">
                 No tasks yet — break it down to get started.
               </p>
             )}

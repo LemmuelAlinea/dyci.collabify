@@ -49,7 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="flex min-h-[420px] flex-col items-center justify-center px-6 py-16 text-center">
-        <span className="grid h-14 w-14 place-items-center rounded-2xl bg-red-500/12 text-red-600 dark:text-red-400">
+        <span className="grid h-14 w-14 place-items-center rounded-2xl bg-danger-500/12 text-danger-600 dark:text-danger-400">
           <Icon name="alert" size={26} />
         </span>
 

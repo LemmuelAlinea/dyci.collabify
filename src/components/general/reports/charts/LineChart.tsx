@@ -89,8 +89,8 @@ export function LineChart({
         )}
         {endX !== null && (
           <g>
-            <line x1={endX} x2={endX} y1={PAD.top} y2={H - PAD.bottom} strokeWidth="1" strokeDasharray="2 3" className="stroke-red-500" />
-            <text x={endX - 4} y={PAD.top + 9} textAnchor="end" className="fill-red-600 dark:fill-red-400 font-mono text-[10px]">Ends</text>
+            <line x1={endX} x2={endX} y1={PAD.top} y2={H - PAD.bottom} strokeWidth="1" strokeDasharray="2 3" className="stroke-danger-500" />
+            <text x={endX - 4} y={PAD.top + 9} textAnchor="end" className="fill-danger-600 dark:fill-danger-400 font-mono text-[10px]">Ends</text>
           </g>
         )}
       </svg>

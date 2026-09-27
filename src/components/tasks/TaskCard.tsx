@@ -67,7 +67,7 @@ export function TaskCard({
     <article
       className={`surface group relative rounded-xl border p-3.5 shadow-card transition-colors duration-200 hover:border-line-strong ${
         yours
-          ? 'border-amber-300 hover:border-amber-400 dark:border-amber-400/50'
+          ? 'border-warning-300 hover:border-warning-400 dark:border-warning-400/50'
           : 'border-line hover:border-line-strong'
       }`}
     >
@@ -157,7 +157,7 @@ export function TaskCard({
         {handedInLate && (
           <span
             title="Finished after the deadline"
-            className="rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[12px] text-red-700 dark:text-red-300"
+            className="rounded-md bg-danger-500/15 px-1.5 py-0.5 font-mono text-[12px] text-danger-700 dark:text-danger-300"
           >
             Late
           </span>
@@ -166,7 +166,7 @@ export function TaskCard({
         {due && !handedInLate && (
           <span
             className={`flex items-center gap-1 font-mono text-[12px] ${
-              overdue ? 'text-red-600 dark:text-red-400' : 'text-faint'
+              overdue ? 'text-danger-600 dark:text-danger-400' : 'text-faint'
             }`}
           >
             <Icon name="clock" size={12} />
@@ -214,7 +214,7 @@ export function TaskCard({
                 type="button"
                 onClick={onDelete}
                 aria-label={`Delete ${task.title}`}
-                className="grid h-7 w-7 place-items-center rounded-full text-faint transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/12 dark:hover:text-red-400"
+                className="grid h-7 w-7 place-items-center rounded-full text-faint transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
               >
                 <Icon name="trash" size={14} />
               </button>

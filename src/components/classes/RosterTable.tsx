@@ -156,7 +156,7 @@ export function RosterTable({
                 type="button"
                 onClick={() => setPendingRemove(m)}
                 aria-label={`Remove ${fullName(m.profile)}`}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/12 dark:hover:text-red-400"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
               >
                 <Icon name="x" size={17} />
               </button>
@@ -166,7 +166,7 @@ export function RosterTable({
       </ol>
 
       {canManage && removed.length > 0 && (
-        <div className="rounded-card border border-amber-300 p-4 dark:border-amber-400/40">
+        <div className="rounded-card border border-warning-300 p-4 dark:border-warning-400/40">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <p className="eyebrow text-faint">
               Removed · {removed.length} {removed.length === 1 ? 'student' : 'students'}

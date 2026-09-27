@@ -175,7 +175,7 @@ export function GroupsBoard({
                     {set.closed_at && (
                       <>
                         <span>·</span>
-                        <span className="flex items-center gap-1 font-medium text-amber-600 dark:text-amber-300">
+                        <span className="flex items-center gap-1 font-medium text-warning-600 dark:text-warning-300">
                           <Icon name="lock" size={12} />
                           Final
                         </span>

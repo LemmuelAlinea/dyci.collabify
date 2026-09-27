@@ -157,7 +157,7 @@ export function WorkspaceSearch() {
       {open && query.trim() && (
         <div className="surface absolute left-0 z-50 mt-2 max-h-80 w-full overflow-y-auto rounded-xl border border-line shadow-lift">
           {error ? (
-            <p className="px-4 py-3 text-[13px] text-red-600 dark:text-red-300">{error}</p>
+            <p className="px-4 py-3 text-[13px] text-danger-600 dark:text-danger-300">{error}</p>
           ) : results.length === 0 ? (
             <p className="px-4 py-3 text-[13px] text-muted">No results.</p>
           ) : (

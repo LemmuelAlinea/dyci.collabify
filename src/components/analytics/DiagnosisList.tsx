@@ -62,9 +62,9 @@ export function DiagnosisList({ rows }: { rows: BoardDiagnosis[] }) {
                     size={13}
                     className={`mt-[3px] shrink-0 ${
                       c.weight >= 70
-                        ? 'text-red-600 dark:text-red-400'
+                        ? 'text-danger-600 dark:text-danger-400'
                         : c.weight >= 55
-                          ? 'text-amber-600 dark:text-amber-400'
+                          ? 'text-warning-600 dark:text-warning-400'
                           : 'text-faint'
                     }`}
                   />

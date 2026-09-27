@@ -27,11 +27,11 @@ export function Alert({
     },
     success: {
       icon: 'checkCircle' as IconName,
-      cls: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/12 dark:text-emerald-200',
+      cls: 'border-success-200 bg-success-50 text-success-800 dark:border-success-500/40 dark:bg-success-500/12 dark:text-success-200',
     },
     error: {
       icon: 'alert' as IconName,
-      cls: 'border-red-200 bg-red-50 text-red-800 dark:border-red-500/40 dark:bg-red-500/12 dark:text-red-200',
+      cls: 'border-danger-200 bg-danger-50 text-danger-800 dark:border-danger-500/40 dark:bg-danger-500/12 dark:text-danger-200',
     },
   }[tone]
 

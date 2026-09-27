@@ -74,7 +74,7 @@ export function MessageComposer({
 
   return (
     <div className="border-t border-line bg-[var(--surface)] px-3 py-3 md:px-5 md:py-4">
-      {error && <p className="mb-2 text-[12px] text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mb-2 text-[12px] text-danger-600 dark:text-danger-400">{error}</p>}
 
       {files.length > 0 && (
         <ul className="mb-2 flex flex-wrap gap-2">

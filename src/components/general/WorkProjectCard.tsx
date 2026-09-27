@@ -8,9 +8,9 @@ import type { GeneralProjectSummary, GeneralStatus } from '../../lib/general/typ
 import { paths } from '../../lib/paths'
 
 const STATUS_TONE: Record<GeneralStatus, string> = {
-  planning: 'surface-sunken text-muted',
-  in_progress: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  on_hold: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
+  planning: 'bg-pending-soft text-pending-ink',
+  in_progress: 'bg-success-500/10 text-success-700 dark:text-success-300',
+  on_hold: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
   done: 'bg-navy-50 text-navy-700 dark:bg-navy-500/18 dark:text-navy-100',
   cancelled: 'surface-sunken text-faint',
 }
@@ -85,7 +85,7 @@ export function WorkProjectCard({
             <span className="font-mono text-faint">{pct}%</span>
           </div>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full surface-sunken">
-            <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+            <span className="block h-full rounded-full bg-progress" style={{ width: `${pct}%` }} />
           </div>
         </div>
 

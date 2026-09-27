@@ -260,7 +260,7 @@ function KindOption({
       <span
         className={`grid size-9 shrink-0 place-items-center rounded-lg ${
           tone === 'education'
-            ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
+            ? 'bg-warning-400/18 text-warning-700 dark:text-warning-300'
             : 'surface-sunken text-muted'
         }`}
       >

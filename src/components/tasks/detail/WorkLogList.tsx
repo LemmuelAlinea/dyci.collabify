@@ -123,7 +123,7 @@ export function WorkLogList({
                   <span className="font-medium text-ink">
                     {e.student ? fullName(e.student) : 'Somebody'}
                   </span>
-                  <span className="font-mono text-[12px] text-amber-700 dark:text-amber-300">
+                  <span className="font-mono text-[12px] text-warning-700 dark:text-warning-300">
                     {formatMinutes(e.minutes)}
                   </span>
                   <span className="font-mono text-[12px] text-faint">
@@ -149,7 +149,7 @@ export function WorkLogList({
                     }
                   }}
                   aria-label="Remove this entry"
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/12 dark:hover:text-red-400"
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
                 >
                   <Icon name="trash" size={14} />
                 </button>

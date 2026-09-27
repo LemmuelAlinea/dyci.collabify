@@ -139,7 +139,7 @@ export function MessageThread({
             <Icon
               name="pin"
               size={14}
-              className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-300"
+              className="mt-0.5 shrink-0 text-warning-600 dark:text-warning-300"
             />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] text-ink">

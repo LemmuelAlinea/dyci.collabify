@@ -163,7 +163,7 @@ function Delta({ now, before, invert = false }: { now: number; before?: number; 
   if (d === 0) return <span className="font-mono text-[12px] text-faint">= same</span>
   const good = invert ? d < 0 : d > 0
   return (
-    <span className={`font-mono text-[12px] ${good ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+    <span className={`font-mono text-[12px] ${good ? 'text-success-700 dark:text-success-400' : 'text-danger-600 dark:text-danger-400'}`}>
       {d > 0 ? '▲' : '▼'} {Math.abs(d)}
       <span className="sr-only"> compared with the previous period</span>
     </span>
@@ -240,13 +240,13 @@ export function Status({ totals }: { totals: Totals }) {
       <DonutChart
         title="Tasks by status"
         slices={[
-          { label: 'Done', value: totals.done, className: 'stroke-emerald-500', dot: 'bg-emerald-500' },
-          { label: 'In progress', value: totals.in_progress, className: 'stroke-amber-400', dot: 'bg-amber-400' },
+          { label: 'Done', value: totals.done, className: 'stroke-success-500', dot: 'bg-success-500' },
+          { label: 'In progress', value: totals.in_progress, className: 'stroke-warning-400', dot: 'bg-warning-400' },
           { label: 'To do', value: totals.todo, className: 'stroke-[var(--line-strong)]', dot: 'bg-[var(--line-strong)]' },
         ]}
       />
       <p className="mt-3 text-[13px] text-ink">
-        <span className="font-medium text-red-600 dark:text-red-400">Overdue: {totals.overdue_now}</span>
+        <span className="font-medium text-danger-600 dark:text-danger-400">Overdue: {totals.overdue_now}</span>
         <span className="text-muted"> — open tasks past their due date, counted within To do and In progress.</span>
       </p>
     </div>
@@ -517,7 +517,7 @@ export function Tasks({ rows, withPoints }: { rows: TaskRow[]; withPoints: boole
         rows={rows.map((r) => [
           <span key="t">
             {r.title}
-            {r.late && <span className="ml-1.5 font-medium text-red-600 dark:text-red-400">Late</span>}
+            {r.late && <span className="ml-1.5 font-medium text-danger-600 dark:text-danger-400">Late</span>}
             {r.archived && <span className="ml-1.5 text-[11px] text-faint">(archived)</span>}
             {r.team && <span className="block text-[11px] text-faint">{r.team}</span>}
           </span>,

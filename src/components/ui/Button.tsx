@@ -22,8 +22,8 @@ const VARIANTS: Record<Variant, string> = {
   outline:
     'border border-[var(--line-strong)] text-ink hover:bg-[var(--surface-sunken)]',
   ghost: 'text-muted hover:text-ink hover:bg-[var(--surface-sunken)]',
-  onNavy: 'border border-white/25 text-white hover:bg-white/10',
-  danger: 'bg-red-600 text-white hover:bg-red-500',
+  onNavy: 'border border-banner-ink/25 text-banner-ink hover:bg-banner-ink/10',
+  danger: 'bg-danger-600 text-white hover:bg-danger-500',
 }
 
 const SIZES: Record<Size, string> = {

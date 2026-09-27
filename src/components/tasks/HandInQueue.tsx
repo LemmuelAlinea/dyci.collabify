@@ -74,10 +74,10 @@ export function HandInQueue({
   }
 
   return (
-    <section className="rounded-panel border border-amber-300 bg-amber-400/6 dark:border-amber-400/40 dark:bg-amber-400/8">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-300/60 px-4 py-3.5 sm:px-5 dark:border-amber-400/25">
+    <section className="rounded-panel border border-warning-300 bg-warning-400/6 dark:border-warning-400/40 dark:bg-warning-400/8">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-warning-300/60 px-4 py-3.5 sm:px-5 dark:border-warning-400/25">
         <div className="flex items-center gap-2.5">
-          <Icon name="checkCircle" size={17} className="text-amber-600 dark:text-amber-300" />
+          <Icon name="checkCircle" size={17} className="text-warning-600 dark:text-warning-300" />
           <div>
             <h3 className="text-ink">Waiting on you</h3>
             <p className="mt-0.5 text-[12px] text-muted">
@@ -96,7 +96,7 @@ export function HandInQueue({
         </div>
       )}
 
-      <ul className="divide-y divide-amber-300/50 dark:divide-amber-400/20">
+      <ul className="divide-y divide-warning-300/50 dark:divide-warning-400/20">
         {waiting.map((b) => {
           const pct = Number(b.done_pct)
           const open = returning === b.id
@@ -121,7 +121,7 @@ export function HandInQueue({
                         a board handed in at 60% is a different decision from one
                         handed in finished. */}
                     {pct < 100 && (
-                      <span className="text-amber-700 dark:text-amber-300">
+                      <span className="text-warning-700 dark:text-warning-300">
                         {' '}
                         · {pct}% of the work
                       </span>

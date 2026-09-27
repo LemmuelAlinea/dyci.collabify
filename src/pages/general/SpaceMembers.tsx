@@ -335,7 +335,7 @@ export default function SpaceMembers() {
         )}
 
         {isOwner && (
-          <section className="rounded-panel border border-red-400/45 p-4 sm:p-5">
+          <section className="rounded-panel border border-danger-400/45 p-4 sm:p-5">
             <h2 className="text-[15px]">Delete space</h2>
             <p className="mt-1 text-[13px] text-muted">
               Permanently removes this space and everything inside it.

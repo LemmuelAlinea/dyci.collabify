@@ -92,7 +92,7 @@ export function SubmitProject({
       return (
         <div className="flex flex-wrap items-center gap-1.5">
           <span
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-400/15 px-3 text-[12px] font-medium text-emerald-200"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-success-400/15 px-3 text-[12px] font-medium text-success-200"
             title={
               board.submitted_by_name
                 ? `${board.submitted_by_name} handed this in on ${when(board.submitted_at as string)}`
@@ -141,11 +141,11 @@ export function SubmitProject({
 
   if (submitted) {
     return (
-      <section className="surface rounded-card border border-emerald-300 p-4 sm:p-5 shadow-card dark:border-emerald-500/40">
+      <section className="surface rounded-card border border-success-300 p-4 sm:p-5 shadow-card dark:border-success-500/40">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="flex items-center gap-2">
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-success-500/15 text-success-700 dark:text-success-300">
                 <Icon name="check" size={15} />
               </span>
               Handed in

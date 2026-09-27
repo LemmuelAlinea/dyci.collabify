@@ -13,7 +13,7 @@ export function CapacityPill({ count, limit }: { count: number; limit: number })
       className={`shrink-0 rounded-lg px-2 py-1 font-mono text-[12px] ${
         full
           ? 'bg-navy-50 text-navy-700 dark:bg-navy-500/18 dark:text-navy-100'
-          : 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
+          : 'bg-warning-400/18 text-warning-700 dark:text-warning-300'
       }`}
     >
       {count}/{limit}
@@ -121,7 +121,7 @@ export function GroupCard({
           {work.tasks > 0 && (
             <span className="mt-1.5 block h-1 overflow-hidden rounded-full surface-sunken">
               <span
-                className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                className="block h-full rounded-full bg-progress transition-[width] duration-300"
                 style={{ width: `${work.pct}%` }}
               />
             </span>

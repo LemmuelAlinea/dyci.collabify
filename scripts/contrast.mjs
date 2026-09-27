@@ -131,5 +131,30 @@ console.log(
 )
 if (ratio(navy900, amber) < 4.5) failures++
 
+// The defaults behind Settings → Appearance. A person's own picks are checked
+// as they choose them, by src/lib/palette.ts; these are what everyone else sees.
+// They live in `:root`, with the sidebar pair overridden under `.dark`.
+console.log('\npersonal colours (defaults)')
+for (const [label, fgTok, bgTok, need, scopes] of [
+  ['banner text on the banner', '--banner-ink', '--banner', 4.5, [light]],
+  ['banner accent on the banner', '--banner-accent', '--banner', 3, [light]],
+  ['badge count on the badge', '--badge-ink', '--badge', 4.5, [light]],
+  ['current-page letter on its square (light)', '--nav-active-ink', '--nav-active', 4.5, [light]],
+  ['current-page letter on its square (dark)', '--nav-active-ink', '--nav-active', 4.5, [dark]],
+]) {
+  for (const scope of scopes) {
+    const fg = rgb(scope[fgTok], scope)
+    const bg = rgb(scope[bgTok], scope)
+    if (!fg || !bg) {
+      console.log(`  ?     ${label} — token missing`)
+      failures++
+      continue
+    }
+    const r = ratio(over(fg, bg), bg)
+    if (r < need) failures++
+    console.log(`  ${r >= need ? 'pass' : 'FAIL'}  ${r.toFixed(2)}:1  (needs ${need})  ${label}`)
+  }
+}
+
 console.log(`\n${failures} failing pair${failures === 1 ? '' : 's'}.`)
 process.exit(failures > 0 ? 1 : 0)

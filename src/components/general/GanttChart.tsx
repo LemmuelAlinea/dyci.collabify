@@ -7,8 +7,8 @@ import type { GeneralProjectState } from './useGeneralProject'
 
 const BAR = {
   todo: 'bg-navy-500/35',
-  in_progress: 'bg-amber-400/70',
-  done: 'bg-emerald-500/60',
+  in_progress: 'bg-warning-400/70',
+  done: 'bg-success-500/60',
 } as const
 
 const stageLabel = (status: TimelineTask['status']) =>
@@ -138,7 +138,7 @@ export function GanttChart({ state }: { state: GeneralProjectState }) {
                           title={barLabel(task)}
                           className={`absolute top-1/2 h-3 -translate-y-1/2 rounded-full ${BAR[task.status]} ${
                             isOverdue(task.due_at, task.status)
-                              ? 'ring-2 ring-red-500 dark:ring-red-400'
+                              ? 'ring-2 ring-danger-500 dark:ring-danger-400'
                               : ''
                           }`}
                           style={{ left: `${place.left}%`, width: `${place.width}%` }}
@@ -152,7 +152,7 @@ export function GanttChart({ state }: { state: GeneralProjectState }) {
                           title={diamondLabel(task)}
                           className={`absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 ${BAR[task.status]} ${
                             isOverdue(task.due_at, task.status)
-                              ? 'ring-2 ring-red-500 dark:ring-red-400'
+                              ? 'ring-2 ring-danger-500 dark:ring-danger-400'
                               : ''
                           }`}
                           style={{ left: `${place.left}%` }}
@@ -184,7 +184,7 @@ export function GanttChart({ state }: { state: GeneralProjectState }) {
           today
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-6 rounded-full bg-navy-500/35 ring-2 ring-red-500 dark:ring-red-400" />
+          <span className="h-2 w-6 rounded-full bg-navy-500/35 ring-2 ring-danger-500 dark:ring-danger-400" />
           overdue
         </span>
         <span className="flex items-center gap-1.5">

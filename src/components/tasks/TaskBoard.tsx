@@ -30,9 +30,9 @@ import type {
 } from '../../lib/types'
 
 const COLUMN_TONE: Record<TaskStatus, string> = {
-  todo: 'text-muted',
-  in_progress: 'text-amber-700 dark:text-amber-300',
-  done: 'text-emerald-700 dark:text-emerald-300',
+  todo: 'text-pending-ink',
+  in_progress: 'text-warning-700 dark:text-warning-300',
+  done: 'text-success-700 dark:text-success-300',
 }
 
 export function TaskBoard({
@@ -117,7 +117,7 @@ export function TaskBoard({
           {unclaimed.length > 0 && (
             <>
               {' · '}
-              <span className="text-amber-700 dark:text-amber-300">
+              <span className="text-warning-700 dark:text-warning-300">
                 {unclaimed.length} waiting to be claimed
               </span>
             </>

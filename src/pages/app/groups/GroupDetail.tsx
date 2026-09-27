@@ -46,7 +46,7 @@ function MemberLoadBar({ load }: { load?: GroupMemberLoad }) {
     <div className="mt-1.5 flex items-center gap-3">
       <span className="h-1.5 max-w-[220px] flex-1 overflow-hidden rounded-full surface-sunken">
         <span
-          className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+          className="block h-full rounded-full bg-progress transition-[width] duration-300"
           style={{ width: `${pct}%` }}
         />
       </span>
@@ -208,17 +208,17 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
         All groups
       </Link>
 
-      <header className="relative mt-4 overflow-hidden rounded-panel border border-amber-50/10 bg-navy-950 px-5 py-6 text-amber-50 sm:px-7 sm:py-8 lg:px-9">
+      <header className="relative mt-4 overflow-hidden rounded-panel border border-banner-ink/10 bg-banner px-5 py-6 text-banner-ink sm:px-7 sm:py-8 lg:px-9">
         <div
           aria-hidden
-          className="pointer-events-none absolute -top-48 -right-40 h-[420px] w-[420px] rounded-full bg-amber-400/10 blur-[115px]"
+          className="pointer-events-none absolute -top-48 -right-40 h-[420px] w-[420px] rounded-full bg-banner-glow/10 blur-[115px]"
         />
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-60"
           style={{
             backgroundImage:
-              'linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px)',
+              'linear-gradient(color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px)',
             backgroundSize: '54px 54px',
             maskImage: 'linear-gradient(90deg, #000 10%, transparent 85%)',
             WebkitMaskImage: 'linear-gradient(90deg, #000 10%, transparent 85%)',
@@ -228,16 +228,16 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
         <div className="relative">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-amber-50/8 px-2.5 py-1 text-[11px] font-medium text-amber-50/65 ring-1 ring-amber-50/10">
+              <span className="rounded-full bg-banner-ink/8 px-2.5 py-1 text-[11px] font-medium text-banner-ink/65 ring-1 ring-banner-ink/10">
                 {group.set_name}
               </span>
               {group.set_closed_at ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-amber-50/70">
+                <span className="inline-flex items-center gap-1 rounded-full bg-banner-ink/10 px-2.5 py-1 text-[11px] font-medium text-banner-ink/70">
                   <Icon name="lock" size={11} />
                   Final
                 </span>
               ) : (
-                <span className="rounded-full bg-emerald-400/12 px-2.5 py-1 text-[11px] font-medium text-emerald-200">
+                <span className="rounded-full bg-success-400/12 px-2.5 py-1 text-[11px] font-medium text-success-200">
                   Open
                 </span>
               )}
@@ -284,7 +284,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                   type="button"
                   onClick={() => setDeletePrompt(true)}
                   aria-label="Delete group"
-                  className="grid h-8 w-8 place-items-center rounded-lg text-amber-50/55 transition-colors hover:bg-red-500/15 hover:text-red-200"
+                  className="grid h-8 w-8 place-items-center rounded-lg text-banner-ink/55 transition-colors hover:bg-danger-500/15 hover:text-danger-200"
                 >
                   <Icon name="trash" size={15} />
                 </button>
@@ -294,7 +294,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
 
           <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.65fr)] lg:items-end">
             <div className="flex min-w-0 items-start gap-4 sm:gap-5">
-              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-amber-50/8 text-amber-300 ring-1 ring-amber-50/12 sm:h-16 sm:w-16">
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-banner-ink/8 text-banner-accent ring-1 ring-banner-ink/12 sm:h-16 sm:w-16">
                 <Icon name="users" size={23} />
               </span>
 
@@ -316,20 +316,20 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                         setRenaming(false)
                         setDraftName(group.name)
                       }}
-                      className="h-10 rounded-lg px-3 text-[13px] text-amber-50/60 transition-colors hover:bg-white/8 hover:text-amber-50"
+                      className="h-10 rounded-lg px-3 text-[13px] text-banner-ink/60 transition-colors hover:bg-banner-ink/8 hover:text-banner-ink"
                     >
                       Cancel
                     </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <h1 className="text-balance text-amber-50">{group.name}</h1>
+                    <h1 className="text-balance text-banner-ink">{group.name}</h1>
                     {canRename && (
                       <button
                         type="button"
                         onClick={() => setRenaming(true)}
                         aria-label="Rename group"
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-amber-50/45 transition-colors hover:bg-white/8 hover:text-amber-200"
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-banner-ink/45 transition-colors hover:bg-banner-ink/8 hover:text-banner-accent-soft"
                       >
                         <Icon name="edit" size={15} />
                       </button>
@@ -337,25 +337,25 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                   </div>
                 )}
 
-                <p className="mt-2 text-[13px] text-amber-50/55">
+                <p className="mt-2 text-[13px] text-banner-ink/55">
                   {cls ? `${cls.initial} · ${cls.name}` : ''}
                 </p>
-                <p className="mt-3 max-w-[58ch] text-[13px] leading-relaxed text-amber-50/55">
+                <p className="mt-3 max-w-[58ch] text-[13px] leading-relaxed text-banner-ink/55">
                   Keep the group roster, assigned projects and individual task progress together.
                 </p>
               </div>
             </div>
 
-            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-amber-50/12 bg-amber-50/12">
-              <div className="bg-navy-950/85 px-4 py-3.5">
-                <dt className="text-[11px] text-amber-50/45">Members</dt>
-                <dd className="mt-1.5 font-mono text-[18px] font-bold text-amber-50">
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-banner-ink/12 bg-banner-ink/12">
+              <div className="bg-banner/85 px-4 py-3.5">
+                <dt className="text-[11px] text-banner-ink/45">Members</dt>
+                <dd className="mt-1.5 font-mono text-[18px] font-bold text-banner-ink">
                   {group.member_count} / {group.member_limit}
                 </dd>
               </div>
-              <div className="bg-navy-950/85 px-4 py-3.5">
-                <dt className="text-[11px] text-amber-50/45">Formation</dt>
-                <dd className="mt-1.5 truncate text-[13px] font-medium text-amber-50">
+              <div className="bg-banner/85 px-4 py-3.5">
+                <dt className="text-[11px] text-banner-ink/45">Formation</dt>
+                <dd className="mt-1.5 truncate text-[13px] font-medium text-banner-ink">
                   {modeLabel(group.set_mode)}
                 </dd>
               </div>
@@ -363,8 +363,8 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
           </div>
 
           {studentFormedOpen && (
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-amber-50/10 pt-4">
-              <p className="text-[12px] text-amber-50/50">
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-banner-ink/10 pt-4">
+              <p className="text-[12px] text-banner-ink/50">
                 {isMember ? 'You currently belong to this group.' : 'This group is accepting members.'}
               </p>
               {isMember ? (
@@ -537,7 +537,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                           }
                         }}
                         aria-label={`Remove ${fullName(m.profile)}`}
-                        className="grid h-9 w-9 place-items-center rounded-lg text-muted transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/12 dark:hover:text-red-400"
+                        className="grid h-9 w-9 place-items-center rounded-lg text-muted transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
                       >
                         <Icon name="x" size={16} />
                       </button>

@@ -113,9 +113,9 @@ export function InboxInvitations({ onAnswered }: { onAnswered?: () => void }) {
       {invites.length > 0 && (
         <section
           aria-labelledby="inbox-invitations"
-          className="overflow-hidden rounded-panel border border-amber-300 bg-amber-400/6 dark:border-amber-400/40 dark:bg-amber-400/8"
+          className="overflow-hidden rounded-panel border border-warning-300 bg-warning-400/6 dark:border-warning-400/40 dark:bg-warning-400/8"
         >
-          <header className="flex items-center justify-between gap-3 border-b border-amber-300/60 px-4 py-3.5 sm:px-5 dark:border-amber-400/25">
+          <header className="flex items-center justify-between gap-3 border-b border-warning-300/60 px-4 py-3.5 sm:px-5 dark:border-warning-400/25">
             <div>
               <h2 id="inbox-invitations">Invitations</h2>
               <p className="mt-0.5 text-[12px] text-muted">Projects, spaces and classes waiting for your answer.</p>
@@ -124,7 +124,7 @@ export function InboxInvitations({ onAnswered }: { onAnswered?: () => void }) {
               {invites.length}
             </span>
           </header>
-          <ul className="divide-y divide-amber-300/50 dark:divide-amber-400/20">
+          <ul className="divide-y divide-warning-300/50 dark:divide-warning-400/20">
             {invites.map((invite) => {
               const marked = invite.target === target
               return (
@@ -136,7 +136,7 @@ export function InboxInvitations({ onAnswered }: { onAnswered?: () => void }) {
                   }}
                   aria-current={marked ? 'true' : undefined}
                   className={`flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 transition-colors sm:px-5 ${
-                    marked ? 'bg-amber-400/15 ring-2 ring-amber-400 ring-inset' : ''
+                    marked ? 'bg-warning-400/15 ring-2 ring-warning-400 ring-inset' : ''
                   }`}
                 >
                   {invite.inviter && <Avatar profile={invite.inviter} size={34} />}
@@ -146,7 +146,7 @@ export function InboxInvitations({ onAnswered }: { onAnswered?: () => void }) {
                       <span
                         className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
                           invite.kind === 'Class'
-                            ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
+                            ? 'bg-warning-400/18 text-warning-700 dark:text-warning-300'
                             : 'border border-line text-muted'
                         }`}
                       >

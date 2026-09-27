@@ -139,7 +139,7 @@ export function AppShell() {
                   exit={reduce ? undefined : { transform: 'translateX(-100%)' }}
                   transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-white/10 bg-navy-950 px-4 text-amber-50">
+                  <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-banner-ink/10 bg-banner px-4 text-banner-ink">
                     <Link to={paths.home} aria-label="Go to your dashboard">
                       <Logo size={26} tone="onDark" showSubtitle={false} />
                     </Link>
@@ -147,7 +147,7 @@ export function AppShell() {
                       type="button"
                       onClick={() => setDrawer(false)}
                       aria-label="Close navigation"
-                      className="grid h-9 w-9 place-items-center rounded-lg text-amber-50/60 hover:bg-white/10 hover:text-amber-50"
+                      className="grid h-9 w-9 place-items-center rounded-lg text-banner-ink/60 hover:bg-banner-ink/10 hover:text-banner-ink"
                     >
                       <Icon name="x" size={19} />
                     </button>

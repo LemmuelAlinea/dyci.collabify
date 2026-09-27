@@ -41,11 +41,11 @@ export function ProgramNotices() {
           <li
             key={n.id}
             className={`surface rounded-card border p-4 shadow-card ${
-              n.pinned ? 'border-amber-300 dark:border-amber-400/40' : 'border-line'
+              n.pinned ? 'border-warning-300 dark:border-warning-400/40' : 'border-line'
             }`}
           >
             <h3 className="flex items-center gap-2 text-ink">
-              {n.pinned && <Icon name="pin" size={14} className="shrink-0 text-amber-500" />}
+              {n.pinned && <Icon name="pin" size={14} className="shrink-0 text-warning-500" />}
               {n.title}
             </h3>
             <p className="mt-1.5 max-w-[80ch] text-[13px] leading-relaxed whitespace-pre-wrap text-muted">

@@ -116,7 +116,7 @@ export default function Analytics({ classId }: { classId?: string }) {
                           {taskStatusLabel(t.status)}
                         </span>
                         {t.late && (
-                          <span className="shrink-0 rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[12px] text-red-700 dark:text-red-300">
+                          <span className="shrink-0 rounded-md bg-danger-500/15 px-1.5 py-0.5 font-mono text-[12px] text-danger-700 dark:text-danger-300">
                             late
                           </span>
                         )}

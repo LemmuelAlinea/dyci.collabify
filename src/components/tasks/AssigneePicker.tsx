@@ -81,7 +81,7 @@ export function AssigneePicker({
       {shared && (
         <span
           title={`Split ${task.assignees.length} ways`}
-          className="rounded-md bg-amber-400/18 px-1.5 py-0.5 font-mono text-[12px] text-amber-700 dark:text-amber-300"
+          className="rounded-md bg-warning-400/18 px-1.5 py-0.5 font-mono text-[12px] text-warning-700 dark:text-warning-300"
         >
           {perPerson}% each
         </span>
@@ -169,7 +169,7 @@ export function AssigneePicker({
                         <span className="block text-[12px] text-faint">share is full</span>
                       )}
                     </span>
-                    {on && <Icon name="check" size={15} className="text-amber-500" />}
+                    {on && <Icon name="check" size={15} className="text-warning-500" />}
                   </button>
                 </li>
               )

@@ -191,7 +191,7 @@ export function AnnouncementFeed({
               key={a.id}
               className={`surface rounded-card border p-4 shadow-card sm:p-5 md:p-6 ${
                 a.pinned && isLive(a.created_at)
-                  ? 'border-amber-300 dark:border-amber-400/50'
+                  ? 'border-warning-300 dark:border-warning-400/50'
                   : 'border-line'
               } ${canManage && !isLive(a.created_at) ? 'opacity-70' : ''}`}
             >
@@ -199,7 +199,7 @@ export function AnnouncementFeed({
                 <div className="min-w-0">
                   <span className="mb-2 flex flex-wrap items-center gap-2">
                     {a.pinned && (
-                      <span className="inline-flex items-center gap-2 rounded-full bg-amber-400/18 px-2.5 py-1 font-mono text-[12px] tracking-wider text-amber-700 uppercase dark:text-amber-300">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-warning-400/18 px-2.5 py-1 font-mono text-[12px] tracking-wider text-warning-700 uppercase dark:text-warning-300">
                         <Icon name="target" size={11} />
                         Pinned
                       </span>
@@ -242,7 +242,7 @@ export function AnnouncementFeed({
                       aria-label={a.pinned ? 'Unpin announcement' : 'Pin announcement'}
                       title={a.pinned ? 'Unpin' : 'Pin to the top for its day'}
                       className={`grid h-9 w-9 place-items-center rounded-full transition-colors hover:bg-[var(--surface-sunken)] ${
-                        a.pinned ? 'text-amber-500 dark:text-amber-300' : 'text-muted hover:text-ink'
+                        a.pinned ? 'text-warning-500 dark:text-warning-300' : 'text-muted hover:text-ink'
                       }`}
                     >
                       <Icon name="target" size={16} />
@@ -259,7 +259,7 @@ export function AnnouncementFeed({
                       type="button"
                       onClick={() => setPendingDelete(a)}
                       aria-label="Delete announcement"
-                      className="grid h-9 w-9 place-items-center rounded-full text-muted transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/12 dark:hover:text-red-400"
+                      className="grid h-9 w-9 place-items-center rounded-full text-muted transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
                     >
                       <Icon name="trash" size={16} />
                     </button>

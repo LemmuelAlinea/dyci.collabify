@@ -205,17 +205,17 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         All projects
       </Link>
 
-      <header className="relative mt-4 overflow-hidden rounded-panel border border-amber-50/10 bg-navy-950 px-5 py-6 text-amber-50 sm:px-7 sm:py-8 lg:px-9">
+      <header className="relative mt-4 overflow-hidden rounded-panel border border-banner-ink/10 bg-banner px-5 py-6 text-banner-ink sm:px-7 sm:py-8 lg:px-9">
         <div
           aria-hidden
-          className="pointer-events-none absolute -top-48 -right-40 h-[420px] w-[420px] rounded-full bg-amber-400/10 blur-[115px]"
+          className="pointer-events-none absolute -top-48 -right-40 h-[420px] w-[420px] rounded-full bg-banner-glow/10 blur-[115px]"
         />
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-60"
           style={{
             backgroundImage:
-              'linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px)',
+              'linear-gradient(color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px)',
             backgroundSize: '54px 54px',
             maskImage: 'linear-gradient(90deg, #000 10%, transparent 85%)',
             WebkitMaskImage: 'linear-gradient(90deg, #000 10%, transparent 85%)',
@@ -225,20 +225,20 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         <div className="relative">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50/8 px-2.5 py-1 text-[11px] font-medium text-amber-50/65 ring-1 ring-amber-50/10">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-banner-ink/8 px-2.5 py-1 text-[11px] font-medium text-banner-ink/65 ring-1 ring-banner-ink/10">
                 <Icon name={meta?.icon ?? 'folder'} size={12} />
                 {projectTypeLabel(project)}
               </span>
-              <span className="rounded-full bg-amber-50/8 px-2.5 py-1 text-[11px] font-medium text-amber-50/65 ring-1 ring-amber-50/10">
+              <span className="rounded-full bg-banner-ink/8 px-2.5 py-1 text-[11px] font-medium text-banner-ink/65 ring-1 ring-banner-ink/10">
                 {weekSpanLabel(project)}
               </span>
               <span
                 className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
                   project.archived_at || closed
-                    ? 'bg-white/10 text-amber-50/70'
+                    ? 'bg-banner-ink/10 text-banner-ink/70'
                     : project.scheduled
-                      ? 'bg-amber-400/15 text-amber-200'
-                      : 'bg-emerald-400/12 text-emerald-200'
+                      ? 'bg-banner-glow/15 text-banner-accent-soft'
+                      : 'bg-success-400/12 text-success-200'
                 }`}
               >
                 {project.archived_at
@@ -333,7 +333,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                   type="button"
                   onClick={() => setDeletePrompt(true)}
                   aria-label="Delete project"
-                  className="grid h-8 w-8 place-items-center rounded-lg text-amber-50/55 transition-colors hover:bg-red-500/15 hover:text-red-200"
+                  className="grid h-8 w-8 place-items-center rounded-lg text-banner-ink/55 transition-colors hover:bg-danger-500/15 hover:text-danger-200"
                 >
                   <Icon name="trash" size={15} />
                 </button>
@@ -343,19 +343,19 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
 
           <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(460px,0.82fr)] lg:items-end">
             <div className="flex min-w-0 items-start gap-4 sm:gap-5">
-              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-amber-50/8 text-amber-300 ring-1 ring-amber-50/12 sm:h-16 sm:w-16">
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-banner-ink/8 text-banner-accent ring-1 ring-banner-ink/12 sm:h-16 sm:w-16">
                 <Icon name={meta?.icon ?? 'folder'} size={23} />
               </span>
               <div className="min-w-0">
-                <h1 className="text-balance text-amber-50">{project.title}</h1>
-                <p className="mt-2 text-[13px] text-amber-50/55">
-                  <Link to={paths.class(project.class_id)} className="hover:text-amber-200 hover:underline">
+                <h1 className="text-balance text-banner-ink">{project.title}</h1>
+                <p className="mt-2 text-[13px] text-banner-ink/55">
+                  <Link to={paths.class(project.class_id)} className="hover:text-banner-accent-soft hover:underline">
                     {project.class_initial} · {project.class_name}
                   </Link>
                   {project.group_set_name && ` · ${project.group_set_name}`}
                 </p>
                 {project.scheduled && project.release_at && (
-                  <p className="mt-3 flex items-center gap-2 text-[12px] text-amber-200/80">
+                  <p className="mt-3 flex items-center gap-2 text-[12px] text-banner-accent-soft/80">
                     <Icon name="eyeOff" size={13} />
                     Hidden until {new Date(project.release_at).toLocaleString()}
                   </p>
@@ -363,20 +363,20 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
               </div>
             </div>
 
-            <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-amber-50/12 bg-amber-50/12">
-              <div className="min-w-0 bg-navy-950/85 px-3 py-3.5">
-                <dt className="text-[11px] text-amber-50/45">Deadline</dt>
-                <dd className="mt-1.5 text-[12px] font-medium text-amber-50">{dueLabel(project.due_at)}</dd>
+            <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-banner-ink/12 bg-banner-ink/12">
+              <div className="min-w-0 bg-banner/85 px-3 py-3.5">
+                <dt className="text-[11px] text-banner-ink/45">Deadline</dt>
+                <dd className="mt-1.5 text-[12px] font-medium text-banner-ink">{dueLabel(project.due_at)}</dd>
               </div>
-              <div className="min-w-0 bg-navy-950/85 px-3 py-3.5">
-                <dt className="text-[11px] text-amber-50/45">Submission</dt>
-                <dd className="mt-1.5 truncate text-[12px] font-medium text-amber-50">
+              <div className="min-w-0 bg-banner/85 px-3 py-3.5">
+                <dt className="text-[11px] text-banner-ink/45">Submission</dt>
+                <dd className="mt-1.5 truncate text-[12px] font-medium text-banner-ink">
                   {project.audience === 'group' ? 'Per group' : 'Per student'}
                 </dd>
               </div>
-              <div className="min-w-0 bg-navy-950/85 px-3 py-3.5">
-                <dt className="text-[11px] text-amber-50/45">Points</dt>
-                <dd className="mt-1.5 font-mono text-[18px] font-bold text-amber-50">
+              <div className="min-w-0 bg-banner/85 px-3 py-3.5">
+                <dt className="text-[11px] text-banner-ink/45">Points</dt>
+                <dd className="mt-1.5 font-mono text-[18px] font-bold text-banner-ink">
                   {project.total_points}
                 </dd>
               </div>
@@ -384,7 +384,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           </div>
 
           {inSeries && (
-            <p className="mt-6 flex items-start gap-2 border-t border-amber-50/10 pt-4 text-[12px] text-amber-50/50">
+            <p className="mt-6 flex items-start gap-2 border-t border-banner-ink/10 pt-4 text-[12px] text-banner-ink/50">
               <Icon name="copy" size={13} className="mt-0.5 shrink-0" />
               <span>
                 Also set for {others.map((m) => m.section).join(', ')} — each has its own board and deadline.
@@ -478,7 +478,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                     <p className="mt-1 text-[13px] leading-relaxed text-muted">{w.topics}</p>
                   )}
                   {w.assessments && (
-                    <p className="mt-1.5 flex gap-2 text-[12px] leading-relaxed text-amber-700 dark:text-amber-300">
+                    <p className="mt-1.5 flex gap-2 text-[12px] leading-relaxed text-warning-700 dark:text-warning-300">
                       <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
                       {w.assessments}
                     </p>
@@ -567,7 +567,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                       type="button"
                       onClick={() => setRemoving(a)}
                       aria-label={`Remove ${a.file_name}`}
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/12 dark:hover:text-red-400"
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
                     >
                       <Icon name="trash" size={16} />
                     </button>

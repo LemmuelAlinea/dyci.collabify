@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { ThemeMode } from '../lib/types'
+import { applyPalette, readCachedPicks } from '../lib/palette'
+import type { PaletteColors } from '../lib/palette'
 
 const STORAGE_KEY = 'collabify.theme'
 
@@ -8,6 +10,9 @@ type ThemeValue = {
   mode: ThemeMode
   resolved: 'light' | 'dark'
   setMode: (mode: ThemeMode) => void
+  /** The person's own colours from Settings → Appearance; empty means the defaults. */
+  colors: PaletteColors
+  setColors: (colors: PaletteColors) => void
 }
 
 const ThemeContext = createContext<ThemeValue | null>(null)
@@ -24,6 +29,7 @@ function systemPrefersDark() {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(readStored)
+  const [colors, setColors] = useState<PaletteColors>(readCachedPicks)
   const [systemDark, setSystemDark] = useState(() =>
     typeof window === 'undefined' ? false : systemPrefersDark(),
   )
@@ -45,12 +51,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       ?.setAttribute('content', resolved === 'dark' ? '#080b21' : '#26327A')
   }, [resolved])
 
+  // Each mode has its own colours, so a swap between light and dark re-applies.
+  useEffect(() => {
+    applyPalette(colors, resolved)
+  }, [colors, resolved])
+
   const setMode = useCallback((next: ThemeMode) => {
     setModeState(next)
     window.localStorage.setItem(STORAGE_KEY, next)
   }, [])
 
-  const value = useMemo(() => ({ mode, resolved, setMode }), [mode, resolved, setMode])
+  const value = useMemo(
+    () => ({ mode, resolved, setMode, colors, setColors }),
+    [mode, resolved, setMode, colors],
+  )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }

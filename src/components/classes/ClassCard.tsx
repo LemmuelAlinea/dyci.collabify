@@ -64,7 +64,7 @@ export function ClassCard({
           <span
             className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
               ready && !archived
-                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                ? 'bg-success-500/10 text-success-700 dark:text-success-300'
                 : 'surface-sunken text-muted'
             }`}
           >

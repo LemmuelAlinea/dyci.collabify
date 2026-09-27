@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import type { ReactNode } from 'react'
 import { Avatar } from '../components/app/Avatar'
 import { DirectoryHero } from '../components/app/DirectoryHero'
+import { ColorCustomizer } from '../components/settings/ColorCustomizer'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { Field, Input, Toggle } from '../components/ui/Field'
 import { Alert } from '../components/ui/Alert'
@@ -150,7 +151,7 @@ function Section({
 function Saved({ show, text = 'Saved' }: { show: boolean; text?: string }) {
   if (!show) return null
   return (
-    <span className="flex items-center gap-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
+    <span className="flex items-center gap-2 text-[13px] font-medium text-success-600 dark:text-success-400">
       <Icon name="check" size={15} strokeWidth={2.6} />
       {text}
     </span>
@@ -447,7 +448,7 @@ export default function Settings() {
             id="appearance"
             icon="palette"
             title="Appearance"
-            description="Applies on this device right away, and follows your account."
+            description="Light or dark, and your own colors for each. Applies right away and follows your account."
           >
           <div className="grid grid-cols-3 gap-3 sm:gap-3">
             {APPEARANCE.map((a) => {
@@ -482,6 +483,7 @@ export default function Settings() {
           <div className="mt-4 flex justify-end">
             <Saved show={themeSaved} text="Appearance saved" />
           </div>
+          <ColorCustomizer />
           </Section>
 
           <Section

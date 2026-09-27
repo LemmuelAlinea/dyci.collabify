@@ -114,7 +114,7 @@ export function AnnouncementSwiper({
                     {cls ? `${cls.initial} · ${cls.name}` : 'Class'}
                   </span>
                   {a.pinned && (
-                    <span className="flex items-center gap-1 rounded-full bg-amber-400/18 px-2 py-0.5 font-mono text-[12px] text-amber-700 dark:text-amber-300">
+                    <span className="flex items-center gap-1 rounded-full bg-warning-400/18 px-2 py-0.5 font-mono text-[12px] text-warning-700 dark:text-warning-300">
                       <Icon name="pin" size={11} />
                       Pinned
                     </span>

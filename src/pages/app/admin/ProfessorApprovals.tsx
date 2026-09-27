@@ -15,8 +15,8 @@ import { fullName } from '../../../lib/types'
 import type { AccountStatus, ProfessorAccount } from '../../../lib/types'
 
 const TONE: Record<AccountStatus, string> = {
-  pending: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
-  active: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  pending: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
+  active: 'bg-success-500/15 text-success-700 dark:text-success-300',
   rejected: 'surface-sunken text-muted',
 }
 
@@ -130,7 +130,7 @@ export default function ProfessorApprovals() {
           <h2>
           Waiting on you
           {waiting.length > 0 && (
-            <span className="ml-2 font-mono text-[13px] text-amber-700 dark:text-amber-300">
+            <span className="ml-2 font-mono text-[13px] text-warning-700 dark:text-warning-300">
               {waiting.length}
             </span>
           )}

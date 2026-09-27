@@ -145,7 +145,7 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
       >
         <Icon name="bell" size={19} />
         {unread > 0 && (
-          <span className="absolute top-1.5 right-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-amber-400 px-1 font-mono text-[12px] font-bold text-navy-900">
+          <span className="absolute top-1.5 right-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-badge px-1 font-mono text-[12px] font-bold text-badge-ink">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
@@ -204,7 +204,7 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
                     >
                       <span
                         className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                          n.read_at ? 'bg-transparent' : 'bg-amber-400'
+                          n.read_at ? 'bg-transparent' : 'bg-badge'
                         }`}
                       />
                       <span className="min-w-0 flex-1">

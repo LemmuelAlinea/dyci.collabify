@@ -38,13 +38,13 @@ export function RoleHome({
           use. This role's home has no figures to put in it, so the greeting and
           the intro carry the band on their own. */}
       <Reveal once>
-        <section className="relative overflow-hidden rounded-panel border border-amber-50/10 bg-navy-950 px-5 py-7 text-amber-50 sm:px-7 sm:py-8 lg:px-9 lg:py-10">
+        <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 bg-banner px-5 py-7 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-10">
           <div
             aria-hidden
             className="pointer-events-none absolute -top-56 -right-40 h-[460px] w-[460px] rounded-full blur-[120px]"
             style={{
               background:
-                'radial-gradient(circle, rgb(240 180 41 / 0.18) 0%, rgb(240 180 41 / 0.05) 45%, transparent 70%)',
+                'radial-gradient(circle, color-mix(in oklab, var(--banner-glow) 18%, transparent) 0%, color-mix(in oklab, var(--banner-glow) 5%, transparent) 45%, transparent 70%)',
             }}
           />
           <div
@@ -52,20 +52,20 @@ export function RoleHome({
             className="pointer-events-none absolute inset-0"
             style={{
               backgroundImage:
-                'linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px)',
+                'linear-gradient(color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px)',
               backgroundSize: '54px 54px',
               maskImage: 'radial-gradient(ellipse at 30% 30%, #000, transparent 75%)',
               WebkitMaskImage: 'radial-gradient(ellipse at 30% 30%, #000, transparent 75%)',
             }}
           />
           <div className="relative">
-            <p className="font-mono text-[12px] tracking-[0.22em] text-amber-200/75 uppercase">
+            <p className="font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft/75 uppercase">
               Program
             </p>
-            <h1 className="mt-5 font-display leading-tight text-amber-50">
+            <h1 className="mt-5 font-display leading-tight text-banner-ink">
               {greeting()}, {profile.first_name}.
             </h1>
-            <p className="mt-3 max-w-[620px] text-[14px] leading-relaxed text-amber-50/60">
+            <p className="mt-3 max-w-[620px] text-[14px] leading-relaxed text-banner-ink/60">
               {intro}
             </p>
           </div>

@@ -26,9 +26,9 @@ export function BurnCard({ burn }: { burn: BoardBurn }) {
           : 'plain'
 
   const border = {
-    good: 'border-emerald-300 dark:border-emerald-500/40',
-    warn: 'border-amber-300 dark:border-amber-400/40',
-    bad: 'border-red-300 dark:border-red-500/40',
+    good: 'border-success-300 dark:border-success-500/40',
+    warn: 'border-warning-300 dark:border-warning-400/40',
+    bad: 'border-danger-300 dark:border-danger-500/40',
     plain: 'border-line',
   }[tone]
 
@@ -49,7 +49,7 @@ export function BurnCard({ burn }: { burn: BoardBurn }) {
 
       <div className="mt-2 h-1.5 overflow-hidden rounded-full surface-sunken">
         <span
-          className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+          className="block h-full rounded-full bg-progress transition-[width] duration-300"
           style={{ width: `${Number(burn.done_pct)}%` }}
         />
       </div>
@@ -60,9 +60,9 @@ export function BurnCard({ burn }: { burn: BoardBurn }) {
           size={13}
           className={`mt-0.5 shrink-0 ${
             tone === 'bad'
-              ? 'text-red-600 dark:text-red-400'
+              ? 'text-danger-600 dark:text-danger-400'
               : tone === 'warn'
-                ? 'text-amber-600 dark:text-amber-400'
+                ? 'text-warning-600 dark:text-warning-400'
                 : 'text-faint'
           }`}
         />
@@ -98,7 +98,7 @@ export function BurnCard({ burn }: { burn: BoardBurn }) {
       </p>
 
       {burn.late_count > 0 && (
-        <p className="mt-1.5 font-mono text-[12px] text-red-600 dark:text-red-400">
+        <p className="mt-1.5 font-mono text-[12px] text-danger-600 dark:text-danger-400">
           {burn.late_count} handed in late
         </p>
       )}

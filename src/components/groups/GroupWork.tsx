@@ -13,9 +13,9 @@ import type { BoardSummary, ProjectTask, TeachingViewRole } from '../../lib/type
 import { paths } from '../../lib/paths'
 
 const STATUS_TONE: Record<string, string> = {
-  todo: 'surface-sunken text-muted',
-  in_progress: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
-  done: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  todo: 'bg-pending-soft text-pending-ink',
+  in_progress: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
+  done: 'bg-success-500/15 text-success-700 dark:text-success-300',
 }
 
 /**
@@ -139,7 +139,7 @@ export function GroupWork({
                       ? 'No tasks yet'
                       : `${board.done_count} of ${board.task_count} done`}
                     {board.unclaimed_count > 0 && (
-                      <span className="text-amber-700 dark:text-amber-300">
+                      <span className="text-warning-700 dark:text-warning-300">
                         {' · '}
                         {board.unclaimed_count} unclaimed
                       </span>
@@ -151,7 +151,7 @@ export function GroupWork({
               <span className="flex shrink-0 items-center gap-3">
                 <span className="hidden h-1.5 w-24 overflow-hidden rounded-full surface-sunken sm:block">
                   <span
-                    className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                    className="block h-full rounded-full bg-progress transition-[width] duration-300"
                     style={{ width: `${pct}%` }}
                   />
                 </span>
@@ -220,7 +220,7 @@ export function GroupWork({
                                 </span>
                               )}
                               {t.assignees.length === 0 && (
-                                <span className="block text-[12px] text-amber-700 dark:text-amber-300">
+                                <span className="block text-[12px] text-warning-700 dark:text-warning-300">
                                   Unclaimed
                                 </span>
                               )}
@@ -229,7 +229,7 @@ export function GroupWork({
                             {handedInLate && (
                               <span
                                 title="Finished after the deadline"
-                                className="shrink-0 rounded-md bg-red-500/15 px-1.5 py-0.5 font-mono text-[12px] text-red-700 dark:text-red-300"
+                                className="shrink-0 rounded-md bg-danger-500/15 px-1.5 py-0.5 font-mono text-[12px] text-danger-700 dark:text-danger-300"
                               >
                                 Late
                               </span>
@@ -238,7 +238,7 @@ export function GroupWork({
                             {due && !handedInLate && (
                               <span
                                 className={`shrink-0 font-mono text-[12px] ${
-                                  overdue ? 'text-red-600 dark:text-red-400' : 'text-faint'
+                                  overdue ? 'text-danger-600 dark:text-danger-400' : 'text-faint'
                                 }`}
                               >
                                 {due}

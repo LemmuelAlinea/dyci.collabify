@@ -46,8 +46,8 @@ const ORDER_OPTIONS = [
 ]
 
 const TONE: Record<SubmissionStatus, string> = {
-  waiting: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
-  accepted: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  waiting: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
+  accepted: 'bg-success-500/15 text-success-700 dark:text-success-300',
   returned: 'bg-navy-500/10 text-navy-700 dark:text-navy-200',
 }
 
@@ -502,7 +502,7 @@ function SubmissionRow({
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink">
               {row.submitted_at ? stamp(row.submitted_at) : '—'}
               {row.late && (
-                <span className="rounded-md bg-red-500/10 px-1.5 py-0.5 text-[12px] font-medium text-red-700 dark:text-red-300">
+                <span className="rounded-md bg-danger-500/10 px-1.5 py-0.5 text-[12px] font-medium text-danger-700 dark:text-danger-300">
                   Late
                 </span>
               )}
@@ -525,7 +525,7 @@ function SubmissionRow({
         </div>
         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full surface-sunken">
           <span
-            className="block h-full rounded-full bg-emerald-500"
+            className="block h-full rounded-full bg-progress"
             style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
           />
         </div>

@@ -26,8 +26,8 @@ const WORDING: Record<TaskEventKind, string> = {
 
 const RING: Record<TaskStatus, string> = {
   todo: 'var(--line-strong)',
-  in_progress: '#F0B429',
-  done: '#10b981',
+  in_progress: 'var(--color-warning-400)',
+  done: 'var(--color-success-500)',
 }
 
 export function SummaryTile({
@@ -49,7 +49,7 @@ export function SummaryTile({
       <span
         className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
           tone === 'warn'
-            ? 'bg-red-500/15 text-red-700 dark:text-red-300'
+            ? 'bg-danger-500/15 text-danger-700 dark:text-danger-300'
             : 'surface-sunken text-muted'
         }`}
       >
@@ -240,7 +240,7 @@ export function TaskSummary({
             <StatusDonut counts={counts} total={rows.length} />
           )}
           {unclaimed.length > 0 && (
-            <p className="mt-4 flex items-center gap-2 text-[12px] text-amber-700 dark:text-amber-300">
+            <p className="mt-4 flex items-center gap-2 text-[12px] text-warning-700 dark:text-warning-300">
               <Icon name="alert" size={13} />
               {unclaimed.length} {unclaimed.length === 1 ? 'task has' : 'tasks have'} nobody on
               them
@@ -298,7 +298,7 @@ export function TaskSummary({
                   <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{p.name}</span>
                   <span className="h-1.5 w-24 overflow-hidden rounded-full surface-sunken">
                     <span
-                      className="block h-full rounded-full bg-emerald-500"
+                      className="block h-full rounded-full bg-progress"
                       style={{ width: `${p.held ? (p.done / p.held) * 100 : 0}%` }}
                     />
                   </span>

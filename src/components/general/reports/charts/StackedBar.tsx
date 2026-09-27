@@ -1,9 +1,9 @@
 export type Stack = { label: string; value: number; tone: 'done' | 'progress' | 'late' | 'todo' }
 
 const TONE: Record<Stack['tone'], string> = {
-  done: 'bg-emerald-500',
-  progress: 'bg-amber-400',
-  late: 'bg-red-500',
+  done: 'bg-success-500',
+  progress: 'bg-warning-400',
+  late: 'bg-danger-500',
   todo: 'bg-[var(--line-strong)]',
 }
 

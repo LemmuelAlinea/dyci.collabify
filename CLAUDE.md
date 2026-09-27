@@ -25,6 +25,15 @@ Do not hardcode colors. Everything reads from tokens in `src/styles/index.css`:
 - Text: `text-ink`, `text-muted`, `text-faint`
 - Lines: `border-line`, `border-line-strong`
 - Brand ramps: `navy-*` (600 is the brand), `amber-*` (400 is the accent)
+- Status ramps: `success-*` (done), `warning-*` (in progress, needs attention),
+  `danger-*` (late, errors), and `pending-soft` / `pending-ink` (not started). Never
+  `emerald-*`, `red-*`, or brand amber for a status.
+- Personal slots: `banner`, `banner-ink`, `banner-accent`, `banner-glow` (page
+  banners), `progress`, `nav-icon`, `nav-active`, `nav-marker`, `badge`.
+
+Status ramps and personal slots can be recolored per person in Settings → Appearance
+(`lib/palette.ts` sets them inline on `<html>`). Give them defaults in `:root` / `.dark`
+only, never under `.app-ui`, or the person's colors stop reaching the page.
 
 Both light and dark are defined in the same block — a raw hex breaks one of them.
 

@@ -157,7 +157,7 @@ export default function SpaceHome() {
                   <Button
                     variant="onNavy"
                     size="sm"
-                    className="!h-8 !rounded-lg !px-3 hover:!border-red-300/50 hover:!bg-red-500/15 hover:!text-red-200"
+                    className="!h-8 !rounded-lg !px-3 hover:!border-danger-300/50 hover:!bg-danger-500/15 hover:!text-danger-200"
                     onClick={() => setDeleteOpen(true)}
                   >
                     <Icon name="trash" size={14} />

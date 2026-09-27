@@ -137,6 +137,49 @@
   --color-amber-700: #7d5507;
   --color-amber-800: #513604;
 
+  /*
+   * The status set: done, in progress, late. Each person can recolour these in
+   * Settings → Appearance, so they are their own ramps rather than emerald, red
+   * and the brand amber. `lib/palette.ts` overrides every stop inline on
+   * <html> when a custom colour is picked; these are the defaults, and they are
+   * exactly the stops the product used before the split.
+   */
+  --color-success-50: oklch(97.9% 0.021 166.113);
+  --color-success-100: oklch(95% 0.052 163.051);
+  --color-success-200: oklch(90.5% 0.093 164.15);
+  --color-success-300: oklch(84.5% 0.143 164.978);
+  --color-success-400: oklch(76.5% 0.177 163.223);
+  --color-success-500: oklch(69.6% 0.17 162.48);
+  --color-success-600: oklch(59.6% 0.145 163.225);
+  --color-success-700: oklch(50.8% 0.118 165.612);
+  --color-success-800: oklch(43.2% 0.095 166.913);
+  --color-success-900: oklch(37.8% 0.077 168.94);
+  --color-success-950: oklch(26.2% 0.051 172.552);
+
+  --color-warning-50: #fef7e6;
+  --color-warning-100: #fdebbf;
+  --color-warning-200: #fbd982;
+  --color-warning-300: #f7c74a;
+  --color-warning-400: #f0b429;
+  --color-warning-500: #d9990f;
+  --color-warning-600: #ad770a;
+  --color-warning-700: #7d5507;
+  --color-warning-800: #513604;
+  --color-warning-900: oklch(41.4% 0.112 45.904);
+  --color-warning-950: oklch(27.9% 0.077 45.635);
+
+  --color-danger-50: oklch(97.1% 0.013 17.38);
+  --color-danger-100: oklch(93.6% 0.032 17.717);
+  --color-danger-200: oklch(88.5% 0.062 18.334);
+  --color-danger-300: oklch(80.8% 0.114 19.571);
+  --color-danger-400: oklch(70.4% 0.191 22.216);
+  --color-danger-500: oklch(63.7% 0.237 25.331);
+  --color-danger-600: oklch(57.7% 0.245 27.325);
+  --color-danger-700: oklch(50.5% 0.213 27.518);
+  --color-danger-800: oklch(44.4% 0.177 26.899);
+  --color-danger-900: oklch(39.6% 0.141 25.723);
+  --color-danger-950: oklch(25.8% 0.092 26.042);
+
   --radius-card: 16px;
   --radius-panel: 22px;
 
@@ -152,6 +195,34 @@
   --dur-fast: 180ms;
   --dur-base: 220ms;
   --dur-overlay: 260ms;
+}
+
+/*
+ * The single colours a person can pick in Settings → Appearance. `inline` so a
+ * utility reads the variable where it is used, not where it was declared —
+ * `pending-soft` falls back to `--surface-sunken`, which the app redefines
+ * under `.app-ui`, and a value resolved at :root would miss that.
+ *
+ * The unprefixed variables are set in the `:root` and `.dark` blocks below and,
+ * for a custom palette, inline on <html> by `lib/palette.ts`, which wins over
+ * both. Never set them under `.app-ui`: that would shadow the inline override.
+ */
+@theme inline {
+  --color-banner: var(--banner);
+  --color-banner-ink: var(--banner-ink);
+  --color-banner-accent: var(--banner-accent);
+  /* Was amber-200 on the banners: the accent lifted halfway to the text. */
+  --color-banner-accent-soft: color-mix(in oklab, var(--banner-accent) 55%, var(--banner-ink));
+  --color-banner-glow: var(--banner-glow);
+  --color-pending-soft: var(--pending-soft, var(--surface-sunken));
+  --color-pending-ink: var(--pending-ink, var(--ink-muted));
+  --color-progress: var(--progress);
+  --color-nav-icon: var(--nav-icon, currentColor);
+  --color-nav-active: var(--nav-active);
+  --color-nav-active-ink: var(--nav-active-ink);
+  --color-nav-marker: var(--nav-marker);
+  --color-badge: var(--badge);
+  --color-badge-ink: var(--badge-ink);
 }
 
 /* Semantic surface tokens. Every component reads these, never raw ramp stops,
@@ -186,6 +257,18 @@
       0 10px 26px rgb(13 19 48 / 0.07);
     --shadow-lift: 0 2px 6px rgb(13 19 48 / 0.14), 0 12px 28px rgb(13 19 48 / 0.14),
       0 28px 60px rgb(13 19 48 / 0.12);
+
+    /* Customisable in Settings → Appearance; see the `@theme inline` block. */
+    --banner: #080b21;
+    --banner-ink: #fef7e6;
+    --banner-accent: #f7c74a;
+    --banner-glow: #f0b429;
+    --progress: oklch(69.6% 0.17 162.48);
+    --nav-active: #26327a;
+    --nav-active-ink: #ffffff;
+    --nav-marker: #f0b429;
+    --badge: #f0b429;
+    --badge-ink: #101637;
   }
 
   .dark {
@@ -202,6 +285,9 @@
     --ring: #8493cf;
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px rgb(0 0 0 / 0.38);
     --shadow-lift: 0 2px 6px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.55);
+
+    --nav-active: #f0b429;
+    --nav-active-ink: #101637;
   }
 
   * {

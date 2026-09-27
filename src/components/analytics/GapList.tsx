@@ -33,7 +33,7 @@ export function GapList({ gaps }: { gaps: ClassGap[] }) {
         {gaps.length === 1 ? 'week names' : 'weeks name'} something to hand in with no project
         against {gaps.length === 1 ? 'it' : 'them'}
         {missed > 0 && (
-          <span className="text-red-600 dark:text-red-400">
+          <span className="text-danger-600 dark:text-danger-400">
             {' · '}
             {missed} already gone by
           </span>
@@ -46,9 +46,9 @@ export function GapList({ gaps }: { gaps: ClassGap[] }) {
             key={`${g.class_id}-${g.week_no}`}
             className={`surface flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-3.5 py-2.5 ${
               g.phase === 'past'
-                ? 'border-red-200 dark:border-red-500/30'
+                ? 'border-danger-200 dark:border-danger-500/30'
                 : g.phase === 'current'
-                  ? 'border-amber-300 dark:border-amber-400/40'
+                  ? 'border-warning-300 dark:border-warning-400/40'
                   : 'border-line'
             }`}
           >
@@ -57,18 +57,18 @@ export function GapList({ gaps }: { gaps: ClassGap[] }) {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[14px] text-ink">{g.week_title}</span>
-              <span className="block truncate text-[12px] text-amber-700 dark:text-amber-300">
+              <span className="block truncate text-[12px] text-warning-700 dark:text-warning-300">
                 {g.assessments}
               </span>
             </span>
             {g.phase === 'past' && (
-              <span className="flex shrink-0 items-center gap-1 text-[12px] text-red-600 dark:text-red-400">
+              <span className="flex shrink-0 items-center gap-1 text-[12px] text-danger-600 dark:text-danger-400">
                 <Icon name="alert" size={13} />
                 missed
               </span>
             )}
             {g.phase === 'current' && (
-              <span className="shrink-0 text-[12px] text-amber-700 dark:text-amber-300">
+              <span className="shrink-0 text-[12px] text-warning-700 dark:text-warning-300">
                 this week
               </span>
             )}

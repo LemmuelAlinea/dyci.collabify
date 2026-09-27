@@ -258,8 +258,8 @@ function SpaceCard({
               s.archived_at
                 ? 'surface-sunken text-muted'
                 : classId
-                  ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
-                  : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  ? 'bg-warning-400/18 text-warning-700 dark:text-warning-300'
+                  : 'bg-success-500/10 text-success-700 dark:text-success-300'
             }`}
           >
             {status}

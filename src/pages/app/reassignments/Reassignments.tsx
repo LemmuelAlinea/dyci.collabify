@@ -28,8 +28,8 @@ function when(iso: string | null) {
 }
 
 const TONE: Record<string, string> = {
-  pending: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
-  approved: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  pending: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
+  approved: 'bg-success-500/15 text-success-700 dark:text-success-300',
   declined: 'surface-sunken text-muted',
   withdrawn: 'surface-sunken text-muted',
 }

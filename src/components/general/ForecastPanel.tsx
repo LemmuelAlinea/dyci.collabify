@@ -74,7 +74,7 @@ export function ForecastPanel({ state }: { state: GeneralProjectState }) {
   if (f.state === 'overrunning') {
     return (
       <div className="space-y-1.5">
-        <p className="text-[14px] text-red-700 dark:text-red-300">
+        <p className="text-[14px] text-danger-700 dark:text-danger-300">
           At this pace the work runs {f.overrunDays} {f.overrunDays === 1 ? 'day' : 'days'} past the
           end date — finishing around {asDay(f.finishesOn as string)} against{' '}
           {formatDay(project.ends_on as string)}.
@@ -86,7 +86,7 @@ export function ForecastPanel({ state }: { state: GeneralProjectState }) {
 
   return (
     <div className="space-y-1.5">
-      <p className="text-[14px] text-emerald-700 dark:text-emerald-300">
+      <p className="text-[14px] text-success-700 dark:text-success-300">
         At this pace the work finishes around {asDay(f.finishesOn as string)}, inside the{' '}
         {formatDay(project.ends_on as string)} end date.
       </p>

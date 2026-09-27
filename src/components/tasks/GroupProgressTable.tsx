@@ -104,13 +104,13 @@ export function GroupProgressTable({
           <strong className="text-ink">{started}</strong> of {boards.length} started ·{' '}
           <strong className="text-ink">{average}%</strong> average
           {handedIn > 0 && (
-            <span className="text-emerald-700 dark:text-emerald-300">
+            <span className="text-success-700 dark:text-success-300">
               {' · '}
               <strong>{handedIn}</strong> handed in
             </span>
           )}
           {attention > 0 && (
-            <span className="text-amber-700 dark:text-amber-300">
+            <span className="text-warning-700 dark:text-warning-300">
               {' · '}
               {attention} need{attention === 1 ? 's' : ''} a look
             </span>
@@ -171,7 +171,7 @@ export function GroupProgressTable({
                     open
                       ? 'border-navy-400 dark:border-navy-300'
                       : empty || b.unclaimed_count > 0
-                        ? 'border-amber-300 dark:border-amber-400/40'
+                        ? 'border-warning-300 dark:border-warning-400/40'
                         : 'border-line hover:border-line-strong'
                   }`}
                 >
@@ -183,7 +183,7 @@ export function GroupProgressTable({
                       {b.submitted_at && (
                         <span
                           title={`Handed in${b.submitted_by_name ? ` by ${b.submitted_by_name}` : ''}`}
-                          className="flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[12px] text-emerald-700 dark:text-emerald-300"
+                          className="flex items-center gap-1 rounded-md bg-success-500/15 px-1.5 py-0.5 font-mono text-[12px] text-success-700 dark:text-success-300"
                         >
                           <Icon name="check" size={11} />
                           In
@@ -213,10 +213,10 @@ export function GroupProgressTable({
                             e.stopPropagation()
                             void run(b)
                           }}
-                          className={`grid h-6 w-6 place-items-center rounded-md text-emerald-700 transition-colors dark:text-emerald-300 ${
+                          className={`grid h-6 w-6 place-items-center rounded-md text-success-700 transition-colors dark:text-success-300 ${
                             accepting === b.id
                               ? 'opacity-50'
-                              : 'cursor-pointer hover:bg-emerald-500/20'
+                              : 'cursor-pointer hover:bg-success-500/20'
                           }`}
                         >
                           <Icon name={accepting === b.id ? 'clock' : 'checkCircle'} size={15} />
@@ -228,14 +228,14 @@ export function GroupProgressTable({
 
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full surface-sunken">
                     <span
-                      className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                      className="block h-full rounded-full bg-progress transition-[width] duration-300"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
 
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-faint">
                     {empty ? (
-                      <span className="text-amber-700 dark:text-amber-300">No tasks yet</span>
+                      <span className="text-warning-700 dark:text-warning-300">No tasks yet</span>
                     ) : (
                       <>
                         <span>
@@ -243,12 +243,12 @@ export function GroupProgressTable({
                         </span>
                         {b.doing_count > 0 && <span>{b.doing_count} doing</span>}
                         {b.unclaimed_count > 0 && (
-                          <span className="text-amber-700 dark:text-amber-300">
+                          <span className="text-warning-700 dark:text-warning-300">
                             {b.unclaimed_count} unclaimed
                           </span>
                         )}
                         {b.late_count > 0 && (
-                          <span className="text-red-600 dark:text-red-400">
+                          <span className="text-danger-600 dark:text-danger-400">
                             {b.late_count} late
                           </span>
                         )}

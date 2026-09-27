@@ -16,18 +16,18 @@ export function DirectoryHero({
   action?: ReactNode
 }) {
   return (
-    <section className="relative overflow-hidden rounded-panel border border-amber-50/10 bg-navy-950 px-4 py-5 text-amber-50 sm:px-7 sm:py-8 lg:px-9 lg:py-9">
+    <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 bg-banner px-4 py-5 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-9">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-52 -right-36 h-[430px] w-[430px] rounded-full blur-[110px]"
-        style={{ background: 'rgb(240 180 41 / 0.16)' }}
+        style={{ background: 'color-mix(in oklab, var(--banner-glow) 16%, transparent)' }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-70"
         style={{
           backgroundImage:
-            'linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px)',
+            'linear-gradient(color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--banner-ink) 5%, transparent) 1px, transparent 1px)',
           backgroundSize: '54px 54px',
           maskImage: 'linear-gradient(90deg, #000 20%, transparent 92%)',
           WebkitMaskImage: 'linear-gradient(90deg, #000 20%, transparent 92%)',
@@ -36,10 +36,10 @@ export function DirectoryHero({
 
       <div className="relative grid gap-5 sm:gap-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div className="max-w-[720px]">
-          <h1 className="font-display text-amber-50">
-            {title} <span className="text-amber-300">{accent}</span>
+          <h1 className="font-display text-banner-ink">
+            {title} <span className="text-banner-accent">{accent}</span>
           </h1>
-          <p className="mt-3 max-w-[62ch] text-[14px] leading-relaxed text-amber-50/60">
+          <p className="mt-3 max-w-[62ch] text-[14px] leading-relaxed text-banner-ink/60">
             {description}
           </p>
         </div>

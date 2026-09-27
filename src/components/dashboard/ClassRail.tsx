@@ -47,7 +47,7 @@ export function ClassRail({ classes }: { classes: ClassSummary[] }) {
                   </span>
                 </span>
                 {notReady && (
-                  <span className="mt-1.5 flex items-start gap-2 text-[12px] leading-snug text-amber-700 dark:text-amber-300">
+                  <span className="mt-1.5 flex items-start gap-2 text-[12px] leading-snug text-warning-700 dark:text-warning-300">
                     <Icon name="alert" size={12} className="mt-0.5 shrink-0" />
                     {noSyllabus && noDates
                       ? 'No syllabus and no term dates'

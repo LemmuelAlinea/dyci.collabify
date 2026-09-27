@@ -31,7 +31,7 @@ export function PressureChart({ rows }: { rows: Pressure[] }) {
     <div className="space-y-3">
       {overdue && (
         <p className="flex items-center gap-2 text-[13px]">
-          <span className="rounded-md bg-red-500/15 px-2 py-0.5 font-mono text-[12px] text-red-700 dark:text-red-300">
+          <span className="rounded-md bg-danger-500/15 px-2 py-0.5 font-mono text-[12px] text-danger-700 dark:text-danger-300">
             {overdue.due_count} overdue
           </span>
           <span className="text-muted">

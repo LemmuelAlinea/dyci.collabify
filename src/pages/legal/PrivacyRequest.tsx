@@ -41,7 +41,7 @@ import { LIMIT } from '../../lib/limits'
 const STATUS_TONE: Record<string, string> = {
   open: 'bg-amber-400/18 text-amber-700 dark:text-amber-300',
   acknowledged: 'bg-navy-500/15 text-navy-700 dark:text-navy-200',
-  completed: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  completed: 'bg-success-500/15 text-success-700 dark:text-success-300',
   refused: 'surface-sunken text-muted',
 }
 
