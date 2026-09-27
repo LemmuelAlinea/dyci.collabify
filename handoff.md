@@ -1582,3 +1582,16 @@ back). RPCs: `trash_general_draft_path`, `trash_general_task_file`, `list_my_tra
 it reopens. Test: `supabase/tests/trash.test.sql` (24 PASS). All 48 SQL suites and 528
 Vitest tests pass. Not done: the work reports still count a trashed task file as
 archived in their activity feed.
+
+**Syllabi and Curriculum archive and Trash (2026-09-28):** `teaching_resources` gained
+`archived_at`, `trashed_at` and `trashed_by` (in `trash.sql`, applied live). On the
+Syllabi and Curriculum pages (and the admin library, which shares `ResourceLibrary`),
+each card's delete button became a ⋯ menu with Archive and Move to trash. Archived ones
+sit in a collapsible Archived section on the same page (Restore, Move to trash) and
+leave the library, the class pickers and the dashboard's syllabus checks. A class that
+already points at one keeps it. Trashed ones show on the Trash page under Syllabi or
+Curriculum and are purged after 30 days like everything else. Deleting for good sets
+the class links to null and drops the week map (existing FKs). `list_my_trash` gained
+a `resource_kind` column (dropped and recreated). RPCs: `archive_teaching_resource`,
+`trash_teaching_resource`, `restore_trashed_resource`, `delete_trashed_resource`.
+Test: `trash.test.sql` now 31 PASS; all 48 SQL suites pass.

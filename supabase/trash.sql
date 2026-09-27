@@ -9,8 +9,9 @@
 --   Trash    disposes of it. It sits in the Trash page of whoever trashed it,
 --            and is deleted for good 30 days later unless they restore it.
 --
--- What can go in: the files and folders of your own draft, and task files, the
--- same things Archive takes.
+-- What can go in: the files and folders of your own draft, task files, and a
+-- professor's syllabi and curricula (teaching_resources), which also gain an
+-- archive of their own here.
 --
 -- A trashed row keeps archived_at set as well, so every listing, count, commit
 -- and submit that already skips archived files skips trashed ones with no
@@ -61,6 +62,24 @@ create index if not exists general_draft_files_trash_idx
 create index if not exists general_task_files_trash_idx
   on public.general_task_files (trashed_by, trashed_at) where trashed_at is not null;
 
+-- Syllabi and curricula. Archived ones leave the library and the class pickers;
+-- a class already pointing at one keeps it.
+alter table public.teaching_resources
+  add column if not exists archived_at timestamptz,
+  add column if not exists trashed_at timestamptz,
+  add column if not exists trashed_by uuid references public.profiles (id) on delete set null;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'teaching_resources_trash_hidden') then
+    alter table public.teaching_resources add constraint teaching_resources_trash_hidden
+      check (trashed_at is null or archived_at is not null);
+  end if;
+end $$;
+
+create index if not exists teaching_resources_trash_idx
+  on public.teaching_resources (trashed_by, trashed_at) where trashed_at is not null;
+
 commit;
 
 begin;
@@ -99,6 +118,9 @@ create trigger general_draft_files_trash_guard before update on public.general_d
   for each row execute function public.guard_trash_columns();
 drop trigger if exists general_task_files_trash_guard on public.general_task_files;
 create trigger general_task_files_trash_guard before update on public.general_task_files
+  for each row execute function public.guard_trash_columns();
+drop trigger if exists teaching_resources_trash_guard on public.teaching_resources;
+create trigger teaching_resources_trash_guard before update on public.teaching_resources
   for each row execute function public.guard_trash_columns();
 
 /**
@@ -461,6 +483,48 @@ begin
 end;
 $$;
 
+/** A syllabus or curriculum into, or back out of, its owner's archive. */
+create or replace function public.archive_teaching_resource(p_resource uuid, p_archived boolean)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  r public.teaching_resources%rowtype;
+begin
+  select * into r from public.teaching_resources where id = p_resource for update;
+  if not found or r.professor_id <> auth.uid() or not public.general_viewer_active() then
+    raise exception 'Only whoever uploaded this can archive it.' using errcode = 'insufficient_privilege';
+  end if;
+  if r.trashed_at is not null then
+    raise exception 'This file is in Trash. Restore it from Trash first.' using errcode = 'check_violation';
+  end if;
+  update public.teaching_resources
+     set archived_at = case when p_archived then coalesce(archived_at, now()) end
+   where id = p_resource;
+end;
+$$;
+
+/** A syllabus or curriculum into Trash, from the library or from its archive. */
+create or replace function public.trash_teaching_resource(p_resource uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  r public.teaching_resources%rowtype;
+begin
+  select * into r from public.teaching_resources where id = p_resource for update;
+  if not found or r.professor_id <> auth.uid() or not public.general_viewer_active() then
+    raise exception 'Only whoever uploaded this can put it in Trash.' using errcode = 'insufficient_privilege';
+  end if;
+  if r.trashed_at is not null then
+    return;
+  end if;
+  perform set_config('collabify.trash_op', 'on', true);
+  update public.teaching_resources
+     set archived_at = coalesce(archived_at, now()), trashed_at = now(), trashed_by = auth.uid()
+   where id = p_resource;
+  perform set_config('collabify.trash_op', 'off', true);
+end;
+$$;
+
 -- ---------------------------------------------------------------- the Trash page
 
 /**
@@ -468,7 +532,8 @@ $$;
  * many files it held. `frozen` means the project is archived or its board is
  * handed in, so nothing can come back until that changes.
  */
-create or replace function public.list_my_trash()
+drop function if exists public.list_my_trash();
+create function public.list_my_trash()
 returns table (
   kind text,
   id uuid,
@@ -484,7 +549,8 @@ returns table (
   project_name text,
   class_project_id uuid,
   task_title text,
-  frozen boolean
+  frozen boolean,
+  resource_kind text
 )
 language sql stable security definer set search_path = public as $$
   with drafts as (
@@ -506,26 +572,34 @@ language sql stable security definer set search_path = public as $$
     select 'draft'::text as kind, null::uuid as id, x.repo_id, x.trash_root as root,
            regexp_replace(x.trash_root, '^.*/', '') as name,
            x.is_folder, x.file_count, x.size_bytes, x.trashed_at, x.project_id,
-           null::text as task_title
+           null::text as task_title, null::text as resource_kind
       from drafts x
     union all
     select 'task_file', f.id, null, null, f.file_name, false, 1, f.size_bytes, f.trashed_at,
-           f.project_id, t.title
+           f.project_id, t.title, null
       from public.general_task_files f
       join public.general_tasks t on t.id = f.task_id
      where f.trashed_by = auth.uid()
        and f.trashed_at is not null
        and public.is_general_member(f.project_id)
+    union all
+    select 'resource', tr.id, null, null, tr.title, false, 1, tr.size_bytes, tr.trashed_at,
+           null, null, tr.kind::text
+      from public.teaching_resources tr
+     where tr.professor_id = auth.uid()
+       and tr.trashed_at is not null
   )
   select r.kind, r.id, r.repo_id, r.root, r.name, r.is_folder, r.file_count, r.size_bytes,
          r.trashed_at, r.trashed_at + interval '30 days',
          r.project_id,
-         coalesce(cp.title, gp.name),
+         case r.resource_kind when 'syllabus' then 'Syllabi' when 'curriculum' then 'Curriculum'
+              else coalesce(cp.title, gp.name) end,
          b.project_id,
          r.task_title,
-         gp.archived_at is not null or coalesce(public.class_board_frozen(gp.class_board_id), false)
+         coalesce(gp.archived_at is not null or public.class_board_frozen(gp.class_board_id), false),
+         r.resource_kind
     from rows r
-    join public.general_projects gp on gp.id = r.project_id
+    left join public.general_projects gp on gp.id = r.project_id
     left join public.project_boards b on b.id = gp.class_board_id
     left join public.projects cp on cp.id = b.project_id
    order by r.trashed_at desc, r.name;
@@ -605,6 +679,32 @@ begin
 end;
 $$;
 
+/** A syllabus or curriculum back in the library, where it was. */
+create or replace function public.restore_trashed_resource(p_resource uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.general_viewer_active() then
+    raise exception 'Sign in with an active account to restore this' using errcode = 'insufficient_privilege';
+  end if;
+  update public.teaching_resources set archived_at = null
+   where id = p_resource and professor_id = auth.uid() and trashed_at is not null;
+end;
+$$;
+
+/** For good. A class pointing at it loses the link; its week map goes with it. */
+create or replace function public.delete_trashed_resource(p_resource uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.general_viewer_active() then
+    raise exception 'Sign in with an active account to delete this' using errcode = 'insufficient_privilege';
+  end if;
+  delete from public.teaching_resources
+   where id = p_resource and professor_id = auth.uid() and trashed_at is not null;
+end;
+$$;
+
 /** Deletes everything the caller can still act on. Answers how many files went. */
 create or replace function public.empty_my_trash()
 returns int
@@ -612,6 +712,7 @@ language plpgsql security definer set search_path = public as $$
 declare
   n int;
   m int;
+  k int;
 begin
   if not public.general_viewer_active() then
     raise exception 'Sign in with an active account to empty Trash'
@@ -631,7 +732,10 @@ begin
      and not public.general_is_archived(f.project_id);
   get diagnostics m = row_count;
   perform set_config('collabify.general_archive_op', 'off', true);
-  return n + m;
+
+  delete from public.teaching_resources where professor_id = auth.uid() and trashed_at is not null;
+  get diagnostics k = row_count;
+  return n + m + k;
 end;
 $$;
 
@@ -644,6 +748,7 @@ language plpgsql security definer set search_path = public as $$
 declare
   n int;
   m int;
+  k int;
 begin
   perform set_config('collabify.trash_purge', 'on', true);
   delete from public.general_draft_files where trashed_at < now() - interval '30 days';
@@ -654,7 +759,10 @@ begin
   delete from public.general_task_files where trashed_at < now() - interval '30 days';
   get diagnostics m = row_count;
   perform set_config('collabify.general_archive_op', 'off', true);
-  return n + m;
+
+  delete from public.teaching_resources where trashed_at < now() - interval '30 days';
+  get diagnostics k = row_count;
+  return n + m + k;
 end;
 $$;
 
@@ -666,6 +774,10 @@ revoke all on function public.delete_trashed_draft_path(uuid, text) from public,
 revoke all on function public.restore_trashed_task_file(uuid) from public, anon;
 revoke all on function public.delete_trashed_task_file(uuid) from public, anon;
 revoke all on function public.empty_my_trash() from public, anon;
+revoke all on function public.archive_teaching_resource(uuid, boolean) from public, anon;
+revoke all on function public.trash_teaching_resource(uuid) from public, anon;
+revoke all on function public.restore_trashed_resource(uuid) from public, anon;
+revoke all on function public.delete_trashed_resource(uuid) from public, anon;
 revoke all on function public.purge_trash() from public, anon, authenticated;
 grant execute on function public.trash_general_draft_path(uuid, text) to authenticated;
 grant execute on function public.trash_general_task_file(uuid) to authenticated;
@@ -675,6 +787,10 @@ grant execute on function public.delete_trashed_draft_path(uuid, text) to authen
 grant execute on function public.restore_trashed_task_file(uuid) to authenticated;
 grant execute on function public.delete_trashed_task_file(uuid) to authenticated;
 grant execute on function public.empty_my_trash() to authenticated;
+grant execute on function public.archive_teaching_resource(uuid, boolean) to authenticated;
+grant execute on function public.trash_teaching_resource(uuid) to authenticated;
+grant execute on function public.restore_trashed_resource(uuid) to authenticated;
+grant execute on function public.delete_trashed_resource(uuid) to authenticated;
 
 -- Once a day. Rescheduled by name, so re-running this file is safe.
 do $$

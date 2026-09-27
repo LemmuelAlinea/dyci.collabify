@@ -22,6 +22,8 @@ const keyOf = (item: TrashItem) => (item.kind === 'draft' ? `d:${item.repo_id}:$
 
 /** Where the item lived, as a link that opens that place. */
 function homeOf(item: TrashItem) {
+  if (item.kind === 'resource') return item.resource_kind === 'curriculum' ? paths.curriculum : paths.syllabi
+  if (!item.project_id) return paths.home
   const base = item.class_project_id ? paths.classProject(item.class_project_id) : paths.project(item.project_id)
   return item.kind === 'draft' ? `${base}?tab=files&view=draft` : `${base}?tab=tasks`
 }
@@ -80,7 +82,9 @@ export default function Trash() {
       show(
         item.kind === 'draft'
           ? `${item.name} is back in your draft.`
-          : `${item.name} is back on ${item.task_title ?? 'its task'}.`,
+          : item.kind === 'resource'
+            ? `${item.name} is back in ${item.project_name}.`
+            : `${item.name} is back on ${item.task_title ?? 'its task'}.`,
       )
       await load()
     } catch (err) {
@@ -117,7 +121,7 @@ export default function Trash() {
         <EmptyState
           icon="trash"
           title="Trash is empty"
-          body="When you move a file or folder to Trash from My draft or a task, it waits here for 30 days before it is deleted."
+          body="When you move a file or folder to Trash from My draft, a task, Syllabi or Curriculum, it waits here for 30 days before it is deleted."
         />
       ) : (
         <div className="space-y-4">
@@ -174,7 +178,9 @@ export default function Trash() {
         body={
           deleting?.is_folder
             ? `${deleting.name}${deleting.file_count === 0 ? '' : ` and the ${deleting.file_count === 1 ? 'file' : `${deleting.file_count} files`} in it`} cannot be brought back.`
-            : `${deleting?.name ?? 'It'} cannot be brought back.`
+            : deleting?.kind === 'resource'
+              ? `${deleting.name} cannot be brought back. Classes using it lose the link${deleting.resource_kind === 'syllabus' ? ', and its week map goes with it' : ''}.`
+              : `${deleting?.name ?? 'It'} cannot be brought back.`
         }
         confirmLabel="Delete for good"
         tone="danger"
@@ -214,7 +220,14 @@ function TrashRow({
 }) {
   const left = daysLeft(item)
   const size = item.size_bytes ? formatBytes(Number(item.size_bytes)) : null
-  const where = item.kind === 'draft' ? 'My draft' : `Task · ${item.task_title ?? 'Untitled'}`
+  const where =
+    item.kind === 'draft'
+      ? 'My draft'
+      : item.kind === 'resource'
+        ? item.resource_kind === 'curriculum'
+          ? 'Curriculum file'
+          : 'Syllabus file'
+        : `Task · ${item.task_title ?? 'Untitled'}`
 
   return (
     <li className="grid grid-cols-1 gap-x-4 gap-y-2 px-4 py-3.5 sm:px-5 lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1.4fr)_9rem_6.5rem_9.5rem] lg:items-center">

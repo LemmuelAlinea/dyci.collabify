@@ -81,6 +81,8 @@ export type TeachingResource = {
   parse_status?: ParseStatus
   parsed_at?: string | null
   parse_error?: string | null
+  archived_at?: string | null
+  trashed_at?: string | null
 }
 
 export type ClassRow = {

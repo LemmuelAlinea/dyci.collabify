@@ -40,6 +40,7 @@ declare
   file_b   uuid;
   n        int;
   refused  boolean;
+  res      uuid;
 begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at,
                           raw_user_meta_data, created_at, updated_at, aud, role, instance_id)
@@ -189,6 +190,48 @@ begin
   perform pg_temp.act_as_service();
   perform pg_temp.ok('the purge runs once a day',
     exists (select 1 from cron.job where jobname = 'collabify-trash-purge'));
+
+  ------------------------------------------------------------------ syllabi and curricula
+  perform pg_temp.act_as(owner_id);
+  insert into public.teaching_resources (professor_id, kind, title, file_path, file_name, size_bytes)
+  values (owner_id, 'syllabus', 'Trash syllabus', owner_id || '/syllabus/t.pdf', 't.pdf', 30)
+  returning id into res;
+
+  perform public.archive_teaching_resource(res, true);
+  perform pg_temp.ok('a syllabus can be archived',
+    exists (select 1 from public.teaching_resources where id = res and archived_at is not null and trashed_at is null));
+  perform public.archive_teaching_resource(res, false);
+  perform pg_temp.ok('...and restored',
+    exists (select 1 from public.teaching_resources where id = res and archived_at is null));
+
+  perform pg_temp.act_as(member);
+  begin
+    perform public.trash_teaching_resource(res);
+    refused := false;
+  exception when insufficient_privilege then refused := true;
+  end;
+  perform pg_temp.ok('nobody else can trash your syllabus', refused);
+
+  perform pg_temp.act_as(owner_id);
+  perform public.trash_teaching_resource(res);
+  perform pg_temp.ok('a syllabus goes to Trash',
+    exists (select 1 from public.list_my_trash() where kind = 'resource' and id = res
+                                                  and resource_kind = 'syllabus' and project_name = 'Syllabi'));
+  begin
+    perform public.archive_teaching_resource(res, false);
+    refused := false;
+  exception when check_violation then refused := true;
+  end;
+  perform pg_temp.ok('...and the archive cannot pull it back out', refused);
+
+  perform public.restore_trashed_resource(res);
+  perform pg_temp.ok('...but Trash can, straight into the library',
+    exists (select 1 from public.teaching_resources where id = res and archived_at is null and trashed_at is null));
+
+  perform public.trash_teaching_resource(res);
+  perform public.delete_trashed_resource(res);
+  perform pg_temp.ok('deleting it from Trash removes it for good',
+    not exists (select 1 from public.teaching_resources where id = res));
 end $$;
 
 rollback;

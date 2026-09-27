@@ -3,15 +3,41 @@ import type { ResourceKind, TeachingResource } from '../types'
 
 const BUCKET = 'teaching-resources'
 
+/** The live library: archived and trashed ones stay out, here and in the class pickers. */
 export async function listResources(professorId: string, kind: ResourceKind) {
   const { data, error } = await supabase
     .from('teaching_resources')
     .select('*')
     .eq('professor_id', professorId)
     .eq('kind', kind)
+    .is('archived_at', null)
     .order('uploaded_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as TeachingResource[]
+}
+
+/** Archived, not trashed: the library's own archive section. */
+export async function listArchivedResources(kind: ResourceKind, scope: { professorId: string } | 'program') {
+  let query = supabase
+    .from('teaching_resources')
+    .select('*')
+    .eq('kind', kind)
+    .not('archived_at', 'is', null)
+    .is('trashed_at', null)
+  query = scope === 'program' ? query.eq('program_wide', true) : query.eq('professor_id', scope.professorId)
+  const { data, error } = await query.order('archived_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as TeachingResource[]
+}
+
+export async function archiveResource(id: string, archived: boolean) {
+  const { error } = await supabase.rpc('archive_teaching_resource', { p_resource: id, p_archived: archived })
+  if (error) throw error
+}
+
+export async function trashResource(id: string) {
+  const { error } = await supabase.rpc('trash_teaching_resource', { p_resource: id })
+  if (error) throw error
 }
 
 /**
@@ -27,6 +53,7 @@ export async function listProgramResources(kind: ResourceKind) {
     .select('*')
     .eq('kind', kind)
     .eq('program_wide', true)
+    .is('archived_at', null)
     .order('uploaded_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as TeachingResource[]
@@ -68,12 +95,6 @@ export async function uploadResource(input: {
     throw error
   }
   return data as TeachingResource
-}
-
-export async function deleteResource(resource: TeachingResource) {
-  const { error } = await supabase.from('teaching_resources').delete().eq('id', resource.id)
-  if (error) throw error
-  await supabase.storage.from(BUCKET).remove([resource.file_path])
 }
 
 /** The bucket is private, so viewing goes through a short-lived signed URL. */

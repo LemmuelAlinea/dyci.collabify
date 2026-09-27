@@ -201,6 +201,7 @@ export async function professorDashboard(
     .select('id, title, kind, parse_status')
     .eq('professor_id', professorId)
     .eq('kind', 'syllabus')
+    .is('archived_at', null)
 
   const withTasks = new Set(boards.filter((b) => b.task_count > 0).map((b) => b.project_id))
 

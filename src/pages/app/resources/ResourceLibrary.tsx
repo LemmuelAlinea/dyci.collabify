@@ -2,22 +2,24 @@ import { useCallback, useEffect, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import type { FormEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { ActionMenu } from '../../../components/ui/ActionMenu'
 import { Button } from '../../../components/ui/Button'
 import { Field, Input } from '../../../components/ui/Field'
 import { Alert } from '../../../components/ui/Alert'
 import { FileDrop, formatBytes } from '../../../components/ui/FileDrop'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { Modal } from '../../../components/ui/Modal'
-import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import {
-  deleteResource,
+  archiveResource,
+  listArchivedResources,
   listProgramResources,
   listResources,
   resourceUrl,
+  trashResource,
   uploadResource,
 } from '../../../lib/api/resources'
 import { authErrorMessage } from '../../../lib/authError'
@@ -58,7 +60,9 @@ export function ResourceLibrary({
   const [items, setItems] = useState<TeachingResource[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
-  const [pendingDelete, setPendingDelete] = useState<TeachingResource | null>(null)
+  const [archived, setArchived] = useState<TeachingResource[]>([])
+  const [showArchived, setShowArchived] = useState(false)
+  const [acting, setActing] = useState<string | null>(null)
 
   const [title, setTitle] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -82,7 +86,12 @@ export function ResourceLibrary({
   const load = useCallback(async () => {
     if (!profile) return
     try {
-      setItems(programWide ? await listProgramResources(kind) : await listResources(profile.id, kind))
+      const [live, gone] = await Promise.all([
+        programWide ? listProgramResources(kind) : listResources(profile.id, kind),
+        listArchivedResources(kind, programWide ? 'program' : { professorId: profile.id }),
+      ])
+      setItems(live)
+      setArchived(gone)
       setLoadError(null)
     } catch (err) {
       setLoadError(authErrorMessage(err, `Could not load your ${copy.title.toLowerCase()}.`))
@@ -122,6 +131,32 @@ export function ResourceLibrary({
       setBusy(false)
     }
   }
+
+  /** Archive, restore and Trash all land the same way: a toast, then a fresh list. */
+  async function act(r: TeachingResource, action: () => Promise<void>, done: string, failed: string) {
+    setActing(r.id)
+    try {
+      await action()
+      show(done)
+      await load()
+    } catch (err) {
+      show(authErrorMessage(err, failed), 'error')
+    } finally {
+      setActing(null)
+    }
+  }
+
+  const archiveItem = (r: TeachingResource) =>
+    void act(r, () => archiveResource(r.id, true), `${r.title} archived`, 'Could not archive it.')
+  const restoreItem = (r: TeachingResource) =>
+    void act(r, () => archiveResource(r.id, false), `${r.title} is back in your library`, 'Could not restore it.')
+  const trashItem = (r: TeachingResource) =>
+    void act(
+      r,
+      () => trashResource(r.id),
+      `${r.title} moved to Trash. It stays there for 30 days.`,
+      'Could not move it to Trash.',
+    )
 
   async function open(resource: TeachingResource) {
     try {
@@ -257,18 +292,70 @@ export function ResourceLibrary({
                   >
                     <Icon name="eye" size={17} />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setPendingDelete(r)}
-                    aria-label={`Delete ${r.title}`}
-                    className="grid h-9 w-9 place-items-center rounded-full text-muted transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/12 dark:hover:text-red-400"
-                  >
-                    <Icon name="trash" size={17} />
-                  </button>
+                  <ActionMenu
+                    label={`Actions for ${r.title}`}
+                    disabled={acting === r.id}
+                    items={[
+                      { label: 'Archive', icon: 'archive', onSelect: () => archiveItem(r) },
+                      { label: 'Move to trash', icon: 'trash', tone: 'danger', separated: true, onSelect: () => trashItem(r) },
+                    ]}
+                  />
                 </div>
               </li>
             ))}
           </ul>
+        )}
+
+        {archived.length > 0 && (
+          <section className="mt-8 overflow-hidden rounded-panel border border-line surface">
+            <button
+              type="button"
+              onClick={() => setShowArchived(!showArchived)}
+              aria-expanded={showArchived}
+              className="flex w-full items-center gap-3 border-b border-line bg-[var(--surface-sunken)] px-5 py-3 text-left"
+            >
+              <Icon name="archive" size={15} className="shrink-0 text-faint" />
+              <span className="flex-1">
+                <span className="font-medium text-ink">Archived</span>
+                <span className="ml-2 text-[12px] text-muted">
+                  Out of the library and the class pickers. Classes already using one keep it.
+                </span>
+              </span>
+              <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted">{archived.length}</span>
+              <Icon name={showArchived ? 'chevronDown' : 'chevronRight'} size={14} className="shrink-0 text-faint" />
+            </button>
+            {showArchived && (
+              <ul className="divide-y divide-[var(--line)]">
+                {archived.map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3.5">
+                    <Icon name="file" size={15} className="shrink-0 text-faint" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] text-ink">{r.title}</p>
+                      <p className="truncate text-[12px] text-faint">
+                        {r.file_name} · {formatBytes(r.size_bytes)}
+                        {r.archived_at ? ` · Archived ${new Date(r.archived_at).toLocaleDateString()}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void open(r)}
+                      className="shrink-0 text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+                    >
+                      Open
+                    </button>
+                    <ActionMenu
+                      label={`Actions for ${r.title}`}
+                      disabled={acting === r.id}
+                      items={[
+                        { label: 'Restore', icon: 'refresh', onSelect: () => restoreItem(r) },
+                        { label: 'Move to trash', icon: 'trash', tone: 'danger', separated: true, onSelect: () => trashItem(r) },
+                      ]}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         )}
       </div>
 
@@ -315,20 +402,6 @@ export function ResourceLibrary({
           </Field>
         </form>
       </Modal>
-
-      <ConfirmDialog
-        open={Boolean(pendingDelete)}
-        onClose={() => setPendingDelete(null)}
-        onConfirm={async () => {
-          if (!pendingDelete) return
-          await deleteResource(pendingDelete)
-          show(`${pendingDelete.title} deleted`)
-          await load()
-        }}
-        title={`Delete ${pendingDelete?.title ?? ''}?`}
-        body="The file is removed for good. Any class pointing at it keeps working, but the link goes away."
-        confirmLabel="Delete"
-      />
     </div>
   )
 }
