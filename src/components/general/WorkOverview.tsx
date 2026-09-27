@@ -38,6 +38,7 @@ import { paths } from '../../lib/paths'
 export function WorkOverview() {
   const { profile } = useAuth()
   const faculty = isFaculty(profile)
+  const isAdmin = profile?.role === 'admin'
   const { show } = useToast()
   const { myProjects, spaces, error, reload } = useGeneralNavigation()
   const unread = useUnreadTotal(profile?.id, 'general')
@@ -88,9 +89,11 @@ export function WorkOverview() {
   if (!faculty && (!loaded || !hasSomething)) return null
 
   return (
-    <div>
+    <div className="mt-10">
       <div className="border-b border-line pb-4">
-        <p className="text-[12px] font-medium text-faint">Beyond your classes</p>
+        <p className="text-[12px] font-medium text-faint">
+          {isAdmin ? 'Projects and spaces' : 'Beyond your classes'}
+        </p>
         <h2 className="mt-1">Your work</h2>
       </div>
 
@@ -130,7 +133,7 @@ export function WorkOverview() {
               icon: 'message',
               label: 'Messages',
               hint: unread > 0 ? `${unread} unread` : 'Chats and project threads',
-              to: paths.messages,
+              to: `${paths.messages}?show=work`,
               count: unread,
             },
           ]}
@@ -201,7 +204,7 @@ export function WorkOverview() {
               <p className="mt-1.5 max-w-[60ch] text-[13.5px] text-muted">
                 {faculty
                   ? 'Make a space to hold your own projects, or join a project somebody else runs with the code they give you.'
-                  : 'A faculty member can invite you into a space or onto a project. Your classes are in Education.'}
+                  : 'A faculty member can invite you into a space or onto a project. Your classes are listed above.'}
               </p>
               {faculty && (
                 <div className="mt-4 flex flex-wrap gap-2">

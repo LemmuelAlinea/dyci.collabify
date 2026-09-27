@@ -19,9 +19,7 @@ export default function Home() {
   return (
     <>
       <RoleSwitch student={<StudentHome />} professor={<ProfessorHome />} admin={<AdminHome />} />
-      <div className="mt-10">
-        <WorkOverview />
-      </div>
+      <WorkOverview />
     </>
   )
 }
