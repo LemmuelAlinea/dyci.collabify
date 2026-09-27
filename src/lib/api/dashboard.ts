@@ -4,7 +4,9 @@ import { listStudentClasses } from './classes'
 import { listProjectsForClasses } from './projects'
 import { listBoards, myTasks } from './tasks'
 import type { MyTask } from './tasks'
+import { buildDeadlines } from '../deadlines'
 import { paths } from '../paths'
+import type { Deadline } from '../deadlines'
 import type {
   Announcement,
   BoardSummary,
@@ -14,16 +16,7 @@ import type {
   ProjectSummary,
 } from '../types'
 
-/** Anything with a date the viewer has to meet, from either source. */
-export type Deadline = {
-  id: string
-  kind: 'task' | 'project'
-  title: string
-  context: string
-  due_at: string
-  to: string
-  done: boolean
-}
+export type { Deadline }
 
 export type StudentDashboard = {
   classes: ClassSummary[]
@@ -37,8 +30,6 @@ export type StudentDashboard = {
   openSets: number
   deadlines: Deadline[]
 }
-
-const WEEK = 7 * 86_400_000
 
 export async function studentDashboard(studentId: string): Promise<StudentDashboard> {
   const classes = await listStudentClasses(studentId)
@@ -60,33 +51,7 @@ export async function studentDashboard(studentId: string): Promise<StudentDashbo
     openSetsFor(classIds, studentId),
   ])
 
-  const soon = Date.now() + WEEK
-  const deadlines: Deadline[] = [
-    ...tasks
-      .filter((t) => t.due_at)
-      .map((t) => ({
-        id: t.id,
-        kind: 'task' as const,
-        title: t.title,
-        context: `${t.project_title} · ${t.class_initial}`,
-        due_at: t.due_at as string,
-        to: paths.classProject(t.project_id),
-        done: t.status === 'done',
-      })),
-    ...projects
-      .filter((p) => p.due_at)
-      .map((p) => ({
-        id: p.id,
-        kind: 'project' as const,
-        title: p.title,
-        context: `${p.class_initial} · ${p.class_name}`,
-        due_at: p.due_at as string,
-        to: paths.classProject(p.id),
-        done: false,
-      })),
-  ]
-    .filter((d) => !d.done && new Date(d.due_at).getTime() < soon)
-    .sort((a, b) => a.due_at.localeCompare(b.due_at))
+  const deadlines = buildDeadlines(tasks, projects, boards, Date.now())
 
   return {
     classes,
