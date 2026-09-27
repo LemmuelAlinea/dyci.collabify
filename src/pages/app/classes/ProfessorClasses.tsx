@@ -3,38 +3,28 @@ import { useLive } from '../../../hooks/useLive'
 import { Button } from '../../../components/ui/Button'
 import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
-import { Modal } from '../../../components/ui/Modal'
 import { EmptyState } from '../../../components/ui/EmptyState'
-import { useToast } from '../../../components/ui/Toast'
 import { ClassCard } from '../../../components/classes/ClassCard'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
-import { ClassForm } from '../../../components/classes/ClassForm'
+import { NewSpaceDialog } from '../../../components/general/SpaceDialogs'
 import { useAuth } from '../../../context/AuthContext'
 import { canTeach } from '../../../lib/access'
-import { createClass, listProfessorClasses } from '../../../lib/api/classes'
-import type { ClassInput } from '../../../lib/api/classes'
-import { listResources } from '../../../lib/api/resources'
+import { listProfessorClasses } from '../../../lib/api/classes'
 import { authErrorMessage } from '../../../lib/authError'
 import { paths } from '../../../lib/paths'
-import type { ClassSummary, TeachingResource } from '../../../lib/types'
+import type { ClassSummary } from '../../../lib/types'
 
 type View = 'active' | 'archived'
 
 export default function ProfessorClasses() {
   const { profile } = useAuth()
   const teaching = canTeach(profile)
-  const { show } = useToast()
 
   const [view, setView] = useState<View>('active')
   const [classes, setClasses] = useState<ClassSummary[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [syllabi, setSyllabi] = useState<TeachingResource[]>([])
-  const [curricula, setCurricula] = useState<TeachingResource[]>([])
-
   const [createOpen, setCreateOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
     document.title = 'Classes · Collabify'
@@ -57,38 +47,6 @@ export default function ProfessorClasses() {
   }, [load])
 
   useLive(load, ['classes', 'class_members'])
-
-  useEffect(() => {
-    if (!profile) return
-    void Promise.all([
-      listResources(profile.id, 'syllabus'),
-      listResources(profile.id, 'curriculum'),
-    ])
-      .then(([s, c]) => {
-        setSyllabi(s)
-        setCurricula(c)
-      })
-      .catch(() => {
-        // The dropdowns simply stay empty; class creation does not depend on them.
-      })
-  }, [profile, createOpen])
-
-  async function submit(input: ClassInput) {
-    if (!profile) return
-    setFormError(null)
-    setBusy(true)
-    try {
-      const created = await createClass(profile.id, input)
-      setCreateOpen(false)
-      show(`${created.name} created · code ${created.code}`)
-      setView('active')
-      await load()
-    } catch (err) {
-      setFormError(authErrorMessage(err, 'Could not create that class.'))
-    } finally {
-      setBusy(false)
-    }
-  }
 
   const studentTotal = classes?.reduce((total, cls) => total + cls.student_count, 0) ?? 0
 
@@ -178,31 +136,15 @@ export default function ProfessorClasses() {
         )}
       </div>
 
-      <Modal
+      <NewSpaceDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Create a class"
-        description="The join code is generated for you once the class is saved."
-        size="lg"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setCreateOpen(false)} disabled={busy}>
-              Cancel
-            </Button>
-            <Button form="create-class" type="submit" loading={busy} className="!rounded-xl">
-              Create class
-            </Button>
-          </>
-        }
-      >
-        <ClassForm
-          formId="create-class"
-          syllabi={syllabi}
-          curricula={curricula}
-          error={formError}
-          onSubmit={submit}
-        />
-      </Modal>
+        initialKind="education"
+        onCreated={async () => {
+          setView('active')
+          await load()
+        }}
+      />
     </div>
   )
 }
