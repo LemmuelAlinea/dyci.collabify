@@ -7,28 +7,19 @@ import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useAdmission } from '../../hooks/useAdmission'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { recentProjects } from '../../lib/general/dashboard'
-import type { GeneralSpaceSummary } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
 import { Logo, LogoMark } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
 import { navFor } from './nav'
 import type { NavItem } from './nav'
+import { spaceRows } from './spaceRows'
+import type { LiveRow } from './spaceRows'
 
 type Hint = { text: string; top: number }
-type LiveRow = { id: string; name: string; to: string; tone?: 'education' | 'work' }
 
 // No font-size here on purpose: each kind of row sets its own, and two
 // arbitrary text-[] utilities on one element resolve by stylesheet order.
 const ROW = 'relative flex w-full items-center rounded-lg transition-colors'
-
-/** A row for Your spaces. Education opens the class it belongs to; a work
- * space opens itself — joining a project never joins its space, so a class
- * space is the only kind whose own page is somewhere else. */
-function spaceRow(space: GeneralSpaceSummary): LiveRow {
-  return space.kind === 'education'
-    ? { id: space.id, name: space.name, to: paths.class(space.class_id ?? space.id), tone: 'education' }
-    : { id: space.id, name: space.name, to: paths.space(space.id), tone: 'work' }
-}
 
 export function SideNav({
   collapsed = false,
@@ -80,14 +71,7 @@ export function SideNav({
     }
   }
 
-  // Education first, then name — a space holds projects, so within a kind the
-  // rail still reads widest to narrowest, and education leads because a class
-  // is where most accounts' work actually sits.
-  const liveSpaces = [...(navigation.spaces ?? [])]
-    .filter((space) => space.my_level && !space.archived_at)
-    .sort((a, b) =>
-      a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'education' ? -1 : 1,
-    )
+  const liveSpaceRows = spaceRows(navigation.spaces ?? [])
   const liveProjects = (navigation.myProjects ?? []).filter(
     (project) => project.my_level && !project.archived_at,
   )
@@ -148,7 +132,7 @@ export function SideNav({
                     loading={navigation.spaces === null}
                     onNavigate={onNavigate}
                     hintHandlers={hintHandlers}
-                    rows={liveSpaces.slice(0, 6).map((space) => spaceRow(space))}
+                    rows={liveSpaceRows}
                   />
                   <LiveGroup
                     title="Your projects"
