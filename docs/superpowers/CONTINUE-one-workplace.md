@@ -1,3 +1,5 @@
+> **Superseded:** use `docs/superpowers/HANDOFF-codex.md` instead. It is newer and more complete.
+
 # Continue here: the one-workplace project (handover to a new session)
 
 Written 2026-09-27 at the end of a long local session. `main` is at `f539c46` (plus the commit that adds this file) and is pushed to `origin` (`github.com/LemmuelAlinea/dyci.collabify`). Everything below is also in git, so a fresh clone has it all.

@@ -1,3 +1,9 @@
+## Start here (Codex and any other agent)
+
+This project is mid-way through a multi-phase effort. Before doing anything, read
+`docs/superpowers/HANDOFF-codex.md` in full, then follow its section 2 reading
+list, starting with `CLAUDE.md`, which holds the project rules and is binding for every agent.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
