@@ -261,11 +261,15 @@ export default function MyTasks() {
           <ScopeFilter
             value={scope}
             onChange={(next) => setParams(writeScope(params, next), { replace: true })}
-            counts={{
-              all: (classTasks?.length ?? 0) + workTasks.length,
-              classes: classTasks?.length ?? 0,
-              work: workTasks.length,
-            }}
+            counts={
+              loaded
+                ? {
+                    all: (classTasks?.length ?? 0) + workTasks.length,
+                    classes: classTasks?.length ?? 0,
+                    work: workTasks.length,
+                  }
+                : undefined
+            }
           />
         </div>
 
