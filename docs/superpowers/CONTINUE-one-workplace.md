@@ -8,7 +8,7 @@ If you are a new Claude session, read this whole file first, then the files in *
 
 ## 1. What the project is
 
-Collabify is project management for the BSIT programs at Dr. Yanga's Colleges (DYCI). It's a React 19 + TypeScript + Vite + React Router + Tailwind v4 web app, with Supabase/Postgres behind it (RLS, security-definer functions, triggers). It's deployed on Vercel (`https://dyci-collabify.vercel.app`) from `main`.
+Collabify is project management for the BSIT programs at Dr. Yanga's Colleges (DYCI). It's a React 19 + TypeScript + Vite + React Router + Tailwind v4 web app, with Supabase/Postgres behind it (RLS, security-definer functions, triggers). It's deployed on Vercel (see `docs/04-deploy-vercel.md`; ask the owner for the live address, it isn't recorded in the repo).
 
 Roles in the database are `student | professor | admin`. The UI already says **Faculty**, and phase 4 renames the enum value.
 
@@ -187,5 +187,5 @@ SQL test suites run inside `begin … rollback` and print `NOTICE PASS …` line
   - Ask the owner to provide the variable through the cloud environment's secret settings, never pasted into chat or committed.
   - Otherwise, do the frontend parts in the cloud and leave SQL steps for a local session.
 - **The progress ledger isn't in git.** `.superpowers/sdd/progress.md` is gitignored, so it doesn't exist in the clone. §3 and §4 of this file replace it. Recreate the ledger when you start executing phase 4.
-- **The browser walk** needs the app running with the owner signed in. If the cloud session has no browser pane, the owner can walk the deployed site (Vercel deploys `main`) or run `npm run dev` locally.
+- **The browser walk** needs the app running with the owner signed in. If the cloud session has no browser pane, the owner can walk the deployed site (if Vercel deploys `main`; confirm with them) or run `npm run dev` locally.
 - **The CodeGraph MCP** (`.codegraph/`) may not exist in the cloud; use grep and read instead.
