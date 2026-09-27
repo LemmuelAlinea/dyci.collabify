@@ -57,7 +57,11 @@ export function GeneralNavigationProvider({
   }, [routeProjectId])
 
   useEffect(() => {
-    if (currentSpace && !currentSpace.archived_at) rememberSpace(currentSpace.id)
+    // A class space is never a landing choice — landingSpace only ever offers
+    // a work space — so remembering one here would just be a stale write.
+    if (currentSpace && currentSpace.kind === 'work' && !currentSpace.archived_at) {
+      rememberSpace(currentSpace.id)
+    }
   }, [currentSpace])
 
   const loadProjects = useCallback(async () => {
