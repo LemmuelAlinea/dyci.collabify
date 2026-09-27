@@ -4,25 +4,26 @@ import type { Upcoming } from './RoleHome'
 import { Alert } from '../../components/ui/Alert'
 import { generalCounts } from '../../lib/api/general'
 import type { GeneralCounts } from '../../lib/general/types'
+import { paths } from '../../lib/paths'
 
 const UPCOMING: Upcoming[] = [
   {
     icon: 'folder',
     title: 'Sections',
     body: 'Keep cohort names, year levels, and advisers consistent.',
-    to: '/admin/sections',
+    to: paths.admin.sections,
   },
   {
     icon: 'bell',
     title: 'Announcements',
     body: 'Program-wide notices that reach students and advisers in one send.',
-    to: '/admin/notices',
+    to: paths.admin.notices,
   },
   {
     icon: 'file',
     title: 'Program curriculum',
     body: 'Curriculum and syllabus templates published once, for every section of a course.',
-    to: '/admin/library',
+    to: paths.admin.library,
   },
 ]
 
@@ -58,7 +59,7 @@ function GeneralCountsBand() {
     return (
       <section className="mt-8">
         <Alert tone="error" onRetry={load}>
-          The General workplace counts did not load. Try again in a moment.
+          The project counts did not load. Try again in a moment.
         </Alert>
       </section>
     )
@@ -66,7 +67,7 @@ function GeneralCountsBand() {
   if (!counts) return null
 
   const items = [
-    { label: 'General projects', value: counts.projects },
+    { label: 'Projects', value: counts.projects },
     { label: 'Running', value: counts.active_projects },
     { label: 'Archived', value: counts.archived_projects },
     { label: 'People on them', value: counts.people },
@@ -74,7 +75,7 @@ function GeneralCountsBand() {
 
   return (
     <section className="mt-8 rounded-panel border border-line surface p-4 sm:p-5">
-      <p className="eyebrow">General workplace</p>
+      <p className="eyebrow">Projects and spaces</p>
       <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {items.map((i) => (
           <div key={i.label} className="rounded-xl surface-sunken px-3 py-2.5">

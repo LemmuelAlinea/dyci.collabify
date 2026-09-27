@@ -4,6 +4,7 @@ import { Reveal } from '../../components/motion/Reveal'
 import { Icon } from '../../components/ui/Icon'
 import type { IconName } from '../../components/ui/Icon'
 import { useAuth } from '../../context/AuthContext'
+import { paths } from '../../lib/paths'
 
 export type Upcoming = { icon: IconName; title: string; body: string; to: string }
 
@@ -103,7 +104,7 @@ export function RoleHome({
       <Reveal once className="mt-10 flex flex-wrap items-center gap-2 text-[13px] text-muted">
         <Icon name="info" size={16} className="text-faint" />
         Something not working the way you expect?{' '}
-        <Link to="/settings" className="font-medium text-ink hover:underline">
+        <Link to={paths.settings} className="font-medium text-ink hover:underline">
           Check your account settings
         </Link>
       </Reveal>
