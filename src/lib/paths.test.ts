@@ -29,12 +29,26 @@ describe('legacyPath', () => {
     }
   })
 
-  it('drops the General prefix', () => {
+  it('drops the General prefix for the allowlisted sections', () => {
     expect(legacyPath('/general/spaces/s1/members', null)).toBe('/spaces/s1/members')
     expect(legacyPath('/general/projects/p1', null)).toBe('/projects/p1')
     expect(legacyPath('/general/messages/c1', null)).toBe('/messages/c1')
-    expect(legacyPath('/general/teams', null)).toBe('/spaces')
-    expect(legacyPath('/general/teams/archive', null)).toBe('/spaces')
+  })
+
+  it('sends anything else under General home, rather than guess at it', () => {
+    expect(legacyPath('/general/foo', null)).toBe('/home')
+    // Old space-less /teams links had no page of their own to land on either.
+    expect(legacyPath('/general/teams', null)).toBe('/home')
+    expect(legacyPath('/general/teams/archive', null)).toBe('/home')
+  })
+
+  it('matches the old prefixes case-insensitively, keeping the rest as typed', () => {
+    expect(legacyPath('/Student/Classes/k1', null)).toBe('/classes/k1')
+    expect(legacyPath('/student/classes/k1/', null)).toBe('/classes/k1')
+    expect(legacyPath('/general/projects/p1/archive', null)).toBe('/projects/p1/archive')
+    expect(legacyPath('/general/spaces/s1/teams/archive', null)).toBe('/spaces/s1/teams/archive')
+    expect(legacyPath('/professor/projects/p1/extra', null)).toBe('/home')
+    expect(legacyPath('/admin/settings/', null)).toBe('/settings')
   })
 
   it('maps the class side', () => {

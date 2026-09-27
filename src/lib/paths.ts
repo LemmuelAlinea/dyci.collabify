@@ -77,35 +77,64 @@ const CLASS_SIDE: [RegExp, (m: RegExpMatchArray, role: LegacyRole) => string][] 
 ]
 
 /**
+ * A pattern's captured trailing group, if any, read back from `original`
+ * instead of the (lowercased) string that was actually matched.
+ *
+ * Every group in `CLASS_SIDE` and the General allowlist below captures the
+ * tail of the string it matched against, so its original-case text is always
+ * the same number of characters off the end of `original` — this is what
+ * keeps a class or project id's own casing intact while the route word in
+ * front of it (`/Classes`, `/STUDENT`, …) is still recognised regardless of
+ * how it was cased.
+ */
+function withOriginalCase(m: RegExpMatchArray, original: string): RegExpMatchArray {
+  if (m[1] === undefined) return m
+  const clone = [...m] as RegExpMatchArray
+  clone[1] = original.slice(original.length - m[1].length)
+  return clone
+}
+
+/**
  * Where an old URL lives now, or null if it isn't an old URL. Pathname only;
  * the caller keeps the query string and hash.
+ *
+ * Prefixes (`/general`, `/student`, `/professor`, `/admin`, `/education`) are
+ * matched case-insensitively, against a lowercased copy kept only for
+ * matching — `path` itself, and everything sliced from it, keeps whatever
+ * casing the link actually had.
  */
 export function legacyPath(pathname: string, _role: LegacyRole): string | null {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+  const lower = path.toLowerCase()
 
-  if (path === '/admin' || /^\/education(\/|$)/.test(path)) return '/home'
-  if (path === '/admin/settings') return '/settings'
+  if (lower === '/admin' || /^\/education(\/|$)/.test(lower)) return '/home'
+  if (lower === '/admin/settings') return '/settings'
 
-  const general = path.match(/^\/general(\/.*)?$/)
-  if (general) {
-    const rest = general[1] ?? ''
+  if (/^\/general(\/.*)?$/.test(lower)) {
+    const rest = path.length > '/general'.length ? path.slice('/general'.length) : ''
+    const restLower = rest.toLowerCase()
     if (rest === '') return '/home'
-    if (rest === '/settings') return '/settings'
-    // Teams only ever lived under a space; the old space-less links went to the picker.
-    if (/^\/teams(\/archive)?$/.test(rest)) return '/spaces'
-    return rest
+    if (restLower === '/settings') return '/settings'
+    // Everything else General ever linked to lives at the same words, flat —
+    // spaces, projects and messages never got their own class-side rename.
+    // Anything not on that short list (old space-less /teams links included)
+    // has no home to guess at, so it goes to /home rather than a 404.
+    if (/^\/(spaces|projects|messages)(\/|$)/.test(restLower)) return rest
+    return '/home'
   }
 
-  const section = path.match(/^\/(student|professor)(\/.*)?$/)
+  const section = lower.match(/^\/(student|professor)(\/.*)?$/)
   if (!section) return null
-  const rest = section[2] ?? ''
+  const prefixLength = 1 + section[1].length
+  const rest = path.length > prefixLength ? path.slice(prefixLength) : ''
+  const restLower = rest.toLowerCase()
   if (rest === '') return '/home'
-  if (rest === '/settings') return '/settings'
+  if (restLower === '/settings') return '/settings'
   // The prefix says whose page it was, whoever follows the link now.
   const who: LegacyRole = section[1] === 'professor' ? 'professor' : 'student'
   for (const [pattern, to] of CLASS_SIDE) {
-    const m = rest.match(pattern)
-    if (m) return to(m, who)
+    const m = restLower.match(pattern)
+    if (m) return to(withOriginalCase(m, rest), who)
   }
   return '/home'
 }
