@@ -26,7 +26,12 @@ export function inAnyClass(spaces: Pick<GeneralSpaceSummary, 'kind' | 'my_level'
 }
 
 /** What the account belongs to, which decides how much of the rail an admin gets. */
-export type Membership = { inClass: boolean; hasWork: boolean }
+export type Membership = {
+  inClass: boolean
+  hasWork: boolean
+  /** An invitation is waiting for an answer. Filled in by the rail, which counts them. */
+  invited?: boolean
+}
 
 /** Undefined while either list is still loading. */
 export function membershipOf(

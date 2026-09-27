@@ -90,6 +90,8 @@ export type MySpaceInvitation = {
   space_id: string
   space_name: string
   space_description: string
+  /** 'education' for an invitation to teach a class. Absent before supabase/inbox.sql runs. */
+  space_kind?: 'work' | 'education'
   inviter_id: string | null
   inviter_first_name: string | null
   inviter_last_name: string | null

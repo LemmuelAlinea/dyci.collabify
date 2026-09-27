@@ -1,31 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Avatar } from '../../../components/app/Avatar'
 import { Button } from '../../../components/ui/Button'
 import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { ScopeFilter } from '../../../components/ui/ScopeFilter'
 import { ConversationList } from '../../../components/messages/ConversationList'
 import { MessageThread } from '../../../components/messages/MessageThread'
+import { InboxInvitations } from '../../../components/messages/InboxInvitations'
 import { NewDirectDialog } from '../../../components/messages/NewDirectDialog'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useConversations } from '../../../hooks/useConversations'
-import { useLive } from '../../../hooks/useLive'
 import { canTeach, membershipOf, showsClassScope } from '../../../lib/access'
-import { listMyInvitations, respondToInvitation } from '../../../lib/api/general'
-import { authErrorMessage } from '../../../lib/authError'
 import { paths } from '../../../lib/paths'
 import { conversationScope, readScope, writeScope } from '../../../lib/scope'
-import type { MyInvitation } from '../../../lib/general/types'
-import { fullName } from '../../../lib/types'
-import { useToast } from '../../../components/ui/Toast'
 
 export default function Messages() {
   const { conversationId } = useParams()
   const { profile } = useAuth()
-  const { show } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
   const [params, setParams] = useSearchParams()
@@ -36,9 +29,6 @@ export default function Messages() {
   const scope = classScope ? readScope(params) : 'all'
   const { conversations, error, reload } = useConversations(profile?.id, 'all')
   const [newOpen, setNewOpen] = useState(false)
-  const [invitations, setInvitations] = useState<MyInvitation[]>([])
-  const [invitationError, setInvitationError] = useState<string | null>(null)
-  const [answering, setAnswering] = useState<string | null>(null)
 
   const canModerateHere = profile?.role === 'faculty' || profile?.role === 'admin'
   // Starting a direct thread is a teaching act — an admin who does not teach
@@ -47,42 +37,8 @@ export default function Messages() {
   const canStartMessages = canTeach(profile)
 
   useEffect(() => {
-    document.title = 'Messages · Collabify'
+    document.title = 'Inbox · Collabify'
   }, [])
-
-  const loadInvitations = useCallback(async () => {
-    if (!profile) {
-      setInvitations([])
-      setInvitationError(null)
-      return
-    }
-    try {
-      setInvitations(await listMyInvitations(profile.id))
-      setInvitationError(null)
-    } catch (err) {
-      setInvitationError(authErrorMessage(err, 'Could not load your invitations.'))
-    }
-  }, [profile])
-
-  useEffect(() => {
-    void loadInvitations()
-  }, [loadInvitations])
-
-  useLive(loadInvitations, ['general_invitations'])
-
-  async function answer(inv: MyInvitation, accept: boolean) {
-    setAnswering(inv.id)
-    try {
-      await respondToInvitation(inv.id, accept)
-      show(accept ? `You joined ${inv.project?.name ?? 'the project'}` : 'Invitation declined')
-      await loadInvitations()
-      await reload()
-    } catch (err) {
-      show(authErrorMessage(err, 'Could not answer that invitation.'), 'error')
-    } finally {
-      setAnswering(null)
-    }
-  }
 
   const classesCount = conversations?.filter((c) => conversationScope(c.kind) === 'classes').length ?? 0
   const workCount = conversations?.filter((c) => conversationScope(c.kind) === 'work').length ?? 0
@@ -102,9 +58,9 @@ export default function Messages() {
   return (
     <div className="w-full space-y-5">
       <DirectoryHero
-        title="Every conversation,"
-        accent="within reach."
-        description="Class, group and project chats, and your direct messages, in one place."
+        title="Your"
+        accent="inbox."
+        description="Invitations waiting for your answer, and every class, group, project and direct chat, in one place."
         action={
           canStartMessages ? (
             <Button
@@ -119,49 +75,7 @@ export default function Messages() {
         }
       />
 
-      {invitationError && <Alert tone="error">{invitationError}</Alert>}
-
-      {invitations.length > 0 && (
-        <section className="overflow-hidden rounded-panel border border-amber-300 bg-amber-400/6 dark:border-amber-400/40 dark:bg-amber-400/8">
-          <header className="flex items-center justify-between gap-3 border-b border-amber-300/60 px-4 py-3.5 sm:px-5 dark:border-amber-400/25">
-            <div>
-              <h2>Project invitations</h2>
-              <p className="mt-0.5 text-[12px] text-muted">Projects waiting for your answer.</p>
-            </div>
-            <span className="rounded-full bg-amber-400/25 px-2.5 py-1 font-mono text-[12px] font-medium text-amber-800 dark:text-amber-200">
-              {invitations.length}
-            </span>
-          </header>
-          <ul className="divide-y divide-amber-300/50 dark:divide-amber-400/20">
-            {invitations.map((inv) => (
-              <li key={inv.id} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:px-5">
-                {inv.inviter && <Avatar profile={inv.inviter} size={34} />}
-                <div className="min-w-[14rem] flex-1">
-                  <p className="text-[14px] font-medium text-ink">{inv.project?.name ?? 'A project'}</p>
-                  <p className="mt-0.5 text-[12px] text-muted">
-                    {inv.inviter ? `${fullName(inv.inviter)} invited you` : 'You were invited'}
-                    {inv.project?.description ? ` · ${inv.project.description.slice(0, 90)}` : ''}
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={answering === inv.id}
-                    onClick={() => void answer(inv, false)}
-                  >
-                    Decline
-                  </Button>
-                  <Button size="sm" loading={answering === inv.id} onClick={() => void answer(inv, true)}>
-                    <Icon name="check" size={14} />
-                    Join
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <InboxInvitations onAnswered={() => void reload()} />
 
       {classScope && (
         <div className="flex justify-end">
@@ -190,7 +104,7 @@ export default function Messages() {
             <ConversationList
               conversations={visible}
               activeId={conversationId}
-              linkBase={paths.messages}
+              linkBase={paths.inbox}
               search={location.search}
             />
           )}
@@ -226,7 +140,7 @@ export default function Messages() {
               conversation={active}
               viewerId={profile.id}
               canModerate={canModerate}
-              backTo={paths.messages}
+              backTo={paths.inbox}
               search={location.search}
             />
           ) : (

@@ -22,13 +22,13 @@ function ago(iso: string) {
   return new Date(iso).toLocaleDateString()
 }
 
-/** Where a notification opens. An invitation opens the list you answer it from. */
+/** Where a notification opens. An invitation opens the Inbox with it marked. */
 function destination(n: AppNotification, role: Role | null): string {
   switch (n.type) {
     case 'general_invited':
-      return paths.home
+      return n.general_project_id ? `${paths.inbox}?invite=project:${n.general_project_id}` : paths.inbox
     case 'space_invited':
-      return paths.spaces
+      return n.general_space_id ? `${paths.inbox}?invite=space:${n.general_space_id}` : paths.inbox
     case 'privacy_request':
       if (role === 'admin') return paths.admin.privacy
       return n.title.startsWith('Privacy request') ? paths.privacyQueue : paths.privacyRequest

@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ThemeSync } from './components/ThemeSync'
 import { AppShell } from './components/app/AppShell'
 import { ErrorBoundary } from './components/app/ErrorBoundary'
@@ -82,6 +82,13 @@ const GeneralProject = lazy(() => import('./pages/general/GeneralProject'))
 const ProjectArchive = lazy(() => import('./pages/general/ProjectArchive'))
 const GeneralReports = lazy(() => import('./pages/general/GeneralReports'))
 
+/** An old /messages/<id> link, kept on its conversation and query in the Inbox. */
+function MessagesRedirect() {
+  const { conversationId } = useParams()
+  const { search } = useLocation()
+  return <Navigate to={`${paths.conversation(conversationId ?? '')}${search}`} replace />
+}
+
 export default function App() {
   return (
     // The outer net. The shell has its own boundary around the page area, which
@@ -136,8 +143,11 @@ export default function App() {
                   <RoleSwitch student={<Calendar />} faculty={<Calendar />} admin={<Calendar />} />
                 }
               />
-              <Route path="/messages" element={<Messages />} />
-              <Route path="/messages/:conversationId" element={<Messages />} />
+              <Route path="/inbox" element={<Messages />} />
+              <Route path="/inbox/:conversationId" element={<Messages />} />
+              {/* Messages became the Inbox; old links and bookmarks still land. */}
+              <Route path="/messages" element={<Navigate to={paths.inbox} replace />} />
+              <Route path="/messages/:conversationId" element={<MessagesRedirect />} />
 
               {/* Work spaces, open to every admitted account — a professor's
                   capstone side project is exactly as valid as a student's. */}

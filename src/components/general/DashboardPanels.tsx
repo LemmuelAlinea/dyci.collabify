@@ -1,6 +1,4 @@
 import { Link } from 'react-router-dom'
-import { Avatar } from '../app/Avatar'
-import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import { formatDue, isOverdue } from '../../lib/general/dates'
@@ -8,12 +6,10 @@ import { dayLabel } from '../../lib/general/dashboard'
 import type { ComingDay } from '../../lib/general/dashboard'
 import { TASK_STATUSES } from '../../lib/general/progress'
 import { paths } from '../../lib/paths'
-import { fullName } from '../../lib/types'
 import type {
   GeneralProjectSummary,
   GeneralRepoChange,
   GeneralTask,
-  MyInvitation,
 } from '../../lib/general/types'
 
 /** The one-line note a panel shows when it has nothing to list. */
@@ -71,56 +67,24 @@ function Row({
 }
 
 /**
- * Everything that is stuck until this person answers it: invitations, reviews
- * somebody asked them for, and access requests on projects they own.
+ * What is stuck until this person answers it: reviews somebody asked them
+ * for, and access requests on projects they own. Invitations are answered in
+ * the Inbox.
  */
 export function WaitingPanel({
-  invitations,
   reviews,
   requests,
   projectName,
-  answering,
-  onAnswer,
 }: {
-  invitations: MyInvitation[]
   reviews: GeneralRepoChange[]
   requests: GeneralProjectSummary[]
   projectName: (id: string) => string
-  answering: string | null
-  onAnswer: (inv: MyInvitation, accept: boolean) => void
 }) {
-  if (invitations.length + reviews.length + requests.length === 0) {
+  if (reviews.length + requests.length === 0) {
     return <Quiet>Nothing is waiting on you.</Quiet>
   }
   return (
     <div className="space-y-2">
-      {invitations.length > 0 && (
-        <ul className="overflow-hidden rounded-xl border border-amber-300 bg-amber-400/6 dark:border-amber-400/40 dark:bg-amber-400/8">
-          {invitations.map((inv) => (
-            <li
-              key={inv.id}
-              className="flex flex-wrap items-center gap-x-3 gap-y-2.5 border-b border-amber-300/50 px-3 py-3 last:border-b-0 sm:px-4 dark:border-amber-400/20"
-            >
-              {inv.inviter && <Avatar profile={inv.inviter} size={30} />}
-              <div className="min-w-[10rem] flex-1">
-                <p className="text-[14px] font-medium text-ink">{inv.project?.name ?? 'A project'}</p>
-                <p className="mt-0.5 text-[12px] text-muted">
-                  {inv.inviter ? `${fullName(inv.inviter)} invited you` : 'You were invited'}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <Button variant="outline" size="sm" disabled={answering === inv.id} onClick={() => onAnswer(inv, false)}>
-                  Decline
-                </Button>
-                <Button size="sm" loading={answering === inv.id} onClick={() => onAnswer(inv, true)}>
-                  <Icon name="check" size={14} />
-                  Join
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
       {(reviews.length > 0 || requests.length > 0) && (
         <ul className="space-y-2">
           {reviews.map((r) => (

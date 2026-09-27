@@ -4,7 +4,7 @@ import { legacyPath, paths } from './paths'
 describe('paths', () => {
   it('builds the short routes', () => {
     expect(paths.home).toBe('/home')
-    expect(paths.conversation('c1')).toBe('/messages/c1')
+    expect(paths.conversation('c1')).toBe('/inbox/c1')
     expect(paths.space('s1')).toBe('/spaces/s1')
     expect(paths.spaceReports('s1')).toBe('/spaces/s1/reports')
     expect(paths.project('p1')).toBe('/projects/p1')
@@ -32,7 +32,7 @@ describe('legacyPath', () => {
   it('drops the General prefix for the allowlisted sections', () => {
     expect(legacyPath('/general/spaces/s1/members', null)).toBe('/spaces/s1/members')
     expect(legacyPath('/general/projects/p1', null)).toBe('/projects/p1')
-    expect(legacyPath('/general/messages/c1', null)).toBe('/messages/c1')
+    expect(legacyPath('/general/messages/c1', null)).toBe('/inbox/c1')
   })
 
   it('sends anything else under General home, rather than guess at it', () => {
@@ -58,7 +58,7 @@ describe('legacyPath', () => {
     expect(legacyPath('/professor/projects/p1', 'professor')).toBe('/class-projects/p1')
     expect(legacyPath('/student/tasks', 'student')).toBe('/tasks')
     expect(legacyPath('/professor/calendar', 'professor')).toBe('/calendar')
-    expect(legacyPath('/student/messages/c1', 'student')).toBe('/messages/c1')
+    expect(legacyPath('/student/messages/c1', 'student')).toBe('/inbox/c1')
   })
 
   it('splits the two reports pages by whose they were', () => {

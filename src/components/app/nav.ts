@@ -10,8 +10,8 @@ export type NavItem = {
   to?: string
   /** Phase 2. Rendered as a disabled row with a "Soon" tag. */
   soon?: boolean
-  /** Named counter the shell fills in live, e.g. unread messages. */
-  badge?: 'messages'
+  /** Named counter the shell fills in live: unread messages plus invitations waiting. */
+  badge?: 'inbox'
   /** Match this path exactly, so a parent page is not lit on its children. */
   end?: boolean
 }
@@ -46,7 +46,7 @@ const MAIN: NavGroup = {
     { label: 'Home', icon: 'board', to: paths.home, end: true },
     { label: 'My tasks', icon: 'check', to: paths.tasks },
     { label: 'Calendar', icon: 'calendar', to: paths.calendar },
-    { label: 'Messages', icon: 'message', to: paths.messages, badge: 'messages' },
+    { label: 'Inbox', icon: 'mail', to: paths.inbox, badge: 'inbox' },
   ],
 }
 
@@ -149,6 +149,15 @@ const ADMIN: NavGroup = {
   ],
 }
 
+/** An admin in nothing yet, with an invitation to answer. */
+const ADMIN_INVITED: NavGroup = {
+  title: 'Main',
+  items: [
+    { label: 'Home', icon: 'board', to: paths.home, end: true },
+    { label: 'Inbox', icon: 'mail', to: paths.inbox, badge: 'inbox' },
+  ],
+}
+
 /**
  * A student nobody has let in yet. Every other row would open onto an empty
  * page, so the rail offers only Home, whose one job for them is joining a
@@ -187,7 +196,10 @@ export function navFor(
 
   const { role } = profile
   if (role === 'admin') {
-    if (!membership?.inClass && !membership?.hasWork) return [ADMIN, ACCOUNT]
+    if (!membership?.inClass && !membership?.hasWork) {
+      // Invited but not yet in: the Inbox is where they answer.
+      return membership?.invited ? [ADMIN_INVITED, ADMIN, ACCOUNT] : [ADMIN, ACCOUNT]
+    }
     return [MAIN, spacesGroup(true, true), PROJECTS, ADMIN, ACCOUNT]
   }
   if (role === 'student') {

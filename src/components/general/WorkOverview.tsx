@@ -9,16 +9,12 @@ import { NewSpaceDialog } from './SpaceDialogs'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Spinner } from '../ui/Icon'
-import { useToast } from '../ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
 import { canTeach, isFaculty } from '../../lib/access'
-import { respondToInvitation } from '../../lib/api/general'
-import { authErrorMessage } from '../../lib/authError'
 import { comingUp, myTasks, recentProjects } from '../../lib/general/dashboard'
-import type { MyInvitation } from '../../lib/general/types'
 import { plural } from '../../lib/plural'
 import { paths } from '../../lib/paths'
 
@@ -39,10 +35,8 @@ export function WorkOverview() {
   const { profile } = useAuth()
   // Admins are invited in, never make or join a space themselves.
   const faculty = isFaculty(profile) && profile?.role !== 'admin'
-  const { show } = useToast()
   const { myProjects, spaces, error, reload } = useGeneralNavigation()
   const unread = useUnreadTotal(profile?.id, 'general')
-  const [answering, setAnswering] = useState<string | null>(null)
   const [joinOpen, setJoinOpen] = useState(false)
   const [newSpaceOpen, setNewSpaceOpen] = useState(false)
 
@@ -57,31 +51,17 @@ export function WorkOverview() {
   const names = new Map(mineProjects.map((p) => [p.id, p.name]))
   const projectName = (id: string) => names.get(id) ?? 'A project'
   const mine = profile && data ? myTasks(data.tasks, profile.id) : []
-  const invitations = data?.invitations ?? []
   const reviews = data?.reviews ?? []
   const requests = mineProjects.filter((p) => p.my_level === 'owner' && p.open_request_count > 0)
   const waiting =
-    invitations.length + reviews.length + requests.reduce((n, p) => n + p.open_request_count, 0)
+    reviews.length + requests.reduce((n, p) => n + p.open_request_count, 0)
   const days = data ? comingUp(data.tasks, mineProjects, now) : []
   // Class spaces live under Education; "Your work" only ever counts work spaces.
   const workSpaces = useMemo(() => (spaces ?? []).filter((s) => s.kind === 'work'), [spaces])
   const liveSpaces = workSpaces.filter((s) => s.my_level && !s.archived_at)
 
-  async function answer(inv: MyInvitation, accept: boolean) {
-    setAnswering(inv.id)
-    try {
-      await respondToInvitation(inv.id, accept)
-      show(accept ? 'Invitation accepted' : 'Invitation declined')
-      await Promise.all([reloadDash(), reload()])
-    } catch (err) {
-      show(authErrorMessage(err, 'Could not answer that invitation.'), 'error')
-    } finally {
-      setAnswering(null)
-    }
-  }
-
   const loaded = myProjects !== null
-  const hasSomething = mineProjects.length > 0 || liveSpaces.length > 0 || invitations.length > 0
+  const hasSomething = mineProjects.length > 0 || liveSpaces.length > 0
 
   // Faculty always keep the New space / Join with code doors open, including
   // while this is still loading. Everyone else sees nothing until we know
@@ -131,9 +111,9 @@ export function WorkOverview() {
             },
             {
               icon: 'message',
-              label: 'Messages',
+              label: 'Inbox',
               hint: unread > 0 ? `${unread} unread` : 'Chats and project threads',
-              to: `${paths.messages}?show=work`,
+              to: `${paths.inbox}?show=work`,
               count: unread,
             },
           ]}
@@ -160,12 +140,9 @@ export function WorkOverview() {
               <Reveal once delay={0.04}>
                 <DashSection icon="bell" title="Waiting on you" count={waiting}>
                   <WaitingPanel
-                    invitations={invitations}
                     reviews={reviews}
                     requests={requests}
                     projectName={projectName}
-                    answering={answering}
-                    onAnswer={(inv, accept) => void answer(inv, accept)}
                   />
                 </DashSection>
               </Reveal>

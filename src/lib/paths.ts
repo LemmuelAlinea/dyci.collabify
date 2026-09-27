@@ -10,8 +10,8 @@ export const paths = {
   home: '/home',
   tasks: '/tasks',
   calendar: '/calendar',
-  messages: '/messages',
-  conversation: (id: string) => `/messages/${id}`,
+  inbox: '/inbox',
+  conversation: (id: string) => `/inbox/${id}`,
   settings: '/settings',
 
   spaces: '/spaces',
@@ -69,7 +69,7 @@ const CLASS_SIDE: [RegExp, (m: RegExpMatchArray, role: LegacyRole) => string][] 
   [/^\/projects(\/[^/]+)?$/, (m) => `/class-projects${m[1] ?? ''}`],
   [/^\/tasks$/, () => '/tasks'],
   [/^\/calendar$/, () => '/calendar'],
-  [/^\/messages(\/[^/]+)?$/, (m) => `/messages${m[1] ?? ''}`],
+  [/^\/messages(\/[^/]+)?$/, (m) => `/inbox${m[1] ?? ''}`],
   [/^\/reports$/, (_m, role) => (role === 'professor' || role === 'faculty' ? '/teaching/reports' : '/record')],
   [/^\/(submissions|reassignments|analytics|curriculum)$/, (m) => `/teaching/${m[1]}`],
   [/^\/syllabi(\/[^/]+)?$/, (m) => `/teaching/syllabi${m[1] ?? ''}`],
@@ -119,7 +119,9 @@ export function legacyPath(pathname: string, _role: LegacyRole): string | null {
     // spaces, projects and messages never got their own class-side rename.
     // Anything not on that short list (old space-less /teams links included)
     // has no home to guess at, so it goes to /home rather than a 404.
-    if (/^\/(spaces|projects|messages)(\/|$)/.test(restLower)) return rest
+    if (/^\/(spaces|projects)(\/|$)/.test(restLower)) return rest
+    // Messages became the Inbox.
+    if (/^\/messages(\/|$)/.test(restLower)) return '/inbox' + rest.slice('/messages'.length)
     return '/home'
   }
 

@@ -27,9 +27,7 @@ import { useUnreadTotal } from '../../hooks/useConversations'
 import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
 import { forgetSpace } from '../../hooks/useSpaces'
 import { isFaculty } from '../../lib/access'
-import { respondToInvitation } from '../../lib/api/general'
 import { archiveSpace, deleteSpace } from '../../lib/api/spaces'
-import { authErrorMessage } from '../../lib/authError'
 import { comingUp, dueCounts, myTasks, recentProjects } from '../../lib/general/dashboard'
 import { dateRange } from '../../lib/general/dates'
 import { levelLabel } from '../../lib/general/permissions'
@@ -38,7 +36,6 @@ import { PROJECT_STATUSES, projectStatusLabel } from '../../lib/general/types'
 import type {
   GeneralProjectSummary,
   GeneralStatus,
-  MyInvitation,
 } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
 import { plural } from '../../lib/plural'
@@ -80,7 +77,6 @@ export default function SpaceHome() {
   const [joinOpen, setJoinOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [answering, setAnswering] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<GeneralStatus | ''>('')
 
@@ -100,18 +96,6 @@ export default function SpaceHome() {
       .filter((p) => (q ? `${p.name} ${p.description}`.toLowerCase().includes(q) : true))
   }, [all, query, status])
 
-  async function answer(inv: MyInvitation, accept: boolean) {
-    setAnswering(inv.id)
-    try {
-      await respondToInvitation(inv.id, accept)
-      show(accept ? `You joined ${inv.project?.name ?? 'the project'}` : 'Invitation declined')
-      await Promise.all([reload(), reloadNavigation()])
-    } catch (err) {
-      show(authErrorMessage(err, 'Could not answer that invitation.'), 'error')
-    } finally {
-      setAnswering(null)
-    }
-  }
 
   if (spaceId && spaces !== null && !space) {
     return <Navigate to={paths.spaces} replace />
@@ -131,11 +115,10 @@ export default function SpaceHome() {
   const projectName = (id: string) => names.get(id) ?? 'A project'
   const mine = profile && data ? myTasks(data.tasks, profile.id) : []
   const { overdue, thisWeek } = dueCounts(mine, now)
-  const invitations = data?.invitations ?? []
   const reviews = data?.reviews ?? []
   const requests = all.filter((p) => p.my_level === 'owner' && p.open_request_count > 0)
   const waiting =
-    invitations.length + reviews.length + requests.reduce((n, p) => n + p.open_request_count, 0)
+    reviews.length + requests.reduce((n, p) => n + p.open_request_count, 0)
   const days = data ? comingUp(data.tasks, all, now) : []
 
   const line = archived
@@ -204,9 +187,9 @@ export default function SpaceHome() {
               },
               {
                 icon: 'message',
-                label: 'Messages',
+                label: 'Inbox',
                 hint: unread > 0 ? `${unread} unread` : 'Chats and project threads',
-                to: paths.messages,
+                to: paths.inbox,
                 count: unread,
               },
               {
@@ -253,7 +236,7 @@ export default function SpaceHome() {
             <Spinner size={16} />
             Loading this space…
           </div>
-        ) : all.length === 0 && invitations.length === 0 ? (
+        ) : all.length === 0 ? (
           <EmptyState
             icon="kanban"
             title="No projects yet"
@@ -276,14 +259,7 @@ export default function SpaceHome() {
               <BentoCell>
                 <Reveal once delay={0.04}>
                   <DashSection icon="bell" title="Waiting on you" count={waiting}>
-                    <WaitingPanel
-                      invitations={invitations}
-                      reviews={reviews}
-                      requests={requests}
-                      projectName={projectName}
-                      answering={answering}
-                      onAnswer={(inv, accept) => void answer(inv, accept)}
-                    />
+                    <WaitingPanel reviews={reviews} requests={requests} projectName={projectName} />
                   </DashSection>
                 </Reveal>
               </BentoCell>

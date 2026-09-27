@@ -28,7 +28,7 @@ export function WaitingOnYou({
     {
       icon: 'message',
       label: unread === 1 ? 'unread message' : 'unread messages',
-      to: paths.messages,
+      to: paths.inbox,
       count: unread,
     },
     {

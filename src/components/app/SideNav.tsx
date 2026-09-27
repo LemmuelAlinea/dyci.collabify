@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useAdmission } from '../../hooks/useAdmission'
 import { useUnreadTotal } from '../../hooks/useConversations'
+import { usePendingInvitations } from '../../hooks/usePendingInvitations'
 import { membershipOf } from '../../lib/access'
 import { recentProjects } from '../../lib/general/dashboard'
 import { paths } from '../../lib/paths'
@@ -39,6 +40,10 @@ export function SideNav({
   const [hint, setHint] = useState<Hint | null>(null)
 
   const unread = useUnreadTotal(profile?.id, 'all')
+  const pendingProjects = usePendingInvitations(profile?.id).invitations?.length ?? 0
+  // Unread messages plus invitations waiting: everything the Inbox holds for them.
+  const pending = pendingProjects + navigation.invitations.length
+  const inboxCount = unread + pending
   const admitted = useAdmission(profile?.role === 'student' ? profile.id : undefined)
 
   useEffect(() => setHint(null), [collapsed, location.pathname, location.search])
@@ -47,10 +52,11 @@ export function SideNav({
 
   // Null while it loads counts as admitted, so the rail never flashes empty
   // for a student who has classes.
+  const membership = membershipOf(navigation.spaces, navigation.myProjects)
   const groups = navFor(
     profile,
     admitted !== false,
-    membershipOf(navigation.spaces, navigation.myProjects),
+    membership && { ...membership, invited: pending > 0 },
   )
 
   function revealHint(
@@ -169,7 +175,7 @@ export function SideNav({
                       key={item.label}
                       item={item}
                       collapsed={collapsed}
-                      unread={unread}
+                      unread={inboxCount}
                       onNavigate={onNavigate}
                       hintHandlers={hintHandlers}
                     />
@@ -341,8 +347,8 @@ function StaticRow({
   onNavigate?: () => void
   hintHandlers: (text: string) => Record<string, unknown>
 }) {
-  const label = item.badge === 'messages' && unread > 0
-    ? `${item.label}, ${unread} unread`
+  const label = item.badge === 'inbox' && unread > 0
+    ? `${item.label}, ${unread} new`
     : item.label
 
   if (!item.to) {
@@ -389,7 +395,7 @@ function StaticRow({
               className={isActive ? 'text-navy-600 dark:text-amber-400' : ''}
             />
             {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-            {item.badge === 'messages' && unread > 0 && (
+            {item.badge === 'inbox' && unread > 0 && (
               <span
                 aria-hidden
                 className={`grid place-items-center rounded-full bg-navy-600 font-mono text-[12px] font-bold text-white dark:bg-amber-400 dark:text-navy-900 ${

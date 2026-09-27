@@ -58,6 +58,19 @@ describe('navFor', () => {
     expect(labels(navFor(admin, true, none))).toContain('Faculty approvals')
   })
 
+  it('gives an admin in nothing but invited Home and Inbox, so they can answer', () => {
+    const groups = navFor(admin, true, { inClass: false, hasWork: false, invited: true })
+    expect(titles(groups)).toEqual(['Main', 'Admin', 'Account'])
+    expect(groups[0].items.map((i) => i.label)).toEqual(['Home', 'Inbox'])
+  })
+
+  it('calls the conversations page Inbox for everyone', () => {
+    for (const who of [student, teacher, nonTeacher, admin]) {
+      const main = navFor(who, true, { inClass: true, hasWork: true })[0]
+      expect(main.items.find((i) => i.to === '/inbox')?.label).toBe('Inbox')
+    }
+  })
+
   it('gives an admin in work Main, Spaces and Projects, and never Classes', () => {
     const groups = navFor(admin, true, { inClass: false, hasWork: true })
     expect(titles(groups)).toEqual(['Main', 'Spaces', 'Projects', 'Admin', 'Account'])
@@ -98,7 +111,7 @@ describe('navFor', () => {
       '/home',
       '/tasks',
       '/calendar',
-      '/messages',
+      '/inbox',
       '/settings',
       '/spaces',
       '/projects',

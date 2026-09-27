@@ -1,22 +1,18 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { Avatar } from '../../components/app/Avatar'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { JoinSpaceDialog, NewSpaceDialog } from '../../components/general/SpaceDialogs'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Icon, Spinner } from '../../components/ui/Icon'
-import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { rememberSpace } from '../../hooks/useSpaces'
 import { canTeach, inAnyClass, isFaculty } from '../../lib/access'
-import { respondToSpaceInvitation } from '../../lib/api/spaces'
-import { authErrorMessage } from '../../lib/authError'
 import { levelLabel } from '../../lib/general/permissions'
-import type { GeneralSpaceSummary, MySpaceInvitation } from '../../lib/general/types'
+import type { GeneralSpaceSummary } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
 
 /**
@@ -35,33 +31,19 @@ import { paths } from '../../lib/paths'
 type Show = 'all' | 'classes' | 'spaces'
 
 export default function SpacePicker() {
-  const { show } = useToast()
   const location = useLocation()
   const { profile } = useAuth()
   // Admins are invited in, never make or join a space themselves.
   const faculty = isFaculty(profile) && profile?.role !== 'admin'
-  const { spaces, invitations, error, reload } = useGeneralNavigation()
+  const { spaces, error, reload } = useGeneralNavigation()
   const [newOpen, setNewOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
-  const [answering, setAnswering] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
 
   useEffect(() => {
     document.title = 'Spaces · Collabify'
   }, [])
 
-  async function answer(inv: MySpaceInvitation, accept: boolean) {
-    setAnswering(inv.invitation_id)
-    try {
-      await respondToSpaceInvitation(inv.invitation_id, accept)
-      show(accept ? `You joined ${inv.space_name}` : 'Invitation declined')
-      await reload()
-    } catch (err) {
-      show(authErrorMessage(err, 'Could not answer that invitation.'), 'error')
-    } finally {
-      setAnswering(null)
-    }
-  }
 
   const mine = (spaces ?? []).filter((s) => s.my_level)
   const classSpaces = mine.filter((s) => s.kind === 'education' && !s.archived_at)
@@ -181,63 +163,6 @@ export default function SpacePicker() {
         )}
         </div>
 
-        {!viewingArchived && invitations.length > 0 && (
-          <section className="overflow-hidden rounded-panel border border-amber-300 bg-amber-400/6 dark:border-amber-400/40 dark:bg-amber-400/8">
-            <header className="flex items-center justify-between gap-3 border-b border-amber-300/60 px-4 py-3.5 sm:px-5 dark:border-amber-400/25">
-              <div>
-                <h2>Invitations</h2>
-                <p className="mt-0.5 text-[12px] text-muted">Spaces waiting for your answer.</p>
-              </div>
-              <span className="rounded-full bg-amber-400/25 px-2.5 py-1 font-mono text-[12px] font-medium text-amber-800 dark:text-amber-200">
-                {invitations.length}
-              </span>
-            </header>
-            <ul className="divide-y divide-amber-300/50 dark:divide-amber-400/20">
-              {invitations.map((inv) => (
-                <li
-                  key={inv.invitation_id}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:px-5"
-                >
-                  {inv.inviter_id && (
-                    <Avatar
-                      profile={{
-                        first_name: inv.inviter_first_name ?? '',
-                        last_name: inv.inviter_last_name ?? '',
-                        avatar_url: inv.inviter_avatar_url,
-                      }}
-                      size={34}
-                    />
-                  )}
-                  <div className="min-w-[14rem] flex-1">
-                    <p className="font-medium">{inv.space_name}</p>
-                    <p className="text-[12px] text-muted">
-                      {inv.inviter_first_name
-                        ? `${inv.inviter_first_name} ${inv.inviter_last_name ?? ''} invited you`
-                        : 'You were invited'}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      loading={answering === inv.invitation_id}
-                      onClick={() => void answer(inv, true)}
-                    >
-                      Accept
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={answering === inv.invitation_id}
-                      onClick={() => void answer(inv, false)}
-                    >
-                      Decline
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
 
         {spaces === null ? (
           <div className="grid place-items-center py-16">
