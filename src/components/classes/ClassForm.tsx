@@ -100,13 +100,22 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
     })
   }
 
-  const asOptions = (rows: TeachingResource[], kind?: 'syllabus' | 'curriculum') => [
-    ...rows.map((r) => ({ value: r.id, label: r.title })),
-    ...published
-      .filter((r) => (kind ? r.kind === kind : true))
-      .filter((r) => !rows.some((own) => own.id === r.id))
-      .map((r) => ({ value: r.id, label: `Program · ${r.title}` })),
-  ]
+  const asOptions = (rows: TeachingResource[], kind: 'syllabus' | 'curriculum') => {
+    const options = [
+      ...rows.map((r) => ({ value: r.id, label: r.title })),
+      ...published
+        .filter((r) => r.kind === kind)
+        .filter((r) => !rows.some((own) => own.id === r.id))
+        .map((r) => ({ value: r.id, label: `Program · ${r.title}` })),
+    ]
+    // A co-teacher does not own the class's syllabus, so it is in neither list.
+    // Offer it as it stands rather than a field that reads "No syllabus".
+    const current = kind === 'syllabus' ? defaults?.syllabus_id : defaults?.curriculum_id
+    if (current && !options.some((o) => o.value === current)) {
+      options.unshift({ value: current, label: `The class's current ${kind}` })
+    }
+    return options
+  }
 
   return (
     <form id={formId} onSubmit={submit} className="space-y-4">
