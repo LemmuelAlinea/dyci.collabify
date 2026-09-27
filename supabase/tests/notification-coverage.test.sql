@@ -169,6 +169,7 @@ begin
   select count(*) into n from public.notifications
    where user_id = mate_id and type = 'membership_changed' and preview like '%removed you';
   perform pg_temp.act_as(owner_id);
+  perform public.archive_general_space(space.id, true);
   perform public.delete_general_space(space.id);
   perform pg_temp.svc();
   perform pg_temp.ok('deleting a space outright sends no removal notices',

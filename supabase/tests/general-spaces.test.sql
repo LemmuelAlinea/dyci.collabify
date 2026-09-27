@@ -326,9 +326,17 @@ begin
   end;
 
   perform pg_temp.act_as(watcher_id);
+  begin
+    perform public.delete_general_space(other.id);
+    perform pg_temp.ok('an Owner cannot delete a space that is not archived', false);
+  exception when check_violation then
+    perform pg_temp.ok('an Owner cannot delete a space that is not archived', true);
+  end;
+
+  perform public.archive_general_space(other.id, true);
   perform public.delete_general_space(other.id);
   select count(*) into n from public.general_spaces where id = other.id;
-  perform pg_temp.ok('an Owner can delete a space', n = 0);
+  perform pg_temp.ok('an Owner can delete an archived space', n = 0);
 end $$;
 
 rollback;

@@ -544,13 +544,51 @@ create or replace function public.delete_general_space(
   p_space uuid
 ) returns void
 language plpgsql security definer set search_path = public as $$
+declare
+  pid    uuid;
+  gone   int;
+  claims text := current_setting('request.jwt.claims', true);
+  sub    text := current_setting('request.jwt.claim.sub', true);
 begin
   if not public.is_general_space_owner(p_space) then
     raise exception 'Only an Owner deletes a space' using errcode = 'insufficient_privilege';
   end if;
+  -- Deleting is the second of two steps: archived first, never live work.
+  if not public.general_space_is_archived(p_space) then
+    raise exception 'Archive this space first. Only an archived space can be deleted.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- Each project goes the way delete_general_project removes one (see
+  -- general-project-archive-rbac.sql): live again for this transaction so the
+  -- archive guards allow the cascade, tasks first, then the project under the
+  -- flag that lets its commits go. Otherwise any project with a commit would
+  -- stop its space being deleted.
+  --
+  -- The Owner of a space need not be on every project in it, and the task
+  -- guards refuse anyone who is not. So, the decision made above, the tasks
+  -- are removed as the system removes them (no caller), and the caller is put
+  -- back straight after for everything else.
+  for pid in select id from public.general_projects where space_id = p_space loop
+    perform set_config('collabify.general_owner_op', 'on', true);
+    update public.general_projects set archived_at = null, archived_by = null
+     where id = pid and archived_at is not null;
+    perform set_config('collabify.general_owner_op', 'off', true);
+
+    perform set_config('request.jwt.claims', '', true);
+    perform set_config('request.jwt.claim.sub', '', true);
+    delete from public.general_tasks where project_id = pid;
+    perform set_config('request.jwt.claims', coalesce(claims, ''), true);
+    perform set_config('request.jwt.claim.sub', coalesce(sub, ''), true);
+
+    perform set_config('collabify.general_project_delete', pid::text, true);
+    delete from public.general_projects where id = pid;
+    perform set_config('collabify.general_project_delete', '', true);
+  end loop;
 
   delete from public.general_spaces where id = p_space;
-  if not found then
+  get diagnostics gone = row_count;
+  if gone = 0 then
     raise exception 'Space not found' using errcode = 'no_data_found';
   end if;
 end;

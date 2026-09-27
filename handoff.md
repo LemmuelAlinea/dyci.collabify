@@ -1532,3 +1532,16 @@ checks. Storage objects under a deleted board's Files are not cleaned up (deferr
 
 **Checks:** all 45 SQL suites pass with no failures; `npm run build`; `npx vitest run`
 (528).
+
+**Space delete (2026-09-28):** the Archive/Restore/Delete buttons moved into the space
+banner (`DashboardSummary` gained an `action` slot), and Delete shows only on an
+archived space. `delete_general_space` (general-spaces.sql, applied live as a
+function-only apply) now also refuses a space that is not archived (`check_violation`).
+It also fixes an older bug where any space holding a project with Files commits could
+not be deleted. Each project is now removed the way `delete_general_project` removes
+one (un-archived for the transaction, tasks first, then deleted under
+`collabify.general_project_delete`). The task delete runs with no caller, because the
+space Owner may not be on every project, and the caller is restored straight after.
+Test: `supabase/tests/space-delete.test.sql` (6 PASS); `general-spaces` and
+`notification-coverage` now archive before they delete. All 46 SQL suites pass.
+Storage objects under deleted projects are still left behind (deferred).
