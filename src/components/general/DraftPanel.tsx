@@ -10,6 +10,7 @@ import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import {
   archiveDraftPath,
+  commitDraftPath,
   discardDraft,
   submitDraftFolder,
   submitDraftFile,
@@ -33,6 +34,9 @@ import { FolderBar } from './FolderBar'
 import type { GeneralProjectState } from './useGeneralProject'
 
 type SubmitTarget = { type: 'file' | 'folder'; path: string }
+
+/** The last part of a path: what somebody types to confirm a commit. */
+const baseName = (target: SubmitTarget | null) => target?.path.split('/').pop() ?? ''
 
 /**
  * Your working copy, and the one button that hands it over.
@@ -73,6 +77,9 @@ export function DraftPanel({
   const { show } = useToast()
   const [submitting, setSubmitting] = useState<SubmitTarget | null>(null)
   const [archiving, setArchiving] = useState<SubmitTarget | null>(null)
+  const [committing, setCommitting] = useState<SubmitTarget | null>(null)
+  const [typed, setTyped] = useState('')
+  const mayCommit = state.can('edit_files')
   const [discarding, setDiscarding] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -142,6 +149,9 @@ export function DraftPanel({
                   disabled={busy}
                   items={[
                     { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => setSubmitting({ type: 'folder', path }) },
+                    ...(mayCommit
+                      ? [{ label: 'Commit to main', icon: 'check' as const, disabled: behind, onSelect: () => setCommitting({ type: 'folder', path }) }]
+                      : []),
                     { label: 'Archive', icon: 'archive', onSelect: () => setArchiving({ type: 'folder', path }) },
                   ]}
                 />
@@ -207,6 +217,7 @@ export function DraftPanel({
                   onOpen={onOpen}
                   onArchive={setArchiving}
                   onSubmit={setSubmitting}
+                  onCommit={mayCommit ? setCommitting : undefined}
                 />
               ))}
             </ul>
@@ -231,6 +242,7 @@ export function DraftPanel({
               onOpen={onOpen}
               onArchive={setArchiving}
               onSubmit={setSubmitting}
+              onCommit={mayCommit ? setCommitting : undefined}
             />
           ))}
         </ul>
@@ -270,6 +282,44 @@ export function DraftPanel({
       />
 
       <ConfirmDialog
+        open={committing !== null}
+        onClose={() => {
+          setCommitting(null)
+          setTyped('')
+        }}
+        onConfirm={async () => {
+          if (!committing) return
+          await commitDraftPath(repo.id, committing.path, committing.type === 'folder')
+          show(committing.type === 'folder' ? 'Folder committed to Main' : 'File committed to Main')
+          setTyped('')
+          await onDone()
+        }}
+        title={`Commit this ${committing?.type ?? 'file'} to Main?`}
+        body={
+          <div className="space-y-3">
+            <p>
+              <span className="font-mono">{committing?.path}</span>
+              {committing?.type === 'folder' ? ' and every file in it go' : ' goes'} straight to
+              Main without a review and {committing?.type === 'folder' ? 'leave' : 'leaves'} My
+              draft. History keeps the version before it.
+            </p>
+            <label htmlFor="commit-draft-name" className="block text-[13px] text-ink">
+              Type <span className="font-mono font-medium">{baseName(committing)}</span> to confirm
+            </label>
+            <Input
+              id="commit-draft-name"
+              autoComplete="off"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+          </div>
+        }
+        confirmLabel="Commit to main"
+        tone="primary"
+        blocked={typed.trim() !== baseName(committing)}
+      />
+
+      <ConfirmDialog
         open={discarding}
         onClose={() => setDiscarding(false)}
         onConfirm={async () => {
@@ -298,6 +348,7 @@ function DraftNode({
   onOpen,
   onArchive,
   onSubmit,
+  onCommit,
 }: {
   node: TreeNode
   fullPath?: boolean
@@ -310,6 +361,8 @@ function DraftNode({
   onOpen: (file: OpenFile) => void
   onArchive: (target: SubmitTarget) => void
   onSubmit: (target: SubmitTarget) => void
+  /** Only for whoever may commit to Main without a review. */
+  onCommit?: (target: SubmitTarget) => void
 }) {
   const [open, setOpen] = useState(false)
 
@@ -333,6 +386,9 @@ function DraftNode({
               disabled={busy}
               items={[
                 { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => onSubmit({ type: 'folder', path: node.path }) },
+                ...(onCommit
+                  ? [{ label: 'Commit to main', icon: 'check' as const, disabled: behind, onSelect: () => onCommit({ type: 'folder', path: node.path }) }]
+                  : []),
                 { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'folder', path: node.path }) },
               ]}
             />
@@ -389,6 +445,9 @@ function DraftNode({
             disabled={busy}
             items={[
               { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => onSubmit({ type: 'file', path: f.path }) },
+              ...(onCommit
+                ? [{ label: 'Commit to main', icon: 'check' as const, disabled: behind, onSelect: () => onCommit({ type: 'file', path: f.path }) }]
+                : []),
               { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'file', path: f.path }) },
             ]}
           />

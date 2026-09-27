@@ -12,6 +12,7 @@ import { Tabs } from '../../../components/ui/Tabs'
 import { dueLabel, StatusPill } from '../../../components/projects/ProjectCard'
 import { ProjectWizard } from '../../../components/projects/ProjectWizard'
 import { SeriesActionDialog } from '../../../components/projects/SeriesActionDialog'
+import { BoardVerdict } from '../../../components/tasks/BoardVerdict'
 import { ClassFilesTab } from '../../../components/tasks/ClassFilesTab'
 import { ProgressTab } from '../../../components/tasks/ProgressTab'
 import { ProjectTasksTab } from '../../../components/tasks/ProjectTasksTab'
@@ -42,6 +43,7 @@ import { classWeekMap } from '../../../lib/api/syllabus'
 import { authErrorMessage } from '../../../lib/authError'
 import { paths } from '../../../lib/paths'
 import {
+  hasPassed,
   isReleased,
   PROJECT_TYPES,
   projectTypeLabel,
@@ -188,6 +190,8 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   // series id at all, and there is nothing to scope.
   const inSeries = members.length > 1
   const others = members.filter((m) => m.project_id !== project.id)
+  // Closed by hand, or simply past its deadline: the same rule the projects list uses.
+  const closed = Boolean(project.locked_at) || Boolean(project.due_at && hasPassed(project.due_at))
 
   return (
     <WithProjectTasks project={project} role={role}>
@@ -230,7 +234,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
               </span>
               <span
                 className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                  project.archived_at || project.locked_at
+                  project.archived_at || closed
                     ? 'bg-white/10 text-amber-50/70'
                     : project.scheduled
                       ? 'bg-amber-400/15 text-amber-200'
@@ -239,12 +243,15 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
               >
                 {project.archived_at
                   ? 'Archived'
-                  : project.locked_at
+                  : closed
                     ? 'Closed'
                     : project.scheduled
                       ? 'Scheduled'
                       : 'Active'}
               </span>
+              {!canManage && t.active && (
+                <BoardVerdict variant="pill" board={t.active} role={role} onChanged={t.refresh} />
+              )}
             </div>
 
             {/* A student hands in from here, whichever tab they are on. */}

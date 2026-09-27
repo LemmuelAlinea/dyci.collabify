@@ -1436,6 +1436,17 @@ export async function submitDraftFolder(repoId: string, path: string, title: str
   return data as GeneralRepoChange
 }
 
+/** Commits one draft file, or everything under a draft folder, straight to Main. */
+export async function commitDraftPath(repoId: string, path: string, folder: boolean) {
+  const { data, error } = await supabase.rpc('commit_general_draft_path', {
+    p_repo: repoId,
+    p_path: path,
+    p_folder: folder,
+  })
+  if (error) throw error
+  return data as GeneralCommit
+}
+
 /**
  * Uploads a file the site cannot edit and answers where it landed.
  *

@@ -32,10 +32,13 @@ function when(iso: string) {
 export function BoardVerdict({
   board, role,
   onChanged,
+  variant = 'card',
 }: {
   board: BoardSummary
   role: TeachingViewRole
   onChanged: () => Promise<void> | void
+  /** `pill` sits in the project's navy header and opens the details on press. */
+  variant?: 'card' | 'pill'
 }) {
   const { show } = useToast()
   const [result, setResult] = useState<BoardResult | null>(null)
@@ -44,6 +47,7 @@ export function BoardVerdict({
   const [feedback, setFeedback] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [details, setDetails] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -85,6 +89,7 @@ export function BoardVerdict({
     }
   }
 
+  if (loading && variant === 'pill') return null
   if (loading) {
     return (
       <div className="flex items-center gap-3 py-4 text-[13px] text-muted">
@@ -98,6 +103,54 @@ export function BoardVerdict({
   if (!submitted && !result) return null
 
   const accepted = result?.verdict === 'accepted'
+
+  if (variant === 'pill') {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setDetails(true)}
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition-colors ${
+            accepted
+              ? 'bg-emerald-400/12 text-emerald-200 ring-emerald-300/25 hover:bg-emerald-400/20'
+              : result
+                ? 'bg-amber-400/15 text-amber-200 ring-amber-300/25 hover:bg-amber-400/25'
+                : 'bg-amber-50/8 text-amber-50/65 ring-amber-50/10 hover:bg-amber-50/15'
+          }`}
+        >
+          <Icon name={accepted ? 'check' : result ? 'refresh' : 'clock'} size={12} />
+          {result ? resultLabel(result.verdict) : 'Waiting on an answer'}
+        </button>
+        <Modal
+          open={details}
+          onClose={() => setDetails(false)}
+          title={result ? resultLabel(result.verdict) : 'Waiting on an answer'}
+          description={
+            result
+              ? `${result.decided_by_name ?? 'Your professor'} · ${when(result.decided_at)}${
+                  result.answer_count > 1 ? ` · answered ${result.answer_count} times` : ''
+                }`
+              : undefined
+          }
+          size="sm"
+        >
+          {result?.feedback ? (
+            <blockquote className="rounded-xl surface-sunken px-4 py-3 text-[14px] leading-relaxed whitespace-pre-wrap text-ink">
+              {result.feedback}
+            </blockquote>
+          ) : (
+            <p className="text-[13px] leading-relaxed text-muted">
+              {result
+                ? accepted
+                  ? 'Your professor accepted this without a note.'
+                  : 'Your professor returned this without a note.'
+                : 'Handed in. Your professor has not answered yet.'}
+            </p>
+          )}
+        </Modal>
+      </>
+    )
+  }
 
   return (
     <>

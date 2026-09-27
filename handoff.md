@@ -1454,3 +1454,44 @@ finish with `anon-lockdown.sql`.
 
 **Next:** browser walk for phases 3a+3b (needs user sign-in); the open owner question
 about admin "New message" in Messages.
+
+## Session — 2026-09-28: draft commit, work tasks redesign, space cards, class header
+
+**Task dialog:** "Add a file" and "From project files" now line up (the margin moved
+from one button to their wrapper).
+
+**Commit to main (item 1):** `supabase/general-draft-commit.sql` adds
+`commit_general_draft_path(repo, path, folder, message)`. It commits one draft file or
+a draft folder through `commit_general_files`, so only `edit_files` holders can do it
+and class-board freezes still apply. Then it drops those files from the draft and
+moves the draft's `base_seq` forward. Registered in `schema-drift.mjs` ORDER and
+`docs/07-backup.md` after `class-files.sql`. Applied live; `anon-lockdown.sql` re-run.
+In the UI, `DraftPanel` shows "Commit to main" in the ⋯ menus (rows and folder bar)
+only for `edit_files`. The confirm dialog needs the file or folder name typed in.
+Test: `supabase/tests/general-draft-commit.test.sql` (11 PASS).
+
+**Work tasks (item 2):** `general/TasksTab.tsx` now uses the class layout: a
+Summary/Board/List switch (`TaskViewSwitch`), a filter row, "X of Y done" plus Add task,
+coloured column headers, the class card style with Start / Mark done / Reopen, the
+class list table, and a Summary (tiles and donut shared with `TaskSummary`, whose
+`SummaryTile` and `StatusDonut` are now exported, plus who is carrying what).
+
+**Spaces (item 3):** `SpacePicker` cards copy `ClassCard`: an eyebrow with a number, a
+status pill, a monogram, a description and a footer.
+
+**Space shortcuts (item 4):** `QuickActions` is always one row with equal columns
+(`repeat(n, 1fr)`), and each card has a navy outline. Container queries drop the hint
+and then the label as a card gets narrower (the label stays as sr-only text and as a
+title). This also affects Home's "Your work" row, which uses the same component.
+
+**Class project header (item 5):** a student's result (Accepted / Returned / Waiting)
+is now a pill next to the week and status pills (`BoardVerdict variant="pill"`), and it
+opens the details and feedback. The student Tasks tab no longer shows the card. A
+professor's view still shows the full card, because it holds Accept/Return. The header
+says "Closed" once the deadline has passed, the same rule `ProjectsBoard` uses. This
+changes only the label: late work is still accepted.
+
+**Checks:** `npm run build`; `npx vitest run` (44 files, 528 tests); new SQL suite and
+anon-lockdown suite pass.
+
+**Browser walk:** pending the owner's sign-in.

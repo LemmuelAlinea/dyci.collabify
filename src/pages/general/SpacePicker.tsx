@@ -211,62 +211,93 @@ function Section({ title, count, children }: { title: string; count: number; chi
 
 function CardGrid({ spaces, labelled = false }: { spaces: GeneralSpaceSummary[]; labelled?: boolean }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {spaces.map((s) => (
-        <SpaceCard key={s.id} space={s} labelled={labelled} />
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:gap-5">
+      {spaces.map((s, index) => (
+        <SpaceCard key={s.id} space={s} labelled={labelled} index={index} />
       ))}
     </div>
   )
 }
 
 /**
+ * Built like a class card: a numbered eyebrow and a status, a monogram beside
+ * the name, a line of description, and counts below a rule.
+ *
  * `labelled` tags a work space "Space" to match a class's "Class" tag — only
  * where the two kinds share a page, since on a spaces-only page it would be
  * the same word on every card.
  */
-function SpaceCard({ space: s, labelled }: { space: GeneralSpaceSummary; labelled: boolean }) {
+function SpaceCard({
+  space: s,
+  labelled,
+  index,
+}: {
+  space: GeneralSpaceSummary
+  labelled: boolean
+  index: number
+}) {
   const classId = s.kind === 'education' ? s.class_id : null
+  const initial = s.name.trim().charAt(0).toUpperCase() || 'S'
+  const status = s.archived_at ? 'Archived' : classId ? 'Class' : labelled ? 'Space' : 'Active'
+
   return (
     <Link
       to={classId ? paths.class(classId) : paths.space(s.id)}
       onClick={() => {
         if (!classId) rememberSpace(s.id)
       }}
-      className="group flex flex-col rounded-card border border-line bg-[var(--surface)] p-4 transition-colors hover:border-line-strong sm:p-5"
+      className="group relative flex min-h-[248px] overflow-hidden rounded-card border border-line bg-[var(--surface)] transition-[border-color,transform] duration-200 hover-safe hover:border-line-strong"
     >
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="min-w-0 leading-snug group-hover:underline">{s.name}</h3>
-        {s.archived_at ? (
-          <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
-            Archived
+      <div className="flex w-full flex-col p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-mono text-[11px] tracking-[0.18em] text-faint uppercase">
+            {classId ? 'Class' : 'Space'} {String(index + 1).padStart(2, '0')}
+          </p>
+          <span
+            className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+              s.archived_at
+                ? 'surface-sunken text-muted'
+                : classId
+                  ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
+                  : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+            }`}
+          >
+            {status}
           </span>
-        ) : classId ? (
-          <span className="shrink-0 rounded-md bg-amber-400/18 px-2 py-0.5 text-[12px] text-amber-700 dark:text-amber-300">
-            Class
+        </div>
+
+        <div className="mt-5 flex items-start gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-navy-950 font-display text-[14px] font-bold text-amber-300 ring-1 ring-white/10">
+            {initial}
           </span>
-        ) : (
-          labelled && (
-            <span className="shrink-0 rounded-md border border-line px-2 py-0.5 text-[12px] text-muted">
-              Space
-            </span>
-          )
-        )}
-      </div>
-      {s.description && (
-        <p className="mt-1.5 line-clamp-2 text-[13px] text-muted">{s.description}</p>
-      )}
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-[12px] text-muted">
-        <span className="flex items-center gap-1.5">
-          <Icon name="kanban" size={14} />
-          {s.project_count} {s.project_count === 1 ? 'project' : 'projects'}
-        </span>
-        <span className="text-faint">·</span>
-        <span className="flex items-center gap-1.5">
-          <Icon name="users" size={14} />
-          {s.member_count}
-        </span>
-        <span className="text-faint">·</span>
-        <span>You are {levelLabel(s.my_level)}</span>
+          <div className="min-w-0 flex-1">
+            <h3 className="line-clamp-2 text-[17px] leading-snug text-ink transition-colors group-hover:text-navy-600 dark:group-hover:text-amber-300">
+              {s.name}
+            </h3>
+            <p className="mt-1 text-[12px] leading-relaxed text-muted">You are {levelLabel(s.my_level)}</p>
+          </div>
+        </div>
+
+        <p className="mt-4 line-clamp-2 min-h-[42px] text-[13px] leading-relaxed text-muted">
+          {s.description ||
+            (classId
+              ? 'Open the class workspace for announcements, projects and group work.'
+              : 'Open the space for its projects, members, teams and reports.')}
+        </p>
+
+        <div className="mt-auto flex items-end justify-between gap-4 border-t border-line pt-4">
+          <div className="min-w-0">
+            <p className="text-[11px] text-faint">Projects</p>
+            <p className="mt-0.5 flex items-center gap-1.5 text-[13px] font-medium text-ink">
+              <Icon name="kanban" size={14} className="text-muted" />
+              {s.project_count} {s.project_count === 1 ? 'project' : 'projects'}
+            </p>
+          </div>
+          <span className="flex shrink-0 items-center gap-1.5 text-[12px] text-muted">
+            <Icon name="users" size={14} />
+            {s.member_count} {s.member_count === 1 ? 'member' : 'members'}
+          </span>
+        </div>
       </div>
     </Link>
   )

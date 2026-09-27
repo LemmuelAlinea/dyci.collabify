@@ -3,7 +3,6 @@ import { Alert } from '../ui/Alert'
 import { Icon, Spinner } from '../ui/Icon'
 import { EmptyState } from '../ui/EmptyState'
 import { useToast } from '../ui/Toast'
-import { BoardVerdict } from './BoardVerdict'
 import { GenerateTasksModal } from './GenerateTasksModal'
 import { TaskBoard } from './TaskBoard'
 import { TaskList } from './TaskList'
@@ -68,8 +67,8 @@ export function StudentTasksView({
         </div>
       ) : (
         <>
-          {/* Handing in sits in the project header; progress has its own tab. */}
-          <BoardVerdict board={active} role={role} onChanged={t.refresh} />
+          {/* Handing in and the professor's answer sit in the project header;
+              progress has its own tab. */}
 
           {/* Drafting is planning, and planning is over once the board is
               handed in — accepting leaves it that way, returning gives it back.

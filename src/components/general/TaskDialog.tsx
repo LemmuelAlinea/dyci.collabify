@@ -284,7 +284,7 @@ function TaskBody({
             {loaded && files.length === 0 && <li className="text-[13px] text-faint">No files.</li>}
           </ul>
           {canAttach && (
-            <div className="flex flex-wrap items-start gap-2">
+            <div className="mt-2 flex flex-wrap items-start gap-2">
               <FilePicker
                 onPick={(file) =>
                   act(() => uploadTaskFile(task.project_id, task.id, file), 'File added', 'Could not upload that file.')
@@ -618,7 +618,7 @@ function FilePicker({ onPick }: { onPick: (file: File) => Promise<void> }) {
           void onPick(file).finally(() => setBusy(false))
         }}
       />
-      <Button variant="outline" size="sm" className="mt-2" onClick={() => input.current?.click()} disabled={busy}>
+      <Button variant="outline" size="sm" onClick={() => input.current?.click()} disabled={busy}>
         {busy ? <Spinner size={14} /> : <Icon name="upload" size={14} />}
         Add a file
       </Button>

@@ -30,7 +30,7 @@ const RING: Record<TaskStatus, string> = {
   done: '#10b981',
 }
 
-function Tile({
+export function SummaryTile({
   icon,
   value,
   label,
@@ -66,7 +66,7 @@ function Tile({
 }
 
 /** A donut drawn with one circle and a dash offset per slice. */
-function StatusDonut({ counts, total }: { counts: Record<TaskStatus, number>; total: number }) {
+export function StatusDonut({ counts, total }: { counts: Record<TaskStatus, number>; total: number }) {
   const R = 54
   const C = 2 * Math.PI * R
   let offset = 0
@@ -212,12 +212,12 @@ export function TaskSummary({
           handedInLate > 0 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'
         }`}
       >
-        <Tile icon="checkCircle" value={finishedWeek} label="finished" sub="in the last 7 days" />
-        <Tile icon="edit" value={updatedWeek} label="updated" sub="in the last 7 days" />
-        <Tile icon="plus" value={createdWeek} label="created" sub="in the last 7 days" />
-        <Tile icon="calendar" value={dueSoon} label="due soon" sub="in the next 7 days" />
+        <SummaryTile icon="checkCircle" value={finishedWeek} label="finished" sub="in the last 7 days" />
+        <SummaryTile icon="edit" value={updatedWeek} label="updated" sub="in the last 7 days" />
+        <SummaryTile icon="plus" value={createdWeek} label="created" sub="in the last 7 days" />
+        <SummaryTile icon="calendar" value={dueSoon} label="due soon" sub="in the next 7 days" />
         {handedInLate > 0 && (
-          <Tile
+          <SummaryTile
             icon="clock"
             tone="warn"
             value={handedInLate}
