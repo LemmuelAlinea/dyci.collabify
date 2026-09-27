@@ -13,6 +13,7 @@ import { Alert } from '../../components/ui/Alert'
 import { Spinner } from '../../components/ui/Icon'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { useAuth } from '../../context/AuthContext'
+import { canTeach } from '../../lib/access'
 import { plural } from '../../lib/plural'
 import { useProfessorDashboard } from '../../hooks/useProfessorDashboard'
 import { paths } from '../../lib/paths'
@@ -102,11 +103,19 @@ export default function ProfessorHome() {
               icon="folder"
               art="classes"
               title="No classes yet"
-              body="Create a class and share its code with your section. Groups, projects, and everything on this page follow from it."
+              // Only faculty who teach can open a class; the rest join one when
+              // its Owner invites them, so offering the button would dead-end.
+              body={
+                canTeach(profile)
+                  ? 'Create a class and share its code with your section. Groups, projects, and everything on this page follow from it.'
+                  : "A class's Owner can invite you to teach it with them. Until then, your projects and spaces are below."
+              }
               action={
-                <ButtonLink to={paths.classes} className="!rounded-xl">
-                  Create a class
-                </ButtonLink>
+                canTeach(profile) ? (
+                  <ButtonLink to={paths.classes} className="!rounded-xl">
+                    Create a class
+                  </ButtonLink>
+                ) : undefined
               }
             />
           </div>
