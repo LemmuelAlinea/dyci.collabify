@@ -78,7 +78,8 @@ describe('showsClassScope', () => {
     expect(showsClassScope(p('faculty', 'active'), null)).toBe(false)
   })
 
-  it('never offers it to admins', () => {
-    expect(showsClassScope(p('admin', 'active'), [classSpace])).toBe(false)
+  it('offers it to admins only once someone invites them into a class', () => {
+    expect(showsClassScope(p('admin', 'active'), [workSpace])).toBe(false)
+    expect(showsClassScope(p('admin', 'active'), [classSpace])).toBe(true)
   })
 })

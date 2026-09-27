@@ -37,7 +37,8 @@ import { paths } from '../../lib/paths'
  */
 export function WorkOverview() {
   const { profile } = useAuth()
-  const faculty = isFaculty(profile)
+  // Admins are invited in, never make or join a space themselves.
+  const faculty = isFaculty(profile) && profile?.role !== 'admin'
   const { show } = useToast()
   const { myProjects, spaces, error, reload } = useGeneralNavigation()
   const unread = useUnreadTotal(profile?.id, 'general')

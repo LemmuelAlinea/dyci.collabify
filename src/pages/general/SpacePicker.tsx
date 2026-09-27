@@ -26,11 +26,11 @@ import { paths } from '../../lib/paths'
  * That is the whole reason this page exists rather than one long list: work for
  * one group stays with that group.
  *
- * Classes appear here only for faculty the admin has not let teach. Anyone
- * with a Classes section in the rail — students and teaching faculty — finds
- * their classes there, so this page stays work spaces only for them. Faculty
- * who do not teach but still sit in a class get the two kinds in their own
- * sections, with a filter, and only once they have a class at all.
+ * Classes appear here only for faculty the admin has not let teach, and for
+ * admins. Anyone with a Classes section in the rail — students and teaching
+ * faculty — finds their classes there, so this page stays work spaces only
+ * for them. The others get the two kinds in their own sections, with a
+ * filter, and only once they have a class at all.
  */
 type Show = 'all' | 'classes' | 'spaces'
 
@@ -38,7 +38,8 @@ export default function SpacePicker() {
   const { show } = useToast()
   const location = useLocation()
   const { profile } = useAuth()
-  const faculty = isFaculty(profile)
+  // Admins are invited in, never make or join a space themselves.
+  const faculty = isFaculty(profile) && profile?.role !== 'admin'
   const { spaces, invitations, error, reload } = useGeneralNavigation()
   const [newOpen, setNewOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
@@ -74,7 +75,9 @@ export default function SpacePicker() {
 
   // Whether this page sorts into Classes and Spaces at all. Judged on every
   // class, archived or not, so the filter does not come and go between tabs.
-  const split = profile?.role === 'faculty' && !canTeach(profile) && inAnyClass(spaces)
+  const split =
+    (profile?.role === 'admin' || (profile?.role === 'faculty' && !canTeach(profile))) &&
+    inAnyClass(spaces)
   const requested = params.get('show')
   const filter: Show = split && (requested === 'classes' || requested === 'spaces') ? requested : 'all'
 

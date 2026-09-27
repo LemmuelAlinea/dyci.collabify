@@ -10,9 +10,9 @@ import { recentProjects } from '../../lib/general/dashboard'
 import { paths } from '../../lib/paths'
 import { Logo, LogoMark } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
-import { navFor } from './nav'
+import { membershipOf, navFor } from './nav'
 import type { NavGroup, NavItem } from './nav'
-import { classRows, workSpaceRows } from './spaceRows'
+import { classRows, spaceAndClassRows, workSpaceRows } from './spaceRows'
 import type { LiveRow } from './spaceRows'
 
 type Hint = { text: string; top: number }
@@ -46,7 +46,11 @@ export function SideNav({
 
   // Null while it loads counts as admitted, so the rail never flashes empty
   // for a student who has classes.
-  const groups = navFor(profile, admitted !== false)
+  const groups = navFor(
+    profile,
+    admitted !== false,
+    membershipOf(navigation.spaces, navigation.myProjects),
+  )
 
   function revealHint(
     text: string,
@@ -72,7 +76,7 @@ export function SideNav({
     (project) => project.my_level && !project.archived_at,
   )
 
-  function live(kind: NonNullable<NavGroup['live']>): { rows: LiveRow[]; loading: boolean } {
+  function live({ live: kind, withClasses }: NavGroup): { rows: LiveRow[]; loading: boolean } {
     if (kind === 'projects') {
       return {
         loading: navigation.myProjects === null,
@@ -85,7 +89,12 @@ export function SideNav({
     }
     return {
       loading: navigation.spaces === null,
-      rows: kind === 'classes' ? classRows(spaces) : workSpaceRows(spaces),
+      rows:
+        kind === 'classes'
+          ? classRows(spaces)
+          : withClasses
+            ? spaceAndClassRows(spaces)
+            : workSpaceRows(spaces),
     }
   }
 
@@ -112,7 +121,7 @@ export function SideNav({
           )}
 
           {groups.map((group) => {
-            const { rows, loading } = group.live ? live(group.live) : { rows: [], loading: false }
+            const { rows, loading } = group.live ? live(group) : { rows: [], loading: false }
             // Hidden while loading too, so a student with no spaces never sees
             // the section flash in and back out.
             if (group.hideWhenEmpty && (loading || rows.length === 0)) return null

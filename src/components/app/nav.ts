@@ -1,6 +1,7 @@
 import type { IconName } from '../ui/Icon'
-import { canTeach } from '../../lib/access'
+import { canTeach, inAnyClass } from '../../lib/access'
 import type { AccessProfile } from '../../lib/access'
+import type { GeneralProjectSummary, GeneralSpaceSummary } from '../../lib/general/types'
 import type { Role } from '../../lib/types'
 import { paths } from '../../lib/paths'
 
@@ -25,6 +26,25 @@ export type NavGroup = {
   more?: { to: string; label: string }
   /** Leave the whole section out until there is at least one live row. */
   hideWhenEmpty?: boolean
+  /** Spaces lists the reader's classes too — for anyone with no Classes section. */
+  withClasses?: boolean
+}
+
+/** What the account belongs to, which decides how much of the rail an admin gets. */
+export type Membership = { inClass: boolean; hasWork: boolean }
+
+/** Undefined while either list is still loading. */
+export function membershipOf(
+  spaces: GeneralSpaceSummary[] | null,
+  projects: GeneralProjectSummary[] | null,
+): Membership | undefined {
+  if (spaces === null || projects === null) return undefined
+  return {
+    inClass: inAnyClass(spaces),
+    hasWork:
+      spaces.some((s) => s.kind === 'work' && s.my_level && !s.archived_at) ||
+      projects.some((p) => p.my_level && !p.archived_at),
+  }
 }
 
 /**
@@ -85,13 +105,18 @@ function classesGroup(role: Role): NavGroup {
   }
 }
 
-/** Work spaces. A class space is listed under Classes, never here. */
-function spacesGroup(hideWhenEmpty: boolean): NavGroup {
+/**
+ * Work spaces. Someone with a Classes section finds their classes there;
+ * anyone without one — faculty who do not teach, admins — finds them here,
+ * `withClasses`, the same way their Spaces page lists them.
+ */
+function spacesGroup(hideWhenEmpty: boolean, withClasses = false): NavGroup {
   return {
     title: 'Spaces',
     live: 'spaces',
     more: { to: paths.spaces, label: 'All spaces' },
     hideWhenEmpty,
+    withClasses,
     items: [],
   }
 }
@@ -142,12 +167,11 @@ const ADMIN: NavGroup = {
 }
 
 /**
- * Home alone. A student nobody has let in yet gets it because every other row
- * would open onto an empty page, and Home's one job for them is joining a
- * class. An admin gets it because they are never a member of anything — no
- * class, space or project — so there are no tasks, dates or chats to open.
+ * A student nobody has let in yet. Every other row would open onto an empty
+ * page, so the rail offers only Home, whose one job for them is joining a
+ * class.
  */
-const HOME_ONLY: NavGroup = {
+const MAIN_WAITING: NavGroup = {
   title: 'Main',
   items: [{ label: 'Home', icon: 'board', to: paths.home, end: true }],
 }
@@ -161,22 +185,34 @@ const HOME_ONLY: NavGroup = {
  * isn't active, has nothing to open but Settings — every other page here
  * needs an admitted account.
  *
- * Spaces hides while empty for anyone who cannot open a class — students and
- * faculty who do not teach. Teaching faculty keep it, empty or not, because
- * making spaces is part of their job. Home's New space button stays
- * the way in for everyone else.
+ * Spaces hides while empty for anyone who cannot open a class — students,
+ * faculty who do not teach, admins. Teaching faculty keep it, empty or not,
+ * because making spaces is part of their job.
+ *
+ * An admin runs the program rather than sitting in it, so until someone
+ * invites them into a class, space or project their rail is Admin and
+ * Account. Once they belong to something they get Main, Spaces and Projects
+ * on the same terms as faculty who do not teach. `membership` still loading
+ * counts as belonging to nothing, so Main never flashes in and out.
  */
-export function navFor(profile: AccessProfile, admitted: boolean): NavGroup[] {
+export function navFor(
+  profile: AccessProfile,
+  admitted: boolean,
+  membership?: Membership,
+): NavGroup[] {
   if (!profile || profile.status !== 'active' || !profile.role) return [ACCOUNT]
 
   const { role } = profile
-  if (role === 'admin') return [HOME_ONLY, ADMIN, ACCOUNT]
+  if (role === 'admin') {
+    if (!membership?.inClass && !membership?.hasWork) return [ADMIN, ACCOUNT]
+    return [MAIN, spacesGroup(true, true), PROJECTS, ADMIN, ACCOUNT]
+  }
   if (role === 'student') {
-    if (!admitted) return [HOME_ONLY, ACCOUNT]
+    if (!admitted) return [MAIN_WAITING, ACCOUNT]
     return [MAIN, classesGroup(role), spacesGroup(true), PROJECTS, ACCOUNT]
   }
   if (canTeach(profile)) {
     return [MAIN, classesGroup(role), spacesGroup(false), PROJECTS, TEACHING, ACCOUNT]
   }
-  return [MAIN, spacesGroup(true), PROJECTS, ACCOUNT]
+  return [MAIN, spacesGroup(true, true), PROJECTS, ACCOUNT]
 }

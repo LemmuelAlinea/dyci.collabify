@@ -9,7 +9,8 @@ import { authErrorMessage } from '../../lib/authError'
 import { paths } from '../../lib/paths'
 import type { ClassSummary, ProjectSummary } from '../../lib/types'
 import { Icon } from '../ui/Icon'
-import { navFor } from './nav'
+import { membershipOf, navFor } from './nav'
+import type { Membership } from './nav'
 
 type Result = {
   key: string
@@ -36,8 +37,8 @@ function useDismiss(open: boolean, close: () => void) {
   return ref
 }
 
-function staticResults(profile: AccessProfile): Result[] {
-  return navFor(profile, true).flatMap((group) =>
+function staticResults(profile: AccessProfile, membership: Membership | undefined): Result[] {
+  return navFor(profile, true, membership).flatMap((group) =>
     [...(group.more ? [group.more] : []), ...group.items.filter((item) => !item.soon)].flatMap(
       (item) =>
         item.to ? [{ key: `nav:${item.to}`, label: item.label, detail: group.title, to: item.to }] : [],
@@ -116,8 +117,9 @@ export function WorkspaceSearch() {
         detail: general.currentSpace ? `Project · ${general.currentSpace.name}` : 'Project',
         to: paths.project(project.id),
       }))
-    return [...staticResults(profile), ...educationResults, ...spaces, ...projects]
-  }, [educationResults, general.currentSpace, general.projects, general.spaces, profile])
+    const membership = membershipOf(general.spaces, general.myProjects)
+    return [...staticResults(profile, membership), ...educationResults, ...spaces, ...projects]
+  }, [educationResults, general.currentSpace, general.myProjects, general.projects, general.spaces, profile])
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase()

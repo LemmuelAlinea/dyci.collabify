@@ -53,6 +53,8 @@ export default function Calendar() {
   const [showPast, setShowPast] = useState(false)
 
   const role = profile?.role
+  // An admin in a class reads it as a co-teacher does.
+  const staff = role === 'faculty' || role === 'admin'
   const openTask = params.get('task')
   // Someone in no class reads a work calendar: no filter, and a stale
   // `?show=classes` cannot empty it.
@@ -62,8 +64,8 @@ export default function Calendar() {
 
   const load = useCallback(async () => {
     if (!role) return
-    // Nobody outside a class has class dates — admins never, faculty until
-    // one invites them — but their work dates below still fill the page.
+    // Nobody outside a class has class dates, but their work dates below
+    // still fill the page.
     if (!classScope) {
       setEvents([])
       setWeeks([])
@@ -71,7 +73,13 @@ export default function Calendar() {
       return
     }
     try {
-      const rows = await listCalendar(role)
+      // An admin reads every class, so keep only the ones they were invited
+      // into, and read them the way a co-teacher does.
+      const invited = new Set((spaces ?? []).filter((s) => s.kind === 'education' && s.my_level).map((s) => s.class_id))
+      const rows =
+        role === 'admin'
+          ? (await listCalendar('faculty')).filter((r) => invited.has(r.class_id))
+          : await listCalendar(role)
       setEvents(rows)
       setWeeks(await listWeekBands([...new Set(rows.map((r) => r.class_id))]))
       setError(null)
@@ -79,7 +87,7 @@ export default function Calendar() {
       setError(authErrorMessage(err, 'Could not load the calendar.'))
       setEvents([])
     }
-  }, [role, classScope])
+  }, [role, classScope, spaces])
 
   useEffect(() => {
     document.title = 'Calendar · Collabify'
@@ -91,7 +99,7 @@ export default function Calendar() {
 
   // Professors have class dates too; only an admin's class load is a no-op.
   useLive(load, ['projects', 'project_tasks', 'project_boards', 'syllabus_weeks', 'classes'], {
-    enabled: role === 'student' || role === 'faculty',
+    enabled: classScope,
   })
 
   // Work dates: the reader's live General projects, and every open task on
@@ -198,14 +206,14 @@ export default function Calendar() {
         title="Plan the"
         accent="term."
         description={
-          role === 'faculty' && classScope
+          role !== 'student' && classScope
             ? 'Deadlines and releases across your classes, mapped against the syllabus weeks they belong to.'
             : role === 'student'
               ? 'See every deadline across your classes and the syllabus week behind each one.'
               : 'Every due date across the projects you are part of.'
         }
         stats={
-          role === 'admin' || scope === 'work'
+          scope === 'work'
             ? [{ value: shown.length, label: 'Dates in view' }]
             : [
                 { value: shown.length, label: 'Dates in view' },
@@ -288,8 +296,8 @@ export default function Calendar() {
                     placeholder="Everything"
                     options={CALENDAR_KINDS.filter(
                       (k) =>
-                        (role === 'faculty' && k.value !== 'task_due') ||
-                        (role !== 'faculty' && k.value !== 'project_release'),
+                        (staff && k.value !== 'task_due') ||
+                        (!staff && k.value !== 'project_release'),
                     )}
                     className="!h-10 !text-[13px]"
                   />
@@ -339,12 +347,12 @@ export default function Calendar() {
               </div>
             </div>
 
-            {role !== 'admin' && scope !== 'work' && (
+            {scope !== 'work' && (
               <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2 border-y border-line py-2.5">
                 {CALENDAR_KINDS.filter(
                   (kind) =>
-                    (role === 'faculty' && kind.value !== 'task_due') ||
-                    (role !== 'faculty' && kind.value !== 'project_release'),
+                    (staff && kind.value !== 'task_due') ||
+                    (!staff && kind.value !== 'project_release'),
                 ).map((kind) => (
                   <span key={kind.value} className="flex items-center gap-1.5 text-[11px] text-muted">
                     <span className={`h-1.5 w-1.5 rounded-full ${eventDot(kind.value)}`} />

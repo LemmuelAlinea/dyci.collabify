@@ -1,5 +1,4 @@
 import { lazy } from 'react'
-import { useAuth } from '../context/AuthContext'
 import { RoleSwitch } from '../routes/RoleSwitch'
 import { WorkOverview } from '../components/general/WorkOverview'
 
@@ -15,15 +14,12 @@ const AdminHome = lazy(() => import('./app/AdminHome'))
  * Which page that means is still decided by role, same as before; only the
  * URL stopped saying so. Task 6 stacks the General work section onto this
  * page, so a dashboard reads as one place instead of two workplaces to check.
- * An admin gets their console alone: they are never in a space or project,
- * so there is no work to stack under it.
  */
 export default function Home() {
-  const { profile } = useAuth()
   return (
     <>
       <RoleSwitch student={<StudentHome />} faculty={<ProfessorHome />} admin={<AdminHome />} />
-      {profile?.role !== 'admin' && <WorkOverview />}
+      <WorkOverview />
     </>
   )
 }

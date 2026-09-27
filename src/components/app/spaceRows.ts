@@ -19,16 +19,26 @@ function mine(spaces: GeneralSpaceSummary[], kind: GeneralSpaceSummary['kind']) 
  * no page to open and is dropped rather than linked to `/classes/<spaceId>`,
  * which does not exist.
  */
-export function classRows(spaces: GeneralSpaceSummary[]): LiveRow[] {
+export function classRows(spaces: GeneralSpaceSummary[], cap = CAP): LiveRow[] {
   return mine(spaces, 'education')
     .filter((space) => space.class_id)
-    .slice(0, CAP)
+    .slice(0, cap)
     .map((space) => ({ id: space.id, name: space.name, to: paths.class(space.class_id!), tone: 'education' }))
 }
 
-/** Your work spaces, as rows for the rail's Spaces section. */
-export function workSpaceRows(spaces: GeneralSpaceSummary[]): LiveRow[] {
-  return mine(spaces, 'work')
+/**
+ * Your classes and work spaces in one list, by name — the Spaces section for
+ * anyone whose classes live under Spaces rather than a Classes section.
+ */
+export function spaceAndClassRows(spaces: GeneralSpaceSummary[]): LiveRow[] {
+  return [...classRows(spaces, Infinity), ...workSpaceRows(spaces, Infinity)]
+    .sort((a, b) => a.name.localeCompare(b.name))
     .slice(0, CAP)
+}
+
+/** Your work spaces, as rows for the rail's Spaces section. */
+export function workSpaceRows(spaces: GeneralSpaceSummary[], cap = CAP): LiveRow[] {
+  return mine(spaces, 'work')
+    .slice(0, cap)
     .map((space) => ({ id: space.id, name: space.name, to: paths.space(space.id), tone: 'work' }))
 }

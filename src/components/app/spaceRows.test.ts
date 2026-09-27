@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classRows, workSpaceRows } from './spaceRows'
+import { classRows, spaceAndClassRows, workSpaceRows } from './spaceRows'
 import type { GeneralSpaceSummary } from '../../lib/general/types'
 
 let n = 0
@@ -74,5 +74,23 @@ describe('workSpaceRows', () => {
     expect(rows).toHaveLength(2)
     expect(rows[0].id).toBe('a')
     expect(rows.map((r) => r.id)).not.toContain('z')
+  })
+})
+
+describe('spaceAndClassRows', () => {
+  it('mixes classes and work spaces by name, capped at two', () => {
+    const rows = spaceAndClassRows([
+      space({ id: 'w', name: 'Beta' }),
+      space({ id: 'c', kind: 'education', class_id: 'k', name: 'Alpha' }),
+      space({ id: 'z', name: 'Zeta' }),
+    ])
+    expect(rows.map((r) => r.id)).toEqual(['c', 'w'])
+    expect(rows[0]).toMatchObject({ to: '/classes/k', tone: 'education' })
+    expect(rows[1]).toMatchObject({ to: '/spaces/w', tone: 'work' })
+  })
+
+  it('drops a class space with no class_id', () => {
+    const rows = spaceAndClassRows([space({ id: 'orphan', kind: 'education', class_id: null })])
+    expect(rows).toEqual([])
   })
 })

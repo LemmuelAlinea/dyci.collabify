@@ -44,17 +44,35 @@ describe('navFor', () => {
     expect(titles(navFor(teacher, false))).toContain('Classes')
   })
 
-  it('gives an admin Home, Admin and Account only — no tasks, calendar, messages, spaces or projects', () => {
-    const groups = navFor(admin, true)
-    expect(titles(groups)).toEqual(['Main', 'Admin', 'Account'])
-    expect(groups[0].items.map((i) => i.label)).toEqual(['Home'])
-    expect(labels(groups)).toContain('Faculty approvals')
+  it('gives an admin in nothing only Admin and Account', () => {
+    const none = { inClass: false, hasWork: false }
+    expect(titles(navFor(admin, true, none))).toEqual(['Admin', 'Account'])
+    expect(titles(navFor(admin, true))).toEqual(['Admin', 'Account'])
+    expect(labels(navFor(admin, true, none))).toContain('Faculty approvals')
+  })
+
+  it('gives an admin in work Main, Spaces and Projects, and never Classes', () => {
+    const groups = navFor(admin, true, { inClass: false, hasWork: true })
+    expect(titles(groups)).toEqual(['Main', 'Spaces', 'Projects', 'Admin', 'Account'])
+  })
+
+  it('lists an admin\'s classes under Spaces once one invites them', () => {
+    const groups = navFor(admin, true, { inClass: true, hasWork: false })
+    expect(titles(groups)).toEqual(['Main', 'Spaces', 'Projects', 'Admin', 'Account'])
+    expect(spaces(groups)?.withClasses).toBe(true)
+  })
+
+  it('lists classes under Spaces for faculty who do not teach, not for those who do', () => {
+    expect(spaces(navFor(nonTeacher, true))?.withClasses).toBe(true)
+    expect(spaces(navFor(teacher, true))?.withClasses).toBe(false)
+    expect(spaces(navFor(student, true))?.withClasses).toBe(false)
   })
 
   it('hides an empty Spaces only for accounts that cannot open a class', () => {
     expect(spaces(navFor(student, true))?.hideWhenEmpty).toBe(true)
     expect(spaces(navFor(nonTeacher, true))?.hideWhenEmpty).toBe(true)
     expect(spaces(navFor(teacher, true))?.hideWhenEmpty).toBe(false)
+    expect(spaces(navFor(admin, true, { inClass: false, hasWork: true }))?.hideWhenEmpty).toBe(true)
   })
 
   it('never hides Projects', () => {
@@ -86,7 +104,7 @@ describe('navFor', () => {
       '/admin/',
     ]
     for (const who of [student, teacher, nonTeacher, admin]) {
-      for (const to of tos(navFor(who, true))) {
+      for (const to of tos(navFor(who, true, { inClass: true, hasWork: true }))) {
         expect(allowed.some((prefix) => to?.startsWith(prefix))).toBe(true)
       }
     }

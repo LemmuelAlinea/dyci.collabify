@@ -27,15 +27,15 @@ export function inAnyClass(spaces: Pick<GeneralSpaceSummary, 'kind' | 'my_level'
 
 /**
  * Whether a page offers the Classes · Work split. Students always have
- * classes; faculty only once they are in one, teaching or not; admins never
- * are. Spaces still loading count as no class, so the filter does not flash.
+ * classes; faculty and admins only once they are in one. Spaces still
+ * loading count as no class, so the filter does not flash.
  */
 export function showsClassScope(
   p: AccessProfile,
   spaces: Pick<GeneralSpaceSummary, 'kind' | 'my_level'>[] | null,
 ): boolean {
   if (p?.role === 'student') return true
-  return p?.role === 'faculty' && inAnyClass(spaces)
+  return (p?.role === 'faculty' || p?.role === 'admin') && inAnyClass(spaces)
 }
 
 /** Where an admitted account lands. */
