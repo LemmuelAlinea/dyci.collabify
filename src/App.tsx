@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { ThemeSync } from './components/ThemeSync'
 import { AppShell } from './components/app/AppShell'
 import { ErrorBoundary } from './components/app/ErrorBoundary'
-import { ProtectedRoute } from './routes/ProtectedRoute'
+import { ProtectedRoute, RequireAdmitted } from './routes/ProtectedRoute'
 import { RoleSwitch } from './routes/RoleSwitch'
 import { LegacyRedirect } from './routes/LegacyRedirect'
 import { PageLoading } from './components/ui/PageLoading'
@@ -113,133 +113,128 @@ export default function App() {
           <Route path="/terms" element={<LegalDocPage slug="terms" />} />
           <Route path="/cookies" element={<LegalDocPage slug="cookies" />} />
 
-          {/* Owed to every signed-in account, admitted or not: Settings and the
-              right to ask what Collabify holds about you. */}
+          {/* One shell for every signed-in account, admitted or not. Crossing
+              between Home, Settings, /record, /teaching/* and /admin/* used
+              to remount <AppShell> and its GeneralNavigationProvider — now the
+              shell mounts once here, and RequireAdmitted below narrows what
+              each group inside it may see without tearing it down. */}
           <Route element={<ProtectedRoute open />}>
           <Route element={<AppShell />}>
             <Route path="/settings" element={<Settings />} />
             <Route path="/privacy/request" element={<PrivacyRequest />} />
-          </Route>
-          </Route>
 
-          {/* One rail for every admitted account, whatever their role. Which
-              page a role-shaped route renders is decided inside it by
-              RoleSwitch, not by which URL got you there. */}
-          <Route element={<ProtectedRoute />}>
-          <Route element={<AppShell />}>
-            <Route path="/home" element={<Home />} />
-            {/* One My tasks for every role: it reads class boards for students
-                and General work for everyone, so admin belongs here too. */}
-            <Route path="/tasks" element={<MyTasks />} />
-            <Route
-              path="/calendar"
-              element={
-                <RoleSwitch student={<Calendar />} professor={<Calendar />} admin={<Calendar />} />
-              }
-            />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/messages/:conversationId" element={<Messages />} />
+            {/* One rail for every admitted account, whatever their role. Which
+                page a role-shaped route renders is decided inside it by
+                RoleSwitch, not by which URL got you there. */}
+            <Route element={<RequireAdmitted />}>
+              <Route path="/home" element={<Home />} />
+              {/* One My tasks for every role: it reads class boards for students
+                  and General work for everyone, so admin belongs here too. */}
+              <Route path="/tasks" element={<MyTasks />} />
+              <Route
+                path="/calendar"
+                element={
+                  <RoleSwitch student={<Calendar />} professor={<Calendar />} admin={<Calendar />} />
+                }
+              />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/messages/:conversationId" element={<Messages />} />
 
-            {/* Work spaces, open to every admitted account — a professor's
-                capstone side project is exactly as valid as a student's. */}
-            <Route path="/spaces" element={<SpacePicker />} />
-            <Route path="/spaces/archive" element={<SpacePicker />} />
-            <Route path="/spaces/:spaceId" element={<SpaceHome />} />
-            <Route path="/spaces/:spaceId/members" element={<SpaceMembers />} />
-            <Route path="/spaces/:spaceId/teams" element={<GeneralTeams />} />
-            <Route path="/spaces/:spaceId/teams/archive" element={<GeneralTeams />} />
-            <Route path="/spaces/:spaceId/archive" element={<SpaceArchive />} />
-            <Route path="/spaces/:spaceId/reports" element={<GeneralReports />} />
+              {/* Work spaces, open to every admitted account — a professor's
+                  capstone side project is exactly as valid as a student's. */}
+              <Route path="/spaces" element={<SpacePicker />} />
+              <Route path="/spaces/archive" element={<SpacePicker />} />
+              <Route path="/spaces/:spaceId" element={<SpaceHome />} />
+              <Route path="/spaces/:spaceId/members" element={<SpaceMembers />} />
+              <Route path="/spaces/:spaceId/teams" element={<GeneralTeams />} />
+              <Route path="/spaces/:spaceId/teams/archive" element={<GeneralTeams />} />
+              <Route path="/spaces/:spaceId/archive" element={<SpaceArchive />} />
+              <Route path="/spaces/:spaceId/reports" element={<GeneralReports />} />
 
-            {/* Flat, not nested under the space: a project id is unique on its
-                own, and nesting would break every link and deep link already
-                out there. The space is derived from the project. */}
-            <Route path="/projects" element={<GeneralProjects />} />
-            <Route path="/projects/:projectId" element={<GeneralProject />} />
-            <Route path="/projects/:projectId/archive" element={<ProjectArchive />} />
+              {/* Flat, not nested under the space: a project id is unique on its
+                  own, and nesting would break every link and deep link already
+                  out there. The space is derived from the project. */}
+              <Route path="/projects" element={<GeneralProjects />} />
+              <Route path="/projects/:projectId" element={<GeneralProject />} />
+              <Route path="/projects/:projectId/archive" element={<ProjectArchive />} />
 
-            <Route
-              path="/classes"
-              element={
-                <RoleSwitch
-                  student={<StudentClasses />}
-                  professor={<ProfessorClasses />}
-                  admin={<Navigate to={paths.admin.classes} replace />}
-                />
-              }
-            />
-            <Route
-              path="/classes/:classId"
-              element={
-                <RoleSwitch student={<StudentClassDetail />} professor={<ProfessorClassDetail />} />
-              }
-            />
+              <Route
+                path="/classes"
+                element={
+                  <RoleSwitch
+                    student={<StudentClasses />}
+                    professor={<ProfessorClasses />}
+                    admin={<Navigate to={paths.admin.classes} replace />}
+                  />
+                }
+              />
+              <Route
+                path="/classes/:classId"
+                element={
+                  <RoleSwitch student={<StudentClassDetail />} professor={<ProfessorClassDetail />} />
+                }
+              />
 
-            <Route
-              path="/groups"
-              element={<RoleSwitch student={<StudentGroups />} professor={<ProfessorGroups />} />}
-            />
-            <Route
-              path="/groups/:groupId"
-              element={
-                <RoleSwitch
-                  student={<GroupDetail role="student" />}
-                  professor={<GroupDetail role="professor" />}
-                />
-              }
-            />
+              <Route
+                path="/groups"
+                element={<RoleSwitch student={<StudentGroups />} professor={<ProfessorGroups />} />}
+              />
+              <Route
+                path="/groups/:groupId"
+                element={
+                  <RoleSwitch
+                    student={<GroupDetail role="student" />}
+                    professor={<GroupDetail role="professor" />}
+                  />
+                }
+              />
 
-            <Route
-              path="/class-projects"
-              element={<RoleSwitch student={<StudentProjects />} professor={<ProfessorProjects />} />}
-            />
-            <Route
-              path="/class-projects/:projectId"
-              element={
-                <RoleSwitch
-                  student={<ProjectDetail role="student" />}
-                  professor={<ProjectDetail role="professor" />}
-                />
-              }
-            />
-          </Route>
-          </Route>
+              <Route
+                path="/class-projects"
+                element={<RoleSwitch student={<StudentProjects />} professor={<ProfessorProjects />} />}
+              />
+              <Route
+                path="/class-projects/:projectId"
+                element={
+                  <RoleSwitch
+                    student={<ProjectDetail role="student" />}
+                    professor={<ProjectDetail role="professor" />}
+                  />
+                }
+              />
+            </Route>
 
-          <Route element={<ProtectedRoute allow={['student']} />}>
-          <Route element={<AppShell />}>
-            <Route path="/record" element={<StudentReports />} />
-          </Route>
-          </Route>
+            <Route element={<RequireAdmitted allow={['student']} />}>
+              <Route path="/record" element={<StudentReports />} />
+            </Route>
 
-          <Route element={<ProtectedRoute allow={['professor', 'admin']} />}>
-          <Route element={<AppShell />}>
-            <Route path="/teaching/submissions" element={<Submissions />} />
-            <Route path="/teaching/reassignments" element={<Reassignments />} />
-            <Route path="/teaching/analytics" element={<Analytics />} />
-            <Route path="/teaching/reports" element={<Reports />} />
-            <Route path="/teaching/syllabi" element={<Syllabi />} />
-            <Route path="/teaching/syllabi/:resourceId" element={<SyllabusDetail />} />
-            <Route path="/teaching/curriculum" element={<Curriculum />} />
-            {/* The queue is the same page for both roles. is_privacy_handler()
-                decides what it returns, so a professor who is not the handler
-                sees only their own requests rather than an empty screen with a
-                nav entry pointing at it. */}
-            <Route path="/privacy/queue" element={<PrivacyQueue />} />
-          </Route>
-          </Route>
+            <Route element={<RequireAdmitted allow={['professor', 'admin']} />}>
+              <Route path="/teaching/submissions" element={<Submissions />} />
+              <Route path="/teaching/reassignments" element={<Reassignments />} />
+              <Route path="/teaching/analytics" element={<Analytics />} />
+              <Route path="/teaching/reports" element={<Reports />} />
+              <Route path="/teaching/syllabi" element={<Syllabi />} />
+              <Route path="/teaching/syllabi/:resourceId" element={<SyllabusDetail />} />
+              <Route path="/teaching/curriculum" element={<Curriculum />} />
+              {/* The queue is the same page for both roles. is_privacy_handler()
+                  decides what it returns, so a professor who is not the handler
+                  sees only their own requests rather than an empty screen with a
+                  nav entry pointing at it. */}
+              <Route path="/privacy/queue" element={<PrivacyQueue />} />
+            </Route>
 
-          <Route element={<ProtectedRoute allow={['admin']} />}>
-          <Route element={<AppShell />}>
-            <Route path="/admin/approvals" element={<ProfessorApprovals />} />
-            <Route path="/admin/notices" element={<Notices />} />
-            <Route path="/admin/sections" element={<Sections />} />
-            <Route path="/admin/library" element={<ProgramLibrary />} />
-            <Route path="/admin/classes" element={<ProgramClasses />} />
-            <Route path="/admin/faculty" element={<Faculty />} />
-            <Route path="/admin/cohort" element={<Cohort />} />
-            <Route path="/admin/audit" element={<AuditLog />} />
-            <Route path="/admin/privacy" element={<PrivacyQueue />} />
-            <Route path="/admin/accounts" element={<Accounts />} />
+            <Route element={<RequireAdmitted allow={['admin']} />}>
+              <Route path="/admin/approvals" element={<ProfessorApprovals />} />
+              <Route path="/admin/notices" element={<Notices />} />
+              <Route path="/admin/sections" element={<Sections />} />
+              <Route path="/admin/library" element={<ProgramLibrary />} />
+              <Route path="/admin/classes" element={<ProgramClasses />} />
+              <Route path="/admin/faculty" element={<Faculty />} />
+              <Route path="/admin/cohort" element={<Cohort />} />
+              <Route path="/admin/audit" element={<AuditLog />} />
+              <Route path="/admin/privacy" element={<PrivacyQueue />} />
+              <Route path="/admin/accounts" element={<Accounts />} />
+            </Route>
           </Route>
           </Route>
 

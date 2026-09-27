@@ -2,7 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { LogoMark } from '../components/brand/Logo'
 import { Spinner } from '../components/ui/Icon'
 import { useAuth } from '../context/AuthContext'
-import { homeFor } from '../lib/workplace'
+import { gate } from './gate'
 import type { Role } from '../lib/types'
 
 function Booting() {
@@ -31,12 +31,21 @@ export function ProtectedRoute({ allow, open }: { allow?: Role[]; open?: boolean
   const location = useLocation()
 
   if (!ready) return <Booting />
-  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />
-  if (!profile) return <Navigate to="/onboarding" replace />
-  if (profile.status === 'rejected') return <Navigate to="/pending" replace />
-  if (open) return <Outlet />
+  const result = gate(Boolean(session), profile, { open, allow })
+  if (result === 'ok') return <Outlet />
+  if (result === '/login') return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  return <Navigate to={result} replace />
+}
 
-  if (profile.status !== 'active' || !profile.role) return <Navigate to="/pending" replace />
-  if (allow && !allow.includes(profile.role)) return <Navigate to={homeFor(profile)} replace />
-  return <Outlet />
+/**
+ * The same admission rules as `ProtectedRoute`, without the shell and without
+ * re-checking the session and profile presence the parent `<ProtectedRoute
+ * open />` already did. Used to guard a group of pages sitting inside the one
+ * shell so crossing between them never remounts it.
+ */
+export function RequireAdmitted({ allow }: { allow?: Role[] }) {
+  const { profile } = useAuth()
+  const result = gate(true, profile, { allow })
+  if (result === 'ok') return <Outlet />
+  return <Navigate to={result === '/login' ? '/login' : result} replace />
 }
