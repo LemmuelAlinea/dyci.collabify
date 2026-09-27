@@ -35,7 +35,7 @@ export default function Messages() {
   const [invitationError, setInvitationError] = useState<string | null>(null)
   const [answering, setAnswering] = useState<string | null>(null)
 
-  const canModerateHere = profile?.role === 'faculty'
+  const canModerateHere = profile?.role === 'faculty' || profile?.role === 'admin'
   // Starting a direct thread is a teaching act — an admin who does not teach
   // has no student to message here, even though they can still moderate a
   // class or group chat below.
