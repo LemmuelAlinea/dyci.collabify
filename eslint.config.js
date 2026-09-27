@@ -72,7 +72,7 @@ export default tseslint.config(
 
   // Node scripts, not browser code: they legitimately use process and console.
   {
-    files: ['scripts/**/*.mjs', '*.config.{js,ts}'],
+    files: ['scripts/**/*.mjs', 'docs/**/*.mjs', '*.config.{js,ts}'],
     languageOptions: { globals: globals.node },
   },
 

@@ -75,12 +75,8 @@ node scripts/set-role.mjs <email> <role> [status]
 `npm run check` = typecheck → lint → test → build → contrast → a11y-names →
 schema-drift → motion-lint → legal-ready.
 
-**Lint baseline is 23 warnings, 0 errors.** An untracked scratch file
-`docs/redesign/serve-dashboard-preview.mjs` produces 3 errors, so run lint as:
-
-```bash
-npx eslint . --ignore-pattern docs/redesign/serve-dashboard-preview.mjs
-```
+**Lint baseline is 25 warnings, 0 errors.** `docs/**/*.mjs` gets Node globals
+in `eslint.config.js`, so `npm run lint` runs clean with no ignore pattern.
 
 `legal-ready` reports "not ready yet (not enforced)" and will keep doing so
 until the supervising professor and the college DPO are named. That is waiting
