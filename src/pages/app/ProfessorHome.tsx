@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { ProgramNotices } from '../../components/app/ProgramNotices'
+import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { Reveal } from '../../components/motion/Reveal'
 import { AttentionList } from '../../components/dashboard/AttentionList'
 import { ClassProgress } from '../../components/dashboard/ClassProgress'
@@ -40,7 +41,7 @@ function greeting() {
  * setting's, and they get worse quietly. Progress across the classes is last,
  * because it is a reading rather than a task.
  *
- * Faculty the admin has not let teach get only the greeting: their home is
+ * Faculty the admin has not let teach get only the greeting banner: their home is
  * work, which `WorkOverview` stacks underneath, even when a class has invited
  * them in — that class is on their Spaces page.
  */
@@ -57,9 +58,13 @@ export default function ProfessorHome() {
 
   if (!teaching) {
     return (
-      <h1 className="leading-tight">
-        {greeting()}, {profile.first_name}.
-      </h1>
+      <Reveal once>
+        <DirectoryHero
+          title={`${greeting()},`}
+          accent={`${profile.first_name}.`}
+          description="Your spaces and projects, and what needs you next. Everything below is work you are part of."
+        />
+      </Reveal>
     )
   }
 
@@ -108,9 +113,13 @@ export default function ProfessorHome() {
         </div>
       ) : classes.length === 0 ? (
         <>
-          <h1 className="leading-tight">
-            {greeting()}, {profile.first_name}.
-          </h1>
+          <Reveal once>
+            <DirectoryHero
+              title={`${greeting()},`}
+              accent={`${profile.first_name}.`}
+              description="Your classes, and the groups working in them, will show here once you create one."
+            />
+          </Reveal>
           <div className="mt-8">
             <EmptyState
               icon="folder"
