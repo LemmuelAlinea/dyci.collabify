@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import { byLastName } from '../types'
+import { teachingClassFilter } from '../classSpace'
 import type {
   ClassMember,
   ClassRow,
@@ -11,12 +12,26 @@ import type {
 
 const PROFILE_COLS = 'id, first_name, middle_name, last_name, email, avatar_url'
 
+/**
+ * Every class this person teaches: their own, and the ones they co-teach
+ * through a seat in the class's space. RLS lets them read both
+ * (classes_select checks teaches_in_space).
+ */
 export async function listProfessorClasses(professorId: string, archived = false) {
-  const query = supabase
-    .from('class_overview')
-    .select('*')
-    .eq('professor_id', professorId)
-    .order('created_at', { ascending: false })
+  const { data: seats, error: seatError } = await supabase
+    .from('general_space_members')
+    .select('space_id')
+    .eq('user_id', professorId)
+    .in('level', ['owner', 'manager'])
+  if (seatError) throw seatError
+
+  const filter = teachingClassFilter(
+    professorId,
+    (seats ?? []).map((s) => s.space_id as string),
+  )
+  const base = supabase.from('class_overview').select('*')
+  const mine = filter ? base.or(filter) : base.eq('professor_id', professorId)
+  const query = mine.order('created_at', { ascending: false })
 
   const { data, error } = archived
     ? await query.not('archived_at', 'is', null)
