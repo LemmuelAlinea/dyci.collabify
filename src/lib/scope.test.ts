@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readScope, writeScope } from './scope'
+import { conversationScope, readScope, writeScope } from './scope'
 
 describe('readScope', () => {
   it('defaults to all when show is absent', () => {
@@ -32,5 +32,17 @@ describe('writeScope', () => {
     const params = writeScope(new URLSearchParams('foo=bar'), 'work')
     expect(params.get('foo')).toBe('bar')
     expect(params.get('show')).toBe('work')
+  })
+})
+
+describe('conversationScope', () => {
+  it('puts a project conversation under work', () => {
+    expect(conversationScope('project')).toBe('work')
+  })
+
+  it('puts everything else, direct chats included, under classes', () => {
+    expect(conversationScope('class')).toBe('classes')
+    expect(conversationScope('group')).toBe('classes')
+    expect(conversationScope('direct')).toBe('classes')
   })
 })

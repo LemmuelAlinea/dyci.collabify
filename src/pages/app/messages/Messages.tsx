@@ -12,10 +12,11 @@ import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { useConversations } from '../../../hooks/useConversations'
 import { useLive } from '../../../hooks/useLive'
+import { canTeach } from '../../../lib/access'
 import { listMyInvitations, respondToInvitation } from '../../../lib/api/general'
 import { authErrorMessage } from '../../../lib/authError'
 import { paths } from '../../../lib/paths'
-import { readScope, writeScope } from '../../../lib/scope'
+import { conversationScope, readScope, writeScope } from '../../../lib/scope'
 import type { MyInvitation } from '../../../lib/general/types'
 import { fullName } from '../../../lib/types'
 import { useToast } from '../../../components/ui/Toast'
@@ -35,6 +36,10 @@ export default function Messages() {
   const [answering, setAnswering] = useState<string | null>(null)
 
   const canModerateHere = profile?.role === 'professor' || profile?.role === 'admin'
+  // Starting a direct thread is a teaching act — an admin who does not teach
+  // has no student to message here, even though they can still moderate a
+  // class or group chat below.
+  const canStartMessages = canTeach(profile)
 
   useEffect(() => {
     document.title = 'Messages · Collabify'
@@ -74,12 +79,13 @@ export default function Messages() {
     }
   }
 
-  const classesCount = conversations?.filter((c) => c.kind !== 'project').length ?? 0
-  const workCount = conversations?.filter((c) => c.kind === 'project').length ?? 0
+  const classesCount = conversations?.filter((c) => conversationScope(c.kind) === 'classes').length ?? 0
+  const workCount = conversations?.filter((c) => conversationScope(c.kind) === 'work').length ?? 0
   const visible = useMemo(() => {
     if (!conversations) return conversations
-    if (scope === 'classes') return conversations.filter((c) => c.kind !== 'project')
-    if (scope === 'work') return conversations.filter((c) => c.kind === 'project')
+    if (scope === 'classes' || scope === 'work') {
+      return conversations.filter((c) => conversationScope(c.kind) === scope)
+    }
     return conversations
   }, [conversations, scope])
 
@@ -87,7 +93,8 @@ export default function Messages() {
   const unread =
     conversations?.reduce((total, conversation) => total + conversation.unread_count, 0) ?? 0
   const channels =
-    conversations?.filter((conversation) => conversation.kind !== 'direct').length ?? 0
+    conversations?.filter((conversation) => conversation.kind === 'class' || conversation.kind === 'group')
+      .length ?? 0
   const direct =
     conversations?.filter((conversation) => conversation.kind === 'direct').length ?? 0
   const canModerate = canModerateHere && (active?.kind === 'class' || active?.kind === 'group')
@@ -108,7 +115,7 @@ export default function Messages() {
         ]}
         statsVariant="compact-row"
         action={
-          canModerateHere ? (
+          canStartMessages ? (
             <Button
               variant="onNavy"
               onClick={() => setNewOpen(true)}
@@ -128,7 +135,7 @@ export default function Messages() {
           <header className="flex items-center justify-between gap-3 border-b border-amber-300/60 px-4 py-3.5 sm:px-5 dark:border-amber-400/25">
             <div>
               <h2>Project invitations</h2>
-              <p className="mt-0.5 text-[12px] text-muted">General projects waiting for your answer.</p>
+              <p className="mt-0.5 text-[12px] text-muted">Projects waiting for your answer.</p>
             </div>
             <span className="rounded-full bg-amber-400/25 px-2.5 py-1 font-mono text-[12px] font-medium text-amber-800 dark:text-amber-200">
               {invitations.length}
@@ -169,7 +176,9 @@ export default function Messages() {
         <ScopeFilter
           value={scope}
           onChange={(next) => setParams(writeScope(params, next), { replace: true })}
-          counts={{ all: conversations?.length ?? 0, classes: classesCount, work: workCount }}
+          counts={
+            conversations ? { all: conversations.length, classes: classesCount, work: workCount } : undefined
+          }
         />
       </div>
 
@@ -236,14 +245,14 @@ export default function Messages() {
         </section>
       </div>
 
-      {canModerateHere && (
+      {canStartMessages && (
         <NewDirectDialog
           open={newOpen}
           onClose={() => setNewOpen(false)}
           professorId={profile.id}
           onStarted={async (id) => {
             await reload()
-            navigate(paths.conversation(id))
+            navigate(`${paths.conversation(id)}${location.search}`)
           }}
         />
       )}

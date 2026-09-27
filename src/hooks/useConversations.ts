@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useLive } from './useLive'
 import { decorateConversations, listConversations } from '../lib/api/messages'
 import { authErrorMessage } from '../lib/authError'
+import { conversationScope } from '../lib/scope'
 import { supabase } from '../lib/supabase'
 import type { ConversationCard } from '../lib/types'
 
@@ -9,11 +10,8 @@ type ConversationScope = 'education' | 'general' | 'all'
 
 function scoped(conversations: ConversationCard[], scope: ConversationScope) {
   if (scope === 'all') return conversations
-  return conversations.filter((conversation) =>
-    scope === 'general'
-      ? conversation.kind === 'project'
-      : conversation.kind !== 'project',
-  )
+  const want = scope === 'general' ? 'work' : 'classes'
+  return conversations.filter((conversation) => conversationScope(conversation.kind) === want)
 }
 
 /** The viewer's conversations, titles resolved, refreshed when a message lands. */

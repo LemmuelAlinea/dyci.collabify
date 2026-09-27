@@ -1,3 +1,5 @@
+import type { ConversationKind } from './types'
+
 /**
  * The All · Classes · Work filter shared by Messages, My tasks and Calendar.
  *
@@ -20,4 +22,14 @@ export function writeScope(params: URLSearchParams, scope: Scope): URLSearchPara
   if (scope === 'all') next.delete('show')
   else next.set('show', scope)
   return next
+}
+
+/**
+ * Which half of the All · Classes · Work split a conversation kind falls
+ * into. Only a project conversation is Work — a direct chat counts as
+ * Classes because only teaching faculty start them, and they always start
+ * one about a class or a student in it.
+ */
+export function conversationScope(kind: ConversationKind): Exclude<Scope, 'all'> {
+  return kind === 'project' ? 'work' : 'classes'
 }
