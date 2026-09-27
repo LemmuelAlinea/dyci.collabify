@@ -13,7 +13,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useConversations } from '../../../hooks/useConversations'
 import { useLive } from '../../../hooks/useLive'
-import { canTeach, showsClassScope } from '../../../lib/access'
+import { canTeach, membershipOf, showsClassScope } from '../../../lib/access'
 import { listMyInvitations, respondToInvitation } from '../../../lib/api/general'
 import { authErrorMessage } from '../../../lib/authError'
 import { paths } from '../../../lib/paths'
@@ -29,10 +29,10 @@ export default function Messages() {
   const navigate = useNavigate()
   const location = useLocation()
   const [params, setParams] = useSearchParams()
-  // Outside every class there is nothing to split, so show every
+  // Without classes and work both there is nothing to split, so show every
   // conversation — a direct chat somebody else started included.
-  const { spaces } = useGeneralNavigation()
-  const classScope = showsClassScope(profile, spaces)
+  const { spaces, myProjects } = useGeneralNavigation()
+  const classScope = showsClassScope(profile, membershipOf(spaces, myProjects))
   const scope = classScope ? readScope(params) : 'all'
   const { conversations, error, reload } = useConversations(profile?.id, 'all')
   const [newOpen, setNewOpen] = useState(false)

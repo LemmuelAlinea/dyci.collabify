@@ -4,13 +4,13 @@ import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { listProfessorClasses, listStudentClasses } from '../../lib/api/classes'
 import { listProjectsForClasses } from '../../lib/api/projects'
-import type { AccessProfile } from '../../lib/access'
+import { membershipOf } from '../../lib/access'
+import type { AccessProfile, Membership } from '../../lib/access'
 import { authErrorMessage } from '../../lib/authError'
 import { paths } from '../../lib/paths'
 import type { ClassSummary, ProjectSummary } from '../../lib/types'
 import { Icon } from '../ui/Icon'
-import { membershipOf, navFor } from './nav'
-import type { Membership } from './nav'
+import { navFor } from './nav'
 
 type Result = {
   key: string

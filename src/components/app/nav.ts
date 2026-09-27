@@ -1,7 +1,6 @@
 import type { IconName } from '../ui/Icon'
-import { canTeach, inAnyClass } from '../../lib/access'
-import type { AccessProfile } from '../../lib/access'
-import type { GeneralProjectSummary, GeneralSpaceSummary } from '../../lib/general/types'
+import { canTeach } from '../../lib/access'
+import type { AccessProfile, Membership } from '../../lib/access'
 import type { Role } from '../../lib/types'
 import { paths } from '../../lib/paths'
 
@@ -30,22 +29,6 @@ export type NavGroup = {
   withClasses?: boolean
 }
 
-/** What the account belongs to, which decides how much of the rail an admin gets. */
-export type Membership = { inClass: boolean; hasWork: boolean }
-
-/** Undefined while either list is still loading. */
-export function membershipOf(
-  spaces: GeneralSpaceSummary[] | null,
-  projects: GeneralProjectSummary[] | null,
-): Membership | undefined {
-  if (spaces === null || projects === null) return undefined
-  return {
-    inClass: inAnyClass(spaces),
-    hasWork:
-      spaces.some((s) => s.kind === 'work' && s.my_level && !s.archived_at) ||
-      projects.some((p) => p.my_level && !p.archived_at),
-  }
-}
 
 /**
  * One rail, for everyone.
@@ -209,6 +192,9 @@ export function navFor(
   }
   if (role === 'student') {
     if (!admitted) return [MAIN_WAITING, ACCOUNT]
+    // A student cannot make a space; work arrives by invitation, and only
+    // then do Spaces and Projects earn a place.
+    if (!membership?.hasWork) return [MAIN, classesGroup(role), ACCOUNT]
     return [MAIN, classesGroup(role), spacesGroup(true), PROJECTS, ACCOUNT]
   }
   if (canTeach(profile)) {

@@ -15,6 +15,7 @@ import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useGeneralDashboard } from '../../../hooks/useGeneralDashboard'
 import { myTasks as myClassTasks, setTaskStatus } from '../../../lib/api/tasks'
 import type { MyTask } from '../../../lib/api/tasks'
+import { membershipOf, showsClassScope } from '../../../lib/access'
 import { authErrorMessage } from '../../../lib/authError'
 import { isOverdue } from '../../../lib/general/dates'
 import { myTasks as myOpenWorkTasks } from '../../../lib/general/dashboard'
@@ -114,8 +115,12 @@ export default function MyTasks() {
   const [params, setParams] = useSearchParams()
   const openTask = params.get('task')
   // Only students are ever given class tasks, so everyone else reads work
-  // alone, with no filter — and a stale `?show=classes` cannot empty it.
-  const scope = isStudent ? readScope(params) : 'work'
+  // alone. A student gets the filter only once somebody has invited them to
+  // some work; until then they read everything. Either way a stale `?show=`
+  // cannot empty the page.
+  const general = useGeneralNavigation()
+  const filtered = isStudent && showsClassScope(profile, membershipOf(general.spaces, general.myProjects))
+  const scope = filtered ? readScope(params) : isStudent ? 'all' : 'work'
 
   // Class boards only ever assign work to students — a professor or admin
   // reading this page has none, so their load is a no-op rather than a
@@ -264,7 +269,7 @@ export default function MyTasks() {
           </Alert>
         )}
 
-        {isStudent && (
+        {filtered && (
           <div className="flex justify-end">
             <ScopeFilter
               value={scope}

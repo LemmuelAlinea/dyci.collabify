@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { canTeach, homeFor, inAnyClass, isFaculty, showsClassScope } from './access'
+import { canTeach, homeFor, inAnyClass, isFaculty, membershipOf, showsClassScope } from './access'
+import type { GeneralProjectSummary, GeneralSpaceSummary } from './general/types'
 
 const p = (
   role: 'student' | 'faculty' | 'admin' | null,
@@ -67,19 +68,47 @@ describe('inAnyClass', () => {
 })
 
 describe('showsClassScope', () => {
-  it('always offers it to students', () => {
-    expect(showsClassScope(p('student', 'active'), [])).toBe(true)
+  const none = { inClass: false, hasWork: false }
+  const work = { inClass: false, hasWork: true }
+  const cls = { inClass: true, hasWork: false }
+
+  it('offers it to a student only once they have some work', () => {
+    expect(showsClassScope(p('student', 'active'), none)).toBe(false)
+    expect(showsClassScope(p('student', 'active'), work)).toBe(true)
   })
 
   it('offers it to faculty only once they are in a class, teaching or not', () => {
-    expect(showsClassScope(p('faculty', 'active', true), [workSpace])).toBe(false)
-    expect(showsClassScope(p('faculty', 'active', true), [classSpace])).toBe(true)
-    expect(showsClassScope(p('faculty', 'active'), [classSpace])).toBe(true)
-    expect(showsClassScope(p('faculty', 'active'), null)).toBe(false)
+    expect(showsClassScope(p('faculty', 'active', true), work)).toBe(false)
+    expect(showsClassScope(p('faculty', 'active', true), cls)).toBe(true)
+    expect(showsClassScope(p('faculty', 'active'), cls)).toBe(true)
   })
 
   it('offers it to admins only once someone invites them into a class', () => {
-    expect(showsClassScope(p('admin', 'active'), [workSpace])).toBe(false)
-    expect(showsClassScope(p('admin', 'active'), [classSpace])).toBe(true)
+    expect(showsClassScope(p('admin', 'active'), work)).toBe(false)
+    expect(showsClassScope(p('admin', 'active'), cls)).toBe(true)
+  })
+
+  it('offers it to nobody while membership is still loading', () => {
+    expect(showsClassScope(p('student', 'active'), undefined)).toBe(false)
+    expect(showsClassScope(p('faculty', 'active'), undefined)).toBe(false)
+  })
+})
+
+describe('membershipOf', () => {
+  const project = (my_level: 'member' | null, archived_at: string | null = null) =>
+    ({ my_level, archived_at }) as unknown as GeneralProjectSummary
+  const space = (kind: 'work' | 'education', archived_at: string | null = null) =>
+    ({ kind, my_level: 'member', archived_at }) as unknown as GeneralSpaceSummary
+
+  it('is undefined while either list loads', () => {
+    expect(membershipOf(null, [])).toBeUndefined()
+    expect(membershipOf([], null)).toBeUndefined()
+  })
+
+  it('counts a live work space or a live project as work', () => {
+    expect(membershipOf([space('work')], [])?.hasWork).toBe(true)
+    expect(membershipOf([], [project('member')])?.hasWork).toBe(true)
+    expect(membershipOf([space('work', '2026-01-01')], [project('member', '2026-01-01')])?.hasWork).toBe(false)
+    expect(membershipOf([space('education')], [])).toEqual({ inClass: true, hasWork: false })
   })
 })

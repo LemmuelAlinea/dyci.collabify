@@ -24,10 +24,17 @@ describe('navFor', () => {
     expect(labels(navFor(student, false))).toEqual(['Home', 'Settings'])
   })
 
-  it('gives an admitted student Main, Classes with Your record, Spaces, Projects and Account', () => {
-    const groups = navFor(student, true)
-    expect(titles(groups)).toEqual(['Main', 'Classes', 'Spaces', 'Projects', 'Account'])
+  it('gives a student with only classes Main, Classes with Your record, and Account', () => {
+    const groups = navFor(student, true, { inClass: true, hasWork: false })
+    expect(titles(groups)).toEqual(['Main', 'Classes', 'Account'])
     expect(labels(groups)).toContain('Your record')
+    expect(titles(navFor(student, true))).toEqual(['Main', 'Classes', 'Account'])
+  })
+
+  it('adds Spaces and Projects once a student is invited to some work', () => {
+    const groups = navFor(student, true, { inClass: true, hasWork: true })
+    expect(titles(groups)).toEqual(['Main', 'Classes', 'Spaces', 'Projects', 'Account'])
+    expect(spaces(groups)?.hideWhenEmpty).toBe(true)
   })
 
   it('gives teaching faculty Classes and Teaching, and no Your record', () => {
@@ -65,11 +72,10 @@ describe('navFor', () => {
   it('lists classes under Spaces for faculty who do not teach, not for those who do', () => {
     expect(spaces(navFor(nonTeacher, true))?.withClasses).toBe(true)
     expect(spaces(navFor(teacher, true))?.withClasses).toBe(false)
-    expect(spaces(navFor(student, true))?.withClasses).toBe(false)
+    expect(spaces(navFor(student, true, { inClass: true, hasWork: true }))?.withClasses).toBe(false)
   })
 
   it('hides an empty Spaces only for accounts that cannot open a class', () => {
-    expect(spaces(navFor(student, true))?.hideWhenEmpty).toBe(true)
     expect(spaces(navFor(nonTeacher, true))?.hideWhenEmpty).toBe(true)
     expect(spaces(navFor(teacher, true))?.hideWhenEmpty).toBe(false)
     expect(spaces(navFor(admin, true, { inClass: false, hasWork: true }))?.hideWhenEmpty).toBe(true)
@@ -77,7 +83,7 @@ describe('navFor', () => {
 
   it('never hides Projects', () => {
     for (const who of [student, teacher, nonTeacher]) {
-      expect(navFor(who, true).find((g) => g.title === 'Projects')?.hideWhenEmpty).toBeFalsy()
+      expect(navFor(who, true, { inClass: true, hasWork: true }).find((g) => g.title === 'Projects')?.hideWhenEmpty).toBeFalsy()
     }
   })
 

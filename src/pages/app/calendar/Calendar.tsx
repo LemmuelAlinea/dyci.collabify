@@ -14,7 +14,7 @@ import { Select } from '../../../components/ui/Select'
 import { ScopeFilter } from '../../../components/ui/ScopeFilter'
 import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
-import { showsClassScope } from '../../../lib/access'
+import { inAnyClass, membershipOf, showsClassScope } from '../../../lib/access'
 import { useGeneralDashboard } from '../../../hooks/useGeneralDashboard'
 import { listCalendar, listWeekBands } from '../../../lib/api/calendar'
 import { authErrorMessage } from '../../../lib/authError'
@@ -56,17 +56,21 @@ export default function Calendar() {
   // An admin in a class reads it as a co-teacher does.
   const staff = role === 'faculty' || role === 'admin'
   const openTask = params.get('task')
-  // Someone in no class reads a work calendar: no filter, and a stale
-  // `?show=classes` cannot empty it.
-  const { spaces } = useGeneralNavigation()
-  const classScope = showsClassScope(profile, spaces)
-  const scope = classScope ? readScope(params) : 'work'
+  const general = useGeneralNavigation()
+  const spaces = general.spaces
+  // Two questions. Class dates: a student always has them, faculty and admins
+  // once a class has them in. The filter: only for someone with classes and
+  // work both; without it, a student reads classes and everyone else work,
+  // and a stale `?show=` cannot empty the page.
+  const hasClassDates = role === 'student' || inAnyClass(spaces)
+  const classScope = showsClassScope(profile, membershipOf(spaces, general.myProjects))
+  const scope = classScope ? readScope(params) : role === 'student' ? 'classes' : 'work'
 
   const load = useCallback(async () => {
     if (!role) return
-    // Nobody outside a class has class dates, but their work dates below
-    // still fill the page.
-    if (!classScope) {
+    // Faculty and admins in no class have no class dates, but their work
+    // dates below still fill the page.
+    if (!hasClassDates) {
       setEvents([])
       setWeeks([])
       setError(null)
@@ -87,7 +91,7 @@ export default function Calendar() {
       setError(authErrorMessage(err, 'Could not load the calendar.'))
       setEvents([])
     }
-  }, [role, classScope, spaces])
+  }, [role, hasClassDates, spaces])
 
   useEffect(() => {
     document.title = 'Calendar · Collabify'
@@ -99,7 +103,7 @@ export default function Calendar() {
 
   // Professors have class dates too; only an admin's class load is a no-op.
   useLive(load, ['projects', 'project_tasks', 'project_boards', 'syllabus_weeks', 'classes'], {
-    enabled: classScope,
+    enabled: hasClassDates,
   })
 
   // Work dates: the reader's live General projects, and every open task on
@@ -206,7 +210,7 @@ export default function Calendar() {
         title="Plan the"
         accent="term."
         description={
-          role !== 'student' && classScope
+          staff && hasClassDates
             ? 'Deadlines and releases across your classes, mapped against the syllabus weeks they belong to.'
             : role === 'student'
               ? 'See every deadline across your classes and the syllabus week behind each one.'

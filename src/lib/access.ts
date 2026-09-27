@@ -4,7 +4,7 @@
  * The database decides; these only keep a screen from offering what it would
  * refuse. Each mirrors a function in supabase/access.sql of the same meaning.
  */
-import type { GeneralSpaceSummary } from './general/types'
+import type { GeneralProjectSummary, GeneralSpaceSummary } from './general/types'
 import type { Profile } from './types'
 
 export type AccessProfile = Pick<Profile, 'role' | 'status' | 'can_teach'> | null | undefined
@@ -25,17 +25,34 @@ export function inAnyClass(spaces: Pick<GeneralSpaceSummary, 'kind' | 'my_level'
   return Boolean(spaces?.some((s) => s.kind === 'education' && s.my_level))
 }
 
+/** What the account belongs to, which decides how much of the rail an admin gets. */
+export type Membership = { inClass: boolean; hasWork: boolean }
+
+/** Undefined while either list is still loading. */
+export function membershipOf(
+  spaces: GeneralSpaceSummary[] | null,
+  projects: GeneralProjectSummary[] | null,
+): Membership | undefined {
+  if (spaces === null || projects === null) return undefined
+  return {
+    inClass: inAnyClass(spaces),
+    hasWork:
+      spaces.some((s) => s.kind === 'work' && s.my_level && !s.archived_at) ||
+      projects.some((p) => p.my_level && !p.archived_at),
+  }
+}
+
 /**
- * Whether a page offers the Classes · Work split. Students always have
- * classes; faculty and admins only once they are in one. Spaces still
- * loading count as no class, so the filter does not flash.
+ * Whether a page offers the Classes · Work split — only to someone who has
+ * both. Students always have classes, so for them it waits on work: a space
+ * or project somebody invited them into. Faculty and admins always may have
+ * work, so for them it waits on a class. Still loading counts as no, so the
+ * filter does not flash.
  */
-export function showsClassScope(
-  p: AccessProfile,
-  spaces: Pick<GeneralSpaceSummary, 'kind' | 'my_level'>[] | null,
-): boolean {
-  if (p?.role === 'student') return true
-  return (p?.role === 'faculty' || p?.role === 'admin') && inAnyClass(spaces)
+export function showsClassScope(p: AccessProfile, membership: Membership | undefined): boolean {
+  if (!membership) return false
+  if (p?.role === 'student') return membership.hasWork
+  return (p?.role === 'faculty' || p?.role === 'admin') && membership.inClass
 }
 
 /** Where an admitted account lands. */
