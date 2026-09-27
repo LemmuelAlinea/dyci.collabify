@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { ReactNode } from 'react'
-import { useLocation } from 'react-router-dom'
 import { Avatar } from '../components/app/Avatar'
 import { DirectoryHero } from '../components/app/DirectoryHero'
 import { Button, ButtonLink } from '../components/ui/Button'
@@ -15,8 +14,8 @@ import { AVATAR_ACCEPT, avatarExtension, avatarProblem } from '../lib/limits'
 import { useThemePreference } from '../hooks/useThemePreference'
 import { authErrorMessage } from '../lib/authError'
 import { supabase } from '../lib/supabase'
+import { ROLE_LABEL } from '../lib/types'
 import type { NotificationKey, NotificationPrefs, ThemeMode } from '../lib/types'
-import { workplaceOf } from '../lib/workplace'
 
 /**
  * Each of these controls something real, and the wording says which.
@@ -112,7 +111,6 @@ export default function Settings() {
   const { profile, updateProfile, loadNotificationPrefs, updateNotificationPrefs, sendPasswordReset, signOut } =
     useAuth()
   const { mode, choose } = useThemePreference()
-  const location = useLocation()
 
   useEffect(() => {
     document.title = 'Settings · Collabify'
@@ -270,8 +268,6 @@ export default function Settings() {
     ? NOTIFICATIONS.filter((notification) => prefs[notification.key]).length
     : '—'
   const themeLabel = APPEARANCE.find((appearance) => appearance.mode === mode)?.label ?? 'System'
-  const workplace = workplaceOf(location.pathname, profile.home_workplace)
-  const workplaceLabel = workplace === 'general' ? 'General' : 'Education'
 
   return (
     <div className="w-full space-y-6">
@@ -279,13 +275,11 @@ export default function Settings() {
         title="Set up Collabify,"
         accent="your way."
         description="Manage your identity, appearance, notifications and account access from one place."
-        stats={workplace === 'general'
-          ? []
-          : [
-              { value: 'Account settings', label: `Opened from ${workplaceLabel}` },
-              { value: themeLabel, label: 'Appearance' },
-              { value: enabledNotifications, label: 'Email notifications on' },
-            ]}
+        stats={[
+          { value: profile.role ? ROLE_LABEL[profile.role] : 'Account', label: 'Signed in as' },
+          { value: themeLabel, label: 'Appearance' },
+          { value: enabledNotifications, label: 'Email notifications on' },
+        ]}
       />
 
       <div className="grid items-start gap-6 lg:grid-cols-[240px_minmax(0,820px)] xl:grid-cols-[260px_minmax(0,900px)]">

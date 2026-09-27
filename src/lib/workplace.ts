@@ -1,40 +1,20 @@
 /**
- * The two workplaces, and where somebody belongs in them.
+ * Where an admitted account lands.
  *
- * One account uses both. `home_workplace` is only where sign-in lands; the
- * switcher in the top bar opens the other. Neither opens until somebody has
- * admitted the account: the admin approves faculty, and a student is let in by
- * the class they join.
- *
- * `pending` (faculty waiting on the admin), `rejected` (turned down or
- * deactivated) and an account with no role at all all land on /pending, which
- * says which of the three it is.
+ * `home_workplace` only ever mattered while there were two workplaces to
+ * choose between; one shell now covers both, so this keeps just the one
+ * decision that is still real: `pending` (faculty waiting on the admin),
+ * `rejected` (turned down or deactivated) and an account with no role at all
+ * all land on /pending, which says which of the three it is.
  */
-import type { Profile, Role } from './types'
+import type { Profile } from './types'
 
 export type Workplace = 'education' | 'general'
 
 export type HomeProfile = Pick<Profile, 'role' | 'status' | 'home_workplace'>
 
-/** Phase 4 retires this; kept exported so its few remaining callers still resolve. */
-export function educationHome(profile: HomeProfile): string {
-  if (profile.status !== 'active' || !profile.role) return '/pending'
-  return '/home'
-}
-
 export function homeFor(profile: HomeProfile | null | undefined): string {
   if (!profile) return '/onboarding'
   if (profile.status !== 'active' || !profile.role) return '/pending'
   return '/home'
-}
-
-export function workplaceOf(pathname: string, home: Workplace): Workplace {
-  if (pathname === '/general' || pathname.startsWith('/general/')) return 'general'
-  if (/^\/(student|professor|admin|education)(\/|$)/.test(pathname)) return 'education'
-  return home
-}
-
-export function settingsPathFor(workplace: Workplace, role: Role | null): string {
-  if (workplace === 'general') return '/general/settings'
-  return role ? `/${role}/settings` : '/settings'
 }

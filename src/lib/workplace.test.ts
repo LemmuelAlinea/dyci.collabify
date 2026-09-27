@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { homeFor, workplaceOf } from './workplace'
+import { homeFor } from './workplace'
 
 const p = (
   role: 'student' | 'professor' | 'admin' | null,
@@ -31,28 +31,5 @@ describe('homeFor', () => {
     expect(homeFor(p('admin', 'active', 'education'))).toBe('/home')
     expect(homeFor(p('student', 'active', 'education'))).toBe('/home')
     expect(homeFor(p('professor', 'active', 'general'))).toBe('/home')
-  })
-})
-
-describe('workplaceOf', () => {
-  it('reads General from its own section', () => {
-    expect(workplaceOf('/general', 'education')).toBe('general')
-    expect(workplaceOf('/general/projects/abc', 'education')).toBe('general')
-    expect(workplaceOf('/general/settings', 'education')).toBe('general')
-  })
-
-  it('does not mistake a lookalike path for General', () => {
-    expect(workplaceOf('/generally', 'education')).toBe('education')
-  })
-
-  it('reads Education from the role sections', () => {
-    expect(workplaceOf('/student/tasks', 'general')).toBe('education')
-    expect(workplaceOf('/student/settings', 'general')).toBe('education')
-    expect(workplaceOf('/professor', 'general')).toBe('education')
-  })
-
-  it('uses the home workplace on shared pages', () => {
-    expect(workplaceOf('/settings', 'general')).toBe('general')
-    expect(workplaceOf('/privacy/request', 'education')).toBe('education')
   })
 })
