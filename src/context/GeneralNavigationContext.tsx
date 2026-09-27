@@ -22,7 +22,10 @@ export function GeneralNavigationProvider({
   const location = useLocation()
   const { spaces, invitations, error: spacesError, reload: reloadSpaces } = useMySpaces(enabled)
   const [reported, setReported] = useState<ProjectSpace | null>(null)
-  const [projects, setProjects] = useState<GeneralProjectSummary[] | null>(null)
+  // Only holds a fetch of its own while a space is in view; with no current
+  // space, `projects` below reuses `myProjects` instead of asking the server
+  // the same listMyGeneralProjects() question twice.
+  const [spaceProjects, setSpaceProjects] = useState<GeneralProjectSummary[] | null>(null)
   const [myProjects, setMyProjects] = useState<GeneralProjectSummary[] | null>(null)
   const [projectError, setProjectError] = useState<string | null>(null)
 
@@ -58,17 +61,19 @@ export function GeneralNavigationProvider({
   }, [currentSpace])
 
   const loadProjects = useCallback(async () => {
-    if (!enabled) {
-      setProjects(null)
+    if (!enabled || !currentSpaceId) {
+      // No space in view: `projects` below falls back to `myProjects`, which
+      // `loadMine` already fetches with the same call.
+      setSpaceProjects(null)
       setProjectError(null)
       return
     }
     try {
-      setProjects(currentSpaceId ? await listSpaceProjects(currentSpaceId) : await listMyGeneralProjects())
+      setSpaceProjects(await listSpaceProjects(currentSpaceId))
       setProjectError(null)
     } catch (err) {
       setProjectError(authErrorMessage(err, 'Could not load your projects.'))
-      setProjects((previous) => previous ?? [])
+      setSpaceProjects((previous) => previous ?? [])
     }
   }, [currentSpaceId, enabled])
 
@@ -93,7 +98,7 @@ export function GeneralNavigationProvider({
   }, [enabled])
 
   useEffect(() => {
-    setProjects(null)
+    setSpaceProjects(null)
     void loadProjects()
   }, [loadProjects])
 
@@ -124,6 +129,11 @@ export function GeneralNavigationProvider({
   const reportProjectSpace = useCallback((projectId: string, spaceId: string) => {
     setReported({ projectId, spaceId })
   }, [])
+
+  // With no current space, this reuses `myProjects` — the reader's own
+  // projects, wherever they live — instead of a second fetch of the same
+  // "my projects" question `loadProjects` would otherwise repeat.
+  const projects = currentSpaceId ? spaceProjects : myProjects
 
   const value = useMemo<GeneralNavigationValue>(
     () => ({

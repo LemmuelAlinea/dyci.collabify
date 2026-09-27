@@ -83,7 +83,9 @@ export default function Calendar() {
     void load()
   }, [load])
 
-  useLive(load, ['projects', 'project_tasks', 'project_boards', 'syllabus_weeks', 'classes'])
+  useLive(load, ['projects', 'project_tasks', 'project_boards', 'syllabus_weeks', 'classes'], {
+    enabled: role === 'student',
+  })
 
   // Work dates: the reader's live General projects, and every open task on
   // them with a due date — not only the ones assigned to the reader, since a

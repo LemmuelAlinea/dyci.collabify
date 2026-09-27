@@ -142,7 +142,12 @@ export default function MyTasks() {
     void load()
   }, [load])
 
-  useLive(load, ['project_tasks', 'task_assignees', 'project_boards', 'projects'])
+  // Class boards only ever assign work to students, so `load` above is a
+  // no-op for anyone else — no reason to hold a realtime channel or poll for
+  // a table that will never change this page's data.
+  useLive(load, ['project_tasks', 'task_assignees', 'project_boards', 'projects'], {
+    enabled: isStudent,
+  })
 
   // Work tasks: the same read the General home uses for "My tasks", open to
   // every role since work spaces are not education-only.
