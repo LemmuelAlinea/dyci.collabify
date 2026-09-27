@@ -1389,3 +1389,38 @@ matrix gaps. **Open owner question:** should an admin without *Can teach* keep
 
 **Next:** answer the open owner question, then phase 4 cleanup (drop `home_workplace`
 and dead routes, rename `professor` → `faculty`, landing/auth copy).
+
+## Session — 2026-09-27: one workplace, phase 4 cleanup
+Plan `docs/superpowers/plans/2026-09-27-one-workplace-phase-4-cleanup.md`.
+Committed and pushed `9d036d2..55ff39d`.
+
+**Cleanup:** `src/lib/workplace.ts` and its test are deleted. `homeFor` now lives in
+`src/lib/access.ts`. `profiles.home_workplace` and the unused `public.workplace` enum
+are removed by `supabase/cleanup.sql`, which is registered in restore/docs order.
+
+**Role rename:** account role storage is now `student | faculty | admin`. The live enum
+was renamed from `professor` to `faculty`; fresh schema creates `faculty`; signup still
+maps old metadata `role='professor'` to `faculty` for deploy safety. Teaching-domain
+names remain on purpose (`professor_id`, `is_class_professor`, task author
+`'professor'`, teacher-view props, and legacy `/professor/*` redirects).
+
+**Owner decision:** admins do not teach. `canTeach()` and `is_teaching_faculty()` are
+faculty-only; admins do not get the teaching/New message behavior.
+
+**Copy:** current auth/join copy says faculty/faculty member. `JoinClassLink.preview.professor`
+is only a data field name, not visible copy.
+
+**Checks:** `npm run build`; `npx vitest run` (42 files, 504 tests); 41/41 SQL suites
+(one transient DB timeout on first final run, clean on retry); `node scripts/schema-drift.mjs`
+(same 11 review hints, proof is SQL suite); `node scripts/db.mjs -c "select role, count(*)…"`
+shows `student`, `faculty`, `admin` only; required greps reviewed. Graphify updated; its
+pre-existing parse warning remains `src/lib/api/generalReports.ts`.
+
+**Deferred:** previous deferred list still stands unless fixed by phase 4. Additional
+intentional leftovers: historical docs/plans still mention the old two-workplace fields;
+`supabase/cleanup.sql` and `cleanup.test.sql` mention them to remove/prove removal.
+
+**Next browser walk:** register as Faculty, confirm auth says faculty and lands pending;
+admin approves and toggles Can teach; approved faculty can create a class only with Can
+teach on and old `/professor/submissions` redirects to `/teaching/submissions`; student
+joins with code/link and join text says faculty.
