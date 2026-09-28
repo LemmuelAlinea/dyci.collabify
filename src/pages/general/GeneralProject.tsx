@@ -6,6 +6,7 @@ import { OverviewTab } from '../../components/general/OverviewTab'
 import { FilesTab } from '../../components/general/FilesTab'
 import { ProgressTab } from '../../components/general/ProgressTab'
 import { TasksTab } from '../../components/general/TasksTab'
+import { SinceLastVisit } from '../../components/general/SinceLastVisit'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
@@ -169,6 +170,8 @@ export default function GeneralProject() {
           )}
         </Alert>
       )}
+
+      <SinceLastVisit projectId={p.id} />
 
       <Tabs<GeneralTabId>
         tabs={[

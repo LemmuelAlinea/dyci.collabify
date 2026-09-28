@@ -1500,3 +1500,21 @@ function contentTypeForProjectFile(name: string) {
   if (ext === 'svg') return 'image/svg+xml'
   return undefined
 }
+
+export type SinceLastVisit = {
+  first_visit: boolean
+  since?: string
+  tasks_done?: { id: string; title: string }[]
+  tasks_added?: number
+  assigned_to_me?: { id: string; title: string }[]
+  comments_on_mine?: number
+  commits?: number
+  reviews_waiting?: number
+}
+
+/** What others did in a work project since the caller's last sitting. Records this one. */
+export async function sinceLastVisit(projectId: string) {
+  const { data, error } = await supabase.rpc('general_since_last_visit', { p_project: projectId })
+  if (error) throw error
+  return data as SinceLastVisit
+}
