@@ -19,8 +19,14 @@ export function ClassProjectsTab({
   viewerId?: string
 }) {
   const [wizardOpen, setWizardOpen] = useState(false)
+  // The projects load keys on the id alone: the class page refetches its class
+  // on every live refresh, and a new object each time would reload the list.
+  const classId = cls.id
+  const ids = useMemo(() => [{ id: classId }], [classId])
+  const { projects, loading, error, reload } = useProjectsData(ids)
+  // The wizard reads the class itself (its syllabus, its name), so it gets the
+  // current one.
   const classes = useMemo(() => [cls], [cls])
-  const { projects, loading, error, reload } = useProjectsData(classes)
 
   const canManage = role === 'professor' && !cls.archived_at && Boolean(cls.syllabus_id)
 
