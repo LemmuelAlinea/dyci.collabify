@@ -423,7 +423,13 @@ begin
   perform pg_temp.must_be('...and is in a group', r.in_any_group);
   perform pg_temp.act_as_service();
 
-  -- Take the outsider out of every group this class runs.
+  -- Take the outsider out of every group this class runs, and off every task
+  -- they hold in it: live data moves, and the control below needs someone
+  -- holding nothing.
+  delete from public.task_assignees a
+   using public.project_tasks t, public.project_boards b, public.projects pj
+   where a.task_id = t.id and t.board_id = b.id and b.project_id = pj.id
+     and pj.class_id = v_class and a.student_id = v_out;
   delete from public.group_members gm
    using public.groups g, public.group_sets gs
    where gm.group_id = g.id and g.set_id = gs.id
