@@ -132,7 +132,7 @@ export function ActionMenu({
                   item.separated ? 'mt-1 border-t border-line pt-2.5' : ''
                 } ${
                   item.tone === 'danger'
-                    ? 'text-danger-600 hover:bg-danger-50 dark:text-danger-400 dark:hover:bg-danger-500/10'
+                    ? 'text-destructive-600 hover:bg-destructive-50 dark:text-destructive-400 dark:hover:bg-destructive-500/10'
                     : 'text-ink hover:bg-[var(--surface-sunken)]'
                 }`}
               >

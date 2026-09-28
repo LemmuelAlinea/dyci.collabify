@@ -272,7 +272,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                     }
                   }}
                 />
-                <IconAction icon="trash" label="Delete group" variant="destroy" onClick={() => setDeletePrompt(true)} />
+                <IconAction icon="trash" label="Delete group" variant="danger" onClick={() => setDeletePrompt(true)} />
               </div>
             )}
           </div>

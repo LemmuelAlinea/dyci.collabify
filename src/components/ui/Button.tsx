@@ -31,7 +31,8 @@ const VARIANTS: Record<Variant, string> = {
   create: 'bg-btn-create text-btn-create-ink hover:brightness-110',
   onNavy: 'border border-btn-action/25 text-btn-action hover:bg-btn-action/10',
   destroy: 'border border-btn-danger/25 text-btn-danger hover:bg-btn-danger/10',
-  danger: 'bg-danger-600 text-white hover:bg-danger-500',
+  // Delete, remove and sign out: always red, whatever the person's colours.
+  danger: 'bg-destructive-600 text-white hover:bg-destructive-500',
 }
 
 const SIZES: Record<Size, string> = {

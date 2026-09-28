@@ -214,7 +214,7 @@ export function TaskCard({
                 type="button"
                 onClick={onDelete}
                 aria-label={`Delete ${task.title}`}
-                className="grid h-7 w-7 place-items-center rounded-full text-faint transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
+                className="grid h-7 w-7 place-items-center rounded-full text-faint transition-colors hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
               >
                 <Icon name="trash" size={14} />
               </button>

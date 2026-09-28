@@ -1891,3 +1891,16 @@ is unchanged. In Your colors, the group is renamed "Buttons" and the slot "Creat
 tokens in `@theme`, copied from the danger defaults and never set by `lib/palette.ts`. So a
 person's danger (Late) pick no longer recolours Sign out. It's used by the Settings button,
 the account menu item in `TopNav` and the Pending page's sign-out.
+
+**Change (2026-09-28, late): every delete control is always red.** The fixed Sign-out tokens
+are renamed `destructive-{50,400,500,600}` (in `@theme`, never in `lib/palette.ts`). They
+are now used by:
+- `Button` `danger`, which covers delete confirmations via `ConfirmDialog`, Delete class,
+  Delete palette, Remove member, Sign out and Empty trash.
+- `ActionMenu` `tone: 'danger'` items.
+- The 17 trash-icon buttons in lists, dialogs and cards. They were swapped by a script that
+  only touched the class line just before a `name="trash"` icon.
+- `IconAction` `variant="danger"` for Delete project, group and space on banners.
+
+Archive and Leave group still follow `btnDanger`, renamed "Banner archive" in Your colors.
+Errors and the Late status keep the customizable `danger` ramp.

@@ -180,13 +180,13 @@
   --color-danger-900: oklch(39.6% 0.141 25.723);
   --color-danger-950: oklch(25.8% 0.092 26.042);
 
-  /* Sign out. The danger ramp's own defaults, copied so they stay red: a person
-     can recolour danger in Settings → Appearance, but not this. Never add these
-     to lib/palette.ts. */
-  --color-signout-50: oklch(97.1% 0.013 17.38);
-  --color-signout-400: oklch(70.4% 0.191 22.216);
-  --color-signout-500: oklch(63.7% 0.237 25.331);
-  --color-signout-600: oklch(57.7% 0.245 27.325);
+  /* Delete, remove and sign out. The danger ramp's own defaults, copied so they
+     stay red: a person can recolour danger (the Late status, errors) in
+     Settings → Appearance, but not this. Never add these to lib/palette.ts. */
+  --color-destructive-50: oklch(97.1% 0.013 17.38);
+  --color-destructive-400: oklch(70.4% 0.191 22.216);
+  --color-destructive-500: oklch(63.7% 0.237 25.331);
+  --color-destructive-600: oklch(57.7% 0.245 27.325);
 
   --radius-card: 16px;
   --radius-panel: 22px;

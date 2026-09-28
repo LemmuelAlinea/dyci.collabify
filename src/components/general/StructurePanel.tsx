@@ -108,7 +108,7 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
                         type="button"
                         aria-label={`Remove ${team.name}`}
                         onClick={() => setRemoving({ kind: 'team', id: team.id, name: team.name })}
-                        className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
+                        className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
                       >
                         <Icon name="trash" size={15} />
                       </button>
@@ -194,7 +194,7 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
                         type="button"
                         aria-label={`Remove ${position.name}`}
                         onClick={() => setRemoving({ kind: 'position', id: position.id, name: position.name })}
-                        className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
+                        className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
                       >
                         <Icon name="trash" size={15} />
                       </button>

@@ -61,7 +61,7 @@ export default function Pending() {
           size="md"
           full
           onClick={signOut}
-          className="!text-signout-600 hover:!bg-signout-50 dark:!text-signout-400 dark:hover:!bg-signout-500/10"
+          className="!text-destructive-600 hover:!bg-destructive-50 dark:!text-destructive-400 dark:hover:!bg-destructive-500/10"
         >
           Sign out
         </Button>

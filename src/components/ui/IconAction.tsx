@@ -24,7 +24,8 @@ export function IconAction({
 }: {
   label: string
   icon: IconName
-  variant?: 'onNavy' | 'destroy' | 'create'
+  /** `danger` is for delete: filled red whatever the person's colours. */
+  variant?: 'onNavy' | 'destroy' | 'create' | 'danger'
   /** A link instead of a button. */
   to?: string
   onClick?: () => unknown

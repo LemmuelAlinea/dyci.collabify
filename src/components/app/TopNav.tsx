@@ -75,7 +75,7 @@ function AccountMenu({ settingsTo }: { settingsTo: string }) {
             type="button"
             role="menuitem"
             onClick={signOut}
-            className="flex w-full items-center gap-3 border-t border-line px-4 py-3 text-left text-signout-600 hover:bg-signout-50 dark:text-signout-400 dark:hover:bg-signout-500/10"
+            className="flex w-full items-center gap-3 border-t border-line px-4 py-3 text-left text-destructive-600 hover:bg-destructive-50 dark:text-destructive-400 dark:hover:bg-destructive-500/10"
           >
             <Icon name="logout" size={17} />
             Sign out

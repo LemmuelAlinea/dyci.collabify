@@ -307,7 +307,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                 <IconAction
                   icon="trash"
                   label="Delete project"
-                  variant="destroy"
+                  variant="danger"
                   onClick={() => setDeletePrompt(true)}
                 />
               </div>
@@ -546,7 +546,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                       type="button"
                       onClick={() => setRemoving(a)}
                       aria-label={`Remove ${a.file_name}`}
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
                     >
                       <Icon name="trash" size={16} />
                     </button>

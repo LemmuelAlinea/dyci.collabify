@@ -84,7 +84,7 @@ export function PresetPicker({
                   aria-label={`Remove the template ${t.name}`}
                   title="Remove template"
                   onClick={() => setRemoving(t)}
-                  className="absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-md text-faint hover:bg-[var(--surface-sunken)] hover:text-danger-600"
+                  className="absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-md text-faint hover:bg-[var(--surface-sunken)] hover:text-destructive-600"
                 >
                   <Icon name="trash" size={13} />
                 </button>

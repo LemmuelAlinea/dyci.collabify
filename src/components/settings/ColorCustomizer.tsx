@@ -52,7 +52,7 @@ const GROUPS: { id: GroupId; title: string; icon: IconName; blurb: string; slots
     slots: [
       { key: 'btnCreate', label: 'Create and save', note: 'New project, Create class, Save changes, and every main button in a dialog.' },
       { key: 'btnAction', label: 'Other banner actions', note: 'Edit, Report, Publish, Save as template, Join with code.' },
-      { key: 'btnDanger', label: 'Banner archive and delete', note: 'Archive, Delete, Empty trash, Leave group.' },
+      { key: 'btnDanger', label: 'Banner archive', note: 'Archive project, space or group, and Leave group. Delete is always red.' },
     ],
   },
   {

@@ -106,7 +106,7 @@ export function FilePreview({
             type="button"
             onClick={onRemove}
             aria-label={`Remove ${file.file_name}`}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
           >
             <Icon name="trash" size={15} />
           </button>

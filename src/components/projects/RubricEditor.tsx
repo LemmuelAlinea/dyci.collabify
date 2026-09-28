@@ -65,7 +65,7 @@ export function RubricEditor({
                 type="button"
                 onClick={() => onChange(rows.filter((_, n) => n !== i))}
                 aria-label={`Remove criterion ${i + 1}`}
-                className="grid h-10 w-10 place-items-center justify-self-end rounded-full text-faint transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
+                className="grid h-10 w-10 place-items-center justify-self-end rounded-full text-faint transition-colors hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
               >
                 <Icon name="trash" size={16} />
               </button>

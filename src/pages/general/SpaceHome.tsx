@@ -152,7 +152,7 @@ export default function SpaceHome() {
                 />
                 {/* Deleting is the second of two steps: archive first, then delete. */}
                 {archived && (
-                  <IconAction icon="trash" label="Delete space" variant="destroy" onClick={() => setDeleteOpen(true)} />
+                  <IconAction icon="trash" label="Delete space" variant="danger" onClick={() => setDeleteOpen(true)} />
                 )}
               </>
             ) : undefined

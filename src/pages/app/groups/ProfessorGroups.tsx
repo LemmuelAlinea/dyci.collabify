@@ -197,7 +197,7 @@ export default function ProfessorGroups() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="!rounded-lg !text-danger-600 dark:!text-danger-400"
+                    className="!rounded-lg !text-destructive-600 dark:!text-destructive-400"
                     onClick={() => void promptDelete(set)}
                   >
                     <Icon name="trash" size={15} />
