@@ -590,7 +590,11 @@ export default function Settings() {
                   Ends this session on this device only.
                 </p>
               </div>
-              <Button variant="danger" onClick={signOut} className="!rounded-xl sm:shrink-0">
+              <Button
+                variant="danger"
+                onClick={signOut}
+                className="!rounded-xl !bg-signout-600 !text-white hover:!bg-signout-500 sm:shrink-0"
+              >
                 <Icon name="logout" size={17} />
                 Sign out
               </Button>

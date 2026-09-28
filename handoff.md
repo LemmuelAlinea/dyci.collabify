@@ -1886,3 +1886,8 @@ variant (Save, Create, Send and every default main button in dialogs and Setting
 `--btn-create` / `--btn-create-ink`, like the banner `create` variant. So the default is
 amber with navy text, and a person's Create pick reaches all of them. `accent` (auth pages)
 is unchanged. In Your colors, the group is renamed "Buttons" and the slot "Create and save".
+
+**Change (2026-09-28, late): Sign out is always red.** New fixed `signout-{50,400,500,600}`
+tokens in `@theme`, copied from the danger defaults and never set by `lib/palette.ts`. So a
+person's danger (Late) pick no longer recolours Sign out. It's used by the Settings button,
+the account menu item in `TopNav` and the Pending page's sign-out.

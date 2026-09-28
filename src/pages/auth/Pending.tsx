@@ -56,7 +56,13 @@ export default function Pending() {
             Check again
           </Button>
         )}
-        <Button variant="ghost" size="md" full onClick={signOut}>
+        <Button
+          variant="ghost"
+          size="md"
+          full
+          onClick={signOut}
+          className="!text-signout-600 hover:!bg-signout-50 dark:!text-signout-400 dark:hover:!bg-signout-500/10"
+        >
           Sign out
         </Button>
       </div>
