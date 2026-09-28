@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert } from '../../../components/ui/Alert'
 import { Button } from '../../../components/ui/Button'
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { FilterField, FilterPopover, FilterSearch } from '../../../components/ui/FilterPopover'
 import { Icon, Spinner } from '../../../components/ui/Icon'
@@ -68,7 +69,8 @@ function stamp(iso: string) {
  * class. Sectioned by class because that is how a professor's week is divided,
  * with the project named on every row so two projects in one class never blur.
  *
- * Work waiting on the professor can be accepted from its row. Returning it
+ * Work waiting on the professor can be accepted from its row, or a class's
+ * waiting rows all at once from its header. Returning it
  * needs a note saying what to fix, so that happens on the project, where the
  * board and its verdict panel are. Every row opens straight onto that board.
  *
@@ -122,6 +124,30 @@ export default function Submissions({ classId }: { classId?: string }) {
       } catch (err) {
         show(authErrorMessage(err, 'Could not accept that.'), 'error')
       }
+    },
+    [load, show],
+  )
+
+  /**
+   * One after another rather than all at once: each is its own verdict and
+   * notification, and a refusal part-way says exactly how far it got.
+   */
+  const acceptAll = useCallback(
+    async (list: Submission[]) => {
+      let done = 0
+      try {
+        for (const row of list) {
+          await recordResult({ boardId: row.id, verdict: 'accepted' })
+          done++
+        }
+        show(`${done} accepted`)
+      } catch (err) {
+        await load()
+        throw new Error(
+          `${done} of ${list.length} accepted. ${authErrorMessage(err, 'The next one was refused.')}`,
+        )
+      }
+      await load()
     },
     [load, show],
   )
@@ -332,6 +358,7 @@ export default function Submissions({ classId }: { classId?: string }) {
                     klass={classById.get(classId)}
                     rows={list}
                     onAccept={accept}
+                    onAcceptAll={acceptAll}
                   />
                 ))}
               </div>
@@ -383,12 +410,17 @@ function ClassSection({
   klass,
   rows,
   onAccept,
+  onAcceptAll,
 }: {
   klass: ClassSummary | undefined
   rows: Submission[]
   onAccept: (row: Submission) => Promise<void>
+  onAcceptAll: (rows: Submission[]) => Promise<void>
 }) {
-  const waiting = rows.filter((r) => r.status === 'waiting').length
+  const [confirming, setConfirming] = useState(false)
+  const waitingRows = rows.filter((r) => r.status === 'waiting')
+  const waiting = waitingRows.length
+  const late = waitingRows.filter((r) => r.late).length
   return (
     <section
       id={klass ? `class-${klass.id}` : undefined}
@@ -402,6 +434,12 @@ function ClassSection({
           <h2 className="mt-1 leading-snug">{klass?.name ?? 'A class'}</h2>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {waiting > 1 && (
+            <Button size="sm" variant="outline" onClick={() => setConfirming(true)}>
+              <Icon name="check" size={14} />
+              Accept all {waiting}
+            </Button>
+          )}
           {waiting > 0 && (
             <span className="rounded-full bg-amber-400/25 px-2.5 py-1 text-[12px] font-medium text-amber-800 dark:text-amber-200">
               {waiting} waiting on you
@@ -432,6 +470,30 @@ function ClassSection({
           <SubmissionRow key={r.id} row={r} onAccept={onAccept} />
         ))}
       </ul>
+
+      <ConfirmDialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        onConfirm={() => onAcceptAll(waitingRows)}
+        tone="primary"
+        title={`Accept ${waiting} submissions?`}
+        confirmLabel={`Accept ${waiting}`}
+        body={
+          <div className="space-y-2">
+            <p>
+              The {waiting} waiting submissions listed under{' '}
+              {klass ? `${klass.initial} · ${klass.section}` : 'this class'} are marked accepted,
+              and each group is told.
+            </p>
+            {late > 0 && (
+              <p>
+                {late} of them came in after the deadline. They are still recorded as late.
+              </p>
+            )}
+            <p className="text-muted">To send one back, open it and return it with a note.</p>
+          </div>
+        }
+      />
     </section>
   )
 }
