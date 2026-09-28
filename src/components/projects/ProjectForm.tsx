@@ -6,6 +6,8 @@ import { Alert } from '../ui/Alert'
 import { Icon } from '../ui/Icon'
 import { Select, Textarea } from '../ui/Select'
 import { FileDrop, formatBytes } from '../ui/FileDrop'
+import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { RubricEditor } from './RubricEditor'
 import { SectionPicker } from './SectionPicker'
 import type { SectionChoice } from './SectionPicker'
@@ -23,7 +25,9 @@ import type {
   ProjectType,
 } from '../../lib/types'
 import type { LiveGroupSet } from '../../lib/api/groups'
+import { draftProject } from '../../lib/api/projects'
 import type { CriterionInput, ProjectInput } from '../../lib/api/projects'
+import { authErrorMessage } from '../../lib/authError'
 
 function toLocalInput(iso: string | null) {
   if (!iso) return ''
@@ -141,6 +145,55 @@ export function ProjectForm({
   const [file, setFile] = useState<File | null>(null)
   const [sections, setSections] = useState<SectionChoice[]>([])
   const [invalid, setInvalid] = useState<string | null>(null)
+  const [drafting, setDrafting] = useState(false)
+  const [draftNote, setDraftNote] = useState<string | null>(null)
+  const [draftError, setDraftError] = useState<string | null>(null)
+  const [confirmDraft, setConfirmDraft] = useState(false)
+
+  const hasBrief =
+    guidelines.trim().length > 0 || criteria.some((c) => c.label.trim() || c.description.trim())
+
+  /**
+   * Fills the brief and the rubric from the weeks picked above. Only ever
+   * fills the form: nothing is saved until the professor saves the project.
+   */
+  async function draftBrief() {
+    const classId = weeks[0]?.class_id
+    if (!classId) return
+    setDrafting(true)
+    setDraftError(null)
+    setDraftNote(null)
+    try {
+      const res = await draftProject({
+        classId,
+        startWeek: span.start,
+        endWeek: span.end,
+        title,
+        type,
+        typeLabel,
+        audience,
+        totalPoints,
+      })
+      if (res.result !== 'ok') {
+        setDraftError(res.message ?? 'No draft could be produced.')
+        return
+      }
+      if (!res.guidelines?.trim() && !res.criteria?.length) {
+        setDraftError(res.note || 'These weeks give too little to draft from. Write the brief by hand.')
+        return
+      }
+      setGuidelines(res.guidelines ?? '')
+      if (res.criteria?.length) setCriteria(res.criteria)
+      setDraftNote(
+        res.note ||
+          'Drafted from the weeks above. Read it through and change anything before you save.',
+      )
+    } catch (err) {
+      setDraftError(authErrorMessage(err, 'The draft could not be produced. Try again.'))
+    } finally {
+      setDrafting(false)
+    }
+  }
 
   function changeSpan(next: WeekSpan) {
     setSpan(next)
@@ -395,6 +448,38 @@ export function ProjectForm({
                   )}
               </>
             ))}
+
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-line px-3.5 py-3">
+            <p className="text-[13px] text-muted">
+              Start the brief and rubric from weeks {span.start}–{span.end} of the syllabus.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              loading={drafting}
+              onClick={() => (hasBrief ? setConfirmDraft(true) : void draftBrief())}
+            >
+              {!drafting && <Icon name="spark" size={14} />}
+              Draft with AI
+            </Button>
+          </div>
+          {draftError && <Alert tone="error">{draftError}</Alert>}
+          {draftNote && (
+            <p className="flex items-start gap-2 text-[12px] text-muted">
+              <Icon name="info" size={14} className="mt-px shrink-0" />
+              {draftNote}
+            </p>
+          )}
+          <ConfirmDialog
+            open={confirmDraft}
+            onClose={() => setConfirmDraft(false)}
+            onConfirm={() => void draftBrief()}
+            tone="primary"
+            title="Replace the brief and rubric?"
+            confirmLabel="Replace them"
+            body="The draft takes the place of what you have written in Guidelines and the rubric. Nothing is saved until you save the project."
+          />
 
           <Field label="Guidelines">
             {(id) => (

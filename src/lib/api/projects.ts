@@ -330,3 +330,41 @@ export async function projectFileUrl(path: string) {
   if (error) throw error
   return data.signedUrl
 }
+
+export type ProjectDraft = {
+  result: 'ok' | 'failed'
+  guidelines?: string
+  criteria?: CriterionInput[]
+  note?: string
+  message?: string
+}
+
+/**
+ * Asks the server to draft a brief and rubric from the weeks a project covers.
+ * Nothing is saved: it fills the form, and the professor edits it from there.
+ */
+export async function draftProject(input: {
+  classId: string
+  startWeek: number
+  endWeek: number
+  title: string
+  type: string
+  typeLabel: string
+  audience: string
+  totalPoints: number
+}) {
+  const { data, error } = await supabase.functions.invoke('draft-project', {
+    body: {
+      class_id: input.classId,
+      start_week: input.startWeek,
+      end_week: input.endWeek,
+      title: input.title.trim() || null,
+      type: input.type,
+      type_label: input.typeLabel.trim() || null,
+      audience: input.audience,
+      total_points: input.totalPoints,
+    },
+  })
+  if (error) throw error
+  return data as ProjectDraft
+}
