@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Button } from '../../../components/ui/Button'
+import { IconAction } from '../../../components/ui/IconAction'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Alert } from '../../../components/ui/Alert'
 import { FileDrop, formatBytes } from '../../../components/ui/FileDrop'
@@ -265,46 +265,23 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
 
             {canManage && (
               <div className="flex flex-wrap items-center gap-1.5">
-                <Button
-                  variant="onNavy"
-                  size="sm"
-                  className="!h-8 !rounded-lg !px-3"
-                  onClick={() => setEditOpen(true)}
-                >
-                  <Icon name="edit" size={14} />
-                  Edit
-                </Button>
+                <IconAction icon="edit" label="Edit project" onClick={() => setEditOpen(true)} />
                 {project.scheduled && (
-                  <Button
-                    variant="onNavy"
-                    size="sm"
-                    className="!h-8 !rounded-lg !px-3"
+                  <IconAction
+                    icon="upload"
+                    label="Publish now"
                     onClick={async () => {
                       if (inSeries) return setAction('release')
                       await releaseNow(project.id)
                       show('Project published')
                       await load()
                     }}
-                  >
-                    <Icon name="upload" size={14} />
-                    Publish
-                  </Button>
+                  />
                 )}
-                {inSeries && (
-                  <Button
-                    variant="onNavy"
-                    size="sm"
-                    className="!h-8 !rounded-lg !px-3"
-                    onClick={() => setAction('due')}
-                  >
-                    <Icon name="clock" size={14} />
-                    Deadline
-                  </Button>
-                )}
-                <Button
-                  variant="onNavy"
-                  size="sm"
-                  className="!h-8 !rounded-lg !px-3"
+                {inSeries && <IconAction icon="clock" label="Change deadline" onClick={() => setAction('due')} />}
+                <IconAction
+                  icon={project.locked_at ? 'unlock' : 'lock'}
+                  label={project.locked_at ? 'Reopen project' : 'Close project'}
                   onClick={async () => {
                     if (inSeries) return setAction('lock')
                     await setProjectLocked(project.id, !project.locked_at)
@@ -315,32 +292,24 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                     )
                     await load()
                   }}
-                >
-                  <Icon name={project.locked_at ? 'unlock' : 'lock'} size={14} />
-                  {project.locked_at ? 'Reopen' : 'Close'}
-                </Button>
-                <Button
+                />
+                <IconAction
+                  icon={project.archived_at ? 'refresh' : 'archive'}
+                  label={project.archived_at ? 'Restore project' : 'Archive project'}
                   variant={project.archived_at ? 'onNavy' : 'destroy'}
-                  size="sm"
-                  className="!h-8 !rounded-lg !px-3"
                   onClick={async () => {
                     if (inSeries) return setAction('archive')
                     await setProjectArchived(project.id, !project.archived_at)
                     show(project.archived_at ? 'Project restored' : 'Project archived')
                     await load()
                   }}
-                >
-                  <Icon name={project.archived_at ? 'refresh' : 'archive'} size={14} />
-                  {project.archived_at ? 'Restore' : 'Archive'}
-                </Button>
-                <button
-                  type="button"
+                />
+                <IconAction
+                  icon="trash"
+                  label="Delete project"
+                  variant="destroy"
                   onClick={() => setDeletePrompt(true)}
-                  aria-label="Delete project"
-                  className="grid h-8 w-8 place-items-center rounded-lg text-btn-danger/55 transition-colors hover:bg-btn-danger/10 hover:text-btn-danger"
-                >
-                  <Icon name="trash" size={15} />
-                </button>
+                />
               </div>
             )}
           </div>

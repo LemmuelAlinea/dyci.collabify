@@ -48,7 +48,10 @@ const PATHS = {
   copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
   edit: 'M11 4H4v16h16v-7M18.5 2.5a2.1 2.1 0 013 3L12 15l-4 1 1-4z',
   trash: 'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',
-  archive: 'M3 4h18v4H3zM5 8v12h14V8M10 12h4',
+  // A two-drawer filing cabinet. It was a lidded box, which read as the bin.
+  archive: 'M5 3h14v18H5zM5 12h14M10 7.5h4M10 16.5h4',
+  // A clock turning back: the archive of past things, not the act of archiving.
+  history: 'M3 12a9 9 0 102.6-6.4L3 8M3 3v5h5M12 7v5l3 2',
   pin: 'M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z',
   download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
   dots: 'M12 6h.01M12 12h.01M12 18h.01',

@@ -10,7 +10,7 @@ import { SinceLastVisit } from '../../components/general/SinceLastVisit'
 import { SaveTemplateButton } from '../../components/general/SaveTemplateButton'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 import { Alert } from '../../components/ui/Alert'
-import { Button, ButtonLink, buttonClass } from '../../components/ui/Button'
+import { IconAction } from '../../components/ui/IconAction'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -126,26 +126,17 @@ export default function GeneralProject() {
         accent={p.archived_at ? 'archived.' : 'project.'}
         description={`${projectStatusLabel(p.status)} · You are ${levelLabel(p.my_level)} · ${dateRange(p.starts_on, p.ends_on)} · ${p.member_count} ${p.member_count === 1 ? 'member' : 'members'} · ${Number(p.progress_pct)}% done`}
         action={
-          <div className="flex flex-wrap gap-2">
-          <ButtonLink variant="onNavy" size="sm" to={paths.projectArchive(p.id)}>
-            <Icon name="archive" size={15} />
-            Project archive
-          </ButtonLink>
-          {/* A report is built from the space, so it is offered only to somebody
-              who can read that space. Joining this project by code does not. */}
-          {currentSpace?.id === p.space_id && (
-            <ButtonLink variant="onNavy" size="sm" to={`${paths.spaceReports(p.space_id)}?s=project&p=${p.id}`}>
-              <Icon name="chart" size={15} />
-              Report
-            </ButtonLink>
-          )}
-          <SaveTemplateButton state={state} className={buttonClass({ variant: 'onNavy', size: 'sm' })} />
-          {state.isOwner && !state.archived && (
-            <Button variant="destroy" size="sm" onClick={() => setArchiving(true)}>
-              <Icon name="archive" size={15} />
-              Archive project
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-1.5">
+            <IconAction icon="history" label="Project archive" to={paths.projectArchive(p.id)} />
+            {/* A report is built from the space, so it is offered only to somebody
+                who can read that space. Joining this project by code does not. */}
+            {currentSpace?.id === p.space_id && (
+              <IconAction icon="chart" label="Report" to={`${paths.spaceReports(p.space_id)}?s=project&p=${p.id}`} />
+            )}
+            <SaveTemplateButton state={state} />
+            {state.isOwner && !state.archived && (
+              <IconAction icon="archive" label="Archive project" variant="destroy" onClick={() => setArchiving(true)} />
+            )}
           </div>
         }
       />

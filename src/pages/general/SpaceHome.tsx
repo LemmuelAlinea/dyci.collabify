@@ -14,10 +14,11 @@ import { NewProjectDialog } from '../../components/general/NewProjectDialog'
 import { QuickActions } from '../../components/general/QuickActions'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
+import { IconAction } from '../../components/ui/IconAction'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { FilterField, FilterPopover, FilterSearch } from '../../components/ui/FilterPopover'
-import { Icon, Spinner } from '../../components/ui/Icon'
+import { Spinner } from '../../components/ui/Icon'
 import { Select } from '../../components/ui/Select'
 import { useToast } from '../../components/ui/Toast'
 import { JoinProjectDialog } from '../../components/general/JoinProjectDialog'
@@ -143,26 +144,15 @@ export default function SpaceHome() {
           action={
             isOwner && space ? (
               <>
-                <Button
+                <IconAction
+                  icon={archived ? 'refresh' : 'archive'}
+                  label={archived ? 'Restore space' : 'Archive space'}
                   variant={archived ? 'onNavy' : 'destroy'}
-                  size="sm"
-                  className="!h-8 !rounded-lg !px-3"
                   onClick={() => setArchiveOpen(true)}
-                >
-                  <Icon name={archived ? 'refresh' : 'archive'} size={14} />
-                  {archived ? 'Restore space' : 'Archive space'}
-                </Button>
+                />
                 {/* Deleting is the second of two steps: archive first, then delete. */}
                 {archived && (
-                  <Button
-                    variant="destroy"
-                    size="sm"
-                    className="!h-8 !rounded-lg !px-3"
-                    onClick={() => setDeleteOpen(true)}
-                  >
-                    <Icon name="trash" size={14} />
-                    Delete space
-                  </Button>
+                  <IconAction icon="trash" label="Delete space" variant="destroy" onClick={() => setDeleteOpen(true)} />
                 )}
               </>
             ) : undefined

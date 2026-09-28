@@ -3,6 +3,7 @@ import { useLive } from '../../../hooks/useLive'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Avatar } from '../../../components/app/Avatar'
 import { Button } from '../../../components/ui/Button'
+import { IconAction } from '../../../components/ui/IconAction'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Field, Input } from '../../../components/ui/Field'
 import { Alert } from '../../../components/ui/Alert'
@@ -245,24 +246,17 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
 
             {canManage && (
               <div className="flex items-center gap-1.5">
-                <Button
-                  variant="onNavy"
-                  size="sm"
-                  className="!h-8 !rounded-lg !px-3"
-                  onClick={() => setLimitOpen(true)}
-                >
-                  Member limit
-                </Button>
+                <IconAction icon="users" label="Member limit" onClick={() => setLimitOpen(true)} />
                 {/*
                   Archive first and delete second, in that order and with that
                   weight. Deleting a group cascades into its board and its
                   conversation; archiving touches nothing. The everyday action
                   should be the reversible one and should be the one in reach.
                 */}
-                <Button
+                <IconAction
+                  icon={group.archived_at ? 'refresh' : 'archive'}
+                  label={group.archived_at ? 'Restore group' : 'Archive group'}
                   variant={group.archived_at ? 'onNavy' : 'destroy'}
-                  size="sm"
-                  className="!h-8 !rounded-lg !px-3"
                   loading={archiving}
                   onClick={async () => {
                     setArchiving(true)
@@ -277,17 +271,8 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                       setArchiving(false)
                     }
                   }}
-                >
-                  {group.archived_at ? 'Restore' : 'Archive'}
-                </Button>
-                <button
-                  type="button"
-                  onClick={() => setDeletePrompt(true)}
-                  aria-label="Delete group"
-                  className="grid h-8 w-8 place-items-center rounded-lg text-btn-danger/55 transition-colors hover:bg-btn-danger/10 hover:text-btn-danger"
-                >
-                  <Icon name="trash" size={15} />
-                </button>
+                />
+                <IconAction icon="trash" label="Delete group" variant="destroy" onClick={() => setDeletePrompt(true)} />
               </div>
             )}
           </div>

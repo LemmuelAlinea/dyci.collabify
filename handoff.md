@@ -1869,3 +1869,14 @@ Details, save Fields with nothing changed (no write).
 `spaceRows.ts`, `SPACE_CAP` and `PROJECT_CAP` are both 3 (they were 2 and 4). Classes stay
 at 2 (`CLASS_CAP`). `SideNav` passes `PROJECT_CAP` to `recentProjects`, so projects are
 still the most recently changed. The rest are behind each header's All link.
+
+**Change (2026-09-28, late): banner action rows are icon-only.** New `ui/IconAction`: a
+32px square `Button`/`Link` in the banner variants. Its label is the accessible name and
+shows in a tooltip on hover and focus. The tooltip is portaled to <body> because banners
+clip overflow. It's used on the work project banner (Project archive, Report, Save as
+template, Archive project), the class project manage row, the group manage row (Member
+limit, Archive/Restore, Delete) and the space banner (Archive/Restore, Delete).
+`SaveTemplateButton` now renders its own `IconAction` and takes no `className`. Single
+primary actions (New project, Hand in the project, Join this group) keep their text.
+Icons: `archive` is now a filing cabinet, since the lidded box read as the bin. New
+`history` icon for "Project archive", so the two archive buttons differ.

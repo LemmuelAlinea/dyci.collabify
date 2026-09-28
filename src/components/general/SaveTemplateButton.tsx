@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Field'
 import { Alert } from '../ui/Alert'
-import { Icon } from '../ui/Icon'
+import { IconAction } from '../ui/IconAction'
 import { Modal } from '../ui/Modal'
 import { Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
@@ -15,7 +15,7 @@ import type { GeneralProjectState } from './useGeneralProject'
  * Save this project's structure as the person's own starting point. It shows
  * up under "Your templates" the next time they start a project.
  */
-export function SaveTemplateButton({ state, className }: { state: GeneralProjectState; className: string }) {
+export function SaveTemplateButton({ state }: { state: GeneralProjectState }) {
   const { show } = useToast()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -58,10 +58,7 @@ export function SaveTemplateButton({ state, className }: { state: GeneralProject
 
   return (
     <>
-      <button type="button" onClick={start} className={className}>
-        <Icon name="copy" size={15} />
-        Save as template
-      </button>
+      <IconAction icon="copy" label="Save as template" onClick={start} />
       <Modal
         open={open}
         onClose={() => setOpen(false)}
