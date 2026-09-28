@@ -112,7 +112,8 @@ by their owner only.
 `collabify-scheduled-releases` (every 15 minutes) announces a scheduled project once its
 release time arrives, and `collabify-overdue-notices` (hourly) tells a task holder once
 when their task slips past its date. It also adds `nudge_board`, a once-a-day reminder
-a professor sends to a quiet board.
+a professor sends to a quiet board, and `copy_class_projects`, which copies a past class's
+projects into a new one as archived drafts.
 
 `anon-lockdown.sql` runs last and takes EXECUTE on every public function away
 from the signed-out role, keeping signed-in access as it was. Re-run it after

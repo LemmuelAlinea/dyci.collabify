@@ -252,3 +252,16 @@ export const JOIN_MESSAGE: Record<Exclude<JoinResult, 'joined'>, string> = {
   too_many:
     'Too many codes tried in the last hour. Check the code with your professor and try again later.',
 }
+
+/**
+ * A past class's live projects and rubrics into another class. The copies
+ * land archived with no dates, for the professor to restore one at a time.
+ */
+export async function copyClassProjects(sourceId: string, targetId: string) {
+  const { data, error } = await supabase.rpc('copy_class_projects', {
+    p_source: sourceId,
+    p_target: targetId,
+  })
+  if (error) throw error
+  return data as { copied: number; skipped: number; sets: number }
+}

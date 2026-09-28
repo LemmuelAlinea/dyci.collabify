@@ -243,6 +243,90 @@ begin
   perform pg_temp.must_be('handed-in work is not nudged', refused);
 end $$;
 
+-- ------------------------------------------------------------ copy a class
+
+do $$
+declare
+  v_prof uuid; v_src uuid; v_tgt uuid; v_a uuid := (select v from fx where k='a');
+  v_set uuid; v_proj uuid; v_old_archived uuid; res jsonb; n int; refused boolean;
+begin
+  -- A class with a syllabus of at least two weeks, and its professor.
+  select c.id, c.professor_id into v_src, v_prof
+    from public.classes c
+   where c.archived_at is null and c.syllabus_id is not null
+     and (select count(*) from public.syllabus_weeks w where w.resource_id = c.syllabus_id) >= 2
+   limit 1;
+
+  insert into public.classes (professor_id, name, initial, section, year_level, semester,
+                              school_year, syllabus_id)
+  select professor_id, name, initial, 'ZZ-COPY', year_level, semester, school_year, syllabus_id
+    from public.classes where id = v_src
+  returning id into v_tgt;
+
+  insert into public.group_sets (class_id, name, mode, default_limit)
+  values (v_src, 'zz copy set', 'random', 4) returning id into v_set;
+  insert into public.groups (set_id, name, member_limit, position)
+  values (v_set, 'zz g1', 4, 1);
+
+  insert into public.projects
+    (class_id, created_by, title, type, start_week, end_week, audience, group_set_id,
+     total_points, due_at, guidelines)
+  values (v_src, v_prof, 'zz copy group', 'activity', 1, 2, 'group', v_set, 50,
+          now() + interval '3 days', 'zz brief')
+  returning id into v_proj;
+  insert into public.project_criteria (project_id, position, label, description, max_points)
+  values (v_proj, 1, 'zz crit a', 'x', 30), (v_proj, 2, 'zz crit b', 'y', 20);
+
+  insert into public.projects
+    (class_id, created_by, title, type, start_week, end_week, audience, archived_at)
+  values (v_src, v_prof, 'zz copy archived', 'activity', 1, 1, 'individual', now())
+  returning id into v_old_archived;
+
+  -- A student cannot copy.
+  perform pg_temp.act_as(v_a);
+  refused := false;
+  begin
+    perform public.copy_class_projects(v_src, v_tgt);
+  exception when others then refused := true;
+  end;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a student cannot copy a class', refused);
+
+  perform pg_temp.act_as(v_prof);
+  res := public.copy_class_projects(v_src, v_tgt);
+  perform pg_temp.act_as_service();
+
+  select count(*) into n from public.projects
+   where class_id = v_tgt and title = 'zz copy group'
+     and archived_at is not null and due_at is null and release_at is null
+     and guidelines = 'zz brief' and total_points = 50 and created_by = v_prof;
+  perform pg_temp.must_be('the project comes across archived, without its dates', n = 1);
+
+  select count(*) into n from public.project_criteria c
+    join public.projects p on p.id = c.project_id
+   where p.class_id = v_tgt and p.title = 'zz copy group';
+  perform pg_temp.must_be('...with its rubric', n = 2);
+
+  select count(*) into n from public.projects p
+    join public.group_sets s on s.id = p.group_set_id
+   where p.class_id = v_tgt and p.title = 'zz copy group'
+     and s.class_id = v_tgt and s.name = 'zz copy set' and s.mode = 'random'
+     and not exists (select 1 from public.groups g where g.set_id = s.id);
+  perform pg_temp.must_be('...pointing at an empty set of the same name in the new class', n = 1);
+
+  select count(*) into n from public.projects where class_id = v_tgt and title = 'zz copy archived';
+  perform pg_temp.must_be('an archived project is left behind', n = 0);
+
+  select count(*) into n from public.class_members where class_id = v_tgt;
+  perform pg_temp.must_be('no students come across', n = 0);
+
+  select count(*) into n from public.notifications where project_id in
+    (select id from public.projects where class_id = v_tgt);
+  perform pg_temp.must_be('nobody is told about a copy', n = 0);
+
+  perform pg_temp.must_be('the count comes back', (res ->> 'copied')::int >= 1);
+end $$;
+
 -- --------------------------------------------------------------- grants
 
 do $$

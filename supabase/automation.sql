@@ -9,6 +9,9 @@
 --                              past its date
 --   nudge (nudge_board)        a professor reminds a quiet board in one click;
 --                              arrives regardless of settings, once a day
+--   copy_class_projects        a new class starts from a past one's projects,
+--                              held in Archived until the professor restores
+--                              each one
 --
 -- Runs after appearance.sql, before anon-lockdown.sql. Re-run anon-lockdown.sql
 -- after it. Two transactions: a new enum value cannot be used in the one that
@@ -207,6 +210,92 @@ end;
 $$;
 
 grant execute on function public.nudge_board(uuid, text) to authenticated;
+
+-- ------------------------------------------------------- copying a class
+
+/**
+ * Last term's projects into this term's class, so a professor teaching the
+ * same course again does not type every brief and rubric a second time.
+ *
+ * Each copy lands archived: students never see last term's work appear, and
+ * restoring one is the professor saying "this one, now" — which is also what
+ * announces it (notify_project_released fires on the way out of Archived).
+ * Deadlines and release times are left empty because the new term's dates are
+ * not known yet. Attachments stay with the old class; their files are scoped
+ * to it.
+ *
+ * A group project needs a set of groups in its own class, so each set the old
+ * projects used gets an empty namesake here, same mode and size, for the
+ * professor to fill. A project whose weeks are not in the new class's
+ * syllabus is skipped and counted rather than failing the whole copy.
+ */
+create or replace function public.copy_class_projects(p_source uuid, p_target uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  src     public.projects%rowtype;
+  new_id  uuid;
+  set_map jsonb := '{}'::jsonb;
+  new_set uuid;
+  copied  int := 0;
+  skipped int := 0;
+  sets    int := 0;
+begin
+  if p_source = p_target then
+    raise exception 'Pick a different class to copy from'
+      using errcode = 'check_violation';
+  end if;
+  if not public.is_class_professor(p_source) or not public.is_class_professor(p_target) then
+    raise exception 'You can only copy between classes you teach'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  for src in
+    select * from public.projects
+     where class_id = p_source and archived_at is null
+     order by created_at
+  loop
+    new_set := null;
+    if src.group_set_id is not null then
+      new_set := (set_map ->> src.group_set_id::text)::uuid;
+      if new_set is null then
+        insert into public.group_sets (class_id, name, mode, default_limit)
+        select p_target, s.name, s.mode, s.default_limit
+          from public.group_sets s where s.id = src.group_set_id
+        returning id into new_set;
+        set_map := set_map || jsonb_build_object(src.group_set_id::text, new_set);
+        sets := sets + 1;
+      end if;
+    end if;
+
+    begin
+      insert into public.projects
+        (class_id, created_by, title, type, type_label, guidelines, start_week, end_week,
+         audience, group_set_id, total_points, archived_at)
+      values
+        (p_target, auth.uid(), src.title, src.type, src.type_label, src.guidelines,
+         src.start_week, src.end_week, src.audience, new_set, src.total_points, now())
+      returning id into new_id;
+
+      insert into public.project_criteria (project_id, position, label, description, max_points)
+      select new_id, c.position, c.label, c.description, c.max_points
+        from public.project_criteria c where c.project_id = src.id;
+
+      copied := copied + 1;
+    exception when others then
+      -- Weeks this class's syllabus does not have. Anything else is real.
+      if sqlerrm like 'Weeks % are not all in this class''s syllabus' then
+        skipped := skipped + 1;
+      else
+        raise;
+      end if;
+    end;
+  end loop;
+
+  return jsonb_build_object('copied', copied, 'skipped', skipped, 'sets', sets);
+end;
+$$;
+
+grant execute on function public.copy_class_projects(uuid, uuid) to authenticated;
 
 revoke all on function public.send_scheduled_releases() from public, anon, authenticated;
 revoke all on function public.send_overdue_notices() from public, anon, authenticated;

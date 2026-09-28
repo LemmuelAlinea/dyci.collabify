@@ -4,13 +4,13 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { rememberSpace } from '../../hooks/useSpaces'
 import { canTeach } from '../../lib/access'
-import { createClass } from '../../lib/api/classes'
+import { copyClassProjects, createClass, listProfessorClasses } from '../../lib/api/classes'
 import type { ClassInput } from '../../lib/api/classes'
 import { listResources } from '../../lib/api/resources'
 import { createSpace, joinSpace, updateSpace } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
 import { paths } from '../../lib/paths'
-import type { TeachingResource } from '../../lib/types'
+import type { ClassSummary, TeachingResource } from '../../lib/types'
 import type { GeneralSpaceSummary } from '../../lib/general/types'
 import { ClassForm } from '../classes/ClassForm'
 import { Alert } from '../ui/Alert'
@@ -19,10 +19,25 @@ import { Field, Input } from '../ui/Field'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
-import { Textarea } from '../ui/Select'
+import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 
 type SpaceKind = 'education' | 'work'
+
+/** What carries over from a past class. Section and school year are new each term. */
+function sourceDefaults(c: ClassSummary | undefined): Partial<ClassInput> | undefined {
+  if (!c) return undefined
+  return {
+    name: c.name,
+    initial: c.initial,
+    year_level: c.year_level,
+    semester: c.semester,
+    description: c.description,
+    syllabus_id: c.syllabus_id,
+    curriculum_id: c.curriculum_id,
+    student_cap: c.student_cap,
+  }
+}
 
 export function NewSpaceDialog({
   open,
@@ -49,6 +64,10 @@ export function NewSpaceDialog({
   const [description, setDescription] = useState('')
   const [syllabi, setSyllabi] = useState<TeachingResource[]>([])
   const [curricula, setCurricula] = useState<TeachingResource[]>([])
+  // Teaching the same course again: start from last term's class.
+  const [pastClasses, setPastClasses] = useState<ClassSummary[]>([])
+  const [sourceId, setSourceId] = useState('')
+  const [copyProjects, setCopyProjects] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -57,6 +76,19 @@ export function NewSpaceDialog({
     setKind(startKind)
     setError(null)
   }, [open, startKind])
+
+  useEffect(() => {
+    if (!open || kind !== 'education' || !profile) return
+    setSourceId('')
+    setCopyProjects(true)
+    void Promise.all([listProfessorClasses(profile.id), listProfessorClasses(profile.id, true)])
+      .then(([live, archived]) =>
+        setPastClasses(
+          [...live, ...archived].filter((c) => c.professor_id === profile.id),
+        ),
+      )
+      .catch(() => setPastClasses([]))
+  }, [open, kind, profile])
 
   useEffect(() => {
     if (!open || kind !== 'education' || !profile) return
@@ -100,7 +132,24 @@ export function NewSpaceDialog({
     setBusy(true)
     try {
       const created = await createClass(profile.id, input)
-      show(`${created.name} created · code ${created.code}`)
+      let copied = ''
+      if (sourceId && copyProjects) {
+        try {
+          const res = await copyClassProjects(sourceId, created.id)
+          if (res.copied > 0) {
+            copied = ` · ${res.copied} ${res.copied === 1 ? 'project' : 'projects'} waiting in Archived`
+          }
+          if (res.skipped > 0) {
+            copied += ` · ${res.skipped} left out, their weeks are not in this syllabus`
+          }
+        } catch (err) {
+          show(
+            authErrorMessage(err, 'The class was created, but its projects could not be copied.'),
+            'error',
+          )
+        }
+      }
+      show(`${created.name} created · code ${created.code}${copied}`)
       await onCreated?.()
       onClose()
       navigate(paths.class(created.id))
@@ -171,7 +220,44 @@ export function NewSpaceDialog({
           </>
         }
       >
+        {pastClasses.length > 0 && (
+          <div className="mb-6 space-y-3 rounded-xl border border-dashed border-line p-4">
+            <Field label="Start from a past class" optional>
+              {(id) => (
+                <Select
+                  id={id}
+                  value={sourceId}
+                  onChange={(e) => setSourceId(e.target.value)}
+                  placeholder="Start blank"
+                  options={pastClasses.map((c) => ({
+                    value: c.id,
+                    label: `${c.initial} · ${c.section} — ${c.name} (${c.school_year}, ${c.semester} sem)`,
+                  }))}
+                />
+              )}
+            </Field>
+            {sourceId && (
+              <label className="flex items-start gap-2.5 text-[13px] text-ink">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={copyProjects}
+                  onChange={(e) => setCopyProjects(e.target.checked)}
+                />
+                <span>
+                  Also copy its projects and rubrics
+                  <span className="block text-[12px] text-muted">
+                    They wait in Archived with no dates. Restore each one when you are ready,
+                    and students see it then. Groups and students are not copied.
+                  </span>
+                </span>
+              </label>
+            )}
+          </div>
+        )}
         <ClassForm
+          key={sourceId || 'blank'}
+          defaults={sourceDefaults(pastClasses.find((c) => c.id === sourceId))}
           formId="new-class"
           syllabi={syllabi}
           curricula={curricula}
