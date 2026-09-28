@@ -1904,3 +1904,17 @@ are now used by:
 
 Archive and Leave group still follow `btnDanger`, renamed "Banner archive" in Your colors.
 Errors and the Late status keep the customizable `danger` ramp.
+
+**Fix (2026-09-29): "Maximum update depth exceeded" when dragging a colour picker.** In Your
+colors, each `input` event from the native "Any color" picker called `setColors`, which
+re-renders the whole app (about 24ms each). `SlotRow`'s `useEffect(() => setDraft(shown))`
+then queued a second update after every one, so a fast drag stacked nested updates past
+React's limit and threw. Reproduced with 120 synthetic input events. Now:
+- The hex box holds a draft only while being edited, with no effect.
+- The picker thumb follows local `live` state.
+- The pick itself goes out once per animation frame, and is flushed if the row closes
+  mid-drag.
+Verified: 201 events, no errors, 1.8ms each.
+
+Testing note: the Browser pane's page can report `document.hidden`. rAF and blur don't fire
+then, so restore a test colour with a swatch click, not the hex box.

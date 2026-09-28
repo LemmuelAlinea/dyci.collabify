@@ -670,8 +670,41 @@ function SlotRow({
   onPick: (value: string | null) => void
 }) {
   const shown = value ?? fallback
-  const [draft, setDraft] = useState(shown)
-  useEffect(() => setDraft(shown), [shown])
+  // What is typed in the hex box, only while it is being edited. Not copied
+  // from `shown` in an effect: that set state after every pick, and a fast
+  // drag on the native picker stacked those past React's nested-update limit.
+  const [draft, setDraft] = useState<string | null>(null)
+
+  // The native picker fires on every pixel of a drag. Each pick recolours the
+  // whole app, so the thumb follows `live` at once and the pick itself goes
+  // out at most once a frame.
+  const [live, setLive] = useState<string | null>(null)
+  const pending = useRef<string | null>(null)
+  const frame = useRef(0)
+  const pickRef = useRef(onPick)
+  useEffect(() => {
+    pickRef.current = onPick
+  })
+  // Closing the row mid-drag still keeps the last colour.
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(frame.current)
+      if (pending.current) pickRef.current(pending.current)
+    },
+    [],
+  )
+
+  function dragPick(hex: string) {
+    setLive(hex)
+    pending.current = hex
+    if (frame.current) return
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0
+      if (pending.current) onPick(pending.current)
+      pending.current = null
+      setLive(null)
+    })
+  }
 
   const panelId = `slot-${slot.key}`
   return (
@@ -716,20 +749,21 @@ function SlotRow({
             <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-[var(--control-line)] bg-[var(--surface)] px-2.5 text-[13px] text-ink">
               <input
                 type="color"
-                value={shown}
-                onChange={(e) => onPick(e.target.value)}
+                value={live ?? shown}
+                onChange={(e) => dragPick(e.target.value)}
                 className="h-5 w-6 cursor-pointer border-0 bg-transparent p-0"
                 aria-label={`Any color for ${slot.label}`}
               />
               Any color
             </label>
             <input
-              value={draft}
+              value={draft ?? live ?? shown}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={() => {
-                const hex = normalizeHex(draft)
-                if (hex) onPick(hex)
-                else setDraft(shown)
+                // Anything that is not a colour just falls back to the one in use.
+                const hex = draft === null ? null : normalizeHex(draft)
+                if (hex && hex !== shown) onPick(hex)
+                setDraft(null)
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
