@@ -113,6 +113,10 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   const [deletePrompt, setDeletePrompt] = useState(false)
 
   const canManage = role === 'professor'
+  // Old links (a review notice, Trash) can still name Files for a teacher.
+  useEffect(() => {
+    if (tab === 'files' && role !== 'student') setTab('brief')
+  }, [tab, role])
 
   const load = useCallback(async () => {
     if (!projectId) return
@@ -415,8 +419,14 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                   : 'Tasks',
               icon: role === 'professor' ? 'users' : 'check',
             },
-            { id: 'files', label: 'Files', icon: 'folder' },
-            ...(role === 'student' ? [{ id: 'progress' as const, label: 'Progress', icon: 'chart' as const }] : []),
+            // A group's files are the group's own: teachers see what is handed
+            // in, not the working files (the database refuses them too).
+            ...(role === 'student'
+              ? [
+                  { id: 'files' as const, label: 'Files', icon: 'folder' as const },
+                  { id: 'progress' as const, label: 'Progress', icon: 'chart' as const },
+                ]
+              : []),
           ]}
           active={tab}
           onChange={setTab}
@@ -429,9 +439,9 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           <ProjectTasksTab project={project} role={role} viewerId={profile?.id} t={t} />
         </div>
       )}
-      {tab === 'files' && (
+      {tab === 'files' && role === 'student' && (
         <div className="mt-6">
-          {isReleased(project) || role === 'professor' ? (
+          {isReleased(project) ? (
             <ClassFilesTab t={t} viewerId={profile?.id} />
           ) : (
             <Alert tone="info">This project has not been released yet, so there are no files to work on.</Alert>

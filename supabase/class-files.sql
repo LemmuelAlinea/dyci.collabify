@@ -10,7 +10,8 @@
 -- opens and keeps its members in step every time after.
 --
 --   board students   Member + edit_files: commit, draft, review
---   class teachers   Member only, and read-only (guarded below)
+--   class teachers   no access (2026-09-28): a group's files are the group's
+--                    own. Teachers see what is handed in, not the working files.
 --
 -- Handing the board in, or the professor closing or archiving the project,
 -- freezes its Files the way it freezes its tasks. Returning it unfreezes them.
@@ -119,9 +120,8 @@ begin
   select * into proj from public.projects where id = b.project_id;
 
   student := exists (select 1 from public.board_student_ids(b.id) s where s = me);
-  if me is null
-     or not (student or exists (select 1 from public.class_teacher_ids(proj.class_id) t where t = me)) then
-    raise exception 'Only this board''s students and their teachers open its files'
+  if me is null or not student then
+    raise exception 'A group''s files are theirs alone. Only the students on this board open them.'
       using errcode = 'insufficient_privilege';
   end if;
 
@@ -152,16 +152,13 @@ begin
     values (gp_id, 'Files', '', me);
   end if;
 
-  -- Members follow the board: its students can write, its teachers can read.
+  -- Members follow the board: its students, and nobody else.
   delete from public.general_members m
    where m.project_id = gp_id
-     and m.user_id not in (select s from public.board_student_ids(b.id) s)
-     and m.user_id not in (select t from public.class_teacher_ids(proj.class_id) t);
+     and m.user_id not in (select s from public.board_student_ids(b.id) s);
 
   insert into public.general_members (project_id, user_id, level)
   select gp_id, s, 'member'::public.general_level from public.board_student_ids(b.id) s
-  union
-  select gp_id, t, 'member'::public.general_level from public.class_teacher_ids(proj.class_id) t
   on conflict (project_id, user_id) do nothing;
 
   insert into public.general_grants (project_id, user_id, permission, granted_by)
@@ -176,6 +173,15 @@ begin
   return gp_id;
 end;
 $$;
+
+-- Teachers used to be read-only members of every board's Files. Take them off
+-- the ones that already exist; ensure_class_board_repo no longer adds them.
+-- (Membership notices skip board Files, so nobody is told.)
+delete from public.general_members m
+ using public.general_projects gp
+ where gp.id = m.project_id
+   and gp.class_board_id is not null
+   and m.user_id not in (select s from public.board_student_ids(gp.class_board_id) s);
 
 -- ---------------------------------------------------------------- the guard
 

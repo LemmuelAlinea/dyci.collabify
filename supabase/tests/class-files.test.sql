@@ -67,9 +67,17 @@ begin
   perform pg_temp.ok('both students are members who can write',
     (select count(*) from public.general_grants where project_id = gp and permission = 'edit_files'
       and user_id in (v_a, v_b)) = 2);
-  perform pg_temp.ok('the professor is a member who cannot write',
-    exists (select 1 from public.general_members where project_id = gp and user_id = v_prof)
+  perform pg_temp.ok('the professor is not a member: a group''s files are its own',
+    not exists (select 1 from public.general_members where project_id = gp and user_id = v_prof)
     and not exists (select 1 from public.general_grants where project_id = gp and user_id = v_prof));
+
+  perform pg_temp.act_as(v_prof);
+  begin
+    perform public.ensure_class_board_repo(v_board);
+    refused := false;
+  exception when insufficient_privilege then refused := true;
+  end;
+  perform pg_temp.ok('the professor cannot open them', refused);
 
   perform pg_temp.act_as(v_out);
   begin
@@ -89,8 +97,9 @@ begin
   perform pg_temp.ok('a student commits to Main', (select commit_count from public.general_repos where id = v_repo) = 1);
 
   perform pg_temp.act_as(v_prof);
-  perform pg_temp.ok('the professor reads Main',
-    exists (select 1 from public.general_repo_tree where repo_id = v_repo and path = 'report.md'));
+  perform pg_temp.ok('the professor reads nothing in Main',
+    not exists (select 1 from public.general_repo_tree where repo_id = v_repo)
+    and not exists (select 1 from public.general_project_overview where id = gp));
   perform pg_temp.act_as(v_out);
   perform pg_temp.ok('a classmate outside the group reads nothing',
     not exists (select 1 from public.general_repo_tree where repo_id = v_repo)
@@ -130,7 +139,7 @@ begin
   perform pg_temp.ok('a review request reaches the rest of the group, pointing at the class project',
     exists (select 1 from public.notifications where user_id = v_a and type = 'review_requested'
              and project_id = v_proj and general_project_id is null));
-  perform pg_temp.ok('...and not the professor, who only reads',
+  perform pg_temp.ok('...and not the professor, who is not on it',
     not exists (select 1 from public.notifications where user_id = v_prof and type = 'review_requested'));
 
   ------------------------------------------------------------------ leaving

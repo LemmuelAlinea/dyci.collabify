@@ -1820,3 +1820,14 @@ There was a second trigger: both class tabs memoized `[cls]`, and the class page
 
 Verified on localhost: firing focus with the dialog open reloads the data and leaves the
 dialog and its text in place.
+
+**Change (2026-09-28, late): a group's class-project Files are the group's own.** At the
+user's request, teachers no longer see a board's Files.
+- `class-files.sql` (applied live): `ensure_class_board_repo` now refuses anyone who isn't
+  on the board, and it adds only the board's students as members. A cleanup `delete`
+  removed the teacher memberships on existing boards (0 left).
+- UI: `ProjectDetail` shows the Files tab to students only, and an old `?tab=files` link
+  sends a teacher to Brief. The teacher group picker in `ClassFilesTab` is gone.
+- Teachers still see what is handed in (submissions, verdicts, tasks), just not the
+  working files.
+- `class-files.test.sql` is updated: 21 PASS.
