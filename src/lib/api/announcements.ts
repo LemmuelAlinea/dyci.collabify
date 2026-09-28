@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { invokeFunction } from './functions'
 import type { Announcement, AnnouncementAttachment } from '../types'
 
 const BUCKET = 'class-files'
@@ -136,13 +137,9 @@ export type NoticeDraft = { result: 'ok' | 'failed'; title?: string; body?: stri
  * it) or the whole program (an admin). Fills the composer; posts nothing.
  */
 export async function draftNotice(input: { intent: string; classId?: string }) {
-  const { data, error } = await supabase.functions.invoke('draft-notice', {
-    body: {
-      intent: input.intent.trim(),
-      scope: input.classId ? 'class' : 'program',
-      class_id: input.classId ?? null,
-    },
+  return invokeFunction<NoticeDraft>('draft-notice', {
+    intent: input.intent.trim(),
+    scope: input.classId ? 'class' : 'program',
+    class_id: input.classId ?? null,
   })
-  if (error) throw error
-  return data as NoticeDraft
 }

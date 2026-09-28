@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { invokeFunction } from './functions'
 import { byLastName } from '../types'
 import type {
   BoardSummary,
@@ -486,11 +487,7 @@ export type DraftResult = {
  * caller picks what to keep and edits it first.
  */
 export async function generateTasks(projectId: string, boardId: string | null) {
-  const { data, error } = await supabase.functions.invoke('generate-tasks', {
-    body: { project_id: projectId, board_id: boardId },
-  })
-  if (error) throw error
-  return data as DraftResult
+  return invokeFunction<DraftResult>('generate-tasks', { project_id: projectId, board_id: boardId })
 }
 
 /* ------------------------------------------------------------- realtime */

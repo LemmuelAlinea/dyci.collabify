@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { invokeFunction } from './functions'
 import type {
   ClassRow,
   ClassWeek,
@@ -209,9 +210,8 @@ export async function siblingClasses(cls: Pick<ClassRow, 'id' | 'syllabus_id' | 
  * server-side. Parsing is a convenience: on failure the editor still works.
  */
 export async function parseSyllabus(resourceId: string) {
-  const { data, error } = await supabase.functions.invoke('parse-syllabus', {
-    body: { resource_id: resourceId },
-  })
-  if (error) throw error
-  return data as { result: 'ok' | 'failed'; weeks?: number; message?: string }
+  return invokeFunction<{ result: 'ok' | 'failed'; weeks?: number; message?: string }>(
+    'parse-syllabus',
+    { resource_id: resourceId },
+  )
 }

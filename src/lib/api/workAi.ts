@@ -1,4 +1,4 @@
-import { supabase } from '../supabase'
+import { invokeFunction } from './functions'
 
 /**
  * The work-project AI helpers. Each returns a draft or an answer; nothing is
@@ -8,18 +8,8 @@ import { supabase } from '../supabase'
 type Failed = { result: 'failed'; message: string }
 type Ok<T> = { result: 'ok' } & T
 
-async function call<T>(action: string, projectId: string, body: Record<string, unknown>) {
-  const { data, error } = await supabase.functions.invoke('work-ai', {
-    body: { action, project_id: projectId, ...body },
-  })
-  // A 4xx still carries our JSON message; prefer it over the transport error.
-  if (error) {
-    const ctx = (error as { context?: Response }).context
-    const parsed = ctx ? await ctx.json().catch(() => null) : null
-    if (parsed?.message) return parsed as Failed
-    throw error
-  }
-  return data as Ok<T> | Failed
+function call<T>(action: string, projectId: string, body: Record<string, unknown>) {
+  return invokeFunction<Ok<T> | Failed>('work-ai', { action, project_id: projectId, ...body })
 }
 
 export type DraftedWorkTask = {

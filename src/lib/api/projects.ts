@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { invokeFunction } from './functions'
 import type {
   ProjectAttachment,
   ProjectAudience,
@@ -353,18 +354,14 @@ export async function draftProject(input: {
   audience: string
   totalPoints: number
 }) {
-  const { data, error } = await supabase.functions.invoke('draft-project', {
-    body: {
-      class_id: input.classId,
-      start_week: input.startWeek,
-      end_week: input.endWeek,
-      title: input.title.trim() || null,
-      type: input.type,
-      type_label: input.typeLabel.trim() || null,
-      audience: input.audience,
-      total_points: input.totalPoints,
-    },
+  return invokeFunction<ProjectDraft>('draft-project', {
+    class_id: input.classId,
+    start_week: input.startWeek,
+    end_week: input.endWeek,
+    title: input.title.trim() || null,
+    type: input.type,
+    type_label: input.typeLabel.trim() || null,
+    audience: input.audience,
+    total_points: input.totalPoints,
   })
-  if (error) throw error
-  return data as ProjectDraft
 }
