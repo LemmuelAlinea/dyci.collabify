@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filesUnder } from './zipFolder'
+import { filesUnder } from './files'
 
 describe('filesUnder', () => {
   const files = [

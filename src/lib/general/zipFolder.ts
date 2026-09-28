@@ -1,12 +1,6 @@
-import { isKeep } from './files'
+import { filesUnder } from './files'
 import { repoFileAsUpload } from './repoAttach'
 import type { GeneralTreeFile } from './types'
-
-/** Paths inside `folder`, relative to it. The whole tree when `folder` is empty. */
-export function filesUnder<T extends { path: string }>(files: T[], folder: string): T[] {
-  const prefix = folder ? `${folder}/` : ''
-  return files.filter((f) => f.path.startsWith(prefix) && !isKeep(f.path))
-}
 
 /**
  * A folder of Main as one .zip, each file as somebody would download it on its

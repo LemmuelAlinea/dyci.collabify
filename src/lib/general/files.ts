@@ -301,3 +301,9 @@ export function fileText(kind: FileKind, content: string): string {
     .replace(/\n{2,}/g, '\n')
     .trim()
 }
+
+/** Paths inside `folder`, relative to it. The whole tree when `folder` is empty. */
+export function filesUnder<T extends { path: string }>(files: T[], folder: string): T[] {
+  const prefix = folder ? `${folder}/` : ''
+  return files.filter((f) => f.path.startsWith(prefix) && !isKeep(f.path))
+}
