@@ -7,6 +7,7 @@ import { Field, Input } from '../../../components/ui/Field'
 import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { Modal } from '../../../components/ui/Modal'
+import { DraftFromLine } from '../../../components/ui/DraftFromLine'
 import { Textarea } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
@@ -189,6 +190,12 @@ export default function Notices() {
         }
       >
         <div className="space-y-4">
+          <DraftFromLine
+            onDraft={(d) => {
+              setTitle(d.title)
+              setBody(d.body)
+            }}
+          />
           <Field label="Title">
             {(id) => (
               <Input

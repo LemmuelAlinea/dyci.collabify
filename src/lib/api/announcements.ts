@@ -128,3 +128,21 @@ export async function attachmentUrl(attachment: AnnouncementAttachment) {
   if (error) throw error
   return data.signedUrl
 }
+
+export type NoticeDraft = { result: 'ok' | 'failed'; title?: string; body?: string; message?: string }
+
+/**
+ * A title and message drafted from one line. For a class (someone teaching
+ * it) or the whole program (an admin). Fills the composer; posts nothing.
+ */
+export async function draftNotice(input: { intent: string; classId?: string }) {
+  const { data, error } = await supabase.functions.invoke('draft-notice', {
+    body: {
+      intent: input.intent.trim(),
+      scope: input.classId ? 'class' : 'program',
+      class_id: input.classId ?? null,
+    },
+  })
+  if (error) throw error
+  return data as NoticeDraft
+}

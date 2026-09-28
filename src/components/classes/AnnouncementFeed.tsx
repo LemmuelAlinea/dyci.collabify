@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { DraftFromLine } from '../ui/DraftFromLine'
 import type { FormEvent } from 'react'
 import { Avatar } from '../app/Avatar'
 import { NOTICE_HOURS } from '../../lib/program'
@@ -305,6 +306,15 @@ export function AnnouncementFeed({
       >
         <form id="announcement-form" onSubmit={submit} className="space-y-4">
           {error && <Alert tone="error">{error}</Alert>}
+          {!editing && (
+            <DraftFromLine
+              classId={classId}
+              onDraft={(d) => {
+                setTitle(d.title)
+                setBody(d.body)
+              }}
+            />
+          )}
           <Field label="Title">
             {(id) => (
               <Input
