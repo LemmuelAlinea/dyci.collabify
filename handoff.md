@@ -1740,3 +1740,67 @@ group-archive, submissions, insight, rate-limit). Vitest: 558.
 - R8: parse the syllabus on upload
 - R9: work timer
 - R10: print every student's contribution report at once
+
+## Session — 2026-09-28 (night): work-space helpers
+
+The user tested the education batch and asked for the same kind of helpers in work
+spaces. They picked eleven items. All are on `main`, one commit each.
+
+**Rule-based**
+- **Starter folders.** An empty Main (when you can edit files) offers a folder layout by
+  project kind: research, system, event, compliance or general. The suggestion comes from
+  `project.preset` and `has_code`. Picking one writes `.keep` files into the person's
+  **draft**, so the folders still go through review (`lib/general/starterFolders.ts`,
+  `StarterFolders` in `FilesTab`).
+- **Download as zip.** "Download" on a folder, or "Download all" at the top of Main. The
+  zip is built in the browser with **fflate** (new dependency), and each file comes out the
+  way `repoFileAsUpload` would give it: .docx, .xlsx, or the original upload.
+  `filesUnder` is in `lib/general/files.ts`.
+- **Since you were last here.** `general_project_visits` stores `since` and `seen_at`;
+  `since` only moves after 30 minutes away, so a reload doesn't wipe the summary.
+  `general_since_last_visit(project)` returns what other people did since then:
+  - tasks finished and tasks added
+  - tasks given to you, and comments on your tasks
+  - commits
+  - changes waiting on your review
+  
+  It says nothing on a first visit. `SinceLastVisit` shows it above the project tabs and
+  can be dismissed.
+- **Unsaved draft reminder.** New notification type `draft_waiting`. pg_cron
+  `collabify-draft-reminders` runs daily at 01:00 UTC. It sends once per quiet stretch for
+  live draft files that no one has touched for 3 days. Remember that submitting deletes the
+  draft files, so anything left in a draft is unsubmitted. It uses the
+  `deadline_reminders` switch (Settings copy updated), and the bell opens `?tab=files&view=draft`.
+- **Save as template.** `general_project_templates` is owner-only under RLS, capped at 30 per
+  person, with the payload checked by a coalesced CHECK. Templates store the preset payload
+  shape (`lib/general/templates.ts`); dates, people and files are left out.
+  - "Save as template" is in the project header.
+  - "Your templates" sits above the built-in presets in `PresetPicker`, and each one can
+    be removed (ConfirmDialog).
+
+**AI: one edge function, `work-ai` (deployed), one action each.** Everything is read with
+the caller's JWT, nothing is written, and each action has its own limits
+(`ai_work_<action>_hour/day`). Member-only through `is_general_member`.
+- `tasks`: "From notes" in the Tasks tab. Pasted notes, or a file from Main (PDF too), become
+  draft tasks: owners are matched to member ids, teams to team names, and dates are taken
+  only from the text. Anyone can draft. Owners are applied only if the person has
+  `manage_tasks`; otherwise the tasks save with nobody on them, and the dialog says so.
+- `describe`: "Describe it for me" in the Submit dialog (reads the draft paths) and
+  "Write it" beside the editor's commit message (sends the text on screen).
+- `summarize-change`: "Summarize this change" on an open change, shown above the
+  line-by-line view. Asked for, not stored.
+- `summarize-file`: "Summarize" in the file viewer for Main files, PDFs included (unpdf).
+- `formula`: "Formula help" in `SheetEditor`. It reads row 1 and five sample rows, and the
+  formula goes into the last focused cell.
+- `ask`: the "Ask about these files" box on Main. It reads documents, sheets and text files
+  (up to 250k characters, 60k per file) but not PDFs. It returns sources, which open the file.
+
+**Tests:**
+- `supabase/tests/work-automation.test.sql`: 18 PASS (visits, draft reminder, templates).
+- All 51 SQL suites pass. `insight.test.sql` needed a fixture fix: its "outsider" student
+  had picked up 7 live tasks during the user's click-through, so the test now clears them.
+- Vitest: 561.
+
+**Not verified:** a real model call through any `work-ai` action. It is deployed and answers
+"Sign in first." without a session. The UI click-through needs a signed-in member of a work
+project.
