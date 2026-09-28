@@ -18,11 +18,13 @@ import {
   listRepoChanges,
   listTree,
   myDraft,
+  saveDraftFile,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { groupChanges } from '../../lib/general/review'
-import { buildTree, fileText, flatFiles, folderOf, isKeep, nodesAt, shownFiles } from '../../lib/general/files'
+import { KEEP, buildTree, fileText, flatFiles, folderOf, isKeep, joinPath, nodesAt, shownFiles } from '../../lib/general/files'
+import { LAYOUTS, suggestedLayout } from '../../lib/general/starterFolders'
 import type { TreeNode } from '../../lib/general/files'
 import { matches } from '../../lib/general/search'
 import { FILE_ACTION_LABEL, FILE_KIND_LABEL } from '../../lib/general/types'
@@ -266,6 +268,10 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           onNavigate={(p) => go(view, p)}
           onRename={setRenaming}
           onOpen={setOpen}
+          onStarted={async () => {
+            await load()
+            go('draft')
+          }}
         />
       )}
       {view === 'draft' && (
@@ -326,6 +332,93 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
 
 /* ------------------------------------------------------------------- start */
 
+/**
+ * An empty Main offers a folder layout that fits the project. The folders go
+ * into the person's draft, like any other change, so the group still sees and
+ * approves them before they are the project's.
+ */
+function StarterFolders({
+  repo,
+  state,
+  onDone,
+}: {
+  repo: GeneralRepoSummary
+  state: GeneralProjectState
+  onDone: () => Promise<void>
+}) {
+  const { show } = useToast()
+  const [busy, setBusy] = useState(false)
+  const first = suggestedLayout(state.project?.preset ?? null, Boolean(state.project?.has_code))
+  const [picked, setPicked] = useState(first.id)
+  const layouts = [first, ...LAYOUTS.filter((l) => l.id !== first.id)]
+  const layout = layouts.find((l) => l.id === picked) ?? first
+
+  return (
+    <div className="rounded-panel border border-dashed border-line px-4 py-8 sm:px-6">
+      <Icon name="folder" size={24} className="text-faint" />
+      <h2 className="mt-2">Nothing committed yet</h2>
+      <p className="mt-1 max-w-[40rem] text-[13px] text-muted">
+        Start with a set of folders. They go into your draft, so the group can see them before
+        they become the project's.
+      </p>
+      <div role="radiogroup" aria-label="Folder layout" className="mt-4 flex flex-wrap gap-2">
+        {layouts.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            role="radio"
+            aria-checked={picked === l.id}
+            onClick={() => setPicked(l.id)}
+            className={`rounded-lg border px-3 py-1.5 text-[13px] transition-colors ${
+              picked === l.id
+                ? 'border-navy-400 bg-navy-50 font-medium text-ink dark:bg-navy-500/12'
+                : 'border-line text-muted hover:text-ink'
+            }`}
+          >
+            {l.name}
+            {l.id === first.id && <span className="ml-1.5 text-[11px] text-faint">suggested</span>}
+          </button>
+        ))}
+      </div>
+      <ul className="mt-3 grid gap-1 sm:grid-cols-2">
+        {layout.folders.map((f) => (
+          <li key={f} className="flex items-center gap-2 text-[13px] text-ink">
+            <Icon name="folder" size={14} className="shrink-0 text-faint" />
+            {f}
+          </li>
+        ))}
+      </ul>
+      <Button
+        className="mt-4"
+        loading={busy}
+        onClick={async () => {
+          setBusy(true)
+          try {
+            for (const f of layout.folders) {
+              await saveDraftFile({
+                repoId: repo.id,
+                path: joinPath(f, KEEP),
+                action: 'added',
+                kind: 'text',
+                content: '',
+              })
+            }
+            show(`${layout.folders.length} folders added to your draft`)
+            await onDone()
+          } catch (err) {
+            show(authErrorMessage(err, 'Could not add the folders. Try again in a moment.'), 'error')
+          } finally {
+            setBusy(false)
+          }
+        }}
+      >
+        <Icon name="plus" size={14} />
+        Add these folders
+      </Button>
+    </div>
+  )
+}
+
 function StartFiles({ state, onDone }: { state: GeneralProjectState; onDone: () => Promise<void> }) {
   const { show } = useToast()
   const [busy, setBusy] = useState(false)
@@ -384,6 +477,7 @@ function MainView({
   onNavigate,
   onRename,
   onOpen,
+  onStarted,
 }: {
   repo: GeneralRepoSummary
   tree: GeneralTreeFile[]
@@ -394,11 +488,14 @@ function MainView({
   onNavigate: (path: string) => void
   onRename: (path: string) => void
   onOpen: (file: OpenFile) => void
+  onStarted: () => Promise<void>
 }) {
   const all = buildTree(tree)
 
   if (tree.length === 0) {
-    return (
+    return draftFiles.length === 0 && state.can('edit_files') && !state.archived ? (
+      <StarterFolders repo={repo} state={state} onDone={onStarted} />
+    ) : (
       <p className="rounded-xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-muted">
         Nothing has been committed yet.
       </p>
