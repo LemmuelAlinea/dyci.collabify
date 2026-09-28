@@ -6,6 +6,8 @@
 --                            so the overview can say what changed since
 --   draft_waiting (cron)     draft changes nobody has touched or submitted
 --                            for three days get their owner one reminder
+--   general_project_templates a person's own starting points for new work
+--                            projects, saved from a project they are on
 --
 -- Runs after automation.sql, before anon-lockdown.sql. Re-run anon-lockdown.sql
 -- after it. Two transactions: a new enum value cannot be used in the one that
@@ -222,5 +224,74 @@ select cron.schedule(
   '0 1 * * *',
   $cron$ select public.send_draft_reminders() $cron$
 );
+
+commit;
+
+begin;
+
+-- ------------------------------------------------------------- templates
+
+/**
+ * A work project saved as somebody's own starting point: its fields, teams,
+ * positions and task list, in the same shape a built-in preset hands
+ * create_general_project. No dates, no people, no files — those belong to the
+ * project it came from, not to the next one.
+ *
+ * Owner-only. A template is a personal shortcut; sharing one is a different
+ * decision, with its own questions about who may see a project's structure.
+ */
+create table if not exists public.general_project_templates (
+  id            uuid primary key default gen_random_uuid(),
+  owner_id      uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  name          text not null,
+  blurb         text not null default '',
+  source_preset text,
+  payload       jsonb not null,
+  created_at    timestamptz not null default now(),
+  constraint general_project_templates_name_len check (char_length(btrim(name)) between 1 and 80),
+  constraint general_project_templates_blurb_len check (char_length(blurb) <= 300)
+);
+
+-- coalesce, because a CHECK that comes out null passes: a payload missing a
+-- key would otherwise slip through.
+alter table public.general_project_templates
+  drop constraint if exists general_project_templates_payload_shape;
+alter table public.general_project_templates
+  add constraint general_project_templates_payload_shape check (coalesce(
+    jsonb_typeof(payload) = 'object'
+    and jsonb_typeof(payload -> 'fields') = 'array'
+    and jsonb_typeof(payload -> 'teams') = 'array'
+    and jsonb_typeof(payload -> 'positions') = 'array'
+    and jsonb_typeof(payload -> 'tasks') = 'array'
+    and jsonb_array_length(payload -> 'tasks') <= 300
+    and pg_column_size(payload) <= 262144,
+  false));
+
+create index if not exists general_project_templates_owner_idx
+  on public.general_project_templates (owner_id, created_at desc);
+
+alter table public.general_project_templates enable row level security;
+
+drop policy if exists general_project_templates_own on public.general_project_templates;
+create policy general_project_templates_own on public.general_project_templates
+  for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+
+grant select, insert, update, delete on public.general_project_templates to authenticated;
+
+/** Thirty each is plenty for a person, and keeps a runaway loop bounded. */
+create or replace function public.guard_general_template_cap()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from public.general_project_templates where owner_id = new.owner_id) >= 30 then
+    raise exception 'You have 30 templates already. Remove one you no longer use first.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists general_project_templates_cap on public.general_project_templates;
+create trigger general_project_templates_cap before insert on public.general_project_templates
+  for each row execute function public.guard_general_template_cap();
 
 commit;

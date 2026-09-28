@@ -7,6 +7,7 @@ import { FilesTab } from '../../components/general/FilesTab'
 import { ProgressTab } from '../../components/general/ProgressTab'
 import { TasksTab } from '../../components/general/TasksTab'
 import { SinceLastVisit } from '../../components/general/SinceLastVisit'
+import { SaveTemplateButton } from '../../components/general/SaveTemplateButton'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
@@ -144,6 +145,10 @@ export default function GeneralProject() {
               Report
             </Link>
           )}
+          <SaveTemplateButton
+            state={state}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-[13px] text-amber-50/80 hover:bg-white/10 hover:text-amber-50"
+          />
           {state.isOwner && !state.archived && (
             <Button variant="onNavy" size="sm" onClick={() => setArchiving(true)}>
               <Icon name="archive" size={15} />

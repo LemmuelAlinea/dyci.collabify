@@ -118,7 +118,8 @@ projects into a new one as archived drafts.
 `work-automation.sql` runs after `automation.sql`. It holds the work-space helpers:
 `general_project_visits` and `general_since_last_visit` (what changed since a person's
 last sitting in a work project), and the daily pg_cron job `collabify-draft-reminders`
-(draft files left untouched and unsubmitted for three days).
+(draft files left untouched and unsubmitted for three days), and
+`general_project_templates`, each person's own saved project templates.
 
 `anon-lockdown.sql` runs last and takes EXECUTE on every public function away
 from the signed-out role, keeping signed-in access as it was. Re-run it after

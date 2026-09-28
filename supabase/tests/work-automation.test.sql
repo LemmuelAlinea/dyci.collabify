@@ -177,4 +177,58 @@ begin
     exists (select 1 from cron.job where jobname = 'collabify-draft-reminders'));
 end $$;
 
+-- -------------------------------------------------------------- templates
+
+do $$
+declare
+  v_a uuid := (select v from fx where k='a');
+  v_b uuid := (select v from fx where k='b');
+  v_id uuid; n int; refused boolean;
+  payload jsonb := '{"fields":[],"teams":["Logistics"],"positions":[],"tasks":[{"title":"Book venue","description":"","team":"Logistics"}]}';
+begin
+  perform pg_temp.act_as(v_a);
+  insert into public.general_project_templates (name, payload) values ('zz tpl', payload)
+  returning id into v_id;
+  perform pg_temp.act_as(v_b);
+  select count(*) into n from public.general_project_templates where id = v_id;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('another person cannot see my template', n = 0);
+
+  perform pg_temp.act_as(v_b);
+  delete from public.general_project_templates where id = v_id;
+  perform pg_temp.act_as_service();
+  select count(*) into n from public.general_project_templates where id = v_id;
+  perform pg_temp.must_be('...or delete it', n = 1);
+
+  perform pg_temp.act_as(v_a);
+  refused := false;
+  begin
+    insert into public.general_project_templates (name, payload) values ('zz bad', '{"tasks":[]}');
+  exception when others then refused := true;
+  end;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a malformed payload is refused', refused);
+
+  perform pg_temp.act_as(v_a);
+  refused := false;
+  begin
+    insert into public.general_project_templates (owner_id, name, payload) values (v_b, 'zz forged', payload);
+  exception when others then refused := true;
+  end;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a template cannot be saved as somebody else', refused);
+
+  -- The cap.
+  insert into public.general_project_templates (owner_id, name, payload)
+  select v_a, 'zz fill ' || g, payload from generate_series(1, 30) g
+   where (select count(*) from public.general_project_templates where owner_id = v_a) < 30
+   limit greatest(0, 30 - (select count(*) from public.general_project_templates where owner_id = v_a))::int;
+  refused := false;
+  begin
+    insert into public.general_project_templates (owner_id, name, payload) values (v_a, 'zz 31st', payload);
+  exception when others then refused := true;
+  end;
+  perform pg_temp.must_be('thirty is the most one person keeps', refused);
+end $$;
+
 rollback;

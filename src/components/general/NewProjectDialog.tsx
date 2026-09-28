@@ -6,7 +6,14 @@ import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Field'
 import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
-import { createGeneralProject, createSpaceTeam, listSpaceTeams } from '../../lib/api/general'
+import {
+  createGeneralProject,
+  createSpaceTeam,
+  deleteTemplate,
+  listMyTemplates,
+  listSpaceTeams,
+} from '../../lib/api/general'
+import type { GeneralTemplate } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { LIMIT } from '../../lib/limits'
 import { paths } from '../../lib/paths'
@@ -47,6 +54,18 @@ export function NewProjectDialog({
   const [newTeamDescription, setNewTeamDescription] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [templates, setTemplates] = useState<GeneralTemplate[]>([])
+
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    void listMyTemplates()
+      .then((rows) => alive && setTemplates(rows))
+      .catch(() => alive && setTemplates([]))
+    return () => {
+      alive = false
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open || !spaceId) {
@@ -80,6 +99,7 @@ export function NewProjectDialog({
     setBusy(true)
     try {
       const chosen = presetById(preset)
+      const template = templates.find((t) => `tpl:${t.id}` === preset)
       let chosenTeamId: string | null = null
       if (teamMode === 'existing') {
         chosenTeamId = teamId
@@ -96,8 +116,12 @@ export function NewProjectDialog({
         description,
         startsOn: startsOn || null,
         endsOn: endsOn || null,
-        preset: chosen && chosen.id !== 'blank' ? chosen.id : null,
-        content: chosen && chosen.id !== 'blank' ? presetPayload(chosen) : null,
+        preset: template ? template.source_preset : chosen && chosen.id !== 'blank' ? chosen.id : null,
+        content: template
+          ? template.payload
+          : chosen && chosen.id !== 'blank'
+            ? presetPayload(chosen)
+            : null,
         spaceId,
         spaceTeamId: chosenTeamId,
       })
@@ -238,6 +262,12 @@ export function NewProjectDialog({
           onChange={setPreset}
           audience={audience}
           onAudienceChange={setAudience}
+          templates={templates}
+          onDeleteTemplate={async (id) => {
+            await deleteTemplate(id)
+            setTemplates((list) => list.filter((t) => t.id !== id))
+            if (preset === `tpl:${id}`) setPreset('blank')
+          }}
         />
       </form>
     </Modal>

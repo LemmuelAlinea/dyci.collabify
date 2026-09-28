@@ -1518,3 +1518,48 @@ export async function sinceLastVisit(projectId: string) {
   if (error) throw error
   return data as SinceLastVisit
 }
+
+export type GeneralTemplate = {
+  id: string
+  owner_id: string
+  name: string
+  blurb: string
+  source_preset: string | null
+  payload: PresetPayload
+  created_at: string
+}
+
+/** The caller's own saved starting points, newest first. */
+export async function listMyTemplates() {
+  const { data, error } = await supabase
+    .from('general_project_templates')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as GeneralTemplate[]
+}
+
+export async function saveTemplate(input: {
+  name: string
+  blurb: string
+  sourcePreset: string | null
+  payload: PresetPayload
+}) {
+  const { data, error } = await supabase
+    .from('general_project_templates')
+    .insert({
+      name: input.name.trim(),
+      blurb: input.blurb.trim(),
+      source_preset: input.sourcePreset,
+      payload: input.payload,
+    })
+    .select('*')
+    .single()
+  if (error) throw error
+  return data as GeneralTemplate
+}
+
+export async function deleteTemplate(id: string) {
+  const { error } = await supabase.from('general_project_templates').delete().eq('id', id)
+  if (error) throw error
+}
