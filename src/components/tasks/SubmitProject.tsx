@@ -121,7 +121,7 @@ export function SubmitProject({
     return (
       <>
         <Button
-          variant="accent"
+          variant="create"
           size="sm"
           className="!h-8 !rounded-lg !px-3"
           onClick={() => setConfirm(true)}

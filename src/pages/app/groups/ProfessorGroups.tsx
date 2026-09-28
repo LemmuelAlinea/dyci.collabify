@@ -99,7 +99,7 @@ export default function ProfessorGroups() {
         description="Arrange each class into focused working teams, then see membership and project momentum without losing the class context."
         action={
           <Button
-            variant="accent"
+            variant="create"
             onClick={() => setWizardOpen(true)}
             disabled={!classes || classes.length === 0}
           >

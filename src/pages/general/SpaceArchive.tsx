@@ -3,6 +3,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { Alert } from '../../components/ui/Alert'
 import { ActionMenu } from '../../components/ui/ActionMenu'
+import { ButtonLink } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Input } from '../../components/ui/Field'
@@ -81,13 +82,10 @@ export default function SpaceArchive() {
         accent="within reach."
         description="Projects you archived, or lead, stay readable here. An Owner can bring one back or delete it for good."
         action={spaceId ? (
-          <Link
-            to={paths.space(spaceId)}
-            className="flex items-center gap-1.5 rounded-lg border border-amber-50/20 bg-amber-50/10 px-3 py-1.5 text-[13px] font-medium text-amber-50 hover:bg-amber-50/16"
-          >
+          <ButtonLink variant="onNavy" size="sm" to={paths.space(spaceId)}>
             <Icon name="board" size={15} />
             Back to projects
-          </Link>
+          </ButtonLink>
         ) : undefined}
       />
 

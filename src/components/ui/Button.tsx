@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Spinner } from './Icon'
 
-type Variant = 'primary' | 'accent' | 'outline' | 'ghost' | 'onNavy' | 'danger'
+type Variant = 'primary' | 'accent' | 'outline' | 'ghost' | 'onNavy' | 'create' | 'destroy' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
 
 // `btn` is a styling hook, not a style. It carries nothing on the public side;
@@ -22,7 +22,12 @@ const VARIANTS: Record<Variant, string> = {
   outline:
     'border border-[var(--line-strong)] text-ink hover:bg-[var(--surface-sunken)]',
   ghost: 'text-muted hover:text-ink hover:bg-[var(--surface-sunken)]',
-  onNavy: 'border border-banner-ink/25 text-banner-ink hover:bg-banner-ink/10',
+  // The three on a page banner, each recolourable in Settings → Appearance:
+  // `create` for the page's main step, `onNavy` for everyday actions,
+  // `destroy` for archive, delete and leave.
+  create: 'bg-btn-create text-btn-create-ink hover:brightness-110',
+  onNavy: 'border border-btn-action/25 text-btn-action hover:bg-btn-action/10',
+  destroy: 'border border-btn-danger/25 text-btn-danger hover:bg-btn-danger/10',
   danger: 'bg-danger-600 text-white hover:bg-danger-500',
 }
 
@@ -39,6 +44,11 @@ type Common = {
   full?: boolean
   children: ReactNode
   className?: string
+}
+
+/** The button look for something that cannot be a `Button`, such as a component's own trigger. */
+export function buttonClass(o: Omit<Common, 'children'>) {
+  return cls({ ...o, children: null })
 }
 
 function cls({ variant = 'primary', size = 'md', full, className = '' }: Common) {

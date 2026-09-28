@@ -131,6 +131,17 @@ describe('toCssVars', () => {
     expect(contrast(vars['--banner-accent'], '#fff3bf')).toBeGreaterThanOrEqual(3)
   })
 
+  it('keeps banner buttons readable on whatever banner is showing', () => {
+    const vars = toCssVars({ btnCreate: '#ffffff', btnAction: '#26327a', btnDanger: '#fb2c36' }, 'dark')
+    expect(vars['--btn-create-ink']).toBe('#10162e')
+    expect(contrast(vars['--btn-action'], '#080b21')).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(vars['--btn-danger'], '#080b21')).toBeGreaterThanOrEqual(4.5)
+    const light = toCssVars({ banner: '#fff3bf', btnAction: '#fff3bf' }, 'light')
+    expect(contrast(light['--btn-action'], '#fff3bf')).toBeGreaterThanOrEqual(4.5)
+    // Untouched, the outlined ones follow the banner text through the stylesheet.
+    expect(toCssVars({ banner: '#fff3bf' }, 'light')['--btn-action']).toBeUndefined()
+  })
+
   it('puts a white badge on dark ink and keeps a pale nav colour visible', () => {
     const vars = toCssVars({ badge: '#ffffff', navActive: '#fafafa' }, 'light')
     expect(vars['--badge-ink']).toBe('#10162e')

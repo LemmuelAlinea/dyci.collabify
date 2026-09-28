@@ -130,7 +130,7 @@ export default function Sections() {
         accent="one clear name."
         description="Keep section names, year levels, advisers, and enrolment figures consistent across the program."
         action={
-          <Button variant="onNavy" size="sm" className="!rounded-lg" onClick={() => setAdding(true)}>
+          <Button variant="create" size="sm" className="!rounded-lg" onClick={() => setAdding(true)}>
             <Icon name="plus" size={15} />
             Add a section
           </Button>

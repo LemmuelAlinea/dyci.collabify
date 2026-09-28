@@ -46,7 +46,7 @@ export default function ProfessorProjects() {
         description="Plan every brief against the course, release it at the right moment and read progress across all of its boards."
         action={
           <Button
-            variant="accent"
+            variant="create"
             onClick={() => setWizardOpen(true)}
             disabled={withSyllabus.length === 0}
           >

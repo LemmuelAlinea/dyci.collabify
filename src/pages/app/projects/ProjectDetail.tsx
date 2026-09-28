@@ -320,7 +320,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                   {project.locked_at ? 'Reopen' : 'Close'}
                 </Button>
                 <Button
-                  variant="onNavy"
+                  variant={project.archived_at ? 'onNavy' : 'destroy'}
                   size="sm"
                   className="!h-8 !rounded-lg !px-3"
                   onClick={async () => {
@@ -337,7 +337,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
                   type="button"
                   onClick={() => setDeletePrompt(true)}
                   aria-label="Delete project"
-                  className="grid h-8 w-8 place-items-center rounded-lg text-banner-ink/55 transition-colors hover:bg-danger-500/15 hover:text-danger-200"
+                  className="grid h-8 w-8 place-items-center rounded-lg text-btn-danger/55 transition-colors hover:bg-btn-danger/10 hover:text-btn-danger"
                 >
                   <Icon name="trash" size={15} />
                 </button>

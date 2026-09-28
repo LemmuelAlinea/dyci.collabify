@@ -102,7 +102,7 @@ export default function Trash() {
         description="Files and folders you moved to Trash wait here for 30 days, then go for good. To keep something out of the way without losing it, archive it instead."
         action={
           actionable.length > 0 ? (
-            <Button variant="onNavy" onClick={() => setEmptying(true)}>
+            <Button variant="destroy" onClick={() => setEmptying(true)}>
               <Icon name="trash" size={14} />
               Empty trash
             </Button>

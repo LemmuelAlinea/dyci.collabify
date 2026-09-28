@@ -120,7 +120,7 @@ export default function Notices() {
         accent="everyone informed."
         description="Publish time-sensitive program notices and keep a clear history after they leave dashboards."
         action={
-          <Button variant="onNavy" size="sm" className="!rounded-lg" onClick={() => setComposing(true)}>
+          <Button variant="create" size="sm" className="!rounded-lg" onClick={() => setComposing(true)}>
             <Icon name="plus" size={15} />
             Send a notice
           </Button>

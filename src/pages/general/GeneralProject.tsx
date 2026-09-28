@@ -10,7 +10,7 @@ import { SinceLastVisit } from '../../components/general/SinceLastVisit'
 import { SaveTemplateButton } from '../../components/general/SaveTemplateButton'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 import { Alert } from '../../components/ui/Alert'
-import { Button } from '../../components/ui/Button'
+import { Button, ButtonLink, buttonClass } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -127,30 +127,21 @@ export default function GeneralProject() {
         description={`${projectStatusLabel(p.status)} · You are ${levelLabel(p.my_level)} · ${dateRange(p.starts_on, p.ends_on)} · ${p.member_count} ${p.member_count === 1 ? 'member' : 'members'} · ${Number(p.progress_pct)}% done`}
         action={
           <div className="flex flex-wrap gap-2">
-          <Link
-            to={paths.projectArchive(p.id)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-[13px] text-amber-50/80 hover:bg-white/10 hover:text-amber-50"
-          >
+          <ButtonLink variant="onNavy" size="sm" to={paths.projectArchive(p.id)}>
             <Icon name="archive" size={15} />
             Project archive
-          </Link>
+          </ButtonLink>
           {/* A report is built from the space, so it is offered only to somebody
               who can read that space. Joining this project by code does not. */}
           {currentSpace?.id === p.space_id && (
-            <Link
-              to={`${paths.spaceReports(p.space_id)}?s=project&p=${p.id}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-[13px] text-amber-50/80 hover:bg-white/10 hover:text-amber-50"
-            >
+            <ButtonLink variant="onNavy" size="sm" to={`${paths.spaceReports(p.space_id)}?s=project&p=${p.id}`}>
               <Icon name="chart" size={15} />
               Report
-            </Link>
+            </ButtonLink>
           )}
-          <SaveTemplateButton
-            state={state}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-[13px] text-amber-50/80 hover:bg-white/10 hover:text-amber-50"
-          />
+          <SaveTemplateButton state={state} className={buttonClass({ variant: 'onNavy', size: 'sm' })} />
           {state.isOwner && !state.archived && (
-            <Button variant="onNavy" size="sm" onClick={() => setArchiving(true)}>
+            <Button variant="destroy" size="sm" onClick={() => setArchiving(true)}>
               <Icon name="archive" size={15} />
               Archive project
             </Button>

@@ -260,7 +260,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                   should be the reversible one and should be the one in reach.
                 */}
                 <Button
-                  variant="onNavy"
+                  variant={group.archived_at ? 'onNavy' : 'destroy'}
                   size="sm"
                   className="!h-8 !rounded-lg !px-3"
                   loading={archiving}
@@ -284,7 +284,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                   type="button"
                   onClick={() => setDeletePrompt(true)}
                   aria-label="Delete group"
-                  className="grid h-8 w-8 place-items-center rounded-lg text-banner-ink/55 transition-colors hover:bg-danger-500/15 hover:text-danger-200"
+                  className="grid h-8 w-8 place-items-center rounded-lg text-btn-danger/55 transition-colors hover:bg-btn-danger/10 hover:text-btn-danger"
                 >
                   <Icon name="trash" size={15} />
                 </button>
@@ -369,7 +369,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
               </p>
               {isMember ? (
                 <Button
-                  variant="onNavy"
+                  variant="destroy"
                   size="sm"
                   className="!h-8 !rounded-lg"
                   onClick={async () => {
@@ -386,7 +386,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                 </Button>
               ) : (
                 <Button
-                  variant="accent"
+                  variant="create"
                   size="sm"
                   className="!h-8 !rounded-lg"
                   disabled={group.member_count >= group.member_limit}

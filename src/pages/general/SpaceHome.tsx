@@ -144,7 +144,7 @@ export default function SpaceHome() {
             isOwner && space ? (
               <>
                 <Button
-                  variant="onNavy"
+                  variant={archived ? 'onNavy' : 'destroy'}
                   size="sm"
                   className="!h-8 !rounded-lg !px-3"
                   onClick={() => setArchiveOpen(true)}
@@ -155,9 +155,9 @@ export default function SpaceHome() {
                 {/* Deleting is the second of two steps: archive first, then delete. */}
                 {archived && (
                   <Button
-                    variant="onNavy"
+                    variant="destroy"
                     size="sm"
-                    className="!h-8 !rounded-lg !px-3 hover:!border-danger-300/50 hover:!bg-danger-500/15 hover:!text-danger-200"
+                    className="!h-8 !rounded-lg !px-3"
                     onClick={() => setDeleteOpen(true)}
                   >
                     <Icon name="trash" size={14} />

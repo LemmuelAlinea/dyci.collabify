@@ -57,7 +57,7 @@ export default function ProfessorClasses() {
         description="Build each section around one syllabus, then keep its people, projects and decisions moving from the same place."
         action={
           teaching ? (
-            <Button variant="accent" onClick={() => setCreateOpen(true)}>
+            <Button variant="create" onClick={() => setCreateOpen(true)}>
               <Icon name="plus" size={17} />
               Create class
             </Button>

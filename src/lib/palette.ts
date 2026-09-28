@@ -28,6 +28,9 @@ export const HEX_KEYS = [
   'badge',
   'iconTile',
   'iconGlyph',
+  'btnCreate',
+  'btnAction',
+  'btnDanger',
 ] as const
 
 export type PickKey = (typeof HEX_KEYS)[number]
@@ -70,6 +73,9 @@ export const DEFAULT_PICKS: Record<Mode, Record<PickKey, string>> = {
     banner2: '#26327a',
     iconTile: '#080b21',
     iconGlyph: '#f7c74a',
+    btnCreate: '#f0b429',
+    btnAction: '#fef7e6',
+    btnDanger: '#fef7e6',
   },
   dark: {
     banner: '#080b21',
@@ -85,6 +91,9 @@ export const DEFAULT_PICKS: Record<Mode, Record<PickKey, string>> = {
     banner2: '#26327a',
     iconTile: '#080b21',
     iconGlyph: '#f7c74a',
+    btnCreate: '#f0b429',
+    btnAction: '#fef7e6',
+    btnDanger: '#fef7e6',
   },
 }
 
@@ -345,6 +354,10 @@ export const PALETTE_VARS: readonly string[] = [
   '--badge-ink',
   '--icon-tile',
   '--icon-glyph',
+  '--btn-create',
+  '--btn-create-ink',
+  '--btn-action',
+  '--btn-danger',
   '--u-page',
   '--u-surface',
   '--u-sunken',
@@ -447,6 +460,15 @@ export function toCssVars(picks: Picks | undefined, mode: Mode): Record<string, 
     vars['--icon-tile'] = tile
     vars['--icon-glyph'] = withContrast(picks.iconGlyph ?? d.iconGlyph, tile, 3)
   }
+
+  // ---- banner buttons. Outlined ones are text on the banner, so 4.5:1 against
+  // every colour the banner shows; a filled one carries its own readable text.
+  if (isHex(picks.btnCreate)) {
+    vars['--btn-create'] = picks.btnCreate
+    vars['--btn-create-ink'] = inkFor(picks.btnCreate)
+  }
+  if (isHex(picks.btnAction)) vars['--btn-action'] = withContrastAll(picks.btnAction, grounds, 4.5)
+  if (isHex(picks.btnDanger)) vars['--btn-danger'] = withContrastAll(picks.btnDanger, grounds, 4.5)
 
   // ---- background depth, dark mode only
   if (mode === 'dark' && picks.depth) {

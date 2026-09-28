@@ -4,8 +4,8 @@
 --
 -- A person can recolour a short, fixed list of things for themselves: the page
 -- banners, the status set (done, in progress, late, pending), the sidebar
--- icons, progress bars and notification badges — separately for light and
--- dark. The list is fixed on purpose. Everything else keeps the design system's
+-- icons, progress bars, notification badges and the buttons on the banners —
+-- separately for light and dark. The list is fixed on purpose. Everything else keeps the design system's
 -- colours, so no choice here can break a layout.
 --
 -- Two tables, both visible to their owner only. Not columns on `profiles`:
@@ -51,7 +51,8 @@ as $$
                            or (e.value #>> '{}')::int not between 1 and 100
                          when e.key in ('banner', 'banner2', 'bannerAccent', 'success', 'warning',
                                         'danger', 'pending', 'navIcon', 'navActive', 'progress',
-                                        'badge', 'iconTile', 'iconGlyph') then
+                                        'badge', 'iconTile', 'iconGlyph', 'btnCreate',
+                                        'btnAction', 'btnDanger') then
                            jsonb_typeof(e.value) <> 'string'
                            or (e.value #>> '{}') !~ '^#[0-9a-f]{6}$'
                          else true

@@ -30,7 +30,7 @@ import {
 import type { SavedPalette } from '../../lib/api/appearance'
 
 type Slot = { key: PickKey; label: string; note: string }
-type GroupId = 'banners' | 'status' | 'sidebar' | 'progress' | 'badges' | 'icons'
+type GroupId = 'banners' | 'buttons' | 'status' | 'sidebar' | 'progress' | 'badges' | 'icons'
 
 const GROUPS: { id: GroupId; title: string; icon: IconName; blurb: string; slots: Slot[] }[] = [
   {
@@ -42,6 +42,17 @@ const GROUPS: { id: GroupId; title: string; icon: IconName; blurb: string; slots
       { key: 'banner', label: 'Background', note: 'The banner color.' },
       { key: 'banner2', label: 'Right color', note: 'Where the gradient ends.' },
       { key: 'bannerAccent', label: 'Accent', note: 'The highlighted words and the glow.' },
+    ],
+  },
+  {
+    id: 'buttons',
+    title: 'Banner buttons',
+    icon: 'plus',
+    blurb: 'The buttons on the banners, in three kinds. Their text adjusts to stay readable.',
+    slots: [
+      { key: 'btnCreate', label: 'Create', note: 'New project, Create class, Upload syllabus, Hand in the project.' },
+      { key: 'btnAction', label: 'Other actions', note: 'Edit, Report, Publish, Save as template, Join with code.' },
+      { key: 'btnDanger', label: 'Archive and delete', note: 'Archive, Delete, Empty trash, Leave group.' },
     ],
   },
   {
@@ -132,7 +143,9 @@ export function ColorCustomizer() {
   const [busy, setBusy] = useState(false)
 
   const picks: Picks = colors[editing] ?? {}
-  const full = { ...DEFAULT_PICKS[editing], ...picks }
+  // The outlined banner buttons follow the banner's text until picked, so the
+  // previews leave them unset rather than filling in a fixed default.
+  const full: Picks = { ...DEFAULT_PICKS[editing], btnAction: undefined, btnDanger: undefined, ...picks }
 
   // Save the colors in use to the account a moment after the last change, so
   // dragging the native picker or the depth slider is one write, not fifty.
@@ -261,7 +274,7 @@ export function ColorCustomizer() {
       <div className="min-w-0 flex-1">
         <h3>Your colors</h3>
         <p className="mt-1 max-w-[62ch] text-[13px] text-muted">
-          Banners, statuses, the sidebar, progress bars, badges and project icons, set apart for
+          Banners and their buttons, statuses, the sidebar, progress bars, badges and project icons, set apart for
           light and dark, plus how black dark mode goes. Only you see them.
         </p>
         <div className="mt-3 flex items-center gap-2">
@@ -807,7 +820,13 @@ function Frame({
   children: ReactNode
 }) {
   const style = useMemo(
-    () => ({ ...previewGround(mode, depth), ...toCssVars(picks, mode) }) as CSSProperties,
+    () =>
+      ({
+        ...previewGround(mode, depth),
+        '--btn-action': 'var(--banner-ink)',
+        '--btn-danger': 'var(--banner-ink)',
+        ...toCssVars(picks, mode),
+      }) as CSSProperties,
     [mode, picks, depth],
   )
   return (
@@ -852,9 +871,32 @@ function GroupPreview({ id, mode, picks, depth }: { id: GroupId; mode: Mode; pic
             Your <span className="text-banner-accent">projects.</span>
           </p>
           <p className="relative mt-0.5 text-[11.5px] text-banner-ink/60">Everything you are working on.</p>
-          <span className="relative mt-3 inline-flex h-7 items-center rounded-md border border-banner-ink/25 px-2.5 text-[11px] font-medium">
+          <span className="relative mt-3 inline-flex h-7 items-center rounded-md bg-btn-create px-2.5 text-[11px] font-medium text-btn-create-ink">
             New project
           </span>
+        </div>,
+      )
+    case 'buttons':
+      return frame(
+        'Preview of the buttons on a banner',
+        <div className="banner-fill relative overflow-hidden rounded-lg px-4 py-4 text-banner-ink">
+          <p className="relative font-display text-[15px] font-semibold">
+            Capstone <span className="text-banner-accent">project.</span>
+          </p>
+          <div className="relative mt-3 flex flex-wrap gap-1.5 text-[11px] font-medium">
+            <span className="inline-flex h-7 items-center gap-1 rounded-md bg-btn-create px-2.5 text-btn-create-ink">
+              <Icon name="plus" size={12} />
+              New project
+            </span>
+            <span className="inline-flex h-7 items-center gap-1 rounded-md border border-btn-action/25 px-2.5 text-btn-action">
+              <Icon name="chart" size={12} />
+              Report
+            </span>
+            <span className="inline-flex h-7 items-center gap-1 rounded-md border border-btn-danger/25 px-2.5 text-btn-danger">
+              <Icon name="archive" size={12} />
+              Archive
+            </span>
+          </div>
         </div>,
       )
     case 'status':

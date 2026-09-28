@@ -49,7 +49,7 @@ export default function StudentClasses() {
         accent="shared rhythm."
         description="Move from announcements to projects and group work without losing the class, term or people each decision belongs to."
         action={
-          <Button variant="accent" onClick={() => setJoinOpen(true)}>
+          <Button variant="create" onClick={() => setJoinOpen(true)}>
             <Icon name="plus" size={17} />
             Join a class
           </Button>

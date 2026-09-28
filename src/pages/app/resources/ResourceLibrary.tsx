@@ -174,7 +174,7 @@ export function ResourceLibrary({
           accent={`${kind === 'syllabus' ? 'syllabi' : 'curricula'}, shared.`}
           description={copy.intro}
           action={
-            <Button variant="onNavy" size="sm" onClick={() => setAddOpen(true)} className="!rounded-lg">
+            <Button variant="create" size="sm" onClick={() => setAddOpen(true)} className="!rounded-lg">
               <Icon name="plus" size={16} />
               {copy.addLabel}
             </Button>
@@ -187,7 +187,7 @@ export function ResourceLibrary({
           description={copy.intro}
           action={
             <Button
-              variant="onNavy"
+              variant="create"
               size="sm"
               onClick={() => setAddOpen(true)}
               className="!rounded-lg"

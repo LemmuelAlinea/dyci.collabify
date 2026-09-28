@@ -63,11 +63,7 @@ export default function Messages() {
         description="Invitations waiting for your answer, and every class, group, project and direct chat, in one place."
         action={
           canStartMessages ? (
-            <Button
-              variant="onNavy"
-              onClick={() => setNewOpen(true)}
-              className="!border-amber-50/20 !bg-amber-50/10 !text-amber-50 hover:!bg-amber-50/16"
-            >
+            <Button variant="create" onClick={() => setNewOpen(true)}>
               <Icon name="plus" size={17} />
               New message
             </Button>

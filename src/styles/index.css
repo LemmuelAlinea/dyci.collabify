@@ -225,6 +225,10 @@
   --color-badge-ink: var(--badge-ink);
   --color-icon-tile: var(--icon-tile);
   --color-icon-glyph: var(--icon-glyph);
+  --color-btn-create: var(--btn-create);
+  --color-btn-create-ink: var(--btn-create-ink);
+  --color-btn-action: var(--btn-action);
+  --color-btn-danger: var(--btn-danger);
 }
 
 /* Semantic surface tokens. Every component reads these, never raw ramp stops,
@@ -273,6 +277,13 @@
     --badge-ink: #101637;
     --icon-tile: #080b21;
     --icon-glyph: #f7c74a;
+    /* The buttons on a banner: filled create steps, outlined everyday actions,
+       outlined archive and delete. The outlined two follow the banner's text
+       until someone picks a colour for them. */
+    --btn-create: #f0b429;
+    --btn-create-ink: #101637;
+    --btn-action: var(--banner-ink);
+    --btn-danger: var(--banner-ink);
   }
 
   .dark {

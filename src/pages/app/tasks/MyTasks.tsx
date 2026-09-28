@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
+import { ButtonLink } from '../../../components/ui/Button'
 import { Reveal } from '../../../components/motion/Reveal'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { MyTasksPanel } from '../../../components/general/DashboardPanels'
@@ -231,13 +232,10 @@ export default function MyTasks() {
         description="What you have taken on across every project, ordered by what needs you first."
         action={
           isStudent ? (
-            <Link
-              to={paths.classProjects}
-              className="inline-flex items-center gap-2 rounded-lg border border-amber-50/20 bg-amber-50/8 px-4 py-2.5 text-[13px] font-medium text-amber-50 transition-colors hover:bg-amber-50/14"
-            >
+            <ButtonLink variant="onNavy" size="sm" to={paths.classProjects}>
               Find work on project boards
               <Icon name="arrowRight" size={14} />
-            </Link>
+            </ButtonLink>
           ) : undefined
         }
       />

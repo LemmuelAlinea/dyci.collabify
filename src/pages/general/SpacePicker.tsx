@@ -98,7 +98,7 @@ export default function SpacePicker() {
         }
         action={!viewingArchived && faculty ? (
           <div className="flex flex-wrap gap-2">
-            <Button variant="accent" onClick={() => setNewOpen(true)}>
+            <Button variant="create" onClick={() => setNewOpen(true)}>
               <Icon name="plus" size={17} />
               Create space
             </Button>

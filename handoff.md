@@ -1831,3 +1831,21 @@ user's request, teachers no longer see a board's Files.
 - Teachers still see what is handed in (submissions, verdicts, tasks), just not the
   working files.
 - `class-files.test.sql` is updated: 21 PASS.
+
+**Change (2026-09-28, late): banner buttons are recolourable.** Settings → Appearance →
+Your colors has a new "Banner buttons" group under Page banners, with three slots:
+- `btnCreate` (filled): New project, Create class/space, Join a class, Upload syllabus,
+  Add a section, Send a notice, New message, Hand in the project, Join this group.
+- `btnAction` (outlined): Edit, Publish, Deadline, Close, Report, Project archive, Save as
+  template, Join with code, Back to projects, Find work, Take it back, Member limit.
+- `btnDanger` (outlined): Archive (project, space, group), Delete, Empty trash, Leave group.
+  A button that reads Restore uses `btnAction`.
+
+Button variants: `create`, `onNavy` (now reads `--btn-action`) and `destroy`. `accent` is
+unchanged and stays on the auth pages. The hardcoded white or amber banner links in
+`GeneralProject`, `SpaceArchive`, `MyTasks` and `Messages` now use these variants.
+Defaults: create is amber, the outlined two follow `--banner-ink`. Outlined picks are pushed
+to 4.5:1 against the banner; the create fill gets `inkFor` text. `appearance.sql` accepts
+the three keys (applied live, `appearance.test.sql` 28 PASS). New default look: Upload
+syllabus, Add a section, Send a notice and New message are now filled. The trash-icon
+deletes no longer hover red; they follow `btnDanger`.
