@@ -26,8 +26,12 @@ export function ClassGroupsTab({
   const [wizardOpen, setWizardOpen] = useState(false)
   const [deleting, setDeleting] = useState<GroupSet | null>(null)
   const [boundProjects, setBoundProjects] = useState(0)
+  // Keyed on the id, like the projects tab: the class page refetches its class
+  // on every live refresh.
+  const classId = cls.id
+  const ids = useMemo(() => [{ id: classId }], [classId])
   const classes = useMemo(() => [cls], [cls])
-  const { sets, groups, members, loading, error, reload } = useGroupsData(classes)
+  const { sets, groups, members, loading, error, reload } = useGroupsData(ids)
 
   const canManage = role === 'professor' && !cls.archived_at
 

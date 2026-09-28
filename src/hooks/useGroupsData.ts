@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLive } from './useLive'
 import { listGroupMembers, listGroups, listSetsForClasses } from '../lib/api/groups'
 import { authErrorMessage } from '../lib/authError'
@@ -12,16 +12,21 @@ import type { ClassSummary, GroupMember, GroupSet, GroupSummary } from '../lib/t
  * the same query with the filter flipped, so the two views cannot drift into
  * showing different shapes of the same card.
  */
-export function useGroupsData(classes: ClassSummary[] | null, archived = false) {
+export function useGroupsData(classes: Pick<ClassSummary, 'id'>[] | null, archived = false) {
   const [sets, setSets] = useState<GroupSet[]>([])
   const [groups, setGroups] = useState<GroupSummary[]>([])
   const [members, setMembers] = useState<GroupMember[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Loading shows on the first load and when switching shelves, not on a live
+  // refresh: swapping to the spinner then unmounted any dialog open over the
+  // list. Same fix as useProjectsData.
+  const shownShelf = useRef<boolean | null>(null)
+
   const load = useCallback(async () => {
     if (!classes) return
-    setLoading(true)
+    if (shownShelf.current !== archived) setLoading(true)
     try {
       const classIds = classes.map((c) => c.id)
       const loadedSets = await listSetsForClasses(classIds)
@@ -34,6 +39,7 @@ export function useGroupsData(classes: ClassSummary[] | null, archived = false) 
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load groups.'))
     } finally {
+      shownShelf.current = archived
       setLoading(false)
     }
   }, [classes, archived])

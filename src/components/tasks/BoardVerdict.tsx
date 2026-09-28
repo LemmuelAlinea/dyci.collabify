@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLive } from '../../hooks/useLive'
 import { Button } from '../ui/Button'
 import { Field } from '../ui/Field'
@@ -49,13 +49,17 @@ export function BoardVerdict({
   const [error, setError] = useState<string | null>(null)
   const [details, setDetails] = useState(false)
 
+  // Only a board's first load blanks the panel. A live refresh must not swap a
+  // note being typed for a spinner.
+  const shownFor = useRef<string | null>(null)
   const load = useCallback(async () => {
-    setLoading(true)
+    if (shownFor.current !== board.id) setLoading(true)
     try {
       setResult(await boardResult(board.id))
     } catch {
       setResult(null)
     } finally {
+      shownFor.current = board.id
       setLoading(false)
     }
   }, [board.id])
