@@ -292,7 +292,9 @@ function Body({
       {file.kind === 'rich' && (
         <RichEditor value={text} onChange={setText} readOnly={frozen} />
       )}
-      {file.kind === 'sheet' && <SheetEditor workbook={book} onChange={setBook} readOnly={frozen} />}
+      {file.kind === 'sheet' && (
+        <SheetEditor workbook={book} onChange={setBook} readOnly={frozen} projectId={state.project?.id} />
+      )}
       {file.kind === 'text' && !misreadOfficeFile && (
         <Field label="Contents">
           {(id) => (
