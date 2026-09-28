@@ -7,6 +7,7 @@ import { TaskViewSwitch } from '../tasks/TaskViewSwitch'
 import type { TaskView } from '../tasks/TaskViewSwitch'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
+import { TasksFromNotes } from './TasksFromNotes'
 import { EmptyState } from '../ui/EmptyState'
 import { Field, Input } from '../ui/Field'
 import { FilterField, FilterPopover, FilterSearch } from '../ui/FilterPopover'
@@ -59,6 +60,7 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
   const [assignee, setAssignee] = useState('')
   const [status, setStatus] = useState<GeneralTaskStatus | ''>('')
   const [creating, setCreating] = useState(false)
+  const [fromNotes, setFromNotes] = useState(false)
 
   const openTask = params.get('task')
   const showTask = (id: string | null) => {
@@ -192,10 +194,16 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
             )}
           </p>
           {!state.archived && (
-            <Button size="sm" className="!rounded-lg" onClick={() => setCreating(true)}>
-              <Icon name="plus" size={15} />
-              Add task
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setFromNotes(true)}>
+                <Icon name="spark" size={15} />
+                From notes
+              </Button>
+              <Button size="sm" className="!rounded-lg" onClick={() => setCreating(true)}>
+                <Icon name="plus" size={15} />
+                Add task
+              </Button>
+            </div>
           )}
         </div>
       )}
@@ -207,9 +215,15 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
           body="Break the project into pieces somebody can pick up. Anyone on the project can add one."
           action={
             !state.archived ? (
-              <Button className="!rounded-xl" onClick={() => setCreating(true)}>
-                Add the first task
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button className="!rounded-xl" onClick={() => setCreating(true)}>
+                  Add the first task
+                </Button>
+                <Button variant="outline" className="!rounded-xl" onClick={() => setFromNotes(true)}>
+                  <Icon name="spark" size={15} />
+                  Draft from notes
+                </Button>
+              </div>
             ) : undefined
           }
         />
@@ -252,6 +266,7 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
       )}
 
       <NewTaskDialog open={creating} onClose={() => setCreating(false)} state={state} onCreated={showTask} />
+      <TasksFromNotes open={fromNotes} onClose={() => setFromNotes(false)} state={state} />
       <TaskDialog state={state} taskId={openTask} onClose={() => showTask(null)} />
     </div>
   )

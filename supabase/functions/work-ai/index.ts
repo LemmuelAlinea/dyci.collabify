@@ -147,12 +147,8 @@ async function mainFiles(ctx: Ctx) {
 }
 
 async function tasksAction(ctx: Ctx) {
-  const { data: allowed } = await ctx.caller.rpc('general_can', {
-    p_project: ctx.projectId,
-    p_permission: 'manage_tasks',
-  })
-  if (!allowed) throw new Refused('Only someone who can manage tasks here can draft them.', 403)
-
+  // Anyone on a project may add tasks, so anyone may draft them. Putting
+  // somebody else on one is still checked when the task is saved.
   let source = String(ctx.body.text ?? '').trim()
   const path = String(ctx.body.path ?? '')
   if (path) {
