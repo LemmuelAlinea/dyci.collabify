@@ -14,6 +14,7 @@ export function RandomPreview({
   onCountChange,
   onLimitChange,
   onShuffle,
+  spreading = false,
 }: {
   students: PickableStudent[]
   groupCount: number
@@ -22,6 +23,8 @@ export function RandomPreview({
   onCountChange: (n: number) => void
   onLimitChange: (n: number) => void
   onShuffle: () => void
+  /** The class has earlier groups, so the shuffle keeps past groupmates apart. */
+  spreading?: boolean
 }) {
   const capacity = groupCount * limit
   const tooSmall = capacity < students.length
@@ -58,6 +61,7 @@ export function RandomPreview({
       <p className="text-[13px] text-muted">
         {students.length} student{students.length === 1 ? '' : 's'} in this class · room for{' '}
         {capacity}
+        {spreading && ' · keeps apart students who were grouped together before'}
       </p>
 
       {tooSmall && (

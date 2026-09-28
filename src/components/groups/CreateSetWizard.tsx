@@ -10,7 +10,8 @@ import { ManualBuilder } from './ManualBuilder'
 import type { Draft } from './ManualBuilder'
 import { RandomPreview } from './RandomPreview'
 import { listMembers } from '../../lib/api/classes'
-import { createSet, saveArrangement, shuffleIntoGroups } from '../../lib/api/groups'
+import { createSet, pastGroupmates, saveArrangement } from '../../lib/api/groups'
+import { spreadIntoGroups } from '../../lib/grouping'
 import type { PickableStudent } from '../../lib/api/groups'
 import { authErrorMessage } from '../../lib/authError'
 import { GROUPING_MODES } from '../../lib/types'
@@ -75,6 +76,20 @@ export function CreateSetWizard({
     }
   }, [open, classId])
 
+  // Pairs from this class's earlier sets. A failed read only means a plain
+  // shuffle, so it is not worth an error.
+  const [pairs, setPairs] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    if (!open || !classId) return setPairs(new Set())
+    let live = true
+    void pastGroupmates(classId)
+      .then((p) => live && setPairs(p))
+      .catch(() => live && setPairs(new Set()))
+    return () => {
+      live = false
+    }
+  }, [open, classId])
+
   const suggestedCount = useMemo(
     () => Math.max(1, Math.ceil(students.length / Math.max(1, limit))),
     [students.length, limit],
@@ -100,7 +115,7 @@ export function CreateSetWizard({
   }
 
   function shuffle() {
-    const buckets = shuffleIntoGroups(students, groupCount)
+    const buckets = spreadIntoGroups(students, groupCount, (s) => s.id, pairs)
     setDrafts(
       buckets.map((bucket, i) => ({
         name: `Group ${i + 1}`,
@@ -278,6 +293,7 @@ export function CreateSetWizard({
           onCountChange={setGroupCount}
           onLimitChange={setLimit}
           onShuffle={shuffle}
+          spreading={pairs.size > 0}
         />
       ) : (
         <div className="space-y-4">

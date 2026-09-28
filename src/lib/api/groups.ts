@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import { byLastName } from '../types'
+import { pastPairs } from '../grouping'
 import type {
   GroupMember,
   GroupSet,
@@ -44,6 +45,21 @@ export async function listLiveSets(classIds: string[]) {
       }
     })
     .filter((s) => s.group_count > 0)
+}
+
+/**
+ * Who has been in a group with whom in this class's earlier sets, archived
+ * groups included, so a random shuffle can keep them apart.
+ */
+export async function pastGroupmates(classId: string) {
+  const sets = await listSetsForClasses([classId])
+  if (sets.length === 0) return new Set<string>()
+  const { data, error } = await supabase
+    .from('group_members')
+    .select('group_id, student_id')
+    .in('set_id', sets.map((s) => s.id))
+  if (error) throw error
+  return pastPairs((data ?? []) as { group_id: string; student_id: string }[])
 }
 
 /** How many projects still point at this set — checked before deleting it. */
@@ -279,23 +295,6 @@ export const JOIN_GROUP_MESSAGE: Record<Exclude<JoinGroupResult, 'joined'>, stri
   not_in_class: 'You are not in the class this group belongs to.',
   not_found: 'That group no longer exists.',
   not_signed_in: 'Sign in first, then try again.',
-}
-
-/* ------------------------------------------------------------- shuffling */
-
-/**
- * Fisher–Yates, then deal round-robin so sizes stay within one of each other.
- * Pure and synchronous — the preview reshuffles without touching the database.
- */
-export function shuffleIntoGroups<T>(students: T[], groupCount: number): T[][] {
-  const pool = [...students]
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[pool[i], pool[j]] = [pool[j], pool[i]]
-  }
-  const buckets: T[][] = Array.from({ length: Math.max(1, groupCount) }, () => [])
-  pool.forEach((s, i) => buckets[i % buckets.length].push(s))
-  return buckets
 }
 
 export type PickableStudent = Pick<
