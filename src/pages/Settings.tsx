@@ -66,7 +66,7 @@ const NOTIFICATIONS: NotificationRow[] = [
   {
     key: 'deadline_reminders',
     label: () => 'Deadline reminders',
-    body: () => 'One nudge the day before a task you hold is due. Never twice for the same task.',
+    body: () => 'One nudge the day before a task you hold is due, and one if it slips past its date.',
     shown: inSomething,
   },
   {

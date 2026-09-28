@@ -167,6 +167,7 @@ export type AppNotification = {
     | 'reassign_decided'
     | 'result_recorded'
     | 'deadline_soon'
+    | 'task_overdue'
     | 'comment_posted'
     | 'weekly_digest'
     | 'term_shifted'
