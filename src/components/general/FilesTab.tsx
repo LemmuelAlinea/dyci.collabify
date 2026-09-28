@@ -23,8 +23,10 @@ import {
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { groupChanges } from '../../lib/general/review'
-import { KEEP, buildTree, fileText, flatFiles, folderOf, isKeep, joinPath, nodesAt, shownFiles } from '../../lib/general/files'
+import { KEEP, buildTree, fileName, fileText, flatFiles, folderOf, isKeep, joinPath, nodesAt, shownFiles } from '../../lib/general/files'
 import { LAYOUTS, suggestedLayout } from '../../lib/general/starterFolders'
+import { filesUnder, zipFolder } from '../../lib/general/zipFolder'
+import { downloadBlob } from '../../lib/general/office'
 import type { TreeNode } from '../../lib/general/files'
 import { matches } from '../../lib/general/search'
 import { FILE_ACTION_LABEL, FILE_KIND_LABEL } from '../../lib/general/types'
@@ -330,6 +332,40 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   )
 }
 
+/* --------------------------------------------------------------------- zip */
+
+/** Download the folder on screen, or all of Main at the top, as one .zip. */
+function ZipButton({ tree, path, project }: { tree: GeneralTreeFile[]; path: string; project: string }) {
+  const { show } = useToast()
+  const [progress, setProgress] = useState<string | null>(null)
+  const count = filesUnder(tree, path).length
+  if (count === 0) return null
+  const name = `${(path ? fileName(path) : project).replace(/[\/:*?"<>|]+/g, ' ').trim() || 'Files'}.zip`
+
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      loading={progress !== null}
+      aria-label={path ? `Download ${fileName(path)} as a zip` : 'Download all of Main as a zip'}
+      onClick={async () => {
+        setProgress(`0/${count}`)
+        try {
+          const blob = await zipFolder(tree, path, (done, total) => setProgress(`${done}/${total}`))
+          downloadBlob(blob, name)
+        } catch (err) {
+          show(authErrorMessage(err, 'Could not build the zip. Try again in a moment.'), 'error')
+        } finally {
+          setProgress(null)
+        }
+      }}
+    >
+      {progress === null && <Icon name="download" size={14} />}
+      {progress === null ? (path ? 'Download' : 'Download all') : `Zipping ${progress}`}
+    </Button>
+  )
+}
+
 /* ------------------------------------------------------------------- start */
 
 /**
@@ -530,12 +566,15 @@ function MainView({
         path={path}
         onNavigate={onNavigate}
         actions={
-          path && !state.archived ? (
-            <Button size="sm" variant="ghost" onClick={() => onRename(path)}>
-              <Icon name="edit" size={14} />
-              Rename
-            </Button>
-          ) : undefined
+          <>
+            <ZipButton tree={tree} path={path} project={state.project?.name ?? 'Files'} />
+            {path && !state.archived && (
+              <Button size="sm" variant="ghost" onClick={() => onRename(path)}>
+                <Icon name="edit" size={14} />
+                Rename
+              </Button>
+            )}
+          </>
         }
       />
       <p className="text-[12px] text-muted">Everything the project holds as of commit {repo.commit_count}.</p>
