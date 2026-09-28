@@ -1918,3 +1918,7 @@ Verified: 201 events, no errors, 1.8ms each.
 
 Testing note: the Browser pane's page can report `document.hidden`. rAF and blur don't fire
 then, so restore a test colour with a swatch click, not the hex box.
+
+**Change (2026-09-29): Classes shows three in the rail too.** `spaceRows.ts` has one
+`CAP = 3` for Classes, Spaces and Projects. `PROJECT_CAP` is kept as an export for
+`SideNav`.

@@ -3,13 +3,9 @@ import { paths } from '../../lib/paths'
 
 export type LiveRow = { id: string; name: string; to: string; tone?: 'education' | 'work' }
 
-/**
- * How many rows a section shows; the rest are one click away behind the
- * header's All link. Classes keep two, Spaces and Projects three.
- */
-const CLASS_CAP = 2
-export const SPACE_CAP = 3
-export const PROJECT_CAP = 3
+/** Three rows per section: the rest are one click away behind the header's All link. */
+const CAP = 3
+export const PROJECT_CAP = CAP
 
 function mine(spaces: GeneralSpaceSummary[], kind: GeneralSpaceSummary['kind']) {
   return spaces
@@ -24,7 +20,7 @@ function mine(spaces: GeneralSpaceSummary[], kind: GeneralSpaceSummary['kind']) 
  * no page to open and is dropped rather than linked to `/classes/<spaceId>`,
  * which does not exist.
  */
-export function classRows(spaces: GeneralSpaceSummary[], cap = CLASS_CAP): LiveRow[] {
+export function classRows(spaces: GeneralSpaceSummary[], cap = CAP): LiveRow[] {
   return mine(spaces, 'education')
     .filter((space) => space.class_id)
     .slice(0, cap)
@@ -38,11 +34,11 @@ export function classRows(spaces: GeneralSpaceSummary[], cap = CLASS_CAP): LiveR
 export function spaceAndClassRows(spaces: GeneralSpaceSummary[]): LiveRow[] {
   return [...classRows(spaces, Infinity), ...workSpaceRows(spaces, Infinity)]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .slice(0, SPACE_CAP)
+    .slice(0, CAP)
 }
 
 /** Your work spaces, as rows for the rail's Spaces section. */
-export function workSpaceRows(spaces: GeneralSpaceSummary[], cap = SPACE_CAP): LiveRow[] {
+export function workSpaceRows(spaces: GeneralSpaceSummary[], cap = CAP): LiveRow[] {
   return mine(spaces, 'work')
     .slice(0, cap)
     .map((space) => ({ id: space.id, name: space.name, to: paths.space(space.id), tone: 'work' }))

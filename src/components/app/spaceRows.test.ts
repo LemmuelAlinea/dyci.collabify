@@ -43,13 +43,13 @@ describe('classRows', () => {
     expect(rows[0]).toMatchObject({ to: '/classes/class-1', tone: 'education' })
   })
 
-  it('sorts by name and caps at two', () => {
+  it('sorts by name and caps at three', () => {
     const rows = classRows(
       Array.from({ length: 10 }, (_, i) =>
         space({ id: `c${9 - i}`, kind: 'education', class_id: `c${i}`, name: `Class ${9 - i}` }),
       ),
     )
-    expect(rows.map((r) => r.id)).toEqual(['c0', 'c1'])
+    expect(rows.map((r) => r.id)).toEqual(['c0', 'c1', 'c2'])
   })
 })
 
