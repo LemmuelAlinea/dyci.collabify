@@ -15,8 +15,11 @@ const BASE =
   'active:scale-[0.98] disabled:pointer-events-none disabled:opacity-55'
 
 const VARIANTS: Record<Variant, string> = {
+  // A page's main step — Save, Create, Send — wears the same colour as the
+  // Create button on the banners, so the person's pick in Settings →
+  // Appearance reaches every one of them.
   primary:
-    'bg-navy-600 text-white hover:bg-navy-500 shadow-[0_6px_18px_-6px_rgba(38,50,122,0.65)] dark:bg-navy-500 dark:hover:bg-navy-400',
+    'bg-btn-create text-btn-create-ink hover:brightness-110 shadow-[0_6px_18px_-6px_color-mix(in_oklab,var(--btn-create)_70%,transparent)]',
   accent:
     'bg-amber-400 text-navy-900 hover:bg-amber-300 shadow-[0_6px_18px_-6px_rgba(240,180,41,0.8)]',
   outline:

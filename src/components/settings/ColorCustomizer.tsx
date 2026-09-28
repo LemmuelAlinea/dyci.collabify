@@ -46,13 +46,13 @@ const GROUPS: { id: GroupId; title: string; icon: IconName; blurb: string; slots
   },
   {
     id: 'buttons',
-    title: 'Banner buttons',
+    title: 'Buttons',
     icon: 'plus',
-    blurb: 'The buttons on the banners, in three kinds. Their text adjusts to stay readable.',
+    blurb: 'Create and save buttons everywhere, and the other buttons on the banners. Their text adjusts to stay readable.',
     slots: [
-      { key: 'btnCreate', label: 'Create', note: 'New project, Create class, Upload syllabus, Hand in the project.' },
-      { key: 'btnAction', label: 'Other actions', note: 'Edit, Report, Publish, Save as template, Join with code.' },
-      { key: 'btnDanger', label: 'Archive and delete', note: 'Archive, Delete, Empty trash, Leave group.' },
+      { key: 'btnCreate', label: 'Create and save', note: 'New project, Create class, Save changes, and every main button in a dialog.' },
+      { key: 'btnAction', label: 'Other banner actions', note: 'Edit, Report, Publish, Save as template, Join with code.' },
+      { key: 'btnDanger', label: 'Banner archive and delete', note: 'Archive, Delete, Empty trash, Leave group.' },
     ],
   },
   {

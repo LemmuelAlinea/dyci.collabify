@@ -1880,3 +1880,9 @@ limit, Archive/Restore, Delete) and the space banner (Archive/Restore, Delete).
 primary actions (New project, Hand in the project, Join this group) keep their text.
 Icons: `archive` is now a filing cabinet, since the lidded box read as the bin. New
 `history` icon for "Project archive", so the two archive buttons differ.
+
+**Change (2026-09-28, late): main buttons wear the Create colour.** `Button`'s `primary`
+variant (Save, Create, Send and every default main button in dialogs and Settings) now reads
+`--btn-create` / `--btn-create-ink`, like the banner `create` variant. So the default is
+amber with navy text, and a person's Create pick reaches all of them. `accent` (auth pages)
+is unchanged. In Your colors, the group is renamed "Buttons" and the slot "Create and save".
