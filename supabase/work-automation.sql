@@ -4,9 +4,21 @@
 --
 --   general_project_visits   when each person last opened each work project,
 --                            so the overview can say what changed since
+--   draft_waiting (cron)     draft changes nobody has touched or submitted
+--                            for three days get their owner one reminder
 --
 -- Runs after automation.sql, before anon-lockdown.sql. Re-run anon-lockdown.sql
--- after it. Idempotent. Safe to re-run.
+-- after it. Two transactions: a new enum value cannot be used in the one that
+-- added it. Idempotent. Safe to re-run.
+
+begin;
+
+do $$
+begin
+  alter type public.notification_type add value if not exists 'draft_waiting';
+end $$;
+
+commit;
 
 begin;
 
@@ -144,5 +156,71 @@ end;
 $$;
 
 grant execute on function public.general_since_last_visit(uuid) to authenticated;
+
+-- ------------------------------------------------------ waiting drafts
+
+/**
+ * Work in somebody's draft is invisible to the rest of the group until it is
+ * submitted, and a draft that sits for days is usually forgotten rather than
+ * unfinished. One reminder per stretch of quiet: not again until the draft is
+ * touched and then goes quiet again.
+ *
+ * Only live files (not archived, not trashed) in a live project the person is
+ * still on. Governed by `deadline_reminders`, the switch for nudges from the
+ * clock.
+ */
+create or replace function public.send_draft_reminders()
+returns integer language plpgsql security definer set search_path = public as $$
+declare
+  sent integer;
+begin
+  with waiting as (
+    select d.user_id, d.project_id, count(*)::int as files, max(f.updated_at) as last_touched
+      from public.general_drafts d
+      join public.general_draft_files f on f.draft_id = d.id
+     where f.archived_at is null
+       and f.trashed_at is null
+     group by d.user_id, d.project_id
+    having max(f.updated_at) < now() - interval '3 days'
+  )
+  insert into public.notifications (user_id, type, general_project_id, title, preview)
+  select w.user_id, 'draft_waiting', w.project_id, p.name,
+         w.files || case when w.files = 1 then ' file has' else ' files have' end
+           || ' waited in your draft since '
+           || to_char(w.last_touched at time zone 'Asia/Manila', 'FMMon FMDD')
+           || '. The group sees them once you submit them for review.'
+    from waiting w
+    join public.general_projects p on p.id = w.project_id
+    join public.general_members m on m.project_id = w.project_id and m.user_id = w.user_id
+    join public.notification_prefs np on np.user_id = w.user_id
+   where p.archived_at is null
+     and np.deadline_reminders
+     and not exists (
+       select 1 from public.notifications n
+        where n.user_id = w.user_id
+          and n.general_project_id = w.project_id
+          and n.type = 'draft_waiting'
+          and n.created_at > w.last_touched
+     );
+  get diagnostics sent = row_count;
+  return sent;
+end;
+$$;
+
+revoke all on function public.send_draft_reminders() from public, anon, authenticated;
+
+create extension if not exists pg_cron;
+
+do $$
+begin
+  perform cron.unschedule('collabify-draft-reminders');
+exception when others then null; end $$;
+
+-- Daily, 01:00 UTC = 9:00 in Manila.
+select cron.schedule(
+  'collabify-draft-reminders',
+  '0 1 * * *',
+  $cron$ select public.send_draft_reminders() $cron$
+);
 
 commit;

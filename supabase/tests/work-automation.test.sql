@@ -126,4 +126,55 @@ begin
              and policyname = 'general_project_visits_own'));
 end $$;
 
+-- --------------------------------------------------------- waiting drafts
+
+do $$
+declare
+  v_repo uuid; v_proj uuid; v_user uuid; v_draft uuid; n int;
+begin
+  -- A member of a project that has Files, with no draft there yet.
+  select r.id, r.project_id, m.user_id into v_repo, v_proj, v_user
+    from public.general_repos r
+    join public.general_projects p on p.id = r.project_id and p.archived_at is null
+    join public.general_members m on m.project_id = r.project_id
+    join public.profiles pr on pr.id = m.user_id and pr.status = 'active'
+   where not exists (select 1 from public.general_drafts d where d.repo_id = r.id and d.user_id = m.user_id)
+   limit 1;
+
+  alter table public.general_drafts disable trigger user;
+  insert into public.general_drafts (repo_id, project_id, user_id, base_seq)
+  values (v_repo, v_proj, v_user, 0) returning id into v_draft;
+  alter table public.general_drafts enable trigger user;
+  alter table public.general_draft_files disable trigger user;
+  insert into public.general_draft_files (draft_id, project_id, path, action, kind, content, updated_at)
+  values (v_draft, v_proj, 'zz/forgotten.txt', 'added', 'text', 'x', now() - interval '4 days');
+  alter table public.general_draft_files enable trigger user;
+  update public.notification_prefs set deadline_reminders = true where user_id = v_user;
+
+  perform public.send_draft_reminders();
+  select count(*) into n from public.notifications
+   where user_id = v_user and general_project_id = v_proj and type = 'draft_waiting';
+  perform pg_temp.must_be('a draft quiet for four days gets a reminder', n = 1);
+
+  perform public.send_draft_reminders();
+  select count(*) into n from public.notifications
+   where user_id = v_user and general_project_id = v_proj and type = 'draft_waiting';
+  perform pg_temp.must_be('...once', n = 1);
+
+  -- Touched yesterday: too soon.
+  delete from public.notifications where user_id = v_user and type = 'draft_waiting';
+  alter table public.general_draft_files disable trigger user;
+  update public.general_draft_files set updated_at = now() - interval '1 day' where draft_id = v_draft;
+  alter table public.general_draft_files enable trigger user;
+  perform public.send_draft_reminders();
+  select count(*) into n from public.notifications
+   where user_id = v_user and general_project_id = v_proj and type = 'draft_waiting';
+  perform pg_temp.must_be('a draft touched yesterday is left alone', n = 0);
+
+  perform pg_temp.must_be('signed-in users cannot run the draft job',
+    not has_function_privilege('authenticated', 'public.send_draft_reminders()', 'execute'));
+  perform pg_temp.must_be('the draft job is scheduled',
+    exists (select 1 from cron.job where jobname = 'collabify-draft-reminders'));
+end $$;
+
 rollback;

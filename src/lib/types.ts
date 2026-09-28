@@ -169,6 +169,7 @@ export type AppNotification = {
     | 'deadline_soon'
     | 'task_overdue'
     | 'nudge'
+    | 'draft_waiting'
     | 'comment_posted'
     | 'weekly_digest'
     | 'term_shifted'
