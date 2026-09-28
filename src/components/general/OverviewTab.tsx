@@ -8,13 +8,7 @@ import { Field, Input } from '../ui/Field'
 import { Icon } from '../ui/Icon'
 import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
-import {
-  clearFieldValue,
-  deleteField,
-  setFieldValue,
-  updateField,
-  updateGeneralProject,
-} from '../../lib/api/general'
+import { clearFieldValue, deleteField, setFieldValue, updateField, updateGeneralProject } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
 import { checkFieldValue, formatFieldValue, isEmptyValue } from '../../lib/general/fields'
@@ -26,8 +20,17 @@ import { FieldInput } from './FieldInput'
 import { RequestAccessButton } from './RequestAccessButton'
 import type { GeneralProjectState } from './useGeneralProject'
 
+/**
+ * Details and Fields read as plain text for everyone. Whoever may edit the
+ * project opens one section at a time with its Edit button, and saving or
+ * cancelling puts it back.
+ */
 export function OverviewTab({ state }: { state: GeneralProjectState }) {
   const editable = state.can('edit_project')
+  const [editing, setEditing] = useState(false)
+  // Losing the permission mid-edit (an Owner takes it back) closes the form.
+  const open = editable && editing
+
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">
       <section className="rounded-panel border border-line surface p-4 sm:p-5">
@@ -36,13 +39,26 @@ export function OverviewTab({ state }: { state: GeneralProjectState }) {
             <h2>Details</h2>
             <p className="mt-0.5 text-[12px] text-muted">What every project has.</p>
           </div>
-          {!editable && <RequestAccessButton state={state} permission="edit_project" />}
+          {!editable ? (
+            <RequestAccessButton state={state} permission="edit_project" />
+          ) : (
+            !open && <EditButton label="Edit details" onClick={() => setEditing(true)} />
+          )}
         </header>
-        {editable ? <DetailsForm state={state} /> : <DetailsView state={state} />}
+        {open ? <DetailsForm state={state} onDone={() => setEditing(false)} /> : <DetailsView state={state} />}
       </section>
 
       <FieldsPanel state={state} />
     </div>
+  )
+}
+
+function EditButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <Button size="sm" variant="outline" onClick={onClick} aria-label={label}>
+      <Icon name="edit" size={14} />
+      Edit
+    </Button>
   )
 }
 
@@ -61,9 +77,7 @@ function DetailsView({ state }: { state: GeneralProjectState }) {
       </div>
       <div>
         <dt className="text-[12px] text-faint">Progress</dt>
-        <dd className="text-ink">
-          {p.points_enabled ? 'Tasks carry points' : 'Every task counts the same'}
-        </dd>
+        <dd className="text-ink">{p.points_enabled ? 'Tasks carry points' : 'Every task counts the same'}</dd>
       </div>
       <div>
         <dt className="text-[12px] text-faint">About</dt>
@@ -73,7 +87,7 @@ function DetailsView({ state }: { state: GeneralProjectState }) {
   )
 }
 
-function DetailsForm({ state }: { state: GeneralProjectState }) {
+function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: () => void }) {
   const { show } = useToast()
   const p = state.project
   const [name, setName] = useState('')
@@ -117,6 +131,7 @@ function DetailsForm({ state }: { state: GeneralProjectState }) {
       })
       show('Project saved')
       await state.reload()
+      onDone()
     } catch (err) {
       setError(authErrorMessage(err, 'Could not save the project.'))
     } finally {
@@ -128,9 +143,7 @@ function DetailsForm({ state }: { state: GeneralProjectState }) {
     <div className="space-y-4">
       {error && <Alert tone="error">{error}</Alert>}
       <Field label="Name">
-        {(id) => (
-          <Input id={id} maxLength={LIMIT.generalName} value={name} onChange={(e) => setName(e.target.value)} />
-        )}
+        {(id) => <Input id={id} maxLength={LIMIT.generalName} value={name} onChange={(e) => setName(e.target.value)} />}
       </Field>
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Status">
@@ -170,7 +183,10 @@ function DetailsForm({ state }: { state: GeneralProjectState }) {
           </span>
         </span>
       </label>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" onClick={onDone} disabled={busy}>
+          Cancel
+        </Button>
         <Button onClick={() => void save()} loading={busy}>
           Save details
         </Button>
@@ -186,6 +202,64 @@ function FieldsPanel({ state }: { state: GeneralProjectState }) {
   const [editing, setEditing] = useState<GeneralField | null>(null)
   const [removing, setRemoving] = useState<GeneralField | null>(null)
   const [moving, setMoving] = useState(false)
+  const [editingValues, setEditingValues] = useState(false)
+  // Only the values someone has touched. The rest read from what is stored, so
+  // a field added or saved elsewhere meanwhile still shows its current value.
+  const [drafts, setDrafts] = useState<Record<string, unknown>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
+  const open = editable && editingValues
+
+  const storedOf = (id: string) => state.values.find((v) => v.field_id === id)
+
+  function close() {
+    setDrafts({})
+    setErrors({})
+    setEditingValues(false)
+  }
+
+  /**
+   * Checks every changed value before writing any, so one bad entry does not
+   * leave the others half saved. Writes go one after another, like `move`.
+   */
+  async function saveValues() {
+    const nextErrors: Record<string, string> = {}
+    const writes: (() => Promise<unknown>)[] = []
+    for (const f of state.fields) {
+      if (!(f.id in drafts)) continue
+      const draft = drafts[f.id]
+      const stored = storedOf(f.id)
+      if (JSON.stringify(draft ?? '') === JSON.stringify(stored?.value ?? '')) continue
+      if (isEmptyValue(draft)) {
+        // Clearing what was already empty deletes no row, and a write that
+        // changes nothing is reported as a permission refusal. Nothing to do.
+        if (stored) writes.push(() => clearFieldValue(f.id))
+        continue
+      }
+      const checked = checkFieldValue(f.type, draft, {
+        options: f.options,
+        memberIds: state.members.map((m) => m.user_id),
+      })
+      if (checked.ok) writes.push(() => setFieldValue(f.id, checked.value))
+      else nextErrors[f.id] = checked.error
+    }
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
+    if (writes.length === 0) return close()
+
+    setSaving(true)
+    try {
+      for (const write of writes) await write()
+      show(writes.length === 1 ? 'Field saved' : 'Fields saved')
+      await state.reload()
+      close()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not save the fields. Check them and try again.'), 'error')
+      await state.reload()
+    } finally {
+      setSaving(false)
+    }
+  }
 
   /**
    * Swaps the two fields' own sort values rather than their list positions, so
@@ -220,13 +294,15 @@ function FieldsPanel({ state }: { state: GeneralProjectState }) {
           <h2>Fields</h2>
           <p className="mt-0.5 text-[12px] text-muted">What this project needs to keep track of.</p>
         </div>
-        {editable ? (
+        {!editable ? (
+          <RequestAccessButton state={state} permission="edit_project" />
+        ) : open ? (
           <Button size="sm" onClick={() => setAdding(true)}>
             <Icon name="plus" size={14} />
             Add field
           </Button>
         ) : (
-          <RequestAccessButton state={state} permission="edit_project" />
+          <EditButton label="Edit fields" onClick={() => setEditingValues(true)} />
         )}
       </header>
 
@@ -235,9 +311,11 @@ function FieldsPanel({ state }: { state: GeneralProjectState }) {
           icon="file"
           title="No fields yet"
           body={
-            editable
+            open
               ? 'Add what this project needs: a budget, a venue, an adviser, a grade level.'
-              : 'Nobody has added fields to this project.'
+              : editable
+                ? 'Choose Edit to add what this project needs: a budget, a venue, an adviser, a grade level.'
+                : 'Nobody has added fields to this project.'
           }
         />
       ) : (
@@ -247,7 +325,10 @@ function FieldsPanel({ state }: { state: GeneralProjectState }) {
               key={f.id}
               field={f}
               state={state}
-              editable={editable}
+              open={open}
+              draft={f.id in drafts ? drafts[f.id] : (storedOf(f.id)?.value ?? '')}
+              onDraft={(value) => setDrafts((d) => ({ ...d, [f.id]: value }))}
+              error={errors[f.id] ?? null}
               first={i === 0}
               last={i === state.fields.length - 1}
               onEdit={() => setEditing(f)}
@@ -258,8 +339,30 @@ function FieldsPanel({ state }: { state: GeneralProjectState }) {
         </ul>
       )}
 
+      {open && (
+        <div className="mt-5 flex justify-end gap-2 border-t border-line pt-4">
+          {state.fields.length === 0 ? (
+            <Button onClick={close}>Done</Button>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={close} disabled={saving}>
+                Cancel
+              </Button>
+              <Button onClick={() => void saveValues()} loading={saving}>
+                Save fields
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
       <FieldDialog open={adding} onClose={() => setAdding(false)} state={state} />
-      <FieldDialog open={Boolean(editing)} onClose={() => setEditing(null)} state={state} field={editing ?? undefined} />
+      <FieldDialog
+        open={Boolean(editing)}
+        onClose={() => setEditing(null)}
+        state={state}
+        field={editing ?? undefined}
+      />
       <ConfirmDialog
         open={Boolean(removing)}
         onClose={() => setRemoving(null)}
@@ -284,7 +387,10 @@ function FieldsPanel({ state }: { state: GeneralProjectState }) {
 function FieldRow({
   field,
   state,
-  editable,
+  open,
+  draft,
+  onDraft,
+  error,
   first,
   last,
   onEdit,
@@ -293,51 +399,30 @@ function FieldRow({
 }: {
   field: GeneralField
   state: GeneralProjectState
-  editable: boolean
+  /** The panel is in edit mode: show the input and the field's own controls. */
+  open: boolean
+  draft: unknown
+  onDraft: (value: unknown) => void
+  error: string | null
   first: boolean
   last: boolean
   onEdit: () => void
   onRemove: () => void
   onMove: (delta: -1 | 1) => void
 }) {
-  const { show } = useToast()
   const stored = state.values.find((v) => v.field_id === field.id)
   const labelId = useId()
-  const [draft, setDraft] = useState<unknown>(stored?.value ?? '')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  const storedAt = stored?.updated_at
-  useEffect(() => {
-    setDraft(stored?.value ?? '')
-  }, [storedAt]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function save() {
-    setError(null)
-    setBusy(true)
-    try {
-      if (isEmptyValue(draft)) {
-        // Clearing what was already empty deletes no row, and a write that
-        // changes nothing is reported as a permission refusal. Nothing to do.
-        if (stored) await clearFieldValue(field.id)
-      } else {
-        const checked = checkFieldValue(field.type, draft, {
-          options: field.options,
-          memberIds: state.members.map((m) => m.user_id),
-        })
-        if (!checked.ok) {
-          setError(checked.error)
-          return
-        }
-        await setFieldValue(field.id, checked.value)
-      }
-      show(`${field.name} saved`)
-      await state.reload()
-    } catch (err) {
-      setError(authErrorMessage(err, 'Could not save that value.'))
-    } finally {
-      setBusy(false)
-    }
+  // Read, a field looks like a line of Details: small label, value in ink.
+  if (!open) {
+    return (
+      <li className="py-3 first:pt-0 last:pb-0">
+        <p className="text-[12px] text-faint">{field.name}</p>
+        <p className={`mt-0.5 text-[14px] whitespace-pre-wrap ${stored ? 'text-ink' : 'text-muted'}`}>
+          {stored ? formatFieldValue(field.type, stored.value, state.nameOf) : 'Not set'}
+        </p>
+      </li>
+    )
   }
 
   return (
@@ -346,67 +431,48 @@ function FieldRow({
         <p id={labelId} className="text-[13px] font-medium text-ink">
           {field.name}
         </p>
-        {editable && (
-          <div className="flex items-center">
-            <button
-              type="button"
-              aria-label={`Move ${field.name} up`}
-              disabled={first}
-              onClick={() => onMove(-1)}
-              className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-[var(--surface-sunken)] hover:text-ink disabled:opacity-30"
-            >
-              <Icon name="chevronDown" size={15} className="rotate-180" />
-            </button>
-            <button
-              type="button"
-              aria-label={`Move ${field.name} down`}
-              disabled={last}
-              onClick={() => onMove(1)}
-              className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-[var(--surface-sunken)] hover:text-ink disabled:opacity-30"
-            >
-              <Icon name="chevronDown" size={15} />
-            </button>
-            <button
-              type="button"
-              aria-label={`Edit ${field.name}`}
-              onClick={onEdit}
-              className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"
-            >
-              <Icon name="edit" size={15} />
-            </button>
-            <button
-              type="button"
-              aria-label={`Remove ${field.name}`}
-              onClick={onRemove}
-              className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
-            >
-              <Icon name="trash" size={15} />
-            </button>
-          </div>
-        )}
+        <div className="flex items-center">
+          <button
+            type="button"
+            aria-label={`Move ${field.name} up`}
+            disabled={first}
+            onClick={() => onMove(-1)}
+            className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-[var(--surface-sunken)] hover:text-ink disabled:opacity-30"
+          >
+            <Icon name="chevronDown" size={15} className="rotate-180" />
+          </button>
+          <button
+            type="button"
+            aria-label={`Move ${field.name} down`}
+            disabled={last}
+            onClick={() => onMove(1)}
+            className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-[var(--surface-sunken)] hover:text-ink disabled:opacity-30"
+          >
+            <Icon name="chevronDown" size={15} />
+          </button>
+          <button
+            type="button"
+            aria-label={`Edit ${field.name}`}
+            onClick={onEdit}
+            className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"
+          >
+            <Icon name="edit" size={15} />
+          </button>
+          <button
+            type="button"
+            aria-label={`Remove ${field.name}`}
+            onClick={onRemove}
+            className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
+          >
+            <Icon name="trash" size={15} />
+          </button>
+        </div>
       </div>
 
-      {editable ? (
-        <div className="mt-2 space-y-2">
-          <FieldInput
-            field={field}
-            value={draft}
-            onChange={setDraft}
-            members={state.members}
-            labelledBy={labelId}
-          />
-          {error && <p className="text-[12px] text-danger-600 dark:text-danger-400">{error}</p>}
-          <div className="flex justify-end">
-            <Button size="sm" variant="outline" onClick={() => void save()} loading={busy}>
-              Save
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <p className="mt-1 text-[14px] text-muted">
-          {stored ? formatFieldValue(field.type, stored.value, state.nameOf) : 'Not set'}
-        </p>
-      )}
+      <div className="mt-2 space-y-2">
+        <FieldInput field={field} value={draft} onChange={onDraft} members={state.members} labelledBy={labelId} />
+        {error && <p className="text-[12px] text-danger-600 dark:text-danger-400">{error}</p>}
+      </div>
     </li>
   )
 }

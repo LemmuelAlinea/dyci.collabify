@@ -1855,3 +1855,12 @@ Teaching only) turns the section header into a toggle with a chevron. The folded
 are kept in localStorage under `collabify:nav-folded`, so the choice is per device. While
 folded, the row for the current page stays visible (`matchPath`). The icon-only rail
 ignores folding because it has no header. Verified on localhost: fold, reload, unfold.
+
+**Change (2026-09-28, late): work project Overview reads first, edits on demand.** In
+`OverviewTab`, Details and Fields show as plain text for everyone. Anyone with
+`edit_project` (the Owner, plus anyone the Owner grants it to) gets an Edit button on each
+section. Details: Edit opens the form, and Save or Cancel returns to text. Fields: Edit
+shows Add field, the per-field move/edit/remove controls and every value input, with one
+Save fields at the bottom. It checks every changed value before writing any and skips
+unchanged ones. The per-row Save buttons are gone. Verified on localhost: open both, cancel
+Details, save Fields with nothing changed (no write).
