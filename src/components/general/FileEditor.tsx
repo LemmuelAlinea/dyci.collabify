@@ -13,7 +13,7 @@ import {
   saveDraftFile,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { writeChangeMessage } from '../../lib/api/workAi'
+import { summarizeFile, writeChangeMessage } from '../../lib/api/workAi'
 import { extensionOf, fileName, isEditable, looksLikeMisreadOfficeFile } from '../../lib/general/files'
 import { downloadBlob, htmlToDocx, workbookToXlsx } from '../../lib/general/office'
 import { parseWorkbook, serializeWorkbook } from '../../lib/general/sheet'
@@ -98,6 +98,8 @@ function Body({
   )
   const [message, setMessage] = useState('')
   const [writing, setWriting] = useState(false)
+  const [summarizing, setSummarizing] = useState(false)
+  const [points, setPoints] = useState<string[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -201,13 +203,65 @@ function Body({
             Main, commit {repo.commit_count}
           </span>
         )}
-        <Button size="sm" variant="ghost" className="ml-auto" onClick={() => void download()}>
+        {!file.fromDraft && (isEditable(file.kind) || isPdf) && state.project && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto"
+            loading={summarizing}
+            onClick={async () => {
+              if (!state.project) return
+              setSummarizing(true)
+              setError(null)
+              try {
+                const res = await summarizeFile(state.project.id, file.path)
+                if (res.result !== 'ok') setError(res.message)
+                else setPoints(res.points)
+              } catch (err) {
+                setError(authErrorMessage(err, 'Could not summarize it. Try again in a moment.'))
+              } finally {
+                setSummarizing(false)
+              }
+            }}
+          >
+            {!summarizing && <Icon name="spark" size={14} />}
+            Summarize
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          className={!file.fromDraft && (isEditable(file.kind) || isPdf) && state.project ? '' : 'ml-auto'}
+          onClick={() => void download()}
+        >
           <Icon name="download" size={14} />
           Download
         </Button>
       </div>
 
       {error && <Alert tone="error">{error}</Alert>}
+
+      {points && (
+        <section className="rounded-xl border border-line surface-sunken px-3.5 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <p className="eyebrow">Key points · AI</p>
+            <button
+              type="button"
+              onClick={() => setPoints(null)}
+              aria-label="Hide the summary"
+              className="-mt-1 -mr-1 grid h-6 w-6 place-items-center rounded-md text-faint hover:text-ink"
+            >
+              <Icon name="x" size={13} />
+            </button>
+          </div>
+          <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[13px] text-ink">
+            {points.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-faint">From the version in Main. Check the file before you rely on it.</p>
+        </section>
+      )}
 
       {misreadOfficeFile && (
         <Alert tone="error">
