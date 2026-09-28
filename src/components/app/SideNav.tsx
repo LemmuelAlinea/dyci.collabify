@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FocusEvent, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Link, NavLink, matchPath, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useAdmission } from '../../hooks/useAdmission'
@@ -25,6 +25,18 @@ const ROW = 'relative flex w-full items-center rounded-lg transition-colors'
 const ACTIVE = 'surface-sunken font-semibold text-ink'
 const IDLE = 'font-medium text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
 
+const FOLDED_KEY = 'collabify:nav-folded'
+
+/** The titles of the sections folded away on this device. */
+function readFolded(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '[]')
+    return Array.isArray(raw) ? raw.filter((t): t is string => typeof t === 'string') : []
+  } catch {
+    return []
+  }
+}
+
 export function SideNav({
   collapsed = false,
   onNavigate,
@@ -38,6 +50,19 @@ export function SideNav({
   const location = useLocation()
   const navigation = useGeneralNavigation()
   const [hint, setHint] = useState<Hint | null>(null)
+  const [folded, setFolded] = useState<string[]>(readFolded)
+
+  function toggleFold(title: string) {
+    setFolded((current) => {
+      const next = current.includes(title) ? current.filter((t) => t !== title) : [...current, title]
+      try {
+        localStorage.setItem(FOLDED_KEY, JSON.stringify(next))
+      } catch {
+        // Private windows can refuse storage; the section still folds for this visit.
+      }
+      return next
+    })
+  }
 
   const unread = useUnreadTotal(profile?.id, 'all')
   const pendingProjects = usePendingInvitations(profile?.id).invitations?.length ?? 0
@@ -133,12 +158,32 @@ export function SideNav({
             // the section flash in and back out.
             if (group.hideWhenEmpty && (loading || rows.length === 0)) return null
 
+            // Folding is for the full rail; the icon rail has no header to fold
+            // with. Folded, the row for the page you are on stays, so the rail
+            // still says where you are.
+            const isFolded = !collapsed && group.collapsible === true && folded.includes(group.title)
+            const items = isFolded
+              ? group.items.filter(
+                  (item) => item.to && matchPath({ path: item.to, end: item.end ?? false }, location.pathname),
+                )
+              : group.items
+            const listId = `nav-${group.title.toLowerCase()}`
+
             return (
               <div key={group.title}>
                 {!collapsed && (
-                  <GroupHeader title={group.title} more={group.more} onNavigate={onNavigate} />
+                  <GroupHeader
+                    title={group.title}
+                    more={group.more}
+                    onNavigate={onNavigate}
+                    fold={
+                      group.collapsible
+                        ? { open: !isFolded, controls: listId, onToggle: () => toggleFold(group.title) }
+                        : undefined
+                    }
+                  />
                 )}
-                <ul className="space-y-0.5">
+                <ul id={listId} className="space-y-0.5">
                   {rows.map((row) => (
                     <LiveRowLink
                       key={row.id}
@@ -166,11 +211,11 @@ export function SideNav({
                     />
                   )}
 
-                  {rows.length > 0 && group.items.length > 0 && (
+                  {rows.length > 0 && items.length > 0 && (
                     <li aria-hidden className={`my-2 border-t border-line ${collapsed ? 'mx-2' : 'mx-3'}`} />
                   )}
 
-                  {group.items.map((item) => (
+                  {items.map((item) => (
                     <StaticRow
                       key={item.label}
                       item={item}
@@ -300,14 +345,35 @@ function GroupHeader({
   title,
   more,
   onNavigate,
+  fold,
 }: {
   title: string
   more?: { to: string; label: string }
   onNavigate?: () => void
+  /** Set for a section that folds: the header's title becomes its toggle. */
+  fold?: { open: boolean; controls: string; onToggle: () => void }
 }) {
+  const label = 'text-[11px] font-semibold tracking-[0.1em] text-faint uppercase'
   return (
     <div className="flex items-center justify-between gap-2 px-3 pb-2">
-      <p className="text-[11px] font-semibold tracking-[0.1em] text-faint uppercase">{title}</p>
+      {fold ? (
+        <button
+          type="button"
+          onClick={fold.onToggle}
+          aria-expanded={fold.open}
+          aria-controls={fold.controls}
+          className={`-mx-1 -my-1 flex items-center gap-1 rounded px-1 py-1 transition-colors hover:text-ink ${label}`}
+        >
+          {title}
+          <Icon
+            name="chevronDown"
+            size={12}
+            className={`motion-safe:transition-transform motion-safe:duration-200 ${fold.open ? '' : '-rotate-90'}`}
+          />
+        </button>
+      ) : (
+        <p className={label}>{title}</p>
+      )}
       {more && (
         <NavLink
           to={more.to}

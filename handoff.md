@@ -1849,3 +1849,9 @@ to 4.5:1 against the banner; the create fill gets `inkFor` text. `appearance.sql
 the three keys (applied live, `appearance.test.sql` 28 PASS). New default look: Upload
 syllabus, Add a section, Send a notice and New message are now filled. The trash-icon
 deletes no longer hover red; they follow `btnDanger`.
+
+**Change (2026-09-28, late): the Teaching section folds.** `NavGroup.collapsible` (set on
+Teaching only) turns the section header into a toggle with a chevron. The folded titles
+are kept in localStorage under `collabify:nav-folded`, so the choice is per device. While
+folded, the row for the current page stays visible (`matchPath`). The icon-only rail
+ignores folding because it has no header. Verified on localhost: fold, reload, unfold.

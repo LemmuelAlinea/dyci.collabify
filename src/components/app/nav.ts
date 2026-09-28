@@ -27,6 +27,8 @@ export type NavGroup = {
   hideWhenEmpty?: boolean
   /** Spaces lists the reader's classes too — for anyone with no Classes section. */
   withClasses?: boolean
+  /** The header folds the section away. Remembered per device. */
+  collapsible?: boolean
 }
 
 
@@ -123,6 +125,7 @@ const PROJECTS: NavGroup = {
  */
 const TEACHING: NavGroup = {
   title: 'Teaching',
+  collapsible: true,
   items: [
     { label: 'Submissions', icon: 'upload', to: paths.submissions },
     { label: 'Reassignments', icon: 'refresh', to: paths.reassignments },
