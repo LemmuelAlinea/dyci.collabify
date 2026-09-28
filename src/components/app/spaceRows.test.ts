@@ -65,26 +65,27 @@ describe('workSpaceRows', () => {
     expect(rows[0]).toMatchObject({ to: '/spaces/mine', tone: 'work' })
   })
 
-  it('sorts by name and caps at two', () => {
+  it('sorts by name and caps at three', () => {
     const rows = workSpaceRows([
       space({ id: 'z', name: 'Zeta' }),
       space({ id: 'a', name: 'Alpha' }),
       ...Array.from({ length: 8 }, (_, i) => space({ id: `m${i}`, name: `Mid ${i}` })),
     ])
-    expect(rows).toHaveLength(2)
+    expect(rows).toHaveLength(3)
     expect(rows[0].id).toBe('a')
     expect(rows.map((r) => r.id)).not.toContain('z')
   })
 })
 
 describe('spaceAndClassRows', () => {
-  it('mixes classes and work spaces by name, capped at two', () => {
+  it('mixes classes and work spaces by name, capped at three', () => {
     const rows = spaceAndClassRows([
       space({ id: 'w', name: 'Beta' }),
       space({ id: 'c', kind: 'education', class_id: 'k', name: 'Alpha' }),
       space({ id: 'z', name: 'Zeta' }),
+      space({ id: 'y', name: 'Omega' }),
     ])
-    expect(rows.map((r) => r.id)).toEqual(['c', 'w'])
+    expect(rows.map((r) => r.id)).toEqual(['c', 'w', 'y'])
     expect(rows[0]).toMatchObject({ to: '/classes/k', tone: 'education' })
     expect(rows[1]).toMatchObject({ to: '/spaces/w', tone: 'work' })
   })

@@ -14,7 +14,7 @@ import { Logo, LogoMark } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
 import { navFor } from './nav'
 import type { NavGroup, NavItem } from './nav'
-import { classRows, spaceAndClassRows, workSpaceRows } from './spaceRows'
+import { PROJECT_CAP, classRows, spaceAndClassRows, workSpaceRows } from './spaceRows'
 import type { LiveRow } from './spaceRows'
 
 type Hint = { text: string; top: number }
@@ -112,7 +112,7 @@ export function SideNav({
     if (kind === 'projects') {
       return {
         loading: navigation.myProjects === null,
-        rows: recentProjects(liveProjects).map((project) => ({
+        rows: recentProjects(liveProjects, PROJECT_CAP).map((project) => ({
           id: project.id,
           name: project.name,
           to: paths.project(project.id),

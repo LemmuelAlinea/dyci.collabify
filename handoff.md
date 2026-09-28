@@ -1864,3 +1864,8 @@ shows Add field, the per-field move/edit/remove controls and every value input, 
 Save fields at the bottom. It checks every changed value before writing any and skips
 unchanged ones. The per-row Save buttons are gone. Verified on localhost: open both, cancel
 Details, save Fields with nothing changed (no write).
+
+**Change (2026-09-28, late): the rail shows three spaces and three projects.** In
+`spaceRows.ts`, `SPACE_CAP` and `PROJECT_CAP` are both 3 (they were 2 and 4). Classes stay
+at 2 (`CLASS_CAP`). `SideNav` passes `PROJECT_CAP` to `recentProjects`, so projects are
+still the most recently changed. The rest are behind each header's All link.
