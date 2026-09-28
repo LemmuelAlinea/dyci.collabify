@@ -1804,3 +1804,19 @@ the caller's JWT, nothing is written, and each action has its own limits
 **Not verified:** a real model call through any `work-ai` action. It is deployed and answers
 "Sign in first." without a session. The UI click-through needs a signed-in member of a work
 project.
+
+**Fix (2026-09-28, late): dialogs vanishing inside a class.** Reported as "Draft with AI
+refreshes the whole site", but only from Class > Projects > New project. There was no real
+reload. `ClassProjectsTab` swapped to its "Loading projects…" spinner on every live refresh
+(realtime, focus, the poll), which unmounted `ProjectWizard` and its form. A 10–20 second
+AI draft made the overlap likely.
+
+The same pattern was in `useGroupsData` (the class Groups tab and the Groups page) and in
+`BoardVerdict` (a return note being typed). All three now show loading only on the first
+load, or when switching board or shelf.
+
+There was a second trigger: both class tabs memoized `[cls]`, and the class page refetches
+`cls` on every refresh. The project and group loads now key on `cls.id`.
+
+Verified on localhost: firing focus with the dialog open reloads the data and leaves the
+dialog and its text in place.
