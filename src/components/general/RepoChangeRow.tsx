@@ -17,6 +17,7 @@ import {
   withdrawRepoChange,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
+import { summarizeChange } from '../../lib/api/workAi'
 import { formatDue } from '../../lib/general/dates'
 import { countShown, extensionOf, fileName, fileText, shownFiles } from '../../lib/general/files'
 import { CHANGE_LABEL, FILE_ACTION_LABEL } from '../../lib/general/types'
@@ -201,6 +202,10 @@ export function RepoChangeRow({
 
           {change.files.length === 0 && (
             <p className="text-[13px] text-muted">This change carries no files.</p>
+          )}
+
+          {change.status === 'open' && shown.length > 0 && state.project && (
+            <ChangeSummary projectId={state.project.id} changeId={change.id} />
           )}
 
           {folders.map((path) => (
@@ -449,5 +454,64 @@ function ReviewFilePreview({ file }: { file: RepoFile }) {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * A plain-language account of what a change does, for the reviewer to read
+ * before the line-by-line view. Asked for, not automatic: most changes are
+ * small enough to read directly, and each summary is a paid call.
+ */
+function ChangeSummary({ projectId, changeId }: { projectId: string; changeId: string }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [summary, setSummary] = useState<{ overall: string; files: { path: string; summary: string }[] } | null>(null)
+
+  if (!summary) {
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          size="sm"
+          variant="outline"
+          loading={busy}
+          onClick={async () => {
+            setBusy(true)
+            setError(null)
+            try {
+              const res = await summarizeChange(projectId, changeId)
+              if (res.result !== 'ok') setError(res.message)
+              else setSummary({ overall: res.overall, files: res.files })
+            } catch (err) {
+              setError(authErrorMessage(err, 'Could not summarize it. Try again in a moment.'))
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          {!busy && <Icon name="spark" size={14} />}
+          Summarize this change
+        </Button>
+        {error && <p className="text-[12px] text-danger-700 dark:text-danger-300">{error}</p>}
+      </div>
+    )
+  }
+
+  return (
+    <section className="rounded-xl border border-line surface-sunken px-3.5 py-3">
+      <p className="eyebrow">Summary · AI</p>
+      <p className="mt-1.5 text-[13px] text-ink">{summary.overall}</p>
+      {summary.files.length > 0 && (
+        <ul className="mt-2 space-y-1.5">
+          {summary.files.map((f) => (
+            <li key={f.path} className="text-[13px] text-muted">
+              <span className="font-mono text-[12px] text-ink">{f.path}</span> — {f.summary}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-2 text-[11px] text-faint">
+        Written from the files. Check the line-by-line view below before you decide.
+      </p>
+    </section>
   )
 }
