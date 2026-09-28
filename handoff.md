@@ -1660,3 +1660,83 @@ everywhere it filters task files: summary, people, the activity feed's `file_add
 and `file_archived`, and the per-task file count. `trash.sql` redefines it to also require
 `trashed_at is null` (a new last block, applied live). Trash is treated as already gone.
 `trash.test.sql` now has 36 PASS, and all 49 SQL suites pass.
+
+## Session — 2026-09-28 (evening): automation batch
+
+Surveyed every page and flow for automation. The full ranked list is kept below so the
+later batches aren't lost. The user picked ten items, and all ten shipped to `main`, one
+commit each.
+
+**Rule-based**
+- **R1: deadline follows the weeks.** A new project's deadline defaults to 11:59 pm on the
+  last day of its week span. It keeps following the span until the professor types a
+  deadline (`ProjectForm.tsx`, `spanDeadline`). Edited projects are not touched.
+- **R2: scheduled releases announce themselves.** Before this, a project saved with a
+  future `release_at` never sent `project_released`. Now pg_cron
+  `collabify-scheduled-releases` runs every 15 minutes: `send_scheduled_releases()` covers
+  releases from the last day. It uses the same audience and `project_invites` switch as the
+  trigger, deduplicated against notifications already sent.
+- **R3: overdue notice.** New `task_overdue` type. pg_cron `collabify-overdue-notices`
+  runs hourly at :15, once per task per holder, for tasks that slipped in the last 3 days.
+  It uses the `deadline_reminders` switch, whose Settings copy now mentions it.
+- **R4: Remind.** `nudge_board(board, note)` sends a new `nudge` notification to everyone
+  on a board.
+  - Teachers of the class only. Ignores settings (it comes from a person).
+  - Once per board per 20 hours. Refused on handed-in work or a closed project.
+  - UI: `NudgeButton` on the dashboard's Stalled groups and on board-level cards in
+    analytics `ActionList`.
+- **R5: accept all.** A class section on Submissions with 2 or more waiting rows gets
+  "Accept all N" (confirm dialog, sequential `record_board_result`). It reports partial
+  progress if one is refused. Returns still need a note, so they stay one at a time.
+  (I used a per-class header button instead of the row checkboxes in the plan. It is
+  simpler and covers the same need.)
+- **R6: groups.**
+  - Closing a set with students left over now offers "Place them in the groups with room,
+    smallest first", with a per-student preview, on by default.
+  - Random grouping keeps apart pairs who shared a group in the class's earlier sets:
+    `lib/grouping.ts` does a greedy deal, then swaps to improve. Sizes stay within one.
+    The old `shuffleIntoGroups` was removed.
+- **R7: start from a past class.** The Create class dialog has a "Start from a past class"
+  picker. It prefills everything except section and school year. It can also copy the
+  source's live projects and rubrics through `copy_class_projects`:
+  - The copies land **archived, with no dates**. Restoring one is what shows it to
+    students and notifies them.
+  - Each group set those projects used gets an empty namesake to fill.
+  - Projects whose weeks aren't in the new syllabus are skipped and counted.
+  - Attachments, groups and students are not copied.
+
+**AI (drafts only, same pattern as generate-tasks)**
+- **A1: `draft-project` edge function (deployed).** Drafts guidelines plus 3 to 6 rubric
+  rows from the chosen weeks. Weights become points summing to the total
+  (largest-remainder rounding). "Draft with AI" is in the project form's step 2 and asks
+  before replacing existing text. Teachers only; limits of 12 per hour and 50 per day.
+- **A3: `draft-notice` edge function (deployed).** Turns one line into a title and message.
+  `DraftFromLine` sits in the class announcement composer and the admin Notices composer.
+  Class scope requires teaching the class; program scope requires an admin. Limits of 20
+  per hour and 60 per day. Runs at effort `low`.
+- **A6: plan drafted tasks.** Drafted tasks come with a date spread up to the deadline by
+  weight. On a group board, "Share out evenly" gives each task to whoever carries the
+  least. This is plain arithmetic (`lib/taskPlan.ts`), not the model, so there was no
+  edge-function change. A holder the claim cap refuses leaves the task open, and the
+  toast says so.
+
+**SQL:** everything is in `supabase/automation.sql`, which runs after `appearance.sql` and
+before `anon-lockdown.sql`, and is applied live. Test: `supabase/tests/automation.test.sql`
+(27 PASS). The related suites still pass (anon-lockdown, notifications, results,
+group-archive, submissions, insight, rate-limit). Vitest: 558.
+
+**Not verified:**
+- A real model call through `draft-project` or `draft-notice`. Both are deployed and
+  answer "Sign in first." without a session, which proves the key is set and the auth gate
+  works. Nothing has been drafted end to end yet.
+- The UI click-through, which needs a signed-in faculty account.
+- Refusal fallbacks (`fallbacks: "default"`) were not added, to match the sibling
+  functions. It is a small change if wanted.
+
+**Later batches, from the survey:**
+- A2: draft return/accept feedback
+- A4: draft commit message
+- A5: thread catch-up summary
+- R8: parse the syllabus on upload
+- R9: work timer
+- R10: print every student's contribution report at once
