@@ -5,17 +5,32 @@ import { Alert } from '../ui/Alert'
 import { Icon, Spinner } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
-import { addTask, createProfessorTask, generateTasks } from '../../lib/api/tasks'
+import {
+  addTask,
+  claimTask,
+  createProfessorTask,
+  generateTasks,
+  listMemberProgress,
+} from '../../lib/api/tasks'
 import type { TaskDraft } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
+import { endOfDay, shareOut, spreadDueDates } from '../../lib/taskPlan'
+import { fullName } from '../../lib/types'
 import type { BoardSummary, ProjectSummary, TeachingViewRole } from '../../lib/types'
 
-type Row = TaskDraft & { keep: boolean }
+/** `due` is a local day; `holder` a groupmate's id, or empty for nobody yet. */
+type Row = TaskDraft & { keep: boolean; due: string; holder: string }
+type Mate = { id: string; name: string; held: number }
 
 /**
  * A draft, never a decision. The model reads the brief, the rubric, and the
  * weeks the project is built on; the person keeps what is right, edits the
  * wording, and drops the rest. Nothing is saved until they say so.
+ *
+ * Each task also comes with a suggested date, spread up to the deadline by
+ * weight, and on a group board the student can share the tasks out evenly
+ * among the group. Both are plain arithmetic, not the model, and both sit in
+ * ordinary fields that can be changed or cleared.
  */
 export function GenerateTasksModal({
   open,
@@ -43,8 +58,56 @@ export function GenerateTasksModal({
   const [busy, setBusy] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mates, setMates] = useState<Mate[]>([])
 
   const isProfessor = role === 'professor'
+  // Only a group board has anyone to share with. A professor does not assign.
+  const canShare = !isProfessor && Boolean(board?.group_id) && mates.length > 1
+
+  useEffect(() => {
+    if (!open || isProfessor || !board?.group_id) return setMates([])
+    let live = true
+    void listMemberProgress(board.id)
+      .then(
+        (rows) =>
+          live &&
+          setMates(
+            rows.map((r) => ({
+              id: r.student_id,
+              name: r.profile ? fullName(r.profile) : 'A groupmate',
+              held: Number(r.held_weight) || 0,
+            })),
+          ),
+      )
+      .catch(() => live && setMates([]))
+    return () => {
+      live = false
+    }
+  }, [open, isProfessor, board])
+
+  function datesFor(list: Row[]) {
+    const kept = list.filter((r) => r.keep)
+    const days = spreadDueDates(
+      kept.map((r) => r.weight),
+      new Date(),
+      project.due_at ? new Date(project.due_at) : null,
+    )
+    let k = 0
+    return list.map((r) => (r.keep ? { ...r, due: days[k++] } : r))
+  }
+
+  function shareEvenly() {
+    setRows((list) => {
+      if (!list) return list
+      const kept = list.filter((r) => r.keep)
+      const who = shareOut(
+        kept.map((r) => r.weight),
+        mates.map((m) => ({ id: m.id, held: m.held })),
+      )
+      let k = 0
+      return list.map((r) => (r.keep ? { ...r, holder: who[k++] ?? '' } : r))
+    })
+  }
 
   useEffect(() => {
     if (!open) {
@@ -65,7 +128,7 @@ export function GenerateTasksModal({
         setRows([])
         return
       }
-      setRows((res.tasks ?? []).map((t) => ({ ...t, keep: true })))
+      setRows(datesFor((res.tasks ?? []).map((t) => ({ ...t, keep: true, due: '', holder: '' }))))
       setNote(res.note ?? '')
     } catch (err) {
       setError(authErrorMessage(err, 'The draft could not be produced.'))
@@ -80,28 +143,44 @@ export function GenerateTasksModal({
     if (keep.length === 0 || !viewerId) return
     setSaving(true)
     setError(null)
+    // A holder the board refuses (a full share already) still leaves the task
+    // saved, open for someone to claim. Counted and said, not thrown.
+    let unclaimed = 0
     try {
       for (const row of keep) {
+        const dueAt = endOfDay(row.due)
         if (isProfessor) {
           await createProfessorTask({
             projectId: project.id,
             title: row.title,
             details: row.details,
             weight: row.weight,
-            dueAt: null,
+            dueAt,
             boardId: target || null,
             aiGenerated: true,
           })
         } else if (board) {
-          await addTask(
+          const task = await addTask(
             board.id,
-            { title: row.title, details: row.details, weight: row.weight, dueAt: null },
+            { title: row.title, details: row.details, weight: row.weight, dueAt },
             viewerId,
             true,
           )
+          if (row.holder && board.group_id) {
+            try {
+              await claimTask(task.id, row.holder, viewerId)
+            } catch {
+              unclaimed++
+            }
+          }
         }
       }
-      await onSaved(`${keep.length} ${keep.length === 1 ? 'task' : 'tasks'} added`)
+      await onSaved(
+        `${keep.length} ${keep.length === 1 ? 'task' : 'tasks'} added` +
+          (unclaimed > 0
+            ? `. ${unclaimed} could not go to the person picked and ${unclaimed === 1 ? 'is' : 'are'} open to claim.`
+            : ''),
+      )
       onClose()
     } catch (err) {
       setError(authErrorMessage(err, 'Those tasks could not be saved.'))
@@ -181,6 +260,25 @@ export function GenerateTasksModal({
               </p>
             )}
 
+            <div className="flex flex-wrap items-center gap-2">
+              {project.due_at && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRows((list) => (list ? datesFor(list) : list))}
+                >
+                  <Icon name="calendar" size={14} />
+                  Spread dates to the deadline
+                </Button>
+              )}
+              {canShare && (
+                <Button size="sm" variant="outline" onClick={shareEvenly}>
+                  <Icon name="users" size={14} />
+                  Share out evenly
+                </Button>
+              )}
+            </div>
+
             <ul className="space-y-3">
               {rows.map((r, i) => (
                 <li
@@ -219,6 +317,29 @@ export function GenerateTasksModal({
                         aria-label={`Task ${i + 1} details`}
                         className="!text-[13px]"
                       />
+                      <div className="flex flex-wrap gap-2">
+                        <div className="w-full sm:w-[170px]">
+                          <Input
+                            type="date"
+                            value={r.due}
+                            onChange={(e) => patch(i, { due: e.target.value })}
+                            aria-label={`Task ${i + 1} due date`}
+                            className="!h-10 !text-[13px]"
+                          />
+                        </div>
+                        {canShare && (
+                          <div className="min-w-0 flex-1">
+                            <Select
+                              value={r.holder}
+                              onChange={(e) => patch(i, { holder: e.target.value })}
+                              placeholder="Nobody yet"
+                              aria-label={`Task ${i + 1} holder`}
+                              options={mates.map((m) => ({ value: m.id, label: m.name }))}
+                              className="!h-10 !text-[13px]"
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="w-[70px] shrink-0">
@@ -260,6 +381,10 @@ export function GenerateTasksModal({
             <p className="text-[12px] leading-relaxed text-faint">
               Weights are relative. Once added, these sit alongside your other tasks and the
               board still totals 100.
+              {project.due_at
+                ? ' Dates are spread up to the deadline by weight; change or clear any of them.'
+                : ' The project has no deadline, so no dates are suggested.'}
+              {canShare && ' Share out evenly gives each task to whoever carries the least so far.'}
             </p>
           </>
         )}
