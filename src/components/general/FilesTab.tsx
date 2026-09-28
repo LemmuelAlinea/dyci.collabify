@@ -27,6 +27,7 @@ import { KEEP, buildTree, fileName, filesUnder, fileText, flatFiles, folderOf, i
 import { LAYOUTS, suggestedLayout } from '../../lib/general/starterFolders'
 import { zipFolder } from '../../lib/general/zipFolder'
 import { downloadBlob } from '../../lib/general/office'
+import { askFiles } from '../../lib/api/workAi'
 import type { TreeNode } from '../../lib/general/files'
 import { matches } from '../../lib/general/search'
 import { FILE_ACTION_LABEL, FILE_KIND_LABEL } from '../../lib/general/types'
@@ -259,6 +260,10 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
         className="max-w-md"
       />
 
+      {view === 'main' && state.project && tree.some((f) => f.kind !== 'binary' && !isKeep(f.path)) && (
+        <AskFiles projectId={state.project.id} tree={tree} onOpen={setOpen} />
+      )}
+
       {view === 'main' && (
         <MainView
           repo={repo}
@@ -329,6 +334,110 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
         onRenamed={goAfterReload}
       />
     </div>
+  )
+}
+
+/* --------------------------------------------------------------------- ask */
+
+/**
+ * A question about the project, answered only from what Main's documents,
+ * sheets and text files say, with the files it came from one click away.
+ * PDFs and other uploads are not read here.
+ */
+function AskFiles({
+  projectId,
+  tree,
+  onOpen,
+}: {
+  projectId: string
+  tree: GeneralTreeFile[]
+  onOpen: (file: OpenFile) => void
+}) {
+  const [question, setQuestion] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [answer, setAnswer] = useState<{ text: string; found: boolean; sources: string[]; skipped: number } | null>(
+    null,
+  )
+
+  async function run() {
+    if (question.trim().length < 4) return setError('Ask a question about the files.')
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await askFiles(projectId, question)
+      if (res.result !== 'ok') setError(res.message)
+      else setAnswer({ text: res.answer, found: res.found, sources: res.sources, skipped: res.skipped })
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not answer that. Try again in a moment.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section aria-label="Ask about these files" className="space-y-2 rounded-panel border border-line surface p-3 sm:p-4">
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="min-w-0 flex-1">
+          <Input
+            icon="spark"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                void run()
+              }
+            }}
+            maxLength={500}
+            aria-label="Ask about these files"
+            placeholder="Ask about these files: where did we set the budget?"
+          />
+        </div>
+        <Button variant="outline" loading={busy} onClick={() => void run()}>
+          Ask
+        </Button>
+      </div>
+      {error && <p className="text-[12px] text-danger-700 dark:text-danger-300">{error}</p>}
+      {answer && (
+        <div className="space-y-2 rounded-xl surface-sunken px-3.5 py-3">
+          <p className="whitespace-pre-wrap text-[13px] text-ink">{answer.text}</p>
+          {answer.sources.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[12px] text-faint">From</span>
+              {answer.sources.map((p) => {
+                const f = tree.find((t) => t.path === p)
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    disabled={!f}
+                    onClick={() =>
+                      f &&
+                      onOpen({
+                        path: f.path,
+                        kind: f.kind,
+                        content: f.content,
+                        storagePath: f.storage_path,
+                        action: 'changed',
+                        fromDraft: false,
+                      })
+                    }
+                    className="rounded-md border border-line px-2 py-0.5 font-mono text-[12px] text-ink hover:border-line-strong"
+                  >
+                    {p}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <p className="text-[11px] text-faint">
+            Answered from Main's documents, sheets and text files. PDFs and other uploads are not read.
+            {answer.skipped > 0 && ` ${answer.skipped} files were too much to read in one go.`}
+          </p>
+        </div>
+      )}
+    </section>
   )
 }
 
