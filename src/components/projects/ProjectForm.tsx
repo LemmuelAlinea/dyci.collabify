@@ -36,6 +36,12 @@ function fromLocalInput(value: string) {
   return value ? new Date(value).toISOString() : null
 }
 
+/** 11:59 pm on the last day of the span, as a datetime-local value. */
+function spanDeadline(weeks: ClassWeek[], span: WeekSpan) {
+  const end = spanEndDate(weeks, span)
+  return end ? `${end.slice(0, 10)}T23:59` : ''
+}
+
 function Section({
   step,
   title,
@@ -123,13 +129,23 @@ export function ProjectForm({
   const [audience, setAudience] = useState<ProjectAudience>(defaults?.audience ?? 'individual')
   const [groupSetId, setGroupSetId] = useState(defaults?.group_set_id ?? '')
   const [totalPoints, setTotalPoints] = useState(defaults?.total_points ?? 100)
-  const [dueAt, setDueAt] = useState(toLocalInput(defaults?.due_at ?? null))
+  // A new project's deadline follows the end of its weeks until the professor
+  // types one. An edited project keeps what it had.
+  const [dueTouched, setDueTouched] = useState(Boolean(defaults))
+  const [dueAt, setDueAt] = useState(
+    defaults ? toLocalInput(defaults.due_at) : spanDeadline(weeks, span),
+  )
   const [scheduled, setScheduled] = useState(Boolean(defaults?.release_at))
   const [releaseAt, setReleaseAt] = useState(toLocalInput(defaults?.release_at ?? null))
   const [criteria, setCriteria] = useState<CriterionInput[]>(defaultCriteria)
   const [file, setFile] = useState<File | null>(null)
   const [sections, setSections] = useState<SectionChoice[]>([])
   const [invalid, setInvalid] = useState<string | null>(null)
+
+  function changeSpan(next: WeekSpan) {
+    setSpan(next)
+    if (!dueTouched) setDueAt(spanDeadline(weeks, next))
+  }
 
   const suggestions = useMemo(() => spanSuggestions(weeks, span), [weeks, span])
   const feasibility = assessDeadline({
@@ -240,7 +256,7 @@ export function ProjectForm({
         title="What it is based on"
         hint="Every project hangs off the weeks of this class's syllabus."
       >
-        <WeekSpanPicker weeks={weeks} value={span} onChange={setSpan} />
+        <WeekSpanPicker weeks={weeks} value={span} onChange={changeSpan} />
       </Section>
 
       <Section step={2} title="The project" hint="Name it, say what it is, and set the brief.">
@@ -442,10 +458,18 @@ export function ProjectForm({
                 id={id}
                 type="datetime-local"
                 value={dueAt}
-                onChange={(e) => setDueAt(e.target.value)}
+                onChange={(e) => {
+                  setDueTouched(true)
+                  setDueAt(e.target.value)
+                }}
               />
             )}
           </Field>
+          {!dueTouched && dueAt && (
+            <p className="text-[12px] text-faint">
+              Set to the end of week {span.end}. Change it if the work is due sooner.
+            </p>
+          )}
 
           {feasibility && (
             <Alert tone={feasibility.tone}>{feasibility.message}</Alert>
