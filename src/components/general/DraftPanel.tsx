@@ -17,6 +17,7 @@ import {
   syncDraft,
 } from '../../lib/api/general'
 import { trashDraftPath } from '../../lib/api/trash'
+import { writeChangeMessage } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
 import { buildTree, describeDraft, fileText, flatFiles, nodesAt } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
@@ -264,6 +265,7 @@ export function DraftPanel({
       )}
 
       <SubmitDialog
+        projectId={state.project?.id ?? ''}
         target={submitting}
         onClose={() => setSubmitting(null)}
         reviewers={state.members.filter(
@@ -492,11 +494,13 @@ function DraftNode({
 }
 
 function SubmitDialog({
+  projectId,
   target,
   onClose,
   reviewers,
   onSubmit,
 }: {
+  projectId: string
   target: SubmitTarget | null
   onClose: () => void
   reviewers: GeneralProjectState['members']
@@ -507,6 +511,7 @@ function SubmitDialog({
   const [reviewerId, setReviewerId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [describing, setDescribing] = useState(false)
   const options = reviewers.map((member) => ({
     value: member.user_id,
     label: member.profile ? fullName(member.profile) : 'A member',
@@ -562,6 +567,29 @@ function SubmitDialog({
             />
           )}
         </Field>
+        <Button
+          size="sm"
+          variant="outline"
+          loading={describing}
+          onClick={async () => {
+            if (!target) return
+            setDescribing(true)
+            setError(null)
+            try {
+              const res = await writeChangeMessage(projectId, { paths: [target.path] })
+              if (res.result !== 'ok') return setError(res.message)
+              setTitle(res.title)
+              if (!body.trim()) setBody(res.message)
+            } catch (err) {
+              setError(authErrorMessage(err, 'Could not describe it. Write it yourself, or try again.'))
+            } finally {
+              setDescribing(false)
+            }
+          }}
+        >
+          {!describing && <Icon name="spark" size={14} />}
+          Describe it for me
+        </Button>
         <Field label="Anything the reviewer should know" optional>
           {(id) => (
             <Textarea

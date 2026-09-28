@@ -13,6 +13,7 @@ import {
   saveDraftFile,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
+import { writeChangeMessage } from '../../lib/api/workAi'
 import { extensionOf, fileName, isEditable, looksLikeMisreadOfficeFile } from '../../lib/general/files'
 import { downloadBlob, htmlToDocx, workbookToXlsx } from '../../lib/general/office'
 import { parseWorkbook, serializeWorkbook } from '../../lib/general/sheet'
@@ -96,6 +97,7 @@ function Body({
     file.kind === 'sheet' ? parseWorkbook(file.content) : { sheets: [] },
   )
   const [message, setMessage] = useState('')
+  const [writing, setWriting] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -275,6 +277,34 @@ function Body({
                 )}
               </Field>
             </div>
+          )}
+          {mayCommit && (
+            <Button
+              variant="ghost"
+              loading={writing}
+              disabled={!dirty || !state.project}
+              aria-label="Write the commit message for me"
+              title="Write the commit message from what changed"
+              onClick={async () => {
+                if (!state.project) return
+                setWriting(true)
+                setError(null)
+                try {
+                  const res = await writeChangeMessage(state.project.id, {
+                    files: [{ path: file.path, kind: file.kind, content: current }],
+                  })
+                  if (res.result !== 'ok') setError(res.message)
+                  else setMessage(res.title)
+                } catch (err) {
+                  setError(authErrorMessage(err, 'Could not write it. Write it yourself, or try again.'))
+                } finally {
+                  setWriting(false)
+                }
+              }}
+            >
+              {!writing && <Icon name="spark" size={15} />}
+              Write it
+            </Button>
           )}
           <Button variant="outline" onClick={() => void save(false)} loading={busy} disabled={!dirty}>
             Save to my draft
