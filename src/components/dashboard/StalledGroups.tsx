@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
+import { NudgeButton } from '../projects/NudgeButton'
 import { paths } from '../../lib/paths'
 import type { StalledBoard } from '../../lib/api/dashboard'
 
@@ -19,35 +20,40 @@ export function StalledGroups({ boards }: { boards: StalledBoard[] }) {
   return (
     <ul className="space-y-2">
       {boards.map((b) => (
-        <li key={b.id}>
-          <Link
-            to={paths.classProject(b.project_id)}
-            className="surface flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-warning-300 px-4 py-3 shadow-card transition-colors hover:border-warning-500 dark:border-warning-400/40"
-          >
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-warning-400/18 text-warning-700 dark:text-warning-300">
-              <Icon name={b.reason === 'empty' ? 'alert' : 'clock'} size={15} />
-            </span>
+        <li
+          key={b.id}
+          className="surface relative flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-warning-300 px-4 py-3 shadow-card transition-colors hover:border-warning-500 dark:border-warning-400/40"
+        >
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-warning-400/18 text-warning-700 dark:text-warning-300">
+            <Icon name={b.reason === 'empty' ? 'alert' : 'clock'} size={15} />
+          </span>
 
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14px] font-medium text-ink">
-                {b.group_name ?? 'One student'}
-              </span>
-              <span className="block truncate text-[12px] text-muted">
-                {b.project_title}
-              </span>
+          <span className="min-w-0 flex-1">
+            {/* Stretched over the card, so the card stays one click target
+                and Remind can sit on top of it. */}
+            <Link
+              to={paths.classProject(b.project_id)}
+              className="block truncate text-[14px] font-medium text-ink after:absolute after:inset-0 after:rounded-xl hover:underline"
+            >
+              {b.group_name ?? 'One student'}
+            </Link>
+            <span className="block truncate text-[12px] text-muted">
+              {b.project_title}
             </span>
+          </span>
 
-            <span className="shrink-0 text-right">
-              <span className="block text-[12px] text-warning-700 dark:text-warning-300">
-                {b.reason === 'empty'
-                  ? 'No tasks at all'
-                  : `Quiet for ${b.days} day${b.days === 1 ? '' : 's'}`}
-              </span>
-              <span className="block font-mono text-[12px] text-faint">
-                {b.done_count}/{b.task_count} done · {Number(b.done_pct)}%
-              </span>
+          <span className="shrink-0 text-right">
+            <span className="block text-[12px] text-warning-700 dark:text-warning-300">
+              {b.reason === 'empty'
+                ? 'No tasks at all'
+                : `Quiet for ${b.days} day${b.days === 1 ? '' : 's'}`}
             </span>
-          </Link>
+            <span className="block font-mono text-[12px] text-faint">
+              {b.done_count}/{b.task_count} done · {Number(b.done_pct)}%
+            </span>
+          </span>
+
+          <NudgeButton boardId={b.id} name={b.group_name ?? 'this student'} />
         </li>
       ))}
     </ul>

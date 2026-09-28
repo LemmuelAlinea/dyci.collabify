@@ -2,15 +2,27 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { EmptyState } from '../ui/EmptyState'
-import type { Action } from '../../lib/insight'
+import { NudgeButton } from '../projects/NudgeButton'
+import type { Action, ActionKind } from '../../lib/insight'
 
 const SHOWN = 6
+
+/** Findings about one board where hearing from the professor is the fix. */
+const REMINDABLE: ActionKind[] = [
+  'overdue_work',
+  'returned_untouched',
+  'stalled_board',
+  'empty_board',
+  'unclaimed_work',
+  'will_miss_deadline',
+]
 
 /**
  * What to do now, worst first.
  *
  * Every card links to the place that already performs the fix rather than
- * performing it here. A professor acting on a chart should land on the board,
+ * performing it here. The one exception is a reminder to a single board: it
+ * only sends a notification, and it is the fix for a quiet one. A professor acting on a chart should land on the board,
  * the project or the console they would have opened anyway — and an
  * irreversible act should never sit one click away from a figure.
  *
@@ -72,14 +84,19 @@ export function ActionList({ actions }: { actions: Action[] }) {
                   </p>
                 )}
               </div>
-              {a.to && (
-                <Link
-                  to={a.to}
-                  className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-[12px] font-medium text-navy-600 transition-colors hover:border-line-strong dark:text-navy-200"
-                >
-                  Open
-                </Link>
-              )}
+              <div className="flex shrink-0 items-center gap-2">
+                {a.boardId && !a.names && REMINDABLE.includes(a.kind) && (
+                  <NudgeButton boardId={a.boardId} name="this board" />
+                )}
+                {a.to && (
+                  <Link
+                    to={a.to}
+                    className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-[12px] font-medium text-navy-600 transition-colors hover:border-line-strong dark:text-navy-200"
+                  >
+                    Open
+                  </Link>
+                )}
+              </div>
             </div>
           </li>
         ))}

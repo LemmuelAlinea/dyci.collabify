@@ -111,7 +111,8 @@ by their owner only.
 `automation.sql` runs after `appearance.sql`. It schedules two pg_cron jobs:
 `collabify-scheduled-releases` (every 15 minutes) announces a scheduled project once its
 release time arrives, and `collabify-overdue-notices` (hourly) tells a task holder once
-when their task slips past its date.
+when their task slips past its date. It also adds `nudge_board`, a once-a-day reminder
+a professor sends to a quiet board.
 
 `anon-lockdown.sql` runs last and takes EXECUTE on every public function away
 from the signed-out role, keeping signed-in access as it was. Re-run it after

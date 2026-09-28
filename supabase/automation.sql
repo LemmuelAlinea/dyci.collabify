@@ -7,6 +7,8 @@
 --                              opens, not only when it is saved
 --   task_overdue (cron)        a task holder hears once when their task slips
 --                              past its date
+--   nudge (nudge_board)        a professor reminds a quiet board in one click;
+--                              arrives regardless of settings, once a day
 --
 -- Runs after appearance.sql, before anon-lockdown.sql. Re-run anon-lockdown.sql
 -- after it. Two transactions: a new enum value cannot be used in the one that
@@ -17,6 +19,7 @@ begin;
 do $$
 begin
   alter type public.notification_type add value if not exists 'task_overdue';
+  alter type public.notification_type add value if not exists 'nudge';
 end $$;
 
 commit;
@@ -121,6 +124,89 @@ begin
   return sent;
 end;
 $$;
+
+-- ------------------------------------------------------------------ nudge
+
+/**
+ * A professor looking at a stalled board used to have one move: open it. This
+ * sends the people on it a reminder, with an optional line of their own.
+ *
+ * Ungated by settings, like anything from a person rather than a clock. Once a
+ * day per board, so a reminder cannot turn into pestering. Nothing to remind
+ * about on work already handed in or a project that is closed.
+ */
+create or replace function public.nudge_board(p_board uuid, p_note text default null)
+returns integer language plpgsql security definer set search_path = public as $$
+declare
+  b    public.project_boards%rowtype;
+  proj public.projects%rowtype;
+  who  text;
+  note text := nullif(btrim(coalesce(p_note, '')), '');
+  recipients uuid[];
+  sent integer;
+begin
+  select * into b from public.project_boards where id = p_board;
+  if b.id is null then
+    raise exception 'That board no longer exists';
+  end if;
+  if not public.is_board_professor(p_board) then
+    raise exception 'Only someone teaching this class can send a reminder'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  select * into proj from public.projects where id = b.project_id;
+  if b.submitted_at is not null then
+    raise exception 'That work is handed in, so there is nothing to remind them about'
+      using errcode = 'check_violation';
+  end if;
+  if proj.locked_at is not null or proj.archived_at is not null then
+    raise exception 'That project is closed, so reminders are off'
+      using errcode = 'check_violation';
+  end if;
+  if length(note) > 280 then
+    raise exception 'Keep the note under 280 characters'
+      using errcode = 'check_violation';
+  end if;
+
+  select array_agg(x) into recipients from (
+    select b.student_id as x where b.student_id is not null
+    union
+    select gm.student_id from public.group_members gm
+     where b.group_id is not null and gm.group_id = b.group_id
+  ) r;
+  if recipients is null then
+    raise exception 'Nobody is on that board yet'
+      using errcode = 'check_violation';
+  end if;
+
+  if exists (
+    select 1 from public.notifications n
+     where n.user_id = any (recipients)
+       and n.type = 'nudge'
+       and n.project_id = proj.id
+       and n.created_at > now() - interval '20 hours'
+  ) then
+    raise exception 'They were reminded today already. Try again tomorrow'
+      using errcode = 'check_violation';
+  end if;
+
+  select btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, ''))
+    into who from public.profiles p where p.id = auth.uid();
+
+  insert into public.notifications
+    (user_id, type, class_id, project_id, group_id, title, preview)
+  select t.user_id, 'nudge', proj.class_id, proj.id, b.group_id,
+         'Reminder: ' || proj.title,
+         coalesce(note,
+           coalesce(nullif(who, ''), 'Your professor')
+             || ' is checking in. Move a task forward, or say on the board what is in the way.')
+    from unnest(recipients) as t(user_id);
+  get diagnostics sent = row_count;
+  return sent;
+end;
+$$;
+
+grant execute on function public.nudge_board(uuid, text) to authenticated;
 
 revoke all on function public.send_scheduled_releases() from public, anon, authenticated;
 revoke all on function public.send_overdue_notices() from public, anon, authenticated;

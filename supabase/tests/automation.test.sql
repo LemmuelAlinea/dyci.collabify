@@ -12,6 +12,23 @@ begin
 end;
 $$;
 
+create or replace function pg_temp.act_as(p_user uuid) returns void
+language plpgsql as $$
+begin
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', p_user, 'role', 'authenticated')::text, true);
+end;
+$$;
+
+create or replace function pg_temp.act_as_service() returns void
+language plpgsql as $$
+begin
+  perform set_config('role', 'none', true);
+  perform set_config('request.jwt.claims', '', true);
+end;
+$$;
+
 -- ------------------------------------------------------------------ fixture
 
 do $$
@@ -161,6 +178,69 @@ begin
   perform public.send_overdue_notices();
   select count(*) into n from public.notifications where user_id = v_a and type = 'task_overdue';
   perform pg_temp.must_be('a handed-in board is left alone', n = 0);
+end $$;
+
+-- ------------------------------------------------------------------ nudge
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_class uuid := (select v from fx where k='class');
+  v_a uuid := (select v from fx where k='a');
+  v_p uuid; v_board uuid; n int; refused boolean;
+begin
+  insert into public.projects
+    (class_id, created_by, title, type, start_week, end_week, audience, due_at)
+  values (v_class, v_prof, 'zz nudge', 'activity', 1, 1, 'individual',
+          now() + interval '10 days')
+  returning id into v_p;
+  perform public.ensure_project_boards(v_p);
+  select id into v_board from public.project_boards
+   where project_id = v_p and student_id = v_a;
+
+  -- A student cannot nudge.
+  perform pg_temp.act_as(v_a);
+  refused := false;
+  begin
+    perform public.nudge_board(v_board, null);
+  exception when others then refused := true;
+  end;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a student cannot send a reminder', refused);
+
+  -- The professor can, and the student hears it even with every switch off.
+  update public.notification_prefs
+     set deadline_reminders = false, project_invites = false where user_id = v_a;
+  perform pg_temp.act_as(v_prof);
+  n := public.nudge_board(v_board, '  Show me a draft by Friday.  ');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('the professor reminds the board', n = 1);
+  select count(*) into n from public.notifications
+   where user_id = v_a and type = 'nudge' and project_id = v_p
+     and preview = 'Show me a draft by Friday.';
+  perform pg_temp.must_be('...with their note, whatever the settings', n = 1);
+
+  -- Once a day.
+  perform pg_temp.act_as(v_prof);
+  refused := false;
+  begin
+    perform public.nudge_board(v_board, null);
+  exception when others then refused := true;
+  end;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a second reminder the same day is refused', refused);
+
+  -- Not on handed-in work.
+  delete from public.notifications where user_id = v_a and type = 'nudge';
+  update public.project_boards set submitted_at = now(), submitted_by = v_a where id = v_board;
+  perform pg_temp.act_as(v_prof);
+  refused := false;
+  begin
+    perform public.nudge_board(v_board, null);
+  exception when others then refused := true;
+  end;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('handed-in work is not nudged', refused);
 end $$;
 
 -- --------------------------------------------------------------- grants

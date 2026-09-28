@@ -49,3 +49,16 @@ export async function listHandedInBoards(projectIds: string[]) {
   if (error) throw error
   return (data ?? []) as BoardSummary[]
 }
+
+/**
+ * Remind the people on a board that the work is waiting. Once a day per board;
+ * the database refuses a second one and says so. Returns how many were told.
+ */
+export async function nudgeBoard(boardId: string, note?: string) {
+  const { data, error } = await supabase.rpc('nudge_board', {
+    p_board: boardId,
+    p_note: note?.trim() || null,
+  })
+  if (error) throw error
+  return (data as number | null) ?? 0
+}
