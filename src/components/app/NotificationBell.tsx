@@ -12,6 +12,7 @@ import {
 import type { AppNotification, Role } from '../../lib/types'
 import { DUR } from '../../lib/motion'
 import { paths } from '../../lib/paths'
+import { canTeach } from '../../lib/access'
 
 function ago(iso: string) {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -23,8 +24,14 @@ function ago(iso: string) {
 }
 
 /** Where a notification opens. An invitation opens the Inbox with it marked. */
-function destination(n: AppNotification, role: Role | null): string {
+function destination(n: AppNotification, role: Role | null, teaches: boolean): string {
   switch (n.type) {
+    case 'reassign_requested':
+    case 'reassign_decided':
+      // Someone who teaches answers reassignments on their own page; a student
+      // falls through to the class project the task is on.
+      if (teaches) return paths.reassignments
+      break
     case 'general_invited':
       return n.general_project_id ? `${paths.inbox}?invite=project:${n.general_project_id}` : paths.inbox
     case 'space_invited':
@@ -136,7 +143,7 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
       void refreshCount()
     }
     if (!profile) return
-    navigate(destination(n, profile.role))
+    navigate(destination(n, profile.role, canTeach(profile)))
   }
 
   return (
