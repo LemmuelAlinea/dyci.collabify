@@ -9,8 +9,8 @@
 import { supabase } from '../supabase'
 
 export type TrashItem = {
-  kind: 'draft' | 'task_file' | 'resource'
-  /** The task file or the syllabus or curriculum. */
+  kind: 'draft' | 'task_file' | 'resource' | 'discussion'
+  /** The task file, the syllabus or curriculum, or the discussion. */
   id: string | null
   /** The repository and trashed path, for kind 'draft'. */
   repo_id: string | null
@@ -55,7 +55,9 @@ export async function restoreTrashItem(item: TrashItem) {
       ? await supabase.rpc('restore_trashed_draft_path', { p_repo: item.repo_id, p_root: item.root })
       : item.kind === 'resource'
         ? await supabase.rpc('restore_trashed_resource', { p_resource: item.id })
-        : await supabase.rpc('restore_trashed_task_file', { p_file: item.id })
+        : item.kind === 'discussion'
+          ? await supabase.rpc('restore_trashed_discussion', { p_discussion: item.id })
+          : await supabase.rpc('restore_trashed_task_file', { p_file: item.id })
   if (error) throw error
 }
 
@@ -65,7 +67,9 @@ export async function deleteTrashItem(item: TrashItem) {
       ? await supabase.rpc('delete_trashed_draft_path', { p_repo: item.repo_id, p_root: item.root })
       : item.kind === 'resource'
         ? await supabase.rpc('delete_trashed_resource', { p_resource: item.id })
-        : await supabase.rpc('delete_trashed_task_file', { p_file: item.id })
+        : item.kind === 'discussion'
+          ? await supabase.rpc('delete_trashed_discussion', { p_discussion: item.id })
+          : await supabase.rpc('delete_trashed_task_file', { p_file: item.id })
   if (error) throw error
 }
 

@@ -18,12 +18,13 @@ export async function listDiscussionFolders(projectId: string) {
   return (data ?? []) as GeneralDiscussionFolder[]
 }
 
-/** Every discussion in the project, newest first, live one included. */
+/** Every discussion in the project, newest first, live one included. Trashed ones are left out. */
 export async function listDiscussions(projectId: string) {
   const { data, error } = await supabase
     .from('general_discussions')
     .select('*')
     .eq('project_id', projectId)
+    .is('trashed_at', null)
     .order('started_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as GeneralDiscussion[]
@@ -64,8 +65,9 @@ export const renameDiscussion = (discussionId: string, topic: string) =>
 export const moveDiscussion = (discussionId: string, folderId: string | null) =>
   rpc('move_general_discussion', { p_discussion: discussionId, p_folder: folderId })
 
-export const deleteDiscussion = (discussionId: string) =>
-  rpc('delete_general_discussion', { p_discussion: discussionId })
+/** Moves a stopped discussion to the caller's Trash, where it waits 30 days. */
+export const trashDiscussion = (discussionId: string) =>
+  rpc('trash_general_discussion', { p_discussion: discussionId })
 
 export const createDiscussionFolder = (projectId: string, name: string) =>
   rpc<string>('create_general_discussion_folder', { p_project: projectId, p_name: name })

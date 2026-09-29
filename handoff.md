@@ -2020,3 +2020,15 @@ Brief (students only, like Files; professors are sent to Brief).
   - `StudentTasksView` gets a From notes button.
 - Verified: the SQL suite, `npm run check`, and PDF/.docx export in the browser (80
   messages, 5 pages). Not yet clicked through signed in.
+
+**Follow-up (2026-09-29): discussions go to Trash.** Delete is now "Move to trash"
+(`trash_general_discussion`, starter or Owner/Manager, stopped discussions only).
+- `trashed_at`/`trashed_by` on `general_discussions`. The read policy hides a trashed
+  discussion from everyone but whoever trashed it.
+- `restore_trashed_discussion` and `delete_trashed_discussion` belong to the person who
+  trashed it. `delete_general_discussion` is dropped.
+- `trash.sql` lists (`kind = discussion`), empties and purges them (30 days).
+- Deleting a folder whose only discussions are in Trash is allowed; they come back at the
+  top level.
+- The Trash page links a restored discussion to `?tab=discussion`.
+- Suites: general-discussions 25, trash 36, anon-lockdown 15, all PASS.

@@ -9,9 +9,10 @@
 --   Trash    disposes of it. It sits in the Trash page of whoever trashed it,
 --            and is deleted for good 30 days later unless they restore it.
 --
--- What can go in: the files and folders of your own draft, task files, and a
+-- What can go in: the files and folders of your own draft, task files, a
 -- professor's syllabi and curricula (teaching_resources), which also gain an
--- archive of their own here.
+-- archive of their own here, and discussions (general-discussions.sql adds
+-- their trash columns and functions; they are listed, emptied and purged here).
 --
 -- A trashed row keeps archived_at set as well, so every listing, count, commit
 -- and submit that already skips archived files skips trashed ones with no
@@ -588,6 +589,13 @@ language sql stable security definer set search_path = public as $$
       from public.teaching_resources tr
      where tr.professor_id = auth.uid()
        and tr.trashed_at is not null
+    union all
+    select 'discussion', gd.id, null, null, gd.topic, false, 1, octet_length(gd.content_html)::bigint,
+           gd.trashed_at, gd.project_id, null, null
+      from public.general_discussions gd
+     where gd.trashed_by = auth.uid()
+       and gd.trashed_at is not null
+       and public.is_general_member(gd.project_id)
   )
   select r.kind, r.id, r.repo_id, r.root, r.name, r.is_folder, r.file_count, r.size_bytes,
          r.trashed_at, r.trashed_at + interval '30 days',
@@ -713,6 +721,7 @@ declare
   n int;
   m int;
   k int;
+  j int;
 begin
   if not public.general_viewer_active() then
     raise exception 'Sign in with an active account to empty Trash'
@@ -735,7 +744,13 @@ begin
 
   delete from public.teaching_resources where professor_id = auth.uid() and trashed_at is not null;
   get diagnostics k = row_count;
-  return n + m + k;
+
+  delete from public.general_discussions gd
+   where gd.trashed_by = auth.uid() and gd.trashed_at is not null
+     and public.is_general_member(gd.project_id)
+     and not public.general_is_archived(gd.project_id);
+  get diagnostics j = row_count;
+  return n + m + k + j;
 end;
 $$;
 
@@ -749,6 +764,7 @@ declare
   n int;
   m int;
   k int;
+  j int;
 begin
   perform set_config('collabify.trash_purge', 'on', true);
   delete from public.general_draft_files where trashed_at < now() - interval '30 days';
@@ -762,7 +778,10 @@ begin
 
   delete from public.teaching_resources where trashed_at < now() - interval '30 days';
   get diagnostics k = row_count;
-  return n + m + k;
+
+  delete from public.general_discussions where trashed_at < now() - interval '30 days';
+  get diagnostics j = row_count;
+  return n + m + k + j;
 end;
 $$;
 

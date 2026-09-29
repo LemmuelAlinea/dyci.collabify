@@ -454,6 +454,9 @@ export type GeneralDiscussion = {
   content_html: string
   updated_at: string
   updated_by: string | null
+  /** Set while it sits in the Trash of whoever put it there. */
+  trashed_at: string | null
+  trashed_by: string | null
 }
 
 export type GeneralDiscussionMessage = {

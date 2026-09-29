@@ -13,7 +13,6 @@ import { useToast } from '../ui/Toast'
 import { useLive } from '../../hooks/useLive'
 import {
   createDiscussionFolder,
-  deleteDiscussion,
   deleteDiscussionFolder,
   listDiscussionFolders,
   listDiscussionMessages,
@@ -25,6 +24,7 @@ import {
   sendDiscussionMessage,
   startDiscussion,
   stopDiscussion,
+  trashDiscussion,
 } from '../../lib/api/discussions'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
@@ -69,7 +69,6 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
     { kind: 'new-folder' } | { kind: 'folder'; folder: GeneralDiscussionFolder } | { kind: 'file'; discussion: GeneralDiscussion } | null
   >(null)
   const [moving, setMoving] = useState<GeneralDiscussion | null>(null)
-  const [deleting, setDeleting] = useState<GeneralDiscussion | null>(null)
   const [opened, setOpened] = useState<GeneralDiscussion | null>(null)
 
   const load = useCallback(async () => {
@@ -163,7 +162,7 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
   const shownFolders = !folder && !query.trim() ? folders : []
 
   function fileMenu(d: GeneralDiscussion): ActionMenuItem[] {
-    const mayDelete = !readOnly && (d.started_by === state.viewerId || lead)
+    const mayTrash = !readOnly && (d.started_by === state.viewerId || lead)
     return [
       { label: 'Open', icon: 'eye', onSelect: () => setOpened(d) },
       {
@@ -182,8 +181,21 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
             { label: 'Move to folder', icon: 'folder' as const, onSelect: () => setMoving(d) },
           ]
         : []),
-      ...(mayDelete
-        ? [{ label: 'Delete', icon: 'trash' as const, tone: 'danger' as const, separated: true, onSelect: () => setDeleting(d) }]
+      ...(mayTrash
+        ? [
+            {
+              label: 'Move to trash',
+              icon: 'trash' as const,
+              tone: 'danger' as const,
+              separated: true,
+              onSelect: () =>
+                void run(
+                  () => trashDiscussion(d.id),
+                  'Discussion moved to Trash. It stays there for 30 days.',
+                  'Could not move it to Trash.',
+                ),
+            },
+          ]
         : []),
     ]
   }
@@ -343,21 +355,6 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
           show('Moved')
           await load()
         }}
-      />
-
-      <ConfirmDialog
-        open={deleting !== null}
-        onClose={() => setDeleting(null)}
-        onConfirm={async () => {
-          if (!deleting) return
-          await deleteDiscussion(deleting.id)
-          show('Discussion deleted')
-          await load()
-        }}
-        title="Delete this discussion?"
-        body={`“${deleting?.topic ?? ''}” and every message in it are removed for the whole group. This cannot be undone.`}
-        confirmLabel="Delete"
-        tone="danger"
       />
 
       <FileDialog

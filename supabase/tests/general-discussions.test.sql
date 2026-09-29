@@ -149,11 +149,11 @@ begin
 
   perform pg_temp.act_as(v_b);
   begin
-    perform public.delete_general_discussion(d1);
+    perform public.trash_general_discussion(d1);
     refused := false;
   exception when insufficient_privilege then refused := true;
   end;
-  perform pg_temp.ok('someone who did not start it cannot delete it', refused);
+  perform pg_temp.ok('someone who did not start it cannot move it to Trash', refused);
 
   ------------------------------------------------------------------ freezing
   perform pg_temp.act_as(v_a);
@@ -173,14 +173,36 @@ begin
   perform pg_temp.ok('...and its files cannot change', refused);
   perform pg_temp.ok('...but they can still be read', exists (select 1 from public.general_discussions where id = d1));
 
+  ------------------------------------------------------------------ trash
   perform pg_temp.act_as(v_a);
   perform public.set_board_submitted(v_board, false);
-  perform public.delete_general_discussion(d1);
+  perform public.trash_general_discussion(d1);
+  perform pg_temp.ok('the starter moves it to Trash, where they see it',
+    exists (select 1 from public.list_my_trash() t where t.kind = 'discussion' and t.id = d1));
+  perform pg_temp.act_as(v_b);
+  perform pg_temp.ok('...and it leaves the Discussion tab for everyone else',
+    not exists (select 1 from public.general_discussions where id = d1));
+  perform pg_temp.ok('...and is not in their Trash',
+    not exists (select 1 from public.list_my_trash() t where t.id = d1));
+
+  perform pg_temp.act_as(v_a);
+  perform public.restore_trashed_discussion(d1);
+  perform pg_temp.act_as(v_b);
+  perform pg_temp.ok('restoring brings it back for the group, in its folder',
+    exists (select 1 from public.general_discussions where id = d1 and folder_id = v_folder and trashed_at is null));
+
+  perform pg_temp.act_as(v_a);
+  perform public.trash_general_discussion(d1);
   perform public.delete_general_discussion_folder(v_folder);
   perform pg_temp.svc();
-  perform pg_temp.ok('the starter deletes it, then the empty folder goes',
-    not exists (select 1 from public.general_discussions where id = d1)
-    and not exists (select 1 from public.general_discussion_folders where id = v_folder));
+  perform pg_temp.ok('a folder whose only discussion is in Trash can go, and the discussion comes back at the top',
+    not exists (select 1 from public.general_discussion_folders where id = v_folder)
+    and (select folder_id from public.general_discussions where id = d1) is null);
+
+  update public.general_discussions set trashed_at = now() - interval '31 days' where id = d1;
+  perform public.purge_trash();
+  perform pg_temp.ok('after 30 days the purge deletes it for good',
+    not exists (select 1 from public.general_discussions where id = d1));
 end;
 $$;
 

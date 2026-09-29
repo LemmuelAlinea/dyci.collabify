@@ -16,6 +16,10 @@
 --   general_discussions          a discussion, live until ended_at is set
 --   general_discussion_messages  text only, while the discussion is live
 --
+-- Deleting a discussion moves it to the Trash of whoever deleted it
+-- (trashed_at / trashed_by). It leaves everyone else's Discussion tab at once,
+-- comes back with Restore, and trash.sql's purge takes it after 30 days.
+--
 -- One live discussion per project at a time (a partial unique index). Every
 -- write goes through the functions below; the tables grant select only. A
 -- handed-in or closed board refuses writes through guard_class_board_files,
@@ -65,6 +69,10 @@ create table if not exists public.general_discussions (
 );
 
 -- One live discussion per project.
+alter table public.general_discussions
+  add column if not exists trashed_at timestamptz,
+  add column if not exists trashed_by uuid references public.profiles (id) on delete set null;
+
 create unique index if not exists general_discussions_one_live
   on public.general_discussions (project_id) where ended_at is null;
 
@@ -94,9 +102,13 @@ drop policy if exists general_discussion_folders_read on public.general_discussi
 create policy general_discussion_folders_read on public.general_discussion_folders
   for select using (public.is_general_member(project_id));
 
+-- A trashed discussion is seen only by whoever trashed it, in their Trash.
 drop policy if exists general_discussions_read on public.general_discussions;
 create policy general_discussions_read on public.general_discussions
-  for select using (public.is_general_member(project_id));
+  for select using (
+    public.is_general_member(project_id)
+    and (trashed_at is null or trashed_by = auth.uid())
+  );
 
 drop policy if exists general_discussion_messages_read on public.general_discussion_messages;
 create policy general_discussion_messages_read on public.general_discussion_messages
@@ -204,7 +216,10 @@ begin
 end;
 $$;
 
-/** Only an empty folder goes, so no discussion is lost with it. */
+/**
+ * Only an empty folder goes, so no discussion is lost with it. Discussions of
+ * it sitting in somebody's Trash stay there, and come back at the top level.
+ */
 create or replace function public.delete_general_discussion_folder(p_folder uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare
@@ -215,10 +230,12 @@ begin
     raise exception 'That folder is gone' using errcode = 'no_data_found';
   end if;
   perform public.general_discussion_check(f.project_id);
-  if exists (select 1 from public.general_discussions d where d.folder_id = p_folder) then
+  if exists (select 1 from public.general_discussions d where d.folder_id = p_folder and d.trashed_at is null) then
     raise exception 'This folder still holds discussions. Move or delete them first.'
       using errcode = 'check_violation';
   end if;
+  update public.general_discussions set folder_id = null
+   where folder_id = p_folder and trashed_at is not null;
   delete from public.general_discussion_folders where id = p_folder;
 end;
 $$;
@@ -400,21 +417,59 @@ begin
 end;
 $$;
 
-/** Its starter, or an Owner or Manager, deletes a discussion and its messages. */
-create or replace function public.delete_general_discussion(p_discussion uuid)
+-- Deleting goes through Trash now; the old outright delete is gone.
+drop function if exists public.delete_general_discussion(uuid);
+
+/**
+ * Its starter, or an Owner or Manager, moves a stopped discussion to their
+ * own Trash. It leaves the Discussion tab for everyone.
+ */
+create or replace function public.trash_general_discussion(p_discussion uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare
   d public.general_discussions%rowtype;
 begin
-  select * into d from public.general_discussions where id = p_discussion;
-  if not found then
+  select * into d from public.general_discussions where id = p_discussion for update;
+  if not found or d.trashed_at is not null then
     raise exception 'That discussion is gone' using errcode = 'no_data_found';
   end if;
   perform public.general_discussion_check(d.project_id);
+  if d.ended_at is null then
+    raise exception 'This discussion is still running. Stop it first.' using errcode = 'check_violation';
+  end if;
   if d.started_by is distinct from auth.uid() and not public.general_discussion_lead(d.project_id) then
-    raise exception 'Only whoever started this discussion, or an Owner or Manager, can delete it'
+    raise exception 'Only whoever started this discussion, or an Owner or Manager, can move it to Trash'
       using errcode = 'insufficient_privilege';
   end if;
+  update public.general_discussions set trashed_at = now(), trashed_by = auth.uid() where id = p_discussion;
+end;
+$$;
+
+/** Back into the Discussion tab, where it was. Only whoever trashed it. */
+create or replace function public.restore_trashed_discussion(p_discussion uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  d public.general_discussions%rowtype;
+begin
+  select * into d from public.general_discussions
+   where id = p_discussion and trashed_at is not null and trashed_by = auth.uid()
+   for update;
+  if not found then return; end if;
+  perform public.general_discussion_check(d.project_id);
+  update public.general_discussions set trashed_at = null, trashed_by = null where id = p_discussion;
+end;
+$$;
+
+/** For good, with its messages. Only whoever trashed it. */
+create or replace function public.delete_trashed_discussion(p_discussion uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  d public.general_discussions%rowtype;
+begin
+  select * into d from public.general_discussions
+   where id = p_discussion and trashed_at is not null and trashed_by = auth.uid();
+  if not found then return; end if;
+  perform public.general_discussion_check(d.project_id);
   delete from public.general_discussions where id = p_discussion;
 end;
 $$;
@@ -476,7 +531,9 @@ begin
     'save_general_discussion_file(uuid, text, timestamptz)',
     'rename_general_discussion(uuid, text)',
     'move_general_discussion(uuid, uuid)',
-    'delete_general_discussion(uuid)'
+    'trash_general_discussion(uuid)',
+    'restore_trashed_discussion(uuid)',
+    'delete_trashed_discussion(uuid)'
   ] loop
     execute format('revoke all on function public.%s from public, anon', f);
     execute format('grant execute on function public.%s to authenticated', f);
