@@ -1959,3 +1959,6 @@ motion-lint all pass. The owner clicked through the UI.
 
 Lint still has 3 errors that were already there, in `FilesTab.tsx:452`,
 `NudgeButton.tsx:49` and `Submissions.tsx:146`, so `npm run check` stops at lint.
+
+**Follow-up (2026-09-29): lint clean.** The 3 older lint errors are fixed (`65701cd`), and
+`npm run check` now passes end to end. What remains is 27 warnings.
