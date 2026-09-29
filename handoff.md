@@ -2041,3 +2041,61 @@ checks before the fix, 4 PASS after).
 
 **Trap:** re-running `general-reports.sql` on its own reverts `general_report_file_ok`, which
 `trash.sql` redefines. Re-run `trash.sql` and `anon-lockdown.sql` after it (done here).
+
+**Follow-up (2026-09-29): reassignment notices open Reassignments for teachers.** In
+`NotificationBell.tsx`, `destination()` takes a third argument, `teaches` (`canTeach(profile)`).
+For someone who teaches, `reassign_requested` and `reassign_decided` go to
+`paths.reassignments`. Everyone else still falls through to the class project.
+
+## 2026-09-29 — end of day
+
+Everything below is on `main` and live on dyci-collabify.vercel.app (last commit `8743817`).
+
+| Commit | Change |
+| --- | --- |
+| `c5b7b8b` | Shared with me: share draft files and folders with groupmates |
+| `65701cd` | The last 3 lint errors fixed |
+| `6f06dc5` | `useNow` shared clock; donut offsets; `classFiltered` memoized |
+| `d1593b6` | Component files export components only (0 lint warnings) |
+| `854c3d9` | One join code per class, space and project, for good |
+| `af34dda` | Discussion tab: live room, saved files, folders, .docx/.pdf, From notes |
+| `000500e` | Discussion files go to Trash instead of being deleted |
+| `8a020b1` | RLS on `general_report_settings`; `rls-coverage` test |
+| `8743817` | Reassignment notices open Reassignments for teachers |
+
+**State of the checks.**
+- `npm run check` passes end to end: typecheck, lint with 0 errors and 0 warnings, 565 unit
+  tests, build, contrast, a11y-names, schema-drift, motion-lint. schema-drift still lists the
+  same 11 "check by hand" hints, none of them new. legal-ready is not enforced and only
+  lists its placeholders.
+- SQL suites added today: `general-shares` (24), `general-discussions` (25) and
+  `rls-coverage` (4).
+
+**Restore order changed** (`docs/07-backup.md`):
+- `general-shares.sql` and then `general-discussions.sql` run after `teaching-guards.sql` and
+  before `storage-sweep.sql`.
+- `join-codes.sql` runs just before `anon-lockdown.sql`.
+- Re-run `anon-lockdown.sql` after adding any function.
+
+**Deployed outside git.**
+- `work-ai` was redeployed with `supabase functions deploy work-ai`. Its `tasks` action now
+  reads a stopped discussion (`discussion_id`) instead of a Main file (`path`).
+- New dependency: `jspdf`, loaded only when someone downloads a discussion as PDF.
+
+**Consultation guide.** A Claude Docs document, "Collabify consultation guide", covers the
+12 consultation topics with answers drawn from this codebase. Link:
+https://claude.ai/code/artifact/76f49ab4-6783-4b1a-b5b0-92ecccdf368b. Its figures (84 tables,
+565 tests and so on) are as of today; refresh them if the schema grows.
+
+**Still open (owner's to do, from the guide's checklist):**
+- Supabase backup retention is still unverified in `docs/07-backup.md`. Check the dashboard
+  and take one manual `pg_dump`.
+- ERD image and one data flow diagram for the consultation.
+- Evaluation results (respondents, mean score per characteristic) on one page.
+
+**Known limits, if asked** (the answers are in the guide):
+- dev and production share one Supabase project
+- `npm run check` is not run by CI
+- no load test
+- the CSP is report-only
+- no two-factor sign-in
