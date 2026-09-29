@@ -15,10 +15,13 @@ export function Alert({
   tone = 'info',
   children,
   onRetry,
+  onClose,
 }: {
   tone?: 'info' | 'success' | 'error'
   children: ReactNode
   onRetry?: () => void | Promise<void>
+  /** Puts a close button on it, for a notice somebody may want out of the way. */
+  onClose?: () => void
 }) {
   const map = {
     info: {
@@ -49,6 +52,16 @@ export function Alert({
           className="shrink-0 rounded-lg border border-current/25 px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-current/10"
         >
           Try again
+        </button>
+      )}
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close this notice"
+          className="-my-1 -mr-1.5 grid h-7 w-7 shrink-0 place-items-center rounded-md transition-colors hover:bg-current/10"
+        >
+          <Icon name="x" size={15} />
         </button>
       )}
     </div>

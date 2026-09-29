@@ -36,6 +36,17 @@ import { FolderBar } from './FolderBar'
 import { RichEditor } from './RichEditor'
 import type { GeneralProjectState } from './useGeneralProject'
 
+const NOTICE_KEY = 'collabify.discussion-notice-closed'
+
+/** Whether this person closed the room's notice. Remembered in this browser only. */
+function noticeClosed() {
+  try {
+    return localStorage.getItem(NOTICE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
 /** A file name from a discussion's topic. */
 const fileBase = (d: GeneralDiscussion) => d.topic.replace(/[/\\:*?"<>|]+/g, ' ').trim() || 'Discussion'
 
@@ -70,6 +81,16 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
   >(null)
   const [moving, setMoving] = useState<GeneralDiscussion | null>(null)
   const [opened, setOpened] = useState<GeneralDiscussion | null>(null)
+  const [noticeOpen, setNoticeOpen] = useState(() => !noticeClosed())
+
+  function toggleNotice(open: boolean) {
+    setNoticeOpen(open)
+    try {
+      localStorage.setItem(NOTICE_KEY, String(!open))
+    } catch {
+      // Private window or blocked storage: it just shows again next time.
+    }
+  }
 
   const load = useCallback(async () => {
     if (!projectId) return
@@ -116,11 +137,20 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
     }
   }
 
-  const notice = (
-    <Alert tone="info">
+  const notice = noticeOpen ? (
+    <Alert tone="info" onClose={() => toggleNotice(false)}>
       This room is for planning the project: tasks, plans and events. Everything said here is saved
       in the discussion file and can be turned into tasks, so off-topic talk ends up there too.
     </Alert>
+  ) : (
+    <button
+      type="button"
+      onClick={() => toggleNotice(true)}
+      className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12px] font-medium text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+    >
+      <Icon name="info" size={14} />
+      What this room is for
+    </button>
   )
 
   if (!loaded) {

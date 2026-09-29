@@ -2099,3 +2099,8 @@ https://claude.ai/code/artifact/76f49ab4-6783-4b1a-b5b0-92ecccdf368b. Its figure
 - no load test
 - the CSP is report-only
 - no two-factor sign-in
+
+**Follow-up (2026-09-29): the Discussion notice closes.** `Alert` takes an `onClose` (an x
+button, "Close this notice"). In `DiscussionTab` the room notice closes to a small "What this
+room is for" link that opens it again. The choice is kept per browser in `localStorage`
+(`collabify.discussion-notice-closed`), wrapped in try/catch.
