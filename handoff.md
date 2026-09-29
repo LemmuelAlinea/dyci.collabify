@@ -2120,3 +2120,15 @@ room is for" link that opens it again. The choice is kept per browser in `localS
 - Applied live as a patch of just the changed objects (no whole-file re-run). New
   `tests/general-review-many.test.sql`: 11 PASS. Existing drafts, restore, folders, general,
   reports, work-automation, class-files and anon-lockdown suites all pass.
+
+**Change (2026-09-29): a Groups tab inside group class projects.** For professors, a group
+project is now `Brief · Boards · Groups`. Boards is the old per-group tab, renamed with its
+id still `tasks`, so `?tab=tasks` links still work. The new `components/groups/ProjectGroupsTab`
+uses the same `GroupsBoard` and `useGroupsData` as the class Groups tab and the Groups page,
+keyed on `project.class_id` and filtered to `project.group_set_id` and its groups and members.
+It has Close set and Reopen; creating and deleting sets stays on the Groups page, because
+other projects may share a set. Individual projects stay `Brief · Students`. `?tab=groups` on
+an individual project, or for a student, falls back to Brief once the project loads.
+- Checked signed in as the owner on localhost, with no failed requests:
+  - Lab 6 shows only Trial Group; the Groups page still shows every set
+  - the Boards tab, the class Groups and Projects tabs, and group card links all work

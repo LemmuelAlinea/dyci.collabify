@@ -16,6 +16,7 @@ import { ProjectWizard } from '../../../components/projects/ProjectWizard'
 import { SeriesActionDialog } from '../../../components/projects/SeriesActionDialog'
 import { BoardVerdict } from '../../../components/tasks/BoardVerdict'
 import { ClassFilesTab } from '../../../components/tasks/ClassFilesTab'
+import { ProjectGroupsTab } from '../../../components/groups/ProjectGroupsTab'
 import { ProgressTab } from '../../../components/tasks/ProgressTab'
 import { ProjectTasksTab } from '../../../components/tasks/ProjectTasksTab'
 import { SubmitProject } from '../../../components/tasks/SubmitProject'
@@ -61,9 +62,9 @@ import type {
   SeriesMember,
 } from '../../../lib/types'
 
-type TabId = 'brief' | 'discussion' | 'tasks' | 'files' | 'shared' | 'progress'
+type TabId = 'brief' | 'discussion' | 'tasks' | 'groups' | 'files' | 'shared' | 'progress'
 
-const LINKED_TABS: TabId[] = ['discussion', 'tasks', 'files', 'shared', 'progress']
+const LINKED_TABS: TabId[] = ['discussion', 'tasks', 'groups', 'files', 'shared', 'progress']
 
 /** Which scoped action the professor opened, when the project runs in several. */
 type SeriesAction = 'due' | 'lock' | 'archive' | 'release'
@@ -119,6 +120,12 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   useEffect(() => {
     if ((tab === 'files' || tab === 'shared' || tab === 'discussion') && role !== 'student') setTab('brief')
   }, [tab, role])
+  // Groups is a teacher's tab, and only a group project has groups. Checked once
+  // the project has loaded, so a link naming it is not bounced while it loads.
+  useEffect(() => {
+    if (tab !== 'groups') return
+    if (role !== 'professor' || (project && project.audience !== 'group')) setTab('brief')
+  }, [tab, role, project])
 
   const load = useCallback(async () => {
     if (!projectId) return
@@ -384,14 +391,19 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
             ...(role === 'student' ? [{ id: 'discussion' as const, label: 'Discussion', icon: 'message' as const }] : []),
             {
               id: 'tasks',
+              // A group project's per-group boards are "Boards", so "Groups"
+              // can name the groups themselves, in the tab after it.
               label:
                 role === 'professor'
                   ? project.audience === 'group'
-                    ? 'Groups'
+                    ? 'Boards'
                     : 'Students'
                   : 'Tasks',
-              icon: role === 'professor' ? 'users' : 'check',
+              icon: role === 'professor' ? (project.audience === 'group' ? 'kanban' : 'users') : 'check',
             },
+            ...(role === 'professor' && project.audience === 'group'
+              ? [{ id: 'groups' as const, label: 'Groups', icon: 'users' as const }]
+              : []),
             // A group's files are the group's own: teachers see what is handed
             // in, not the working files (the database refuses them too).
             ...(role === 'student'
@@ -411,6 +423,15 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
       {tab === 'tasks' && (
         <div className="mt-6">
           <ProjectTasksTab project={project} role={role} viewerId={profile?.id} t={t} />
+        </div>
+      )}
+      {tab === 'groups' && role === 'professor' && project.audience === 'group' && (
+        <div className="mt-6">
+          <ProjectGroupsTab
+            project={project}
+            cls={classes.find((c) => c.id === project.class_id) ?? null}
+            viewerId={profile?.id}
+          />
         </div>
       )}
       {(tab === 'files' || tab === 'shared' || tab === 'discussion') && role === 'student' && (
