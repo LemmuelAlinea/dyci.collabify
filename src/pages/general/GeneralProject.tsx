@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { MembersTab } from '../../components/general/MembersTab'
 import { OverviewTab } from '../../components/general/OverviewTab'
+import { DiscussionTab } from '../../components/general/DiscussionTab'
 import { FilesTab } from '../../components/general/FilesTab'
 import { ProgressTab } from '../../components/general/ProgressTab'
 import { SharedTab } from '../../components/general/SharedTab'
@@ -164,6 +165,7 @@ export default function GeneralProject() {
       <Tabs<GeneralTabId>
         tabs={[
           { id: 'overview', label: 'Overview', icon: 'file' },
+          { id: 'discussion', label: 'Discussion', icon: 'message' },
           { id: 'tasks', label: 'Tasks', icon: 'check', count: state.tasks.length },
           { id: 'files', label: 'Files', icon: 'folder' },
           { id: 'shared', label: 'Shared with me', icon: 'users' },
@@ -180,6 +182,7 @@ export default function GeneralProject() {
       />
 
       {tab === 'overview' && <OverviewTab state={state} />}
+      {tab === 'discussion' && <DiscussionTab state={state} />}
       {tab === 'tasks' && <TasksTab state={state} />}
       {tab === 'files' && <FilesTab state={state} />}
       {tab === 'shared' && <SharedTab state={state} />}

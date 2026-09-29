@@ -20,7 +20,8 @@ export type DraftedWorkTask = {
   due: string
 }
 
-export const draftWorkTasks = (projectId: string, source: { text?: string; path?: string }) =>
+/** Action items from pasted notes, or from a stopped discussion's file. */
+export const draftWorkTasks = (projectId: string, source: { text: string } | { discussion_id: string }) =>
   call<{ tasks: DraftedWorkTask[]; note: string }>('tasks', projectId, source)
 
 /** From the caller's draft (optionally just these paths), or from text on screen. */

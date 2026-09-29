@@ -6,15 +6,17 @@ import { Icon, Spinner } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
-import { assignTask, createTask, getRepo, listTree } from '../../lib/api/general'
+import { listDiscussionFolders, listDiscussions } from '../../lib/api/discussions'
+import { assignTask, createTask } from '../../lib/api/general'
 import { draftWorkTasks } from '../../lib/api/workAi'
 import type { DraftedWorkTask } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
-import { isKeep } from '../../lib/general/files'
+import { formatDue } from '../../lib/general/dates'
 import type { GeneralProjectState } from './useGeneralProject'
 
-type Row = DraftedWorkTask & { keep: boolean }
-type Source = 'paste' | 'file'
+export type NoteTaskRow = DraftedWorkTask & { keep: boolean }
+type Row = NoteTaskRow
+type Source = 'paste' | 'discussion'
 
 /** 11:59 pm on a local `YYYY-MM-DD`, as ISO. Null for an empty or bad day. */
 function endOfDay(day: string) {
@@ -22,32 +24,41 @@ function endOfDay(day: string) {
 }
 
 /**
- * Minutes, notes or a project document in; the action items in them out, as
+ * Minutes, notes or a saved discussion in; the action items in them out, as
  * draft tasks to keep, edit or drop. Nothing is saved until the person says so.
  * Owners and dates are only what the text names; people are put on a task only
  * by someone who may assign them.
+ *
+ * A work project saves them as its own tasks. A class project passes `onSave`
+ * (and `mayAssign`, since any student may hand a board task to a groupmate) and
+ * saves them on the group's board instead.
  */
 export function TasksFromNotes({
   state,
   open,
   onClose,
+  onSave,
+  mayAssign: mayAssignOverride,
 }: {
   state: GeneralProjectState
   open: boolean
   onClose: () => void
+  /** Saves the kept rows and returns what to tell the person. */
+  onSave?: (rows: NoteTaskRow[]) => Promise<string>
+  mayAssign?: boolean
 }) {
   const { show } = useToast()
   const [source, setSource] = useState<Source>('paste')
   const [text, setText] = useState('')
-  const [path, setPath] = useState('')
-  const [files, setFiles] = useState<string[] | null>(null)
+  const [discussionId, setDiscussionId] = useState('')
+  const [files, setFiles] = useState<{ value: string; label: string }[] | null>(null)
   const [rows, setRows] = useState<Row[] | null>(null)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const projectId = state.project?.id
-  const mayAssign = state.can('manage_tasks')
+  const mayAssign = mayAssignOverride ?? state.can('manage_tasks')
 
   useEffect(() => {
     if (!open) {
@@ -55,20 +66,23 @@ export function TasksFromNotes({
       setNote('')
       setError(null)
       setText('')
-      setPath('')
+      setDiscussionId('')
       return
     }
     if (!projectId) return
     let live = true
-    void getRepo(projectId)
-      .then((repo) => (repo ? listTree(repo.id) : []))
+    // Only stopped discussions have a file to read.
+    void Promise.all([listDiscussions(projectId), listDiscussionFolders(projectId)])
       .then(
-        (tree) =>
+        ([list, folders]) =>
           live &&
           setFiles(
-            tree
-              .filter((f) => !isKeep(f.path) && (f.kind !== 'binary' || f.path.toLowerCase().endsWith('.pdf')))
-              .map((f) => f.path),
+            list
+              .filter((d) => d.ended_at)
+              .map((d) => {
+                const folder = folders.find((f) => f.id === d.folder_id)?.name
+                return { value: d.id, label: `${folder ? `${folder} / ` : ''}${d.topic} · ${formatDue(d.started_at)}` }
+              }),
           ),
       )
       .catch(() => live && setFiles([]))
@@ -80,11 +94,11 @@ export function TasksFromNotes({
   async function draft() {
     if (!projectId) return
     if (source === 'paste' && text.trim().length < 20) return setError('Paste the notes first.')
-    if (source === 'file' && !path) return setError('Pick a file.')
+    if (source === 'discussion' && !discussionId) return setError('Pick a discussion.')
     setBusy(true)
     setError(null)
     try {
-      const res = await draftWorkTasks(projectId, source === 'paste' ? { text } : { path })
+      const res = await draftWorkTasks(projectId, source === 'paste' ? { text } : { discussion_id: discussionId })
       if (res.result !== 'ok') return setError(res.message)
       setRows(res.tasks.map((t) => ({ ...t, assignee: mayAssign ? t.assignee : '', keep: true })))
       setNote(res.note)
@@ -101,6 +115,17 @@ export function TasksFromNotes({
     if (keep.length === 0) return
     setSaving(true)
     setError(null)
+    if (onSave) {
+      try {
+        show(await onSave(keep))
+        onClose()
+      } catch (err) {
+        setError(authErrorMessage(err, 'Those tasks could not be saved.'))
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
     let unassigned = 0
     try {
       for (const r of keep) {
@@ -147,7 +172,7 @@ export function TasksFromNotes({
       open={open}
       onClose={onClose}
       title="Tasks from notes"
-      description="Paste minutes or notes, or pick a document, and keep the action items you want."
+      description="Paste minutes or notes, or pick a saved discussion, and keep the action items you want."
       size="lg"
       footer={
         <>
@@ -179,7 +204,7 @@ export function TasksFromNotes({
           ) : (
             <>
               <div role="radiogroup" aria-label="Where the notes are" className="flex gap-2">
-                {(['paste', 'file'] as const).map((s) => (
+                {(['paste', 'discussion'] as const).map((s) => (
                   <button
                     key={s}
                     type="button"
@@ -190,7 +215,7 @@ export function TasksFromNotes({
                       source === s ? 'border-navy-400 bg-navy-50 font-medium text-ink dark:bg-navy-500/12' : 'border-line text-muted'
                     }`}
                   >
-                    {s === 'paste' ? 'Paste notes' : 'From a file'}
+                    {s === 'paste' ? 'Paste notes' : 'From a discussion'}
                   </button>
                 ))}
               </div>
@@ -205,19 +230,20 @@ export function TasksFromNotes({
                 />
               ) : files === null ? (
                 <p className="flex items-center gap-2 text-[13px] text-muted">
-                  <Spinner size={14} /> Loading the project's files…
+                  <Spinner size={14} /> Loading the discussions…
                 </p>
               ) : files.length === 0 ? (
                 <p className="text-[13px] text-muted">
-                  Main has no documents, sheets, text files or PDFs yet. Paste the notes instead.
+                  No saved discussions yet. Start one in the Discussion tab and stop it to save its file,
+                  or paste the notes instead.
                 </p>
               ) : (
                 <Select
-                  value={path}
-                  onChange={(e) => setPath(e.target.value)}
-                  placeholder="Choose a file in Main"
-                  aria-label="File to read"
-                  options={files.map((f) => ({ value: f, label: f }))}
+                  value={discussionId}
+                  onChange={(e) => setDiscussionId(e.target.value)}
+                  placeholder="Choose a discussion"
+                  aria-label="Discussion to read"
+                  options={files}
                 />
               )}
               <p className="text-[12px] text-faint">

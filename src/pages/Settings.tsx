@@ -86,11 +86,11 @@ const NOTIFICATIONS: NotificationRow[] = [
   },
   {
     key: 'project_updates',
-    label: () => 'Project changes',
+    label: () => 'Project changes and discussions',
     body: (r) =>
       isStudent(r)
-        ? "When a class project's due date moves or it closes, a work project you are on is archived or restored, or your role in a space or project changes."
-        : 'When a work project you are on is archived or restored, or your role in a space or project changes.',
+        ? "When a class project's due date moves or it closes, someone starts a discussion, a work project you are on is archived or restored, or your role in a space or project changes."
+        : 'When someone starts a discussion, a work project you are on is archived or restored, or your role in a space or project changes.',
     shown: inSomething,
   },
   {

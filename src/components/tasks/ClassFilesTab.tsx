@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { DiscussionTab } from '../general/DiscussionTab'
 import { FilesTab } from '../general/FilesTab'
 import { SharedTab } from '../general/SharedTab'
 import { useGeneralProject } from '../general/useGeneralProject'
@@ -13,7 +14,7 @@ import type { ProjectTasks } from './useProjectTasks'
  * A class project's Files: the group's own repository, the same page a work
  * project has. Students only: a group's working files are theirs, and the
  * database refuses teachers too. Handing in, or the professor closing the
- * project, freezes them. `show="shared"` is the same group's Shared with me.
+ * project, freezes them. `show` picks the same group's Shared with me or Discussion instead.
  */
 export function ClassFilesTab({
   t,
@@ -22,7 +23,7 @@ export function ClassFilesTab({
 }: {
   t: ProjectTasks
   viewerId: string | undefined
-  show?: 'files' | 'shared'
+  show?: 'files' | 'shared' | 'discussion'
 }) {
   const board = t.active
   const [projectId, setProjectId] = useState<string | undefined>(undefined)
@@ -83,7 +84,13 @@ export function ClassFilesTab({
           Opening files…
         </div>
       ) : (
-        show === 'shared' ? <SharedTab state={view} /> : <FilesTab state={view} />
+        show === 'shared' ? (
+          <SharedTab state={view} />
+        ) : show === 'discussion' ? (
+          <DiscussionTab state={view} />
+        ) : (
+          <FilesTab state={view} />
+        )
       )}
     </div>
   )

@@ -3,6 +3,7 @@ import { Alert } from '../ui/Alert'
 import { Icon, Spinner } from '../ui/Icon'
 import { EmptyState } from '../ui/EmptyState'
 import { useToast } from '../ui/Toast'
+import { ClassTasksFromNotes } from './ClassTasksFromNotes'
 import { GenerateTasksModal } from './GenerateTasksModal'
 import { TaskBoard } from './TaskBoard'
 import { TaskList } from './TaskList'
@@ -13,7 +14,7 @@ import { TaskFilterBar, TaskViewSwitch } from './TaskViewSwitch'
 import { canPlanBoard, isBoardSubmitted } from '../../lib/types'
 import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
 import type { ProjectTasks } from './useProjectTasks'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
 /** One student's own board: what they hold, and what they can still change. */
 export function StudentTasksView({
@@ -28,6 +29,8 @@ export function StudentTasksView({
 }) {
   const { show } = useToast()
   const [aiOpen, setAiOpen] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(false)
+  const closeNotes = useCallback(() => setNotesOpen(false), [])
   const { active, locked, boards } = t
 
   return (
@@ -54,6 +57,16 @@ export function StudentTasksView({
         }}
       />
 
+      {active && viewerId && (
+        <ClassTasksFromNotes
+          board={active}
+          viewerId={viewerId}
+          open={notesOpen}
+          onClose={closeNotes}
+          onSaved={t.refresh}
+        />
+      )}
+
       {!active ? (
         <EmptyState
           icon="users"
@@ -75,7 +88,16 @@ export function StudentTasksView({
               The database refuses the insert either way; this is what stops the
               button offering something that cannot happen. */}
           {canPlanBoard(active, locked) ? (
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="!rounded-lg"
+                onClick={() => setNotesOpen(true)}
+              >
+                <Icon name="spark" size={15} />
+                From notes
+              </Button>
               <Button
                 variant="outline"
                 size="sm"

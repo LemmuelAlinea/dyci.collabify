@@ -1,8 +1,8 @@
 import type { GeneralSpaceSummary } from './types'
 
-export type GeneralTabId = 'overview' | 'tasks' | 'files' | 'shared' | 'progress' | 'members'
+export type GeneralTabId = 'overview' | 'discussion' | 'tasks' | 'files' | 'shared' | 'progress' | 'members'
 
-const TABS = new Set<GeneralTabId>(['overview', 'tasks', 'files', 'shared', 'progress', 'members'])
+const TABS = new Set<GeneralTabId>(['overview', 'discussion', 'tasks', 'files', 'shared', 'progress', 'members'])
 
 export function generalTab(params: URLSearchParams): GeneralTabId {
   if (params.has('task')) return 'tasks'

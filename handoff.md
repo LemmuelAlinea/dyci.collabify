@@ -1992,3 +1992,31 @@ Owner asked for class, space and project join codes to be permanent: no more "Ne
 - Applied live (both functions, the new file, and `anon-lockdown.sql` again). Suites pass:
   access, general, general-spaces, general-space-teams, one-workplace and anon-lockdown.
   Per the owner, the original bug was not reproduced.
+
+## Session — 2026-09-29: Discussion tab
+
+A Discussion tab in every project: work projects after Overview, class projects after
+Brief (students only, like Files; professors are sent to Brief).
+- `supabase/general-discussions.sql` (after `general-shares.sql`, before `storage-sweep.sql`):
+  - Tables: `general_discussion_folders` (one level), `general_discussions` (live while
+    `ended_at` is null; one live per project by a partial unique index) and
+    `general_discussion_messages` (text only).
+  - Select is through `is_general_member`; every write goes through RPCs (start, send, stop,
+    save file with an `updated_at` check, rename, move, delete, and the folder RPCs).
+  - `stop_general_discussion` writes the conversation, HTML-escaped, into `content_html`.
+    Only the starter can stop it, or an Owner or Manager once the starter has left.
+  - Frozen boards refuse writes through `guard_class_board_files`.
+  - A `discussion_started` notification goes to the other members, gated on
+    `project_updates`; for a class board it opens the class project.
+  - Tests: `tests/general-discussions.test.sql`, 20 PASS.
+- `work-ai` (deployed): the `tasks` action reads `discussion_id` (stopped discussions only,
+  through the caller token) in place of a Main file `path`.
+- UI:
+  - `DiscussionTab.tsx`: the notice, folders, files, the live room, stop with a confirm,
+    and the file editor (`RichEditor`) with .docx and .pdf download.
+  - `lib/general/pdf.ts`: jsPDF, lazy-loaded.
+  - `TasksFromNotes`: "From a discussion" replaces "From a file"; an `onSave`/`mayAssign`
+    override lets class boards save through `ClassTasksFromNotes` (`addTask` + `claimTask`).
+  - `StudentTasksView` gets a From notes button.
+- Verified: the SQL suite, `npm run check`, and PDF/.docx export in the browser (80
+  messages, 5 pages). Not yet clicked through signed in.

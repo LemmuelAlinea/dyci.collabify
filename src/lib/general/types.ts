@@ -432,6 +432,39 @@ export type GeneralBlob = {
 }
 
 /** general_repo_tree: the newest row per path, minus the removed ones. */
+/** A folder in a project's Discussion tab. One level deep. */
+export type GeneralDiscussionFolder = {
+  id: string
+  project_id: string
+  name: string
+  created_by: string | null
+  created_at: string
+}
+
+/** A discussion: live while `ended_at` is null, then a file the group edits. */
+export type GeneralDiscussion = {
+  id: string
+  project_id: string
+  folder_id: string | null
+  topic: string
+  started_by: string | null
+  started_at: string
+  ended_at: string | null
+  ended_by: string | null
+  content_html: string
+  updated_at: string
+  updated_by: string | null
+}
+
+export type GeneralDiscussionMessage = {
+  id: string
+  discussion_id: string
+  project_id: string
+  sender_id: string | null
+  body: string
+  created_at: string
+}
+
 /** One file inside a share: a copy of a draft file as it was when shared. */
 export type GeneralSharedFile = {
   path: string

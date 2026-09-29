@@ -150,16 +150,20 @@ async function tasksAction(ctx: Ctx) {
   // Anyone on a project may add tasks, so anyone may draft them. Putting
   // somebody else on one is still checked when the task is saved.
   let source = String(ctx.body.text ?? '').trim()
-  const path = String(ctx.body.path ?? '')
-  if (path) {
-    const file = (await mainFiles(ctx)).find((f) => f.path === path)
-    if (!file) throw new Refused('That file is not in Main.')
-    source =
-      file.kind === 'binary' && file.storage_path && path.toLowerCase().endsWith('.pdf')
-        ? await pdfText(ctx.caller, file.storage_path)
-        : fileText(file)
+  const discussionId = String(ctx.body.discussion_id ?? '')
+  if (discussionId) {
+    // Read through the caller's token, so only a discussion they may see comes back.
+    const { data: discussion } = await ctx.caller
+      .from('general_discussions')
+      .select('content_html, ended_at')
+      .eq('id', discussionId)
+      .eq('project_id', ctx.projectId)
+      .maybeSingle()
+    if (!discussion) throw new Refused('That discussion is not in this project.')
+    if (!discussion.ended_at) throw new Refused('That discussion is still running. Stop it first, then draft tasks from its file.')
+    source = htmlToText(String(discussion.content_html ?? '')).trim()
   }
-  if (source.length < 20) throw new Refused('Give it a little more to read: paste the notes, or pick a file.')
+  if (source.length < 20) throw new Refused('Give it a little more to read: paste the notes, or pick a discussion.')
 
   const [{ data: project }, { data: members }, { data: teams }] = await Promise.all([
     ctx.caller.from('general_projects').select('name, starts_on, ends_on').eq('id', ctx.projectId).maybeSingle(),
