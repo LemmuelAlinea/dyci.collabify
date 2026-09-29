@@ -59,7 +59,7 @@ export type PickerState = {
 
 const flat = (catalogue: ReportGroup[]) => catalogue.flatMap((g) => g.items)
 
-export function reportLabel(catalogue: ReportGroup[], kind: ReportKind) {
+function reportLabel(catalogue: ReportGroup[], kind: ReportKind) {
   return flat(catalogue).find((i) => i.kind === kind)?.label ?? 'Report'
 }
 

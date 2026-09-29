@@ -1,12 +1,7 @@
 import { useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import { Icon } from './Icon'
-
-export function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
+import { formatBytes } from '../../lib/formatBytes'
 
 type Props = {
   file: File | null

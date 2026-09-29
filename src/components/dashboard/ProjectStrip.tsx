@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
-import { dueLabel, dueLabelShort } from '../projects/ProjectCard'
+import { dueLabel, dueLabelShort } from '../projects/dueLabel'
 import { PROJECT_TYPES, projectTypeLabel, weekSpanLabel } from '../../lib/types'
 import type { BoardSummary, ProjectSummary } from '../../lib/types'
 

@@ -1,5 +1,5 @@
 import { Icon } from '../ui/Icon'
-import { dueLabel } from './ProjectCard'
+import { dueLabel } from './dueLabel'
 import type { SeriesMember } from '../../lib/types'
 
 /**

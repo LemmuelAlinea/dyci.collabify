@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
-import { EMPTY_SCOPE } from '../../../components/analytics/FilterChain'
-import type { Scope } from '../../../components/analytics/FilterChain'
+import { EMPTY_SCOPE } from '../../../components/analytics/scope'
+import type { Scope } from '../../../components/analytics/scope'
 import {
   boardBurn,
   boardDiagnoses,

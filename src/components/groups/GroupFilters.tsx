@@ -1,14 +1,8 @@
 import { FilterField, FilterPopover, FilterSearch } from '../ui/FilterPopover'
 import { Select } from '../ui/Select'
 import type { ClassSummary, GroupSet } from '../../lib/types'
-
-export type GroupFilterState = {
-  query: string
-  classId: string
-  setId: string
-}
-
-export const EMPTY_FILTERS: GroupFilterState = { query: '', classId: '', setId: '' }
+import { EMPTY_FILTERS } from './groupFilterState'
+import type { GroupFilterState } from './groupFilterState'
 
 export function GroupFilters({
   value,

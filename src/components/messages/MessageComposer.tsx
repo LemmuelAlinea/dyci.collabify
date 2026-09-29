@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Icon, Spinner } from '../ui/Icon'
-import { formatBytes } from '../ui/FileDrop'
+import { formatBytes } from '../../lib/formatBytes'
 import { LIMIT } from '../../lib/limits'
 
 const MAX_MB = 10

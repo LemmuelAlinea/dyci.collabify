@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FocusEvent, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
-import { buttonClass } from './Button'
+import { buttonClass } from './buttonClass'
 import { Icon, Spinner } from './Icon'
 import type { IconName } from './Icon'
 

@@ -1969,3 +1969,11 @@ replaces `Date.now()` in render in EventChip, ProjectCard, TaskSummary, the work
 summary, StudentHome and MyTasks. `StatusDonut` works out its segment offsets before drawing,
 and MyTasks memoizes `classFiltered`. Lint: 0 errors, 19 warnings, all
 `react-refresh/only-export-components`.
+
+**Follow-up (2026-09-29): lint has 0 warnings.** Component files now export components only:
+- `AuthProvider`, `ThemeProvider` and `ToastProvider` moved into their own files (`main.tsx`
+  imports them). `useAuth`, `useTheme` and `useToast` stay where every page imports them.
+- Helpers moved out: `lib/formatBytes.ts`, `ui/buttonClass.ts`, `projects/dueLabel.ts`,
+  `projects/weekSpan.ts`, `calendar/eventLook.ts`, `reports/csv.ts`, `analytics/scope.ts`,
+  `groups/groupFilterState.ts` and `tasks/taskFilterState.ts`.
+- `motion-lint` now checks `ToastProvider.tsx` for `motion-toast`.

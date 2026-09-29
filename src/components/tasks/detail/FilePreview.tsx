@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Icon, Spinner } from '../../ui/Icon'
-import { formatBytes } from '../../ui/FileDrop'
+import { formatBytes } from '../../../lib/formatBytes'
 import { taskFileUrl } from '../../../lib/api/taskDetail'
 import { isImage } from '../../../lib/types'
 import type { TaskFile } from '../../../lib/types'

@@ -10,8 +10,8 @@ import type { ProfessorTaskGroup, ProjectTaskRow } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import { boardOwnerName, isProjectLocked } from '../../lib/types'
 import type { BoardSummary, MemberProgress as MemberRow, ProjectSummary, TeachingViewRole } from '../../lib/types'
-import { EMPTY_TASK_FILTERS, applyTaskFilters } from './TaskFilters'
-import type { TaskFilterState } from './TaskFilters'
+import { EMPTY_TASK_FILTERS, applyTaskFilters } from './taskFilterState'
+import type { TaskFilterState } from './taskFilterState'
 
 /**
  * Everything the tasks tab knows, in one place.

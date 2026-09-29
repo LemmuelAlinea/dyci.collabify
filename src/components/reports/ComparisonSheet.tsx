@@ -1,5 +1,5 @@
 import { Figures, ReportTable, Sheet, SheetSection } from './Sheet'
-import { csvMoment, momentLabel } from '../../lib/report'
+import { momentLabel } from '../../lib/report'
 import type { ClassReport } from '../../lib/report'
 import { resultLabel } from '../../lib/types'
 import type { BoardSummary } from '../../lib/types'
@@ -71,29 +71,4 @@ export function ComparisonSheet({
       </SheetSection>
     </Sheet>
   )
-}
-
-/** The same table, as spreadsheet rows. */
-export function comparisonCsv(boards: BoardSummary[]) {
-  const headers = [
-    'Board',
-    'Members',
-    'Tasks',
-    'Finished',
-    'Late',
-    'Completion %',
-    'Handed in',
-    'Outcome',
-  ]
-  const body = boards.map((b) => [
-    b.group_name ?? b.student_name ?? 'A board',
-    b.group_id ? b.member_count : 1,
-    b.task_count,
-    b.done_count,
-    b.late_count,
-    Math.round(Number(b.done_pct)),
-    csvMoment(b.submitted_at),
-    b.result_verdict ?? '',
-  ])
-  return { headers, body }
 }

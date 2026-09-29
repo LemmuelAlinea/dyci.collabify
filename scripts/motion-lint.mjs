@@ -98,7 +98,7 @@ for (const { name, src, expected } of CLASS_NAME_SCOPES_SELF_CHECK) {
 
 // 1. The four overlays must carry an enter/exit transition class.
 const OVERLAYS = {
-  'src/components/ui/Toast.tsx': 'motion-toast',
+  'src/components/ui/ToastProvider.tsx': 'motion-toast',
   'src/components/ui/Modal.tsx': 'motion-dialog',
   'src/components/ui/FilterPopover.tsx': 'motion-overlay',
   'src/components/app/NotificationBell.tsx': 'motion-overlay',

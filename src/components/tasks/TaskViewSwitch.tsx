@@ -1,6 +1,6 @@
 import { Icon } from '../ui/Icon'
 import { TaskFilters } from './TaskFilters'
-import type { TaskFilterState } from './TaskFilters'
+import type { TaskFilterState } from './taskFilterState'
 import type { ProjectTaskRow } from '../../lib/api/tasks'
 import type { BoardSummary } from '../../lib/types'
 

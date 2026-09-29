@@ -3,22 +3,8 @@ import { FilterField, FilterPopover } from '../ui/FilterPopover'
 import { Select } from '../ui/Select'
 import { burnOwner } from '../../lib/types'
 import type { BoardBurn, ClassRef, MemberLoad, TaskState } from '../../lib/types'
-
-export type Scope = {
-  classId: string
-  projectId: string
-  boardId: string
-  studentId: string
-  taskId: string
-}
-
-export const EMPTY_SCOPE: Scope = {
-  classId: '',
-  projectId: '',
-  boardId: '',
-  studentId: '',
-  taskId: '',
-}
+import { EMPTY_SCOPE } from './scope'
+import type { Scope } from './scope'
 
 const ORDER: (keyof Scope)[] = ['classId', 'projectId', 'boardId', 'studentId', 'taskId']
 

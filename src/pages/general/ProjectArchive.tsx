@@ -38,7 +38,7 @@ import { buildTree, isKeep } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
 import { TASK_STATUSES } from '../../lib/general/progress'
 import type { ArchivedDraftFile, ArchivedGeneralFile, GeneralDraftFile, GeneralTask, RemovedGeneralRepoPath } from '../../lib/general/types'
-import { formatBytes } from '../../components/ui/FileDrop'
+import { formatBytes } from '../../lib/formatBytes'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 
 export default function ProjectArchive() {

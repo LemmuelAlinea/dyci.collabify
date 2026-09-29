@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { EventChip, eventDot } from './EventChip'
+import { EventChip } from './EventChip'
+import { eventDot } from './eventLook'
 import { Icon } from '../ui/Icon'
 import { dayKey } from '../../lib/types'
 import type { CalendarEvent, ClassWeek } from '../../lib/types'

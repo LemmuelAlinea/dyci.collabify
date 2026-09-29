@@ -11,7 +11,7 @@ import type { ClassInput } from '../../lib/api/classes'
 import type { Semester, TeachingResource, YearLevel } from '../../lib/types'
 
 /** "Database Management" → "DBM". Only a suggestion; the field stays editable. */
-export function suggestInitial(name: string) {
+function suggestInitial(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return ''
   if (words.length === 1) return words[0].slice(0, 3).toUpperCase()
