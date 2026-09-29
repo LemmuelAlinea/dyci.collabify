@@ -145,6 +145,7 @@ export default function Submissions({ classId }: { classId?: string }) {
         await load()
         throw new Error(
           `${done} of ${list.length} accepted. ${authErrorMessage(err, 'The next one was refused.')}`,
+          { cause: err },
         )
       }
       await load()

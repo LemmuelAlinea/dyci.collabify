@@ -46,7 +46,7 @@ export function NudgeButton({ boardId, name }: { boardId: string; name: string }
             show(sent === 1 ? 'Reminder sent' : `Reminder sent to ${sent} people`)
             setNote('')
           } catch (err) {
-            throw new Error(authErrorMessage(err, 'Could not send the reminder. Try again.'))
+            throw new Error(authErrorMessage(err, 'Could not send the reminder. Try again.'), { cause: err })
           }
         }}
         body={

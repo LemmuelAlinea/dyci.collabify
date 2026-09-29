@@ -449,7 +449,7 @@ function ZipButton({ tree, path, project }: { tree: GeneralTreeFile[]; path: str
   const [progress, setProgress] = useState<string | null>(null)
   const count = filesUnder(tree, path).length
   if (count === 0) return null
-  const name = `${(path ? fileName(path) : project).replace(/[\/:*?"<>|]+/g, ' ').trim() || 'Files'}.zip`
+  const name = `${(path ? fileName(path) : project).replace(/[/:*?"<>|]+/g, ' ').trim() || 'Files'}.zip`
 
   return (
     <Button
