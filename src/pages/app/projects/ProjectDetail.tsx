@@ -59,9 +59,9 @@ import type {
   SeriesMember,
 } from '../../../lib/types'
 
-type TabId = 'brief' | 'tasks' | 'files' | 'progress'
+type TabId = 'brief' | 'tasks' | 'files' | 'shared' | 'progress'
 
-const LINKED_TABS: TabId[] = ['tasks', 'files', 'progress']
+const LINKED_TABS: TabId[] = ['tasks', 'files', 'shared', 'progress']
 
 /** Which scoped action the professor opened, when the project runs in several. */
 type SeriesAction = 'due' | 'lock' | 'archive' | 'release'
@@ -115,7 +115,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   const canManage = role === 'professor'
   // Old links (a review notice, Trash) can still name Files for a teacher.
   useEffect(() => {
-    if (tab === 'files' && role !== 'student') setTab('brief')
+    if ((tab === 'files' || tab === 'shared') && role !== 'student') setTab('brief')
   }, [tab, role])
 
   const load = useCallback(async () => {
@@ -393,6 +393,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
             ...(role === 'student'
               ? [
                   { id: 'files' as const, label: 'Files', icon: 'folder' as const },
+                  { id: 'shared' as const, label: 'Shared with me', icon: 'users' as const },
                   { id: 'progress' as const, label: 'Progress', icon: 'chart' as const },
                 ]
               : []),
@@ -408,10 +409,10 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           <ProjectTasksTab project={project} role={role} viewerId={profile?.id} t={t} />
         </div>
       )}
-      {tab === 'files' && role === 'student' && (
+      {(tab === 'files' || tab === 'shared') && role === 'student' && (
         <div className="mt-6">
           {isReleased(project) ? (
-            <ClassFilesTab t={t} viewerId={profile?.id} />
+            <ClassFilesTab t={t} viewerId={profile?.id} show={tab} />
           ) : (
             <Alert tone="info">This project has not been released yet, so there are no files to work on.</Alert>
           )}

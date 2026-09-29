@@ -1922,3 +1922,40 @@ then, so restore a test colour with a swatch click, not the hex box.
 **Change (2026-09-29): Classes shows three in the rail too.** `spaceRows.ts` has one
 `CAP = 3` for Classes, Spaces and Projects. `PROJECT_CAP` is kept as an export for
 `SideNav`.
+
+## Session — 2026-09-29: Shared with me
+
+Teammates can pass a draft file or folder to each other without submitting it.
+
+**What users see.** My draft's 3-dot menus (file row, folder row, current-folder bar)
+have **Share**. It opens `ShareDialog`: an "All members" checkbox over a `CheckboxList`
+of the project's other members. A new **Shared with me** tab sits right after Files:
+- Work projects: always there.
+- Class projects: students only. A professor sent to `?tab=shared` lands on Brief.
+
+`SharedTab` lists what came to you. You can open it read-only (`OpenFile.sharedBy`
+freezes `FileEditor` and hides Summarize), download it (a folder as a zip), copy it to
+your draft, or remove it from your list. A collapsed "Shared by me" section has Stop
+sharing. A folder share is browsed with `?share=…&spath=…`. Recipients get a
+`file_shared` bell notice, gated on `notification_prefs.submissions`; Settings now calls
+it "Reviews and shared files".
+
+**Rules, in `supabase/general-shares.sql`.**
+- A share is a copy as of sharing, held in `general_shares.files` jsonb. Recipients are
+  in `general_share_recipients`. Sharing the same path again with the same person
+  replaces their older copy.
+- RLS: only the sender and the recipients can read a share, and only while they are
+  project members (`general_share_readable`).
+- There are no write grants. The only writers are the RPCs `share_general_draft_path`,
+  `unshare_general_share`, `dismiss_general_share` and `copy_general_share_to_draft`.
+  The copy refuses and names the path if any path is already in your draft.
+- A frozen class board refuses new shares through `guard_class_board_files`.
+- `storage_orphans` counts shared `storage_path`s as used. So the file runs **before
+  `storage-sweep.sql`**, and the restore line in `docs/07-backup.md` is updated.
+
+**Verified.** `tests/general-shares.test.sql`: 24 PASS. The general-drafts, class-files
+and trash suites: 101 PASS. Typecheck, 562 unit tests, build, contrast, a11y-names and
+motion-lint all pass. The owner clicked through the UI.
+
+Lint still has 3 errors that were already there, in `FilesTab.tsx:452`,
+`NudgeButton.tsx:49` and `Submissions.tsx:146`, so `npm run check` stops at lint.

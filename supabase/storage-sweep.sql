@@ -40,6 +40,9 @@ language sql stable security definer set search_path = public as $$
     union all select 'general-files', x ->> 'storage_path'
                 from public.general_repo_changes ch, jsonb_array_elements(ch.files) x
                where x ->> 'storage_path' is not null
+    union all select 'general-files', x ->> 'storage_path'
+                from public.general_shares sh, jsonb_array_elements(sh.files) x
+               where x ->> 'storage_path' is not null
     union all select 'task-files', t.file_path from public.task_files t
     union all select 'project-files', a.file_path from public.project_attachments a
     union all select 'class-files', a.file_path from public.announcement_attachments a

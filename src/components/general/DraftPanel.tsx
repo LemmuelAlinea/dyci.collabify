@@ -33,6 +33,7 @@ import { fullName } from '../../lib/types'
 import { DiffView } from './DiffView'
 import type { OpenFile } from './FileEditor'
 import { FolderBar } from './FolderBar'
+import { ShareDialog } from './ShareDialog'
 import type { GeneralProjectState } from './useGeneralProject'
 
 type SubmitTarget = { type: 'file' | 'folder'; path: string }
@@ -80,6 +81,7 @@ export function DraftPanel({
   const [submitting, setSubmitting] = useState<SubmitTarget | null>(null)
   const [archiving, setArchiving] = useState<SubmitTarget | null>(null)
   const [committing, setCommitting] = useState<SubmitTarget | null>(null)
+  const [sharing, setSharing] = useState<SubmitTarget | null>(null)
   const [typed, setTyped] = useState('')
   const mayCommit = state.can('edit_files')
   const [discarding, setDiscarding] = useState(false)
@@ -165,6 +167,7 @@ export function DraftPanel({
                     ...(mayCommit
                       ? [{ label: 'Commit to main', icon: 'check' as const, disabled: behind, onSelect: () => setCommitting({ type: 'folder', path }) }]
                       : []),
+                    { label: 'Share', icon: 'users', onSelect: () => setSharing({ type: 'folder', path }) },
                     { label: 'Archive', icon: 'archive', onSelect: () => setArchiving({ type: 'folder', path }) },
                     { label: 'Move to trash', icon: 'trash', tone: 'danger', separated: true, onSelect: () => moveToTrash({ type: 'folder', path }) },
                   ]}
@@ -232,6 +235,7 @@ export function DraftPanel({
                   onArchive={setArchiving}
                   onTrash={moveToTrash}
                   onSubmit={setSubmitting}
+                  onShare={setSharing}
                   onCommit={mayCommit ? setCommitting : undefined}
                 />
               ))}
@@ -258,6 +262,7 @@ export function DraftPanel({
               onArchive={setArchiving}
               onTrash={moveToTrash}
               onSubmit={setSubmitting}
+              onShare={setSharing}
               onCommit={mayCommit ? setCommitting : undefined}
             />
           ))}
@@ -282,6 +287,8 @@ export function DraftPanel({
           await onDone()
         }}
       />
+
+      <ShareDialog repoId={repo.id} target={sharing} state={state} onClose={() => setSharing(null)} />
 
       <ConfirmDialog
         open={archiving !== null}
@@ -366,6 +373,7 @@ function DraftNode({
   onArchive,
   onTrash,
   onSubmit,
+  onShare,
   onCommit,
 }: {
   node: TreeNode
@@ -380,6 +388,7 @@ function DraftNode({
   onArchive: (target: SubmitTarget) => void
   onTrash: (target: SubmitTarget) => void
   onSubmit: (target: SubmitTarget) => void
+  onShare: (target: SubmitTarget) => void
   /** Only for whoever may commit to Main without a review. */
   onCommit?: (target: SubmitTarget) => void
 }) {
@@ -408,6 +417,7 @@ function DraftNode({
                 ...(onCommit
                   ? [{ label: 'Commit to main', icon: 'check' as const, disabled: behind, onSelect: () => onCommit({ type: 'folder', path: node.path }) }]
                   : []),
+                { label: 'Share', icon: 'users', onSelect: () => onShare({ type: 'folder', path: node.path }) },
                 { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'folder', path: node.path }) },
                 { label: 'Move to trash', icon: 'trash', tone: 'danger', separated: true, onSelect: () => onTrash({ type: 'folder', path: node.path }) },
               ]}
@@ -467,6 +477,10 @@ function DraftNode({
               { label: 'Submit for review', icon: 'refresh', disabled: behind, onSelect: () => onSubmit({ type: 'file', path: f.path }) },
               ...(onCommit
                 ? [{ label: 'Commit to main', icon: 'check' as const, disabled: behind, onSelect: () => onCommit({ type: 'file', path: f.path }) }]
+                : []),
+              // A removal has nothing in it to pass on.
+              ...(f.action !== 'removed'
+                ? [{ label: 'Share', icon: 'users' as const, onSelect: () => onShare({ type: 'file', path: f.path }) }]
                 : []),
               { label: 'Archive', icon: 'archive', onSelect: () => onArchive({ type: 'file', path: f.path }) },
               { label: 'Move to trash', icon: 'trash', tone: 'danger', separated: true, onSelect: () => onTrash({ type: 'file', path: f.path }) },

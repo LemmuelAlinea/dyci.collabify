@@ -5,6 +5,7 @@ import { MembersTab } from '../../components/general/MembersTab'
 import { OverviewTab } from '../../components/general/OverviewTab'
 import { FilesTab } from '../../components/general/FilesTab'
 import { ProgressTab } from '../../components/general/ProgressTab'
+import { SharedTab } from '../../components/general/SharedTab'
 import { TasksTab } from '../../components/general/TasksTab'
 import { SinceLastVisit } from '../../components/general/SinceLastVisit'
 import { SaveTemplateButton } from '../../components/general/SaveTemplateButton'
@@ -165,6 +166,7 @@ export default function GeneralProject() {
           { id: 'overview', label: 'Overview', icon: 'file' },
           { id: 'tasks', label: 'Tasks', icon: 'check', count: state.tasks.length },
           { id: 'files', label: 'Files', icon: 'folder' },
+          { id: 'shared', label: 'Shared with me', icon: 'users' },
           { id: 'progress', label: 'Progress', icon: 'chart' },
           {
             id: 'members',
@@ -180,6 +182,7 @@ export default function GeneralProject() {
       {tab === 'overview' && <OverviewTab state={state} />}
       {tab === 'tasks' && <TasksTab state={state} />}
       {tab === 'files' && <FilesTab state={state} />}
+      {tab === 'shared' && <SharedTab state={state} />}
       {tab === 'progress' && <ProgressTab state={state} />}
       {tab === 'members' && <MembersTab state={state} />}
 

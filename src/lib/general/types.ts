@@ -432,6 +432,27 @@ export type GeneralBlob = {
 }
 
 /** general_repo_tree: the newest row per path, minus the removed ones. */
+/** One file inside a share: a copy of a draft file as it was when shared. */
+export type GeneralSharedFile = {
+  path: string
+  kind: FileKind
+  content: string
+  storage_path: string | null
+}
+
+/** A draft file or folder a member passed to others in the same project. */
+export type GeneralShare = {
+  id: string
+  project_id: string
+  repo_id: string
+  sender_id: string
+  type: 'file' | 'folder'
+  path: string
+  files: GeneralSharedFile[]
+  created_at: string
+  recipient_ids: string[]
+}
+
 export type GeneralTreeFile = {
   id: string
   repo_id: string

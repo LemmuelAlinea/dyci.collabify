@@ -50,6 +50,7 @@ import type {
   GeneralRepoSummary,
   GeneralDraft,
   GeneralDraftFile,
+  GeneralShare,
   GeneralTreeFile,
   RemovedGeneralRepoPath,
   RepoFile,
@@ -1434,6 +1435,51 @@ export async function submitDraftFolder(repoId: string, path: string, title: str
   })
   if (error) throw error
   return data as GeneralRepoChange
+}
+
+/* ------------------------------------------------------------------ shares */
+
+/** Shares a copy of a draft file or folder with other members of the project. */
+export async function shareDraftPath(repoId: string, path: string, folder: boolean, recipientIds: string[]) {
+  const { data, error } = await supabase.rpc('share_general_draft_path', {
+    p_repo: repoId,
+    p_path: path,
+    p_folder: folder,
+    p_recipients: recipientIds,
+  })
+  if (error) throw error
+  return data as string
+}
+
+/** Every share in a project the viewer sent or received, newest first. */
+export async function listShares(projectId: string) {
+  const { data, error } = await supabase
+    .from('general_shares')
+    .select('*, general_share_recipients(user_id)')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map(({ general_share_recipients, ...row }) => ({
+    ...row,
+    recipient_ids: ((general_share_recipients ?? []) as { user_id: string }[]).map((r) => r.user_id),
+  })) as GeneralShare[]
+}
+
+export async function unshareShare(shareId: string) {
+  const { error } = await supabase.rpc('unshare_general_share', { p_share: shareId })
+  if (error) throw error
+}
+
+export async function dismissShare(shareId: string) {
+  const { error } = await supabase.rpc('dismiss_general_share', { p_share: shareId })
+  if (error) throw error
+}
+
+/** Copies a share into the viewer's draft. Returns how many files went in. */
+export async function copyShareToDraft(shareId: string) {
+  const { data, error } = await supabase.rpc('copy_general_share_to_draft', { p_share: shareId })
+  if (error) throw error
+  return data as number
 }
 
 /** Commits one draft file, or everything under a draft folder, straight to Main. */

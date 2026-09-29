@@ -34,6 +34,8 @@ export type OpenFile = {
   action: FileAction
   /** True when what is shown is the draft's copy rather than Main's. */
   fromDraft: boolean
+  /** A teammate's shared copy, by who shared it: read-only, never saved from here. */
+  sharedBy?: string
 }
 
 /**
@@ -66,7 +68,7 @@ export function FileEditor({
       size="xl"
     >
       {file && (
-        <Body key={file.path + String(file.fromDraft)} file={file} repo={repo} state={state} onClose={onClose} onSaved={onSaved} />
+        <Body key={file.path + String(file.fromDraft) + (file.sharedBy ?? '')} file={file} repo={repo} state={state} onClose={onClose} onSaved={onSaved} />
       )}
     </Modal>
   )
@@ -86,11 +88,14 @@ function Body({
   onSaved: () => Promise<void>
 }) {
   const { show } = useToast()
-  const mayCommit = state.can('edit_files') && !state.archived
+  const readOnly = state.archived || file.sharedBy !== undefined
+  const mayCommit = state.can('edit_files') && !readOnly
   const misreadOfficeFile = file.kind === 'text' && looksLikeMisreadOfficeFile(file.content)
-  const frozen = state.archived || !isEditable(file.kind) || misreadOfficeFile
+  const frozen = readOnly || !isEditable(file.kind) || misreadOfficeFile
   const name = fileName(file.path)
   const isPdf = file.kind === 'binary' && extensionOf(file.path) === 'pdf'
+  // Summaries read Main's version, so a shared copy or a draft has none.
+  const summarizable = !file.fromDraft && file.sharedBy === undefined && (isEditable(file.kind) || isPdf) && Boolean(state.project)
 
   const [text, setText] = useState(file.kind === 'sheet' ? '' : file.content)
   const [book, setBook] = useState<Workbook>(() =>
@@ -194,7 +199,9 @@ function Body({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted">
         <span className="rounded-md surface-sunken px-2 py-0.5">{FILE_KIND_LABEL[file.kind]}</span>
-        {file.fromDraft ? (
+        {file.sharedBy !== undefined ? (
+          <span className="rounded-md surface-sunken px-2 py-0.5">Shared by {file.sharedBy}</span>
+        ) : file.fromDraft ? (
           <span className="rounded-md bg-amber-400/25 px-2 py-0.5 font-medium text-amber-800 dark:text-amber-200">
             Your draft
           </span>
@@ -203,7 +210,7 @@ function Body({
             Main, commit {repo.commit_count}
           </span>
         )}
-        {!file.fromDraft && (isEditable(file.kind) || isPdf) && state.project && (
+        {summarizable && (
           <Button
             size="sm"
             variant="ghost"
@@ -231,7 +238,7 @@ function Body({
         <Button
           size="sm"
           variant="ghost"
-          className={!file.fromDraft && (isEditable(file.kind) || isPdf) && state.project ? '' : 'ml-auto'}
+          className={summarizable ? '' : 'ml-auto'}
           onClick={() => void download()}
         >
           <Icon name="download" size={14} />
@@ -282,7 +289,7 @@ function Body({
         file.storagePath ? <PdfPreview storagePath={file.storagePath} label={name} /> : null
       )}
 
-      {!mayCommit && !state.archived && isEditable(file.kind) && (
+      {!mayCommit && !readOnly && isEditable(file.kind) && (
         <Alert tone="info">
           Saving puts this in your draft. Nobody else sees it until you submit your draft for
           review.

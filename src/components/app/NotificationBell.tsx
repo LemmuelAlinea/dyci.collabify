@@ -40,6 +40,10 @@ function destination(n: AppNotification, role: Role | null): string {
       if (n.general_project_id) return `${paths.project(n.general_project_id)}?tab=files`
       // A class project's Files.
       return n.project_id ? `${paths.classProject(n.project_id)}?tab=files` : paths.home
+    case 'file_shared':
+      if (n.general_project_id) return `${paths.project(n.general_project_id)}?tab=shared`
+      // A class project's group.
+      return n.project_id ? `${paths.classProject(n.project_id)}?tab=shared` : paths.home
     case 'draft_waiting':
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=files&view=draft` : paths.home
     case 'general_access_requested':

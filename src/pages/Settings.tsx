@@ -45,11 +45,11 @@ const inSomething = (r: Reader) => r.role !== 'admin' || r.inClass || r.hasWork
 const NOTIFICATIONS: NotificationRow[] = [
   {
     key: 'submissions',
-    label: (r) => (r.teaching ? 'Hand-ins and reviews' : 'Reviews'),
+    label: (r) => (r.teaching ? 'Hand-ins and reviews' : 'Reviews and shared files'),
     body: (r) =>
       r.teaching
         ? 'When a group or student hands work in to your class, or a change in a work project waits for your review.'
-        : 'When a change in a work project waits for your review.',
+        : 'When a change waits for your review, or a teammate shares a file or folder with you.',
     shown: (r) => (isStudent(r) ? r.hasWork : inSomething(r)),
   },
   {

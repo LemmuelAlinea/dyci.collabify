@@ -185,6 +185,7 @@ export type AppNotification = {
     | 'board_submitted'
     | 'review_requested'
     | 'review_answered'
+    | 'file_shared'
     | 'project_updated'
     | 'membership_changed'
   class_id: string | null
