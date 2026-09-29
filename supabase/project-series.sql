@@ -347,6 +347,68 @@ begin
 end;
 $$;
 
+-- ------------------------------------------------------------ who does it
+
+/**
+ * Changes who one section's project goes to: each student, or the groups of
+ * one set. This is the "changed on its own project" the file header promises;
+ * update_project_series leaves audience alone because a set belongs to one
+ * class.
+ *
+ * The boards follow the audience (a board per student, or per group), so the
+ * old boards are removed and ensure_project_boards makes the new ones through
+ * the projects update trigger. That is only safe before anybody has started:
+ * a task, a hand-in, a result, or anything in a board's Files or Discussion
+ * refuses the change rather than throwing that work away.
+ *
+ * Security definer because a professor may not delete boards directly; the
+ * caller is checked against the class the same way the projects policy does.
+ */
+create or replace function public.set_project_audience(
+  p_project   uuid,
+  p_audience  public.project_audience,
+  p_group_set uuid
+) returns void language plpgsql security definer set search_path = public as $$
+declare
+  p     public.projects%rowtype;
+  v_set uuid := case when p_audience = 'group' then p_group_set end;
+begin
+  select * into p from public.projects where id = p_project for update;
+  if not found or not public.is_class_professor(p.class_id) then
+    raise exception 'Only a professor of this class can change who does this project'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_audience = 'group' and v_set is null then
+    raise exception 'Pick which set of groups gets this project.'
+      using errcode = 'invalid_parameter_value';
+  end if;
+  if p.audience = p_audience and p.group_set_id is not distinct from v_set then
+    return;
+  end if;
+
+  if exists (
+    select 1 from public.project_boards b
+     where b.project_id = p_project
+       and (b.submitted_at is not null
+            or exists (select 1 from public.project_tasks t where t.board_id = b.id)
+            or exists (select 1 from public.board_results r where r.board_id = b.id)
+            or exists (
+              select 1 from public.general_projects gp
+               where gp.class_board_id = b.id
+                 and (exists (select 1 from public.general_commits c where c.project_id = gp.id)
+                      or exists (select 1 from public.general_draft_files f where f.project_id = gp.id)
+                      or exists (select 1 from public.general_repo_changes ch where ch.project_id = gp.id)
+                      or exists (select 1 from public.general_discussions x where x.project_id = gp.id))))
+  ) then
+    raise exception 'Students have already started on this project, so who does it can no longer change. Make a new project for the other arrangement instead.'
+      using errcode = 'check_violation';
+  end if;
+
+  delete from public.project_boards where project_id = p_project;
+  update public.projects set audience = p_audience, group_set_id = v_set where id = p_project;
+end;
+$$;
+
 -- ------------------------------------------------------------ one field
 
 /**
@@ -420,6 +482,8 @@ grant execute on function public.create_project_series(
 grant execute on function public.update_project_series(
   uuid[], text, public.project_type, text, text, int, int, int,
   timestamptz, timestamptz, jsonb) to authenticated;
+revoke all on function public.set_project_audience(uuid, public.project_audience, uuid) from public, anon;
+grant execute on function public.set_project_audience(uuid, public.project_audience, uuid) to authenticated;
 grant execute on function public.set_series_due(uuid[], timestamptz)  to authenticated;
 grant execute on function public.set_series_locked(uuid[], boolean)   to authenticated;
 grant execute on function public.set_series_archived(uuid[], boolean) to authenticated;

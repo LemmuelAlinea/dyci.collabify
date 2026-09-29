@@ -197,6 +197,19 @@ export async function updateProjectSeries(
   if (error) throw error
 }
 
+/**
+ * Changes who one section's project goes to. Its boards are remade to match,
+ * so the database refuses once students have started on it.
+ */
+export async function setProjectAudience(projectId: string, audience: ProjectAudience, groupSetId: string | null) {
+  const { error } = await supabase.rpc('set_project_audience', {
+    p_project: projectId,
+    p_audience: audience,
+    p_group_set: audience === 'group' ? groupSetId : null,
+  })
+  if (error) throw error
+}
+
 /** The extension: moves the deadline of the sections named, and no others. */
 export async function setSeriesDue(projectIds: string[], dueAt: string | null) {
   const { error } = await supabase.rpc('set_series_due', {

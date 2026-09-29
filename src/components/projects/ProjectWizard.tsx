@@ -14,6 +14,7 @@ import { listProfessorClasses } from '../../lib/api/classes'
 import {
   createProjectSeries,
   listSeriesMembers,
+  setProjectAudience,
   updateProjectSeries,
   uploadProjectFile,
 } from '../../lib/api/projects'
@@ -130,6 +131,13 @@ export function ProjectWizard({
         // The section being edited is always in scope; the picker only ever
         // adds siblings to it.
         const targets = [editing.id, ...scope.filter((id) => id !== editing.id)]
+        // Who does it belongs to this section alone, and the series update
+        // leaves it out. First, so a refusal (work already started) stops the
+        // save before anything else is written.
+        const nextSet = value.input.audience === 'group' ? value.input.groupSetId : null
+        if (value.input.audience !== editing.audience || nextSet !== editing.group_set_id) {
+          await setProjectAudience(editing.id, value.input.audience, nextSet)
+        }
         await updateProjectSeries(targets, value.input, value.criteria)
         if (value.file) await uploadProjectFile(editing.id, value.file)
         await onSaved(editing.id)

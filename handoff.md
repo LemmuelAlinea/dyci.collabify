@@ -2132,3 +2132,21 @@ an individual project, or for a student, falls back to Brief once the project lo
 - Checked signed in as the owner on localhost, with no failed requests:
   - Lab 6 shows only Trial Group; the Groups page still shows every set
   - the Boards tab, the class Groups and Projects tabs, and group card links all work
+
+**Fix (2026-09-29): changing a class project between individual and group now saves.** Editing
+saved through `update_project_series`, which leaves out `audience` and `group_set_id` on
+purpose (a set belongs to one class), and nothing else saved them, so the change was dropped
+silently.
+- New `set_project_audience(project, audience, set)` in `project-series.sql`. It is security
+  definer and checks `is_class_professor`. It deletes the old boards and updates the project;
+  the `projects_ensure_boards` trigger then makes the new boards (one per student, or one per
+  group of the set).
+- It refuses once any board has work: tasks, a hand-in, a result, or anything in the board's
+  Files or Discussion. Only the edited section changes; series siblings keep theirs.
+- `ProjectWizard` calls it first on save when audience or set changed, so a refusal stops the
+  save before anything else is written.
+- Applied live as just the new function. New `tests/project-edits.test.sql`: 16 PASS, covering
+  title, type, brief, points, deadline and rubric saves, every audience and set switch, and the
+  refusals. Also pass: series 44, class-files, deadline-lock, submissions, teaching-guards,
+  group-archive, reassignments, results, notification-coverage, insight.
+- Not clicked through in the browser, since it would change live projects and notify students.
