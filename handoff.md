@@ -2032,3 +2032,12 @@ Brief (students only, like Files; professors are sent to Brief).
   top level.
 - The Trash page links a restored discussion to `?tab=discussion`.
 - Suites: general-discussions 25, trash 36, anon-lockdown 15, all PASS.
+
+**Follow-up (2026-09-29): every table has row-level security.** `general_report_settings`
+had none, and anon held full rights on it. `general-reports.sql` now enables RLS on it with no
+policies and revokes the grants; only the security-definer `general_report_history_since`
+reads it. New `tests/rls-coverage.test.sql` fails if any public table lacks RLS (it failed 3
+checks before the fix, 4 PASS after).
+
+**Trap:** re-running `general-reports.sql` on its own reverts `general_report_file_ok`, which
+`trash.sql` redefines. Re-run `trash.sql` and `anon-lockdown.sql` after it (done here).

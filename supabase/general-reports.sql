@@ -38,6 +38,12 @@ create table if not exists public.general_report_settings (
 
 insert into public.general_report_settings (id) values (1) on conflict (id) do nothing;
 
+-- Read only by general_report_history_since, a security definer function, so
+-- nobody needs a policy or a grant here. Row-level security with no policies
+-- and no grants keeps the anon key from rewriting the reports' history date.
+alter table public.general_report_settings enable row level security;
+revoke all on public.general_report_settings from public, anon, authenticated;
+
 create table if not exists public.general_project_events (
   id         uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.general_projects (id) on delete cascade,
