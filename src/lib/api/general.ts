@@ -1187,7 +1187,7 @@ export async function listMyOpenReviews(projectIds: string[], userId: string) {
     .from('general_repo_changes')
     .select('*')
     .in('project_id', projectIds)
-    .eq('reviewer_id', userId)
+    .contains('reviewer_ids', [userId])
     .eq('status', 'open')
     .order('created_at')
   if (error) throw error
@@ -1402,36 +1402,37 @@ export async function syncDraft(repoId: string) {
   return data as GeneralDraft
 }
 
-export async function submitDraft(repoId: string, title: string, body: string, reviewerId: string) {
+/** Submits the whole draft. Any one of `reviewerIds` may approve or decline it. */
+export async function submitDraft(repoId: string, title: string, body: string, reviewerIds: string[]) {
   const { data, error } = await supabase.rpc('submit_general_draft', {
     p_repo: repoId,
     p_title: title.trim(),
     p_body: body,
-    p_reviewer: reviewerId,
+    p_reviewers: reviewerIds,
   })
   if (error) throw error
   return data as GeneralRepoChange
 }
 
-export async function submitDraftFile(repoId: string, path: string, title: string, body: string, reviewerId: string) {
+export async function submitDraftFile(repoId: string, path: string, title: string, body: string, reviewerIds: string[]) {
   const { data, error } = await supabase.rpc('submit_general_draft_file', {
     p_repo: repoId,
     p_path: path,
     p_title: title.trim(),
     p_body: body,
-    p_reviewer: reviewerId,
+    p_reviewers: reviewerIds,
   })
   if (error) throw error
   return data as GeneralRepoChange
 }
 
-export async function submitDraftFolder(repoId: string, path: string, title: string, body: string, reviewerId: string) {
+export async function submitDraftFolder(repoId: string, path: string, title: string, body: string, reviewerIds: string[]) {
   const { data, error } = await supabase.rpc('submit_general_draft_folder', {
     p_repo: repoId,
     p_path: path,
     p_title: title.trim(),
     p_body: body,
-    p_reviewer: reviewerId,
+    p_reviewers: reviewerIds,
   })
   if (error) throw error
   return data as GeneralRepoChange

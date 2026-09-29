@@ -2104,3 +2104,19 @@ https://claude.ai/code/artifact/76f49ab4-6783-4b1a-b5b0-92ecccdf368b. Its figure
 button, "Close this notice"). In `DiscussionTab` the room notice closes to a small "What this
 room is for" link that opens it again. The choice is kept per browser in `localStorage`
 (`collabify.discussion-notice-closed`), wrapped in try/catch.
+
+**Change (2026-09-29): review requests go to several reviewers.**
+- `general_repo_changes.reviewer_ids uuid[]` (GIN index), backfilled from `reviewer_id` with
+  the table triggers off for that one statement. `reviewer_id` stays as the first reviewer.
+- The submit RPCs take `p_reviewers uuid[]` after `p_reviewer`; the old 4/5-argument
+  versions are dropped. `general_review_reviewers` de-duplicates them and checks every one is
+  a project member and not the author.
+- Any one reviewer may answer (`answer_general_repo_change`), and the first answer decides.
+  An empty list keeps the old rule: anyone with `edit_files`.
+- Updated to read the list: the guard trigger, `notify_review_requested` (class-files.sql and
+  notification-coverage.sql), `general_since_last_visit`, the report summary and reviews
+  (shown as "Name and N more"), `listMyOpenReviews` (`contains`) and `groupChanges`.
+- The UI Submit dialog has an "All members" checkbox and a member checklist.
+- Applied live as a patch of just the changed objects (no whole-file re-run). New
+  `tests/general-review-many.test.sql`: 11 PASS. Existing drafts, restore, folders, general,
+  reports, work-automation, class-files and anon-lockdown suites all pass.

@@ -522,7 +522,10 @@ export type GeneralRepoChange = {
   base_seq: number
   files: RepoFile[]
   status: ChangeStatus
+  /** The first of `reviewer_ids`, kept for anything that names one reviewer. */
   reviewer_id: string | null
+  /** Everyone asked to review. Any one of them may answer; empty means anyone with edit_files. */
+  reviewer_ids: string[]
   decided_by: string | null
   decided_at: string | null
   decided_note: string

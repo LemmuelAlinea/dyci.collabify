@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { groupChanges } from './review'
+import { groupChanges, isReviewer } from './review'
 
-const c = (id: string, author: string | null, reviewer: string | null, status = 'open') => ({
-  id, author_id: author, reviewer_id: reviewer, status,
+const c = (id: string, author: string | null, reviewer: string | null, status = 'open', reviewers: string[] = []) => ({
+  id, author_id: author, reviewer_id: reviewer, reviewer_ids: reviewers, status,
 })
 
 describe('groupChanges', () => {
@@ -25,6 +25,13 @@ describe('groupChanges', () => {
 
   it('keeps only open requests between other people', () => {
     expect(groupChanges(all, 'me').others.map((x) => x.id)).toEqual(['c'])
+  })
+
+  it('counts me as a reviewer when I am one of several', () => {
+    const many = [c('g', 'x', 'y', 'open', ['y', 'me', 'z'])]
+    expect(groupChanges(many, 'me').toMe.map((x) => x.id)).toEqual(['g'])
+    expect(isReviewer(many[0], 'me')).toBe(true)
+    expect(isReviewer(many[0], 'q')).toBe(false)
   })
 
   it('treats a signed-out viewer as involved in nothing', () => {

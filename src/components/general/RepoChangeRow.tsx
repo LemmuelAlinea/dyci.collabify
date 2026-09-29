@@ -30,6 +30,7 @@ import type {
 import { DiffView } from './DiffView'
 import { PdfPreview } from './PdfPreview'
 import type { GeneralProjectState } from './useGeneralProject'
+import { isReviewer } from '../../lib/general/review'
 
 /**
  * One proposed change, with everything a reviewer needs in one place: what it
@@ -60,10 +61,11 @@ export function RepoChangeRow({
   const [restoring, setRestoring] = useState(false)
 
   const mine = change.author_id === state.viewerId
-  const assignedToMe = change.reviewer_id === state.viewerId
-  const mayAnswer = !mine && change.status === 'open' && (
-    change.reviewer_id ? assignedToMe : state.can('edit_files')
-  )
+  const reviewers = change.reviewer_ids?.length ? change.reviewer_ids : change.reviewer_id ? [change.reviewer_id] : []
+  const assignedToMe = isReviewer(change, state.viewerId ?? null)
+  // Any one of the reviewers asked may answer; with none named, anyone with edit_files.
+  const mayAnswer = !mine && change.status === 'open' && (reviewers.length > 0 ? assignedToMe : state.can('edit_files'))
+  const reviewerNames = reviewers.map((id) => state.nameOf(id))
   const stale = change.status === 'open' && change.base_seq !== repo.commit_count
   // Declined or withdrawn work can go back to its author's draft to be reworked.
   const canRestore =
@@ -167,7 +169,8 @@ export function RepoChangeRow({
         {countShown(shown.length, folders.length)}{' '}
         · against commit{' '}
         {change.base_seq} · {formatDue(change.created_at)}
-        {change.reviewer_id ? ` · reviewer: ${state.nameOf(change.reviewer_id)}` : ''}
+        {reviewers.length === 1 ? ` · reviewer: ${reviewerNames[0]}` : ''}
+        {reviewers.length > 1 ? ` · ${reviewers.length} reviewers: ${reviewerNames.join(', ')}` : ''}
       </p>
 
       {change.decided_note && (
@@ -194,9 +197,17 @@ export function RepoChangeRow({
             <Alert tone="info">Somebody else has to review your request.</Alert>
           )}
 
-          {!mine && change.status === 'open' && change.reviewer_id && !assignedToMe && (
+          {!mine && change.status === 'open' && reviewers.length > 0 && !assignedToMe && (
             <Alert tone="info">
-              Only {state.nameOf(change.reviewer_id)} can accept or close this request.
+              {reviewers.length === 1
+                ? `Only ${reviewerNames[0]} can accept or close this request.`
+                : `Only its reviewers can accept or close this request: ${reviewerNames.join(', ')}. The first to answer decides.`}
+            </Alert>
+          )}
+
+          {assignedToMe && change.status === 'open' && reviewers.length > 1 && (
+            <Alert tone="info">
+              You are one of {reviewers.length} reviewers. Whoever answers first decides, for everyone.
             </Alert>
           )}
 

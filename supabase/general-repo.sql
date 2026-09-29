@@ -160,6 +160,22 @@ alter table public.general_repo_changes
 create index if not exists general_repo_changes_reviewer_idx
   on public.general_repo_changes (reviewer_id);
 
+-- Everyone asked to review. Any one of them may approve or decline, and the
+-- first answer decides. `reviewer_id` stays as the first of them, for the
+-- reports and anything else that names one reviewer. Empty means the older
+-- rule: anyone who holds edit_files.
+alter table public.general_repo_changes
+  add column if not exists reviewer_ids uuid[] not null default '{}';
+-- The backfill is bookkeeping, not an edit: answered changes refuse updates and
+-- a status update would notify, so the table's own triggers sit this one out.
+alter table public.general_repo_changes disable trigger user;
+update public.general_repo_changes
+   set reviewer_ids = array[reviewer_id]
+ where reviewer_id is not null and cardinality(reviewer_ids) = 0;
+alter table public.general_repo_changes enable trigger user;
+create index if not exists general_repo_changes_reviewer_ids_idx
+  on public.general_repo_changes using gin (reviewer_ids);
+
 create table if not exists public.general_repo_comments (
   id         uuid primary key default gen_random_uuid(),
   change_id  uuid not null,
@@ -249,20 +265,23 @@ begin
     if new.status <> 'open' or new.decided_by is not null or new.decided_at is not null then
       raise exception 'A change starts open and undecided' using errcode = 'insufficient_privilege';
     end if;
-    if new.reviewer_id is not null then
-      if new.reviewer_id = new.author_id then
-        raise exception 'Choose somebody else to review your change'
-          using errcode = 'insufficient_privilege';
-      end if;
-      if not exists (
-        select 1 from public.general_members m
-        join public.profiles pr on pr.id = m.user_id
-         where m.project_id = new.project_id and m.user_id = new.reviewer_id
-           and pr.status <> 'rejected'
-      ) then
-        raise exception 'The reviewer must be on this project'
-          using errcode = 'insufficient_privilege';
-      end if;
+    if new.reviewer_id is not null and not new.reviewer_id = any (new.reviewer_ids) then
+      new.reviewer_ids := array_prepend(new.reviewer_id, new.reviewer_ids);
+    end if;
+    if new.author_id = any (new.reviewer_ids) then
+      raise exception 'Choose somebody else to review your change'
+        using errcode = 'insufficient_privilege';
+    end if;
+    if exists (
+      select 1 from unnest(new.reviewer_ids) as x
+       where not exists (
+         select 1 from public.general_members m
+         join public.profiles pr on pr.id = m.user_id
+          where m.project_id = new.project_id and m.user_id = x
+            and pr.status <> 'rejected')
+    ) then
+      raise exception 'Every reviewer must be on this project'
+        using errcode = 'insufficient_privilege';
     end if;
   end if;
 
@@ -273,7 +292,7 @@ begin
     if new.author_id is distinct from old.author_id or new.created_at <> old.created_at then
       raise exception 'A change keeps who opened it' using errcode = 'insufficient_privilege';
     end if;
-    if new.reviewer_id is distinct from old.reviewer_id
+    if (new.reviewer_id is distinct from old.reviewer_id or new.reviewer_ids is distinct from old.reviewer_ids)
        and coalesce(current_setting('collabify.general_repo_op', true), 'off') <> 'on' then
       raise exception 'A change keeps its reviewer' using errcode = 'insufficient_privilege';
     end if;
@@ -583,10 +602,12 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
+  -- Any one of the reviewers asked may answer; with none named, anyone who
+  -- holds edit_files.
   if not public.general_viewer_active()
      or (
-       (ch.reviewer_id is not null and ch.reviewer_id <> auth.uid())
-       or (ch.reviewer_id is null and not public.general_can(ch.project_id, 'edit_files'))
+       (cardinality(ch.reviewer_ids) > 0 and not auth.uid() = any (ch.reviewer_ids))
+       or (cardinality(ch.reviewer_ids) = 0 and not public.general_can(ch.project_id, 'edit_files'))
      ) then
     raise exception 'You are not the reviewer for this change'
       using errcode = 'insufficient_privilege';

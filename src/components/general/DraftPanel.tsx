@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { ActionMenu } from '../ui/ActionMenu'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
+import { CheckboxList } from '../ui/CheckboxList'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Field, Input } from '../ui/Field'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
-import { Select, Textarea } from '../ui/Select'
+import { Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import {
   archiveDraftPath,
@@ -276,12 +277,12 @@ export function DraftPanel({
         reviewers={state.members.filter(
           (member) => member.user_id !== state.viewerId && member.profile?.status !== 'rejected',
         )}
-        onSubmit={async (title, body, reviewerId) => {
+        onSubmit={async (title, body, reviewerIds) => {
           if (!submitting) return
           if (submitting.type === 'folder') {
-            await submitDraftFolder(repo.id, submitting.path, title, body, reviewerId)
+            await submitDraftFolder(repo.id, submitting.path, title, body, reviewerIds)
           } else {
-            await submitDraftFile(repo.id, submitting.path, title, body, reviewerId)
+            await submitDraftFile(repo.id, submitting.path, title, body, reviewerIds)
           }
           show('Submitted for review')
           await onDone()
@@ -518,18 +519,20 @@ function SubmitDialog({
   target: SubmitTarget | null
   onClose: () => void
   reviewers: GeneralProjectState['members']
-  onSubmit: (title: string, body: string, reviewerId: string) => Promise<void>
+  onSubmit: (title: string, body: string, reviewerIds: string[]) => Promise<void>
 }) {
+  const allId = useId()
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [reviewerId, setReviewerId] = useState('')
+  const [picked, setPicked] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [describing, setDescribing] = useState(false)
   const options = reviewers.map((member) => ({
-    value: member.user_id,
+    id: member.user_id,
     label: member.profile ? fullName(member.profile) : 'A member',
   }))
+  const everyone = options.length > 0 && picked.length === options.length
 
   return (
     <Modal
@@ -547,14 +550,14 @@ function SubmitDialog({
             loading={busy}
             onClick={async () => {
               if (!title.trim()) return setError('Say what this change is, in a few words.')
-              if (!reviewerId) return setError('Choose who should review this.')
+              if (picked.length === 0) return setError('Choose at least one member to review this.')
               setError(null)
               setBusy(true)
               try {
-                await onSubmit(title, body, reviewerId)
+                await onSubmit(title, body, picked)
                 setTitle('')
                 setBody('')
-                setReviewerId('')
+                setPicked([])
                 onClose()
               } catch (err) {
                 setError(authErrorMessage(err, 'Could not submit it.'))
@@ -616,19 +619,31 @@ function SubmitDialog({
             />
           )}
         </Field>
-        <Field label="Who should review this?">
-          {(id) => (
-            <Select
-              id={id}
-              value={reviewerId}
-              onChange={(e) => setReviewerId(e.target.value)}
-              placeholder="Choose a project member"
-              options={options}
-            />
-          )}
-        </Field>
-        {options.length === 0 && (
+        {options.length === 0 ? (
           <Alert tone="error">Add another project member before submitting for review.</Alert>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-[13px] font-medium text-ink">Who should review this?</p>
+            <p className="text-[12px] text-muted">
+              Pick one member, several, or everyone. Any one of them can approve or decline it, and
+              the first to answer decides.
+            </p>
+            <label
+              htmlFor={allId}
+              className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-line px-2 py-2 text-[13px] font-medium text-ink hover:bg-[var(--surface-sunken)]"
+            >
+              <input
+                id={allId}
+                type="checkbox"
+                checked={everyone}
+                onChange={() => setPicked(everyone ? [] : options.map((o) => o.id))}
+                className="h-4 w-4 shrink-0 accent-navy-600"
+              />
+              All members
+              <span className="ml-auto font-mono text-[11px] text-faint">{options.length}</span>
+            </label>
+            <CheckboxList items={options} selected={picked} onChange={setPicked} label="Reviewers" searchable />
+          </div>
         )}
       </div>
     </Modal>

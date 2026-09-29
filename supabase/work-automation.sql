@@ -148,8 +148,8 @@ begin
        where ch.project_id = p_project
          and ch.status = 'open'
          and ch.author_id is distinct from me
-         and (ch.reviewer_id = me
-              or (ch.reviewer_id is null and public.general_has(p_project, 'edit_files')))
+         and (me = any (ch.reviewer_ids)
+              or (cardinality(ch.reviewer_ids) = 0 and public.general_has(p_project, 'edit_files')))
     )
   ) into out;
 

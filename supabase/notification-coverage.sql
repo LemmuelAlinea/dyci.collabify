@@ -205,11 +205,11 @@ begin
   select r.user_id, 'review_requested', new.project_id, new.title,
          public.display_name(new.author_id) || ' asked for a review in ' || label
     from (
-      select new.reviewer_id as user_id where new.reviewer_id is not null
+      select unnest(new.reviewer_ids) as user_id
       union
       select m.user_id
         from public.general_members m
-       where new.reviewer_id is null
+       where cardinality(new.reviewer_ids) = 0
          and m.project_id = new.project_id
          and (m.level in ('owner', 'manager')
               or exists (select 1 from public.general_grants g

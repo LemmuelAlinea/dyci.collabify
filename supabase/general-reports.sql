@@ -442,7 +442,7 @@ language sql stable security definer set search_path = public set jit = off as $
     select pj.project_id, ch.author_id, ch.created_at, 'review_opened', 1
       from pj join public.general_repo_changes ch on ch.project_id = pj.project_id
      where ch.created_at >= p_from and ch.created_at < p_to
-       and (pj.ppl is null or ch.author_id = any (pj.ppl) or ch.reviewer_id = any (pj.ppl))
+       and (pj.ppl is null or ch.author_id = any (pj.ppl) or ch.reviewer_ids && pj.ppl)
     union all
     select pj.project_id, coalesce(ch.decided_by, ch.author_id), ch.decided_at,
            'review_' || ch.status::text, 1
@@ -940,7 +940,9 @@ language sql stable security definer set search_path = public set jit = off as $
   )
   select ch.id, ch.project_id, ch.title,
          public.general_report_name(ch.author_id, pj.is_lead),
-         public.general_report_name(ch.reviewer_id, pj.is_lead),
+         public.general_report_name(ch.reviewer_id, pj.is_lead)
+           || case when cardinality(ch.reviewer_ids) > 1
+                   then ' and ' || (cardinality(ch.reviewer_ids) - 1) || ' more' else '' end,
          ch.status::text, ch.created_at, ch.decided_at,
          public.general_report_name(ch.decided_by, pj.is_lead),
          jsonb_array_length(ch.files),
@@ -949,7 +951,7 @@ language sql stable security definer set search_path = public set jit = off as $
     from pj join public.general_repo_changes ch on ch.project_id = pj.project_id
    where ((ch.created_at >= p_from and ch.created_at < p_to)
           or (ch.decided_at >= p_from and ch.decided_at < p_to))
-     and (pj.ppl is null or ch.author_id = any (pj.ppl) or ch.reviewer_id = any (pj.ppl)
+     and (pj.ppl is null or ch.author_id = any (pj.ppl) or ch.reviewer_ids && pj.ppl
           or ch.decided_by = any (pj.ppl))
    order by ch.created_at desc;
 $$;
