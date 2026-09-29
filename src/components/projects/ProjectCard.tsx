@@ -7,6 +7,7 @@ import {
   projectTypeLabel,
   weekSpanLabel,
 } from '../../lib/types'
+import { useNow } from '../../hooks/useNow'
 import type { BoardSummary, ProjectSummary } from '../../lib/types'
 
 /**
@@ -94,7 +95,8 @@ export function ProjectCard({
   const progress = audience === 'mine' ? boards[0] : undefined
   const across = audience === 'class' ? summarise(boards) : null
   const meta = PROJECT_TYPES.find((t) => t.value === project.type)
-  const overdue = project.due_at ? new Date(project.due_at).getTime() < Date.now() : false
+  const now = useNow()
+  const overdue = project.due_at ? new Date(project.due_at).getTime() < now : false
 
   return (
     <Link

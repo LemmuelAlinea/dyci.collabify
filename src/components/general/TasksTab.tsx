@@ -24,6 +24,7 @@ import type { GeneralTask } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
 import { TaskDialog } from './TaskDialog'
+import { useNow } from '../../hooks/useNow'
 import type { GeneralProjectState } from './useGeneralProject'
 
 const DAY = 86_400_000
@@ -516,7 +517,7 @@ function TaskTable({
 
 /** The class Summary's tiles and donut, over a work project's tasks. */
 function WorkTaskSummary({ tasks, state }: { tasks: GeneralTask[]; state: GeneralProjectState }) {
-  const now = Date.now()
+  const now = useNow()
   const within = (at: string | null) => Boolean(at && now - new Date(at).getTime() < 7 * DAY)
   const counts = {
     todo: tasks.filter((t) => t.status === 'todo').length,

@@ -22,6 +22,7 @@ import { myTasks as myOpenWorkTasks } from '../../../lib/general/dashboard'
 import { paths } from '../../../lib/paths'
 import { readScope, writeScope } from '../../../lib/scope'
 import { formatMinutes, taskShare, taskStatusLabel } from '../../../lib/types'
+import { useNow } from '../../../hooks/useNow'
 import type { TaskStatus } from '../../../lib/types'
 
 const NEXT: Record<TaskStatus, { to: TaskStatus; label: string; icon: 'check' | 'refresh' }> = {
@@ -173,7 +174,8 @@ export default function MyTasks() {
     error: dashError,
     reload: reloadDash,
   } = useGeneralDashboard(profile?.id, projectIds)
-  const now = dashData?.at ?? Date.now()
+  const clock = useNow()
+  const now = dashData?.at ?? clock
   const projectName = useCallback(
     (id: string) => mineProjects.find((p) => p.id === id)?.name ?? 'A project',
     [mineProjects],
@@ -191,7 +193,7 @@ export default function MyTasks() {
   }
 
   // Scoped down to what the All · Classes · Work filter should show.
-  const classFiltered = scope === 'work' ? [] : (classTasks ?? [])
+  const classFiltered = useMemo(() => (scope === 'work' ? [] : (classTasks ?? [])), [scope, classTasks])
   const workFiltered = scope === 'classes' ? [] : workTasks
 
   const grouped = useMemo(() => {

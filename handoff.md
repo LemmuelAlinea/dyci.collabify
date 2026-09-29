@@ -1962,3 +1962,10 @@ Lint still has 3 errors that were already there, in `FilesTab.tsx:452`,
 
 **Follow-up (2026-09-29): lint clean.** The 3 older lint errors are fixed (`65701cd`), and
 `npm run check` now passes end to end. What remains is 27 warnings.
+
+**Follow-up (2026-09-29): one clock for "overdue".** `hooks/useNow.ts` is a shared clock that
+ticks once a minute (`useSyncExternalStore`, one timer however many components use it). It
+replaces `Date.now()` in render in EventChip, ProjectCard, TaskSummary, the work Tasks
+summary, StudentHome and MyTasks. `StatusDonut` works out its segment offsets before drawing,
+and MyTasks memoizes `classFiltered`. Lint: 0 errors, 19 warnings, all
+`react-refresh/only-export-components`.

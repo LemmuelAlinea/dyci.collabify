@@ -1,5 +1,6 @@
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
+import { useNow } from '../../hooks/useNow'
 import type { CalendarEvent, CalendarKind } from '../../lib/types'
 
 /**
@@ -54,11 +55,12 @@ export function EventChip({
   compact?: boolean
 }) {
   const look = LOOK[event.kind]
+  const now = useNow()
   const overdue =
     event.kind !== 'submitted' &&
     event.kind !== 'project_release' &&
     !event.done &&
-    new Date(event.at).getTime() < Date.now()
+    new Date(event.at).getTime() < now
   // A work date (see Calendar.tsx) carries no class, so the detail line is the
   // project name alone rather than a blank class initial before it.
   const detail = [event.class_initial, event.project_title].filter(Boolean).join(' · ')

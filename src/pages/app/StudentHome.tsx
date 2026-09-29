@@ -20,6 +20,7 @@ import { useAuth } from '../../context/AuthContext'
 import { plural } from '../../lib/plural'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { useStudentDashboard } from '../../hooks/useStudentDashboard'
+import { useNow } from '../../hooks/useNow'
 import { paths } from '../../lib/paths'
 
 function greeting() {
@@ -52,6 +53,7 @@ export default function StudentHome() {
   const { data, error, reload } = useStudentDashboard(profile?.id)
   const unread = useUnreadTotal(profile?.id)
   const [joinOpen, setJoinOpen] = useState(false)
+  const now = useNow()
 
   useEffect(() => {
     document.title = 'Dashboard · Collabify'
@@ -59,7 +61,6 @@ export default function StudentHome() {
 
   if (!profile) return null
 
-  const now = Date.now()
   const deadlines = data?.deadlines ?? []
   const overdue = deadlines.filter((d) => new Date(d.due_at).getTime() < now).length
   const dueThisWeek = deadlines.length - overdue

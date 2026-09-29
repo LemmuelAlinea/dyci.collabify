@@ -5,6 +5,7 @@ import { Spinner } from '../ui/Icon'
 import { listEventsForTasks } from '../../lib/api/taskDetail'
 import { formatMinutes, fullName, TASK_STATUSES } from '../../lib/types'
 import type { TaskEvent, TaskEventKind, TaskStatus } from '../../lib/types'
+import { useNow } from '../../hooks/useNow'
 import type { ProjectTaskRow } from '../../lib/api/tasks'
 
 const DAY = 86_400_000
@@ -69,17 +70,18 @@ export function SummaryTile({
 export function StatusDonut({ counts, total }: { counts: Record<TaskStatus, number>; total: number }) {
   const R = 54
   const C = 2 * Math.PI * R
-  let offset = 0
+  // Each ring segment starts where the ones before it end.
+  const dashes = TASK_STATUSES.map((s) => (total ? counts[s.value] / total : 0) * C)
+  const offsets = dashes.map((_, i) => dashes.slice(0, i).reduce((sum, d) => sum + d, 0))
 
   return (
     <div className="flex flex-wrap items-center gap-6">
       <div className="relative">
         <svg width="140" height="140" viewBox="0 0 140 140">
           <circle cx="70" cy="70" r={R} fill="none" stroke="var(--surface-sunken)" strokeWidth="16" />
-          {TASK_STATUSES.map((s) => {
-            const share = total ? counts[s.value] / total : 0
-            const dash = share * C
-            const el = (
+          {TASK_STATUSES.map((s, i) => {
+            const dash = dashes[i]
+            return (
               <circle
                 key={s.value}
                 cx="70"
@@ -89,12 +91,10 @@ export function StatusDonut({ counts, total }: { counts: Record<TaskStatus, numb
                 stroke={RING[s.value]}
                 strokeWidth="16"
                 strokeDasharray={`${dash} ${C - dash}`}
-                strokeDashoffset={-offset}
+                strokeDashoffset={-offsets[i]}
                 transform="rotate(-90 70 70)"
               />
             )
-            offset += dash
-            return el
           })}
         </svg>
         <span className="absolute inset-0 flex flex-col items-center justify-center">
@@ -154,7 +154,7 @@ export function TaskSummary({
       .catch(() => setEvents([]))
   }, [ids])
 
-  const now = Date.now()
+  const now = useNow()
   const counts: Record<TaskStatus, number> = {
     todo: rows.filter((t) => t.status === 'todo').length,
     in_progress: rows.filter((t) => t.status === 'in_progress').length,
