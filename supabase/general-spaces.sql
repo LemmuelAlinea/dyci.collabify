@@ -596,6 +596,11 @@ $$;
 
 -- ---------------------------------------------------------------- RPCs: joining
 
+/**
+ * Opens or closes a space's join code. A space gets ONE code, made the first
+ * time it is opened, and keeps it for good: `p_regenerate` is accepted so
+ * older callers still work, and ignored. join-codes.sql locks the column.
+ */
 create or replace function public.set_general_space_join_code(
   p_space      uuid,
   p_open       boolean,
@@ -620,7 +625,7 @@ begin
 
   select jc.code into v_code from public.general_space_join_codes jc
    where jc.space_id = p_space for update;
-  if p_open and (v_code is null or p_regenerate) then
+  if p_open and v_code is null then
     loop
       raw := decode(replace(gen_random_uuid()::text, '-', ''), 'hex');
       v_code := '';
@@ -640,7 +645,7 @@ begin
   insert into public.general_space_join_codes (space_id, code, open)
   values (p_space, v_code, p_open)
   on conflict (space_id) do update
-    set code = excluded.code, open = excluded.open, updated_at = now();
+    set open = excluded.open, updated_at = now();
 
   return v_code;
 end;

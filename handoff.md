@@ -1977,3 +1977,18 @@ and MyTasks memoizes `classFiltered`. Lint: 0 errors, 19 warnings, all
   `projects/weekSpan.ts`, `calendar/eventLook.ts`, `reports/csv.ts`, `analytics/scope.ts`,
   `groups/groupFilterState.ts` and `tasks/taskFilterState.ts`.
 - `motion-lint` now checks `ToastProvider.tsx` for `motion-toast`.
+
+## Session — 2026-09-29: one join code each, for good
+
+Owner asked for class, space and project join codes to be permanent: no more "New code".
+- `supabase/join-codes.sql` (new, before `anon-lockdown.sql`) adds triggers:
+  `classes.code`, `general_space_join_codes.code` and `general_join_codes.code` can never
+  change once made. Space and project code rows cannot be deleted directly; they go only
+  when the space or project is deleted (cascade, `pg_trigger_depth() >= 2`).
+- `set_general_join_code` and `set_general_space_join_code` make a code only the first time
+  one is opened. `p_regenerate` is still accepted and ignored. Opening and closing still work.
+- UI: the "New code" buttons are gone from the project Invite panel and Space members. Both
+  now say the code stays the same for good.
+- Applied live (both functions, the new file, and `anon-lockdown.sql` again). Suites pass:
+  access, general, general-spaces, general-space-teams, one-workplace and anon-lockdown.
+  Per the owner, the original bug was not reproduced.

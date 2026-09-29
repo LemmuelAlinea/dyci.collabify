@@ -912,6 +912,11 @@ begin
 end;
 $$;
 
+/**
+ * Opens or closes a project's join code. A project gets ONE code, made the
+ * first time it is opened, and keeps it for good: `p_regenerate` is accepted
+ * so older callers still work, and ignored. join-codes.sql locks the column.
+ */
 create or replace function public.set_general_join_code(
   p_project    uuid,
   p_open       boolean,
@@ -935,7 +940,7 @@ begin
 
   select jc.code into v_code from public.general_join_codes jc
    where jc.project_id = p_project for update;
-  if p_open and (v_code is null or p_regenerate) then
+  if p_open and v_code is null then
     loop
       raw := decode(replace(gen_random_uuid()::text, '-', ''), 'hex');
       v_code := '';
@@ -954,7 +959,7 @@ begin
   insert into public.general_join_codes (project_id, code, open)
   values (p_project, v_code, p_open)
   on conflict (project_id) do update
-    set code = excluded.code, open = excluded.open, updated_at = now();
+    set open = excluded.open, updated_at = now();
 
   return v_code;
 end;

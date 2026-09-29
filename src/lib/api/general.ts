@@ -278,11 +278,11 @@ export async function deleteGeneralProject(projectId: string) {
   }
 }
 
-export async function setJoinCode(projectId: string, open: boolean, regenerate = false) {
+/** Opens or closes the project's join code. A project has one code for good; it never changes. */
+export async function setJoinCode(projectId: string, open: boolean) {
   const { data, error } = await supabase.rpc('set_general_join_code', {
     p_project: projectId,
     p_open: open,
-    p_regenerate: regenerate,
   })
   if (error) throw error
   return (data as string | null) ?? null

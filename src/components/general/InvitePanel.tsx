@@ -204,12 +204,12 @@ function JoinCode({ state }: { state: GeneralProjectState }) {
   const [busy, setBusy] = useState(false)
   if (!p) return null
 
-  async function set(open: boolean, regenerate = false) {
+  async function set(open: boolean) {
     if (!p) return
     setBusy(true)
     try {
-      await setJoinCode(p.id, open, regenerate)
-      show(open ? (regenerate ? 'New code made. The old one no longer works.' : 'Join code is on') : 'Join code is off')
+      await setJoinCode(p.id, open)
+      show(open ? 'Join code is on' : 'Join code is off')
       await state.reload()
     } catch (err) {
       show(authErrorMessage(err, 'Could not change the join code.'), 'error')
@@ -246,9 +246,6 @@ function JoinCode({ state }: { state: GeneralProjectState }) {
           </button>
           {state.isOwner && (
             <div className="ml-auto flex gap-2">
-              <Button size="sm" variant="ghost" disabled={busy} onClick={() => void set(true, true)}>
-                New code
-              </Button>
               <Button size="sm" variant="outline" disabled={busy} onClick={() => void set(false)}>
                 Turn off
               </Button>
@@ -257,7 +254,10 @@ function JoinCode({ state }: { state: GeneralProjectState }) {
         </div>
       ) : (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[13px] text-muted">Off. Anyone with a code joins as a Member, so share it with care.</p>
+          <p className="text-[13px] text-muted">
+            Off. Anyone with the code joins as a Member, so share it with care. The code stays the same
+            for good; turning it off is how you stop people joining.
+          </p>
           {state.isOwner && !state.archived && (
             <Button size="sm" variant="outline" loading={busy} onClick={() => void set(true)}>
               Turn on

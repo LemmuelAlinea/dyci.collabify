@@ -94,10 +94,10 @@ export default function SpaceMembers() {
 
   useLive(load, ['general_space_members', 'general_space_invitations', 'general_spaces'])
 
-  async function toggleCode(open: boolean, regenerate = false) {
+  async function toggleCode(open: boolean) {
     if (!spaceId) return
     try {
-      setCode(await setSpaceJoinCode(spaceId, open, regenerate))
+      setCode(await setSpaceJoinCode(spaceId, open))
       show(open ? 'Join code is open' : 'Join code is closed')
     } catch (err) {
       show(authErrorMessage(err, 'Could not change the join code.'), 'error')
@@ -190,8 +190,8 @@ export default function SpaceMembers() {
           <section className="rounded-panel border border-line p-4 sm:p-5">
             <h2 className="text-[15px]">Join code</h2>
             <p className="mt-1 text-[13px] text-muted">
-              Anybody with an open code can join this space and read every project in it. Close it
-              when you are done sharing it.
+              Anybody with an open code can join this space and read every project in it. The code
+              stays the same for good, so close it when you are done sharing it.
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {(code ?? null) && (
@@ -203,14 +203,9 @@ export default function SpaceMembers() {
                 {code ? 'Show again' : 'Open a code'}
               </Button>
               {code && (
-                <>
-                  <Button size="sm" variant="outline" onClick={() => void toggleCode(true, true)}>
-                    New code
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => void toggleCode(false)}>
-                    Close
-                  </Button>
-                </>
+                <Button size="sm" variant="ghost" onClick={() => void toggleCode(false)}>
+                  Close
+                </Button>
               )}
             </div>
           </section>

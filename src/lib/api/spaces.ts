@@ -85,11 +85,11 @@ export async function deleteSpace(spaceId: string) {
 
 /* ---------------------------------------------------------------- joining */
 
-export async function setSpaceJoinCode(spaceId: string, open: boolean, regenerate = false) {
+/** Opens or closes the space's join code. A space has one code for good; it never changes. */
+export async function setSpaceJoinCode(spaceId: string, open: boolean) {
   const { data, error } = await supabase.rpc('set_general_space_join_code', {
     p_space: spaceId,
     p_open: open,
-    p_regenerate: regenerate,
   })
   if (error) throw error
   return (data as string | null) ?? null
