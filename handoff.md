@@ -2189,3 +2189,9 @@ no spaces or projects gets the shared `EmptyState` instead of four empty panels.
 dashboard, the `primary` card in `QuickActions` (New project) is filled with `--banner` — the
 banner's left edge, whatever the person picked in Settings → Appearance — with `banner-ink`
 text and a `banner-accent` icon, instead of fixed navy. The other cards are unchanged.
+
+**Change (2026-10-01): space shortcut outlines follow the banner.** The other `QuickActions`
+cards are outlined in `--banner-edge` (Tailwind `border-banner-edge`), a new personal-slot
+token: the banner colour, set by `lib/palette.ts` and pushed to 3:1 against the page only when
+it would be too faint to see. Defaults: `var(--banner)` in `:root`, `navy-500` in `.dark`
+(the default banner is the dark page's own colour). Hover tints the card with it.

@@ -343,6 +343,7 @@ export const PALETTE_VARS: readonly string[] = [
   '--banner-ink',
   '--banner-accent',
   '--banner-glow',
+  '--banner-edge',
   '--pending-soft',
   '--pending-ink',
   '--nav-icon',
@@ -427,6 +428,9 @@ export function toCssVars(picks: Picks | undefined, mode: Mode): Record<string, 
     const accent = withContrastAll(picks.bannerAccent ?? d.bannerAccent, grounds, 3)
     vars['--banner-accent'] = accent
     vars['--banner-glow'] = accent
+    // Outlines on the page in the banner's colour: 3:1 against the page (WCAG
+    // 1.4.11), so a banner as dark as the page still leaves a visible edge.
+    vars['--banner-edge'] = withContrast(first, g.page, 3)
   }
   if (style !== 'glow') vars['--banner-deco'] = 'hidden'
   if (style === 'gradient') {

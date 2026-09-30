@@ -21,7 +21,7 @@ export type QuickAction = {
  * Always one row, as wide as the summary band above it, at every screen size:
  * each card takes an equal share. As a card narrows it sheds its hint, then its
  * label (kept for screen readers and as a tooltip), so a phone still gets a row
- * of icons rather than a wrapped grid. The navy outline ties the row to the band.
+ * of icons rather than a wrapped grid. The banner-coloured outline ties the row to the band.
  */
 export function QuickActions({ actions }: { actions: QuickAction[] }) {
   return (
@@ -35,7 +35,7 @@ export function QuickActions({ actions }: { actions: QuickAction[] }) {
           'group @container relative flex min-h-[64px] min-w-0 flex-col rounded-card border-[1.5px] p-2 text-left transition-[border-color,transform] duration-200 hover-safe sm:min-h-[112px] sm:p-4 ' +
           (a.primary
             ? 'border-banner-ink/10 bg-banner text-banner-ink hover:brightness-125'
-            : 'border-navy-950 bg-[var(--surface)] hover:border-navy-600 dark:border-navy-500 dark:hover:border-navy-300')
+            : 'border-banner-edge bg-[var(--surface)] hover:bg-banner-edge/10')
         const body = (
           <span className="flex h-full flex-col justify-center @min-[76px]:justify-start">
             <span className="flex items-start justify-center gap-2 @min-[120px]:justify-between">
