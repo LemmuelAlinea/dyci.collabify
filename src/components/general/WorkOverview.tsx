@@ -1,27 +1,29 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Bento, BentoCell } from '../dashboard/Bento'
+import { DashboardSummary } from '../dashboard/DashboardSummary'
 import { DashSection } from '../dashboard/DashSection'
 import { Reveal } from '../motion/Reveal'
 import { ComingUpPanel, MyTasksPanel, RecentPanel, WaitingPanel } from './DashboardPanels'
 import { JoinProjectDialog } from './JoinProjectDialog'
-import { QuickActions } from './QuickActions'
 import { NewSpaceDialog } from './SpaceDialogs'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
-import { Spinner } from '../ui/Icon'
+import { EmptyState } from '../ui/EmptyState'
+import { Icon, Spinner } from '../ui/Icon'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
-import { useUnreadTotal } from '../../hooks/useConversations'
 import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
 import { canTeach, isFaculty } from '../../lib/access'
 import { listMyProjectVisits } from '../../lib/api/general'
-import { comingUp, firstComing, myTasks, recentlyVisited } from '../../lib/general/dashboard'
+import { comingUp, dueCounts, firstComing, myTasks, recentlyVisited } from '../../lib/general/dashboard'
 import { plural } from '../../lib/plural'
 import { paths } from '../../lib/paths'
 
 /**
- * "Your work" — the General home's panels, without its own greeting or
- * summary, stacked under the role dashboard on `/home`.
+ * "Your work" — the General home's panels, stacked under the role dashboard
+ * on `/home` and built the same way: a banner with one line and four figures,
+ * then the panels. It takes a title instead of a second greeting, so somebody
+ * with classes and work reads one page in two chapters.
  *
  * Spaces here are work spaces only; class spaces (`kind: 'education'`) belong
  * to the classes side of the rail and never count toward this section.
@@ -37,7 +39,6 @@ export function WorkOverview() {
   // Admins are invited in, never make or join a space themselves.
   const faculty = isFaculty(profile) && profile?.role !== 'admin'
   const { myProjects, spaces, error, reload } = useGeneralNavigation()
-  const unread = useUnreadTotal(profile?.id, 'general')
   const [joinOpen, setJoinOpen] = useState(false)
   const [newSpaceOpen, setNewSpaceOpen] = useState(false)
 
@@ -82,60 +83,77 @@ export function WorkOverview() {
   // there is something to show — no flash of an empty section on the way in.
   if (!faculty && (!loaded || !hasSomething)) return null
 
+  const { overdue, thisWeek } = dueCounts(mine, now)
+  // The same one sentence the class dashboard above opens with, about work.
+  const line = !loaded
+    ? 'Loading your spaces and projects.'
+    : !hasSomething
+      ? 'No spaces or projects yet.'
+      : overdue > 0
+        ? `${overdue} of your tasks ${plural(overdue, 'is', 'are')} overdue.` +
+          (thisWeek > 0 ? ` Another ${thisWeek} ${plural(thisWeek, 'is', 'are')} due this week.` : '')
+        : thisWeek > 0
+          ? `${thisWeek} ${plural(thisWeek, 'task', 'tasks')} due this week, and nothing overdue.`
+          : waiting > 0
+            ? `${waiting} ${plural(waiting, 'thing is', 'things are')} waiting on your answer.`
+            : mine.length > 0
+              ? `${mine.length} open ${plural(mine.length, 'task', 'tasks')} in hand, and nothing due this week.`
+              : 'Nothing is waiting on you right now.'
+
   return (
     <div className="mt-10">
-      <div className="border-b border-line pb-4">
-        <p className="text-[12px] font-medium text-faint">
-          {profile?.role === 'student' || canTeach(profile) ? 'Beyond your classes' : 'Spaces and projects'}
-        </p>
-        <h2 className="mt-1">Your work</h2>
-      </div>
-
-      <div className="mt-6">
-        <QuickActions
-          actions={[
-            ...(faculty
-              ? [
-                  {
-                    icon: 'plus' as const,
-                    label: 'New space',
-                    hint: 'A place to hold projects',
-                    onClick: () => setNewSpaceOpen(true),
-                    primary: true,
-                  },
-                  {
-                    icon: 'lock' as const,
-                    label: 'Join with code',
-                    hint: 'Eight characters from an Owner',
-                    onClick: () => setJoinOpen(true),
-                  },
-                ]
-              : []),
+      <Reveal once>
+        <DashboardSummary
+          kicker={profile?.role === 'student' || canTeach(profile) ? 'Beyond your classes' : 'Spaces and projects'}
+          title="Your work"
+          line={line}
+          urgent={overdue > 0}
+          action={
+            faculty ? (
+              <>
+                <Button size="sm" variant="create" onClick={() => setNewSpaceOpen(true)}>
+                  <Icon name="plus" size={15} />
+                  New space
+                </Button>
+                <Button size="sm" variant="onNavy" onClick={() => setJoinOpen(true)}>
+                  <Icon name="lock" size={15} />
+                  Join with code
+                </Button>
+              </>
+            ) : undefined
+          }
+          tiles={[
             {
-              icon: 'kanban',
-              label: 'Projects',
-              hint: `${mineProjects.length} ${plural(mineProjects.length, 'project', 'projects')} you are on`,
+              label: 'Waiting on you',
+              value: waiting,
+              icon: 'bell',
+              tone: waiting > 0 ? 'warn' : 'plain',
+            },
+            {
+              label: overdue === 1 ? 'Task overdue' : 'Tasks overdue',
+              value: overdue,
+              to: paths.tasks,
+              icon: 'clock',
+              tone: overdue > 0 ? 'warn' : 'plain',
+            },
+            {
+              label: plural(mineProjects.length, 'Project you are on', 'Projects you are on'),
+              value: mineProjects.length,
               to: paths.projects,
+              icon: 'kanban',
             },
             {
-              icon: 'folder',
-              label: 'Spaces',
-              hint: `${liveSpaces.length} ${plural(liveSpaces.length, 'space', 'spaces')} you are in`,
+              label: plural(liveSpaces.length, 'Space', 'Spaces'),
+              value: liveSpaces.length,
               to: paths.spaces,
-            },
-            {
-              icon: 'message',
-              label: 'Inbox',
-              hint: unread > 0 ? `${unread} unread` : 'Chats and project threads',
-              to: `${paths.inbox}?show=work`,
-              count: unread,
+              icon: 'folder',
             },
           ]}
         />
-      </div>
+      </Reveal>
 
       {(error || dashError) && (
-        <div className="mt-6">
+        <div className="mt-7 md:mt-8">
           <Alert tone="error" onRetry={() => void Promise.all([reload(), reloadDash()])}>
             {error ?? dashError}
           </Alert>
@@ -143,12 +161,31 @@ export function WorkOverview() {
       )}
 
       {myProjects === null ? (
-        <div className="mt-8 flex items-center gap-3 text-[14px] text-muted">
+        <div className="mt-7 flex items-center gap-3 text-[14px] text-muted md:mt-8">
           <Spinner size={16} />
           Loading your work…
         </div>
+      ) : !hasSomething ? (
+        <div className="mt-7 md:mt-8">
+          <EmptyState
+            icon="folder"
+            title="No spaces or projects yet"
+            body={
+              faculty
+                ? 'Make a space to hold your own projects, or join a project somebody else runs with the code they give you.'
+                : 'A faculty member can invite you into a space or onto a project. Your classes are listed above.'
+            }
+            action={
+              faculty ? (
+                <Button onClick={() => setNewSpaceOpen(true)} className="!rounded-xl">
+                  New space
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
       ) : (
-        <div className="mt-6">
+        <div className="mt-7 md:mt-8">
           <Bento>
             <BentoCell>
               <Reveal once delay={0.04}>
@@ -163,7 +200,7 @@ export function WorkOverview() {
             </BentoCell>
             <BentoCell>
               <Reveal once delay={0.08}>
-                <DashSection icon="check" title="My tasks" count={mine.length}>
+                <DashSection icon="check" title="My tasks" count={mine.length} seeAll={paths.tasks}>
                   <MyTasksPanel
                     tasks={mine}
                     projectName={projectName}
@@ -175,38 +212,19 @@ export function WorkOverview() {
             </BentoCell>
             <BentoCell>
               <Reveal once delay={0.12}>
-                <DashSection icon="calendar" title="Coming up">
+                <DashSection icon="calendar" title="Coming up" seeAll={paths.calendar}>
                   <ComingUpPanel days={days} projectName={projectName} now={now} />
                 </DashSection>
               </Reveal>
             </BentoCell>
             <BentoCell>
               <Reveal once delay={0.16}>
-                <DashSection icon="kanban" title="Jump back in">
+                <DashSection icon="kanban" title="Jump back in" seeAll={paths.projects}>
                   <RecentPanel projects={recentlyVisited(mineProjects, seen)} />
                 </DashSection>
               </Reveal>
             </BentoCell>
           </Bento>
-
-          {mineProjects.length === 0 && liveSpaces.length === 0 && (
-            <div className="mt-6 rounded-card border border-line bg-[var(--surface)] p-6">
-              <h2 className="text-[15px] font-semibold text-ink">Nothing here yet</h2>
-              <p className="mt-1.5 max-w-[60ch] text-[13.5px] text-muted">
-                {faculty
-                  ? 'Make a space to hold your own projects, or join a project somebody else runs with the code they give you.'
-                  : 'A faculty member can invite you into a space or onto a project. Your classes are listed above.'}
-              </p>
-              {faculty && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button onClick={() => setNewSpaceOpen(true)}>New space</Button>
-                  <Button variant="ghost" onClick={() => setJoinOpen(true)}>
-                    Join with code
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
 

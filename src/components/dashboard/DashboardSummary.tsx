@@ -72,14 +72,20 @@ export type Tile = {
 export function DashboardSummary({
   greeting,
   name,
+  title,
   kicker,
   line,
   urgent = false,
   tiles,
   action,
 }: {
-  greeting: string
-  name: string
+  greeting?: string
+  name?: string
+  /**
+   * A heading in place of the greeting, for a second band on the same page —
+   * `/home`'s "Your work" under the class dashboard, which already said hello.
+   */
+  title?: string
   /** Buttons for the page itself, set at the band's top right. */
   action?: ReactNode
   /** The mono label above the greeting. Names the surface, not the person. */
@@ -144,7 +150,7 @@ export function DashboardSummary({
         </div>
 
         <h1 className="mt-5 font-display leading-tight text-banner-ink">
-          {greeting}, {name}.
+          {title ?? `${greeting}, ${name}.`}
         </h1>
 
         <p

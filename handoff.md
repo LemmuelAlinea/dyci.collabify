@@ -2176,3 +2176,11 @@ the three soonest items (`firstComing`). Jump back in lists the three projects t
 opened last, read from `general_project_visits.seen_at` (`listMyProjectVisits`), which the
 project page already stamps on every open. Projects never opened fill any gap, most recently
 changed first (`recentlyVisited`).
+
+**Change (2026-10-01): "Your work" is built like the class dashboard.** On `/home`, the work
+section now opens with the same banner as the class dashboard above it (`DashboardSummary`,
+which takes a `title` in place of the greeting): kicker, one line of what is true, and four
+tiles (Waiting on you, Tasks overdue, Projects you are on, Spaces). New space and Join with
+code moved into the banner as buttons; the shortcut cards and the Inbox card are gone (Inbox
+is in the rail). My tasks, Coming up and Jump back in got "See all" links, and someone with
+no spaces or projects gets the shared `EmptyState` instead of four empty panels.
