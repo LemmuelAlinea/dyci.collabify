@@ -344,6 +344,7 @@ export const PALETTE_VARS: readonly string[] = [
   '--banner-accent',
   '--banner-glow',
   '--banner-edge',
+  '--banner-end',
   '--pending-soft',
   '--pending-ink',
   '--nav-icon',
@@ -431,6 +432,10 @@ export function toCssVars(picks: Picks | undefined, mode: Mode): Record<string, 
     // Outlines on the page in the banner's colour: 3:1 against the page (WCAG
     // 1.4.11), so a banner as dark as the page still leaves a visible edge.
     vars['--banner-edge'] = withContrast(first, g.page, 3)
+    // The right-hand side: a gradient's second colour, the glow, or the solid
+    // colour itself. Card icons use it on a sunken tile, so 3:1 against that.
+    const end = style === 'gradient' ? grounds[1] : style === 'glow' ? accent : first
+    vars['--banner-end'] = withContrast(end, g.sunken, 3)
   }
   if (style !== 'glow') vars['--banner-deco'] = 'hidden'
   if (style === 'gradient') {

@@ -223,6 +223,7 @@
   --color-banner-accent-soft: color-mix(in oklab, var(--banner-accent) 55%, var(--banner-ink));
   --color-banner-glow: var(--banner-glow);
   --color-banner-edge: var(--banner-edge);
+  --color-banner-end: var(--banner-end);
   --color-pending-soft: var(--pending-soft, var(--surface-sunken));
   --color-pending-ink: var(--pending-ink, var(--ink-muted));
   --color-progress: var(--progress);
@@ -280,6 +281,9 @@
     --banner-glow: #f0b429;
     /* The banner's colour as an outline on the page (space shortcut cards). */
     --banner-edge: var(--banner);
+    /* The banner's right-hand colour as an icon on a sunken tile. The default glow's
+       amber is too pale on light tiles, so light mode takes a darker step of it. */
+    --banner-end: var(--color-amber-600);
     --progress: oklch(69.6% 0.17 162.48);
     --nav-active: #26327a;
     --nav-active-ink: #ffffff;
@@ -301,6 +305,7 @@
     --page: #080b21;
     /* The default banner is the dark page's own colour, so its outline would vanish. */
     --banner-edge: var(--color-navy-500);
+    --banner-end: var(--banner-glow);
     --surface: #131a3f;
     --surface-sunken: #0c1130;
     --surface-raised: #1a2255;

@@ -2195,3 +2195,9 @@ cards are outlined in `--banner-edge` (Tailwind `border-banner-edge`), a new per
 token: the banner colour, set by `lib/palette.ts` and pushed to 3:1 against the page only when
 it would be too faint to see. Defaults: `var(--banner)` in `:root`, `navy-500` in `.dark`
 (the default banner is the dark page's own colour). Hover tints the card with it.
+
+**Change (2026-10-01): space shortcut icons take the banner's right side.** New token
+`--banner-end` (`text-banner-end`): a gradient banner's second colour, the glow colour on the
+glow style, or the solid colour, pushed to 3:1 against the sunken icon tile by
+`lib/palette.ts`. Defaults: `amber-600` in `:root`, `var(--banner-glow)` in `.dark`. The
+outlined `QuickActions` cards use it for their icons; New project keeps `banner-accent`.

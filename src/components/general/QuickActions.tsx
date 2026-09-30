@@ -41,7 +41,7 @@ export function QuickActions({ actions }: { actions: QuickAction[] }) {
             <span className="flex items-start justify-center gap-2 @min-[120px]:justify-between">
               <span
                 className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg @min-[120px]:h-9 @min-[120px]:w-9 ${
-                  a.primary ? 'bg-banner-ink/15 text-banner-accent' : 'surface-sunken text-navy-600 dark:text-navy-200'
+                  a.primary ? 'bg-banner-ink/15 text-banner-accent' : 'surface-sunken text-banner-end'
                 }`}
               >
                 <Icon name={a.icon} size={17} />
