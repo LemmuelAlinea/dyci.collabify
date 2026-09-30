@@ -27,7 +27,7 @@ export type NavGroup = {
   hideWhenEmpty?: boolean
   /** Spaces lists the reader's classes too — for anyone with no Classes section. */
   withClasses?: boolean
-  /** The header folds the section away. Remembered per device. */
+  /** The header folds the section away, live rows included. Remembered per device. */
   collapsible?: boolean
 }
 
@@ -76,17 +76,18 @@ const ACCOUNT: NavGroup = {
 }
 
 /**
- * The reader's classes, then what hangs off them: classes hold groups, groups
- * hold class projects, so the section reads widest to narrowest. A student
- * also keeps their own record here, since it is theirs to keep rather than
- * theirs to do.
+ * The reader's classes, then what hangs off them: the page of every class,
+ * then groups, then class projects, so the section reads widest to narrowest.
+ * A student also keeps their own record here, since it is theirs to keep
+ * rather than theirs to do.
  */
 function classesGroup(role: Role): NavGroup {
   return {
     title: 'Classes',
     live: 'classes',
-    more: { to: paths.classes, label: 'All classes' },
+    collapsible: true,
     items: [
+      { label: 'Classes', icon: 'folder', to: paths.classes, end: true },
       { label: 'Groups', icon: 'users', to: paths.groups },
       { label: 'Class projects', icon: 'kanban', to: paths.classProjects },
       ...(role === 'student'
@@ -105,10 +106,10 @@ function spacesGroup(hideWhenEmpty: boolean, withClasses = false): NavGroup {
   return {
     title: 'Spaces',
     live: 'spaces',
-    more: { to: paths.spaces, label: 'All spaces' },
+    collapsible: true,
     hideWhenEmpty,
     withClasses,
-    items: [],
+    items: [{ label: 'Spaces', icon: 'board', to: paths.spaces, end: true }],
   }
 }
 

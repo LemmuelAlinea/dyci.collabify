@@ -2150,3 +2150,9 @@ silently.
   refusals. Also pass: series 44, class-files, deadline-lock, submissions, teaching-guards,
   group-archive, reassignments, results, notification-coverage, insight.
 - Not clicked through in the browser, since it would change live projects and notify students.
+
+**Change (2026-09-30): Classes and Spaces fold in the rail.** Both sidebar sections now fold
+like Teaching (`collapsible: true` in `nav.ts`), and the header "All" link is gone from them.
+In its place each section has a page row: Classes gets "Classes" above Groups, Spaces gets
+"Spaces" under the live rows. Folded, a section hides its live rows too and keeps only the row
+for the page you are on. Projects keeps its "All" link.

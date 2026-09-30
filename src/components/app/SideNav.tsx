@@ -153,19 +153,19 @@ export function SideNav({
           )}
 
           {groups.map((group) => {
-            const { rows, loading } = group.live ? live(group) : { rows: [], loading: false }
+            const { rows: allRows, loading } = group.live ? live(group) : { rows: [], loading: false }
             // Hidden while loading too, so a student with no spaces never sees
             // the section flash in and back out.
-            if (group.hideWhenEmpty && (loading || rows.length === 0)) return null
+            if (group.hideWhenEmpty && (loading || allRows.length === 0)) return null
 
             // Folding is for the full rail; the icon rail has no header to fold
             // with. Folded, the row for the page you are on stays, so the rail
             // still says where you are.
             const isFolded = !collapsed && group.collapsible === true && folded.includes(group.title)
+            const here = (to: string, end = false) => matchPath({ path: to, end }, location.pathname) !== null
+            const rows = isFolded ? allRows.filter((row) => here(row.to)) : allRows
             const items = isFolded
-              ? group.items.filter(
-                  (item) => item.to && matchPath({ path: item.to, end: item.end ?? false }, location.pathname),
-                )
+              ? group.items.filter((item) => item.to && here(item.to, item.end))
               : group.items
             const listId = `nav-${group.title.toLowerCase()}`
 
@@ -194,8 +194,8 @@ export function SideNav({
                     />
                   ))}
 
-                  {/* Classes always has its own rows below, so it needs no
-                      empty line; Spaces and Projects do. */}
+                  {/* Classes and Spaces always have their own rows below, so
+                      they need no empty line; Projects does. */}
                   {!collapsed && group.live && group.items.length === 0 && rows.length === 0 && !loading && (
                     <li className="px-3 py-1 text-[13px] text-faint">
                       {group.live === 'projects' ? 'No projects yet.' : 'No spaces yet.'}
