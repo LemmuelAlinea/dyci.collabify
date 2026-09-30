@@ -2156,3 +2156,11 @@ like Teaching (`collapsible: true` in `nav.ts`), and the header "All" link is go
 In its place each section has a page row: Classes gets "Classes" above Groups, Spaces gets
 "Spaces" under the live rows. Folded, a section hides its live rows too and keeps only the row
 for the page you are on. Projects keeps its "All" link.
+
+**Follow-up (2026-09-30): "All" links sit under the rows.** The Classes and Spaces page rows
+from the change above are gone again. Classes, Spaces and Projects each end their live rows
+with a small faint "All classes / All spaces / All projects" link (`MoreLink` in `SideNav`),
+with no icon, so it does not read as a page. The header no longer carries an "All" link.
+Projects now folds too. "All projects" is `/projects`, which lists work projects only; class
+projects keep their row under Classes. Folded, a section also hides its "All" link unless
+that page is open.

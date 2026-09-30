@@ -3,7 +3,7 @@ import { paths } from '../../lib/paths'
 
 export type LiveRow = { id: string; name: string; to: string; tone?: 'education' | 'work' }
 
-/** Three rows per section: the rest are one click away behind the header's All link. */
+/** Three rows per section: the rest are one click away behind the All link under them. */
 const CAP = 3
 export const PROJECT_CAP = CAP
 

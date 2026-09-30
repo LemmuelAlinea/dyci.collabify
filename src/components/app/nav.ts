@@ -21,7 +21,7 @@ export type NavGroup = {
   items: NavItem[]
   /** Live rows `SideNav` fills in above `items`: the reader's own classes, spaces or projects. */
   live?: 'classes' | 'spaces' | 'projects'
-  /** The page listing all of them, linked from the section header. */
+  /** The page listing all of them, linked in small type under the live rows. */
   more?: { to: string; label: string }
   /** Leave the whole section out until there is at least one live row. */
   hideWhenEmpty?: boolean
@@ -76,18 +76,18 @@ const ACCOUNT: NavGroup = {
 }
 
 /**
- * The reader's classes, then what hangs off them: the page of every class,
- * then groups, then class projects, so the section reads widest to narrowest.
- * A student also keeps their own record here, since it is theirs to keep
- * rather than theirs to do.
+ * The reader's classes, then what hangs off them: classes hold groups, groups
+ * hold class projects, so the section reads widest to narrowest. A student
+ * also keeps their own record here, since it is theirs to keep rather than
+ * theirs to do.
  */
 function classesGroup(role: Role): NavGroup {
   return {
     title: 'Classes',
     live: 'classes',
     collapsible: true,
+    more: { to: paths.classes, label: 'All classes' },
     items: [
-      { label: 'Classes', icon: 'folder', to: paths.classes, end: true },
       { label: 'Groups', icon: 'users', to: paths.groups },
       { label: 'Class projects', icon: 'kanban', to: paths.classProjects },
       ...(role === 'student'
@@ -107,15 +107,18 @@ function spacesGroup(hideWhenEmpty: boolean, withClasses = false): NavGroup {
     title: 'Spaces',
     live: 'spaces',
     collapsible: true,
+    more: { to: paths.spaces, label: 'All spaces' },
     hideWhenEmpty,
     withClasses,
-    items: [{ label: 'Spaces', icon: 'board', to: paths.spaces, end: true }],
+    items: [],
   }
 }
 
+/** Work projects only: class projects have their own row under Classes. */
 const PROJECTS: NavGroup = {
   title: 'Projects',
   live: 'projects',
+  collapsible: true,
   more: { to: paths.projects, label: 'All projects' },
   items: [],
 }

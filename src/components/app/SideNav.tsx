@@ -167,6 +167,7 @@ export function SideNav({
             const items = isFolded
               ? group.items.filter((item) => item.to && here(item.to, item.end))
               : group.items
+            const showMore = !collapsed && group.more && (!isFolded || here(group.more.to, true))
             const listId = `nav-${group.title.toLowerCase()}`
 
             return (
@@ -174,8 +175,6 @@ export function SideNav({
                 {!collapsed && (
                   <GroupHeader
                     title={group.title}
-                    more={group.more}
-                    onNavigate={onNavigate}
                     fold={
                       group.collapsible
                         ? { open: !isFolded, controls: listId, onToggle: () => toggleFold(group.title) }
@@ -194,9 +193,9 @@ export function SideNav({
                     />
                   ))}
 
-                  {/* Classes and Spaces always have their own rows below, so
-                      they need no empty line; Projects does. */}
-                  {!collapsed && group.live && group.items.length === 0 && rows.length === 0 && !loading && (
+                  {/* Classes always has its own rows below, so it needs no
+                      empty line; Spaces and Projects do. */}
+                  {!collapsed && !isFolded && group.live && group.items.length === 0 && rows.length === 0 && !loading && (
                     <li className="px-3 py-1 text-[13px] text-faint">
                       {group.live === 'projects' ? 'No projects yet.' : 'No spaces yet.'}
                     </li>
@@ -211,7 +210,9 @@ export function SideNav({
                     />
                   )}
 
-                  {rows.length > 0 && items.length > 0 && (
+                  {showMore && group.more && <MoreLink more={group.more} onNavigate={onNavigate} />}
+
+                  {(rows.length > 0 || showMore) && items.length > 0 && (
                     <li aria-hidden className={`my-2 border-t border-line ${collapsed ? 'mx-2' : 'mx-3'}`} />
                   )}
 
@@ -303,6 +304,31 @@ function LiveRowLink({
   )
 }
 
+/**
+ * The link to every class, space or project, under the reader's own rows. It
+ * is small, faint and has no icon so it reads as a way further into the list
+ * rather than as one more page; the text lines up with the row names above.
+ */
+function MoreLink({ more, onNavigate }: { more: { to: string; label: string }; onNavigate?: () => void }) {
+  return (
+    <li>
+      <NavLink
+        to={more.to}
+        end
+        onClick={onNavigate}
+        className={({ isActive }) =>
+          `flex w-fit items-center gap-1 rounded py-1 pl-11 pr-1 text-[12px] transition-colors ${
+            isActive ? 'font-semibold text-ink' : 'text-faint hover:text-ink'
+          }`
+        }
+      >
+        {more.label}
+        <Icon name="arrowRight" size={12} />
+      </NavLink>
+    </li>
+  )
+}
+
 /** The link to every class, space or project, as a row — collapsed rail only. */
 function MoreRow({
   more,
@@ -337,19 +363,12 @@ function MoreRow({
  *   label   11px  semibold  text-faint  uppercase, tracked — structure, not a place
  *   row     14px  medium    text-muted  every destination, fixed or live alike
  *   active  14px  semibold  text-ink    plus the amber bar and a lit icon
- *
- * The link to all of a section's things sits in its header at 12px text-faint,
- * so the list ends on the reader's own rows instead of on one more row.
  */
 function GroupHeader({
   title,
-  more,
-  onNavigate,
   fold,
 }: {
   title: string
-  more?: { to: string; label: string }
-  onNavigate?: () => void
   /** Set for a section that folds: the header's title becomes its toggle. */
   fold?: { open: boolean; controls: string; onToggle: () => void }
 }) {
@@ -373,22 +392,6 @@ function GroupHeader({
         </button>
       ) : (
         <p className={label}>{title}</p>
-      )}
-      {more && (
-        <NavLink
-          to={more.to}
-          end
-          onClick={onNavigate}
-          aria-label={more.label}
-          className={({ isActive }) =>
-            `-my-1 flex items-center gap-1 rounded px-1 py-1 text-[12px] transition-colors ${
-              isActive ? 'font-semibold text-ink' : 'text-faint hover:text-ink'
-            }`
-          }
-        >
-          All
-          <Icon name="arrowRight" size={12} />
-        </NavLink>
       )}
     </div>
   )
