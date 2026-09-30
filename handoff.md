@@ -2184,3 +2184,8 @@ tiles (Waiting on you, Tasks overdue, Projects you are on, Spaces). New space an
 code moved into the banner as buttons; the shortcut cards and the Inbox card are gone (Inbox
 is in the rail). My tasks, Coming up and Jump back in got "See all" links, and someone with
 no spaces or projects gets the shared `EmptyState` instead of four empty panels.
+
+**Change (2026-10-01): the highlighted shortcut wears the banner colour.** On a space
+dashboard, the `primary` card in `QuickActions` (New project) is filled with `--banner` — the
+banner's left edge, whatever the person picked in Settings → Appearance — with `banner-ink`
+text and a `banner-accent` icon, instead of fixed navy. The other cards are unchanged.

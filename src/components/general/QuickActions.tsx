@@ -11,7 +11,7 @@ export type QuickAction = {
   onClick?: () => void
   /** A live figure, shown as a pill when above zero. */
   count?: number
-  /** The page's first action, set in the brand colour. */
+  /** The page's first action, set in the banner's own colour so the two read as one. */
   primary?: boolean
 }
 
@@ -34,14 +34,14 @@ export function QuickActions({ actions }: { actions: QuickAction[] }) {
         const shell =
           'group @container relative flex min-h-[64px] min-w-0 flex-col rounded-card border-[1.5px] p-2 text-left transition-[border-color,transform] duration-200 hover-safe sm:min-h-[112px] sm:p-4 ' +
           (a.primary
-            ? 'border-navy-950 bg-navy-600 text-white hover:bg-navy-500 dark:border-navy-400 dark:bg-navy-500 dark:hover:bg-navy-400'
+            ? 'border-banner-ink/10 bg-banner text-banner-ink hover:brightness-125'
             : 'border-navy-950 bg-[var(--surface)] hover:border-navy-600 dark:border-navy-500 dark:hover:border-navy-300')
         const body = (
           <span className="flex h-full flex-col justify-center @min-[76px]:justify-start">
             <span className="flex items-start justify-center gap-2 @min-[120px]:justify-between">
               <span
                 className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg @min-[120px]:h-9 @min-[120px]:w-9 ${
-                  a.primary ? 'bg-white/15 text-amber-300' : 'surface-sunken text-navy-600 dark:text-navy-200'
+                  a.primary ? 'bg-banner-ink/15 text-banner-accent' : 'surface-sunken text-navy-600 dark:text-navy-200'
                 }`}
               >
                 <Icon name={a.icon} size={17} />
@@ -54,14 +54,14 @@ export function QuickActions({ actions }: { actions: QuickAction[] }) {
             </span>
             <span
               className={`sr-only @min-[76px]:not-sr-only @min-[76px]:mt-auto @min-[76px]:truncate @min-[76px]:pt-2 @min-[76px]:text-center @min-[76px]:text-[12px] @min-[120px]:pt-3 @min-[120px]:text-left @min-[120px]:text-[14px] font-medium ${
-                a.primary ? 'text-white' : 'text-ink'
+                a.primary ? 'text-banner-ink' : 'text-ink'
               }`}
             >
               {a.label}
             </span>
             <span
               className={`hidden text-[12px] leading-snug @min-[150px]:mt-0.5 @min-[150px]:line-clamp-2 ${
-                a.primary ? 'text-white/70' : 'text-muted'
+                a.primary ? 'text-banner-ink/70' : 'text-muted'
               }`}
             >
               {a.hint}
