@@ -1,14 +1,39 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { NudgeButton } from '../projects/NudgeButton'
 import { paths } from '../../lib/paths'
 import type { StalledBoard } from '../../lib/api/dashboard'
 
+/** Cards in view at once; the rest scroll inside the list. */
+const VISIBLE = 3
+
 /**
  * The groups a professor cannot spot without opening every board: nothing put
  * on the board at all, or nothing touched in a week.
  */
 export function StalledGroups({ boards }: { boards: StalledBoard[] }) {
+  const listRef = useRef<HTMLUListElement>(null)
+  const [maxHeight, setMaxHeight] = useState<number>()
+
+  // Measured rather than fixed, since a card grows when Remind wraps under it.
+  useLayoutEffect(() => {
+    const list = listRef.current
+    if (!list || boards.length <= VISIBLE) {
+      setMaxHeight(undefined)
+      return
+    }
+    const measure = () => {
+      const last = list.children[VISIBLE - 1] as HTMLElement
+      const padding = parseFloat(getComputedStyle(list).paddingBottom)
+      setMaxHeight(last.offsetTop + last.offsetHeight + padding)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(list)
+    return () => observer.disconnect()
+  }, [boards.length])
+
   if (boards.length === 0) {
     return (
       <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
@@ -18,7 +43,12 @@ export function StalledGroups({ boards }: { boards: StalledBoard[] }) {
   }
 
   return (
-    <ul className="space-y-2">
+    // Padded so the cards' shadows and focus rings are not clipped by the scroll.
+    <ul
+      ref={listRef}
+      style={{ maxHeight }}
+      className="relative -m-1 space-y-2 overflow-y-auto overscroll-contain p-1"
+    >
       {boards.map((b) => (
         <li
           key={b.id}

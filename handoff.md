@@ -2164,3 +2164,8 @@ with no icon, so it does not read as a page. The header no longer carries an "Al
 Projects now folds too. "All projects" is `/projects`, which lists work projects only; class
 projects keep their row under Classes. Folded, a section also hides its "All" link unless
 that page is open.
+
+**Change (2026-09-30): stalled groups scroll after three.** On the professor dashboard,
+`StalledGroups` shows three cards and scrolls the rest inside the list. The height is measured
+from the third card (ResizeObserver), since a card grows when Remind wraps. The list is padded
+by 4px so shadows and focus rings are not clipped.
