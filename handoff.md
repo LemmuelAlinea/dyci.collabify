@@ -2201,3 +2201,17 @@ it would be too faint to see. Defaults: `var(--banner)` in `:root`, `navy-500` i
 glow style, or the solid colour, pushed to 3:1 against the sunken icon tile by
 `lib/palette.ts`. Defaults: `amber-600` in `:root`, `var(--banner-glow)` in `.dark`. The
 outlined `QuickActions` cards use it for their icons; New project keeps `banner-accent`.
+
+**Change (2026-10-01): "How it runs" plays the launch film.** The landing section
+(`components/landing/Workflow.tsx`) no longer steps a mock board on scroll. It is now the
+45-second launch video in a player, with the film's six chapters on the left. The active chapter
+follows playback and choosing one seeks to it.
+- Files live in `public/video/`: `collabify-launch.mp4` (10 MB, 1080p60, with the voice-over),
+  `collabify-launch-poster.jpg` and `collabify-launch.en.vtt` (captions, the voice-over text).
+- Nothing is fetched until play (`preload="none"`); native controls appear after the first play.
+- Phone order is heading, film, chapters; from `lg` up the film spans both rows on the right.
+- The film's source is `launch-video/` (HyperFrames project, sound scripts, storyboard), which is
+  not committed. Re-encode for the site with: `ffmpeg -i final.mp4 -c:v libx264 -preset slow
+  -crf 25 -maxrate 4000k -bufsize 8000k -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart`.
+- Checked on localhost: plays, captions track loads, chapter click seeks to 19.0 s and lights
+  chapter 3, no horizontal scroll at 375 px. `npm run build`, `tsc -b` and eslint pass.
