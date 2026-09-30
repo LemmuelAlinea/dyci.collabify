@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Bento, BentoCell } from '../dashboard/Bento'
 import { DashSection } from '../dashboard/DashSection'
 import { Reveal } from '../motion/Reveal'
@@ -14,7 +14,8 @@ import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
 import { canTeach, isFaculty } from '../../lib/access'
-import { comingUp, myTasks, recentProjects } from '../../lib/general/dashboard'
+import { listMyProjectVisits } from '../../lib/api/general'
+import { comingUp, firstComing, myTasks, recentlyVisited } from '../../lib/general/dashboard'
 import { plural } from '../../lib/plural'
 import { paths } from '../../lib/paths'
 
@@ -46,6 +47,19 @@ export function WorkOverview() {
   )
   const ids = useMemo(() => mineProjects.map((p) => p.id), [mineProjects])
   const { data, error: dashError, reload: reloadDash } = useGeneralDashboard(profile?.id, ids)
+  // When this person last opened each project. "Jump back in" leads with those;
+  // a failed read only loses the order, so it falls back quietly.
+  const [seen, setSeen] = useState<ReadonlyMap<string, string>>(new Map())
+  useEffect(() => {
+    if (!profile?.id) return
+    let live = true
+    listMyProjectVisits(profile.id)
+      .then((m) => live && setSeen(m))
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [profile?.id])
 
   const now = data?.at ?? 0
   const names = new Map(mineProjects.map((p) => [p.id, p.name]))
@@ -55,7 +69,7 @@ export function WorkOverview() {
   const requests = mineProjects.filter((p) => p.my_level === 'owner' && p.open_request_count > 0)
   const waiting =
     reviews.length + requests.reduce((n, p) => n + p.open_request_count, 0)
-  const days = data ? comingUp(data.tasks, mineProjects, now) : []
+  const days = data ? firstComing(comingUp(data.tasks, mineProjects, now)) : []
   // Class spaces live under Education; "Your work" only ever counts work spaces.
   const workSpaces = useMemo(() => (spaces ?? []).filter((s) => s.kind === 'work'), [spaces])
   const liveSpaces = workSpaces.filter((s) => s.my_level && !s.archived_at)
@@ -169,7 +183,7 @@ export function WorkOverview() {
             <BentoCell>
               <Reveal once delay={0.16}>
                 <DashSection icon="kanban" title="Jump back in">
-                  <RecentPanel projects={recentProjects(mineProjects)} />
+                  <RecentPanel projects={recentlyVisited(mineProjects, seen)} />
                 </DashSection>
               </Reveal>
             </BentoCell>

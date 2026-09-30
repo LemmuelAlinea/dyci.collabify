@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { comingUp, dayLabel, dueCounts, myTasks, recentProjects, requestsToAnswer } from './dashboard'
+import {
+  comingUp,
+  dayLabel,
+  dueCounts,
+  firstComing,
+  myTasks,
+  recentlyVisited,
+  recentProjects,
+  requestsToAnswer,
+} from './dashboard'
 import type { DashProject, DashTask } from './dashboard'
 
 const NOW = new Date(2026, 8, 25, 10, 0).getTime()
@@ -114,5 +123,42 @@ describe('recentProjects', () => {
       1,
     )
     expect(got.map((p) => p.id)).toEqual(['new'])
+  })
+})
+
+describe('recentlyVisited', () => {
+  it('leads with the latest visits, then fills with recent changes', () => {
+    const got = recentlyVisited(
+      [
+        project({ id: 'a' }),
+        project({ id: 'b' }),
+        project({ id: 'c', updated_at: '2026-09-20T00:00:00Z' }),
+        project({ id: 'd', updated_at: '2026-01-01T00:00:00Z' }),
+      ],
+      new Map([
+        ['a', '2026-09-10T00:00:00Z'],
+        ['b', '2026-09-24T00:00:00Z'],
+      ]),
+    )
+    expect(got.map((p) => p.id)).toEqual(['b', 'a', 'c'])
+  })
+})
+
+describe('firstComing', () => {
+  it('keeps the first three items and drops the days after', () => {
+    const got = firstComing(
+      comingUp(
+        [
+          task({ id: 'a', due_at: hours(1) }),
+          task({ id: 'b', due_at: hours(2) }),
+          task({ id: 'c', due_at: hours(26) }),
+          task({ id: 'd', due_at: hours(27) }),
+          task({ id: 'e', due_at: hours(50) }),
+        ],
+        [],
+        NOW,
+      ),
+    )
+    expect(got.map((d) => d.items.map((i) => i.id))).toEqual([['a', 'b'], ['c']])
   })
 })

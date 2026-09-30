@@ -20,3 +20,7 @@ graphify-out/
 
 # CodeGraph index; rebuilt by codegraph init.
 .codegraph/
+
+launch-video/.chrome-profile/
+launch-video/node_modules/
+launch-video/footage/

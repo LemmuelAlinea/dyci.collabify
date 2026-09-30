@@ -152,6 +152,10 @@ export function SideNav({
             </Link>
           )}
 
+          {showLogo && (
+            <hr aria-hidden className={`border-t border-line ${collapsed ? 'mx-2' : 'mx-1'}`} />
+          )}
+
           {groups.map((group) => {
             const { rows: allRows, loading } = group.live ? live(group) : { rows: [], loading: false }
             // Hidden while loading too, so a student with no spaces never sees

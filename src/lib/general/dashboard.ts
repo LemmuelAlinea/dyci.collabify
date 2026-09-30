@@ -102,3 +102,31 @@ export function dayLabel(at: number, now: number) {
 export function recentProjects<P extends DashProject>(projects: readonly P[], n = 4): P[] {
   return [...projects].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, n)
 }
+
+/**
+ * The projects this person opened last, newest visit first. Projects never
+ * opened fill any gap, most recently changed first.
+ */
+export function recentlyVisited<P extends DashProject>(
+  projects: readonly P[],
+  seen: ReadonlyMap<string, string>,
+  n = 3,
+): P[] {
+  const visited = projects
+    .filter((p) => seen.has(p.id))
+    .sort((a, b) => seen.get(b.id)!.localeCompare(seen.get(a.id)!))
+  const rest = recentProjects(projects.filter((p) => !seen.has(p.id)), n)
+  return [...visited, ...rest].slice(0, n)
+}
+
+/** The first `n` items across the days, dropping days left empty. */
+export function firstComing(days: readonly ComingDay[], n = 3): ComingDay[] {
+  const out: ComingDay[] = []
+  let left = n
+  for (const d of days) {
+    if (left <= 0) break
+    out.push({ ...d, items: d.items.slice(0, left) })
+    left -= d.items.length
+  }
+  return out
+}

@@ -1566,6 +1566,16 @@ export async function sinceLastVisit(projectId: string) {
   return data as SinceLastVisit
 }
 
+/** When the caller last opened each work project, keyed by project id. */
+export async function listMyProjectVisits(userId: string) {
+  const { data, error } = await supabase
+    .from('general_project_visits')
+    .select('project_id, seen_at')
+    .eq('user_id', userId)
+  if (error) throw error
+  return new Map((data ?? []).map((v) => [v.project_id as string, v.seen_at as string]))
+}
+
 export type GeneralTemplate = {
   id: string
   owner_id: string

@@ -2169,3 +2169,10 @@ that page is open.
 `StalledGroups` shows three cards and scrolls the rest inside the list. The height is measured
 from the third card (ResizeObserver), since a card grows when Remind wraps. The list is padded
 by 4px so shadows and focus rings are not clipped.
+
+**Change (2026-10-01): "Your work" shows three in Coming up and Jump back in.** Only on the
+`/home` work section (`WorkOverview`); a space's own dashboard is unchanged. Coming up keeps
+the three soonest items (`firstComing`). Jump back in lists the three projects the person
+opened last, read from `general_project_visits.seen_at` (`listMyProjectVisits`), which the
+project page already stamps on every open. Projects never opened fill any gap, most recently
+changed first (`recentlyVisited`).
