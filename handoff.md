@@ -2253,3 +2253,23 @@ theme everywhere, instead of staying light in dark mode.
 `/admin/syllabi` and `/admin/curriculum`, both `ProgramLibrary` with a `kind` prop, no
 switch. `/admin/library` forwards to `/admin/syllabi`; the AdminHome card points there too.
 Owner checked it as an admin on 2026-10-01.
+
+**Change (2026-10-01): Meetings.** A Main rail page, `/meetings` (`pages/app/meetings/Meetings.tsx`),
+for Zoom or Google Meet calls. Collabify does not create the call: somebody pastes its link
+(`lib/meetings.ts` `detectPlatform`, mirrored by `meeting_url_ok` in SQL) and picks an audience:
+whole class, class group, whole work space, work project, space team or project team.
+Rules live in `supabase/meetings.sql` (applied to live 2026-10-01; test
+`supabase/tests/meetings.test.sql`, 27 checks, rolls back):
+- create: a class's teaching faculty (`is_class_professor`, co-teachers included) for the
+  whole class; a group's own students or the class faculty for a group; any member of a
+  work space, project or team for it. Writes only through `create_meeting` /
+  `update_meeting` / `cancel_meeting`; reads through `list_my_meetings` and
+  `meeting_audiences` (which also drives the scheduler's Where/Who pickers).
+- a group meeting is seen by the group and whoever scheduled it, not the whole class.
+- notifications `meeting_scheduled|changed|cancelled` go to the whole audience except the
+  person acting, with no Settings switch (always delivered). Bell opens `/meetings?meeting=<id>`.
+- Calendar shows them as kind `meeting` (`calendar/meetingDates.ts`); class/group meetings
+  sit under Classes, work ones under Work. Cancelled ones are left off Calendar.
+No reminders, recurrence or RSVP (out of scope by the owner's choice).
+DB note: `node scripts/db.mjs` failed on the IPv6-only direct host this session; the IPv4
+session pooler (`aws-0-ap-southeast-1.pooler.supabase.com`, user `postgres.<ref>`) worked.
