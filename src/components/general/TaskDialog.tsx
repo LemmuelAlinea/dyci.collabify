@@ -17,7 +17,6 @@ import {
   deleteComment,
   deleteLog,
   deleteTask,
-  deleteTaskFile,
   GENERAL_FILE_LIMIT,
   generalFileUrl,
   listComments,
@@ -275,12 +274,10 @@ function TaskBody({
                     label={`Actions for ${f.file_name}`}
                     disabled={busy}
                     items={[
-                      { label: 'Archive', icon: 'archive', onSelect: () => void act(() => deleteTaskFile(f), 'File archived', 'Could not archive that file.') },
                       {
                         label: 'Move to trash',
                         icon: 'trash',
                         tone: 'danger',
-                        separated: true,
                         onSelect: () =>
                           void act(() => trashTaskFile(f.id), 'File moved to Trash. It stays there for 30 days.', 'Could not move it to Trash.'),
                       },
