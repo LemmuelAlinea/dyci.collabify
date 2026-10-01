@@ -2242,3 +2242,8 @@ project, work project, group pages and the Files/Tasks tabs.
 Below that it stacks. The joining switch is a third cell in the code/roster strip instead
 of its own row, and padding and the initial tile are tighter on narrower banners. At a
 1056px window the banner went from ~540px to 292px tall with nothing removed.
+
+**Change (2026-10-01): native controls follow the theme.** `color-scheme: light` on `:root`
+and `color-scheme: dark` on `.dark` (and light again for print) in `index.css`. The date,
+datetime and time pickers' icons, their calendar popups and native scrollbars now match the
+theme everywhere, instead of staying light in dark mode.

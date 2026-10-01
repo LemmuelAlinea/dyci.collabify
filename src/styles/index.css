@@ -249,6 +249,9 @@
      separation is carried by three things at once: a darker canvas, a visible
      hairline, and a shadow with real contact. */
   :root {
+    /* Native controls — the date and time pickers' icons and calendars,
+       scrollbars — follow the theme's class, never the OS setting alone. */
+    color-scheme: light;
     --page: #e6eaf4;
     --surface: #ffffff;
     --surface-sunken: #dde3f0;
@@ -302,6 +305,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --page: #080b21;
     /* The default banner is the dark page's own colour, so its outline would vanish. */
     --banner-edge: var(--color-navy-500);
@@ -978,6 +982,7 @@
 @media print {
   :root,
   .dark {
+    color-scheme: light;
     --page: #ffffff;
     --surface: #ffffff;
     --surface-sunken: #f3f5fb;
