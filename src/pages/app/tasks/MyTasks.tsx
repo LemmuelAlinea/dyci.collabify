@@ -5,6 +5,7 @@ import { Button, ButtonLink } from '../../../components/ui/Button'
 import { Reveal } from '../../../components/motion/Reveal'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { ArchivedTasksModal } from '../../../components/general/ArchivedTasksModal'
+import type { ArchivedTaskItem } from '../../../components/general/ArchivedTasksModal'
 import { MyTasksPanel } from '../../../components/general/DashboardPanels'
 import { TaskDialog } from '../../../components/general/TaskDialog'
 import { useGeneralProject } from '../../../components/general/useGeneralProject'
@@ -18,7 +19,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useGeneralDashboard } from '../../../hooks/useGeneralDashboard'
 import { listMyArchivedTasks } from '../../../lib/api/general'
-import { myTasks as myClassTasks, setTaskStatus } from '../../../lib/api/tasks'
+import { listMyArchivedClassTasks, myTasks as myClassTasks, setTaskStatus } from '../../../lib/api/tasks'
 import type { MyTask } from '../../../lib/api/tasks'
 import { isFaculty, membershipOf, showsClassScope } from '../../../lib/access'
 import { authErrorMessage } from '../../../lib/authError'
@@ -28,7 +29,6 @@ import { readScope, writeScope } from '../../../lib/scope'
 import { formatMinutes, taskShare, taskStatusLabel } from '../../../lib/types'
 import { useNow } from '../../../hooks/useNow'
 import type { TaskStatus } from '../../../lib/types'
-import type { GeneralTask } from '../../../lib/general/types'
 
 const NEXT: Record<TaskStatus, { to: TaskStatus; label: string; icon: 'check' | 'refresh' }> = {
   todo: { to: 'in_progress', label: 'Start', icon: 'check' },
@@ -209,22 +209,39 @@ export default function MyTasks() {
     (id: string) => mineProjects.find((p) => p.id === id)?.name ?? 'A project',
     [mineProjects],
   )
-  // Archived work tasks, for the banner's count and its modal. Class tasks are
-  // deleted rather than archived, so there is no class side to this.
+  // Everything the reader archived, class and work together, newest first,
+  // for the banner's count and its modal. Either side failing leaves the other.
   const [archivedOpen, setArchivedOpen] = useState(false)
-  const [archivedTasks, setArchivedTasks] = useState<GeneralTask[] | null>(null)
+  const [archivedTasks, setArchivedTasks] = useState<ArchivedTaskItem[] | null>(null)
   const loadArchived = useCallback(async () => {
     if (!profile) return
-    try {
-      setArchivedTasks(await listMyArchivedTasks(profile.id, projectIds))
-    } catch {
-      setArchivedTasks([])
-    }
-  }, [profile, projectIds])
+    const [work, cls] = await Promise.all([
+      listMyArchivedTasks(profile.id, projectIds).catch(() => []),
+      listMyArchivedClassTasks().catch(() => []),
+    ])
+    setArchivedTasks(
+      [
+        ...work.map((t): ArchivedTaskItem => ({
+          kind: 'work',
+          id: t.id,
+          title: t.title,
+          where: projectName(t.project_id),
+          archived_at: t.archived_at,
+        })),
+        ...cls.map((t): ArchivedTaskItem => ({
+          kind: 'class',
+          id: t.id,
+          title: t.title,
+          where: [t.class_initial, t.project_title, t.group_name].filter(Boolean).join(' · '),
+          archived_at: t.archived_at,
+        })),
+      ].sort((a, b) => (b.archived_at ?? '').localeCompare(a.archived_at ?? '')),
+    )
+  }, [profile, projectIds, projectName])
   useEffect(() => {
     void loadArchived()
   }, [loadArchived])
-  useLive(loadArchived, ['general_tasks'])
+  useLive(loadArchived, ['general_tasks', 'project_tasks'])
 
   const workTasks = useMemo(
     () => (profile && dashData ? myOpenWorkTasks(dashData.tasks, profile.id) : []),
@@ -551,9 +568,8 @@ export default function MyTasks() {
         open={archivedOpen}
         onClose={() => setArchivedOpen(false)}
         tasks={archivedTasks}
-        projectName={projectName}
         onChanged={async () => {
-          await Promise.all([loadArchived(), reloadDash()])
+          await Promise.all([loadArchived(), reloadDash(), load()])
         }}
       />
 

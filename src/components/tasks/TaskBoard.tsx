@@ -13,6 +13,7 @@ import { TaskDetailModal } from './detail/TaskDetailModal'
 import {
   addTask,
   claimTask,
+  archiveClassTask,
   deleteTask,
   releaseTask,
   setTaskStatus,
@@ -184,6 +185,16 @@ export function TaskBoard({
                       }
                       onEdit={() => setEditing(task)}
                       onDelete={() => setDeleting(task)}
+                      // A student archives only what they added with + Add task.
+                      onArchive={
+                        role === 'student' && canWork && task.author_role === 'student' && task.created_by === viewerId
+                          ? () =>
+                              run(async () => {
+                                await archiveClassTask(task.id, true)
+                                show('Task archived. Restore it from Archived tasks on My tasks.')
+                              }, 'Could not archive that task.')
+                          : undefined
+                      }
                       onClaim={(studentId) =>
                         run(
                           () => claimTask(task.id, studentId, viewerId ?? studentId),

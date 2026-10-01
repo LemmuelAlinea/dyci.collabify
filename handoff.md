@@ -2276,3 +2276,21 @@ session pooler (`aws-0-ap-southeast-1.pooler.supabase.com`, user `postgres.<ref>
 Meetings also skip the hidden project behind a class board's Files (`general_projects.class_board_id`,
 class-files.sql) and its "Class project files" space: `meeting_audiences` leaves them out and
 `create_meeting` refuses them. Those students meet as their group.
+
+**Change (2026-10-01): students archive the tasks they added.** `supabase/task-archive.sql`
+(applied live; test `supabase/tests/task-archive.test.sql`):
+- Class tasks gained `archived_at`/`archived_by`. Only the student who added a task with
+  + Add task (`created_by` = them, `author_role` 'student') archives it, via
+  `archive_class_task`; restore and `delete_archived_class_task` are that student or the
+  class faculty. The select policy hides archived rows, so every `security_invoker` view
+  (boards, progress, analytics, reports, Calendar) drops them like deleted ones; the owner-
+  rights readers (deadline/overdue/digest notices, claim caps, group summary,
+  `admin_class_overview`) were redefined with `archived_at is null`.
+- `guard_task_edit` pins the archive columns unless `collabify.task_archive_op` is on
+  (read with `coalesce` — an unset setting is NULL and `not NULL` skipped the pin).
+- Work tasks: a creator may archive their own task any time (`archive_general_task`), and
+  `guard_general_task` skips its holder check while `collabify.general_archive_op` is on.
+- UI: an Archive icon on a student's own class task card (`TaskCard`/`TaskBoard`); My tasks →
+  Archived tasks lists class and work archives together (`ArchivedTasksModal` items).
+The notifications and analytics SQL suites fail the same way with or without this change
+(task_assignees duplicate key; files sign-in guard) — pre-existing, not looked into.

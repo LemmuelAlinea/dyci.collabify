@@ -120,7 +120,8 @@ function TaskBody({
   const archived = state.archived
   const canEdit = !archived && (canManage || holds || (createdByMe && task.assignee_ids.length === 0))
   const canAttach = !archived && (holds || state.can('edit_files'))
-  const canDelete = !archived && (canManage || (createdByMe && task.assignee_ids.length === 0))
+  // Archiving: whoever added the task, at any point, or someone who manages tasks.
+  const canDelete = !archived && (canManage || createdByMe)
 
   /**
    * One write at a time. A second press would match a row the first already

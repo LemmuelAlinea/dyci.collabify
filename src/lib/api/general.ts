@@ -857,7 +857,7 @@ export async function archiveTask(taskId: string, archived: boolean) {
     p_archived: archived,
   })
   if (error) throw error
-  if (!data) throw new Error('Only its creator, before anyone takes it, or someone who manages tasks can archive this.')
+  if (!data) throw new Error('Only whoever added this task, or someone who manages tasks, can archive it.')
 }
 
 export async function restoreArchivedTasks(projectId: string) {

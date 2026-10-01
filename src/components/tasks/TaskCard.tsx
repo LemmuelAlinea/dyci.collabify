@@ -24,6 +24,7 @@ export function TaskCard({
   onStatus,
   onEdit,
   onDelete,
+  onArchive,
   onClaim,
   onRelease,
   onOpen,
@@ -42,6 +43,8 @@ export function TaskCard({
   onStatus: (status: TaskStatus) => Promise<void> | void
   onEdit: () => void
   onDelete: () => void
+  /** Only for a task this student added themselves; the board offers it then. */
+  onArchive?: () => void
   onClaim: (studentId: string) => Promise<void> | void
   onRelease: (studentId: string) => Promise<void> | void
   /** Opens the detail view. */
@@ -200,6 +203,17 @@ export function TaskCard({
         )}
 
         <div className="flex items-center gap-0.5">
+          {onArchive && (
+            <button
+              type="button"
+              onClick={onArchive}
+              aria-label={`Archive ${task.title}`}
+              title="Archive"
+              className="grid h-7 w-7 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+            >
+              <Icon name="archive" size={14} />
+            </button>
+          )}
           {editable && (
             <>
               <button

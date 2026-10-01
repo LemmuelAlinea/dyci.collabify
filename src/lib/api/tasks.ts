@@ -331,6 +331,40 @@ export async function deleteTask(taskId: string) {
   if (error) throw error
 }
 
+/**
+ * Archive a task the student added themselves, or bring one back. An archived
+ * task leaves the board and stops counting, as a deleted one would, until it
+ * is restored. supabase/task-archive.sql decides who may.
+ */
+export async function archiveClassTask(taskId: string, archived: boolean) {
+  const { error } = await supabase.rpc('archive_class_task', { p_task: taskId, p_archived: archived })
+  if (error) throw error
+}
+
+export async function deleteArchivedClassTask(taskId: string) {
+  const { error } = await supabase.rpc('delete_archived_class_task', { p_task: taskId })
+  if (error) throw error
+}
+
+export type ArchivedClassTask = {
+  id: string
+  title: string
+  status: TaskStatus
+  archived_at: string
+  project_id: string
+  project_title: string
+  class_initial: string
+  class_name: string
+  group_name: string | null
+}
+
+/** The class tasks this person archived, newest first. */
+export async function listMyArchivedClassTasks() {
+  const { data, error } = await supabase.rpc('list_my_archived_class_tasks')
+  if (error) throw error
+  return (data ?? []) as ArchivedClassTask[]
+}
+
 /* ------------------------------------------------------------- assignees */
 
 export async function claimTask(taskId: string, studentId: string, byStudentId: string) {
