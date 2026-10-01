@@ -1,14 +1,107 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { listSections } from '../../lib/api/program'
-import { listProgramResources } from '../../lib/api/resources'
+import { listProgramResources, uploadResource } from '../../lib/api/resources'
 import type { ProgramSection } from '../../lib/program'
+import { useAuth } from '../../context/AuthContext'
+import { authErrorMessage } from '../../lib/authError'
+import { formatBytes } from '../../lib/formatBytes'
 import { Field, Input } from '../ui/Field'
 import { Alert } from '../ui/Alert'
+import { Icon } from '../ui/Icon'
 import { Select, Textarea } from '../ui/Select'
 import { SCHOOL_YEARS, SEMESTERS, YEAR_LEVELS } from '../../lib/types'
 import type { ClassInput } from '../../lib/api/classes'
-import type { Semester, TeachingResource, YearLevel } from '../../lib/types'
+import type { ResourceKind, Semester, TeachingResource, YearLevel } from '../../lib/types'
+
+/** The library page's own limits, so a file accepted here is one it would accept. */
+const ACCEPT = '.pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg'
+const MAX_MB = 10
+
+/**
+ * A library picker that can also take a file from the device. The upload lands
+ * in the professor's Syllabi or Curriculum page like any other, then is picked.
+ */
+function ResourceField({
+  label,
+  kind,
+  value,
+  onChange,
+  options,
+  onUploaded,
+}: {
+  label: string
+  kind: ResourceKind
+  value: string
+  onChange: (id: string) => void
+  options: { value: string; label: string }[]
+  onUploaded: (r: TeachingResource) => void
+}) {
+  const { profile } = useAuth()
+  const input = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function take(file: File | undefined) {
+    if (input.current) input.current.value = ''
+    if (!file || !profile) return
+    setError(null)
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setError(`That file is ${formatBytes(file.size)}. The limit is ${MAX_MB} MB.`)
+      return
+    }
+    setBusy(true)
+    try {
+      const title = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || file.name
+      const row = await uploadResource({ professorId: profile.id, kind, title, file })
+      onUploaded(row)
+      onChange(row.id)
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not upload that file. Try again.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Field
+      label={label}
+      optional
+      error={error}
+      hint={
+        <button
+          type="button"
+          onClick={() => input.current?.click()}
+          disabled={busy || !profile}
+          className="inline-flex items-center gap-1 text-[12px] text-navy-600 hover:underline disabled:opacity-60 dark:text-navy-300"
+        >
+          <Icon name="upload" size={13} />
+          {busy ? 'Uploading…' : 'From device'}
+        </button>
+      }
+    >
+      {(id) => (
+        <>
+          <Select
+            id={id}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            options={options}
+            placeholder={options.length ? `No ${kind}` : `None yet — upload one from your device`}
+            disabled={busy || options.length === 0}
+          />
+          <input
+            ref={input}
+            type="file"
+            accept={ACCEPT}
+            className="hidden"
+            onChange={(e) => void take(e.target.files?.[0])}
+          />
+        </>
+      )}
+    </Field>
+  )
+}
 
 /** "Database Management" → "DBM". Only a suggestion; the field stays editable. */
 function suggestInitial(name: string) {
@@ -45,6 +138,7 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
   const [cap, setCap] = useState(defaults?.student_cap ? String(defaults.student_cap) : '')
   const [sections, setSections] = useState<ProgramSection[]>([])
   const [published, setPublished] = useState<TeachingResource[]>([])
+  const [uploaded, setUploaded] = useState<TeachingResource[]>([])
 
   // The program office keeps the list of sections. Until it has one, the field
   // stays free text — a professor cannot be blocked from making a class because
@@ -100,7 +194,10 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
     })
   }
 
-  const asOptions = (rows: TeachingResource[], kind: 'syllabus' | 'curriculum') => {
+  const asOptions = (all: TeachingResource[], kind: 'syllabus' | 'curriculum') => {
+    // Uploads made in this form sit in front of the props' list until the
+    // parent reloads it, so the same row can arrive twice.
+    const rows = all.filter((r, i) => r.kind === kind && all.findIndex((o) => o.id === r.id) === i)
     const options = [
       ...rows.map((r) => ({ value: r.id, label: r.title })),
       ...published
@@ -257,52 +354,22 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
       </Field>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field
+        <ResourceField
           label="Syllabus"
-          optional
-          hint={
-            syllabi.length === 0 ? (
-              <span className="text-[12px] text-faint">None uploaded</span>
-            ) : undefined
-          }
-        >
-          {(id) => (
-            <Select
-              id={id}
-              value={syllabusId ?? ''}
-              onChange={(e) => setSyllabusId(e.target.value)}
-              options={asOptions(syllabi, 'syllabus')}
-              placeholder={
-                asOptions(syllabi, 'syllabus').length ? 'No syllabus' : 'Upload one in Syllabi first'
-              }
-              disabled={asOptions(syllabi, 'syllabus').length === 0}
-            />
-          )}
-        </Field>
-        <Field
+          kind="syllabus"
+          value={syllabusId ?? ''}
+          onChange={setSyllabusId}
+          options={asOptions([...uploaded, ...syllabi], 'syllabus')}
+          onUploaded={(r) => setUploaded((list) => [r, ...list])}
+        />
+        <ResourceField
           label="Curriculum"
-          optional
-          hint={
-            curricula.length === 0 ? (
-              <span className="text-[12px] text-faint">None uploaded</span>
-            ) : undefined
-          }
-        >
-          {(id) => (
-            <Select
-              id={id}
-              value={curriculumId ?? ''}
-              onChange={(e) => setCurriculumId(e.target.value)}
-              options={asOptions(curricula, 'curriculum')}
-              placeholder={
-                asOptions(curricula, 'curriculum').length
-                  ? 'No curriculum'
-                  : 'Upload one in Curriculum first'
-              }
-              disabled={asOptions(curricula, 'curriculum').length === 0}
-            />
-          )}
-        </Field>
+          kind="curriculum"
+          value={curriculumId ?? ''}
+          onChange={setCurriculumId}
+          options={asOptions([...uploaded, ...curricula], 'curriculum')}
+          onUploaded={(r) => setUploaded((list) => [r, ...list])}
+        />
       </div>
     </form>
   )
