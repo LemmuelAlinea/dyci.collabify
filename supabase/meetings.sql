@@ -384,6 +384,13 @@ begin
       else 'You can schedule a meeting only for a space, project or team you are in.' end
       using errcode = 'insufficient_privilege';
   end if;
+  -- A class board's Files are a hidden project behind the board (class-files.sql);
+  -- its students meet as their group, never as that project.
+  if exists (select 1 from public.general_projects
+              where id = m.project_id and class_board_id is not null) then
+    raise exception 'A class project''s files are not a meeting audience. Schedule it for your group instead.'
+      using errcode = 'check_violation';
+  end if;
   if public.meeting_audience_archived(m) then
     raise exception 'This is archived, so it takes no new meetings. Restore it first.'
       using errcode = 'check_violation';
@@ -538,6 +545,8 @@ language sql stable security definer set search_path = public as $$
     from public.general_projects p
     join public.general_spaces s on s.id = p.space_id
    where p.archived_at is null and s.archived_at is null and public.is_general_member(p.id)
+     -- Not the hidden project behind a class board's Files: that is the group.
+     and p.class_board_id is null
   union all
   select 'space_team', t.id, t.name, s.name, null, t.space_id, true
     from public.general_space_teams t
@@ -548,7 +557,8 @@ language sql stable security definer set search_path = public as $$
     from public.general_teams t
     join public.general_projects p on p.id = t.project_id
     join public.general_spaces s on s.id = p.space_id
-   where p.archived_at is null and s.archived_at is null and public.is_general_team_member(t.id);
+   where p.archived_at is null and s.archived_at is null and public.is_general_team_member(t.id)
+     and p.class_board_id is null;
 $$;
 
 revoke all on function public.meetings_fill() from public, anon, authenticated;

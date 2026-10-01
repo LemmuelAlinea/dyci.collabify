@@ -243,6 +243,55 @@ begin
     (select can_manage from public.list_my_meetings(now()) where id = ms.id));
 end $$;
 
+-- ------------------------------------------------------------------ class board Files
+
+/**
+ * Opening a board's Files makes a hidden work project, in a hidden space, with
+ * the board's students on it (class-files.sql). It must not turn up as a
+ * meeting audience — the students meet as their group.
+ */
+do $$
+declare
+  prof uuid := (select v from fx where k = 'prof');
+  s1 uuid := (select v from fx where k = 's1');
+  res uuid; cls uuid; st uuid; grp uuid; proj uuid; board uuid; files uuid;
+begin
+  perform pg_temp.act_as_service();
+  insert into public.teaching_resources (professor_id, kind, title, file_path, file_name)
+  values (prof, 'syllabus', 'zz Meetings syllabus', 'x/m.pdf', 'm.pdf') returning id into res;
+  insert into public.syllabus_weeks (resource_id, week_no, title)
+  select res, n, 'Week ' || n from generate_series(1, 4) as n;
+  insert into public.classes (professor_id, name, initial, code, section, year_level,
+                              semester, school_year, syllabus_id, term_start, term_end)
+  values (prof, 'zz Meetings boards', 'ZZMB', 'ZZ-MB-1', 'BSIT 9B', '3rd', '1st', '2026-2027',
+          res, date '2026-07-20', date '2026-08-16')
+  returning id into cls;
+  insert into public.class_members (class_id, student_id, status) values (cls, s1, 'active');
+  insert into public.group_sets (class_id, name, mode) values (cls, 'Set B', 'manual') returning id into st;
+  insert into public.groups (set_id, name, position) values (st, 'Board group', 1) returning id into grp;
+  insert into public.group_members (group_id, set_id, student_id, added_by) values (grp, st, s1, prof);
+  insert into public.projects (class_id, created_by, title, type, audience, group_set_id, start_week, end_week)
+  values (cls, prof, 'zz Board project', 'activity', 'group', st, 1, 2) returning id into proj;
+  select id into board from public.project_boards where project_id = proj and group_id = grp;
+  if board is null then
+    insert into public.project_boards (project_id, group_id) values (proj, grp) returning id into board;
+  end if;
+
+  perform pg_temp.act_as(s1);
+  files := public.ensure_class_board_repo(board);
+  perform pg_temp.must_be('the student is on their board''s hidden Files project', public.is_general_member(files));
+  perform pg_temp.must_be('...which is not offered as a meeting audience',
+    not exists (select 1 from public.meeting_audiences() where audience_id = files));
+  perform pg_temp.must_be('...nor is its hidden space',
+    not exists (select 1 from public.meeting_audiences() a
+                  join public.general_projects p on p.space_id = a.audience_id
+                 where p.id = files));
+  perform pg_temp.must_be('...while their group is', exists (select 1 from public.meeting_audiences() where audience_id = grp));
+  perform pg_temp.must_refuse('a meeting cannot be scheduled for a board''s Files project',
+    format('select public.create_meeting(%L, %L, %L, %L, %L, now() + interval ''1 day'', 60)',
+           'project', files, 'Files sync', '', 'https://meet.google.com/abc-defg-hij'));
+end $$;
+
 do $$ begin raise notice 'meetings: all passed'; end $$;
 
 rollback;

@@ -2273,3 +2273,6 @@ Rules live in `supabase/meetings.sql` (applied to live 2026-10-01; test
 No reminders, recurrence or RSVP (out of scope by the owner's choice).
 DB note: `node scripts/db.mjs` failed on the IPv6-only direct host this session; the IPv4
 session pooler (`aws-0-ap-southeast-1.pooler.supabase.com`, user `postgres.<ref>`) worked.
+Meetings also skip the hidden project behind a class board's Files (`general_projects.class_board_id`,
+class-files.sql) and its "Class project files" space: `meeting_audiences` leaves them out and
+`create_meeting` refuses them. Those students meet as their group.
