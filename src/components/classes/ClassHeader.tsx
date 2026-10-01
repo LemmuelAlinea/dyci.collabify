@@ -45,7 +45,12 @@ export function ClassHeader({
   }
 
   return (
-    <header>
+    // Sized by its own width, not the window's: beside the rail a laptop
+    // window leaves the banner ~870px, and a viewport breakpoint split that
+    // into two columns that wrapped the class name four lines deep. Two
+    // columns only once the banner itself has room (960px); below that it
+    // stacks, with the code, roster and joining switch in one strip.
+    <header className="@container">
       <Link
         to={backTo}
         className="inline-flex items-center gap-2 text-[13px] font-medium text-muted transition-colors hover:text-ink"
@@ -54,7 +59,7 @@ export function ClassHeader({
         All classes
       </Link>
 
-      <div className="relative mt-4 overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-5 py-6 text-banner-ink sm:px-7 sm:py-8 lg:px-9">
+      <div className="relative mt-4 overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-5 py-5 text-banner-ink @min-[600px]:px-7 @min-[600px]:py-6 @min-[960px]:px-9 @min-[960px]:py-8">
         <div
           aria-hidden
           className="banner-deco pointer-events-none absolute -top-48 -right-40 h-[420px] w-[420px] rounded-full bg-banner-glow/10 blur-[115px]"
@@ -90,15 +95,15 @@ export function ClassHeader({
             {canManage && actions}
           </div>
 
-          <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.7fr)] lg:items-end">
-            <div className="flex min-w-0 items-start gap-4 sm:gap-5">
-              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-banner-ink/8 font-display text-[16px] font-bold text-banner-accent ring-1 ring-banner-ink/12 sm:h-16 sm:w-16 sm:text-[18px]">
+          <div className="mt-4 grid gap-5 @min-[960px]:mt-6 @min-[960px]:grid-cols-[minmax(0,1fr)_minmax(360px,0.7fr)] @min-[960px]:items-end @min-[960px]:gap-7">
+            <div className="flex min-w-0 items-start gap-4 @min-[960px]:gap-5">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-banner-ink/8 font-display text-[15px] font-bold text-banner-accent ring-1 ring-banner-ink/12 @min-[960px]:h-16 @min-[960px]:w-16 @min-[960px]:text-[18px]">
                 {cls.initial}
               </span>
               <div className="min-w-0">
                 <h1 className="text-balance text-banner-ink">{cls.name}</h1>
-                <p className="mt-2 text-[13px] text-banner-ink/55">{classMeta(cls)}</p>
-                <p className="mt-3 max-w-[62ch] text-[13px] leading-relaxed text-banner-ink/55">
+                <p className="mt-1.5 text-[13px] text-banner-ink/55 @min-[960px]:mt-2">{classMeta(cls)}</p>
+                <p className="mt-2 max-w-[62ch] text-[13px] leading-relaxed text-banner-ink/55 @min-[960px]:mt-3">
                   {cls.description ||
                     (canManage
                       ? 'Manage the people, projects, materials and decisions that move this class through the term.'
@@ -109,8 +114,15 @@ export function ClassHeader({
               </div>
             </div>
 
-            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-banner-ink/12 bg-banner-ink/12">
-              <div className="banner-cell px-4 py-3.5">
+            {/* The joining switch is a third cell rather than its own row under a
+                divider: side by side while stacked, under the other two in the
+                narrow right-hand column. */}
+            <dl
+              className={`grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-banner-ink/12 bg-banner-ink/12 ${
+                canManage ? '@min-[600px]:grid-cols-3 @min-[960px]:grid-cols-2' : ''
+              }`}
+            >
+              <div className="banner-cell px-4 py-3 @min-[960px]:py-3.5">
                 <dt className="text-[11px] text-banner-ink/45">Class code</dt>
                 <dd className="mt-1.5">
                   <button
@@ -134,7 +146,7 @@ export function ClassHeader({
                   )}
                 </dd>
               </div>
-              <div className="banner-cell px-4 py-3.5">
+              <div className="banner-cell px-4 py-3 @min-[960px]:py-3.5">
                 <dt className="text-[11px] text-banner-ink/45">Roster</dt>
                 <dd className="mt-1.5 flex items-center gap-2 font-mono text-[15px] font-bold text-banner-ink">
                   <Icon name="users" size={15} className="text-banner-ink/45" />
@@ -143,22 +155,24 @@ export function ClassHeader({
                   {(cls.student_cap ?? cls.student_count) === 1 ? 'student' : 'students'}
                 </dd>
               </div>
+              {canManage && (
+                <div className="banner-cell col-span-2 px-4 py-3 @min-[600px]:col-span-1 @min-[960px]:col-span-2 @min-[960px]:py-3.5">
+                  <dt className="text-[11px] text-banner-ink/45">Joining</dt>
+                  <dd className="mt-1.5">
+                    <label className="flex items-center gap-3 text-[13px] font-medium text-banner-ink">
+                      <Toggle
+                        label="Allow students to join"
+                        checked={cls.join_open}
+                        disabled={Boolean(cls.archived_at)}
+                        onChange={(next) => void onToggleJoin?.(next)}
+                      />
+                      {cls.join_open ? 'Open to new students' : 'Closed'}
+                    </label>
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
-
-          {canManage && (
-            <div className="mt-6 flex justify-end border-t border-banner-ink/10 pt-4">
-              <label className="flex items-center gap-3 text-[12px] text-banner-ink/65">
-                <Toggle
-                  label="Allow students to join"
-                  checked={cls.join_open}
-                  disabled={Boolean(cls.archived_at)}
-                  onChange={(next) => void onToggleJoin?.(next)}
-                />
-                {cls.join_open ? 'Joining open' : 'Joining closed'}
-              </label>
-            </div>
-          )}
         </div>
       </div>
     </header>

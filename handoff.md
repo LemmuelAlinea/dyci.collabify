@@ -2235,3 +2235,10 @@ both get it. The student Home dashboard's term strip is unchanged.
 over a strip wider than the page scrolls it left and right (non-passive listener); at either
 end the wheel goes back to scrolling the page. Covers every `Tabs` user: class, class
 project, work project, group pages and the Files/Tasks tabs.
+
+**Change (2026-10-01): the class banner sizes itself by its own width.** `ClassHeader` is a
+`@container`; it goes two-column only when the banner is at least 960px wide (it used the
+`lg` viewport breakpoint, which beside the rail left the class name a ~200px column).
+Below that it stacks. The joining switch is a third cell in the code/roster strip instead
+of its own row, and padding and the initial tile are tighter on narrower banners. At a
+1056px window the banner went from ~540px to 292px tall with nothing removed.
