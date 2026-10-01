@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom'
-import { Icon } from '../ui/Icon'
-import { weekRange } from '../../lib/types'
-import type { ClassSummary, ClassWeek } from '../../lib/types'
+import { Link } from "react-router-dom";
+import { Icon } from "../ui/Icon";
+import { weekRange } from "../../lib/types";
+import type { ClassSummary, ClassWeek } from "../../lib/types";
 
 /** Where each class is in its syllabus right now, and what the week expects. */
 export function TermStrip({
@@ -9,45 +9,70 @@ export function TermStrip({
   classes,
   linkBase,
   hrefFor,
+  onClose,
 }: {
-  weeks: ClassWeek[]
-  classes: ClassSummary[]
-  linkBase: string
-  hrefFor?: (classId: string) => string
+  weeks: ClassWeek[];
+  classes: ClassSummary[];
+  linkBase: string;
+  hrefFor?: (classId: string) => string;
+  /** A close button in each card's corner, for a page that lets the strip fold away. */
+  onClose?: () => void;
 }) {
-  if (weeks.length === 0) return null
+  if (weeks.length === 0) return null;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {weeks.map((w) => {
-        const cls = classes.find((c) => c.id === w.class_id)
+        const cls = classes.find((c) => c.id === w.class_id);
         return (
-          <Link
-            key={w.week_id}
-            to={hrefFor ? hrefFor(w.class_id) : `${linkBase}/${w.class_id}`}
-            className="surface rounded-card border border-amber-400 bg-amber-400/8 p-4 transition-colors hover:border-amber-500"
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <p className="text-[14px] font-semibold text-ink">
-                {cls ? cls.initial : 'Class'} · Week {w.week_no}
-              </p>
-              <p className="font-mono text-[12px] text-faint">{weekRange(w)}</p>
-            </div>
-            {w.title && <p className="mt-1 text-[13px] text-ink">{w.title}</p>}
-            {w.topics && (
-              <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-muted">
-                {w.topics}
-              </p>
+          <div key={w.week_id} className="relative">
+            <Link
+              to={hrefFor ? hrefFor(w.class_id) : `${linkBase}/${w.class_id}`}
+              className="surface block h-full rounded-card border border-amber-400 bg-amber-400/8 p-4 transition-colors hover:border-amber-500"
+            >
+              <div
+                className={`flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 ${onClose ? "pr-8" : ""}`}
+              >
+                <p className="text-[14px] font-semibold text-ink">
+                  {cls ? cls.initial : "Class"} · Week {w.week_no}
+                </p>
+                <p className="font-mono text-[12px] text-faint">
+                  {weekRange(w)}
+                </p>
+              </div>
+              {w.title && (
+                <p className="mt-1 text-[13px] text-ink">{w.title}</p>
+              )}
+              {w.topics && (
+                <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-muted">
+                  {w.topics}
+                </p>
+              )}
+              {w.assessments && (
+                <p className="mt-2 flex gap-2 text-[12px] leading-relaxed text-warning-700 dark:text-warning-300">
+                  <Icon
+                    name="checkCircle"
+                    size={13}
+                    className="mt-0.5 shrink-0"
+                  />
+                  {w.assessments}
+                </p>
+              )}
+            </Link>
+            {onClose && (
+              <button
+                type="button"
+                aria-label="Close this week"
+                title="Close"
+                onClick={onClose}
+                className="absolute top-2.5 right-2.5 grid h-7 w-7 place-items-center rounded-lg text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+              >
+                <Icon name="x" size={15} />
+              </button>
             )}
-            {w.assessments && (
-              <p className="mt-2 flex gap-2 text-[12px] leading-relaxed text-warning-700 dark:text-warning-300">
-                <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
-                {w.assessments}
-              </p>
-            )}
-          </Link>
-        )
+          </div>
+        );
       })}
     </div>
-  )
+  );
 }

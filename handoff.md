@@ -2224,3 +2224,9 @@ stacked. A swap button (new `swap` icon, `IconAction`) sits top right on each ba
 like a home page with the kicker "Your work". Everyone else still gets the stacked page.
 `DirectoryHero` gained a `corner` slot for the no-classes banner, and `IconAction` tooltips
 now stay inside the window.
+
+**Change (2026-10-01): the week card on a class Overview folds away.** `ThisWeek`
+(`components/classes/ThisWeek.tsx`) starts closed as a slim "Week N · title" button; opening
+it shows the `TermStrip` card, which now takes `onClose` for an X in its corner. The choice
+is kept per class in `localStorage` (`collabify:this-week:<classId>`). Teachers and students
+both get it. The student Home dashboard's term strip is unchanged.

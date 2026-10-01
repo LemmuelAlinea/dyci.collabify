@@ -12,7 +12,7 @@ import { ClassHeader } from '../../../components/classes/ClassHeader'
 import { ClassSettings } from '../../../components/classes/ClassSettings'
 import { FacultyPanel } from '../../../components/classes/FacultyPanel'
 import { RosterTable } from '../../../components/classes/RosterTable'
-import { TermStrip } from '../../../components/dashboard/TermStrip'
+import { ThisWeek } from '../../../components/classes/ThisWeek'
 import { ClassGroupsTab } from '../../../components/groups/ClassGroupsTab'
 import { ClassProjectsTab } from '../../../components/projects/ClassProjectsTab'
 import { ClassSyllabusTab } from '../../../components/syllabus/ClassSyllabusTab'
@@ -199,14 +199,7 @@ function ClassSpaceView({ classId }: { classId: string }) {
       <div className="mx-auto mt-6 w-full max-w-[1280px]">
         {tab === 'overview' && (
           <div className="space-y-6">
-            {weeks.length > 0 && (
-              <TermStrip
-                weeks={weeks}
-                classes={[cls]}
-                linkBase={paths.classes}
-                hrefFor={(id) => `${paths.class(id)}?tab=syllabus`}
-              />
-            )}
+            <ThisWeek cls={cls} weeks={weeks} />
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
               <div className="min-w-0">
                 {profile && (
