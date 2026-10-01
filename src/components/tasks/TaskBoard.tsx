@@ -21,7 +21,7 @@ import {
 } from '../../lib/api/tasks'
 import type { TaskInput } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
-import { boardWeight, TASK_STATUSES, taskShare } from '../../lib/types'
+import { boardWeight, isMine, TASK_STATUSES, taskShare } from '../../lib/types'
 import type {
   BoardSummary,
   GroupMember,
@@ -185,9 +185,10 @@ export function TaskBoard({
                       }
                       onEdit={() => setEditing(task)}
                       onDelete={() => setDeleting(task)}
-                      // A student archives only what they added with + Add task.
+                      // A student archives what is theirs (added it, or on it) or nobody's yet.
                       onArchive={
-                        role === 'student' && canWork && task.author_role === 'student' && task.created_by === viewerId
+                        role === 'student' && canWork && viewerId &&
+                        (task.created_by === viewerId || isMine(task, viewerId) || task.assignees.length === 0)
                           ? () =>
                               run(async () => {
                                 await archiveClassTask(task.id, true)

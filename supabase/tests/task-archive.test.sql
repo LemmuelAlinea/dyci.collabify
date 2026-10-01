@@ -116,10 +116,35 @@ declare
   set_task uuid := (select v from fx where k = 'set_task');
   cap_before numeric; cap_after numeric;
 begin
+  -- A task a groupmate is on is theirs, not s1's.
+  perform pg_temp.act_as(s2);
+  insert into public.task_assignees (task_id, student_id, claimed_by) values (theirs, s2, s2);
   perform pg_temp.act_as(s1);
-  perform pg_temp.must_refuse('a student cannot archive a groupmate''s task',
+  perform pg_temp.must_refuse('a student cannot archive a task a groupmate is on',
     format('select public.archive_class_task(%L, true)', theirs));
-  perform pg_temp.must_refuse('a student cannot archive a task the professor set',
+
+  -- Nobody holds the professor's task yet, so any student on the board may.
+  perform public.archive_class_task(set_task, true);
+  perform pg_temp.must_be('a student archives a task nobody has taken, even one the professor set',
+    not exists (select 1 from public.project_tasks where id = set_task));
+  perform public.archive_class_task(set_task, false);
+
+  -- Added by a groupmate, but s1 is on it: theirs to archive.
+  perform pg_temp.act_as(s2);
+  insert into public.project_tasks (board_id, title, created_by) values (board, 'Added by s2, held by s1', s2);
+  perform pg_temp.act_as(s1);
+  insert into public.task_assignees (task_id, student_id, claimed_by)
+  select id, s1, s1 from public.project_tasks where title = 'Added by s2, held by s1';
+  perform public.archive_class_task(
+    (select id from public.project_tasks where title = 'Added by s2, held by s1'), true);
+  perform pg_temp.must_be('a student archives a task they are on, whoever added it',
+    not exists (select 1 from public.project_tasks where title = 'Added by s2, held by s1'));
+
+  -- The professor's task, once a groupmate takes it, is no longer s1's to archive.
+  perform pg_temp.act_as(s2);
+  insert into public.task_assignees (task_id, student_id, claimed_by) values (set_task, s2, s2);
+  perform pg_temp.act_as(s1);
+  perform pg_temp.must_refuse('...but not a professor''s task a groupmate has taken',
     format('select public.archive_class_task(%L, true)', set_task));
 
   -- The archive columns only move through the archive function: hiding a row

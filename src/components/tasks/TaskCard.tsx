@@ -43,7 +43,7 @@ export function TaskCard({
   onStatus: (status: TaskStatus) => Promise<void> | void
   onEdit: () => void
   onDelete: () => void
-  /** Only for a task this student added themselves; the board offers it then. */
+  /** Only for a task that is this student's (added it, or on it) or nobody's yet. */
   onArchive?: () => void
   onClaim: (studentId: string) => Promise<void> | void
   onRelease: (studentId: string) => Promise<void> | void

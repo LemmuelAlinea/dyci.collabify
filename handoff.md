@@ -2279,9 +2279,10 @@ class-files.sql) and its "Class project files" space: `meeting_audiences` leaves
 
 **Change (2026-10-01): students archive the tasks they added.** `supabase/task-archive.sql`
 (applied live; test `supabase/tests/task-archive.test.sql`):
-- Class tasks gained `archived_at`/`archived_by`. Only the student who added a task with
-  + Add task (`created_by` = them, `author_role` 'student') archives it, via
-  `archive_class_task`; restore and `delete_archived_class_task` are that student or the
+- Class tasks gained `archived_at`/`archived_by`. A student on the board archives, via
+  `archive_class_task`, any task that is theirs (they added it, or are on it) or that
+  nobody holds yet — professor-set ones included (owner's call, 2026-10-01); not a task a
+  groupmate holds. Restore and `delete_archived_class_task` are whoever archived it or the
   class faculty. The select policy hides archived rows, so every `security_invoker` view
   (boards, progress, analytics, reports, Calendar) drops them like deleted ones; the owner-
   rights readers (deadline/overdue/digest notices, claim caps, group summary,

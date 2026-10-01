@@ -10,9 +10,10 @@
 -- (2026-10-01) with only the archive lines added.
 
 /**
- * A class task now has an archive, the way a work task already did. Archiving
- * is for the work a student put on the board themselves with "+ Add task" —
- * never a task the professor set, and never somebody else's.
+ * A class task now has an archive, the way a work task already did. A student
+ * archives what is theirs — a task they added or are on — and any task nobody
+ * has taken yet, professor-set ones included. A task a groupmate holds is
+ * not theirs to archive.
  *
  * An archived class task is out of the board the way a deleted one is: it
  * stops counting toward progress, analytics, reports, reminders and claim
@@ -21,8 +22,8 @@
  * (`security_invoker`). Only the functions that read the table with the
  * owner's rights need saying so, and they are the ones redefined below.
  *
- *   archive   the student who added it (author_role 'student'), while the
- *             board is open
+ *   archive   a student on the board, for a task they added, a task they are
+ *             on, or a task nobody holds — while the board is open
  *   restore   whoever archived it, or the class's faculty
  *   delete    the same two — the archive is the only way back, so deleting
  *             from it is permanent
@@ -168,9 +169,14 @@ begin
 
   if p_archived then
     if t.archived_at is not null then return; end if;
-    if t.created_by is distinct from auth.uid() or t.author_role <> 'student'
-       or not public.is_board_member(t.board_id) then
-      raise exception 'You can archive only tasks you added yourself.'
+    -- Theirs (added it, or on it) or nobody's yet — professor-set tasks included.
+    if not public.is_board_member(t.board_id)
+       or not (
+         t.created_by = auth.uid()
+         or public.is_task_assignee(t.id)
+         or not exists (select 1 from public.task_assignees a where a.task_id = t.id)
+       ) then
+      raise exception 'You can archive a task you added, a task you are on, or one nobody has taken yet.'
         using errcode = 'insufficient_privilege';
     end if;
   else
