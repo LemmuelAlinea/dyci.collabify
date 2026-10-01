@@ -24,7 +24,6 @@ export function ArchivedTasksModal({
   open,
   onClose,
   tasks,
-  viewerId,
   projectName,
   onChanged,
 }: {
@@ -32,7 +31,6 @@ export function ArchivedTasksModal({
   onClose: () => void
   /** Null while loading. */
   tasks: GeneralTask[] | null
-  viewerId: string | undefined
   projectName: (id: string) => string
   onChanged: () => Promise<void>
 }) {
@@ -62,7 +60,7 @@ export function ArchivedTasksModal({
         onClose()
       }}
       title="Archived tasks"
-      description="Work tasks you archived, and every archived task on a project you lead. Restoring one puts it back on its project."
+      description="Work tasks you archived. Restoring one puts it back on its project."
       size="lg"
     >
       {tasks === null ? (
@@ -71,7 +69,7 @@ export function ArchivedTasksModal({
           Loading archived tasks…
         </div>
       ) : tasks.length === 0 ? (
-        <EmptyState icon="archive" title="Nothing archived" body="Tasks archived on your projects show up here." />
+        <EmptyState icon="archive" title="Nothing archived" body="Tasks you archive on your projects show up here." />
       ) : (
         <ul className="divide-y divide-[var(--line)] overflow-hidden rounded-xl border border-line">
           {tasks.map((t) => (
@@ -80,7 +78,6 @@ export function ArchivedTasksModal({
                 <p className="line-clamp-2 text-[14px] font-medium text-ink">{t.title}</p>
                 <p className="mt-0.5 truncate text-[12px] text-muted">
                   {projectName(t.project_id)} · Archived {archivedOn(t.archived_at)}
-                  {t.archived_by === viewerId ? ' by you' : ''}
                 </p>
               </div>
               {confirming === t.id ? (

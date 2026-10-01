@@ -214,12 +214,13 @@ export default function MyTasks() {
   const [archivedOpen, setArchivedOpen] = useState(false)
   const [archivedTasks, setArchivedTasks] = useState<GeneralTask[] | null>(null)
   const loadArchived = useCallback(async () => {
+    if (!profile) return
     try {
-      setArchivedTasks(await listMyArchivedTasks(projectIds))
+      setArchivedTasks(await listMyArchivedTasks(profile.id, projectIds))
     } catch {
       setArchivedTasks([])
     }
-  }, [projectIds])
+  }, [profile, projectIds])
   useEffect(() => {
     void loadArchived()
   }, [loadArchived])
@@ -550,7 +551,6 @@ export default function MyTasks() {
         open={archivedOpen}
         onClose={() => setArchivedOpen(false)}
         tasks={archivedTasks}
-        viewerId={profile?.id}
         projectName={projectName}
         onChanged={async () => {
           await Promise.all([loadArchived(), reloadDash()])
