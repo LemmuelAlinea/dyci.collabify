@@ -86,7 +86,7 @@ create table if not exists public.meetings (
   constraint meetings_agenda_len check (char_length(agenda) <= 2000),
   constraint meetings_duration check (duration_min between 5 and 480),
   constraint meetings_url check (
-    join_url ~* '^https://meet\.google\.com/[^[:space:]]+$'
+    join_url ~* '^https://(meet\.google\.com|calendar\.app\.google|calendar\.google\.com/calendar)/[^[:space:]]+$'
     or join_url ~* '^https://([a-z0-9-]+\.)*zoom\.(us|com)/[^[:space:]]+$'
   ),
   -- The audience id, plus its parents so a list can filter by class or space
@@ -105,6 +105,14 @@ create table if not exists public.meetings (
     (scope = 'project_team' and project_team_id is not null and project_id is not null
        and space_id is not null and class_id is null and group_id is null and space_team_id is null)
   )
+);
+
+-- Google Calendar invites carry the Meet call, so they count as Meet links.
+-- Re-set here because `create table if not exists` leaves an older check alone.
+alter table public.meetings drop constraint if exists meetings_url;
+alter table public.meetings add constraint meetings_url check (
+  join_url ~* '^https://(meet\.google\.com|calendar\.app\.google|calendar\.google\.com/calendar)/[^[:space:]]+$'
+  or join_url ~* '^https://([a-z0-9-]+\.)*zoom\.(us|com)/[^[:space:]]+$'
 );
 
 create index if not exists meetings_starts_idx on public.meetings (starts_at);
@@ -139,7 +147,7 @@ begin
      where t.id = new.project_team_id;
   end if;
 
-  new.platform := case when new.join_url ~* '^https://meet\.google\.com/' then 'google_meet'
+  new.platform := case when new.join_url ~* '^https://(meet\.google\.com|calendar\.app\.google|calendar\.google\.com/calendar)/' then 'google_meet'
                        else 'zoom' end::public.meeting_platform;
   if tg_op = 'UPDATE' then new.updated_at := now(); end if;
   return new;
@@ -312,7 +320,7 @@ create trigger meetings_notify after insert or update on public.meetings
 /** Mirrors the meetings_url check, so a refusal can say what a good link looks like. */
 create or replace function public.meeting_url_ok(p_url text)
 returns boolean language sql immutable set search_path = public as $$
-  select coalesce(btrim(p_url) ~* '^https://meet\.google\.com/[^[:space:]]+$'
+  select coalesce(btrim(p_url) ~* '^https://(meet\.google\.com|calendar\.app\.google|calendar\.google\.com/calendar)/[^[:space:]]+$'
                or btrim(p_url) ~* '^https://([a-z0-9-]+\.)*zoom\.(us|com)/[^[:space:]]+$', false);
 $$;
 
@@ -381,7 +389,7 @@ begin
       using errcode = 'check_violation';
   end if;
   if not public.meeting_url_ok(p_join_url) then
-    raise exception 'Paste a Zoom or Google Meet link. It starts with https://zoom.us/ or https://meet.google.com/.'
+    raise exception 'Paste a Zoom, Google Meet or Google Calendar invite link. It starts with https://zoom.us/, https://meet.google.com/ or https://calendar.app.google/.'
       using errcode = 'check_violation';
   end if;
   if p_starts_at < now() - interval '5 minutes' then
@@ -429,7 +437,7 @@ begin
       using errcode = 'check_violation';
   end if;
   if not public.meeting_url_ok(p_join_url) then
-    raise exception 'Paste a Zoom or Google Meet link. It starts with https://zoom.us/ or https://meet.google.com/.'
+    raise exception 'Paste a Zoom, Google Meet or Google Calendar invite link. It starts with https://zoom.us/, https://meet.google.com/ or https://calendar.app.google/.'
       using errcode = 'check_violation';
   end if;
   if p_starts_at is distinct from m.starts_at and p_starts_at < now() - interval '5 minutes' then

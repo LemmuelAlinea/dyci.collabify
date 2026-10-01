@@ -142,6 +142,12 @@ begin
   mc := public.create_meeting('class', cls, 'Class sync', '', meet, now() + interval '1 day', 60);
   perform pg_temp.must_be('the class faculty can schedule for the whole class', mc.id is not null);
   perform pg_temp.must_be('the platform is read from the link', mc.platform = 'google_meet');
+  perform pg_temp.must_be('a Google Calendar invite link is taken, as Meet',
+    (public.create_meeting('class', cls, 'Invite link', '', 'https://calendar.app.google/kBjhWJM22H7yeauq5',
+                           now() + interval '1 day', 60)).platform = 'google_meet');
+  perform pg_temp.must_refuse('a Google Calendar address that is not an invite is refused',
+    format('select public.create_meeting(%L, %L, %L, %L, %L, now() + interval ''1 day'', 60)',
+           'class', cls, 'Sync', '', 'https://calendar.google.com/settings'));
 
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('every student in the class is notified',

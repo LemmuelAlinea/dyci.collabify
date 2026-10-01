@@ -63,7 +63,8 @@ export const PLATFORM_LABEL: Record<MeetingPlatform, string> = {
   zoom: 'Zoom',
 }
 
-const MEET = /^https:\/\/meet\.google\.com\/\S+$/i
+// A Google Calendar invite carries the Meet call, so it counts as Meet.
+const MEET = /^https:\/\/(meet\.google\.com|calendar\.app\.google|calendar\.google\.com\/calendar)\/\S+$/i
 const ZOOM = /^https:\/\/([a-z0-9-]+\.)*zoom\.(us|com)\/\S+$/i
 
 /** Which platform a pasted link is for, or null when it is neither. Mirrors `meeting_url_ok`. */

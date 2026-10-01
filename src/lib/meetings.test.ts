@@ -9,6 +9,14 @@ describe('detectPlatform', () => {
     expect(detectPlatform('https://zoom.com/j/1')).toBe('zoom')
   })
 
+  it('reads a Google Calendar invite as Meet, short or long form', () => {
+    expect(detectPlatform('https://calendar.app.google/kBjhWJM22H7yeauq5')).toBe('google_meet')
+    expect(detectPlatform('https://calendar.google.com/calendar/event?eid=abc')).toBe('google_meet')
+    expect(detectPlatform('https://calendar.app.google/')).toBeNull()
+    expect(detectPlatform('https://calendar.google.com/other/x')).toBeNull()
+    expect(detectPlatform('https://calendar.app.google.evil.com/x')).toBeNull()
+  })
+
   it('refuses anything else, as the database does', () => {
     expect(detectPlatform('http://meet.google.com/abc')).toBeNull()
     expect(detectPlatform('https://meet.google.com/')).toBeNull()

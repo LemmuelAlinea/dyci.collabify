@@ -153,7 +153,7 @@ export function ScheduleMeetingModal({
     setError(null)
     if (!editing && !who) return setError('Choose who the meeting is for.')
     if (!title.trim()) return setError('Give the meeting a title.')
-    if (!platform) return setError('Paste a Zoom or Google Meet link. It starts with https://zoom.us/ or https://meet.google.com/.')
+    if (!platform) return setError('Paste a Zoom, Google Meet or Google Calendar invite link. It starts with https://zoom.us/, https://meet.google.com/ or https://calendar.app.google/.')
     const startsAt = now ? new Date().toISOString() : fromLocalInput(starts)
     if (!startsAt) return setError('Pick when the meeting starts.')
     const input = { title: title.trim(), agenda, joinUrl: link.trim(), startsAt, durationMin: Number(duration) }
@@ -287,7 +287,7 @@ export function ScheduleMeetingModal({
               inputMode="url"
               value={link}
               onChange={(e) => setLink(e.target.value)}
-              placeholder="https://meet.google.com/… or https://zoom.us/j/…"
+              placeholder="A Meet, Google Calendar or Zoom link"
             />
           )}
         </Field>
