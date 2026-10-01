@@ -24,6 +24,7 @@ function Quiet({ children }: { children: string }) {
 /** A row that goes somewhere: an icon, two lines, and a figure on the right. */
 function Row({
   to,
+  onClick,
   icon,
   title,
   context,
@@ -31,37 +32,48 @@ function Row({
   late = false,
 }: {
   to: string
+  /** Opens the row in place instead of following `to`. */
+  onClick?: () => void
   icon: IconName
   title: string
   context: string
   aside?: string
   late?: boolean
 }) {
-  return (
-    <li>
-      <Link
-        to={to}
-        className={`surface flex items-center gap-3 rounded-xl border px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:px-4 sm:py-3 ${
-          late ? 'border-danger-300 dark:border-danger-500/40' : 'border-line'
+  const shell = `surface flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left shadow-card transition-colors hover:border-line-strong sm:px-4 sm:py-3 ${
+    late ? 'border-danger-300 dark:border-danger-500/40' : 'border-line'
+  }`
+  const body = (
+    <>
+      <span
+        className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
+          late ? 'bg-danger-50 text-danger-600 dark:bg-danger-500/12 dark:text-danger-400' : 'surface-sunken text-muted'
         }`}
       >
-        <span
-          className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
-            late ? 'bg-danger-50 text-danger-600 dark:bg-danger-500/12 dark:text-danger-400' : 'surface-sunken text-muted'
-          }`}
-        >
-          <Icon name={icon} size={15} />
+        <Icon name={icon} size={15} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[14px] font-medium text-ink">{title}</span>
+        <span className="block truncate text-[12px] text-muted">{context}</span>
+      </span>
+      {aside && (
+        <span className={`shrink-0 font-mono text-[12px] ${late ? 'text-danger-600 dark:text-danger-400' : 'text-faint'}`}>
+          {aside}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14px] font-medium text-ink">{title}</span>
-          <span className="block truncate text-[12px] text-muted">{context}</span>
-        </span>
-        {aside && (
-          <span className={`shrink-0 font-mono text-[12px] ${late ? 'text-danger-600 dark:text-danger-400' : 'text-faint'}`}>
-            {aside}
-          </span>
-        )}
-      </Link>
+      )}
+    </>
+  )
+  return (
+    <li>
+      {onClick ? (
+        <button type="button" onClick={onClick} className={shell}>
+          {body}
+        </button>
+      ) : (
+        <Link to={to} className={shell}>
+          {body}
+        </Link>
+      )}
     </li>
   )
 }
@@ -119,6 +131,7 @@ export function MyTasksPanel({
   now,
   limit = 6,
   empty = 'No open tasks are assigned to you in this space.',
+  onOpen,
 }: {
   tasks: GeneralTask[]
   projectName: (id: string) => string
@@ -126,6 +139,8 @@ export function MyTasksPanel({
   limit?: number
   /** The space dashboard says "in this space"; the home page speaks for all of them. */
   empty?: string
+  /** Open a task where the list is rather than on its project page. */
+  onOpen?: (task: GeneralTask) => void
 }) {
   if (tasks.length === 0) return <Quiet>{empty}</Quiet>
   return (
@@ -137,6 +152,7 @@ export function MyTasksPanel({
           <Row
             key={t.id}
             to={`${paths.project(t.project_id)}?task=${t.id}`}
+            onClick={onOpen ? () => onOpen(t) : undefined}
             icon="check"
             title={t.title}
             context={`${projectName(t.project_id)} · ${stage}`}

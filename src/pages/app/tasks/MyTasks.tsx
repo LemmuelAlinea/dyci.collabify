@@ -5,6 +5,8 @@ import { ButtonLink } from '../../../components/ui/Button'
 import { Reveal } from '../../../components/motion/Reveal'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { MyTasksPanel } from '../../../components/general/DashboardPanels'
+import { TaskDialog } from '../../../components/general/TaskDialog'
+import { useGeneralProject } from '../../../components/general/useGeneralProject'
 import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
 import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
@@ -16,7 +18,7 @@ import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useGeneralDashboard } from '../../../hooks/useGeneralDashboard'
 import { myTasks as myClassTasks, setTaskStatus } from '../../../lib/api/tasks'
 import type { MyTask } from '../../../lib/api/tasks'
-import { membershipOf, showsClassScope } from '../../../lib/access'
+import { isFaculty, membershipOf, showsClassScope } from '../../../lib/access'
 import { authErrorMessage } from '../../../lib/authError'
 import { myTasks as myOpenWorkTasks } from '../../../lib/general/dashboard'
 import { paths } from '../../../lib/paths'
@@ -107,6 +109,25 @@ function dueStamp(iso: string | null) {
   })
 }
 
+/**
+ * A work task opened over My tasks, with its project's state loaded behind it.
+ * Closing it leaves the reader where they were instead of on the project page.
+ */
+function WorkTaskOverlay({
+  projectId,
+  taskId,
+  viewerId,
+  onClose,
+}: {
+  projectId: string
+  taskId: string
+  viewerId: string | undefined
+  onClose: () => void
+}) {
+  const state = useGeneralProject(projectId, viewerId)
+  return <TaskDialog state={state} taskId={taskId} onClose={onClose} />
+}
+
 export default function MyTasks() {
   const { profile } = useAuth()
   const { show } = useToast()
@@ -115,6 +136,11 @@ export default function MyTasks() {
   const [error, setError] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
   const openTask = params.get('task')
+  // Faculty open a work task here, over the list; students still go to the
+  // project page, which is where their class boards send them too.
+  const workInPlace = isFaculty(profile)
+  const openWorkTask = params.get('workTask')
+  const openWorkProject = params.get('workProject')
   // Only students are ever given class tasks, so everyone else reads work
   // alone. A student gets the filter only once somebody has invited them to
   // some work; until then they read everything. Either way a stale `?show=`
@@ -190,6 +216,20 @@ export default function MyTasks() {
     if (id) next.set('task', id)
     else next.delete('task')
     setParams(next, { replace: !id })
+  }
+
+  function showWorkTask(task: { id: string; project_id: string } | null) {
+    const next = new URLSearchParams(params)
+    if (task) {
+      next.set('workTask', task.id)
+      next.set('workProject', task.project_id)
+    } else {
+      next.delete('workTask')
+      next.delete('workProject')
+    }
+    setParams(next, { replace: !task })
+    // A task finished or handed on in the dialog leaves this list.
+    if (!task) void reloadDash()
   }
 
   // Scoped down to what the All · Classes · Work filter should show.
@@ -457,6 +497,7 @@ export default function MyTasks() {
                       now={now}
                       limit={workFiltered.length}
                       empty="No open work tasks are assigned to you."
+                      onOpen={workInPlace ? showWorkTask : undefined}
                     />
                   </div>
                 </section>
@@ -476,6 +517,16 @@ export default function MyTasks() {
         boardWeight={activeBoard?.board_weight ?? 0}
         onChanged={load}
       />
+
+      {workInPlace && openWorkTask && openWorkProject && (
+        <WorkTaskOverlay
+          key={openWorkProject}
+          projectId={openWorkProject}
+          taskId={openWorkTask}
+          viewerId={profile?.id}
+          onClose={() => showWorkTask(null)}
+        />
+      )}
     </div>
   )
 }
