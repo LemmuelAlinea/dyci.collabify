@@ -38,10 +38,10 @@ export function sectionCsv(section: CsvSection, data: ReportData, projects: Scop
     case 'people':
       if (!data.people) return null
       return toCsv(
-        ['Person', 'Level', 'Teams', 'Held now', 'Finished', 'Finished late', 'Points', 'Hours', 'Comments',
+        ['Person', 'Level', 'Teams', 'Held now', 'Finished', 'Finished late', 'Hours', 'Comments',
           'Files', 'Commits', 'Files changed', 'Reviews requested', 'Reviews done', 'First activity', 'Last activity'],
         mergePeople(data.people).map((r) => [r.name ?? 'Somebody', r.level ?? '', r.teams.join('; '), r.tasks_held_now,
-          r.tasks_finished_in_range, r.tasks_finished_late, Number(r.points_finished), hours(r.minutes_logged), r.comments,
+          r.tasks_finished_in_range, r.tasks_finished_late, hours(r.minutes_logged), r.comments,
           r.files_uploaded, r.commits, r.files_changed, r.reviews_requested, r.reviews_done,
           moment(r.first_activity), moment(r.last_activity)]),
       )
@@ -54,10 +54,10 @@ export function sectionCsv(section: CsvSection, data: ReportData, projects: Scop
     case 'tasks':
       if (!data.tasks) return null
       return toCsv(
-        ['Project', 'Task', 'Status', 'Team', 'Held by', 'Created', 'Due', 'Finished', 'Late', 'Points',
+        ['Project', 'Task', 'Status', 'Team', 'Held by', 'Created', 'Due', 'Finished', 'Late',
           'Hours in range', 'Hours total', 'Comments', 'Files', 'Archived'],
         data.tasks.map((r) => [name(r.project_id), r.title, STATUS[r.status] ?? r.status, r.team, r.holders.join('; '),
-          day(r.created_at), day(r.due_at), day(r.completed_at), r.late ? 'Late' : '', r.weight,
+          day(r.created_at), day(r.due_at), day(r.completed_at), r.late ? 'Late' : '',
           hours(r.minutes_in_range), hours(r.minutes_total), r.comments, r.files, r.archived ? 'Archived' : '']),
       )
     case 'timeLogs':

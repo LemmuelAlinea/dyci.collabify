@@ -7,8 +7,8 @@
 -- no deadline lock, no hand-in, no professor-approved reassignment. Anyone with
 -- `manage_tasks` moves work between people directly.
 --
--- Points are a project setting. `weight` is always stored (default 1); whether
--- it matters is `general_projects.points_enabled`.
+-- Work tasks carry no points: supabase/work-no-points.sql keeps
+-- `general_projects.points_enabled` off, so `weight` (default 1) is not read.
 --
 -- Requires supabase/general.sql.
 

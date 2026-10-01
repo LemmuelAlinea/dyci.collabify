@@ -215,19 +215,17 @@ export function Progress({
   previous,
   todayDay,
   endDay,
-  usingPoints,
 }: {
   points: LinePoint[]
   previous?: LinePoint[]
   todayDay: string
   endDay: string | null
-  usingPoints: boolean
 }) {
   return (
     <div>
       <LineChart points={points} previous={previous} todayDay={todayDay} endDay={endDay} title="Share of work done, per day" />
       <p className="mt-2 text-[12px] text-faint print:text-[8pt]">
-        Per cent of {usingPoints ? 'points' : 'tasks'} done at the end of each day.
+        Per cent of tasks done at the end of each day.
         {previous && previous.length > 0 ? ' The dashed line is the previous period over the same number of days.' : ''}
       </p>
     </div>
@@ -322,11 +320,9 @@ export function ProjectComparison({ rows }: { rows: ComparisonRow[] }) {
 
 export function People({
   rows,
-  withPoints,
   score,
 }: {
   rows: PeopleRow[]
-  withPoints: boolean
   score: ReportConfig['score'] | null
 }) {
   const scored = useMemo(
@@ -336,7 +332,7 @@ export function People({
             rows.map((r) => ({
               user_id: r.user_id,
               name: r.name,
-              points_finished: Number(r.points_finished),
+              tasks_finished: r.tasks_finished_in_range,
               minutes_logged: r.minutes_logged,
               commits: r.commits,
               reviews_done: r.reviews_done,
@@ -371,7 +367,6 @@ export function People({
     { key: 'held', label: 'Held', numeric: true, value: (r) => r.tasks_held_now },
     { key: 'finished', label: 'Finished', numeric: true, value: (r) => r.tasks_finished_in_range },
     { key: 'late', label: 'Late', numeric: true, value: (r) => r.tasks_finished_late },
-    ...(withPoints ? [{ key: 'points', label: 'Points', numeric: true, value: (r: PeopleRow) => Number(r.points_finished) }] : []),
     { key: 'hours', label: 'Hours', numeric: true, value: (r) => Number(hours(r.minutes_logged)) },
     { key: 'comments', label: 'Comments', numeric: true, value: (r) => r.comments },
     { key: 'commits', label: 'Commits', numeric: true, value: (r) => r.commits },
@@ -507,13 +502,13 @@ function ReportTable({ headers, rows, align = [] }: { headers: string[]; rows: R
 
 /* -------------------------------------------------------------- details */
 
-export function Tasks({ rows, withPoints }: { rows: TaskRow[]; withPoints: boolean }) {
+export function Tasks({ rows }: { rows: TaskRow[] }) {
   const truncated = rows.some((r) => r.truncated)
   return (
     <div>
       <ReportTable
-        headers={['Task', 'Status', 'Held by', 'Due', 'Finished', ...(withPoints ? ['Points'] : []), 'Hours', 'Comments', 'Files']}
-        align={withPoints ? [5, 6, 7, 8] : [5, 6, 7]}
+        headers={['Task', 'Status', 'Held by', 'Due', 'Finished', 'Hours', 'Comments', 'Files']}
+        align={[5, 6, 7]}
         rows={rows.map((r) => [
           <span key="t">
             {r.title}
@@ -525,7 +520,6 @@ export function Tasks({ rows, withPoints }: { rows: TaskRow[]; withPoints: boole
           r.holders.length ? r.holders.join(', ') + (r.holder_count > r.holders.length ? ` and ${r.holder_count - r.holders.length} more` : '') : r.holder_count ? `${r.holder_count} ${r.holder_count === 1 ? 'person' : 'people'}` : 'Nobody',
           day(r.due_at) || '—',
           day(r.completed_at) || '—',
-          ...(withPoints ? [String(r.weight)] : []),
           hours(r.minutes_in_range),
           String(r.comments),
           String(r.files),

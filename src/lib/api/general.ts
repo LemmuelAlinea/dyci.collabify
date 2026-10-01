@@ -235,7 +235,6 @@ export type ProjectPatch = Partial<{
   starts_on: string | null
   ends_on: string | null
   status: GeneralStatus
-  points_enabled: boolean
 }>
 
 export async function updateGeneralProject(projectId: string, patch: ProjectPatch) {
@@ -796,7 +795,6 @@ export async function createTask(input: {
   dueAt: string | null
   startsAt: string | null
   teamId: string | null
-  weight: number
 }) {
   const { data, error } = await supabase
     .from('general_tasks')
@@ -807,7 +805,6 @@ export async function createTask(input: {
       due_at: input.dueAt,
       starts_at: input.startsAt,
       team_id: input.teamId,
-      weight: input.weight,
     })
     .select('id')
     .single()
@@ -822,7 +819,6 @@ export type TaskPatch = Partial<{
   due_at: string | null
   starts_at: string | null
   team_id: string | null
-  weight: number
 }>
 
 export async function updateTask(taskId: string, patch: TaskPatch) {

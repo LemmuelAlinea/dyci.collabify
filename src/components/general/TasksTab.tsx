@@ -18,7 +18,7 @@ import { useToast } from '../ui/Toast'
 import { createTask, updateTask } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue } from '../../lib/general/dates'
-import { TASK_STATUSES, projectProgress, taskShare } from '../../lib/general/progress'
+import { TASK_STATUSES, projectProgress } from '../../lib/general/progress'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import type { GeneralTask } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
@@ -88,7 +88,7 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
   }, [state.tasks, query, team, assignee, status])
 
   if (!project) return null
-  const progress = projectProgress(state.tasks, project.points_enabled)
+  const progress = projectProgress(state.tasks)
   const unassigned = state.tasks.filter((t) => t.assignee_ids.length === 0 && t.status !== 'done').length
 
   const assigneeOptions = [
@@ -184,7 +184,7 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
             {progress.total > 0 && (
               <span className="text-faint">
                 {' · '}
-                {progress.pct}%{project.points_enabled ? ' by points' : ''}
+                {progress.pct}%
               </span>
             )}
             {unassigned > 0 && (
@@ -339,14 +339,6 @@ function TaskCard({
           {task.title}
         </h4>
         <div className="flex shrink-0 items-center gap-1">
-          {state.project?.points_enabled && (
-            <span
-              title="Worth this much of the project"
-              className="rounded-md surface-sunken px-1.5 py-0.5 font-mono text-[12px] text-muted"
-            >
-              {taskShare(Number(task.weight), state.tasks)}%
-            </span>
-          )}
           {teamName && (
             <span className="max-w-[8rem] truncate rounded-md bg-navy-50 px-1.5 py-0.5 text-[12px] text-navy-700 dark:bg-navy-500/18 dark:text-navy-100">
               {teamName}
@@ -428,7 +420,6 @@ function TaskTable({
   state: GeneralProjectState
   onOpen: (id: string) => void
 }) {
-  const points = Boolean(state.project?.points_enabled)
   return (
     <div className="surface overflow-x-auto rounded-card border border-line shadow-card">
       <table className="w-full min-w-[720px] border-collapse text-left">
@@ -437,7 +428,6 @@ function TaskTable({
             <th className="py-2.5 pr-3 pl-4 font-medium">Task</th>
             <th className="py-2.5 pr-3 font-medium">Held by</th>
             <th className="py-2.5 pr-3 font-medium">Stage</th>
-            {points && <th className="py-2.5 pr-3 font-medium">Worth</th>}
             <th className="py-2.5 pr-3 font-medium">Due</th>
             <th className="py-2.5 pr-4 font-medium" />
           </tr>
@@ -488,11 +478,6 @@ function TaskTable({
                     {TASK_STATUSES.find((s) => s.value === t.status)?.label}
                   </span>
                 </td>
-                {points && (
-                  <td className="py-2.5 pr-3 font-mono text-[12px] text-muted">
-                    {taskShare(Number(t.weight), state.tasks)}%
-                  </td>
-                )}
                 <td className={`py-2.5 pr-3 font-mono text-[12px] ${overdue ? 'text-danger-600 dark:text-danger-400' : 'text-faint'}`}>
                   {t.due_at ? formatDue(t.due_at) : '—'}
                 </td>
@@ -619,11 +604,9 @@ function NewTaskDialog({
   const [due, setDue] = useState('')
   const [starts, setStarts] = useState('')
   const [team, setTeam] = useState('')
-  const [weight, setWeight] = useState('1')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const project = state.project
-  const setsPoints = Boolean(project?.points_enabled && state.can('manage_tasks'))
 
   async function create() {
     if (!project) return
@@ -633,8 +616,6 @@ function NewTaskDialog({
     const dueAt = fromLocalInput(due)
     if (startsAt && dueAt && startsAt > dueAt)
       return setError('A task cannot start after it is due. Move one of the two dates.')
-    const w = setsPoints ? Number(weight) : 1
-    if (!Number.isFinite(w) || w <= 0 || w > 1000) return setError('Points are a number above 0 and up to 1000.')
     setBusy(true)
     try {
       const id = await createTask({
@@ -644,7 +625,6 @@ function NewTaskDialog({
         dueAt,
         startsAt,
         teamId: team || null,
-        weight: w,
       })
       show('Task added')
       setTitle('')
@@ -652,7 +632,6 @@ function NewTaskDialog({
       setDue('')
       setStarts('')
       setTeam('')
-      setWeight('1')
       onClose()
       await state.reload()
       onCreated(id)
@@ -706,13 +685,6 @@ function NewTaskDialog({
                   placeholder="Whole project"
                   options={state.teams.map((t) => ({ value: t.id, label: t.name }))}
                 />
-              )}
-            </Field>
-          )}
-          {setsPoints && (
-            <Field label="Points">
-              {(id) => (
-                <Input id={id} type="number" min={0.01} max={1000} step="0.5" value={weight} onChange={(e) => setWeight(e.target.value)} />
               )}
             </Field>
           )}

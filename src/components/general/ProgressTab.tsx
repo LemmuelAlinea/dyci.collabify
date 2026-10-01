@@ -18,7 +18,7 @@ export function ProgressTab({ state }: { state: GeneralProjectState }) {
   const project = state.project
   if (!project) return null
 
-  const progress = projectProgress(state.tasks, project.points_enabled)
+  const progress = projectProgress(state.tasks)
 
   return (
     <div className="space-y-6">
@@ -30,7 +30,6 @@ export function ProgressTab({ state }: { state: GeneralProjectState }) {
           </span>
           <span className="text-[13px] text-muted">
             {progress.done} of {progress.total} tasks done
-            {project.points_enabled ? ' · counted by points' : ''}
           </span>
         </div>
         <div className="mt-3 h-2 overflow-hidden rounded-full surface-sunken">

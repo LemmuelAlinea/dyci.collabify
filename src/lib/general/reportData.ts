@@ -28,12 +28,12 @@ export function onlyProject<T extends { project_id: string }>(rows: readonly T[]
 }
 
 /** Per cent done per day, across whatever projects the rows cover. */
-export function seriesPercent(rows: readonly SeriesRow[] | undefined, points = false) {
+export function seriesPercent(rows: readonly SeriesRow[] | undefined) {
   const byDay = new Map<string, { done: number; total: number }>()
   for (const r of rows ?? []) {
     const cur = byDay.get(r.day) ?? { done: 0, total: 0 }
-    cur.done += points ? Number(r.done_points) : r.done_count
-    cur.total += points ? Number(r.total_points) : r.total_count
+    cur.done += r.done_count
+    cur.total += r.total_count
     byDay.set(r.day, cur)
   }
   return [...byDay.entries()]

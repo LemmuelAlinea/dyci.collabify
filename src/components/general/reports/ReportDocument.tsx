@@ -60,7 +60,6 @@ export function ReportDocument(p: Props) {
   const space = config.scope === 'space'
   const selfOnly = projects.length > 0 && projects.every((x) => !x.is_lead)
   const someSelfOnly = !selfOnly && projects.some((x) => !x.is_lead)
-  const withPoints = projects.some((x) => x.points_enabled)
   const subject = space
     ? projects.length === 1 ? projects[0].name : `${projects.length} projects`
     : projects[0]?.name ?? 'Project'
@@ -138,7 +137,7 @@ export function ReportDocument(p: Props) {
         </div>
       )}
 
-      <Block {...p} projectId={null} enabled={enabled} withPoints={withPoints} selfOnly={selfOnly} nameOf={nameOf} gap={gap} />
+      <Block {...p} projectId={null} enabled={enabled} selfOnly={selfOnly} nameOf={nameOf} gap={gap} />
 
       {space &&
         projects.map((x) => (
@@ -152,7 +151,6 @@ export function ReportDocument(p: Props) {
               {...p}
               projectId={x.project_id}
               enabled={enabled.filter((id) => id !== 'projectComparison')}
-              withPoints={x.points_enabled}
               selfOnly={!x.is_lead}
               nameOf={nameOf}
               gap={gap}
@@ -177,14 +175,12 @@ function Block({
   moreLoading,
   projectId,
   enabled,
-  withPoints,
   selfOnly,
   nameOf,
   gap,
 }: Props & {
   projectId: string | null
   enabled: ReportSectionId[]
-  withPoints: boolean
   selfOnly: boolean
   nameOf: (id: string) => string
   gap: string | null
@@ -193,11 +189,11 @@ function Block({
   const totals = sumSummary(onlyProject(data.summary, projectId))
   const prevTotals = data.prevSummary ? sumSummary(onlyProject(data.prevSummary, projectId)) : undefined
   const people = mergePeople(onlyProject(data.people, projectId))
-  const series = seriesPercent(onlyProject(data.series, projectId), withPoints)
-  const prevSeries = data.prevSeries ? seriesPercent(onlyProject(data.prevSeries, projectId), withPoints) : undefined
+  const series = seriesPercent(onlyProject(data.series, projectId))
+  const prevSeries = data.prevSeries ? seriesPercent(onlyProject(data.prevSeries, projectId)) : undefined
   const one = projectId ? projects.find((x) => x.project_id === projectId) : projects.length === 1 ? projects[0] : null
   const endsOn = one?.ends_on ?? null
-  const counts = seriesPercent(onlyProject(data.series, projectId), false)
+  const counts = seriesPercent(onlyProject(data.series, projectId))
   const forecast = rangeForecast(counts, endsOn, generatedAt.getTime())
   const activity = onlyProject(data.activity, projectId)
   const activityTotal = projectId ? activity.length : data.activity?.[0]?.total ?? 0
@@ -251,7 +247,6 @@ function Block({
                   previous={prevSeries}
                   todayDay={dayOf(generatedAt)}
                   endDay={endsOn}
-                  usingPoints={withPoints}
                 />
               </Section>
             )
@@ -279,7 +274,7 @@ function Block({
             return (
               <Section key={s} id={id(s)} title={selfOnly ? 'Your work' : 'Who did what'} loading={busy('people')} error={err('people')}
                 onRetry={onRetry} empty={people.length === 0} emptyText={empty}>
-                <People rows={people} withPoints={withPoints} score={config.sections.score && !selfOnly ? config.score : null} />
+                <People rows={people} score={config.sections.score && !selfOnly ? config.score : null} />
               </Section>
             )
           case 'activity':
@@ -306,7 +301,7 @@ function Block({
             return (
               <Section key={s} id={id(s)} title="Tasks" loading={busy('tasks')} error={err('tasks')} onRetry={onRetry}
                 empty={onlyProject(data.tasks, projectId).length === 0} emptyText={empty}>
-                <Tasks rows={onlyProject(data.tasks, projectId)} withPoints={withPoints} />
+                <Tasks rows={onlyProject(data.tasks, projectId)} />
               </Section>
             )
           case 'timeLogs':

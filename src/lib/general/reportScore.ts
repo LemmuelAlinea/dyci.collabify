@@ -1,7 +1,7 @@
 /**
  * The optional contribution score.
  *
- * Each part is a person's share of this report's total for it — points
+ * Each part is a person's share of this report's total for it — tasks
  * finished, hours logged, repository work (commits and reviews done), comments.
  * The score is those shares weighted and summed, out of 100. A part nobody
  * contributed to is dropped and the other weights stretched to fill, so a
@@ -15,7 +15,7 @@ import type { ScoreWeights } from './reportConfig'
 export type ScoreInput = {
   user_id: string
   name: string | null
-  points_finished: number
+  tasks_finished: number
   minutes_logged: number
   commits: number
   reviews_done: number
@@ -25,7 +25,9 @@ export type ScoreInput = {
 export type ScorePart = 'points' | 'hours' | 'repo' | 'comments'
 
 export const SCORE_PARTS: { id: ScorePart; label: string }[] = [
-  { id: 'points', label: 'points' },
+  // Keyed 'points' so saved report links keep their weights; work tasks carry
+  // no points, so this part is tasks finished.
+  { id: 'points', label: 'tasks finished' },
   { id: 'hours', label: 'hours' },
   { id: 'repo', label: 'repository work' },
   { id: 'comments', label: 'comments' },
@@ -48,7 +50,7 @@ export type ScoreResult = {
 function value(p: ScoreInput, part: ScorePart) {
   switch (part) {
     case 'points':
-      return Number(p.points_finished) || 0
+      return Number(p.tasks_finished) || 0
     case 'hours':
       return Number(p.minutes_logged) || 0
     case 'repo':
@@ -83,7 +85,7 @@ export function contributionScores(people: readonly ScoreInput[], weights: Score
   return { rows, applied }
 }
 
-/** "Score = 50% points share + 20% hours share + …" with the weights actually used. */
+/** "Score = 50% tasks finished share + 20% hours share + …" with the weights actually used. */
 export function scoreFormula(applied: Record<ScorePart, number>) {
   const terms = SCORE_PARTS.filter((p) => applied[p.id] > 0).map(
     (p) => `${Math.round(applied[p.id])}% ${p.label} share`,

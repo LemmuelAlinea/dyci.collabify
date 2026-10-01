@@ -32,7 +32,7 @@ import { trashTaskFile } from '../../lib/api/trash'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue, toLocalInput } from '../../lib/general/dates'
 import { describeEvent } from '../../lib/general/history'
-import { TASK_STATUSES, taskShare } from '../../lib/general/progress'
+import { TASK_STATUSES } from '../../lib/general/progress'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import { attachFromRepo, attachSummary, repoTree } from '../../lib/general/attachFromRepo'
 import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent } from '../../lib/general/types'
@@ -152,7 +152,7 @@ function TaskBody({
         </div>
       )}
       <div className="space-y-6">
-        <TaskDetails state={state} taskId={task.id} canEdit={canEdit} canManage={canManage} onSaved={load} />
+        <TaskDetails state={state} taskId={task.id} canEdit={canEdit} onSaved={load} />
 
         <section>
           <h3 className="text-[14px]">Comments</h3>
@@ -394,13 +394,11 @@ function TaskDetails({
   state,
   taskId,
   canEdit,
-  canManage,
   onSaved,
 }: {
   state: GeneralProjectState
   taskId: string
   canEdit: boolean
-  canManage: boolean
   onSaved: () => Promise<void>
 }) {
   const { show } = useToast()
@@ -411,7 +409,6 @@ function TaskDetails({
   const [due, setDue] = useState('')
   const [starts, setStarts] = useState('')
   const [team, setTeam] = useState('')
-  const [weight, setWeight] = useState('1')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -424,11 +421,9 @@ function TaskDetails({
     setDue(toLocalInput(task.due_at))
     setStarts(toLocalInput(task.starts_at))
     setTeam(task.team_id ?? '')
-    setWeight(String(task.weight))
   }, [updatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!task || !state.project) return null
-  const points = state.project.points_enabled
 
   if (!canEdit) {
     const teamName = state.teams.find((t) => t.id === task.team_id)?.name
@@ -459,12 +454,6 @@ function TaskDetails({
             <dt className="text-[12px] text-faint">Team</dt>
             <dd className="text-ink">{teamName ?? 'Whole project'}</dd>
           </div>
-          {points && (
-            <div>
-              <dt className="text-[12px] text-faint">Share</dt>
-              <dd className="font-mono text-ink">{taskShare(Number(task.weight), state.tasks)}%</dd>
-            </div>
-          )}
         </dl>
         <p className="whitespace-pre-wrap break-words text-ink">
           {task.description || 'No description.'}
@@ -487,9 +476,6 @@ function TaskDetails({
     const dueAt = fromLocalInput(due)
     if (startsAt && dueAt && startsAt > dueAt)
       return setError('A task cannot start after it is due. Move one of the two dates.')
-    const w = Number(weight)
-    if (canManage && points && (!Number.isFinite(w) || w <= 0 || w > 1000))
-      return setError('Points are a number above 0 and up to 1000.')
     setBusy(true)
     try {
       await updateTask(task.id, {
@@ -499,7 +485,6 @@ function TaskDetails({
         due_at: dueAt,
         starts_at: startsAt,
         team_id: team || null,
-        ...(canManage && points ? { weight: w } : {}),
       })
       show('Task saved')
       await Promise.all([state.reload(), onSaved()])
@@ -546,16 +531,6 @@ function TaskDetails({
             />
           )}
         </Field>
-        {points && canManage && (
-          <Field
-            label="Points"
-            hint={<span className="text-[12px] text-faint">{taskShare(Number(task.weight), state.tasks)}% now</span>}
-          >
-            {(id) => (
-              <Input id={id} type="number" min={0.01} max={1000} step="0.5" value={weight} onChange={(e) => setWeight(e.target.value)} />
-            )}
-          </Field>
-        )}
       </div>
       <Field label="Description" optional>
         {(id) => (

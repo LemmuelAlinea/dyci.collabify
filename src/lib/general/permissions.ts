@@ -23,7 +23,7 @@ export const PERMISSIONS: { value: GeneralPermission; label: string; note: strin
   {
     value: 'edit_project',
     label: 'Edit project details',
-    note: 'Change the name, dates, status, the points setting and every added field.',
+    note: 'Change the name, dates, status and every added field.',
   },
   {
     value: 'manage_members',

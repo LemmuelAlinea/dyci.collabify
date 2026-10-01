@@ -76,10 +76,6 @@ function DetailsView({ state }: { state: GeneralProjectState }) {
         <dd className="text-ink">{dateRange(p.starts_on, p.ends_on)}</dd>
       </div>
       <div>
-        <dt className="text-[12px] text-faint">Progress</dt>
-        <dd className="text-ink">{p.points_enabled ? 'Tasks carry points' : 'Every task counts the same'}</dd>
-      </div>
-      <div>
         <dt className="text-[12px] text-faint">About</dt>
         <dd className="whitespace-pre-wrap text-ink">{p.description || 'No description yet.'}</dd>
       </div>
@@ -95,7 +91,6 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
   const [startsOn, setStartsOn] = useState('')
   const [endsOn, setEndsOn] = useState('')
   const [description, setDescription] = useState('')
-  const [points, setPoints] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -109,7 +104,6 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
     setStartsOn(p.starts_on ?? '')
     setEndsOn(p.ends_on ?? '')
     setDescription(p.description)
-    setPoints(p.points_enabled)
   }, [updatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!p) return null
@@ -127,7 +121,6 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
         starts_on: startsOn || null,
         ends_on: endsOn || null,
         description,
-        points_enabled: points,
       })
       show('Project saved')
       await state.reload()
@@ -174,15 +167,6 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
           />
         )}
       </Field>
-      <label className="flex items-start gap-3 rounded-xl surface-sunken px-3.5 py-3">
-        <input type="checkbox" className="mt-1" checked={points} onChange={(e) => setPoints(e.target.checked)} />
-        <span>
-          <span className="block text-[14px] font-medium text-ink">Tasks carry points</span>
-          <span className="block text-[12px] text-muted">
-            On, the project is worth 100 and each task is a share of it. Off, every task counts the same.
-          </span>
-        </span>
-      </label>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onDone} disabled={busy}>
           Cancel

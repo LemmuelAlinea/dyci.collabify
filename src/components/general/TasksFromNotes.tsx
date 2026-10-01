@@ -136,7 +136,6 @@ export function TasksFromNotes({
           dueAt: endOfDay(r.due),
           startsAt: null,
           teamId: state.teams.find((t) => t.name === r.team)?.id ?? null,
-          weight: 1,
         })
         if (r.assignee) {
           try {

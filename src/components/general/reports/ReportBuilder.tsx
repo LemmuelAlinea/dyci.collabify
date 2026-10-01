@@ -310,7 +310,7 @@ export function ReportBuilder(p: BuilderProps) {
           {(['points', 'hours', 'repo', 'comments'] as const).map((k) => (
             <label key={k} className="block">
               <span className="flex justify-between text-[12px] text-muted">
-                <span>{k === 'repo' ? 'Repository work' : k[0].toUpperCase() + k.slice(1)}</span>
+                <span>{k === 'repo' ? 'Repository work' : k === 'points' ? 'Tasks finished' : k[0].toUpperCase() + k.slice(1)}</span>
                 <span className="font-mono tabular-nums text-ink">{weights[k]}%</span>
               </span>
               <input
