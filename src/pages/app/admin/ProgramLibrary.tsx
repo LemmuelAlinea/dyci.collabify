@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { ResourceLibrary } from '../resources/ResourceLibrary'
 
 /**
- * What the program publishes once, for every section of a course.
+ * What the program publishes once, for every section of a course: syllabi at
+ * `/admin/syllabi`, curricula at `/admin/curriculum`.
  *
  * Two sections of one subject running different outlines is the thing this
  * fixes. A syllabus published here is the same kind of row a professor uploads
@@ -12,33 +12,9 @@ import { ResourceLibrary } from '../resources/ResourceLibrary'
  * Publishing is the chair's alone, and the database enforces that rather than
  * this page: a trigger refuses `program_wide` from anybody who is not an admin.
  */
-export default function ProgramLibrary() {
-  const [kind, setKind] = useState<'syllabus' | 'curriculum'>('syllabus')
-
-  const toolbar = (
-    <div className="surface flex w-fit rounded-xl border border-line p-1">
-      {(
-        [
-          ['syllabus', 'Syllabi'],
-          ['curriculum', 'Curricula'],
-        ] as const
-      ).map(([k, label]) => (
-        <button
-          key={k}
-          type="button"
-          onClick={() => setKind(k)}
-          className={`rounded-lg px-3.5 py-1.5 text-[13px] transition-colors ${
-            kind === k
-              ? 'bg-navy-950 font-medium text-amber-50'
-              : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
-          }`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  )
-
+export default function ProgramLibrary({ kind }: { kind: 'syllabus' | 'curriculum' }) {
+  // Syllabi and Curriculum each have their own row in the admin rail, so the
+  // page no longer carries a switch between them.
   return (
     <div>
       {kind === 'syllabus' ? (
@@ -46,7 +22,6 @@ export default function ProgramLibrary() {
           key="syllabus"
           kind="syllabus"
           programWide
-          toolbar={toolbar}
           copy={{
             eyebrow: 'Program',
             title: 'Published syllabi',
@@ -65,7 +40,6 @@ export default function ProgramLibrary() {
           key="curriculum"
           kind="curriculum"
           programWide
-          toolbar={toolbar}
           copy={{
             eyebrow: 'Program',
             title: 'Published curricula',

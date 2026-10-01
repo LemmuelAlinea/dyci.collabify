@@ -52,7 +52,10 @@ export const paths = {
     approvals: '/admin/approvals',
     notices: '/admin/notices',
     sections: '/admin/sections',
+    /** Kept so old links land somewhere: it forwards to `syllabi`. */
     library: '/admin/library',
+    syllabi: '/admin/syllabi',
+    curriculum: '/admin/curriculum',
     classes: '/admin/classes',
     faculty: '/admin/faculty',
     cohort: '/admin/cohort',

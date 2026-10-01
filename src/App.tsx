@@ -242,7 +242,9 @@ export default function App() {
               <Route path="/admin/approvals" element={<ProfessorApprovals />} />
               <Route path="/admin/notices" element={<Notices />} />
               <Route path="/admin/sections" element={<Sections />} />
-              <Route path="/admin/library" element={<ProgramLibrary />} />
+              <Route path="/admin/syllabi" element={<ProgramLibrary kind="syllabus" />} />
+              <Route path="/admin/curriculum" element={<ProgramLibrary kind="curriculum" />} />
+              <Route path="/admin/library" element={<Navigate to={paths.admin.syllabi} replace />} />
               <Route path="/admin/classes" element={<ProgramClasses />} />
               <Route path="/admin/faculty" element={<Faculty />} />
               <Route path="/admin/cohort" element={<Cohort />} />

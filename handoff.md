@@ -2247,3 +2247,9 @@ of its own row, and padding and the initial tile are tighter on narrower banners
 and `color-scheme: dark` on `.dark` (and light again for print) in `index.css`. The date,
 datetime and time pickers' icons, their calendar popups and native scrollbars now match the
 theme everywhere, instead of staying light in dark mode.
+
+**Change (2026-10-01): admin rail has Syllabi and Curriculum again.** The admin Library
+(one page with a Syllabi/Curricula switch) is split into two rail rows and routes:
+`/admin/syllabi` and `/admin/curriculum`, both `ProgramLibrary` with a `kind` prop, no
+switch. `/admin/library` forwards to `/admin/syllabi`; the AdminHome card points there too.
+Not yet clicked through as an admin.

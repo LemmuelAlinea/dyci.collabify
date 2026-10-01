@@ -23,7 +23,7 @@ const UPCOMING: Upcoming[] = [
     icon: 'file',
     title: 'Program curriculum',
     body: 'Curriculum and syllabus templates published once, for every section of a course.',
-    to: paths.admin.library,
+    to: paths.admin.syllabi,
   },
 ]
 
