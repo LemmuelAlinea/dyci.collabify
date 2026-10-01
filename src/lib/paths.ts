@@ -15,6 +15,7 @@ export const paths = {
   conversation: (id: string) => `/inbox/${id}`,
   settings: '/settings',
   trash: '/trash',
+  archive: '/archive',
 
   spaces: '/spaces',
   spacesArchive: '/spaces/archive',

@@ -67,6 +67,7 @@ const Reports = lazy(() => import('./pages/app/reports/Reports'))
 const Sections = lazy(() => import('./pages/app/admin/Sections'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Trash = lazy(() => import('./pages/app/Trash'))
+const Archive = lazy(() => import('./pages/app/Archive'))
 const ClassSpace = lazy(() => import('./pages/app/classes/ClassSpace'))
 const StudentClasses = lazy(() => import('./pages/app/classes/StudentClasses'))
 const StudentGroups = lazy(() => import('./pages/app/groups/StudentGroups'))
@@ -139,6 +140,8 @@ export default function App() {
                 RoleSwitch, not by which URL got you there. */}
             <Route element={<RequireAdmitted />}>
               <Route path="/home" element={<Home />} />
+              {/* Everything this account put away, sectioned by what its role can archive. */}
+              <Route path="/archive" element={<Archive />} />
               {/* One My tasks for every role: it reads class boards for students
                   and General work for everyone, so admin belongs here too. */}
               <Route path="/tasks" element={<MyTasks />} />

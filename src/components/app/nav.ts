@@ -77,6 +77,16 @@ const ACCOUNT: NavGroup = {
 }
 
 /**
+ * Archive sits beside Trash for students and faculty: one page for everything
+ * they put away, sectioned by what their role lets them archive. An admin runs
+ * the program rather than its classes and work, so their Account stays as is.
+ */
+const ACCOUNT_WITH_ARCHIVE: NavGroup = {
+  title: 'Account',
+  items: [{ label: 'Archive', icon: 'archive', to: paths.archive }, ...ACCOUNT.items],
+}
+
+/**
  * The reader's classes, then what hangs off them: classes hold groups, groups
  * hold class projects, so the section reads widest to narrowest. A student
  * also keeps their own record here, since it is theirs to keep rather than
@@ -221,11 +231,11 @@ export function navFor(
     if (!admitted) return [MAIN_WAITING, ACCOUNT]
     // A student cannot make a space; work arrives by invitation, and only
     // then do Spaces and Projects earn a place.
-    if (!membership?.hasWork) return [MAIN, classesGroup(role), ACCOUNT]
-    return [MAIN, classesGroup(role), spacesGroup(true), PROJECTS, ACCOUNT]
+    if (!membership?.hasWork) return [MAIN, classesGroup(role), ACCOUNT_WITH_ARCHIVE]
+    return [MAIN, classesGroup(role), spacesGroup(true), PROJECTS, ACCOUNT_WITH_ARCHIVE]
   }
   if (canTeach(profile)) {
-    return [MAIN, classesGroup(role), spacesGroup(false), PROJECTS, TEACHING, ACCOUNT]
+    return [MAIN, classesGroup(role), spacesGroup(false), PROJECTS, TEACHING, ACCOUNT_WITH_ARCHIVE]
   }
-  return [MAIN, spacesGroup(true, true), PROJECTS, ACCOUNT]
+  return [MAIN, spacesGroup(true, true), PROJECTS, ACCOUNT_WITH_ARCHIVE]
 }

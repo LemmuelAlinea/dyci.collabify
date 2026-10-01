@@ -20,6 +20,15 @@ const nonTeacher = account('faculty')
 const admin = account('admin')
 
 describe('navFor', () => {
+  it('puts Archive beside Trash for students and faculty, not admins', () => {
+    const account = (groups: NavGroup[]) => groups.find((g) => g.title === 'Account')!.items.map((i) => i.label)
+    expect(account(navFor(student, true, { inClass: true, hasWork: false }))).toEqual(['Archive', 'Trash', 'Settings'])
+    expect(account(navFor(teacher, true))).toEqual(['Archive', 'Trash', 'Settings'])
+    expect(account(navFor(nonTeacher, true))).toEqual(['Archive', 'Trash', 'Settings'])
+    expect(account(navFor(admin, true, { inClass: false, hasWork: true }))).toEqual(['Trash', 'Settings'])
+    expect(account(navFor(student, false))).toEqual(['Trash', 'Settings'])
+  })
+
   it('gives a student nobody has let in only Home, Trash and Settings', () => {
     expect(labels(navFor(student, false))).toEqual(['Home', 'Trash', 'Settings'])
   })
@@ -120,6 +129,7 @@ describe('navFor', () => {
       '/inbox',
       '/settings',
       '/trash',
+      '/archive',
       '/spaces',
       '/projects',
       '/classes',

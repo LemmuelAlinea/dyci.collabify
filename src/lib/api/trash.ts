@@ -8,9 +8,34 @@
  */
 import { supabase } from '../supabase'
 
+/** Put in Trash from the Archive page (supabase/archive-page.sql). Restoring one puts it back in Archive. */
+export type ArchivedTrashKind =
+  | 'class'
+  | 'group'
+  | 'class_project'
+  | 'class_task'
+  | 'space'
+  | 'team'
+  | 'project'
+  | 'work_task'
+
+export const ARCHIVED_TRASH_KINDS: ArchivedTrashKind[] = [
+  'class',
+  'group',
+  'class_project',
+  'class_task',
+  'space',
+  'team',
+  'project',
+  'work_task',
+]
+
+export const isArchivedTrashKind = (kind: TrashItem['kind']): kind is ArchivedTrashKind =>
+  (ARCHIVED_TRASH_KINDS as string[]).includes(kind)
+
 export type TrashItem = {
-  kind: 'draft' | 'task_file' | 'resource' | 'discussion'
-  /** The task file, the syllabus or curriculum, or the discussion. */
+  kind: 'draft' | 'task_file' | 'resource' | 'discussion' | ArchivedTrashKind
+  /** The task file, the syllabus or curriculum, the discussion, or the archived item. */
   id: string | null
   /** The repository and trashed path, for kind 'draft'. */
   repo_id: string | null
@@ -23,7 +48,7 @@ export type TrashItem = {
   purge_at: string
   /** Empty for a syllabus or curriculum, which belongs to nobody's project. */
   project_id: string | null
-  /** The project, or Syllabi or Curriculum. */
+  /** Where it lived: the project, Syllabi or Curriculum, the class, the space. */
   project_name: string
   /** Set when the files belong to a class project's board. */
   class_project_id: string | null
@@ -31,6 +56,8 @@ export type TrashItem = {
   /** The project is archived or handed in, so nothing can come back yet. */
   frozen: boolean
   resource_kind: 'syllabus' | 'curriculum' | null
+  /** For the archived kinds: the class, class project or space it lived in. */
+  place_id: string | null
 }
 
 export async function listMyTrash() {
@@ -50,6 +77,11 @@ export async function trashTaskFile(fileId: string) {
 }
 
 export async function restoreTrashItem(item: TrashItem) {
+  if (isArchivedTrashKind(item.kind)) {
+    const { error } = await supabase.rpc('restore_trashed_item', { p_kind: item.kind, p_id: item.id })
+    if (error) throw error
+    return
+  }
   const { error } =
     item.kind === 'draft'
       ? await supabase.rpc('restore_trashed_draft_path', { p_repo: item.repo_id, p_root: item.root })
@@ -62,6 +94,11 @@ export async function restoreTrashItem(item: TrashItem) {
 }
 
 export async function deleteTrashItem(item: TrashItem) {
+  if (isArchivedTrashKind(item.kind)) {
+    const { error } = await supabase.rpc('delete_trashed_item', { p_kind: item.kind, p_id: item.id })
+    if (error) throw error
+    return
+  }
   const { error } =
     item.kind === 'draft'
       ? await supabase.rpc('delete_trashed_draft_path', { p_repo: item.repo_id, p_root: item.root })

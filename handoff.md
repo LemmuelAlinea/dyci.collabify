@@ -2295,3 +2295,33 @@ class-files.sql) and its "Class project files" space: `meeting_audiences` leaves
   Archived tasks lists class and work archives together (`ArchivedTasksModal` items).
 The notifications and analytics SQL suites fail the same way with or without this change
 (task_assignees duplicate key; files sign-in guard) — pre-existing, not looked into.
+
+**Change (2026-10-01): Archive page, and Trash for everything it holds.** New Account rail row
+**Archive** (`/archive`, `pages/app/Archive.tsx`) for students and faculty, beside Trash; admins
+do not get it. One page for everything the reader archived or may act on in an archive, with a
+section rail (desktop) / strip (phone), search, All · Classes · Work (only with both), and a
+filter for who archived it and sort. Each row: Restore (or "View only"), View details, Open
+where it lives, Move to trash. Empty sections stay and say where that kind is archived from.
+- Sections follow access (`lib/archive.ts` `archiveKindsFor`): student = Class tasks, Class
+  project files, plus Space teams / Work projects / Work tasks / Work files once invited to work;
+  teaching faculty = Classes, Groups, Class projects, Class tasks (theirs and students'),
+  Syllabi, Curriculum, plus all work incl. Spaces; faculty who do not teach = work only.
+- `supabase/archive-page.sql` (applied live; test `tests/archive-page.test.sql`, 43 PASS):
+  `list_my_archive()` returns rows with `restore_block` / `trash_block` (null = allowed, else
+  the reason shown). Restore runs each kind's own archive call. Trash now also takes classes
+  (with their education space), groups, class projects, class tasks, spaces, space teams, work
+  projects and work tasks — from Archive only, by whoever may delete it for good. Restoring
+  from Trash puts these back in Archive (files still go back live, as before). Trashed rows
+  stay archived and are hidden from every read by restrictive `<table>_not_trashed` policies.
+  `purge_trash` deletes them after 30 days as the person who trashed them; anything that may
+  no longer go (rights lost, account gone) returns to Archive instead.
+- A group holding work still cannot go to Trash. `guard_group_delete` now lets a whole-class
+  delete from Trash through (`collabify.class_delete`). The old Class settings → Delete class
+  button is a plain table delete and is still refused by that guard for any class whose groups
+  hold work — pre-existing, not changed here.
+- Checked: build, eslint, 582 Vitest, SQL suites trash, task-archive, group-archive,
+  general-archive-rbac, general-project-archive-rbac, space-delete, general-space-teams,
+  general-spaces, anon-lockdown, rls-coverage, class-files, general-discussions,
+  one-workplace, teaching-guards. UI checked with a throwaway probe route (fixture data, all
+  four access shapes, 1440 / 1280 light / 768 / 375, no horizontal scroll), then removed.
+  `list_my_archive` run as real accounts in rolled-back transactions: 60–150 ms.

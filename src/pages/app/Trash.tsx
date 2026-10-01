@@ -9,8 +9,9 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { Input } from '../../components/ui/Field'
 import { formatBytes } from '../../lib/formatBytes'
 import { Icon, Spinner } from '../../components/ui/Icon'
+import type { IconName } from '../../components/ui/Icon'
 import { useToast } from '../../components/ui/Toast'
-import { deleteTrashItem, emptyMyTrash, listMyTrash, restoreTrashItem } from '../../lib/api/trash'
+import { deleteTrashItem, emptyMyTrash, isArchivedTrashKind, listMyTrash, restoreTrashItem } from '../../lib/api/trash'
 import type { TrashItem } from '../../lib/api/trash'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
@@ -20,8 +21,37 @@ const DAY = 24 * 60 * 60 * 1000
 
 const keyOf = (item: TrashItem) => (item.kind === 'draft' ? `d:${item.repo_id}:${item.root}` : `t:${item.id}`)
 
+/** What the kinds put in Trash from the Archive page are called, and their icons. */
+const ARCHIVED_LABEL: Record<string, [string, IconName]> = {
+  class: ['Class', 'folder'],
+  group: ['Group', 'users'],
+  class_project: ['Class project', 'kanban'],
+  class_task: ['Class task', 'check'],
+  space: ['Space', 'board'],
+  team: ['Space team', 'users'],
+  project: ['Work project', 'kanban'],
+  work_task: ['Work task', 'check'],
+}
+
 /** Where the item lived, as a link that opens that place. */
 function homeOf(item: TrashItem) {
+  switch (item.kind) {
+    case 'class':
+      return paths.classes
+    case 'group':
+    case 'class_project':
+      return item.place_id ? paths.class(item.place_id) : paths.classes
+    case 'class_task':
+      return item.place_id ? paths.classProject(item.place_id) : paths.classProjects
+    case 'space':
+      return paths.spaces
+    case 'team':
+      return item.place_id ? paths.spaceTeams(item.place_id) : paths.spaces
+    case 'project':
+      return item.place_id ? paths.space(item.place_id) : paths.projects
+    case 'work_task':
+      return item.project_id ? paths.project(item.project_id) : paths.projects
+  }
   if (item.kind === 'resource') return item.resource_kind === 'curriculum' ? paths.curriculum : paths.syllabi
   if (!item.project_id) return paths.home
   const base = item.class_project_id ? paths.classProject(item.class_project_id) : paths.project(item.project_id)
@@ -84,7 +114,9 @@ export default function Trash() {
     try {
       await restoreTrashItem(item)
       show(
-        item.kind === 'draft'
+        isArchivedTrashKind(item.kind)
+          ? `${item.name} is back in your Archive.`
+          : item.kind === 'draft'
           ? `${item.name} is back in your draft.`
           : item.kind === 'resource'
             ? `${item.name} is back in ${item.project_name}.`
@@ -105,7 +137,7 @@ export default function Trash() {
       <DirectoryHero
         title="Your"
         accent="trash."
-        description="Files and folders you moved to Trash wait here for 30 days, then go for good. To keep something out of the way without losing it, archive it instead."
+        description="What you moved to Trash waits here for 30 days, then goes for good. To keep something out of the way without losing it, archive it instead."
         action={
           actionable.length > 0 ? (
             <Button variant="danger" onClick={() => setEmptying(true)}>
@@ -127,7 +159,7 @@ export default function Trash() {
         <EmptyState
           icon="trash"
           title="Trash is empty"
-          body="When you move a file or folder to Trash from My draft, a task, a discussion, Syllabi or Curriculum, it waits here for 30 days before it is deleted."
+          body="When you move a file, folder, discussion, syllabus or curriculum to Trash, or anything from your Archive, it waits here for 30 days before it is deleted."
         />
       ) : (
         <div className="space-y-4">
@@ -180,9 +212,15 @@ export default function Trash() {
           show(`${deleting.name} deleted`)
           await load()
         }}
-        title={`Delete this ${deleting?.is_folder ? 'folder' : 'file'} for good?`}
+        title={
+          deleting && isArchivedTrashKind(deleting.kind)
+            ? `Delete ${deleting.name} for good?`
+            : `Delete this ${deleting?.is_folder ? 'folder' : 'file'} for good?`
+        }
         body={
-          deleting?.is_folder
+          deleting && isArchivedTrashKind(deleting.kind)
+            ? `${deleting.name} and everything in it cannot be brought back.`
+            : deleting?.is_folder
             ? `${deleting.name}${deleting.file_count === 0 ? '' : ` and the ${deleting.file_count === 1 ? 'file' : `${deleting.file_count} files`} in it`} cannot be brought back.`
             : deleting?.kind === 'resource'
               ? `${deleting.name} cannot be brought back. Classes using it lose the link${deleting.resource_kind === 'syllabus' ? ', and its week map goes with it' : ''}.`
@@ -199,7 +237,7 @@ export default function Trash() {
         onClose={() => setEmptying(false)}
         onConfirm={async () => {
           const n = await emptyMyTrash()
-          show(n === 1 ? '1 file deleted' : `${n} files deleted`)
+          show(n === 1 ? '1 item deleted' : `${n} items deleted`)
           await load()
         }}
         title="Empty your Trash?"
@@ -228,8 +266,10 @@ function TrashRow({
 }) {
   const left = daysLeft(item)
   const size = item.size_bytes ? formatBytes(Number(item.size_bytes)) : null
-  const where =
-    item.kind === 'draft'
+  const archived = isArchivedTrashKind(item.kind) ? ARCHIVED_LABEL[item.kind] : null
+  const where = archived
+    ? archived[0]
+    : item.kind === 'draft'
       ? 'My draft'
       : item.kind === 'resource'
         ? item.resource_kind === 'curriculum'
@@ -243,14 +283,16 @@ function TrashRow({
     <li className="grid grid-cols-1 gap-x-4 gap-y-2 px-4 py-3.5 sm:px-5 lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1.4fr)_9rem_6.5rem_9.5rem] lg:items-center">
       <div className="flex min-w-0 items-center gap-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg surface-sunken text-muted">
-          <Icon name={item.is_folder ? 'folder' : 'file'} size={16} />
+          <Icon name={archived ? archived[1] : item.is_folder ? 'folder' : 'file'} size={16} />
         </span>
         <div className="min-w-0">
           <p className="truncate font-medium text-ink" title={item.root ?? item.name}>
             {item.name}
           </p>
           <p className="mt-0.5 truncate text-[12px] text-muted">
-            {!item.is_folder
+            {archived
+              ? 'Restoring puts it back in Archive'
+              : !item.is_folder
               ? 'File'
               : item.file_count === 0
                 ? 'Empty folder'
