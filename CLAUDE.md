@@ -1,8 +1,10 @@
 # Collabify — working notes
 
-Project management for BSIT programs in the Philippines. Roles: student, professor,
-admin. Phase 1 (shipped): landing, auth, settings. Phase 2: boards, milestones,
-files, approval console.
+Project management for BSIT programs in the Philippines. Roles: `student`, `faculty`,
+`admin` (only faculty with `can_teach` run classes; admins do not teach). Every planned
+phase has shipped and is live at dyci-collabify.vercel.app from `main`. There is no
+phase backlog: open work is the **Deferred** notes in `handoff.md` plus whatever the
+user asks for next. Read the end of `handoff.md` for the latest state.
 
 ## Commands
 
@@ -56,8 +58,8 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
 - Auth state comes from `useAuth()`; theme from `useTheme()`. No direct `supabase.auth`
   calls in pages except the one recovery-session check in `ResetPassword`.
 - New protected pages go inside `<ProtectedRoute>` + `<AppShell>` in `App.tsx`, and get
-  a nav entry in `components/app/nav.ts`. Phase-2 items sit in that file with
-  `soon: true`.
+  a nav entry in `components/app/nav.ts` (`soon: true` marks an entry not built yet;
+  none are today).
 - `supabase/schema.sql` must stay idempotent — it gets re-run.
 - Copy style: sentence case, active voice, no exclamation marks, no "please", no
   "successfully". Errors say what happened and what to do next.
