@@ -116,7 +116,7 @@ export default function GeneralProject() {
       <Link
         // Straight to the projects list when the space is not the reader's to
         // read, which is the case for anybody who joined this project by code.
-        to={currentSpace?.id === p.space_id ? paths.space(p.space_id) : paths.projects}
+        to={currentSpace?.id === p.space_id ? paths.spaceProjects(p.space_id) : paths.projects}
         className="inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink"
       >
         <Icon name="arrowLeft" size={14} />

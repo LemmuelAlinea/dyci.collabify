@@ -73,7 +73,9 @@ const StudentProjects = lazy(() => import('./pages/app/projects/StudentProjects'
 const StudentReports = lazy(() => import('./pages/app/reports/StudentReports'))
 const Syllabi = lazy(() => import('./pages/app/resources/Syllabi'))
 const SyllabusDetail = lazy(() => import('./pages/app/resources/SyllabusDetail'))
+const SpaceLayout = lazy(() => import('./pages/general/SpaceLayout'))
 const SpaceHome = lazy(() => import('./pages/general/SpaceHome'))
+const SpaceProjects = lazy(() => import('./pages/general/SpaceProjects'))
 const GeneralProjects = lazy(() => import('./pages/general/GeneralProjects'))
 const GeneralTeams = lazy(() => import('./pages/general/GeneralTeams'))
 const SpacePicker = lazy(() => import('./pages/general/SpacePicker'))
@@ -155,12 +157,16 @@ export default function App() {
                   capstone side project is exactly as valid as a student's. */}
               <Route path="/spaces" element={<SpacePicker />} />
               <Route path="/spaces/archive" element={<SpacePicker />} />
-              <Route path="/spaces/:spaceId" element={<SpaceHome />} />
-              <Route path="/spaces/:spaceId/members" element={<SpaceMembers />} />
-              <Route path="/spaces/:spaceId/teams" element={<GeneralTeams />} />
-              <Route path="/spaces/:spaceId/teams/archive" element={<GeneralTeams />} />
-              <Route path="/spaces/:spaceId/archive" element={<SpaceArchive />} />
-              <Route path="/spaces/:spaceId/reports" element={<GeneralReports />} />
+              {/* One banner and tab strip for the whole space; each tab is a URL. */}
+              <Route path="/spaces/:spaceId" element={<SpaceLayout />}>
+                <Route index element={<SpaceHome />} />
+                <Route path="projects" element={<SpaceProjects />} />
+                <Route path="members" element={<SpaceMembers />} />
+                <Route path="teams" element={<GeneralTeams />} />
+                <Route path="teams/archive" element={<GeneralTeams />} />
+                <Route path="archive" element={<SpaceArchive />} />
+                <Route path="reports" element={<GeneralReports />} />
+              </Route>
 
               {/* Flat, not nested under the space: a project id is unique on its
                   own, and nesting would break every link and deep link already

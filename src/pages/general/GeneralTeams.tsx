@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { Avatar } from '../../components/app/Avatar'
-import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
@@ -127,27 +126,14 @@ export default function GeneralTeams() {
 
   return (
     <div className="w-full space-y-6">
-      <DirectoryHero
-        title="Space"
-        accent="teams."
-        description="Reusable teams live inside the current Space. Use one when creating a project to bring the same people in together."
-      />
-
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="eyebrow">{space?.name ?? 'Current Space'}</p>
-          <h1 className="mt-1 font-display">{archivePage ? 'Archived teams' : 'Teams'}</h1>
+          <h2>{archivePage ? 'Archived teams' : 'Teams'}</h2>
+          <p className="mt-1 max-w-[62ch] text-[13px] text-muted">
+            Reusable teams for this space. Use one when creating a project to bring the same people in together.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {spaceId && (
-            <Link
-              to={paths.space(spaceId)}
-              className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[13px] text-muted hover:border-line-strong hover:text-ink"
-            >
-              <Icon name="board" size={15} />
-              Back to space
-            </Link>
-          )}
           {spaceId && (
             <Link
               to={archivePage ? paths.spaceTeams(spaceId) : paths.spaceTeamsArchive(spaceId)}

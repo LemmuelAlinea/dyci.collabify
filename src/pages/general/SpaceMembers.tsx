@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Avatar } from '../../components/app/Avatar'
 import { InviteToSpaceDialog } from '../../components/general/InviteToSpaceDialog'
 import { EditSpaceDialog } from '../../components/general/SpaceDialogs'
@@ -142,25 +142,12 @@ export default function SpaceMembers() {
 
   return (
     <div className="w-full">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="eyebrow">{space?.name ?? 'Space'}</p>
-          <h1 className="mt-1 font-display">Members</h1>
-          <p className="mt-1 max-w-[62ch] text-[13px] text-muted">
-            Everyone here can see every project in this space. What they can change inside one
-            still depends on whether they are on it.
-          </p>
-        </div>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-[62ch] text-[13px] text-muted">
+          Everyone here can see every project in this space. What they can change inside one
+          still depends on whether they are on it.
+        </p>
         <div className="flex flex-wrap gap-2">
-          {spaceId && (
-            <Link
-              to={paths.space(spaceId)}
-              className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[13px] text-muted hover:border-line-strong hover:text-ink"
-            >
-              <Icon name="board" size={15} />
-              Back to projects
-            </Link>
-          )}
           {canInvite && (
             <Button size="sm" onClick={() => setInviteOpen(true)}>
               <Icon name="plus" size={15} />

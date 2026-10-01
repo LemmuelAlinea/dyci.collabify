@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { Alert } from '../../components/ui/Alert'
 import { ActionMenu } from '../../components/ui/ActionMenu'
-import { ButtonLink } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Input } from '../../components/ui/Field'
@@ -77,19 +75,10 @@ export default function SpaceArchive() {
 
   return (
     <div className="w-full">
-      <DirectoryHero
-        title="Archived projects,"
-        accent="within reach."
-        description="Projects you archived, or lead, stay readable here. An Owner can bring one back or delete it for good."
-        action={spaceId ? (
-          <ButtonLink variant="onNavy" size="sm" to={paths.space(spaceId)}>
-            <Icon name="board" size={15} />
-            Back to projects
-          </ButtonLink>
-        ) : undefined}
-      />
-
-      <div className="mt-6 space-y-4">
+      <div className="space-y-4">
+        <p className="max-w-[62ch] text-[13px] text-muted">
+          Projects you archived, or lead, stay readable here. An Owner can bring one back or delete it for good.
+        </p>
         {error && <Alert tone="error">{error}</Alert>}
 
         {projects === null ? (

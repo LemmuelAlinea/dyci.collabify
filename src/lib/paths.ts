@@ -18,6 +18,7 @@ export const paths = {
   spaces: '/spaces',
   spacesArchive: '/spaces/archive',
   space: (id: string) => `/spaces/${id}`,
+  spaceProjects: (id: string) => `/spaces/${id}/projects`,
   spaceMembers: (id: string) => `/spaces/${id}/members`,
   spaceTeams: (id: string) => `/spaces/${id}/teams`,
   spaceTeamsArchive: (id: string) => `/spaces/${id}/teams/archive`,
