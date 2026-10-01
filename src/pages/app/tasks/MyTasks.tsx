@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { useSearchParams } from 'react-router-dom'
-import { ButtonLink } from '../../../components/ui/Button'
+import { Button, ButtonLink } from '../../../components/ui/Button'
 import { Reveal } from '../../../components/motion/Reveal'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
+import { ArchivedTasksModal } from '../../../components/general/ArchivedTasksModal'
 import { MyTasksPanel } from '../../../components/general/DashboardPanels'
 import { TaskDialog } from '../../../components/general/TaskDialog'
 import { useGeneralProject } from '../../../components/general/useGeneralProject'
@@ -16,6 +17,7 @@ import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useGeneralDashboard } from '../../../hooks/useGeneralDashboard'
+import { listMyArchivedTasks } from '../../../lib/api/general'
 import { myTasks as myClassTasks, setTaskStatus } from '../../../lib/api/tasks'
 import type { MyTask } from '../../../lib/api/tasks'
 import { isFaculty, membershipOf, showsClassScope } from '../../../lib/access'
@@ -26,6 +28,7 @@ import { readScope, writeScope } from '../../../lib/scope'
 import { formatMinutes, taskShare, taskStatusLabel } from '../../../lib/types'
 import { useNow } from '../../../hooks/useNow'
 import type { TaskStatus } from '../../../lib/types'
+import type { GeneralTask } from '../../../lib/general/types'
 
 const NEXT: Record<TaskStatus, { to: TaskStatus; label: string; icon: 'check' | 'refresh' }> = {
   todo: { to: 'in_progress', label: 'Start', icon: 'check' },
@@ -206,6 +209,22 @@ export default function MyTasks() {
     (id: string) => mineProjects.find((p) => p.id === id)?.name ?? 'A project',
     [mineProjects],
   )
+  // Archived work tasks, for the banner's count and its modal. Class tasks are
+  // deleted rather than archived, so there is no class side to this.
+  const [archivedOpen, setArchivedOpen] = useState(false)
+  const [archivedTasks, setArchivedTasks] = useState<GeneralTask[] | null>(null)
+  const loadArchived = useCallback(async () => {
+    try {
+      setArchivedTasks(await listMyArchivedTasks(projectIds))
+    } catch {
+      setArchivedTasks([])
+    }
+  }, [projectIds])
+  useEffect(() => {
+    void loadArchived()
+  }, [loadArchived])
+  useLive(loadArchived, ['general_tasks'])
+
   const workTasks = useMemo(
     () => (profile && dashData ? myOpenWorkTasks(dashData.tasks, profile.id) : []),
     [profile, dashData],
@@ -273,12 +292,21 @@ export default function MyTasks() {
         accent="tasks"
         description="What you have taken on across every project, ordered by what needs you first."
         action={
-          isStudent ? (
-            <ButtonLink variant="onNavy" size="sm" to={paths.classProjects}>
-              Find work on project boards
-              <Icon name="arrowRight" size={14} />
-            </ButtonLink>
-          ) : undefined
+          <>
+            <Button variant="onNavy" size="sm" onClick={() => setArchivedOpen(true)}>
+              <Icon name="archive" size={14} />
+              Archived tasks
+              {archivedTasks && archivedTasks.length > 0 && (
+                <span className="font-mono text-[12px] opacity-75">{archivedTasks.length}</span>
+              )}
+            </Button>
+            {isStudent && (
+              <ButtonLink variant="onNavy" size="sm" to={paths.classProjects}>
+                Find work on project boards
+                <Icon name="arrowRight" size={14} />
+              </ButtonLink>
+            )}
+          </>
         }
       />
 
@@ -516,6 +544,17 @@ export default function MyTasks() {
         role="student"
         boardWeight={activeBoard?.board_weight ?? 0}
         onChanged={load}
+      />
+
+      <ArchivedTasksModal
+        open={archivedOpen}
+        onClose={() => setArchivedOpen(false)}
+        tasks={archivedTasks}
+        viewerId={profile?.id}
+        projectName={projectName}
+        onChanged={async () => {
+          await Promise.all([loadArchived(), reloadDash()])
+        }}
       />
 
       {workInPlace && openWorkTask && openWorkProject && (

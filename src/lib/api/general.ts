@@ -788,6 +788,23 @@ export async function listArchivedTasks(projectId: string) {
   return (data ?? []) as GeneralTask[]
 }
 
+/**
+ * Archived tasks across several projects, newest first. The database returns
+ * only what this person may see: what they archived, and everything archived
+ * on a project they lead.
+ */
+export async function listMyArchivedTasks(projectIds: string[]) {
+  if (projectIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('general_task_overview')
+    .select('*')
+    .in('project_id', projectIds)
+    .not('archived_at', 'is', null)
+    .order('archived_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as GeneralTask[]
+}
+
 export async function createTask(input: {
   projectId: string
   title: string
