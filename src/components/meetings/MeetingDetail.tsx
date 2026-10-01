@@ -39,7 +39,14 @@ export function MeetingDetail({
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
             {meeting.can_manage && state !== 'cancelled' && state !== 'ended' ? (
               <div className="flex gap-2">
-                <Button size="sm" variant="ghost" onClick={onCancel}>
+                {/* The fixed destructive red, like the row menu's Cancel: not a
+                    personal colour, and it stays red on hover. */}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={onCancel}
+                  className="!text-destructive-600 hover:!bg-destructive-50 dark:!text-destructive-400 dark:hover:!bg-destructive-500/10"
+                >
                   Cancel meeting
                 </Button>
                 <Button size="sm" variant="outline" onClick={onEdit}>
