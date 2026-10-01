@@ -23,7 +23,7 @@ export function FilterPopover({
   onClear,
   children,
   label = 'Filters',
-  align = 'left',
+  align,
 }: {
   /** How many filters are set. Drives the badge and the clear button. */
   active: number
@@ -32,11 +32,27 @@ export function FilterPopover({
   onClear: () => void
   children: ReactNode
   label?: string
+  /** Pin a side. Left unset, the panel opens toward whichever side has the room. */
   align?: 'left' | 'right'
 }) {
   const [open, setOpen] = useState(false)
+  const [side, setSide] = useState<'left' | 'right'>('left')
   const ref = useRef<HTMLDivElement>(null)
   const panel = useRef<HTMLDivElement>(null)
+
+  // The panel is as wide as 340px (or 92vw on a phone) and hangs off the button,
+  // so a button near the right edge pushes it off screen. Measured once on open
+  // rather than while open, so the panel never jumps under the pointer.
+  function toggle() {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect()
+      const w = Math.min(window.innerWidth * 0.92, 340)
+      const offRight = Math.max(0, r.left + w - (window.innerWidth - 8))
+      const offLeft = Math.max(0, 8 - (r.right - w))
+      setSide(offRight <= offLeft ? 'left' : 'right')
+    }
+    setOpen((v) => !v)
+  }
 
   // `open` is the caller's intent; `render` is what is on screen, staying true
   // for one transition after `open` goes false so the panel has something to
@@ -75,7 +91,7 @@ export function FilterPopover({
     <div className="relative flex min-w-0 items-center gap-3" ref={ref}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={active > 0 ? `${label} — ${active} on` : label}
@@ -119,7 +135,7 @@ export function FilterPopover({
           inert={!open}
           data-state={open ? 'open' : 'closed'}
           className={`motion-overlay surface absolute top-12 z-40 w-[min(92vw,340px)] space-y-3 rounded-2xl border border-line p-4 shadow-lift ${
-            align === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
+            (align ?? side) === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
           }`}
         >
           {children}
