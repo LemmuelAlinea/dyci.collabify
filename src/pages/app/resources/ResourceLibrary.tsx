@@ -258,14 +258,17 @@ export function ResourceLibrary({
             }
           />
         ) : (
-          <ul className="grid gap-3 md:grid-cols-2">
+          // grid-cols-1 rather than the implicit column: that one grows to the
+          // longest unbroken file name and pushes the cards off a phone screen.
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {items.map((r) => (
-              <li key={r.id} className="surface flex min-h-[96px] items-center gap-4 rounded-card border border-line px-5 py-4 transition-colors hover:border-line-strong">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-icon-tile text-icon-glyph">
+              <li key={r.id} className="surface flex min-h-[96px] min-w-0 items-center gap-3 rounded-card border border-line px-4 py-4 transition-colors hover:border-line-strong sm:gap-4 sm:px-5">
+                {/* Decoration; on a phone the title needs the room more. */}
+                <span className="hidden h-11 w-11 shrink-0 place-items-center rounded-xl bg-icon-tile text-icon-glyph sm:grid">
                   <Icon name="file" size={19} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-medium text-ink">{r.title}</p>
+                  <p className="line-clamp-2 text-[14px] font-medium text-ink">{r.title}</p>
                   <p className="truncate text-[12px] text-faint">
                     {r.file_name} · {formatBytes(r.size_bytes)} ·{' '}
                     {new Date(r.uploaded_at).toLocaleDateString()}
