@@ -28,6 +28,13 @@ export const LOOK: Record<CalendarKind, { cls: string; icon: IconName; dot: stri
     icon: 'checkCircle',
     dot: 'bg-success-500',
   },
+  // A tint of the project navy rather than a fifth hue: a meeting is about the
+  // work, not a status of it.
+  meeting: {
+    cls: 'bg-navy-500/14 text-navy-700 ring-1 ring-navy-400/40 ring-inset dark:bg-navy-400/18 dark:text-navy-100',
+    icon: 'video',
+    dot: 'bg-navy-300 dark:bg-navy-300',
+  },
 }
 
 /**

@@ -189,6 +189,9 @@ export type AppNotification = {
     | 'discussion_started'
     | 'project_updated'
     | 'membership_changed'
+    | 'meeting_scheduled'
+    | 'meeting_changed'
+    | 'meeting_cancelled'
   class_id: string | null
   announcement_id: string | null
   project_id: string | null
@@ -197,6 +200,7 @@ export type AppNotification = {
   general_project_id: string | null
   general_task_id: string | null
   general_space_id: string | null
+  meeting_id: string | null
   title: string
   preview: string | null
   read_at: string | null
@@ -1370,7 +1374,7 @@ export function resultLabel(verdict: ResultVerdict) {
  * records when something was closed is not a deadline, and history belongs in
  * the activity feed.
  */
-export type CalendarKind = 'project_due' | 'project_release' | 'task_due' | 'submitted'
+export type CalendarKind = 'project_due' | 'project_release' | 'task_due' | 'submitted' | 'meeting'
 
 export type CalendarEvent = {
   kind: CalendarKind
@@ -1394,6 +1398,7 @@ export const CALENDAR_KINDS: { value: CalendarKind; label: string }[] = [
   { value: 'task_due', label: 'Task due' },
   { value: 'project_release', label: 'Opens to students' },
   { value: 'submitted', label: 'Handed in' },
+  { value: 'meeting', label: 'Meeting' },
 ]
 
 /** A stable key: one row is one kind of thing about one record. */

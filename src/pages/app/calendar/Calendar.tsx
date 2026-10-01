@@ -23,6 +23,9 @@ import { readScope, writeScope } from '../../../lib/scope'
 import { CALENDAR_KINDS } from '../../../lib/types'
 import type { CalendarEvent, ClassWeek } from '../../../lib/types'
 import { workCalendarEvents } from './workDates'
+import { meetingCalendarEvents } from './meetingDates'
+import { listMeetings } from '../../../lib/api/meetings'
+import type { Meeting } from '../../../lib/meetings'
 
 type View = 'month' | 'agenda'
 
@@ -134,11 +137,30 @@ export default function Calendar() {
     [dashData, projectName],
   )
 
+  // Meetings, from two months back so the previous month still shows them.
+  // A class or group meeting rides with the class dates, a work one with work.
+  const [meetings, setMeetings] = useState<Meeting[]>([])
+  const loadMeetings = useCallback(async () => {
+    try {
+      setMeetings(await listMeetings(new Date(Date.now() - 62 * 86_400_000)))
+    } catch {
+      // The rest of the calendar stands without them.
+      setMeetings([])
+    }
+  }, [])
+  useEffect(() => {
+    void loadMeetings()
+  }, [loadMeetings])
+  useLive(loadMeetings, ['meetings'])
+  const meetingEvents = useMemo(() => meetingCalendarEvents(meetings), [meetings])
+  const classMeetings = useMemo(() => meetingEvents.filter((e) => e.class_id), [meetingEvents])
+  const workMeetings = useMemo(() => meetingEvents.filter((e) => !e.class_id), [meetingEvents])
+
   const classes = useMemo(() => {
     const map = new Map<string, string>()
-    for (const e of events ?? []) map.set(e.class_id, `${e.class_initial} · ${e.class_name}`)
+    for (const e of [...(events ?? []), ...classMeetings]) map.set(e.class_id, `${e.class_initial} · ${e.class_name}`)
     return [...map].map(([value, label]) => ({ value, label }))
-  }, [events])
+  }, [events, classMeetings])
 
   // The class and kind filters only make sense against class events, so they
   // never touch work dates — which is also why work dates ignore them.
@@ -146,19 +168,23 @@ export default function Calendar() {
     () =>
       scope === 'work'
         ? []
-        : (events ?? [])
+        : [...(events ?? []), ...classMeetings]
             .filter((e) => (classFilter ? e.class_id === classFilter : true))
             .filter((e) => (kindFilter ? e.kind === kindFilter : true)),
-    [events, classFilter, kindFilter, scope],
+    [events, classMeetings, classFilter, kindFilter, scope],
   )
   // Work dates are all `project_due`, so a kind filter narrowed to any other
   // kind is a class-only view — task_due, project_release and submitted never
   // apply to work. With no kind filter (All) or with project_due itself, work
   // dates still show.
   const workVisible = !kindFilter || kindFilter === 'project_due'
+  const workMeetingsVisible = !kindFilter || kindFilter === 'meeting'
   const workShown = useMemo(
-    () => (scope === 'classes' || !workVisible ? [] : workEvents),
-    [scope, workVisible, workEvents],
+    () =>
+      scope === 'classes'
+        ? []
+        : [...(workVisible ? workEvents : []), ...(workMeetingsVisible ? workMeetings : [])],
+    [scope, workVisible, workMeetingsVisible, workEvents, workMeetings],
   )
   const shown = useMemo(
     () => [...classShown, ...workShown].sort((a, b) => a.at.localeCompare(b.at)),
@@ -178,6 +204,10 @@ export default function Calendar() {
   }
 
   function open(event: CalendarEvent) {
+    if (event.kind === 'meeting') {
+      navigate(`${paths.meetings}?meeting=${event.ref_id}`)
+      return
+    }
     if (!event.class_id) {
       navigate(`${paths.project(event.project_id)}?task=${event.ref_id}`)
       return
@@ -251,9 +281,9 @@ export default function Calendar() {
                 value={scope}
                 onChange={(next) => setParams(writeScope(params, next), { replace: true })}
                 counts={{
-                  all: (events?.length ?? 0) + workEvents.length,
-                  classes: events?.length ?? 0,
-                  work: workEvents.length,
+                  all: (events?.length ?? 0) + classMeetings.length + workEvents.length + workMeetings.length,
+                  classes: (events?.length ?? 0) + classMeetings.length,
+                  work: workEvents.length + workMeetings.length,
                 }}
               />
             )}

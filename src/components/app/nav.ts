@@ -48,6 +48,7 @@ const MAIN: NavGroup = {
     { label: 'Home', icon: 'board', to: paths.home, end: true },
     { label: 'My tasks', icon: 'check', to: paths.tasks },
     { label: 'Calendar', icon: 'calendar', to: paths.calendar },
+    { label: 'Meetings', icon: 'video', to: paths.meetings },
     { label: 'Inbox', icon: 'mail', to: paths.inbox, badge: 'inbox' },
   ],
 }

@@ -56,6 +56,10 @@ function destination(n: AppNotification, role: Role | null, teaches: boolean): s
       return n.project_id ? `${paths.classProject(n.project_id)}?tab=shared` : paths.home
     case 'draft_waiting':
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=files&view=draft` : paths.home
+    case 'meeting_scheduled':
+    case 'meeting_changed':
+    case 'meeting_cancelled':
+      return n.meeting_id ? `${paths.meetings}?meeting=${n.meeting_id}` : paths.meetings
     case 'general_access_requested':
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=members` : paths.home
   }

@@ -10,6 +10,7 @@ export const paths = {
   home: '/home',
   tasks: '/tasks',
   calendar: '/calendar',
+  meetings: '/meetings',
   inbox: '/inbox',
   conversation: (id: string) => `/inbox/${id}`,
   settings: '/settings',

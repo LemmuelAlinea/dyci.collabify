@@ -64,6 +64,11 @@ describe('navFor', () => {
     expect(groups[0].items.map((i) => i.label)).toEqual(['Home', 'Inbox'])
   })
 
+  it('puts Meetings in Main, between Calendar and Inbox', () => {
+    const main = navFor(student, true)[0]
+    expect(main.items.map((i) => i.label)).toEqual(['Home', 'My tasks', 'Calendar', 'Meetings', 'Inbox'])
+  })
+
   it('calls the conversations page Inbox for everyone', () => {
     for (const who of [student, teacher, nonTeacher, admin]) {
       const main = navFor(who, true, { inClass: true, hasWork: true })[0]
@@ -111,6 +116,7 @@ describe('navFor', () => {
       '/home',
       '/tasks',
       '/calendar',
+      '/meetings',
       '/inbox',
       '/settings',
       '/trash',

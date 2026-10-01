@@ -45,6 +45,7 @@ const Accounts = lazy(() => import('./pages/app/admin/Accounts'))
 const Analytics = lazy(() => import('./pages/app/analytics/Analytics'))
 const AuditLog = lazy(() => import('./pages/app/admin/AuditLog'))
 const Calendar = lazy(() => import('./pages/app/calendar/Calendar'))
+const Meetings = lazy(() => import('./pages/app/meetings/Meetings'))
 const Cohort = lazy(() => import('./pages/app/admin/Cohort'))
 const Curriculum = lazy(() => import('./pages/app/resources/Curriculum'))
 const Faculty = lazy(() => import('./pages/app/admin/Faculty'))
@@ -147,6 +148,8 @@ export default function App() {
                   <RoleSwitch student={<Calendar />} faculty={<Calendar />} admin={<Calendar />} />
                 }
               />
+              {/* Every role: what shows is whatever the reader belongs to. */}
+              <Route path="/meetings" element={<Meetings />} />
               <Route path="/inbox" element={<Messages />} />
               <Route path="/inbox/:conversationId" element={<Messages />} />
               {/* Messages became the Inbox; old links and bookmarks still land. */}

@@ -13,6 +13,8 @@ const PATHS = {
   sun: 'M12 17a5 5 0 100-10 5 5 0 000 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
   moon: 'M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z',
   monitor: 'M3 4h18v12H3zM8 20h8M12 16v4',
+  // A camera body and its lens hood: meetings.
+  video: 'M3 6h12v12H3zM15 10l6-3.5v11L15 14',
   bell: 'M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0',
   lock: 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4',
   // The same body with the shackle swung open, so the pair reads as one state.
