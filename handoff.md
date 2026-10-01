@@ -2252,4 +2252,4 @@ theme everywhere, instead of staying light in dark mode.
 (one page with a Syllabi/Curricula switch) is split into two rail rows and routes:
 `/admin/syllabi` and `/admin/curriculum`, both `ProgramLibrary` with a `kind` prop, no
 switch. `/admin/library` forwards to `/admin/syllabi`; the AdminHome card points there too.
-Not yet clicked through as an admin.
+Owner checked it as an admin on 2026-10-01.
