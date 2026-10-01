@@ -2230,3 +2230,8 @@ now stay inside the window.
 it shows the `TermStrip` card, which now takes `onClose` for an X in its corner. The choice
 is kept per class in `localStorage` (`collabify:this-week:<classId>`). Teachers and students
 both get it. The student Home dashboard's term strip is unchanged.
+
+**Change (2026-10-01): the mouse wheel scrolls tab strips sideways.** In `ui/Tabs`, a wheel
+over a strip wider than the page scrolls it left and right (non-passive listener); at either
+end the wheel goes back to scrolling the page. Covers every `Tabs` user: class, class
+project, work project, group pages and the Files/Tasks tabs.

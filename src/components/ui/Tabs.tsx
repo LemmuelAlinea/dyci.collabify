@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
 
@@ -20,11 +21,33 @@ export function Tabs<T extends string>({
   variant?: 'line' | 'panel'
 }) {
   const panel = variant === 'panel'
+  const strip = useRef<HTMLDivElement>(null)
+
+  // A mouse wheel only scrolls up and down, so a strip wider than the page hid
+  // its last tabs from anyone without a trackpad. Over the strip, the wheel
+  // scrolls it sideways instead; at either end it hands back to the page, so
+  // nobody gets stuck on the tabs while reading down. Registered by hand
+  // because React's wheel listener is passive and cannot stop the page scroll.
+  useEffect(() => {
+    const el = strip.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return
+      const max = el.scrollWidth - el.clientWidth
+      if (max <= 0) return
+      if ((e.deltaY < 0 && el.scrollLeft <= 0) || (e.deltaY > 0 && el.scrollLeft >= max - 1)) return
+      e.preventDefault()
+      el.scrollLeft += e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * 16 : e.deltaY
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
 
   return (
     // The strip scrolls on narrow screens, but the page-wide scrollbar styling
     // renders a 10px track across it that reads as broken. Hide it here.
     <div
+      ref={strip}
       role="tablist"
       className={`flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
         panel ? 'rounded-xl surface-sunken p-1.5' : 'border-b border-line'
