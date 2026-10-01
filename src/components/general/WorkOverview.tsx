@@ -8,6 +8,7 @@ import { JoinProjectDialog } from './JoinProjectDialog'
 import { NewSpaceDialog } from './SpaceDialogs'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
+import { IconAction } from '../ui/IconAction'
 import { EmptyState } from '../ui/EmptyState'
 import { Icon, Spinner } from '../ui/Icon'
 import { useAuth } from '../../context/AuthContext'
@@ -18,6 +19,13 @@ import { listMyProjectVisits } from '../../lib/api/general'
 import { comingUp, dueCounts, firstComing, myTasks, recentlyVisited } from '../../lib/general/dashboard'
 import { plural } from '../../lib/plural'
 import { paths } from '../../lib/paths'
+
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 18) return 'Good afternoon'
+  return 'Good evening'
+}
 
 /**
  * "Your work" — the General home's panels, stacked under the role dashboard
@@ -33,8 +41,15 @@ import { paths } from '../../lib/paths'
  * once loaded if there are no projects, no work spaces and no invitations.
  * Faculty always keep the New space / Join with code doors open, including
  * while this is loading.
+ *
+ * `standalone` is a teacher's other dashboard rather than a section: it greets
+ * instead of titling, and `onSwitch` puts the way back to the class dashboard
+ * on its banner.
  */
-export function WorkOverview() {
+export function WorkOverview({
+  standalone = false,
+  onSwitch,
+}: { standalone?: boolean; onSwitch?: () => void } = {}) {
   const { profile } = useAuth()
   // Admins are invited in, never make or join a space themselves.
   const faculty = isFaculty(profile) && profile?.role !== 'admin'
@@ -61,6 +76,10 @@ export function WorkOverview() {
       live = false
     }
   }, [profile?.id])
+
+  useEffect(() => {
+    if (standalone) document.title = 'Dashboard · Collabify'
+  }, [standalone])
 
   const now = data?.at ?? 0
   const names = new Map(mineProjects.map((p) => [p.id, p.name]))
@@ -101,24 +120,39 @@ export function WorkOverview() {
               : 'Nothing is waiting on you right now.'
 
   return (
-    <div className="mt-10">
+    <div className={standalone ? 'w-full' : 'mt-10'}>
       <Reveal once>
         <DashboardSummary
-          kicker={profile?.role === 'student' || canTeach(profile) ? 'Beyond your classes' : 'Spaces and projects'}
-          title="Your work"
+          kicker={
+            standalone
+              ? 'Your work'
+              : profile?.role === 'student' || canTeach(profile)
+                ? 'Beyond your classes'
+                : 'Spaces and projects'
+          }
+          {...(standalone
+            ? { greeting: greeting(), name: profile?.first_name ?? 'there' }
+            : { title: 'Your work' })}
           line={line}
           urgent={overdue > 0}
           action={
-            faculty ? (
+            faculty || onSwitch ? (
               <>
-                <Button size="sm" variant="create" onClick={() => setNewSpaceOpen(true)}>
-                  <Icon name="plus" size={15} />
-                  New space
-                </Button>
-                <Button size="sm" variant="onNavy" onClick={() => setJoinOpen(true)}>
-                  <Icon name="lock" size={15} />
-                  Join with code
-                </Button>
+                {faculty && (
+                  <>
+                    <Button size="sm" variant="create" onClick={() => setNewSpaceOpen(true)}>
+                      <Icon name="plus" size={15} />
+                      New space
+                    </Button>
+                    <Button size="sm" variant="onNavy" onClick={() => setJoinOpen(true)}>
+                      <Icon name="lock" size={15} />
+                      Join with code
+                    </Button>
+                  </>
+                )}
+                {onSwitch && (
+                  <IconAction icon="swap" label="Switch to your class dashboard" onClick={onSwitch} />
+                )}
               </>
             ) : undefined
           }

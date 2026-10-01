@@ -9,11 +9,14 @@ export function DirectoryHero({
   accent,
   description,
   action,
+  corner,
 }: {
   title: string
   accent: string
   description: string
   action?: ReactNode
+  /** A small control pinned to the top right, such as a view switch. */
+  corner?: ReactNode
 }) {
   return (
     <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-4 py-5 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-9">
@@ -35,7 +38,7 @@ export function DirectoryHero({
       />
 
       <div className="relative grid gap-5 sm:gap-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-        <div className="max-w-[720px]">
+        <div className={`max-w-[720px] ${corner ? 'pr-10' : ''}`}>
           <h1 className="font-display text-banner-ink">
             {title} <span className="text-banner-accent">{accent}</span>
           </h1>
@@ -45,6 +48,7 @@ export function DirectoryHero({
         </div>
         {action && <div className="directory-hero__action lg:pb-1">{action}</div>}
       </div>
+      {corner && <div className="absolute top-4 right-4 sm:top-6 sm:right-6">{corner}</div>}
     </section>
   )
 }

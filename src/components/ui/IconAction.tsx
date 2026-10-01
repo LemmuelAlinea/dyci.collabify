@@ -73,6 +73,16 @@ export function IconAction({
         createPortal(
           <div
             role="tooltip"
+            // Centred under the button, then pulled back inside the window: a
+            // button in a banner's top right corner would push it off the edge.
+            ref={(el) => {
+              if (!el) return
+              el.style.left = `${tip.x}px`
+              const r = el.getBoundingClientRect()
+              const gap = 8
+              const shift = Math.min(0, window.innerWidth - gap - r.right) || Math.max(0, gap - r.left)
+              if (shift) el.style.left = `${tip.x + shift}px`
+            }}
             style={{ left: tip.x, top: tip.y }}
             className="depth-ground surface pointer-events-none fixed z-[100] -translate-x-1/2 rounded-md border border-line px-2.5 py-1.5 text-[12px] font-medium whitespace-nowrap text-ink shadow-lift"
           >

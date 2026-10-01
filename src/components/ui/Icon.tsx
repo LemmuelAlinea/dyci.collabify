@@ -55,6 +55,8 @@ const PATHS = {
   pin: 'M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z',
   download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
   dots: 'M12 6h.01M12 12h.01M12 18h.01',
+  // Two arrows passing each other: trade one view for the other.
+  swap: 'M7 4L3 8l4 4M3 8h14M17 12l4 4-4 4M21 16H7',
 } as const
 
 export type IconName = keyof typeof PATHS

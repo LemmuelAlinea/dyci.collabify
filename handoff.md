@@ -2215,3 +2215,12 @@ follows playback and choosing one seeks to it.
   -crf 25 -maxrate 4000k -bufsize 8000k -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart`.
 - Checked on localhost: plays, captions track loads, chapter click seeks to 19.0 s and lights
   chapter 3, no horizontal scroll at 375 px. `npm run build`, `tsc -b` and eslint pass.
+
+**Change (2026-10-01): teachers switch between their two Home dashboards.** For faculty who
+can teach (`canTeach`), `/home` shows the class dashboard or the work dashboard, not both
+stacked. A swap button (new `swap` icon, `IconAction`) sits top right on each banner:
+"Switch to your work dashboard" / "Switch to your class dashboard". The choice is kept in
+`localStorage` (`collabify:home-view`, defaults to classes). `WorkOverview standalone` greets
+like a home page with the kicker "Your work". Everyone else still gets the stacked page.
+`DirectoryHero` gained a `corner` slot for the no-classes banner, and `IconAction` tooltips
+now stay inside the window.

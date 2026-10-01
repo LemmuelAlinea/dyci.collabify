@@ -10,6 +10,7 @@ import { Bento, BentoCell } from '../../components/dashboard/Bento'
 import { DashboardSummary } from '../../components/dashboard/DashboardSummary'
 import { StalledGroups } from '../../components/dashboard/StalledGroups'
 import { ButtonLink } from '../../components/ui/Button'
+import { IconAction } from '../../components/ui/IconAction'
 import { Alert } from '../../components/ui/Alert'
 import { Spinner } from '../../components/ui/Icon'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -45,7 +46,7 @@ function greeting() {
  * work, which `WorkOverview` stacks underneath, even when a class has invited
  * them in — that class is on their Spaces page.
  */
-export default function ProfessorHome() {
+export default function ProfessorHome({ onSwitch }: { onSwitch?: () => void } = {}) {
   const { profile } = useAuth()
   const teaching = canTeach(profile)
   const { data, error, reload } = useProfessorDashboard(teaching ? profile?.id : undefined)
@@ -55,6 +56,11 @@ export default function ProfessorHome() {
   }, [])
 
   if (!profile) return null
+
+  // On `/home`, a teacher sees this or their work dashboard, never both.
+  const switchAction = onSwitch ? (
+    <IconAction icon="swap" label="Switch to your work dashboard" onClick={onSwitch} />
+  ) : undefined
 
   if (!teaching) {
     return (
@@ -118,6 +124,7 @@ export default function ProfessorHome() {
               title={`${greeting()},`}
               accent={`${profile.first_name}.`}
               description="Your classes, and the groups working in them, will show here once you create one."
+              corner={switchAction}
             />
           </Reveal>
           <div className="mt-8">
@@ -143,6 +150,7 @@ export default function ProfessorHome() {
               name={profile.first_name}
               line={line}
               urgent={waiting > 0 || stalled > 0}
+              action={switchAction}
               tiles={[
                 {
                   label: 'Waiting on you',
