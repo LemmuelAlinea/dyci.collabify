@@ -2632,3 +2632,9 @@ composer has an Attach button (files only, `multiple`, no folder picking): up to
   as well, and the banner returns on going back.
 - Checked: build, 596 Vitest; composer at 360 px on a throwaway page (clip menu, growth
   45 → 108 → 160 px). The room and the banners were not seen signed in.
+- Follow-up (still no file on the user's second try; no upload was attempted, so the draft
+  reached save with no file ids): the model's `files` items are now an enum of the real
+  labels (f1, f2…) when the discussion has files, and each draft row in Tasks from notes has
+  an "Add a shared file…" picker listing the discussion's files, so a file the model did not
+  link can be added by hand before saving. Root cause not confirmed: function logs need the
+  dashboard (Edge Functions → work-ai → Logs, line `[tasks] shared … linked …`).

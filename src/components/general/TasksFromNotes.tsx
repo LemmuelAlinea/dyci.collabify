@@ -308,9 +308,9 @@ export function TasksFromNotes({
                           className="!text-[13px]"
                         />
                       )}
-                      {r.files.length > 0 && (
+                      {shared.length > 0 && (
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-[12px] text-faint">Adds to its Files:</span>
+                          {r.files.length > 0 && <span className="text-[12px] text-faint">Adds to its Files:</span>}
                           {r.files.map((id) => {
                             const f = shared.find((x) => x.id === id)
                             if (!f) return null
@@ -329,6 +329,19 @@ export function TasksFromNotes({
                               </span>
                             )
                           })}
+                          {/* The model links a file only when the discussion says so; this is for when it missed one. */}
+                          {shared.some((f) => !r.files.includes(f.id)) && (
+                            <Select
+                              value=""
+                              onChange={(e) => e.target.value && patch(i, { files: [...r.files, e.target.value] })}
+                              placeholder="Add a shared file…"
+                              aria-label={`Add a shared file to task ${i + 1}`}
+                              options={shared
+                                .filter((f) => !r.files.includes(f.id))
+                                .map((f) => ({ value: f.id, label: f.name }))}
+                              className="!h-8 !w-auto max-w-[240px] !text-[12px]"
+                            />
+                          )}
                         </div>
                       )}
                       <div className="grid gap-2 sm:grid-cols-3">

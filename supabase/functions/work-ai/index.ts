@@ -320,7 +320,15 @@ ${VOICE}`,
     obj({
       tasks: {
         type: 'array',
-        items: obj({ title: str, description: str, assignee: str, team: str, due: str, files: { type: 'array', items: str } }),
+        items: obj({
+          title: str,
+          description: str,
+          assignee: str,
+          team: str,
+          due: str,
+          // Only labels that exist can come back.
+          files: { type: 'array', items: shared.short.size > 0 ? { type: 'string', enum: [...shared.short.keys()] } : str },
+        }),
       },
       note: str,
     }),
