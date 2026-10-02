@@ -8,6 +8,7 @@ import { DeadlineList } from '../../components/dashboard/DeadlineList'
 import { ProjectStrip } from '../../components/dashboard/ProjectStrip'
 import { StandingCard } from '../../components/dashboard/StandingCard'
 import { DashboardSummary } from '../../components/dashboard/DashboardSummary'
+import { IconAction } from '../../components/ui/IconAction'
 import { TaskDigest } from '../../components/dashboard/TaskDigest'
 import { TermStrip } from '../../components/dashboard/TermStrip'
 import { WaitingOnYou } from '../../components/dashboard/WaitingOnYou'
@@ -48,7 +49,7 @@ function greeting() {
  * On a phone the columns collapse and that same order is what you scroll
  * through, so the priority survives the layout rather than depending on it.
  */
-export default function StudentHome() {
+export default function StudentHome({ onSwitch }: { onSwitch?: () => void } = {}) {
   const { profile } = useAuth()
   const { data, error, reload } = useStudentDashboard(profile?.id)
   const unread = useUnreadTotal(profile?.id)
@@ -60,6 +61,11 @@ export default function StudentHome() {
   }, [])
 
   if (!profile) return null
+
+  // On `/home`, a student who also has work sees this or their work dashboard.
+  const switchAction = onSwitch ? (
+    <IconAction icon="swap" label="Switch to your work dashboard" onClick={onSwitch} />
+  ) : undefined
 
   const deadlines = data?.deadlines ?? []
   const overdue = deadlines.filter((d) => new Date(d.due_at).getTime() < now).length
@@ -100,9 +106,12 @@ export default function StudentHome() {
         </div>
       ) : data.classes.length === 0 ? (
         <>
-          <h1 className="leading-tight">
-            {greeting()}, {profile.first_name}.
-          </h1>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="leading-tight">
+              {greeting()}, {profile.first_name}.
+            </h1>
+            {switchAction}
+          </div>
           <div className="mt-8">
             <EmptyState
               icon="folder"
@@ -124,6 +133,7 @@ export default function StudentHome() {
               greeting={greeting()}
               kicker="Your term"
               name={profile.first_name}
+              corner={switchAction}
               line={line}
               urgent={overdue > 0}
               tiles={[

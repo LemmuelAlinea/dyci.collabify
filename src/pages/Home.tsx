@@ -2,7 +2,8 @@ import { lazy, useState } from 'react'
 import { RoleSwitch } from '../routes/RoleSwitch'
 import { WorkOverview } from '../components/general/WorkOverview'
 import { useAuth } from '../context/AuthContext'
-import { canTeach } from '../lib/access'
+import { useGeneralNavigation } from '../context/generalNavigation'
+import { canTeach, membershipOf } from '../lib/access'
 
 // Lazy, same as every other role page: a student opening /home never fetches
 // the admin console, and the reverse.
@@ -26,13 +27,18 @@ function readView(): View {
  *
  * Which page that means is still decided by role, same as before; only the
  * URL stopped saying so. Everyone else gets their role dashboard with "Your
- * work" stacked under it. Faculty who teach run two full dashboards, so they
- * see one at a time and trade with the swap button on its banner; the last
- * one they chose is remembered on this device.
+ * work" stacked under it. Faculty who teach, and students who have work too,
+ * run two full dashboards, so they see one at a time and trade with the swap
+ * button at the top right of its banner; the last one they chose is
+ * remembered on this device.
  */
 export default function Home() {
   const { profile } = useAuth()
   const [view, setView] = useState<View>(readView)
+  const { spaces, myProjects } = useGeneralNavigation()
+  // Still loading counts as no work, so the class dashboard shows meanwhile.
+  const studentWithWork =
+    profile?.role === 'student' && Boolean(membershipOf(spaces, myProjects)?.hasWork)
 
   function choose(next: View) {
     setView(next)
@@ -48,6 +54,14 @@ export default function Home() {
       <WorkOverview standalone onSwitch={() => choose('classes')} />
     ) : (
       <ProfessorHome onSwitch={() => choose('work')} />
+    )
+  }
+
+  if (studentWithWork) {
+    return view === 'work' ? (
+      <WorkOverview standalone onSwitch={() => choose('classes')} />
+    ) : (
+      <StudentHome onSwitch={() => choose('work')} />
     )
   }
 

@@ -2449,3 +2449,17 @@ Add link; up to 8, each removable. Readers see them as chips under the message.
   UI via a throwaway fixture page (add/remove/dedupe, post and edit payloads, teacher and
   student click-through, 375/768/1280 no overflow).
 Owner confirmed announcement links working on the live site (2026-10-03).
+
+**Change (2026-10-03): home dashboard switch, top right, and for students with work.**
+- `DashboardSummary` gained a `corner` slot: one control pinned to the band's top right, beside
+  (not inside) the wrapping `action` row, so on a phone the buttons wrap under the kicker and the
+  switch stays put. The kicker row is 36px tall only when there is a control beside it, so other
+  banners (SpaceLayout etc.) keep their height.
+- Teachers: the work ⇄ teaching swap moved from `action` to `corner` on both `ProfessorHome` and
+  `WorkOverview standalone` (it used to sit after New space / Join with code and wrap).
+- Students who also have work (`membershipOf(...).hasWork`) now get the same one-at-a-time
+  switch on `/home` (`StudentHome onSwitch` ⇄ `WorkOverview standalone`), remembered in
+  `collabify:home-view`. Without work, or while navigation loads, it is the class dashboard alone.
+- Checked with a throwaway fixture page: switch position measured at 375/414/768/1280 (top of the
+  band, right padding, no overflow), the real `Home` switching both ways for a student with work
+  and absent without; build, eslint, 582 Vitest.

@@ -150,7 +150,7 @@ export default function ProfessorHome({ onSwitch }: { onSwitch?: () => void } = 
               name={profile.first_name}
               line={line}
               urgent={waiting > 0 || stalled > 0}
-              action={switchAction}
+              corner={switchAction}
               tiles={[
                 {
                   label: 'Waiting on you',

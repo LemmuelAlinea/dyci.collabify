@@ -78,6 +78,7 @@ export function DashboardSummary({
   urgent = false,
   tiles,
   action,
+  corner,
 }: {
   greeting?: string
   name?: string
@@ -88,6 +89,12 @@ export function DashboardSummary({
   title?: string
   /** Buttons for the page itself, set at the band's top right. */
   action?: ReactNode
+  /**
+   * One small control pinned to the very top right — the dashboard switch on
+   * `/home`. Kept out of `action` so it never wraps below the buttons on a
+   * phone.
+   */
+  corner?: ReactNode
   /** The mono label above the greeting. Names the surface, not the person. */
   kicker: string
   /** One sentence of what is true right now, built by the page from its own data. */
@@ -139,14 +146,17 @@ export function DashboardSummary({
       />
 
       <div className="relative">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="flex min-w-0 items-center gap-3">
-            <span className="h-px w-7 shrink-0 bg-banner-glow" />
-            <span className="truncate font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft/75 uppercase">
-              {kicker}
-            </span>
-          </p>
-          {action && <div className="flex flex-wrap items-center gap-1.5">{action}</div>}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
+            <p className={`flex min-w-0 items-center gap-3 ${action || corner ? 'min-h-9' : ''}`}>
+              <span className="h-px w-7 shrink-0 bg-banner-glow" />
+              <span className="truncate font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft/75 uppercase">
+                {kicker}
+              </span>
+            </p>
+            {action && <div className="flex flex-wrap items-center gap-1.5">{action}</div>}
+          </div>
+          {corner && <div className="flex h-9 shrink-0 items-center">{corner}</div>}
         </div>
 
         <h1 className="mt-5 font-display leading-tight text-banner-ink">

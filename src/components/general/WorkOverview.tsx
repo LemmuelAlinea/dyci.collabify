@@ -136,24 +136,22 @@ export function WorkOverview({
           line={line}
           urgent={overdue > 0}
           action={
-            faculty || onSwitch ? (
+            faculty ? (
               <>
-                {faculty && (
-                  <>
-                    <Button size="sm" variant="create" onClick={() => setNewSpaceOpen(true)}>
-                      <Icon name="plus" size={15} />
-                      New space
-                    </Button>
-                    <Button size="sm" variant="onNavy" onClick={() => setJoinOpen(true)}>
-                      <Icon name="lock" size={15} />
-                      Join with code
-                    </Button>
-                  </>
-                )}
-                {onSwitch && (
-                  <IconAction icon="swap" label="Switch to your class dashboard" onClick={onSwitch} />
-                )}
+                <Button size="sm" variant="create" onClick={() => setNewSpaceOpen(true)}>
+                  <Icon name="plus" size={15} />
+                  New space
+                </Button>
+                <Button size="sm" variant="onNavy" onClick={() => setJoinOpen(true)}>
+                  <Icon name="lock" size={15} />
+                  Join with code
+                </Button>
               </>
+            ) : undefined
+          }
+          corner={
+            onSwitch ? (
+              <IconAction icon="swap" label="Switch to your class dashboard" onClick={onSwitch} />
             ) : undefined
           }
           tiles={[
