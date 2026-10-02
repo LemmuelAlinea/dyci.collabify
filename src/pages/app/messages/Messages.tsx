@@ -114,10 +114,15 @@ export default function Messages() {
           ) : !conversationId ? (
             <div className="grid h-full place-items-center px-6 text-center">
               <div>
-                <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-navy-50 text-navy-600 dark:bg-navy-500/20 dark:text-navy-200">
-                  <Icon name="message" size={24} />
-                </span>
-                <h2 className="mt-5">Choose a conversation</h2>
+                {/* Decorative, like the empty-state art: the heading says it. */}
+                <img
+                  src="/illustrations/inbox.webp"
+                  alt=""
+                  width={176}
+                  height={176}
+                  className="mx-auto h-32 w-32 sm:h-44 sm:w-44"
+                />
+                <h2 className="mt-3">Choose a conversation</h2>
                 <p className="mt-1.5 max-w-[320px] text-[13px] leading-relaxed text-muted">
                   Every class, group and project you're in has its own chat, created for you
                   automatically.

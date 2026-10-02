@@ -2485,3 +2485,5 @@ and `meetings.webp` (the owner's art, transparent, 1024 → 352px WebP, ~16 KB /
 framing kept to match the SVG set). `EmptyState` art names gained `trash` and `meetings`; a small
 `RASTER` set picks `.webp` for those, `.svg` for the rest. Trash shows it when empty; Meetings
 only for "No meetings yet" (a filtered "Nothing matches" keeps the icon). Checked light and dark.
+
+**Change (2026-10-03): Inbox placeholder art.** "Choose a conversation" on `/inbox` (`Messages.tsx`) shows `public/illustrations/inbox.webp` (owner's art, transparent, 352px WebP, ~15 KB) in place of the message icon tile, sized like the empty-state art.
