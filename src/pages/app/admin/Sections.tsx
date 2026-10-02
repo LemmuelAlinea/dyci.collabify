@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
+import { ActionMenu } from '../../../components/ui/ActionMenu'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Field, Input } from '../../../components/ui/Field'
@@ -58,6 +59,7 @@ export default function Sections() {
   const [archiving, setArchiving] = useState<SectionOverview | null>(null)
   const [assigning, setAssigning] = useState<SectionOverview | null>(null)
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<SectionOverview | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -132,6 +134,56 @@ export default function Sections() {
     )
   }
 
+  function openEdit(s: SectionOverview) {
+    setName(s.name)
+    setLevel(s.year_level)
+    setYear(s.school_year)
+    setAdviser(s.adviser_id ?? '')
+    setEditing(s)
+  }
+
+  /** Closing an edit clears its values, so Add starts blank again. */
+  function closeDialog() {
+    if (saving) return
+    setAdding(false)
+    if (editing) {
+      setEditing(null)
+      setName('')
+      setLevel('1st')
+      setYear(currentSchoolYear(classes))
+      setAdviser('')
+    }
+  }
+
+  async function saveEdit(section: SectionOverview) {
+    setSaving(true)
+    try {
+      await updateSection(section.section_id, {
+        name: name.trim(),
+        year_level: level,
+        school_year: year.trim(),
+        adviser_id: adviser || null,
+      })
+      show(`${name.trim()} updated`)
+      setEditing(null)
+      setName('')
+      setLevel('1st')
+      setYear(currentSchoolYear(classes))
+      setAdviser('')
+      await load()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not save that section.'), 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Classes match a section by name and school year, so changing either leaves
+  // the classes already under it behind.
+  const renamed =
+    editing !== null &&
+    (sectionKey(name) !== sectionKey(editing.name) || year.trim() !== editing.school_year)
+
   async function add(fromName = name, fromYear = year, fromLevel = level) {
     setSaving(true)
     try {
@@ -173,29 +225,53 @@ export default function Sections() {
           then left alone, so the form was five controls sitting above the list
           for the rest of the year. */}
       <Modal
-        open={adding}
-        onClose={() => setAdding(false)}
-        title="Add a section"
-        description="Professors pick from this list when they make a class."
+        open={adding || editing !== null}
+        onClose={closeDialog}
+        title={editing ? `Edit ${editing.name}` : 'Add a section'}
+        description={
+          editing
+            ? 'Its faculty assignments stay as they are.'
+            : 'Professors pick from this list when they make a class.'
+        }
         size="md"
         focusField
         footer={
           <>
-            <Button variant="ghost" onClick={() => setAdding(false)} disabled={saving}>
+            <Button variant="ghost" onClick={closeDialog} disabled={saving}>
               Cancel
             </Button>
-            <Button
-              className="!rounded-xl"
-              loading={saving}
-              disabled={!name.trim() || !year.trim()}
-              onClick={() => add()}
-            >
-              <Icon name="plus" size={15} />
-              Add
-            </Button>
+            {editing ? (
+              <Button
+                className="!rounded-xl"
+                loading={saving}
+                disabled={!name.trim() || !year.trim()}
+                onClick={() => saveEdit(editing)}
+              >
+                Save changes
+              </Button>
+            ) : (
+              <Button
+                className="!rounded-xl"
+                loading={saving}
+                disabled={!name.trim() || !year.trim()}
+                onClick={() => add()}
+              >
+                <Icon name="plus" size={15} />
+                Add
+              </Button>
+            )}
           </>
         }
       >
+        {renamed && (editing?.classes ?? 0) > 0 && (
+          <div className="mb-4">
+            <Alert tone="info">
+              {editing?.classes} {editing?.classes === 1 ? 'class uses' : 'classes use'}{' '}
+              {editing?.name} for {editing?.school_year}. They keep that name and show under
+              "Already in use" until their professor picks this section again.
+            </Alert>
+          </div>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Section name">
             {(id) => (
@@ -324,16 +400,13 @@ export default function Sections() {
                       <Icon name="users" size={14} />
                       Assign faculty
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="!rounded-xl !px-3"
-                      aria-label={`Archive ${s.name}`}
-                      title="Archive"
-                      onClick={() => setArchiving(s)}
-                    >
-                      <Icon name="archive" size={14} />
-                    </Button>
+                    <ActionMenu
+                      label={`Actions for ${s.name}`}
+                      items={[
+                        { label: 'Edit section', icon: 'edit', onSelect: () => openEdit(s) },
+                        { label: 'Archive', icon: 'archive', separated: true, onSelect: () => setArchiving(s) },
+                      ]}
+                    />
                   </span>
                 </li>
               )

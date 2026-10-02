@@ -113,7 +113,13 @@ export async function createSection(input: {
 
 export async function updateSection(
   id: string,
-  patch: Partial<{ name: string; adviser_id: string | null; archived_at: string | null }>,
+  patch: Partial<{
+    name: string
+    year_level: YearLevel
+    school_year: string
+    adviser_id: string | null
+    archived_at: string | null
+  }>,
 ) {
   const { error } = await supabase.from('program_sections').update(patch).eq('id', id)
   if (error) throw error

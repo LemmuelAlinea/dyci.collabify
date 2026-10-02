@@ -2399,3 +2399,12 @@ live). Other open tabs now update within a second for anyone who can still read 
 Year level already was, and that value is what gets saved — so the class lands in the
 section's cohort on the admin figures (matched by name + school year). A section year outside
 `SCHOOL_YEARS` is still shown. Checked with a throwaway fixture page, build, eslint, 582 Vitest.
+
+**Change (2026-10-02): edit a section.** Admin → Sections: each row's Archive icon is now a
+dots menu (`ActionMenu`) with **Edit section** and **Archive**; Assign faculty stays a button.
+Edit reuses the Add dialog, prefilled (name, year level, school year, adviser) and saved with
+`updateSection`; faculty assignments are kept. Changing the name or school year of a section
+classes use shows a note: those classes keep the old name (classes match by name + year) and
+show under "Already in use". No SQL change — the admin write policy already covers it.
+Checked with a throwaway fixture page (edit, note, save, Add starts blank after, Archive from
+the menu), build, eslint, 582 Vitest.
