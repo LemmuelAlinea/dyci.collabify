@@ -2448,3 +2448,4 @@ Add link; up to 8, each removable. Readers see them as chips under the message.
   the REST queries live (task embed filter positive and negative); build, eslint, 582 Vitest;
   UI via a throwaway fixture page (add/remove/dedupe, post and edit payloads, teacher and
   student click-through, 375/768/1280 no overflow).
+Owner confirmed announcement links working on the live site (2026-10-03).
