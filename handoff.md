@@ -2510,3 +2510,4 @@ the page's error boundary showed. Now:
 - `vercel.json`: the SPA rewrite skips `/assets/`, so a missing chunk is a real 404.
 - Checked on a `vite preview` build with one chunk removed: one automatic reload, then the
   updated screen; with the chunk back, Reload opened the page. 587 Vitest.
+Owner confirmed pop-up message colors working on the live site (2026-10-03).
