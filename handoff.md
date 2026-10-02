@@ -2511,3 +2511,8 @@ the page's error boundary showed. Now:
 - Checked on a `vite preview` build with one chunk removed: one automatic reload, then the
   updated screen; with the chunk back, Reload opened the page. 587 Vitest.
 Owner confirmed pop-up message colors working on the live site (2026-10-03).
+- Follow-up: `components/app/UpdateNotice.tsx` (mounted in `main.tsx`, production only)
+  compares the tab's entry script with the one `/` serves now — every 5 min, and on
+  focus/return at most once a minute — and shows "A new version of Collabify is ready." with
+  Later / Reload, bottom-left (bottom on phone). Later hides it until the next build.
+  Checked on `vite preview` by swapping the entry name in `dist/index.html`.

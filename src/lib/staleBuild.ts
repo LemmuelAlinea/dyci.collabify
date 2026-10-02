@@ -33,6 +33,28 @@ export function reloadForNewBuild() {
   return true
 }
 
+const ENTRY = /\/assets\/index-[\w-]+\.js/
+
+/** The entry script this tab booted from, e.g. `/assets/index-Bwst6KbJ.js`. */
+export function loadedBuild() {
+  for (const s of Array.from(document.querySelectorAll<HTMLScriptElement>('script[type="module"][src]'))) {
+    const hit = new URL(s.src, location.href).pathname.match(ENTRY)
+    if (hit) return hit[0]
+  }
+  return null
+}
+
+/** The entry script the site serves now, or null when it cannot be read. */
+export async function latestBuild() {
+  try {
+    const res = await fetch('/', { cache: 'no-store', headers: { accept: 'text/html' } })
+    if (!res.ok) return null
+    return (await res.text()).match(ENTRY)?.[0] ?? null
+  } catch {
+    return null
+  }
+}
+
 /** Vite fires this when a lazy page's code fails to load. */
 export function installStaleBuildReload() {
   window.addEventListener('vite:preloadError', (event) => {
