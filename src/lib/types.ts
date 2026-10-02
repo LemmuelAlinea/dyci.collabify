@@ -268,6 +268,8 @@ export type GroupRow = {
   position: number
   /** Put away rather than deleted. Null for a live group. */
   archived_at: string | null
+  /** The member who leads the group. Changed only through `setGroupLeader`. */
+  leader_id: string | null
   created_at: string
   updated_at: string
 }
@@ -787,6 +789,8 @@ export type MemberProgress = {
   /** False once they already carry a full share. */
   can_claim: boolean
   profile?: Pick<Profile, 'id' | 'first_name' | 'middle_name' | 'last_name' | 'avatar_url'>
+  /** Added client side from the board's group. */
+  is_leader?: boolean
 }
 
 export type TaskAssignee = {

@@ -1,4 +1,5 @@
 import { Avatar } from '../app/Avatar'
+import { LeaderBadge } from '../groups/LeaderBadge'
 import { fullName } from '../../lib/types'
 import type { MemberProgress as Row } from '../../lib/types'
 
@@ -56,9 +57,12 @@ export function MemberProgress({
 
               <div className="min-w-0 flex-1">
                 <p className="flex items-baseline justify-between gap-2">
-                  <span className="min-w-0 truncate text-[14px] font-medium text-ink">
-                    {r.profile ? fullName(r.profile) : 'Member'}
-                    {you && <span className="ml-1.5 text-[12px] text-faint">you</span>}
+                  <span className="flex min-w-0 items-baseline gap-1.5">
+                    <span className="min-w-0 truncate text-[14px] font-medium text-ink">
+                      {r.profile ? fullName(r.profile) : 'Member'}
+                      {you && <span className="ml-1.5 text-[12px] text-faint">you</span>}
+                    </span>
+                    {r.is_leader && <LeaderBadge className="shrink-0 self-center" />}
                   </span>
                   {dense && (
                     <span className="shrink-0 font-mono text-[13px] text-ink">

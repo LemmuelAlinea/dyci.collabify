@@ -87,14 +87,15 @@ export function useProjectTasks({
   // Member percentages are derived in the database, so they follow the board
   // rather than being recomputed here from a stale copy of the tasks.
   const activeId = active?.id
+  const activeGroupId = active?.group_id
   const loadProgress = useCallback(async () => {
     if (!activeId) return setProgress([])
     try {
-      setProgress(await listMemberProgress(activeId))
+      setProgress(await listMemberProgress(activeId, activeGroupId))
     } catch {
       setProgress([])
     }
-  }, [activeId])
+  }, [activeId, activeGroupId])
 
   useEffect(() => {
     void loadProgress()

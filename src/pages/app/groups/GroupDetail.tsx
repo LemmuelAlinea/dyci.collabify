@@ -13,6 +13,7 @@ import { Select } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { GroupWork } from '../../../components/groups/GroupWork'
+import { LeaderBadge } from '../../../components/groups/LeaderBadge'
 import { groupMemberLoad } from '../../../lib/api/groupWork'
 import type { GroupMemberLoad } from '../../../lib/api/groupWork'
 import { useAuth } from '../../../context/AuthContext'
@@ -28,6 +29,7 @@ import {
   placeStudent,
   removeFromGroup,
   renameGroup,
+  setGroupLeader,
   setGroupLimit,
   setLimitForSet,
   JOIN_GROUP_MESSAGE,
@@ -83,10 +85,22 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
   const [busy, setBusy] = useState(false)
   const [deletePrompt, setDeletePrompt] = useState(false)
   const [archiving, setArchiving] = useState(false)
+  const [leaderOpen, setLeaderOpen] = useState(false)
+  const [leaderPick, setLeaderPick] = useState('')
 
   const canManage = role === 'professor' && !group?.set_closed_at
   const isMember = members.some((m) => m.student_id === profile?.id)
   const canRename = Boolean(group && !group.set_closed_at && (role === 'professor' || isMember))
+  const leader = members.find((m) => m.student_id === group?.leader_id) ?? null
+  const viewerLeads = Boolean(leader && leader.student_id === profile?.id)
+  // The group picks once; after that the leader hands it on, or the professor
+  // settles it. `set_group_leader` holds the same rule.
+  const canPickLeader = Boolean(
+    group &&
+      !group.archived_at &&
+      members.length > 0 &&
+      (role === 'professor' || (isMember && (!leader || viewerLeads))),
+  )
   const studentFormedOpen =
     group?.set_mode === 'student_formed' && !group.set_closed_at && role === 'student'
 
@@ -177,6 +191,29 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
       await load()
     } catch (err) {
       show(authErrorMessage(err, 'Could not change the limit.'), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveLeader() {
+    if (!group) return
+    const next = leaderPick || null
+    setBusy(true)
+    try {
+      await setGroupLeader(group.id, next)
+      const picked = members.find((m) => m.student_id === next)
+      show(
+        !picked
+          ? `${group.name} has no leader now`
+          : picked.student_id === profile?.id
+            ? `You now lead ${group.name}`
+            : `${picked.profile.first_name} now leads ${group.name}`,
+      )
+      setLeaderOpen(false)
+      await load()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not change the leader. Reload the page and try again.'), 'error')
     } finally {
       setBusy(false)
     }
@@ -448,6 +485,46 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
             )}
           </div>
 
+          {members.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-4 sm:px-5">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-icon-tile text-icon-glyph">
+                <Icon name="crown" size={18} />
+              </span>
+              <div className="min-w-[180px] flex-1">
+                <p className="eyebrow">Group leader</p>
+                <p className="mt-1 truncate text-[14px] font-medium text-ink">
+                  {leader ? (viewerLeads ? 'You' : fullName(leader.profile)) : 'No leader yet'}
+                </p>
+                <p className="mt-0.5 text-[12px] text-faint">
+                  {role === 'professor'
+                    ? leader
+                      ? 'You can change the leader at any time.'
+                      : 'The group can choose its own, or you can choose one.'
+                    : !isMember
+                      ? 'Chosen by the members of this group.'
+                      : !leader
+                        ? 'Choose who coordinates the group. Anyone in it can pick while there is no leader.'
+                        : viewerLeads
+                          ? 'Hand it to another member or step down when you need to.'
+                          : `Only ${leader.profile.first_name} or your professor can change this.`}
+                </p>
+              </div>
+              {canPickLeader && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="!h-9 !rounded-lg"
+                  onClick={() => {
+                    setLeaderPick(leader?.student_id ?? members[0]?.student_id ?? '')
+                    setLeaderOpen(true)
+                  }}
+                >
+                  {leader ? 'Change leader' : 'Choose a leader'}
+                </Button>
+              )}
+            </div>
+          )}
+
           {members.length === 0 ? (
             <div className="p-5">
               <EmptyState
@@ -469,12 +546,15 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                   </span>
                   <Avatar profile={m.profile} size={38} />
                   <div className="min-w-[160px] flex-1">
-                    <p className="truncate text-[14px] font-medium text-ink">
-                      {m.profile.last_name}, {m.profile.first_name}
-                      {m.profile.middle_name ? ` ${m.profile.middle_name[0]}.` : ''}
-                      {m.student_id === profile?.id && (
-                        <span className="ml-1.5 text-[12px] text-faint">you</span>
-                      )}
+                    <p className="flex min-w-0 items-center gap-1.5">
+                      <span className="min-w-0 truncate text-[14px] font-medium text-ink">
+                        {m.profile.last_name}, {m.profile.first_name}
+                        {m.profile.middle_name ? ` ${m.profile.middle_name[0]}.` : ''}
+                        {m.student_id === profile?.id && (
+                          <span className="ml-1.5 text-[12px] text-faint">you</span>
+                        )}
+                      </span>
+                      {m.student_id === group.leader_id && <LeaderBadge className="shrink-0" />}
                     </p>
                     <MemberLoadBar load={load_.get(m.student_id)} />
                   </div>
@@ -580,6 +660,88 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
             </span>
           </label>
         </div>
+      </Modal>
+
+      <Modal
+        open={leaderOpen}
+        onClose={() => setLeaderOpen(false)}
+        title={leader ? 'Change the group leader' : 'Choose a group leader'}
+        description={
+          role === 'professor'
+            ? `${group.name} · the leader coordinates the group's work`
+            : `${group.name} · after this, only the leader or your professor can change it`
+        }
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setLeaderOpen(false)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button
+              onClick={saveLeader}
+              loading={busy}
+              disabled={(leaderPick || null) === (leader?.student_id ?? null)}
+              className="!rounded-xl"
+            >
+              Save leader
+            </Button>
+          </>
+        }
+      >
+        <fieldset className="space-y-2">
+          <legend className="sr-only">Leader</legend>
+          {members.map((m) => (
+            <label
+              key={m.student_id}
+              className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-2.5 transition-colors ${
+                leaderPick === m.student_id
+                  ? 'border-navy-400 bg-navy-50 dark:border-navy-300 dark:bg-navy-500/12'
+                  : 'border-line hover:border-line-strong'
+              }`}
+            >
+              <input
+                type="radio"
+                name="leader"
+                value={m.student_id}
+                checked={leaderPick === m.student_id}
+                onChange={() => setLeaderPick(m.student_id)}
+                className="accent-navy-600"
+              />
+              <Avatar profile={m.profile} size={30} />
+              <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">
+                {fullName(m.profile)}
+                {m.student_id === profile?.id && (
+                  <span className="ml-1.5 text-[12px] font-normal text-faint">you</span>
+                )}
+              </span>
+              {m.student_id === leader?.student_id && <LeaderBadge className="shrink-0" />}
+            </label>
+          ))}
+          {leader && (
+            <label
+              className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-2.5 transition-colors ${
+                leaderPick === ''
+                  ? 'border-navy-400 bg-navy-50 dark:border-navy-300 dark:bg-navy-500/12'
+                  : 'border-line hover:border-line-strong'
+              }`}
+            >
+              <input
+                type="radio"
+                name="leader"
+                value=""
+                checked={leaderPick === ''}
+                onChange={() => setLeaderPick('')}
+                className="accent-navy-600"
+              />
+              <span className="min-w-0">
+                <span className="block text-[14px] font-medium text-ink">No leader</span>
+                <span className="block text-[12px] text-muted">
+                  Anyone in the group can choose again.
+                </span>
+              </span>
+            </label>
+          )}
+        </fieldset>
       </Modal>
 
       {/*

@@ -39,7 +39,11 @@ export async function myBoard(projectId: string, studentId: string) {
  * How far each member has got, on one board. The names are fetched separately:
  * a view carries no foreign keys, so PostgREST cannot embed through it.
  */
-export async function listMemberProgress(boardId: string) {
+/**
+ * Each member's progress on a board. Given the board's group, rows also say
+ * who leads it; a failed leader read only drops the badge.
+ */
+export async function listMemberProgress(boardId: string, groupId?: string | null) {
   const { data, error } = await supabase
     .from('task_member_progress')
     .select('*')
@@ -49,21 +53,34 @@ export async function listMemberProgress(boardId: string) {
   const rows = (data ?? []) as MemberProgress[]
   if (rows.length === 0) return []
 
-  const { data: people, error: pErr } = await supabase
-    .from('profiles')
-    .select(PROFILE_COLS)
-    .in(
-      'id',
-      rows.map((r) => r.student_id),
-    )
+  const [{ data: people, error: pErr }, leaderId] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select(PROFILE_COLS)
+      .in(
+        'id',
+        rows.map((r) => r.student_id),
+      ),
+    groupId ? groupLeader(groupId) : Promise.resolve(null),
+  ])
   if (pErr) throw pErr
 
   const byId = new Map(
     ((people ?? []) as MemberProgress['profile'][]).map((p) => [p!.id, p!]),
   )
   return rows
-    .map((r) => ({ ...r, profile: byId.get(r.student_id) }))
+    .map((r) => ({ ...r, profile: byId.get(r.student_id), is_leader: r.student_id === leaderId }))
     .sort((a, b) => (a.profile && b.profile ? byLastName(a.profile, b.profile) : 0))
+}
+
+async function groupLeader(groupId: string) {
+  const { data, error } = await supabase
+    .from('groups')
+    .select('leader_id')
+    .eq('id', groupId)
+    .maybeSingle()
+  if (error) return null
+  return (data?.leader_id as string | null | undefined) ?? null
 }
 
 /** Board progress for a list of projects, keyed by project — for cards. */

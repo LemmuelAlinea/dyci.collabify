@@ -59,6 +59,8 @@ const PATHS = {
   dots: 'M12 6h.01M12 12h.01M12 18h.01',
   // Two arrows passing each other: trade one view for the other.
   swap: 'M7 4L3 8l4 4M3 8h14M17 12l4 4-4 4M21 16H7',
+  // The group's leader.
+  crown: 'M3 7l4.5 4.5L12 5l4.5 6.5L21 7l-2 11H5zM5 21h14',
 } as const
 
 export type IconName = keyof typeof PATHS

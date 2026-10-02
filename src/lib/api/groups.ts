@@ -226,6 +226,21 @@ export async function deleteGroup(groupId: string) {
   if (error) throw error
 }
 
+/**
+ * Make a member the group's leader, or clear it with null.
+ *
+ * A member may pick one while there is none; after that only the leader (to
+ * hand it on or step down) or the professor may change it. The database
+ * raises a readable sentence for anything else.
+ */
+export async function setGroupLeader(groupId: string, studentId: string | null) {
+  const { error } = await supabase.rpc('set_group_leader', {
+    p_group: groupId,
+    p_student: studentId,
+  })
+  if (error) throw error
+}
+
 /* -------------------------------------------------------------- members */
 
 /** Professor placing a student. Moving is delete-then-insert in one call. */

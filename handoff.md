@@ -2377,3 +2377,16 @@ live). Other open tabs now update within a second for anyone who can still read 
   eslint, 582 Vitest; UI via a throwaway `probe.html` that stubbed fetch with fixtures
   (assign, archive, restore, delete for good, form with two/none/no-registry), 1280 and 375.
   `node scripts/db.mjs` hung mid-session (pooler); REST was used for the later checks.
+
+**Change (2026-10-02): group leaders.** A group can have one leader (`groups.leader_id`).
+- Group page (`GroupDetail`) → Members panel shows a **Group leader** row and a Leader badge
+  beside that member. A member may pick a leader while there is none; after that only the
+  leader (hand it on, or "No leader" to step down) or the class professor can change it. Stays
+  open after the set is final; blocked while the group or class is archived.
+- Class project → Progress (`MemberProgress`, student Progress tab and the professor's
+  "Share of the group") shows the badge; on a phone it is the crown alone.
+- `supabase/group-leader.sql`: the column, `group_overview` rebuilt to carry it,
+  `set_group_leader(group, student|null)` (the only way to write it — `groups_guard_leader`
+  reverts plain updates unless `collabify.group_leader_op` is on), and an after-delete
+  trigger on `group_members` that clears the lead when the leader leaves, is moved, or is
+  dropped from the class. Test: `tests/group-leader.test.sql`.
