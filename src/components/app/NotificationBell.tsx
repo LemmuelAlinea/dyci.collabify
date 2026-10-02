@@ -60,6 +60,8 @@ function destination(n: AppNotification, role: Role | null, teaches: boolean): s
     case 'meeting_changed':
     case 'meeting_cancelled':
       return n.meeting_id ? `${paths.meetings}?meeting=${n.meeting_id}` : paths.meetings
+    case 'group_leader':
+      return n.group_id ? paths.group(n.group_id) : paths.home
     case 'general_access_requested':
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=members` : paths.home
   }

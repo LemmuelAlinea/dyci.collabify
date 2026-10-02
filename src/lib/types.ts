@@ -161,6 +161,7 @@ export type AppNotification = {
     | 'announcement'
     | 'group_placement'
     | 'group_closed'
+    | 'group_leader'
     | 'project_released'
     | 'task_assigned'
     | 'reassign_requested'

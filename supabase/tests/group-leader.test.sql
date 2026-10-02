@@ -141,6 +141,12 @@ begin
     (select leader_id from public.groups where id = g1) = ben);
   perform pg_temp.must_be('group_overview carries it',
     (select leader_id from public.group_overview where id = g1) = ben);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('the new leader is notified, pointing at the group',
+    (select count(*) from public.notifications
+      where user_id = ben and type = 'group_leader' and group_id = g1
+        and title = 'You lead Alpha' and preview like 'Ana made you the leader of Alpha%') = 1);
+  perform pg_temp.act_as(ana);
 
   perform pg_temp.must_refuse('another member cannot take it once there is a leader',
     format('select public.set_group_leader(%L, %L)', g1, ana));
@@ -150,10 +156,25 @@ begin
     format('select public.set_group_leader(%L, %L)', g1, ana));
   perform pg_temp.must_be('to the member they chose',
     (select leader_id from public.groups where id = g1) = ana);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('who is notified in turn',
+    (select count(*) from public.notifications where user_id = ana and type = 'group_leader') = 1);
+  -- Ben mutes "put into something"; the next pick reaches nobody.
+  update public.notification_prefs set project_invites = false where user_id = ben;
 
   perform pg_temp.act_as(prof);
   perform pg_temp.must_allow('the professor can change it any time',
     format('select public.set_group_leader(%L, %L)', g1, ben));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a leader who muted project invites is not notified',
+    (select count(*) from public.notifications where user_id = ben and type = 'group_leader') = 1);
+  update public.notification_prefs set project_invites = true where user_id = ben;
+  perform pg_temp.act_as(prof);
+  perform pg_temp.must_allow('setting the same leader again goes through',
+    format('select public.set_group_leader(%L, %L)', g1, ben));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('without notifying them twice',
+    (select count(*) from public.notifications where user_id = ben and type = 'group_leader') = 1);
 
   -- A final set still lets the group run itself.
   perform pg_temp.act_as_service();
@@ -168,6 +189,9 @@ begin
   perform pg_temp.act_as(ana);
   perform pg_temp.must_allow('and a member can pick again',
     format('select public.set_group_leader(%L, %L)', g1, ana));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('picking yourself sends nothing',
+    (select count(*) from public.notifications where user_id = ana and type = 'group_leader') = 1);
 
   -- --------------------------------------------------------------- archived
 

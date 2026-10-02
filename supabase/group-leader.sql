@@ -11,7 +11,16 @@
 --
 -- Unlike renaming, this stays open after the set is final: a closed set fixes
 -- who is in the group, not how the group runs itself.
+--
+-- The new leader hears about it (`group_leader`), unless they picked
+-- themselves. Gated on `project_invites`, the switch for "you have been put
+-- into something", beside group_placement.
 
+do $$ begin
+  alter type public.notification_type add value if not exists 'group_leader';
+exception when undefined_object then null; end $$;
+
+-- A new enum value cannot be used in the same transaction that added it.
 begin;
 
 alter table public.groups
@@ -126,6 +135,24 @@ begin
   perform set_config('collabify.group_leader_op', 'on', true);
   update public.groups set leader_id = p_student where id = p_group;
   perform set_config('collabify.group_leader_op', 'off', true);
+
+  if p_student is not null
+     and p_student is distinct from g.leader_id
+     and p_student <> auth.uid() then
+    insert into public.notifications (user_id, type, class_id, group_id, title, preview)
+    select p_student, 'group_leader', s.class_id, g.id,
+           'You lead ' || g.name,
+           coalesce(nullif(trim(p.first_name), ''), 'Someone')
+             || ' made you the leader of ' || g.name || ' for ' || c.name || '.'
+      from public.group_sets s
+      join public.classes c on c.id = s.class_id
+      left join public.profiles p on p.id = auth.uid()
+     where s.id = g.set_id
+       and exists (
+         select 1 from public.notification_prefs np
+          where np.user_id = p_student and np.project_invites
+       );
+  end if;
 end;
 $$;
 
