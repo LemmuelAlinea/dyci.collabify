@@ -390,19 +390,11 @@ export default function Sections() {
                     {s.classes} {s.classes === 1 ? 'class' : 'classes'} · {s.students} students
                   </span>
 
-                  <span className="flex shrink-0 items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="!rounded-xl"
-                      onClick={() => setAssigning(s)}
-                    >
-                      <Icon name="users" size={14} />
-                      Assign faculty
-                    </Button>
+                  <span className="flex shrink-0 items-center">
                     <ActionMenu
                       label={`Actions for ${s.name}`}
                       items={[
+                        { label: 'Assign faculty', icon: 'users', onSelect: () => setAssigning(s) },
                         { label: 'Edit section', icon: 'edit', onSelect: () => openEdit(s) },
                         { label: 'Archive', icon: 'archive', separated: true, onSelect: () => setArchiving(s) },
                       ]}

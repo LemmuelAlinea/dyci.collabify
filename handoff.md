@@ -2411,3 +2411,5 @@ classes use shows a note: those classes keep the old name (classes match by name
 show under "Already in use". No SQL change — the admin write policy already covers it.
 Checked with a throwaway fixture page (edit, note, save, Add starts blank after, Archive from
 the menu), build, eslint, 582 Vitest.
+Then (same day): Assign faculty moved into that menu too, first item; a row now has only the
+dots menu (Assign faculty · Edit section · Archive).
