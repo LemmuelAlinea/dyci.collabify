@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Avatar } from '../../app/Avatar'
 import { Button } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Icon } from '../../ui/Icon'
@@ -57,138 +56,120 @@ export function CommentList({
     }
   }
 
+  // Laid out as the work task dialog lays its comments out: a tinted bubble
+  // each, the name and time on one line, and a short form underneath.
   return (
-    <div className="space-y-4">
-      {comments.length === 0 ? (
-        <p className="text-[13px] text-muted">
-          Nothing said yet. Ask the question here rather than in a chat nobody can find later.
-        </p>
-      ) : (
-        <ul className="space-y-3.5">
-          {comments.map((c) => {
-            const mine = c.author_id === viewerId
-            const isEditing = editing?.id === c.id
-            return (
-              <li key={c.id} className="flex gap-3">
-                {c.author ? (
-                  <Avatar profile={c.author} size={30} />
-                ) : (
-                  <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full surface-sunken text-faint">
-                    <Icon name="user" size={15} />
+    <div>
+      <ul className="mt-2 space-y-2">
+        {comments.map((c) => {
+          const mine = c.author_id === viewerId
+          const isEditing = editing?.id === c.id
+          return (
+            <li key={c.id} className="rounded-xl surface-sunken px-3.5 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate text-[12px] font-medium text-ink">
+                  {c.author ? fullName(c.author) : 'Somebody'}
+                  <span className="ml-2 font-normal text-faint">
+                    {ago(c.created_at)}
+                    {c.edited_at && ' · edited'}
                   </span>
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <span className="text-[13px] font-medium text-ink">
-                      {c.author ? fullName(c.author) : 'Somebody'}
-                    </span>
-                    <span className="font-mono text-[12px] text-faint">
-                      {ago(c.created_at)}
-                      {c.edited_at && ' · edited'}
-                    </span>
-                  </div>
-
-                  {isEditing ? (
-                    <div className="mt-1.5 space-y-2">
-                      <Textarea
-                        rows={3}
-                        maxLength={LIMIT.commentBody}
-                        value={editDraft}
-                        onChange={(e) => setEditDraft(e.target.value)}
-                        aria-label="Edit comment"
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          className="!rounded-lg"
-                          loading={busy}
-                          onClick={async () => {
-                            setBusy(true)
-                            try {
-                              await editComment(c.id, editDraft)
-                              setEditing(null)
-                              await onChanged()
-                            } catch (err) {
-                              show(authErrorMessage(err, 'Could not save that.'), 'error')
-                            } finally {
-                              setBusy(false)
-                            }
-                          }}
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setEditing(null)}
-                          disabled={busy}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="mt-1 text-[14px] leading-relaxed whitespace-pre-wrap text-ink">
-                      <Linkify text={c.body} />
-                    </p>
-                  )}
-
-                  {!isEditing && (mine || role === 'professor') && (
-                    <div className="mt-1 flex items-center gap-3">
-                      {mine && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditing(c)
-                            setEditDraft(c.body)
-                          }}
-                          className="text-[12px] text-faint transition-colors hover:text-ink"
-                        >
-                          Edit
-                        </button>
-                      )}
+                </p>
+                {!isEditing && (mine || role === 'professor') && (
+                  <span className="flex shrink-0 items-center gap-0.5">
+                    {mine && (
                       <button
                         type="button"
-                        onClick={() => setDeleting(c)}
-                        className="text-[12px] text-faint transition-colors hover:text-danger-600 dark:hover:text-danger-400"
+                        aria-label="Edit comment"
+                        onClick={() => {
+                          setEditing(c)
+                          setEditDraft(c.body)
+                        }}
+                        className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-ink"
                       >
-                        Delete
+                        <Icon name="edit" size={13} />
                       </button>
-                    </div>
-                  )}
+                    )}
+                    <button
+                      type="button"
+                      aria-label="Remove comment"
+                      onClick={() => setDeleting(c)}
+                      className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-destructive-600 dark:hover:text-destructive-400"
+                    >
+                      <Icon name="trash" size={13} />
+                    </button>
+                  </span>
+                )}
+              </div>
+
+              {isEditing ? (
+                <div className="mt-1.5 space-y-2">
+                  <Textarea
+                    rows={2}
+                    maxLength={LIMIT.commentBody}
+                    value={editDraft}
+                    onChange={(e) => setEditDraft(e.target.value)}
+                    aria-label="Edit comment"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setEditing(null)} disabled={busy}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      loading={busy}
+                      disabled={!editDraft.trim()}
+                      onClick={async () => {
+                        setBusy(true)
+                        try {
+                          await editComment(c.id, editDraft)
+                          setEditing(null)
+                          await onChanged()
+                        } catch (err) {
+                          show(authErrorMessage(err, 'Could not save that.'), 'error')
+                        } finally {
+                          setBusy(false)
+                        }
+                      }}
+                    >
+                      Save
+                    </Button>
+                  </div>
                 </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+              ) : (
+                <p className="mt-1 whitespace-pre-wrap break-words text-[13px] text-ink">
+                  <Linkify text={c.body} />
+                </p>
+              )}
+            </li>
+          )
+        })}
+        {comments.length === 0 && <li className="text-[13px] text-faint">No comments yet.</li>}
+      </ul>
 
       {canPost ? (
-        <div className="space-y-2">
+        <form
+          className="mt-3 space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void post()
+          }}
+        >
           <Textarea
-            rows={3}
+            rows={2}
             maxLength={LIMIT.commentBody}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Ask something, or say what you changed."
+            placeholder="Write a comment"
             aria-label="Write a comment"
           />
           <div className="flex justify-end">
-            <Button
-              size="sm"
-              className="!rounded-lg"
-              loading={busy}
-              disabled={!draft.trim()}
-              onClick={post}
-            >
-              <Icon name="message" size={15} />
+            <Button type="submit" size="sm" loading={busy} disabled={!draft.trim()}>
               Comment
             </Button>
           </div>
-        </div>
+        </form>
       ) : (
-        <p className="text-[12px] text-faint">
+        <p className="mt-3 text-[12px] text-faint">
           {role === 'professor'
             ? 'You can read the thread and remove anything that does not belong.'
             : 'Only this group can comment here.'}

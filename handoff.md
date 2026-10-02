@@ -2664,3 +2664,16 @@ general, notify, notification-coverage, anon-lockdown, rls-coverage, trash, arch
   (`CommitAccessButton`: requests, grant / take back per groupmate). Review pickers list only
   committers; Merge shows only to them.
 - `docs/07-backup.md` apply order now includes discussion-polls-voice.sql and group-leader.sql.
+
+**Change (2026-10-03): class task modal matches the work task modal.** `TaskDetailModal` now has
+the standard header (description = the stage) and `TaskDetailBody` is the work dialog's layout:
+two columns of plain headed sections, no cards or tabs. Left: a facts row (Stage, Worth, Due,
+Started, Finished, Created by + SET), the description, the stage picker for whoever is on it (or
+the old hint), then Comments (tinted bubbles, edit/remove icons, short form). Right: People (name
+chips, "(you)", Request reassignment / pending note + Withdraw), Files (rows, Add a file + From
+project files, 20 MB checked up front), Time (total in the heading, compact rows, inline form
+with minutes 1–1440, day and note), History (`TaskHistory`, one line each). Every class rule is
+unchanged. Removed `TaskActivity`, `TaskDetailPanel`, `FilePreview` (no inline image/PDF preview
+now, and no "All" activity tab — the work dialog has neither). Checked with a throwaway fixture
+page rendering the real body (owner, professor, to-do task; 1440 and 375, no overflow); build,
+eslint, 596 Vitest.

@@ -2,17 +2,21 @@ import { useState } from 'react'
 import { Button } from '../../ui/Button'
 import { Icon } from '../../ui/Icon'
 import { Select } from '../../ui/Select'
+import { CommentList } from './CommentList'
 import { ReassignRequestModal } from './ReassignRequestModal'
-import { TaskActivity } from './TaskActivity'
-import { TaskDetailPanel } from './TaskDetailPanel'
 import { TaskFileGrid } from './TaskFileGrid'
+import { TaskHistory } from './TaskHistory'
+import { WorkLogList } from './WorkLogList'
+import { useNow } from '../../../hooks/useNow'
 import { withdrawReassignment } from '../../../lib/api/reassignments'
 import {
   TASK_STATUSES,
   canRequestReassignment,
+  formatMinutes,
   fullName,
   isMine,
   taskShare,
+  taskStatusLabel,
 } from '../../../lib/types'
 import type {
   ReassignmentRow,
@@ -25,10 +29,22 @@ import type {
   WorkLogEntry,
 } from '../../../lib/types'
 
+function when(iso: string | null) {
+  if (!iso) return 'Not yet'
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
 /**
  * The layout, with no data fetching in it: the modal owns the loading, this
- * owns the arrangement. Keeping them apart is what lets the layout be measured
- * without a signed-in session behind it.
+ * owns the arrangement. It follows the work project's task dialog — plain
+ * headed sections in two columns — so a task reads the same in a class and in
+ * a space. What differs is only what a class allows: the group moves its own
+ * work, and a stuck task can be handed to the professor to reassign.
  */
 export function TaskDetailBody({
   task,
@@ -67,103 +83,118 @@ export function TaskDetailBody({
   // On an individual board the viewer is the owner, so the work is theirs.
   const solo = Boolean(task.group_id === null)
   const yours = solo ? onBoard : viewerId ? isMine(task, viewerId) : false
+  const share = taskShare(task, boardWeight || task.weight)
+  const now = useNow()
+  const late = Boolean(task.due_at && task.status !== 'done' && new Date(task.due_at).getTime() < now)
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_310px]">
-      <div className="min-w-0 space-y-4">
-        <section className="surface overflow-hidden rounded-card border border-line">
-          <header className="flex items-center gap-3 border-b border-line bg-[var(--surface-sunken)] px-4 py-3.5 sm:px-5">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-navy-600 text-amber-300 dark:bg-navy-500">
-              <Icon name="file" size={16} />
-            </span>
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      <div className="min-w-0 space-y-6">
+        <section className="space-y-3 text-[14px]">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] sm:grid-cols-3">
             <div>
-              <h3>Description</h3>
-              <p className="mt-0.5 text-[12px] text-muted">What done looks like.</p>
+              <dt className="text-[12px] text-faint">Stage</dt>
+              <dd className="text-ink">{taskStatusLabel(task.status)}</dd>
             </div>
-            {yours && (
-              <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg bg-navy-50 px-2.5 py-1 text-[12px] font-medium text-navy-700 dark:bg-navy-500/20 dark:text-navy-100">
-                <Icon name="check" size={13} />
-                Assigned to you
-              </span>
-            )}
-          </header>
-          <div className="px-4 py-4 sm:px-5">
-            {task.details ? (
-              <p className="text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
-                {task.details}
-              </p>
-            ) : (
-              <p className="text-[13px] text-faint">
-                No description. {task.status === 'todo' && 'Edit the task to add one.'}
-              </p>
-            )}
-          </div>
-        </section>
+            <div>
+              <dt className="text-[12px] text-faint">Worth</dt>
+              <dd className="text-ink">
+                <span className="font-mono">{share}%</span>
+                <span className="ml-1 text-[12px] text-faint">of the project</span>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[12px] text-faint">Due</dt>
+              <dd className={late ? 'text-danger-600 dark:text-danger-400' : 'text-ink'}>
+                {task.due_at ? when(task.due_at) : 'Not set'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[12px] text-faint">Started</dt>
+              <dd className="text-ink">{when(task.started_at)}</dd>
+            </div>
+            <div>
+              <dt className="text-[12px] text-faint">Finished</dt>
+              <dd className="text-ink">{when(task.done_at)}</dd>
+            </div>
+            <div>
+              <dt className="text-[12px] text-faint">Created by</dt>
+              <dd className="text-ink">
+                {task.creator_name ?? 'Somebody'}
+                {task.author_role === 'professor' && (
+                  <span className="ml-1.5 rounded-md bg-navy-50 px-1.5 py-0.5 font-mono text-[11px] text-navy-700 dark:bg-navy-500/18 dark:text-navy-100">
+                    SET
+                  </span>
+                )}
+              </dd>
+            </div>
+          </dl>
 
-        <TaskFileGrid
-          task={task}
-          files={files}
-          isAssignee={yours}
-          locked={locked}
-          onChanged={onChanged}
-        />
+          <p className="whitespace-pre-wrap break-words text-ink">
+            {task.details || 'No description.'}
+          </p>
 
-        <TaskActivity
-          task={task}
-          comments={comments}
-          events={events}
-          worklog={worklog}
-          viewerId={viewerId}
-          role={role}
-          canPost={onBoard}
-          isAssignee={yours}
-          onChanged={onChanged}
-        />
-      </div>
-
-      {/* Second in the DOM, which is the desktop order. On a phone it is lifted
-          above the thread, which would otherwise push it off the screen. */}
-      <aside className="order-first space-y-3 lg:order-none lg:sticky lg:top-0">
-        <section className="surface overflow-hidden rounded-card border border-line">
-          <header className="border-b border-line bg-[var(--surface-sunken)] px-4 py-3.5">
-            <h3>Task status</h3>
-            <p className="mt-0.5 text-[12px] text-muted">Keep the board current.</p>
-          </header>
-          <div className="space-y-3 p-4">
-            <label className="block space-y-2">
-              <span className="sr-only">Status</span>
-            <Select
-              value={task.status}
-              disabled={!onBoard || !yours}
-              onChange={(e) => onStatus(e.target.value as TaskStatus)}
-              options={TASK_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
-              className="!h-11"
-            />
-            </label>
-            {!onBoard ? (
-              <p className="text-[12px] text-faint">The group moves its own work.</p>
-            ) : !yours ? (
-              <p className="text-[12px] text-faint">
-                {task.assignees.length === 0
+          {onBoard && yours ? (
+            <div className="max-w-[16rem]">
+              <Select
+                aria-label="Move this task"
+                value={task.status}
+                onChange={(e) => onStatus(e.target.value as TaskStatus)}
+                options={TASK_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
+                className="!h-9 !text-[13px]"
+              />
+            </div>
+          ) : (
+            <p className="text-[12px] text-muted">
+              {!onBoard
+                ? 'The group moves its own work.'
+                : task.assignees.length === 0
                   ? 'Claim this task to move it.'
                   : 'Only the people on this task move it.'}
-              </p>
-            ) : null}
-          </div>
+            </p>
+          )}
         </section>
 
-        {/* Neglected work is the case this exists for: once a task is started
-            nothing else can move it off whoever holds it. */}
-        {onBoard && (
-          <div>
-            {reassignment ? (
-              <div className="surface rounded-card border border-line px-4 py-3.5">
-                <p className="text-[13px] font-medium text-ink">
-                  Reassignment requested
-                </p>
-                <p className="mt-0.5 text-[12px] text-muted">
-                  Waiting on your professor.
-                </p>
+        <section>
+          <h3 className="text-[14px]">Comments</h3>
+          <CommentList
+            taskId={task.id}
+            comments={comments}
+            viewerId={viewerId}
+            role={role}
+            canPost={onBoard}
+            onChanged={onChanged}
+          />
+        </section>
+      </div>
+
+      <div className="min-w-0 space-y-6">
+        <section>
+          <h3 className="text-[14px]">People</h3>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {task.assignees.map(
+              (a) =>
+                a.profile && (
+                  <li
+                    key={a.student_id}
+                    className="rounded-full surface-sunken px-2.5 py-0.5 text-[12px] text-ink"
+                  >
+                    {fullName(a.profile)}
+                    {a.student_id === viewerId && <span className="text-faint"> (you)</span>}
+                  </li>
+                ),
+            )}
+            {task.assignees.length === 0 && (
+              <li className="text-[13px] text-faint">Nobody holds this yet.</li>
+            )}
+          </ul>
+
+          {/* Neglected work is the case this exists for: once a task is
+              started nothing else can move it off whoever holds it. */}
+          {onBoard &&
+            (reassignment ? (
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted">
+                Reassignment requested. Waiting on your professor.
                 {reassignment.requested_by === viewerId && (
                   <button
                     type="button"
@@ -177,31 +208,50 @@ export function TaskDetailBody({
                         setBusy(false)
                       }
                     }}
-                    className="mt-2 text-[12px] font-medium text-navy-600 hover:underline disabled:opacity-60 dark:text-navy-200"
+                    className="font-medium text-navy-600 hover:underline disabled:opacity-60 dark:text-navy-200"
                   >
                     Withdraw it
                   </button>
                 )}
-              </div>
+              </p>
             ) : (
               viewerCanRequest &&
               canRequestReassignment(task, locked) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  full
-                  onClick={() => setAskOpen(true)}
-                >
-                  <Icon name="refresh" size={15} />
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => setAskOpen(true)}>
+                  <Icon name="refresh" size={14} />
                   Request reassignment
                 </Button>
               )
-            )}
-          </div>
-        )}
+            ))}
+        </section>
 
-        <TaskDetailPanel task={task} share={taskShare(task, boardWeight || task.weight)} />
-      </aside>
+        <TaskFileGrid
+          task={task}
+          files={files}
+          isAssignee={yours}
+          locked={locked}
+          onChanged={onChanged}
+        />
+
+        <section>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-[14px]">Time</h3>
+            <span className="font-mono text-[12px] text-faint">{formatMinutes(task.logged_minutes)}</span>
+          </div>
+          <WorkLogList
+            task={task}
+            entries={worklog}
+            viewerId={viewerId}
+            isAssignee={yours}
+            onChanged={onChanged}
+          />
+        </section>
+
+        <section>
+          <h3 className="text-[14px]">History</h3>
+          <TaskHistory events={events} />
+        </section>
+      </div>
 
       <ReassignRequestModal
         open={askOpen}

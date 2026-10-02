@@ -72,14 +72,9 @@ export function TaskDetailModal({
       open={Boolean(taskId)}
       onClose={onClose}
       title={task?.title ?? 'Task'}
-      description={
-        task
-          ? `${taskStatusLabel(task.status)} · ${task.assignees.length} ${task.assignees.length === 1 ? 'assignee' : 'assignees'} · ${files.length} ${files.length === 1 ? 'file' : 'files'}`
-          : undefined
-      }
+      // The standard header, as the work task dialog has it.
+      description={task ? taskStatusLabel(task.status) : undefined}
       size="xl"
-      bodyClassName="!bg-[var(--surface-sunken)] !p-4 sm:!p-5"
-      headerTone="navy"
     >
       {loading && !task ? (
         <div className="flex items-center gap-3 py-10 text-[14px] text-muted">

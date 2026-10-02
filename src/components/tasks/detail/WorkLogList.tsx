@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { Avatar } from '../../app/Avatar'
 import { Button } from '../../ui/Button'
 import { Icon } from '../../ui/Icon'
 import { Input } from '../../ui/Field'
-import { Textarea } from '../../ui/Select'
 import { useToast } from '../../ui/Toast'
 import { deleteWorkLog, logTime } from '../../../lib/api/taskDetail'
 import { authErrorMessage } from '../../../lib/authError'
+import { LIMIT } from '../../../lib/limits'
 import { formatMinutes, fullName } from '../../../lib/types'
 import type { TaskDetail, WorkLogEntry } from '../../../lib/types'
 
@@ -17,8 +16,9 @@ function today() {
 }
 
 /**
- * Time spent, with what it went on. Evidence of effort behind a task somebody
- * marked done themselves — it never moves a mark.
+ * Time spent, with what it went on, as the work task dialog lists it. Evidence
+ * of effort behind a task somebody marked done themselves — it never moves a
+ * mark. The total sits in the section's heading.
  */
 export function WorkLogList({
   task,
@@ -34,42 +34,30 @@ export function WorkLogList({
   onChanged: () => Promise<void> | void
 }) {
   const { show } = useToast()
-  const [open, setOpen] = useState(false)
-  const [hours, setHours] = useState(1)
-  const [minutes, setMinutes] = useState(0)
+  const [minutes, setMinutes] = useState('')
   const [note, setNote] = useState('')
   const [when, setWhen] = useState(today())
+  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-
-  const total = entries.reduce((n, e) => n + e.minutes, 0)
-  const perPerson = new Map<string, { name: string; minutes: number }>()
-  for (const e of entries) {
-    const row = perPerson.get(e.student_id) ?? {
-      name: e.student ? fullName(e.student) : 'Somebody',
-      minutes: 0,
-    }
-    row.minutes += e.minutes
-    perPerson.set(e.student_id, row)
-  }
 
   const canLog = isAssignee && task.status !== 'todo'
 
   async function save() {
-    const mins = hours * 60 + minutes
-    if (!viewerId || mins < 1) return
+    const m = Number(minutes)
+    // The database takes 1 to 1440 minutes an entry.
+    if (!Number.isInteger(m) || m < 1 || m > 1440) {
+      setError('Log between 1 and 1440 minutes at a time.')
+      return
+    }
+    if (!viewerId) return
+    setError(null)
     setBusy(true)
     try {
-      await logTime({
-        taskId: task.id,
-        studentId: viewerId,
-        minutes: mins,
-        note,
-        workedOn: when,
-      })
-      setOpen(false)
-      setHours(1)
-      setMinutes(0)
+      await logTime({ taskId: task.id, studentId: viewerId, minutes: m, note, workedOn: when })
+      setMinutes('')
       setNote('')
+      setWhen(today())
+      show('Time logged')
       await onChanged()
     } catch (err) {
       show(authErrorMessage(err, 'Could not log that time.'), 'error')
@@ -79,156 +67,88 @@ export function WorkLogList({
   }
 
   return (
-    <div className="space-y-4">
-      {entries.length > 0 && (
-        <div className="surface rounded-xl border border-line p-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-[13px] text-muted">Logged on this task</p>
-            <p className="font-mono text-[17px] text-ink">{formatMinutes(total)}</p>
-          </div>
-          <ul className="mt-2.5 space-y-1">
-            {[...perPerson.values()].map((p) => (
-              <li key={p.name} className="flex items-baseline justify-between gap-3">
-                <span className="min-w-0 truncate text-[13px] text-muted">{p.name}</span>
-                <span className="font-mono text-[12px] text-faint">
-                  {formatMinutes(p.minutes)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {entries.length === 0 ? (
-        <p className="text-[13px] text-muted">
-          {canLog
-            ? 'No time logged yet. It is a record of effort, not a mark — nothing here changes your points.'
-            : task.status === 'todo'
-              ? 'Start the task before logging time on it.'
-              : 'Nobody on this task has logged time.'}
-        </p>
-      ) : (
-        <ul className="space-y-3">
-          {entries.map((e) => (
-            <li key={e.id} className="flex gap-3">
-              {e.student ? (
-                <Avatar profile={e.student} size={28} />
-              ) : (
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full surface-sunken text-faint">
-                  <Icon name="user" size={14} />
-                </span>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
-                  <span className="font-medium text-ink">
-                    {e.student ? fullName(e.student) : 'Somebody'}
-                  </span>
-                  <span className="font-mono text-[12px] text-warning-700 dark:text-warning-300">
-                    {formatMinutes(e.minutes)}
-                  </span>
-                  <span className="font-mono text-[12px] text-faint">
-                    {new Date(e.worked_on).toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </span>
-                </p>
-                {e.note && (
-                  <p className="mt-0.5 text-[13px] leading-relaxed text-muted">{e.note}</p>
-                )}
-              </div>
-              {e.student_id === viewerId && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await deleteWorkLog(e.id)
-                      await onChanged()
-                    } catch (err) {
-                      show(authErrorMessage(err, 'Could not remove that entry.'), 'error')
-                    }
-                  }}
-                  aria-label="Remove this entry"
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
-                >
-                  <Icon name="trash" size={14} />
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {canLog &&
-        (open ? (
-          <div className="surface space-y-3 rounded-xl border border-line p-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="space-y-2">
-                <span className="block text-[12px] text-faint">Hours</span>
-                <Input
-                  type="number"
-                  min={0}
-                  max={24}
-                  value={hours}
-                  onChange={(e) => setHours(Math.max(0, Math.min(24, Number(e.target.value) || 0)))}
-                  className="!h-10"
-                />
-              </label>
-              <label className="space-y-2">
-                <span className="block text-[12px] text-faint">Minutes</span>
-                <Input
-                  type="number"
-                  min={0}
-                  max={59}
-                  value={minutes}
-                  onChange={(e) =>
-                    setMinutes(Math.max(0, Math.min(59, Number(e.target.value) || 0)))
+    <div>
+      <ul className="mt-2 space-y-1.5">
+        {entries.map((e) => (
+          <li key={e.id} className="flex items-center gap-2 text-[13px]">
+            <span className="w-14 shrink-0 font-mono text-ink">{formatMinutes(e.minutes)}</span>
+            <span className="min-w-0 flex-1 truncate text-muted">
+              {e.student ? fullName(e.student) : 'Somebody'}
+              {` · ${new Date(e.worked_on).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+              {e.note ? ` · ${e.note}` : ''}
+            </span>
+            {e.student_id === viewerId && (
+              <button
+                type="button"
+                aria-label="Remove time entry"
+                onClick={async () => {
+                  try {
+                    await deleteWorkLog(e.id)
+                    await onChanged()
+                  } catch (err) {
+                    show(authErrorMessage(err, 'Could not remove that entry.'), 'error')
                   }
-                  className="!h-10"
-                />
-              </label>
-              <label className="space-y-2">
-                <span className="block text-[12px] text-faint">Date</span>
-                <Input
-                  type="date"
-                  value={when}
-                  max={today()}
-                  onChange={(e) => setWhen(e.target.value)}
-                  className="!h-10"
-                />
-              </label>
-            </div>
-
-            <Textarea
-              rows={2}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="What the time went on."
-              aria-label="What you did"
-              className="!text-[13px]"
-            />
-
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={busy}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                className="!rounded-lg"
-                loading={busy}
-                disabled={hours * 60 + minutes < 1}
-                onClick={save}
+                }}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-faint hover:text-destructive-600 dark:hover:text-destructive-400"
               >
-                Log {formatMinutes(hours * 60 + minutes)}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button variant="outline" size="sm" className="!rounded-lg" onClick={() => setOpen(true)}>
-            <Icon name="clock" size={15} />
-            Log time
-          </Button>
+                <Icon name="trash" size={13} />
+              </button>
+            )}
+          </li>
         ))}
+        {entries.length === 0 && (
+          <li className="text-[13px] text-faint">
+            {canLog
+              ? 'No time logged yet. It is a record of effort, not a mark.'
+              : task.status === 'todo'
+                ? 'Start the task before logging time on it.'
+                : 'No time logged yet.'}
+          </li>
+        )}
+      </ul>
+
+      {canLog && (
+        <form
+          className="mt-2 grid gap-2 sm:grid-cols-[5.5rem_9rem_minmax(0,1fr)_auto]"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void save()
+          }}
+        >
+          <Input
+            aria-label="Minutes"
+            type="number"
+            min={1}
+            max={1440}
+            placeholder="Minutes"
+            value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+            className="!h-9 !text-[13px]"
+          />
+          <Input
+            aria-label="Day worked"
+            type="date"
+            value={when}
+            max={today()}
+            onChange={(e) => setWhen(e.target.value)}
+            className="!h-9 !text-[13px]"
+          />
+          <Input
+            aria-label="What you did"
+            maxLength={LIMIT.worklogNote}
+            placeholder="What you did"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="!h-9 !text-[13px]"
+          />
+          <Button type="submit" size="sm" variant="outline" className="!h-9" loading={busy}>
+            Log
+          </Button>
+          {error && (
+            <p className="text-[12px] text-danger-600 sm:col-span-4 dark:text-danger-400">{error}</p>
+          )}
+        </form>
+      )}
     </div>
   )
 }
