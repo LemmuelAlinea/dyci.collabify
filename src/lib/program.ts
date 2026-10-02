@@ -203,6 +203,12 @@ export type ProgramSection = {
   created_at: string
 }
 
+/** program_section_faculty: one teacher the program office assigned a section to. */
+export type SectionFaculty = {
+  section_id: string
+  faculty_id: string
+}
+
 /** program_section_overview: the same, with what is running in it. */
 export type SectionOverview = Omit<ProgramSection, 'created_at'> & {
   section_id: string

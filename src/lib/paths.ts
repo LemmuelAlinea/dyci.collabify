@@ -65,6 +65,7 @@ export const paths = {
     audit: '/admin/audit',
     privacy: '/admin/privacy',
     accounts: '/admin/accounts',
+    archive: '/admin/archive',
   },
 } as const
 

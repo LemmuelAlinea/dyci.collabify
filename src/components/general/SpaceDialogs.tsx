@@ -258,6 +258,7 @@ export function NewSpaceDialog({
           key={sourceId || 'blank'}
           defaults={sourceDefaults(pastClasses.find((c) => c.id === sourceId))}
           formId="new-class"
+          assignedTo={profile?.id}
           syllabi={syllabi}
           curricula={curricula}
           error={error}

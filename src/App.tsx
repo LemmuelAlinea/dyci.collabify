@@ -42,6 +42,7 @@ const LegalDocPage = lazy(() => import('./pages/legal/LegalDoc'))
 const PrivacyRequest = lazy(() => import('./pages/legal/PrivacyRequest'))
 const PrivacyQueue = lazy(() => import('./pages/app/PrivacyQueue'))
 const Accounts = lazy(() => import('./pages/app/admin/Accounts'))
+const AdminArchive = lazy(() => import('./pages/app/admin/AdminArchive'))
 const Analytics = lazy(() => import('./pages/app/analytics/Analytics'))
 const AuditLog = lazy(() => import('./pages/app/admin/AuditLog'))
 const Calendar = lazy(() => import('./pages/app/calendar/Calendar'))
@@ -259,6 +260,7 @@ export default function App() {
               <Route path="/admin/audit" element={<AuditLog />} />
               <Route path="/admin/privacy" element={<PrivacyQueue />} />
               <Route path="/admin/accounts" element={<Accounts />} />
+              <Route path="/admin/archive" element={<AdminArchive />} />
             </Route>
           </Route>
           </Route>

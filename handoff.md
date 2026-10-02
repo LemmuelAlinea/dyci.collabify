@@ -2348,3 +2348,32 @@ the sidebar lists classes through their education spaces, which the class trigge
 the `supabase_realtime` publication, so the sidebar's `useLive` only caught space changes on
 refocus or the 30 s poll; added at the end of `general-spaces.sql` (idempotent block, applied
 live). Other open tabs now update within a second for anyone who can still read the space.
+
+**Change (2026-10-02): sections assigned to teaching faculty; admin Archive page.**
+- `supabase/section-faculty.sql` (applied live; test `tests/section-faculty.test.sql`, 18 PASS):
+  `program_section_faculty (section_id, faculty_id)`, cascade on section delete. Read: admins
+  all, faculty their own rows; no direct writes. `set_section_faculty(section, faculty[])` is
+  admin-only, replaces the section's whole list, and refuses archived sections and anybody
+  who is not active faculty with `can_teach`. Added to realtime.
+- Admin → Sections: each row shows its assigned faculty and an **Assign faculty** dialog
+  (checkbox list of active teaching faculty, search past six). Retire and the trash button are
+  gone; an **Archive** icon takes their place. Archived sections leave the list.
+- Admin → Account → **Archive** (`/admin/archive`, `pages/app/admin/AdminArchive.tsx`):
+  archived sections, published syllabi and published curricula, each with Restore and
+  **Delete for good** (confirm). A resource goes Trash → `delete_trashed_resource` in one step,
+  so only the admin who published it can act on it (others see why). Students/faculty keep
+  `/archive` as before.
+- Create class (`NewSpaceDialog` → `ClassForm assignedTo`, the only create-class path; it is
+  opened from Classes, Spaces and Work overview): the section picker lists only the teacher's
+  assigned, live sections (`listMySections`), labelled with year level and school year, and
+  Year level is locked to the picked section's. No sections assigned → picker disabled with
+  "No section is assigned to you yet." A program with no sections at all keeps free text.
+  Class settings (editing) is unchanged. School year is not taken from the section.
+- Live now: four sections exist and none are assigned, so teaching faculty cannot create a
+  class until an admin assigns them one.
+- Space archive hint on the Archive page now says Settings tab, not banner.
+- Checked: SQL tests section-faculty, rls-coverage, anon-lockdown, program-office; the four
+  REST calls against the live API (embed filter with throwaway rows, cleaned up); build,
+  eslint, 582 Vitest; UI via a throwaway `probe.html` that stubbed fetch with fixtures
+  (assign, archive, restore, delete for good, form with two/none/no-registry), 1280 and 375.
+  `node scripts/db.mjs` hung mid-session (pooler); REST was used for the later checks.

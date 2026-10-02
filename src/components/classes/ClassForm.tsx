@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { listSections } from '../../lib/api/program'
+import { listMySections, listSections } from '../../lib/api/program'
 import { listProgramResources, uploadResource } from '../../lib/api/resources'
 import type { ProgramSection } from '../../lib/program'
 import { useAuth } from '../../context/AuthContext'
@@ -122,9 +122,15 @@ type Props = {
   curricula: TeachingResource[]
   error?: string | null
   onSubmit: (input: ClassInput) => void
+  /**
+   * Creating a class: offer only the sections the program office assigned to
+   * this teacher, and take the year level from the section picked. Editing a
+   * class leaves this out and keeps the open picker.
+   */
+  assignedTo?: string
 }
 
-export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmit }: Props) {
+export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmit, assignedTo }: Props) {
   const [name, setName] = useState(defaults?.name ?? '')
   const [initial, setInitial] = useState(defaults?.initial ?? '')
   const [initialTouched, setInitialTouched] = useState(Boolean(defaults?.initial))
@@ -137,6 +143,11 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
   const [curriculumId, setCurriculumId] = useState(defaults?.curriculum_id ?? '')
   const [cap, setCap] = useState(defaults?.student_cap ? String(defaults.student_cap) : '')
   const [sections, setSections] = useState<ProgramSection[]>([])
+  const [sectionsLoaded, setSectionsLoaded] = useState(false)
+  // Only with `assignedTo`: this teacher's sections, null until they load.
+  const [mine, setMine] = useState<ProgramSection[] | null>(null)
+  const [mineError, setMineError] = useState(false)
+  const [sectionId, setSectionId] = useState('')
   const [published, setPublished] = useState<TeachingResource[]>([])
   const [uploaded, setUploaded] = useState<TeachingResource[]>([])
 
@@ -147,6 +158,7 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
     void listSections()
       .then(setSections)
       .catch(() => setSections([]))
+      .finally(() => setSectionsLoaded(true))
     // What the program office has published is attachable exactly like a
     // professor's own — the same table, so the same id goes in syllabus_id.
     void Promise.all([listProgramResources('syllabus'), listProgramResources('curriculum')])
@@ -155,8 +167,26 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
   }, [])
 
   useEffect(() => {
+    if (!assignedTo) return
+    setMineError(false)
+    void listMySections(assignedTo)
+      .then(setMine)
+      .catch(() => {
+        setMine([])
+        setMineError(true)
+      })
+  }, [assignedTo])
+
+  useEffect(() => {
     if (!initialTouched) setInitial(suggestInitial(name))
   }, [name, initialTouched])
+
+  // With a registry in place, a teacher picks from their assigned sections and
+  // the year level is the section's. With no registry at all, the field stays
+  // free text like everywhere else, so nobody is blocked by an empty list.
+  const assignedMode = Boolean(assignedTo) && (!sectionsLoaded || sections.length > 0)
+  const picked = assignedMode ? mine?.find((x) => x.id === sectionId) : undefined
+  const mineLoading = assignedMode && (!sectionsLoaded || mine === null)
 
   // Offer the sections of this year level and school year first; a 3rd-year
   // class listing every 1st-year section is how the wrong one gets picked.
@@ -180,11 +210,13 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!e.currentTarget.reportValidity()) return
+    // A disabled picker is skipped by the browser's own check.
+    if (assignedMode && !picked) return
     onSubmit({
       name,
       initial,
-      section,
-      year_level: yearLevel,
+      section: picked ? picked.name : section,
+      year_level: picked ? picked.year_level : yearLevel,
       semester,
       school_year: schoolYear,
       description,
@@ -252,13 +284,39 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
         <Field
           label="Section"
           hint={
-            sections.length === 0 ? (
+            assignedMode ? undefined : sections.length === 0 ? (
               <span className="text-[12px] text-faint">Free text until the program sets its sections</span>
             ) : undefined
           }
+          error={
+            assignedMode && !mineLoading && (mine?.length ?? 0) === 0
+              ? mineError
+                ? 'Could not load your sections. Close this and try again.'
+                : 'No section is assigned to you yet. Ask the program office to assign one.'
+              : null
+          }
         >
           {(id) =>
-            sections.length === 0 ? (
+            assignedMode ? (
+              <Select
+                id={id}
+                required
+                value={sectionId}
+                onChange={(e) => setSectionId(e.target.value)}
+                disabled={mineLoading || (mine?.length ?? 0) === 0}
+                placeholder={
+                  mineLoading
+                    ? 'Loading your sections…'
+                    : (mine?.length ?? 0) === 0
+                      ? 'No sections assigned to you'
+                      : 'Pick a section'
+                }
+                options={(mine ?? []).map((x) => ({
+                  value: x.id,
+                  label: `${x.name} · ${x.year_level} year · ${x.school_year.replace('-', '–')}`,
+                }))}
+              />
+            ) : sections.length === 0 ? (
               <Input
                 id={id}
                 required
@@ -288,15 +346,30 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Year level">
-          {(id) => (
-            <Select
-              id={id}
-              value={yearLevel}
-              onChange={(e) => setYearLevel(e.target.value as YearLevel)}
-              options={YEAR_LEVELS}
-            />
-          )}
+        <Field
+          label="Year level"
+          hint={
+            assignedMode ? <span className="text-[12px] text-faint">Set by the section</span> : undefined
+          }
+        >
+          {(id) =>
+            assignedMode ? (
+              <Select
+                id={id}
+                value={picked?.year_level ?? ''}
+                disabled
+                placeholder="Follows the section"
+                options={YEAR_LEVELS}
+              />
+            ) : (
+              <Select
+                id={id}
+                value={yearLevel}
+                onChange={(e) => setYearLevel(e.target.value as YearLevel)}
+                options={YEAR_LEVELS}
+              />
+            )
+          }
         </Field>
         <Field label="Semester">
           {(id) => (

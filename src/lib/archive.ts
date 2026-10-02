@@ -94,7 +94,7 @@ export const ARCHIVE_SECTIONS: ArchiveSection[] = [
     area: 'work',
     label: 'Spaces',
     noun: 'space',
-    hint: 'An Owner archives a space from its banner.',
+    hint: 'An Owner archives a space from its Settings tab.',
   },
   {
     kind: 'team',

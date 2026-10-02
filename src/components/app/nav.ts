@@ -79,11 +79,17 @@ const ACCOUNT: NavGroup = {
 /**
  * Archive sits beside Trash for students and faculty: one page for everything
  * they put away, sectioned by what their role lets them archive. An admin runs
- * the program rather than its classes and work, so their Account stays as is.
+ * the program rather than its classes and work, so their Archive is the
+ * program's: sections, published syllabi and curricula.
  */
 const ACCOUNT_WITH_ARCHIVE: NavGroup = {
   title: 'Account',
   items: [{ label: 'Archive', icon: 'archive', to: paths.archive }, ...ACCOUNT.items],
+}
+
+const ADMIN_ACCOUNT: NavGroup = {
+  title: 'Account',
+  items: [{ label: 'Archive', icon: 'archive', to: paths.admin.archive }, ...ACCOUNT.items],
 }
 
 /**
@@ -223,9 +229,9 @@ export function navFor(
   if (role === 'admin') {
     if (!membership?.inClass && !membership?.hasWork) {
       // Invited but not yet in: the Inbox is where they answer.
-      return membership?.invited ? [ADMIN_INVITED, ADMIN, ACCOUNT] : [ADMIN, ACCOUNT]
+      return membership?.invited ? [ADMIN_INVITED, ADMIN, ADMIN_ACCOUNT] : [ADMIN, ADMIN_ACCOUNT]
     }
-    return [MAIN, spacesGroup(true, true), PROJECTS, ADMIN, ACCOUNT]
+    return [MAIN, spacesGroup(true, true), PROJECTS, ADMIN, ADMIN_ACCOUNT]
   }
   if (role === 'student') {
     if (!admitted) return [MAIN_WAITING, ACCOUNT]

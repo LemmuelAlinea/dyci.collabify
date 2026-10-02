@@ -103,3 +103,14 @@ export async function resourceUrl(path: string) {
   if (error) throw error
   return data.signedUrl
 }
+
+/**
+ * Deletes an archived syllabus or curriculum for good, skipping the 30 days in
+ * Trash: it goes to Trash and is deleted from there in the same breath, so the
+ * same checks and the same storage sweep apply. Classes using it lose it.
+ */
+export async function deleteResourceForGood(id: string) {
+  await trashResource(id)
+  const { error } = await supabase.rpc('delete_trashed_resource', { p_resource: id })
+  if (error) throw error
+}
