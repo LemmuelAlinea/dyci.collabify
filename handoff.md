@@ -2498,3 +2498,15 @@ used to hard-code (success/danger ramps, navy for info), so nothing changes unti
 function). Checked: palette tests (+3), appearance SQL suite, contrast.mjs (0 failing), toasts
 computed identical to before in light and dark, a pick through the editor recolors live toasts;
 build, eslint, 585 Vitest.
+
+**Fix (2026-10-03): stale tabs after a deploy no longer show "This page stopped working".**
+A tab opened before a deploy asked for page chunks the new build had renamed, and the
+catch-all rewrite answered them with index.html (200, text/html), so the import failed and
+the page's error boundary showed. Now:
+- `lib/staleBuild.ts`: on `vite:preloadError` (installed in `main.tsx`) the tab reloads once;
+  a sessionStorage guard (30 s) stops a loop.
+- `ErrorBoundary`: a chunk-load error also triggers that reload, and if it just happened,
+  shows "Collabify was updated" with a Reload button instead of the crash copy.
+- `vercel.json`: the SPA rewrite skips `/assets/`, so a missing chunk is a real 404.
+- Checked on a `vite preview` build with one chunk removed: one automatic reload, then the
+  updated screen; with the chunk back, Reload opened the page. 584 Vitest.

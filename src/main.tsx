@@ -5,7 +5,10 @@ import App from './App'
 import { AuthProvider } from './context/AuthProvider'
 import { ThemeProvider } from './context/ThemeProvider'
 import { ToastProvider } from './components/ui/ToastProvider'
+import { installStaleBuildReload } from './lib/staleBuild'
 import './styles/index.css'
+
+installStaleBuildReload()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

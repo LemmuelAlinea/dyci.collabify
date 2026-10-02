@@ -2,6 +2,7 @@ import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { Button, ButtonLink } from '../ui/Button'
 import { Icon } from '../ui/Icon'
+import { isStaleBuildError, reloadForNewBuild } from '../../lib/staleBuild'
 
 type Props = {
   children: ReactNode
@@ -42,10 +43,34 @@ export class ErrorBoundary extends Component<Props, State> {
     // Kept deliberately: this is the only record of what happened, and the
     // component stack is what makes it findable.
     console.error(`Collabify crashed${this.props.scope ? ` in ${this.props.scope}` : ''}`, error, info.componentStack)
+    // An older build asking for a page that no longer exists. A reload fixes it;
+    // if one just happened, the message below offers it instead of looping.
+    if (isStaleBuildError(error)) reloadForNewBuild()
   }
 
   render() {
     if (!this.state.error) return this.props.children
+
+    if (isStaleBuildError(this.state.error)) {
+      return (
+        <div className="flex min-h-[420px] flex-col items-center justify-center px-6 py-16 text-center">
+          <span className="grid h-14 w-14 place-items-center rounded-2xl bg-icon-tile text-icon-glyph">
+            <Icon name="refresh" size={24} />
+          </span>
+          <h1 className="mt-5 leading-snug">Collabify was updated</h1>
+          <p className="mt-2.5 max-w-[46ch] text-[14px] leading-relaxed text-muted">
+            This tab is still running the older version. Reload to get the new one — nothing you
+            have saved is lost.
+          </p>
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
+            <Button className="!rounded-xl" onClick={() => window.location.reload()}>
+              <Icon name="refresh" size={16} />
+              Reload
+            </Button>
+          </div>
+        </div>
+      )
+    }
 
     return (
       <div className="flex min-h-[420px] flex-col items-center justify-center px-6 py-16 text-center">
