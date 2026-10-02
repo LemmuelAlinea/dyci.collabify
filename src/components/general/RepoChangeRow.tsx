@@ -31,6 +31,7 @@ import { DiffView } from './DiffView'
 import { PdfPreview } from './PdfPreview'
 import type { GeneralProjectState } from './useGeneralProject'
 import { isReviewer } from '../../lib/general/review'
+import { Linkify } from '../ui/Linkify'
 
 /**
  * One proposed change, with everything a reviewer needs in one place: what it
@@ -183,7 +184,7 @@ export function RepoChangeRow({
       {open && (
         <div className="mt-3 space-y-3 pl-6">
           {change.body && (
-            <p className="whitespace-pre-wrap break-words text-[13px] text-muted">{change.body}</p>
+            <p className="whitespace-pre-wrap break-words text-[13px] text-muted"><Linkify text={change.body} /></p>
           )}
 
           {stale && (
@@ -262,7 +263,7 @@ export function RepoChangeRow({
                       {c.author_id ? state.nameOf(c.author_id) : 'A former member'}
                     </span>
                     {c.path && <span className="ml-1.5 font-mono text-[11px] text-faint">{c.path}</span>}{' '}
-                    <span className="whitespace-pre-wrap break-words text-muted">{c.body}</span>
+                    <span className="whitespace-pre-wrap break-words text-muted"><Linkify text={c.body} /></span>
                   </span>
                   {!state.archived && (c.author_id === state.viewerId || state.can('edit_files')) && (
                     <button

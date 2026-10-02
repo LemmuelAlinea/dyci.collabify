@@ -3,6 +3,7 @@ import { Avatar } from '../app/Avatar'
 import { ActionMenu } from '../ui/ActionMenu'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
+import { Linkify } from '../ui/Linkify'
 import { formatBytes } from '../../lib/formatBytes'
 import { Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
@@ -205,7 +206,7 @@ export function MessageBubble({
                 )}
                 {message.body && (
                   <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
-                    {message.body}
+                    <Linkify text={message.body} tone="inherit" />
                   </p>
                 )}
                 {message.attachments.length > 0 && (

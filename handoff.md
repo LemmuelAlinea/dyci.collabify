@@ -2526,3 +2526,11 @@ lists are flat rows now (`AttentionList`, `ClassRail`, `StalledGroups` — still
 rendering the real `ProfessorHome` at 375/768/1280/1536 (rows end level, edges flush, no
 overflow); build, eslint, 587 Vitest. The work dashboard (`WorkOverview`) still uses the old
 packing `Bento`.
+
+**Change (2026-10-03): links in written text are clickable.** `lib/linkify.ts` splits text into
+text and `http(s)://` / `www.` links (sentence punctuation and an unopened `)` stay outside;
+other schemes are never linked); `components/ui/Linkify.tsx` renders them as new-tab links
+(`noopener noreferrer`), app link colour, or `tone="inherit"` inside chat bubbles. Used in class
+announcements, program notices (rail + admin Notices), class chat, work discussions, class
+task comments and activity, work task comments, and repo change notes. Not in the dashboard
+announcement swiper, whose whole card is already a link. Test `lib/linkify.test.ts`.

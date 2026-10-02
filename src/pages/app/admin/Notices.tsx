@@ -16,6 +16,7 @@ import { authErrorMessage } from '../../../lib/authError'
 import { NOTICE_HOURS } from '../../../lib/program'
 import type { ProgramNoticeRecord } from '../../../lib/program'
 import { momentLabel } from '../../../lib/report'
+import { Linkify } from '../../../components/ui/Linkify'
 
 /**
  * One notice from the program office to everybody in it.
@@ -347,7 +348,7 @@ function NoticeCard({
         </div>
       </div>
       <p className="mt-2 max-w-[80ch] text-[13px] leading-relaxed whitespace-pre-wrap text-muted">
-        {n.body}
+        <Linkify text={n.body} />
       </p>
     </li>
   )

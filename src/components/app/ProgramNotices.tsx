@@ -3,6 +3,7 @@ import { Icon } from '../ui/Icon'
 import { listNotices } from '../../lib/api/program'
 import type { ProgramNotice } from '../../lib/program'
 import { momentLabel } from '../../lib/report'
+import { Linkify } from '../ui/Linkify'
 
 const SHOWN = 2
 
@@ -49,7 +50,7 @@ export function ProgramNotices() {
               {n.title}
             </h3>
             <p className="mt-1.5 max-w-[80ch] text-[13px] leading-relaxed whitespace-pre-wrap text-muted">
-              {n.body}
+              <Linkify text={n.body} />
             </p>
             <p className="mt-2 text-[12px] text-faint">
               {n.author_name} · {momentLabel(n.created_at)}

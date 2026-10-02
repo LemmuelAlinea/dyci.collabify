@@ -10,6 +10,7 @@ import { authErrorMessage } from '../../../lib/authError'
 import { fullName } from '../../../lib/types'
 import type { TeachingViewRole, TaskComment } from '../../../lib/types'
 import { LIMIT } from '../../../lib/limits'
+import { Linkify } from '../../ui/Linkify'
 
 function ago(iso: string) {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -129,7 +130,7 @@ export function CommentList({
                     </div>
                   ) : (
                     <p className="mt-1 text-[14px] leading-relaxed whitespace-pre-wrap text-ink">
-                      {c.body}
+                      <Linkify text={c.body} />
                     </p>
                   )}
 

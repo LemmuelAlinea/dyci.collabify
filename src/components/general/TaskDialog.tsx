@@ -40,6 +40,7 @@ import { formatMinutes } from '../../lib/types'
 import { ProjectFilePicker } from './ProjectFilePicker'
 import { RequestAccessButton } from './RequestAccessButton'
 import type { GeneralProjectState } from './useGeneralProject'
+import { Linkify } from '../ui/Linkify'
 
 export function TaskDialog({
   state,
@@ -176,7 +177,7 @@ function TaskBody({
                     </button>
                   )}
                 </div>
-                <p className="mt-1 whitespace-pre-wrap break-words text-[13px] text-ink">{c.body}</p>
+                <p className="mt-1 whitespace-pre-wrap break-words text-[13px] text-ink"><Linkify text={c.body} /></p>
               </li>
             ))}
             {loaded && comments.length === 0 && <p className="text-[13px] text-faint">No comments yet.</p>}

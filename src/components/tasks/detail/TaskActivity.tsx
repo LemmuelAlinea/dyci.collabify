@@ -11,6 +11,7 @@ import type {
   TaskEventKind,
   WorkLogEntry,
 } from '../../../lib/types'
+import { Linkify } from '../../ui/Linkify'
 
 const WORDING: Record<TaskEventKind, string> = {
   created: 'created it',
@@ -103,7 +104,7 @@ function AllList({ comments, events }: { comments: TaskComment[]; events: TaskEv
                 commented · <span className="font-mono text-faint">{stamp(row.at)}</span>
               </p>
               <p className="mt-0.5 line-clamp-3 text-[13px] leading-relaxed text-ink">
-                {row.comment.body}
+                <Linkify text={row.comment.body} />
               </p>
             </div>
           </li>
