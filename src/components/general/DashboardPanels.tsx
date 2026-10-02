@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { TileEmpty } from '../dashboard/Bento'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import { formatDue, isOverdue } from '../../lib/general/dates'
@@ -12,8 +13,16 @@ import type {
   GeneralTask,
 } from '../../lib/general/types'
 
+/**
+ * `flat` is for a panel sitting in a bento tile (the home page's Your work):
+ * rows divided by hairlines instead of a card each, since the tile is the card.
+ * The space home and My tasks keep the cards.
+ */
+const listClass = (flat: boolean) => (flat ? '-mx-2 divide-y divide-[var(--line)]' : 'space-y-2')
+
 /** The one-line note a panel shows when it has nothing to list. */
-function Quiet({ children }: { children: string }) {
+function Quiet({ children, flat = false }: { children: string; flat?: boolean }) {
+  if (flat) return <TileEmpty>{children}</TileEmpty>
   return (
     <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
       {children}
@@ -30,6 +39,7 @@ function Row({
   context,
   aside,
   late = false,
+  flat = false,
 }: {
   to: string
   /** Opens the row in place instead of following `to`. */
@@ -39,14 +49,17 @@ function Row({
   context: string
   aside?: string
   late?: boolean
+  flat?: boolean
 }) {
-  const shell = `surface flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left shadow-card transition-colors hover:border-line-strong sm:px-4 sm:py-3 ${
-    late ? 'border-danger-300 dark:border-danger-500/40' : 'border-line'
-  }`
+  const shell = flat
+    ? 'flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-[var(--surface-sunken)]'
+    : `surface flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left shadow-card transition-colors hover:border-line-strong sm:px-4 sm:py-3 ${
+        late ? 'border-danger-300 dark:border-danger-500/40' : 'border-line'
+      }`
   const body = (
     <>
       <span
-        className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
+        className={`grid shrink-0 place-items-center rounded-lg ${flat ? 'h-7 w-7' : 'h-8 w-8'} ${
           late ? 'bg-danger-50 text-danger-600 dark:bg-danger-500/12 dark:text-danger-400' : 'surface-sunken text-muted'
         }`}
       >
@@ -87,18 +100,20 @@ export function WaitingPanel({
   reviews,
   requests,
   projectName,
+  flat = false,
 }: {
   reviews: GeneralRepoChange[]
   requests: GeneralProjectSummary[]
   projectName: (id: string) => string
+  flat?: boolean
 }) {
   if (reviews.length + requests.length === 0) {
-    return <Quiet>Nothing is waiting on you.</Quiet>
+    return <Quiet flat={flat}>Nothing is waiting on you.</Quiet>
   }
   return (
     <div className="space-y-2">
       {(reviews.length > 0 || requests.length > 0) && (
-        <ul className="space-y-2">
+        <ul className={listClass(flat)}>
           {reviews.map((r) => (
             <Row
               key={r.id}
@@ -107,6 +122,7 @@ export function WaitingPanel({
               title={r.title || 'A change to review'}
               context={`Review · ${projectName(r.project_id)}`}
               aside={`${r.files.length} ${r.files.length === 1 ? 'file' : 'files'}`}
+              flat={flat}
             />
           ))}
           {requests.map((p) => (
@@ -116,6 +132,7 @@ export function WaitingPanel({
               icon="shield"
               title={`${p.open_request_count} access ${p.open_request_count === 1 ? 'request' : 'requests'}`}
               context={p.name}
+              flat={flat}
             />
           ))}
         </ul>
@@ -132,6 +149,7 @@ export function MyTasksPanel({
   limit = 6,
   empty = 'No open tasks are assigned to you in this space.',
   onOpen,
+  flat = false,
 }: {
   tasks: GeneralTask[]
   projectName: (id: string) => string
@@ -141,10 +159,11 @@ export function MyTasksPanel({
   empty?: string
   /** Open a task where the list is rather than on its project page. */
   onOpen?: (task: GeneralTask) => void
+  flat?: boolean
 }) {
-  if (tasks.length === 0) return <Quiet>{empty}</Quiet>
+  if (tasks.length === 0) return <Quiet flat={flat}>{empty}</Quiet>
   return (
-    <ul className="space-y-2">
+    <ul className={listClass(flat)}>
       {tasks.slice(0, limit).map((t) => {
         const late = isOverdue(t.due_at, t.status, now)
         const stage = TASK_STATUSES.find((s) => s.value === t.status)?.label ?? ''
@@ -158,6 +177,7 @@ export function MyTasksPanel({
             context={`${projectName(t.project_id)} · ${stage}`}
             aside={late ? 'Overdue' : t.due_at ? formatDue(t.due_at) : 'No due date'}
             late={late}
+            flat={flat}
           />
         )
       })}
@@ -170,18 +190,20 @@ export function ComingUpPanel({
   days,
   projectName,
   now,
+  flat = false,
 }: {
   days: ComingDay[]
   projectName: (id: string) => string
   now: number
+  flat?: boolean
 }) {
-  if (days.length === 0) return <Quiet>Nothing is due in the next two weeks.</Quiet>
+  if (days.length === 0) return <Quiet flat={flat}>Nothing is due in the next two weeks.</Quiet>
   return (
-    <ol className="space-y-4">
+    <ol className={flat ? 'space-y-3' : 'space-y-4'}>
       {days.map((d) => (
         <li key={d.day}>
-          <p className="eyebrow mb-2 text-faint">{dayLabel(d.at, now)}</p>
-          <ul className="space-y-2">
+          <p className={`eyebrow text-faint ${flat ? 'mb-1' : 'mb-2'}`}>{dayLabel(d.at, now)}</p>
+          <ul className={listClass(flat)}>
             {d.items.map((i) =>
               i.kind === 'task' ? (
                 <Row
@@ -191,6 +213,7 @@ export function ComingUpPanel({
                   title={i.title}
                   context={projectName(i.projectId)}
                   aside={new Date(i.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                  flat={flat}
                 />
               ) : (
                 <Row
@@ -199,6 +222,7 @@ export function ComingUpPanel({
                   icon="target"
                   title={`${i.title} ends`}
                   context="Project end date"
+                  flat={flat}
                 />
               ),
             )}
@@ -210,17 +234,27 @@ export function ComingUpPanel({
 }
 
 /** The projects somebody was last in, with how far along each one is. */
-export function RecentPanel({ projects }: { projects: GeneralProjectSummary[] }) {
-  if (projects.length === 0) return <Quiet>No projects in this space yet.</Quiet>
+export function RecentPanel({
+  projects,
+  flat = false,
+}: {
+  projects: GeneralProjectSummary[]
+  flat?: boolean
+}) {
+  if (projects.length === 0) return <Quiet flat={flat}>No projects in this space yet.</Quiet>
   return (
-    <ul className="space-y-2">
+    <ul className={listClass(flat)}>
       {projects.map((p) => {
         const pct = Math.min(100, Number(p.progress_pct))
         return (
           <li key={p.id}>
             <Link
               to={paths.project(p.id)}
-              className="surface block rounded-xl border border-line px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:px-4 sm:py-3"
+              className={
+                flat
+                  ? 'block rounded-lg px-2 py-2.5 transition-colors hover:bg-[var(--surface-sunken)]'
+                  : 'surface block rounded-xl border border-line px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:px-4 sm:py-3'
+              }
             >
               <span className="flex items-baseline justify-between gap-3">
                 <span className="truncate text-[14px] font-medium text-ink">{p.name}</span>

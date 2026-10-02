@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bento, BentoCell } from '../dashboard/Bento'
+import { BentoGrid, BentoTile } from '../dashboard/Bento'
 import { DashboardSummary } from '../dashboard/DashboardSummary'
-import { DashSection } from '../dashboard/DashSection'
 import { Reveal } from '../motion/Reveal'
 import { ComingUpPanel, MyTasksPanel, RecentPanel, WaitingPanel } from './DashboardPanels'
 import { JoinProjectDialog } from './JoinProjectDialog'
@@ -217,47 +216,37 @@ export function WorkOverview({
           />
         </div>
       ) : (
-        <div className="mt-7 md:mt-8">
-          <Bento>
-            <BentoCell>
-              <Reveal once delay={0.04}>
-                <DashSection icon="bell" title="Waiting on you" count={waiting}>
-                  <WaitingPanel
-                    reviews={reviews}
-                    requests={requests}
-                    projectName={projectName}
-                  />
-                </DashSection>
-              </Reveal>
-            </BentoCell>
-            <BentoCell>
-              <Reveal once delay={0.08}>
-                <DashSection icon="check" title="My tasks" count={mine.length} seeAll={paths.tasks}>
-                  <MyTasksPanel
-                    tasks={mine}
-                    projectName={projectName}
-                    now={now}
-                    empty="No open tasks are assigned to you."
-                  />
-                </DashSection>
-              </Reveal>
-            </BentoCell>
-            <BentoCell>
-              <Reveal once delay={0.12}>
-                <DashSection icon="calendar" title="Coming up" seeAll={paths.calendar}>
-                  <ComingUpPanel days={days} projectName={projectName} now={now} />
-                </DashSection>
-              </Reveal>
-            </BentoCell>
-            <BentoCell>
-              <Reveal once delay={0.16}>
-                <DashSection icon="kanban" title="Jump back in" seeAll={paths.projects}>
-                  <RecentPanel projects={recentlyVisited(mineProjects, seen)} />
-                </DashSection>
-              </Reveal>
-            </BentoCell>
-          </Bento>
-        </div>
+        // A true bento, like the class dashboards: My tasks and Coming up run
+        // two rows down the first two columns, Waiting and Jump back in stack
+        // in the third, so the tiles always close into one rectangle.
+        <BentoGrid className="mt-7 md:mt-8">
+          <Reveal once delay={0.04} className="flex xl:col-start-3 xl:row-start-1">
+            <BentoTile className="w-full" icon="bell" title="Waiting on you" count={waiting}>
+              <WaitingPanel reviews={reviews} requests={requests} projectName={projectName} flat />
+            </BentoTile>
+          </Reveal>
+          <Reveal once delay={0.08} className="flex xl:col-start-1 xl:row-span-2 xl:row-start-1">
+            <BentoTile className="w-full" icon="check" title="My tasks" count={mine.length} seeAll={paths.tasks}>
+              <MyTasksPanel
+                tasks={mine}
+                projectName={projectName}
+                now={now}
+                empty="No open tasks are assigned to you."
+                flat
+              />
+            </BentoTile>
+          </Reveal>
+          <Reveal once delay={0.12} className="flex xl:col-start-2 xl:row-span-2 xl:row-start-1">
+            <BentoTile className="w-full" icon="calendar" title="Coming up" seeAll={paths.calendar}>
+              <ComingUpPanel days={days} projectName={projectName} now={now} flat />
+            </BentoTile>
+          </Reveal>
+          <Reveal once delay={0.16} className="flex xl:col-start-3 xl:row-start-2">
+            <BentoTile className="w-full" icon="kanban" title="Jump back in" seeAll={paths.projects}>
+              <RecentPanel projects={recentlyVisited(mineProjects, seen)} flat />
+            </BentoTile>
+          </Reveal>
+        </BentoGrid>
       )}
 
       <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} />

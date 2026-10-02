@@ -2534,3 +2534,12 @@ other schemes are never linked); `components/ui/Linkify.tsx` renders them as new
 announcements, program notices (rail + admin Notices), class chat, work discussions, class
 task comments and activity, work task comments, and repo change notes. Not in the dashboard
 announcement swiper, whose whole card is already a link. Test `lib/linkify.test.ts`.
+
+**Change (2026-10-03): work dashboard is a bento too.** `WorkOverview` (Your work, for students,
+faculty and admins, standalone or stacked) uses `BentoGrid` / `BentoTile`: xl is My tasks and
+Coming up down two rows in columns 1–2, Waiting on you then Jump back in stacked in column 3; md
+2×2; phone stacks. The four panels in `DashboardPanels.tsx` gained a `flat` prop (hairline rows,
+`TileEmpty` when empty) that only Your work passes, so the space home and My tasks keep their
+cards. All three home dashboards now share the bento. Checked with a throwaway fixture page
+rendering the real `WorkOverview` (student, faculty, empty) at 375/768/1440: one rectangle, no
+overflow; build, eslint, 591 Vitest.
