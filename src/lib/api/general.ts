@@ -924,6 +924,15 @@ export async function deleteComment(commentId: string) {
   changed(data, 'You cannot remove this comment. Only its author or somebody who manages tasks can.')
 }
 
+/** Commit to Main, as the server decides it (on a class board it follows the group's leader). */
+export type CommitRights = { commit: boolean; grant: boolean; board: boolean; committers: string[] }
+
+export async function getCommitRights(projectId: string) {
+  const { data, error } = await supabase.rpc('general_commit_rights', { p_project: projectId })
+  if (error) throw error
+  return data as CommitRights
+}
+
 export async function listFiles(taskId: string) {
   const { data, error } = await supabase
     .from('general_task_files')

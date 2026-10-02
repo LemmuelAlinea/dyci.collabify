@@ -50,6 +50,7 @@ import { NewItemDialog } from './NewItemDialog'
 import { RenameFolderDialog } from './RenameFolderDialog'
 import { RepoChangeRow } from './RepoChangeRow'
 import { RequestAccessButton } from './RequestAccessButton'
+import { CommitAccessButton } from './CommitAccessButton'
 import type { GeneralProjectState } from './useGeneralProject'
 
 type View = 'main' | 'draft' | 'changes' | 'history'
@@ -217,9 +218,10 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {!state.can('edit_files') && !state.archived && (
-            <RequestAccessButton state={state} permission="edit_files" />
+          {!state.can('commit_main') && !state.archived && (
+            <RequestAccessButton state={state} permission="commit_main" />
           )}
+          {state.commitRights.board && state.commitRights.grant && <CommitAccessButton state={state} />}
           {!state.archived && (
             <Button size="sm" onClick={() => setAdding(true)}>
               <Icon name="plus" size={14} />
@@ -567,7 +569,7 @@ function StarterFolders({
 function StartFiles({ state, onDone }: { state: GeneralProjectState; onDone: () => Promise<void> }) {
   const { show } = useToast()
   const [busy, setBusy] = useState(false)
-  const may = state.can('edit_files') && !state.archived
+  const may = state.can('commit_main') && !state.archived
 
   return (
     <div className="rounded-panel border border-dashed border-line px-4 py-10 text-center">
@@ -602,7 +604,7 @@ function StartFiles({ state, onDone }: { state: GeneralProjectState; onDone: () 
       ) : (
         !state.archived && (
           <div className="mt-4">
-            <RequestAccessButton state={state} permission="edit_files" />
+            <RequestAccessButton state={state} permission="commit_main" />
           </div>
         )
       )}
@@ -638,7 +640,7 @@ function MainView({
   const all = buildTree(tree)
 
   if (tree.length === 0) {
-    return draftFiles.length === 0 && state.can('edit_files') && !state.archived ? (
+    return draftFiles.length === 0 && state.can('commit_main') && !state.archived ? (
       <StarterFolders repo={repo} state={state} onDone={onStarted} />
     ) : (
       <p className="rounded-xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-muted">

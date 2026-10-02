@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLive } from '../../hooks/useLive'
 import {
+  getCommitRights,
   getGeneralProject,
   listAccessRequests,
   listFieldValues,
@@ -14,6 +15,7 @@ import {
   listTeamMembers,
   listTeams,
 } from '../../lib/api/general'
+import type { CommitRights } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { can as canDo } from '../../lib/general/permissions'
 import type { GeneralPermission } from '../../lib/general/permissions'
@@ -31,6 +33,8 @@ import type {
   GeneralTeamMember,
 } from '../../lib/general/types'
 import { fullName } from '../../lib/types'
+
+const NO_RIGHTS: CommitRights = { commit: false, grant: false, board: false, committers: [] }
 
 export type GeneralProjectState = {
   project: GeneralProjectSummary | null
@@ -57,6 +61,8 @@ export type GeneralProjectState = {
   isOwner: boolean
   ownerCount: number
   can: (permission: GeneralPermission) => boolean
+  /** Who may commit to Main and who decides it, from the server. */
+  commitRights: CommitRights
   nameOf: (userId: string) => string
 }
 
@@ -84,6 +90,7 @@ export function useGeneralProject(
   const [tasks, setTasks] = useState<GeneralTask[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [commitRights, setCommitRights] = useState<CommitRights>(NO_RIGHTS)
 
   const reload = useCallback(async () => {
     if (!projectId) {
@@ -105,10 +112,11 @@ export function useGeneralProject(
         setFields([])
         setValues([])
         setTasks([])
+        setCommitRights(NO_RIGHTS)
         setError(null)
         return
       }
-      const [m, g, r, t, tm, p, h, f, tk] = await Promise.all([
+      const [m, g, r, t, tm, p, h, f, tk, cr] = await Promise.all([
         listGeneralMembers(projectId),
         listGrants(projectId),
         listAccessRequests(projectId),
@@ -118,6 +126,7 @@ export function useGeneralProject(
         listPositionHolders(projectId),
         listFields(projectId),
         listTasks(projectId),
+        getCommitRights(projectId).catch(() => NO_RIGHTS),
       ])
       setMembers(m)
       setGrants(g)
@@ -128,6 +137,7 @@ export function useGeneralProject(
       setHolders(h)
       setFields(f)
       setTasks(tk)
+      setCommitRights(cr)
       setValues(await listFieldValues(f.map((x) => x.id)))
       setError(null)
     } catch (err) {
@@ -157,6 +167,8 @@ export function useGeneralProject(
     'general_field_values',
     'general_tasks',
     'general_task_assignees',
+    // A class board's Commit to Main follows its group's leader.
+    'groups',
   ])
 
   return useMemo(() => {
@@ -195,8 +207,11 @@ export function useGeneralProject(
         (m) => m.level === 'owner' && m.profile?.status !== 'rejected',
       ).length,
       can: (permission: GeneralPermission) =>
-        canDo(me?.level ?? null, myGrants, permission, archived),
+        permission === 'commit_main'
+          ? !archived && commitRights.commit
+          : canDo(me?.level ?? null, myGrants, permission, archived),
+      commitRights,
       nameOf: (userId: string) => names.get(userId) ?? 'A former member',
     }
-  }, [project, members, grants, requests, teams, teamMembers, positions, holders, fields, values, tasks, loading, error, reload, viewerId])
+  }, [project, members, grants, requests, teams, teamMembers, positions, holders, fields, values, tasks, loading, error, reload, viewerId, commitRights])
 }

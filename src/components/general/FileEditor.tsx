@@ -89,7 +89,7 @@ function Body({
 }) {
   const { show } = useToast()
   const readOnly = state.archived || file.sharedBy !== undefined
-  const mayCommit = state.can('edit_files') && !readOnly
+  const mayCommit = state.can('commit_main') && !readOnly
   const misreadOfficeFile = file.kind === 'text' && looksLikeMisreadOfficeFile(file.content)
   const frozen = readOnly || !isEditable(file.kind) || misreadOfficeFile
   const name = fileName(file.path)

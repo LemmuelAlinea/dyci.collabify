@@ -64,8 +64,10 @@ export function RepoChangeRow({
   const mine = change.author_id === state.viewerId
   const reviewers = change.reviewer_ids?.length ? change.reviewer_ids : change.reviewer_id ? [change.reviewer_id] : []
   const assignedToMe = isReviewer(change, state.viewerId ?? null)
-  // Any one of the reviewers asked may answer; with none named, anyone with edit_files.
-  const mayAnswer = !mine && change.status === 'open' && (reviewers.length > 0 ? assignedToMe : state.can('edit_files'))
+  // Any one of the reviewers asked may answer; with none named, anyone who can
+  // commit to Main. Merging lands it on Main, so that alone needs Commit to Main.
+  const mayAnswer = !mine && change.status === 'open' && (reviewers.length > 0 ? assignedToMe : state.can('commit_main'))
+  const mayMerge = mayAnswer && state.can('commit_main')
   const reviewerNames = reviewers.map((id) => state.nameOf(id))
   const stale = change.status === 'open' && change.base_seq !== repo.commit_count
   // Declined or withdrawn work can go back to its author's draft to be reworked.
@@ -348,20 +350,24 @@ export function RepoChangeRow({
                   >
                     Close
                   </Button>
-                  <Button
-                    size="sm"
-                    loading={busy}
-                    disabled={stale}
-                    onClick={() =>
-                      void run(
-                        async () => void (await answerRepoChange(change.id, true, note)),
-                        'Change merged',
-                        'Could not merge it.',
-                      )
-                    }
-                  >
-                    Merge
-                  </Button>
+                  {mayMerge ? (
+                    <Button
+                      size="sm"
+                      loading={busy}
+                      disabled={stale}
+                      onClick={() =>
+                        void run(
+                          async () => void (await answerRepoChange(change.id, true, note)),
+                          'Change merged',
+                          'Could not merge it.',
+                        )
+                      }
+                    >
+                      Merge
+                    </Button>
+                  ) : (
+                    <span className="text-[12px] text-faint">Merging needs Commit to Main.</span>
+                  )}
                 </div>
               )}
             </div>

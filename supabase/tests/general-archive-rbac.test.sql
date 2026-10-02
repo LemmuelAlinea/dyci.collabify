@@ -191,7 +191,7 @@ begin
   ------------------------------------------------------------------ the tables themselves
   perform pg_temp.act_as_service();
   insert into public.general_grants (project_id, user_id, permission, granted_by)
-  values (proj.id, carol, 'manage_tasks', owner_uid), (proj.id, dave, 'edit_files', owner_uid);
+  values (proj.id, carol, 'manage_tasks', owner_uid), (proj.id, dave, 'edit_files', owner_uid), (proj.id, dave, 'commit_main', owner_uid);
   insert into public.general_tasks (project_id, title, created_by)
   values (proj.id, 'Bob second', bob) returning id into t_bob2;
   insert into public.general_tasks (project_id, title, created_by)
@@ -313,7 +313,7 @@ begin
   select count(*) into n from public.general_task_files where id = f_alice;
   perform pg_temp.ok('...and reads it from the table', n = 1);
 
-  -- A member who removed a Main path (edit_files lets them commit).
+  -- A member who removed a Main path (commit_main lets them commit).
   perform pg_temp.act_as(dave);
   perform public.commit_general_files(repo.id, 'Drop a', 2, jsonb_build_array(
     jsonb_build_object('path', 'a.md', 'action', 'removed', 'kind', 'text', 'content', '')));

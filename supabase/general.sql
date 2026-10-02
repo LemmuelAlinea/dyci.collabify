@@ -13,7 +13,18 @@
 -- an archived project nobody can change anything until an Owner restores it.
 -- `src/lib/general/permissions.ts` mirrors this. Keep them in step.
 --
+-- `commit_main` (2026-10-03) is the one exception to "only an Owner grants":
+-- on a class board's hidden Files project the group's leader grants it, and the
+-- leader, a solo board's student, or anyone while the group has no leader holds
+-- it without a grant (`general_class_commit_ok`).
+--
 -- Requires supabase/workplaces.sql.
+
+-- A new enum value cannot be used in the transaction that adds it. On a fresh
+-- database the type does not exist yet and is created below with it.
+do $$ begin
+  alter type public.general_permission add value if not exists 'commit_main';
+exception when undefined_object then null; end $$;
 
 begin;
 
@@ -25,7 +36,7 @@ exception when duplicate_object then null; end $$;
 
 do $$ begin
   create type public.general_permission as enum
-    ('edit_project', 'manage_members', 'manage_structure', 'manage_tasks', 'edit_files');
+    ('edit_project', 'manage_members', 'manage_structure', 'manage_tasks', 'edit_files', 'commit_main');
 exception when duplicate_object then null; end $$;
 
 do $$ begin
@@ -240,6 +251,54 @@ returns boolean language sql stable security definer set search_path = public as
   );
 $$;
 
+/**
+ * Commit to Main on a class board's hidden Files project, without a grant: the
+ * group's leader, the student of a solo board, or any of its students while
+ * the group has no leader. Everyone else on a board needs the leader's grant.
+ * False for every other project.
+ */
+create or replace function public.general_class_commit_ok(p_project uuid)
+returns boolean language plpgsql stable security definer set search_path = public as $$
+declare
+  v_group  uuid;
+  v_solo   uuid;
+  v_leader uuid;
+begin
+  select b.group_id, b.student_id into v_group, v_solo
+    from public.general_projects gp
+    join public.project_boards b on b.id = gp.class_board_id
+   where gp.id = p_project;
+  if not found then
+    return false;
+  end if;
+  if v_group is null then
+    return v_solo = auth.uid();
+  end if;
+  select leader_id into v_leader from public.groups where id = v_group;
+  return v_leader is null or v_leader = auth.uid();
+end;
+$$;
+
+/** The leader of the group whose board this hidden Files project is. */
+create or replace function public.general_class_board_leads(p_project uuid)
+returns boolean language plpgsql stable security definer set search_path = public as $$
+begin
+  return exists (
+    select 1 from public.general_projects gp
+      join public.project_boards b on b.id = gp.class_board_id
+      join public.groups g on g.id = b.group_id
+     where gp.id = p_project and g.leader_id = auth.uid()
+  );
+end;
+$$;
+
+/** May grant, take back and answer requests for this permission. */
+create or replace function public.general_can_grant(p_project uuid, p_permission public.general_permission)
+returns boolean language sql stable security definer set search_path = public as $$
+  select public.is_general_owner(p_project)
+      or (p_permission = 'commit_main' and public.general_class_board_leads(p_project));
+$$;
+
 /** Holds the permission, archived or not. For deciding what somebody may read. */
 create or replace function public.general_has(
   p_project uuid,
@@ -256,6 +315,7 @@ create or replace function public.general_has(
        where g.project_id = p_project and g.user_id = auth.uid()
          and g.permission = p_permission
     )
+    or (p_permission = 'commit_main' and public.general_class_commit_ok(p_project))
   );
 $$;
 
@@ -267,6 +327,57 @@ create or replace function public.general_can(
   select not public.general_is_archived(p_project)
      and public.general_has(p_project, p_permission);
 $$;
+
+/**
+ * Commit to Main for the screen: whether the caller may commit, and whether
+ * they decide it for others. Asked of the server because on a class board it
+ * turns on the group's leader, which the project's own rows do not carry.
+ */
+create or replace function public.general_commit_rights(p_project uuid)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare
+  v_group  uuid;
+  v_solo   uuid;
+  v_leader uuid;
+  v_board  boolean;
+  who      uuid[];
+begin
+  if not public.is_general_member(p_project) then
+    return jsonb_build_object('commit', false, 'grant', false, 'board', false, 'committers', '[]'::jsonb);
+  end if;
+  select b.group_id, b.student_id, g.leader_id, gp.class_board_id is not null
+    into v_group, v_solo, v_leader, v_board
+    from public.general_projects gp
+    left join public.project_boards b on b.id = gp.class_board_id
+    left join public.groups g on g.id = b.group_id
+   where gp.id = p_project;
+
+  -- Everyone who could merge a change onto Main, for choosing reviewers.
+  select coalesce(array_agg(m.user_id), '{}') into who
+    from public.general_members m
+   where m.project_id = p_project
+     and (m.level in ('owner', 'manager')
+          or exists (select 1 from public.general_grants g
+                      where g.project_id = p_project and g.user_id = m.user_id and g.permission = 'commit_main')
+          or (v_board and (m.user_id = v_solo or (v_group is not null and (v_leader is null or v_leader = m.user_id)))));
+
+  return jsonb_build_object(
+    'commit', public.general_can(p_project, 'commit_main'),
+    'grant', public.general_can_grant(p_project, 'commit_main') and not public.general_is_archived(p_project),
+    'board', coalesce(v_board, false),
+    'committers', to_jsonb(who)
+  );
+end;
+$$;
+
+revoke all on function public.general_class_commit_ok(uuid) from public, anon;
+revoke all on function public.general_class_board_leads(uuid) from public, anon;
+revoke all on function public.general_can_grant(uuid, public.general_permission) from public, anon;
+revoke all on function public.general_commit_rights(uuid) from public, anon;
+grant execute on function public.general_class_commit_ok(uuid) to authenticated;
+grant execute on function public.general_class_board_leads(uuid) to authenticated;
+grant execute on function public.general_can_grant(uuid, public.general_permission) to authenticated;
+grant execute on function public.general_commit_rights(uuid) to authenticated;
 
 /** Whether the caller is a signed-in, active account. Deactivated accounts read nothing. */
 create or replace function public.general_viewer_active()
@@ -300,6 +411,7 @@ returns text language sql immutable as $$
     when 'manage_structure' then 'Manage teams and positions'
     when 'manage_tasks' then 'Manage all tasks'
     when 'edit_files' then 'Edit files on any task'
+    when 'commit_main' then 'Commit to Main'
   end;
 $$;
 
@@ -620,7 +732,7 @@ drop policy if exists general_access_requests_select on public.general_access_re
 create policy general_access_requests_select on public.general_access_requests
   for select using (
     (user_id = auth.uid() and public.general_viewer_active())
-    or public.is_general_owner(project_id)
+    or public.general_can_grant(project_id, permission)
   );
 
 drop policy if exists general_invitations_select on public.general_invitations;
@@ -1162,7 +1274,7 @@ language plpgsql security definer set search_path = public as $$
 declare
   lvl public.general_level;
 begin
-  if not public.is_general_owner(p_project) then
+  if not public.general_can_grant(p_project, p_permission) then
     raise exception 'Only an Owner grants permissions' using errcode = 'insufficient_privilege';
   end if;
   if public.general_is_archived(p_project) then
@@ -1199,7 +1311,7 @@ create or replace function public.revoke_general_permission(
 ) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  if not public.is_general_owner(p_project) then
+  if not public.general_can_grant(p_project, p_permission) then
     raise exception 'Only an Owner takes permissions back' using errcode = 'insufficient_privilege';
   end if;
   if public.general_is_archived(p_project) then
@@ -1234,7 +1346,7 @@ begin
   if lvl <> 'member' or exists (
     select 1 from public.general_grants
      where project_id = p_project and user_id = auth.uid() and permission = p_permission
-  ) then
+  ) or (p_permission = 'commit_main' and public.general_class_commit_ok(p_project)) then
     raise exception 'You already have that permission' using errcode = 'check_violation';
   end if;
   if exists (
@@ -1267,7 +1379,7 @@ declare
   lvl public.general_level;
 begin
   select * into req from public.general_access_requests where id = p_request for update;
-  if req.id is null or not public.is_general_owner(req.project_id) then
+  if req.id is null or not public.general_can_grant(req.project_id, req.permission) then
     raise exception 'Only an Owner answers access requests' using errcode = 'insufficient_privilege';
   end if;
   if req.status <> 'open' then

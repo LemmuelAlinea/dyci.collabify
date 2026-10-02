@@ -214,7 +214,7 @@ begin
          and (m.level in ('owner', 'manager')
               or exists (select 1 from public.general_grants g
                           where g.project_id = m.project_id and g.user_id = m.user_id
-                            and g.permission = 'edit_files'))
+                            and g.permission = 'commit_main'))
     ) r
     join public.notification_prefs np on np.user_id = r.user_id
    where np.submissions

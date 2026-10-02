@@ -65,20 +65,20 @@ begin
   insert into public.general_members (project_id, user_id, level)
   values (proj.id, dev_id, 'member'), (proj.id, member_id, 'member');
   insert into public.general_grants (project_id, user_id, permission, granted_by)
-  values (proj.id, dev_id, 'edit_files', owner_id);
+  values (proj.id, dev_id, 'edit_files', owner_id), (proj.id, dev_id, 'commit_main', owner_id);
 
   ------------------------------------------------------------------ starting
   perform pg_temp.act_as(member_id);
   begin
     perform public.create_general_repo(proj.id, 'Mine');
-    perform pg_temp.ok('a Member without edit_files cannot start a repository', false);
+    perform pg_temp.ok('a Member without Commit to Main cannot start a repository', false);
   exception when insufficient_privilege then
-    perform pg_temp.ok('a Member without edit_files cannot start a repository', true);
+    perform pg_temp.ok('a Member without Commit to Main cannot start a repository', true);
   end;
 
   perform pg_temp.act_as(dev_id);
   repo := public.create_general_repo(proj.id, 'Capstone', 'The system itself');
-  perform pg_temp.ok('a grant of edit_files starts a repository', repo.id is not null);
+  perform pg_temp.ok('a grant of Commit to Main starts a repository', repo.id is not null);
   perform pg_temp.ok('a new repository has no commits', repo.commit_count = 0);
 
   begin
@@ -269,14 +269,19 @@ begin
 
   begin
     perform public.answer_general_repo_change(chg.id, true, '');
-    perform pg_temp.ok('authors with edit_files cannot merge their own assigned change', false);
+    perform pg_temp.ok('authors who can commit cannot merge their own assigned change', false);
   exception when insufficient_privilege then
-    perform pg_temp.ok('authors with edit_files cannot merge their own assigned change', true);
+    perform pg_temp.ok('authors who can commit cannot merge their own assigned change', true);
   end;
 
+  -- Merging lands on Main, so the reviewer needs Commit to Main (commit-main.test.sql
+  -- shows one without it declining instead).
+  perform pg_temp.act_as_service();
+  insert into public.general_grants (project_id, user_id, permission, granted_by)
+  values (proj.id, member_id, 'commit_main', owner_id);
   perform pg_temp.act_as(member_id);
   chg := public.answer_general_repo_change(chg.id, true, 'Reviewed.');
-  perform pg_temp.ok('the assigned reviewer can merge without edit_files', chg.status = 'applied');
+  perform pg_temp.ok('the assigned reviewer with Commit to Main merges without edit_files', chg.status = 'applied');
 
   select count(*) into n from public.general_commits
    where repo_id = repo.id and seq = 6 and change_id = chg.id;

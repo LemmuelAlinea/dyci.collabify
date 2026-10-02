@@ -84,7 +84,7 @@ export function DraftPanel({
   const [committing, setCommitting] = useState<SubmitTarget | null>(null)
   const [sharing, setSharing] = useState<SubmitTarget | null>(null)
   const [typed, setTyped] = useState('')
-  const mayCommit = state.can('edit_files')
+  const mayCommit = state.can('commit_main')
   const [discarding, setDiscarding] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -275,7 +275,11 @@ export function DraftPanel({
         target={submitting}
         onClose={() => setSubmitting(null)}
         reviewers={state.members.filter(
-          (member) => member.user_id !== state.viewerId && member.profile?.status !== 'rejected',
+          // Only people who can merge it onto Main.
+          (member) =>
+            member.user_id !== state.viewerId &&
+            member.profile?.status !== 'rejected' &&
+            state.commitRights.committers.includes(member.user_id),
         )}
         onSubmit={async (title, body, reviewerIds) => {
           if (!submitting) return

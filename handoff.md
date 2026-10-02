@@ -2638,3 +2638,29 @@ composer has an Attach button (files only, `multiple`, no folder picking): up to
   an "Add a shared file…" picker listing the discussion's files, so a file the model did not
   link can be added by hand before saving. Root cause not confirmed: function logs need the
   dashboard (Edge Functions → work-ai → Logs, line `[tasks] shared … linked …`).
+
+**Change (2026-10-03): Commit to Main is its own permission (`commit_main`).** Until now
+`edit_files` both covered task files and let a Member commit straight to Main; it now covers
+task files only. Applied live (statements copied from their source files, not whole-file
+re-runs: `general-repo.sql` would revert the later `guard_general_commit`). Test
+`tests/commit-main.test.sql` 25 PASS; general-repo and general-archive-rbac updated to grant
+it where they commit; class-files, drafts, folders, files, shares, reports, review-many,
+general, notify, notification-coverage, anon-lockdown, rls-coverage, trash, archive-page pass.
+- Work projects: Owners and Managers hold it; Members need an Owner's grant or an approved
+  request (Members tab lists it like the others). **Started fresh**: nobody was migrated, so
+  Members who committed through `edit_files` now submit drafts for review until granted.
+- Class boards: `general_class_commit_ok` — the group's leader, a solo board's student, or
+  every student while the group has no leader commits without a grant. Once there is a
+  leader, groupmates need the leader's grant. `general_can_grant` lets the leader grant,
+  revoke and answer requests for `commit_main` only (Owners still for everything). Requests on
+  a board notify the leader and open the class project's Files.
+- Checks: `commit_general_files`, `create_general_repo`, and merging in
+  `answer_general_repo_change` (a named reviewer without it may decline, not merge); RLS on
+  `general_commits` / `general_blobs` inserts and `general_repos` writes. Review requests with
+  nobody named notify committers.
+- Screen: `general_commit_rights(project)` → { commit, grant, board, committers }, loaded in
+  `useGeneralProject` (`state.commitRights`; `can('commit_main')` reads it, live on `groups`).
+  Files header shows Request access for `commit_main`; a board's leader gets **Commit access**
+  (`CommitAccessButton`: requests, grant / take back per groupmate). Review pickers list only
+  committers; Merge shows only to them.
+- `docs/07-backup.md` apply order now includes discussion-polls-voice.sql and group-leader.sql.

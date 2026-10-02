@@ -18,6 +18,7 @@ export type GeneralPermission =
   | 'manage_structure'
   | 'manage_tasks'
   | 'edit_files'
+  | 'commit_main'
 
 export const PERMISSIONS: { value: GeneralPermission; label: string; note: string }[] = [
   {
@@ -44,6 +45,11 @@ export const PERMISSIONS: { value: GeneralPermission; label: string; note: strin
     value: 'edit_files',
     label: 'Edit files on any task',
     note: 'Add and remove files on every task, not only the tasks you hold.',
+  },
+  {
+    value: 'commit_main',
+    label: 'Commit to Main',
+    note: 'Save work straight to Main, and merge changes others submit. Without it, your work goes in as a change for someone who has it to review.',
   },
 ]
 

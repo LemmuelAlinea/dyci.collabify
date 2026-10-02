@@ -81,8 +81,28 @@ create trigger general_invitations_notify after insert on public.general_invitat
 
 create or replace function public.notify_general_access_request()
 returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  board record;
 begin
+  -- A class board's hidden Files project has no Owner and no page of its own:
+  -- its requests go to the group's leader and open the class project.
+  select b.project_id, pr.class_id, g.leader_id, pr.title
+    into board
+    from public.general_projects gp
+    join public.project_boards b on b.id = gp.class_board_id
+    join public.projects pr on pr.id = b.project_id
+    left join public.groups g on g.id = b.group_id
+   where gp.id = new.project_id;
+
   if tg_op = 'INSERT' then
+    if board.project_id is not null then
+      insert into public.notifications (user_id, type, project_id, class_id, title, preview)
+      select board.leader_id, 'general_access_requested'::public.notification_type,
+             board.project_id, board.class_id, board.title,
+             public.display_name(new.user_id) || ' asked for: ' || public.general_permission_label(new.permission)
+       where board.leader_id is not null and board.leader_id <> new.user_id;
+      return new;
+    end if;
     insert into public.notifications (user_id, type, general_project_id, title, preview)
     select o.user_id,
            'general_access_requested'::public.notification_type,
@@ -95,6 +115,14 @@ begin
       join public.profiles r on r.id = new.user_id
      where o.project_id = new.project_id and o.level = 'owner';
   elsif old.status = 'open' and new.status in ('approved', 'declined') then
+    if board.project_id is not null then
+      insert into public.notifications (user_id, type, project_id, class_id, title, preview)
+      values (new.user_id, 'general_access_answered'::public.notification_type,
+              board.project_id, board.class_id, board.title,
+              case when new.status = 'approved' then 'Approved: ' else 'Declined: ' end
+                || public.general_permission_label(new.permission));
+      return new;
+    end if;
     insert into public.notifications (user_id, type, general_project_id, title, preview)
     select new.user_id,
            'general_access_answered'::public.notification_type,

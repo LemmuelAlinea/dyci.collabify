@@ -343,7 +343,12 @@ begin
          and (m.level in ('owner', 'manager')
               or exists (select 1 from public.general_grants g
                           where g.project_id = m.project_id and g.user_id = m.user_id
-                            and g.permission = 'edit_files'))
+                            and g.permission = 'commit_main')
+              or exists (select 1 from public.general_projects gp
+                           join public.project_boards b on b.id = gp.class_board_id
+                           left join public.groups grp on grp.id = b.group_id
+                          where gp.id = m.project_id
+                            and (b.student_id = m.user_id or grp.leader_id is null or grp.leader_id = m.user_id)))
     ) r
     join public.notification_prefs np on np.user_id = r.user_id
    where np.submissions

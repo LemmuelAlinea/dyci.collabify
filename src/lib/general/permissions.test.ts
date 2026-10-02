@@ -57,6 +57,7 @@ describe('requestable', () => {
       'edit_project',
       'manage_members',
       'manage_structure',
+      'commit_main',
     ])
   })
 

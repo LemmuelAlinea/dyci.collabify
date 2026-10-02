@@ -63,7 +63,9 @@ function destination(n: AppNotification, role: Role | null, teaches: boolean): s
     case 'group_leader':
       return n.group_id ? paths.group(n.group_id) : paths.home
     case 'general_access_requested':
-      return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=members` : paths.home
+      if (n.general_project_id) return `${paths.project(n.general_project_id)}?tab=members`
+      // A class board's Files, where its leader answers.
+      return n.project_id ? `${paths.classProject(n.project_id)}?tab=files` : paths.home
   }
   if (n.general_project_id) {
     return `${paths.project(n.general_project_id)}${n.general_task_id ? `?task=${n.general_task_id}` : ''}`

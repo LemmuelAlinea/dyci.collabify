@@ -8,7 +8,8 @@
 --
 --   * a commit is a set of file writes applied together, with a message
 --   * a file's content lives on the commit that wrote it, so history is whole
---   * whoever holds `edit_files` commits straight to the repository
+--   * whoever holds `commit_main` commits straight to the repository
+--     (until 2026-10-03 this was `edit_files`; that now covers task files only)
 --   * everybody else opens a change, which is reviewed, commented on, and
 --     merged as a commit or closed
 --
@@ -361,8 +362,8 @@ create policy general_repos_select on public.general_repos
 
 drop policy if exists general_repos_write on public.general_repos;
 create policy general_repos_write on public.general_repos
-  for all using (public.general_can(project_id, 'edit_files'))
-  with check (public.general_can(project_id, 'edit_files'));
+  for all using (public.general_can(project_id, 'commit_main'))
+  with check (public.general_can(project_id, 'commit_main'));
 
 drop policy if exists general_commits_select on public.general_commits;
 create policy general_commits_select on public.general_commits
@@ -370,7 +371,7 @@ create policy general_commits_select on public.general_commits
 
 drop policy if exists general_commits_insert on public.general_commits;
 create policy general_commits_insert on public.general_commits
-  for insert with check (public.general_can(project_id, 'edit_files'));
+  for insert with check (public.general_can(project_id, 'commit_main'));
 
 drop policy if exists general_blobs_select on public.general_blobs;
 create policy general_blobs_select on public.general_blobs
@@ -378,7 +379,7 @@ create policy general_blobs_select on public.general_blobs
 
 drop policy if exists general_blobs_insert on public.general_blobs;
 create policy general_blobs_insert on public.general_blobs
-  for insert with check (public.general_can(project_id, 'edit_files'));
+  for insert with check (public.general_can(project_id, 'commit_main'));
 
 drop policy if exists general_repo_changes_select on public.general_repo_changes;
 create policy general_repo_changes_select on public.general_repo_changes
@@ -443,8 +444,8 @@ language plpgsql security definer set search_path = public as $$
 declare
   r public.general_repos%rowtype;
 begin
-  if not public.general_viewer_active() or not public.general_can(p_project, 'edit_files') then
-    raise exception 'You do not have permission to start a repository. Ask an Owner for it.'
+  if not public.general_viewer_active() or not public.general_can(p_project, 'commit_main') then
+    raise exception 'You do not have permission to start a repository. Ask an Owner for Commit to Main.'
       using errcode = 'insufficient_privilege';
   end if;
 
@@ -491,11 +492,11 @@ begin
 
   if not public.general_viewer_active()
      or not (
-       public.general_can(r.project_id, 'edit_files')
+       public.general_can(r.project_id, 'commit_main')
        or (p_change is not null
            and coalesce(current_setting('collabify.general_repo_op', true), 'off') = 'on')
      ) then
-    raise exception 'You do not have permission to commit. Open a change instead.'
+    raise exception 'You cannot commit to Main. Submit your draft for review instead, or ask for Commit to Main.'
       using errcode = 'insufficient_privilege';
   end if;
 
@@ -603,13 +604,18 @@ begin
   end if;
 
   -- Any one of the reviewers asked may answer; with none named, anyone who
-  -- holds edit_files.
+  -- holds commit_main. Merging lands it on Main, so that takes commit_main
+  -- whoever was asked.
   if not public.general_viewer_active()
      or (
        (cardinality(ch.reviewer_ids) > 0 and not auth.uid() = any (ch.reviewer_ids))
-       or (cardinality(ch.reviewer_ids) = 0 and not public.general_can(ch.project_id, 'edit_files'))
+       or (cardinality(ch.reviewer_ids) = 0 and not public.general_can(ch.project_id, 'commit_main'))
      ) then
     raise exception 'You are not the reviewer for this change'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_merge and not public.general_can(ch.project_id, 'commit_main') then
+    raise exception 'Merging puts this on Main, which needs Commit to Main. Decline it, or ask for that permission.'
       using errcode = 'insufficient_privilege';
   end if;
 

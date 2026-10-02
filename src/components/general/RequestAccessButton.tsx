@@ -35,6 +35,8 @@ export function RequestAccessButton({
   const [error, setError] = useState<string | null>(null)
 
   if (!state.project || state.archived || state.me?.level !== 'member') return null
+  // A class board's leader, or anyone there while the group has no leader, already can.
+  if (state.can(permission)) return null
   if (state.myOpenRequests.includes(permission)) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-lg surface-sunken px-2.5 py-1 text-[12px] text-muted">
@@ -51,7 +53,7 @@ export function RequestAccessButton({
     setBusy(true)
     try {
       await requestAccess(state.project.id, permission, reason)
-      show('Request sent to the Owners')
+      show(permission === 'commit_main' && state.commitRights.board ? 'Request sent to your group leader' : 'Request sent to the Owners')
       setOpen(false)
       setReason('')
       await state.reload()
