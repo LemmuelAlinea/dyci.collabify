@@ -212,6 +212,55 @@ begin
   insert into storage.objects (bucket_id, name, owner_id) values ('discussion-voice', v_path, v_a::text);
   v_voice2 := public.send_general_discussion_voice(d1, v_path, 5000);
 
+  ------------------------------------------------------------------ shared files
+  v_path := gp || '/' || d1 || '/' || gen_random_uuid() || '-brief.pdf';
+  perform pg_temp.act_as(v_out);
+  begin
+    insert into storage.objects (bucket_id, name, owner_id) values ('discussion-files', v_path, v_out::text);
+    refused := false;
+  exception when others then refused := true;
+  end;
+  perform pg_temp.ok('someone outside the group cannot upload a file there', refused);
+
+  perform pg_temp.act_as(v_a);
+  insert into storage.objects (bucket_id, name, owner_id) values ('discussion-files', v_path, v_a::text);
+  perform pg_temp.act_as(v_b);
+  begin
+    perform public.send_general_discussion_files(d1, '', jsonb_build_array(jsonb_build_object('path', v_path, 'name', 'brief.pdf')));
+    refused := false;
+  exception when invalid_parameter_value then refused := true;
+  end;
+  perform pg_temp.ok('nobody sends a file someone else uploaded', refused);
+
+  perform pg_temp.act_as(v_a);
+  perform public.send_general_discussion_files(d1, 'Use this <brief> for the survey',
+    jsonb_build_array(jsonb_build_object('path', v_path, 'name', 'brief.pdf', 'mime', 'application/pdf', 'size', 1234)));
+  perform pg_temp.ok('a member shares a file with a caption',
+    exists (select 1 from public.general_discussion_messages m join public.general_discussion_files f on f.message_id = m.id
+             where m.discussion_id = d1 and m.kind = 'file' and f.file_name = 'brief.pdf' and f.size_bytes = 1234));
+  begin
+    perform public.send_general_discussion_files(d1, '', jsonb_build_array(jsonb_build_object('path', v_path, 'name', 'again.pdf')));
+    refused := false;
+  exception when unique_violation then refused := true;
+  end;
+  perform pg_temp.ok('...once', refused);
+  begin
+    perform public.send_general_discussion_files(d1, 'nothing', '[]'::jsonb);
+    refused := false;
+  exception when check_violation then refused := true;
+  end;
+  perform pg_temp.ok('a file message needs a file', refused);
+
+  perform pg_temp.act_as(v_b);
+  perform pg_temp.ok('the group sees the file',
+    exists (select 1 from public.general_discussion_files where file_path = v_path)
+    and exists (select 1 from storage.objects where bucket_id = 'discussion-files' and name = v_path));
+  perform pg_temp.act_as(v_out);
+  perform pg_temp.ok('...and nobody outside it does',
+    not exists (select 1 from public.general_discussion_files where file_path = v_path)
+    and not exists (select 1 from storage.objects where bucket_id = 'discussion-files' and name = v_path));
+  perform pg_temp.act_as(v_a);
+
   ------------------------------------------------------------------ the file
   perform public.stop_general_discussion(d1);
   perform pg_temp.svc();
@@ -227,6 +276,8 @@ begin
     v_html like '%picking any number of options%' and v_html like '%<li>Adapter: 0 votes</li>%');
   perform pg_temp.ok('...each voice message as its corrected transcript, escaped',
     v_html like '%(voice message, 1:24, transcript corrected by the sender): Ako na sa slides, kayo na sa demo &amp; Q&lt;A&gt;.%');
+  perform pg_temp.ok('...each shared file by name with its caption, escaped',
+    v_html like '%shared <em>brief.pdf</em>: Use this &lt;brief&gt; for the survey</p>%');
   perform pg_temp.ok('...and a recording with no transcript says so',
     v_html like '%(voice message, 0:05): <em>Not transcribed.</em>%');
 

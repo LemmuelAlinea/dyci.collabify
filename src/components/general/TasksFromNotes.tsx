@@ -7,9 +7,10 @@ import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { listDiscussionFolders, listDiscussions } from '../../lib/api/discussions'
-import { assignTask, createTask } from '../../lib/api/general'
+import { attachSharedFiles } from '../../lib/general/sharedFiles'
+import { GENERAL_FILE_LIMIT, assignTask, createTask, uploadTaskFile } from '../../lib/api/general'
 import { draftWorkTasks } from '../../lib/api/workAi'
-import type { DraftedWorkTask } from '../../lib/api/workAi'
+import type { DraftSharedFile, DraftedWorkTask } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import type { GeneralProjectState } from './useGeneralProject'
@@ -43,8 +44,8 @@ export function TasksFromNotes({
   state: GeneralProjectState
   open: boolean
   onClose: () => void
-  /** Saves the kept rows and returns what to tell the person. */
-  onSave?: (rows: NoteTaskRow[]) => Promise<string>
+  /** Saves the kept rows and returns what to tell the person. `shared` is what their `files` name. */
+  onSave?: (rows: NoteTaskRow[], shared: DraftSharedFile[]) => Promise<string>
   mayAssign?: boolean
 }) {
   const { show } = useToast()
@@ -54,6 +55,7 @@ export function TasksFromNotes({
   const [files, setFiles] = useState<{ value: string; label: string }[] | null>(null)
   const [rows, setRows] = useState<Row[] | null>(null)
   const [note, setNote] = useState('')
+  const [shared, setShared] = useState<DraftSharedFile[]>([])
   const [busy, setBusy] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,6 +66,7 @@ export function TasksFromNotes({
     if (!open) {
       setRows(null)
       setNote('')
+      setShared([])
       setError(null)
       setText('')
       setDiscussionId('')
@@ -100,8 +103,9 @@ export function TasksFromNotes({
     try {
       const res = await draftWorkTasks(projectId, source === 'paste' ? { text } : { discussion_id: discussionId })
       if (res.result !== 'ok') return setError(res.message)
-      setRows(res.tasks.map((t) => ({ ...t, assignee: mayAssign ? t.assignee : '', keep: true })))
+      setRows(res.tasks.map((t) => ({ ...t, files: t.files ?? [], assignee: mayAssign ? t.assignee : '', keep: true })))
       setNote(res.note)
+      setShared(res.shared ?? [])
     } catch (err) {
       setError(authErrorMessage(err, 'No draft could be produced. Try again in a moment.'))
     } finally {
@@ -117,7 +121,7 @@ export function TasksFromNotes({
     setError(null)
     if (onSave) {
       try {
-        show(await onSave(keep))
+        show(await onSave(keep, shared))
         onClose()
       } catch (err) {
         setError(authErrorMessage(err, 'Those tasks could not be saved.'))
@@ -127,6 +131,7 @@ export function TasksFromNotes({
       return
     }
     let unassigned = 0
+    let missed = 0
     try {
       for (const r of keep) {
         const taskId = await createTask({
@@ -144,10 +149,14 @@ export function TasksFromNotes({
             unassigned++
           }
         }
+        missed += await attachSharedFiles(r.files, shared, GENERAL_FILE_LIMIT, (file) =>
+          uploadTaskFile(projectId, taskId, file),
+        )
       }
       show(
         `${keep.length} ${keep.length === 1 ? 'task' : 'tasks'} added` +
-          (unassigned > 0 ? `. ${unassigned} could not be given to the person named.` : ''),
+          (unassigned > 0 ? `. ${unassigned} could not be given to the person named.` : '') +
+          (missed > 0 ? `. ${missed} ${missed === 1 ? 'file' : 'files'} could not be added to ${missed === 1 ? 'its task' : 'their tasks'}.` : ''),
       )
       await state.reload()
       onClose()
@@ -298,6 +307,29 @@ export function TasksFromNotes({
                           aria-label={`Task ${i + 1} details`}
                           className="!text-[13px]"
                         />
+                      )}
+                      {r.files.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[12px] text-faint">Adds to its Files:</span>
+                          {r.files.map((id) => {
+                            const f = shared.find((x) => x.id === id)
+                            if (!f) return null
+                            return (
+                              <span key={id} className="flex items-center gap-1.5 rounded-lg surface-sunken py-1 pr-1 pl-2 text-[12px] text-ink">
+                                <Icon name="file" size={12} className="text-muted" />
+                                <span className="max-w-[180px] truncate">{f.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => patch(i, { files: r.files.filter((x) => x !== id) })}
+                                  aria-label={`Do not add ${f.name} to this task`}
+                                  className="grid h-5 w-5 place-items-center rounded-full text-faint hover:text-ink"
+                                >
+                                  <Icon name="x" size={11} />
+                                </button>
+                              </span>
+                            )
+                          })}
+                        </div>
                       )}
                       <div className="grid gap-2 sm:grid-cols-3">
                         <Input

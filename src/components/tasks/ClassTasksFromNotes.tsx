@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { TasksFromNotes } from '../general/TasksFromNotes'
+import { attachSharedFiles } from '../../lib/general/sharedFiles'
 import type { NoteTaskRow } from '../general/TasksFromNotes'
 import { useGeneralProject } from '../general/useGeneralProject'
 import { useToast } from '../ui/Toast'
 import { addTask, claimTask, ensureClassBoardRepo } from '../../lib/api/tasks'
+import { uploadTaskFile } from '../../lib/api/taskDetail'
+import type { DraftSharedFile } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
 import type { BoardSummary } from '../../lib/types'
 
@@ -50,10 +53,11 @@ export function ClassTasksFromNotes({
 
   const state = useGeneralProject(projectId, viewerId)
 
-  async function save(rows: NoteTaskRow[]) {
+  async function save(rows: NoteTaskRow[], shared: DraftSharedFile[]) {
     // A holder the board refuses (a full share already) still leaves the task
     // saved, open for someone to claim. Counted and said, not thrown.
     let unclaimed = 0
+    let missed = 0
     for (const r of rows) {
       const task = await addTask(
         board.id,
@@ -68,11 +72,14 @@ export function ClassTasksFromNotes({
           unclaimed++
         }
       }
+      // A class task's Files hold up to 20 MB each.
+      missed += await attachSharedFiles(r.files, shared, 20 * 1024 * 1024, (file) => uploadTaskFile(task.id, file))
     }
     await onSaved()
     return (
       `${rows.length} ${rows.length === 1 ? 'task' : 'tasks'} added` +
-      (unclaimed > 0 ? `. ${unclaimed} could not go to the person named and ${unclaimed === 1 ? 'is' : 'are'} open to claim.` : '')
+      (unclaimed > 0 ? `. ${unclaimed} could not go to the person named and ${unclaimed === 1 ? 'is' : 'are'} open to claim.` : '') +
+      (missed > 0 ? `. ${missed} ${missed === 1 ? 'file' : 'files'} could not be added to ${missed === 1 ? 'its task' : 'their tasks'}.` : '')
     )
   }
 

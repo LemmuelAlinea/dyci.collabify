@@ -1,4 +1,4 @@
--- Collabify — polls and voice messages in a live discussion.
+-- Collabify — polls, voice messages and shared files in a live discussion.
 --
 --   node scripts/db.mjs supabase/discussion-polls-voice.sql
 --
@@ -8,6 +8,11 @@
 --   voice  body is the transcript (empty until it is written); the audio sits
 --          in the private `discussion-voice` bucket at
 --          <project id>/<discussion id>/<file>
+--   file   body is an optional caption; the files are rows of
+--          general_discussion_files, in the private `discussion-files` bucket
+--          at the same kind of path. They are references: the work-ai task
+--          drafter reads them, never makes a task of a file by itself, and
+--          offers one with a task only when the discussion ties them together.
 --
 -- Voice messages are transcribed by the `transcribe-voice` edge function
 -- (Groq Whisper). It writes `body` and `transcript_status` with the service
@@ -39,11 +44,12 @@ alter table public.general_discussion_messages
   drop constraint if exists general_discussion_messages_voice;
 
 alter table public.general_discussion_messages
-  add constraint general_discussion_messages_kind check (kind in ('text', 'poll', 'voice')),
+  add constraint general_discussion_messages_kind check (kind in ('text', 'poll', 'voice', 'file')),
   -- A voice message may be empty while it waits for its transcript, and five
   -- minutes of speech runs longer than a typed message is allowed to.
   add constraint general_discussion_messages_body check (
     case when kind = 'voice' then char_length(body) <= 8000
+         when kind = 'file' then char_length(body) <= 4000
          else char_length(btrim(body)) between 1 and 4000 end),
   add constraint general_discussion_messages_voice check (
     (kind = 'voice') = (audio_path is not null)
@@ -423,6 +429,107 @@ returns text language sql stable security definer set search_path = public as $$
    group by p.voters, p.allow_multiple;
 $$;
 
+-- ---------------------------------------------------------------- shared files
+
+create table if not exists public.general_discussion_files (
+  id            uuid primary key default gen_random_uuid(),
+  message_id    uuid not null references public.general_discussion_messages (id) on delete cascade,
+  discussion_id uuid not null references public.general_discussions (id) on delete cascade,
+  project_id    uuid not null references public.general_projects (id) on delete cascade,
+  uploaded_by   uuid references public.profiles (id) on delete set null,
+  file_path     text not null unique,
+  file_name     text not null,
+  mime_type     text,
+  size_bytes    bigint not null default 0,
+  created_at    timestamptz not null default now(),
+  constraint general_discussion_files_name check (char_length(file_name) between 1 and 255),
+  constraint general_discussion_files_size check (size_bytes between 0 and 26214400)
+);
+
+create index if not exists general_discussion_files_message_idx on public.general_discussion_files (message_id);
+create index if not exists general_discussion_files_discussion_idx on public.general_discussion_files (discussion_id);
+
+alter table public.general_discussion_files enable row level security;
+
+drop policy if exists general_discussion_files_read on public.general_discussion_files;
+create policy general_discussion_files_read on public.general_discussion_files
+  for select using (public.is_general_member(project_id));
+
+revoke all on public.general_discussion_files from public, anon, authenticated;
+grant select on public.general_discussion_files to authenticated;
+
+drop trigger if exists general_discussion_files_class_board on public.general_discussion_files;
+create trigger general_discussion_files_class_board before insert or update on public.general_discussion_files
+  for each row execute function public.guard_class_board_files();
+
+-- Any kind of file, up to 25 MB each.
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('discussion-files', 'discussion-files', false, 26214400)
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit;
+
+-- Same paths and rules as recordings: upload only into a live discussion of a
+-- project you are on; members read; nobody replaces or removes.
+drop policy if exists discussion_files_read on storage.objects;
+create policy discussion_files_read on storage.objects
+  for select using (bucket_id = 'discussion-files' and public.discussion_voice_readable(name));
+
+drop policy if exists discussion_files_write on storage.objects;
+create policy discussion_files_write on storage.objects
+  for insert with check (bucket_id = 'discussion-files' and public.discussion_voice_path_ok(name));
+
+/**
+ * Sends files the caller has just uploaded, with an optional caption.
+ *   p_files: [{ "path": "...", "name": "brief.pdf", "mime": "application/pdf", "size": 1234 }, ...]
+ */
+create or replace function public.send_general_discussion_files(p_discussion uuid, p_body text, p_files jsonb)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  d public.general_discussions%rowtype;
+  f jsonb;
+  v_id uuid;
+  v_path text;
+begin
+  select * into d from public.general_discussions where id = p_discussion;
+  if not found then
+    raise exception 'That discussion is gone' using errcode = 'no_data_found';
+  end if;
+  perform public.general_discussion_check(d.project_id);
+  if d.ended_at is not null then
+    raise exception 'This discussion has stopped. Start a new one to keep talking.'
+      using errcode = 'check_violation';
+  end if;
+  if p_files is null or jsonb_typeof(p_files) <> 'array' or jsonb_array_length(p_files) not between 1 and 10 then
+    raise exception 'Send between 1 and 10 files at a time.' using errcode = 'check_violation';
+  end if;
+
+  for f in select * from jsonb_array_elements(p_files) loop
+    v_path := f ->> 'path';
+    if v_path is null or v_path not like d.project_id || '/' || d.id || '/%'
+       or not exists (select 1 from storage.objects o
+                       where o.bucket_id = 'discussion-files' and o.name = v_path
+                         and o.owner_id = auth.uid()::text) then
+      raise exception 'A file did not upload. Attach it again.' using errcode = 'invalid_parameter_value';
+    end if;
+    if exists (select 1 from public.general_discussion_files where file_path = v_path) then
+      raise exception 'That file was already sent.' using errcode = 'unique_violation';
+    end if;
+  end loop;
+
+  insert into public.general_discussion_messages (discussion_id, project_id, sender_id, body, kind)
+  values (p_discussion, d.project_id, auth.uid(), left(btrim(coalesce(p_body, '')), 4000), 'file')
+  returning id into v_id;
+
+  insert into public.general_discussion_files
+    (message_id, discussion_id, project_id, uploaded_by, file_path, file_name, mime_type, size_bytes)
+  select v_id, p_discussion, d.project_id, auth.uid(), x ->> 'path',
+         left(coalesce(nullif(btrim(x ->> 'name'), ''), 'file'), 255),
+         nullif(x ->> 'mime', ''),
+         least(greatest(coalesce((x ->> 'size')::bigint, 0), 0), 26214400)
+    from jsonb_array_elements(p_files) x;
+  return v_id;
+end;
+$$;
+
 revoke all on function public.discussion_voice_path_ok(text) from public, anon;
 revoke all on function public.discussion_voice_readable(text) from public, anon;
 grant execute on function public.discussion_voice_path_ok(text) to authenticated;
@@ -440,7 +547,8 @@ begin
     'add_general_discussion_poll_option(uuid, text)',
     'set_general_discussion_poll_closed(uuid, boolean)',
     'send_general_discussion_voice(uuid, text, integer)',
-    'edit_general_discussion_transcript(uuid, text)'
+    'edit_general_discussion_transcript(uuid, text)',
+    'send_general_discussion_files(uuid, text, jsonb)'
   ] loop
     execute format('revoke all on function public.%s from public, anon', f);
     execute format('grant execute on function public.%s to authenticated', f);
@@ -457,7 +565,7 @@ declare
   t text;
 begin
   foreach t in array array['general_discussion_polls', 'general_discussion_poll_options',
-                           'general_discussion_poll_votes'] loop
+                           'general_discussion_poll_votes', 'general_discussion_files'] loop
     begin
       execute format('alter publication supabase_realtime add table public.%I', t);
     exception when duplicate_object then null;

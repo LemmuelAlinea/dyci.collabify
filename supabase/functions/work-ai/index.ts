@@ -18,6 +18,8 @@ import Anthropic from 'npm:@anthropic-ai/sdk'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { extractText, getDocumentProxy } from 'npm:unpdf'
+import { strFromU8, unzipSync } from 'npm:fflate'
+import { encodeBase64 } from 'jsr:@std/encoding/base64'
 import { cors, corsMode, denied } from '../_shared/cors.ts'
 
 const MODEL = 'claude-opus-5'
@@ -103,7 +105,7 @@ async function pdfText(caller: SupabaseClient, storagePath: string) {
 async function ask(
   anthropic: Anthropic,
   system: string,
-  user: string,
+  user: string | Anthropic.ContentBlockParam[],
   schema: Json,
   effort: Effort,
   maxTokens = 8000,
@@ -132,6 +134,102 @@ const VOICE = `Write in plain, direct English (or Filipino if the source is in
 Filipino). Sentence case. No exclamation marks, no "please", no filler, no
 praise.`
 
+/* ------------------------------------------------ discussion files */
+
+const DISCUSSION_FILES = 'discussion-files'
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+const TEXT_EXT = ['txt', 'md', 'csv', 'tsv', 'json', 'xml', 'html', 'htm', 'yml', 'yaml', 'log', 'sql', 'js', 'ts', 'py', 'java', 'c', 'cpp', 'css']
+
+type SharedFile = { id: string; name: string; path: string; mime: string | null; size: number }
+
+/** A Word file's text, from its document.xml. */
+function docxText(bytes: Uint8Array) {
+  const files = unzipSync(bytes, { filter: (f) => f.name === 'word/document.xml' })
+  const xml = files['word/document.xml']
+  if (!xml) return ''
+  return htmlToText(
+    strFromU8(xml)
+      .replace(/<w:tab\/>/g, '\t')
+      .replace(/<\/w:p>/g, '</p>'),
+  )
+}
+
+/**
+ * The files shared in a discussion, as content the model can read: text for
+ * documents, the PDF itself, the picture itself. Each is labelled with a short
+ * id (f1, f2…) so the model can say which belong to which task. Anything it
+ * cannot read is still listed by name.
+ */
+async function sharedFileBlocks(ctx: Ctx, discussionId: string) {
+  // Through the caller's token: only files they may see.
+  const { data } = await ctx.caller
+    .from('general_discussion_files')
+    .select('id, file_name, file_path, mime_type, size_bytes')
+    .eq('discussion_id', discussionId)
+    .order('created_at')
+    .limit(20)
+  const rows = (data ?? []) as { id: string; file_name: string; file_path: string; mime_type: string | null; size_bytes: number }[]
+  const files: SharedFile[] = rows.map((r) => ({ id: r.id, name: r.file_name, path: r.file_path, mime: r.mime_type, size: r.size_bytes }))
+  const blocks: Anthropic.ContentBlockParam[] = []
+  const short = new Map<string, string>()
+  let bytesLeft = 24 * 1024 * 1024
+  let textLeft = 60000
+
+  for (const [i, file] of files.entries()) {
+    const label = `f${i + 1}`
+    short.set(label, file.id)
+    const head = `=== Shared file ${label}: ${file.name} ===`
+    const ext = file.name.slice(file.name.lastIndexOf('.') + 1).toLowerCase()
+    const mime = (file.mime ?? '').toLowerCase()
+    const tooBig = file.size > bytesLeft
+    const readable =
+      mime === 'application/pdf' || ext === 'pdf' || IMAGE_TYPES.includes(mime) || ext === 'docx' ||
+      mime.startsWith('text/') || TEXT_EXT.includes(ext)
+    if (!readable || tooBig) {
+      blocks.push({ type: 'text', text: `${head}\n(${tooBig ? 'too large to read here' : 'not a kind that can be read'}; known by its name only)` })
+      continue
+    }
+    const { data: blob } = await ctx.caller.storage.from(DISCUSSION_FILES).download(file.path)
+    if (!blob) {
+      blocks.push({ type: 'text', text: `${head}\n(could not be opened; known by its name only)` })
+      continue
+    }
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    try {
+      if (mime === 'application/pdf' || ext === 'pdf') {
+        bytesLeft -= bytes.length
+        blocks.push({ type: 'text', text: head })
+        blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: encodeBase64(bytes) } })
+      } else if (IMAGE_TYPES.includes(mime)) {
+        if (bytes.length > 4.5 * 1024 * 1024) {
+          blocks.push({ type: 'text', text: `${head}\n(a picture too large to look at here; known by its name only)` })
+          continue
+        }
+        bytesLeft -= bytes.length
+        blocks.push({ type: 'text', text: head })
+        blocks.push({
+          type: 'image',
+          source: { type: 'base64', media_type: mime as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp', data: encodeBase64(bytes) },
+        })
+      } else {
+        const text = ext === 'docx' ? docxText(bytes) : new TextDecoder().decode(bytes)
+        const each = Math.max(0, Math.min(15000, textLeft))
+        textLeft -= Math.min(text.length, each)
+        blocks.push({ type: 'text', text: `${head}\n${each > 0 ? cap(text, each) : '(no room left to include its text)'}` })
+      }
+    } catch {
+      blocks.push({ type: 'text', text: `${head}\n(could not be read; known by its name only)` })
+    }
+  }
+  return { files, blocks, short }
+}
+
+/** The text alone, or the text followed by the shared files. */
+function withFiles(text: string, blocks: Anthropic.ContentBlockParam[]) {
+  if (blocks.length === 0) return text
+  return [{ type: 'text' as const, text: `${text}\n\nFiles shared in the discussion follow.` }, ...blocks]
+}
+
 /* -------------------------------------------------------------- actions */
 
 type Ctx = { caller: SupabaseClient; anthropic: Anthropic; userId: string; projectId: string; body: Json }
@@ -151,6 +249,7 @@ async function tasksAction(ctx: Ctx) {
   // somebody else on one is still checked when the task is saved.
   let source = String(ctx.body.text ?? '').trim()
   const discussionId = String(ctx.body.discussion_id ?? '')
+  let shared: Awaited<ReturnType<typeof sharedFileBlocks>> = { files: [], blocks: [], short: new Map() }
   if (discussionId) {
     // Read through the caller's token, so only a discussion they may see comes back.
     const { data: discussion } = await ctx.caller
@@ -162,6 +261,7 @@ async function tasksAction(ctx: Ctx) {
     if (!discussion) throw new Refused('That discussion is not in this project.')
     if (!discussion.ended_at) throw new Refused('That discussion is still running. Stop it first, then draft tasks from its file.')
     source = htmlToText(String(discussion.content_html ?? '')).trim()
+    shared = await sharedFileBlocks(ctx, discussionId)
   }
   if (source.length < 20) throw new Refused('Give it a little more to read: paste the notes, or pick a discussion.')
 
@@ -195,21 +295,31 @@ discussion, not background, not things already done.
 - due: YYYY-MM-DD if the text gives or clearly implies a date (resolve "Friday"
   against today), else empty. Never invent one.
 - At most 25 items, in the order the text gives them.
+- files: shared files (f1, f2…) are reference material people sent during the
+  discussion. Read them for detail that sharpens a task: requirements, names,
+  dates, steps. Never make a task only because a file was shared, and never a
+  task like "review the file" unless the discussion asks someone to do that.
+  Put a file's id on a task only when the discussion ties that file to that
+  task: it is the task's template, input or brief, or the work is done in it.
+  Otherwise empty.
 - note: one short sentence on what you read, or what was unclear.
 ${VOICE}`,
-    [
-      `Today: ${today}`,
-      `Project: ${project?.name ?? ''}${project?.starts_on ? `, runs ${project.starts_on} to ${project.ends_on ?? 'open'}` : ''}`,
-      `Members (id: name):\n${people.map((p) => `${p.id}: ${p.name}`).join('\n')}`,
-      teamNames.length ? `Teams: ${teamNames.join(', ')}` : 'Teams: none',
-      '',
-      'Text:',
-      cap(source, 60000),
-    ].join('\n'),
+    withFiles(
+      [
+        `Today: ${today}`,
+        `Project: ${project?.name ?? ''}${project?.starts_on ? `, runs ${project.starts_on} to ${project.ends_on ?? 'open'}` : ''}`,
+        `Members (id: name):\n${people.map((p) => `${p.id}: ${p.name}`).join('\n')}`,
+        teamNames.length ? `Teams: ${teamNames.join(', ')}` : 'Teams: none',
+        '',
+        'Text:',
+        cap(source, 60000),
+      ].join('\n'),
+      shared.blocks,
+    ),
     obj({
       tasks: {
         type: 'array',
-        items: obj({ title: str, description: str, assignee: str, team: str, due: str }),
+        items: obj({ title: str, description: str, assignee: str, team: str, due: str, files: { type: 'array', items: str } }),
       },
       note: str,
     }),
@@ -226,8 +336,9 @@ ${VOICE}`,
       assignee: ids.has(String(t.assignee)) ? String(t.assignee) : '',
       team: teamNames.includes(String(t.team)) ? String(t.team) : '',
       due: /^\d{4}-\d{2}-\d{2}$/.test(String(t.due)) ? String(t.due) : '',
+      files: [...new Set(((t.files as unknown[]) ?? []).map((x) => shared.short.get(String(x))).filter((x): x is string => Boolean(x)))],
     }))
-  return { tasks, note: String(out.note ?? '').slice(0, 300) }
+  return { tasks, note: String(out.note ?? '').slice(0, 300), shared: shared.files }
 }
 
 /** Old and new text per path, for describing a change. */

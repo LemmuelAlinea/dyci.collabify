@@ -16,7 +16,11 @@ import {
   createDiscussionPoll,
   deleteDiscussionFolder,
   discussionPollActions,
+  listDiscussionFiles,
   listDiscussionPolls,
+  sendDiscussionFiles,
+  DISCUSSION_FILE_LIMIT,
+  DISCUSSION_FILES_PER_MESSAGE,
   listDiscussionFolders,
   listDiscussionMessages,
   listDiscussions,
@@ -48,6 +52,9 @@ import { PollCard } from '../messages/PollCard'
 import type { Poll } from '../../lib/types'
 import { VoiceMessage } from './VoiceMessage'
 import { VoiceRecorder } from './VoiceRecorder'
+import { DiscussionFiles } from './DiscussionFiles'
+import { formatBytes } from '../../lib/formatBytes'
+import type { GeneralDiscussionFile } from '../../lib/general/types'
 import { canRecordVoice } from '../../lib/voice'
 
 const NOTICE_KEY = 'collabify.discussion-notice-closed'
@@ -432,6 +439,9 @@ function LiveRoom({
   const [urls, setUrls] = useState(new Map<string, string>())
   const [pollOpen, setPollOpen] = useState(false)
   const [recording, setRecording] = useState(false)
+  const [shared, setShared] = useState(new Map<string, GeneralDiscussionFile[]>())
+  const [staged, setStaged] = useState<File[]>([])
+  const pickRef = useRef<HTMLInputElement>(null)
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const [stopping, setStopping] = useState(false)
@@ -440,12 +450,14 @@ function LiveRoom({
   const signed = useRef(new Set<string>())
   const load = useCallback(async () => {
     try {
-      const [rows, found] = await Promise.all([
+      const [rows, found, files] = await Promise.all([
         listDiscussionMessages(discussion.id),
         listDiscussionPolls(discussion.id),
+        listDiscussionFiles(discussion.id),
       ])
       setMessages(rows)
       setPolls(found)
+      setShared(files)
       // Each recording is signed once; the link lasts an hour, longer than a room stays open.
       const fresh = rows
         .map((m) => m.audio_path)
@@ -466,7 +478,7 @@ function LiveRoom({
 
   useLive(
     load,
-    ['general_discussion_messages', 'general_discussion_polls', 'general_discussion_poll_options', 'general_discussion_poll_votes'],
+    ['general_discussion_messages', 'general_discussion_polls', 'general_discussion_poll_options', 'general_discussion_poll_votes', 'general_discussion_files'],
     { every: 10_000 },
   )
 
@@ -478,12 +490,37 @@ function LiveRoom({
   const lead = state.me?.level === 'owner' || state.me?.level === 'manager'
   const mayStop = !readOnly && (discussion.started_by === state.viewerId || (lead && !starterHere))
 
+  function pick(list: FileList | null) {
+    if (!list) return
+    const next: File[] = []
+    for (const file of Array.from(list)) {
+      if (file.size > DISCUSSION_FILE_LIMIT) {
+        show(`${file.name} is ${formatBytes(file.size)}. Files can be up to 25 MB; share a link to anything bigger.`, 'error')
+        continue
+      }
+      next.push(file)
+    }
+    setStaged((prev) => {
+      const all = [...prev, ...next]
+      if (all.length > DISCUSSION_FILES_PER_MESSAGE) {
+        show(`Send up to ${DISCUSSION_FILES_PER_MESSAGE} files at a time.`, 'error')
+      }
+      return all.slice(0, DISCUSSION_FILES_PER_MESSAGE)
+    })
+    if (pickRef.current) pickRef.current.value = ''
+  }
+
   async function send() {
     const text = body.trim()
-    if (!text || sending) return
+    if ((!text && staged.length === 0) || sending) return
     setSending(true)
     try {
-      await sendDiscussionMessage(discussion.id, text)
+      if (staged.length > 0) {
+        await sendDiscussionFiles({ projectId: discussion.project_id, discussionId: discussion.id, body: text, files: staged })
+        setStaged([])
+      } else {
+        await sendDiscussionMessage(discussion.id, text)
+      }
       setBody('')
       await load()
     } catch (err) {
@@ -578,6 +615,13 @@ function LiveRoom({
                     ) : (
                       <p className="font-medium">{m.body}</p>
                     )
+                  ) : m.kind === 'file' ? (
+                    <>
+                      {m.body.trim() && (
+                        <p className="mb-2 whitespace-pre-wrap break-words"><Linkify text={m.body} tone="inherit" /></p>
+                      )}
+                      <DiscussionFiles files={shared.get(m.id) ?? []} mine={navy} />
+                    </>
                   ) : m.kind === 'voice' ? (
                     <VoiceMessage
                       m={m}
@@ -609,9 +653,39 @@ function LiveRoom({
         </div>
       )}
 
+      {!readOnly && !recording && staged.length > 0 && (
+        <ul className="flex flex-wrap gap-2 border-t border-line px-4 pt-3" aria-label="Files to send">
+          {staged.map((file, i) => (
+            <li key={`${file.name}-${i}`} className="flex items-center gap-2 rounded-lg surface-sunken py-1.5 pr-1.5 pl-2.5">
+              <Icon name="file" size={14} className="text-muted" />
+              <span className="max-w-[180px] truncate text-[12px] text-ink">{file.name}</span>
+              <span className="text-[11px] text-faint">{formatBytes(file.size)}</span>
+              <button
+                type="button"
+                onClick={() => setStaged((list) => list.filter((_, n) => n !== i))}
+                aria-label={`Remove ${file.name}`}
+                className="grid h-6 w-6 place-items-center rounded-full text-faint hover:text-ink"
+              >
+                <Icon name="x" size={13} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {!readOnly && !recording && (
-        <div className="flex items-end gap-2 border-t border-line px-4 py-3">
+        <div className={`flex items-end gap-2 px-4 py-3 ${staged.length > 0 ? '' : 'border-t border-line'}`}>
           <div className="flex shrink-0 flex-col gap-1 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => pickRef.current?.click()}
+              aria-label="Attach files"
+              title="Attach files (up to 25 MB each)"
+              className="grid h-10 w-10 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+            >
+              <Icon name="upload" size={18} />
+            </button>
+            <input ref={pickRef} type="file" multiple className="hidden" onChange={(e) => pick(e.target.files)} />
             <button
               type="button"
               onClick={() => setPollOpen(true)}
@@ -649,7 +723,7 @@ function LiveRoom({
               aria-label="Message"
             />
           </div>
-          <Button loading={sending} disabled={!body.trim()} onClick={() => void send()}>
+          <Button loading={sending} disabled={!body.trim() && staged.length === 0} onClick={() => void send()}>
             Send
           </Button>
         </div>

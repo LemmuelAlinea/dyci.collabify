@@ -466,12 +466,26 @@ export type GeneralDiscussionMessage = {
   sender_id: string | null
   /** The text; a poll's question; a voice message's transcript (empty until written). */
   body: string
-  kind: 'text' | 'poll' | 'voice'
+  kind: 'text' | 'poll' | 'voice' | 'file'
   audio_path: string | null
   audio_ms: number | null
   transcript_status: 'pending' | 'working' | 'done' | 'failed' | null
   /** Set once the sender corrected the transcript. */
   transcript_edited_at: string | null
+  created_at: string
+}
+
+/** A file someone shared in a live discussion, for reference. */
+export type GeneralDiscussionFile = {
+  id: string
+  message_id: string
+  discussion_id: string
+  project_id: string
+  uploaded_by: string | null
+  file_path: string
+  file_name: string
+  mime_type: string | null
+  size_bytes: number
   created_at: string
 }
 

@@ -2592,3 +2592,24 @@ spots it and `MessageBubble` draws a player (`w-[min(300px,62vw)]`) instead of a
 SQL change. Composer side buttons are `w-9` below `sm` so the text box keeps room at 320 px.
 Checked with a throwaway fixture page at 320 px (no horizontal scroll); playback itself not
 seen in the pane (signed URL needs sign-in), recording not testable there (mic blocked).
+
+**Change (2026-10-03): files in discussions, read by the task drafter.** The live room's
+composer has an Attach button (files only, `multiple`, no folder picking): up to 10 per message,
+25 MB each, with an optional caption. Pictures show inline; other files open in a new tab.
+- SQL in `discussion-polls-voice.sql` (applied; suite now 43 PASS): message kind `file`,
+  `general_discussion_files` (members read), private bucket `discussion-files` (same path and
+  upload rules as recordings), `send_general_discussion_files(discussion, body, files jsonb)`
+  (own uploads in this live discussion only, once). `stop_general_discussion` writes
+  "<name> shared <em>file</em>: caption". Storage sweep covers the bucket.
+- `work-ai` `tasks` (deployed): drafting from a discussion also reads its shared files through
+  the caller's JWT — PDFs and pictures go to the model as they are, Word as text from
+  document.xml (fflate), plain-text kinds as text; others by name only; 24 MB / 60k chars total.
+  The prompt says files are reference material, never a task on their own; a task's `files`
+  lists only those the discussion ties to it. Returns `shared` (id, name, path, mime, size).
+- `TasksFromNotes` shows "Adds to its Files:" chips per draft (removable); on save each kept
+  file is downloaded and uploaded into that task's Files (`lib/general/sharedFiles.ts`): work
+  tasks via `general.uploadTaskFile` (50 MB), class tasks via `taskDetail.uploadTaskFile`
+  (20 MB); a file that cannot go is counted in the toast, never fails the save.
+- Checked: build, 596 Vitest, SQL suites discussion-polls-voice, general-discussions,
+  anon-lockdown, rls-coverage, storage-sweep; file bubbles at 320 px on a throwaway page.
+  The AI path itself was not run (needs a signed-in member and a stopped discussion).

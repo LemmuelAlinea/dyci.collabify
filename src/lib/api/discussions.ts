@@ -4,6 +4,7 @@ import type { PollActions } from './polls'
 import type { Poll } from '../types'
 import type {
   GeneralDiscussion,
+  GeneralDiscussionFile,
   GeneralDiscussionFolder,
   GeneralDiscussionMessage,
 } from '../general/types'
@@ -176,4 +177,63 @@ export async function voiceUrls(paths: string[]) {
   const out = new Map<string, string>()
   for (const d of data ?? []) if (d.path && d.signedUrl) out.set(d.path, d.signedUrl)
   return out
+}
+
+/* ------------------------------------------------------------ shared files */
+
+export const DISCUSSION_FILES_BUCKET = 'discussion-files'
+export const DISCUSSION_FILE_LIMIT = 25 * 1024 * 1024
+export const DISCUSSION_FILES_PER_MESSAGE = 10
+
+/** A discussion's shared files by the message that carries them. */
+export async function listDiscussionFiles(discussionId: string) {
+  const { data, error } = await supabase
+    .from('general_discussion_files')
+    .select('*')
+    .eq('discussion_id', discussionId)
+    .order('created_at')
+  if (error) throw error
+  const out = new Map<string, GeneralDiscussionFile[]>()
+  for (const f of (data ?? []) as GeneralDiscussionFile[]) out.set(f.message_id, [...(out.get(f.message_id) ?? []), f])
+  return out
+}
+
+/** Uploads files into the live discussion and sends them with an optional caption. */
+export async function sendDiscussionFiles(input: {
+  projectId: string
+  discussionId: string
+  body: string
+  files: File[]
+}) {
+  // An upload that never becomes a message is cleared by the storage sweep.
+  const sent: { path: string; name: string; mime: string; size: number }[] = []
+  for (const file of input.files) {
+    if (file.size > DISCUSSION_FILE_LIMIT) throw new Error(`${file.name} is over 25 MB. Share a link to it instead.`)
+    const safe = file.name.replace(/[^\w.-]+/g, '_').slice(-120)
+    const path = `${input.projectId}/${input.discussionId}/${crypto.randomUUID()}-${safe}`
+    const { error } = await supabase.storage
+      .from(DISCUSSION_FILES_BUCKET)
+      .upload(path, file, { contentType: file.type || undefined, upsert: false })
+    if (error) throw error
+    sent.push({ path, name: file.name.trim().slice(0, 255) || 'file', mime: file.type, size: file.size })
+  }
+  return rpc<string>('send_general_discussion_files', {
+    p_discussion: input.discussionId,
+    p_body: input.body,
+    p_files: sent,
+  })
+}
+
+/** A link to open a shared file, good for an hour. */
+export async function discussionFileUrl(path: string) {
+  const { data, error } = await supabase.storage.from(DISCUSSION_FILES_BUCKET).createSignedUrl(path, 3600)
+  if (error) throw error
+  return data.signedUrl
+}
+
+/** A shared file's bytes, as a File, to copy onto a task. */
+export async function downloadDiscussionFile(path: string, name: string, mime: string | null) {
+  const { data, error } = await supabase.storage.from(DISCUSSION_FILES_BUCKET).download(path)
+  if (error || !data) throw error ?? new Error(`${name} could not be read.`)
+  return new File([data], name, { type: mime ?? data.type })
 }

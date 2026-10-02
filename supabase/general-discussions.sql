@@ -352,6 +352,12 @@ begin
                           when m.transcript_status = 'done' then '<em>No speech was heard.</em>'
                           else '<em>Not transcribed.</em>' end
                   || '</p>'
+                when 'file' then ' shared '
+                  || coalesce((select string_agg('<em>' || public.general_html_escape(df.file_name) || '</em>', ', ' order by df.created_at)
+                                 from public.general_discussion_files df where df.message_id = m.id), 'a file')
+                  || case when btrim(m.body) <> ''
+                          then ': ' || replace(public.general_html_escape(m.body), E'\n', '<br>') else '' end
+                  || '</p>'
                 else ': ' || replace(public.general_html_escape(m.body), E'\n', '<br>') || '</p>'
               end,
            '' order by m.created_at)

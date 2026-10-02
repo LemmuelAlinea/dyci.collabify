@@ -18,11 +18,16 @@ export type DraftedWorkTask = {
   assignee: string
   team: string
   due: string
+  /** Shared discussion files the discussion ties to this task (their ids). */
+  files: string[]
 }
+
+/** A file shared in the discussion the draft read. */
+export type DraftSharedFile = { id: string; name: string; path: string; mime: string | null; size: number }
 
 /** Action items from pasted notes, or from a stopped discussion's file. */
 export const draftWorkTasks = (projectId: string, source: { text: string } | { discussion_id: string }) =>
-  call<{ tasks: DraftedWorkTask[]; note: string }>('tasks', projectId, source)
+  call<{ tasks: DraftedWorkTask[]; note: string; shared?: DraftSharedFile[] }>('tasks', projectId, source)
 
 /** From the caller's draft (optionally just these paths), or from text on screen. */
 export const writeChangeMessage = (
