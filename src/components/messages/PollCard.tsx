@@ -70,7 +70,7 @@ export function PollCard({
   }
 
   return (
-    <div className="w-[min(78vw,340px)] space-y-3">
+    <div className="w-[340px] max-w-full space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-[12px] font-medium tracking-wide text-faint uppercase">

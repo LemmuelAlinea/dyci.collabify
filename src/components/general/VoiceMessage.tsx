@@ -57,14 +57,14 @@ export function VoiceMessage({
   }
 
   return (
-    <div className="w-[min(70vw,320px)] space-y-2">
+    <div className="w-full min-w-0 space-y-2">
       <p className={`flex items-center gap-1.5 text-[11px] font-medium tracking-wide uppercase ${quiet}`}>
         <Icon name="mic" size={11} />
         Voice message · <span className="font-mono normal-case">{clock(m.audio_ms ?? 0)}</span>
       </p>
 
       {url ? (
-        <audio controls preload="metadata" src={url} className="h-9 w-full" aria-label="Play voice message" />
+        <audio controls preload="metadata" src={url} className="block h-9 w-full min-w-0" aria-label="Play voice message" />
       ) : (
         <p className={`flex items-center gap-2 text-[12px] ${quiet}`}>
           <Spinner size={12} />

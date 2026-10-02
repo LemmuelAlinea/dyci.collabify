@@ -548,7 +548,11 @@ function LiveRoom({
             return (
               <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div
-                  className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-[13px] ${
+                  // A poll or a player needs a width of its own to fill; on a phone
+                  // that is nearly the whole row, on a wide screen at most 360px.
+                  className={`min-w-0 rounded-2xl px-3.5 py-2 text-[13px] ${
+                    m.kind === 'text' ? 'max-w-[80%]' : 'w-[min(92%,360px)]'
+                  } ${
                     navy
                       ? 'bg-navy-600 text-white dark:bg-navy-500'
                       : m.kind === 'poll'

@@ -2580,3 +2580,7 @@ has a Poll button and a mic button (mic only where the browser can record).
 - Checked: build, 595 Vitest, SQL suites above plus general-discussions, anon-lockdown,
   rls-coverage, trash, storage-sweep; UI states on a throwaway fixture page (dark). Recording
   itself is not testable in the browser pane (mic blocked there).
+- Fix: on narrow phones the poll and voice message overflowed their bubble (fixed
+  `min(78vw…)` widths inside an 80% bubble) and the room scrolled sideways. Poll and voice
+  bubbles are now `w-[min(92%,360px)]` with their content filling them; `PollCard` is
+  `w-[340px] max-w-full` (class chat too). Checked at 360 and 320 px: no horizontal scroll.

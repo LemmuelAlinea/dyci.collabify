@@ -104,7 +104,7 @@ export function VoiceRecorder({
   if (phase === 'ready' && take) {
     return (
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line surface-sunken px-3 py-2">
-        <audio controls src={take.url} className="h-9 min-w-[200px] flex-1" aria-label="Your recording" />
+        <audio controls src={take.url} className="h-9 min-w-0 basis-full sm:basis-auto sm:flex-1" aria-label="Your recording" />
         <span className="font-mono text-[12px] text-muted">{clock(take.ms)}</span>
         <Button size="sm" variant="ghost" onClick={onCancel} disabled={sending}>
           Discard
