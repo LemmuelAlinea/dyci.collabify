@@ -5,6 +5,8 @@ import { formatBytes } from '../../lib/formatBytes'
 import { LIMIT } from '../../lib/limits'
 import { canRecordVoice, voiceFileName } from '../../lib/voice'
 import { VoiceRecorder } from '../general/VoiceRecorder'
+import { ActionMenu } from '../ui/ActionMenu'
+import { useAutoGrow } from '../../hooks/useAutoGrow'
 
 const MAX_MB = 10
 
@@ -26,6 +28,7 @@ export function MessageComposer({
   const [recording, setRecording] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const boxRef = useRef<HTMLTextAreaElement>(null)
+  useAutoGrow(boxRef, body)
 
   function pick(list: FileList | null) {
     if (!list) return
@@ -122,14 +125,6 @@ export function MessageComposer({
       )}
 
       <div className="flex items-end gap-2">
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          aria-label="Attach a file"
-          className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink sm:w-11"
-        >
-          <Icon name="upload" size={19} />
-        </button>
         <input
           ref={fileRef}
           type="file"
@@ -137,28 +132,50 @@ export function MessageComposer({
           className="hidden"
           onChange={(e) => pick(e.target.files)}
         />
-
-        <button
-          type="button"
-          onClick={onCreatePoll}
-          aria-label="Create a poll"
-          title="Create a poll"
-          className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink sm:w-11"
-        >
-          <Icon name="chart" size={19} />
-        </button>
-
-        {canRecordVoice() && (
+        {/* A phone gets one clip button for these three; wider screens show them side by side. */}
+        <div className="sm:hidden">
+          <ActionMenu
+            label="Attach"
+            icon="clip"
+            align="start"
+            triggerClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+            items={[
+              { label: 'Attach files', icon: 'upload', onSelect: () => fileRef.current?.click() },
+              { label: 'Create a poll', icon: 'chart', onSelect: onCreatePoll },
+              canRecordVoice() && { label: 'Voice message', icon: 'mic', onSelect: () => setRecording(true) },
+            ]}
+          />
+        </div>
+        <div className="hidden shrink-0 items-end gap-2 sm:flex">
           <button
             type="button"
-            onClick={() => setRecording(true)}
-            aria-label="Record a voice message"
-            title="Record a voice message (up to 5 minutes)"
-            className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink sm:w-11"
+            onClick={() => fileRef.current?.click()}
+            aria-label="Attach a file"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
           >
-            <Icon name="mic" size={19} />
+            <Icon name="upload" size={19} />
           </button>
-        )}
+          <button
+            type="button"
+            onClick={onCreatePoll}
+            aria-label="Create a poll"
+            title="Create a poll"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+          >
+            <Icon name="chart" size={19} />
+          </button>
+          {canRecordVoice() && (
+            <button
+              type="button"
+              onClick={() => setRecording(true)}
+              aria-label="Record a voice message"
+              title="Record a voice message (up to 5 minutes)"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+            >
+              <Icon name="mic" size={19} />
+            </button>
+          )}
+        </div>
 
         <textarea
           ref={boxRef}
@@ -168,7 +185,7 @@ export function MessageComposer({
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Write a message"
-          className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-4 py-3 text-[14px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12"
+          className="min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-4 py-3 text-[14px] text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12"
         />
 
         <button

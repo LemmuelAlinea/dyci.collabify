@@ -111,8 +111,9 @@ export function MessageThread({
       <header className="flex items-center gap-3 border-b border-line bg-[var(--surface-sunken)] px-4 py-3.5 md:px-5">
         <Link
           to={{ pathname: backTo, search }}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted hover:bg-[var(--surface)] hover:text-ink md:hidden"
-          aria-label="Back to conversations"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted hover:bg-[var(--surface)] hover:text-ink"
+          aria-label="Back to the inbox"
+          title="Back to the inbox"
         >
           <Icon name="arrowLeft" size={18} />
         </Link>

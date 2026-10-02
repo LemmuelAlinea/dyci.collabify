@@ -299,9 +299,10 @@ discussion, not background, not things already done.
   discussion. Read them for detail that sharpens a task: requirements, names,
   dates, steps. Never make a task only because a file was shared, and never a
   task like "review the file" unless the discussion asks someone to do that.
-  Put a file's id on a task only when the discussion ties that file to that
-  task: it is the task's template, input or brief, or the work is done in it.
-  Otherwise empty.
+  List a file on a task when the discussion ties that file to that task: it
+  is the task's template, input, instrument or brief, someone is told to use
+  it for the task, or the work is done in it. Give its short id exactly as
+  labelled, e.g. ["f1"]. Otherwise an empty list.
 - note: one short sentence on what you read, or what was unclear.
 ${VOICE}`,
     withFiles(
@@ -327,6 +328,16 @@ ${VOICE}`,
   )
 
   const ids = new Set(people.map((p) => p.id))
+  // The model is asked for "f1", but takes liberties: "F1", "file f1", the
+  // file's name, its real id. Any of those finds the file.
+  const sharedId = (x: unknown) => {
+    const v = String(x ?? '').trim()
+    const label = /\bf(\d+)\b/i.exec(v)
+    if (label) return shared.short.get(`f${label[1]}`)
+    const lower = v.toLowerCase()
+    return shared.files.find((f) => f.id === v || f.name.toLowerCase() === lower || (lower && lower.includes(f.name.toLowerCase())))?.id
+  }
+  console.log('[tasks] shared', shared.files.length, 'linked', JSON.stringify(((out.tasks as Json[]) ?? []).map((t) => t.files)))
   const tasks = ((out.tasks as Json[]) ?? [])
     .filter((t) => String(t.title ?? '').trim())
     .slice(0, 25)
@@ -336,7 +347,7 @@ ${VOICE}`,
       assignee: ids.has(String(t.assignee)) ? String(t.assignee) : '',
       team: teamNames.includes(String(t.team)) ? String(t.team) : '',
       due: /^\d{4}-\d{2}-\d{2}$/.test(String(t.due)) ? String(t.due) : '',
-      files: [...new Set(((t.files as unknown[]) ?? []).map((x) => shared.short.get(String(x))).filter((x): x is string => Boolean(x)))],
+      files: [...new Set(((t.files as unknown[]) ?? []).map(sharedId).filter((x): x is string => Boolean(x)))],
     }))
   return { tasks, note: String(out.note ?? '').slice(0, 300), shared: shared.files }
 }

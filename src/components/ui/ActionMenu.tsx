@@ -21,12 +21,18 @@ export function ActionMenu({
   align = 'end',
   disabled = false,
   size = 'md',
+  icon = 'dots',
+  triggerClassName,
 }: {
   label: string
   items: (ActionMenuItem | false | null | undefined)[]
   align?: 'start' | 'end'
   disabled?: boolean
   size?: 'sm' | 'md'
+  /** The trigger's glyph. Three dots unless given. */
+  icon?: IconName
+  /** Replaces the trigger's size and colours, for a menu that sits in a toolbar. */
+  triggerClassName?: string
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
@@ -103,11 +109,15 @@ export function ActionMenu({
           e.stopPropagation()
           setOpen((v) => !v)
         }}
-        className={`grid shrink-0 place-items-center rounded-lg text-ink/70 transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink disabled:opacity-40 dark:text-white/80 dark:hover:text-white ${
-          size === 'sm' ? 'h-7 w-7' : 'h-8 w-8'
-        } ${open ? 'bg-[var(--surface-sunken)] text-ink dark:text-white' : ''}`}
+        className={
+          triggerClassName
+            ? `${triggerClassName} ${open ? 'bg-[var(--surface-sunken)] text-ink' : ''}`
+            : `grid shrink-0 place-items-center rounded-lg text-ink/70 transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink disabled:opacity-40 dark:text-white/80 dark:hover:text-white ${
+                size === 'sm' ? 'h-7 w-7' : 'h-8 w-8'
+              } ${open ? 'bg-[var(--surface-sunken)] text-ink dark:text-white' : ''}`
+        }
       >
-        <Icon name="dots" size={size === 'sm' ? 15 : 17} strokeWidth={2.4} />
+        <Icon name={icon} size={size === 'sm' ? 15 : icon === 'dots' ? 17 : 19} strokeWidth={icon === 'dots' ? 2.4 : 1.7} />
       </button>
       {open &&
         createPortal(

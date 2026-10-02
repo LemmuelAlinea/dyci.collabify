@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useFocusMode } from '../../../lib/focusMode'
 import type { ReactNode } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -88,6 +89,7 @@ function WithProjectTasks({
 
 export default function ProjectDetail({ role }: { role: 'professor' | 'student' }) {
   const { projectId = '' } = useParams()
+  const focused = useFocusMode()
   const { profile } = useAuth()
   const { show } = useToast()
   const navigate = useNavigate()
@@ -218,7 +220,8 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         All projects
       </Link>
 
-      <header className="relative mt-4 overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-5 py-6 text-banner-ink sm:px-7 sm:py-8 lg:px-9">
+      {/* A live discussion room takes the page; the banner returns when it closes. */}
+      <header className={`relative mt-4 overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-5 py-6 text-banner-ink sm:px-7 sm:py-8 lg:px-9 ${focused ? 'hidden' : ''}`}>
         <div
           aria-hidden
           className="banner-deco pointer-events-none absolute -top-48 -right-40 h-[420px] w-[420px] rounded-full bg-banner-glow/10 blur-[115px]"

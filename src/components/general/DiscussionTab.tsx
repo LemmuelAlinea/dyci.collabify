@@ -8,9 +8,11 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Field, Input } from '../ui/Field'
 import { Icon, Spinner } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
-import { Select, Textarea } from '../ui/Select'
+import { Select } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { useLive } from '../../hooks/useLive'
+import { useAutoGrow } from '../../hooks/useAutoGrow'
+import { useFocusWhile } from '../../lib/focusMode'
 import {
   createDiscussionFolder,
   createDiscussionPoll,
@@ -136,6 +138,11 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
   const readOnly = state.archived
   const lead = state.me?.level === 'owner' || state.me?.level === 'manager'
   const live = discussions.find((d) => !d.ended_at) ?? null
+  // Opening the tab while a discussion runs puts you in its room; Leave room
+  // steps out to the list, and the page's banner comes back.
+  const [left, setLeft] = useState<string | null>(null)
+  const inRoom = Boolean(live && left !== live.id)
+  useFocusWhile(inRoom)
   const folder = folders.find((f) => f.id === params.get('dfolder')) ?? null
 
   function openFolder(next: GeneralDiscussionFolder | null) {
@@ -191,7 +198,7 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
     )
   }
 
-  if (live) {
+  if (live && inRoom) {
     return (
       <div className="space-y-4">
         {notice}
@@ -201,10 +208,26 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
           readOnly={readOnly}
           folderName={folders.find((f) => f.id === live.folder_id)?.name ?? null}
           onStopped={load}
+          onLeave={() => setLeft(live.id)}
         />
       </div>
     )
   }
+
+  const liveCard = live && (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line surface px-4 py-3">
+      <p className="flex min-w-0 items-center gap-2 text-[14px] text-ink">
+        <span className="h-2 w-2 shrink-0 rounded-full bg-success-500" aria-hidden />
+        <span className="truncate">
+          <span className="font-semibold">{live.topic}</span>
+          <span className="text-muted"> is running now</span>
+        </span>
+      </p>
+      <Button size="sm" onClick={() => setLeft(null)}>
+        Rejoin
+      </Button>
+    </div>
+  )
 
   const inHere = discussions.filter((d) => d.ended_at && (d.folder_id ?? null) === (folder?.id ?? null))
   const shownFiles = query.trim()
@@ -254,6 +277,7 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
   return (
     <div className="space-y-4">
       {notice}
+      {liveCard}
 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -426,12 +450,15 @@ function LiveRoom({
   readOnly,
   folderName,
   onStopped,
+  onLeave,
 }: {
   discussion: GeneralDiscussion
   state: GeneralProjectState
   readOnly: boolean
   folderName: string | null
   onStopped: () => Promise<void>
+  /** Steps out of the room to the list; the discussion keeps running. */
+  onLeave: () => void
 }) {
   const { show } = useToast()
   const [messages, setMessages] = useState<GeneralDiscussionMessage[] | null>(null)
@@ -442,7 +469,9 @@ function LiveRoom({
   const [shared, setShared] = useState(new Map<string, GeneralDiscussionFile[]>())
   const [staged, setStaged] = useState<File[]>([])
   const pickRef = useRef<HTMLInputElement>(null)
+  const boxRef = useRef<HTMLTextAreaElement>(null)
   const [body, setBody] = useState('')
+  useAutoGrow(boxRef, body)
   const [sending, setSending] = useState(false)
   const [stopping, setStopping] = useState(false)
   const end = useRef<HTMLDivElement>(null)
@@ -543,7 +572,10 @@ function LiveRoom({
   }
 
   return (
-    <section aria-label="Live discussion" className="overflow-hidden rounded-panel border border-line surface">
+    <section
+      aria-label="Live discussion"
+      className="flex h-[max(460px,calc(100dvh-15rem))] flex-col overflow-hidden rounded-panel border border-line surface"
+    >
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-[14px] font-semibold text-ink">
@@ -556,17 +588,23 @@ function LiveRoom({
             {folderName ? ` · saves in ${folderName}` : ''}
           </p>
         </div>
-        {mayStop ? (
-          <Button size="sm" variant="outline" onClick={() => setStopping(true)}>
-            <Icon name="check" size={14} />
-            Stop discussion
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="ghost" onClick={onLeave}>
+            <Icon name="arrowLeft" size={14} />
+            Leave room
           </Button>
-        ) : (
-          <p className="text-[12px] text-faint">Only whoever started it can stop it.</p>
-        )}
+          {mayStop ? (
+            <Button size="sm" variant="outline" onClick={() => setStopping(true)}>
+              <Icon name="check" size={14} />
+              Stop discussion
+            </Button>
+          ) : (
+            <p className="text-[12px] text-faint">Only whoever started it can stop it.</p>
+          )}
+        </div>
       </header>
 
-      <div className="max-h-[28rem] min-h-[14rem] space-y-3 overflow-y-auto px-4 py-4">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages === null ? (
           <div className="flex items-center gap-2 text-[13px] text-muted">
             <Spinner size={14} />
@@ -675,23 +713,37 @@ function LiveRoom({
 
       {!readOnly && !recording && (
         <div className={`flex items-end gap-2 px-4 py-3 ${staged.length > 0 ? '' : 'border-t border-line'}`}>
-          <div className="flex shrink-0 flex-col gap-1 sm:flex-row">
+          <input ref={pickRef} type="file" multiple className="hidden" onChange={(e) => pick(e.target.files)} />
+          {/* A phone gets one clip button for these three; wider screens show them side by side. */}
+          <div className="sm:hidden">
+            <ActionMenu
+              label="Attach"
+              icon="clip"
+              align="start"
+              triggerClassName="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+              items={[
+                { label: 'Attach files', icon: 'upload', onSelect: () => pickRef.current?.click() },
+                { label: 'Create a poll', icon: 'chart', onSelect: () => setPollOpen(true) },
+                canRecordVoice() && { label: 'Voice message', icon: 'mic', onSelect: () => setRecording(true) },
+              ]}
+            />
+          </div>
+          <div className="hidden shrink-0 items-end gap-1 sm:flex">
             <button
               type="button"
               onClick={() => pickRef.current?.click()}
               aria-label="Attach files"
               title="Attach files (up to 25 MB each)"
-              className="grid h-10 w-10 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
             >
               <Icon name="upload" size={18} />
             </button>
-            <input ref={pickRef} type="file" multiple className="hidden" onChange={(e) => pick(e.target.files)} />
             <button
               type="button"
               onClick={() => setPollOpen(true)}
               aria-label="Create a poll"
               title="Create a poll"
-              className="grid h-10 w-10 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
             >
               <Icon name="chart" size={18} />
             </button>
@@ -701,28 +753,28 @@ function LiveRoom({
                 onClick={() => setRecording(true)}
                 aria-label="Record a voice message"
                 title="Record a voice message (up to 5 minutes)"
-                className="grid h-10 w-10 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
               >
                 <Icon name="mic" size={18} />
               </button>
             )}
           </div>
-          <div className="min-w-0 flex-1">
-            <Textarea
-              rows={2}
-              maxLength={4000}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  void send()
-                }
-              }}
-              placeholder="Plans, tasks, dates… Enter sends, Shift+Enter for a new line"
-              aria-label="Message"
-            />
-          </div>
+          <textarea
+            ref={boxRef}
+            rows={1}
+            maxLength={4000}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                void send()
+              }
+            }}
+            placeholder="Plans, tasks, dates… Enter sends"
+            aria-label="Message"
+            className="min-h-10 min-w-0 flex-1 resize-none rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-3.5 py-2 text-[14px] leading-6 text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--ink-faint)] hover:border-[var(--line-strong)] focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12"
+          />
           <Button loading={sending} disabled={!body.trim() && staged.length === 0} onClick={() => void send()}>
             Send
           </Button>

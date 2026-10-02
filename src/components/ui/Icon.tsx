@@ -60,6 +60,8 @@ const PATHS = {
   // Two arrows passing each other: trade one view for the other.
   swap: 'M7 4L3 8l4 4M3 8h14M17 12l4 4-4 4M21 16H7',
   mic: 'M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM19 11a7 7 0 01-14 0M12 18v3',
+  // Attach: the composer's menu of files, polls and voice on a phone.
+  clip: 'M21.4 11.6l-8.8 8.8a5.5 5.5 0 01-7.8-7.8l8.8-8.8a3.7 3.7 0 015.2 5.2l-8.8 8.8a1.8 1.8 0 01-2.6-2.6l8.1-8.1',
   // The group's leader.
   crown: 'M3 7l4.5 4.5L12 5l4.5 6.5L21 7l-2 11H5zM5 21h14',
 } as const

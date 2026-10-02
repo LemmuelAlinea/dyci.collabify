@@ -2613,3 +2613,22 @@ composer has an Attach button (files only, `multiple`, no folder picking): up to
 - Checked: build, 596 Vitest, SQL suites discussion-polls-voice, general-discussions,
   anon-lockdown, rls-coverage, storage-sweep; file bubbles at 320 px on a throwaway page.
   The AI path itself was not run (needs a signed-in member and a stopped discussion).
+
+**Change (2026-10-03): composer menu on phones, growing text boxes, focus mode; file fix.**
+- Task drafter: the file the AI linked never reached the task because its ids did not match
+  the "f1" labels exactly. `work-ai` now resolves "f1", "F1", "file f1", the file's name or its
+  id, the prompt asks for ["f1"] explicitly, and a `[tasks] shared … linked …` log line shows
+  what the model returned (Edge Function logs). Deployed.
+- Below `sm`, the inbox and discussion composers fold Attach files / Create a poll / Voice
+  message into one clip button (`ActionMenu` now takes `icon` and `triggerClassName`; new
+  `clip` icon). Wider screens keep the three buttons.
+- Both text boxes grow with their text up to 160 px, then scroll; no resize handle
+  (`hooks/useAutoGrow.ts`). The discussion box is now a plain one-row textarea.
+- Focus mode (`lib/focusMode.ts`): while someone is in a live discussion room the project page
+  hides its banner (ProjectDetail header, GeneralProject DirectoryHero) and the room fills the
+  height. The room has Leave room; outside it the list shows "<topic> is running now · Rejoin".
+  Stopping the discussion ends it too. Inbox: an open conversation hides the hero,
+  invitations and filter and takes the page; the thread's back button now shows on desktop
+  as well, and the banner returns on going back.
+- Checked: build, 596 Vitest; composer at 360 px on a throwaway page (clip menu, growth
+  45 → 108 → 160 px). The room and the banners were not seen signed in.

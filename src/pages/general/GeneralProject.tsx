@@ -1,5 +1,6 @@
 // src/pages/general/GeneralProject.tsx
 import { useEffect, useState } from 'react'
+import { useFocusMode } from '../../lib/focusMode'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { MembersTab } from '../../components/general/MembersTab'
 import { OverviewTab } from '../../components/general/OverviewTab'
@@ -32,6 +33,7 @@ import { paths } from '../../lib/paths'
 
 export default function GeneralProject() {
   const { projectId } = useParams()
+  const focused = useFocusMode()
   const { profile } = useAuth()
   const { show } = useToast()
   const { currentSpace, reportProjectSpace } = useGeneralNavigation()
@@ -123,6 +125,8 @@ export default function GeneralProject() {
         All projects
       </Link>
 
+      {/* A live discussion room takes the page; the banner returns when it closes. */}
+      <div className={focused ? 'hidden' : undefined}>
       <DirectoryHero
         title={p.name}
         accent={p.archived_at ? 'archived.' : 'project.'}
@@ -142,6 +146,7 @@ export default function GeneralProject() {
           </div>
         }
       />
+      </div>
 
       {state.error && <Alert tone="error">{state.error}</Alert>}
 

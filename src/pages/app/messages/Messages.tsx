@@ -57,6 +57,9 @@ export default function Messages() {
 
   return (
     <div className="w-full space-y-5">
+      {/* An open conversation takes the whole page; the banner comes back when it closes. */}
+      {!conversationId && (
+        <>
       <DirectoryHero
         title="Your"
         accent="inbox."
@@ -72,8 +75,10 @@ export default function Messages() {
       />
 
       <InboxInvitations onAnswered={() => void reload()} />
+        </>
+      )}
 
-      {classScope && (
+      {classScope && !conversationId && (
         <div className="flex justify-end">
           <ScopeFilter
             value={scope}
@@ -85,7 +90,11 @@ export default function Messages() {
         </div>
       )}
 
-      <div className="surface flex h-[clamp(480px,calc(100dvh-458px),760px)] min-h-0 overflow-hidden rounded-panel border border-line">
+      <div
+        className={`surface flex min-h-0 overflow-hidden rounded-panel border border-line ${
+          conversationId ? 'h-[max(420px,calc(100dvh-8.5rem))]' : 'h-[clamp(480px,calc(100dvh-458px),760px)]'
+        }`}
+      >
         <aside
           className={`w-full shrink-0 border-line md:block md:w-[320px] md:border-r xl:w-[360px] ${
             conversationId ? 'hidden' : 'block'
