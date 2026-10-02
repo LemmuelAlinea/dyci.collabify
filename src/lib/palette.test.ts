@@ -182,3 +182,34 @@ describe('presets', () => {
     for (const p of PRESETS) expect(cleanColors(p.colors)).toEqual(p.colors)
   })
 })
+
+describe('pop-up message colours', () => {
+  it('set nothing until picked, so the stylesheet tints stay', () => {
+    const vars = toCssVars({ success: '#00bc7d' }, 'dark')
+    expect(Object.keys(vars).some((k) => k.startsWith('--toast-'))).toBe(false)
+  })
+
+  it('use the pick as the background with text that reads on it', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      for (const [key, name] of [
+        ['toastSuccess', 'success'],
+        ['toastError', 'error'],
+        ['toastInfo', 'info'],
+      ] as const) {
+        for (const hex of ['#3b0a2a', '#ffd43b', '#00bc7d', '#ffffff', '#000000', '#7048e8']) {
+          const vars = toCssVars({ [key]: hex }, mode)
+          expect(vars[`--toast-${name}`]).toBe(hex)
+          expect(contrast(vars[`--toast-${name}-ink`], hex)).toBeGreaterThanOrEqual(4.5)
+          expect(vars[`--toast-${name}-line`]).toContain(hex)
+          for (const v of Object.keys(vars)) expect(PALETTE_VARS).toContain(v)
+        }
+      }
+    }
+  })
+
+  it('survive cleaning, and the cleaner still drops bad values', () => {
+    expect(HEX_KEYS).toEqual(expect.arrayContaining(['toastSuccess', 'toastError', 'toastInfo']))
+    const kept = cleanColors({ light: { toastSuccess: '#123abc' }, dark: { toastError: '#ff0000', toastInfo: 'red' } })
+    expect(kept).toEqual({ light: { toastSuccess: '#123abc' }, dark: { toastError: '#ff0000' } })
+  })
+})

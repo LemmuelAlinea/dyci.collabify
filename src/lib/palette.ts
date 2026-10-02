@@ -31,6 +31,9 @@ export const HEX_KEYS = [
   'btnCreate',
   'btnAction',
   'btnDanger',
+  'toastSuccess',
+  'toastError',
+  'toastInfo',
 ] as const
 
 export type PickKey = (typeof HEX_KEYS)[number]
@@ -76,6 +79,9 @@ export const DEFAULT_PICKS: Record<Mode, Record<PickKey, string>> = {
     btnCreate: '#f0b429',
     btnAction: '#fef7e6',
     btnDanger: '#fef7e6',
+    toastSuccess: '#ecfdf5',
+    toastError: '#fef2f2',
+    toastInfo: '#eef0f9',
   },
   dark: {
     banner: '#080b21',
@@ -94,6 +100,9 @@ export const DEFAULT_PICKS: Record<Mode, Record<PickKey, string>> = {
     btnCreate: '#f0b429',
     btnAction: '#fef7e6',
     btnDanger: '#fef7e6',
+    toastSuccess: '#002c22',
+    toastError: '#460809',
+    toastInfo: '#161d4a',
   },
 }
 
@@ -360,6 +369,11 @@ export const PALETTE_VARS: readonly string[] = [
   '--btn-create-ink',
   '--btn-action',
   '--btn-danger',
+  ...(['success', 'error', 'info'] as const).flatMap((k) => [
+    `--toast-${k}`,
+    `--toast-${k}-ink`,
+    `--toast-${k}-line`,
+  ]),
   '--u-page',
   '--u-surface',
   '--u-sunken',
@@ -478,6 +492,21 @@ export function toCssVars(picks: Picks | undefined, mode: Mode): Record<string, 
   }
   if (isHex(picks.btnAction)) vars['--btn-action'] = withContrastAll(picks.btnAction, grounds, 4.5)
   if (isHex(picks.btnDanger)) vars['--btn-danger'] = withContrastAll(picks.btnDanger, grounds, 4.5)
+
+  // ---- pop-up messages (toasts). The pick is the background; the text and
+  // icon take whichever ink reads on it, and the edge is a step toward that ink.
+  for (const [key, name] of [
+    ['toastSuccess', 'success'],
+    ['toastError', 'error'],
+    ['toastInfo', 'info'],
+  ] as const) {
+    const pick = picks[key]
+    if (!isHex(pick)) continue
+    const ink = inkFor(pick)
+    vars[`--toast-${name}`] = pick
+    vars[`--toast-${name}-ink`] = ink
+    vars[`--toast-${name}-line`] = `color-mix(in oklab, ${ink} 24%, ${pick})`
+  }
 
   // ---- background depth, dark mode only
   if (mode === 'dark' && picks.depth) {

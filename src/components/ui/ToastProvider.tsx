@@ -8,18 +8,20 @@ import type { Tone } from './Toast'
 
 type Toast = { id: number; tone: Tone; message: string; closing?: boolean }
 
+// Each kind reads its own slot, which Settings → Appearance can recolor; the
+// defaults in index.css are the same tints these classes used to hard-code.
 const STYLES: Record<Tone, { icon: IconName; cls: string }> = {
   success: {
     icon: 'checkCircle',
-    cls: 'border-success-200 bg-success-50 text-success-900 dark:border-success-500/40 dark:bg-success-950 dark:text-success-100',
+    cls: 'border-toast-success-line bg-toast-success text-toast-success-ink',
   },
   error: {
     icon: 'alert',
-    cls: 'border-danger-200 bg-danger-50 text-danger-900 dark:border-danger-500/40 dark:bg-danger-950 dark:text-danger-100',
+    cls: 'border-toast-error-line bg-toast-error text-toast-error-ink',
   },
   info: {
     icon: 'info',
-    cls: 'border-navy-200 bg-navy-50 text-navy-900 dark:border-navy-400/40 dark:bg-navy-800 dark:text-navy-50',
+    cls: 'border-toast-info-line bg-toast-info text-toast-info-ink',
   },
 }
 

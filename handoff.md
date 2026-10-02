@@ -2487,3 +2487,14 @@ framing kept to match the SVG set). `EmptyState` art names gained `trash` and `m
 only for "No meetings yet" (a filtered "Nothing matches" keeps the icon). Checked light and dark.
 
 **Change (2026-10-03): Inbox placeholder art.** "Choose a conversation" on `/inbox` (`Messages.tsx`) shows `public/illustrations/inbox.webp` (owner's art, transparent, 352px WebP, ~15 KB) in place of the message icon tile, sized like the empty-state art.
+
+**Change (2026-10-03): pop-up message colors in Your colors.** Settings → Appearance → Your colors
+has a **Pop-up messages** group (Success · Failed · Info) for the toasts from `ToastProvider` —
+not the bell. New pick keys `toastSuccess`, `toastError`, `toastInfo` (`lib/palette.ts`): the pick
+is the toast background, `--toast-*-ink` is `inkFor(pick)` (≥ 4.5:1), `--toast-*-line` mixes 24%
+of the ink into it. Untouched, `:root` / `.dark` default `--toast-*` to the exact tints the classes
+used to hard-code (success/danger ramps, navy for info), so nothing changes until someone picks.
+`valid_palette_colors` in `appearance.sql` accepts the three keys (applied live: just the
+function). Checked: palette tests (+3), appearance SQL suite, contrast.mjs (0 failing), toasts
+computed identical to before in light and dark, a pick through the editor recolors live toasts;
+build, eslint, 585 Vitest.

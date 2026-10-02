@@ -239,6 +239,15 @@
   --color-btn-create-ink: var(--btn-create-ink);
   --color-btn-action: var(--btn-action);
   --color-btn-danger: var(--btn-danger);
+  --color-toast-success: var(--toast-success);
+  --color-toast-success-ink: var(--toast-success-ink);
+  --color-toast-success-line: var(--toast-success-line);
+  --color-toast-error: var(--toast-error);
+  --color-toast-error-ink: var(--toast-error-ink);
+  --color-toast-error-line: var(--toast-error-line);
+  --color-toast-info: var(--toast-info);
+  --color-toast-info-ink: var(--toast-info-ink);
+  --color-toast-info-line: var(--toast-info-line);
 }
 
 /* Semantic surface tokens. Every component reads these, never raw ramp stops,
@@ -302,6 +311,17 @@
     --btn-create-ink: #101637;
     --btn-action: var(--banner-ink);
     --btn-danger: var(--banner-ink);
+    /* Pop-up messages (toasts): a tint of their status until someone picks a
+       background for them, which then sets all three. */
+    --toast-success: var(--color-success-50);
+    --toast-success-ink: var(--color-success-900);
+    --toast-success-line: var(--color-success-200);
+    --toast-error: var(--color-danger-50);
+    --toast-error-ink: var(--color-danger-900);
+    --toast-error-line: var(--color-danger-200);
+    --toast-info: var(--color-navy-50);
+    --toast-info-ink: var(--color-navy-900);
+    --toast-info-line: var(--color-navy-200);
   }
 
   .dark {
@@ -325,6 +345,16 @@
 
     --nav-active: #f0b429;
     --nav-active-ink: #101637;
+
+    --toast-success: var(--color-success-950);
+    --toast-success-ink: var(--color-success-100);
+    --toast-success-line: color-mix(in oklab, var(--color-success-500) 40%, transparent);
+    --toast-error: var(--color-danger-950);
+    --toast-error-ink: var(--color-danger-100);
+    --toast-error-line: color-mix(in oklab, var(--color-danger-500) 40%, transparent);
+    --toast-info: var(--color-navy-800);
+    --toast-info-ink: var(--color-navy-50);
+    --toast-info-line: color-mix(in oklab, var(--color-navy-400) 40%, transparent);
   }
 
   * {

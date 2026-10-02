@@ -30,7 +30,7 @@ import {
 import type { SavedPalette } from '../../lib/api/appearance'
 
 type Slot = { key: PickKey; label: string; note: string }
-type GroupId = 'banners' | 'buttons' | 'status' | 'sidebar' | 'progress' | 'badges' | 'icons'
+type GroupId = 'banners' | 'buttons' | 'status' | 'sidebar' | 'progress' | 'badges' | 'toasts' | 'icons'
 
 const GROUPS: { id: GroupId; title: string; icon: IconName; blurb: string; slots: Slot[] }[] = [
   {
@@ -90,6 +90,17 @@ const GROUPS: { id: GroupId; title: string; icon: IconName; blurb: string; slots
     icon: 'bell',
     blurb: 'Unread counts on the bell and in the sidebar, and the dot on a new notification.',
     slots: [{ key: 'badge', label: 'Unread badges', note: 'The count and the dot.' }],
+  },
+  {
+    id: 'toasts',
+    title: 'Pop-up messages',
+    icon: 'checkCircle',
+    blurb: 'The short messages that pop up in the corner after you do something. Their text turns light or dark to stay readable.',
+    slots: [
+      { key: 'toastSuccess', label: 'Success', note: 'Saved, posted, restored, deleted — it worked.' },
+      { key: 'toastError', label: 'Failed', note: 'It did not go through, and why.' },
+      { key: 'toastInfo', label: 'Info', note: 'Something to know that is neither.' },
+    ],
   },
   {
     id: 'icons',
@@ -1044,6 +1055,22 @@ function GroupPreview({ id, mode, picks, depth }: { id: GroupId; mode: Mode; pic
               <span className="font-medium">Lab 6</span> was handed back with comments.
             </span>
           </div>
+        </div>,
+      )
+    case 'toasts':
+      return frame(
+        'Preview of pop-up messages',
+        <div className="space-y-2 text-[12px]">
+          {[
+            { cls: 'border-toast-success-line bg-toast-success text-toast-success-ink', icon: 'checkCircle' as IconName, text: 'Chapter 1-2.docx deleted' },
+            { cls: 'border-toast-error-line bg-toast-error text-toast-error-ink', icon: 'alert' as IconName, text: 'Could not save that. Check your connection.' },
+            { cls: 'border-toast-info-line bg-toast-info text-toast-info-ink', icon: 'info' as IconName, text: 'Pinned to the top for its day' },
+          ].map((t) => (
+            <div key={t.text} className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${t.cls}`}>
+              <Icon name={t.icon} size={14} className="shrink-0" />
+              <span className="truncate">{t.text}</span>
+            </div>
+          ))}
         </div>,
       )
     case 'icons':

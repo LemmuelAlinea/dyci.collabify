@@ -52,7 +52,8 @@ as $$
                          when e.key in ('banner', 'banner2', 'bannerAccent', 'success', 'warning',
                                         'danger', 'pending', 'navIcon', 'navActive', 'progress',
                                         'badge', 'iconTile', 'iconGlyph', 'btnCreate',
-                                        'btnAction', 'btnDanger') then
+                                        'btnAction', 'btnDanger', 'toastSuccess',
+                                        'toastError', 'toastInfo') then
                            jsonb_typeof(e.value) <> 'string'
                            or (e.value #>> '{}') !~ '^#[0-9a-f]{6}$'
                          else true
