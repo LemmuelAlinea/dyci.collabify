@@ -1,35 +1,28 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
+import { TileEmpty } from './Bento'
 import type { Attention } from '../../lib/api/dashboard'
 
-/** Setup and release gaps — things only the professor can clear. */
+/** Setup and release gaps — things only the professor can clear. Flat rows, for a bento tile. */
 export function AttentionList({ items }: { items: Attention[] }) {
-  if (items.length === 0) {
-    return (
-      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
-        Nothing is waiting on you.
-      </p>
-    )
-  }
+  if (items.length === 0) return <TileEmpty>Nothing is waiting on you.</TileEmpty>
 
   return (
-    <ul className="space-y-2">
+    <ul className="-mx-2 divide-y divide-[var(--line)]">
       {items.map((i) => (
         <li key={i.id}>
           <Link
             to={i.to}
-            className="surface flex items-start gap-3 rounded-xl border border-line px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:gap-3 sm:px-4 sm:py-3"
+            className="flex items-start gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-[var(--surface-sunken)]"
           >
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg surface-sunken text-muted">
-              <Icon name={i.icon} size={15} />
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg surface-sunken text-muted">
+              <Icon name={i.icon} size={14} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14px] font-medium text-ink sm:text-[14px]">
-                {i.title}
-              </span>
+              <span className="block truncate text-[14px] font-medium text-ink">{i.title}</span>
               <span className="block text-[12px] leading-snug text-muted">{i.body}</span>
             </span>
-            <Icon name="chevronRight" size={15} className="mt-1 shrink-0 text-faint" />
+            <Icon name="chevronRight" size={14} className="mt-1 shrink-0 text-faint" />
           </Link>
         </li>
       ))}

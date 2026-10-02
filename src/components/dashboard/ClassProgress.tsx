@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
+import { TileEmpty } from './Bento'
 import { projectAverage } from '../../lib/api/dashboard'
 import { paths } from '../../lib/paths'
 import { weekSpanLabel } from '../../lib/types'
@@ -17,23 +18,18 @@ export function ClassProgress({
     .filter((p) => !p.archived_at && !p.scheduled)
     .sort((a, b) => (a.due_at ?? '9999').localeCompare(b.due_at ?? '9999'))
 
-  if (live.length === 0) {
-    return (
-      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
-        Nothing is open across your classes right now.
-      </p>
-    )
-  }
+  if (live.length === 0) return <TileEmpty>Nothing is open across your classes right now.</TileEmpty>
 
+  // Flat blocks that go two or three across as the tile widens.
   return (
-    <ul className="space-y-2">
+    <ul className="-mx-2 grid gap-x-4 gap-y-1 @2xl:grid-cols-2 @5xl:grid-cols-3">
       {live.map((p) => {
         const { pct, groups, started } = projectAverage(boards, p.id)
         return (
           <li key={p.id}>
             <Link
               to={paths.classProject(p.id)}
-              className="surface block rounded-xl border border-line px-3 py-3 shadow-card transition-colors hover:border-line-strong sm:px-4 sm:py-3.5"
+              className="block rounded-lg px-2 py-2.5 transition-colors hover:bg-[var(--surface-sunken)]"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                 <p className="min-w-0 truncate text-[14px] font-medium text-ink sm:text-[14px]">

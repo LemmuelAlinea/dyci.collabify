@@ -20,7 +20,7 @@ export function ClassRail({ classes }: { classes: ClassSummary[] }) {
   if (classes.length === 0) return null
 
   return (
-    <ul className="space-y-2">
+    <ul className="-mx-2 divide-y divide-[var(--line)]">
       {classes.map((c) => {
         const noSyllabus = !c.syllabus_id
         const noDates = !c.term_start || !c.term_end
@@ -30,9 +30,9 @@ export function ClassRail({ classes }: { classes: ClassSummary[] }) {
           <li key={c.id}>
             <Link
               to={paths.class(c.id)}
-              className="surface flex items-start gap-3 rounded-xl border border-line px-3 py-2.5 transition-colors hover:border-line-strong sm:gap-3 sm:px-3.5 sm:py-3"
+              className="flex items-start gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-[var(--surface-sunken)]"
             >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg surface-sunken font-mono text-[12px] font-bold text-navy-600 dark:text-amber-300">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg surface-sunken font-mono text-[11px] font-bold text-navy-600 dark:text-amber-300">
                 {c.initial}
               </span>
               <span className="min-w-0 flex-1">

@@ -5,8 +5,7 @@ import { Reveal } from '../../components/motion/Reveal'
 import { AttentionList } from '../../components/dashboard/AttentionList'
 import { ClassProgress } from '../../components/dashboard/ClassProgress'
 import { ClassRail } from '../../components/dashboard/ClassRail'
-import { DashSection } from '../../components/dashboard/DashSection'
-import { Bento, BentoCell } from '../../components/dashboard/Bento'
+import { BentoGrid, BentoTile } from '../../components/dashboard/Bento'
 import { DashboardSummary } from '../../components/dashboard/DashboardSummary'
 import { StalledGroups } from '../../components/dashboard/StalledGroups'
 import { ButtonLink } from '../../components/ui/Button'
@@ -185,57 +184,53 @@ export default function ProfessorHome({ onSwitch }: { onSwitch?: () => void } = 
             <ProgramNotices />
           </div>
 
-          <div className="mt-7 md:mt-8">
-            <Bento>
-              <BentoCell>
-                <Reveal once delay={0.04}>
-                  <DashSection icon="checkCircle" title="Needs your attention" count={waiting}>
-                    <AttentionList items={data.attention} />
-                  </DashSection>
-                </Reveal>
-              </BentoCell>
+          {/* A true bento, like the student home: the three lists side by
+              side, then progress across the full width underneath, so the
+              tiles always close into one rectangle. */}
+          <BentoGrid className="mt-7 md:mt-8">
+            <Reveal once delay={0.04} className="flex">
+              <BentoTile className="w-full" icon="checkCircle" title="Needs your attention" count={waiting}>
+                <AttentionList items={data.attention} />
+              </BentoTile>
+            </Reveal>
 
-              <BentoCell>
-                <Reveal once delay={0.08}>
-                  <DashSection
-                    icon="folder"
-                    title="Your classes"
-                    count={classes.length}
-                    seeAll={paths.classes}
-                  >
-                    <ClassRail classes={classes} />
-                  </DashSection>
-                </Reveal>
-              </BentoCell>
+            <Reveal once delay={0.08} className="flex">
+              <BentoTile
+                className="w-full"
+                icon="folder"
+                title="Your classes"
+                count={classes.length}
+                seeAll={paths.classes}
+              >
+                <ClassRail classes={classes} />
+              </BentoTile>
+            </Reveal>
 
-              <BentoCell>
-                <Reveal once delay={0.12}>
-                  <DashSection
-                    icon="alert"
-                    title="Groups that have stalled"
-                    count={stalled}
-                    seeAll={paths.classProjects}
-                  >
-                    <StalledGroups boards={data.stalled} />
-                  </DashSection>
-                </Reveal>
-              </BentoCell>
+            <Reveal once delay={0.12} className="flex md:col-span-2 xl:col-span-1">
+              <BentoTile
+                className="w-full"
+                icon="alert"
+                title="Groups that have stalled"
+                count={stalled}
+                seeAll={paths.classProjects}
+              >
+                <StalledGroups boards={data.stalled} />
+              </BentoTile>
+            </Reveal>
 
-              {/* Wide: a progress table across every class needs the full row,
-                  and packing it into a column squeezes the bars to noise. */}
-              <BentoCell wide>
-                <Reveal once delay={0.16}>
-                  <DashSection
-                    icon="chart"
-                    title="Progress across your classes"
-                    seeAll={paths.classProjects}
-                  >
-                    <ClassProgress projects={data.projects} boards={data.boards} />
-                  </DashSection>
-                </Reveal>
-              </BentoCell>
-            </Bento>
-          </div>
+            {/* Full width: a progress list across every class needs the room,
+                and goes two or three across inside it. */}
+            <Reveal once delay={0.16} className="flex md:col-span-2 xl:col-span-3">
+              <BentoTile
+                className="w-full"
+                icon="chart"
+                title="Progress across your classes"
+                seeAll={paths.classProjects}
+              >
+                <ClassProgress projects={data.projects} boards={data.boards} />
+              </BentoTile>
+            </Reveal>
+          </BentoGrid>
         </>
       )}
     </div>

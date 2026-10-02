@@ -2516,3 +2516,13 @@ Owner confirmed pop-up message colors working on the live site (2026-10-03).
   focus/return at most once a minute — and shows "A new version of Collabify is ready." with
   Later / Reload, bottom-left (bottom on phone). Later hides it until the next build.
   Checked on `vite preview` by swapping the entry name in `dist/index.html`.
+
+**Change (2026-10-03): teacher dashboard is a bento too.** `ProfessorHome` uses `BentoGrid` /
+`BentoTile` like the student home: xl is Needs your attention · Your classes · Groups that have
+stalled across, then Progress across your classes full width (its projects go 2–3 across by
+container width); md is two lists, then Stalled and Progress full width; phone stacks. Inner
+lists are flat rows now (`AttentionList`, `ClassRail`, `StalledGroups` — still scrolls past three
+— and `ClassProgress`), all teacher-only components. Checked with a throwaway fixture page
+rendering the real `ProfessorHome` at 375/768/1280/1536 (rows end level, edges flush, no
+overflow); build, eslint, 587 Vitest. The work dashboard (`WorkOverview`) still uses the old
+packing `Bento`.
