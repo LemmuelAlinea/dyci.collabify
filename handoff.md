@@ -2391,3 +2391,9 @@ live). Other open tabs now update within a second for anyone who can still read 
   trigger on `group_members` that clears the lead when the leader leaves, is moved, or is
   dropped from the class. Applied live 2026-10-02; `tests/group-leader.test.sql` 24 PASS, plus
   group-archive, rls-coverage, anon-lockdown, trash, archive-page.
+
+**Change (2026-10-02): school year follows the section too.** In the create-class form
+(`ClassForm assignedTo`) School year is now locked to the picked section's `school_year`, as
+Year level already was, and that value is what gets saved — so the class lands in the
+section's cohort on the admin figures (matched by name + school year). A section year outside
+`SCHOOL_YEARS` is still shown. Checked with a throwaway fixture page, build, eslint, 582 Vitest.

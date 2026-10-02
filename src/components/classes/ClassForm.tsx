@@ -124,7 +124,7 @@ type Props = {
   onSubmit: (input: ClassInput) => void
   /**
    * Creating a class: offer only the sections the program office assigned to
-   * this teacher, and take the year level from the section picked. Editing a
+   * this teacher, and take the year level and school year from the section picked. Editing a
    * class leaves this out and keeps the open picker.
    */
   assignedTo?: string
@@ -218,7 +218,7 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
       section: picked ? picked.name : section,
       year_level: picked ? picked.year_level : yearLevel,
       semester,
-      school_year: schoolYear,
+      school_year: picked ? picked.school_year : schoolYear,
       description,
       syllabus_id: syllabusId || null,
       curriculum_id: curriculumId || null,
@@ -383,15 +383,35 @@ export function ClassForm({ formId, defaults, syllabi, curricula, error, onSubmi
         </Field>
       </div>
 
-      <Field label="School year">
-        {(id) => (
-          <Select
-            id={id}
-            value={schoolYear}
-            onChange={(e) => setSchoolYear(e.target.value)}
-            options={SCHOOL_YEARS}
-          />
-        )}
+      <Field
+        label="School year"
+        hint={
+          assignedMode ? <span className="text-[12px] text-faint">Set by the section</span> : undefined
+        }
+      >
+        {(id) =>
+          assignedMode ? (
+            <Select
+              id={id}
+              value={picked?.school_year ?? ''}
+              disabled
+              placeholder="Follows the section"
+              options={
+                // The section's year as written, even one outside the usual list.
+                picked && !SCHOOL_YEARS.some((y) => y.value === picked.school_year)
+                  ? [...SCHOOL_YEARS, { value: picked.school_year, label: picked.school_year.replace('-', '–') }]
+                  : SCHOOL_YEARS
+              }
+            />
+          ) : (
+            <Select
+              id={id}
+              value={schoolYear}
+              onChange={(e) => setSchoolYear(e.target.value)}
+              options={SCHOOL_YEARS}
+            />
+          )
+        }
       </Field>
 
       <Field
