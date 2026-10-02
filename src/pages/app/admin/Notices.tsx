@@ -17,6 +17,7 @@ import { NOTICE_HOURS } from '../../../lib/program'
 import type { ProgramNoticeRecord } from '../../../lib/program'
 import { momentLabel } from '../../../lib/report'
 import { Linkify } from '../../../components/ui/Linkify'
+import { DriveLinkCards } from '../../../components/ui/DriveLinkCards'
 
 /**
  * One notice from the program office to everybody in it.
@@ -350,6 +351,7 @@ function NoticeCard({
       <p className="mt-2 max-w-[80ch] text-[13px] leading-relaxed whitespace-pre-wrap text-muted">
         <Linkify text={n.body} />
       </p>
+      <DriveLinkCards text={n.body} className="mt-2.5" />
     </li>
   )
 }

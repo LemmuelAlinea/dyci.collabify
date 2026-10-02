@@ -4,6 +4,7 @@ import { listNotices } from '../../lib/api/program'
 import type { ProgramNotice } from '../../lib/program'
 import { momentLabel } from '../../lib/report'
 import { Linkify } from '../ui/Linkify'
+import { DriveLinkCards } from '../ui/DriveLinkCards'
 
 const SHOWN = 2
 
@@ -52,6 +53,7 @@ export function ProgramNotices() {
             <p className="mt-1.5 max-w-[80ch] text-[13px] leading-relaxed whitespace-pre-wrap text-muted">
               <Linkify text={n.body} />
             </p>
+            <DriveLinkCards text={n.body} className="mt-2.5" />
             <p className="mt-2 text-[12px] text-faint">
               {n.author_name} · {momentLabel(n.created_at)}
               {n.edited_at && ' · edited'}

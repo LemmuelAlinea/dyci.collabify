@@ -25,6 +25,7 @@ import { authErrorMessage } from '../../lib/authError'
 import type { Announcement, AnnouncementLink } from '../../lib/types'
 import { LinkList, LinkPicker } from './AnnouncementLinks'
 import { Linkify } from '../ui/Linkify'
+import { DriveLinkCards } from '../ui/DriveLinkCards'
 
 function when(iso: string) {
   const d = new Date(iso)
@@ -277,6 +278,7 @@ export function AnnouncementFeed({
               <p className="mt-3 text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
                 <Linkify text={a.body} />
               </p>
+              <DriveLinkCards text={a.body} className="mt-3" />
 
               <LinkList links={a.links ?? []} teacher={canManage} />
 

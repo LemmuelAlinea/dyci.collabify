@@ -36,6 +36,7 @@ import { FolderBar } from './FolderBar'
 import { RichEditor } from './RichEditor'
 import type { GeneralProjectState } from './useGeneralProject'
 import { Linkify } from '../ui/Linkify'
+import { DriveLinkCards } from '../ui/DriveLinkCards'
 
 const NOTICE_KEY = 'collabify.discussion-notice-closed'
 
@@ -507,6 +508,7 @@ function LiveRoom({
                     </p>
                   )}
                   <p className="whitespace-pre-wrap break-words"><Linkify text={m.body} tone="inherit" /></p>
+                  <DriveLinkCards text={m.body} tone="inherit" className="mt-2" />
                   <p className={`mt-0.5 text-right text-[10.5px] ${mine ? 'text-white/70' : 'text-faint'}`}>
                     {new Date(m.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
                   </p>

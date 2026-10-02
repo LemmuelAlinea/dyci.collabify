@@ -4,6 +4,7 @@ import { ActionMenu } from '../ui/ActionMenu'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { Linkify } from '../ui/Linkify'
+import { DriveLinkCards } from '../ui/DriveLinkCards'
 import { formatBytes } from '../../lib/formatBytes'
 import { Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
@@ -208,6 +209,9 @@ export function MessageBubble({
                   <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
                     <Linkify text={message.body} tone="inherit" />
                   </p>
+                )}
+                {message.body && (
+                  <DriveLinkCards text={message.body} tone="inherit" className="mt-2" />
                 )}
                 {message.attachments.length > 0 && (
                   <div className={`space-y-2 ${message.body ? 'mt-2' : ''}`}>

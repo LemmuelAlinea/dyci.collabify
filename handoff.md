@@ -2543,3 +2543,9 @@ Coming up down two rows in columns 1–2, Waiting on you then Jump back in stack
 cards. All three home dashboards now share the bento. Checked with a throwaway fixture page
 rendering the real `WorkOverview` (student, faculty, empty) at 375/768/1440: one rectangle, no
 overflow; build, eslint, 591 Vitest.
+- Follow-up: Google Drive / Docs links also get a card under the text (`lib/driveLinks.ts`,
+  `components/ui/DriveLinkCards.tsx`): "Google Drive folder", "Google Drive file", "Google
+  Doc", "Google Sheet", "Google Slides", "Google Form", "Google Drawing", or "Google Drive",
+  read from the address alone (no request to Google, so no file name), with Open. One card
+  per distinct link. Under class announcements, program notices (rail + admin), class chat
+  and work discussions; not under comments. Test `lib/driveLinks.test.ts`.
