@@ -2391,6 +2391,8 @@ live). Other open tabs now update within a second for anyone who can still read 
   trigger on `group_members` that clears the lead when the leader leaves, is moved, or is
   dropped from the class. Applied live 2026-10-02; `tests/group-leader.test.sql` 24 PASS, plus
   group-archive, rls-coverage, anon-lockdown, trash, archive-page.
+- Group cards (`GroupCard`, class Groups tab and Groups page) show the leader under the
+  faces, leader first among them, or "No leader yet".
 
 **Change (2026-10-02): school year follows the section too.** In the create-class form
 (`ClassForm assignedTo`) School year is now locked to the picked section's `school_year`, as

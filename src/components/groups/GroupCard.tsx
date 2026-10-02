@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Avatar } from '../app/Avatar'
 import { Icon } from '../ui/Icon'
+import { LeaderBadge } from './LeaderBadge'
 import type { GroupMember, GroupSummary } from '../../lib/types'
 import type { GroupWorkSummary } from '../../lib/api/groupWork'
 
@@ -39,7 +40,10 @@ export function GroupCard({
   /** The projects and tasks this group holds, when the board has loaded them. */
   work?: GroupWorkSummary
 }) {
-  const faces = members.slice(0, MAX_FACES)
+  const leader = members.find((m) => m.student_id === group.leader_id) ?? null
+  // The leader's face goes first, so it is never the one hidden behind "+N".
+  const ordered = leader ? [leader, ...members.filter((m) => m !== leader)] : members
+  const faces = ordered.slice(0, MAX_FACES)
   const overflow = members.length - faces.length
   const pct = Math.min(100, Math.round((group.member_count / group.member_limit) * 100))
 
@@ -70,7 +74,7 @@ export function GroupCard({
       </div>
 
       <div className="mt-5 flex items-end justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="mb-2 text-[11px] text-faint">Members</p>
         {members.length === 0 ? (
           <span className="text-[13px] text-faint">No members yet</span>
@@ -88,8 +92,22 @@ export function GroupCard({
             )}
           </div>
         )}
+        {members.length > 0 && (
+          <p className="mt-2.5 flex min-w-0 items-center gap-1.5 text-[12px]">
+            {leader ? (
+              <>
+                <LeaderBadge className="shrink-0" />
+                <span className="truncate text-muted">
+                  {leader.profile.first_name} {leader.profile.last_name}
+                </span>
+              </>
+            ) : (
+              <span className="text-faint">No leader yet</span>
+            )}
+          </p>
+        )}
         </div>
-        <p className="text-[12px] text-muted">
+        <p className="shrink-0 text-[12px] text-muted">
           <span className="font-mono font-semibold text-ink">{group.member_count}</span> of{' '}
           {group.member_limit} filled
         </p>
