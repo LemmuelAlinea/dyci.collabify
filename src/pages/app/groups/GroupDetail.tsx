@@ -279,6 +279,12 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                   Open
                 </span>
               )}
+              {viewerLeads && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-banner-ink/8 px-2.5 py-1 text-[11px] font-medium text-banner-accent ring-1 ring-banner-ink/10">
+                  <Icon name="crown" size={11} strokeWidth={2} />
+                  You lead this group
+                </span>
+              )}
             </div>
 
             {canManage && (

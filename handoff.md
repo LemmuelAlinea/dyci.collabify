@@ -2396,6 +2396,7 @@ live). Other open tabs now update within a second for anyone who can still read 
 - The new leader gets a `group_leader` notification ("You lead <group>", opens the group
   page), gated on `project_invites`. Not sent when someone picks themselves or the leader is
   set to who already leads. group-leader suite now 30 PASS.
+- The leader sees a "You lead this group" pill (crown) in the group page banner.
 
 **Change (2026-10-02): school year follows the section too.** In the create-class form
 (`ClassForm assignedTo`) School year is now locked to the picked section's `school_year`, as
