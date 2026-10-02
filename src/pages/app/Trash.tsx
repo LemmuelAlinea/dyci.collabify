@@ -158,6 +158,7 @@ export default function Trash() {
       ) : items.length === 0 ? (
         <EmptyState
           icon="trash"
+          art="trash"
           title="Trash is empty"
           body="When you move a file, folder, discussion, syllabus or curriculum to Trash, or anything from your Archive, it waits here for 30 days before it is deleted."
         />

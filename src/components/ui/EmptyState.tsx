@@ -11,15 +11,21 @@ import type { IconName } from './Icon'
  * on the page that asks, cache on their own, and cost the bundle nothing.
  *
  * Each one has a transparent background and was checked against all three
- * grounds it can land on: white, the dark theme, and the navy hero.
+ * grounds it can land on: white, the dark theme, and the navy hero. Most are
+ * SVG; the raster ones are WebP at twice the 176px slot, about 20KB each.
  */
 export type EmptyArt =
   | 'announcements'
   | 'classes'
   | 'groups'
+  | 'meetings'
   | 'projects'
   | 'reassignments'
   | 'tasks'
+  | 'trash'
+
+const RASTER: ReadonlySet<EmptyArt> = new Set(['meetings', 'trash'])
+const artSrc = (art: EmptyArt) => `/illustrations/${art}.${RASTER.has(art) ? 'webp' : 'svg'}`
 
 export function EmptyState({
   icon,
@@ -42,7 +48,7 @@ export function EmptyState({
         // it twice would only slow a screen reader down. Sized in the markup as
         // well as in CSS so the row does not reflow when it loads.
         <img
-          src={`/illustrations/${art}.svg`}
+          src={artSrc(art)}
           alt=""
           width={176}
           height={176}

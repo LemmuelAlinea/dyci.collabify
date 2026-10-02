@@ -2479,3 +2479,9 @@ instead of cards-in-cards (`DeadlineList`, `TaskDigest`, `WaitingOnYou`, `Standi
 - Checked with a throwaway fixture page rendering the real `StudentHome`: tile edges measured at
   375/768/1280/1536 and with no announcements / no term (always a rectangle, no overflow);
   build, eslint, 582 Vitest.
+
+**Change (2026-10-03): empty-state art for Trash and Meetings.** `public/illustrations/trash.webp`
+and `meetings.webp` (the owner's art, transparent, 1024 → 352px WebP, ~16 KB / ~21 KB, original
+framing kept to match the SVG set). `EmptyState` art names gained `trash` and `meetings`; a small
+`RASTER` set picks `.webp` for those, `.svg` for the rest. Trash shows it when empty; Meetings
+only for "No meetings yet" (a filtered "Nothing matches" keeps the icon). Checked light and dark.

@@ -227,6 +227,7 @@ export default function Meetings() {
       ) : live.length + upcoming.length === 0 && past.length === 0 ? (
         <EmptyState
           icon="video"
+          art={filtersOn || scope !== 'all' ? undefined : 'meetings'}
           title={filtersOn || scope !== 'all' ? 'Nothing matches' : 'No meetings yet'}
           body={
             filtersOn || scope !== 'all'
