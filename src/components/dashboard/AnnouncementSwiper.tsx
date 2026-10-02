@@ -99,7 +99,7 @@ export function AnnouncementSwiper({
             go(index - 1)
           }
         }}
-        className="flex snap-x snap-mandatory gap-4 overflow-x-auto rounded-card focus-visible:ring-4 focus-visible:ring-navy-500/12 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="-mx-2 flex snap-x snap-mandatory gap-4 overflow-x-auto rounded-lg focus-visible:ring-4 focus-visible:ring-navy-500/12 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {announcements.map((a) => {
           const cls = nameOf(a.class_id)
@@ -107,7 +107,7 @@ export function AnnouncementSwiper({
             <li key={a.id} className="w-full shrink-0 snap-start">
               <Link
                 to={`${linkBase}/${a.class_id}`}
-                className="surface flex h-full flex-col rounded-card border border-line p-4 sm:p-5 shadow-card transition-colors hover:border-line-strong sm:p-6"
+                className="flex h-full flex-col rounded-lg p-2 transition-colors hover:bg-[var(--surface-sunken)]"
               >
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                   <span className="eyebrow text-amber-500 dark:text-amber-300">

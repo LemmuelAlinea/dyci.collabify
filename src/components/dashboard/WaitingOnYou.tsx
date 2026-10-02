@@ -1,22 +1,23 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
+import { TileEmpty } from './Bento'
 import { paths } from '../../lib/paths'
 
 type Item = { icon: IconName; label: string; to: string; count: number }
 
-/** Things that sit still until somebody acts. Nothing to do means nothing shown. */
+/**
+ * Things that sit still until somebody acts. Always a tile, so the bento stays
+ * square; with nothing waiting it says so in one line.
+ */
 export function WaitingOnYou({
   unclaimed,
   unread,
   openSets,
-  stacked = false,
 }: {
   unclaimed: number
   unread: number
   openSets: number
-  /** One per row, for the narrow column beside a dashboard's main content. */
-  stacked?: boolean
 }) {
   const items: Item[] = ([
     {
@@ -39,25 +40,25 @@ export function WaitingOnYou({
     },
   ] as Item[]).filter((i) => i.count > 0)
 
-  if (items.length === 0) return null
+  if (items.length === 0) return <TileEmpty>Nothing is waiting on you.</TileEmpty>
 
   return (
-    <div className={`grid gap-3 ${stacked ? '' : 'sm:grid-cols-3'}`}>
+    <ul className="-mx-2 divide-y divide-[var(--line)]">
       {items.map((i) => (
-        <Link
-          key={i.label}
-          to={i.to}
-          className="surface flex items-center gap-3 rounded-card border border-warning-300 px-4 py-3.5 shadow-card transition-colors duration-250 hover:border-line-strong dark:border-warning-400/40"
-        >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-warning-400/18 text-warning-700 dark:text-warning-300">
-            <Icon name={i.icon} size={17} />
-          </span>
-          <span className="min-w-0">
-            <span className="block font-mono text-[17px] leading-none text-ink">{i.count}</span>
-            <span className="mt-1 block text-[12px] leading-snug text-muted">{i.label}</span>
-          </span>
-        </Link>
+        <li key={i.label}>
+          <Link
+            to={i.to}
+            className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-[var(--surface-sunken)]"
+          >
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-warning-400/18 text-warning-700 dark:text-warning-300">
+              <Icon name={i.icon} size={14} />
+            </span>
+            <span className="font-mono text-[17px] leading-none text-ink">{i.count}</span>
+            <span className="min-w-0 flex-1 truncate text-[13px] text-muted">{i.label}</span>
+            <Icon name="chevronRight" size={14} className="shrink-0 text-faint" />
+          </Link>
+        </li>
       ))}
-    </div>
+    </ul>
   )
 }

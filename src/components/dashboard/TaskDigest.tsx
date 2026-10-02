@@ -1,17 +1,13 @@
 import { Link } from 'react-router-dom'
-import { Icon } from '../ui/Icon'
+import { TileEmpty } from './Bento'
 import { dueSoonLabel, taskStatusLabel } from '../../lib/types'
 import { paths } from '../../lib/paths'
 import type { MyTask } from '../../lib/api/tasks'
 
-/** What the student has taken on and not finished, soonest first. */
+/** What the student has taken on and not finished, soonest first. Flat rows, for a bento tile. */
 export function TaskDigest({ tasks, limit = 5 }: { tasks: MyTask[]; limit?: number }) {
   if (tasks.length === 0) {
-    return (
-      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
-        Nothing on your plate. Open a project and claim something your group needs.
-      </p>
-    )
+    return <TileEmpty>Nothing on your plate. Open a project and claim something your group needs.</TileEmpty>
   }
 
   const shown = [...tasks]
@@ -19,7 +15,7 @@ export function TaskDigest({ tasks, limit = 5 }: { tasks: MyTask[]; limit?: numb
     .slice(0, limit)
 
   return (
-    <ul className="space-y-2">
+    <ul className="-mx-2 divide-y divide-[var(--line)]">
       {shown.map((t) => {
         const label = dueSoonLabel(t.due_at)
         const late = label === 'Overdue'
@@ -27,38 +23,35 @@ export function TaskDigest({ tasks, limit = 5 }: { tasks: MyTask[]; limit?: numb
           <li key={t.id}>
             <Link
               to={paths.classProject(t.project_id)}
-              className="surface flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl border border-line px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:gap-x-3 sm:gap-y-1.5 sm:px-4 sm:py-3"
+              className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-[var(--surface-sunken)]"
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-medium text-ink sm:text-[14px]">
-                  {t.title}
-                </span>
+                <span className="block truncate text-[14px] font-medium text-ink">{t.title}</span>
                 <span className="block truncate text-[12px] text-muted">
                   {t.project_title} · {t.class_initial}
                   {t.group_name ? ` · ${t.group_name}` : ''}
                 </span>
               </span>
-
-              <span
-                className={`shrink-0 rounded-lg px-2 py-0.5 font-mono text-[12px] ${
-                  t.status === 'in_progress'
-                    ? 'bg-warning-400/18 text-warning-700 dark:text-warning-300'
-                    : 'surface-sunken text-muted'
-                }`}
-              >
-                {taskStatusLabel(t.status)}
-              </span>
-
-              {label && (
+              <span className="flex shrink-0 flex-col items-end gap-1">
                 <span
-                  className={`flex shrink-0 items-center gap-1 font-mono text-[12px] ${
-                    late ? 'text-danger-600 dark:text-danger-400' : 'text-faint'
+                  className={`rounded-md px-1.5 py-0.5 font-mono text-[11px] ${
+                    t.status === 'in_progress'
+                      ? 'bg-warning-400/18 text-warning-700 dark:text-warning-300'
+                      : 'surface-sunken text-muted'
                   }`}
                 >
-                  <Icon name="clock" size={12} />
-                  {label}
+                  {taskStatusLabel(t.status)}
                 </span>
-              )}
+                {label && (
+                  <span
+                    className={`font-mono text-[11px] ${
+                      late ? 'text-danger-600 dark:text-danger-400' : 'text-faint'
+                    }`}
+                  >
+                    {label}
+                  </span>
+                )}
+              </span>
             </Link>
           </li>
         )

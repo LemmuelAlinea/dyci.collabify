@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
+import { TileEmpty } from './Bento'
 import { dueSoonLabel } from '../../lib/types'
 import type { Deadline } from '../../lib/api/dashboard'
 
-/** Tasks and projects on one line each, overdue first. */
+/** Tasks and projects on one line each, overdue first. Flat rows, for a bento tile. */
 export function DeadlineList({
   deadlines,
   limit = 5,
@@ -11,16 +12,10 @@ export function DeadlineList({
   deadlines: Deadline[]
   limit?: number
 }) {
-  if (deadlines.length === 0) {
-    return (
-      <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
-        Nothing due in the next seven days.
-      </p>
-    )
-  }
+  if (deadlines.length === 0) return <TileEmpty>Nothing due in the next seven days.</TileEmpty>
 
   return (
-    <ul className="space-y-2">
+    <ul className="-mx-2 divide-y divide-[var(--line)]">
       {deadlines.slice(0, limit).map((d) => {
         const label = dueSoonLabel(d.due_at)
         const late = label === 'Overdue'
@@ -28,27 +23,21 @@ export function DeadlineList({
           <li key={`${d.kind}-${d.id}`}>
             <Link
               to={d.to}
-              className={`surface flex items-center gap-3 rounded-xl border px-3 py-2.5 shadow-card transition-colors hover:border-line-strong sm:gap-3 sm:px-4 sm:py-3 ${
-                late ? 'border-danger-300 dark:border-danger-500/40' : 'border-line'
-              }`}
+              className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-[var(--surface-sunken)]"
             >
               <span
-                className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
+                className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${
                   late
                     ? 'bg-danger-50 text-danger-600 dark:bg-danger-500/12 dark:text-danger-400'
                     : 'surface-sunken text-muted'
                 }`}
               >
-                <Icon name={d.kind === 'task' ? 'check' : 'kanban'} size={15} />
+                <Icon name={d.kind === 'task' ? 'check' : 'kanban'} size={14} />
               </span>
-
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-medium text-ink sm:text-[14px]">
-                  {d.title}
-                </span>
+                <span className="block truncate text-[14px] font-medium text-ink">{d.title}</span>
                 <span className="block truncate text-[12px] text-muted">{d.context}</span>
               </span>
-
               <span
                 className={`shrink-0 font-mono text-[12px] ${
                   late ? 'text-danger-600 dark:text-danger-400' : 'text-faint'

@@ -2463,3 +2463,19 @@ Owner confirmed announcement links working on the live site (2026-10-03).
 - Checked with a throwaway fixture page: switch position measured at 375/414/768/1280 (top of the
   band, right padding, no overflow), the real `Home` switching both ways for a student with work
   and absent without; build, eslint, 582 Vitest.
+
+**Change (2026-10-03): student home is a true bento.** The class dashboard under "Your term" is
+one CSS grid whose tiles always close into a rectangle (`BentoGrid` / `BentoTile` / `TileEmpty`
+in `components/dashboard/Bento.tsx`; the old column-packing `Bento`/`BentoCell` stay for the
+other dashboards). Each section is one card; what is inside is flat rows divided by hairlines
+instead of cards-in-cards (`DeadlineList`, `TaskDigest`, `WaitingOnYou`, `StandingCard`,
+`ProjectStrip`, the announcement card, and `TermStrip flat` — `ThisWeek` keeps the card form).
+- xl (3 columns): Due and Tasks run rows 1–2 in columns 1–2, Announcements then Projects stack
+  in column 3, row 3 is Waiting · Where you stand · Term. No announcements → Projects takes both
+  rows; no current week → Where you stand spans two. md: two columns; phone: one.
+- Waiting on you is always a tile now ("Nothing is waiting on you." when empty).
+- Tiles are `@container`, so Projects goes two-across and Where you stand side-by-side only
+  when their tile is wide enough.
+- Checked with a throwaway fixture page rendering the real `StudentHome`: tile edges measured at
+  375/768/1280/1536 and with no announcements / no term (always a rectangle, no overflow);
+  build, eslint, 582 Vitest.

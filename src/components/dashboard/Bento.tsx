@@ -1,4 +1,8 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { Badge } from '../ui/Badge'
+import { Icon } from '../ui/Icon'
+import type { IconName } from '../ui/Icon'
 
 /**
  * The dashboard's packing layout.
@@ -44,5 +48,72 @@ export function BentoCell({
     >
       {children}
     </div>
+  )
+}
+
+/**
+ * A true bento: one grid whose tiles always meet in a rectangle. Each tile is
+ * a grid item that stretches to its row, so whatever the content does the
+ * outer edge stays square. The page places each tile with spans; this only
+ * sets the columns and the gaps.
+ */
+export function BentoGrid({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <div className={`grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 ${className}`}>{children}</div>
+}
+
+/**
+ * One tile: a single card with the section's heading at the top and its
+ * content filling the rest. What sits inside should be flat rows, not more
+ * cards — a card inside a card is what made the old dashboard read as clutter.
+ */
+export function BentoTile({
+  icon,
+  title,
+  count,
+  seeAll,
+  seeAllLabel = 'See all',
+  className = '',
+  children,
+}: {
+  icon: IconName
+  title: string
+  count?: number
+  seeAll?: string
+  seeAllLabel?: string
+  /** The tile's place in the grid: its spans per breakpoint. */
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <section
+      className={`surface flex min-w-0 flex-col rounded-card border border-line p-4 shadow-card sm:p-5 ${className}`}
+    >
+      <header className="flex items-center justify-between gap-3">
+        <h2 className="flex min-w-0 items-center gap-2 text-[15px]">
+          <Icon name={icon} size={16} className="shrink-0 text-faint" />
+          <span className="truncate">{title}</span>
+          {typeof count === 'number' && count > 0 && <Badge numeric>{count}</Badge>}
+        </h2>
+        {seeAll && (
+          <Link
+            to={seeAll}
+            className="flex shrink-0 items-center gap-1 text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+          >
+            {seeAllLabel}
+            <Icon name="chevronRight" size={13} />
+          </Link>
+        )}
+      </header>
+      <div className="@container mt-3 flex min-h-0 flex-1 flex-col">{children}</div>
+    </section>
+  )
+}
+
+/** A tile's empty state: one quiet line, centred in whatever room it has. */
+export function TileEmpty({ children }: { children: ReactNode }) {
+  return (
+    <p className="grid flex-1 place-items-center px-2 py-6 text-center text-[13px] text-muted">
+      {children}
+    </p>
   )
 }

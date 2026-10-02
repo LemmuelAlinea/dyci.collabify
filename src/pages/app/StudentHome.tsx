@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { ProgramNotices } from '../../components/app/ProgramNotices'
 import { Reveal } from '../../components/motion/Reveal'
 import { AnnouncementSwiper } from '../../components/dashboard/AnnouncementSwiper'
-import { DashSection } from '../../components/dashboard/DashSection'
-import { Bento, BentoCell } from '../../components/dashboard/Bento'
+import { BentoGrid, BentoTile } from '../../components/dashboard/Bento'
 import { DeadlineList } from '../../components/dashboard/DeadlineList'
 import { ProjectStrip } from '../../components/dashboard/ProjectStrip'
 import { StandingCard } from '../../components/dashboard/StandingCard'
@@ -74,6 +73,8 @@ export default function StudentHome({ onSwitch }: { onSwitch?: () => void } = {}
     (p) => !p.archived_at && !p.scheduled,
   ).length
   const tasksInHand = data?.tasks.length ?? 0
+  const hasAnnouncements = (data?.announcements.length ?? 0) > 0
+  const hasTerm = (data?.currentWeeks.length ?? 0) > 0
 
   // A student is behind when a deadline has gone by. Everything else is a
   // report on how the week looks.
@@ -170,104 +171,105 @@ export default function StudentHome({ onSwitch }: { onSwitch?: () => void } = {}
             <ProgramNotices />
           </div>
 
-          <div className="mt-7 md:mt-8">
-            <Bento>
-              <BentoCell>
-                <Reveal once delay={0.04}>
-                  <DashSection
-                    icon="clock"
-                    title="Due this week"
-                    count={deadlines.length}
-                    seeAll={paths.tasks}
-                  >
-                    <DeadlineList deadlines={deadlines} />
-                  </DashSection>
-                </Reveal>
-              </BentoCell>
+          {/* A true bento: every tile sits in one rectangle. On a wide screen,
+              Due and Tasks run two rows down the first two columns,
+              Announcements and Projects stack in the third, and the last row
+              is Waiting, Where you stand and the term. A missing tile lets its
+              neighbour take the room, so the edges stay square. */}
+          <BentoGrid className="mt-7 md:mt-8">
+            <Reveal once delay={0.04} className="flex xl:col-start-1 xl:row-span-2 xl:row-start-1">
+              <BentoTile
+                className="w-full"
+                icon="clock"
+                title="Due this week"
+                count={deadlines.length}
+                seeAll={paths.tasks}
+              >
+                <DeadlineList deadlines={deadlines} />
+              </BentoTile>
+            </Reveal>
 
-              <BentoCell>
-                <Reveal once delay={0.08}>
-                  <WaitingOnYou
-                    unclaimed={data.unclaimed}
-                    unread={unread}
-                    openSets={data.openSets}
-                    stacked
+            <Reveal once delay={0.08} className="flex xl:col-start-2 xl:row-span-2 xl:row-start-1">
+              <BentoTile
+                className="w-full"
+                icon="check"
+                title="Your unfinished tasks"
+                count={data.tasks.length}
+                seeAll={paths.tasks}
+              >
+                <TaskDigest tasks={data.tasks} />
+              </BentoTile>
+            </Reveal>
+
+            {hasAnnouncements && (
+              <Reveal once delay={0.12} className="flex md:col-span-2 xl:col-span-1 xl:col-start-3 xl:row-start-1">
+                <BentoTile
+                  className="w-full"
+                  icon="message"
+                  title="Announcements"
+                  count={data.announcements.length}
+                  seeAll={paths.classes}
+                  seeAllLabel="All classes"
+                >
+                  <AnnouncementSwiper
+                    announcements={data.announcements}
+                    classes={data.classes}
+                    linkBase={paths.classes}
                   />
-                </Reveal>
-              </BentoCell>
+                </BentoTile>
+              </Reveal>
+            )}
 
-              <BentoCell>
-                <Reveal once delay={0.12}>
-                  <DashSection
-                    icon="check"
-                    title="Your unfinished tasks"
-                    count={data.tasks.length}
-                    seeAll={paths.tasks}
-                  >
-                    <TaskDigest tasks={data.tasks} />
-                  </DashSection>
-                </Reveal>
-              </BentoCell>
+            <Reveal
+              once
+              delay={0.16}
+              className={`flex md:col-span-2 xl:col-span-1 xl:col-start-3 ${
+                hasAnnouncements ? 'xl:row-start-2' : 'xl:row-span-2 xl:row-start-1'
+              }`}
+            >
+              <BentoTile
+                className="w-full"
+                icon="kanban"
+                title="Projects you are on"
+                seeAll={paths.classProjects}
+              >
+                <ProjectStrip
+                  projects={data.projects}
+                  boards={data.boards}
+                  linkBase={paths.classProjects}
+                />
+              </BentoTile>
+            </Reveal>
 
-              {data.announcements.length > 0 && (
-                <BentoCell>
-                  <Reveal once delay={0.16}>
-                    <DashSection
-                      icon="message"
-                      title="Announcements"
-                      count={data.announcements.length}
-                      seeAll={paths.classes}
-                      seeAllLabel="All classes"
-                    >
-                      <AnnouncementSwiper
-                        announcements={data.announcements}
-                        classes={data.classes}
-                        linkBase={paths.classes}
-                      />
-                    </DashSection>
-                  </Reveal>
-                </BentoCell>
-              )}
+            <Reveal once delay={0.2} className="flex xl:col-start-1 xl:row-start-3">
+              <BentoTile className="w-full" icon="bell" title="Waiting on you">
+                <WaitingOnYou unclaimed={data.unclaimed} unread={unread} openSets={data.openSets} />
+              </BentoTile>
+            </Reveal>
 
-              <BentoCell>
-                <Reveal once delay={0.2}>
-                  <DashSection
-                    icon="kanban"
-                    title="Projects you are on"
-                    seeAll={paths.classProjects}
-                  >
-                    <ProjectStrip
-                      projects={data.projects}
-                      boards={data.boards}
-                      linkBase={paths.classProjects}
-                    />
-                  </DashSection>
-                </Reveal>
-              </BentoCell>
+            <Reveal
+              once
+              delay={0.24}
+              className={`flex xl:col-start-2 xl:row-start-3 ${hasTerm ? '' : 'xl:col-span-2'}`}
+            >
+              <BentoTile className="w-full" icon="chart" title="Where you stand">
+                <StandingCard rows={data.standing} />
+              </BentoTile>
+            </Reveal>
 
-              <BentoCell>
-                <Reveal once delay={0.24}>
-                  <DashSection icon="chart" title="Where you stand">
-                    <StandingCard rows={data.standing} />
-                  </DashSection>
-                </Reveal>
-              </BentoCell>
-
-              {data.currentWeeks.length > 0 && (
-                <BentoCell>
-                  <Reveal once delay={0.28}>
-                    <DashSection icon="calendar" title="Where the term is">
-                      <TermStrip
-                        weeks={data.currentWeeks}
-                        classes={data.classes}
-                        linkBase={paths.classes}
-                      />
-                    </DashSection>
-                  </Reveal>
-                </BentoCell>
-              )}
-            </Bento>
-          </div>
+            {hasTerm && (
+              <Reveal once delay={0.28} className="flex md:col-span-2 xl:col-span-1 xl:col-start-3 xl:row-start-3">
+                <BentoTile className="w-full" icon="calendar" title="Where the term is">
+                  <TermStrip
+                    weeks={data.currentWeeks}
+                    classes={data.classes}
+                    linkBase={paths.classes}
+                    flat
+                  />
+                </BentoTile>
+              </Reveal>
+            )}
+          </BentoGrid>
         </>
       )}
 
