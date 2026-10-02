@@ -67,7 +67,7 @@ export async function updateSpace(spaceId: string, name: string, description: st
 }
 
 /**
- * Archive keeps everything readable. Delete is owner-only and permanent.
+ * Archive keeps everything readable. Deleting goes through Archive → Trash.
  */
 export async function archiveSpace(spaceId: string, archived: boolean) {
   const { data, error } = await supabase.rpc('archive_general_space', {
@@ -76,11 +76,6 @@ export async function archiveSpace(spaceId: string, archived: boolean) {
   })
   if (error) throw error
   return data as GeneralSpace
-}
-
-export async function deleteSpace(spaceId: string) {
-  const { error } = await supabase.rpc('delete_general_space', { p_space: spaceId })
-  if (error) throw error
 }
 
 /* ---------------------------------------------------------------- joining */

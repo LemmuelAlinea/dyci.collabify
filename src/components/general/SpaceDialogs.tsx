@@ -7,11 +7,10 @@ import { canTeach } from '../../lib/access'
 import { copyClassProjects, createClass, listProfessorClasses } from '../../lib/api/classes'
 import type { ClassInput } from '../../lib/api/classes'
 import { listResources } from '../../lib/api/resources'
-import { createSpace, joinSpace, updateSpace } from '../../lib/api/spaces'
+import { createSpace, joinSpace } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
 import { paths } from '../../lib/paths'
 import type { ClassSummary, TeachingResource } from '../../lib/types'
-import type { GeneralSpaceSummary } from '../../lib/general/types'
 import { ClassForm } from '../classes/ClassForm'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
@@ -429,98 +428,6 @@ export function JoinSpaceDialog({
               className="font-mono uppercase tracking-[0.2em]"
               value={code}
               onChange={(event) => setCode(event.target.value.toUpperCase())}
-            />
-          )}
-        </Field>
-      </form>
-    </Modal>
-  )
-}
-
-export function EditSpaceDialog({
-  open,
-  onClose,
-  space,
-  onSaved,
-}: {
-  open: boolean
-  onClose: () => void
-  space: GeneralSpaceSummary
-  onSaved: () => void | Promise<void>
-}) {
-  const [name, setName] = useState(space.name)
-  const [description, setDescription] = useState(space.description)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  function close() {
-    if (busy) return
-    setName(space.name)
-    setDescription(space.description)
-    setError(null)
-    onClose()
-  }
-
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault()
-    setBusy(true)
-    setError(null)
-    try {
-      await updateSpace(space.id, name, description)
-      await onSaved()
-      onClose()
-    } catch (err) {
-      setError(authErrorMessage(err, 'Could not update this space.'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={close}
-      title="Edit space"
-      description="Change how this space is identified."
-      size="sm"
-      focusField
-      footer={
-        <>
-          <Button variant="ghost" onClick={close} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            form="edit-general-space"
-            loading={busy}
-            disabled={name.trim().length === 0}
-          >
-            Save
-          </Button>
-        </>
-      }
-    >
-      <form id="edit-general-space" onSubmit={onSubmit} className="space-y-4">
-        {error && <Alert tone="error">{error}</Alert>}
-        <Field label="Name">
-          {(id) => (
-            <Input
-              id={id}
-              required
-              maxLength={80}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          )}
-        </Field>
-        <Field label="Description" hint="Optional. What the space is for.">
-          {(id) => (
-            <Textarea
-              id={id}
-              rows={3}
-              maxLength={400}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
             />
           )}
         </Field>

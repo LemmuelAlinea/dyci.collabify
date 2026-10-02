@@ -2325,3 +2325,18 @@ where it lives, Move to trash. Empty sections stay and say where that kind is ar
   one-workplace, teaching-guards. UI checked with a throwaway probe route (fixture data, all
   four access shapes, 1440 / 1280 light / 768 / 375, no horizontal scroll), then removed.
   `list_my_archive` run as real accounts in rolled-back transactions: 60–150 ms.
+
+**Change (2026-10-02): space Settings tab; no delete in class or space settings.**
+- New space tab **Settings** (`/spaces/:id/settings`, `pages/general/SpaceSettings.tsx`),
+  shown only to the space's Owner (`update_general_space` / `archive_general_space` are
+  Owner-only). Space details (name, description; read-only while archived) and one archive
+  section: Archive space (with confirm) until archived, then only Restore space.
+- The banner's Archive/Restore and Delete space icons are gone, as are Members' "Edit space"
+  button and "Space archive" section. `EditSpaceDialog` and `deleteSpace` were removed.
+- Class settings: the Delete class section is gone (it was a plain table delete that
+  `guard_group_delete` refused for any class whose groups hold work). Archive, then Restore,
+  as before. `deleteClassPermanently` removed. Deleting a class or space now only goes
+  Archive page → Trash.
+- Checked: build, eslint, 582 Vitest; both settings panels in a throwaway probe route
+  (live and archived states, confirm dialog, 1280 and 375 with no horizontal scroll), then
+  removed.

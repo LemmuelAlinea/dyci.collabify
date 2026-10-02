@@ -5,24 +5,19 @@ import { DashboardSummary } from '../../components/dashboard/DashboardSummary'
 import { JoinProjectDialog } from '../../components/general/JoinProjectDialog'
 import { NewProjectDialog } from '../../components/general/NewProjectDialog'
 import { Button } from '../../components/ui/Button'
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Icon, Spinner } from '../../components/ui/Icon'
 import type { IconName } from '../../components/ui/Icon'
-import { IconAction } from '../../components/ui/IconAction'
 import { Tabs } from '../../components/ui/Tabs'
-import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
-import { forgetSpace } from '../../hooks/useSpaces'
 import { isFaculty } from '../../lib/access'
-import { archiveSpace, deleteSpace } from '../../lib/api/spaces'
 import { dueCounts, myTasks } from '../../lib/general/dashboard'
 import { paths } from '../../lib/paths'
 import { plural } from '../../lib/plural'
 import type { SpaceOutlet } from './spaceOutlet'
 
-type SpaceTab = 'overview' | 'projects' | 'teams' | 'members' | 'reports' | 'archive'
+type SpaceTab = 'overview' | 'projects' | 'teams' | 'members' | 'reports' | 'archive' | 'settings'
 
 const TABS: { id: SpaceTab; label: string; icon: IconName; to: (id: string) => string }[] = [
   { id: 'overview', label: 'Overview', icon: 'info', to: paths.space },
@@ -31,6 +26,7 @@ const TABS: { id: SpaceTab; label: string; icon: IconName; to: (id: string) => s
   { id: 'members', label: 'Members', icon: 'users', to: paths.spaceMembers },
   { id: 'reports', label: 'Reports', icon: 'chart', to: paths.spaceReports },
   { id: 'archive', label: 'Archive', icon: 'archive', to: paths.spaceArchive },
+  { id: 'settings', label: 'Settings', icon: 'settings', to: paths.spaceSettings },
 ]
 
 /** `/spaces/:id/teams/archive` is still the Teams tab. */
@@ -57,12 +53,9 @@ export default function SpaceLayout() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const { show } = useToast()
-  const { spaces, currentSpace: space, projects, reload: reloadNavigation } = useGeneralNavigation()
+  const { spaces, currentSpace: space, projects } = useGeneralNavigation()
   const [newOpen, setNewOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
-  const [archiveOpen, setArchiveOpen] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const all = useMemo(() => (projects ?? []).filter((p) => !p.archived_at), [projects])
   const ids = useMemo(() => all.map((p) => p.id), [all])
@@ -105,7 +98,13 @@ export default function SpaceLayout() {
     members: space?.member_count,
     archive: space?.archived_count || undefined,
   }
-  const tabs = TABS.map((t) => ({ id: t.id, label: t.label, icon: t.icon, count: counts[t.id] }))
+  // Settings is the Owner's: renaming and archiving are theirs alone.
+  const tabs = TABS.filter((t) => t.id !== 'settings' || isOwner).map((t) => ({
+    id: t.id,
+    label: t.label,
+    icon: t.icon,
+    count: counts[t.id],
+  }))
 
   const outlet: SpaceOutlet = { all, dashboard, canStart, openNewProject: () => setNewOpen(true) }
 
@@ -120,32 +119,18 @@ export default function SpaceLayout() {
             line={line}
             urgent={overdue > 0}
             action={
-              <>
-                {canStart && (
-                  <>
-                    <Button size="sm" variant="create" onClick={() => setNewOpen(true)}>
-                      <Icon name="plus" size={15} />
-                      New project
-                    </Button>
-                    <Button size="sm" variant="onNavy" onClick={() => setJoinOpen(true)}>
-                      <Icon name="lock" size={15} />
-                      Join with code
-                    </Button>
-                  </>
-                )}
-                {isOwner && space && (
-                  <IconAction
-                    icon={archived ? 'refresh' : 'archive'}
-                    label={archived ? 'Restore space' : 'Archive space'}
-                    variant={archived ? 'onNavy' : 'destroy'}
-                    onClick={() => setArchiveOpen(true)}
-                  />
-                )}
-                {/* Deleting is the second of two steps: archive first, then delete. */}
-                {isOwner && space && archived && (
-                  <IconAction icon="trash" label="Delete space" variant="danger" onClick={() => setDeleteOpen(true)} />
-                )}
-              </>
+              canStart && (
+                <>
+                  <Button size="sm" variant="create" onClick={() => setNewOpen(true)}>
+                    <Icon name="plus" size={15} />
+                    New project
+                  </Button>
+                  <Button size="sm" variant="onNavy" onClick={() => setJoinOpen(true)}>
+                    <Icon name="lock" size={15} />
+                    Join with code
+                  </Button>
+                </>
+              )
             }
           />
         </Reveal>
@@ -176,39 +161,6 @@ export default function SpaceLayout() {
 
       <NewProjectDialog open={newOpen} onClose={() => setNewOpen(false)} spaceId={spaceId} />
       <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} />
-      <ConfirmDialog
-        open={archiveOpen}
-        onClose={() => setArchiveOpen(false)}
-        onConfirm={async () => {
-          if (!space) return
-          await archiveSpace(space.id, !archived)
-          show(archived ? 'Space restored' : 'Space archived')
-          await reloadNavigation()
-        }}
-        title={archived ? 'Restore this space?' : 'Archive this space?'}
-        body={
-          archived
-            ? 'Projects return to normal and members can make changes again.'
-            : 'Every project stays readable, but no member can change the space until an Owner restores it.'
-        }
-        confirmLabel={archived ? 'Restore space' : 'Archive space'}
-        tone="primary"
-      />
-      <ConfirmDialog
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        onConfirm={async () => {
-          if (!space) return
-          await deleteSpace(space.id)
-          forgetSpace()
-          await reloadNavigation()
-          show('Space deleted')
-          navigate(paths.spaces, { replace: true })
-        }}
-        title="Delete this space?"
-        body="This permanently deletes the space and everything inside it, including its projects, tasks, files, members, invitations, and project chats."
-        confirmLabel="Delete space"
-      />
     </div>
   )
 }

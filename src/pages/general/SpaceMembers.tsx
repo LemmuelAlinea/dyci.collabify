@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Avatar } from '../../components/app/Avatar'
 import { InviteToSpaceDialog } from '../../components/general/InviteToSpaceDialog'
-import { EditSpaceDialog } from '../../components/general/SpaceDialogs'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
@@ -15,7 +14,6 @@ import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useLive } from '../../hooks/useLive'
 import { forgetSpace } from '../../hooks/useSpaces'
 import {
-  archiveSpace,
   listSpaceInvitations,
   listSpaceMembers,
   removeSpaceMember,
@@ -33,7 +31,7 @@ import { paths } from '../../lib/paths'
  * Who is in a space, and the two doors into it.
  *
  * The levels here decide only what somebody may do to the space itself —
- * rename it, invite to it, archive it. None of them grants any power inside a
+ * rename it, invite to it, archive it (Settings). None of them grants any power inside a
  * project: a space Owner who is not on a project reads it like everybody else
  * and changes nothing.
  */
@@ -54,8 +52,6 @@ export default function SpaceMembers() {
   const [code, setCode] = useState<string | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
-  const [archiveOpen, setArchiveOpen] = useState(false)
   const [removing, setRemoving] = useState<SpacePerson | null>(null)
   const [leaving, setLeaving] = useState(false)
 
@@ -150,12 +146,6 @@ export default function SpaceMembers() {
             <Button size="sm" onClick={() => setInviteOpen(true)}>
               <Icon name="plus" size={15} />
               Invite
-            </Button>
-          )}
-          {isOwner && !archived && (
-            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-              <Icon name="edit" size={15} />
-              Edit space
             </Button>
           )}
         </div>
@@ -294,25 +284,6 @@ export default function SpaceMembers() {
             Leave
           </Button>
         </section>
-
-        {isOwner && (
-          <section className="rounded-panel border border-line p-4 sm:p-5">
-            <h2 className="text-[15px]">Space archive</h2>
-            <p className="mt-1 text-[13px] text-muted">
-              {archived
-                ? 'Restore this space to allow changes and new projects again.'
-                : 'Archiving keeps every project and makes the whole space read-only.'}
-            </p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-3"
-              onClick={() => setArchiveOpen(true)}
-            >
-              {archived ? 'Restore space' : 'Archive space'}
-            </Button>
-          </section>
-        )}
       </div>
 
       <InviteToSpaceDialog
@@ -340,33 +311,6 @@ export default function SpaceMembers() {
         confirmLabel="Leave"
       />
 
-      {space && (
-        <EditSpaceDialog
-          open={editOpen}
-          onClose={() => setEditOpen(false)}
-          space={space}
-          onSaved={reloadNavigation}
-        />
-      )}
-
-      <ConfirmDialog
-        open={archiveOpen}
-        onClose={() => setArchiveOpen(false)}
-        onConfirm={async () => {
-          if (!space) return
-          await archiveSpace(space.id, !archived)
-          show(archived ? 'Space restored' : 'Space archived')
-          await reloadNavigation()
-        }}
-        title={archived ? 'Restore this space?' : 'Archive this space?'}
-        body={
-          archived
-            ? 'Projects return to normal and members can make changes again.'
-            : 'Every project stays readable, but no member can change the space until an Owner restores it.'
-        }
-        confirmLabel={archived ? 'Restore space' : 'Archive space'}
-        tone="primary"
-      />
     </div>
   )
 }

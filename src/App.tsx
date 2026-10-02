@@ -83,6 +83,7 @@ const GeneralTeams = lazy(() => import('./pages/general/GeneralTeams'))
 const SpacePicker = lazy(() => import('./pages/general/SpacePicker'))
 const SpaceMembers = lazy(() => import('./pages/general/SpaceMembers'))
 const SpaceArchive = lazy(() => import('./pages/general/SpaceArchive'))
+const SpaceSettings = lazy(() => import('./pages/general/SpaceSettings'))
 const GeneralProject = lazy(() => import('./pages/general/GeneralProject'))
 const ProjectArchive = lazy(() => import('./pages/general/ProjectArchive'))
 const GeneralReports = lazy(() => import('./pages/general/GeneralReports'))
@@ -172,6 +173,7 @@ export default function App() {
                 <Route path="teams/archive" element={<GeneralTeams />} />
                 <Route path="archive" element={<SpaceArchive />} />
                 <Route path="reports" element={<GeneralReports />} />
+                <Route path="settings" element={<SpaceSettings />} />
               </Route>
 
               {/* Flat, not nested under the space: a project id is unique on its

@@ -133,11 +133,6 @@ export async function setArchived(classId: string, archived: boolean) {
   if (error) throw error
 }
 
-export async function deleteClassPermanently(classId: string) {
-  const { error } = await supabase.from('classes').delete().eq('id', classId)
-  if (error) throw error
-}
-
 export async function listMembers(classId: string, includeRemoved = false) {
   const query = supabase
     .from('class_members')
