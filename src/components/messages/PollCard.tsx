@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Avatar } from '../app/Avatar'
 import { Icon, Spinner } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
-import { POLL_MESSAGE, addPollOption, castVote, setPollClosed } from '../../lib/api/polls'
+import { POLL_MESSAGE, chatPollActions } from '../../lib/api/polls'
+import type { PollActions } from '../../lib/api/polls'
 import { authErrorMessage } from '../../lib/authError'
 import { tallyPoll } from '../../lib/types'
 import type { Poll } from '../../lib/types'
@@ -12,13 +13,21 @@ export function PollCard({
   viewerId,
   canManage,
   onChanged,
+  actions = chatPollActions,
+  notAllowed = POLL_MESSAGE.not_allowed,
 }: {
   poll: Poll
   viewerId: string
   /** Professor of the class or group behind this chat. */
   canManage: boolean
   onChanged: () => Promise<void> | void
+  /** Where votes and options go. The class chat's calls unless given. */
+  actions?: PollActions
+  /** Who may close it, said when someone else tries. */
+  notAllowed?: string
 }) {
+  const say = (result: string, fallback: string) =>
+    result === 'not_allowed' ? notAllowed : (POLL_MESSAGE[result] ?? fallback)
   const { show } = useToast()
   const [busyOption, setBusyOption] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -34,8 +43,8 @@ export function PollCard({
     if (closed) return
     setBusyOption(optionId)
     try {
-      const { result } = await castVote(optionId, !mine.has(optionId))
-      if (result !== 'ok') show(POLL_MESSAGE[result] ?? 'Could not record that vote.', 'error')
+      const { result } = await actions.castVote(optionId, !mine.has(optionId))
+      if (result !== 'ok') show(say(result, 'Could not record that vote.'), 'error')
       await onChanged()
     } catch (err) {
       show(authErrorMessage(err, 'Could not record that vote.'), 'error')
@@ -47,13 +56,13 @@ export function PollCard({
   async function submitOption() {
     if (!draft.trim()) return
     try {
-      const { result } = await addPollOption(poll.id, draft)
+      const { result } = await actions.addOption(poll.id, draft)
       if (result === 'ok') {
         setDraft('')
         setAdding(false)
         await onChanged()
       } else {
-        show(POLL_MESSAGE[result] ?? 'Could not add that option.', 'error')
+        show(say(result, 'Could not add that option.'), 'error')
       }
     } catch (err) {
       show(authErrorMessage(err, 'Could not add that option.'), 'error')
@@ -75,8 +84,12 @@ export function PollCard({
           <button
             type="button"
             onClick={async () => {
-              const { result } = await setPollClosed(poll.id, !closed)
-              if (result !== 'ok') show(POLL_MESSAGE[result] ?? 'Could not do that.', 'error')
+              try {
+                const { result } = await actions.setClosed(poll.id, !closed)
+                if (result !== 'ok') show(say(result, 'Could not do that.'), 'error')
+              } catch (err) {
+                show(authErrorMessage(err, 'Could not do that.'), 'error')
+              }
               await onChanged()
             }}
             title={closed ? 'Reopen poll' : 'Close poll'}

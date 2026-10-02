@@ -2549,3 +2549,34 @@ overflow; build, eslint, 591 Vitest.
   read from the address alone (no request to Google, so no file name), with Open. One card
   per distinct link. Under class announcements, program notices (rail + admin), class chat
   and work discussions; not under comments. Test `lib/driveLinks.test.ts`.
+
+**Change (2026-10-03): polls and voice messages in discussions.** A live discussion's composer
+has a Poll button and a mic button (mic only where the browser can record).
+- `supabase/discussion-polls-voice.sql` (applied live; test `tests/discussion-polls-voice.test.sql`,
+  35 PASS): `general_discussion_messages.kind` text | poll | voice, plus `audio_path`, `audio_ms`,
+  `transcript_status` (pending, working, done, failed) and `transcript_edited_at`. Poll tables
+  `general_discussion_polls` / `_poll_options` / `_poll_votes` (members read, RPC writes:
+  `create_general_discussion_poll`, `cast_…_vote`, `add_…_option`, `set_…_closed`), same rules as
+  the class chat's polls; up to 12 options. Private bucket `discussion-voice`
+  (`<project>/<discussion>/<file>`, 8 MB cap, upload only into a live discussion you are on,
+  no update/delete); `send_general_discussion_voice` (≤ 5 min, own upload only, once) and
+  `edit_general_discussion_transcript` (sender only, while live).
+- `stop_general_discussion` (general-discussions.sql) closes open polls and writes each poll's
+  results (votes and voters per option) and each voice message's transcript — marked when the
+  sender corrected it, or "Not transcribed." — into the discussion file, so the .docx/PDF
+  export and AI task drafting read them.
+- Edge function `transcribe-voice` (deployed): reads the message through the caller's JWT,
+  claims it (`working`, re-claimable after 3 min), sends the audio to Groq
+  `whisper-large-v3` primed with the project's and members' names, writes `body` with the
+  service role. 60 per person per hour (`rate_limit`). **Needs the `GROQ_API_KEY` secret**;
+  until it is set every voice message shows "could not be transcribed" with a Transcribe retry.
+- UI: `VoiceRecorder` (MediaRecorder at 32 kbps, record → play back → Send/Discard, auto-stops
+  at 5:00), `VoiceMessage` (player, transcript, Edit transcript for the sender, Transcribe
+  retry). `PollCard` / `CreatePollDialog` take `actions` / `create` so the chat and discussions
+  share them. `vercel.json`: `microphone=(self)` (was blocked) and `media-src` for Supabase.
+- Storage sweep now also clears `discussion-voice` files no message points to.
+- `general-discussions.test.sql` "the starter is not [notified]" was failing on a real live
+  notification for the picked student; now scoped to the test's project.
+- Checked: build, 595 Vitest, SQL suites above plus general-discussions, anon-lockdown,
+  rls-coverage, trash, storage-sweep; UI states on a throwaway fixture page (dark). Recording
+  itself is not testable in the browser pane (mic blocked there).

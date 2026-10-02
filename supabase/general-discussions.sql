@@ -25,6 +25,10 @@
 -- handed-in or closed board refuses writes through guard_class_board_files,
 -- the trigger class-files.sql puts on the Files tables.
 --
+-- Polls and voice messages (their tables, bucket and calls) are in
+-- discussion-polls-voice.sql, which runs after this file; stop_general_discussion
+-- here writes both into the file.
+--
 -- Runs after class-files.sql, before anon-lockdown.sql. Idempotent. Safe to re-run.
 
 begin;
@@ -325,11 +329,31 @@ begin
            where discussion_id = p_discussion and sender_id is not null
            group by sender_id) s;
 
+  -- Polls are final once the discussion stops (discussion-polls-voice.sql).
+  update public.general_discussion_polls set closed_at = now()
+   where discussion_id = p_discussion and closed_at is null;
+
+  -- Each message by kind: what was typed, a poll with how it came out, or a
+  -- voice message as its transcript.
   select string_agg(
            '<p><strong>' || public.general_html_escape(
               case when m.sender_id is null then 'A former member' else public.display_name(m.sender_id) end)
-           || '</strong> ' || to_char(m.created_at at time zone 'Asia/Manila', 'FMHH12:MI AM') || ': '
-           || replace(public.general_html_escape(m.body), E'\n', '<br>') || '</p>',
+           || '</strong> ' || to_char(m.created_at at time zone 'Asia/Manila', 'FMHH12:MI AM')
+           || case m.kind
+                when 'poll' then ' asked in a poll: <strong>'
+                  || public.general_html_escape(m.body) || '</strong></p>'
+                  || coalesce(public.general_discussion_poll_html(m.id), '')
+                when 'voice' then ' (voice message, '
+                  || (m.audio_ms / 60000) || ':' || lpad(((m.audio_ms / 1000) % 60)::text, 2, '0')
+                  || case when m.transcript_edited_at is not null then ', transcript corrected by the sender' else '' end
+                  || '): '
+                  || case when m.transcript_status = 'done' and btrim(m.body) <> ''
+                          then replace(public.general_html_escape(m.body), E'\n', '<br>')
+                          when m.transcript_status = 'done' then '<em>No speech was heard.</em>'
+                          else '<em>Not transcribed.</em>' end
+                  || '</p>'
+                else ': ' || replace(public.general_html_escape(m.body), E'\n', '<br>') || '</p>'
+              end,
            '' order by m.created_at)
     into v_body
     from public.general_discussion_messages m

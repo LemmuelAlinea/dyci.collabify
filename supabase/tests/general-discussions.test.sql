@@ -68,7 +68,8 @@ begin
     exists (select 1 from public.notifications where user_id = v_b and type = 'discussion_started'
              and project_id = v_proj and general_project_id is null));
   perform pg_temp.ok('...and the starter is not',
-    not exists (select 1 from public.notifications where user_id = v_a and type = 'discussion_started'));
+    not exists (select 1 from public.notifications where user_id = v_a and type = 'discussion_started'
+                   and project_id = v_proj));
 
   perform pg_temp.act_as(v_b);
   begin

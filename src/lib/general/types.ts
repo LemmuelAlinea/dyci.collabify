@@ -464,7 +464,14 @@ export type GeneralDiscussionMessage = {
   discussion_id: string
   project_id: string
   sender_id: string | null
+  /** The text; a poll's question; a voice message's transcript (empty until written). */
   body: string
+  kind: 'text' | 'poll' | 'voice'
+  audio_path: string | null
+  audio_ms: number | null
+  transcript_status: 'pending' | 'working' | 'done' | 'failed' | null
+  /** Set once the sender corrected the transcript. */
+  transcript_edited_at: string | null
   created_at: string
 }
 

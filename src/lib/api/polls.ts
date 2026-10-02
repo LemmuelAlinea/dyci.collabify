@@ -62,7 +62,22 @@ export async function setPollClosed(pollId: string, closed: boolean) {
   return data as { result: 'ok' | 'not_allowed' }
 }
 
+/** What a poll card calls, so the same card serves the class chat and discussions. */
+export type PollActions = {
+  castVote: (optionId: string, selected: boolean) => Promise<{ result: string }>
+  addOption: (pollId: string, label: string) => Promise<{ result: string }>
+  setClosed: (pollId: string, closed: boolean) => Promise<{ result: string }>
+}
+
+export const chatPollActions: PollActions = {
+  castVote,
+  addOption: addPollOption,
+  setClosed: setPollClosed,
+}
+
 export const POLL_MESSAGE: Record<string, string> = {
+  too_few_options: 'Add at least two different options.',
+  too_many_options: 'A poll takes up to 12 options.',
   closed: 'This poll is closed, so it can no longer change.',
   not_allowed: 'Only the person who made this poll, or the professor, can do that.',
   duplicate: 'That option is already on the poll.',

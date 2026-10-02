@@ -15,11 +15,22 @@ export function CreatePollDialog({
   onClose,
   conversationId,
   onCreated,
+  create,
+  where = 'this chat',
 }: {
   open: boolean
   onClose: () => void
   conversationId: string
   onCreated: () => Promise<void> | void
+  /** Posts somewhere other than a class chat. Gets the same input, minus the conversation. */
+  create?: (input: {
+    question: string
+    options: string[]
+    allowMultiple: boolean
+    allowNewOptions: boolean
+  }) => Promise<{ result: string }>
+  /** Where it posts, for the description: "this chat", "this discussion". */
+  where?: string
 }) {
   const { show } = useToast()
   const [question, setQuestion] = useState('')
@@ -49,13 +60,8 @@ export function CreatePollDialog({
     }
     setBusy(true)
     try {
-      const { result } = await createPoll({
-        conversationId,
-        question,
-        options: filled,
-        allowMultiple,
-        allowNewOptions,
-      })
+      const input = { question, options: filled, allowMultiple, allowNewOptions }
+      const { result } = create ? await create(input) : await createPoll({ conversationId, ...input })
       if (result !== 'ok') {
         setError(POLL_MESSAGE[result] ?? 'Could not create that poll.')
         return
@@ -75,7 +81,7 @@ export function CreatePollDialog({
       open={open}
       onClose={onClose}
       title="Create a poll"
-      description="It posts into this chat, and everyone can vote."
+      description={`It posts into ${where}, and everyone can vote.`}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
@@ -157,7 +163,7 @@ export function CreatePollDialog({
             <span className="min-w-0">
               <span className="block text-[14px] font-medium text-ink">Let others add options</span>
               <span className="block text-[12px] text-muted">
-                Anyone in the chat can extend the list. You always can.
+                Anyone in {where.replace(/^this /, 'the ')} can extend the list. You always can.
               </span>
             </span>
             <Toggle

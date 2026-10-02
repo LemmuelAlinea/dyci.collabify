@@ -48,11 +48,13 @@ language sql stable security definer set search_path = public as $$
     union all select 'class-files', a.file_path from public.announcement_attachments a
     union all select 'chat-files', m.file_path from public.message_attachments m
     union all select 'teaching-resources', r.file_path from public.teaching_resources r
+    union all select 'discussion-voice', m.audio_path
+                from public.general_discussion_messages m where m.audio_path is not null
   )
   select o.bucket_id, o.name
     from storage.objects o
    where o.bucket_id in ('general-files', 'task-files', 'project-files', 'class-files',
-                         'chat-files', 'teaching-resources')
+                         'chat-files', 'teaching-resources', 'discussion-voice')
      and o.created_at < now() - p_grace
      and not exists (select 1 from used u where u.bucket_id = o.bucket_id and u.path = o.name)
    order by o.created_at

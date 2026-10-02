@@ -13,7 +13,10 @@ import { useToast } from '../ui/Toast'
 import { useLive } from '../../hooks/useLive'
 import {
   createDiscussionFolder,
+  createDiscussionPoll,
   deleteDiscussionFolder,
+  discussionPollActions,
+  listDiscussionPolls,
   listDiscussionFolders,
   listDiscussionMessages,
   listDiscussions,
@@ -22,9 +25,12 @@ import {
   renameDiscussionFolder,
   saveDiscussionFile,
   sendDiscussionMessage,
+  sendDiscussionVoice,
   startDiscussion,
   stopDiscussion,
+  transcribeVoice,
   trashDiscussion,
+  voiceUrls,
 } from '../../lib/api/discussions'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
@@ -37,6 +43,12 @@ import { RichEditor } from './RichEditor'
 import type { GeneralProjectState } from './useGeneralProject'
 import { Linkify } from '../ui/Linkify'
 import { DriveLinkCards } from '../ui/DriveLinkCards'
+import { CreatePollDialog } from '../messages/CreatePollDialog'
+import { PollCard } from '../messages/PollCard'
+import type { Poll } from '../../lib/types'
+import { VoiceMessage } from './VoiceMessage'
+import { VoiceRecorder } from './VoiceRecorder'
+import { canRecordVoice } from '../../lib/voice'
 
 const NOTICE_KEY = 'collabify.discussion-notice-closed'
 
@@ -416,14 +428,33 @@ function LiveRoom({
 }) {
   const { show } = useToast()
   const [messages, setMessages] = useState<GeneralDiscussionMessage[] | null>(null)
+  const [polls, setPolls] = useState(new Map<string, Poll>())
+  const [urls, setUrls] = useState(new Map<string, string>())
+  const [pollOpen, setPollOpen] = useState(false)
+  const [recording, setRecording] = useState(false)
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const [stopping, setStopping] = useState(false)
   const end = useRef<HTMLDivElement>(null)
 
+  const signed = useRef(new Set<string>())
   const load = useCallback(async () => {
     try {
-      setMessages(await listDiscussionMessages(discussion.id))
+      const [rows, found] = await Promise.all([
+        listDiscussionMessages(discussion.id),
+        listDiscussionPolls(discussion.id),
+      ])
+      setMessages(rows)
+      setPolls(found)
+      // Each recording is signed once; the link lasts an hour, longer than a room stays open.
+      const fresh = rows
+        .map((m) => m.audio_path)
+        .filter((p): p is string => Boolean(p) && !signed.current.has(p as string))
+      if (fresh.length > 0) {
+        fresh.forEach((p) => signed.current.add(p))
+        const more = await voiceUrls(fresh).catch(() => new Map<string, string>())
+        setUrls((prev) => new Map([...prev, ...more]))
+      }
     } catch {
       setMessages((prev) => prev ?? [])
     }
@@ -433,7 +464,11 @@ function LiveRoom({
     void load()
   }, [load])
 
-  useLive(load, ['general_discussion_messages'], { every: 10_000 })
+  useLive(
+    load,
+    ['general_discussion_messages', 'general_discussion_polls', 'general_discussion_poll_options', 'general_discussion_poll_votes'],
+    { every: 10_000 },
+  )
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'nearest' })
@@ -455,6 +490,18 @@ function LiveRoom({
       show(authErrorMessage(err, 'Could not send that. Try again.'), 'error')
     } finally {
       setSending(false)
+    }
+  }
+
+  async function sendVoice(blob: Blob, ms: number) {
+    try {
+      const id = await sendDiscussionVoice({ projectId: discussion.project_id, discussionId: discussion.id, blob, ms })
+      setRecording(false)
+      await load()
+      // Not awaited: the transcript arrives on its own and the room picks it up.
+      void transcribeVoice(id).then(load)
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not send the recording. Try again.'), 'error')
     }
   }
 
@@ -494,12 +541,19 @@ function LiveRoom({
           </p>
         ) : (
           messages.map((m) => {
+            const poll = m.kind === 'poll' ? polls.get(m.id) : undefined
+            // A poll sits on a plain card whoever sent it, so its options read the same for everyone.
             const mine = m.sender_id === state.viewerId
+            const navy = mine && m.kind !== 'poll'
             return (
               <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div
                   className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-[13px] ${
-                    mine ? 'bg-navy-600 text-white dark:bg-navy-500' : 'surface-sunken text-ink'
+                    navy
+                      ? 'bg-navy-600 text-white dark:bg-navy-500'
+                      : m.kind === 'poll'
+                        ? 'surface border border-line text-ink'
+                        : 'surface-sunken text-ink'
                   }`}
                 >
                   {!mine && (
@@ -507,9 +561,34 @@ function LiveRoom({
                       {m.sender_id ? state.nameOf(m.sender_id) : 'A former member'}
                     </p>
                   )}
-                  <p className="whitespace-pre-wrap break-words"><Linkify text={m.body} tone="inherit" /></p>
-                  <DriveLinkCards text={m.body} tone="inherit" className="mt-2" />
-                  <p className={`mt-0.5 text-right text-[10.5px] ${mine ? 'text-white/70' : 'text-faint'}`}>
+                  {m.kind === 'poll' ? (
+                    poll ? (
+                      <PollCard
+                        poll={poll}
+                        viewerId={state.viewerId ?? ''}
+                        canManage={!readOnly && lead}
+                        onChanged={load}
+                        actions={discussionPollActions}
+                        notAllowed="Only whoever made this poll, or an Owner or Manager, can do that."
+                      />
+                    ) : (
+                      <p className="font-medium">{m.body}</p>
+                    )
+                  ) : m.kind === 'voice' ? (
+                    <VoiceMessage
+                      m={m}
+                      url={m.audio_path ? urls.get(m.audio_path) : undefined}
+                      mine={navy}
+                      canEdit={!readOnly && mine}
+                      onChanged={load}
+                    />
+                  ) : (
+                    <>
+                      <p className="whitespace-pre-wrap break-words"><Linkify text={m.body} tone="inherit" /></p>
+                      <DriveLinkCards text={m.body} tone="inherit" className="mt-2" />
+                    </>
+                  )}
+                  <p className={`mt-0.5 text-right text-[10.5px] ${navy ? 'text-white/70' : 'text-faint'}`}>
                     {new Date(m.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
                   </p>
                 </div>
@@ -520,8 +599,36 @@ function LiveRoom({
         <div ref={end} />
       </div>
 
-      {!readOnly && (
+      {!readOnly && recording && (
+        <div className="border-t border-line px-4 py-3">
+          <VoiceRecorder onSend={sendVoice} onCancel={() => setRecording(false)} />
+        </div>
+      )}
+
+      {!readOnly && !recording && (
         <div className="flex items-end gap-2 border-t border-line px-4 py-3">
+          <div className="flex shrink-0 flex-col gap-1 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => setPollOpen(true)}
+              aria-label="Create a poll"
+              title="Create a poll"
+              className="grid h-10 w-10 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+            >
+              <Icon name="chart" size={18} />
+            </button>
+            {canRecordVoice() && (
+              <button
+                type="button"
+                onClick={() => setRecording(true)}
+                aria-label="Record a voice message"
+                title="Record a voice message (up to 5 minutes)"
+                className="grid h-10 w-10 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+              >
+                <Icon name="mic" size={18} />
+              </button>
+            )}
+          </div>
           <div className="min-w-0 flex-1">
             <Textarea
               rows={2}
@@ -544,6 +651,15 @@ function LiveRoom({
         </div>
       )}
 
+      <CreatePollDialog
+        open={pollOpen}
+        onClose={() => setPollOpen(false)}
+        conversationId={discussion.id}
+        where="this discussion"
+        create={(input) => createDiscussionPoll({ discussionId: discussion.id, ...input })}
+        onCreated={load}
+      />
+
       <ConfirmDialog
         open={stopping}
         onClose={() => setStopping(false)}
@@ -553,7 +669,7 @@ function LiveRoom({
           await onStopped()
         }}
         title="Stop this discussion?"
-        body="The whole conversation is saved as a discussion file everyone in the group can edit and download. Nobody can send more messages to it."
+        body="The whole conversation is saved as a discussion file everyone in the group can edit and download, with each poll's results and each voice message's transcript. Polls close, and nobody can send more messages to it."
         confirmLabel="Stop and save"
         tone="primary"
       />
