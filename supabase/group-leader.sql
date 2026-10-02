@@ -129,6 +129,8 @@ begin
 end;
 $$;
 
+revoke execute on function public.guard_group_leader() from public, anon;
+revoke execute on function public.clear_group_leader_on_leave() from public, anon;
 revoke execute on function public.set_group_leader(uuid, uuid) from public, anon;
 grant execute on function public.set_group_leader(uuid, uuid) to authenticated;
 

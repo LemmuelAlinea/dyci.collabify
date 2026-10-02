@@ -2389,4 +2389,5 @@ live). Other open tabs now update within a second for anyone who can still read 
   `set_group_leader(group, student|null)` (the only way to write it — `groups_guard_leader`
   reverts plain updates unless `collabify.group_leader_op` is on), and an after-delete
   trigger on `group_members` that clears the lead when the leader leaves, is moved, or is
-  dropped from the class. Test: `tests/group-leader.test.sql`.
+  dropped from the class. Applied live 2026-10-02; `tests/group-leader.test.sql` 24 PASS, plus
+  group-archive, rls-coverage, anon-lockdown, trash, archive-page.
