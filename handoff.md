@@ -2426,3 +2426,25 @@ dots menu (Assign faculty · Edit section · Archive).
   avatars 2 MB, and the hourly upload counts (general-files 40/h, project-files 40/h).
 - Checked: live bucket list; a 49 MB upload stores and a 51 MB one is refused (413) in both
   buckets, test objects deleted; general-tasks SQL suite 48 PASS; build, eslint, 582 Vitest.
+
+**Change (2026-10-03): links inside class announcements.** New announcement (and Edit) has a
+**Links** field between Title and Message: pick Project / Task / Class, then the item, then
+Add link; up to 8, each removable. Readers see them as chips under the message.
+- `supabase/announcement-links.sql` (applied live; test `tests/announcement-links.test.sql`,
+  17 PASS): `announcements.links jsonb` (array, ≤ 8) and trigger `announcements_guard_links`.
+  Links are in-app only — kind + id (+ project_id for a task) + a label snapshot; the page
+  builds the route, so there is no free URL. The trigger refuses a class the author does not
+  teach, a project from another class, a task not on that project in this class, a bad id, an
+  empty label. Editing the title alone does not re-check links.
+- Options (`listLinkOptions`): the professor's classes (archived ones left out except this
+  one), this class's live projects, and the professor-set tasks on them, one row per origin
+  (`project_tasks.origin_id`), labelled "task — project".
+- A task link opens the reader's own copy: `findMyTaskCopy(origin)` (RLS narrows it) →
+  `/class-projects/<p>?task=<copy>`; a teacher, or a student with no copy, lands on
+  `?tab=tasks`. Class → `/classes/<id>`, project → `/class-projects/<id>`. The dashboard
+  announcement card shows "N links" (the card is itself a link, so no chips there).
+- Checked: SQL suites announcement-links, anon-lockdown, rls-coverage (class-notices and
+  notifications fail the same way with the new trigger disabled — pre-existing, data-dependent);
+  the REST queries live (task embed filter positive and negative); build, eslint, 582 Vitest;
+  UI via a throwaway fixture page (add/remove/dedupe, post and edit payloads, teacher and
+  student click-through, 375/768/1280 no overflow).

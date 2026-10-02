@@ -140,6 +140,12 @@ export function AnnouncementSwiper({
                       {a.attachments.length}
                     </span>
                   )}
+                  {(a.links?.length ?? 0) > 0 && (
+                    <span className="flex items-center gap-1" title="Links inside">
+                      <Icon name="arrowRight" size={12} />
+                      {a.links.length} {a.links.length === 1 ? 'link' : 'links'}
+                    </span>
+                  )}
                 </div>
               </Link>
             </li>

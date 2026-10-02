@@ -1,11 +1,12 @@
 import { supabase } from '../supabase'
 import { invokeFunction } from './functions'
-import type { Announcement, AnnouncementAttachment } from '../types'
+import { listProfessorClasses } from './classes'
+import type { Announcement, AnnouncementAttachment, AnnouncementLink } from '../types'
 
 const BUCKET = 'class-files'
 
 const SELECT = `
-  id, class_id, author_id, title, body, pinned, edited_at, created_at, updated_at,
+  id, class_id, author_id, title, body, pinned, edited_at, created_at, updated_at, links,
   attachments:announcement_attachments (id, announcement_id, file_path, file_name, mime_type, size_bytes),
   author:profiles!announcements_author_id_fkey (first_name, last_name, avatar_url)
 `
@@ -41,6 +42,7 @@ export async function createAnnouncement(input: {
   title: string
   body: string
   files?: File[]
+  links?: AnnouncementLink[]
 }) {
   const { data, error } = await supabase
     .from('announcements')
@@ -49,6 +51,7 @@ export async function createAnnouncement(input: {
       author_id: input.authorId,
       title: input.title.trim(),
       body: input.body.trim(),
+      links: input.links ?? [],
     })
     .select('id')
     .single()
@@ -83,12 +86,16 @@ export async function attachFile(classId: string, announcementId: string, file: 
   }
 }
 
-export async function updateAnnouncement(id: string, patch: { title: string; body: string }) {
+export async function updateAnnouncement(
+  id: string,
+  patch: { title: string; body: string; links: AnnouncementLink[] },
+) {
   const { error } = await supabase
     .from('announcements')
     .update({
       title: patch.title.trim(),
       body: patch.body.trim(),
+      links: patch.links,
       edited_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -142,4 +149,86 @@ export async function draftNotice(input: { intent: string; classId?: string }) {
     scope: input.classId ? 'class' : 'program',
     class_id: input.classId ?? null,
   })
+}
+
+/* ----------------------------------------------------------------- links */
+
+export type LinkOptions = {
+  classes: { id: string; label: string }[]
+  projects: { id: string; label: string }[]
+  tasks: { id: string; project_id: string; label: string; project: string }[]
+}
+
+/**
+ * What a professor may link from an announcement in this class: the classes
+ * they teach, this class's live projects, and the tasks they set on them (one
+ * row per task, not per group copy). The database checks the same rules.
+ */
+export async function listLinkOptions(classId: string, professorId: string): Promise<LinkOptions> {
+  const [classes, projectsRes] = await Promise.all([
+    listProfessorClasses(professorId),
+    supabase
+      .from('projects')
+      .select('id, title')
+      .eq('class_id', classId)
+      .is('archived_at', null)
+      .order('created_at', { ascending: false }),
+  ])
+  if (projectsRes.error) throw projectsRes.error
+  const projects = (projectsRes.data ?? []) as { id: string; title: string }[]
+
+  let tasks: LinkOptions['tasks'] = []
+  if (projects.length > 0) {
+    const { data, error } = await supabase
+      .from('project_tasks')
+      .select('origin_id, title, created_at, board:project_boards!inner(project_id)')
+      .in(
+        'board.project_id',
+        projects.map((p) => p.id),
+      )
+      .not('origin_id', 'is', null)
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    const titleOf = new Map(projects.map((p) => [p.id, p.title]))
+    const seen = new Set<string>()
+    for (const row of (data ?? []) as unknown as {
+      origin_id: string
+      title: string
+      board: { project_id: string }
+    }[]) {
+      if (seen.has(row.origin_id)) continue
+      seen.add(row.origin_id)
+      tasks.push({
+        id: row.origin_id,
+        project_id: row.board.project_id,
+        label: row.title,
+        project: titleOf.get(row.board.project_id) ?? '',
+      })
+    }
+    tasks = tasks.sort((a, b) => a.project.localeCompare(b.project) || a.label.localeCompare(b.label))
+  }
+
+  return {
+    classes: classes
+      .filter((c) => c.id === classId || !c.archived_at)
+      .map((c) => ({ id: c.id, label: `${c.initial} · ${c.name}` })),
+    projects: projects.map((p) => ({ id: p.id, label: p.title })),
+    tasks,
+  }
+}
+
+/**
+ * Where a student lands from a task link: their own board's copy of it, which
+ * the select policy narrows to. Null when they have none (no group yet, or a
+ * group the task was not given to).
+ */
+export async function findMyTaskCopy(originId: string) {
+  const { data, error } = await supabase
+    .from('project_tasks')
+    .select('id')
+    .eq('origin_id', originId)
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return (data?.id as string | undefined) ?? null
 }

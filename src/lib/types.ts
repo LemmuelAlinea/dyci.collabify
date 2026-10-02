@@ -150,8 +150,19 @@ export type Announcement = {
   created_at: string
   updated_at: string
   attachments: AnnouncementAttachment[]
+  /** In-app links the professor added. Checked by `announcements_guard_links`. */
+  links: AnnouncementLink[]
   author?: Pick<Profile, 'first_name' | 'last_name' | 'avatar_url'>
 }
+
+/**
+ * A class, class project or professor task an announcement points at. A task
+ * is named by its origin, so each student opens their own board's copy.
+ */
+export type AnnouncementLink =
+  | { kind: 'class'; id: string; label: string }
+  | { kind: 'project'; id: string; label: string }
+  | { kind: 'task'; id: string; project_id: string; label: string }
 
 export type AppNotification = {
   id: string

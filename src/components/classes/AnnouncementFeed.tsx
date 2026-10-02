@@ -22,7 +22,8 @@ import {
   updateAnnouncement,
 } from '../../lib/api/announcements'
 import { authErrorMessage } from '../../lib/authError'
-import type { Announcement } from '../../lib/types'
+import type { Announcement, AnnouncementLink } from '../../lib/types'
+import { LinkList, LinkPicker } from './AnnouncementLinks'
 
 function when(iso: string) {
   const d = new Date(iso)
@@ -86,6 +87,7 @@ export function AnnouncementFeed({
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [files, setFiles] = useState<File[]>([])
+  const [links, setLinks] = useState<AnnouncementLink[]>([])
   const [staged, setStaged] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -94,6 +96,7 @@ export function AnnouncementFeed({
     setTitle('')
     setBody('')
     setFiles([])
+    setLinks([])
     setStaged(null)
     setError(null)
   }
@@ -108,6 +111,7 @@ export function AnnouncementFeed({
     reset()
     setTitle(a.title)
     setBody(a.body)
+    setLinks(a.links ?? [])
     setEditing(a)
     setComposerOpen(true)
   }
@@ -124,10 +128,10 @@ export function AnnouncementFeed({
     setBusy(true)
     try {
       if (editing) {
-        await updateAnnouncement(editing.id, { title, body })
+        await updateAnnouncement(editing.id, { title, body, links })
         show('Announcement updated')
       } else {
-        await createAnnouncement({ classId, authorId, title, body, files })
+        await createAnnouncement({ classId, authorId, title, body, files, links })
         show('Announcement posted')
       }
       setComposerOpen(false)
@@ -273,6 +277,8 @@ export function AnnouncementFeed({
                 {a.body}
               </p>
 
+              <LinkList links={a.links ?? []} teacher={canManage} />
+
               {a.attachments.length > 0 && (
                 <div className="mt-4 space-y-2">
                   {a.attachments.map((att) => (
@@ -325,6 +331,25 @@ export function AnnouncementFeed({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Final defense schedule"
+              />
+            )}
+          </Field>
+          <Field
+            label="Links"
+            optional
+            hint={
+              <span className="text-[12px] text-faint">
+                A project, a task you set, or a class. Students click straight through.
+              </span>
+            }
+          >
+            {() => (
+              <LinkPicker
+                classId={classId}
+                professorId={authorId}
+                value={links}
+                onChange={setLinks}
+                disabled={busy}
               />
             )}
           </Field>
