@@ -93,10 +93,16 @@ create table if not exists public.general_task_files (
   size_bytes  bigint not null default 0,
   created_at  timestamptz not null default now(),
   constraint general_task_files_name_len check (char_length(file_name) between 1 and 255),
-  constraint general_task_files_size check (size_bytes between 0 and 26214400),
+  constraint general_task_files_size check (size_bytes between 0 and 52428800),
   foreign key (task_id, project_id)
     references public.general_tasks (id, project_id) on delete cascade
 );
+
+-- 50 MB, matching the bucket (raised from 25 MB on 2026-10-02). Recreated so a
+-- table made before the raise picks it up; `create table if not exists` would not.
+alter table public.general_task_files drop constraint if exists general_task_files_size;
+alter table public.general_task_files
+  add constraint general_task_files_size check (size_bytes between 0 and 52428800);
 
 -- Ties the row to the storage path it claims: <project_id>/<task_id>/<...>.
 alter table public.general_task_files drop constraint if exists general_task_files_path_matches;
@@ -597,8 +603,8 @@ grant select on public.general_task_overview to authenticated;
 -- ---------------------------------------------------------------- storage
 
 insert into storage.buckets (id, name, public, file_size_limit)
-values ('general-files', 'general-files', false, 26214400)
-on conflict (id) do update set public = false, file_size_limit = 26214400;
+values ('general-files', 'general-files', false, 52428800)
+on conflict (id) do update set public = false, file_size_limit = 52428800;
 
 -- Paths are <project_id>/<task_id>/<random>-<file name>. general_safe_uuid
 -- returns null rather than throwing on a malformed segment, so a bad path is

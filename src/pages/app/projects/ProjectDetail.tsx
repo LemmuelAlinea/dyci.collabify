@@ -587,9 +587,9 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
               <FileDrop
                 file={null}
                 compact={files.length > 0}
-                maxSize={20}
+                maxSize={50}
                 accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.png,.jpg,.jpeg"
-                hint="PDF, Word, Excel, PowerPoint, or an image. Up to 20 MB."
+                hint="PDF, Word, Excel, PowerPoint, or an image. Up to 50 MB."
                 onPick={async (f) => {
                   if (!f) return
                   setUploading(true)

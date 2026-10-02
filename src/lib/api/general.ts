@@ -60,7 +60,7 @@ import type {
 
 const PERSON = 'id, first_name, last_name, avatar_url'
 const BUCKET = 'general-files'
-export const GENERAL_FILE_LIMIT = 25 * 1024 * 1024
+export const GENERAL_FILE_LIMIT = 50 * 1024 * 1024
 
 function cleanGeneralFileContent(content = '') {
   let out = ''
@@ -944,7 +944,7 @@ export async function listArchivedTaskFiles(projectId: string) {
 }
 
 export async function uploadTaskFile(projectId: string, taskId: string, file: File) {
-  if (file.size > GENERAL_FILE_LIMIT) throw new Error('Files can be up to 25 MB.')
+  if (file.size > GENERAL_FILE_LIMIT) throw new Error('Files can be up to 50 MB.')
   const safeName = file.name.replace(/[^\w.-]+/g, '_').slice(-120)
   // The storage policy reads the project and task off the first two segments.
   const path = `${projectId}/${taskId}/${crypto.randomUUID()}-${safeName}`
@@ -1515,7 +1515,7 @@ export async function commitDraftPath(repoId: string, path: string, folder: bool
  * never be pointed at another project.
  */
 export async function uploadProjectFile(projectId: string, file: File) {
-  if (file.size > GENERAL_FILE_LIMIT) throw new Error('Files can be up to 25 MB.')
+  if (file.size > GENERAL_FILE_LIMIT) throw new Error('Files can be up to 50 MB.')
   const safe = (file.name || 'file').replace(/[^\w.\- ]+/g, '_').slice(-120)
   const path = `${projectId}/files/${crypto.randomUUID()}-${safe}`
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {

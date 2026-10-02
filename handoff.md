@@ -2414,3 +2414,15 @@ Checked with a throwaway fixture page (edit, note, save, Add starts blank after,
 the menu), build, eslint, 582 Vitest.
 Then (same day): Assign faculty moved into that menu too, first item; a row now has only the
 dots menu (Assign faculty · Edit section · Archive).
+
+**Change (2026-10-02): 50 MB uploads for work files and class project attachments.**
+- `general-files` (work project Files tab, single file or folder; the class board's Files tab,
+  which is the same storage; work task attachments) and `project-files` (a class project's
+  brief/starter attachments) are now 50 MB per file. Applied live; `general-tasks.sql` sets
+  the bucket and recreates `general_task_files_size` (was a 25 MB check), `hardening.sql` gives
+  `project-files` its own 50 MB update. Client: `GENERAL_FILE_LIMIT`, and the class project
+  FileDrops (`ProjectForm`, `ProjectDetail`) say and enforce 50 MB.
+- Unchanged: class-files, task-files, chat-files 25 MB (screens say 10/20), syllabi 20 MB,
+  avatars 2 MB, and the hourly upload counts (general-files 40/h, project-files 40/h).
+- Checked: live bucket list; a 49 MB upload stores and a 51 MB one is refused (413) in both
+  buckets, test objects deleted; general-tasks SQL suite 48 PASS; build, eslint, 582 Vitest.

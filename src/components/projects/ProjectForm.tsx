@@ -610,8 +610,8 @@ export function ProjectForm({
             file={file}
             onPick={setFile}
             accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.png,.jpg,.jpeg"
-            maxSize={20}
-            hint="PDF, Word, Excel, PowerPoint, or an image. Up to 20 MB."
+            maxSize={50}
+            hint="PDF, Word, Excel, PowerPoint, or an image. Up to 50 MB."
           />
           {defaults && defaults.attachment_count > 0 && (
             <p className="text-[12px] text-faint">

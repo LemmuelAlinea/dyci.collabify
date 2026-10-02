@@ -83,7 +83,12 @@ where id = 'teaching-resources';
 
 update storage.buckets set
   file_size_limit = 25 * 1024 * 1024
-where id in ('class-files', 'project-files', 'task-files', 'chat-files');
+where id in ('class-files', 'task-files', 'chat-files');
+
+-- A class project's brief and starter files: 50 MB, like work project files.
+update storage.buckets set
+  file_size_limit = 50 * 1024 * 1024
+where id = 'project-files';
 
 -- ------------------------------------------------------------- text lengths
 
