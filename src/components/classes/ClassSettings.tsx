@@ -4,6 +4,7 @@ import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../context/AuthContext'
+import { useGeneralNavigation } from '../../context/generalNavigation'
 import { setArchived, updateClass } from '../../lib/api/classes'
 import type { ClassInput } from '../../lib/api/classes'
 import { listResources } from '../../lib/api/resources'
@@ -25,6 +26,8 @@ export function ClassSettings({
 }) {
   const { profile } = useAuth()
   const { show } = useToast()
+  // The sidebar lists classes through their spaces, which archiving changes too.
+  const { reload: reloadNavigation } = useGeneralNavigation()
 
   const [syllabi, setSyllabi] = useState<TeachingResource[]>([])
   const [curricula, setCurricula] = useState<TeachingResource[]>([])
@@ -96,7 +99,7 @@ export function ClassSettings({
             try {
               await setArchived(cls.id, false)
               show('Class restored')
-              await onChanged()
+              await Promise.all([onChanged(), reloadNavigation()])
             } catch (err) {
               show(authErrorMessage(err, 'Could not restore the class.'), 'error')
             }
@@ -112,7 +115,7 @@ export function ClassSettings({
         onConfirm={async () => {
           await setArchived(cls.id, true)
           show(`${cls.name} archived`)
-          await onChanged()
+          await Promise.all([onChanged(), reloadNavigation()])
         }}
         title={`Archive ${cls.name}?`}
         body="Students lose access immediately and it disappears from their class list. The roster and announcements are kept, and you can restore it any time."

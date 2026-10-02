@@ -2340,3 +2340,11 @@ where it lives, Move to trash. Empty sections stay and say where that kind is ar
 - Checked: build, eslint, 582 Vitest; both settings panels in a throwaway probe route
   (live and archived states, confirm dialog, 1280 and 375 with no horizontal scroll), then
   removed.
+
+**Fix (2026-10-02): archiving a class leaves the sidebar right away.** Class settings now
+reloads the sidebar's spaces (`useGeneralNavigation().reload`) after Archive and Restore —
+the sidebar lists classes through their education spaces, which the class trigger archives.
+`general_spaces`, `general_space_members` and `general_space_invitations` were also never in
+the `supabase_realtime` publication, so the sidebar's `useLive` only caught space changes on
+refocus or the 30 s poll; added at the end of `general-spaces.sql` (idempotent block, applied
+live). Other open tabs now update within a second for anyone who can still read the space.

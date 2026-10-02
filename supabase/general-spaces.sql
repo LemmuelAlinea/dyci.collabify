@@ -1213,3 +1213,21 @@ begin
 end $$;
 
 commit;
+
+-- The sidebar lists spaces (a class's too) and listens for these. Archiving a
+-- class archives its space, so without this the sidebar waited for a refocus.
+begin;
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['general_spaces', 'general_space_members', 'general_space_invitations'] loop
+    begin
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    exception when duplicate_object then null;
+    end;
+  end loop;
+end $$;
+
+commit;
