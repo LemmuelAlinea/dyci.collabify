@@ -2584,3 +2584,11 @@ has a Poll button and a mic button (mic only where the browser can record).
   `min(78vw…)` widths inside an 80% bubble) and the room scrolled sideways. Poll and voice
   bubbles are now `w-[min(92%,360px)]` with their content filling them; `PollCard` is
   `w-[340px] max-w-full` (class chat too). Checked at 360 and 320 px: no horizontal scroll.
+
+**Change (2026-10-03): voice messages in inbox chats, no transcript.** The chat composer has a
+mic button (`VoiceRecorder`, same as discussions). A recording is sent as an ordinary audio
+attachment named `Voice message (m:ss).<ext>` in `chat-files`; `lib/voice.ts` `voiceLength`
+spots it and `MessageBubble` draws a player (`w-[min(300px,62vw)]`) instead of a file row. No
+SQL change. Composer side buttons are `w-9` below `sm` so the text box keeps room at 320 px.
+Checked with a throwaway fixture page at 320 px (no horizontal scroll); playback itself not
+seen in the pane (signed URL needs sign-in), recording not testable there (mic blocked).

@@ -3,6 +3,8 @@ import type { KeyboardEvent } from 'react'
 import { Icon, Spinner } from '../ui/Icon'
 import { formatBytes } from '../../lib/formatBytes'
 import { LIMIT } from '../../lib/limits'
+import { canRecordVoice, voiceFileName } from '../../lib/voice'
+import { VoiceRecorder } from '../general/VoiceRecorder'
 
 const MAX_MB = 10
 
@@ -21,6 +23,7 @@ export function MessageComposer({
   const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [recording, setRecording] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const boxRef = useRef<HTMLTextAreaElement>(null)
 
@@ -72,6 +75,26 @@ export function MessageComposer({
     )
   }
 
+  // A voice message is an audio attachment named for its length, sent on its own.
+  async function sendVoice(blob: Blob, ms: number) {
+    setError(null)
+    try {
+      await onSend('', [new File([blob], voiceFileName(ms, blob.type), { type: blob.type.split(';')[0] })])
+      setRecording(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The voice message did not send. Try again.')
+    }
+  }
+
+  if (recording) {
+    return (
+      <div className="border-t border-line bg-[var(--surface)] px-3 py-3 md:px-5 md:py-4">
+        {error && <p className="mb-2 text-[12px] text-danger-600 dark:text-danger-400">{error}</p>}
+        <VoiceRecorder onSend={sendVoice} onCancel={() => setRecording(false)} />
+      </div>
+    )
+  }
+
   return (
     <div className="border-t border-line bg-[var(--surface)] px-3 py-3 md:px-5 md:py-4">
       {error && <p className="mb-2 text-[12px] text-danger-600 dark:text-danger-400">{error}</p>}
@@ -103,7 +126,7 @@ export function MessageComposer({
           type="button"
           onClick={() => fileRef.current?.click()}
           aria-label="Attach a file"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+          className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink sm:w-11"
         >
           <Icon name="upload" size={19} />
         </button>
@@ -120,10 +143,22 @@ export function MessageComposer({
           onClick={onCreatePoll}
           aria-label="Create a poll"
           title="Create a poll"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+          className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink sm:w-11"
         >
           <Icon name="chart" size={19} />
         </button>
+
+        {canRecordVoice() && (
+          <button
+            type="button"
+            onClick={() => setRecording(true)}
+            aria-label="Record a voice message"
+            title="Record a voice message (up to 5 minutes)"
+            className="grid h-11 w-9 shrink-0 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink sm:w-11"
+          >
+            <Icon name="mic" size={19} />
+          </button>
+        )}
 
         <textarea
           ref={boxRef}

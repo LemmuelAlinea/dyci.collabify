@@ -12,6 +12,7 @@ import { PollCard } from './PollCard'
 import { attachmentUrl } from '../../lib/api/messages'
 import { authErrorMessage } from '../../lib/authError'
 import { isImage, withinEditWindow } from '../../lib/types'
+import { voiceLength } from '../../lib/voice'
 import type { ChatMessage, MessageAttachment } from '../../lib/types'
 
 function clockTime(iso: string) {
@@ -21,9 +22,10 @@ function clockTime(iso: string) {
 function Attachment({ attachment, mine }: { attachment: MessageAttachment; mine: boolean }) {
   const { show } = useToast()
   const [preview, setPreview] = useState<string | null>(null)
+  const length = voiceLength(attachment.file_name, attachment.mime_type)
 
   useEffect(() => {
-    if (!isImage(attachment)) return
+    if (!isImage(attachment) && !length) return
     let alive = true
     void attachmentUrl(attachment)
       .then((url) => alive && setPreview(url))
@@ -31,7 +33,7 @@ function Attachment({ attachment, mine }: { attachment: MessageAttachment; mine:
     return () => {
       alive = false
     }
-  }, [attachment])
+  }, [attachment, length])
 
   async function open() {
     try {
@@ -39,6 +41,26 @@ function Attachment({ attachment, mine }: { attachment: MessageAttachment; mine:
     } catch (err) {
       show(authErrorMessage(err, 'Could not open that file.'), 'error')
     }
+  }
+
+  if (length) {
+    return (
+      <div className="w-[min(300px,62vw)] space-y-1.5">
+        <p
+          className={`flex items-center gap-1.5 text-[11px] font-medium tracking-wide uppercase ${
+            mine ? 'text-white/70' : 'text-muted'
+          }`}
+        >
+          <Icon name="mic" size={11} />
+          Voice message · <span className="font-mono normal-case">{length}</span>
+        </p>
+        {preview ? (
+          <audio controls preload="metadata" src={preview} className="block h-9 w-full min-w-0" aria-label="Play voice message" />
+        ) : (
+          <p className={`text-[12px] ${mine ? 'text-white/70' : 'text-faint'}`}>Loading the recording…</p>
+        )}
+      </div>
+    )
   }
 
   if (isImage(attachment)) {
