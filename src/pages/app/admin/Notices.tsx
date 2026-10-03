@@ -13,7 +13,6 @@ import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { deleteNotice, editNotice, listAllNotices, postNotice } from '../../../lib/api/program'
 import { authErrorMessage } from '../../../lib/authError'
-import { NOTICE_HOURS } from '../../../lib/program'
 import type { ProgramNoticeRecord } from '../../../lib/program'
 import { momentLabel } from '../../../lib/report'
 import { Linkify } from '../../../components/ui/Linkify'
@@ -27,11 +26,8 @@ import { DriveLinkCards } from '../../../components/ui/DriveLinkCards'
  * dialog says how many people it is about to notify. A program notice that
  * nobody reads twice is worth more than one that arrives every day.
  *
- * This page is the only place a notice outlives its 24 hours. Everybody else
- * reads `program_notices`, which stops at the window; the chair reads
- * `program_notices_all`, because taking down something posted in error and
- * answering "what did we announce in October" both need the ones that have
- * already gone.
+ * A notice stays on the dashboards until it is taken down here. The chair reads
+ * `program_notices_all`; everybody else reads `program_notices`.
  */
 const ABOUT_KEY = 'collabify.notices.about'
 
@@ -159,8 +155,8 @@ export default function Notices() {
               not turned announcements off.
             </p>
               <p className="mt-1.5">
-              A notice stays on those dashboards for <strong>{NOTICE_HOURS} hours</strong> and
-                then moves into this history automatically.
+              A notice stays on those dashboards until you take it down. Long notices are
+                shown shortened, with a See more that opens the whole of it.
             </p>
             </div>
         )}
@@ -226,7 +222,7 @@ export default function Notices() {
               onChange={(e) => setPinned(e.target.checked)}
               className="h-4 w-4 rounded border-[var(--control-line)]"
             />
-            Pin it to the top for its {NOTICE_HOURS} hours
+            Pin it to the top
           </label>
           {pinned && rows.some((r) => r.pinned) && (
             <p className="text-[12px] text-warning-700 dark:text-warning-300">
@@ -249,19 +245,9 @@ export default function Notices() {
           <ul className="space-y-3">
           {rows.map((n, i) => (
             <Fragment key={n.id}>
-              {/* One heading where the window falls, not a badge on every row:
-                  the list is already ordered live-first, so the line only has
-                  to be drawn once. */}
-              {i === 0 && !n.expired && (
+              {i === 0 && (
                 <li>
                   <p className="eyebrow text-faint">On every dashboard now</p>
-                </li>
-              )}
-              {n.expired && !rows[i - 1]?.expired && (
-                <li className={i === 0 ? '' : 'pt-3'}>
-                  <p className="eyebrow text-faint">
-                    Off the dashboards · older than {NOTICE_HOURS} hours
-                  </p>
                 </li>
               )}
               <NoticeCard
@@ -286,7 +272,7 @@ export default function Notices() {
       <ConfirmDialog
         open={removing !== null}
         title="Take this notice down?"
-        body="It goes from the dashboards and from this page — this is a delete, not the 24-hour window. The notification anybody already received stays in their bell."
+        body="It goes from the dashboards and from this page — The notification anybody already received stays in their bell."
         confirmLabel="Take it down"
         onClose={() => setRemoving(null)}
         onConfirm={async () => {
@@ -302,11 +288,6 @@ export default function Notices() {
 
 /**
  * One notice in the chair's list.
- *
- * An expired notice is dimmed rather than hidden or struck through: it is still
- * a true record of what was announced, it is simply no longer in front of
- * anybody. Pinning stays available on it because unpinning something that has
- * gone is a thing a chair may reasonably want to tidy up.
  */
 function NoticeCard({
   notice: n,
@@ -319,7 +300,7 @@ function NoticeCard({
 }) {
   return (
     <li
-      className={`surface rounded-card border border-line p-4 ${n.expired ? 'opacity-70' : ''}`}
+      className="surface rounded-card border border-line p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
@@ -330,7 +311,6 @@ function NoticeCard({
           <p className="mt-0.5 text-[12px] text-faint">
             {n.author_name} · {momentLabel(n.created_at)}
             {n.edited_at && ' · edited'}
-            {n.expired && ' · off the dashboards'}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">

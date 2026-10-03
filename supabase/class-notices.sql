@@ -1,57 +1,45 @@
--- Collabify — a class announcement is for a day, like a program notice.
+-- Collabify — a class announcement stays on the class feed until it is taken down.
 -- Idempotent: safe to run repeatedly.
 --
 --   node scripts/db.mjs supabase/class-notices.sql
 
 /**
- * The same rule the program office already lives under, now for the professor:
- * an announcement is on a student's screen for 24 hours and then it is not.
+ * Class announcements used to leave a student's screen after 24 hours. They no
+ * longer do: an announcement stays on the class feed, and on a student's
+ * dashboard, until the professor deletes it.
  *
- * A class announcement is a thing that is true today — the room has moved, the
- * deadline slipped, bring a laptop on Thursday. A feed that still carries last
- * month's room change teaches the class to stop reading the feed, which costs
- * more than the announcement was ever worth.
+ * What replaced the window is length, not time. A long announcement is shown
+ * shortened with a "See more" that opens the whole of it in a dialog, so a
+ * dashboard that keeps announcements does not turn into a wall of text.
  *
- * **Enforced in the policy, not in a view.** The program notices took a view
- * because they were already read through one. These are read straight from the
- * table with PostgREST embedding — `attachments:announcement_attachments(...)`
- * and `author:profiles(...)` — and those relationships are resolved against the
- * base table. A view would have to redeclare every one of them, and the first
- * page anybody forgot to move would keep showing everything.
+ * Who sees what:
  *
- * Who sees what, after this file:
- *
- *   a student            the last 24 hours, and nothing older
- *   the class professor  all of them, always — they wrote them, they manage
- *                        them, and "what did I tell this class in October" is
- *                        a real question
+ *   a student            every announcement of a class they are active in
+ *   the class professor  all of them, as before
  *   the program office   all of them, unchanged
  *
- * The clock runs from `created_at`. Editing an announcement whose day has gone
- * corrects the record; it does not put it back on anybody's screen. To say a
- * thing again, say it again.
+ * A class that has been archived still shows its students nothing, as before.
  *
- * Nothing is deleted. This is a visibility rule, and the professor's own feed
- * is the record.
+ * This file used to narrow `announcements_select` to the last 24 hours. It now
+ * puts the policy back to the one `classes.sql` defines, so running it on a
+ * database that still has the narrowed policy lifts the window.
  */
 
 begin;
 
--- The window filter reads this; the existing index leads with `pinned`.
-create index if not exists announcements_live_idx
-  on public.announcements (class_id, created_at desc);
-
 drop policy if exists announcements_select on public.announcements;
 create policy announcements_select on public.announcements
   for select using (
-    -- The professor of the class keeps the whole history.
     public.is_class_professor(class_id)
     or (
       public.is_active_member(class_id)
       and exists (select 1 from public.classes c where c.id = class_id and c.archived_at is null)
-      -- ...a student gets the day.
-      and created_at > now() - interval '24 hours'
     )
   );
+
+-- The window filter's index is no longer read by anything special; the plain
+-- (class, newest first) order is still what the feed asks for.
+create index if not exists announcements_live_idx
+  on public.announcements (class_id, created_at desc);
 
 commit;

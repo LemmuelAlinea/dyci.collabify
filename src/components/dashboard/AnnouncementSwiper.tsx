@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { useReducedMotion } from 'motion/react'
 import { Avatar } from '../app/Avatar'
 import { Icon } from '../ui/Icon'
+import { ClampedText } from '../ui/ClampedText'
+import { AnnouncementDialog } from '../classes/AnnouncementDialog'
 import type { Announcement, ClassSummary } from '../../lib/types'
 
 function ago(iso: string) {
@@ -29,6 +31,7 @@ export function AnnouncementSwiper({
 }) {
   const track = useRef<HTMLUListElement>(null)
   const [index, setIndex] = useState(0)
+  const [viewing, setViewing] = useState<Announcement | null>(null)
   const reduce = useReducedMotion()
 
   const go = useCallback(
@@ -105,10 +108,7 @@ export function AnnouncementSwiper({
           const cls = nameOf(a.class_id)
           return (
             <li key={a.id} className="w-full shrink-0 snap-start">
-              <Link
-                to={`${linkBase}/${a.class_id}`}
-                className="flex h-full flex-col rounded-lg p-2 transition-colors hover:bg-[var(--surface-sunken)]"
-              >
+              <div className="flex h-full flex-col rounded-lg p-2">
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                   <span className="eyebrow text-amber-500 dark:text-amber-300">
                     {cls ? `${cls.initial} · ${cls.name}` : 'Class'}
@@ -121,10 +121,17 @@ export function AnnouncementSwiper({
                   )}
                 </div>
 
-                <h3 className="mt-2.5 leading-snug">{a.title}</h3>
-                <p className="mt-2 line-clamp-3 text-[14px] leading-relaxed text-muted">
-                  {a.body}
-                </p>
+                <h3 className="mt-2.5 leading-snug">
+                  <Link to={`${linkBase}/${a.class_id}`} className="hover:underline">
+                    {a.title}
+                  </Link>
+                </h3>
+                <ClampedText
+                  text={a.body}
+                  lines={3}
+                  className="mt-2 text-[14px] leading-relaxed text-muted"
+                  onSeeMore={() => setViewing(a)}
+                />
 
                 <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1 text-[12px] text-faint">
                   {a.author && (
@@ -147,7 +154,7 @@ export function AnnouncementSwiper({
                     </span>
                   )}
                 </div>
-              </Link>
+              </div>
             </li>
           )
         })}
@@ -195,6 +202,40 @@ export function AnnouncementSwiper({
           </div>
         </div>
       )}
+
+      <AnnouncementDialog
+        view={
+          viewing && {
+            eyebrow: (() => {
+              const cls = nameOf(viewing.class_id)
+              return cls ? `${cls.initial} · ${cls.name}` : 'Class'
+            })(),
+            title: viewing.title,
+            body: viewing.body,
+            pinned: viewing.pinned,
+            authorName: viewing.author
+              ? `${viewing.author.first_name} ${viewing.author.last_name}`
+              : undefined,
+            authorAvatar: viewing.author?.avatar_url ?? null,
+            when: ago(viewing.created_at),
+            edited: Boolean(viewing.edited_at),
+            links: viewing.links ?? [],
+            attachments: viewing.attachments,
+          }
+        }
+        onClose={() => setViewing(null)}
+        footer={
+          viewing && (
+            <Link
+              to={`${linkBase}/${viewing.class_id}`}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-line px-4 text-[14px] font-medium text-ink transition-colors hover:bg-[var(--surface-sunken)]"
+            >
+              Open the class
+              <Icon name="arrowRight" size={15} />
+            </Link>
+          )
+        }
+      />
     </div>
   )
 }

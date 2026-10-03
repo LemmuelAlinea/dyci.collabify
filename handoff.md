@@ -2677,3 +2677,21 @@ unchanged. Removed `TaskActivity`, `TaskDetailPanel`, `FilePreview` (no inline i
 now, and no "All" activity tab — the work dialog has neither). Checked with a throwaway fixture
 page rendering the real body (owner, professor, to-do task; 1440 and 375, no overflow); build,
 eslint, 596 Vitest.
+
+**Change (2026-10-04): announcements stay up, long ones open in a dialog.** Class announcements and
+program notices no longer leave after 24 hours; they stay until they are deleted.
+- SQL (applied live): `class-notices.sql` now puts `announcements_select` back to the plain
+  rule (professor, or an active member of an unarchived class). `program-notices.sql`:
+  `program_notices` has no time filter, and `program_notices_all` lost its `expired` column.
+  Tests `class-notices.test.sql` and `program-office.test.sql` assert the new rule (old ones are
+  visible; deleting one removes it); `class-notices` now picks a class that has an active student.
+- Screen: `ClampedText` shows a message to 3–4 lines with "See more" only when it is cut;
+  `AnnouncementDialog` shows the whole thing (message, Drive previews, links, files). Used by
+  the class feed, the student home swiper (the title is now the link to the class, the dialog has
+  "Open the class") and the program notices on both homes. `NOTICE_HOURS`, `isLive` and the
+  "Off the class feed" / "off the dashboards" badges are gone; the chair's page and the professor's
+  feed text no longer mention a day.
+- Checked: build, eslint, class-notices, program-office, rls-coverage, anon-lockdown; the real
+  components on a throwaway page (clamp, See more, dialog, Escape), then the page was deleted.
+  Not seen signed in. Dashboards now carry old announcements too: the swiper still shows the
+  latest 8, the program notices fold behind "Show the other N".

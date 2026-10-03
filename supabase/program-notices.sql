@@ -24,20 +24,15 @@
  * It carries no attachment. A class announcement takes files because coursework
  * needs them; a program notice that needs a file needs a class.
  *
- * **A notice is visible for 24 hours and then it is not.** The program office
- * announces things that are true for a day — classes suspended, a defense
- * moved, a deadline the registrar shifted — and a dashboard that still carries
- * last month's suspension teaches everybody to stop reading the section. The
- * window is enforced by `program_notices` rather than by the pages, so there is
- * no view of the product where an old notice is still on somebody's dashboard.
+ * **A notice stays on the dashboards until the chair takes it down.** It used
+ * to leave after 24 hours. It no longer does: the office's word stays where
+ * everybody can read it, and the dashboards keep it short instead — a long
+ * notice is shown shortened with a "See more" that opens the whole of it.
  *
- * The clock runs from `created_at`, not from `updated_at`: editing a notice
- * that has already gone corrects the record, it does not re-announce it. To
- * say a thing again, say it again.
- *
- * Nothing is deleted. `program_notices_all` keeps every notice for the chair,
- * because "what did the office announce last term" is a real question and the
- * answer should not be "whatever is still inside the window".
+ * Nothing is deleted by time. `program_notices_all` is the chair's own list and
+ * is the same rows as `program_notices` now; it stays because the chair's page
+ * reads it, and because it is the one place the gate (`is_admin()`) is spelled
+ * out rather than assumed.
  */
 
 begin;
@@ -130,12 +125,8 @@ create trigger program_announcements_notify after insert on public.program_annou
 drop view if exists public.program_notices;
 
 /**
- * What is on a dashboard right now: the last 24 hours, newest first, pinned
- * before the rest.
- *
- * The window lives here and not in the pages that read it. A page could forget
- * it, a second page could implement it differently, and neither would be
- * visible until somebody noticed a month-old notice on a student's dashboard.
+ * What is on a dashboard right now: every notice not yet taken down, newest
+ * first, pinned before the rest.
  */
 create view public.program_notices
 with (security_barrier = true) as
@@ -149,8 +140,7 @@ select a.id,
        btrim(p.first_name || ' ' || p.last_name) as author_name,
        p.avatar_url as author_avatar
   from public.program_announcements a
-  join public.profiles p on p.id = a.author_id
- where a.created_at > now() - interval '24 hours';
+  join public.profiles p on p.id = a.author_id;
 
 revoke all on public.program_notices from anon;
 grant select on public.program_notices to authenticated;
@@ -163,9 +153,7 @@ drop view if exists public.program_notices_all;
  * Every notice the office has ever sent, for the office alone.
  *
  * The chair needs this to answer "what did we announce, and when" and to take
- * down something posted in error after its day has passed. `expired` says which
- * side of the window a notice is on, so the console can show what is live now
- * without recomputing the rule and getting it slightly different.
+ * down something posted in error.
  *
  * `security_barrier` for the same reason as above — the chair shares a class
  * with nobody, so reading `profiles` as the caller returns nothing. The gate is
@@ -182,8 +170,7 @@ select a.id,
        a.edited_at,
        a.author_id,
        btrim(p.first_name || ' ' || p.last_name) as author_name,
-       p.avatar_url as author_avatar,
-       (a.created_at <= now() - interval '24 hours') as expired
+       p.avatar_url as author_avatar
   from public.program_announcements a
   join public.profiles p on p.id = a.author_id
  where public.is_admin();
