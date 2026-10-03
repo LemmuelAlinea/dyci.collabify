@@ -3,27 +3,23 @@ import { Icon } from '../ui/Icon'
 import { listNotices } from '../../lib/api/program'
 import type { ProgramNotice } from '../../lib/program'
 import { momentLabel } from '../../lib/report'
-import { Linkify } from '../ui/Linkify'
-import { DriveLinkCards } from '../ui/DriveLinkCards'
+import { ClampedText } from '../ui/ClampedText'
+import { AnnouncementDialog } from '../classes/AnnouncementDialog'
 
 const SHOWN = 2
 
 /**
- * What the program office has said in the last 24 hours.
+ * What the program office has said.
  *
- * The window is the view's, not this component's — `program_notices` stops at
- * it, so there is no page anywhere that can show a stale one. That also means
- * this list empties itself: a notice nobody took down still leaves, and the
- * section disappears with the last of them.
- *
- * A pinned notice sits at the top of whatever is inside the window; the rest
- * fold away behind a line, because a dashboard that opens on six announcements
- * is a dashboard nobody reads. Nothing here is dismissible per person — what is
- * on this list is current for everyone.
+ * A notice stays here until the chair takes it down. A pinned notice sits at
+ * the top; the rest fold away behind a line, and each one is shown shortened
+ * with a "See more" that opens the whole of it. Nothing here is dismissible per
+ * person — what is on this list is current for everyone.
  */
 export function ProgramNotices() {
   const [rows, setRows] = useState<ProgramNotice[]>([])
   const [all, setAll] = useState(false)
+  const [viewing, setViewing] = useState<ProgramNotice | null>(null)
 
   useEffect(() => {
     void listNotices()
@@ -37,7 +33,7 @@ export function ProgramNotices() {
 
   return (
     <section className="space-y-2">
-      <p className="eyebrow text-faint">From the program office · last 24 hours</p>
+      <p className="eyebrow text-faint">From the program office</p>
       <ul className="space-y-2">
         {shown.map((n) => (
           <li
@@ -50,10 +46,12 @@ export function ProgramNotices() {
               {n.pinned && <Icon name="pin" size={14} className="shrink-0 text-warning-500" />}
               {n.title}
             </h3>
-            <p className="mt-1.5 max-w-[80ch] text-[13px] leading-relaxed whitespace-pre-wrap text-muted">
-              <Linkify text={n.body} />
-            </p>
-            <DriveLinkCards text={n.body} className="mt-2.5" />
+            <ClampedText
+              text={n.body}
+              lines={3}
+              className="mt-1.5 max-w-[80ch] text-[13px] leading-relaxed text-muted"
+              onSeeMore={() => setViewing(n)}
+            />
             <p className="mt-2 text-[12px] text-faint">
               {n.author_name} · {momentLabel(n.created_at)}
               {n.edited_at && ' · edited'}
@@ -71,6 +69,22 @@ export function ProgramNotices() {
           {all ? 'Show fewer' : `Show the other ${rows.length - SHOWN}`}
         </button>
       )}
+
+      <AnnouncementDialog
+        view={
+          viewing && {
+            eyebrow: 'Program office',
+            title: viewing.title,
+            body: viewing.body,
+            pinned: viewing.pinned,
+            authorName: viewing.author_name,
+            authorAvatar: viewing.author_avatar,
+            when: momentLabel(viewing.created_at),
+            edited: Boolean(viewing.edited_at),
+          }
+        }
+        onClose={() => setViewing(null)}
+      />
     </section>
   )
 }

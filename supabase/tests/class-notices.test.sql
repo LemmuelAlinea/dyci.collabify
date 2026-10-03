@@ -1,10 +1,9 @@
--- A class announcement is for a day — rolled back, touches nothing.
+-- A class announcement stays on the feed until it is deleted — rolled back, touches nothing.
 --
 --   node scripts/db.mjs supabase/tests/class-notices.test.sql
 --
--- Paired throughout: a window that hid everything would pass the "the old one
--- is gone" half on its own, so every one of those is set beside a fresh
--- announcement that has to still be there.
+-- Paired with the leak check: the old ones have to be there for the class, and
+-- another class's professor has to still see none of them.
 
 begin;
 
@@ -39,13 +38,16 @@ do $$
 declare
   v_prof uuid; v_class uuid; v_stud uuid; v_other uuid := gen_random_uuid();
 begin
-  select professor_id, id into v_prof, v_class
-    from public.classes where archived_at is null limit 1;
-  select student_id into v_stud from public.class_members
-   where class_id = v_class and status = 'active' limit 1;
+  -- A live class that has at least one active student, so the student half is
+  -- real on whatever data the database holds today.
+  select c.professor_id, c.id, m.student_id into v_prof, v_class, v_stud
+    from public.classes c
+    join public.class_members m on m.class_id = c.id and m.status = 'active'
+   where c.archived_at is null
+   limit 1;
 
-  -- A professor who teaches no part of this class, to prove the window is not
-  -- what stops them: they must see nothing here at any age.
+  -- A professor who teaches no part of this class: they must see nothing here
+  -- at any age.
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           raw_user_meta_data, created_at, updated_at)
   values (
@@ -86,11 +88,11 @@ begin
   select count(*) into n from public.announcements where title = 'zz two hours';
   perform pg_temp.must_be('an announcement from this morning is on the feed', n = 1);
   select count(*) into n from public.announcements where title = 'zz two days';
-  perform pg_temp.must_be('...and one from two days ago is not', n = 0);
+  perform pg_temp.must_be('...and one from two days ago still is', n = 1);
   select count(*) into n from public.announcements where title = 'zz just inside';
-  perform pg_temp.must_be('23h59m still counts as today', n = 1);
+  perform pg_temp.must_be('...and 23h59m', n = 1);
   select count(*) into n from public.announcements where title = 'zz just outside';
-  perform pg_temp.must_be('24h01m does not', n = 0);
+  perform pg_temp.must_be('...and 24h01m, which the old window dropped', n = 1);
 
   perform pg_temp.act_as_service();
 end $$;
@@ -105,9 +107,9 @@ begin
   perform pg_temp.act_as(v_prof);
 
   select count(*) into n from public.announcements where title like 'zz %';
-  perform pg_temp.must_be('the professor keeps every one of the four', n = 4);
+  perform pg_temp.must_be('the professor sees all four', n = 4);
   select count(*) into n from public.announcements where title = 'zz two days';
-  perform pg_temp.must_be('...including the one the class can no longer see', n = 1);
+  perform pg_temp.must_be('...and the one that used to age out', n = 1);
 
   perform pg_temp.act_as_service();
 end $$;
@@ -136,26 +138,9 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
--- Editing corrects the record; it does not put it back on a screen.
+-- An attachment follows its announcement, at any age.
 do $$
 declare
-  v_stud uuid := (select v from fx where k='stud');
-  n int;
-begin
-  update public.announcements
-     set body = 'corrected', edited_at = now()
-   where title = 'zz two days';
-
-  perform pg_temp.act_as(v_stud);
-  select count(*) into n from public.announcements where title = 'zz two days';
-  perform pg_temp.must_be('editing an expired announcement does not re-post it', n = 0);
-  perform pg_temp.act_as_service();
-end $$;
-
--- An attachment follows its announcement out of view.
-do $$
-declare
-  v_prof uuid := (select v from fx where k='prof');
   v_stud uuid := (select v from fx where k='stud');
   v_old uuid; v_new uuid; n int;
 begin
@@ -171,7 +156,7 @@ begin
   select count(*) into n from public.announcement_attachments where file_name = 'new.pdf';
   perform pg_temp.must_be('the fresh announcement''s file is reachable', n = 1);
   select count(*) into n from public.announcement_attachments where file_name = 'old.pdf';
-  perform pg_temp.must_be('...and the expired one''s is not', n = 0);
+  perform pg_temp.must_be('...and so is the older one''s', n = 1);
   perform pg_temp.act_as_service();
 end $$;
 

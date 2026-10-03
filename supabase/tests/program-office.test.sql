@@ -143,15 +143,14 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
--- ------------------------------------------------- the twenty-four hours
+-- ------------------------------------------------- no time window
 
 /**
- * A notice is for a day. The paired control is what makes this worth
- * asserting: a window that hid everything would pass the first half alone, so
- * a notice from two hours ago has to still be there in the same breath.
+ * A notice stays on the dashboards until the chair takes it down. The paired
+ * control is the opposite worry: an old notice has to be there, and nobody but
+ * the chair may read the chair's record view.
  *
- * Ages are set explicitly rather than waited for. A test that sleeps for a day
- * is a test nobody runs.
+ * Ages are set explicitly rather than waited for.
  */
 do $$
 declare
@@ -161,27 +160,23 @@ declare
   n int;
 begin
   insert into public.program_announcements (author_id, title, body, created_at)
-  values (v_admin, 'zz two hours old', 'inside the window', now() - interval '2 hours'),
-         (v_admin, 'zz two days old',  'outside the window', now() - interval '2 days'),
-         -- Exactly on the line, to pin down which side it falls on.
-         (v_admin, 'zz just inside',   'one minute to spare', now() - interval '23 hours 59 minutes'),
-         (v_admin, 'zz just outside',  'one minute too late', now() - interval '24 hours 1 minute');
+  values (v_admin, 'zz two hours old', 'this morning', now() - interval '2 hours'),
+         (v_admin, 'zz two days old',  'still current', now() - interval '2 days'),
+         (v_admin, 'zz two months old', 'still current', now() - interval '60 days');
 
   perform pg_temp.act_as(v_stud);
   select count(*) into n from public.program_notices where title = 'zz two hours old';
   perform pg_temp.must_be('a notice from this morning is on the dashboard', n = 1);
   select count(*) into n from public.program_notices where title = 'zz two days old';
-  perform pg_temp.must_be('...and one from two days ago is not', n = 0);
-  select count(*) into n from public.program_notices where title = 'zz just inside';
-  perform pg_temp.must_be('23h59m still counts as today', n = 1);
-  select count(*) into n from public.program_notices where title = 'zz just outside';
-  perform pg_temp.must_be('24h01m does not', n = 0);
+  perform pg_temp.must_be('...and one from two days ago still is', n = 1);
+  select count(*) into n from public.program_notices where title = 'zz two months old';
+  perform pg_temp.must_be('...and one from two months ago', n = 1);
 
   perform pg_temp.act_as(v_prof);
   select count(*) into n from public.program_notices where title = 'zz two days old';
-  perform pg_temp.must_be('a professor is held to the same window', n = 0);
+  perform pg_temp.must_be('a professor reads it too', n = 1);
 
-  -- The record view is the chair's alone, and it keeps what the window drops.
+  -- The record view is still the chair's alone.
   select count(*) into n from public.program_notices_all;
   perform pg_temp.must_be('a professor gets nothing from the record view', n = 0);
   perform pg_temp.act_as(v_stud);
@@ -189,25 +184,17 @@ begin
   perform pg_temp.must_be('...and neither does a student', n = 0);
 
   perform pg_temp.act_as(v_admin);
-  select count(*) into n from public.program_notices_all where title = 'zz two days old';
-  perform pg_temp.must_be('the chair still has the expired notice', n = 1);
-  select count(*) into n from public.program_notices_all
-   where title = 'zz two days old' and expired;
-  perform pg_temp.must_be('...flagged as expired', n = 1);
-  select count(*) into n from public.program_notices_all
-   where title = 'zz two hours old' and not expired;
-  perform pg_temp.must_be('...and the fresh one flagged as live', n = 1);
+  select count(*) into n from public.program_notices_all where title like 'zz two % old';
+  perform pg_temp.must_be('the chair has all three', n = 3);
 
-  -- Editing corrects the record; it does not put a notice back on a dashboard.
-  update public.program_announcements
-     set body = 'corrected', edited_at = now()
-   where title = 'zz two days old';
+  -- Taking one down removes it from the dashboards.
+  delete from public.program_announcements where title = 'zz two days old';
   perform pg_temp.act_as(v_stud);
   select count(*) into n from public.program_notices where title = 'zz two days old';
-  perform pg_temp.must_be('editing an expired notice does not re-announce it', n = 0);
+  perform pg_temp.must_be('a deleted notice is gone from the dashboard', n = 0);
   perform pg_temp.act_as_service();
 
-  delete from public.program_announcements where title like 'zz %old' or title like 'zz just %';
+  delete from public.program_announcements where title like 'zz two %';
 end $$;
 
 -- --------------------------------------------------------------- sections
