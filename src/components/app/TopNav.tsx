@@ -89,6 +89,8 @@ function AccountMenu({ settingsTo }: { settingsTo: string }) {
 export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   const { profile } = useAuth()
   const bar = useRef<HTMLElement>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchAreaRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const element = bar.current
@@ -104,6 +106,17 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (!searchOpen) return
+    const onDown = (event: MouseEvent) => {
+      if (!searchAreaRef.current?.contains(event.target as Node)) {
+        setSearchOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [searchOpen])
+
   if (!profile) return null
 
   return (
@@ -111,7 +124,7 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
       ref={bar}
       className="sticky top-0 z-40 bg-[var(--page)]"
     >
-      <div className="flex h-[52px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+      <div className="flex h-[52px] items-center gap-4 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
         <button
           type="button"
           onClick={onOpenDrawer}
@@ -121,11 +134,19 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
           <Icon name="menu" size={20} />
         </button>
 
-        <div>
-          <WorkspaceSearch />
-        </div>
-
-        <div className="flex items-center gap-0.5 sm:gap-1">
+        <div ref={searchAreaRef} className="flex min-w-0 flex-1 items-center justify-end gap-0.5 sm:gap-1">
+          {searchOpen && <WorkspaceSearch onClose={() => setSearchOpen(false)} />}
+          <button
+            type="button"
+            onClick={() => setSearchOpen((v) => !v)}
+            aria-label={searchOpen ? 'Close search' : 'Search'}
+            aria-expanded={searchOpen}
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink ${
+              searchOpen ? 'bg-[var(--surface-sunken)] text-ink' : 'text-muted'
+            }`}
+          >
+            <Icon name="search" size={18} />
+          </button>
           <NotificationBell />
           <ThemeToggle />
           <AccountMenu settingsTo={paths.settings} />
