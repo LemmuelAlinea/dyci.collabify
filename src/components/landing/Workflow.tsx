@@ -5,49 +5,66 @@ import { BlueprintField, Glow, Kicker, Shell } from "./parts";
  * How it runs, as a film.
  *
  * This section used to be a sticky panel that stepped a mock board through six
- * states as you scrolled. The launch video shows the real product doing the same
- * job, so the mock gives way to the video. The list on the left is the film's
+ * states as you scrolled. The launch film shows the product doing the same
+ * job, so the mock gives way to the film. The list on the left is the film's
  * chapters: it follows playback, and choosing one seeks to it. Nothing plays
  * until the visitor presses play, and the file is not fetched before then.
  *
  * The captions track carries the voice-over, so the section still reads with
- * the sound off.
+ * the sound off. The film is 80 seconds; the chapter times below are where each
+ * part opens.
  */
 
-const SRC = "/video/collabify-launch.mp4";
-const POSTER = "/video/collabify-launch-poster.jpg";
-const CAPTIONS = "/video/collabify-launch.en.vtt";
+const SRC = "/video/collabify-film.mp4";
+const POSTER = "/video/collabify-film-poster.jpg";
+const CAPTIONS = "/video/collabify-film.en.vtt";
 
+// Start times are where each part opens in the film.
 const CHAPTERS = [
   {
-    at: 3.5,
-    title: "Talk it through",
-    body: "Everything said in a discussion is saved as a discussion file, and can be turned into tasks.",
+    at: 0,
+    title: "Meet Collabify",
+    body: "The project workspace where classes and teams plan, build and finish together.",
   },
   {
-    at: 9.5,
-    title: "Find the tasks",
-    body: "Pick a discussion and Collabify drafts the tasks from it. Nothing is added until you choose.",
-  },
-  {
-    at: 17.5,
-    title: "Work on one board",
-    body: "Tasks sit on a board with their owners, in To do, In progress and Done.",
-  },
-  {
-    at: 23.5,
-    title: "Draft, review, commit",
-    body: "Files start as your draft, go to a reviewer, and land on Main with their history.",
-  },
-  {
-    at: 28,
-    title: "Classes, groups, spaces",
-    body: "Where the work lives, whether it is a class, a group or a space.",
-  },
-  {
-    at: 35,
+    at: 7,
     title: "Make it yours",
-    body: "Your own colors for banners, statuses, the sidebar and progress.",
+    body: "Your own colors for banners, statuses, the sidebar and progress, in light or dark.",
+  },
+  {
+    at: 15,
+    title: "Two spaces",
+    body: "An educational space for classes and a work space for teams.",
+  },
+  {
+    at: 19,
+    title: "Build from the syllabus",
+    body: "Professors pick the weeks, take a suggested name and let AI draft the brief and rubric.",
+  },
+  {
+    at: 27,
+    title: "Plan by voice",
+    body: "Record in a discussion. Collabify transcribes it, saves a discussion file and drafts the tasks. Nothing is added until you choose.",
+  },
+  {
+    at: 36,
+    title: "Board, files, hand-in",
+    body: "Tasks sit on one board. Files go from draft to review to Main. The group hands in and the professor accepts.",
+  },
+  {
+    at: 48,
+    title: "Start from a template, or blank",
+    body: "Add your own fields, upload files and share them with the team.",
+  },
+  {
+    at: 59,
+    title: "Teams and positions",
+    body: "Set up teams and every member's position, so the project fits the people on it.",
+  },
+  {
+    at: 67,
+    title: "Summarize long files",
+    body: "Open a long paper on Main and get its key points in one step.",
   },
 ];
 
@@ -62,13 +79,13 @@ export function Workflow() {
   const [started, setStarted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
-  const [duration, setDuration] = useState(45);
+  const [duration, setDuration] = useState(80);
 
   useEffect(() => {
     const v = video.current;
     if (!v) return;
     const onTime = () => setTime(v.currentTime);
-    const onMeta = () => setDuration(v.duration || 45);
+    const onMeta = () => setDuration(v.duration || 80);
     const onPlay = () => {
       setStarted(true);
       setPlaying(true);
@@ -126,8 +143,8 @@ export function Workflow() {
                 <span className="text-amber-300">the plan.</span>
               </h2>
               <p className="mt-4 max-w-md text-[15px] leading-relaxed text-amber-50/60">
-                Forty-five seconds, recorded in the app. Pick a chapter to jump
-                to it.
+                Eighty seconds, from the first conversation to a project handed
+                in. Pick a chapter to jump to it.
               </p>
             </div>
             {/* ---------------------------------------------------- player */}
@@ -187,7 +204,7 @@ export function Workflow() {
                   ? playing
                     ? "Playing"
                     : "Paused"
-                  : "Recorded in the app"}
+                  : "Collabify in 80 seconds"}
                 {started && ` · ${format(time)} / ${format(duration)}`}
               </p>
             </div>
