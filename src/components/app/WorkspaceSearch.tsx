@@ -46,7 +46,7 @@ function staticResults(profile: AccessProfile, membership: Membership | undefine
   )
 }
 
-export function WorkspaceSearch() {
+export function WorkspaceSearch({ onClose }: { onClose?: () => void }) {
   const { profile } = useAuth()
   const general = useGeneralNavigation()
   const [query, setQuery] = useState('')
@@ -149,8 +149,19 @@ export function WorkspaceSearch() {
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            if (!query.trim()) {
+              onClose?.()
+            } else {
+              setQuery('')
+              setOpen(false)
+            }
+          }
+        }}
         placeholder="Search Collabify"
         autoComplete="off"
+        autoFocus
         className="h-10 w-full rounded-xl border border-line bg-[var(--surface)] pr-3 pl-9 text-[14px] text-ink outline-none transition focus:border-navy-300 focus:ring-4 focus:ring-navy-200/40 dark:focus:border-amber-300/50 dark:focus:ring-amber-300/10"
       />
 
@@ -169,6 +180,7 @@ export function WorkspaceSearch() {
                     onClick={() => {
                       setOpen(false)
                       setQuery('')
+                      onClose?.()
                     }}
                     className="block px-4 py-2.5 text-[14px] hover:bg-[var(--surface-sunken)]"
                   >
