@@ -10,6 +10,8 @@ import { MyTasksPanel } from '../../../components/general/DashboardPanels'
 import { TaskDialog } from '../../../components/general/TaskDialog'
 import { useGeneralProject } from '../../../components/general/useGeneralProject'
 import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
+import { MyTaskBoard, MyTaskList, MyTasksViewSwitch } from '../../../components/tasks/MyTasksViews'
+import type { MyTaskItem } from '../../../components/tasks/MyTasksViews'
 import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { EmptyState } from '../../../components/ui/EmptyState'
@@ -25,6 +27,7 @@ import { isFaculty, membershipOf, showsClassScope } from '../../../lib/access'
 import { authErrorMessage } from '../../../lib/authError'
 import { myTasks as myOpenWorkTasks } from '../../../lib/general/dashboard'
 import { paths } from '../../../lib/paths'
+import { readMyTasksView, writeMyTasksView } from '../../../lib/myTasksView'
 import { readScope, writeScope } from '../../../lib/scope'
 import { formatMinutes, taskShare, taskStatusLabel } from '../../../lib/types'
 import { useNow } from '../../../hooks/useNow'
@@ -151,6 +154,7 @@ export default function MyTasks() {
   const general = useGeneralNavigation()
   const filtered = isStudent && showsClassScope(profile, membershipOf(general.spaces, general.myProjects))
   const scope = filtered ? readScope(params) : isStudent ? 'all' : 'work'
+  const view = readMyTasksView(params)
 
   // Class boards only ever assign work to students — a professor or admin
   // reading this page has none, so their load is a no-op rather than a
@@ -285,6 +289,51 @@ export default function MyTasks() {
     return map
   }, [classFiltered])
 
+  async function moveClassTask(t: MyTask) {
+    try {
+      await setTaskStatus(t.id, NEXT[t.status].to)
+      await load()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not move that task.'), 'error')
+    }
+  }
+
+  // Board and List read class and work tasks as one set.
+  const items: MyTaskItem[] = [
+    ...classFiltered.map(
+      (t): MyTaskItem => ({
+        key: `class-${t.id}`,
+        kind: 'class',
+        title: t.title,
+        where: [t.project_title, t.class_initial, t.group_name].filter(Boolean).join(' · '),
+        status: t.status,
+        due_at: t.due_at,
+        share: taskShare(t, t.board_weight || t.weight),
+        files: t.file_count,
+        comments: t.comment_count,
+        minutes: t.logged_minutes,
+        onOpen: () => showTask(t.id),
+        next: { label: NEXT[t.status].label, icon: NEXT[t.status].icon, run: () => void moveClassTask(t) },
+      }),
+    ),
+    ...workFiltered.map(
+      (t): MyTaskItem => ({
+        key: `work-${t.id}`,
+        kind: 'work',
+        title: t.title,
+        where: projectName(t.project_id),
+        status: t.status,
+        due_at: t.due_at,
+        share: 0,
+        files: t.file_count,
+        comments: t.comment_count,
+        minutes: t.logged_minutes,
+        onOpen: workInPlace ? () => showWorkTask(t) : undefined,
+        href: `${paths.project(t.project_id)}?task=${t.id}`,
+      }),
+    ),
+  ]
+
   // A General failure settles the work side rather than holding class tasks
   // hostage — the error Alert below shows it, with a retry, and class tasks
   // still render.
@@ -335,8 +384,12 @@ export default function MyTasks() {
           </Alert>
         )}
 
-        {filtered && (
-          <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <MyTasksViewSwitch
+            value={view}
+            onChange={(next) => setParams(writeMyTasksView(params, next), { replace: true })}
+          />
+          {filtered && (
             <ScopeFilter
               value={scope}
               onChange={(next) => setParams(writeScope(params, next), { replace: true })}
@@ -350,8 +403,8 @@ export default function MyTasks() {
                   : undefined
               }
             />
-          </div>
-        )}
+          )}
+        </div>
 
         {!loaded ? (
           <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
@@ -360,6 +413,20 @@ export default function MyTasks() {
           </div>
         ) : totalShown === 0 ? (
           <EmptyState icon="check" art="tasks" title={emptyCopy.title} body={emptyCopy.body} />
+        ) : view === 'board' ? (
+          <>
+            <MyTaskBoard items={items} showDone={classFiltered.length > 0} now={now} />
+            <p className="text-[12px] text-faint">
+              Only the people on a task can move it. Work tasks leave this page once they are done.
+            </p>
+          </>
+        ) : view === 'list' ? (
+          <>
+            <MyTaskList items={items} now={now} />
+            <p className="text-[12px] text-faint">
+              Only the people on a task can move it. Work tasks leave this page once they are done.
+            </p>
+          </>
         ) : (
           <>
             <nav aria-label="Jump to task group" className="flex flex-wrap items-center gap-2">
@@ -489,17 +556,7 @@ export default function MyTasks() {
                               </span>
                               <button
                                 type="button"
-                                onClick={async () => {
-                                  try {
-                                    await setTaskStatus(t.id, NEXT[t.status].to)
-                                    await load()
-                                  } catch (err) {
-                                    show(
-                                      authErrorMessage(err, 'Could not move that task.'),
-                                      'error',
-                                    )
-                                  }
-                                }}
+                                onClick={() => void moveClassTask(t)}
                                 className="flex items-center gap-2 rounded-lg border border-[var(--line-strong)] bg-[var(--surface)] px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-navy-400 hover:text-navy-600 dark:hover:border-navy-300 dark:hover:text-navy-200"
                               >
                                 <Icon name={NEXT[t.status].icon} size={14} />

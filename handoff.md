@@ -2695,3 +2695,18 @@ program notices no longer leave after 24 hours; they stay until they are deleted
   components on a throwaway page (clamp, See more, dialog, Escape), then the page was deleted.
   Not seen signed in. Dashboards now carry old announcements too: the swiper still shows the
   latest 8, the program notices fold behind "Show the other N".
+
+**Change (2026-10-04): My tasks has Urgency, Board and List views.** A switch above the tasks
+(`MyTasksViewSwitch`, `components/tasks/MyTasksViews.tsx`) picks how the same tasks are laid out;
+`?view=board|list` carries it and `collabify:my-tasks-view` in localStorage remembers the last
+pick (`lib/myTasksView.ts`). Urgency is the old page, unchanged.
+- Board and List read class and work tasks as one set (`MyTaskItem`): a Class/Work tag, where it
+  lives, stage, due (red when overdue), grade share, files, comments, time. Class tasks keep
+  their Start / Mark done / Reopen button; work tasks open in place for faculty, on the project
+  page for students, as before. The All · Classes · Work filter still applies.
+- Board: a column per stage, soonest due first. Work tasks leave the page once done, so the Done
+  column only shows when class tasks are in view (faculty see To do and In progress).
+- List: one table, soonest due first; phones get a stacked row per task instead.
+- Checked signed in as faculty: Board, List, opening a work task over List, the remembered pick
+  on reload, 375 wide with no overflow. Student class tasks not seen signed in. Build, eslint,
+  596 Vitest.
