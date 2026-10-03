@@ -76,6 +76,7 @@ function format(s: number) {
 
 export function Workflow() {
   const video = useRef<HTMLVideoElement>(null);
+  const strip = useRef<HTMLDivElement>(null);
   const [started, setStarted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -110,6 +111,19 @@ export function Workflow() {
   const active = started
     ? CHAPTERS.reduce((a, c, i) => (time >= c.at - 0.05 ? i : a), -1)
     : -1;
+
+  // On a phone the chapters are a strip under the film. Keep the lit one in
+  // view by moving the strip itself, never the page.
+  useEffect(() => {
+    const row = strip.current;
+    const chip = row?.children[Math.max(active, 0)] as HTMLElement | undefined;
+    if (!row || !chip) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    row.scrollTo({
+      left: chip.offsetLeft - (row.clientWidth - chip.offsetWidth) / 2,
+      behavior: reduce ? "auto" : "smooth",
+    });
+  }, [active]);
 
   const play = () => {
     void video.current?.play();
@@ -209,8 +223,47 @@ export function Workflow() {
               </p>
             </div>
             {/* ------------------------------------------------- chapters */}
-            <div className="lg:col-span-5 lg:row-start-2">
-              <ol className="space-y-1.5">
+            <div className="min-w-0 lg:col-span-5 lg:row-start-2">
+              {/* Phone and tablet: a strip of parts and the lit part's line,
+                  right under the film, so nothing pushes the page down. */}
+              <div className="lg:hidden">
+                <div
+                  ref={strip}
+                  className="relative -mx-5 flex snap-x gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] md:-mx-8 md:px-8 [&::-webkit-scrollbar]:hidden"
+                >
+                  {CHAPTERS.map((c, i) => {
+                    const on = i === active;
+                    return (
+                      <button
+                        key={c.title}
+                        type="button"
+                        onClick={() => seek(c.at)}
+                        aria-current={on ? "true" : undefined}
+                        className={`flex shrink-0 snap-center items-center gap-2 rounded-full border px-3.5 py-2 text-[13px] font-medium whitespace-nowrap transition-[background-color,border-color,color] duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 ${
+                          on
+                            ? "border-amber-400 bg-amber-400 text-navy-950"
+                            : "border-amber-50/14 bg-white/[0.05] text-amber-50/70"
+                        }`}
+                      >
+                        <span
+                          className={`font-mono text-[10px] tracking-wide ${
+                            on ? "text-navy-950/70" : "text-amber-50/40"
+                          }`}
+                        >
+                          {format(c.at)}
+                        </span>
+                        {c.title}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 min-h-[4.5rem] px-0.5 text-[14px] leading-relaxed text-amber-50/65">
+                  {active >= 0 ? CHAPTERS[active].body : "Pick a part to jump to it."}
+                </p>
+              </div>
+
+              {/* From lg up the parts are a list beside the film. */}
+              <ol className="hidden space-y-1.5 lg:block">
                 {CHAPTERS.map((c, i) => {
                   const on = i === active;
                   return (
