@@ -4,10 +4,14 @@
  * Stored as JSON rather than as a copy of the .xlsx, because a spreadsheet that
  * cannot be compared is a spreadsheet nobody can review — and reviewing is the
  * whole point of putting it here. Cells are text: what somebody typed, formula
- * and all. Nothing is evaluated, which keeps this honest about what it is.
+ * and all. The editor works formulas out on screen; what is stored is still the
+ * formula, so a review compares what people wrote rather than what it came to.
+ * Formatting rides alongside (`sheetFormat.ts`).
  */
+import { readFormat, writeFormat } from './sheetFormat'
+import type { SheetFormat } from './sheetFormat'
 
-export type Sheet = { name: string; rows: string[][] }
+export type Sheet = { name: string; rows: string[][] } & SheetFormat
 export type Workbook = { sheets: Sheet[] }
 
 export const SHEET_LIMIT = { sheets: 20, rows: 2000, columns: 100, cell: 5000 } as const
@@ -40,6 +44,7 @@ export function parseWorkbook(json: string): Workbook {
       rows: rows.slice(0, SHEET_LIMIT.rows).map((r) =>
         (Array.isArray(r) ? r : []).slice(0, SHEET_LIMIT.columns).map((c) => String(c ?? '')),
       ),
+      ...readFormat(s as Record<string, unknown>, SHEET_LIMIT),
     })
   }
   return out.length ? { sheets: out } : emptyWorkbook()
@@ -48,7 +53,7 @@ export function parseWorkbook(json: string): Workbook {
 /** Stable key order, so an unchanged sheet produces an identical string. */
 export function serializeWorkbook(wb: Workbook) {
   return JSON.stringify({
-    sheets: wb.sheets.map((s) => ({ name: s.name, rows: trimTrailing(s.rows) })),
+    sheets: wb.sheets.map((s) => ({ name: s.name, rows: trimTrailing(s.rows), ...writeFormat(s) })),
   })
 }
 

@@ -2796,3 +2796,34 @@ editors plan (discussion edit/delete → full screen → code editor → Word �
   cells, page break, picture, page size); the reader on docs/Collabify-Evaluation-Questionnaire.docx;
   on a throwaway page: ribbon changes, page flow onto page 3, manual break, table, A4 switch,
   375 Mobile view, dark mode. Not tried: uploading a real Word file and pictures signed in.
+
+**Change (2026-10-06): Excel files open in an Excel-like grid with live formulas.** Part 5 of 5 of
+the editors plan; the plan is done.
+- `ExcelEditor.tsx` (lazy; `@fortune-sheet/react`, MIT, 600 KB gzip, loaded only for spreadsheets)
+  replaces `SheetEditor` (deleted; its AI Formula help moved in). Ribbon limited to what the file
+  keeps: undo/redo, format painter, clear, ₱/percent/decimals/number formats, font (Excel's list,
+  Calibri default), size, bold/italic/strike/underline, text colour, fill, borders, merge,
+  alignment, wrap, freeze, quick sum, search; right-click: copy/paste, insert/delete rows and
+  columns, row height/column width, clear, sort. Formula bar, sheet tabs (rename, copy, move,
+  delete), zoom, status sums. Images, comments, links, filters, conditional formats, charts and
+  hidden rows are not offered because they would not survive a save.
+- Formulas: `lib/general/sheetCalc.ts` works every stored formula out on open with the grid's own
+  engine (`@fortune-sheet/formula-parser`), including formulas of formulas, other sheets and
+  cycles (#REF!); each joins the grid's calc chain, so editing a cell updates what reads it.
+  What is stored is still the formula text, so diffs and reviews compare formulas.
+- Storage: `Sheet` gains optional `styles` ("r:c" → bold/italic/underline/strike/font/size/colour/
+  fill/align/valign/wrap/number format), `cols`/`heights` (px), `merges`, `freeze`, `borders`
+  (`lib/general/sheetFormat.ts`, every value checked on read). A sheet without formatting
+  serialises exactly as before. `lib/general/sheetFortune.ts` maps to/from the grid; toolbar
+  border strokes become per-cell borders.
+- .xlsx import/export (ExcelJS) carries all of it: fonts, fills, alignment, number formats,
+  borders, column widths, row heights, merges (covered cells emptied), frozen panes.
+- `FileEditor`: Esc inside any editor stays there (leaves a cell, closes find) instead of closing
+  the dialog; a sheet's saved baseline is its canonical JSON, so opening never reads as a change.
+- Known differences from Excel: numbers align left unless aligned (the grid's default), vertical
+  default is middle; dates typed into the grid are stored as serial numbers with a date format.
+- Checked: Vitest 614 (calc incl. cross-sheet and cycles; grid round trip with every format;
+  border strokes; .xlsx round trip). On a throwaway page: styled sheet renders (merged title,
+  fills, #,##0.00, double border, frozen rows, two tabs), typing 150 in B2 updates =SUM to 230,
+  Ctrl+B registers a change, Esc cancels an edit without closing, no console errors.
+  Not tried signed in: uploading a real .xlsx and saving to a draft.

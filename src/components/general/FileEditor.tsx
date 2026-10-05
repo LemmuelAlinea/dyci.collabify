@@ -19,7 +19,6 @@ import { parseWorkbook, serializeWorkbook } from '../../lib/general/sheet'
 import type { Workbook } from '../../lib/general/sheet'
 import { FILE_KIND_LABEL } from '../../lib/general/types'
 import type { FileAction, FileKind, GeneralRepoSummary } from '../../lib/general/types'
-import { SheetEditor } from './SheetEditor'
 import { LazyPdfPreview as PdfPreview } from './LazyPdfPreview'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -27,6 +26,8 @@ import type { GeneralProjectState } from './useGeneralProject'
 const CodeEditor = lazy(() => import('./CodeEditor'))
 // Tiptap and the page fonts load when somebody opens a Word file.
 const WordEditor = lazy(() => import('./word/WordEditor'))
+// The Excel grid and its formula engine load when somebody opens a spreadsheet.
+const ExcelEditor = lazy(() => import('./ExcelEditor'))
 
 function EditorLoading({ what }: { what: string }) {
   return (
@@ -184,8 +185,27 @@ function Body({
   const [error, setError] = useState<string | null>(null)
 
   // What was last saved: the file as opened, until Ctrl+S saves it in place.
-  const [baseline, setBaseline] = useState(file.content)
+  // A sheet is compared in its canonical form, so opening one never reads as a change.
+  const [baseline, setBaseline] = useState(() =>
+    file.kind === 'sheet' ? serializeWorkbook(parseWorkbook(file.content)) : file.content,
+  )
   const [inDraft, setInDraft] = useState(file.fromDraft)
+
+  /*
+   * Esc belongs to the editor while you are in it — it leaves a cell, closes
+   * find, dismisses a suggestion — as it does in Excel, Word and VS Code. It
+   * must not reach the dialog and close the file with the work in it.
+   */
+  const editorArea = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = editorArea.current
+    if (!el) return
+    const keep = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') e.stopPropagation()
+    }
+    el.addEventListener('keydown', keep)
+    return () => el.removeEventListener('keydown', keep)
+  }, [])
 
   const current = file.kind === 'sheet' ? serializeWorkbook(book) : text
   const dirty = current !== baseline
@@ -382,34 +402,38 @@ function Body({
         </Alert>
       )}
 
-      {file.kind === 'rich' && (
-        <Suspense fallback={<EditorLoading what="document" />}>
-          <WordEditor
-            value={file.content}
-            onChange={setText}
-            readOnly={frozen}
-            fill={full}
-            projectId={state.project?.id}
-          />
-        </Suspense>
-      )}
-      {file.kind === 'sheet' && (
-        <SheetEditor workbook={book} onChange={setBook} readOnly={frozen} projectId={state.project?.id} fill={full} />
-      )}
-      {file.kind === 'text' && !misreadOfficeFile && (
-        <Suspense fallback={<EditorLoading what="code editor" />}>
-          <CodeEditor
-            path={file.path}
-            value={file.content}
-            onChange={(next) => setText(next.slice(0, 400000))}
-            onSave={() => {
-              if (!frozen && current !== baseline) void save(false, true)
-            }}
-            readOnly={frozen}
-            fill={full}
-          />
-        </Suspense>
-      )}
+      <div ref={editorArea}>
+        {file.kind === 'rich' && (
+          <Suspense fallback={<EditorLoading what="document" />}>
+            <WordEditor
+              value={file.content}
+              onChange={setText}
+              readOnly={frozen}
+              fill={full}
+              projectId={state.project?.id}
+            />
+          </Suspense>
+        )}
+        {file.kind === 'sheet' && (
+          <Suspense fallback={<EditorLoading what="spreadsheet" />}>
+            <ExcelEditor workbook={book} onChange={setBook} readOnly={frozen} projectId={state.project?.id} fill={full} />
+          </Suspense>
+        )}
+        {file.kind === 'text' && !misreadOfficeFile && (
+          <Suspense fallback={<EditorLoading what="code editor" />}>
+            <CodeEditor
+              path={file.path}
+              value={file.content}
+              onChange={(next) => setText(next.slice(0, 400000))}
+              onSave={() => {
+                if (!frozen && current !== baseline) void save(false, true)
+              }}
+              readOnly={frozen}
+              fill={full}
+            />
+          </Suspense>
+        )}
+      </div>
 
       {misreadOfficeFile && file.fromDraft && (
         <Button variant="outline" onClick={() => void dropMisreadDraft()} loading={busy}>

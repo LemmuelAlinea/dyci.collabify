@@ -340,14 +340,16 @@ function Swatches({
     const away = (e: MouseEvent) => {
       if (!box.current?.contains(e.target as Node)) setOpen(false)
     }
+    // On the swatch box itself: Esc inside the editor never reaches the document.
     const esc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
     }
+    const el = box.current
     document.addEventListener('mousedown', away)
-    document.addEventListener('keydown', esc)
+    el?.addEventListener('keydown', esc)
     return () => {
       document.removeEventListener('mousedown', away)
-      document.removeEventListener('keydown', esc)
+      el?.removeEventListener('keydown', esc)
     }
   }, [open])
 
