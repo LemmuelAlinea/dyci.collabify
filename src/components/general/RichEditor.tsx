@@ -35,11 +35,14 @@ export function RichEditor({
   onChange,
   readOnly = false,
   id,
+  fill = false,
 }: {
   value: string
   onChange: (html: string) => void
   readOnly?: boolean
   id?: string
+  /** Full screen: take the window's height instead of stopping at 60%. */
+  fill?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -86,7 +89,7 @@ export function RichEditor({
         suppressContentEditableWarning
         onInput={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
         onBlur={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
-        className="rich-body min-h-[22rem] max-h-[60vh] overflow-y-auto bg-[var(--surface)] px-4 py-3 text-[14px] leading-relaxed text-ink focus:outline-none"
+        className={`rich-body overflow-y-auto ${fill ? 'h-[calc(100dvh-15rem)]' : 'min-h-[22rem] max-h-[60vh]'} bg-[var(--surface)] px-4 py-3 text-[14px] leading-relaxed text-ink focus:outline-none`}
       />
     </div>
   )

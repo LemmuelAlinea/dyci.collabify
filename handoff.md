@@ -2724,3 +2724,17 @@ editors plan (discussion edit/delete → full screen → code editor → Word �
   "· edited" by the time, a confirm before delete. Deleted messages vanish for everyone.
 - Checked: `tests/discussion-edit-delete.test.sql` 16 PASS; discussion-polls-voice 43,
   general-discussions 25, rls-coverage, anon-lockdown pass; build, eslint, 596 Vitest.
+
+**Change (2026-10-05): any open file can go full screen.** Part 2 of 5 of the editors plan.
+- `Modal` has `size="full"` (the whole window, top bar included) and a `headerActions` slot
+  beside Close. `FileEditor` puts a Full screen / Exit full screen button there: the dialog fills
+  the window and, where the browser allows, the page enters the browser's full screen
+  (`document.documentElement`, so menus, confirms and toasts still show). Esc or the browser's
+  control leaves it and the dialog follows (`fullscreenchange`); closing the file leaves it too.
+  iPhone has no page full screen, so there it is fill-the-window only.
+- Rich, sheet, text and PDF views take the window's height while full (`fill` prop); these are
+  stopgaps until the new editors (parts 3–5) fill by layout.
+- pdf.js no longer sits in the project page chunks: `LazyPdfPreview` loads it when a PDF opens
+  (FileEditor and RepoChangeRow).
+- Checked on a throwaway page (not committed): enter/exit at 1240 wide and 375 (fills 375×812,
+  no sideways scroll). Build, eslint, 596 Vitest.

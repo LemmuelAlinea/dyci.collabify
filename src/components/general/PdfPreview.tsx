@@ -16,9 +16,12 @@ type LoadedPdf = {
 export function PdfPreview({
   storagePath,
   label,
+  fill = false,
 }: {
   storagePath: string
   label: string
+  /** Full screen: take the window's height instead of stopping at 70%. */
+  fill?: boolean
 }) {
   const [loaded, setLoaded] = useState<LoadedPdf | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -70,7 +73,7 @@ export function PdfPreview({
   return (
     <div
       aria-label={label}
-      className="max-h-[70vh] overflow-auto rounded-xl border border-line bg-neutral-100 p-3 dark:bg-neutral-950"
+      className={`overflow-auto ${fill ? 'h-[calc(100dvh-11rem)]' : 'max-h-[70vh]'} rounded-xl border border-line bg-neutral-100 p-3 dark:bg-neutral-950`}
     >
       <div className="mx-auto flex max-w-full flex-col items-center gap-3">
         {loaded.pages.map((pageNumber) => (

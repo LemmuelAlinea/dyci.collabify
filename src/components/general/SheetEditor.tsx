@@ -20,12 +20,15 @@ export function SheetEditor({
   onChange,
   readOnly = false,
   projectId,
+  fill = false,
 }: {
   workbook: Workbook
   onChange: (next: Workbook) => void
   readOnly?: boolean
   /** Set to offer the formula helper, which asks on behalf of this project. */
   projectId?: string
+  /** Full screen: take the window's height instead of stopping at 55%. */
+  fill?: boolean
 }) {
   const [active, setActive] = useState(0)
   // The last cell somebody was in: where a drafted formula goes.
@@ -95,7 +98,7 @@ export function SheetEditor({
         </div>
       )}
 
-      <div className="max-h-[55vh] overflow-auto rounded-xl border border-line">
+      <div className={`overflow-auto rounded-xl border border-line ${fill ? 'h-[calc(100dvh-17rem)]' : 'max-h-[55vh]'}`}>
         <table className="border-collapse text-[12px]">
           <caption className="sr-only">{sheet.name}</caption>
           <thead>

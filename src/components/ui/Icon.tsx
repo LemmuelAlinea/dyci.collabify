@@ -9,6 +9,9 @@ const PATHS = {
   chevronRight: 'M9 18l6-6-6-6',
   chevronLeft: 'M15 18l-6-6 6-6',
   x: 'M18 6L6 18M6 6l12 12',
+  // Four corners pushed out, and pulled in: full screen on and off.
+  maximize: 'M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5',
+  minimize: 'M3 8h5V3M21 8h-5V3M16 21v-5h5M8 21v-5H3',
   menu: 'M3 6h18M3 12h18M3 18h18',
   sun: 'M12 17a5 5 0 100-10 5 5 0 000 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
   moon: 'M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z',

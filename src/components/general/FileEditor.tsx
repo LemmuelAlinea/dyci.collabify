@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Field'
@@ -22,7 +22,7 @@ import { FILE_KIND_LABEL } from '../../lib/general/types'
 import type { FileAction, FileKind, GeneralRepoSummary } from '../../lib/general/types'
 import { RichEditor } from './RichEditor'
 import { SheetEditor } from './SheetEditor'
-import { PdfPreview } from './PdfPreview'
+import { LazyPdfPreview as PdfPreview } from './LazyPdfPreview'
 import type { GeneralProjectState } from './useGeneralProject'
 
 export type OpenFile = {
@@ -59,16 +59,77 @@ export function FileEditor({
   onClose: () => void
   onSaved: () => Promise<void>
 }) {
+  const [full, setFull] = useState(false)
+  // Whether the browser's own full screen is ours to leave again.
+  const ownsScreen = useRef(false)
+
+  // Esc, F11 or the browser's own control can leave full screen; follow it.
+  useEffect(() => {
+    const onChange = () => {
+      if (!document.fullscreenElement && ownsScreen.current) {
+        ownsScreen.current = false
+        setFull(false)
+      }
+    }
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  function leaveScreen() {
+    if (ownsScreen.current && document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+    ownsScreen.current = false
+  }
+
+  function toggleFull() {
+    if (full) {
+      leaveScreen()
+      setFull(false)
+      return
+    }
+    setFull(true)
+    // The whole page rather than the dialog, so menus, confirms and toasts —
+    // which render at the end of <body> — still show. Where the browser has no
+    // full screen for pages (iPhone), the dialog filling the window is it.
+    if (document.fullscreenEnabled && !document.fullscreenElement) {
+      document.documentElement
+        .requestFullscreen()
+        .then(() => {
+          ownsScreen.current = true
+        })
+        .catch(() => {})
+    }
+  }
+
+  function close() {
+    leaveScreen()
+    setFull(false)
+    onClose()
+  }
+
   return (
     <Modal
       open={Boolean(file)}
-      onClose={onClose}
+      onClose={close}
       title={file ? fileName(file.path) : 'File'}
       description={file?.path}
-      size="xl"
+      size={full ? 'full' : 'xl'}
+      headerActions={
+        file && (
+          <button
+            type="button"
+            onClick={toggleFull}
+            aria-label={full ? 'Exit full screen' : 'Full screen'}
+            title={full ? 'Exit full screen' : 'Full screen'}
+            aria-pressed={full}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-[background-color,color,scale] duration-(--dur-press) hover:bg-[var(--surface-sunken)] hover:text-ink active:scale-[0.97]"
+          >
+            <Icon name={full ? 'minimize' : 'maximize'} size={17} />
+          </button>
+        )
+      }
     >
       {file && (
-        <Body key={file.path + String(file.fromDraft) + (file.sharedBy ?? '')} file={file} repo={repo} state={state} onClose={onClose} onSaved={onSaved} />
+        <Body key={file.path + String(file.fromDraft) + (file.sharedBy ?? '')} file={file} repo={repo} state={state} full={full} onClose={close} onSaved={onSaved} />
       )}
     </Modal>
   )
@@ -78,12 +139,14 @@ function Body({
   file,
   repo,
   state,
+  full,
   onClose,
   onSaved,
 }: {
   file: OpenFile
   repo: GeneralRepoSummary
   state: GeneralProjectState
+  full: boolean
   onClose: () => void
   onSaved: () => Promise<void>
 }) {
@@ -286,7 +349,7 @@ function Body({
       )}
 
       {isPdf && (
-        file.storagePath ? <PdfPreview storagePath={file.storagePath} label={name} /> : null
+        file.storagePath ? <PdfPreview storagePath={file.storagePath} label={name} fill={full} /> : null
       )}
 
       {!mayCommit && !readOnly && isEditable(file.kind) && (
@@ -297,10 +360,10 @@ function Body({
       )}
 
       {file.kind === 'rich' && (
-        <RichEditor value={text} onChange={setText} readOnly={frozen} />
+        <RichEditor value={text} onChange={setText} readOnly={frozen} fill={full} />
       )}
       {file.kind === 'sheet' && (
-        <SheetEditor workbook={book} onChange={setBook} readOnly={frozen} projectId={state.project?.id} />
+        <SheetEditor workbook={book} onChange={setBook} readOnly={frozen} projectId={state.project?.id} fill={full} />
       )}
       {file.kind === 'text' && !misreadOfficeFile && (
         <Field label="Contents">
@@ -312,7 +375,7 @@ function Body({
               readOnly={frozen}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              className="!font-mono !text-[12px] !leading-relaxed"
+              className={`!font-mono !text-[12px] !leading-relaxed ${full ? '!h-[calc(100dvh-17rem)]' : ''}`}
             />
           )}
         </Field>

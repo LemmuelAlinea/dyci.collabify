@@ -28,7 +28,7 @@ import type {
   RepoFile,
 } from '../../lib/general/types'
 import { DiffView } from './DiffView'
-import { PdfPreview } from './PdfPreview'
+import { LazyPdfPreview as PdfPreview } from './LazyPdfPreview'
 import type { GeneralProjectState } from './useGeneralProject'
 import { isReviewer } from '../../lib/general/review'
 import { Linkify } from '../ui/Linkify'
