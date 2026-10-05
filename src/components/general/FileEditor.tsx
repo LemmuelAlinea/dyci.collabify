@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Field'
-import { Icon } from '../ui/Icon'
+import { Icon, Spinner } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
-import { Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import {
   commitFiles,
@@ -24,6 +23,9 @@ import { RichEditor } from './RichEditor'
 import { SheetEditor } from './SheetEditor'
 import { LazyPdfPreview as PdfPreview } from './LazyPdfPreview'
 import type { GeneralProjectState } from './useGeneralProject'
+
+// Monaco is several megabytes; it loads when somebody opens a code file.
+const CodeEditor = lazy(() => import('./CodeEditor'))
 
 export type OpenFile = {
   path: string
@@ -171,14 +173,19 @@ function Body({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // What was last saved: the file as opened, until Ctrl+S saves it in place.
+  const [baseline, setBaseline] = useState(file.content)
+  const [inDraft, setInDraft] = useState(file.fromDraft)
+
   const current = file.kind === 'sheet' ? serializeWorkbook(book) : text
-  const dirty = current !== file.content
+  const dirty = current !== baseline
 
   useEffect(() => {
     setError(null)
   }, [current])
 
-  async function save(toMain: boolean) {
+  /** `stay` keeps the file open, the way Ctrl+S does in an editor. */
+  async function save(toMain: boolean, stay = false) {
     if (busy) return
     setError(null)
     if (toMain && !message.trim()) {
@@ -215,6 +222,12 @@ function Body({
           storagePath: file.storagePath,
         })
         show('Saved to your draft')
+        if (stay) {
+          setBaseline(current)
+          setInDraft(true)
+          await onSaved()
+          return
+        }
       }
       onClose()
       await onSaved()
@@ -264,7 +277,7 @@ function Body({
         <span className="rounded-md surface-sunken px-2 py-0.5">{FILE_KIND_LABEL[file.kind]}</span>
         {file.sharedBy !== undefined ? (
           <span className="rounded-md surface-sunken px-2 py-0.5">Shared by {file.sharedBy}</span>
-        ) : file.fromDraft ? (
+        ) : inDraft ? (
           <span className="rounded-md bg-amber-400/25 px-2 py-0.5 font-medium text-amber-800 dark:text-amber-200">
             Your draft
           </span>
@@ -366,19 +379,25 @@ function Body({
         <SheetEditor workbook={book} onChange={setBook} readOnly={frozen} projectId={state.project?.id} fill={full} />
       )}
       {file.kind === 'text' && !misreadOfficeFile && (
-        <Field label="Contents">
-          {(id) => (
-            <Textarea
-              id={id}
-              rows={18}
-              maxLength={400000}
-              readOnly={frozen}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              className={`!font-mono !text-[12px] !leading-relaxed ${full ? '!h-[calc(100dvh-17rem)]' : ''}`}
-            />
-          )}
-        </Field>
+        <Suspense
+          fallback={
+            <div className="flex h-[60vh] min-h-[22rem] items-center justify-center gap-2 rounded-xl border border-line surface-sunken text-[13px] text-muted">
+              <Spinner size={14} />
+              Opening the code editor…
+            </div>
+          }
+        >
+          <CodeEditor
+            path={file.path}
+            value={file.content}
+            onChange={(next) => setText(next.slice(0, 400000))}
+            onSave={() => {
+              if (!frozen && current !== baseline) void save(false, true)
+            }}
+            readOnly={frozen}
+            fill={full}
+          />
+        </Suspense>
       )}
 
       {misreadOfficeFile && file.fromDraft && (

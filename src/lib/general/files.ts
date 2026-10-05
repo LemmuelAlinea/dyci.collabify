@@ -53,6 +53,8 @@ const TEXT = new Set([
   'txt', 'md', 'markdown', 'ts', 'tsx', 'js', 'jsx', 'json', 'html', 'css', 'scss',
   'sql', 'py', 'java', 'c', 'cpp', 'h', 'cs', 'php', 'rb', 'go', 'rs', 'sh', 'yml',
   'yaml', 'xml', 'env', 'gitignore', 'toml', 'ini', 'kt', 'swift', 'dart', 'vue',
+  'mjs', 'cjs', 'less', 'hpp', 'cc', 'hh', 'kts', 'lua', 'r', 'pl', 'scala', 'ps1', 'bat',
+  'graphql', 'gql', 'svelte', 'log', 'properties', 'conf', 'cfg', 'gradle',
 ])
 
 /**

@@ -2738,3 +2738,23 @@ editors plan (discussion edit/delete → full screen → code editor → Word �
   (FileEditor and RepoChangeRow).
 - Checked on a throwaway page (not committed): enter/exit at 1240 wide and 375 (fills 375×812,
   no sideways scroll). Build, eslint, 596 Vitest.
+
+**Change (2026-10-05): code files open in Monaco, VS Code's editor.** Part 3 of 5 of the editors plan.
+- `CodeEditor.tsx` (lazy; `monaco-editor` bundled locally in `lib/general/monacoSetup.ts`,
+  workers via Vite `?worker`, never a CDN because of the CSP) replaces the plain textarea for
+  every `text` file. Theme follows the app (`vs` / `vs-dark`), minimap (off under 640 px), sticky
+  scroll, bracket colours, find, multi-cursor. Status bar: error and warning counts (click for the
+  list; each row jumps to its line), Ln/Col, language. Ctrl/Cmd+S saves to your draft and keeps
+  the file open (the dialog tracks what was last saved, and the badge turns to Your draft).
+- Errors: TS/JS/TSX/JSX through Monaco's TypeScript worker, type errors included; codes that
+  only mean "this file's imports are not here" (2307, 2792, 7016, 2875, 7026, 2686, 2580, 2591)
+  are ignored. JSON/CSS/SCSS/LESS/HTML by Monaco's own checkers. Python, Java, C/C++, PHP, Rust,
+  Go: syntax errors from Lezer grammars (`lib/general/syntaxErrors.ts`, each parser lazy).
+- `lib/general/codeLanguage.ts` maps extensions (and Dockerfile/Makefile) to Monaco ids. More
+  extensions now count as text on upload: mjs, cjs, less, hpp, cc, hh, kts, lua, r, pl, scala,
+  ps1, bat, graphql, gql, svelte, log, properties, conf, cfg, gradle.
+- Size: the editor chunk is 4 MB (1 MB gzip), the TS worker 7 MB; both load only when a code file
+  opens. Project page chunks unchanged.
+- Checked on a throwaway page: a .tsx type error ("Type 'number' is not assignable to type
+  'string'", Ln 5) and a .py missing colon both squiggle and list; no console errors; 375 wide
+  fits. Real touch typing on a phone not tried. Vitest 602 (syntaxErrors, codeLanguage), build, eslint.
