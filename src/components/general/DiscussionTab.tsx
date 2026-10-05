@@ -8,7 +8,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Field, Input } from '../ui/Field'
 import { Icon, Spinner } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
-import { Select } from '../ui/Select'
+import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { useLive } from '../../hooks/useLive'
 import { useAutoGrow } from '../../hooks/useAutoGrow'
@@ -17,6 +17,9 @@ import {
   createDiscussionFolder,
   createDiscussionPoll,
   deleteDiscussionFolder,
+  deleteDiscussionMessage,
+  editDiscussionMessage,
+  isDiscussionModerator,
   discussionPollActions,
   listDiscussionFiles,
   listDiscussionPolls,
@@ -474,6 +477,10 @@ function LiveRoom({
   useAutoGrow(boxRef, body)
   const [sending, setSending] = useState(false)
   const [stopping, setStopping] = useState(false)
+  const [editing, setEditing] = useState<{ id: string; body: string } | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [deleting, setDeleting] = useState<GeneralDiscussionMessage | null>(null)
+  const [moderator, setModerator] = useState(false)
   const end = useRef<HTMLDivElement>(null)
 
   const signed = useRef(new Set<string>())
@@ -504,6 +511,41 @@ function LiveRoom({
   useEffect(() => {
     void load()
   }, [load])
+
+  // Owners, Managers and a class board's group leader may delete anyone's message.
+  useEffect(() => {
+    if (readOnly) return
+    let live = true
+    isDiscussionModerator(discussion.project_id)
+      .then((yes) => {
+        if (live) setModerator(Boolean(yes))
+      })
+      .catch(() => {
+        if (live) setModerator(false)
+      })
+    return () => {
+      live = false
+    }
+  }, [discussion.project_id, readOnly])
+
+  async function saveEdit() {
+    if (!editing || savingEdit) return
+    const target = messages?.find((m) => m.id === editing.id)
+    if (target?.kind === 'text' && !editing.body.trim()) {
+      show('A message needs some words. Delete it instead.', 'error')
+      return
+    }
+    setSavingEdit(true)
+    try {
+      await editDiscussionMessage(editing.id, editing.body)
+      setEditing(null)
+      await load()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not save that edit. Try again.'), 'error')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
 
   useLive(
     load,
@@ -620,13 +662,21 @@ function LiveRoom({
             // A poll sits on a plain card whoever sent it, so its options read the same for everyone.
             const mine = m.sender_id === state.viewerId
             const navy = mine && m.kind !== 'poll'
+            const isEditing = editing?.id === m.id
+            const mayEdit = !readOnly && mine && (m.kind === 'text' || m.kind === 'file')
+            const mayDelete = !readOnly && (mine || moderator)
             return (
               <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div
                   // A poll or a player needs a width of its own to fill; on a phone
                   // that is nearly the whole row, on a wide screen at most 360px.
+                  className={`flex min-w-0 items-start gap-1 ${mine ? 'flex-row-reverse' : ''} ${
+                    m.kind === 'text' && !isEditing ? 'max-w-[80%]' : 'w-[min(92%,360px)]'
+                  }`}
+                >
+                <div
                   className={`min-w-0 rounded-2xl px-3.5 py-2 text-[13px] ${
-                    m.kind === 'text' ? 'max-w-[80%]' : 'w-[min(92%,360px)]'
+                    m.kind === 'text' && !isEditing ? '' : 'flex-1'
                   } ${
                     navy
                       ? 'bg-navy-600 text-white dark:bg-navy-500'
@@ -640,7 +690,39 @@ function LiveRoom({
                       {m.sender_id ? state.nameOf(m.sender_id) : 'A former member'}
                     </p>
                   )}
-                  {m.kind === 'poll' ? (
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        rows={2}
+                        maxLength={4000}
+                        autoFocus
+                        aria-label={m.kind === 'file' ? 'Caption' : 'Message'}
+                        value={editing.body}
+                        onChange={(e) => setEditing({ id: m.id, body: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setEditing(null)
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            void saveEdit()
+                          }
+                        }}
+                        className="!bg-[var(--surface)] !text-ink"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className={navy ? '!text-white hover:!bg-white/10' : ''}
+                          onClick={() => setEditing(null)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button size="sm" loading={savingEdit} onClick={() => void saveEdit()}>
+                          Save
+                        </Button>
+                      </div>
+                    </div>
+                  ) : m.kind === 'poll' ? (
                     poll ? (
                       <PollCard
                         poll={poll}
@@ -676,7 +758,30 @@ function LiveRoom({
                   )}
                   <p className={`mt-0.5 text-right text-[10.5px] ${navy ? 'text-white/70' : 'text-faint'}`}>
                     {new Date(m.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                    {m.edited_at && ' · edited'}
                   </p>
+                </div>
+                {!isEditing && (mayEdit || mayDelete) && (
+                  <ActionMenu
+                    label="Message actions"
+                    size="sm"
+                    align={mine ? 'end' : 'start'}
+                    items={[
+                      mayEdit && {
+                        label: m.kind === 'file' ? 'Edit caption' : 'Edit',
+                        icon: 'edit',
+                        onSelect: () => setEditing({ id: m.id, body: m.body }),
+                      },
+                      mayDelete && {
+                        label: 'Delete',
+                        icon: 'trash',
+                        tone: 'danger',
+                        separated: mayEdit,
+                        onSelect: () => setDeleting(m),
+                      },
+                    ]}
+                  />
+                )}
                 </div>
               </div>
             )
@@ -788,6 +893,28 @@ function LiveRoom({
         where="this discussion"
         create={(input) => createDiscussionPoll({ discussionId: discussion.id, ...input })}
         onCreated={load}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onClose={() => setDeleting(null)}
+        onConfirm={async () => {
+          if (!deleting) return
+          const id = deleting.id
+          await deleteDiscussionMessage(id)
+          setMessages((prev) => prev?.filter((x) => x.id !== id) ?? prev)
+          await load()
+        }}
+        title="Delete this message?"
+        body={
+          deleting?.kind === 'poll'
+            ? 'It is removed for everyone, with its votes, and is left out of the discussion file.'
+            : deleting?.kind === 'file'
+              ? 'It is removed for everyone, with the files it shared, and is left out of the discussion file.'
+              : 'It is removed for everyone and is left out of the discussion file.'
+        }
+        confirmLabel="Delete"
+        tone="danger"
       />
 
       <ConfirmDialog

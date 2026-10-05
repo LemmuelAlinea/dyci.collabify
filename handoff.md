@@ -2710,3 +2710,17 @@ pick (`lib/myTasksView.ts`). Urgency is the old page, unchanged.
 - Checked signed in as faculty: Board, List, opening a work task over List, the remembered pick
   on reload, 375 wide with no overflow. Student class tasks not seen signed in. Build, eslint,
   596 Vitest.
+
+**Change (2026-10-05): live discussion messages can be edited and deleted.** Part 1 of 5 of the
+editors plan (discussion edit/delete → full screen → code editor → Word → Excel).
+- SQL `discussion-edit-delete.sql` (applied live): `general_discussion_messages.edited_at`,
+  replica identity full (so realtime carries edits and deletes), `general_discussion_moderator`
+  (Owner/Manager, or the class group's leader), `edit_general_discussion_message` (sender only,
+  text or file caption, while live) and `delete_general_discussion_message` (sender or moderator,
+  while live; hard delete — polls, votes and file rows cascade; stored audio/files are left to the
+  storage sweep). No "delete for me". A stopped discussion or a handed-in board refuses both.
+- Screen: a ⋯ menu beside each bubble (Edit / Edit caption for your own text or file message,
+  Delete for yours or, for moderators, anyone's), inline edit (Enter saves, Esc cancels),
+  "· edited" by the time, a confirm before delete. Deleted messages vanish for everyone.
+- Checked: `tests/discussion-edit-delete.test.sql` 16 PASS; discussion-polls-voice 43,
+  general-discussions 25, rls-coverage, anon-lockdown pass; build, eslint, 596 Vitest.

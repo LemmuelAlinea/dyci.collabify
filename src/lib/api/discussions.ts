@@ -56,6 +56,18 @@ export const startDiscussion = (projectId: string, folderId: string | null, topi
 export const sendDiscussionMessage = (discussionId: string, body: string) =>
   rpc<string>('send_general_discussion_message', { p_discussion: discussionId, p_body: body })
 
+/** The sender rewrites a text message or a file caption, while the discussion is live. */
+export const editDiscussionMessage = (messageId: string, body: string) =>
+  rpc('edit_general_discussion_message', { p_message: messageId, p_body: body })
+
+/** Removes a message for everyone. The sender, an Owner or Manager, or the group leader. */
+export const deleteDiscussionMessage = (messageId: string) =>
+  rpc('delete_general_discussion_message', { p_message: messageId })
+
+/** Whether the caller may delete anyone's message here. */
+export const isDiscussionModerator = (projectId: string) =>
+  rpc<boolean>('general_discussion_moderator', { p_project: projectId })
+
 export const stopDiscussion = (discussionId: string) =>
   rpc('stop_general_discussion', { p_discussion: discussionId })
 

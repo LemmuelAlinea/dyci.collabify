@@ -472,6 +472,8 @@ export type GeneralDiscussionMessage = {
   transcript_status: 'pending' | 'working' | 'done' | 'failed' | null
   /** Set once the sender corrected the transcript. */
   transcript_edited_at: string | null
+  /** Set once the sender rewrote a text message or a file caption. */
+  edited_at: string | null
   created_at: string
 }
 
