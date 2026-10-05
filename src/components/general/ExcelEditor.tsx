@@ -119,6 +119,34 @@ export default function ExcelEditor({
 }) {
   const [data] = useState(() => withResults(toFortune(workbook), workbook))
   const grid = useRef<WorkbookInstance>(null)
+  const frame = useRef<HTMLDivElement>(null)
+
+  /*
+   * The grid's own wheel handling works out the current row from the
+   * scrollbar's position and steps one row from there. When the browser
+   * rounds that position up by a fraction of a pixel — which display scaling
+   * on Windows does — stepping up lands on the same row and the sheet will not
+   * scroll up at all. Up and down are both handled here instead, by moving the
+   * grid's own vertical scrollbar, which it already follows when dragged.
+   */
+  useEffect(() => {
+    const el = frame.current
+    if (!el) return
+    const wheel = (e: WheelEvent) => {
+      if (e.deltaY === 0 || e.shiftKey || e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return
+      const target = e.target as HTMLElement | null
+      if (!target?.closest('.fortune-sheet-overlay')) return
+      const bar = el.querySelector<HTMLElement>('.luckysheet-scrollbar-y')
+      if (!bar) return
+      // Lines (Firefox) and pages become pixels; a mouse notch moves about three rows, as in Excel.
+      const px = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaMode === 2 ? e.deltaY * bar.clientHeight : e.deltaY
+      bar.scrollTop = Math.max(0, Math.min(bar.scrollHeight - bar.clientHeight, bar.scrollTop + px))
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    el.addEventListener('wheel', wheel, { capture: true, passive: false })
+    return () => el.removeEventListener('wheel', wheel, { capture: true })
+  }, [])
   const [cell, setCell] = useState<{ r: number; c: number } | null>(null)
   const [helping, setHelping] = useState(false)
   const [rows, setRows] = useState(workbook.sheets[0]?.rows ?? [])
@@ -159,6 +187,7 @@ export default function ExcelEditor({
   return (
     <div className="space-y-2">
       <div
+        ref={frame}
         className={`excel-frame overflow-hidden rounded-xl border border-line ${
           fill ? 'h-[calc(100dvh-17rem)] min-h-[18rem]' : 'h-[62vh] min-h-[22rem]'
         }`}

@@ -2827,3 +2827,15 @@ the editors plan; the plan is done.
   fills, #,##0.00, double border, frozen rows, two tabs), typing 150 in B2 updates =SUM to 230,
   Ctrl+B registers a change, Esc cancels an edit without closing, no console errors.
   Not tried signed in: uploading a real .xlsx and saving to a draft.
+
+**Fix (2026-10-06): Word dropdowns in dark mode; Excel scrolling up.**
+- Word ribbon: the native dropdowns (style, font, size, line spacing, page size) opened as light
+  text on white in dark mode. Their options now take `--surface-raised` / `--ink` (`.word-ribbon`
+  in word.css).
+- Excel grid: the wheel would not scroll up. Fortune-sheet steps one row from a row it works out
+  from the scrollbar's position, and when the browser rounds that position up (Windows display
+  scaling), stepping up lands on the same row. `ExcelEditor` now takes vertical wheel scrolling
+  on its sheet area (capture listener) and moves the grid's own vertical scrollbar; horizontal
+  and Shift+wheel still go to the grid.
+- Checked on a throwaway page in dark mode: option colours rgb(26,34,85) on rgb(241,243,251);
+  300-row sheet scrolls down to 500 px, up to 300, up to 0, and redraws. Build, eslint, 614 Vitest.

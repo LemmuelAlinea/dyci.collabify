@@ -194,3 +194,13 @@
 .word-reflow [data-rm-pagination] {
   display: none !important;
 }
+
+/*
+ * The ribbon's dropdowns are native selects. Their open list draws its own
+ * background, white unless told otherwise, so in dark mode the options came
+ * out as light text on white. Each option takes the app's surface and ink.
+ */
+.word-ribbon select option {
+  background-color: var(--surface-raised);
+  color: var(--ink);
+}

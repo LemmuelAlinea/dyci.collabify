@@ -75,7 +75,7 @@ export function WordRibbon({
     <div
       role="toolbar"
       aria-label="Formatting"
-      className="flex items-stretch gap-1 overflow-x-auto border-b border-line surface px-2 py-1.5 [scrollbar-width:thin] lg:flex-wrap lg:overflow-visible"
+      className="word-ribbon flex items-stretch gap-1 overflow-x-auto border-b border-line surface px-2 py-1.5 [scrollbar-width:thin] lg:flex-wrap lg:overflow-visible"
     >
       <Group label="Undo">
         <Tool icon="undo" label="Undo (Ctrl+Z)" disabled={!s.canUndo} onClick={() => chain().undo().run()} />
