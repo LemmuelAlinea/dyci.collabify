@@ -280,6 +280,15 @@
      * Measured by scripts/contrast.mjs.
      */
     --control-line: rgb(16 22 55 / 0.48);
+    /* A Word page is the document, not the app, so it is white paper in both
+       themes — a file's own colours were chosen against white. */
+    --paper: #ffffff;
+    --paper-ink: #000000;
+    --paper-line: rgb(0 0 0 / 0.18);
+    /* Word's own heading blue and hyperlink blue, on that paper. */
+    --paper-heading: #2f5496;
+    --paper-heading-deep: #1f3763;
+    --paper-link: #0563c1;
     --ring: #3d4da3;
     --shadow-card: 0 1px 2px rgb(13 19 48 / 0.1), 0 2px 6px rgb(13 19 48 / 0.07),
       0 10px 26px rgb(13 19 48 / 0.07);
@@ -339,6 +348,13 @@
     --line: rgb(255 255 255 / 0.14);
     --line-strong: rgb(255 255 255 / 0.26);
     --control-line: rgb(255 255 255 / 0.35);
+    --paper: #ffffff;
+    --paper-ink: #000000;
+    --paper-line: rgb(0 0 0 / 0.18);
+    /* Word's own heading blue and hyperlink blue, on that paper. */
+    --paper-heading: #2f5496;
+    --paper-heading-deep: #1f3763;
+    --paper-link: #0563c1;
     --ring: #8493cf;
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px rgb(0 0 0 / 0.38);
     --shadow-lift: 0 2px 6px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.55);

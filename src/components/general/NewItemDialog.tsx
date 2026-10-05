@@ -22,7 +22,7 @@ const CHOICES: { step: Step; icon: IconName; title: string; body: string }[] = [
 ]
 
 const FILE_ACCEPT =
-  '.docx,.doc,.odt,.rtf,.xlsx,.xlsm,.xls,.csv,.pdf,.png,.jpg,.jpeg,.gif,.webp,.svg,.txt,.md,.markdown,.ts,.tsx,.js,.jsx,.json,.html,.css,.scss,.sql,.py,.java,.c,.cpp,.h,.cs,.php,.rb,.go,.rs,.sh,.yml,.yaml,.xml,.env,.toml,.ini,.kt,.swift,.dart,.vue'
+  '.docx,.doc,.odt,.rtf,.xlsx,.xlsm,.xls,.csv,.pdf,.png,.jpg,.jpeg,.gif,.webp,.svg,.txt,.md,.markdown,.ts,.tsx,.js,.jsx,.json,.html,.css,.scss,.sql,.py,.java,.c,.cpp,.h,.cs,.php,.rb,.go,.rs,.sh,.yml,.yaml,.xml,.env,.toml,.ini,.kt,.swift,.dart,.vue,.mjs,.cjs,.less,.hpp,.cc,.hh,.kts,.lua,.r,.pl,.scala,.ps1,.bat,.graphql,.gql,.svelte,.log,.properties,.conf,.cfg,.gradle'
 
 export function NewItemDialog({
   open,
@@ -68,7 +68,7 @@ export function NewItemDialog({
     const k = kindForPath(target)
     let content = ''
     let storagePath: string | null = null
-    if (k === 'rich') content = (await docxToHtml(file)).html
+    if (k === 'rich') content = (await docxToHtml(file, repo.project_id)).html
     else if (k === 'sheet') content = serializeWorkbook(await xlsxToWorkbook(file))
     else if (k === 'text') content = await readAsText(file)
     else storagePath = await uploadProjectFile(repo.project_id, file)

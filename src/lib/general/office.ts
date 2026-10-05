@@ -6,124 +6,64 @@
  * and a student opening the task board should not pay for a spreadsheet reader.
  *
  * **Conversion is lossy and the interface has to say so.** A .docx arrives as
- * HTML: its words, headings, lists, tables and links survive; its page layout,
- * fonts, footnotes, tracked changes and images do not. A .xlsx arrives as cell
- * text: values and formula text survive; formatting, charts and macros do not.
- * That trade is what makes the file reviewable, which is why it is here at all.
+ * HTML: its words, headings, lists, tables, links, fonts, colours, alignment,
+ * pictures and page size survive (`docx/read.ts`); headers, footers,
+ * footnotes and tracked changes do not. A .xlsx arrives as cell text: values
+ * and formula text survive; formatting, charts and macros do not. That trade
+ * is what makes the file reviewable, which is why it is here at all.
  */
 import { parseWorkbook, serializeWorkbook, trimTrailing } from './sheet'
 import type { Workbook } from './sheet'
 
 export const OFFICE_WARNING =
-  'The words, headings, tables and numbers come across. Page layout, fonts, images, charts and macros do not — the file becomes one this site can show, compare and review.'
+  'Word files keep their fonts, colours, alignment, lists, tables, pictures and page size; headers, footers, footnotes, comments and tracked changes do not come across. Excel files keep their numbers and formulas; charts and macros do not.'
 
 /* ------------------------------------------------------------------- word */
 
-/** A .docx as HTML, plus anything the converter could not carry over. */
-export async function docxToHtml(file: File): Promise<{ html: string; warnings: string[] }> {
-  const mammoth = await import('mammoth')
-  const buffer = await file.arrayBuffer()
-  const result = await mammoth.convertToHtml({ arrayBuffer: buffer })
-  return {
-    html: result.value || '<p></p>',
-    warnings: (result.messages ?? []).map((m) => m.message),
-  }
-}
-
-type DocxRun = { text: string; bold?: boolean; italics?: boolean; underline?: Record<string, never> }
+export { htmlToDocx } from './docx/write'
 
 /**
- * HTML back to a .docx.
+ * A .docx as HTML for the Word editor, plus anything that could not come across.
  *
- * Walks the nodes rather than matching text, so nested markup keeps its
- * formatting and an unexpected tag degrades to its words instead of appearing
- * as angle brackets in somebody's thesis.
+ * Read with the site's own reader (`docx/read.ts`), which keeps fonts,
+ * colours, alignment, spacing, lists, tables, pictures and the page size.
+ * Pictures are uploaded into the project as they are found; without a
+ * project to put them in they are left out. A file the reader cannot follow
+ * falls back to mammoth, which keeps the words and the plain structure.
  */
-export async function htmlToDocx(html: string, title: string): Promise<Blob> {
-  const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell } =
-    await import('docx')
-
-  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html')
-
-  const runsOf = (node: Node, style: DocxRun = { text: '' }): DocxRun[] => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent ?? ''
-      return text ? [{ ...style, text }] : []
+export async function docxToHtml(file: File, projectId?: string): Promise<{ html: string; warnings: string[] }> {
+  const buffer = await file.arrayBuffer()
+  try {
+    const { readDocxBytes } = await import('./docx/read')
+    const read = readDocxBytes(new Uint8Array(buffer))
+    let html = read.html
+    const warnings: string[] = []
+    if (read.pictures.length) {
+      const { uploadDocImage } = await import('../api/general')
+      const paths = new Map<string, string>()
+      for (const pic of read.pictures) {
+        if (!projectId) break
+        try {
+          const ext = pic.mime === 'image/png' ? 'png' : pic.mime === 'image/gif' ? 'gif' : pic.mime === 'image/bmp' ? 'bmp' : 'jpg'
+          paths.set(pic.target, await uploadDocImage(projectId, new Blob([pic.data as Uint8Array<ArrayBuffer>], { type: pic.mime }), ext))
+        } catch {
+          warnings.push(`A picture (${pic.target.split('/').pop()}) could not be added.`)
+        }
+      }
+      html = html.replace(/<img data-docx-image="([^"]*)"([^>]*)>/g, (_m, target: string, rest: string) => {
+        const path = paths.get(target.replace(/&amp;/g, '&'))
+        return path ? `<img data-path="${path}"${rest}>` : ''
+      })
     }
-    if (node.nodeType !== Node.ELEMENT_NODE) return []
-    const el = node as HTMLElement
-    const next: DocxRun = { ...style }
-    const tag = el.tagName.toLowerCase()
-    if (tag === 'strong' || tag === 'b') next.bold = true
-    if (tag === 'em' || tag === 'i') next.italics = true
-    if (tag === 'u') next.underline = {}
-    if (tag === 'br') return [{ ...style, text: '\n' }]
-    return [...el.childNodes].flatMap((child) => runsOf(child, next))
-  }
-
-  const HEADINGS: Record<string, (typeof HeadingLevel)[keyof typeof HeadingLevel]> = {
-    h1: HeadingLevel.HEADING_1,
-    h2: HeadingLevel.HEADING_2,
-    h3: HeadingLevel.HEADING_3,
-    h4: HeadingLevel.HEADING_4,
-    h5: HeadingLevel.HEADING_5,
-    h6: HeadingLevel.HEADING_6,
-  }
-
-  const blocks: (InstanceType<typeof Paragraph> | InstanceType<typeof Table>)[] = []
-
-  const paragraph = (
-    node: Node,
-    options: { heading?: (typeof HeadingLevel)[keyof typeof HeadingLevel]; bullet?: number; numbered?: boolean } = {},
-  ) => {
-    const runs = runsOf(node).map((r) => new TextRun(r))
-    return new Paragraph({
-      children: runs.length ? runs : [new TextRun('')],
-      heading: options.heading,
-      bullet: options.bullet !== undefined ? { level: options.bullet } : undefined,
-    })
-  }
-
-  const walk = (node: Node, depth = 0) => {
-    if (node.nodeType !== Node.ELEMENT_NODE) return
-    const el = node as HTMLElement
-    const tag = el.tagName.toLowerCase()
-
-    if (HEADINGS[tag]) return blocks.push(paragraph(el, { heading: HEADINGS[tag] }))
-    if (tag === 'p') return blocks.push(paragraph(el))
-    if (tag === 'li') return blocks.push(paragraph(el, { bullet: Math.min(depth, 4) }))
-    if (tag === 'ul' || tag === 'ol') {
-      return [...el.children].forEach((child) => walk(child, depth + 1))
+    return { html, warnings }
+  } catch {
+    const mammoth = await import('mammoth')
+    const result = await mammoth.convertToHtml({ arrayBuffer: buffer })
+    return {
+      html: result.value || '<p></p>',
+      warnings: (result.messages ?? []).map((m) => m.message),
     }
-    if (tag === 'table') {
-      const rows = [...el.querySelectorAll('tr')].map(
-        (tr) =>
-          new TableRow({
-            children: [...tr.children].map(
-              (cell) => new TableCell({ children: [paragraph(cell)] }),
-            ),
-          }),
-      )
-      if (rows.length) blocks.push(new Table({ rows }))
-      return
-    }
-    // Anything unrecognised: keep its words, drop its shape.
-    if (el.children.length) return [...el.childNodes].forEach((child) => walk(child, depth))
-    if ((el.textContent ?? '').trim()) blocks.push(paragraph(el))
   }
-
-  ;[...doc.body.childNodes].forEach((node) => {
-    if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim()) {
-      blocks.push(new Paragraph({ children: [new TextRun(node.textContent as string)] }))
-    } else {
-      walk(node)
-    }
-  })
-
-  if (blocks.length === 0) blocks.push(new Paragraph({ children: [new TextRun('')] }))
-
-  const out = new Document({ title, sections: [{ children: blocks }] })
-  return Packer.toBlob(out)
 }
 
 /* ------------------------------------------------------------------ excel */

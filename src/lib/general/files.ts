@@ -290,6 +290,11 @@ export function fileText(kind: FileKind, content: string): string {
   if (kind === 'sheet') return workbookToText(parseWorkbook(content))
   return content
     .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+    // The page-size marker is not text; a picture or a page break is a line of
+    // its own, so adding or moving one shows in the diff.
+    .replace(/^\s*<div data-page="[a-z0-9]+"><\/div>/i, '')
+    .replace(/<img\b[^>]*>/gi, '\n[picture]\n')
+    .replace(/<div data-page-break[^>]*><\/div>/gi, '\n[page break]\n')
     .replace(/<\/(h[1-6]|p|li|tr|blockquote)>/gi, '\n')
     .replace(BLOCK, '\n')
     .replace(/<\/(td|th)>/gi, '\t')

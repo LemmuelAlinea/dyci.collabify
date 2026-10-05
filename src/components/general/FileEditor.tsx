@@ -19,13 +19,23 @@ import { parseWorkbook, serializeWorkbook } from '../../lib/general/sheet'
 import type { Workbook } from '../../lib/general/sheet'
 import { FILE_KIND_LABEL } from '../../lib/general/types'
 import type { FileAction, FileKind, GeneralRepoSummary } from '../../lib/general/types'
-import { RichEditor } from './RichEditor'
 import { SheetEditor } from './SheetEditor'
 import { LazyPdfPreview as PdfPreview } from './LazyPdfPreview'
 import type { GeneralProjectState } from './useGeneralProject'
 
 // Monaco is several megabytes; it loads when somebody opens a code file.
 const CodeEditor = lazy(() => import('./CodeEditor'))
+// Tiptap and the page fonts load when somebody opens a Word file.
+const WordEditor = lazy(() => import('./word/WordEditor'))
+
+function EditorLoading({ what }: { what: string }) {
+  return (
+    <div className="flex h-[60vh] min-h-[22rem] items-center justify-center gap-2 rounded-xl border border-line surface-sunken text-[13px] text-muted">
+      <Spinner size={14} />
+      Opening the {what}…
+    </div>
+  )
+}
 
 export type OpenFile = {
   path: string
@@ -373,20 +383,21 @@ function Body({
       )}
 
       {file.kind === 'rich' && (
-        <RichEditor value={text} onChange={setText} readOnly={frozen} fill={full} />
+        <Suspense fallback={<EditorLoading what="document" />}>
+          <WordEditor
+            value={file.content}
+            onChange={setText}
+            readOnly={frozen}
+            fill={full}
+            projectId={state.project?.id}
+          />
+        </Suspense>
       )}
       {file.kind === 'sheet' && (
         <SheetEditor workbook={book} onChange={setBook} readOnly={frozen} projectId={state.project?.id} fill={full} />
       )}
       {file.kind === 'text' && !misreadOfficeFile && (
-        <Suspense
-          fallback={
-            <div className="flex h-[60vh] min-h-[22rem] items-center justify-center gap-2 rounded-xl border border-line surface-sunken text-[13px] text-muted">
-              <Spinner size={14} />
-              Opening the code editor…
-            </div>
-          }
-        >
+        <Suspense fallback={<EditorLoading what="code editor" />}>
           <CodeEditor
             path={file.path}
             value={file.content}

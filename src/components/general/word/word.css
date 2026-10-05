@@ -1,0 +1,196 @@
+/*
+ * The Word page. Everything on it is the document, so it reads the paper
+ * tokens (white in both themes) rather than the app's surfaces; the canvas
+ * around it is the app's sunken surface, as Word's grey is.
+ */
+.word-paper {
+  background: var(--paper);
+  color: var(--paper-ink);
+  caret-color: var(--paper-ink);
+  font-family: Calibri, Carlito, sans-serif;
+  font-size: 11pt;
+  line-height: 1.15;
+  box-shadow: var(--shadow-card);
+  outline: none;
+  overflow-wrap: break-word;
+}
+.word-paper p {
+  margin: 0 0 8pt;
+}
+.word-paper h1,
+.word-paper h2,
+.word-paper h3 {
+  font-family: inherit;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 1.15;
+}
+.word-paper h1 {
+  font-size: 16pt;
+  color: var(--paper-heading);
+  margin: 12pt 0 4pt;
+}
+.word-paper h2 {
+  font-size: 13pt;
+  color: var(--paper-heading);
+  margin: 6pt 0 2pt;
+}
+.word-paper h3 {
+  font-size: 12pt;
+  color: var(--paper-heading-deep);
+  margin: 6pt 0 2pt;
+}
+.word-paper ul,
+.word-paper ol {
+  margin: 0 0 8pt;
+  padding-left: 0.5in;
+}
+.word-paper ul {
+  list-style: disc;
+}
+.word-paper ul ul {
+  list-style: circle;
+}
+.word-paper ul ul ul {
+  list-style: square;
+}
+.word-paper ol {
+  list-style: decimal;
+}
+.word-paper ol ol {
+  list-style: lower-alpha;
+}
+.word-paper ol ol ol {
+  list-style: lower-roman;
+}
+.word-paper li > p {
+  margin: 0;
+}
+.word-paper a {
+  color: var(--paper-link);
+  text-decoration: underline;
+}
+.word-paper blockquote {
+  border-left: 3px solid var(--paper-line);
+  margin: 0 0 8pt;
+  padding-left: 0.75rem;
+}
+.word-paper hr {
+  border: 0;
+  border-top: 1px solid var(--paper-line);
+  margin: 8pt 0;
+}
+.word-paper mark {
+  color: inherit;
+  padding: 0;
+}
+.word-paper img {
+  max-width: 100%;
+  height: auto;
+}
+.word-paper table {
+  border-collapse: collapse;
+  margin: 0 0 8pt;
+  table-layout: fixed;
+  width: 100%;
+}
+.word-paper th,
+.word-paper td {
+  border: 1px solid var(--paper-ink);
+  padding: 0 5.4pt;
+  vertical-align: top;
+  position: relative;
+}
+.word-paper th {
+  font-weight: 700;
+  text-align: left;
+}
+.word-paper th > p,
+.word-paper td > p {
+  margin: 0;
+}
+.word-paper .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--ring) 18%, transparent);
+}
+.word-paper .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  pointer-events: none;
+  background: var(--ring);
+}
+.word-paper.resize-cursor {
+  cursor: col-resize;
+}
+.word-paper .ProseMirror-selectednode {
+  outline: 2px solid var(--ring);
+}
+.word-paper .word-page-break {
+  position: relative;
+  min-height: 20px;
+  border-bottom: 1px dashed var(--paper-line);
+  user-select: none;
+}
+.word-paper .word-page-break > span {
+  position: absolute;
+  right: 0;
+  bottom: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-heading);
+  opacity: 0.7;
+}
+
+/*
+ * tiptap-pagination-plus restyles every table for its own table extension
+ * (display: contents, grid rows). Plain tables need their normal layout back;
+ * a table whose rows outrun a page carries on past the page edge rather than
+ * splitting, as Word does when "allow row to break" is off.
+ */
+.word-paper.rm-with-pagination .tableWrapper {
+  overflow-x: auto;
+  margin: 0 0 8pt;
+}
+.word-paper.rm-with-pagination table {
+  display: table;
+  width: 100%;
+  margin: 0;
+}
+.word-paper.rm-with-pagination table tbody {
+  display: table-row-group;
+  max-height: none;
+  overflow: visible;
+}
+.word-paper.rm-with-pagination table tr,
+.word-paper.rm-with-pagination table > tr,
+.word-paper.rm-with-pagination table tbody > tr {
+  display: table-row !important;
+}
+.word-paper.rm-with-pagination table tr td,
+.word-paper.rm-with-pagination table tr th {
+  word-break: normal;
+  max-height: none;
+  overflow: visible;
+}
+
+/* Mobile view: the same document, reflowed to the screen, no page edges. */
+.word-reflow .word-paper,
+.word-reflow .word-paper.rm-with-pagination[rm-pagination-disabled] {
+  width: auto !important;
+  min-height: 100% !important;
+  padding: 16px !important;
+  border: 0 !important;
+}
+.word-reflow .word-page-break {
+  height: 20px !important;
+}
+.word-reflow .rm-first-page-header,
+.word-reflow [data-rm-pagination] {
+  display: none !important;
+}

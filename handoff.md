@@ -2758,3 +2758,41 @@ editors plan (discussion edit/delete → full screen → code editor → Word �
 - Checked on a throwaway page: a .tsx type error ("Type 'number' is not assignable to type
   'string'", Ln 5) and a .py missing colon both squiggle and list; no console errors; 375 wide
   fits. Real touch typing on a phone not tried. Vitest 602 (syntaxErrors, codeLanguage), build, eslint.
+
+**Change (2026-10-06): Word files open on a Word-style page.** Part 4 of 5 of the editors plan.
+- `components/general/word/` (lazy from `FileEditor`): Tiptap 3 (StarterKit, TextStyleKit,
+  TextAlign, Highlight, TableKit, own `ParagraphFormat` / `PageBreak` / `DocImage` /
+  `ShadedCell` in `extensions.ts`) with `tiptap-pagination-plus` for real pages. White paper at
+  Letter (default), A4, Legal or Long (8.5 × 13), one-inch margins, grey canvas; pages shrink
+  to fit a narrow window, and under 560 px it switches to a reflowed Mobile view. Status bar:
+  pages, words, page size.
+- Ribbon (`WordRibbon.tsx`): undo/redo, style (Normal, Heading 1–3), font (Calibri, Arial, Times
+  New Roman, Cambria, Georgia, Verdana, Tahoma, Garamond, Century Gothic, Courier New), size
+  8–72, bold/italic/underline/strike, text colour (Word palette + any colour), highlight (Word's
+  15), clear formatting, bullets, numbering, indent/outdent (lists nest), line spacing 1–3,
+  align left/center/right/justify, table menu (insert, rows, columns, header, delete), picture,
+  page break (Ctrl+Enter), page size. Self-hosted metric twins (Carlito, Caladea, Arimo, Tinos,
+  Cousine) so pages break the same where Office fonts are missing.
+- Stored as before (kind `rich`, HTML): inline styles; page size as a leading
+  `<div data-page="a4"></div>` (Letter writes none, so old files are byte-identical until edited);
+  page breaks `<div data-page-break>`; pictures `<img data-path>` — uploaded to
+  `<project>/files/doc-images/` (5 MB, PNG/JPEG/GIF; others redrawn as PNG), signed for an hour
+  when the file opens, never stored as links. Paste or drop pictures straight in.
+  The schema drops unknown markup, so a file's HTML can no longer inject anything into the editor.
+- Import (`lib/general/docx/read.ts`, replaces mammoth, which stays as a fallback): fonts, sizes,
+  colours, highlight and shading, emphasis, alignment incl. justify, line spacing, indents,
+  paragraph spacing, headings (by style name), bullet/numbered lists by level, tables with
+  merged and shaded cells, pictures (uploaded on import), links, page breaks, page size. Not:
+  headers/footers, footnotes, comments, text boxes, charts. Files uploaded before this keep the
+  plain look they were imported with; uploading the .docx again brings its styles in.
+- Export (`lib/general/docx/write.ts`): all of the above back out, real numbered lists (they
+  were bullets before), pictures, page size and margins. `fileText` shows [picture] and
+  [page break] lines in diffs.
+- SQL: `storage_orphans` (storage-sweep.sql) never lists `*/files/doc-images/*`; applied live
+  (function only). storage-sweep test 10 PASS.
+- Paper tokens in index.css (`--paper`, `--paper-ink`, `--paper-line`, `--paper-heading`,
+  `--paper-heading-deep`, `--paper-link`): white page in both themes.
+- Checked: Vitest 607 (docx round trip under happy-dom: styles, alignment, lists, merged/shaded
+  cells, page break, picture, page size); the reader on docs/Collabify-Evaluation-Questionnaire.docx;
+  on a throwaway page: ribbon changes, page flow onto page 3, manual break, table, A4 switch,
+  375 Mobile view, dark mode. Not tried: uploading a real Word file and pictures signed in.
