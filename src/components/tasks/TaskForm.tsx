@@ -81,7 +81,8 @@ export function TaskForm({
         )}
       </Field>
 
-      <div className={`grid gap-4 ${showStart ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+      {/* With a planned start, Weight sits on its own row so Starts and Due share one. */}
+      <div className={showStart ? 'space-y-4' : 'grid gap-4 sm:grid-cols-2'}>
         <Field
           label="Weight"
           hint={<span className="text-[12px] text-faint">Relative size</span>}
@@ -98,24 +99,26 @@ export function TaskForm({
           )}
         </Field>
 
-        {showStart && (
-          <Field label="Starts" optional>
+        <div className={showStart ? 'grid gap-4 sm:grid-cols-2' : 'contents'}>
+          {showStart && (
+            <Field label="Starts" optional>
+              {(id) => (
+                <Input id={id} type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+              )}
+            </Field>
+          )}
+
+          <Field label="Due" optional>
             {(id) => (
-              <Input id={id} type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+              <Input
+                id={id}
+                type="datetime-local"
+                value={dueAt}
+                onChange={(e) => setDueAt(e.target.value)}
+              />
             )}
           </Field>
-        )}
-
-        <Field label="Due" optional>
-          {(id) => (
-            <Input
-              id={id}
-              type="datetime-local"
-              value={dueAt}
-              onChange={(e) => setDueAt(e.target.value)}
-            />
-          )}
-        </Field>
+        </div>
       </div>
 
       <p className="text-[12px] leading-relaxed text-faint">

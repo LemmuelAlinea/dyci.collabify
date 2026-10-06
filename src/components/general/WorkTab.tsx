@@ -19,8 +19,11 @@ export function WorkTab({ state }: { state: GeneralProjectState }) {
 
   const showTask = (id: string | null) => {
     const next = new URLSearchParams(params)
-    if (id) next.set('task', id)
-    else next.delete('task')
+    if (id) {
+      next.set('task', id)
+      // `task` alone reads as Tasks; keep the section the task was opened from.
+      next.set('work', section)
+    } else next.delete('task')
     setParams(next, { replace: !id })
   }
 

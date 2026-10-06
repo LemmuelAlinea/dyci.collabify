@@ -105,15 +105,36 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
 
   // A link from another page can name the tab. Submissions and Reassignments
   // both link straight into a board, which the Brief tab does not show.
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [tab, setTab] = useState<TabId>(() => {
     const raw = params.get('tab')
     // Work replaced Tasks and Progress; links written before it still name them.
     if (raw === 'tasks' || raw === 'progress') return 'work'
     const named = raw as TabId | null
     if (named && LINKED_TABS.includes(named)) return named
-    return params.has('board') || params.has('task') ? 'work' : 'brief'
+    return params.has('board') || params.has('task') || params.has('work') || params.has('layout')
+      ? 'work'
+      : 'brief'
   })
+  // The tab lives in the address too, so a reload or a shared link lands on it.
+  // Replace rather than push: the tab state is not re-read on back.
+  const changeTab = useCallback(
+    (next: TabId) => {
+      setTab(next)
+      const changed = new URLSearchParams(params)
+      if (next === 'brief') changed.delete('tab')
+      else changed.set('tab', next)
+      // Work's own place (section, layout, open task, board) means nothing elsewhere.
+      if (next !== 'work') {
+        changed.delete('work')
+        changed.delete('layout')
+        changed.delete('task')
+        changed.delete('board')
+      }
+      setParams(changed, { replace: true })
+    },
+    [params, setParams],
+  )
   const [editOpen, setEditOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [removing, setRemoving] = useState<ProjectAttachment | null>(null)
@@ -122,14 +143,14 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   const canManage = role === 'professor'
   // Old links (a review notice, Trash) can still name Files for a teacher.
   useEffect(() => {
-    if ((tab === 'files' || tab === 'shared' || tab === 'discussion') && role !== 'student') setTab('brief')
-  }, [tab, role])
+    if ((tab === 'files' || tab === 'shared' || tab === 'discussion') && role !== 'student') changeTab('brief')
+  }, [tab, role, changeTab])
   // Groups is a teacher's tab, and only a group project has groups. Checked once
   // the project has loaded, so a link naming it is not bounced while it loads.
   useEffect(() => {
     if (tab !== 'groups') return
-    if (role !== 'professor' || (project && project.audience !== 'group')) setTab('brief')
-  }, [tab, role, project])
+    if (role !== 'professor' || (project && project.audience !== 'group')) changeTab('brief')
+  }, [tab, role, project, changeTab])
 
   const load = useCallback(async () => {
     if (!projectId) return
@@ -402,7 +423,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
               : []),
           ]}
           active={tab}
-          onChange={setTab}
+          onChange={changeTab}
           variant="panel"
         />
       </div>

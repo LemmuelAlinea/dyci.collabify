@@ -57,8 +57,6 @@ export function WorkSummary({ state, onOpenTask }: { state: GeneralProjectState;
   )
 }
 
-// ↓ paste `function WorkTaskSummary(...) { ... }` here, unchanged
-
 /** The class Summary's tiles and donut, over a work project's tasks. */
 function WorkTaskSummary({ tasks, state }: { tasks: GeneralTask[]; state: GeneralProjectState }) {
   const now = useNow()
@@ -99,7 +97,7 @@ function WorkTaskSummary({ tasks, state }: { tasks: GeneralTask[]; state: Genera
         <section className="card p-4 shadow-card sm:p-5">
           <h3>Where it stands</h3>
           <p className="mt-1 mb-4 text-[13px] text-muted">
-            Every task in view, by stage.
+            Every task, by stage.
             {logged > 0 && ` ${formatMinutes(logged)} logged against them.`}
           </p>
           <StatusDonut counts={counts} total={tasks.length} />

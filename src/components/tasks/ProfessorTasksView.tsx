@@ -130,7 +130,9 @@ export function ProfessorTasksView({
           <section className="space-y-3 border-t border-line pt-6">
             <div>
               <h3>Every {who}</h3>
-              <p className="mt-0.5 text-[13px] text-muted">All tasks across the project, by stage, and who carries them.</p>
+              <p className="mt-0.5 text-[13px] text-muted">
+                All tasks across the project, by stage, and who carries them.
+              </p>
             </div>
             <TaskSummary rows={t.scope} showLoad />
           </section>
@@ -149,7 +151,7 @@ export function ProfessorTasksView({
                 <p className="mt-0.5 text-[13px] text-muted">
                   {active
                     ? `This ${who}'s board, and the work on it.`
-                    : `Every task across all ${whoPlural}. Open one above to narrow this.`}
+                    : `Every task across all ${whoPlural}. Choose one in the filter to narrow this.`}
                 </p>
               </div>
               {active && (

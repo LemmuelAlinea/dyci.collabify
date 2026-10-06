@@ -52,7 +52,7 @@ rewrite.
 
 **There is no chart library.** Every chart in the product is hand-built HTML and
 CSS — see `src/components/analytics/PressureChart.tsx` and
-`src/components/general/GanttChart.tsx`. The entry bundle is ~312 KB and the
+`src/components/work/TimelineView.tsx`. The entry bundle is ~312 KB and the
 shapes needed are bars and markers. Do not add one without asking.
 
 **There is no component test framework.** Vitest runs in `node` over pure logic
