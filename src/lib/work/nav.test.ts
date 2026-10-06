@@ -11,7 +11,7 @@ describe('workSection', () => {
 
   it('falls back when nothing or something unknown is named', () => {
     expect(workSection(p(''), 'tasks')).toBe('tasks')
-    expect(workSection(p('work=sprints'), 'summary')).toBe('summary')
+    expect(workSection(p('work=milestones'), 'summary')).toBe('summary')
   })
 
   it('sends the old Progress tab to Summary', () => {
@@ -31,6 +31,11 @@ describe('workSection', () => {
   it('lets an explicit section win over a legacy tab', () => {
     expect(workSection(p('tab=tasks&work=summary'), 'tasks')).toBe('summary')
     expect(workSection(p('work=summary&task=t1'), 'tasks')).toBe('summary')
+  })
+
+  it('reads the backlog and sprints sections', () => {
+    expect(workSection(p('work=backlog'), 'tasks')).toBe('backlog')
+    expect(workSection(p('work=sprints'), 'tasks')).toBe('sprints')
   })
 })
 
@@ -65,5 +70,9 @@ describe('withWork', () => {
     const before = p('tab=work')
     withWork(before, { section: 'summary' })
     expect(before.has('work')).toBe(false)
+  })
+
+  it('writes the tasks scope', () => {
+    expect(withWork(p('tab=work'), { scope: 'sprint:s1' }).get('scope')).toBe('sprint:s1')
   })
 })

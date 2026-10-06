@@ -6,10 +6,10 @@
  * their own keys because `view` is already taken by the Files tab
  * (`?tab=files&view=draft`).
  */
-export type WorkSection = 'summary' | 'tasks'
+export type WorkSection = 'summary' | 'backlog' | 'sprints' | 'tasks'
 export type TaskLayout = 'board' | 'list' | 'timeline' | 'calendar'
 
-export const WORK_SECTIONS: readonly WorkSection[] = ['summary', 'tasks']
+export const WORK_SECTIONS: readonly WorkSection[] = ['summary', 'backlog', 'sprints', 'tasks']
 export const TASK_LAYOUTS: readonly TaskLayout[] = ['board', 'list', 'timeline', 'calendar']
 
 /** The tab names Work replaced. Links written before it still arrive with them. */
@@ -30,11 +30,12 @@ export function taskLayout(params: URLSearchParams): TaskLayout {
 
 export function withWork(
   params: URLSearchParams,
-  patch: { section?: WorkSection; layout?: TaskLayout },
+  patch: { section?: WorkSection; layout?: TaskLayout; scope?: string },
 ): URLSearchParams {
   const next = new URLSearchParams(params)
   if (patch.section) next.set('work', patch.section)
   if (patch.layout) next.set('layout', patch.layout)
+  if (patch.scope) next.set('scope', patch.scope)
   if (LEGACY_TABS.has(next.get('tab') ?? '')) next.set('tab', 'work')
   return next
 }

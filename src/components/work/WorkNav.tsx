@@ -5,6 +5,8 @@ import type { WorkSection } from '../../lib/work/nav'
 
 const LOOK: Record<WorkSection, { label: string; icon: IconName }> = {
   summary: { label: 'Summary', icon: 'chart' },
+  backlog: { label: 'Backlog', icon: 'board' },
+  sprints: { label: 'Sprints', icon: 'target' },
   tasks: { label: 'Tasks', icon: 'check' },
 }
 
