@@ -11,13 +11,13 @@
 -- re-running work-planning.sql, general-schedule.sql, general-project-archive.sql
 -- or general-archive-rbac.sql.
 --
--- Deleting a project goes through delete_general_project, which removes the
--- project's tasks first, while the Owner is still a member, so the milestone
--- cascade and release_milestone_tasks find nothing tagged. That is the same
--- reliance work-planning.sql notes for sprints (Postgres fires the foreign
--- keys in trigger-name order; general_tasks' sorts before general_milestones').
--- A direct delete of a project row with tagged tasks still in it is not a
--- supported path; supabase/tests/work-milestones.test.sql covers the real one.
+-- Both delete_general_project (also behind Trash) and delete_general_space
+-- delete the project's tasks first, while the Owner is still a member, so the
+-- milestone cascade finds nothing tagged and trigger order does not matter
+-- there. A direct delete of a project row with tagged tasks still in it would
+-- depend on Postgres firing the foreign keys in trigger-name order, as with
+-- sprints; it is not a supported path. supabase/tests/work-milestones.test.sql
+-- covers the real ones.
 --
 -- Idempotent. Safe to re-run.
 

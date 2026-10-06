@@ -40,10 +40,13 @@ export function classWorkSource(t: ProjectTasks, viewerId: string | undefined): 
   if (!board) return null
   const home = { kind: 'class', boardId: board.id } as const
   const canPlan = !t.isProfessor && canPlanBoard(board, t.locked)
+  // Reload even when the action fails: a partial write still changed rows.
   const then = async <T,>(action: Promise<T>) => {
-    const result = await action
-    await t.refresh()
-    return result
+    try {
+      return await action
+    } finally {
+      await t.refresh()
+    }
   }
 
   return {
@@ -81,10 +84,13 @@ export function classMilestoneSource(t: ProjectTasks, projectId: string): Milest
   const home = { kind: 'class', projectId } as const
   const board = t.active
   const canTag = !t.isProfessor && Boolean(board) && canPlanBoard(board, t.locked)
+  // Reload even when the action fails: a partial write still changed rows.
   const then = async <T,>(action: Promise<T>) => {
-    const result = await action
-    await t.refresh()
-    return result
+    try {
+      return await action
+    } finally {
+      await t.refresh()
+    }
   }
   return {
     milestones: t.milestones,

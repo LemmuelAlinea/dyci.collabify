@@ -27,10 +27,13 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
   const home: SprintHome = { kind: 'work', projectId: project?.id ?? '' }
   const live = Boolean(project) && !state.archived
   const canPlan = live && state.can('manage_tasks')
+  // Reload even when the action fails: a partial write still changed rows.
   const then = async <T,>(action: Promise<T>) => {
-    const result = await action
-    await state.reload()
-    return result
+    try {
+      return await action
+    } finally {
+      await state.reload()
+    }
   }
 
   return {
@@ -75,10 +78,13 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
   const project = state.project
   const home: MilestoneHome = { kind: 'work', projectId: project?.id ?? '' }
   const can = Boolean(project) && !state.archived && state.can('manage_tasks')
+  // Reload even when the action fails: a partial write still changed rows.
   const then = async <T,>(action: Promise<T>) => {
-    const result = await action
-    await state.reload()
-    return result
+    try {
+      return await action
+    } finally {
+      await state.reload()
+    }
   }
   return {
     milestones: state.milestones,
