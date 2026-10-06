@@ -11,7 +11,7 @@ describe('workSection', () => {
 
   it('falls back when nothing or something unknown is named', () => {
     expect(workSection(p(''), 'tasks')).toBe('tasks')
-    expect(workSection(p('work=milestones'), 'summary')).toBe('summary')
+    expect(workSection(p('work=archive'), 'summary')).toBe('summary')
   })
 
   it('sends the old Progress tab to Summary', () => {
@@ -33,9 +33,10 @@ describe('workSection', () => {
     expect(workSection(p('work=summary&task=t1'), 'tasks')).toBe('summary')
   })
 
-  it('reads the backlog and sprints sections', () => {
+  it('reads the planning sections', () => {
     expect(workSection(p('work=backlog'), 'tasks')).toBe('backlog')
     expect(workSection(p('work=sprints'), 'tasks')).toBe('sprints')
+    expect(workSection(p('work=milestones'), 'tasks')).toBe('milestones')
   })
 })
 

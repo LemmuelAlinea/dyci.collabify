@@ -8,6 +8,7 @@ const LOOK: Record<WorkSection, { label: string; icon: IconName }> = {
   backlog: { label: 'Backlog', icon: 'board' },
   sprints: { label: 'Sprints', icon: 'target' },
   tasks: { label: 'Tasks', icon: 'check' },
+  milestones: { label: 'Milestones', icon: 'pin' },
 }
 
 /**
