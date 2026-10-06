@@ -36,6 +36,7 @@ export function classWorkSource(t: ProjectTasks, viewerId: string | undefined): 
       due_at: task.due_at,
       done_at: task.done_at,
       sprint_id: task.sprint_id,
+      milestone_id: task.milestone_id,
       rank: task.rank,
       holders: task.assignees.flatMap((a) => (a.profile ? [fullName(a.profile)] : [])),
       created_at: task.created_at,

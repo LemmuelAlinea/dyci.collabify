@@ -33,6 +33,7 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
       due_at: t.due_at,
       done_at: t.completed_at,
       sprint_id: t.sprint_id,
+      milestone_id: t.milestone_id,
       rank: t.rank,
       holders: t.assignee_ids.map((id) => state.nameOf(id)),
       created_at: t.created_at,

@@ -3,7 +3,7 @@ import { backlogItems, rankBetween, rankForMove, sprintItems } from './backlog'
 import type { WorkItem } from './types'
 
 const item = (over: Partial<WorkItem>): WorkItem => ({
-  id: 'x', title: 'x', status: 'todo', due_at: null, done_at: null, sprint_id: null,
+  id: 'x', title: 'x', status: 'todo', due_at: null, done_at: null, sprint_id: null, milestone_id: null,
   rank: 0, holders: [], created_at: '2026-10-01T00:00:00Z', ...over,
 })
 

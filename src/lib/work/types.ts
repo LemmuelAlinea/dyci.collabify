@@ -26,6 +26,8 @@ export type WorkItem = {
   /** When it was finished; null while it is not done. */
   done_at: string | null
   sprint_id: string | null
+  /** The milestone it counts toward; null when untagged. */
+  milestone_id: string | null
   rank: number
   /** Names of whoever holds it; empty when nobody does. */
   holders: string[]
