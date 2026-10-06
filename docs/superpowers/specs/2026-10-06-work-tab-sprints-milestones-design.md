@@ -20,7 +20,7 @@ The two spaces store tasks differently, so everything is built twice in SQL and 
 - Educational space: `project_tasks` on one board per group/student
   (`ProjectDetail.tsx` → `ProjectTasksTab` → `StudentTasksView` / `ProfessorTasksView`).
 
-Note: `handoff.md` §"Milestones — decided against" (2026) dropped a defense-track milestone
+Note: `handoff.md` §"Milestones — decided against" dropped a defense-track milestone
 idea. This one is different (generic dated goals tagged on tasks) and the user asked for it,
 so the handoff section gets a line saying it was revisited.
 
@@ -101,8 +101,8 @@ scrolls inside its card; Calendar uses MonthGrid's dot mode under 720 px.
 - `project_milestones (id, project_id, name, description, due_on, position, created_by)`;
   reached is derived per board (no stored state).
 - `project_tasks` + `sprint_id`, `milestone_id`, `rank`, `starts_at` (planned start, for the
-  Timeline; class tasks only have the actual `started_at` today). `task_detail_overview` and
-  `task_board_overview`-adjacent reads updated.
+  Timeline; class tasks only have the actual `started_at` today). `task_detail_overview` gains the four columns
+  (appended, in the file that owns the view).
 - RLS: sprints — read `can_see_board`, write board members while the board is open (not
   locked, not handed in); milestones — read anyone who can see the project, write
   `is_class_professor`.
