@@ -17,7 +17,7 @@ function task(over: Partial<TimelineTask> = {}): TimelineTask {
     status: 'todo',
     due_at: null,
     starts_at: null,
-    team_id: null,
+    group_id: null,
     ...over,
   }
 }
@@ -179,18 +179,18 @@ describe('groupRows', () => {
   it('puts project-wide work first, then teams by name', () => {
     const rows = groupRows(
       [
-        task({ id: '1', team_id: 'b' }),
-        task({ id: '2', team_id: null }),
-        task({ id: '3', team_id: 'a' }),
+        task({ id: '1', group_id: 'b' }),
+        task({ id: '2', group_id: null }),
+        task({ id: '3', group_id: 'a' }),
       ],
       teams,
     )
-    expect(rows.map((r) => r.teamName)).toEqual(['Whole project', 'Development', 'Testing'])
+    expect(rows.map((r) => r.groupName)).toEqual(['Whole project', 'Development', 'Testing'])
   })
 
   it('leaves out a team with no tasks', () => {
-    const rows = groupRows([task({ team_id: 'a' })], teams)
-    expect(rows.map((r) => r.teamName)).toEqual(['Development'])
+    const rows = groupRows([task({ group_id: 'a' })], teams)
+    expect(rows.map((r) => r.groupName)).toEqual(['Development'])
   })
 
   it('orders tasks by start, then due, then title', () => {
@@ -221,8 +221,13 @@ describe('groupRows', () => {
   })
 
   it('keeps a task whose team no longer exists in the whole-project row', () => {
-    const rows = groupRows([task({ team_id: 'missing' })], teams)
-    expect(rows.map((r) => r.teamName)).toEqual(['Whole project'])
+    const rows = groupRows([task({ group_id: 'missing' })], teams)
+    expect(rows.map((r) => r.groupName)).toEqual(['Whole project'])
+  })
+
+  it('names ungrouped work with the label it is given', () => {
+    const rows = groupRows([task({ group_id: null })], [], 'Your group')
+    expect(rows.map((r) => r.groupName)).toEqual(['Your group'])
   })
 })
 

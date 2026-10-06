@@ -6,12 +6,21 @@
  * `src/components/analytics/PressureChart.tsx` draws its bars. Nothing in this
  * file knows about React or about how a date should read to a person.
  */
-import type { GeneralTask } from './types'
 
-export type TimelineTask = Pick<
-  GeneralTask,
-  'id' | 'title' | 'status' | 'due_at' | 'starts_at' | 'team_id'
->
+export type WorkStatus = 'todo' | 'in_progress' | 'done'
+
+/**
+ * One task as the timeline sees it, from either space. `group_id` is a work
+ * project's team or, on a professor's view of a class project, a board.
+ */
+export type TimelineTask = {
+  id: string
+  title: string
+  status: WorkStatus
+  starts_at: string | null
+  due_at: string | null
+  group_id: string | null
+}
 
 /**
  * The span the chart covers, and where it came from.
@@ -29,7 +38,7 @@ export type Placement =
 
 export type Tick = { at: number; left: number; label: string }
 
-export type TimelineRow = { team: string | null; teamName: string; tasks: TimelineTask[] }
+export type TimelineRow = { group: string | null; groupName: string; tasks: TimelineTask[] }
 
 const DAY = 86_400_000
 
@@ -139,7 +148,8 @@ export function axisTicks(window: TimelineWindow): Tick[] {
 
 export function groupRows(
   tasks: readonly TimelineTask[],
-  teams: readonly { id: string; name: string }[],
+  groups: readonly { id: string; name: string }[],
+  looseLabel = 'Whole project',
 ): TimelineRow[] {
   const order = (a: TimelineTask, b: TimelineTask) => {
     const aStart = instant(a.starts_at) ?? instant(a.due_at) ?? Number.MAX_SAFE_INTEGER
@@ -154,15 +164,15 @@ export function groupRows(
   const rows: TimelineRow[] = []
 
   // Work that belongs to everybody reads first; it is the project's own spine.
-  // A team_id pointing at no team on this list — deleted since, or filtered
+  // A group_id pointing at no group on this list — deleted since, or filtered
   // out by the caller — belongs here too rather than nowhere.
-  const knownTeams = new Set(teams.map((t) => t.id))
-  const loose = tasks.filter((t) => !t.team_id || !knownTeams.has(t.team_id))
-  if (loose.length) rows.push({ team: null, teamName: 'Whole project', tasks: [...loose].sort(order) })
+  const known = new Set(groups.map((g) => g.id))
+  const loose = tasks.filter((t) => !t.group_id || !known.has(t.group_id))
+  if (loose.length) rows.push({ group: null, groupName: looseLabel, tasks: [...loose].sort(order) })
 
-  for (const team of [...teams].sort((a, b) => a.name.localeCompare(b.name))) {
-    const mine = tasks.filter((t) => t.team_id === team.id)
-    if (mine.length) rows.push({ team: team.id, teamName: team.name, tasks: [...mine].sort(order) })
+  for (const group of [...groups].sort((a, b) => a.name.localeCompare(b.name))) {
+    const mine = tasks.filter((t) => t.group_id === group.id)
+    if (mine.length) rows.push({ group: group.id, groupName: group.name, tasks: [...mine].sort(order) })
   }
 
   return rows

@@ -1,8 +1,8 @@
 import { Icon } from '../ui/Icon'
 import { formatDue, isOverdue } from '../../lib/general/dates'
 import { TASK_STATUSES } from '../../lib/general/progress'
-import { axisTicks, groupRows, nowMarker, placeTask, timelineWindow } from '../../lib/general/timeline'
-import type { TimelineTask } from '../../lib/general/timeline'
+import { axisTicks, groupRows, nowMarker, placeTask, timelineWindow } from '../../lib/work/timeline'
+import type { TimelineTask } from '../../lib/work/timeline'
 import type { GeneralProjectState } from './useGeneralProject'
 
 const BAR = {
@@ -65,7 +65,7 @@ export function GanttChart({ state }: { state: GeneralProjectState }) {
     status: t.status,
     due_at: t.due_at,
     starts_at: t.starts_at,
-    team_id: t.team_id,
+    group_id: t.team_id,
   }))
 
   const window = timelineWindow(project, tasks)
@@ -111,9 +111,9 @@ export function GanttChart({ state }: { state: GeneralProjectState }) {
           </div>
 
           {rows.map((row) => (
-            <section key={row.team ?? 'loose'}>
+            <section key={row.group ?? 'loose'}>
               <p className="border-b border-line px-3 py-1 text-[11px] font-medium text-faint uppercase">
-                {row.teamName}
+                {row.groupName}
               </p>
               {row.tasks.map((task) => {
                 const place = placeTask(task, window)
