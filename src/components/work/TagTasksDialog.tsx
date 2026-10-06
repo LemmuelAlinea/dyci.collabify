@@ -21,6 +21,7 @@ export function TagTasksDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const candidates = source.items.filter((i) => i.status !== 'done' && i.milestone_id !== milestone.id)
+  const chosen = candidates.filter((c) => picked.has(c.id))
   const nameOf = (id: string | null) => source.milestones.find((m) => m.id === id)?.name
 
   const toggle = (id: string) =>
@@ -35,7 +36,7 @@ export function TagTasksDialog({
     setError(null)
     setBusy(true)
     try {
-      await source.tag([...picked].filter((id) => candidates.some((c) => c.id === id)), milestone.id)
+      await source.tag(chosen.map((c) => c.id), milestone.id)
       onClose()
     } catch (err) {
       setError(authErrorMessage(err, 'Could not tag those tasks.'))
@@ -54,8 +55,8 @@ export function TagTasksDialog({
           <Button variant="ghost" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
-          <Button onClick={() => void save()} loading={busy} disabled={picked.size === 0}>
-            Tag {picked.size || ''} {picked.size === 1 ? 'task' : 'tasks'}
+          <Button onClick={() => void save()} loading={busy} disabled={chosen.length === 0}>
+            {chosen.length === 0 ? 'Tag tasks' : `Tag ${chosen.length} ${chosen.length === 1 ? 'task' : 'tasks'}`}
           </Button>
         </>
       }
@@ -63,7 +64,7 @@ export function TagTasksDialog({
       <div className="space-y-3">
         {error && <Alert tone="error">{error}</Alert>}
         {candidates.length === 0 ? (
-          <p className="text-[14px] text-muted">Every unfinished task already counts toward this milestone.</p>
+          <p className="text-[14px] text-muted">No unfinished tasks to tag.</p>
         ) : (
           <ul className="max-h-[50vh] divide-y divide-[var(--line)] overflow-y-auto rounded-xl border border-line">
             {candidates.map((item) => (
