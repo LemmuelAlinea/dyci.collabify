@@ -3,10 +3,12 @@ import { TaskFilters } from './TaskFilters'
 import type { TaskFilterState } from './taskFilterState'
 import type { ProjectTaskRow } from '../../lib/api/tasks'
 import type { BoardSummary } from '../../lib/types'
+import { TASK_LAYOUTS } from '../../lib/work/nav'
+import type { TaskLayout } from '../../lib/work/nav'
 
-export type TaskView = 'summary' | 'board' | 'list'
+export type TaskView = TaskLayout
 
-const ICON = { summary: 'chart', board: 'kanban', list: 'board' } as const
+const ICON = { board: 'kanban', list: 'board', timeline: 'clock', calendar: 'calendar' } as const
 
 /**
  * The three ways of looking at the same tasks, and the count beside them.
@@ -28,14 +30,14 @@ export function TaskViewSwitch({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="surface-sunken flex gap-1 rounded-lg p-0.5">
-        {(['summary', 'board', 'list'] as const).map((v) => (
+      <div className="surface-sunken flex max-w-full gap-1 overflow-x-auto rounded-lg p-0.5">
+        {TASK_LAYOUTS.map((v) => (
           <button
             key={v}
             type="button"
             aria-pressed={view === v}
             onClick={() => onView(v)}
-            className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-[13px] capitalize transition-colors ${
+            className={`flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-[13px] capitalize transition-colors ${
               view === v ? 'surface font-medium text-ink ring-1 ring-[var(--line-strong)]' : 'text-muted hover:text-ink'
             }`}
           >
