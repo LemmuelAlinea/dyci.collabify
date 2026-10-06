@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
@@ -29,19 +29,27 @@ export function FinishSprintDialog({
   const planned = plannedSprints(source.sprints)
   const unfinished = sprintItems(source.items, sprint.id).filter((i) => i.status !== 'done').length
   const counts = sprintCounts(source.items, sprint.id)
-  const draft = nextSprintDraft(source.sprints)
+  // Taken once, so the label keeps its name and dates if the sprints reload.
+  const [draft] = useState(() => nextSprintDraft(source.sprints))
   const [target, setTarget] = useState<Target>(planned.length > 0 ? 'next' : 'backlog')
   const [nextId, setNextId] = useState(planned[0]?.id ?? '')
+  // A retry after a failed finish reuses the sprint the first attempt made.
+  const createdRef = useRef<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const nextValid = planned.some((s) => s.id === nextId) ? nextId : (planned[0]?.id ?? '')
+  const effectiveTarget: Target = target === 'next' && planned.length === 0 ? 'backlog' : target
 
   async function finish() {
     setError(null)
     setBusy(true)
     try {
       let carryTo: string | null = null
-      if (unfinished > 0 && target === 'next') carryTo = nextId || null
-      if (unfinished > 0 && target === 'new') carryTo = await source.createSprint(draft)
+      if (unfinished > 0 && effectiveTarget === 'next') carryTo = nextValid || null
+      if (unfinished > 0 && effectiveTarget === 'new') {
+        createdRef.current ??= await source.createSprint(draft)
+        carryTo = createdRef.current
+      }
       await source.finishSprint(sprint.id, carryTo)
       show(`${sprint.name} finished`)
       onClose()
@@ -58,7 +66,7 @@ export function FinishSprintDialog({
         type="radio"
         name="carry"
         value={value}
-        checked={target === value}
+        checked={effectiveTarget === value}
         onChange={() => setTarget(value)}
         className="mt-1 accent-[var(--color-navy-600)]"
       />
@@ -97,10 +105,10 @@ export function FinishSprintDialog({
               option(
                 'next',
                 'Into a planned sprint',
-                target === 'next' && (
+                effectiveTarget === 'next' && (
                   <span className="mt-2 block">
                     <Select
-                      value={nextId}
+                      value={nextValid}
                       onChange={(e) => setNextId(e.target.value)}
                       options={planned.map((s) => ({ value: s.id, label: `${s.name} · ${dateRange(s.starts_on, s.ends_on)}` }))}
                       aria-label="Planned sprint"
