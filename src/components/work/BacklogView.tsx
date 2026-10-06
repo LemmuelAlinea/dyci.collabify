@@ -27,6 +27,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [bulkTarget, setBulkTarget] = useState(BACKLOG)
   const [creating, setCreating] = useState(false)
+  const [createKey, setCreateKey] = useState(0)
   const [editing, setEditing] = useState<Sprint | null>(null)
   const [deleting, setDeleting] = useState<Sprint | null>(null)
   const [title, setTitle] = useState('')
@@ -40,6 +41,9 @@ export function BacklogView({ source }: { source: WorkSource }) {
     ...(running ? [{ value: running.id, label: `${running.name} (running)` }] : []),
     ...planned.map((s) => ({ value: s.id, label: s.name })),
   ]
+  // Tasks can vanish (or a sprint start or be deleted) while a check or a target is held.
+  const live = [...checked].filter((id) => source.items.some((i) => i.id === id))
+  const bulkValid = targets.some((t) => t.value === bulkTarget) ? bulkTarget : BACKLOG
 
   async function run(action: () => Promise<unknown>, failure: string) {
     try {
@@ -58,10 +62,12 @@ export function BacklogView({ source }: { source: WorkSource }) {
     })
 
   async function moveChecked() {
-    await run(async () => {
-      await source.moveToSprint([...checked], bulkTarget || null)
+    if (live.length === 0) {
       setChecked(new Set())
-    }, 'Could not move those tasks.')
+      return
+    }
+    await run(() => source.moveToSprint(live, bulkValid || null), 'Could not move those tasks.')
+    setChecked(new Set())
   }
 
   async function add(e: FormEvent) {
@@ -111,7 +117,10 @@ export function BacklogView({ source }: { source: WorkSource }) {
           </p>
         </div>
         {source.canPlan && (
-          <Button size="sm" className="!rounded-lg" onClick={() => setCreating(true)}>
+          <Button size="sm" className="!rounded-lg" onClick={() => {
+              setCreateKey((k) => k + 1)
+              setCreating(true)
+            }}>
             <Icon name="plus" size={15} />
             Create sprint
           </Button>
@@ -181,11 +190,11 @@ export function BacklogView({ source }: { source: WorkSource }) {
             </h3>
             <p className="mt-0.5 text-[13px] text-muted">Every unfinished task that is not in a sprint. The top is what comes next.</p>
           </div>
-          {source.canPlan && checked.size > 0 && (
+          {source.canPlan && live.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[13px] text-muted">{checked.size} checked</span>
+              <span className="text-[13px] text-muted">{live.length} checked</span>
               <Select
-                value={bulkTarget}
+                value={bulkValid}
                 onChange={(e) => setBulkTarget(e.target.value)}
                 options={targets}
                 aria-label="Move checked tasks to"
@@ -226,7 +235,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
       </section>
 
       <SprintDialog
-        key={creating ? 'new-open' : 'new'}
+        key={createKey}
         open={creating}
         onClose={() => setCreating(false)}
         title="New sprint"
@@ -329,7 +338,7 @@ function ItemRow({
             onChange={(e) => onMove(e.target.value)}
             options={targets}
             aria-label={`Move ${item.title} to`}
-            className="!h-8 !w-auto !pr-8 !pl-2.5 !text-[12px]"
+            className="!h-8 !w-auto max-w-[9rem] !pr-8 !pl-2.5 !text-[12px]"
           />
         </div>
       )}
