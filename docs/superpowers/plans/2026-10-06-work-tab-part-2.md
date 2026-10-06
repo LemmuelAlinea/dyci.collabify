@@ -1924,12 +1924,11 @@ In `src/components/calendar/eventLook.ts`, add to `LOOK`:
   },
   sprint_end: {
     cls: 'surface-sunken text-ink ring-1 ring-[var(--line-strong)] ring-inset',
-    icon: 'flag' in LOOK_ICONS ? 'flag' : 'target',
+    icon: 'checkCircle',
     dot: 'bg-navy-400 dark:bg-navy-300',
   },
 ```
 
-There is no `flag` icon in `src/components/ui/Icon.tsx`. Use `icon: 'checkCircle'` for `sprint_end`, and delete the `'flag' in LOOK_ICONS` expression above. It is shown only to flag the choice.
 
 In `src/components/calendar/EventChip.tsx`, replace the `overdue` condition with the equivalent positive form, so the new kinds are never marked overdue:
 
@@ -2340,7 +2339,7 @@ export function Burndown({ sprint, items }: { sprint: Sprint; items: WorkItem[] 
 - [ ] **Step 5: Type-check and lint**
 
 Run: `npx tsc -b` and expect it clean.
-Run: `npx eslint src/components/work` and expect it clean. If `React.ReactNode` needs an import, use `import type { ReactNode } from 'react'` instead.
+Run: `npx eslint src/components/work` and expect it clean.
 
 - [ ] **Step 6: Commit**
 
