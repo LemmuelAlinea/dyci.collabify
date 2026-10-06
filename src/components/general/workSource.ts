@@ -1,5 +1,13 @@
 // src/components/general/workSource.ts
 import {
+  createMilestone,
+  deleteMilestone,
+  setMilestoneReached,
+  tagTasks,
+  updateMilestone,
+} from '../../lib/api/milestones'
+import type { MilestoneHome } from '../../lib/api/milestones'
+import {
   createSprint,
   deleteSprint,
   finishSprint,
@@ -10,7 +18,7 @@ import {
 } from '../../lib/api/sprints'
 import type { SprintHome } from '../../lib/api/sprints'
 import { createTask } from '../../lib/api/general'
-import type { WorkSource } from '../../lib/work/types'
+import type { MilestoneSource, WorkSource } from '../../lib/work/types'
 import type { GeneralProjectState } from './useGeneralProject'
 
 /** A work project as Backlog and Sprints see it. Owners and Managers plan; members add. */
@@ -60,5 +68,35 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
           () => undefined,
         ),
       ),
+  }
+}
+
+export function generalMilestoneSource(state: GeneralProjectState, openTask: (id: string) => void): MilestoneSource {
+  const project = state.project
+  const home: MilestoneHome = { kind: 'work', projectId: project?.id ?? '' }
+  const can = Boolean(project) && !state.archived && state.can('manage_tasks')
+  const then = async <T,>(action: Promise<T>) => {
+    const result = await action
+    await state.reload()
+    return result
+  }
+  return {
+    milestones: state.milestones,
+    items: generalWorkSource(state, openTask).items,
+    groups: [],
+    canManage: can,
+    canTag: can,
+    canMarkReached: can,
+    readOnlyReason: state.archived
+      ? 'This project is archived, so nothing in it can change.'
+      : can
+        ? ''
+        : 'Owners and Managers run the milestones. You can follow how close each one is.',
+    openTask,
+    createMilestone: (input) => then(createMilestone(home, input)),
+    updateMilestone: (id, input) => then(updateMilestone(home, id, input)),
+    deleteMilestone: (id) => then(deleteMilestone(home, id)),
+    setReached: (id, reached) => then(setMilestoneReached(id, reached)),
+    tag: (ids, milestoneId) => then(tagTasks(home, ids, milestoneId)),
   }
 }

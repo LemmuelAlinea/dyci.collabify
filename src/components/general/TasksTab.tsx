@@ -21,11 +21,11 @@ import type { GeneralTaskStatus } from '../../lib/general/progress'
 import type { GeneralTask } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
-import { sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
+import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
 import type { TaskLayout } from '../../lib/work/nav'
 import { applyScope, scopeOptions, scopeSprintId, scopeTargetSprint } from '../../lib/work/scope'
 import type { TaskScope } from '../../lib/work/scope'
-import { sprintBands } from '../../lib/work/timeline'
+import { milestoneMarks, sprintBands } from '../../lib/work/timeline'
 import { ScopePicker } from '../work/ScopePicker'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { TimelineView } from '../work/TimelineView'
@@ -290,6 +290,7 @@ export function TasksTab({
           groups={state.teams}
           span={project}
           bands={sprintBands(state.sprints)}
+          marks={milestoneMarks(state.milestones)}
           onOpen={showTask}
         />
       ) : (
@@ -297,6 +298,7 @@ export function TasksTab({
           events={[
             ...taskCalendarEvents(shown, (t) => state.teams.find((x) => x.id === t.team_id)?.name ?? ''),
             ...sprintCalendarEvents(state.sprints),
+            ...milestoneCalendarEvents(state.milestones),
           ]}
           onOpen={showTask}
         />
