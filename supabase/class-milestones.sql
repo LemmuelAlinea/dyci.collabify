@@ -38,13 +38,13 @@ alter table public.project_milestones enable row level security;
 drop policy if exists project_milestones_read on public.project_milestones;
 create policy project_milestones_read on public.project_milestones
   for select to authenticated
-  using (exists (select 1 from public.projects p where p.id = project_id));
+  using (exists (select 1 from public.projects p where p.id = project_milestones.project_id));
 
 drop policy if exists project_milestones_write on public.project_milestones;
 create policy project_milestones_write on public.project_milestones
   for all to authenticated
-  using (public.is_class_professor((select p.class_id from public.projects p where p.id = project_id)))
-  with check (public.is_class_professor((select p.class_id from public.projects p where p.id = project_id)));
+  using (public.is_class_professor((select p.class_id from public.projects p where p.id = project_milestones.project_id)))
+  with check (public.is_class_professor((select p.class_id from public.projects p where p.id = project_milestones.project_id)));
 
 revoke all on public.project_milestones from anon;
 grant select, insert, update, delete on public.project_milestones to authenticated;
@@ -53,14 +53,18 @@ grant select, insert, update, delete on public.project_milestones to authenticat
 
 alter table public.project_tasks add column if not exists milestone_id uuid;
 
--- Only the professor deletes milestones, and guard_task_edit lets the
--- professor through without the archived-task freeze, so the plain set-null is
--- enough here (unlike work projects).
-do $$ begin
-  alter table public.project_tasks
-    add constraint project_tasks_milestone_fk foreign key (milestone_id)
-    references public.project_milestones (id) on delete set null;
-exception when duplicate_object then null; end $$;
+-- Deferred NO ACTION, not on delete set null and not immediate. Deleting a
+-- project cascades to its boards, tasks and milestones in no promised order.
+-- A set-null update on tasks that outlive the project row is refused by
+-- guard_task_edit (is_board_professor is false once the project is gone), and
+-- an immediate NO ACTION check fires when the milestone's own cascade ends,
+-- possibly before the board cascade has removed the tasks. Checked at commit,
+-- the tasks are gone either way. A milestone deleted on its own untags its
+-- tasks first, in guard_project_milestone.
+alter table public.project_tasks drop constraint if exists project_tasks_milestone_fk;
+alter table public.project_tasks
+  add constraint project_tasks_milestone_fk foreign key (milestone_id)
+  references public.project_milestones (id) deferrable initially deferred;
 
 create index if not exists project_tasks_milestone_idx
   on public.project_tasks (milestone_id) where milestone_id is not null;
@@ -89,6 +93,37 @@ revoke all on function public.guard_task_milestone() from public, anon;
 drop trigger if exists project_tasks_milestone_guard on public.project_tasks;
 create trigger project_tasks_milestone_guard before insert or update on public.project_tasks
   for each row execute function public.guard_task_milestone();
+
+/**
+ * A milestone never moves to another project (the same-project rule on tasks
+ * would break), and deleting one untags its tasks first, as the caller, so the
+ * professor's path through guard_task_edit applies, archived tasks included.
+ * When the project itself is going, its tasks are going too: return at once.
+ */
+create or replace function public.guard_project_milestone()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'UPDATE' then
+    new.project_id := old.project_id;
+    return new;
+  end if;
+  if not exists (select 1 from public.projects where id = old.project_id) then
+    return old;
+  end if;
+  update public.project_tasks set milestone_id = null where milestone_id = old.id;
+  return old;
+end;
+$$;
+
+revoke all on function public.guard_project_milestone() from public, anon;
+
+drop trigger if exists project_milestones_guard_edit on public.project_milestones;
+create trigger project_milestones_guard_edit before update on public.project_milestones
+  for each row execute function public.guard_project_milestone();
+
+drop trigger if exists project_milestones_untag_tasks on public.project_milestones;
+create trigger project_milestones_untag_tasks before delete on public.project_milestones
+  for each row execute function public.guard_project_milestone();
 
 drop view if exists public.task_detail_overview;
 
@@ -119,15 +154,21 @@ declare
   v_project uuid;
   n int;
 begin
+  -- Only projects whose class the caller teaches, so a forged origin on
+  -- someone else's board finds nothing.
   select b.project_id into v_project
-    from public.project_tasks t join public.project_boards b on b.id = t.board_id
+    from public.project_tasks t
+    join public.project_boards b on b.id = t.board_id
+    join public.projects p on p.id = b.project_id
    where t.origin_id = p_origin
+     and public.is_class_professor(p.class_id)
+   order by b.project_id
    limit 1;
   if v_project is null then
+    if exists (select 1 from public.project_tasks where origin_id = p_origin) then
+      raise exception 'Only the professor can tag the tasks they set.' using errcode = 'insufficient_privilege';
+    end if;
     raise exception 'That task is not there any more. Reload the page.';
-  end if;
-  if not public.is_class_professor((select p.class_id from public.projects p where p.id = v_project)) then
-    raise exception 'Only the professor can tag the tasks they set.' using errcode = 'insufficient_privilege';
   end if;
   if p_milestone is not null and not exists (
     select 1 from public.project_milestones where id = p_milestone and project_id = v_project
@@ -137,7 +178,8 @@ begin
 
   update public.project_tasks
      set milestone_id = p_milestone
-   where origin_id = p_origin and archived_at is null;
+   where origin_id = p_origin and archived_at is null
+     and board_id in (select id from public.project_boards where project_id = v_project);
   get diagnostics n = row_count;
   return n;
 end;
