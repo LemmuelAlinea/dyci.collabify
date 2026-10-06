@@ -314,7 +314,9 @@ grant execute on function public.complete_general_sprint(uuid, uuid) to authenti
 
 -- ---------------------------------------------------------------- the overview
 
-create or replace view public.general_task_overview
+drop view if exists public.general_task_overview;
+
+create view public.general_task_overview
 with (security_invoker = true) as
 select t.id,
        t.project_id,
