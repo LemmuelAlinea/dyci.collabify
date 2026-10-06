@@ -84,6 +84,10 @@ const KNOWN: [RegExp, string][] = [
     'A task cannot start after it is due. Move one of the two dates.',
   ],
   [
+    /general_sprints_one_running|board_sprints_one_running/i,
+    'Another sprint is already running. Finish it before starting this one.',
+  ],
+  [
     /database error saving new user/i,
     'Your account could not be created. This is a setup problem on our side, not something you did.',
   ],

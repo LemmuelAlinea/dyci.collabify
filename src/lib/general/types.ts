@@ -268,6 +268,10 @@ export type GeneralTask = {
   logged_minutes: number
   archived_at: string | null
   archived_by: string | null
+  /** The sprint it is in; null while it sits in the backlog. */
+  sprint_id: string | null
+  /** Backlog order: lower is nearer the top. */
+  rank: number
 }
 
 export type GeneralComment = {

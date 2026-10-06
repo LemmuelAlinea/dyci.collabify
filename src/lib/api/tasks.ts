@@ -292,6 +292,8 @@ export type TaskInput = {
   dueAt: string | null
   /** Students' own tasks only; a professor's set task has no planned start yet. */
   startsAt?: string | null
+  /** New tasks only: the sprint it joins. Omitted or null puts it in the backlog. */
+  sprintId?: string | null
 }
 
 export async function addTask(
@@ -321,6 +323,7 @@ export async function addTask(
       created_by: createdBy,
       author_role: 'student',
       ai_generated: aiGenerated,
+      sprint_id: input.sprintId ?? null,
     })
     .select('*')
     .single()

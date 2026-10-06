@@ -812,6 +812,7 @@ export async function createTask(input: {
   dueAt: string | null
   startsAt: string | null
   teamId: string | null
+  sprintId?: string | null
 }) {
   const { data, error } = await supabase
     .from('general_tasks')
@@ -822,6 +823,7 @@ export async function createTask(input: {
       due_at: input.dueAt,
       starts_at: input.startsAt,
       team_id: input.teamId,
+      sprint_id: input.sprintId ?? null,
     })
     .select('id')
     .single()

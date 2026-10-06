@@ -825,6 +825,10 @@ export type ProjectTask = {
   due_at: string | null
   /** When it is planned to begin; started_at is when it actually did. */
   starts_at: string | null
+  /** The sprint it is in; null while it sits in the backlog. */
+  sprint_id: string | null
+  /** Backlog order: lower is nearer the top. */
+  rank: number
   position: number
   created_by: string | null
   author_role: TaskAuthor
