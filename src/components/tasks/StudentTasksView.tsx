@@ -24,7 +24,7 @@ import { scopeOptions, scopeTargetSprint } from '../../lib/work/scope'
 import { sprintBands } from '../../lib/work/timeline'
 import { setTaskStatus } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
-import { canPlanBoard, isBoardSubmitted, isMine } from '../../lib/types'
+import { boardWeight, canPlanBoard, isBoardSubmitted, isMine } from '../../lib/types'
 import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
 import type { ProjectTasks } from './useProjectTasks'
 import { useCallback, useState } from 'react'
@@ -203,6 +203,7 @@ export function StudentTasksView({
                 <TaskBoard
                   board={active}
                   tasks={t.boardTasks}
+                  totalWeight={boardWeight(t.tasks)}
                   members={t.members}
                   progress={t.progress}
                   viewerId={viewerId}

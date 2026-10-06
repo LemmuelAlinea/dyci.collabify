@@ -12,6 +12,8 @@
 -- guard_task_edit freezes title, details, weight, dates and position, not these.
 -- A second trigger, project_tasks_plan_guard, owns sprint_id and rank:
 -- guard_task_edit (class-schedule.sql) is left alone.
+-- The finished-sprint refusal binds the service role too: a future copy or
+-- restore function must not point tasks at a completed sprint.
 --
 -- Idempotent. Safe to re-run.
 

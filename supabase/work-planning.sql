@@ -12,6 +12,8 @@
 --
 -- Also defines what class-planning.sql reuses: the sprint_state enum and the
 -- prepare_sprint / guard_sprint_state trigger functions. Run this file first.
+-- The finished-sprint refusal binds the service role too: a future copy or
+-- restore function must not point tasks at a completed sprint.
 --
 -- Redefines general_task_overview (owner: general-archive-rbac.sql) to append
 -- sprint_id and rank. Re-run this file after re-running that one.

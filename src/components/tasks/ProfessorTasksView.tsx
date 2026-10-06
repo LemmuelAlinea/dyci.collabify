@@ -30,7 +30,7 @@ import { sprintBands } from '../../lib/work/timeline'
 import { deleteProfessorTask } from '../../lib/api/tasks'
 import { recordResult } from '../../lib/api/results'
 import type { ProfessorTaskGroup } from '../../lib/api/tasks'
-import { boardOwnerName } from '../../lib/types'
+import { boardOwnerName, boardWeight } from '../../lib/types'
 import { authErrorMessage } from '../../lib/authError'
 import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
 import type { ProjectTasks } from './useProjectTasks'
@@ -258,6 +258,7 @@ export function ProfessorTasksView({
                     <TaskBoard
                       board={active}
                       tasks={t.boardTasks}
+                      totalWeight={boardWeight(t.tasks)}
                       members={t.members}
                       progress={t.progress}
                       viewerId={viewerId}

@@ -39,6 +39,7 @@ const COLUMN_TONE: Record<TaskStatus, string> = {
 export function TaskBoard({
   board,
   tasks,
+  totalWeight,
   members,
   progress,
   viewerId, role,
@@ -48,6 +49,8 @@ export function TaskBoard({
 }: {
   board: BoardSummary
   tasks: ProjectTask[]
+  /** The whole board's weight, for shares; defaults to the tasks drawn. */
+  totalWeight?: number
   members: GroupMember[]
   /** Who still has room under their share — drives the claim controls. */
   progress: MemberProgress[]
@@ -108,7 +111,7 @@ export function TaskBoard({
     ? []
     : tasks.filter((t) => t.assignees.length === 0 && t.status !== 'done')
   // Recomputed on every render: a new task rebalances every other slice.
-  const totalWeight = boardWeight(tasks)
+  const total = totalWeight ?? boardWeight(tasks)
 
   return (
     <div className="space-y-5">
@@ -177,7 +180,7 @@ export function TaskBoard({
                     <TaskCard
                       key={task.id}
                       task={task}
-                      share={taskShare(task, totalWeight)}
+                      share={taskShare(task, total)}
                       members={members}
                       progress={progress}
                       viewerId={viewerId}
@@ -290,7 +293,7 @@ export function TaskBoard({
         onClose={() => showTask(null)}
         viewerId={viewerId}
         role={role}
-        boardWeight={totalWeight}
+        boardWeight={total}
         onChanged={onChanged}
       />
     </div>
