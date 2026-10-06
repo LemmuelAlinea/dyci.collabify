@@ -290,6 +290,8 @@ export type TaskInput = {
   details: string
   weight: number
   dueAt: string | null
+  /** Students' own tasks only; a professor's set task has no planned start yet. */
+  startsAt?: string | null
 }
 
 export async function addTask(
@@ -314,6 +316,7 @@ export async function addTask(
       details: input.details.trim(),
       weight: input.weight,
       due_at: input.dueAt,
+      starts_at: input.startsAt ?? null,
       position: ((last as { position: number } | null)?.position ?? 0) + 1,
       created_by: createdBy,
       author_role: 'student',
@@ -333,6 +336,7 @@ export async function updateTask(taskId: string, input: TaskInput) {
       details: input.details.trim(),
       weight: input.weight,
       due_at: input.dueAt,
+      ...(input.startsAt !== undefined && { starts_at: input.startsAt }),
     })
     .eq('id', taskId)
   if (error) throw error

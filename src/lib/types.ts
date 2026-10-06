@@ -823,6 +823,8 @@ export type ProjectTask = {
   weight: number
   status: TaskStatus
   due_at: string | null
+  /** When it is planned to begin; started_at is when it actually did. */
+  starts_at: string | null
   position: number
   created_by: string | null
   author_role: TaskAuthor

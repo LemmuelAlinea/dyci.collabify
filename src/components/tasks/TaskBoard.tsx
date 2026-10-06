@@ -262,6 +262,7 @@ export function TaskBoard({
           key={editing?.id ?? 'new'}
           formId="task-form"
           defaults={editing ?? undefined}
+          showStart
           error={formError}
           onSubmit={save}
         />

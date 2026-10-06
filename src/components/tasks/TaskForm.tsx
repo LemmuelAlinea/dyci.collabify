@@ -16,11 +16,16 @@ function toLocalInput(iso: string | null) {
 export function TaskForm({
   formId,
   defaults,
+  showStart = false,
   error,
   onSubmit,
 }: {
   formId: string
-  defaults?: Pick<ProjectTask, 'title' | 'details' | 'weight' | 'due_at'>
+  defaults?: Pick<ProjectTask, 'title' | 'details' | 'weight' | 'due_at'> & {
+    starts_at?: string | null
+  }
+  /** Students' board only. */
+  showStart?: boolean
   error?: string | null
   onSubmit: (input: TaskInput) => void
 }) {
@@ -28,17 +33,23 @@ export function TaskForm({
   const [details, setDetails] = useState(defaults?.details ?? '')
   const [weight, setWeight] = useState(defaults?.weight ?? 1)
   const [dueAt, setDueAt] = useState(toLocalInput(defaults?.due_at ?? null))
+  const [startsAt, setStartsAt] = useState(toLocalInput(defaults?.starts_at ?? null))
   const [invalid, setInvalid] = useState<string | null>(null)
 
   function submit(e: FormEvent) {
     e.preventDefault()
     if (!title.trim()) return setInvalid('Give the task a name.')
+    const startIso = showStart && startsAt ? new Date(startsAt).toISOString() : null
+    const dueIso = dueAt ? new Date(dueAt).toISOString() : null
+    if (startIso && dueIso && startIso > dueIso)
+      return setInvalid('A task cannot start after it is due. Move one of the two dates.')
     setInvalid(null)
     onSubmit({
       title,
       details,
       weight,
-      dueAt: dueAt ? new Date(dueAt).toISOString() : null,
+      dueAt: dueIso,
+      ...(showStart && { startsAt: startIso }),
     })
   }
 
@@ -70,7 +81,7 @@ export function TaskForm({
         )}
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className={`grid gap-4 ${showStart ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
         <Field
           label="Weight"
           hint={<span className="text-[12px] text-faint">Relative size</span>}
@@ -86,6 +97,14 @@ export function TaskForm({
             />
           )}
         </Field>
+
+        {showStart && (
+          <Field label="Starts" optional>
+            {(id) => (
+              <Input id={id} type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+            )}
+          </Field>
+        )}
 
         <Field label="Due" optional>
           {(id) => (
