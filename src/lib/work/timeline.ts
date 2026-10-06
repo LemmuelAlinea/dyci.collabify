@@ -56,9 +56,15 @@ function taskDates(task: TimelineTask) {
   return [instant(task.starts_at), instant(task.due_at)].filter((n): n is number => n !== null)
 }
 
+/**
+ * `extra` is other instants the chart draws (milestones, sprint bands). They
+ * widen a window taken from the tasks so an end milestone is not clipped off
+ * the edge; a project's own dates stay as they are.
+ */
 export function timelineWindow(
   project: { starts_on: string | null; ends_on: string | null },
   tasks: readonly TimelineTask[],
+  extra: readonly number[] = [],
 ): TimelineWindow {
   if (project.starts_on && project.ends_on) {
     const start = dayStart(project.starts_on)
@@ -67,7 +73,7 @@ export function timelineWindow(
     if (end > start) return { start, end, source: 'project' }
   }
 
-  const all = tasks.flatMap(taskDates)
+  const all = [...tasks.flatMap(taskDates), ...extra.filter(Number.isFinite)]
   if (all.length === 0) return { start: 0, end: 0, source: 'none' }
 
   const start = Math.min(...all)
@@ -198,4 +204,16 @@ export function placeBand(band: Band, window: TimelineWindow) {
   if (window.source === 'none' || band.end <= window.start || band.start >= window.end) return null
   const left = offset(band.start, window)
   return { left, width: Math.max(0.5, offset(band.end, window) - left) }
+}
+
+/** A single dated point drawn above the tasks: a milestone, at noon on its day. */
+export type Mark = { id: string; label: string; at: number }
+
+export function milestoneMarks(milestones: readonly { id: string; name: string; due_on: string }[]): Mark[] {
+  return milestones.map((m) => ({ id: m.id, label: m.name, at: dayStart(m.due_on) + DAY / 2 }))
+}
+
+export function placeMark(mark: Mark, window: TimelineWindow) {
+  if (window.source === 'none' || mark.at < window.start || mark.at > window.end) return null
+  return offset(mark.at, window)
 }

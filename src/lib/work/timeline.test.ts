@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   axisTicks,
   groupRows,
+  milestoneMarks,
   nowMarker,
   placeBand,
+  placeMark,
   placeTask,
   sprintBands,
   timelineWindow,
@@ -52,6 +54,35 @@ describe('timelineWindow', () => {
   it('says it has nothing to draw when neither has a date', () => {
     expect(timelineWindow(project(null, null), [task()]).source).toBe('none')
     expect(timelineWindow(project(null, null), []).source).toBe('none')
+  })
+
+  it('widens a window taken from the tasks to take in the extra instants', () => {
+    const w = timelineWindow(
+      project(null, null),
+      [task({ starts_at: '2026-10-05T00:00:00Z', due_at: '2026-10-09T00:00:00Z' })],
+      [day('2026-10-01T12:00:00Z'), day('2026-10-30T12:00:00Z')],
+    )
+    expect(w.source).toBe('tasks')
+    expect(w.start).toBe(day('2026-10-01T12:00:00Z'))
+    expect(w.end).toBe(day('2026-10-30T12:00:00Z'))
+  })
+
+  it('draws a window from the extras alone when no task has a date', () => {
+    const w = timelineWindow(project(null, null), [task()], [day('2026-10-10T12:00:00Z'), day('2026-10-20T12:00:00Z')])
+    expect(w).toEqual({ start: day('2026-10-10T12:00:00Z'), end: day('2026-10-20T12:00:00Z'), source: 'tasks' })
+  })
+
+  it('keeps the project’s own dates whatever the extras say', () => {
+    const w = timelineWindow(project('2026-10-01', '2026-10-11'), [], [day('2027-01-01T00:00:00Z')])
+    expect(w.source).toBe('project')
+    expect(w.end).toBeLessThan(day('2026-10-13T00:00:00Z'))
+  })
+
+  it('places a milestone that falls after the last task once it is an extra', () => {
+    const tasks = [task({ starts_at: '2026-10-05T00:00:00Z', due_at: '2026-10-09T00:00:00Z' })]
+    const [mark] = milestoneMarks([{ id: 'm', name: 'Defense', due_on: '2026-10-20' }])
+    expect(placeMark(mark, timelineWindow(project(null, null), tasks))).toBeNull()
+    expect(placeMark(mark, timelineWindow(project(null, null), tasks, [mark.at]))).toBe(100)
   })
 
   it('never returns a window of zero width', () => {
@@ -270,5 +301,23 @@ describe('sprint bands', () => {
   it('leaves out a band outside the window', () => {
     expect(placeBand({ id: 's', label: 'S', start: day('2026-11-02'), end: day('2026-11-09') }, window)).toBeNull()
     expect(placeBand({ id: 's', label: 'S', start: 0, end: 1 }, { start: 0, end: 0, source: 'none' })).toBeNull()
+  })
+})
+
+describe('milestone marks', () => {
+  const localDay = (s: string, h = 0) => {
+    const [y, m, d] = s.split('-').map(Number)
+    return new Date(y, m - 1, d, h).getTime()
+  }
+  const window = { start: localDay('2026-10-01'), end: localDay('2026-11-01'), source: 'project' as const }
+  it('sits at noon on its day', () => {
+    expect(milestoneMarks([{ id: 'm', name: 'Beta', due_on: '2026-10-16' }])).toEqual([
+      { id: 'm', label: 'Beta', at: localDay('2026-10-16', 12) },
+    ])
+  })
+  it('places inside the window and drops what falls outside', () => {
+    expect(placeMark({ id: 'm', label: 'B', at: localDay('2026-10-01') }, window)).toBe(0)
+    expect(placeMark({ id: 'm', label: 'B', at: localDay('2026-11-05') }, window)).toBeNull()
+    expect(placeMark({ id: 'm', label: 'B', at: 1 }, { start: 0, end: 0, source: 'none' })).toBeNull()
   })
 })

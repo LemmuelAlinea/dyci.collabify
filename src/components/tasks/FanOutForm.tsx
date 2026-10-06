@@ -4,11 +4,14 @@ import { Alert } from '../ui/Alert'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
+import type { Tone } from '../ui/Toast'
 import { TaskForm } from './TaskForm'
+import { setOriginMilestone } from '../../lib/api/milestones'
 import { createProfessorTask, updateProfessorTask } from '../../lib/api/tasks'
 import type { ProfessorTaskGroup, TaskInput } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import type { BoardSummary } from '../../lib/types'
+import type { Milestone } from '../../lib/work/types'
 
 const FORM_ID = 'fan-out-form'
 
@@ -21,6 +24,7 @@ export function FanOutForm({
   onClose,
   projectId,
   boards,
+  milestones,
   editing,
   onSaved,
 }: {
@@ -28,13 +32,45 @@ export function FanOutForm({
   onClose: () => void
   projectId: string
   boards: BoardSummary[]
+  milestones: Milestone[]
   /** Set to edit a task already handed out. */
   editing?: ProfessorTaskGroup
-  onSaved: (message: string) => Promise<void> | void
+  /** `tone` is 'error' when the task saved but its milestone did not. */
+  onSaved: (message: string, tone?: Tone) => Promise<void> | void
 }) {
   const [target, setTarget] = useState('')
+  const [milestoneId, setMilestoneId] = useState(editing?.milestone_id ?? '')
+  // The form stays mounted between tasks, so follow the one being edited.
+  const editKey = editing?.origin_id ?? ''
+  const [seenKey, setSeenKey] = useState(editKey)
+  if (seenKey !== editKey) {
+    setSeenKey(editKey)
+    setMilestoneId(editing?.milestone_id ?? '')
+  }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  /** Closing drops the form's picks, so a cancelled task leaves nothing behind. */
+  function close() {
+    setTarget('')
+    setMilestoneId('')
+    onClose()
+  }
+
+  /**
+   * The task is already saved by the time this runs, so a failure here must not
+   * read as a failed save: a retry would send the task out a second time. A
+   * missing origin means the tag was skipped, which is a failure too.
+   */
+  async function applyMilestone(originId: string | undefined, value: string) {
+    if (!originId) return false
+    try {
+      await setOriginMilestone(originId, value || null)
+      return true
+    } catch {
+      return false
+    }
+  }
 
   async function save(input: TaskInput) {
     setError(null)
@@ -43,11 +79,15 @@ export function FanOutForm({
       if (editing) {
         const res = await updateProfessorTask(editing.origin_id, input)
         if (res.result !== 'updated') throw new Error('That task could not be changed.')
-        await onSaved(
-          res.frozen
-            ? `Updated ${res.changed} of ${(res.changed ?? 0) + res.frozen} copies — ${res.frozen} already started`
-            : 'Task updated everywhere',
-        )
+        const milestoneOk =
+          milestoneId === (editing.milestone_id ?? '') ||
+          (await applyMilestone(editing.origin_id, milestoneId))
+        const saved = res.frozen
+          ? `Updated ${res.changed} of ${(res.changed ?? 0) + res.frozen} copies — ${res.frozen} already started`
+          : 'Task updated everywhere'
+        await (milestoneOk
+          ? onSaved(saved)
+          : onSaved('Task updated, but the milestone was not set. Try again.', 'error'))
       } else {
         const res = await createProfessorTask({
           projectId,
@@ -64,11 +104,13 @@ export function FanOutForm({
               : 'That task could not be created.',
           )
         }
-        await onSaved(
-          `Task sent to ${res.boards} ${res.boards === 1 ? 'group' : 'groups'}`,
-        )
+        const milestoneOk = !milestoneId || (await applyMilestone(res.origin_id, milestoneId))
+        const sent = `Task sent to ${res.boards} ${res.boards === 1 ? 'group' : 'groups'}`
+        await (milestoneOk
+          ? onSaved(sent)
+          : onSaved(`${sent}, but the milestone was not set. Edit the task to try again.`, 'error'))
       }
-      onClose()
+      close()
     } catch (err) {
       setError(authErrorMessage(err, 'Could not save that task.'))
     } finally {
@@ -79,7 +121,7 @@ export function FanOutForm({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={close}
       title={editing ? 'Edit the task you set' : 'Set a task'}
       description={
         editing
@@ -88,7 +130,7 @@ export function FanOutForm({
       }
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
+          <Button variant="ghost" onClick={close} disabled={busy}>
             Cancel
           </Button>
           <Button form={FORM_ID} type="submit" loading={busy} className="!rounded-xl">
@@ -118,6 +160,20 @@ export function FanOutForm({
                 value: b.id,
                 label: b.group_name ?? 'One student',
               }))}
+            />
+          </label>
+        )}
+
+        {milestones.length > 0 && (
+          <label className="block space-y-2">
+            <span className="text-[13px] font-medium text-ink">
+              Counts toward <span className="font-normal text-faint">(optional)</span>
+            </span>
+            <Select
+              value={milestoneId}
+              onChange={(e) => setMilestoneId(e.target.value)}
+              placeholder="No milestone"
+              options={milestones.map((m) => ({ value: m.id, label: m.name }))}
             />
           </label>
         )}

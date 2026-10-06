@@ -47,6 +47,13 @@ export const LOOK: Record<CalendarKind, { cls: string; icon: IconName; dot: stri
     icon: 'checkCircle',
     dot: 'bg-navy-400 dark:bg-navy-300',
   },
+  // A milestone is a goal on the plan, not a deadline: outlined in the accent,
+  // so it reads apart from task and project dues.
+  milestone: {
+    cls: 'surface text-ink ring-1 ring-amber-400/70 ring-inset',
+    icon: 'pin',
+    dot: 'bg-amber-400',
+  },
 }
 
 /**

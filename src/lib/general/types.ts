@@ -272,6 +272,8 @@ export type GeneralTask = {
   sprint_id: string | null
   /** Backlog order: lower is nearer the top. */
   rank: number
+  /** The milestone it counts toward; null when untagged. */
+  milestone_id: string | null
 }
 
 export type GeneralComment = {

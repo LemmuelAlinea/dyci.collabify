@@ -6,10 +6,10 @@
  * their own keys because `view` is already taken by the Files tab
  * (`?tab=files&view=draft`).
  */
-export type WorkSection = 'summary' | 'backlog' | 'sprints' | 'tasks'
+export type WorkSection = 'summary' | 'backlog' | 'sprints' | 'tasks' | 'milestones'
 export type TaskLayout = 'board' | 'list' | 'timeline' | 'calendar'
 
-export const WORK_SECTIONS: readonly WorkSection[] = ['summary', 'backlog', 'sprints', 'tasks']
+export const WORK_SECTIONS: readonly WorkSection[] = ['summary', 'backlog', 'sprints', 'tasks', 'milestones']
 export const TASK_LAYOUTS: readonly TaskLayout[] = ['board', 'list', 'timeline', 'calendar']
 
 /** The tab names Work replaced. Links written before it still arrive with them. */

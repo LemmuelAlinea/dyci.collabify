@@ -34,6 +34,7 @@ const item = (over: Partial<WorkItem> = {}): WorkItem => ({
   due_at: null,
   done_at: null,
   sprint_id: 's1',
+  milestone_id: null,
   rank: 1,
   holders: [],
   created_at: '2026-10-01T00:00:00Z',

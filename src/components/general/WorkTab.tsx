@@ -1,6 +1,7 @@
 // src/components/general/WorkTab.tsx
 import { useSearchParams } from 'react-router-dom'
 import { BacklogView } from '../work/BacklogView'
+import { MilestonesView } from '../work/MilestonesView'
 import { SprintsView } from '../work/SprintsView'
 import { WorkNav } from '../work/WorkNav'
 import { readScope } from '../../lib/work/scope'
@@ -9,11 +10,11 @@ import { TaskDialog } from './TaskDialog'
 import { TasksTab } from './TasksTab'
 import { WorkSummary } from './WorkSummary'
 import type { GeneralProjectState } from './useGeneralProject'
-import { generalWorkSource } from './workSource'
+import { generalMilestoneSource, generalWorkSource } from './workSource'
 
 /**
- * A work project's Work tab: Summary, Backlog, Sprints and Tasks; Milestones
- * join in a later part. The open task is one dialog for every section, so a
+ * A work project's Work tab: Summary, Backlog, Sprints, Milestones and
+ * Tasks. The open task is one dialog for every section, so a
  * task opened from Summary's late list opens in place.
  */
 export function WorkTab({ state }: { state: GeneralProjectState }) {
@@ -43,6 +44,8 @@ export function WorkTab({ state }: { state: GeneralProjectState }) {
         <BacklogView source={source} />
       ) : section === 'sprints' ? (
         <SprintsView source={source} onPlan={() => setParams(withWork(params, { section: 'backlog' }))} />
+      ) : section === 'milestones' ? (
+        <MilestonesView source={generalMilestoneSource(state, showTask)} />
       ) : (
         <TasksTab
           state={state}

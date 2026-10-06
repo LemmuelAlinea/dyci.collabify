@@ -829,6 +829,8 @@ export type ProjectTask = {
   sprint_id: string | null
   /** Backlog order: lower is nearer the top. */
   rank: number
+  /** The milestone it counts toward; null when untagged. */
+  milestone_id: string | null
   position: number
   created_by: string | null
   author_role: TaskAuthor
@@ -1404,6 +1406,7 @@ export type CalendarKind =
   | 'meeting'
   | 'sprint_start'
   | 'sprint_end'
+  | 'milestone'
 
 export type CalendarEvent = {
   kind: CalendarKind

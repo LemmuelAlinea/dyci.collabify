@@ -347,6 +347,9 @@ outgrew it** — every project ever created is one week long and `capstone` has 
 used. The gap it pointed at was really "there is no verdict on work", which Results now
 fills. The placeholder is still in the student rail; the user has not asked to remove it.
 
+Revisited 2026-10-07: milestones returned as generic dated goals tagged on tasks (Work tab,
+Part 3), not the defense track.
+
 ## Files and the group drive — built, then removed
 
 Both were built and taken back out the same day, at the user's decision:
@@ -2907,3 +2910,45 @@ plan: docs/superpowers/plans/2026-10-06-work-tab-part-1.md). Branch `claude/work
   the backlog keeps its old rank (lands near the top). Professor board drag/scope polish, stale
   sprints for one render on a board switch.
 - Next: Part 3, Milestones.
+
+**Change (2026-10-07): Milestones in Work.** Part 3 of 4 of the Work tab plan
+(plan: docs/superpowers/plans/2026-10-07-work-tab-part-3.md). Branch `claude/work-tab-3`.
+- Work › Milestones lists dated goals by date: status (Upcoming · At risk · Late · Reached), a
+  progress bar (share of tagged tasks done), tagged count, due-in label; open one for its tasks.
+  At risk = due within 7 days and under half done. Tag tasks from the milestone (Tag tasks dialog)
+  or from the task. Timeline gets a Milestones row of diamonds (label includes the date; the window
+  widens to fit a milestone past the last task); Calendar shows milestones (amber outline, pin).
+- Who does what: work = `manage_tasks` creates, edits, deletes, tags and marks a milestone reached
+  by hand (`reached_at`, server-stamped); Members read. Class = the professor sets milestones for
+  the whole project and can tag every copy of a set task ("Counts toward" in the set-task form,
+  `set_professor_task_milestone`); each group tags its own tasks while its board is open; class
+  milestones are reached per group when all that group's tagged tasks are done (no stored state).
+- SQL (applied live): `work-milestones.sql` (general_milestones + RLS, general_tasks.milestone_id
+  composite FK on delete set null, guard_general_task_milestone, release_milestone_tasks,
+  guard_general_milestone pins project/creator/created_at and stamps reached_at, overview view with
+  milestone_id) and `class-milestones.sql` (project_milestones + RLS via is_class_professor,
+  project_tasks.milestone_id deferrable FK, guard_task_milestone, guard_project_milestone untags on
+  delete and pins columns, set_professor_task_milestone, detail view). Re-run work-milestones.sql
+  after work-planning.sql (and anything work-planning says to re-run it after); class-milestones.sql
+  after class-planning.sql (docs/07-backup.md).
+- Code: `lib/work/milestones.ts`, `lib/api/milestones.ts`, milestone marks/events in
+  `lib/work/{timeline,calendar}.ts`, `components/work/{MilestonesView,MilestoneDialog,TagTasksDialog}.tsx`,
+  wiring in `general/{useGeneralProject,workSource,WorkTab,TasksTab}` and
+  `tasks/{useProjectTasks,classWorkSource,StudentTasksView,ProfessorTasksView,FanOutForm}`. Work
+  sources now reload in a `finally`, so a partly failed tag still shows what changed.
+- Checked: work-milestones 26 PASS, class-milestones 31 PASS, the Part 2 and regression SQL suites
+  PASS; build, eslint, 697 Vitest. Final review (opus) Ready to merge after one fix round.
+  Browser (dev server): work Milestones as a Member (read-only note), class Milestones as a student
+  (empty state) in dark mode, class Timeline, 375 wide with no sideways scroll. Twice a fresh load
+  of a student's `?work=milestones` landed on Backlog; three later loads did not, and nothing in
+  the code writes Backlog on load, so likely pane interference. Watch for it.
+- Not tried in the browser: creating, tagging and reaching milestones in real projects (no project
+  has one; the SQL tests cover it), the professor's per-group view, a diamond at the window's edge
+  (may sit half clipped), a project whose tasks are all undated but has milestones (now draws the
+  chart with only the milestone row).
+- Deferred: class FK dropped and re-added on every re-run of class-milestones.sql; the class test
+  takes a live lock on project_boards; no forged-origin test for set_professor_task_milestone;
+  listMilestones has no tiebreak for same-day milestones; a professor with zero groups; the
+  duplicated `then` helper in both work sources; FanOutForm shows the first copy's milestone.
+- Next: Part 4, Summary (running sprint card, next milestone card, "Needs you", professor groups ×
+  milestones grid).

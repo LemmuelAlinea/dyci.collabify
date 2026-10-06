@@ -484,6 +484,7 @@ export type ProfessorTaskGroup = {
   details: string
   weight: number
   due_at: string | null
+  milestone_id: string | null
   boards: number
   started: number
   done: number
@@ -499,6 +500,7 @@ export function groupByOrigin(tasks: ProjectTask[]): ProfessorTaskGroup[] {
       details: t.details,
       weight: t.weight,
       due_at: t.due_at,
+      milestone_id: t.milestone_id,
       boards: 0,
       started: 0,
       done: 0,
