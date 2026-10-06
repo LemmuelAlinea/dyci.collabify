@@ -62,7 +62,7 @@ export function SinceLastVisit({ projectId }: { projectId: string }) {
         mine.length === 1
           ? `You were given “${mine[0].title}”`
           : `You were given ${mine.length} tasks`,
-      to: mine.length === 1 ? `${base}?tab=tasks&task=${mine[0].id}` : `${base}?tab=tasks`,
+      to: mine.length === 1 ? `${base}?tab=work&task=${mine[0].id}` : `${base}?tab=work`,
       strong: true,
     })
   }
@@ -70,7 +70,7 @@ export function SinceLastVisit({ projectId }: { projectId: string }) {
     items.push({
       icon: 'message',
       text: `${plural(data.comments_on_mine!, 'new comment', 'new comments')} on your tasks`,
-      to: `${base}?tab=tasks`,
+      to: `${base}?tab=work`,
     })
   }
   if (done.length > 0) {
@@ -80,11 +80,11 @@ export function SinceLastVisit({ projectId }: { projectId: string }) {
         done.length === 1
           ? `“${done[0].title}” was finished`
           : `${done.length} tasks were finished`,
-      to: done.length === 1 ? `${base}?tab=tasks&task=${done[0].id}` : `${base}?tab=progress`,
+      to: done.length === 1 ? `${base}?tab=work&task=${done[0].id}` : `${base}?tab=work&work=summary`,
     })
   }
   if ((data.tasks_added ?? 0) > 0) {
-    items.push({ icon: 'plus', text: plural(data.tasks_added!, 'new task', 'new tasks'), to: `${base}?tab=tasks` })
+    items.push({ icon: 'plus', text: plural(data.tasks_added!, 'new task', 'new tasks'), to: `${base}?tab=work` })
   }
   if ((data.commits ?? 0) > 0) {
     items.push({

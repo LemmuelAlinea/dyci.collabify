@@ -6,9 +6,8 @@ import { MembersTab } from '../../components/general/MembersTab'
 import { OverviewTab } from '../../components/general/OverviewTab'
 import { DiscussionTab } from '../../components/general/DiscussionTab'
 import { FilesTab } from '../../components/general/FilesTab'
-import { ProgressTab } from '../../components/general/ProgressTab'
 import { SharedTab } from '../../components/general/SharedTab'
-import { TasksTab } from '../../components/general/TasksTab'
+import { WorkTab } from '../../components/general/WorkTab'
 import { SinceLastVisit } from '../../components/general/SinceLastVisit'
 import { SaveTemplateButton } from '../../components/general/SaveTemplateButton'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
@@ -46,8 +45,11 @@ export default function GeneralProject() {
     const changed = new URLSearchParams(params)
     if (next === 'overview') changed.delete('tab')
     else changed.set('tab', next)
-    if (next !== 'tasks' && params.has('task')) {
+    // Work's own place (section, layout, open task) means nothing on another tab.
+    if (next !== 'work') {
       changed.delete('task')
+      changed.delete('work')
+      changed.delete('layout')
     }
     setParams(changed)
   }
@@ -171,10 +173,9 @@ export default function GeneralProject() {
         tabs={[
           { id: 'overview', label: 'Overview', icon: 'file' },
           { id: 'discussion', label: 'Discussion', icon: 'message' },
-          { id: 'tasks', label: 'Tasks', icon: 'check', count: state.tasks.length },
+          { id: 'work', label: 'Work', icon: 'kanban', count: state.tasks.length },
           { id: 'files', label: 'Files', icon: 'folder' },
           { id: 'shared', label: 'Shared with me', icon: 'users' },
-          { id: 'progress', label: 'Progress', icon: 'chart' },
           {
             id: 'members',
             label: 'Members',
@@ -188,10 +189,9 @@ export default function GeneralProject() {
 
       {tab === 'overview' && <OverviewTab state={state} />}
       {tab === 'discussion' && <DiscussionTab state={state} />}
-      {tab === 'tasks' && <TasksTab state={state} />}
+      {tab === 'work' && <WorkTab state={state} />}
       {tab === 'files' && <FilesTab state={state} />}
       {tab === 'shared' && <SharedTab state={state} />}
-      {tab === 'progress' && <ProgressTab state={state} />}
       {tab === 'members' && <MembersTab state={state} />}
 
       <ConfirmDialog

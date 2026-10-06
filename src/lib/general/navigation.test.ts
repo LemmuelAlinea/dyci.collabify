@@ -31,7 +31,13 @@ describe('general navigation', () => {
   })
 
   it('lets a task deep link override tab', () => {
-    expect(generalTab(new URLSearchParams('tab=members&task=abc'))).toBe('tasks')
+    expect(generalTab(new URLSearchParams('tab=members&task=abc'))).toBe('work')
+  })
+
+  it('sends the old Tasks and Progress tabs to Work', () => {
+    expect(generalTab(new URLSearchParams('tab=tasks'))).toBe('work')
+    expect(generalTab(new URLSearchParams('tab=progress'))).toBe('work')
+    expect(generalTab(new URLSearchParams('tab=work'))).toBe('work')
   })
 
   it('extracts only Space and project routes', () => {

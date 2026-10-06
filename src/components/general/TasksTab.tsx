@@ -1,11 +1,8 @@
 // src/components/general/TasksTab.tsx
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { Avatar } from '../app/Avatar'
 import { StageBadge, StageSelect } from '../tasks/StageSelect'
-import { SummaryTile, StatusDonut } from '../tasks/TaskSummary'
 import { TaskViewSwitch } from '../tasks/TaskViewSwitch'
-import type { TaskView } from '../tasks/TaskViewSwitch'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { TasksFromNotes } from './TasksFromNotes'
@@ -24,11 +21,11 @@ import type { GeneralTaskStatus } from '../../lib/general/progress'
 import type { GeneralTask } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
-import { TaskDialog } from './TaskDialog'
-import { useNow } from '../../hooks/useNow'
+import { taskCalendarEvents } from '../../lib/work/calendar'
+import type { TaskLayout } from '../../lib/work/nav'
+import { TaskCalendar } from '../work/TaskCalendar'
+import { TimelineView } from '../work/TimelineView'
 import type { GeneralProjectState } from './useGeneralProject'
-
-const DAY = 86_400_000
 
 /** The same column colours as a class board. */
 const COLUMN_TONE: Record<GeneralTaskStatus, string> = {
@@ -44,27 +41,28 @@ const NEXT: Record<GeneralTaskStatus, { to: GeneralTaskStatus; label: string; ic
 }
 
 /**
- * A work project's tasks, laid out the way a class project's are: Summary,
- * Board and List over the same filtered tasks.
+ * A work project's tasks: Board, List, Timeline and Calendar over the same
+ * filtered set. Summary lives beside it in Work (WorkSummary.tsx).
  */
-export function TasksTab({ state }: { state: GeneralProjectState }) {
+export function TasksTab({
+  state,
+  layout,
+  onLayout,
+  onOpenTask,
+}: {
+  state: GeneralProjectState
+  layout: TaskLayout
+  onLayout: (l: TaskLayout) => void
+  onOpenTask: (id: string | null) => void
+}) {
   const { show } = useToast()
-  const [params, setParams] = useSearchParams()
-  const [view, setView] = useState<TaskView>('board')
   const [query, setQuery] = useState('')
   const [team, setTeam] = useState('')
   const [assignee, setAssignee] = useState('')
   const [status, setStatus] = useState<GeneralTaskStatus | ''>('')
   const [creating, setCreating] = useState(false)
   const [fromNotes, setFromNotes] = useState(false)
-
-  const openTask = params.get('task')
-  const showTask = (id: string | null) => {
-    const next = new URLSearchParams(params)
-    if (id) next.set('task', id)
-    else next.delete('task')
-    setParams(next, { replace: !id })
-  }
+  const showTask = onOpenTask
 
   const project = state.project
   const shown = useMemo(() => {
@@ -112,7 +110,7 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
     <div className="space-y-4">
       {state.tasks.length > 0 && (
         <>
-          <TaskViewSwitch view={view} onView={setView} shown={shown.length} total={state.tasks.length} />
+          <TaskViewSwitch view={layout} onView={onLayout} shown={shown.length} total={state.tasks.length} />
           <div>
             <FilterPopover
               label="Filter tasks"
@@ -169,40 +167,38 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
         </>
       )}
 
-      {view !== 'summary' && (
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          <p className="text-[13px] text-muted">
-            <strong className="text-ink">
-              {progress.done} of {progress.total}
-            </strong>{' '}
-            done
-            {progress.total > 0 && (
-              <span className="text-faint">
-                {' · '}
-                {progress.pct}%
-              </span>
-            )}
-            {unassigned > 0 && (
-              <>
-                {' · '}
-                <span className="text-warning-700 dark:text-warning-300">{unassigned} with nobody on them</span>
-              </>
-            )}
-          </p>
-          {!state.archived && (
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setFromNotes(true)}>
-                <Icon name="spark" size={15} />
-                From notes
-              </Button>
-              <Button size="sm" className="!rounded-lg" onClick={() => setCreating(true)}>
-                <Icon name="plus" size={15} />
-                Add task
-              </Button>
-            </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <p className="text-[13px] text-muted">
+          <strong className="text-ink">
+            {progress.done} of {progress.total}
+          </strong>{' '}
+          done
+          {progress.total > 0 && (
+            <span className="text-faint">
+              {' · '}
+              {progress.pct}%
+            </span>
           )}
-        </div>
-      )}
+          {unassigned > 0 && (
+            <>
+              {' · '}
+              <span className="text-warning-700 dark:text-warning-300">{unassigned} with nobody on them</span>
+            </>
+          )}
+        </p>
+        {!state.archived && (
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setFromNotes(true)}>
+              <Icon name="spark" size={15} />
+              From notes
+            </Button>
+            <Button size="sm" className="!rounded-lg" onClick={() => setCreating(true)}>
+              <Icon name="plus" size={15} />
+              Add task
+            </Button>
+          </div>
+        )}
+      </div>
 
       {state.tasks.length === 0 ? (
         <EmptyState
@@ -225,9 +221,7 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
         />
       ) : shown.length === 0 ? (
         <EmptyState icon="search" title="Nothing matches" body="No task fits these filters. Clear one and try again." />
-      ) : view === 'summary' ? (
-        <WorkTaskSummary tasks={shown} state={state} />
-      ) : view === 'board' ? (
+      ) : layout === 'board' ? (
         <div className="grid gap-4 lg:grid-cols-3">
           {TASK_STATUSES.map((s) => {
             const column = shown.filter((t) => t.status === s.value)
@@ -257,13 +251,31 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
             )
           })}
         </div>
-      ) : (
+      ) : layout === 'list' ? (
         <TaskTable tasks={shown} state={state} onOpen={showTask} mayMove={mayMove} onMove={move} />
+      ) : layout === 'timeline' ? (
+        <TimelineView
+          tasks={shown.map((t) => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            starts_at: t.starts_at,
+            due_at: t.due_at,
+            group_id: t.team_id,
+          }))}
+          groups={state.teams}
+          span={project}
+          onOpen={showTask}
+        />
+      ) : (
+        <TaskCalendar
+          events={taskCalendarEvents(shown, (t) => state.teams.find((x) => x.id === t.team_id)?.name ?? '')}
+          onOpen={showTask}
+        />
       )}
 
       <NewTaskDialog open={creating} onClose={() => setCreating(false)} state={state} onCreated={showTask} />
       <TasksFromNotes open={fromNotes} onClose={() => setFromNotes(false)} state={state} />
-      <TaskDialog state={state} taskId={openTask} onClose={() => showTask(null)} />
     </div>
   )
 }
@@ -497,93 +509,6 @@ function TaskTable({
           })}
         </tbody>
       </table>
-    </div>
-  )
-}
-
-/** The class Summary's tiles and donut, over a work project's tasks. */
-function WorkTaskSummary({ tasks, state }: { tasks: GeneralTask[]; state: GeneralProjectState }) {
-  const now = useNow()
-  const within = (at: string | null) => Boolean(at && now - new Date(at).getTime() < 7 * DAY)
-  const counts = {
-    todo: tasks.filter((t) => t.status === 'todo').length,
-    in_progress: tasks.filter((t) => t.status === 'in_progress').length,
-    done: tasks.filter((t) => t.status === 'done').length,
-  }
-  const dueSoon = tasks.filter(
-    (t) => t.status !== 'done' && t.due_at && new Date(t.due_at).getTime() > now && new Date(t.due_at).getTime() - now < 7 * DAY,
-  ).length
-  const overdue = tasks.filter((t) => isOverdue(t.due_at, t.status)).length
-  const unassigned = tasks.filter((t) => t.assignee_ids.length === 0 && t.status !== 'done').length
-  const logged = tasks.reduce((n, t) => n + t.logged_minutes, 0)
-
-  const load = new Map<string, { held: number; done: number }>()
-  for (const t of tasks) {
-    for (const id of t.assignee_ids) {
-      const row = load.get(id) ?? { held: 0, done: 0 }
-      row.held += 1
-      if (t.status === 'done') row.done += 1
-      load.set(id, row)
-    }
-  }
-
-  return (
-    <div className="space-y-5">
-      <div className={`grid grid-cols-2 gap-3 ${overdue > 0 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
-        <SummaryTile icon="checkCircle" value={tasks.filter((t) => within(t.completed_at)).length} label="finished" sub="in the last 7 days" />
-        <SummaryTile icon="edit" value={tasks.filter((t) => within(t.updated_at)).length} label="updated" sub="in the last 7 days" />
-        <SummaryTile icon="plus" value={tasks.filter((t) => within(t.created_at)).length} label="created" sub="in the last 7 days" />
-        <SummaryTile icon="calendar" value={dueSoon} label="due soon" sub="in the next 7 days" />
-        {overdue > 0 && <SummaryTile icon="clock" tone="warn" value={overdue} label="overdue" sub="past their due date" />}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="card p-4 shadow-card sm:p-5">
-          <h3>Where it stands</h3>
-          <p className="mt-1 mb-4 text-[13px] text-muted">
-            Every task in view, by stage.
-            {logged > 0 && ` ${formatMinutes(logged)} logged against them.`}
-          </p>
-          <StatusDonut counts={counts} total={tasks.length} />
-          {unassigned > 0 && (
-            <p className="mt-4 flex items-center gap-2 text-[12px] text-warning-700 dark:text-warning-300">
-              <Icon name="alert" size={13} />
-              {unassigned} {unassigned === 1 ? 'task has' : 'tasks have'} nobody on them
-            </p>
-          )}
-        </section>
-
-        <section className="card p-4 shadow-card sm:p-5">
-          <h3>Who is carrying what</h3>
-          <p className="mt-1 mb-3 text-[13px] text-muted">Tasks held, and how many of them are finished.</p>
-          {load.size === 0 ? (
-            <p className="text-[13px] text-muted">Nobody holds a task yet.</p>
-          ) : (
-            <ul className="divide-y divide-[var(--line)]">
-              {[...load.entries()]
-                .sort((a, b) => b[1].held - a[1].held)
-                .map(([id, p]) => {
-                  const profile = state.members.find((m) => m.user_id === id)?.profile
-                  return (
-                    <li key={id} className="flex items-center gap-3 py-2.5 first:pt-0">
-                      {profile && <Avatar profile={profile} size={28} />}
-                      <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{state.nameOf(id)}</span>
-                      <span className="h-1.5 w-24 overflow-hidden rounded-full surface-sunken">
-                        <span
-                          className="block h-full rounded-full bg-progress"
-                          style={{ width: `${p.held ? (p.done / p.held) * 100 : 0}%` }}
-                        />
-                      </span>
-                      <span className="w-14 shrink-0 text-right font-mono text-[12px] text-faint">
-                        {p.done}/{p.held}
-                      </span>
-                    </li>
-                  )
-                })}
-            </ul>
-          )}
-        </section>
-      </div>
     </div>
   )
 }

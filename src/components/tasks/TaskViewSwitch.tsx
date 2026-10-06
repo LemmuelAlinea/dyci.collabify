@@ -11,7 +11,7 @@ export type TaskView = TaskLayout
 const ICON = { board: 'kanban', list: 'board', timeline: 'clock', calendar: 'calendar' } as const
 
 /**
- * The three ways of looking at the same tasks, and the count beside them.
+ * The four ways of looking at the same tasks, and the count beside them.
  *
  * The count is what keeps the filter honest: a filtered list that says nothing
  * about being filtered reads as "there is no work here" rather than "you are

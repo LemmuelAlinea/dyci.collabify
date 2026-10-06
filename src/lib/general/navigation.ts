@@ -1,13 +1,17 @@
 import type { GeneralSpaceSummary } from './types'
 
-export type GeneralTabId = 'overview' | 'discussion' | 'tasks' | 'files' | 'shared' | 'progress' | 'members'
+export type GeneralTabId = 'overview' | 'discussion' | 'work' | 'files' | 'shared' | 'members'
 
-const TABS = new Set<GeneralTabId>(['overview', 'discussion', 'tasks', 'files', 'shared', 'progress', 'members'])
+const TABS = new Set<GeneralTabId>(['overview', 'discussion', 'work', 'files', 'shared', 'members'])
+
+/** Work replaced two tabs; links written before it still name them. */
+const LEGACY: Record<string, GeneralTabId> = { tasks: 'work', progress: 'work' }
 
 export function generalTab(params: URLSearchParams): GeneralTabId {
-  if (params.has('task')) return 'tasks'
-  const value = params.get('tab') as GeneralTabId | null
-  return value && TABS.has(value) ? value : 'overview'
+  if (params.has('task')) return 'work'
+  const raw = params.get('tab') ?? ''
+  const value = (LEGACY[raw] ?? raw) as GeneralTabId
+  return TABS.has(value) ? value : 'overview'
 }
 
 export function spaceRouteId(pathname: string): string | null {
