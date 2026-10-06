@@ -372,9 +372,32 @@ declare
   v_board uuid := (select v from fx where k='board');
   v_class uuid := (select v from fx where k='class');
   v_prof uuid := (select v from fx where k='prof');
-  v_week date := date_trunc('week', (current_date + 14)::timestamptz)::date;
+  v_week date;
   v_n int; t uuid[];
 begin
+  -- A week the class has nothing else due in. The rule counts the whole class,
+  -- so a fixed week fails whenever real deadlines already land in it (five did
+  -- once, and four more crossed the threshold on their own). Searched as the
+  -- service role, so archived tasks and handed-in boards count too: stricter
+  -- than the view, never looser. Ends before current_date + 28, the view's horizon.
+  select w::date into v_week
+    from generate_series(date_trunc('week', (current_date + 7)::timestamptz),
+                         (current_date + 25)::timestamptz, interval '7 days') w
+   where not exists (
+     select 1
+       from public.project_tasks pt
+       join public.project_boards pb on pb.id = pt.board_id
+       join public.projects p on p.id = pb.project_id
+      where p.class_id = v_class
+        and pt.status <> 'done'
+        and pt.due_at is not null
+        and date_trunc('week', pt.due_at)::date = w::date)
+   order by w
+   limit 1;
+  if v_week is null then
+    raise exception 'FAIL  no week in the next month is free of deadlines for the pile-up fixture';
+  end if;
+
   select array_agg(id order by title) into t
     from public.project_tasks where board_id = v_board;
 

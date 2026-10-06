@@ -22,7 +22,7 @@ $$;
 do $$
 declare
   v_prof uuid; v_class uuid; v_proj uuid; v_board uuid; v_task uuid;
-  v_a uuid; v_b uuid; v_syllabus uuid;
+  v_a uuid; v_b uuid; v_syllabus uuid; v_set uuid; v_group uuid;
 begin
   select professor_id, id into v_prof, v_class
     from public.classes where archived_at is null limit 1;
@@ -47,14 +47,25 @@ begin
      and (select count(*) from public.syllabus_weeks w where w.resource_id = syllabus_id) >= 1
    limit 1;
 
+  -- One group holding both, so one task can have two holders. An individual
+  -- project gives each student a board of their own, and solo-auto-claim.sql
+  -- puts its owner on every task there — inserting both collided with that, and
+  -- the board picked by `limit 1` could belong to a real student.
+  insert into public.group_sets (class_id, name, mode)
+  values (v_class, 'zz-notif-fixture', 'manual') returning id into v_set;
+  insert into public.groups (set_id, name) values (v_set, 'Zz notif group')
+  returning id into v_group;
+  insert into public.group_members (group_id, set_id, student_id)
+  values (v_group, v_set, v_a), (v_group, v_set, v_b);
+
   insert into public.projects
-    (class_id, created_by, title, type, start_week, end_week, audience, due_at)
-  values (v_class, v_prof, 'zz notif project', 'activity', 1, 1, 'individual',
+    (class_id, created_by, title, type, start_week, end_week, audience, group_set_id, due_at)
+  values (v_class, v_prof, 'zz notif project', 'activity', 1, 1, 'group', v_set,
           now() + interval '10 days')
   returning id into v_proj;
 
   perform public.ensure_project_boards(v_proj);
-  select id into v_board from public.project_boards where project_id = v_proj limit 1;
+  select id into v_board from public.project_boards where project_id = v_proj and group_id = v_group;
 
   insert into public.project_tasks (board_id, title, weight, due_at, created_by, author_role)
   values (v_board, 'zz notif task', 10, now() + interval '6 hours', v_prof, 'professor')
