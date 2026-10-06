@@ -13,7 +13,7 @@ const thisMonth = () => {
 export function TaskCalendar({ events, onOpen }: { events: CalendarEvent[]; onOpen: (taskId: string) => void }) {
   const [month, setMonth] = useState(thisMonth)
   const label = month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-  const undated = events.length === 0
+  const undated = events.every((e) => !e.task_id)
 
   return (
     <section className="rounded-panel border border-line surface p-4 sm:p-5">

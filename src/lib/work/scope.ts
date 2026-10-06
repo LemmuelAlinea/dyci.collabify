@@ -24,6 +24,12 @@ export function scopeSprintId(scope: TaskScope, sprints: readonly Sprint[]) {
   return scope.startsWith('sprint:') ? scope.slice('sprint:'.length) : null
 }
 
+/** Where a task made under this scope goes: its sprint, unless that sprint is finished. */
+export function scopeTargetSprint(scope: TaskScope, sprints: readonly Sprint[]): string | null {
+  const id = scopeSprintId(scope, sprints)
+  return id && sprints.find((s) => s.id === id)?.state !== 'completed' ? id : null
+}
+
 export function applyScope<T extends { sprint_id: string | null }>(
   items: readonly T[],
   scope: TaskScope,

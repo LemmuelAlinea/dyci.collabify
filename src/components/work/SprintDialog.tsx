@@ -52,7 +52,7 @@ export function SprintDialog({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       title={title}
       focusField
       footer={

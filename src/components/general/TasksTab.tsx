@@ -23,7 +23,7 @@ import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
 import { sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
 import type { TaskLayout } from '../../lib/work/nav'
-import { applyScope, scopeOptions, scopeSprintId } from '../../lib/work/scope'
+import { applyScope, scopeOptions, scopeSprintId, scopeTargetSprint } from '../../lib/work/scope'
 import type { TaskScope } from '../../lib/work/scope'
 import { sprintBands } from '../../lib/work/timeline'
 import { ScopePicker } from '../work/ScopePicker'
@@ -235,7 +235,13 @@ export function TasksTab({
         <EmptyState
           icon="target"
           title="No tasks here"
-          body={scope === 'backlog' ? 'Every task is in a sprint.' : 'This sprint has no tasks yet. Move some in from Backlog.'}
+          body={
+            scope === 'backlog'
+              ? 'Every task is in a sprint.'
+              : state.sprints.find((s) => s.id === scopeSprintId(scope, state.sprints))?.state === 'completed'
+                ? 'Nothing was recorded in this sprint.'
+                : 'This sprint has no tasks yet. Move some in from Backlog.'
+          }
         />
       ) : shown.length === 0 ? (
         <EmptyState icon="search" title="Nothing matches" body="No task fits these filters. Clear one and try again." />
@@ -300,7 +306,7 @@ export function TasksTab({
         open={creating}
         onClose={() => setCreating(false)}
         state={state}
-        sprintId={state.can('manage_tasks') ? scopeSprintId(scope, state.sprints) : null}
+        sprintId={state.can('manage_tasks') ? scopeTargetSprint(scope, state.sprints) : null}
         onCreated={showTask}
       />
       <TasksFromNotes open={fromNotes} onClose={() => setFromNotes(false)} state={state} />

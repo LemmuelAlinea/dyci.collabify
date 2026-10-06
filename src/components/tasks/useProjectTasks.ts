@@ -17,7 +17,7 @@ import { applyScope, readScope } from '../../lib/work/scope'
 import type { TaskScope } from '../../lib/work/scope'
 import type { Sprint } from '../../lib/work/types'
 import type { BoardSummary, MemberProgress as MemberRow, ProjectSummary, TeachingViewRole } from '../../lib/types'
-import { EMPTY_TASK_FILTERS, applyTaskFilters } from './taskFilterState'
+import { EMPTY_TASK_FILTERS, applyTaskFilters, narrowsTasks } from './taskFilterState'
 import type { TaskFilterState } from './taskFilterState'
 
 /**
@@ -136,6 +136,16 @@ export function useProjectTasks({
     () => applyScope(applyTaskFilters(scope, filters), sprintScope, sprints),
     [scope, filters, sprintScope, sprints],
   )
+  // The board reads its own live tasks, which follow realtime; the rows above
+  // only refresh on a reload. So scope the live tasks directly, and fall back
+  // to matching the rows only while a search or filter needs them.
+  const boardTasks = useMemo(
+    () =>
+      narrowsTasks(filters)
+        ? tasks.filter((task) => shown.some((r) => r.id === task.id))
+        : applyScope(tasks, sprintScope, sprints),
+    [tasks, filters, shown, sprintScope, sprints],
+  )
 
   // Rows carry a board, not a name; the boards carry the name.
   const ownerByBoard = useMemo(() => {
@@ -205,6 +215,7 @@ export function useProjectTasks({
     solo,
     active,
     tasks,
+    boardTasks,
     members,
     boardLoading,
     refresh,

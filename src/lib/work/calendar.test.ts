@@ -60,4 +60,15 @@ describe('sprintCalendarEvents', () => {
     expect(start.done).toBe(true)
     expect(end.done).toBe(false)
   })
+
+  it("leaves a planned sprint's start open, and closes a finished sprint's end", () => {
+    const [plannedStart] = sprintCalendarEvents([
+      { id: 's2', name: 'S2', starts_on: '2026-10-19', ends_on: '2026-11-01', state: 'planned' },
+    ])
+    expect(plannedStart.done).toBe(false)
+    const [, finishedEnd] = sprintCalendarEvents([
+      { id: 's0', name: 'S0', starts_on: '2026-09-21', ends_on: '2026-10-04', state: 'completed' },
+    ])
+    expect(finishedEnd.done).toBe(true)
+  })
 })

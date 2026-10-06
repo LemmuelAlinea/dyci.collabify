@@ -257,7 +257,7 @@ export function ProfessorTasksView({
                   !t.boardLoading && (
                     <TaskBoard
                       board={active}
-                      tasks={t.tasks}
+                      tasks={t.boardTasks}
                       members={t.members}
                       progress={t.progress}
                       viewerId={viewerId}

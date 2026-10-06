@@ -18,6 +18,11 @@ export const EMPTY_TASK_FILTERS: TaskFilterState = {
   status: '',
 }
 
+/** Whether anything besides the board choice narrows the rows. */
+export function narrowsTasks(f: TaskFilterState) {
+  return Boolean(f.query.trim() || f.assignee || f.status)
+}
+
 /** Applied the same way by the summary, the board, and the list. */
 export function applyTaskFilters(rows: ProjectTaskRow[], f: TaskFilterState) {
   const q = f.query.trim().toLowerCase()

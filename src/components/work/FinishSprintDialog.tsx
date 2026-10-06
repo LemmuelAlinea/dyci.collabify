@@ -80,7 +80,7 @@ export function FinishSprintDialog({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
       title={`Finish ${sprint.name}?`}
       footer={
         <>

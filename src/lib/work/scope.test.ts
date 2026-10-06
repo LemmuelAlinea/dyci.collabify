@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyScope, defaultScope, readScope, scopeOptions, scopeSprintId } from './scope'
+import { applyScope, defaultScope, readScope, scopeOptions, scopeSprintId, scopeTargetSprint } from './scope'
 import type { Sprint } from './types'
 
 const sprint = (over: Partial<Sprint>): Sprint => ({
@@ -35,6 +35,14 @@ describe('scope', () => {
     expect(scopeSprintId('running', all)).toBe('r')
     expect(scopeSprintId('sprint:p', all)).toBe('p')
     expect(scopeSprintId('all', all)).toBeNull()
+  })
+
+  it('puts a new task in the scoped sprint, unless that sprint is finished', () => {
+    expect(scopeTargetSprint('running', all)).toBe('r')
+    expect(scopeTargetSprint('sprint:p', all)).toBe('p')
+    expect(scopeTargetSprint('sprint:f', all)).toBeNull()
+    expect(scopeTargetSprint('backlog', all)).toBeNull()
+    expect(scopeTargetSprint('all', all)).toBeNull()
   })
 
   it('filters tasks by scope', () => {

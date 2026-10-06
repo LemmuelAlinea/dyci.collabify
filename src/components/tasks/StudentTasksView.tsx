@@ -20,7 +20,7 @@ import { TaskCalendar } from '../work/TaskCalendar'
 import { NO_SPAN, TimelineView } from '../work/TimelineView'
 import { classWorkSource } from './classWorkSource'
 import { sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
-import { scopeOptions, scopeSprintId } from '../../lib/work/scope'
+import { scopeOptions, scopeTargetSprint } from '../../lib/work/scope'
 import { sprintBands } from '../../lib/work/timeline'
 import { setTaskStatus } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
@@ -202,7 +202,7 @@ export function StudentTasksView({
               {t.view === 'board' && (
                 <TaskBoard
                   board={active}
-                  tasks={t.tasks.filter((task) => t.shown.some((r) => r.id === task.id))}
+                  tasks={t.boardTasks}
                   members={t.members}
                   progress={t.progress}
                   viewerId={viewerId}
@@ -211,7 +211,7 @@ export function StudentTasksView({
                   // or closed board refuses new work in the database, so offering
                   // "Add task" here only produces an error.
                   canWork={canPlanBoard(active, locked)}
-                  newTaskSprint={scopeSprintId(t.sprintScope, t.sprints)}
+                  newTaskSprint={scopeTargetSprint(t.sprintScope, t.sprints)}
                   onChanged={t.refresh}
                 />
               )}
