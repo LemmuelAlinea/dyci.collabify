@@ -19,6 +19,8 @@ type GlanceProps = {
   milestones: Milestone[]
   /** Ids of the tasks the viewer holds. */
   mine: ReadonlySet<string>
+  /** May plan sprints; the empty sprint card only points to Backlog when true. */
+  canPlan: boolean
   onOpenTask: (id: string) => void
   onSection: (s: WorkSection) => void
 }
@@ -28,10 +30,10 @@ type GlanceProps = {
  * the viewer now. The same cards in either space; each one links to the
  * section where that work is done.
  */
-export function WorkGlance({ items, sprints, milestones, mine, onOpenTask, onSection }: GlanceProps) {
+export function WorkGlance({ items, sprints, milestones, mine, canPlan, onOpenTask, onSection }: GlanceProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <SprintCard items={items} sprints={sprints} onSection={onSection} />
+      <SprintCard items={items} sprints={sprints} canPlan={canPlan} onSection={onSection} />
       <MilestoneCard items={items} milestones={milestones} onSection={onSection} />
       <div className="lg:col-span-2">
         <NeedsYouCard items={items} mine={mine} onOpenTask={onOpenTask} />
@@ -75,7 +77,7 @@ function Counted({ done, total, noun, pct }: { done: number; total: number; noun
   )
 }
 
-function SprintCard({ items, sprints, onSection }: Pick<GlanceProps, 'items' | 'sprints' | 'onSection'>) {
+function SprintCard({ items, sprints, canPlan, onSection }: Pick<GlanceProps, 'items' | 'sprints' | 'canPlan' | 'onSection'>) {
   const now = useNow()
   const sprint = runningSprint(sprints)
 
@@ -85,8 +87,8 @@ function SprintCard({ items, sprints, onSection }: Pick<GlanceProps, 'items' | '
       <section className="card p-4 shadow-card sm:p-5">
         <CardHead icon="target" label="Running sprint" action="Open Backlog" onAction={() => onSection('backlog')} />
         <p className="mt-3 text-[13px] text-muted">
-          No sprint is running.{' '}
-          {planned ? 'Start a planned one from Backlog.' : 'Plan one from Backlog when the team is ready.'}
+          No sprint is running.
+          {canPlan && (planned ? ' Start a planned one from Backlog.' : ' Plan one from Backlog when the team is ready.')}
         </p>
       </section>
     )
@@ -146,7 +148,7 @@ function NeedsYouCard({ items, mine, onOpenTask }: Pick<GlanceProps, 'items' | '
   const n = needsYou(items, mine, now)
   const groups = [
     { key: 'overdue', label: 'Overdue', tone: 'text-danger-700 dark:text-danger-300', rows: n.overdue },
-    { key: 'soon', label: 'Due this week', tone: 'text-warning-800 dark:text-warning-300', rows: n.dueSoon },
+    { key: 'soon', label: 'Due soon', tone: 'text-warning-800 dark:text-warning-300', rows: n.dueSoon },
     { key: 'unheld', label: 'Nobody on it', tone: 'text-pending-ink', rows: n.unheld },
   ].filter((g) => g.rows.length > 0)
 
@@ -158,7 +160,7 @@ function NeedsYouCard({ items, mine, onOpenTask }: Pick<GlanceProps, 'items' | '
       </span>
       {groups.length === 0 ? (
         <p className="mt-3 text-[13px] text-muted">
-          Nothing needs you right now. None of your tasks is late or due this week, and every open
+          Nothing needs you right now. None of your tasks is late or due in the next 7 days, and every open
           task has someone on it.
         </p>
       ) : (

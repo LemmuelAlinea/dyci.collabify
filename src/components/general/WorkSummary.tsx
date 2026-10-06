@@ -33,6 +33,8 @@ export function WorkSummary({
   const project = state.project
   if (!project) return null
   const progress = projectProgress(state.tasks)
+  const me = state.viewerId
+  const mine = new Set(me ? state.tasks.filter((t) => t.assignee_ids.includes(me)).map((t) => t.id) : [])
 
   return (
     <div className="space-y-6">
@@ -40,7 +42,8 @@ export function WorkSummary({
         items={generalWorkItems(state)}
         sprints={state.sprints}
         milestones={state.milestones}
-        mine={new Set(state.viewerId ? state.tasks.filter((t) => t.assignee_ids.includes(state.viewerId as string)).map((t) => t.id) : [])}
+        mine={mine}
+        canPlan={!state.archived && state.can('manage_tasks')}
         onOpenTask={onOpenTask}
         onSection={onSection}
       />

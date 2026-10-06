@@ -103,6 +103,7 @@ export function StudentTasksView({
                 sprints={t.sprints}
                 milestones={t.milestones}
                 mine={new Set(viewerId ? t.tasks.filter((x) => isMine(x, viewerId)).map((x) => x.id) : [])}
+                canPlan={canPlanBoard(active, locked)}
                 onOpenTask={t.showTask}
                 onSection={t.setSection}
               />

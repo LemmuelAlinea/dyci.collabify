@@ -47,8 +47,8 @@ export function GroupMilestoneGrid({
   }
 
   return (
-    <div className="overflow-x-auto rounded-panel border border-line">
-      <table className="w-full min-w-max border-collapse text-[13px]">
+    <div className="overflow-x-auto rounded-panel border border-line surface">
+      <table aria-label={`Milestones by ${who}`} className="w-full min-w-max border-collapse text-[13px]">
         <thead>
           <tr className="surface-sunken">
             <th scope="col" className="sticky left-0 z-10 surface-sunken px-3 py-2 text-left font-medium text-muted">
@@ -56,7 +56,7 @@ export function GroupMilestoneGrid({
             </th>
             {grid.milestones.map((m) => (
               <th key={m.id} scope="col" className="px-3 py-2 text-left font-medium">
-                <span className="block max-w-[10rem] truncate text-ink">{m.name}</span>
+                <span className="block max-w-[10rem] truncate text-ink" title={m.name}>{m.name}</span>
                 <span className="block font-mono text-[11px] font-normal text-faint">{formatDay(m.due_on)}</span>
               </th>
             ))}
@@ -69,6 +69,7 @@ export function GroupMilestoneGrid({
                 <button
                   type="button"
                   onClick={() => onOpenGroup(r.id)}
+                  title={r.name}
                   className="block max-w-[12rem] truncate text-ink hover:underline"
                 >
                   {r.name}
@@ -78,7 +79,7 @@ export function GroupMilestoneGrid({
                 <td key={c.milestoneId} className="px-3 py-2">
                   <div className="flex items-center gap-2">
                     <span className="w-10 font-mono text-[12px] text-faint">
-                      {c.total ? `${c.done}/${c.total}` : '—'}
+                      {c.total ? `${c.done}/${c.total}` : <span aria-label="No tasks tagged">—</span>}
                     </span>
                     <StatusPill status={c.status} />
                   </div>
