@@ -2839,3 +2839,33 @@ the editors plan; the plan is done.
   and Shift+wheel still go to the grid.
 - Checked on a throwaway page in dark mode: option colours rgb(26,34,85) on rgb(241,243,251);
   300-row sheet scrolls down to 500 px, up to 300, up to 0, and redraws. Build, eslint, 614 Vitest.
+
+**Change (2026-10-06): the Tasks tab is Work, with Summary and four task layouts.** Part 1 of 4
+of the Work tab plan (spec: docs/superpowers/specs/2026-10-06-work-tab-sprints-milestones-design.md,
+plan: docs/superpowers/plans/2026-10-06-work-tab-part-1.md). Branch `claude/work-tab`.
+- Both project pages: the tab is **Work** (`?tab=work`), with a sub-nav (`?work=summary|tasks`)
+  and task layouts (`?layout=board|list|timeline|calendar`), read by `lib/work/nav.ts`.
+  `?tab=tasks`, `?board=` and `?task=` land on Work › Tasks; `?tab=progress` on Work › Summary.
+  Opening a task writes the current section, so it never flips sections under the dialog. The class
+  page now writes `tab` to the address too, so a reload or shared link keeps its place.
+- The Progress tab is gone. Work projects: where we are, tiles, forecast and late work are on
+  Summary; the timeline is Tasks › Timeline. Class students: board progress and shares are on
+  Summary. Professors: Summary = hand-in queue, groups, every task; opening a group goes to Tasks
+  with that board chosen. The professor tab reads Work too (was Boards / Students).
+- Shared: `lib/work/timeline.ts` (moved from lib/general; team_id → group_id), `lib/work/calendar.ts`,
+  `components/work/{WorkNav,TimelineView,TaskCalendar}.tsx`. GanttChart and both ProgressTabs deleted.
+- SQL `class-schedule.sql` (applied live): `project_tasks.starts_at` (planned start), start ≤ due,
+  frozen once started; recreates `task_detail_overview`; redefines `guard_task_edit` (task-archive.sql),
+  `update_professor_task` (tasks.sql: pulling a set task's due in clears a copy's later start) and
+  `apply_shift_to_deadlines` (term-shifts.sql: starts move with dues). Re-run it after any of those
+  three (docs/07-backup.md says so). `authError` maps the check to "A task cannot start after it is due."
+- Students' task form has Starts (Weight on its own row); a professor's set task has none yet.
+- Checked: class-schedule test 14 PASS; deadline-lock 24, rls-coverage 4, anon-lockdown 15,
+  term-shift 37, access 66, task-archive 20 PASS. Build, eslint, 632 Vitest. Browser, signed in as
+  faculty (dark): work project `?tab=progress` → Summary, Timeline, Calendar chip opens the task;
+  class project `?tab=tasks` → Work › Tasks, Summary survives reload, 375 wide with no sideways
+  scroll. Not seen: a student's class Work tab signed in, light mode.
+- Pre-existing, not from this branch: `notifications.test.sql` fails (its individual-project fixture
+  inserts both students as assignees, but solo-auto-claim already claimed the owner);
+  `insight.test.sql` fails on live data.
+- Next: Part 2, Backlog + Sprints.
