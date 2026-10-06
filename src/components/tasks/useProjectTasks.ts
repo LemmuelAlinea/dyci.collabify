@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useLive } from '../../hooks/useLive'
 import { useTaskBoard } from '../../hooks/useTaskBoard'
+import { listSprints } from '../../lib/api/sprints'
 import {
   groupByOrigin,
   listMemberProgress,
@@ -11,6 +13,9 @@ import { authErrorMessage } from '../../lib/authError'
 import { boardOwnerName, isProjectLocked } from '../../lib/types'
 import { taskLayout, withWork, workSection } from '../../lib/work/nav'
 import type { TaskLayout, WorkSection } from '../../lib/work/nav'
+import { applyScope, readScope } from '../../lib/work/scope'
+import type { TaskScope } from '../../lib/work/scope'
+import type { Sprint } from '../../lib/work/types'
 import type { BoardSummary, MemberProgress as MemberRow, ProjectSummary, TeachingViewRole } from '../../lib/types'
 import { EMPTY_TASK_FILTERS, applyTaskFilters } from './taskFilterState'
 import type { TaskFilterState } from './taskFilterState'
@@ -100,9 +105,24 @@ export function useProjectTasks({
     void loadProgress()
   }, [loadProgress, tasks])
 
+  // Sprints belong to one board, so they follow the board in view.
+  const [sprints, setSprints] = useState<Sprint[]>([])
+  const loadSprints = useCallback(async () => {
+    if (!activeId) return setSprints([])
+    try {
+      setSprints(await listSprints({ kind: 'class', boardId: activeId }))
+    } catch {
+      setSprints([])
+    }
+  }, [activeId])
+  useEffect(() => {
+    void loadSprints()
+  }, [loadSprints])
+  useLive(loadSprints, ['board_sprints'], { enabled: Boolean(activeId) })
+
   const refresh = useCallback(async () => {
-    await Promise.all([reload(), loadBoards(), loadProgress()])
-  }, [reload, loadBoards, loadProgress])
+    await Promise.all([reload(), loadBoards(), loadProgress(), loadSprints()])
+  }, [reload, loadBoards, loadProgress, loadSprints])
 
   // A student's views cover their own board; a professor's cover the project,
   // narrowed by the group filter.
@@ -110,7 +130,12 @@ export function useProjectTasks({
     () => (isProfessor ? rows : rows.filter((t) => t.board_id === active?.id)),
     [rows, isProfessor, active?.id],
   )
-  const shown = useMemo(() => applyTaskFilters(scope, filters), [scope, filters])
+  // With a board in view, Tasks follows the chosen sprint too.
+  const sprintScope: TaskScope = activeId ? readScope(params.get('scope'), sprints) : 'all'
+  const shown = useMemo(
+    () => applyScope(applyTaskFilters(scope, filters), sprintScope, sprints),
+    [scope, filters, sprintScope, sprints],
+  )
 
   // Rows carry a board, not a name; the boards carry the name.
   const ownerByBoard = useMemo(() => {
@@ -140,6 +165,10 @@ export function useProjectTasks({
   )
   const setView = useCallback(
     (l: TaskLayout) => setParams(withWork(params, { layout: l }), { replace: true }),
+    [params, setParams],
+  )
+  const setSprintScope = useCallback(
+    (s: TaskScope) => setParams(withWork(params, { scope: s }), { replace: true }),
     [params, setParams],
   )
   const showTask = useCallback(
@@ -186,6 +215,9 @@ export function useProjectTasks({
     openTask,
     showTask,
     showBoard,
+    sprints,
+    sprintScope,
+    setSprintScope,
   }
 }
 

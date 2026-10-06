@@ -43,6 +43,7 @@ export function TaskBoard({
   progress,
   viewerId, role,
   canWork,
+  newTaskSprint = null,
   onChanged,
 }: {
   board: BoardSummary
@@ -54,6 +55,8 @@ export function TaskBoard({
   role: TeachingViewRole
   /** A professor writes the work; only the board's own people move it. */
   canWork: boolean
+  /** New tasks join this sprint; null puts them in the backlog. */
+  newTaskSprint?: string | null
   onChanged: () => Promise<void> | void
 }) {
   const { show } = useToast()
@@ -88,7 +91,7 @@ export function TaskBoard({
     setBusy(true)
     try {
       if (editing) await updateTask(editing.id, input)
-      else await addTask(board.id, input, viewerId)
+      else await addTask(board.id, { ...input, sprintId: newTaskSprint }, viewerId)
       setAdding(false)
       setEditing(null)
       await onChanged()

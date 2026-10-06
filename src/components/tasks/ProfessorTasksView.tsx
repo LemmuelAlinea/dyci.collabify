@@ -3,6 +3,7 @@ import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Alert } from '../ui/Alert'
 import { Icon, Spinner } from '../ui/Icon'
+import { Select } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { BoardProgress } from './BoardProgress'
 import { BoardVerdict } from './BoardVerdict'
@@ -17,9 +18,15 @@ import { TaskSummary } from './TaskSummary'
 import { TaskDetailModal } from './detail/TaskDetailModal'
 import { TaskFilterBar, TaskViewSwitch } from './TaskViewSwitch'
 import { classTimelineTasks } from './classTimeline'
+import { BacklogView } from '../work/BacklogView'
+import { ScopePicker } from '../work/ScopePicker'
+import { SprintsView } from '../work/SprintsView'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { NO_SPAN, TimelineView } from '../work/TimelineView'
-import { taskCalendarEvents } from '../../lib/work/calendar'
+import { classWorkSource } from './classWorkSource'
+import { sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
+import { scopeOptions } from '../../lib/work/scope'
+import { sprintBands } from '../../lib/work/timeline'
 import { deleteProfessorTask } from '../../lib/api/tasks'
 import { recordResult } from '../../lib/api/results'
 import type { ProfessorTaskGroup } from '../../lib/api/tasks'
@@ -139,6 +146,38 @@ export function ProfessorTasksView({
         </>
       )}
 
+      {(t.section === 'backlog' || t.section === 'sprints') && (
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h3>{active ? boardOwnerName(active) : `Choose a ${who}`}</h3>
+              <p className="mt-0.5 text-[13px] text-muted">
+                {active ? `This ${who}'s plan, as they keep it.` : `Each ${who} plans its own sprints. Pick one to follow its plan.`}
+              </p>
+            </div>
+            <div className="w-full max-w-xs">
+              <Select
+                value={active?.id ?? ''}
+                onChange={(e) => t.showBoard(e.target.value || null)}
+                placeholder={`Choose a ${who}`}
+                options={(boards ?? []).map((b) => ({ value: b.id, label: boardOwnerName(b) }))}
+                aria-label={`Which ${who}`}
+                className="!h-10 !text-[13px]"
+              />
+            </div>
+          </div>
+          {(() => {
+            const source = classWorkSource(t, viewerId)
+            if (!source) return null
+            return t.section === 'backlog' ? (
+              <BacklogView source={source} />
+            ) : (
+              <SprintsView source={source} onPlan={() => t.setSection('backlog')} />
+            )
+          })()}
+        </section>
+      )}
+
       {t.section === 'tasks' && (
         <>
           {/* 3 ── the work, with its scope named at the top of it */}
@@ -182,6 +221,13 @@ export function ProfessorTasksView({
               ))}
 
             <div className="space-y-3">
+              {active && t.sprints.length > 0 && (
+                <ScopePicker
+                  value={t.sprintScope}
+                  options={scopeOptions(t.sprints)}
+                  onChange={t.setSprintScope}
+                />
+              )}
               <TaskViewSwitch
                 view={t.view}
                 onView={t.setView}
@@ -231,13 +277,17 @@ export function ProfessorTasksView({
                   tasks={classTimelineTasks(t.shown, !active)}
                   groups={active ? [] : (boards ?? []).map((b) => ({ id: b.id, name: boardOwnerName(b) }))}
                   span={NO_SPAN}
+                  bands={active ? sprintBands(t.sprints) : []}
                   looseLabel={active ? boardOwnerName(active) : 'Unknown board'}
                   onOpen={t.showTask}
                 />
               )}
               {t.view === 'calendar' && (
                 <TaskCalendar
-                  events={taskCalendarEvents(t.shown, active ? undefined : t.ownerFor)}
+                  events={[
+                    ...taskCalendarEvents(t.shown, active ? undefined : t.ownerFor),
+                    ...(active ? sprintCalendarEvents(t.sprints) : []),
+                  ]}
                   onOpen={t.showTask}
                 />
               )}

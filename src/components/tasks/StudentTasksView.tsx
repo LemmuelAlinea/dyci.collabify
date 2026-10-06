@@ -11,12 +11,17 @@ import { TaskBoard } from './TaskBoard'
 import { TaskList } from './TaskList'
 import { TaskSummary } from './TaskSummary'
 import { TaskDetailModal } from './detail/TaskDetailModal'
-import { EMPTY_TASK_FILTERS } from './taskFilterState'
 import { TaskFilterBar, TaskViewSwitch } from './TaskViewSwitch'
 import { classTimelineTasks } from './classTimeline'
+import { BacklogView } from '../work/BacklogView'
+import { ScopePicker } from '../work/ScopePicker'
+import { SprintsView } from '../work/SprintsView'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { NO_SPAN, TimelineView } from '../work/TimelineView'
-import { taskCalendarEvents } from '../../lib/work/calendar'
+import { classWorkSource } from './classWorkSource'
+import { sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
+import { scopeOptions, scopeSprintId } from '../../lib/work/scope'
+import { sprintBands } from '../../lib/work/timeline'
 import { setTaskStatus } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import { canPlanBoard, isBoardSubmitted, isMine } from '../../lib/types'
@@ -98,6 +103,16 @@ export function StudentTasksView({
               />
               <TaskSummary rows={t.scope} />
             </div>
+          ) : t.section === 'backlog' || t.section === 'sprints' ? (
+            (() => {
+              const source = classWorkSource(t, viewerId)
+              if (!source) return null
+              return t.section === 'backlog' ? (
+                <BacklogView source={source} />
+              ) : (
+                <SprintsView source={source} onPlan={() => t.setSection('backlog')} />
+              )
+            })()
           ) : (
             <>
               {/* Handing in and the professor's answer sit in the project header;
@@ -139,6 +154,13 @@ export function StudentTasksView({
                 )
               )}
 
+              {t.sprints.length > 0 && (
+                <ScopePicker
+                  value={t.sprintScope}
+                  options={scopeOptions(t.sprints)}
+                  onChange={t.setSprintScope}
+                />
+              )}
               <TaskViewSwitch
                 view={t.view}
                 onView={t.setView}
@@ -180,11 +202,7 @@ export function StudentTasksView({
               {t.view === 'board' && (
                 <TaskBoard
                   board={active}
-                  tasks={
-                    t.filters === EMPTY_TASK_FILTERS
-                      ? t.tasks
-                      : t.tasks.filter((task) => t.shown.some((r) => r.id === task.id))
-                  }
+                  tasks={t.tasks.filter((task) => t.shown.some((r) => r.id === task.id))}
                   members={t.members}
                   progress={t.progress}
                   viewerId={viewerId}
@@ -193,6 +211,7 @@ export function StudentTasksView({
                   // or closed board refuses new work in the database, so offering
                   // "Add task" here only produces an error.
                   canWork={canPlanBoard(active, locked)}
+                  newTaskSprint={scopeSprintId(t.sprintScope, t.sprints)}
                   onChanged={t.refresh}
                 />
               )}
@@ -201,16 +220,17 @@ export function StudentTasksView({
                   tasks={classTimelineTasks(t.shown, false)}
                   groups={[]}
                   span={NO_SPAN}
+                  bands={sprintBands(t.sprints)}
                   looseLabel={active.group_id ? 'Your group' : 'Your tasks'}
                   onOpen={t.showTask}
                 />
               )}
               {t.view === 'calendar' && (
-                <TaskCalendar events={taskCalendarEvents(t.shown)} onOpen={t.showTask} />
+                <TaskCalendar events={[...taskCalendarEvents(t.shown), ...sprintCalendarEvents(t.sprints)]} onOpen={t.showTask} />
               )}
             </>
           )}
-          {(t.section === 'summary' || t.view !== 'board') && (
+          {(t.section !== 'tasks' || t.view !== 'board') && (
             <TaskDetailModal
               taskId={t.openTask}
               onClose={() => t.showTask(null)}
