@@ -1,4 +1,5 @@
 import { Spinner } from '../ui/Icon'
+import { WorkNav } from '../work/WorkNav'
 import { EmptyState } from '../ui/EmptyState'
 import { ProfessorTasksView } from './ProfessorTasksView'
 import { StudentTasksView } from './StudentTasksView'
@@ -7,7 +8,7 @@ import { isReleased } from '../../lib/types'
 import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
 
 /**
- * Tasks inside one project. A student sees their own board; a professor sees
+ * Work inside one project: Summary and Tasks. A student sees their own board; a professor sees
  * what they set, where every group stands, and can open any board read-only.
  *
  * This file holds only what both roles share: the loading state and the two
@@ -23,7 +24,7 @@ export function ProjectTasksTab({
   project: ProjectSummary
   role: TeachingViewRole
   viewerId: string | undefined
-  /** Owned by the project page, which shares it with Files, Progress and the hand-in. */
+  /** Owned by the project page, which shares it with Files and the hand-in. */
   t: ProjectTasks
 }) {
 
@@ -60,9 +61,14 @@ export function ProjectTasksTab({
     )
   }
 
-  return t.isProfessor ? (
-    <ProfessorTasksView project={project} role={role} viewerId={viewerId} t={t} />
-  ) : (
-    <StudentTasksView project={project} role={role} viewerId={viewerId} t={t} />
+  return (
+    <div className="space-y-5">
+      <WorkNav active={t.section} onChange={t.setSection} />
+      {t.isProfessor ? (
+        <ProfessorTasksView project={project} role={role} viewerId={viewerId} t={t} />
+      ) : (
+        <StudentTasksView project={project} role={role} viewerId={viewerId} t={t} />
+      )}
+    </div>
   )
 }

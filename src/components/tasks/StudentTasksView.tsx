@@ -5,12 +5,18 @@ import { EmptyState } from '../ui/EmptyState'
 import { useToast } from '../ui/Toast'
 import { ClassTasksFromNotes } from './ClassTasksFromNotes'
 import { GenerateTasksModal } from './GenerateTasksModal'
+import { BoardProgress } from './BoardProgress'
+import { MemberProgress } from './MemberProgress'
 import { TaskBoard } from './TaskBoard'
 import { TaskList } from './TaskList'
 import { TaskSummary } from './TaskSummary'
 import { TaskDetailModal } from './detail/TaskDetailModal'
 import { EMPTY_TASK_FILTERS } from './taskFilterState'
 import { TaskFilterBar, TaskViewSwitch } from './TaskViewSwitch'
+import { classTimelineTasks } from './classTimeline'
+import { TaskCalendar } from '../work/TaskCalendar'
+import { NO_SPAN, TimelineView } from '../work/TimelineView'
+import { taskCalendarEvents } from '../../lib/work/calendar'
 import { setTaskStatus } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import { canPlanBoard, isBoardSubmitted, isMine } from '../../lib/types'
@@ -82,8 +88,20 @@ export function StudentTasksView({
         </div>
       ) : (
         <>
+          {t.section === 'summary' ? (
+            <div className="space-y-4">
+              <BoardProgress board={active} />
+              <MemberProgress
+                rows={t.progress}
+                viewerId={viewerId}
+                title={active.group_id ? 'Your group' : 'Your progress'}
+              />
+              <TaskSummary rows={t.scope} />
+            </div>
+          ) : (
+            <>
           {/* Handing in and the professor's answer sit in the project header;
-              progress has its own tab. */}
+              progress is on Summary. */}
 
           {/* Drafting is planning, and planning is over once the board is
               handed in — accepting leaves it that way, returning gives it back.
@@ -135,7 +153,6 @@ export function StudentTasksView({
             showBoards={false}
           />
 
-          {t.view === 'summary' && <TaskSummary rows={t.shown} />}
           {t.view === 'list' && (
             <TaskList
               rows={t.shown}
@@ -179,7 +196,21 @@ export function StudentTasksView({
               onChanged={t.refresh}
             />
           )}
-          {t.view !== 'board' && (
+          {t.view === 'timeline' && (
+            <TimelineView
+              tasks={classTimelineTasks(t.shown, false)}
+              groups={[]}
+              span={NO_SPAN}
+              looseLabel={active.group_id ? 'Your group' : 'Your tasks'}
+              onOpen={t.showTask}
+            />
+          )}
+          {t.view === 'calendar' && (
+            <TaskCalendar events={taskCalendarEvents(t.shown)} onOpen={t.showTask} />
+          )}
+            </>
+          )}
+          {(t.section === 'summary' || t.view !== 'board') && (
             <TaskDetailModal
               taskId={t.openTask}
               onClose={() => t.showTask(null)}

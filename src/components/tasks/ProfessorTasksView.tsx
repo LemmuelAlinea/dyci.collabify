@@ -16,6 +16,10 @@ import { TaskList } from './TaskList'
 import { TaskSummary } from './TaskSummary'
 import { TaskDetailModal } from './detail/TaskDetailModal'
 import { TaskFilterBar, TaskViewSwitch } from './TaskViewSwitch'
+import { classTimelineTasks } from './classTimeline'
+import { TaskCalendar } from '../work/TaskCalendar'
+import { NO_SPAN, TimelineView } from '../work/TimelineView'
+import { taskCalendarEvents } from '../../lib/work/calendar'
 import { deleteProfessorTask } from '../../lib/api/tasks'
 import { recordResult } from '../../lib/api/results'
 import type { ProfessorTaskGroup } from '../../lib/api/tasks'
@@ -72,6 +76,12 @@ export function ProfessorTasksView({
   const who = solo ? 'student' : 'group'
   const whoPlural = solo ? 'students' : 'groups'
 
+  /** From Summary, opening a group means going to its tasks. */
+  const openBoard = (boardId: string) => {
+    t.showBoard(boardId)
+    t.setSection('tasks')
+  }
+
   return (
     <div className="space-y-6">
       {t.error && <Alert tone="error">{t.error}</Alert>}
@@ -82,11 +92,13 @@ export function ProfessorTasksView({
         </Alert>
       )}
 
+      {t.section === 'summary' && (
+        <>
       {/* 1 ── what needs a decision */}
       <HandInQueue
         boards={boards ?? []}
         solo={solo}
-        onOpen={(b) => t.showBoard(b.id)}
+        onOpen={(b) => openBoard(b.id)}
         onChanged={t.refresh}
       />
 
@@ -95,14 +107,14 @@ export function ProfessorTasksView({
         <div>
           <h3>{solo ? 'Students' : 'Groups'}</h3>
           <p className="mt-0.5 text-[13px] text-muted">
-            Open {solo ? 'a student' : 'a group'} to see its board and answer its work.
+            Open {solo ? 'a student' : 'a group'} to see its tasks and answer its work.
           </p>
         </div>
         <GroupProgressTable
           boards={boards ?? []}
           activeId={active?.id}
           solo={solo}
-          onOpen={(b) => t.showBoard(b.id === active?.id ? null : b.id)}
+          onOpen={(b) => openBoard(b.id)}
           onAccept={async (b) => {
             try {
               await recordResult({ boardId: b.id, verdict: 'accepted' })
@@ -115,8 +127,20 @@ export function ProfessorTasksView({
         />
       </section>
 
+          <section className="space-y-3 border-t border-line pt-6">
+            <div>
+              <h3>Every {who}</h3>
+              <p className="mt-0.5 text-[13px] text-muted">All tasks across the project, by stage, and who carries them.</p>
+            </div>
+            <TaskSummary rows={t.scope} showLoad />
+          </section>
+        </>
+      )}
+
+      {t.section === 'tasks' && (
+        <>
       {/* 3 ── the work, with its scope named at the top of it */}
-      <section className="space-y-4 border-t border-line pt-6">
+      <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <h3 className="truncate">
@@ -170,9 +194,6 @@ export function ProfessorTasksView({
             showBoards
           />
 
-          {/* With a group open its share breakdown is already above; without
-              one, the aggregate counts here are the only member view. */}
-          {t.view === 'summary' && <TaskSummary rows={t.shown} showLoad={!active} />}
           {t.view === 'list' && (
             <TaskList
               rows={t.shown}
@@ -199,26 +220,26 @@ export function ProfessorTasksView({
               )
             ) : (
               <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
-                A board belongs to one {who}. Open one above, or switch to the list to see
-                every {who} at once.
+                A board belongs to one {who}. Choose one in the filter above, or switch to the
+                list, timeline or calendar to see every {who} at once.
               </p>
             ))}
+          {t.view === 'timeline' && (
+            <TimelineView
+              tasks={classTimelineTasks(t.shown, !active)}
+              groups={active ? [] : (boards ?? []).map((b) => ({ id: b.id, name: boardOwnerName(b) }))}
+              span={NO_SPAN}
+              looseLabel={active ? boardOwnerName(active) : 'Unknown board'}
+              onOpen={t.showTask}
+            />
+          )}
+          {t.view === 'calendar' && (
+            <TaskCalendar
+              events={taskCalendarEvents(t.shown, active ? undefined : t.ownerFor)}
+              onOpen={t.showTask}
+            />
+          )}
         </div>
-
-        {/* Outside the view switch: a task opened from the list must still open
-            when the board view is showing. */}
-        <TaskDetailModal
-          taskId={t.openTask}
-          onClose={() => t.showTask(null)}
-          viewerId={viewerId}
-          role={role}
-          boardWeight={
-            t.weightByBoard.get(t.rows.find((r) => r.id === t.openTask)?.board_id ?? '') ?? 0
-          }
-          // A professor is never locked out of a task by the project closing.
-          locked={false}
-          onChanged={t.refresh}
-        />
       </section>
 
       {/* 4 ── authoring, last */}
@@ -286,6 +307,23 @@ export function ProfessorTasksView({
           </ul>
         )}
       </section>
+        </>
+      )}
+
+      {/* Outside the sections: a task opened from the list, or from Summary,
+        must still open. */}
+      <TaskDetailModal
+        taskId={t.openTask}
+        onClose={() => t.showTask(null)}
+        viewerId={viewerId}
+        role={role}
+        boardWeight={
+          t.weightByBoard.get(t.rows.find((r) => r.id === t.openTask)?.board_id ?? '') ?? 0
+        }
+        // A professor is never locked out of a task by the project closing.
+        locked={false}
+        onChanged={t.refresh}
+      />
 
       <GenerateTasksModal
         open={aiOpen}

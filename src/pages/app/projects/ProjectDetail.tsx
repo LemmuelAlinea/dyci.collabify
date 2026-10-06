@@ -18,7 +18,6 @@ import { SeriesActionDialog } from '../../../components/projects/SeriesActionDia
 import { BoardVerdict } from '../../../components/tasks/BoardVerdict'
 import { ClassFilesTab } from '../../../components/tasks/ClassFilesTab'
 import { ProjectGroupsTab } from '../../../components/groups/ProjectGroupsTab'
-import { ProgressTab } from '../../../components/tasks/ProgressTab'
 import { ProjectTasksTab } from '../../../components/tasks/ProjectTasksTab'
 import { SubmitProject } from '../../../components/tasks/SubmitProject'
 import { useProjectTasks } from '../../../components/tasks/useProjectTasks'
@@ -63,9 +62,9 @@ import type {
   SeriesMember,
 } from '../../../lib/types'
 
-type TabId = 'brief' | 'discussion' | 'tasks' | 'groups' | 'files' | 'shared' | 'progress'
+type TabId = 'brief' | 'discussion' | 'work' | 'groups' | 'files' | 'shared'
 
-const LINKED_TABS: TabId[] = ['discussion', 'tasks', 'groups', 'files', 'shared', 'progress']
+const LINKED_TABS: TabId[] = ['discussion', 'work', 'groups', 'files', 'shared']
 
 /** Which scoped action the professor opened, when the project runs in several. */
 type SeriesAction = 'due' | 'lock' | 'archive' | 'release'
@@ -108,9 +107,12 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   // both link straight into a board, which the Brief tab does not show.
   const [params] = useSearchParams()
   const [tab, setTab] = useState<TabId>(() => {
-    const named = params.get('tab') as TabId | null
+    const raw = params.get('tab')
+    // Work replaced Tasks and Progress; links written before it still name them.
+    if (raw === 'tasks' || raw === 'progress') return 'work'
+    const named = raw as TabId | null
     if (named && LINKED_TABS.includes(named)) return named
-    return params.has('board') || params.has('task') ? 'tasks' : 'brief'
+    return params.has('board') || params.has('task') ? 'work' : 'brief'
   })
   const [editOpen, setEditOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -380,30 +382,13 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
       </header>
 
       <div className="mt-6">
-        {/*
-          A professor and a student open this tab for different things. A
-          student comes to their own board, so "Tasks" is exactly right. A
-          professor comes to see where every group is and to answer what they
-          handed in — the tasks are what they find once they pick one. The
-          label names the thing they came for.
-        */}
         <Tabs<TabId>
           tabs={[
             { id: 'brief', label: 'Brief', icon: 'file' },
             // A group's discussions are the group's own, like its files.
             ...(role === 'student' ? [{ id: 'discussion' as const, label: 'Discussion', icon: 'message' as const }] : []),
-            {
-              id: 'tasks',
-              // A group project's per-group boards are "Boards", so "Groups"
-              // can name the groups themselves, in the tab after it.
-              label:
-                role === 'professor'
-                  ? project.audience === 'group'
-                    ? 'Boards'
-                    : 'Students'
-                  : 'Tasks',
-              icon: role === 'professor' ? (project.audience === 'group' ? 'kanban' : 'users') : 'check',
-            },
+            // Planning, progress and the boards themselves, for both roles.
+            { id: 'work', label: 'Work', icon: 'kanban' },
             ...(role === 'professor' && project.audience === 'group'
               ? [{ id: 'groups' as const, label: 'Groups', icon: 'users' as const }]
               : []),
@@ -413,7 +398,6 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
               ? [
                   { id: 'files' as const, label: 'Files', icon: 'folder' as const },
                   { id: 'shared' as const, label: 'Shared with me', icon: 'users' as const },
-                  { id: 'progress' as const, label: 'Progress', icon: 'chart' as const },
                 ]
               : []),
           ]}
@@ -423,7 +407,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         />
       </div>
 
-      {tab === 'tasks' && (
+      {tab === 'work' && (
         <div className="mt-6">
           <ProjectTasksTab project={project} role={role} viewerId={profile?.id} t={t} />
         </div>
@@ -444,11 +428,6 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           ) : (
             <Alert tone="info">This project has not been released yet, so there are no files to work on.</Alert>
           )}
-        </div>
-      )}
-      {tab === 'progress' && role === 'student' && (
-        <div className="mt-6">
-          <ProgressTab t={t} viewerId={profile?.id} />
         </div>
       )}
 

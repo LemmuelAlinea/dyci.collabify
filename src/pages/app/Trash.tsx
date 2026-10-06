@@ -59,7 +59,7 @@ function homeOf(item: TrashItem) {
     ? `${base}?tab=files&view=draft`
     : item.kind === 'discussion'
       ? `${base}?tab=discussion`
-      : `${base}?tab=tasks`
+      : `${base}?tab=work`
 }
 
 function daysLeft(item: TrashItem) {

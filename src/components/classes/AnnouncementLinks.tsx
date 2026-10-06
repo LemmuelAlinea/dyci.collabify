@@ -180,7 +180,7 @@ export function LinkList({ links, teacher }: { links: AnnouncementLink[]; teache
     'inline-flex max-w-full items-center gap-2 rounded-full border border-line px-3 py-1.5 text-[13px] text-ink transition-colors hover:border-line-strong hover:bg-[var(--surface-sunken)]'
 
   async function openTask(l: Extract<AnnouncementLink, { kind: 'task' }>) {
-    const tasksTab = `${paths.classProject(l.project_id)}?tab=tasks`
+    const tasksTab = `${paths.classProject(l.project_id)}?tab=work`
     if (teacher) return navigate(tasksTab)
     setOpening(l.id)
     try {

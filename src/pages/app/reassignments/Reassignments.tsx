@@ -193,7 +193,7 @@ function RequestCard({ row, onDecide }: { row: ReassignmentRow; onDecide: () => 
       </blockquote>
 
       <Link
-        to={`${paths.classProject(row.project_id)}?tab=tasks&task=${row.task_id}`}
+        to={`${paths.classProject(row.project_id)}?tab=work&task=${row.task_id}`}
         className="mt-3 inline-flex items-center gap-2 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
       >
         <Icon name="kanban" size={14} />

@@ -177,7 +177,7 @@ export function GroupWork({
                   <p className="py-2 text-[13px] text-muted">
                     Nothing on this board yet.{' '}
                     <Link
-                      to={`${paths.classProject(board.project_id)}?tab=tasks`}
+                      to={`${paths.classProject(board.project_id)}?tab=work`}
                       className="font-medium text-navy-600 hover:underline dark:text-navy-200"
                     >
                       Break the project down

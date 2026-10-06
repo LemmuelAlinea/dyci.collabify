@@ -529,7 +529,7 @@ function SubmissionRow({
             still one click target and Accept can sit on top of it without
             putting a button inside a link. */}
         <Link
-          to={`${paths.classProject(row.project_id)}?tab=tasks&board=${row.id}`}
+          to={`${paths.classProject(row.project_id)}?tab=work&board=${row.id}`}
           aria-label={`${boardOwnerName(row)}, ${row.project_title}: ${status}. Open the board.`}
           className="block truncate text-[14px] font-medium text-ink group-hover:underline after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-[var(--ring)] focus-visible:after:ring-inset"
         >

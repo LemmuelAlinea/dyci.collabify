@@ -9,6 +9,8 @@ import {
 import type { ProfessorTaskGroup, ProjectTaskRow } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import { boardOwnerName, isProjectLocked } from '../../lib/types'
+import { taskLayout, withWork, workSection } from '../../lib/work/nav'
+import type { TaskLayout, WorkSection } from '../../lib/work/nav'
 import type { BoardSummary, MemberProgress as MemberRow, ProjectSummary, TeachingViewRole } from '../../lib/types'
 import { EMPTY_TASK_FILTERS, applyTaskFilters } from './taskFilterState'
 import type { TaskFilterState } from './taskFilterState'
@@ -43,9 +45,6 @@ export function useProjectTasks({
     ...EMPTY_TASK_FILTERS,
     board: role === 'professor' ? (params.get('board') ?? '') : '',
   }))
-  const [view, setView] = useState<'summary' | 'board' | 'list'>(
-    role === 'professor' ? 'summary' : 'board',
-  )
 
   const isProfessor = role === 'professor'
   // A passed deadline still takes work — only the professor closing it stops
@@ -131,6 +130,18 @@ export function useProjectTasks({
   }, [rows])
 
   const openTask = params.get('task')
+  // Where you are inside Work lives in the address, so Submissions' and
+  // Reassignments' links to a board or a task land on Tasks.
+  const section = workSection(params, isProfessor ? 'summary' : 'tasks')
+  const view = taskLayout(params)
+  const setSection = useCallback(
+    (s: WorkSection) => setParams(withWork(params, { section: s })),
+    [params, setParams],
+  )
+  const setView = useCallback(
+    (l: TaskLayout) => setParams(withWork(params, { layout: l }), { replace: true }),
+    [params, setParams],
+  )
   const showTask = useCallback(
     (id: string | null) => {
       const next = new URLSearchParams(params)
@@ -153,6 +164,8 @@ export function useProjectTasks({
     error,
     filters,
     setFilters,
+    section,
+    setSection,
     view,
     setView,
     isProfessor,
