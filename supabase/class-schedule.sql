@@ -6,14 +6,24 @@
 -- when the task is meant to begin, the class twin of general_tasks.starts_at
 -- (general-schedule.sql). With both dates a task draws a bar on the timeline.
 --
--- Redefines two things other files own, and must run after them:
+-- Redefines four things other files own, and must run after them:
 --   * task_detail_overview (deadline-lock.sql): it is `select t.*`, and a
 --     view's star is frozen when the view is created, so it is recreated to
 --     pick the new column up. Same body.
 --   * guard_task_edit (task-archive.sql, the live copy): verbatim, with
 --     starts_at added to the columns a started task can no longer change.
--- Re-running either owner file afterwards drops starts_at from the freeze, so
--- re-run this file after them (docs/07-backup.md lists it last).
+--   * update_professor_task (tasks.sql): verbatim, except the planned start of
+--     a copy is cleared when the new due date falls before it, so one student's
+--     later start cannot trip project_tasks_start_before_due and roll back the
+--     edit for every group.
+--   * apply_shift_to_deadlines (term-shifts.sql): verbatim, except starts_at
+--     moves by the same days as due_at, so a negative shift cannot break the
+--     check and a positive one does not leave the start behind.
+-- Re-running deadline-lock.sql recreates the view with `t.*`, which still
+-- includes starts_at, so that one is safe. Re-running task-archive.sql (the
+-- guard), tasks.sql (update_professor_task) or term-shifts.sql
+-- (apply_shift_to_deadlines) drops the change, so re-run this file after any
+-- of them (docs/07-backup.md lists it last).
 --
 -- Idempotent. Safe to re-run.
 
@@ -136,6 +146,140 @@ begin
     new.archived_by := old.archived_by;
   end if;
   return new;
+end;
+$$;
+
+create or replace function public.update_professor_task(
+  p_origin  uuid,
+  p_title   text,
+  p_details text default '',
+  p_weight  int default 1,
+  p_due_at  timestamptz default null
+) returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  cls     uuid;
+  changed int;
+  frozen  int;
+begin
+  select public.board_class(t.board_id) into cls
+    from public.project_tasks t where t.origin_id = p_origin limit 1;
+  if cls is null then
+    return jsonb_build_object('result', 'not_found');
+  end if;
+  if not public.is_class_professor(cls) then
+    return jsonb_build_object('result', 'not_allowed');
+  end if;
+
+  update public.project_tasks
+     set title = btrim(p_title),
+         details = coalesce(p_details, ''),
+         weight = greatest(1, least(100, coalesce(p_weight, 1))),
+         due_at = p_due_at,
+         -- A student's planned start that the new due date has passed is cleared.
+         starts_at = case
+                       when p_due_at is not null and starts_at > p_due_at then null
+                       else starts_at
+                     end
+   where origin_id = p_origin and status = 'todo';
+  get diagnostics changed = row_count;
+
+  select count(*) into frozen
+    from public.project_tasks where origin_id = p_origin and status <> 'todo';
+
+  return jsonb_build_object('result', 'updated', 'changed', changed, 'frozen', frozen);
+end;
+$$;
+
+create or replace function public.apply_shift_to_deadlines(
+  p_shift    uuid,
+  p_projects uuid[] default '{}',
+  p_tasks    uuid[] default '{}'
+) returns int
+language plpgsql security definer set search_path = public as $$
+declare
+  sh      public.class_week_shifts;
+  cls     public.classes;
+  moved   int := 0;
+  n       int;
+  note    text;
+begin
+  select * into sh from public.class_week_shifts where id = p_shift;
+  if sh.id is null then
+    raise exception 'That shift does not exist.' using errcode = 'P0001';
+  end if;
+
+  if auth.uid() is not null and not public.is_class_professor(sh.class_id) then
+    raise exception 'Only the professor of this class can move its deadlines.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  select * into cls from public.classes where id = sh.class_id;
+  note := case when sh.reason = '' then '' else ' · ' || sh.reason end;
+
+  -- ------------------------------------------------------------- projects
+  update public.projects p
+     set due_at     = p.due_at + make_interval(days => sh.days),
+         release_at = case
+                        when p.release_at is null then null
+                        else p.release_at + make_interval(days => sh.days)
+                      end
+   where p.id = any(coalesce(p_projects, '{}'))
+     and p.class_id = sh.class_id
+     and p.archived_at is null
+     and p.due_at is not null;
+
+  get diagnostics n = row_count;
+  moved := moved + n;
+
+  insert into public.notifications (user_id, type, class_id, project_id, title, preview)
+  select m.student_id,
+         'term_shifted',
+         sh.class_id,
+         p.id,
+         p.title || ' moved',
+         'Now due ' || to_char(p.due_at, 'DD Mon') || ' in ' || cls.name || note
+    from public.projects p
+    join public.class_members m on m.class_id = sh.class_id and m.status = 'active'
+   where p.id = any(coalesce(p_projects, '{}'))
+     and p.class_id = sh.class_id
+     and p.archived_at is null;
+
+  -- ---------------------------------------------------------------- tasks
+  update public.project_tasks t
+     set due_at    = t.due_at + make_interval(days => sh.days),
+         -- The planned start moves with the due date; unset stays unset.
+         starts_at = case
+                       when t.starts_at is null then null
+                       else t.starts_at + make_interval(days => sh.days)
+                     end
+    from public.project_boards b
+    join public.projects p on p.id = b.project_id
+   where t.board_id = b.id
+     and t.id = any(coalesce(p_tasks, '{}'))
+     and p.class_id = sh.class_id
+     and t.due_at is not null;
+
+  get diagnostics n = row_count;
+  moved := moved + n;
+
+  insert into public.notifications (user_id, type, class_id, project_id, task_id, title, preview)
+  select a.student_id,
+         'term_shifted',
+         sh.class_id,
+         p.id,
+         t.id,
+         t.title || ' moved',
+         'Now due ' || to_char(t.due_at, 'DD Mon') || ' in ' || p.title || note
+    from public.project_tasks t
+    join public.task_assignees a on a.task_id = t.id
+    join public.project_boards b on b.id = t.board_id
+    join public.projects p       on p.id = b.project_id
+   where t.id = any(coalesce(p_tasks, '{}'))
+     and p.class_id = sh.class_id
+     -- The project's own notification already said the deadline moved.
+     and not (p.id = any(coalesce(p_projects, '{}')));
+
+  return moved;
 end;
 $$;
 

@@ -80,6 +80,10 @@ const KNOWN: [RegExp, string][] = [
     'Pick a password you have not used on this account before.',
   ],
   [
+    /project_tasks_start_before_due/i,
+    'A task cannot start after it is due. Move one of the two dates.',
+  ],
+  [
     /database error saving new user/i,
     'Your account could not be created. This is a setup problem on our side, not something you did.',
   ],

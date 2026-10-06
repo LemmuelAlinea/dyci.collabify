@@ -36,6 +36,12 @@ And re-run `general-project-space.sql` after `general-project-archive.sql`,
 which would otherwise put back a `general_project_overview` without the space
 name the projects page reads.
 
+`class-schedule.sql` redefines `guard_task_edit` (`task-archive.sql`),
+`update_professor_task` (`tasks.sql`) and `apply_shift_to_deadlines`
+(`term-shifts.sql`) with the planned start added. Re-run it after re-running
+`task-archive.sql`, `tasks.sql` or `term-shifts.sql` on its own, or the planned
+start goes back to being ignored by those three.
+
 `access.sql` runs last and redefines, as supersets, functions from
 `workplaces.sql`, `consent.sql`, `audit.sql`, `admin-rename.sql`,
 `approvals.sql` (which recreates `decide_professor`), `accounts.sql`,
