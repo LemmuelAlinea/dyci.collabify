@@ -18,8 +18,24 @@ import {
 } from '../../lib/api/sprints'
 import type { SprintHome } from '../../lib/api/sprints'
 import { createTask } from '../../lib/api/general'
-import type { MilestoneSource, WorkSource } from '../../lib/work/types'
+import type { MilestoneSource, WorkItem, WorkSource } from '../../lib/work/types'
 import type { GeneralProjectState } from './useGeneralProject'
+
+/** A work project's tasks as the shared Work views read them. */
+export function generalWorkItems(state: GeneralProjectState): WorkItem[] {
+  return state.tasks.map((t) => ({
+    id: t.id,
+    title: t.title,
+    status: t.status,
+    due_at: t.due_at,
+    done_at: t.completed_at,
+    sprint_id: t.sprint_id,
+    milestone_id: t.milestone_id,
+    rank: t.rank,
+    holders: t.assignee_ids.map((id) => state.nameOf(id)),
+    created_at: t.created_at,
+  }))
+}
 
 /** A work project as Backlog and Sprints see it. Owners and Managers plan; members add. */
 export function generalWorkSource(state: GeneralProjectState, openTask: (id: string) => void): WorkSource {
@@ -37,18 +53,7 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
   }
 
   return {
-    items: state.tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      status: t.status,
-      due_at: t.due_at,
-      done_at: t.completed_at,
-      sprint_id: t.sprint_id,
-      milestone_id: t.milestone_id,
-      rank: t.rank,
-      holders: t.assignee_ids.map((id) => state.nameOf(id)),
-      created_at: t.created_at,
-    })),
+    items: generalWorkItems(state),
     sprints: state.sprints,
     canPlan,
     canAdd: live,
@@ -88,7 +93,7 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
   }
   return {
     milestones: state.milestones,
-    items: generalWorkSource(state, openTask).items,
+    items: generalWorkItems(state),
     groups: [],
     canManage: can,
     canTag: can,

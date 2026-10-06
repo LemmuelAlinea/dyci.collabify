@@ -5,43 +5,19 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
 import { MilestoneDialog } from './MilestoneDialog'
+import { ProgressBar, StatusPill } from './MilestoneBits'
 import { TagTasksDialog } from './TagTasksDialog'
 import { useNow } from '../../hooks/useNow'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDay } from '../../lib/general/dates'
 import { addDays, toDay } from '../../lib/work/sprints'
 import {
-  MILESTONE_STATUS_LABEL,
   dueInLabel,
   milestoneProgress,
   milestoneStatus,
   sortMilestones,
 } from '../../lib/work/milestones'
-import type { MilestoneStatus } from '../../lib/work/milestones'
 import type { Milestone, MilestoneSource } from '../../lib/work/types'
-
-const TONE: Record<MilestoneStatus, string> = {
-  reached: 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-300',
-  late: 'bg-danger-50 text-danger-700 dark:bg-danger-500/15 dark:text-danger-300',
-  at_risk: 'bg-warning-50 text-warning-800 dark:bg-warning-400/15 dark:text-warning-300',
-  upcoming: 'bg-pending-soft text-pending-ink',
-}
-
-function StatusPill({ status }: { status: MilestoneStatus }) {
-  return (
-    <span className={`rounded-md px-2 py-0.5 text-[12px] font-medium ${TONE[status]}`}>
-      {MILESTONE_STATUS_LABEL[status]}
-    </span>
-  )
-}
-
-function Bar({ pct }: { pct: number }) {
-  return (
-    <span className="block h-1.5 overflow-hidden rounded-full surface-sunken">
-      <span className="block h-full rounded-full bg-progress" style={{ width: `${pct}%` }} />
-    </span>
-  )
-}
 
 /**
  * Dated goals and how close each one is. A milestone's progress is the share
@@ -162,7 +138,7 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
                       return (
                         <li key={g.id} className="flex flex-wrap items-center gap-3 py-2 first:pt-0">
                           <span className="min-w-[8rem] flex-1 truncate text-[14px] text-ink">{g.name}</span>
-                          <span className="w-28 shrink-0"><Bar pct={p.pct} /></span>
+                          <span className="w-28 shrink-0"><ProgressBar pct={p.pct} /></span>
                           <span className="w-16 shrink-0 text-right font-mono text-[12px] text-faint">
                             {p.done}/{p.total}
                           </span>
@@ -180,7 +156,7 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
                         </span>
                         <span className="font-mono text-faint">{progress.pct}%</span>
                       </div>
-                      <Bar pct={progress.pct} />
+                      <ProgressBar pct={progress.pct} />
                     </div>
                     {tagged.length > 0 && (
                       <details>
