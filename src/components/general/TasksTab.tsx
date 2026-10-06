@@ -21,6 +21,7 @@ import type { GeneralTaskStatus } from '../../lib/general/progress'
 import type { GeneralTask } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
+import { reachedIn } from '../../lib/work/milestones'
 import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
 import type { TaskLayout } from '../../lib/work/nav'
 import { applyScope, scopeOptions, scopeSprintId, scopeTargetSprint } from '../../lib/work/scope'
@@ -298,7 +299,7 @@ export function TasksTab({
           events={[
             ...taskCalendarEvents(shown, (t) => state.teams.find((x) => x.id === t.team_id)?.name ?? ''),
             ...sprintCalendarEvents(state.sprints),
-            ...milestoneCalendarEvents(state.milestones),
+            ...milestoneCalendarEvents(state.milestones, reachedIn(state.tasks)),
           ]}
           onOpen={showTask}
         />

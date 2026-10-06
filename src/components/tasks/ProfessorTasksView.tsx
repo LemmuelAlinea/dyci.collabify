@@ -411,8 +411,8 @@ export function ProfessorTasksView({
         boards={boards ?? []}
         milestones={t.milestones}
         editing={editingOrigin ?? undefined}
-        onSaved={async (message) => {
-          show(message)
+        onSaved={async (message, tone) => {
+          show(message, tone)
           await t.refresh()
         }}
       />

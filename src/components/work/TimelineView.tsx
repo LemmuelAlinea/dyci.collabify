@@ -42,6 +42,12 @@ function diamondLabel(task: TimelineTask) {
   return `${task.title}, ${stageLabel(task.status)}, ${when}${overdue}`
 }
 
+/** A milestone diamond reads with its date, since position alone says nothing to a screen reader. */
+function markLabel(mark: Mark) {
+  const due = new Date(mark.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return `Milestone: ${mark.label}, due ${due}`
+}
+
 /** For a caller with no project dates: the window is taken from the tasks. */
 // eslint-disable-next-line react-refresh/only-export-components -- a constant callers pass as `span`, kept beside the component it feeds
 export const NO_SPAN = { starts_on: null, ends_on: null } as const
@@ -77,7 +83,10 @@ export function TimelineView({
   /** Milestones, as diamonds in a row of their own. */
   marks?: Mark[]
 }) {
-  const window = timelineWindow(span, tasks)
+  const window = timelineWindow(span, tasks, [
+    ...marks.map((m) => m.at),
+    ...bands.flatMap((b) => [b.start, b.end]),
+  ])
   const rows = groupRows(tasks, groups, looseLabel)
   const ticks = axisTicks(window)
   const placed = bands.flatMap((band) => {
@@ -153,9 +162,8 @@ export function TimelineView({
                   <span
                     key={mark.id}
                     role="img"
-                    tabIndex={0}
-                    aria-label={`Milestone: ${mark.label}`}
-                    title={mark.label}
+                    aria-label={markLabel(mark)}
+                    title={markLabel(mark)}
                     className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-amber-400 ring-2 ring-[var(--surface)]"
                     style={{ left: `${left}%` }}
                   />

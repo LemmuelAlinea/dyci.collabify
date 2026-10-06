@@ -82,6 +82,11 @@ describe('milestoneCalendarEvents', () => {
     const at = new Date(e.at)
     expect([at.getFullYear(), at.getMonth(), at.getDate()]).toEqual([2026, 9, 16])
   })
+  it('lets the caller decide which milestones are done', () => {
+    const m = { id: 'm', name: 'B', due_on: '2026-10-16', reached_at: null }
+    expect(milestoneCalendarEvents([m], () => true)[0].done).toBe(true)
+    expect(milestoneCalendarEvents([{ ...m, reached_at: '2026-10-10T00:00:00Z' }], () => false)[0].done).toBe(false)
+  })
   it('shows a reached milestone as done', () => {
     expect(milestoneCalendarEvents([{ id: 'm', name: 'B', due_on: '2026-10-16', reached_at: '2026-10-10T00:00:00Z' }])[0].done).toBe(true)
   })

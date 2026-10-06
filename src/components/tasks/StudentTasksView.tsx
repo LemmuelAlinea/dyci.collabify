@@ -20,6 +20,7 @@ import { SprintsView } from '../work/SprintsView'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { NO_SPAN, TimelineView } from '../work/TimelineView'
 import { classMilestoneSource, classWorkSource } from './classWorkSource'
+import { reachedIn } from '../../lib/work/milestones'
 import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
 import { scopeOptions, scopeTargetSprint } from '../../lib/work/scope'
 import { milestoneMarks, sprintBands } from '../../lib/work/timeline'
@@ -235,7 +236,7 @@ export function StudentTasksView({
                   events={[
                     ...taskCalendarEvents(t.shown),
                     ...sprintCalendarEvents(t.sprints),
-                    ...milestoneCalendarEvents(t.milestones),
+                    ...milestoneCalendarEvents(t.milestones, reachedIn(t.tasks)),
                   ]}
                   onOpen={t.showTask}
                 />

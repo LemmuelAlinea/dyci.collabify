@@ -56,6 +56,35 @@ describe('timelineWindow', () => {
     expect(timelineWindow(project(null, null), []).source).toBe('none')
   })
 
+  it('widens a window taken from the tasks to take in the extra instants', () => {
+    const w = timelineWindow(
+      project(null, null),
+      [task({ starts_at: '2026-10-05T00:00:00Z', due_at: '2026-10-09T00:00:00Z' })],
+      [day('2026-10-01T12:00:00Z'), day('2026-10-30T12:00:00Z')],
+    )
+    expect(w.source).toBe('tasks')
+    expect(w.start).toBe(day('2026-10-01T12:00:00Z'))
+    expect(w.end).toBe(day('2026-10-30T12:00:00Z'))
+  })
+
+  it('draws a window from the extras alone when no task has a date', () => {
+    const w = timelineWindow(project(null, null), [task()], [day('2026-10-10T12:00:00Z'), day('2026-10-20T12:00:00Z')])
+    expect(w).toEqual({ start: day('2026-10-10T12:00:00Z'), end: day('2026-10-20T12:00:00Z'), source: 'tasks' })
+  })
+
+  it('keeps the project’s own dates whatever the extras say', () => {
+    const w = timelineWindow(project('2026-10-01', '2026-10-11'), [], [day('2027-01-01T00:00:00Z')])
+    expect(w.source).toBe('project')
+    expect(w.end).toBeLessThan(day('2026-10-13T00:00:00Z'))
+  })
+
+  it('places a milestone that falls after the last task once it is an extra', () => {
+    const tasks = [task({ starts_at: '2026-10-05T00:00:00Z', due_at: '2026-10-09T00:00:00Z' })]
+    const [mark] = milestoneMarks([{ id: 'm', name: 'Defense', due_on: '2026-10-20' }])
+    expect(placeMark(mark, timelineWindow(project(null, null), tasks))).toBeNull()
+    expect(placeMark(mark, timelineWindow(project(null, null), tasks, [mark.at]))).toBe(100)
+  })
+
   it('never returns a window of zero width', () => {
     const w = timelineWindow(project(null, null), [task({ due_at: '2026-10-05T00:00:00Z' })])
     expect(w.end).toBeGreaterThan(w.start)

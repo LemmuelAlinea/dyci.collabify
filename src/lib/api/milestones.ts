@@ -59,7 +59,11 @@ export async function deleteMilestone(home: MilestoneHome, id: string) {
   touched(data, 'That milestone could not be deleted. Reload the page and try again.')
 }
 
-/** Work projects only: mark a milestone reached by hand, or take it back. */
+/**
+ * Work projects only: mark a milestone reached by hand, or take it back. The
+ * database stamps reached_at with its own clock whatever is sent here; any
+ * non-null value means reached.
+ */
 export async function setMilestoneReached(id: string, reached: boolean) {
   const { data, error } = await supabase
     .from('general_milestones')
@@ -79,6 +83,11 @@ export async function tagTasks(home: MilestoneHome, taskIds: string[], milestone
     .select('id')
   if (error) throw error
   touched(data, 'Those tasks could not be tagged. Reload the page and try again.')
+  const wanted = new Set(taskIds).size
+  const tagged = data?.length ?? 0
+  if (tagged < wanted) {
+    throw new Error(`Only ${tagged} of ${wanted} tasks were tagged. Reload the page and try again.`)
+  }
 }
 
 /** Class professors: tag every copy of a task they set. */

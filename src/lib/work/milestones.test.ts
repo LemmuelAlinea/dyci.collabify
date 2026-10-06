@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueInLabel, milestoneProgress, milestoneStatus, sortMilestones } from './milestones'
+import { dueInLabel, milestoneProgress, milestoneStatus, reachedIn, sortMilestones } from './milestones'
 import type { Milestone } from './types'
 
 const noon = (day: string) => {
@@ -41,6 +41,35 @@ describe('milestoneStatus', () => {
   it('is upcoming otherwise', () => {
     expect(milestoneStatus(ms(), { done: 2, total: 4 }, noon('2026-10-15'))).toBe('upcoming')
     expect(milestoneStatus(ms(), { done: 0, total: 4 }, noon('2026-10-01'))).toBe('upcoming')
+  })
+})
+
+describe('milestoneStatus boundaries', () => {
+  it('is at risk exactly seven days out with under half done', () => {
+    expect(milestoneStatus(ms(), { done: 1, total: 3 }, noon('2026-10-13'))).toBe('at_risk')
+  })
+  it('is upcoming eight days out, however little is done', () => {
+    expect(milestoneStatus(ms(), { done: 0, total: 3 }, noon('2026-10-12'))).toBe('upcoming')
+  })
+  it('is upcoming inside the week with exactly half done', () => {
+    expect(milestoneStatus(ms(), { done: 2, total: 4 }, noon('2026-10-18'))).toBe('upcoming')
+  })
+  it('is at risk on the day it is due with partial progress', () => {
+    expect(milestoneStatus(ms(), { done: 1, total: 3 }, noon('2026-10-20'))).toBe('at_risk')
+  })
+})
+
+describe('reachedIn', () => {
+  it('reads reached the way the view does: marked, or every tagged task done', () => {
+    const items = [
+      { milestone_id: 'a', status: 'done' as const },
+      { milestone_id: 'b', status: 'done' as const },
+      { milestone_id: 'b', status: 'todo' as const },
+    ]
+    const reached = reachedIn(items)
+    expect(reached(ms({ id: 'a' }))).toBe(true)
+    expect(reached(ms({ id: 'b' }))).toBe(false)
+    expect(reached(ms({ id: 'b', reached_at: '2026-10-05T00:00:00Z' }))).toBe(true)
   })
 })
 

@@ -34,6 +34,12 @@ export function milestoneStatus(
   return 'upcoming'
 }
 
+/** The test the milestones view applies, for a caller that draws milestones elsewhere. */
+export function reachedIn(items: readonly { milestone_id: string | null; status: WorkStatus }[]) {
+  return (m: Pick<Milestone, 'id' | 'due_on' | 'reached_at'>) =>
+    milestoneStatus(m, milestoneProgress(items, m.id)) === 'reached'
+}
+
 export function dueInLabel(dueOn: string, now = Date.now()) {
   const days = dayDiff(toDay(now), dueOn)
   if (days > 1) return `in ${days} days`

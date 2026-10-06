@@ -4,6 +4,7 @@ import { Alert } from '../ui/Alert'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
+import type { Tone } from '../ui/Toast'
 import { TaskForm } from './TaskForm'
 import { setOriginMilestone } from '../../lib/api/milestones'
 import { createProfessorTask, updateProfessorTask } from '../../lib/api/tasks'
@@ -34,7 +35,8 @@ export function FanOutForm({
   milestones: Milestone[]
   /** Set to edit a task already handed out. */
   editing?: ProfessorTaskGroup
-  onSaved: (message: string) => Promise<void> | void
+  /** `tone` is 'error' when the task saved but its milestone did not. */
+  onSaved: (message: string, tone?: Tone) => Promise<void> | void
 }) {
   const [target, setTarget] = useState('')
   const [milestoneId, setMilestoneId] = useState(editing?.milestone_id ?? '')
@@ -57,11 +59,13 @@ export function FanOutForm({
 
   /**
    * The task is already saved by the time this runs, so a failure here must not
-   * read as a failed save: a retry would send the task out a second time.
+   * read as a failed save: a retry would send the task out a second time. A
+   * missing origin means the tag was skipped, which is a failure too.
    */
   async function applyMilestone(originId: string | undefined, value: string) {
+    if (!originId) return false
     try {
-      if (originId) await setOriginMilestone(originId, value || null)
+      await setOriginMilestone(originId, value || null)
       return true
     } catch {
       return false
@@ -81,7 +85,9 @@ export function FanOutForm({
         const saved = res.frozen
           ? `Updated ${res.changed} of ${(res.changed ?? 0) + res.frozen} copies — ${res.frozen} already started`
           : 'Task updated everywhere'
-        await onSaved(milestoneOk ? saved : 'Task updated, but the milestone was not set. Try again.')
+        await (milestoneOk
+          ? onSaved(saved)
+          : onSaved('Task updated, but the milestone was not set. Try again.', 'error'))
       } else {
         const res = await createProfessorTask({
           projectId,
@@ -100,9 +106,9 @@ export function FanOutForm({
         }
         const milestoneOk = !milestoneId || (await applyMilestone(res.origin_id, milestoneId))
         const sent = `Task sent to ${res.boards} ${res.boards === 1 ? 'group' : 'groups'}`
-        await onSaved(
-          milestoneOk ? sent : `${sent}, but the milestone was not set. Edit the task to try again.`,
-        )
+        await (milestoneOk
+          ? onSaved(sent)
+          : onSaved(`${sent}, but the milestone was not set. Edit the task to try again.`, 'error'))
       }
       close()
     } catch (err) {
