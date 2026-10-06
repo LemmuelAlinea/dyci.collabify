@@ -2869,3 +2869,41 @@ plan: docs/superpowers/plans/2026-10-06-work-tab-part-1.md). Branch `claude/work
   inserts both students as assignees, but solo-auto-claim already claimed the owner);
   `insight.test.sql` fails on live data.
 - Next: Part 2, Backlog + Sprints.
+
+**Change (2026-10-07): Backlog and Sprints in Work.** Part 2 of 4 of the Work tab plan
+(plan: docs/superpowers/plans/2026-10-06-work-tab-part-2.md). Branch `claude/work-tab-2`.
+- Work › Backlog plans: sprints that have not started (each with its tasks; Start, Edit, Delete)
+  above the backlog (unfinished tasks in no sprint, ordered by `rank`). Move a task with its row
+  picker or several at once, reorder with up/down, quick-add to the backlog.
+- Work › Sprints runs: the running sprint (dates, days left, progress, burndown, stage columns,
+  Finish) and finished sprints. Finishing moves unfinished tasks to a planned sprint, a new one
+  (created once even if finishing is retried), or the backlog.
+- Tasks has a scope picker when sprints exist (`?scope=running|all|backlog|sprint:<id>`, default
+  the running sprint). New tasks added there join the scoped sprint unless it is finished; a
+  Member's go to the backlog. Timeline has a Sprints row; Calendar shows sprint starts and ends.
+  Board task shares stay whole-board under a scope. The student board stays live (realtime) again.
+- Who plans: work = `manage_tasks` (Owners, Managers, granted Members); class = the group while the
+  board is open; professors read (enforced in SQL too). One running sprint per project/board;
+  planned → running → finished; a finished sprint takes no new tasks; only a planned sprint can be
+  deleted (its tasks, archived ones included, return to the backlog); a task reopened or restored
+  inside a finished sprint returns to the backlog.
+- SQL (applied live): `work-planning.sql` (sprint_state, prepare_sprint, guard_sprint_state,
+  general_sprints, general_tasks.sprint_id/rank, general_tasks_plan_guard, general_sprints_release,
+  complete_general_sprint, overview view) and `class-planning.sql` (board_sprints,
+  project_tasks.sprint_id/rank, project_tasks_plan_guard, board_sprints_release,
+  complete_board_sprint, detail view). general-schedule / general-project-archive /
+  general-archive-rbac now drop and recreate `general_task_overview`, so re-running them works;
+  re-run work-planning.sql after any of them (docs/07-backup.md). Existing tied ranks de-duplicated.
+- Code: `lib/work/{types,sprints,backlog,scope}.ts`, `lib/api/sprints.ts` (both spaces),
+  `components/work/{BacklogView,SprintsView,SprintDialog,FinishSprintDialog,Burndown,ScopePicker}.tsx`,
+  `general/workSource.ts`, `tasks/classWorkSource.ts`.
+- Checked: work-planning 39 PASS, class-planning 36 PASS, 20 regression SQL suites; build, eslint,
+  675 Vitest. Browser (dev server): work Backlog as a Member (read-only notice), class Backlog,
+  Sprints and Tasks as a student, scope picker hidden with no sprints, 375 wide no sideways scroll.
+  Not done in the browser: creating, starting and finishing a sprint (the SQL tests cover it; not
+  tried against real projects), professor view of a group's plan.
+- Deferred: docs/07-backup.md still advises re-running general-archive-rbac.sql after six files,
+  which reverts guard_general_task and nine archive functions (pre-existing). A task reopened into
+  the backlog keeps its old rank (lands near the top). Professor board drag/scope polish, stale
+  sprints for one render on a board switch.
+- Next: Part 3, Milestones.
