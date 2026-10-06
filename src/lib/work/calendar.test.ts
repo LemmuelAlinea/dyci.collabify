@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sprintCalendarEvents, taskCalendarEvents } from './calendar'
+import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } from './calendar'
 
 const task = (over: Partial<{ id: string; title: string; status: 'todo' | 'in_progress' | 'done'; due_at: string | null; late: boolean }> = {}) => ({
   id: 't1',
@@ -70,5 +70,19 @@ describe('sprintCalendarEvents', () => {
       { id: 's0', name: 'S0', starts_on: '2026-09-21', ends_on: '2026-10-04', state: 'completed' },
     ])
     expect(finishedEnd.done).toBe(true)
+  })
+})
+
+describe('milestoneCalendarEvents', () => {
+  it('puts each milestone on its day, opening no task', () => {
+    const [e] = milestoneCalendarEvents([
+      { id: 'm1', name: 'Beta', due_on: '2026-10-16', reached_at: null },
+    ])
+    expect([e.kind, e.title, e.task_id, e.done]).toEqual(['milestone', 'Beta', null, false])
+    const at = new Date(e.at)
+    expect([at.getFullYear(), at.getMonth(), at.getDate()]).toEqual([2026, 9, 16])
+  })
+  it('shows a reached milestone as done', () => {
+    expect(milestoneCalendarEvents([{ id: 'm', name: 'B', due_on: '2026-10-16', reached_at: '2026-10-10T00:00:00Z' }])[0].done).toBe(true)
   })
 })

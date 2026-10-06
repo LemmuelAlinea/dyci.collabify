@@ -1,5 +1,5 @@
 import type { CalendarEvent } from '../types'
-import type { Sprint } from './types'
+import type { Milestone, Sprint } from './types'
 import type { WorkStatus } from './timeline'
 
 export type CalendarTask = {
@@ -61,4 +61,15 @@ export function sprintCalendarEvents(
     edge('sprint_start', s, `${s.name} starts`, noonOf(s.starts_on), s.state !== 'planned'),
     edge('sprint_end', s, `${s.name} ends`, noonOf(s.ends_on), s.state === 'completed'),
   ])
+}
+
+/** Each milestone on its day. Opens no task: `task_id` is null. */
+export function milestoneCalendarEvents(
+  milestones: readonly Pick<Milestone, 'id' | 'name' | 'due_on' | 'reached_at'>[],
+): CalendarEvent[] {
+  return milestones.map((m) => ({
+    kind: 'milestone', ref_id: m.id, title: m.name, at: noonOf(m.due_on),
+    class_id: '', class_initial: '', class_name: '', project_id: '', project_title: 'Milestone',
+    task_id: null, group_name: null, done: Boolean(m.reached_at), late: false,
+  }))
 }

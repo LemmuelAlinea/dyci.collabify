@@ -1,8 +1,8 @@
 import { Icon } from '../ui/Icon'
 import { formatDue, isOverdue } from '../../lib/general/dates'
 import { TASK_STATUSES } from '../../lib/general/progress'
-import { axisTicks, groupRows, nowMarker, placeBand, placeTask, timelineWindow } from '../../lib/work/timeline'
-import type { Band, TimelineTask } from '../../lib/work/timeline'
+import { axisTicks, groupRows, nowMarker, placeBand, placeMark, placeTask, timelineWindow } from '../../lib/work/timeline'
+import type { Band, Mark, TimelineTask } from '../../lib/work/timeline'
 
 const BAR = {
   todo: 'bg-navy-500/35',
@@ -65,6 +65,7 @@ export function TimelineView({
   looseLabel = 'Whole project',
   onOpen,
   bands = [],
+  marks = [],
 }: {
   tasks: TimelineTask[]
   groups: readonly { id: string; name: string }[]
@@ -73,6 +74,8 @@ export function TimelineView({
   onOpen?: (taskId: string) => void
   /** Sprints, drawn as a row of their own under the dates. */
   bands?: Band[]
+  /** Milestones, as diamonds in a row of their own. */
+  marks?: Mark[]
 }) {
   const window = timelineWindow(span, tasks)
   const rows = groupRows(tasks, groups, looseLabel)
@@ -80,6 +83,10 @@ export function TimelineView({
   const placed = bands.flatMap((band) => {
     const place = placeBand(band, window)
     return place ? [{ band, place }] : []
+  })
+  const pinned = marks.flatMap((mark) => {
+    const left = placeMark(mark, window)
+    return left === null ? [] : [{ mark, left }]
   })
   const today = nowMarker(window)
   const undated = tasks.filter((t) => placeTask(t, window).shape === 'none').length
@@ -133,6 +140,25 @@ export function TimelineView({
                   >
                     {band.label}
                   </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {pinned.length > 0 && (
+            <div className="flex items-center border-b border-line">
+              <p className="w-[14rem] shrink-0 px-3 py-1.5 text-[11px] font-medium text-faint uppercase">Milestones</p>
+              <div className="relative h-8 flex-1">
+                {pinned.map(({ mark, left }) => (
+                  <span
+                    key={mark.id}
+                    role="img"
+                    tabIndex={0}
+                    aria-label={`Milestone: ${mark.label}`}
+                    title={mark.label}
+                    className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-amber-400 ring-2 ring-[var(--surface)]"
+                    style={{ left: `${left}%` }}
+                  />
                 ))}
               </div>
             </div>
@@ -223,6 +249,11 @@ export function TimelineView({
           <span className="h-2 w-6 rounded-full bg-navy-500/35 ring-2 ring-danger-500 dark:ring-danger-400" />
           overdue
         </span>
+        {pinned.length > 0 && (
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rotate-45 bg-amber-400" />milestone
+          </span>
+        )}
         <span className="flex items-center gap-1.5">
           <Icon name="info" size={12} />
           Set a start date on a task to give it a bar.

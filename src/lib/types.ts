@@ -1406,6 +1406,7 @@ export type CalendarKind =
   | 'meeting'
   | 'sprint_start'
   | 'sprint_end'
+  | 'milestone'
 
 export type CalendarEvent = {
   kind: CalendarKind

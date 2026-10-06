@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   axisTicks,
   groupRows,
+  milestoneMarks,
   nowMarker,
   placeBand,
+  placeMark,
   placeTask,
   sprintBands,
   timelineWindow,
@@ -270,5 +272,23 @@ describe('sprint bands', () => {
   it('leaves out a band outside the window', () => {
     expect(placeBand({ id: 's', label: 'S', start: day('2026-11-02'), end: day('2026-11-09') }, window)).toBeNull()
     expect(placeBand({ id: 's', label: 'S', start: 0, end: 1 }, { start: 0, end: 0, source: 'none' })).toBeNull()
+  })
+})
+
+describe('milestone marks', () => {
+  const localDay = (s: string, h = 0) => {
+    const [y, m, d] = s.split('-').map(Number)
+    return new Date(y, m - 1, d, h).getTime()
+  }
+  const window = { start: localDay('2026-10-01'), end: localDay('2026-11-01'), source: 'project' as const }
+  it('sits at noon on its day', () => {
+    expect(milestoneMarks([{ id: 'm', name: 'Beta', due_on: '2026-10-16' }])).toEqual([
+      { id: 'm', label: 'Beta', at: localDay('2026-10-16', 12) },
+    ])
+  })
+  it('places inside the window and drops what falls outside', () => {
+    expect(placeMark({ id: 'm', label: 'B', at: localDay('2026-10-01') }, window)).toBe(0)
+    expect(placeMark({ id: 'm', label: 'B', at: localDay('2026-11-05') }, window)).toBeNull()
+    expect(placeMark({ id: 'm', label: 'B', at: 1 }, { start: 0, end: 0, source: 'none' })).toBeNull()
   })
 })

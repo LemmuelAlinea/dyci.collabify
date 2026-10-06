@@ -199,3 +199,15 @@ export function placeBand(band: Band, window: TimelineWindow) {
   const left = offset(band.start, window)
   return { left, width: Math.max(0.5, offset(band.end, window) - left) }
 }
+
+/** A single dated point drawn above the tasks: a milestone, at noon on its day. */
+export type Mark = { id: string; label: string; at: number }
+
+export function milestoneMarks(milestones: readonly { id: string; name: string; due_on: string }[]): Mark[] {
+  return milestones.map((m) => ({ id: m.id, label: m.name, at: dayStart(m.due_on) + DAY / 2 }))
+}
+
+export function placeMark(mark: Mark, window: TimelineWindow) {
+  if (window.source === 'none' || mark.at < window.start || mark.at > window.end) return null
+  return offset(mark.at, window)
+}
