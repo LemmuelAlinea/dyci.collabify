@@ -16,6 +16,7 @@ import {
   listTeams,
 } from '../../lib/api/general'
 import type { CommitRights } from '../../lib/api/general'
+import { listSprints } from '../../lib/api/sprints'
 import { authErrorMessage } from '../../lib/authError'
 import { can as canDo } from '../../lib/general/permissions'
 import type { GeneralPermission } from '../../lib/general/permissions'
@@ -33,6 +34,7 @@ import type {
   GeneralTeamMember,
 } from '../../lib/general/types'
 import { fullName } from '../../lib/types'
+import type { Sprint } from '../../lib/work/types'
 
 const NO_RIGHTS: CommitRights = { commit: false, grant: false, board: false, committers: [] }
 
@@ -48,6 +50,8 @@ export type GeneralProjectState = {
   fields: GeneralField[]
   values: GeneralFieldValue[]
   tasks: GeneralTask[]
+  /** Oldest start first. */
+  sprints: Sprint[]
   loading: boolean
   /** Loaded, and there is no project this viewer can see. */
   missing: boolean
@@ -88,6 +92,7 @@ export function useGeneralProject(
   const [fields, setFields] = useState<GeneralField[]>([])
   const [values, setValues] = useState<GeneralFieldValue[]>([])
   const [tasks, setTasks] = useState<GeneralTask[]>([])
+  const [sprints, setSprints] = useState<Sprint[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [commitRights, setCommitRights] = useState<CommitRights>(NO_RIGHTS)
@@ -112,11 +117,12 @@ export function useGeneralProject(
         setFields([])
         setValues([])
         setTasks([])
+        setSprints([])
         setCommitRights(NO_RIGHTS)
         setError(null)
         return
       }
-      const [m, g, r, t, tm, p, h, f, tk, cr] = await Promise.all([
+      const [m, g, r, t, tm, p, h, f, tk, sp, cr] = await Promise.all([
         listGeneralMembers(projectId),
         listGrants(projectId),
         listAccessRequests(projectId),
@@ -126,6 +132,7 @@ export function useGeneralProject(
         listPositionHolders(projectId),
         listFields(projectId),
         listTasks(projectId),
+        listSprints({ kind: 'work', projectId }),
         getCommitRights(projectId).catch(() => NO_RIGHTS),
       ])
       setMembers(m)
@@ -137,6 +144,7 @@ export function useGeneralProject(
       setHolders(h)
       setFields(f)
       setTasks(tk)
+      setSprints(sp)
       setCommitRights(cr)
       setValues(await listFieldValues(f.map((x) => x.id)))
       setError(null)
@@ -167,6 +175,7 @@ export function useGeneralProject(
     'general_field_values',
     'general_tasks',
     'general_task_assignees',
+    'general_sprints',
     // A class board's Commit to Main follows its group's leader.
     'groups',
   ])
@@ -193,6 +202,7 @@ export function useGeneralProject(
       fields,
       values,
       tasks,
+      sprints,
       loading,
       missing: !loading && !project && !error,
       error,
@@ -213,5 +223,5 @@ export function useGeneralProject(
       commitRights,
       nameOf: (userId: string) => names.get(userId) ?? 'A former member',
     }
-  }, [project, members, grants, requests, teams, teamMembers, positions, holders, fields, values, tasks, loading, error, reload, viewerId, commitRights])
+  }, [project, members, grants, requests, teams, teamMembers, positions, holders, fields, values, tasks, sprints, loading, error, reload, viewerId, commitRights])
 }

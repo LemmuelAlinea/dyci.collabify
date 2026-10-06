@@ -21,8 +21,12 @@ import type { GeneralTaskStatus } from '../../lib/general/progress'
 import type { GeneralTask } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
-import { taskCalendarEvents } from '../../lib/work/calendar'
+import { sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
 import type { TaskLayout } from '../../lib/work/nav'
+import { applyScope, scopeOptions, scopeSprintId } from '../../lib/work/scope'
+import type { TaskScope } from '../../lib/work/scope'
+import { sprintBands } from '../../lib/work/timeline'
+import { ScopePicker } from '../work/ScopePicker'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { TimelineView } from '../work/TimelineView'
 import type { GeneralProjectState } from './useGeneralProject'
@@ -48,11 +52,15 @@ export function TasksTab({
   state,
   layout,
   onLayout,
+  scope,
+  onScope,
   onOpenTask,
 }: {
   state: GeneralProjectState
   layout: TaskLayout
   onLayout: (l: TaskLayout) => void
+  scope: TaskScope
+  onScope: (s: TaskScope) => void
   onOpenTask: (id: string | null) => void
 }) {
   const { show } = useToast()
@@ -65,9 +73,10 @@ export function TasksTab({
   const showTask = onOpenTask
 
   const project = state.project
+  const scoped = useMemo(() => applyScope(state.tasks, scope, state.sprints), [state.tasks, scope, state.sprints])
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return state.tasks
+    return scoped
       .filter((t) => (team ? t.team_id === team : true))
       .filter((t) =>
         assignee === ''
@@ -78,11 +87,11 @@ export function TasksTab({
       )
       .filter((t) => (status ? t.status === status : true))
       .filter((t) => (q ? `${t.title} ${t.description}`.toLowerCase().includes(q) : true))
-  }, [state.tasks, query, team, assignee, status])
+  }, [scoped, query, team, assignee, status])
 
   if (!project) return null
-  const progress = projectProgress(state.tasks)
-  const unassigned = state.tasks.filter((t) => t.assignee_ids.length === 0 && t.status !== 'done').length
+  const progress = projectProgress(scoped)
+  const unassigned = scoped.filter((t) => t.assignee_ids.length === 0 && t.status !== 'done').length
 
   const assigneeOptions = [
     ...(state.viewerId ? [{ value: state.viewerId, label: 'Me' }] : []),
@@ -110,7 +119,10 @@ export function TasksTab({
     <div className="space-y-4">
       {state.tasks.length > 0 && (
         <>
-          <TaskViewSwitch view={layout} onView={onLayout} shown={shown.length} total={state.tasks.length} />
+          {state.sprints.length > 0 && (
+            <ScopePicker value={scope} options={scopeOptions(state.sprints)} onChange={onScope} />
+          )}
+          <TaskViewSwitch view={layout} onView={onLayout} shown={shown.length} total={scoped.length} />
           <div>
             <FilterPopover
               label="Filter tasks"
@@ -219,6 +231,12 @@ export function TasksTab({
             ) : undefined
           }
         />
+      ) : scoped.length === 0 ? (
+        <EmptyState
+          icon="target"
+          title="No tasks here"
+          body={scope === 'backlog' ? 'Every task is in a sprint.' : 'This sprint has no tasks yet. Move some in from Backlog.'}
+        />
       ) : shown.length === 0 ? (
         <EmptyState icon="search" title="Nothing matches" body="No task fits these filters. Clear one and try again." />
       ) : layout === 'board' ? (
@@ -265,16 +283,26 @@ export function TasksTab({
           }))}
           groups={state.teams}
           span={project}
+          bands={sprintBands(state.sprints)}
           onOpen={showTask}
         />
       ) : (
         <TaskCalendar
-          events={taskCalendarEvents(shown, (t) => state.teams.find((x) => x.id === t.team_id)?.name ?? '')}
+          events={[
+            ...taskCalendarEvents(shown, (t) => state.teams.find((x) => x.id === t.team_id)?.name ?? ''),
+            ...sprintCalendarEvents(state.sprints),
+          ]}
           onOpen={showTask}
         />
       )}
 
-      <NewTaskDialog open={creating} onClose={() => setCreating(false)} state={state} onCreated={showTask} />
+      <NewTaskDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        state={state}
+        sprintId={state.can('manage_tasks') ? scopeSprintId(scope, state.sprints) : null}
+        onCreated={showTask}
+      />
       <TasksFromNotes open={fromNotes} onClose={() => setFromNotes(false)} state={state} />
     </div>
   )
@@ -517,11 +545,13 @@ function NewTaskDialog({
   open,
   onClose,
   state,
+  sprintId,
   onCreated,
 }: {
   open: boolean
   onClose: () => void
   state: GeneralProjectState
+  sprintId: string | null
   onCreated: (id: string) => void
 }) {
   const { show } = useToast()
@@ -551,6 +581,7 @@ function NewTaskDialog({
         dueAt,
         startsAt,
         teamId: team || null,
+        sprintId,
       })
       show('Task added')
       setTitle('')
