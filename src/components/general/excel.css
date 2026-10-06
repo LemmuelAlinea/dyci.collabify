@@ -1,0 +1,6 @@
+/* The Excel grid draws its own light, Excel-like chrome; it sits on paper in both themes. */
+.excel-frame {
+  background: var(--paper);
+  color: var(--paper-ink);
+  color-scheme: light;
+}

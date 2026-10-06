@@ -2710,3 +2710,132 @@ pick (`lib/myTasksView.ts`). Urgency is the old page, unchanged.
 - Checked signed in as faculty: Board, List, opening a work task over List, the remembered pick
   on reload, 375 wide with no overflow. Student class tasks not seen signed in. Build, eslint,
   596 Vitest.
+
+**Change (2026-10-05): live discussion messages can be edited and deleted.** Part 1 of 5 of the
+editors plan (discussion edit/delete → full screen → code editor → Word → Excel).
+- SQL `discussion-edit-delete.sql` (applied live): `general_discussion_messages.edited_at`,
+  replica identity full (so realtime carries edits and deletes), `general_discussion_moderator`
+  (Owner/Manager, or the class group's leader), `edit_general_discussion_message` (sender only,
+  text or file caption, while live) and `delete_general_discussion_message` (sender or moderator,
+  while live; hard delete — polls, votes and file rows cascade; stored audio/files are left to the
+  storage sweep). No "delete for me". A stopped discussion or a handed-in board refuses both.
+- Screen: a ⋯ menu beside each bubble (Edit / Edit caption for your own text or file message,
+  Delete for yours or, for moderators, anyone's), inline edit (Enter saves, Esc cancels),
+  "· edited" by the time, a confirm before delete. Deleted messages vanish for everyone.
+- Checked: `tests/discussion-edit-delete.test.sql` 16 PASS; discussion-polls-voice 43,
+  general-discussions 25, rls-coverage, anon-lockdown pass; build, eslint, 596 Vitest.
+
+**Change (2026-10-05): any open file can go full screen.** Part 2 of 5 of the editors plan.
+- `Modal` has `size="full"` (the whole window, top bar included) and a `headerActions` slot
+  beside Close. `FileEditor` puts a Full screen / Exit full screen button there: the dialog fills
+  the window and, where the browser allows, the page enters the browser's full screen
+  (`document.documentElement`, so menus, confirms and toasts still show). Esc or the browser's
+  control leaves it and the dialog follows (`fullscreenchange`); closing the file leaves it too.
+  iPhone has no page full screen, so there it is fill-the-window only.
+- Rich, sheet, text and PDF views take the window's height while full (`fill` prop); these are
+  stopgaps until the new editors (parts 3–5) fill by layout.
+- pdf.js no longer sits in the project page chunks: `LazyPdfPreview` loads it when a PDF opens
+  (FileEditor and RepoChangeRow).
+- Checked on a throwaway page (not committed): enter/exit at 1240 wide and 375 (fills 375×812,
+  no sideways scroll). Build, eslint, 596 Vitest.
+
+**Change (2026-10-05): code files open in Monaco, VS Code's editor.** Part 3 of 5 of the editors plan.
+- `CodeEditor.tsx` (lazy; `monaco-editor` bundled locally in `lib/general/monacoSetup.ts`,
+  workers via Vite `?worker`, never a CDN because of the CSP) replaces the plain textarea for
+  every `text` file. Theme follows the app (`vs` / `vs-dark`), minimap (off under 640 px), sticky
+  scroll, bracket colours, find, multi-cursor. Status bar: error and warning counts (click for the
+  list; each row jumps to its line), Ln/Col, language. Ctrl/Cmd+S saves to your draft and keeps
+  the file open (the dialog tracks what was last saved, and the badge turns to Your draft).
+- Errors: TS/JS/TSX/JSX through Monaco's TypeScript worker, type errors included; codes that
+  only mean "this file's imports are not here" (2307, 2792, 7016, 2875, 7026, 2686, 2580, 2591)
+  are ignored. JSON/CSS/SCSS/LESS/HTML by Monaco's own checkers. Python, Java, C/C++, PHP, Rust,
+  Go: syntax errors from Lezer grammars (`lib/general/syntaxErrors.ts`, each parser lazy).
+- `lib/general/codeLanguage.ts` maps extensions (and Dockerfile/Makefile) to Monaco ids. More
+  extensions now count as text on upload: mjs, cjs, less, hpp, cc, hh, kts, lua, r, pl, scala,
+  ps1, bat, graphql, gql, svelte, log, properties, conf, cfg, gradle.
+- Size: the editor chunk is 4 MB (1 MB gzip), the TS worker 7 MB; both load only when a code file
+  opens. Project page chunks unchanged.
+- Checked on a throwaway page: a .tsx type error ("Type 'number' is not assignable to type
+  'string'", Ln 5) and a .py missing colon both squiggle and list; no console errors; 375 wide
+  fits. Real touch typing on a phone not tried. Vitest 602 (syntaxErrors, codeLanguage), build, eslint.
+
+**Change (2026-10-06): Word files open on a Word-style page.** Part 4 of 5 of the editors plan.
+- `components/general/word/` (lazy from `FileEditor`): Tiptap 3 (StarterKit, TextStyleKit,
+  TextAlign, Highlight, TableKit, own `ParagraphFormat` / `PageBreak` / `DocImage` /
+  `ShadedCell` in `extensions.ts`) with `tiptap-pagination-plus` for real pages. White paper at
+  Letter (default), A4, Legal or Long (8.5 × 13), one-inch margins, grey canvas; pages shrink
+  to fit a narrow window, and under 560 px it switches to a reflowed Mobile view. Status bar:
+  pages, words, page size.
+- Ribbon (`WordRibbon.tsx`): undo/redo, style (Normal, Heading 1–3), font (Calibri, Arial, Times
+  New Roman, Cambria, Georgia, Verdana, Tahoma, Garamond, Century Gothic, Courier New), size
+  8–72, bold/italic/underline/strike, text colour (Word palette + any colour), highlight (Word's
+  15), clear formatting, bullets, numbering, indent/outdent (lists nest), line spacing 1–3,
+  align left/center/right/justify, table menu (insert, rows, columns, header, delete), picture,
+  page break (Ctrl+Enter), page size. Self-hosted metric twins (Carlito, Caladea, Arimo, Tinos,
+  Cousine) so pages break the same where Office fonts are missing.
+- Stored as before (kind `rich`, HTML): inline styles; page size as a leading
+  `<div data-page="a4"></div>` (Letter writes none, so old files are byte-identical until edited);
+  page breaks `<div data-page-break>`; pictures `<img data-path>` — uploaded to
+  `<project>/files/doc-images/` (5 MB, PNG/JPEG/GIF; others redrawn as PNG), signed for an hour
+  when the file opens, never stored as links. Paste or drop pictures straight in.
+  The schema drops unknown markup, so a file's HTML can no longer inject anything into the editor.
+- Import (`lib/general/docx/read.ts`, replaces mammoth, which stays as a fallback): fonts, sizes,
+  colours, highlight and shading, emphasis, alignment incl. justify, line spacing, indents,
+  paragraph spacing, headings (by style name), bullet/numbered lists by level, tables with
+  merged and shaded cells, pictures (uploaded on import), links, page breaks, page size. Not:
+  headers/footers, footnotes, comments, text boxes, charts. Files uploaded before this keep the
+  plain look they were imported with; uploading the .docx again brings its styles in.
+- Export (`lib/general/docx/write.ts`): all of the above back out, real numbered lists (they
+  were bullets before), pictures, page size and margins. `fileText` shows [picture] and
+  [page break] lines in diffs.
+- SQL: `storage_orphans` (storage-sweep.sql) never lists `*/files/doc-images/*`; applied live
+  (function only). storage-sweep test 10 PASS.
+- Paper tokens in index.css (`--paper`, `--paper-ink`, `--paper-line`, `--paper-heading`,
+  `--paper-heading-deep`, `--paper-link`): white page in both themes.
+- Checked: Vitest 607 (docx round trip under happy-dom: styles, alignment, lists, merged/shaded
+  cells, page break, picture, page size); the reader on docs/Collabify-Evaluation-Questionnaire.docx;
+  on a throwaway page: ribbon changes, page flow onto page 3, manual break, table, A4 switch,
+  375 Mobile view, dark mode. Not tried: uploading a real Word file and pictures signed in.
+
+**Change (2026-10-06): Excel files open in an Excel-like grid with live formulas.** Part 5 of 5 of
+the editors plan; the plan is done.
+- `ExcelEditor.tsx` (lazy; `@fortune-sheet/react`, MIT, 600 KB gzip, loaded only for spreadsheets)
+  replaces `SheetEditor` (deleted; its AI Formula help moved in). Ribbon limited to what the file
+  keeps: undo/redo, format painter, clear, ₱/percent/decimals/number formats, font (Excel's list,
+  Calibri default), size, bold/italic/strike/underline, text colour, fill, borders, merge,
+  alignment, wrap, freeze, quick sum, search; right-click: copy/paste, insert/delete rows and
+  columns, row height/column width, clear, sort. Formula bar, sheet tabs (rename, copy, move,
+  delete), zoom, status sums. Images, comments, links, filters, conditional formats, charts and
+  hidden rows are not offered because they would not survive a save.
+- Formulas: `lib/general/sheetCalc.ts` works every stored formula out on open with the grid's own
+  engine (`@fortune-sheet/formula-parser`), including formulas of formulas, other sheets and
+  cycles (#REF!); each joins the grid's calc chain, so editing a cell updates what reads it.
+  What is stored is still the formula text, so diffs and reviews compare formulas.
+- Storage: `Sheet` gains optional `styles` ("r:c" → bold/italic/underline/strike/font/size/colour/
+  fill/align/valign/wrap/number format), `cols`/`heights` (px), `merges`, `freeze`, `borders`
+  (`lib/general/sheetFormat.ts`, every value checked on read). A sheet without formatting
+  serialises exactly as before. `lib/general/sheetFortune.ts` maps to/from the grid; toolbar
+  border strokes become per-cell borders.
+- .xlsx import/export (ExcelJS) carries all of it: fonts, fills, alignment, number formats,
+  borders, column widths, row heights, merges (covered cells emptied), frozen panes.
+- `FileEditor`: Esc inside any editor stays there (leaves a cell, closes find) instead of closing
+  the dialog; a sheet's saved baseline is its canonical JSON, so opening never reads as a change.
+- Known differences from Excel: numbers align left unless aligned (the grid's default), vertical
+  default is middle; dates typed into the grid are stored as serial numbers with a date format.
+- Checked: Vitest 614 (calc incl. cross-sheet and cycles; grid round trip with every format;
+  border strokes; .xlsx round trip). On a throwaway page: styled sheet renders (merged title,
+  fills, #,##0.00, double border, frozen rows, two tabs), typing 150 in B2 updates =SUM to 230,
+  Ctrl+B registers a change, Esc cancels an edit without closing, no console errors.
+  Not tried signed in: uploading a real .xlsx and saving to a draft.
+
+**Fix (2026-10-06): Word dropdowns in dark mode; Excel scrolling up.**
+- Word ribbon: the native dropdowns (style, font, size, line spacing, page size) opened as light
+  text on white in dark mode. Their options now take `--surface-raised` / `--ink` (`.word-ribbon`
+  in word.css).
+- Excel grid: the wheel would not scroll up. Fortune-sheet steps one row from a row it works out
+  from the scrollbar's position, and when the browser rounds that position up (Windows display
+  scaling), stepping up lands on the same row. `ExcelEditor` now takes vertical wheel scrolling
+  on its sheet area (capture listener) and moves the grid's own vertical scrollbar; horizontal
+  and Shift+wheel still go to the grid.
+- Checked on a throwaway page in dark mode: option colours rgb(26,34,85) on rgb(241,243,251);
+  300-row sheet scrolls down to 500 px, up to 300, up to 0, and redraws. Build, eslint, 614 Vitest.

@@ -12,8 +12,11 @@ type Props = {
   description?: string
   children: ReactNode
   footer?: ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  /** `full` takes the whole window, top bar included: a file somebody is working in. */
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
   bodyClassName?: string
+  /** Buttons that sit beside Close, such as a full-screen toggle. */
+  headerActions?: ReactNode
   headerTone?: 'default' | 'navy'
   /**
    * Open with the first field focused instead of the close button.
@@ -31,6 +34,7 @@ const WIDTHS = {
   md: 'max-w-[560px]',
   lg: 'max-w-[720px]',
   xl: 'max-w-[1080px]',
+  full: '',
 }
 
 export function Modal({
@@ -44,7 +48,9 @@ export function Modal({
   focusField = false,
   bodyClassName = '',
   headerTone = 'default',
+  headerActions,
 }: Props) {
+  const full = size === 'full'
   const panel = useRef<HTMLDivElement>(null)
 
   // Callers pass an inline arrow for onClose, so it is a new function on every
@@ -143,7 +149,11 @@ export function Modal({
        * published by TopNav; the `0px` fallback is what the auth screens and
        * the landing page get, where there is no bar to sit under.
        */
-      className="depth-ground fixed inset-0 z-[60] flex items-end justify-center p-0 pt-[var(--app-bar,0px)] sm:items-center sm:p-6 sm:pt-[calc(var(--app-bar,0px)+1.5rem)]"
+      className={`depth-ground fixed inset-0 z-[60] flex justify-center ${
+        full
+          ? 'items-stretch p-0'
+          : 'items-end p-0 pt-[var(--app-bar,0px)] sm:items-center sm:p-6 sm:pt-[calc(var(--app-bar,0px)+1.5rem)]'
+      }`}
     >
       {/* Clickable, but not a tab stop: the header already has a real Close
           button, and Escape closes. A focusable full-screen button here just
@@ -161,10 +171,14 @@ export function Modal({
         aria-label={title}
         tabIndex={-1}
         data-state={open ? 'open' : 'closed'}
-        className={`motion-dialog surface relative flex max-h-[calc(92dvh-var(--app-bar,0px))] w-full flex-col overflow-hidden rounded-t-panel dialog-panel outline-none sm:max-h-[calc(100dvh-var(--app-bar,0px)-3rem)] sm:rounded-panel ${WIDTHS[size]}`}
+        className={`motion-dialog surface relative flex w-full flex-col overflow-hidden dialog-panel outline-none ${
+          full
+            ? 'h-dvh max-h-dvh'
+            : `max-h-[calc(92dvh-var(--app-bar,0px))] rounded-t-panel sm:max-h-[calc(100dvh-var(--app-bar,0px)-3rem)] sm:rounded-panel ${WIDTHS[size]}`
+        }`}
       >
         <header
-          className={`flex items-start justify-between gap-4 border-b px-6 py-5 ${
+          className={`flex items-start justify-between gap-4 border-b ${full ? 'px-4 py-3 sm:px-6' : 'px-6 py-5'} ${
             headerTone === 'navy'
               ? 'border-white/10 bg-navy-950 text-amber-50'
               : 'border-line'
@@ -182,11 +196,13 @@ export function Modal({
               </p>
             )}
           </div>
+          <div className="-mt-1 -mr-2 flex shrink-0 items-center gap-1">
+          {headerActions}
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className={`-mt-1 -mr-2 grid h-9 w-9 shrink-0 place-items-center rounded-full transition-[background-color,color,scale] duration-(--dur-press) active:scale-[0.97] ${
+            className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition-[background-color,color,scale] duration-(--dur-press) active:scale-[0.97] ${
               headerTone === 'navy'
                 ? 'text-amber-50/60 hover:bg-white/10 hover:text-amber-50'
                 : 'text-faint hover:bg-[var(--surface-sunken)] hover:text-ink'
@@ -194,9 +210,10 @@ export function Modal({
           >
             <Icon name="x" size={18} />
           </button>
+          </div>
         </header>
 
-        <div className={`min-h-0 flex-1 overflow-y-auto px-6 py-5 ${bodyClassName}`}>
+        <div className={`min-h-0 flex-1 overflow-y-auto ${full ? 'px-4 py-4 sm:px-6' : 'px-6 py-5'} ${bodyClassName}`}>
           {children}
         </div>
 

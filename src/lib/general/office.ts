@@ -6,124 +6,66 @@
  * and a student opening the task board should not pay for a spreadsheet reader.
  *
  * **Conversion is lossy and the interface has to say so.** A .docx arrives as
- * HTML: its words, headings, lists, tables and links survive; its page layout,
- * fonts, footnotes, tracked changes and images do not. A .xlsx arrives as cell
- * text: values and formula text survive; formatting, charts and macros do not.
- * That trade is what makes the file reviewable, which is why it is here at all.
+ * HTML: its words, headings, lists, tables, links, fonts, colours, alignment,
+ * pictures and page size survive (`docx/read.ts`); headers, footers,
+ * footnotes and tracked changes do not. A .xlsx arrives as cell text — values
+ * and formula text — with its fonts, fills, alignment, number formats, borders,
+ * widths, merges and frozen panes; charts, images and macros do not. That trade
+ * is what makes the file reviewable, which is why it is here at all.
  */
 import { parseWorkbook, serializeWorkbook, trimTrailing } from './sheet'
-import type { Workbook } from './sheet'
+import type { Sheet, Workbook } from './sheet'
+import type { BorderLine, CellBorder, CellStyle, Merge } from './sheetFormat'
 
 export const OFFICE_WARNING =
-  'The words, headings, tables and numbers come across. Page layout, fonts, images, charts and macros do not — the file becomes one this site can show, compare and review.'
+  'Word files keep their fonts, colours, alignment, lists, tables, pictures and page size; headers, footers, footnotes, comments and tracked changes do not come across. Excel files keep their numbers and formulas; charts and macros do not.'
 
 /* ------------------------------------------------------------------- word */
 
-/** A .docx as HTML, plus anything the converter could not carry over. */
-export async function docxToHtml(file: File): Promise<{ html: string; warnings: string[] }> {
-  const mammoth = await import('mammoth')
-  const buffer = await file.arrayBuffer()
-  const result = await mammoth.convertToHtml({ arrayBuffer: buffer })
-  return {
-    html: result.value || '<p></p>',
-    warnings: (result.messages ?? []).map((m) => m.message),
-  }
-}
-
-type DocxRun = { text: string; bold?: boolean; italics?: boolean; underline?: Record<string, never> }
+export { htmlToDocx } from './docx/write'
 
 /**
- * HTML back to a .docx.
+ * A .docx as HTML for the Word editor, plus anything that could not come across.
  *
- * Walks the nodes rather than matching text, so nested markup keeps its
- * formatting and an unexpected tag degrades to its words instead of appearing
- * as angle brackets in somebody's thesis.
+ * Read with the site's own reader (`docx/read.ts`), which keeps fonts,
+ * colours, alignment, spacing, lists, tables, pictures and the page size.
+ * Pictures are uploaded into the project as they are found; without a
+ * project to put them in they are left out. A file the reader cannot follow
+ * falls back to mammoth, which keeps the words and the plain structure.
  */
-export async function htmlToDocx(html: string, title: string): Promise<Blob> {
-  const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell } =
-    await import('docx')
-
-  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html')
-
-  const runsOf = (node: Node, style: DocxRun = { text: '' }): DocxRun[] => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent ?? ''
-      return text ? [{ ...style, text }] : []
+export async function docxToHtml(file: File, projectId?: string): Promise<{ html: string; warnings: string[] }> {
+  const buffer = await file.arrayBuffer()
+  try {
+    const { readDocxBytes } = await import('./docx/read')
+    const read = readDocxBytes(new Uint8Array(buffer))
+    let html = read.html
+    const warnings: string[] = []
+    if (read.pictures.length) {
+      const { uploadDocImage } = await import('../api/general')
+      const paths = new Map<string, string>()
+      for (const pic of read.pictures) {
+        if (!projectId) break
+        try {
+          const ext = pic.mime === 'image/png' ? 'png' : pic.mime === 'image/gif' ? 'gif' : pic.mime === 'image/bmp' ? 'bmp' : 'jpg'
+          paths.set(pic.target, await uploadDocImage(projectId, new Blob([pic.data as Uint8Array<ArrayBuffer>], { type: pic.mime }), ext))
+        } catch {
+          warnings.push(`A picture (${pic.target.split('/').pop()}) could not be added.`)
+        }
+      }
+      html = html.replace(/<img data-docx-image="([^"]*)"([^>]*)>/g, (_m, target: string, rest: string) => {
+        const path = paths.get(target.replace(/&amp;/g, '&'))
+        return path ? `<img data-path="${path}"${rest}>` : ''
+      })
     }
-    if (node.nodeType !== Node.ELEMENT_NODE) return []
-    const el = node as HTMLElement
-    const next: DocxRun = { ...style }
-    const tag = el.tagName.toLowerCase()
-    if (tag === 'strong' || tag === 'b') next.bold = true
-    if (tag === 'em' || tag === 'i') next.italics = true
-    if (tag === 'u') next.underline = {}
-    if (tag === 'br') return [{ ...style, text: '\n' }]
-    return [...el.childNodes].flatMap((child) => runsOf(child, next))
-  }
-
-  const HEADINGS: Record<string, (typeof HeadingLevel)[keyof typeof HeadingLevel]> = {
-    h1: HeadingLevel.HEADING_1,
-    h2: HeadingLevel.HEADING_2,
-    h3: HeadingLevel.HEADING_3,
-    h4: HeadingLevel.HEADING_4,
-    h5: HeadingLevel.HEADING_5,
-    h6: HeadingLevel.HEADING_6,
-  }
-
-  const blocks: (InstanceType<typeof Paragraph> | InstanceType<typeof Table>)[] = []
-
-  const paragraph = (
-    node: Node,
-    options: { heading?: (typeof HeadingLevel)[keyof typeof HeadingLevel]; bullet?: number; numbered?: boolean } = {},
-  ) => {
-    const runs = runsOf(node).map((r) => new TextRun(r))
-    return new Paragraph({
-      children: runs.length ? runs : [new TextRun('')],
-      heading: options.heading,
-      bullet: options.bullet !== undefined ? { level: options.bullet } : undefined,
-    })
-  }
-
-  const walk = (node: Node, depth = 0) => {
-    if (node.nodeType !== Node.ELEMENT_NODE) return
-    const el = node as HTMLElement
-    const tag = el.tagName.toLowerCase()
-
-    if (HEADINGS[tag]) return blocks.push(paragraph(el, { heading: HEADINGS[tag] }))
-    if (tag === 'p') return blocks.push(paragraph(el))
-    if (tag === 'li') return blocks.push(paragraph(el, { bullet: Math.min(depth, 4) }))
-    if (tag === 'ul' || tag === 'ol') {
-      return [...el.children].forEach((child) => walk(child, depth + 1))
+    return { html, warnings }
+  } catch {
+    const mammoth = await import('mammoth')
+    const result = await mammoth.convertToHtml({ arrayBuffer: buffer })
+    return {
+      html: result.value || '<p></p>',
+      warnings: (result.messages ?? []).map((m) => m.message),
     }
-    if (tag === 'table') {
-      const rows = [...el.querySelectorAll('tr')].map(
-        (tr) =>
-          new TableRow({
-            children: [...tr.children].map(
-              (cell) => new TableCell({ children: [paragraph(cell)] }),
-            ),
-          }),
-      )
-      if (rows.length) blocks.push(new Table({ rows }))
-      return
-    }
-    // Anything unrecognised: keep its words, drop its shape.
-    if (el.children.length) return [...el.childNodes].forEach((child) => walk(child, depth))
-    if ((el.textContent ?? '').trim()) blocks.push(paragraph(el))
   }
-
-  ;[...doc.body.childNodes].forEach((node) => {
-    if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim()) {
-      blocks.push(new Paragraph({ children: [new TextRun(node.textContent as string)] }))
-    } else {
-      walk(node)
-    }
-  })
-
-  if (blocks.length === 0) blocks.push(new Paragraph({ children: [new TextRun('')] }))
-
-  const out = new Document({ title, sections: [{ children: blocks }] })
-  return Packer.toBlob(out)
 }
 
 /* ------------------------------------------------------------------ excel */
@@ -146,18 +88,48 @@ async function xlsxToWorkbookWithExcelJs(file: File): Promise<Workbook> {
   const book = new ExcelJS.Workbook()
   await book.xlsx.load(await file.arrayBuffer())
 
-  const sheets = book.worksheets.map((ws, i) => {
+  const sheets = book.worksheets.map((ws, i): Sheet => {
     const rows: string[][] = []
+    const styles: Record<string, CellStyle> = {}
+    const borders: CellBorder[] = []
+    const heights: Record<string, number> = {}
     ws.eachRow({ includeEmpty: true }, (row, rowNumber) => {
       const cells: string[] = []
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         cells[colNumber - 1] = cellText(cell.value)
+        const st = styleFromExcel(cell)
+        if (Object.keys(st).length) styles[`${rowNumber - 1}:${colNumber - 1}`] = st
+        const border = borderFromExcel(cell.border, rowNumber - 1, colNumber - 1)
+        if (border) borders.push(border)
       })
       rows[rowNumber - 1] = [...cells].map((c) => c ?? '')
+      if (row.height) heights[String(rowNumber - 1)] = Math.round((row.height * 4) / 3)
     })
+    const cols: Record<string, number> = {}
+    ws.columns?.forEach((col, c) => {
+      if (col?.width) cols[String(c)] = Math.round(col.width * 7 + 5)
+    })
+    const merges = ((ws.model as { merges?: string[] }).merges ?? []).map(mergeFromRef).filter((m): m is Merge => m !== null)
+    // ExcelJS repeats a merged range's first cell over the rest; to Excel those cells are empty.
+    for (const m of merges) {
+      for (let r = m.r; r < m.r + m.rs; r++) {
+        for (let c = m.c; c < m.c + m.cs; c++) {
+          if (r === m.r && c === m.c) continue
+          if (rows[r]?.[c] !== undefined) rows[r][c] = ''
+          delete styles[`${r}:${c}`]
+        }
+      }
+    }
+    const view = ws.views?.[0] as { state?: string; xSplit?: number; ySplit?: number } | undefined
     return {
       name: ws.name || `Sheet ${i + 1}`,
       rows: trimTrailing(rows.map((r) => (r ?? []).map((c) => c ?? ''))),
+      styles,
+      cols,
+      heights,
+      merges,
+      freeze: view?.state === 'frozen' ? { rows: view.ySplit ?? 0, cols: view.xSplit ?? 0 } : undefined,
+      borders,
     }
   })
 
@@ -171,6 +143,94 @@ async function xlsxToWorkbookWithReader(file: File): Promise<Workbook> {
     rows: trimTrailing(sheet.data.map((row) => row.map(cellText))),
   }))
   return parseWorkbook(serializeWorkbook({ sheets: sheets.length ? sheets : [{ name: 'Sheet 1', rows: [] }] }))
+}
+
+type ExcelCell = import('exceljs').Cell
+type ExcelBorders = Partial<import('exceljs').Borders>
+
+/** "FFC00000" (or "C00000") as "#c00000"; theme and indexed colours have no argb and are skipped. */
+const fromArgb = (argb: string | undefined) =>
+  argb && /^([0-9a-f]{2})?[0-9a-f]{6}$/i.test(argb) ? `#${argb.slice(-6).toLowerCase()}` : undefined
+
+const toArgb = (hex: string) => `FF${hex.slice(1).toUpperCase()}`
+
+function styleFromExcel(cell: ExcelCell): CellStyle {
+  const st: CellStyle = {}
+  const font = cell.font ?? {}
+  if (font.bold) st.bold = true
+  if (font.italic) st.italic = true
+  if (font.underline) st.underline = true
+  if (font.strike) st.strike = true
+  if (font.name && font.name !== 'Calibri') st.font = font.name
+  if (font.size && font.size !== 11) st.size = font.size
+  const color = fromArgb(font.color?.argb)
+  if (color && color !== '#000000') st.color = color
+  const fill = cell.fill as { type?: string; pattern?: string; fgColor?: { argb?: string } } | undefined
+  const bg = fill?.type === 'pattern' && fill.pattern === 'solid' ? fromArgb(fill.fgColor?.argb) : undefined
+  if (bg) st.fill = bg
+  const a = cell.alignment ?? {}
+  if (a.horizontal === 'left' || a.horizontal === 'center' || a.horizontal === 'right') st.align = a.horizontal
+  if (a.vertical === 'top' || a.vertical === 'bottom' || a.vertical === 'middle') st.valign = a.vertical
+  if (a.wrapText) st.wrap = true
+  if (cell.numFmt && cell.numFmt !== 'General') st.format = cell.numFmt
+  return st
+}
+
+function styleToExcel(cell: ExcelCell, st: CellStyle) {
+  if (st.bold || st.italic || st.underline || st.strike || st.font || st.size || st.color) {
+    cell.font = {
+      bold: st.bold,
+      italic: st.italic,
+      underline: st.underline,
+      strike: st.strike,
+      name: st.font,
+      size: st.size,
+      color: st.color ? { argb: toArgb(st.color) } : undefined,
+    }
+  }
+  if (st.fill) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: toArgb(st.fill) } }
+  if (st.align || st.valign || st.wrap) {
+    cell.alignment = { horizontal: st.align, vertical: st.valign, wrapText: st.wrap }
+  }
+  if (st.format) cell.numFmt = st.format
+}
+
+const EXCEL_LINES: Record<string, BorderLine['style']> = {
+  thin: 'thin',
+  hair: 'thin',
+  medium: 'medium',
+  thick: 'thick',
+  dotted: 'dotted',
+  double: 'double',
+  dashed: 'dashed',
+  mediumDashed: 'dashed',
+  dashDot: 'dashed',
+  mediumDashDot: 'dashed',
+  dashDotDot: 'dashed',
+  mediumDashDotDot: 'dashed',
+  slantDashDot: 'dashed',
+}
+
+function borderFromExcel(border: ExcelBorders | undefined, r: number, c: number): CellBorder | null {
+  if (!border) return null
+  const out: CellBorder = { r, c }
+  for (const side of ['top', 'bottom', 'left', 'right'] as const) {
+    const line = border[side]
+    const style = line?.style ? EXCEL_LINES[line.style] : undefined
+    if (style) out[side] = { style, color: fromArgb(line?.color?.argb) ?? '#000000' }
+  }
+  return out.top || out.bottom || out.left || out.right ? out : null
+}
+
+/** "B2:D3" as a merged range. */
+function mergeFromRef(ref: string): Merge | null {
+  const m = ref.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/i)
+  if (!m) return null
+  const col = (s: string) => [...s.toUpperCase()].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1
+  const r1 = Number(m[2]) - 1
+  const c1 = col(m[1])
+  const merge = { r: r1, c: c1, rs: Number(m[4]) - r1, cs: col(m[3]) - c1 + 1 }
+  return merge.rs >= 1 && merge.cs >= 1 && merge.rs * merge.cs > 1 ? merge : null
 }
 
 function sheetName(name: string) {
@@ -238,7 +298,10 @@ export async function workbookToXlsx(workbook: Workbook): Promise<Blob> {
   book.created = new Date()
 
   for (const sheet of workbook.sheets) {
-    const ws = book.addWorksheet(sheet.name.slice(0, 31) || 'Sheet 1')
+    const f = sheet.freeze
+    const ws = book.addWorksheet(sheet.name.slice(0, 31) || 'Sheet 1', {
+      views: f ? [{ state: 'frozen', xSplit: f.cols, ySplit: f.rows }] : undefined,
+    })
     trimTrailing(sheet.rows).forEach((row, r) => {
       row.forEach((text, c) => {
         if (text === '') return
@@ -248,6 +311,17 @@ export async function workbookToXlsx(workbook: Workbook): Promise<Blob> {
         else cell.value = text
       })
     })
+    for (const [key, st] of Object.entries(sheet.styles ?? {})) {
+      const [r, c] = key.split(':').map(Number)
+      styleToExcel(ws.getCell(r + 1, c + 1), st)
+    }
+    const side = (line?: BorderLine) => (line ? { style: line.style, color: { argb: toArgb(line.color) } } : undefined)
+    for (const b of sheet.borders ?? []) {
+      ws.getCell(b.r + 1, b.c + 1).border = { top: side(b.top), bottom: side(b.bottom), left: side(b.left), right: side(b.right) }
+    }
+    for (const [c, px] of Object.entries(sheet.cols ?? {})) ws.getColumn(Number(c) + 1).width = Math.max(1, (px - 5) / 7)
+    for (const [r, px] of Object.entries(sheet.heights ?? {})) ws.getRow(Number(r) + 1).height = px * 0.75
+    for (const m of sheet.merges ?? []) ws.mergeCells(m.r + 1, m.c + 1, m.r + m.rs, m.c + m.cs)
   }
 
   const buffer = await book.xlsx.writeBuffer()

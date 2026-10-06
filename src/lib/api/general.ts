@@ -1535,6 +1535,36 @@ export async function uploadProjectFile(projectId: string, file: File) {
   return path
 }
 
+/** Pictures inside Word files: up to 5 MB each. */
+export const DOC_IMAGE_LIMIT = 5 * 1024 * 1024
+
+/**
+ * Uploads a picture placed in a Word file and answers its path. Under
+ * `<project>/files/doc-images/`, which the files storage policy already lets
+ * any member write; the storage sweep leaves this folder alone, because the
+ * only thing that refers to these is the HTML of some version of a document.
+ */
+export async function uploadDocImage(projectId: string, file: Blob, extension: string) {
+  if (file.size > DOC_IMAGE_LIMIT) throw new Error('Pictures can be up to 5 MB.')
+  const path = `${projectId}/files/doc-images/${crypto.randomUUID()}.${extension}`
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    upsert: false,
+    contentType: file.type || `image/${extension === 'jpg' ? 'jpeg' : extension}`,
+  })
+  if (error) throw error
+  return path
+}
+
+/** Links that show a document's pictures, for an hour, keyed by path. */
+export async function docImageUrls(paths: string[]) {
+  const out = new Map<string, string>()
+  if (paths.length === 0) return out
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(paths, 3600)
+  if (error) throw error
+  for (const d of data ?? []) if (d.path && d.signedUrl) out.set(d.path, d.signedUrl)
+  return out
+}
+
 export async function projectFileUrl(storagePath: string, downloadName?: string) {
   const { data, error } = await supabase.storage
     .from(BUCKET)

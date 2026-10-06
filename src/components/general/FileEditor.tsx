@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Field'
-import { Icon } from '../ui/Icon'
+import { Icon, Spinner } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
-import { Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import {
   commitFiles,
@@ -20,10 +19,24 @@ import { parseWorkbook, serializeWorkbook } from '../../lib/general/sheet'
 import type { Workbook } from '../../lib/general/sheet'
 import { FILE_KIND_LABEL } from '../../lib/general/types'
 import type { FileAction, FileKind, GeneralRepoSummary } from '../../lib/general/types'
-import { RichEditor } from './RichEditor'
-import { SheetEditor } from './SheetEditor'
-import { PdfPreview } from './PdfPreview'
+import { LazyPdfPreview as PdfPreview } from './LazyPdfPreview'
 import type { GeneralProjectState } from './useGeneralProject'
+
+// Monaco is several megabytes; it loads when somebody opens a code file.
+const CodeEditor = lazy(() => import('./CodeEditor'))
+// Tiptap and the page fonts load when somebody opens a Word file.
+const WordEditor = lazy(() => import('./word/WordEditor'))
+// The Excel grid and its formula engine load when somebody opens a spreadsheet.
+const ExcelEditor = lazy(() => import('./ExcelEditor'))
+
+function EditorLoading({ what }: { what: string }) {
+  return (
+    <div className="flex h-[60vh] min-h-[22rem] items-center justify-center gap-2 rounded-xl border border-line surface-sunken text-[13px] text-muted">
+      <Spinner size={14} />
+      Opening the {what}…
+    </div>
+  )
+}
 
 export type OpenFile = {
   path: string
@@ -59,16 +72,77 @@ export function FileEditor({
   onClose: () => void
   onSaved: () => Promise<void>
 }) {
+  const [full, setFull] = useState(false)
+  // Whether the browser's own full screen is ours to leave again.
+  const ownsScreen = useRef(false)
+
+  // Esc, F11 or the browser's own control can leave full screen; follow it.
+  useEffect(() => {
+    const onChange = () => {
+      if (!document.fullscreenElement && ownsScreen.current) {
+        ownsScreen.current = false
+        setFull(false)
+      }
+    }
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  function leaveScreen() {
+    if (ownsScreen.current && document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+    ownsScreen.current = false
+  }
+
+  function toggleFull() {
+    if (full) {
+      leaveScreen()
+      setFull(false)
+      return
+    }
+    setFull(true)
+    // The whole page rather than the dialog, so menus, confirms and toasts —
+    // which render at the end of <body> — still show. Where the browser has no
+    // full screen for pages (iPhone), the dialog filling the window is it.
+    if (document.fullscreenEnabled && !document.fullscreenElement) {
+      document.documentElement
+        .requestFullscreen()
+        .then(() => {
+          ownsScreen.current = true
+        })
+        .catch(() => {})
+    }
+  }
+
+  function close() {
+    leaveScreen()
+    setFull(false)
+    onClose()
+  }
+
   return (
     <Modal
       open={Boolean(file)}
-      onClose={onClose}
+      onClose={close}
       title={file ? fileName(file.path) : 'File'}
       description={file?.path}
-      size="xl"
+      size={full ? 'full' : 'xl'}
+      headerActions={
+        file && (
+          <button
+            type="button"
+            onClick={toggleFull}
+            aria-label={full ? 'Exit full screen' : 'Full screen'}
+            title={full ? 'Exit full screen' : 'Full screen'}
+            aria-pressed={full}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-[background-color,color,scale] duration-(--dur-press) hover:bg-[var(--surface-sunken)] hover:text-ink active:scale-[0.97]"
+          >
+            <Icon name={full ? 'minimize' : 'maximize'} size={17} />
+          </button>
+        )
+      }
     >
       {file && (
-        <Body key={file.path + String(file.fromDraft) + (file.sharedBy ?? '')} file={file} repo={repo} state={state} onClose={onClose} onSaved={onSaved} />
+        <Body key={file.path + String(file.fromDraft) + (file.sharedBy ?? '')} file={file} repo={repo} state={state} full={full} onClose={close} onSaved={onSaved} />
       )}
     </Modal>
   )
@@ -78,12 +152,14 @@ function Body({
   file,
   repo,
   state,
+  full,
   onClose,
   onSaved,
 }: {
   file: OpenFile
   repo: GeneralRepoSummary
   state: GeneralProjectState
+  full: boolean
   onClose: () => void
   onSaved: () => Promise<void>
 }) {
@@ -108,14 +184,38 @@ function Body({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // What was last saved: the file as opened, until Ctrl+S saves it in place.
+  // A sheet is compared in its canonical form, so opening one never reads as a change.
+  const [baseline, setBaseline] = useState(() =>
+    file.kind === 'sheet' ? serializeWorkbook(parseWorkbook(file.content)) : file.content,
+  )
+  const [inDraft, setInDraft] = useState(file.fromDraft)
+
+  /*
+   * Esc belongs to the editor while you are in it — it leaves a cell, closes
+   * find, dismisses a suggestion — as it does in Excel, Word and VS Code. It
+   * must not reach the dialog and close the file with the work in it.
+   */
+  const editorArea = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = editorArea.current
+    if (!el) return
+    const keep = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') e.stopPropagation()
+    }
+    el.addEventListener('keydown', keep)
+    return () => el.removeEventListener('keydown', keep)
+  }, [])
+
   const current = file.kind === 'sheet' ? serializeWorkbook(book) : text
-  const dirty = current !== file.content
+  const dirty = current !== baseline
 
   useEffect(() => {
     setError(null)
   }, [current])
 
-  async function save(toMain: boolean) {
+  /** `stay` keeps the file open, the way Ctrl+S does in an editor. */
+  async function save(toMain: boolean, stay = false) {
     if (busy) return
     setError(null)
     if (toMain && !message.trim()) {
@@ -152,6 +252,12 @@ function Body({
           storagePath: file.storagePath,
         })
         show('Saved to your draft')
+        if (stay) {
+          setBaseline(current)
+          setInDraft(true)
+          await onSaved()
+          return
+        }
       }
       onClose()
       await onSaved()
@@ -201,7 +307,7 @@ function Body({
         <span className="rounded-md surface-sunken px-2 py-0.5">{FILE_KIND_LABEL[file.kind]}</span>
         {file.sharedBy !== undefined ? (
           <span className="rounded-md surface-sunken px-2 py-0.5">Shared by {file.sharedBy}</span>
-        ) : file.fromDraft ? (
+        ) : inDraft ? (
           <span className="rounded-md bg-amber-400/25 px-2 py-0.5 font-medium text-amber-800 dark:text-amber-200">
             Your draft
           </span>
@@ -286,7 +392,7 @@ function Body({
       )}
 
       {isPdf && (
-        file.storagePath ? <PdfPreview storagePath={file.storagePath} label={name} /> : null
+        file.storagePath ? <PdfPreview storagePath={file.storagePath} label={name} fill={full} /> : null
       )}
 
       {!mayCommit && !readOnly && isEditable(file.kind) && (
@@ -296,27 +402,38 @@ function Body({
         </Alert>
       )}
 
-      {file.kind === 'rich' && (
-        <RichEditor value={text} onChange={setText} readOnly={frozen} />
-      )}
-      {file.kind === 'sheet' && (
-        <SheetEditor workbook={book} onChange={setBook} readOnly={frozen} projectId={state.project?.id} />
-      )}
-      {file.kind === 'text' && !misreadOfficeFile && (
-        <Field label="Contents">
-          {(id) => (
-            <Textarea
-              id={id}
-              rows={18}
-              maxLength={400000}
+      <div ref={editorArea}>
+        {file.kind === 'rich' && (
+          <Suspense fallback={<EditorLoading what="document" />}>
+            <WordEditor
+              value={file.content}
+              onChange={setText}
               readOnly={frozen}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              className="!font-mono !text-[12px] !leading-relaxed"
+              fill={full}
+              projectId={state.project?.id}
             />
-          )}
-        </Field>
-      )}
+          </Suspense>
+        )}
+        {file.kind === 'sheet' && (
+          <Suspense fallback={<EditorLoading what="spreadsheet" />}>
+            <ExcelEditor workbook={book} onChange={setBook} readOnly={frozen} projectId={state.project?.id} fill={full} />
+          </Suspense>
+        )}
+        {file.kind === 'text' && !misreadOfficeFile && (
+          <Suspense fallback={<EditorLoading what="code editor" />}>
+            <CodeEditor
+              path={file.path}
+              value={file.content}
+              onChange={(next) => setText(next.slice(0, 400000))}
+              onSave={() => {
+                if (!frozen && current !== baseline) void save(false, true)
+              }}
+              readOnly={frozen}
+              fill={full}
+            />
+          </Suspense>
+        )}
+      </div>
 
       {misreadOfficeFile && file.fromDraft && (
         <Button variant="outline" onClick={() => void dropMisreadDraft()} loading={busy}>

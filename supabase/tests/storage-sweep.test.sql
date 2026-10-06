@@ -27,7 +27,8 @@ begin
     ('teaching-resources', 'zz-sweep/used.pdf', old_at),
     ('teaching-resources', 'zz-sweep/fresh.pdf', now()),
     ('avatars', 'zz-sweep/face.png', old_at),
-    ('general-files', 'zz-sweep/files/draft-only.bin', old_at);
+    ('general-files', 'zz-sweep/files/draft-only.bin', old_at),
+    ('general-files', 'zz-sweep/files/doc-images/picture.png', old_at);
 
   insert into public.teaching_resources (professor_id, kind, title, file_path, file_name)
   values (prof, 'syllabus', 'Sweep test', 'zz-sweep/used.pdf', 'used.pdf');
@@ -42,6 +43,8 @@ begin
     not exists (select 1 from public.storage_orphans(100000) where name = 'zz-sweep/face.png'));
   perform pg_temp.ok('an upload nothing records in a project''s Files is swept',
     exists (select 1 from public.storage_orphans(100000) where name = 'zz-sweep/files/draft-only.bin'));
+  perform pg_temp.ok('a picture inside a Word file is never swept',
+    not exists (select 1 from public.storage_orphans(100000) where name = 'zz-sweep/files/doc-images/picture.png'));
 
   -- Signed-in people cannot run it or read what it asked for.
   perform set_config('request.jwt.claims', json_build_object('sub', someone, 'role', 'authenticated')::text, true);
