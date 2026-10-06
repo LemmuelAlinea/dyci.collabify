@@ -47,7 +47,7 @@ declare
   v_class uuid; v_prof uuid; v_a uuid; v_b uuid;
   v_set uuid; v_group uuid; v_proj uuid; v_proj2 uuid; v_board uuid; v_board2 uuid;
   s1 uuid; s2 uuid; s_other uuid; s3 uuid; s4 uuid; s5 uuid;
-  t_todo uuid; t_started uuid; t_done uuid; t_arch uuid; t_live uuid;
+  t_todo uuid; t_started uuid; t_done uuid; t_arch uuid; t_live uuid; t_parked uuid;
   n int;
 begin
   select c.id, c.professor_id into v_class, v_prof
@@ -127,6 +127,24 @@ begin
     (select rank from public.project_tasks where id = t_started) = -5);
   perform pg_temp.must_be('the detail view carries sprint and rank',
     (select sprint_id = s1 from public.task_detail_overview where id = t_todo));
+  -- Archived while unfinished, so finishing leaves it in the sprint.
+  insert into public.project_tasks (board_id, title, weight, created_by, sprint_id)
+  values (v_board, 'Parked', 10, v_a, s1) returning id into t_parked;
+  perform public.archive_class_task(t_parked, true);
+
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_refuse('the professor cannot move a task into a sprint',
+    format('update public.project_tasks set sprint_id = %L where id = %L', s2, t_todo));
+  perform pg_temp.must_refuse('the professor cannot take a task out of a sprint',
+    format('update public.project_tasks set sprint_id = null where id = %L', t_todo));
+  perform pg_temp.must_refuse('the professor cannot reorder the backlog',
+    format('update public.project_tasks set rank = -99 where id = %L', t_todo));
+  perform pg_temp.must_refuse('the professor cannot add a task straight into a sprint',
+    format($q$insert into public.project_tasks (board_id, title, weight, created_by, sprint_id)
+              values (%L, 'Prof task', 10, %L, %L)$q$, v_board, v_prof, s2));
+  perform pg_temp.must_be('the task is where the group put it',
+    (select sprint_id = s1 and rank <> -99 from public.project_tasks where id = t_todo));
+  perform pg_temp.act_as(v_a);
 
   ------------------------------------------------------------ running
   update public.board_sprints set state = 'active' where id = s1;
@@ -147,6 +165,19 @@ begin
     (select sprint_id from public.project_tasks where id = t_done) = s1);
   perform pg_temp.must_be('the board sprint is finished',
     (select state from public.board_sprints where id = s1) = 'completed');
+  perform pg_temp.must_refuse('a class task cannot move into a finished sprint',
+    format('update public.project_tasks set sprint_id = %L where id = %L', s1, t_todo));
+  perform pg_temp.must_refuse('a class task cannot be added straight into a finished sprint',
+    format($q$insert into public.project_tasks (board_id, title, weight, created_by, sprint_id)
+              values (%L, 'Late', 10, %L, %L)$q$, v_board, v_b, s1));
+
+  perform pg_temp.act_as(v_a);
+  update public.project_tasks set status = 'in_progress' where id = t_done;
+  perform pg_temp.must_be('a done class task reopened by its holder goes back to the backlog',
+    (select sprint_id is null and status = 'in_progress' from public.project_tasks where id = t_done));
+  perform public.archive_class_task(t_parked, false);
+  perform pg_temp.must_be('restoring an unfinished class task from a finished sprint puts it in the backlog',
+    (select sprint_id is null and archived_at is null from public.project_tasks where id = t_parked));
 
   ------------------------------------------------------------ handed in
   perform pg_temp.act_as(v_a);

@@ -54,6 +54,7 @@ declare
   t_open uuid; t_done uuid; t_member uuid; t_gone uuid; t_new uuid;
   r1 double precision; r2 double precision;
   s_arch uuid; v_team uuid; t_arch uuid; t_rt uuid; t_prev uuid; t_rank uuid;
+  t_parked uuid; s_g uuid; t_g uuid;
   n int;
 begin
   for i in 1..3 loop
@@ -132,6 +133,11 @@ begin
   perform pg_temp.must_refuse('a task cannot join another project''s sprint',
     format('update public.general_tasks set sprint_id = %L where id = %L', s_other, t_open));
   update public.general_tasks set status = 'done' where id = t_done;
+  -- B holds the done task, so B can reopen it later.
+  insert into public.general_task_assignees (task_id, project_id, user_id) values (t_done, p, b);
+  -- Archived while unfinished, so finishing leaves it in the sprint.
+  insert into public.general_tasks (project_id, title, sprint_id) values (p, 'Parked', s1) returning id into t_parked;
+  perform public.archive_general_task(t_parked, true);
 
   ------------------------------------------------------------ running
   update public.general_sprints set state = 'active' where id = s1;
@@ -158,6 +164,22 @@ begin
     (select state = 'completed' and completed_at is not null from public.general_sprints where id = s1));
   perform pg_temp.must_refuse('a finished sprint cannot change',
     format($q$update public.general_sprints set name = 'Renamed' where id = %L$q$, s1));
+  perform pg_temp.must_refuse('a task cannot move into a finished sprint',
+    format('update public.general_tasks set sprint_id = %L where id = %L', s1, t_open));
+  perform pg_temp.must_refuse('a task cannot be added straight into a finished sprint',
+    format($q$insert into public.general_tasks (project_id, title, sprint_id) values (%L, 'Late', %L)$q$, p, s1));
+
+  perform pg_temp.act_as(b);
+  update public.general_tasks set status = 'in_progress' where id = t_done;
+  perform pg_temp.must_be('a done task reopened by its holder goes back to the backlog',
+    (select sprint_id is null and status = 'in_progress' from public.general_tasks where id = t_done));
+
+  perform pg_temp.act_as(a);
+  perform pg_temp.must_be('an archived task stays in the sprint it was archived in',
+    (select sprint_id = s1 from public.general_tasks where id = t_parked));
+  perform public.archive_general_task(t_parked, false);
+  perform pg_temp.must_be('restoring an unfinished task from a finished sprint puts it in the backlog',
+    (select sprint_id is null and archived_at is null from public.general_tasks where id = t_parked));
 
   ------------------------------------------------------------ deleting
   insert into public.general_sprints (project_id, name, starts_on, ends_on)
@@ -194,6 +216,29 @@ begin
     (select sprint_id is null from public.general_tasks where id = t_rt));
   perform pg_temp.must_be('the archive flag is off again after the delete',
     coalesce(current_setting('collabify.general_archive_op', true), 'off') = 'off');
+
+  ------------------------------------------------------------ a granted member deletes
+  -- B is a Member holding a manage_tasks grant. The Owner archived a team task
+  -- in a planned sprint, so RLS hides it from B; deleting the sprint still
+  -- has to put it back in the backlog.
+  perform public.grant_general_permission(p, b, 'manage_tasks');
+  insert into public.general_sprints (project_id, name, starts_on, ends_on)
+  values (p, 'Granted sprint', current_date + 70, current_date + 80) returning id into s_g;
+  insert into public.general_tasks (project_id, team_id, title, sprint_id)
+  values (p, v_team, 'Owner team task', s_g) returning id into t_g;
+  perform public.archive_general_task(t_g, true);
+  perform pg_temp.act_as(b);
+  perform pg_temp.must_be('the granted member cannot see the Owner''s archived task',
+    not exists (select 1 from public.general_tasks where id = t_g));
+  delete from public.general_sprints where id = s_g;
+  get diagnostics n = row_count;
+  perform pg_temp.must_be('a granted member deletes a planned sprint over someone else''s archived task', n = 1);
+  perform pg_temp.must_be('the archive flag is not left switched on after that delete',
+    coalesce(current_setting('collabify.general_archive_op', true), 'off') <> 'on');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('that archived task is back in the backlog and still archived',
+    (select sprint_id is null and archived_at is not null from public.general_tasks where id = t_g));
+  perform pg_temp.act_as(a);
 
   ------------------------------------------------------------ the overview
   insert into public.general_tasks (project_id, title, sprint_id) values (p, 'Visible', s2) returning id into t_new;

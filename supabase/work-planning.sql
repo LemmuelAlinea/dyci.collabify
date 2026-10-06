@@ -16,6 +16,11 @@
 -- Redefines general_task_overview (owner: general-archive-rbac.sql) to append
 -- sprint_id and rank. Re-run this file after re-running that one.
 --
+-- Deleting a project relies on general_tasks' foreign key firing before
+-- general_sprints' (Postgres runs them in trigger-name order, and the live
+-- RI_ConstraintTrigger names sort that way), so the tasks are gone before
+-- release_sprint_tasks runs.
+--
 -- Idempotent. Safe to re-run.
 
 begin;
@@ -157,6 +162,14 @@ alter table public.general_tasks
   alter column rank set default extract(epoch from clock_timestamp()),
   alter column rank set not null;
 
+-- Tasks made in the same instant tie; nudge all but the first of each tie
+-- apart so a move between them has room. A second run finds no ties.
+update public.general_tasks t
+   set rank = t.rank + (d.rn - 1) * 1e-3
+  from (select id, row_number() over (partition by project_id, rank order by id) as rn
+          from public.general_tasks) d
+ where t.id = d.id and d.rn > 1;
+
 -- A task can only join a sprint on its own project. Deleting a sprint puts its
 -- tasks back in the backlog (the column list needs Postgres 15 or later).
 do $$ begin
@@ -168,16 +181,26 @@ exception when duplicate_object then null; end $$;
 create index if not exists general_tasks_sprint_idx
   on public.general_tasks (sprint_id) where sprint_id is not null;
 
-/** Planning (sprint and order) is manage_tasks only; everything else is guard_general_task's. */
+/**
+ * Planning (sprint and order) is manage_tasks only; everything else is
+ * guard_general_task's. A finished sprint takes no new tasks from anyone, and
+ * a task that comes back to life in one (reopened, or restored unfinished)
+ * returns to the backlog. The checks read the change the client asked for, so
+ * that move back to the backlog never trips them.
+ */
 create or replace function public.guard_general_task_plan()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if auth.uid() is null then
-    return new;
+  if new.sprint_id is not null
+     and (tg_op = 'INSERT' or new.sprint_id is distinct from old.sprint_id)
+     and exists (select 1 from public.general_sprints s
+                  where s.id = new.sprint_id and s.state = 'completed') then
+    raise exception 'This sprint is finished, so tasks can no longer join it. Pick a planned sprint or the backlog.'
+      using errcode = 'check_violation';
   end if;
 
   if tg_op = 'INSERT' then
-    if not public.general_can(new.project_id, 'manage_tasks') then
+    if auth.uid() is not null and not public.general_can(new.project_id, 'manage_tasks') then
       if new.sprint_id is not null then
         raise exception 'Only someone who manages tasks can put a task in a sprint.'
           using errcode = 'check_violation';
@@ -188,10 +211,20 @@ begin
     return new;
   end if;
 
-  if (new.sprint_id is distinct from old.sprint_id or new.rank is distinct from old.rank)
+  if auth.uid() is not null
+     and (new.sprint_id is distinct from old.sprint_id or new.rank is distinct from old.rank)
      and not public.general_can(old.project_id, 'manage_tasks') then
     raise exception 'Only someone who manages tasks can plan sprints and order the backlog.'
       using errcode = 'check_violation';
+  end if;
+
+  if old.sprint_id is not null
+     and new.sprint_id is not distinct from old.sprint_id
+     and new.status <> 'done'
+     and (old.status = 'done' or (old.archived_at is not null and new.archived_at is null))
+     and exists (select 1 from public.general_sprints s
+                  where s.id = old.sprint_id and s.state = 'completed') then
+    new.sprint_id := null;
   end if;
   return new;
 end;
@@ -208,16 +241,22 @@ create trigger general_tasks_plan_guard before insert or update on public.genera
  * key's own set null runs as an UPDATE under the caller, and guard_general_task
  * refuses that on an archived task that has a team. So clear sprint_id here
  * first, holding collabify.general_archive_op, the flag guard_general_task
- * honours for archive operations. Security invoker: the deleter has
- * manage_tasks (the delete policy), so RLS and guard_general_task_plan still
- * apply to them.
+ * honours for archive operations, and restoring whatever it was before.
+ * Security definer, because the tasks' select policy hides a task somebody
+ * else archived from a Member who holds a manage_tasks grant: as the caller,
+ * the update would miss it and the foreign key's own update would still trip
+ * the guard. The trigger only fires for a row the caller's delete policy let
+ * through (planned sprint, manage_tasks, project not archived), and both task
+ * guards still run on each task with auth.uid() unchanged.
  */
 create or replace function public.release_sprint_tasks()
-returns trigger language plpgsql set search_path = public as $$
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  was text := current_setting('collabify.general_archive_op', true);
 begin
   perform set_config('collabify.general_archive_op', 'on', true);
   update public.general_tasks set sprint_id = null where sprint_id = old.id;
-  perform set_config('collabify.general_archive_op', 'off', true);
+  perform set_config('collabify.general_archive_op', coalesce(was, 'off'), true);
   return old;
 end;
 $$;

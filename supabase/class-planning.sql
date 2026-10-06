@@ -10,6 +10,8 @@
 -- up sprint_id and rank; same body as class-schedule.sql. Moving a task
 -- between sprints or reordering it is allowed even once started:
 -- guard_task_edit freezes title, details, weight, dates and position, not these.
+-- A second trigger, project_tasks_plan_guard, owns sprint_id and rank:
+-- guard_task_edit (class-schedule.sql) is left alone.
 --
 -- Idempotent. Safe to re-run.
 
@@ -91,6 +93,14 @@ alter table public.project_tasks
   alter column rank set default extract(epoch from clock_timestamp()),
   alter column rank set not null;
 
+-- Tasks made in the same instant tie; nudge all but the first of each tie
+-- apart so a move between them has room. A second run finds no ties.
+update public.project_tasks t
+   set rank = t.rank + (d.rn - 1) * 1e-3
+  from (select id, row_number() over (partition by board_id, rank order by id) as rn
+          from public.project_tasks) d
+ where t.id = d.id and d.rn > 1;
+
 do $$ begin
   alter table public.project_tasks
     add constraint project_tasks_sprint_fk foreign key (sprint_id, board_id)
@@ -99,6 +109,63 @@ exception when duplicate_object then null; end $$;
 
 create index if not exists project_tasks_sprint_idx
   on public.project_tasks (sprint_id) where sprint_id is not null;
+
+/**
+ * The planning columns on a class task. A finished sprint takes no new tasks
+ * from anyone. The professor reads the plan but does not change it: no sprint
+ * and no order, except the release trigger below sending tasks back to the
+ * backlog when a sprint goes (collabify.sprint_release_op). A task that comes
+ * back to life in a finished sprint (reopened, or restored unfinished) returns
+ * to the backlog. The checks read the change the client asked for, so that
+ * move back to the backlog never trips them. Named to fire after
+ * project_tasks_guard_edit, so archived_at is what that guard settled on.
+ */
+create or replace function public.guard_class_task_plan()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_board uuid := case when tg_op = 'INSERT' then new.board_id else old.board_id end;
+begin
+  if new.sprint_id is not null
+     and (tg_op = 'INSERT' or new.sprint_id is distinct from old.sprint_id)
+     and exists (select 1 from public.board_sprints s
+                  where s.id = new.sprint_id and s.state = 'completed') then
+    raise exception 'This sprint is finished, so tasks can no longer join it. Pick a planned sprint or the backlog.'
+      using errcode = 'check_violation';
+  end if;
+
+  if auth.uid() is not null
+     and public.is_board_professor(v_board)
+     and coalesce(current_setting('collabify.sprint_release_op', true), '') <> 'on' then
+    if tg_op = 'INSERT' then
+      if new.sprint_id is not null then
+        raise exception 'Only the group plans its sprints. Add the task to the backlog instead.'
+          using errcode = 'check_violation';
+      end if;
+      new.rank := extract(epoch from clock_timestamp());
+    elsif new.sprint_id is distinct from old.sprint_id or new.rank is distinct from old.rank then
+      raise exception 'Only the group plans its sprints and orders its backlog. You can still read them.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  if tg_op = 'UPDATE'
+     and old.sprint_id is not null
+     and new.sprint_id is not distinct from old.sprint_id
+     and new.status <> 'done'
+     and (old.status = 'done' or (old.archived_at is not null and new.archived_at is null))
+     and exists (select 1 from public.board_sprints s
+                  where s.id = old.sprint_id and s.state = 'completed') then
+    new.sprint_id := null;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.guard_class_task_plan() from public, anon;
+
+drop trigger if exists project_tasks_plan_guard on public.project_tasks;
+create trigger project_tasks_plan_guard before insert or update on public.project_tasks
+  for each row execute function public.guard_class_task_plan();
 
 drop view if exists public.task_detail_overview;
 
@@ -135,15 +202,21 @@ grant select on public.task_detail_overview to authenticated;
  * (planned sprint, member of the board, project open, board not handed in),
  * and the guard still runs on each task with auth.uid() unchanged: board
  * member, project not closed and board not handed in are checked ahead of the
- * archive check, so the flag lifts that one refusal and nothing else.
+ * archive check, so the flag lifts that one refusal and nothing else. It also
+ * holds collabify.sprint_release_op, so guard_class_task_plan lets the move
+ * to the backlog through should the caller be the professor (a project
+ * deleted with its boards).
  */
 create or replace function public.release_board_sprint_tasks()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
   was text := current_setting('collabify.task_archive_op', true);
+  was_release text := current_setting('collabify.sprint_release_op', true);
 begin
   perform set_config('collabify.task_archive_op', 'on', true);
+  perform set_config('collabify.sprint_release_op', 'on', true);
   update public.project_tasks set sprint_id = null where sprint_id = old.id;
+  perform set_config('collabify.sprint_release_op', coalesce(was_release, 'off'), true);
   perform set_config('collabify.task_archive_op', coalesce(was, 'off'), true);
   return old;
 end;

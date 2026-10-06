@@ -25,7 +25,10 @@ commit;
 
 begin;
 
-create or replace view public.general_task_overview
+-- Dropped and recreated, so a re-run works whatever later files appended.
+-- Re-run work-planning.sql afterwards to put sprint_id and rank back.
+drop view if exists public.general_task_overview;
+create view public.general_task_overview
 with (security_invoker = true) as
 select t.id,
        t.project_id,

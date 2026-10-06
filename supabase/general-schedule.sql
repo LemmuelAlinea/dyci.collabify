@@ -34,11 +34,13 @@ commit;
 begin;
 
 /*
- * The overview carries it too, appended last because `create or replace view`
- * can only add columns at the end. Body copied from supabase/general-tasks.sql;
- * keep the two in step.
+ * The overview carries it too, appended last. Dropped and recreated rather
+ * than replaced, so a re-run works even after later files appended columns
+ * (re-run work-planning.sql afterwards to put sprint_id and rank back). Body
+ * copied from supabase/general-tasks.sql; keep the two in step.
  */
-create or replace view public.general_task_overview
+drop view if exists public.general_task_overview;
+create view public.general_task_overview
 with (security_invoker = true) as
 select t.id,
        t.project_id,

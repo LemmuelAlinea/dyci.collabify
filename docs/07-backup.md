@@ -36,7 +36,7 @@ And re-run `general-project-space.sql` after `general-project-archive.sql`,
 which would otherwise put back a `general_project_overview` without the space
 name the projects page reads.
 
-Re-run `work-planning.sql` after re-running `general-archive-rbac.sql`. It redefines `general_task_overview` to add `sprint_id` and `rank`.
+Re-run `work-planning.sql` after re-running any of `general-tasks.sql`, `general-schedule.sql`, `general-project-archive.sql` or `general-archive-rbac.sql`. Each of those drops and recreates `general_task_overview` without `sprint_id` and `rank`, and `work-planning.sql` appends them again.
 
 Re-run `class-planning.sql` after `class-schedule.sql`. Both recreate `task_detail_overview`; `t.*` keeps every column either way.
 
