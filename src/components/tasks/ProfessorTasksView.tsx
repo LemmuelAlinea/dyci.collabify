@@ -20,13 +20,14 @@ import { TaskFilterBar, TaskViewSwitch } from './TaskViewSwitch'
 import { classTimelineTasks } from './classTimeline'
 import { BacklogView } from '../work/BacklogView'
 import { ScopePicker } from '../work/ScopePicker'
+import { MilestonesView } from '../work/MilestonesView'
 import { SprintsView } from '../work/SprintsView'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { NO_SPAN, TimelineView } from '../work/TimelineView'
-import { classWorkSource } from './classWorkSource'
-import { sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
+import { classMilestoneSource, classWorkSource } from './classWorkSource'
+import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
 import { scopeOptions } from '../../lib/work/scope'
-import { sprintBands } from '../../lib/work/timeline'
+import { milestoneMarks, sprintBands } from '../../lib/work/timeline'
 import { deleteProfessorTask } from '../../lib/api/tasks'
 import { recordResult } from '../../lib/api/results'
 import type { ProfessorTaskGroup } from '../../lib/api/tasks'
@@ -178,6 +179,12 @@ export function ProfessorTasksView({
         </section>
       )}
 
+      {t.section === 'milestones' && (
+        <section className="space-y-4">
+          <MilestonesView source={classMilestoneSource(t, project.id)} />
+        </section>
+      )}
+
       {t.section === 'tasks' && (
         <>
           {/* 3 ── the work, with its scope named at the top of it */}
@@ -279,6 +286,7 @@ export function ProfessorTasksView({
                   groups={active ? [] : (boards ?? []).map((b) => ({ id: b.id, name: boardOwnerName(b) }))}
                   span={NO_SPAN}
                   bands={active ? sprintBands(t.sprints) : []}
+                  marks={milestoneMarks(t.milestones)}
                   looseLabel={active ? boardOwnerName(active) : 'Unknown board'}
                   onOpen={t.showTask}
                 />
@@ -288,6 +296,7 @@ export function ProfessorTasksView({
                   events={[
                     ...taskCalendarEvents(t.shown, active ? undefined : t.ownerFor),
                     ...(active ? sprintCalendarEvents(t.sprints) : []),
+                    ...milestoneCalendarEvents(t.milestones),
                   ]}
                   onOpen={t.showTask}
                 />
@@ -400,6 +409,7 @@ export function ProfessorTasksView({
         }}
         projectId={project.id}
         boards={boards ?? []}
+        milestones={t.milestones}
         editing={editingOrigin ?? undefined}
         onSaved={async (message) => {
           show(message)

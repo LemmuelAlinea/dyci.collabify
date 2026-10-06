@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useLive } from '../../hooks/useLive'
 import { useTaskBoard } from '../../hooks/useTaskBoard'
+import { listMilestones } from '../../lib/api/milestones'
 import { listSprints } from '../../lib/api/sprints'
 import {
   groupByOrigin,
@@ -15,7 +16,7 @@ import { taskLayout, withWork, workSection } from '../../lib/work/nav'
 import type { TaskLayout, WorkSection } from '../../lib/work/nav'
 import { applyScope, readScope } from '../../lib/work/scope'
 import type { TaskScope } from '../../lib/work/scope'
-import type { Sprint } from '../../lib/work/types'
+import type { Milestone, Sprint } from '../../lib/work/types'
 import type { BoardSummary, MemberProgress as MemberRow, ProjectSummary, TeachingViewRole } from '../../lib/types'
 import { EMPTY_TASK_FILTERS, applyTaskFilters, narrowsTasks } from './taskFilterState'
 import type { TaskFilterState } from './taskFilterState'
@@ -120,9 +121,23 @@ export function useProjectTasks({
   }, [loadSprints])
   useLive(loadSprints, ['board_sprints'], { enabled: Boolean(activeId) })
 
+  // Milestones belong to the project, so every board reads the same ones.
+  const [milestones, setMilestones] = useState<Milestone[]>([])
+  const loadMilestones = useCallback(async () => {
+    try {
+      setMilestones(await listMilestones({ kind: 'class', projectId: project.id }))
+    } catch {
+      setMilestones([])
+    }
+  }, [project.id])
+  useEffect(() => {
+    void loadMilestones()
+  }, [loadMilestones])
+  useLive(loadMilestones, ['project_milestones'])
+
   const refresh = useCallback(async () => {
-    await Promise.all([reload(), loadBoards(), loadProgress(), loadSprints()])
-  }, [reload, loadBoards, loadProgress, loadSprints])
+    await Promise.all([reload(), loadBoards(), loadProgress(), loadSprints(), loadMilestones()])
+  }, [reload, loadBoards, loadProgress, loadSprints, loadMilestones])
 
   // A student's views cover their own board; a professor's cover the project,
   // narrowed by the group filter.
@@ -229,6 +244,7 @@ export function useProjectTasks({
     sprints,
     sprintScope,
     setSprintScope,
+    milestones,
   }
 }
 

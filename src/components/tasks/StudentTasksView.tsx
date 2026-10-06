@@ -15,13 +15,14 @@ import { TaskFilterBar, TaskViewSwitch } from './TaskViewSwitch'
 import { classTimelineTasks } from './classTimeline'
 import { BacklogView } from '../work/BacklogView'
 import { ScopePicker } from '../work/ScopePicker'
+import { MilestonesView } from '../work/MilestonesView'
 import { SprintsView } from '../work/SprintsView'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { NO_SPAN, TimelineView } from '../work/TimelineView'
-import { classWorkSource } from './classWorkSource'
-import { sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
+import { classMilestoneSource, classWorkSource } from './classWorkSource'
+import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
 import { scopeOptions, scopeTargetSprint } from '../../lib/work/scope'
-import { sprintBands } from '../../lib/work/timeline'
+import { milestoneMarks, sprintBands } from '../../lib/work/timeline'
 import { setTaskStatus } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import { boardWeight, canPlanBoard, isBoardSubmitted, isMine } from '../../lib/types'
@@ -113,6 +114,8 @@ export function StudentTasksView({
                 <SprintsView source={source} onPlan={() => t.setSection('backlog')} />
               )
             })()
+          ) : t.section === 'milestones' ? (
+            <MilestonesView source={classMilestoneSource(t, project.id)} />
           ) : (
             <>
               {/* Handing in and the professor's answer sit in the project header;
@@ -222,12 +225,20 @@ export function StudentTasksView({
                   groups={[]}
                   span={NO_SPAN}
                   bands={sprintBands(t.sprints)}
+                  marks={milestoneMarks(t.milestones)}
                   looseLabel={active.group_id ? 'Your group' : 'Your tasks'}
                   onOpen={t.showTask}
                 />
               )}
               {t.view === 'calendar' && (
-                <TaskCalendar events={[...taskCalendarEvents(t.shown), ...sprintCalendarEvents(t.sprints)]} onOpen={t.showTask} />
+                <TaskCalendar
+                  events={[
+                    ...taskCalendarEvents(t.shown),
+                    ...sprintCalendarEvents(t.sprints),
+                    ...milestoneCalendarEvents(t.milestones),
+                  ]}
+                  onOpen={t.showTask}
+                />
               )}
             </>
           )}

@@ -5,10 +5,12 @@ import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import { TaskForm } from './TaskForm'
+import { setOriginMilestone } from '../../lib/api/milestones'
 import { createProfessorTask, updateProfessorTask } from '../../lib/api/tasks'
 import type { ProfessorTaskGroup, TaskInput } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
 import type { BoardSummary } from '../../lib/types'
+import type { Milestone } from '../../lib/work/types'
 
 const FORM_ID = 'fan-out-form'
 
@@ -21,6 +23,7 @@ export function FanOutForm({
   onClose,
   projectId,
   boards,
+  milestones,
   editing,
   onSaved,
 }: {
@@ -28,11 +31,20 @@ export function FanOutForm({
   onClose: () => void
   projectId: string
   boards: BoardSummary[]
+  milestones: Milestone[]
   /** Set to edit a task already handed out. */
   editing?: ProfessorTaskGroup
   onSaved: (message: string) => Promise<void> | void
 }) {
   const [target, setTarget] = useState('')
+  const [milestoneId, setMilestoneId] = useState(editing?.milestone_id ?? '')
+  // The form stays mounted between tasks, so follow the one being edited.
+  const editKey = editing?.origin_id ?? ''
+  const [seenKey, setSeenKey] = useState(editKey)
+  if (seenKey !== editKey) {
+    setSeenKey(editKey)
+    setMilestoneId(editing?.milestone_id ?? '')
+  }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -43,6 +55,9 @@ export function FanOutForm({
       if (editing) {
         const res = await updateProfessorTask(editing.origin_id, input)
         if (res.result !== 'updated') throw new Error('That task could not be changed.')
+        if (milestoneId !== (editing.milestone_id ?? '')) {
+          await setOriginMilestone(editing.origin_id, milestoneId || null)
+        }
         await onSaved(
           res.frozen
             ? `Updated ${res.changed} of ${(res.changed ?? 0) + res.frozen} copies — ${res.frozen} already started`
@@ -64,6 +79,8 @@ export function FanOutForm({
               : 'That task could not be created.',
           )
         }
+        if (milestoneId && res.origin_id) await setOriginMilestone(res.origin_id, milestoneId)
+        setMilestoneId('')
         await onSaved(
           `Task sent to ${res.boards} ${res.boards === 1 ? 'group' : 'groups'}`,
         )
@@ -118,6 +135,20 @@ export function FanOutForm({
                 value: b.id,
                 label: b.group_name ?? 'One student',
               }))}
+            />
+          </label>
+        )}
+
+        {milestones.length > 0 && (
+          <label className="block space-y-2">
+            <span className="text-[13px] font-medium text-ink">
+              Counts toward <span className="font-normal text-faint">(optional)</span>
+            </span>
+            <Select
+              value={milestoneId}
+              onChange={(e) => setMilestoneId(e.target.value)}
+              placeholder="No milestone"
+              options={milestones.map((m) => ({ value: m.id, label: m.name }))}
             />
           </label>
         )}
