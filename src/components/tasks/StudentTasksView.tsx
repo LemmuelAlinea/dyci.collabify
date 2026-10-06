@@ -100,114 +100,114 @@ export function StudentTasksView({
             </div>
           ) : (
             <>
-          {/* Handing in and the professor's answer sit in the project header;
-              progress is on Summary. */}
+              {/* Handing in and the professor's answer sit in the project header;
+                  progress is on Summary. */}
 
-          {/* Drafting is planning, and planning is over once the board is
-              handed in — accepting leaves it that way, returning gives it back.
-              The database refuses the insert either way; this is what stops the
-              button offering something that cannot happen. */}
-          {canPlanBoard(active, locked) ? (
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="!rounded-lg"
-                onClick={() => setNotesOpen(true)}
-              >
-                <Icon name="spark" size={15} />
-                From notes
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="!rounded-lg"
-                onClick={() => setAiOpen(true)}
-              >
-                <Icon name="spark" size={15} />
-                Draft tasks with AI
-              </Button>
-            </div>
-          ) : (
-            !locked &&
-            active.submitted_at && (
-              <p className="text-right text-[12px] text-muted">
-                {active.result_verdict === 'accepted'
-                  ? 'This project is finished, so drafting is off.'
-                  : 'Drafting is off while this is handed in. Take it back if something still needs adding.'}
-              </p>
-            )
-          )}
+              {/* Drafting is planning, and planning is over once the board is
+                  handed in — accepting leaves it that way, returning gives it back.
+                  The database refuses the insert either way; this is what stops the
+                  button offering something that cannot happen. */}
+              {canPlanBoard(active, locked) ? (
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="!rounded-lg"
+                    onClick={() => setNotesOpen(true)}
+                  >
+                    <Icon name="spark" size={15} />
+                    From notes
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="!rounded-lg"
+                    onClick={() => setAiOpen(true)}
+                  >
+                    <Icon name="spark" size={15} />
+                    Draft tasks with AI
+                  </Button>
+                </div>
+              ) : (
+                !locked &&
+                active.submitted_at && (
+                  <p className="text-right text-[12px] text-muted">
+                    {active.result_verdict === 'accepted'
+                      ? 'This project is finished, so drafting is off.'
+                      : 'Drafting is off while this is handed in. Take it back if something still needs adding.'}
+                  </p>
+                )
+              )}
 
-          <TaskViewSwitch
-            view={t.view}
-            onView={t.setView}
-            shown={t.shown.length}
-            total={t.scope.length}
-          />
-          <TaskFilterBar
-            filters={t.filters}
-            onChange={t.setFilters}
-            scope={t.scope}
-            boards={boards ?? []}
-            showBoards={false}
-          />
+              <TaskViewSwitch
+                view={t.view}
+                onView={t.setView}
+                shown={t.shown.length}
+                total={t.scope.length}
+              />
+              <TaskFilterBar
+                filters={t.filters}
+                onChange={t.setFilters}
+                scope={t.scope}
+                boards={boards ?? []}
+                showBoards={false}
+              />
 
-          {t.view === 'list' && (
-            <TaskList
-              rows={t.shown}
-              boardWeight={t.weightByBoard}
-              showOwner={false}
-              ownerLabel=""
-              ownerFor={t.ownerFor}
-              onOpen={t.showTask}
-              // The board's rule: whoever is on a task moves it, and on a solo
-              // board that is always its owner. Nothing moves once handed in or closed.
-              canMove={(row) =>
-                canPlanBoard(active, locked) &&
-                Boolean(viewerId && (isMine(row, viewerId) || active?.student_id))
-              }
-              onStatus={async (row, to) => {
-                try {
-                  await setTaskStatus(row.id, to)
-                  await t.refresh()
-                } catch (err) {
-                  show(authErrorMessage(err, 'Could not move that task.'), 'error')
-                }
-              }}
-            />
-          )}
-          {t.view === 'board' && (
-            <TaskBoard
-              board={active}
-              tasks={
-                t.filters === EMPTY_TASK_FILTERS
-                  ? t.tasks
-                  : t.tasks.filter((task) => t.shown.some((r) => r.id === task.id))
-              }
-              members={t.members}
-              progress={t.progress}
-              viewerId={viewerId}
-              role={role}
-              // The same rule as the AI button, for the same reason: a handed-in
-              // or closed board refuses new work in the database, so offering
-              // "Add task" here only produces an error.
-              canWork={canPlanBoard(active, locked)}
-              onChanged={t.refresh}
-            />
-          )}
-          {t.view === 'timeline' && (
-            <TimelineView
-              tasks={classTimelineTasks(t.shown, false)}
-              groups={[]}
-              span={NO_SPAN}
-              looseLabel={active.group_id ? 'Your group' : 'Your tasks'}
-              onOpen={t.showTask}
-            />
-          )}
-          {t.view === 'calendar' && (
-            <TaskCalendar events={taskCalendarEvents(t.shown)} onOpen={t.showTask} />
-          )}
+              {t.view === 'list' && (
+                <TaskList
+                  rows={t.shown}
+                  boardWeight={t.weightByBoard}
+                  showOwner={false}
+                  ownerLabel=""
+                  ownerFor={t.ownerFor}
+                  onOpen={t.showTask}
+                  // The board's rule: whoever is on a task moves it, and on a solo
+                  // board that is always its owner. Nothing moves once handed in or closed.
+                  canMove={(row) =>
+                    canPlanBoard(active, locked) &&
+                    Boolean(viewerId && (isMine(row, viewerId) || active?.student_id))
+                  }
+                  onStatus={async (row, to) => {
+                    try {
+                      await setTaskStatus(row.id, to)
+                      await t.refresh()
+                    } catch (err) {
+                      show(authErrorMessage(err, 'Could not move that task.'), 'error')
+                    }
+                  }}
+                />
+              )}
+              {t.view === 'board' && (
+                <TaskBoard
+                  board={active}
+                  tasks={
+                    t.filters === EMPTY_TASK_FILTERS
+                      ? t.tasks
+                      : t.tasks.filter((task) => t.shown.some((r) => r.id === task.id))
+                  }
+                  members={t.members}
+                  progress={t.progress}
+                  viewerId={viewerId}
+                  role={role}
+                  // The same rule as the AI button, for the same reason: a handed-in
+                  // or closed board refuses new work in the database, so offering
+                  // "Add task" here only produces an error.
+                  canWork={canPlanBoard(active, locked)}
+                  onChanged={t.refresh}
+                />
+              )}
+              {t.view === 'timeline' && (
+                <TimelineView
+                  tasks={classTimelineTasks(t.shown, false)}
+                  groups={[]}
+                  span={NO_SPAN}
+                  looseLabel={active.group_id ? 'Your group' : 'Your tasks'}
+                  onOpen={t.showTask}
+                />
+              )}
+              {t.view === 'calendar' && (
+                <TaskCalendar events={taskCalendarEvents(t.shown)} onOpen={t.showTask} />
+              )}
             </>
           )}
           {(t.section === 'summary' || t.view !== 'board') && (

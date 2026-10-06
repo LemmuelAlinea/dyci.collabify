@@ -19,7 +19,7 @@ export function workSection(params: URLSearchParams, fallback: WorkSection): Wor
   const named = params.get('work')
   if (named && (WORK_SECTIONS as readonly string[]).includes(named)) return named as WorkSection
   if (params.get('tab') === 'progress') return 'summary'
-  if (params.get('tab') === 'tasks' || params.has('board')) return 'tasks'
+  if (params.get('tab') === 'tasks' || params.has('board') || params.has('task')) return 'tasks'
   return fallback
 }
 

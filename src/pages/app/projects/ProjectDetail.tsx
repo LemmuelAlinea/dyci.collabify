@@ -71,7 +71,7 @@ type SeriesAction = 'due' | 'lock' | 'archive' | 'release'
 
 /**
  * One set of board state for the whole page: the header's hand-in, and the
- * Tasks, Files and Progress tabs, all read the same boards.
+ * Work and Files tabs, all read the same boards.
  */
 function WithProjectTasks({
   project,

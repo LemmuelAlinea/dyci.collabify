@@ -94,38 +94,38 @@ export function ProfessorTasksView({
 
       {t.section === 'summary' && (
         <>
-      {/* 1 ── what needs a decision */}
-      <HandInQueue
-        boards={boards ?? []}
-        solo={solo}
-        onOpen={(b) => openBoard(b.id)}
-        onChanged={t.refresh}
-      />
+          {/* 1 ── what needs a decision */}
+          <HandInQueue
+            boards={boards ?? []}
+            solo={solo}
+            onOpen={(b) => openBoard(b.id)}
+            onChanged={t.refresh}
+          />
 
-      {/* 2 ── where everybody is, and where a group is chosen */}
-      <section className="space-y-3">
-        <div>
-          <h3>{solo ? 'Students' : 'Groups'}</h3>
-          <p className="mt-0.5 text-[13px] text-muted">
-            Open {solo ? 'a student' : 'a group'} to see its tasks and answer its work.
-          </p>
-        </div>
-        <GroupProgressTable
-          boards={boards ?? []}
-          activeId={active?.id}
-          solo={solo}
-          onOpen={(b) => openBoard(b.id)}
-          onAccept={async (b) => {
-            try {
-              await recordResult({ boardId: b.id, verdict: 'accepted' })
-              show(`${boardOwnerName(b)} accepted`)
-              await t.refresh()
-            } catch (err) {
-              show(authErrorMessage(err, 'Could not accept that.'), 'error')
-            }
-          }}
-        />
-      </section>
+          {/* 2 ── where everybody is, and where a group is chosen */}
+          <section className="space-y-3">
+            <div>
+              <h3>{solo ? 'Students' : 'Groups'}</h3>
+              <p className="mt-0.5 text-[13px] text-muted">
+                Open {solo ? 'a student' : 'a group'} to see its tasks and answer its work.
+              </p>
+            </div>
+            <GroupProgressTable
+              boards={boards ?? []}
+              activeId={active?.id}
+              solo={solo}
+              onOpen={(b) => openBoard(b.id)}
+              onAccept={async (b) => {
+                try {
+                  await recordResult({ boardId: b.id, verdict: 'accepted' })
+                  show(`${boardOwnerName(b)} accepted`)
+                  await t.refresh()
+                } catch (err) {
+                  show(authErrorMessage(err, 'Could not accept that.'), 'error')
+                }
+              }}
+            />
+          </section>
 
           <section className="space-y-3 border-t border-line pt-6">
             <div>
@@ -139,174 +139,174 @@ export function ProfessorTasksView({
 
       {t.section === 'tasks' && (
         <>
-      {/* 3 ── the work, with its scope named at the top of it */}
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="truncate">
-              {active ? boardOwnerName(active) : `Every ${who}`}
-            </h3>
-            <p className="mt-0.5 text-[13px] text-muted">
-              {active
-                ? `This ${who}'s board, and the work on it.`
-                : `Every task across all ${whoPlural}. Open one above to narrow this.`}
-            </p>
-          </div>
-          {active && (
-            <Button variant="ghost" size="sm" onClick={() => t.showBoard(null)}>
-              <Icon name="x" size={15} />
-              Back to every {who}
-            </Button>
-          )}
-        </div>
-
-        {/* The chosen board's own standing, above its tasks rather than in a
-            separate region further down. A professor answering work wants the
-            verdict, the progress and who carried it in one place. */}
-        {active &&
-          (t.boardLoading ? (
-            <div className="flex items-center gap-3 py-8 text-[14px] text-muted">
-              <Spinner size={16} />
-              Loading that board…
+          {/* 3 ── the work, with its scope named at the top of it */}
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="truncate">
+                  {active ? boardOwnerName(active) : `Every ${who}`}
+                </h3>
+                <p className="mt-0.5 text-[13px] text-muted">
+                  {active
+                    ? `This ${who}'s board, and the work on it.`
+                    : `Every task across all ${whoPlural}. Open one above to narrow this.`}
+                </p>
+              </div>
+              {active && (
+                <Button variant="ghost" size="sm" onClick={() => t.showBoard(null)}>
+                  <Icon name="x" size={15} />
+                  Back to every {who}
+                </Button>
+              )}
             </div>
-          ) : (
-            <div className="space-y-4">
-              <BoardVerdict board={active} role={role} onChanged={t.refresh} />
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.6fr)] xl:items-start">
-                <BoardProgress board={active} />
-                <MemberProgress rows={t.progress} title="Share of the group" dense />
+
+            {/* The chosen board's own standing, above its tasks rather than in a
+                separate region further down. A professor answering work wants the
+                verdict, the progress and who carried it in one place. */}
+            {active &&
+              (t.boardLoading ? (
+                <div className="flex items-center gap-3 py-8 text-[14px] text-muted">
+                  <Spinner size={16} />
+                  Loading that board…
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <BoardVerdict board={active} role={role} onChanged={t.refresh} />
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.6fr)] xl:items-start">
+                    <BoardProgress board={active} />
+                    <MemberProgress rows={t.progress} title="Share of the group" dense />
+                  </div>
+                </div>
+              ))}
+
+            <div className="space-y-3">
+              <TaskViewSwitch
+                view={t.view}
+                onView={t.setView}
+                shown={t.shown.length}
+                total={t.scope.length}
+              />
+              <TaskFilterBar
+                filters={t.filters}
+                onChange={t.setFilters}
+                scope={t.scope}
+                boards={boards ?? []}
+                showBoards
+              />
+
+              {t.view === 'list' && (
+                <TaskList
+                  rows={t.shown}
+                  boardWeight={t.weightByBoard}
+                  showOwner={!active}
+                  ownerLabel={solo ? 'Student' : 'Group'}
+                  ownerFor={t.ownerFor}
+                  onOpen={t.showTask}
+                />
+              )}
+              {t.view === 'board' &&
+                (active ? (
+                  !t.boardLoading && (
+                    <TaskBoard
+                      board={active}
+                      tasks={t.tasks}
+                      members={t.members}
+                      progress={t.progress}
+                      viewerId={viewerId}
+                      role={role}
+                      canWork={false}
+                      onChanged={t.refresh}
+                    />
+                  )
+                ) : (
+                  <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
+                    A board belongs to one {who}. Choose one in the filter above, or switch to the
+                    list, timeline or calendar to see every {who} at once.
+                  </p>
+                ))}
+              {t.view === 'timeline' && (
+                <TimelineView
+                  tasks={classTimelineTasks(t.shown, !active)}
+                  groups={active ? [] : (boards ?? []).map((b) => ({ id: b.id, name: boardOwnerName(b) }))}
+                  span={NO_SPAN}
+                  looseLabel={active ? boardOwnerName(active) : 'Unknown board'}
+                  onOpen={t.showTask}
+                />
+              )}
+              {t.view === 'calendar' && (
+                <TaskCalendar
+                  events={taskCalendarEvents(t.shown, active ? undefined : t.ownerFor)}
+                  onOpen={t.showTask}
+                />
+              )}
+            </div>
+          </section>
+
+          {/* 4 ── authoring, last */}
+          <section className="space-y-3 border-t border-line pt-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3>What you set</h3>
+                <p className="mt-0.5 text-[13px] text-muted">
+                  Handed to every {who}. They decide who does it.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="!rounded-lg"
+                  onClick={() => setAiOpen(true)}
+                >
+                  <Icon name="spark" size={15} />
+                  Draft with AI
+                </Button>
+                <Button size="sm" className="!rounded-lg" onClick={() => setSetTaskOpen(true)}>
+                  <Icon name="plus" size={15} />
+                  Set a task
+                </Button>
               </div>
             </div>
-          ))}
 
-        <div className="space-y-3">
-          <TaskViewSwitch
-            view={t.view}
-            onView={t.setView}
-            shown={t.shown.length}
-            total={t.scope.length}
-          />
-          <TaskFilterBar
-            filters={t.filters}
-            onChange={t.setFilters}
-            scope={t.scope}
-            boards={boards ?? []}
-            showBoards
-          />
-
-          {t.view === 'list' && (
-            <TaskList
-              rows={t.shown}
-              boardWeight={t.weightByBoard}
-              showOwner={!active}
-              ownerLabel={solo ? 'Student' : 'Group'}
-              ownerFor={t.ownerFor}
-              onOpen={t.showTask}
-            />
-          )}
-          {t.view === 'board' &&
-            (active ? (
-              !t.boardLoading && (
-                <TaskBoard
-                  board={active}
-                  tasks={t.tasks}
-                  members={t.members}
-                  progress={t.progress}
-                  viewerId={viewerId}
-                  role={role}
-                  canWork={false}
-                  onChanged={t.refresh}
-                />
-              )
-            ) : (
-              <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
-                A board belongs to one {who}. Choose one in the filter above, or switch to the
-                list, timeline or calendar to see every {who} at once.
+            {t.mine.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-[13px] text-muted">
+                You have set none. A {who} can still break the project down themselves.
               </p>
-            ))}
-          {t.view === 'timeline' && (
-            <TimelineView
-              tasks={classTimelineTasks(t.shown, !active)}
-              groups={active ? [] : (boards ?? []).map((b) => ({ id: b.id, name: boardOwnerName(b) }))}
-              span={NO_SPAN}
-              looseLabel={active ? boardOwnerName(active) : 'Unknown board'}
-              onOpen={t.showTask}
-            />
-          )}
-          {t.view === 'calendar' && (
-            <TaskCalendar
-              events={taskCalendarEvents(t.shown, active ? undefined : t.ownerFor)}
-              onOpen={t.showTask}
-            />
-          )}
-        </div>
-      </section>
-
-      {/* 4 ── authoring, last */}
-      <section className="space-y-3 border-t border-line pt-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3>What you set</h3>
-            <p className="mt-0.5 text-[13px] text-muted">
-              Handed to every {who}. They decide who does it.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="!rounded-lg"
-              onClick={() => setAiOpen(true)}
-            >
-              <Icon name="spark" size={15} />
-              Draft with AI
-            </Button>
-            <Button size="sm" className="!rounded-lg" onClick={() => setSetTaskOpen(true)}>
-              <Icon name="plus" size={15} />
-              Set a task
-            </Button>
-          </div>
-        </div>
-
-        {t.mine.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-[13px] text-muted">
-            You have set none. A {who} can still break the project down themselves.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {t.mine.map((task) => (
-              <li
-                key={task.origin_id}
-                className="surface flex flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-medium text-ink">{task.title}</p>
-                  <p className="mt-0.5 text-[12px] text-faint">
-                    {task.boards} {task.boards === 1 ? who : whoPlural} · {task.started}{' '}
-                    started · {task.done} done
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEditingOrigin(task)}
-                  aria-label={`Edit ${task.title}`}
-                  className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
-                >
-                  <Icon name="edit" size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeletingOrigin(task)}
-                  aria-label={`Withdraw ${task.title}`}
-                  className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
-                >
-                  <Icon name="trash" size={15} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+            ) : (
+              <ul className="space-y-2">
+                {t.mine.map((task) => (
+                  <li
+                    key={task.origin_id}
+                    className="surface flex flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-medium text-ink">{task.title}</p>
+                      <p className="mt-0.5 text-[12px] text-faint">
+                        {task.boards} {task.boards === 1 ? who : whoPlural} · {task.started}{' '}
+                        started · {task.done} done
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingOrigin(task)}
+                      aria-label={`Edit ${task.title}`}
+                      className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+                    >
+                      <Icon name="edit" size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingOrigin(task)}
+                      aria-label={`Withdraw ${task.title}`}
+                      className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
+                    >
+                      <Icon name="trash" size={15} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </>
       )}
 

@@ -24,8 +24,13 @@ describe('workSection', () => {
     expect(workSection(p('board=b1'), 'summary')).toBe('tasks')
   })
 
+  it('sends a task link to Tasks', () => {
+    expect(workSection(p('tab=work&task=t1'), 'summary')).toBe('tasks')
+  })
+
   it('lets an explicit section win over a legacy tab', () => {
     expect(workSection(p('tab=tasks&work=summary'), 'tasks')).toBe('summary')
+    expect(workSection(p('work=summary&task=t1'), 'tasks')).toBe('summary')
   })
 })
 
