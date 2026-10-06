@@ -177,9 +177,13 @@ begin
   end if;
 
   if tg_op = 'INSERT' then
-    if new.sprint_id is not null and not public.general_can(new.project_id, 'manage_tasks') then
-      raise exception 'Only someone who manages tasks can put a task in a sprint.'
-        using errcode = 'check_violation';
+    if not public.general_can(new.project_id, 'manage_tasks') then
+      if new.sprint_id is not null then
+        raise exception 'Only someone who manages tasks can put a task in a sprint.'
+          using errcode = 'check_violation';
+      end if;
+      -- A member's task joins the end of the backlog, whatever rank was sent.
+      new.rank := extract(epoch from clock_timestamp());
     end if;
     return new;
   end if;
@@ -198,6 +202,31 @@ revoke all on function public.guard_general_task_plan() from public, anon;
 drop trigger if exists general_tasks_plan_guard on public.general_tasks;
 create trigger general_tasks_plan_guard before insert or update on public.general_tasks
   for each row execute function public.guard_general_task_plan();
+
+/**
+ * Deleting a planned sprint puts its tasks back in the backlog. The foreign
+ * key's own set null runs as an UPDATE under the caller, and guard_general_task
+ * refuses that on an archived task that has a team. So clear sprint_id here
+ * first, holding collabify.general_archive_op, the flag guard_general_task
+ * honours for archive operations. Security invoker: the deleter has
+ * manage_tasks (the delete policy), so RLS and guard_general_task_plan still
+ * apply to them.
+ */
+create or replace function public.release_sprint_tasks()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  perform set_config('collabify.general_archive_op', 'on', true);
+  update public.general_tasks set sprint_id = null where sprint_id = old.id;
+  perform set_config('collabify.general_archive_op', 'off', true);
+  return old;
+end;
+$$;
+
+revoke all on function public.release_sprint_tasks() from public, anon;
+
+drop trigger if exists general_sprints_release on public.general_sprints;
+create trigger general_sprints_release before delete on public.general_sprints
+  for each row execute function public.release_sprint_tasks();
 
 -- ---------------------------------------------------------------- finishing
 
@@ -230,6 +259,7 @@ begin
       using errcode = 'check_violation';
   end if;
 
+  -- Archived unfinished tasks stay in the finished sprint on purpose.
   update public.general_tasks
      set sprint_id = p_carry_to
    where sprint_id = p_sprint and status <> 'done' and archived_at is null;

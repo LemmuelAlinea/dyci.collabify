@@ -53,6 +53,7 @@ declare
   s1 uuid; s2 uuid; s_other uuid; s_gone uuid;
   t_open uuid; t_done uuid; t_member uuid; t_gone uuid; t_new uuid;
   r1 double precision; r2 double precision;
+  s_arch uuid; v_team uuid; t_arch uuid; t_rt uuid; t_prev uuid; t_rank uuid;
   n int;
 begin
   for i in 1..3 loop
@@ -113,6 +114,11 @@ begin
   perform pg_temp.must_refuse('a member cannot reorder the backlog',
     format('update public.general_tasks set rank = -1 where id = %L', t_member));
 
+  select rank into r1 from public.general_tasks where id = t_member;
+  insert into public.general_tasks (project_id, title, rank) values (p, 'Jumper', -1e9) returning id into t_rank;
+  perform pg_temp.must_be('a member cannot jump the backlog by sending a rank',
+    (select rank from public.general_tasks where id = t_rank) > r1);
+
   perform pg_temp.act_as(a);
   insert into public.general_tasks (project_id, title) values (p, 'Open task') returning id into t_open;
   insert into public.general_tasks (project_id, title) values (p, 'Done task') returning id into t_done;
@@ -164,6 +170,30 @@ begin
   get diagnostics n = row_count;
   perform pg_temp.must_be('a finished sprint cannot be deleted', n = 0
     and exists (select 1 from public.general_sprints where id = s1));
+
+  ------------------------------------------------------------ archived tasks
+  insert into public.general_teams (project_id, name) values (p, 'Zz Ushers') returning id into v_team;
+  insert into public.general_sprints (project_id, name, starts_on, ends_on)
+  values (p, 'Archive sprint', current_date + 50, current_date + 60) returning id into s_arch;
+  insert into public.general_tasks (project_id, team_id, title, sprint_id)
+  values (p, v_team, 'Team task', s_arch) returning id into t_arch;
+  insert into public.general_tasks (project_id, title, sprint_id)
+  values (p, 'Round trip', s_arch) returning id into t_rt;
+  perform public.archive_general_task(t_rt, true);
+  perform public.archive_general_task(t_rt, false);
+  perform pg_temp.must_be('an archived then restored task keeps its sprint',
+    (select sprint_id from public.general_tasks where id = t_rt) = s_arch);
+  perform public.archive_general_task(t_arch, true);
+  delete from public.general_sprints where id = s_arch;
+  get diagnostics n = row_count;
+  perform pg_temp.must_be('a planned sprint can be deleted over an archived team task', n = 1
+    and not exists (select 1 from public.general_sprints where id = s_arch));
+  perform pg_temp.must_be('the archived task is back in the backlog and still archived',
+    (select sprint_id is null and archived_at is not null from public.general_tasks where id = t_arch));
+  perform pg_temp.must_be('the active tasks of that sprint are back in the backlog too',
+    (select sprint_id is null from public.general_tasks where id = t_rt));
+  perform pg_temp.must_be('the archive flag is off again after the delete',
+    coalesce(current_setting('collabify.general_archive_op', true), 'off') = 'off');
 
   ------------------------------------------------------------ the overview
   insert into public.general_tasks (project_id, title, sprint_id) values (p, 'Visible', s2) returning id into t_new;
