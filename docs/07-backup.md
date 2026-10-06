@@ -29,7 +29,34 @@ node scripts/db.mjs supabase/schema.sql supabase/classes.sql supabase/groups.sql
 After re-running any of `classes.sql`, `general-tasks.sql`, `general-schedule-guard.sql`,
 `general-spaces.sql`, `general-project-archive.sql` or `general-drafts.sql` on
 its own, re-run `general-archive-rbac.sql` — it restores the archive policies
-and guard those files would otherwise put back to their older form. Likewise
+and guard those files would otherwise put back to their older form.
+
+Never re-run `general-archive-rbac.sql` on its own, though. Later files in the
+order redefine ten of its functions and its view, and it puts back its older
+copies:
+
+- `trash.sql`: `archive_general_task_file`, `restore_archived_general_task_files`,
+  `delete_archived_general_task_file`, `delete_archived_general_task_files`,
+  `list_archived_general_task_files`, `archived_general_task_file_objects`,
+  `list_archived_general_draft_files` and `delete_archived_general_draft_path`
+- `task-archive.sql`: `guard_general_task` and `archive_general_task`
+- `work-planning.sql`: `general_task_overview` (`sprint_id` and `rank`)
+
+Re-running `trash.sql` and `task-archive.sql` in turn reverts functions that
+`archive-page.sql` and `class-schedule.sql` own, and `class-schedule.sql`
+recreates the view `class-planning.sql` extends. So after
+`general-archive-rbac.sql`, re-run the full ordered list from `trash.sql`
+onward:
+
+```bash
+node scripts/db.mjs supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql
+```
+
+On 7 October 2026 the live definitions of all ten functions matched
+`trash.sql` and `task-archive.sql`, not `general-archive-rbac.sql`, and the
+live `general_task_overview` had `sprint_id` and `rank`.
+
+Likewise
 re-run `general-folders.sql` after `general-repo.sql` or `general-files.sql`,
 which would otherwise put back a file count that includes hidden `.keep` files.
 And re-run `general-project-space.sql` after `general-project-archive.sql`,
