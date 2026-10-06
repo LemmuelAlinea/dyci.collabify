@@ -1,8 +1,8 @@
 import { Icon } from '../ui/Icon'
 import { formatDue, isOverdue } from '../../lib/general/dates'
 import { TASK_STATUSES } from '../../lib/general/progress'
-import { axisTicks, groupRows, nowMarker, placeTask, timelineWindow } from '../../lib/work/timeline'
-import type { TimelineTask } from '../../lib/work/timeline'
+import { axisTicks, groupRows, nowMarker, placeBand, placeTask, timelineWindow } from '../../lib/work/timeline'
+import type { Band, TimelineTask } from '../../lib/work/timeline'
 
 const BAR = {
   todo: 'bg-navy-500/35',
@@ -64,16 +64,23 @@ export function TimelineView({
   span,
   looseLabel = 'Whole project',
   onOpen,
+  bands = [],
 }: {
   tasks: TimelineTask[]
   groups: readonly { id: string; name: string }[]
   span: { starts_on: string | null; ends_on: string | null }
   looseLabel?: string
   onOpen?: (taskId: string) => void
+  /** Sprints, drawn as a row of their own under the dates. */
+  bands?: Band[]
 }) {
   const window = timelineWindow(span, tasks)
   const rows = groupRows(tasks, groups, looseLabel)
   const ticks = axisTicks(window)
+  const placed = bands.flatMap((band) => {
+    const place = placeBand(band, window)
+    return place ? [{ band, place }] : []
+  })
   const today = nowMarker(window)
   const undated = tasks.filter((t) => placeTask(t, window).shape === 'none').length
 
@@ -112,6 +119,24 @@ export function TimelineView({
               ))}
             </div>
           </div>
+
+          {placed.length > 0 && (
+            <div className="flex items-center border-b border-line">
+              <p className="w-[14rem] shrink-0 px-3 py-1.5 text-[11px] font-medium text-faint uppercase">Sprints</p>
+              <div className="relative h-7 flex-1">
+                {placed.map(({ band, place }) => (
+                  <span
+                    key={band.id}
+                    title={band.label}
+                    className="absolute top-1 bottom-1 truncate rounded-md border border-navy-300/60 bg-navy-500/10 px-1.5 text-[11px] leading-5 text-navy-700 dark:border-navy-400/40 dark:text-navy-100"
+                    style={{ left: `${place.left}%`, width: `${place.width}%` }}
+                  >
+                    {band.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {rows.map((row) => (
             <section key={row.group ?? 'loose'}>

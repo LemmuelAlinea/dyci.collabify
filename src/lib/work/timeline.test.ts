@@ -3,7 +3,9 @@ import {
   axisTicks,
   groupRows,
   nowMarker,
+  placeBand,
   placeTask,
+  sprintBands,
   timelineWindow,
 } from './timeline'
 import type { TimelineTask } from './timeline'
@@ -244,5 +246,29 @@ describe('nowMarker', () => {
   it('says nothing when today is outside the window', () => {
     expect(nowMarker(w, day('2026-09-01T00:00:00Z'))).toBeNull()
     expect(nowMarker(w, day('2026-12-01T00:00:00Z'))).toBeNull()
+  })
+})
+
+describe('sprint bands', () => {
+  const day = (s: string) => {
+    const [y, m, d] = s.split('-').map(Number)
+    return new Date(y, m - 1, d).getTime()
+  }
+  const window = { start: day('2026-10-01'), end: day('2026-10-31'), source: 'project' as const }
+
+  it('spans a sprint from its first day to the end of its last', () => {
+    const [band] = sprintBands([{ id: 's', name: 'Sprint 1', starts_on: '2026-10-05', ends_on: '2026-10-18' }])
+    expect(band).toEqual({ id: 's', label: 'Sprint 1', start: day('2026-10-05'), end: day('2026-10-19') })
+  })
+
+  it('places a band inside the window', () => {
+    const place = placeBand({ id: 's', label: 'S', start: day('2026-10-01'), end: day('2026-10-16') }, window)
+    expect(place?.left).toBe(0)
+    expect(place?.width).toBeCloseTo(50, 0)
+  })
+
+  it('leaves out a band outside the window', () => {
+    expect(placeBand({ id: 's', label: 'S', start: day('2026-11-02'), end: day('2026-11-09') }, window)).toBeNull()
+    expect(placeBand({ id: 's', label: 'S', start: 0, end: 1 }, { start: 0, end: 0, source: 'none' })).toBeNull()
   })
 })

@@ -184,3 +184,18 @@ export function nowMarker(window: TimelineWindow, now = Date.now()): number | nu
   if (now < window.start || now > window.end) return null
   return offset(now, window)
 }
+
+/** A stretch of time drawn behind the tasks: a sprint, from its first day to the end of its last. */
+export type Band = { id: string; label: string; start: number; end: number }
+
+export function sprintBands(
+  sprints: readonly { id: string; name: string; starts_on: string; ends_on: string }[],
+): Band[] {
+  return sprints.map((s) => ({ id: s.id, label: s.name, start: dayStart(s.starts_on), end: dayStart(s.ends_on) + DAY }))
+}
+
+export function placeBand(band: Band, window: TimelineWindow) {
+  if (window.source === 'none' || band.end <= window.start || band.start >= window.end) return null
+  const left = offset(band.start, window)
+  return { left, width: Math.max(0.5, offset(band.end, window) - left) }
+}

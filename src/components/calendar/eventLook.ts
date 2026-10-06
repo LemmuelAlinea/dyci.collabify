@@ -35,6 +35,18 @@ export const LOOK: Record<CalendarKind, { cls: string; icon: IconName; dot: stri
     icon: 'video',
     dot: 'bg-navy-300 dark:bg-navy-300',
   },
+  // A sprint edge is the plan's frame rather than something due, so it is a
+  // quiet outline instead of a filled chip.
+  sprint_start: {
+    cls: 'surface-sunken text-ink ring-1 ring-[var(--line-strong)] ring-inset',
+    icon: 'target',
+    dot: 'bg-navy-400 dark:bg-navy-300',
+  },
+  sprint_end: {
+    cls: 'surface-sunken text-ink ring-1 ring-[var(--line-strong)] ring-inset',
+    icon: 'checkCircle',
+    dot: 'bg-navy-400 dark:bg-navy-300',
+  },
 }
 
 /**

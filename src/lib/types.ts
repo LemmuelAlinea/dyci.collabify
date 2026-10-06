@@ -1396,7 +1396,14 @@ export function resultLabel(verdict: ResultVerdict) {
  * records when something was closed is not a deadline, and history belongs in
  * the activity feed.
  */
-export type CalendarKind = 'project_due' | 'project_release' | 'task_due' | 'submitted' | 'meeting'
+export type CalendarKind =
+  | 'project_due'
+  | 'project_release'
+  | 'task_due'
+  | 'submitted'
+  | 'meeting'
+  | 'sprint_start'
+  | 'sprint_end'
 
 export type CalendarEvent = {
   kind: CalendarKind

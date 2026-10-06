@@ -16,9 +16,7 @@ export function EventChip({
   const look = LOOK[event.kind]
   const now = useNow()
   const overdue =
-    event.kind !== 'submitted' &&
-    event.kind !== 'project_release' &&
-    event.kind !== 'meeting' &&
+    (event.kind === 'project_due' || event.kind === 'task_due') &&
     !event.done &&
     new Date(event.at).getTime() < now
   // A work date (see Calendar.tsx) carries no class, so the detail line is the

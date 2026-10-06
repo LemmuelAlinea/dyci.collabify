@@ -1,4 +1,5 @@
 import type { CalendarEvent } from '../types'
+import type { Sprint } from './types'
 import type { WorkStatus } from './timeline'
 
 export type CalendarTask = {
@@ -40,4 +41,24 @@ export function taskCalendarEvents<T extends CalendarTask>(
         late: t.status === 'done' && Boolean(t.late),
       }),
     )
+}
+
+/** Local noon on a calendar day, so no time zone tips it onto the day before. */
+function noonOf(day: string) {
+  const [y, m, d] = day.split('-').map(Number)
+  return new Date(y, m - 1, d, 12).toISOString()
+}
+
+/** Where each sprint starts and ends. They open nothing: `task_id` is null. */
+export function sprintCalendarEvents(
+  sprints: readonly Pick<Sprint, 'id' | 'name' | 'starts_on' | 'ends_on' | 'state'>[],
+): CalendarEvent[] {
+  const edge = (kind: 'sprint_start' | 'sprint_end', s: (typeof sprints)[number], title: string, at: string, done: boolean): CalendarEvent => ({
+    kind, ref_id: s.id, title, at, class_id: '', class_initial: '', class_name: '',
+    project_id: '', project_title: '', task_id: null, group_name: null, done, late: false,
+  })
+  return sprints.flatMap((s) => [
+    edge('sprint_start', s, `${s.name} starts`, noonOf(s.starts_on), s.state !== 'planned'),
+    edge('sprint_end', s, `${s.name} ends`, noonOf(s.ends_on), s.state === 'completed'),
+  ])
 }
