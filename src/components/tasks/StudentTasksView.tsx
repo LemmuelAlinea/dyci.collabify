@@ -11,7 +11,9 @@ import { TaskSummary } from './TaskSummary'
 import { TaskDetailModal } from './detail/TaskDetailModal'
 import { EMPTY_TASK_FILTERS } from './taskFilterState'
 import { TaskFilterBar, TaskViewSwitch } from './TaskViewSwitch'
-import { canPlanBoard, isBoardSubmitted } from '../../lib/types'
+import { setTaskStatus } from '../../lib/api/tasks'
+import { authErrorMessage } from '../../lib/authError'
+import { canPlanBoard, isBoardSubmitted, isMine } from '../../lib/types'
 import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
 import type { ProjectTasks } from './useProjectTasks'
 import { useCallback, useState } from 'react'
@@ -142,6 +144,20 @@ export function StudentTasksView({
               ownerLabel=""
               ownerFor={t.ownerFor}
               onOpen={t.showTask}
+              // The board's rule: whoever is on a task moves it, and on a solo
+              // board that is always its owner. Nothing moves once handed in or closed.
+              canMove={(row) =>
+                canPlanBoard(active, locked) &&
+                Boolean(viewerId && (isMine(row, viewerId) || active?.student_id))
+              }
+              onStatus={async (row, to) => {
+                try {
+                  await setTaskStatus(row.id, to)
+                  await t.refresh()
+                } catch (err) {
+                  show(authErrorMessage(err, 'Could not move that task.'), 'error')
+                }
+              }}
             />
           )}
           {t.view === 'board' && (

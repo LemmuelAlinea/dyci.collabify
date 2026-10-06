@@ -1,8 +1,8 @@
-import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import { formatDue, isOverdue } from '../../lib/general/dates'
-import { TASK_STATUSES, formatMinutes, taskStatusLabel } from '../../lib/types'
+import { StageBadge, StageSelect } from './StageSelect'
+import { TASK_STATUSES, formatMinutes } from '../../lib/types'
 import type { TaskStatus } from '../../lib/types'
 import type { MyTasksView } from '../../lib/myTasksView'
 
@@ -54,11 +54,12 @@ export type MyTaskItem = {
   files: number
   comments: number
   minutes: number
-  /** Opens the task over this page; without it the task opens on its project. */
-  onOpen?: () => void
-  href?: string
+  /** Opens the task over this page. */
+  onOpen: () => void
   /** The next stage, for tasks this page can move. */
   next?: { label: string; icon: IconName; run: () => void }
+  /** Any stage, for the List's dropdown. */
+  onStage?: (to: TaskStatus) => Promise<void>
 }
 
 const COLUMN_TONE: Record<TaskStatus, string> = {
@@ -67,31 +68,14 @@ const COLUMN_TONE: Record<TaskStatus, string> = {
   done: 'text-success-700 dark:text-success-300',
 }
 
-const STATUS_TONE: Record<TaskStatus, string> = {
-  todo: 'bg-pending-soft text-pending-ink',
-  in_progress: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
-  done: 'bg-success-500/15 text-success-700 dark:text-success-300',
-}
-
 const byDue = (a: MyTaskItem, b: MyTaskItem) => (a.due_at ?? '9999').localeCompare(b.due_at ?? '9999')
 
 function Title({ item, className }: { item: MyTaskItem; className: string }) {
   const tone = item.status === 'done' ? 'text-muted line-through' : 'text-ink'
-  if (item.onOpen) {
-    return (
-      <button
-        type="button"
-        onClick={item.onOpen}
-        className={`${className} ${tone} text-left hover:underline`}
-      >
-        {item.title}
-      </button>
-    )
-  }
   return (
-    <Link to={item.href ?? '#'} className={`${className} ${tone} hover:underline`}>
+    <button type="button" onClick={item.onOpen} className={`${className} ${tone} text-left hover:underline`}>
       {item.title}
-    </Link>
+    </button>
   )
 }
 
@@ -203,6 +187,14 @@ export function MyTaskBoard({
   )
 }
 
+function Stage({ item }: { item: MyTaskItem }) {
+  return item.onStage ? (
+    <StageSelect status={item.status} title={item.title} onChange={item.onStage} />
+  ) : (
+    <StageBadge status={item.status} />
+  )
+}
+
 /** Every task in one table, soonest due first. */
 export function MyTaskList({ items, now }: { items: MyTaskItem[]; now: number }) {
   const rows = [...items].sort(byDue)
@@ -217,19 +209,12 @@ export function MyTaskList({ items, now }: { items: MyTaskItem[]; now: number })
               <Title item={t} className="block w-full truncate text-[14px] font-medium" />
               <p className="mt-0.5 truncate text-[12px] text-muted">{t.where}</p>
               <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-2 text-[12px] text-faint">
-                <span className={`rounded-lg px-2 py-0.5 font-mono ${STATUS_TONE[t.status]}`}>
-                  {taskStatusLabel(t.status)}
-                </span>
+                <Stage item={t} />
                 <span className={`font-mono ${late ? 'text-danger-600 dark:text-danger-400' : ''}`}>
                   {t.due_at ? formatDue(t.due_at) : 'No due date'}
                 </span>
                 <KindTag kind={t.kind} />
                 <Counts item={t} />
-                {t.next && (
-                  <span className="ml-auto">
-                    <NextButton next={t.next} />
-                  </span>
-                )}
               </div>
             </li>
           )
@@ -263,11 +248,7 @@ export function MyTaskList({ items, now }: { items: MyTaskItem[]; now: number })
                   </td>
                   <td className="max-w-[240px] truncate py-2.5 pr-3 text-[13px] text-muted">{t.where}</td>
                   <td className="py-2.5 pr-3">
-                    <span
-                      className={`rounded-lg px-2 py-0.5 font-mono text-[12px] whitespace-nowrap ${STATUS_TONE[t.status]}`}
-                    >
-                      {taskStatusLabel(t.status)}
-                    </span>
+                    <Stage item={t} />
                   </td>
                   <td
                     className={`py-2.5 pr-3 font-mono text-[12px] whitespace-nowrap ${
@@ -276,8 +257,15 @@ export function MyTaskList({ items, now }: { items: MyTaskItem[]; now: number })
                   >
                     {t.due_at ? formatDue(t.due_at) : '—'}
                   </td>
-                  <td className="py-2.5 pr-4">
-                    <span className="flex justify-end">{t.next && <NextButton next={t.next} />}</span>
+                  <td className="py-2.5 pr-4 text-right">
+                    <button
+                      type="button"
+                      onClick={t.onOpen}
+                      aria-label={`Open ${t.title}`}
+                      className="grid h-7 w-7 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+                    >
+                      <Icon name="chevronRight" size={15} />
+                    </button>
                   </td>
                 </tr>
               )

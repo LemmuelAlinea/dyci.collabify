@@ -1,20 +1,10 @@
 import { Avatar } from '../app/Avatar'
 import { Icon } from '../ui/Icon'
 import { EmptyState } from '../ui/EmptyState'
-import {
-  dueSoonLabel,
-  formatMinutes,
-  fullName,
-  taskShare,
-  taskStatusLabel,
-} from '../../lib/types'
+import { StageBadge, StageSelect } from './StageSelect'
+import { dueSoonLabel, formatMinutes, fullName, taskShare } from '../../lib/types'
+import type { TaskStatus } from '../../lib/types'
 import type { ProjectTaskRow } from '../../lib/api/tasks'
-
-const STATUS_TONE: Record<string, string> = {
-  todo: 'bg-pending-soft text-pending-ink',
-  in_progress: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
-  done: 'bg-success-500/15 text-success-700 dark:text-success-300',
-}
 
 /**
  * The same tasks as the board, one row each. A board is easy to read and hard
@@ -28,6 +18,8 @@ export function TaskList({
   ownerLabel,
   ownerFor,
   onOpen,
+  canMove,
+  onStatus,
 }: {
   rows: ProjectTaskRow[]
   /** Total weight per board, so each row's share is against its own board. */
@@ -38,6 +30,9 @@ export function TaskList({
   ownerLabel: string
   ownerFor: (row: ProjectTaskRow) => string
   onOpen: (taskId: string) => void
+  /** Whether the viewer may move this row's stage; without it every stage is read-only. */
+  canMove?: (row: ProjectTaskRow) => boolean
+  onStatus?: (row: ProjectTaskRow, to: TaskStatus) => Promise<void>
 }) {
   if (rows.length === 0) {
     return (
@@ -144,11 +139,11 @@ export function TaskList({
                 </td>
 
                 <td className="py-2.5 pr-3">
-                  <span
-                    className={`rounded-lg px-2 py-0.5 font-mono text-[12px] ${STATUS_TONE[t.status]}`}
-                  >
-                    {taskStatusLabel(t.status)}
-                  </span>
+                  {onStatus && canMove?.(t) ? (
+                    <StageSelect status={t.status} title={t.title} onChange={(to) => onStatus(t, to)} />
+                  ) : (
+                    <StageBadge status={t.status} />
+                  )}
                 </td>
 
                 <td className="py-2.5 pr-3 font-mono text-[12px] text-muted">{share}%</td>

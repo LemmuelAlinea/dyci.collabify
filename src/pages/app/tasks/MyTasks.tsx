@@ -20,10 +20,10 @@ import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useGeneralDashboard } from '../../../hooks/useGeneralDashboard'
-import { listMyArchivedTasks } from '../../../lib/api/general'
+import { listMyArchivedTasks, updateTask } from '../../../lib/api/general'
 import { listMyArchivedClassTasks, myTasks as myClassTasks, setTaskStatus } from '../../../lib/api/tasks'
 import type { MyTask } from '../../../lib/api/tasks'
-import { isFaculty, membershipOf, showsClassScope } from '../../../lib/access'
+import { membershipOf, showsClassScope } from '../../../lib/access'
 import { authErrorMessage } from '../../../lib/authError'
 import { myTasks as myOpenWorkTasks } from '../../../lib/general/dashboard'
 import { paths } from '../../../lib/paths'
@@ -31,6 +31,7 @@ import { readMyTasksView, writeMyTasksView } from '../../../lib/myTasksView'
 import { readScope, writeScope } from '../../../lib/scope'
 import { formatMinutes, taskShare, taskStatusLabel } from '../../../lib/types'
 import { useNow } from '../../../hooks/useNow'
+import type { GeneralTask } from '../../../lib/general/types'
 import type { TaskStatus } from '../../../lib/types'
 
 const NEXT: Record<TaskStatus, { to: TaskStatus; label: string; icon: 'check' | 'refresh' }> = {
@@ -142,9 +143,8 @@ export default function MyTasks() {
   const [error, setError] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
   const openTask = params.get('task')
-  // Faculty open a work task here, over the list; students still go to the
-  // project page, which is where their class boards send them too.
-  const workInPlace = isFaculty(profile)
+  // Every task opens here, over the list, so closing it leaves the reader on
+  // My tasks rather than on the task's project or board.
   const openWorkTask = params.get('workTask')
   const openWorkProject = params.get('workProject')
   // Only students are ever given class tasks, so everyone else reads work
@@ -289,10 +289,20 @@ export default function MyTasks() {
     return map
   }, [classFiltered])
 
-  async function moveClassTask(t: MyTask) {
+  async function moveClassTask(t: MyTask, to: TaskStatus = NEXT[t.status].to) {
     try {
-      await setTaskStatus(t.id, NEXT[t.status].to)
+      await setTaskStatus(t.id, to)
       await load()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not move that task.'), 'error')
+    }
+  }
+
+  async function moveWorkTask(t: GeneralTask, to: TaskStatus) {
+    try {
+      await updateTask(t.id, { status: to })
+      await reloadDash()
+      if (to === 'done') show('Marked done. Finished work tasks leave My tasks.')
     } catch (err) {
       show(authErrorMessage(err, 'Could not move that task.'), 'error')
     }
@@ -314,6 +324,7 @@ export default function MyTasks() {
         minutes: t.logged_minutes,
         onOpen: () => showTask(t.id),
         next: { label: NEXT[t.status].label, icon: NEXT[t.status].icon, run: () => void moveClassTask(t) },
+        onStage: (to) => moveClassTask(t, to),
       }),
     ),
     ...workFiltered.map(
@@ -328,8 +339,8 @@ export default function MyTasks() {
         files: t.file_count,
         comments: t.comment_count,
         minutes: t.logged_minutes,
-        onOpen: workInPlace ? () => showWorkTask(t) : undefined,
-        href: `${paths.project(t.project_id)}?task=${t.id}`,
+        onOpen: () => showWorkTask(t),
+        onStage: (to) => moveWorkTask(t, to),
       }),
     ),
   ]
@@ -600,7 +611,7 @@ export default function MyTasks() {
                       now={now}
                       limit={workFiltered.length}
                       empty="No open work tasks are assigned to you."
-                      onOpen={workInPlace ? showWorkTask : undefined}
+                      onOpen={showWorkTask}
                     />
                   </div>
                 </section>
@@ -630,7 +641,7 @@ export default function MyTasks() {
         }}
       />
 
-      {workInPlace && openWorkTask && openWorkProject && (
+      {openWorkTask && openWorkProject && (
         <WorkTaskOverlay
           key={openWorkProject}
           projectId={openWorkProject}

@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Avatar } from '../app/Avatar'
+import { StageBadge, StageSelect } from '../tasks/StageSelect'
 import { SummaryTile, StatusDonut } from '../tasks/TaskSummary'
 import { TaskViewSwitch } from '../tasks/TaskViewSwitch'
 import type { TaskView } from '../tasks/TaskViewSwitch'
@@ -34,12 +35,6 @@ const COLUMN_TONE: Record<GeneralTaskStatus, string> = {
   todo: 'text-pending-ink',
   in_progress: 'text-warning-700 dark:text-warning-300',
   done: 'text-success-700 dark:text-success-300',
-}
-
-const STATUS_TONE: Record<GeneralTaskStatus, string> = {
-  todo: 'bg-pending-soft text-pending-ink',
-  in_progress: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',
-  done: 'bg-success-500/15 text-success-700 dark:text-success-300',
 }
 
 const NEXT: Record<GeneralTaskStatus, { to: GeneralTaskStatus; label: string; icon: 'check' | 'refresh' }> = {
@@ -263,7 +258,7 @@ export function TasksTab({ state }: { state: GeneralProjectState }) {
           })}
         </div>
       ) : (
-        <TaskTable tasks={shown} state={state} onOpen={showTask} />
+        <TaskTable tasks={shown} state={state} onOpen={showTask} mayMove={mayMove} onMove={move} />
       )}
 
       <NewTaskDialog open={creating} onClose={() => setCreating(false)} state={state} onCreated={showTask} />
@@ -415,10 +410,14 @@ function TaskTable({
   tasks,
   state,
   onOpen,
+  mayMove,
+  onMove,
 }: {
   tasks: GeneralTask[]
   state: GeneralProjectState
   onOpen: (id: string) => void
+  mayMove: (t: GeneralTask) => boolean
+  onMove: (t: GeneralTask, to: GeneralTaskStatus) => Promise<void>
 }) {
   return (
     <div className="surface overflow-x-auto rounded-card border border-line shadow-card">
@@ -474,9 +473,11 @@ function TaskTable({
                   <Holders task={t} state={state} />
                 </td>
                 <td className="py-2.5 pr-3">
-                  <span className={`rounded-lg px-2 py-0.5 font-mono text-[12px] ${STATUS_TONE[t.status]}`}>
-                    {TASK_STATUSES.find((s) => s.value === t.status)?.label}
-                  </span>
+                  {mayMove(t) ? (
+                    <StageSelect status={t.status} title={t.title} onChange={(to) => onMove(t, to)} />
+                  ) : (
+                    <StageBadge status={t.status} />
+                  )}
                 </td>
                 <td className={`py-2.5 pr-3 font-mono text-[12px] ${overdue ? 'text-danger-600 dark:text-danger-400' : 'text-faint'}`}>
                   {t.due_at ? formatDue(t.due_at) : '—'}
