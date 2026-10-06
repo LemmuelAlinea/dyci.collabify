@@ -96,15 +96,23 @@ create trigger project_tasks_milestone_guard before insert or update on public.p
 
 /**
  * A milestone never moves to another project (the same-project rule on tasks
- * would break), and deleting one untags its tasks first, as the caller, so the
- * professor's path through guard_task_edit applies, archived tasks included.
- * When the project itself is going, its tasks are going too: return at once.
+ * would break), who made it and when are fixed at insert, and deleting one
+ * untags its tasks first, as the caller, so the professor's path through
+ * guard_task_edit applies, archived tasks included. When the project itself is
+ * going, its tasks are going too: return at once.
  */
 create or replace function public.guard_project_milestone()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
+  if tg_op = 'INSERT' then
+    new.created_by := coalesce(auth.uid(), new.created_by);
+    new.created_at := now();
+    return new;
+  end if;
   if tg_op = 'UPDATE' then
     new.project_id := old.project_id;
+    new.created_by := old.created_by;
+    new.created_at := old.created_at;
     return new;
   end if;
   if not exists (select 1 from public.projects where id = old.project_id) then
@@ -116,6 +124,10 @@ end;
 $$;
 
 revoke all on function public.guard_project_milestone() from public, anon;
+
+drop trigger if exists project_milestones_guard_insert on public.project_milestones;
+create trigger project_milestones_guard_insert before insert on public.project_milestones
+  for each row execute function public.guard_project_milestone();
 
 drop trigger if exists project_milestones_guard_edit on public.project_milestones;
 create trigger project_milestones_guard_edit before update on public.project_milestones

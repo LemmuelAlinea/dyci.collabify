@@ -11,6 +11,14 @@
 -- re-running work-planning.sql, general-schedule.sql, general-project-archive.sql
 -- or general-archive-rbac.sql.
 --
+-- Deleting a project goes through delete_general_project, which removes the
+-- project's tasks first, while the Owner is still a member, so the milestone
+-- cascade and release_milestone_tasks find nothing tagged. That is the same
+-- reliance work-planning.sql notes for sprints (Postgres fires the foreign
+-- keys in trigger-name order; general_tasks' sorts before general_milestones').
+-- A direct delete of a project row with tagged tasks still in it is not a
+-- supported path; supabase/tests/work-milestones.test.sql covers the real one.
+--
 -- Idempotent. Safe to re-run.
 
 begin;
@@ -61,6 +69,39 @@ create policy general_milestones_delete on public.general_milestones
 
 revoke all on public.general_milestones from anon;
 grant select, insert, update, delete on public.general_milestones to authenticated;
+
+/**
+ * The server owns the bookkeeping columns. A milestone never moves to another
+ * project, who made it and when are fixed at insert, and reached_at is stamped
+ * with the server's clock when it first turns on (kept while it stays on,
+ * cleared when it goes back to null), whatever the client sent.
+ */
+create or replace function public.guard_general_milestone()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then
+    new.created_by := coalesce(auth.uid(), new.created_by);
+    new.created_at := now();
+    if new.reached_at is not null then
+      new.reached_at := now();
+    end if;
+    return new;
+  end if;
+  new.project_id := old.project_id;
+  new.created_by := old.created_by;
+  new.created_at := old.created_at;
+  if new.reached_at is not null then
+    new.reached_at := coalesce(old.reached_at, now());
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.guard_general_milestone() from public, anon;
+
+drop trigger if exists general_milestones_guard on public.general_milestones;
+create trigger general_milestones_guard before insert or update on public.general_milestones
+  for each row execute function public.guard_general_milestone();
 
 -- ---------------------------------------------------------------- tasks
 

@@ -80,6 +80,7 @@ declare
   m1 uuid; m_other uuid; t1 uuid; v_origin uuid; n int;
   m2 uuid; t_live uuid; t_arch uuid; v_unrel uuid; m_hidden uuid;
   v_set2 uuid; v_group2 uuid; v_solo uuid; m_solo uuid; r uuid[];
+  t_closed uuid; t_shelf uuid; m_stamp uuid;
 begin
   select c.id, c.professor_id into v_class, v_prof
     from public.classes c
@@ -157,6 +158,58 @@ begin
   perform pg_temp.act_as(v_a);
   perform pg_temp.must_refuse('a student cannot tag every copy',
     format('select public.set_professor_task_milestone(%L, null)', v_origin));
+
+  ------------------------------------------------------------ when a board is closed to its students
+  -- Each refusal has a control: the same tag goes through while the board is open.
+  perform pg_temp.act_as(v_a);
+  insert into public.project_tasks (board_id, title, weight, created_by)
+  values (v_board, 'Closed-board task', 10, v_a) returning id into t_closed;
+  insert into public.project_tasks (board_id, title, weight, created_by)
+  values (v_board, 'Archived-board task', 10, v_a) returning id into t_shelf;
+  update public.project_tasks set milestone_id = m1 where id = t_closed;
+  perform pg_temp.must_be('control: a student can tag a task while the board is open',
+    (select milestone_id = m1 from public.project_tasks where id = t_closed));
+  update public.project_tasks set milestone_id = null where id = t_closed;
+
+  perform public.set_board_submitted(v_board, true);
+  perform pg_temp.must_refuse('a student cannot tag a task on a handed-in board',
+    format('update public.project_tasks set milestone_id = %L where id = %L', m1, t_closed));
+  perform public.set_board_submitted(v_board, false);
+
+  perform pg_temp.act_as_service();
+  update public.projects set locked_at = now() where id = v_proj;
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_refuse('a student cannot tag a task on a locked project',
+    format('update public.project_tasks set milestone_id = %L where id = %L', m1, t_closed));
+  perform pg_temp.act_as_service();
+  update public.projects set locked_at = null where id = v_proj;
+
+  perform pg_temp.act_as(v_a);
+  perform public.archive_class_task(t_shelf, true);
+  -- Archived tasks are hidden from a student's reads, so the update finds no
+  -- row and changes nothing rather than raising.
+  update public.project_tasks set milestone_id = m1 where id = t_shelf;
+  get diagnostics n = row_count;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a student cannot tag an archived task',
+    n = 0 and (select milestone_id is null and archived_at is not null from public.project_tasks where id = t_shelf));
+  perform pg_temp.act_as(v_a);
+  perform public.archive_class_task(t_shelf, false);
+  update public.project_tasks set milestone_id = m1 where id = t_shelf;
+  perform pg_temp.must_be('control: the same task takes the tag once restored',
+    (select milestone_id = m1 from public.project_tasks where id = t_shelf));
+
+  ------------------------------------------------------------ the bookkeeping columns
+  perform pg_temp.act_as(v_prof);
+  insert into public.project_milestones (project_id, name, due_on, created_by, created_at)
+  values (v_proj, 'Stamped', current_date + 9, v_a, '2000-01-01') returning id into m_stamp;
+  perform pg_temp.must_be('a new milestone takes its creator and time from the server',
+    (select created_by = v_prof and abs(extract(epoch from now() - created_at)) < 60
+       from public.project_milestones where id = m_stamp));
+  update public.project_milestones set created_by = v_a, created_at = '2000-01-01' where id = m_stamp;
+  perform pg_temp.must_be('an edit cannot change who made a milestone or when',
+    (select created_by = v_prof and created_at > '2001-01-01'
+       from public.project_milestones where id = m_stamp));
 
   -- deleting a milestone untags its tasks
   perform pg_temp.act_as(v_prof);

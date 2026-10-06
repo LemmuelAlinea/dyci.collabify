@@ -16,7 +16,8 @@
 -- restore function must not point tasks at a completed sprint.
 --
 -- Redefines general_task_overview (owner: general-archive-rbac.sql) to append
--- sprint_id and rank. Re-run this file after re-running that one.
+-- sprint_id and rank. Re-run this file after re-running that one, then re-run
+-- work-milestones.sql, which recreates the view again to append milestone_id.
 --
 -- Deleting a project relies on general_tasks' foreign key firing before
 -- general_sprints' (Postgres runs them in trigger-name order, and the live
