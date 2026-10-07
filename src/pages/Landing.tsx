@@ -31,9 +31,20 @@ import { LEGAL_LINKS } from '../lib/legal'
  * is unavailable — and the `useLoop` that drives it.
  */
 
-/** Nav that inverts as the page passes from the dark hero onto white. */
+const SECTIONS = [
+  ['Inside a project', '#workspace'],
+  ['How it runs', '#how'],
+  ['Ways to work', '#roles'],
+] as const
+
+/**
+ * Nav that inverts as the page passes from the dark hero onto white. Below `md`
+ * the section links and, on phones, both account actions fold into a menu, so a
+ * returning student is not sent to the sign-up form to find the way in.
+ */
 function Nav() {
   const [past, setPast] = useState(false)
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     const onScroll = () => setPast(window.scrollY > window.innerHeight - 120)
@@ -42,12 +53,30 @@ function Nav() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    const wide = window.matchMedia('(min-width: 768px)')
+    const onWide = () => wide.matches && setOpen(false)
+    window.addEventListener('keydown', onKey)
+    wide.addEventListener('change', onWide)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      wide.removeEventListener('change', onWide)
+    }
+  }, [open])
+
+  // An open menu always sits on the dark ground, whichever section is behind it.
+  const light = past && !open
+
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 border-b transition-colors duration-500 ${
-        past
+        light
           ? 'border-navy-900/10 bg-white/85 text-navy-900 backdrop-blur-md'
-          : 'border-transparent text-amber-50'
+          : open
+            ? 'border-amber-50/10 bg-navy-950 text-amber-50'
+            : 'border-transparent text-amber-50'
       }`}
     >
       <Shell className="flex h-16 items-center justify-between sm:h-[72px]">
@@ -56,16 +85,12 @@ function Nav() {
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
-          {[
-            ['Inside a project', '#workspace'],
-            ['How it runs', '#how'],
-            ['Ways to work', '#roles'],
-          ].map(([label, href]) => (
+          {SECTIONS.map(([label, href]) => (
             <a
               key={href}
               href={href}
               className={`text-[13.5px] font-medium transition-colors duration-200 ${
-                past ? 'text-navy-600 hover:text-navy-900' : 'text-amber-50/70 hover:text-amber-50'
+                light ? 'text-navy-600 hover:text-navy-900' : 'text-amber-50/70 hover:text-amber-50'
               }`}
             >
               {label}
@@ -77,19 +102,73 @@ function Nav() {
           <Link
             to="/login"
             className={`hidden text-[13.5px] font-semibold transition-colors duration-200 sm:block ${
-              past ? 'text-navy-700 hover:text-navy-900' : 'text-amber-50/80 hover:text-amber-50'
+              light ? 'text-navy-700 hover:text-navy-900' : 'text-amber-50/80 hover:text-amber-50'
             }`}
           >
             Sign in
           </Link>
           <Link
             to="/register"
-            className="rounded-lg bg-amber-400 px-4 py-2.5 text-[13.5px] font-semibold text-navy-950 transition-[background-color,transform] duration-200 hover:bg-amber-300 active:scale-[0.97]"
+            className="hidden rounded-lg bg-amber-400 px-4 py-2.5 text-[13.5px] font-semibold text-navy-950 transition-[background-color,transform] duration-200 hover:bg-amber-300 active:scale-[0.97] sm:block"
           >
             Get started
           </Link>
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-controls="landing-menu"
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            className={`-mr-2 grid h-10 w-10 place-items-center rounded-lg transition-colors duration-200 md:hidden ${
+              light ? 'hover:bg-navy-900/5' : 'hover:bg-amber-50/10'
+            }`}
+          >
+            <svg aria-hidden viewBox="0 0 20 20" className="h-5 w-5" fill="none">
+              <path
+                d={open ? 'M5 5l10 10M15 5L5 15' : 'M3 6h14M3 10h14M3 14h14'}
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
         </div>
       </Shell>
+
+      <div
+        id="landing-menu"
+        hidden={!open}
+        className="border-t border-amber-50/10 md:hidden"
+      >
+        <Shell className="pt-3 pb-6">
+          <nav className="flex flex-col">
+            {SECTIONS.map(([label, href]) => (
+              <a
+                key={href}
+                href={href}
+                onClick={() => setOpen(false)}
+                className="border-b border-amber-50/10 py-3.5 text-[15px] font-medium text-amber-50/80 transition-colors duration-200 hover:text-amber-50"
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <Link
+              to="/login"
+              className="rounded-lg border border-amber-50/20 px-4 py-3 text-center text-[14px] font-semibold text-amber-50 transition-colors duration-200 hover:bg-amber-50/10"
+            >
+              Sign in
+            </Link>
+            <Link
+              to="/register"
+              className="rounded-lg bg-amber-400 px-4 py-3 text-center text-[14px] font-semibold text-navy-950 transition-[background-color,transform] duration-200 hover:bg-amber-300 active:scale-[0.97]"
+            >
+              Sign up
+            </Link>
+          </div>
+        </Shell>
+      </div>
     </header>
   )
 }
