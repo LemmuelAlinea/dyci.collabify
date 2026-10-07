@@ -30,7 +30,13 @@ export type DraftedWorkTask = {
 
 /** A sprint the text lays out. Dates are '' when it gives none. */
 export type DraftedSprint = { name: string; goal: string; starts_on: string; ends_on: string }
-export type DraftedMilestone = { name: string; description: string; due: string }
+export type DraftedMilestone = {
+  name: string
+  description: string
+  due: string
+  /** Names of drafted sprints the text says count toward it. Optional: an older deploy sends none. */
+  sprints?: string[]
+}
 
 /** A file shared in the discussion the draft read. */
 export type DraftSharedFile = { id: string; name: string; path: string; mime: string | null; size: number }

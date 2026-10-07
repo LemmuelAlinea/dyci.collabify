@@ -82,7 +82,7 @@ export function ClassTasksFromNotes({
     let untagged = 0
     try {
       const created = await commitPlan(drafted.sprints, [], {
-        sprint: (input) => createSprint({ kind: 'class', boardId: board.id }, input),
+        sprint: (input, milestoneId) => createSprint({ kind: 'class', boardId: board.id }, input, milestoneId),
         milestone: () => Promise.reject(new Error('Only the professor sets milestones.')),
       })
       const tagged: { taskId: string; milestoneId: string | null }[] = []

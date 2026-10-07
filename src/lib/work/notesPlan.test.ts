@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DraftedWorkTask } from '../api/workAi'
-import { addedMessage, byMilestone, commitPlan, planProblem, resolveKey, shapePlan } from './notesPlan'
+import { addedMessage, byMilestone, commitPlan, planProblem, resolveKey, shapePlan, sprintMilestone } from './notesPlan'
 import type { Milestone, Sprint } from './types'
 
 const task = (title: string, extra: Partial<DraftedWorkTask> = {}): DraftedWorkTask => ({
@@ -26,6 +26,7 @@ const sprint = (id: string, name: string, state: Sprint['state'] = 'planned'): S
   started_at: null,
   completed_at: null,
   created_at: '2026-10-01T00:00:00Z',
+  milestone_id: null,
 })
 
 const milestone = (id: string, name: string): Milestone => ({
@@ -135,8 +136,55 @@ describe('shapePlan', () => {
       none,
       all,
     )
-    expect(plan.milestones).toEqual([{ key: 'newm:0', name: 'Defense', description: 'Final', dueOn: '2026-12-04', keep: true }])
+    expect(plan.milestones).toEqual([
+      { key: 'newm:0', name: 'Defense', description: 'Final', dueOn: '2026-12-04', keep: true, sprints: [] },
+    ])
     expect(plan.links[0].milestone).toBe('newm:0')
+  })
+})
+
+describe('milestone sprints', () => {
+  it('links the sprints the draft names to a milestone, each sprint once', () => {
+    const plan = shapePlan(
+      {
+        tasks: [task('A', { sprint: 'Sprint 1' }), task('B', { sprint: 'Sprint 2' })],
+        sprints: [
+          { name: 'Sprint 1', goal: '', starts_on: '2026-10-12', ends_on: '2026-10-23' },
+          { name: 'Sprint 2', goal: '', starts_on: '2026-10-26', ends_on: '2026-11-06' },
+        ],
+        milestones: [
+          { name: 'Prototype', description: '', due: '2026-11-06', sprints: ['sprint 1', 'Sprint 2', 'Sprint 9'] },
+          { name: 'Again', description: '', due: '2026-11-07', sprints: ['Sprint 1'] },
+        ],
+      },
+      { sprints: [sprint('s0', 'Sprint 2')], milestones: [] },
+      all,
+    )
+    expect(plan.milestones[0].sprints).toEqual(['new:0', 's0'])
+    expect(plan.milestones[1].sprints).toEqual([])
+    expect(sprintMilestone('new:0', plan.milestones)).toBe('newm:0')
+    expect(sprintMilestone('', plan.milestones)).toBe('')
+  })
+
+  it('creates milestones first, sprints already linked, then links existing sprints', async () => {
+    const calls: string[] = []
+    const created = await commitPlan(
+      [
+        { key: 'new:0', name: 'S1', goal: '', startsOn: '2026-10-12', endsOn: '2026-10-23', keep: true },
+        { key: 'new:1', name: 'S2', goal: '', startsOn: '2026-10-26', endsOn: '2026-11-06', keep: true },
+      ],
+      [
+        { key: 'newm:0', name: 'M', description: '', dueOn: '2026-12-04', keep: true, sprints: ['new:0', 'old-sprint'] },
+        { key: 'newm:1', name: 'Dropped', description: '', dueOn: '2026-12-04', keep: false, sprints: ['new:1'] },
+      ],
+      {
+        milestone: async (i) => (calls.push(`milestone ${i.name}`), `ms-${i.name}`),
+        sprint: async (i, milestoneId) => (calls.push(`sprint ${i.name} -> ${milestoneId}`), `sp-${i.name}`),
+        link: async (sprintId, milestoneId) => void calls.push(`link ${sprintId} -> ${milestoneId}`),
+      },
+    )
+    expect(calls).toEqual(['milestone M', 'sprint S1 -> ms-M', 'sprint S2 -> null', 'link old-sprint -> ms-M'])
+    expect(created.get('new:1')).toBe('sp-S2')
   })
 })
 
@@ -148,7 +196,7 @@ describe('planProblem', () => {
   it('asks for missing or backwards dates', () => {
     expect(planProblem([{ ...s, endsOn: '' }], [])).toMatch(/start and an end date/)
     expect(planProblem([{ ...s, endsOn: '2026-10-01' }], [])).toMatch(/ends before it starts/)
-    expect(planProblem([], [{ key: 'newm:0', name: 'M', description: '', dueOn: '', keep: true }])).toMatch(/a date/)
+    expect(planProblem([], [{ key: 'newm:0', name: 'M', description: '', dueOn: '', keep: true, sprints: [] }])).toMatch(/a date/)
   })
 })
 
@@ -160,13 +208,13 @@ describe('commitPlan and resolveKey', () => {
         { key: 'new:0', name: 'A', goal: '', startsOn: '2026-10-12', endsOn: '2026-10-23', keep: true },
         { key: 'new:1', name: 'B', goal: '', startsOn: '2026-10-26', endsOn: '2026-11-06', keep: false },
       ],
-      [{ key: 'newm:0', name: 'M', description: '', dueOn: '2026-12-04', keep: true }],
+      [{ key: 'newm:0', name: 'M', description: '', dueOn: '2026-12-04', keep: true, sprints: [] }],
       {
         sprint: async (i) => (made.push(i.name), `sprint-${i.name}`),
         milestone: async (i) => (made.push(i.name), `ms-${i.name}`),
       },
     )
-    expect(made).toEqual(['A', 'M'])
+    expect(made).toEqual(['M', 'A'])
     expect(resolveKey('new:0', created)).toBe('sprint-A')
     expect(resolveKey('new:1', created)).toBeNull()
     expect(resolveKey('newm:0', created)).toBe('ms-M')

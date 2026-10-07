@@ -49,14 +49,17 @@ $$;
 
 /**
  * Planned → running → finished, never backwards, and a finished sprint is
- * fixed. The timestamps are stamped here so a client cannot backdate them.
- * Shared by general_sprints and board_sprints, so the owning column is pinned
- * by table name.
+ * fixed except for its milestone (supabase/sprint-milestones.sql, which
+ * carries the same body; keep the two in step). The timestamps are stamped
+ * here so a client cannot backdate them. Shared by general_sprints and
+ * board_sprints, so the owning column is pinned by table name.
  */
 create or replace function public.guard_sprint_state()
 returns trigger language plpgsql set search_path = public as $$
 begin
-  if old.state = 'completed' then
+  if old.state = 'completed'
+     and (new.name, new.goal, new.starts_on, new.ends_on, new.state)
+         is distinct from (old.name, old.goal, old.starts_on, old.ends_on, old.state) then
     raise exception 'This sprint is finished, so it can no longer change.'
       using errcode = 'check_violation';
   end if;

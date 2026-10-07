@@ -8,7 +8,15 @@ import type { Milestone, MilestoneInput, Sprint, SprintInput } from './types'
  * would create. '' means none (the backlog, or untagged).
  */
 export type PlanSprint = { key: string; name: string; goal: string; startsOn: string; endsOn: string; keep: boolean }
-export type PlanMilestone = { key: string; name: string; description: string; dueOn: string; keep: boolean }
+export type PlanMilestone = {
+  key: string
+  name: string
+  description: string
+  dueOn: string
+  keep: boolean
+  /** Sprint keys that count toward it: every task in them is tagged with it. */
+  sprints: string[]
+}
 
 export type ShapedPlan = {
   sprints: PlanSprint[]
@@ -72,7 +80,11 @@ export function shapePlan(
       } else if (may.createMilestones) {
         const key = `newm:${milestones.length}`
         milestoneKey.set(m.name.toLowerCase(), key)
-        milestones.push({ key, name: m.name, description: m.description, dueOn: m.due, keep: true })
+        // A sprint counts toward one milestone: the first that names it.
+        const sprintKeys = (m.sprints ?? [])
+          .map((name) => sprintKey.get(name.toLowerCase()))
+          .filter((k): k is string => Boolean(k) && !milestones.some((x) => x.sprints.includes(k!)))
+        milestones.push({ key, name: m.name, description: m.description, dueOn: m.due, keep: true, sprints: [...new Set(sprintKeys)] })
       } else {
         skippedMilestones++
       }
@@ -105,21 +117,39 @@ export function planProblem(sprints: PlanSprint[], milestones: PlanMilestone[]) 
   return null
 }
 
-/** Creates the kept sprints and milestones; returns each new key's id. */
+/** The kept milestone a sprint counts toward in this plan, by key, or ''. */
+export function sprintMilestone(sprintKey: string, milestones: PlanMilestone[]) {
+  if (!sprintKey) return ''
+  return milestones.find((m) => m.keep && m.sprints.includes(sprintKey))?.key ?? ''
+}
+
+/**
+ * Creates the kept milestones, then the kept sprints (each already counting
+ * toward its milestone), then adds existing sprints to the milestones that
+ * list them. Returns each new key's id. Tasks saved afterwards into a sprint
+ * with a milestone are tagged by the database.
+ */
 export async function commitPlan(
   sprints: PlanSprint[],
   milestones: PlanMilestone[],
   create: {
-    sprint: (input: SprintInput) => Promise<string>
+    sprint: (input: SprintInput, milestoneId: string | null) => Promise<string>
     milestone: (input: MilestoneInput) => Promise<string>
+    link?: (sprintId: string, milestoneId: string) => Promise<void>
   },
 ) {
   const ids = new Map<string, string>()
-  for (const s of sprints.filter((x) => x.keep)) {
-    ids.set(s.key, await create.sprint({ name: s.name, goal: s.goal, startsOn: s.startsOn, endsOn: s.endsOn }))
-  }
   for (const m of milestones.filter((x) => x.keep)) {
     ids.set(m.key, await create.milestone({ name: m.name, description: m.description, dueOn: m.dueOn }))
+  }
+  for (const s of sprints.filter((x) => x.keep)) {
+    const milestoneId = resolveKey(sprintMilestone(s.key, milestones), ids)
+    ids.set(s.key, await create.sprint({ name: s.name, goal: s.goal, startsOn: s.startsOn, endsOn: s.endsOn }, milestoneId))
+  }
+  for (const m of milestones.filter((x) => x.keep)) {
+    for (const key of m.sprints.filter((k) => !k.startsWith('new'))) {
+      await create.link?.(key, ids.get(m.key)!)
+    }
   }
   return ids
 }

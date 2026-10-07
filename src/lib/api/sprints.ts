@@ -12,7 +12,7 @@ export type SprintHome = { kind: 'work'; projectId: string } | { kind: 'class'; 
 const SPRINTS = { work: 'general_sprints', class: 'board_sprints' } as const
 const TASKS = { work: 'general_tasks', class: 'project_tasks' } as const
 const FINISH = { work: 'complete_general_sprint', class: 'complete_board_sprint' } as const
-const COLUMNS = 'id, name, goal, starts_on, ends_on, state, started_at, completed_at, created_at'
+const COLUMNS = 'id, name, goal, starts_on, ends_on, state, started_at, completed_at, created_at, milestone_id'
 
 function owner(home: SprintHome) {
   return home.kind === 'work'
@@ -36,11 +36,12 @@ export async function listSprints(home: SprintHome) {
   return (data ?? []) as Sprint[]
 }
 
-export async function createSprint(home: SprintHome, input: SprintInput) {
+/** `milestoneId` makes it count toward that milestone from the start. */
+export async function createSprint(home: SprintHome, input: SprintInput, milestoneId: string | null = null) {
   const { column, id } = owner(home)
   const { data, error } = await supabase
     .from(SPRINTS[home.kind])
-    .insert({ [column]: id, ...fields(input) })
+    .insert({ [column]: id, ...fields(input), milestone_id: milestoneId })
     .select('id')
     .single()
   if (error) throw error
@@ -51,6 +52,20 @@ export async function updateSprint(home: SprintHome, sprintId: string, input: Sp
   const { data, error } = await supabase.from(SPRINTS[home.kind]).update(fields(input)).eq('id', sprintId).select('id')
   if (error) throw error
   touched(data, 'That sprint could not change. It may be finished, or you may not plan here.')
+}
+
+/**
+ * Count a sprint toward a milestone, or (null) stop. The database tags the
+ * sprint's tasks, and any that join it later: supabase/sprint-milestones.sql.
+ */
+export async function setSprintMilestone(home: SprintHome, sprintId: string, milestoneId: string | null) {
+  const { data, error } = await supabase
+    .from(SPRINTS[home.kind])
+    .update({ milestone_id: milestoneId })
+    .eq('id', sprintId)
+    .select('id')
+  if (error) throw error
+  touched(data, 'That sprint could not change. Reload the page and try again.')
 }
 
 export async function deleteSprint(home: SprintHome, sprintId: string) {

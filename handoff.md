@@ -3014,3 +3014,38 @@ Branch `claude/notes-file-plan`. No SQL.
   long plan takes 30 to 40 s with only a spinner; drafted sprints may overlap existing ones (the
   table allows it).
 - Next: no plan open. Deferred notes here and in the Work tab parts.
+
+**Change (2026-10-07): a sprint can count toward a milestone.** Branch `claude/sprint-milestones`.
+- Work › Milestones: each milestone has an Add sprint button (next to Tag tasks) that lists the
+  planned and running sprints; the card shows its sprints as chips with an x to take one off.
+  Every task in an added sprint counts toward the milestone, including tasks added to the sprint
+  later, so the milestone reads Reached when they are all done. A sprint counts toward one
+  milestone; adding it elsewhere moves it.
+- Tasks from notes: each drafted milestone card has "+ Add sprint" (drafted and open sprints) and
+  sprint chips; the task count and each task's milestone follow the sprint. The AI also links a
+  milestone to the sprints the text names ("reached when Sprint 1 is done").
+- SQL (applied live): `sprint-milestones.sql`. `general_sprints.milestone_id` (composite FK, on
+  delete set null) and `board_sprints.milestone_id` (FK to project_milestones, guarded to the
+  board's project). Works through task tags, so progress, Summary and the professor grid are
+  unchanged: changing a sprint's milestone tags its live tasks that had none or the old one
+  (taking it off untags them); an untagged task joining a sprint takes its milestone; a task
+  leaving keeps its tag. `guard_sprint_state` now lets a finished sprint change only its
+  milestone (so deleting a milestone still works); the same body is in `work-planning.sql`.
+  Run after work-milestones.sql and class-milestones.sql (docs/07-backup.md).
+- Who: same as tagging. Work = `manage_tasks`. Class = the group while the board is open, onto the
+  professor's milestones; professors do not add sprints (sprints are per group).
+- Code: `components/work/AddSprintDialog.tsx`, `MilestonesView.tsx`, `MilestoneSource.sprints` and
+  `linkSprint` in both sources, `setSprintMilestone` and `createSprint(..., milestoneId)` in
+  `lib/api/sprints.ts`, `lib/work/notesPlan.ts` (`sprintMilestone`, commitPlan creates milestones
+  first), `general/TasksFromNotes.tsx`, `work-ai` milestone `sprints` (redeployed).
+- Checked: sprint-milestones 24 PASS (work and class), work-milestones 26, class-milestones 31,
+  work-planning 39, class-planning 36; build, 719 Vitest, a11y-names, contrast; src lint clean
+  (the untracked cinema/ and launch-video/ folders fail `eslint .`). Browser, dark, throwaway work
+  project (deleted after): notes with a sprint-linked milestone drafted Sprint 1 already added;
+  + Add sprint and the x both changed the count; saved, DB showed Sprint 1's tasks tagged and the
+  sprint linked; Milestones showed the chip, Add sprint added Sprint 2 (0 of 4), all four done
+  read Reached.
+- Not tried in the browser: the class student path; taking a sprint off from Milestones.
+- Deferred: in Tasks from notes a task in a linked sprint cannot be set to "No milestone" (the
+  database would tag it anyway); a professor cannot see which group sprints count toward a
+  milestone.

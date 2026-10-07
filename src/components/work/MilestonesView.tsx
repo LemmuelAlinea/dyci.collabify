@@ -6,6 +6,7 @@ import { Icon } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
 import { MilestoneDialog } from './MilestoneDialog'
 import { ProgressBar, StatusPill } from './MilestoneBits'
+import { AddSprintDialog } from './AddSprintDialog'
 import { TagTasksDialog } from './TagTasksDialog'
 import { useNow } from '../../hooks/useNow'
 import { authErrorMessage } from '../../lib/authError'
@@ -21,7 +22,8 @@ import type { Milestone, MilestoneSource } from '../../lib/work/types'
 
 /**
  * Dated goals and how close each one is. A milestone's progress is the share
- * of its tagged tasks that are done; a professor sees that per group.
+ * of its tagged tasks that are done; a professor sees that per group. Adding
+ * a sprint tags every task in it, and any that join later.
  */
 export function MilestonesView({ source }: { source: MilestoneSource }) {
   const now = useNow()
@@ -31,6 +33,7 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
   const [editing, setEditing] = useState<Milestone | null>(null)
   const [deleting, setDeleting] = useState<Milestone | null>(null)
   const [tagging, setTagging] = useState<Milestone | null>(null)
+  const [addingSprint, setAddingSprint] = useState<Milestone | null>(null)
   const list = sortMilestones(source.milestones)
   // A professor's source carries one group per board; everyone else reads their own items.
   const professor = source.groups.length > 0
@@ -51,7 +54,7 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
         <div>
           <h3>Milestones</h3>
           <p className="mt-0.5 max-w-prose text-[13px] text-muted">
-            Dated goals. Tag the tasks that count toward each one; its progress is how many of those are done.
+            Dated goals. Tag the tasks or add the sprints that count toward each one; its progress is how many of those tasks are done.
           </p>
         </div>
         {source.canManage && (
@@ -79,6 +82,7 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
             const progress = milestoneProgress(source.items, m.id)
             const status = milestoneStatus(m, progress, now)
             const tagged = source.items.filter((i) => i.milestone_id === m.id)
+            const linked = source.sprints.filter((sp) => sp.milestone_id === m.id)
             return (
               <li key={m.id} className="card space-y-3 p-4 shadow-card">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -97,6 +101,12 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
                       <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setTagging(m)}>
                         <Icon name="plus" size={15} />
                         Tag tasks
+                      </Button>
+                    )}
+                    {source.canTag && source.sprints.length > 0 && (
+                      <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setAddingSprint(m)}>
+                        <Icon name="plus" size={15} />
+                        Add sprint
                       </Button>
                     )}
                     {source.canMarkReached && (
@@ -158,6 +168,26 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
                       </div>
                       <ProgressBar pct={progress.pct} />
                     </div>
+                    {linked.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[12px] text-faint">Sprints:</span>
+                        {linked.map((sp) => (
+                          <span key={sp.id} className="flex items-center gap-1 rounded-lg surface-sunken py-1 pr-1 pl-2.5 text-[12px] text-ink">
+                            {sp.name}
+                            {source.canTag && (
+                              <button
+                                type="button"
+                                onClick={() => void run(() => source.linkSprint(sp.id, null), 'Could not take that sprint off.')}
+                                aria-label={`Stop counting ${sp.name} toward ${m.name}`}
+                                className="grid h-5 w-5 place-items-center rounded-full text-faint hover:text-ink"
+                              >
+                                <Icon name="x" size={11} />
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {tagged.length > 0 && (
                       <details>
                         <summary className="cursor-pointer text-[13px] text-muted">
@@ -217,6 +247,9 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
         />
       )}
       {tagging && <TagTasksDialog open onClose={() => setTagging(null)} milestone={tagging} source={source} />}
+      {addingSprint && (
+        <AddSprintDialog open onClose={() => setAddingSprint(null)} milestone={addingSprint} source={source} />
+      )}
       <ConfirmDialog
         open={Boolean(deleting)}
         onClose={() => setDeleting(null)}

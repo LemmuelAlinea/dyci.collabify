@@ -11,7 +11,7 @@ import { listDiscussionFolders, listDiscussions } from '../../lib/api/discussion
 import { attachSharedFiles } from '../../lib/general/sharedFiles'
 import { GENERAL_FILE_LIMIT, assignTask, createTask, uploadTaskFile } from '../../lib/api/general'
 import { createMilestone, tagTasks } from '../../lib/api/milestones'
-import { createSprint } from '../../lib/api/sprints'
+import { createSprint, setSprintMilestone } from '../../lib/api/sprints'
 import { draftWorkTasks } from '../../lib/api/workAi'
 import type { DraftSharedFile, DraftedWorkTask } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
@@ -25,6 +25,7 @@ import {
   planProblem,
   resolveKey,
   shapePlan,
+  sprintMilestone,
   startOfDay,
 } from '../../lib/work/notesPlan'
 import type { PlanMilestone, PlanSprint } from '../../lib/work/notesPlan'
@@ -259,8 +260,9 @@ export function TasksFromNotes({
     let untagged = 0
     try {
       const created = await commitPlan(sprints, milestones, {
-        sprint: (input) => createSprint(home, input),
+        sprint: (input, milestoneId) => createSprint(home, input, milestoneId),
         milestone: (input) => createMilestone(home, input),
+        link: (sprintId, milestoneId) => setSprintMilestone(home, sprintId, milestoneId),
       })
       const tagged: { taskId: string; milestoneId: string | null }[] = []
       for (const r of keep) {
@@ -273,7 +275,7 @@ export function TasksFromNotes({
           teamId: state.teams.find((t) => t.name === r.team)?.id ?? null,
           sprintId: resolveKey(r.sprintKey, created),
         })
-        tagged.push({ taskId, milestoneId: resolveKey(r.milestoneKey, created) })
+        tagged.push({ taskId, milestoneId: resolveKey(milestoneOf(r), created) })
         if (r.assignee) {
           try {
             await assignTask(taskId, projectId, r.assignee)
@@ -317,6 +319,25 @@ export function TasksFromNotes({
   function patchMilestone(key: string, next: Partial<PlanMilestone>) {
     setMilestones((list) => list.map((m) => (m.key === key ? { ...m, ...next } : m)))
   }
+  /** A sprint counts toward one milestone, so adding it here takes it off any other. */
+  function addSprintTo(key: string, sprintKey: string) {
+    setMilestones((list) =>
+      list.map((m) =>
+        m.key === key ? { ...m, sprints: [...m.sprints, sprintKey] } : { ...m, sprints: m.sprints.filter((x) => x !== sprintKey) },
+      ),
+    )
+  }
+  /**
+   * The milestone a task ends up counting toward: its own pick, else the one
+   * its sprint counts toward (in this plan, or already), as the database does.
+   */
+  function milestoneOf(r: Row) {
+    return (
+      r.milestoneKey ||
+      sprintMilestone(r.sprintKey, milestones) ||
+      (scope.sprints.find((s) => s.id === r.sprintKey)?.milestone_id ?? '')
+    )
+  }
 
   const keeping = (rows ?? []).filter((r) => r.keep).length
   const people = state.members.map((m) => ({ value: m.user_id, label: state.nameOf(m.user_id) }))
@@ -332,7 +353,8 @@ export function TasksFromNotes({
   // A row pointing at a new sprint or milestone that was left out reads as none.
   const shown = (key: string, options: { value: string }[]) => (options.some((o) => o.value === key) ? key : '')
   const inSprint = (key: string) => (rows ?? []).filter((r) => r.keep && r.sprintKey === key).length
-  const inMilestone = (key: string) => (rows ?? []).filter((r) => r.keep && r.milestoneKey === key).length
+  const inMilestone = (key: string) => (rows ?? []).filter((r) => r.keep && milestoneOf(r) === key).length
+  const sprintName = (key: string) => sprintOptions.find((o) => o.value === key)?.label ?? ''
 
   return (
     <Modal
@@ -531,6 +553,35 @@ export function TasksFromNotes({
                           <p className="font-mono text-[12px] text-faint sm:col-span-2">
                             {inMilestone(m.key)} {inMilestone(m.key) === 1 ? 'task counts' : 'tasks count'} toward it
                           </p>
+                          {scope.maySprint && sprintOptions.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 sm:col-span-2">
+                              {m.sprints
+                                .filter((k) => sprintName(k))
+                                .map((k) => (
+                                  <span key={k} className="flex items-center gap-1 rounded-lg surface-sunken py-1 pr-1 pl-2.5 text-[12px] text-ink">
+                                    {sprintName(k)}
+                                    <button
+                                      type="button"
+                                      onClick={() => patchMilestone(m.key, { sprints: m.sprints.filter((x) => x !== k) })}
+                                      aria-label={`Stop counting ${sprintName(k)} toward ${m.name}`}
+                                      className="grid h-5 w-5 place-items-center rounded-full text-faint hover:text-ink"
+                                    >
+                                      <Icon name="x" size={11} />
+                                    </button>
+                                  </span>
+                                ))}
+                              {sprintOptions.some((o) => !m.sprints.includes(o.value)) && (
+                                <Select
+                                  value=""
+                                  onChange={(e) => e.target.value && addSprintTo(m.key, e.target.value)}
+                                  placeholder="+ Add sprint"
+                                  aria-label={`Add a sprint to ${m.name}`}
+                                  options={sprintOptions.filter((o) => !m.sprints.includes(o.value))}
+                                  className="!h-8 !w-auto max-w-[260px] !text-[12px]"
+                                />
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </li>
@@ -638,7 +689,7 @@ export function TasksFromNotes({
                           )}
                           {scope.mayTag && milestoneOptions.length > 0 && (
                             <Select
-                              value={shown(r.milestoneKey, milestoneOptions)}
+                              value={shown(milestoneOf(r), milestoneOptions)}
                               onChange={(e) => patch(i, { milestoneKey: e.target.value })}
                               placeholder="No milestone"
                               aria-label={`Task ${i + 1} milestone`}

@@ -313,7 +313,9 @@ discussion, not background, not things already done.
 - milestones: only when the text names milestones, deliverables or checkpoints
   with a date ("Milestone: prototype ready by Nov 6"). name (at most 80
   characters), description (one sentence of what the text says about it,
-  else empty; never made up), due (YYYY-MM-DD). Never
+  else empty; never made up), due (YYYY-MM-DD), sprints (the exact names of
+  the sprints from your sprints list the text says count toward it, such as
+  "milestone: end of Sprint 2"; else an empty list). Never
   turn ordinary tasks or the end of a sprint into a milestone. Otherwise an
   empty list.
 - milestone: on each task, the exact name of the milestone the text says it
@@ -357,7 +359,7 @@ ${VOICE}`,
         }),
       },
       sprints: { type: 'array', items: obj({ name: str, goal: str, starts_on: str, ends_on: str }) },
-      milestones: { type: 'array', items: obj({ name: str, description: str, due: str }) },
+      milestones: { type: 'array', items: obj({ name: str, description: str, due: str, sprints: { type: 'array', items: str } }) },
       note: str,
     }),
     'medium',
@@ -388,17 +390,18 @@ ${VOICE}`,
       }
     }),
   ).slice(0, 12)
+  const pick = (list: { name: string }[], x: unknown) =>
+    list.find((s) => s.name.toLowerCase() === String(x ?? '').trim().toLowerCase())?.name ?? ''
   const milestones = named(
     ((out.milestones as Json[]) ?? []).map((m) => ({
       name: String(m.name ?? '').trim().slice(0, 80),
       description: String(m.description ?? '').trim().slice(0, 1000),
       due: day(m.due),
+      sprints: [...new Set(((m.sprints as unknown[]) ?? []).map((x) => pick(sprints, x)).filter(Boolean))],
     })),
   )
     .filter((m) => m.due)
     .slice(0, 20)
-  const pick = (list: { name: string }[], x: unknown) =>
-    list.find((s) => s.name.toLowerCase() === String(x ?? '').trim().toLowerCase())?.name ?? ''
 
   const ids = new Set(people.map((p) => p.id))
   // The model is asked for "f1", but takes liberties: "F1", "file f1", the
