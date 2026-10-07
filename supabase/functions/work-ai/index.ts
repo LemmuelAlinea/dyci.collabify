@@ -1,6 +1,7 @@
 // AI helpers for work projects, one function with an action each.
 //
-//   tasks            notes or a project file -> draft tasks
+//   tasks            notes, an uploaded file or a discussion -> draft tasks,
+//                    and the sprints and milestones the text lays out
 //   describe         the caller's draft -> a commit message and change title
 //   summarize-change a change waiting for review -> what it does, per file
 //   summarize-file   one file in Main -> its key points
@@ -263,7 +264,9 @@ async function tasksAction(ctx: Ctx) {
     source = htmlToText(String(discussion.content_html ?? '')).trim()
     shared = await sharedFileBlocks(ctx, discussionId)
   }
-  if (source.length < 20) throw new Refused('Give it a little more to read: paste the notes, or pick a discussion.')
+  if (source.length < 20) throw new Refused('Give it a little more to read: paste the notes, upload a file, or pick a discussion.')
+  // An uploaded file arrives as text the browser read from it; its name helps the note.
+  const fileName = String(ctx.body.file_name ?? '').slice(0, 200)
 
   const [{ data: project }, { data: members }, { data: teams }] = await Promise.all([
     ctx.caller.from('general_projects').select('name, starts_on, ends_on').eq('id', ctx.projectId).maybeSingle(),
@@ -293,8 +296,28 @@ discussion, not background, not things already done.
   empty. Never guess from roles alone.
 - team: one of the team names given if the text puts it there, else empty.
 - due: YYYY-MM-DD if the text gives or clearly implies a date (resolve "Friday"
-  against today), else empty. Never invent one.
-- At most 25 items, in the order the text gives them.
+  against today), else empty. Never invent one. When the text gives a start
+  and an end date, due is the end.
+- start: YYYY-MM-DD if the text gives the day the work starts, else empty.
+- At most 60 items, in the order the text gives them. A task list or plan
+  document is all action items: take every task it lists.
+- sprints: only when the text clearly lays out sprints or iterations by name
+  ("Sprint 1", "Iteration 2", a sprint plan) and says which tasks belong to
+  each. name as the text gives it (at most 80 characters, e.g. "Sprint 1 -
+  Planning & System Design"), goal (the sprint goal in one sentence if the
+  text gives one, else empty), starts_on and ends_on (YYYY-MM-DD, empty if not
+  given). Never invent sprints from a plain task list, from dates alone, or
+  from a passing "next sprint". Otherwise an empty list.
+- sprint: on each task, the exact name of the sprint it belongs to from your
+  sprints list, else empty (it stays in the backlog).
+- milestones: only when the text names milestones, deliverables or checkpoints
+  with a date ("Milestone: prototype ready by Nov 6"). name (at most 80
+  characters), description (one sentence of what the text says about it,
+  else empty; never made up), due (YYYY-MM-DD). Never
+  turn ordinary tasks or the end of a sprint into a milestone. Otherwise an
+  empty list.
+- milestone: on each task, the exact name of the milestone the text says it
+  counts toward, else empty.
 - files: shared files (f1, f2…) are reference material people sent during the
   discussion. Read them for detail that sharpens a task: requirements, names,
   dates, steps. Never make a task only because a file was shared, and never a
@@ -312,7 +335,7 @@ ${VOICE}`,
         `Members (id: name):\n${people.map((p) => `${p.id}: ${p.name}`).join('\n')}`,
         teamNames.length ? `Teams: ${teamNames.join(', ')}` : 'Teams: none',
         '',
-        'Text:',
+        fileName ? `Text (read from the uploaded file "${fileName}"):` : 'Text:',
         cap(source, 60000),
       ].join('\n'),
       shared.blocks,
@@ -326,14 +349,56 @@ ${VOICE}`,
           assignee: str,
           team: str,
           due: str,
+          start: str,
+          sprint: str,
+          milestone: str,
           // Only labels that exist can come back.
           files: { type: 'array', items: shared.short.size > 0 ? { type: 'string', enum: [...shared.short.keys()] } : str },
         }),
       },
+      sprints: { type: 'array', items: obj({ name: str, goal: str, starts_on: str, ends_on: str }) },
+      milestones: { type: 'array', items: obj({ name: str, description: str, due: str }) },
       note: str,
     }),
     'medium',
+    16000,
   )
+
+  const day = (x: unknown) => (/^\d{4}-\d{2}-\d{2}$/.test(String(x)) ? String(x) : '')
+  // Names the model gave twice, or empty, are dropped; tasks find theirs by name, any case.
+  const named = <T extends { name: string }>(list: T[]) => {
+    const seen = new Set<string>()
+    return list.filter((x) => {
+      const key = x.name.toLowerCase()
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
+  const sprints = named(
+    ((out.sprints as Json[]) ?? []).map((s) => {
+      const startsOn = day(s.starts_on)
+      const endsOn = day(s.ends_on)
+      const backwards = startsOn && endsOn && endsOn < startsOn
+      return {
+        name: String(s.name ?? '').trim().slice(0, 80),
+        goal: String(s.goal ?? '').trim().slice(0, 500),
+        starts_on: backwards ? endsOn : startsOn,
+        ends_on: backwards ? startsOn : endsOn,
+      }
+    }),
+  ).slice(0, 12)
+  const milestones = named(
+    ((out.milestones as Json[]) ?? []).map((m) => ({
+      name: String(m.name ?? '').trim().slice(0, 80),
+      description: String(m.description ?? '').trim().slice(0, 1000),
+      due: day(m.due),
+    })),
+  )
+    .filter((m) => m.due)
+    .slice(0, 20)
+  const pick = (list: { name: string }[], x: unknown) =>
+    list.find((s) => s.name.toLowerCase() === String(x ?? '').trim().toLowerCase())?.name ?? ''
 
   const ids = new Set(people.map((p) => p.id))
   // The model is asked for "f1", but takes liberties: "F1", "file f1", the
@@ -348,16 +413,24 @@ ${VOICE}`,
   console.log('[tasks] shared', shared.files.length, 'linked', JSON.stringify(((out.tasks as Json[]) ?? []).map((t) => t.files)))
   const tasks = ((out.tasks as Json[]) ?? [])
     .filter((t) => String(t.title ?? '').trim())
-    .slice(0, 25)
-    .map((t) => ({
-      title: String(t.title).slice(0, 200),
-      description: String(t.description ?? '').slice(0, 2000),
-      assignee: ids.has(String(t.assignee)) ? String(t.assignee) : '',
-      team: teamNames.includes(String(t.team)) ? String(t.team) : '',
-      due: /^\d{4}-\d{2}-\d{2}$/.test(String(t.due)) ? String(t.due) : '',
-      files: [...new Set(((t.files as unknown[]) ?? []).map(sharedId).filter((x): x is string => Boolean(x)))],
-    }))
-  return { tasks, note: String(out.note ?? '').slice(0, 300), shared: shared.files }
+    .slice(0, 60)
+    .map((t) => {
+      const due = day(t.due)
+      const start = day(t.start)
+      return {
+        title: String(t.title).slice(0, 200),
+        description: String(t.description ?? '').slice(0, 2000),
+        assignee: ids.has(String(t.assignee)) ? String(t.assignee) : '',
+        team: teamNames.includes(String(t.team)) ? String(t.team) : '',
+        due,
+        // A start after the due day is refused by the table; drop it rather than the task.
+        start: start && due && start > due ? '' : start,
+        sprint: pick(sprints, t.sprint),
+        milestone: pick(milestones, t.milestone),
+        files: [...new Set(((t.files as unknown[]) ?? []).map(sharedId).filter((x): x is string => Boolean(x)))],
+      }
+    })
+  return { tasks, sprints, milestones, note: String(out.note ?? '').slice(0, 300), shared: shared.files }
 }
 
 /** Old and new text per path, for describing a change. */

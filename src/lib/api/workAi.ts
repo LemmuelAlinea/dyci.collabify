@@ -18,16 +18,39 @@ export type DraftedWorkTask = {
   assignee: string
   team: string
   due: string
+  /** YYYY-MM-DD the text says the work starts, or ''. */
+  start: string
+  /** Name of one of the drafted sprints, or '' for the backlog. */
+  sprint: string
+  /** Name of one of the drafted milestones, or ''. */
+  milestone: string
   /** Shared discussion files the discussion ties to this task (their ids). */
   files: string[]
 }
 
+/** A sprint the text lays out. Dates are '' when it gives none. */
+export type DraftedSprint = { name: string; goal: string; starts_on: string; ends_on: string }
+export type DraftedMilestone = { name: string; description: string; due: string }
+
 /** A file shared in the discussion the draft read. */
 export type DraftSharedFile = { id: string; name: string; path: string; mime: string | null; size: number }
 
-/** Action items from pasted notes, or from a stopped discussion's file. */
-export const draftWorkTasks = (projectId: string, source: { text: string } | { discussion_id: string }) =>
-  call<{ tasks: DraftedWorkTask[]; note: string; shared?: DraftSharedFile[] }>('tasks', projectId, source)
+/**
+ * Action items from pasted notes, an uploaded file's text, or a stopped
+ * discussion's file, with the sprints and milestones the text lays out.
+ */
+export const draftWorkTasks = (
+  projectId: string,
+  source: { text: string; file_name?: string } | { discussion_id: string },
+) =>
+  call<{
+    tasks: DraftedWorkTask[]
+    note: string
+    shared?: DraftSharedFile[]
+    // Optional: an older deploy of the function sends neither.
+    sprints?: DraftedSprint[]
+    milestones?: DraftedMilestone[]
+  }>('tasks', projectId, source)
 
 /** From the caller's draft (optionally just these paths), or from text on screen. */
 export const writeChangeMessage = (

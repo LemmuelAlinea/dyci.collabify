@@ -77,6 +77,9 @@ export function StudentTasksView({
         <ClassTasksFromNotes
           board={active}
           viewerId={viewerId}
+          sprints={t.sprints}
+          milestones={t.milestones}
+          locked={locked}
           open={notesOpen}
           onClose={closeNotes}
           onSaved={t.refresh}

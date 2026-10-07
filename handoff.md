@@ -2978,3 +2978,39 @@ plan: docs/superpowers/plans/2026-10-06-work-tab-part-1.md). Branch `claude/work
   backlog tasks too (could narrow to the running sprint); "and N more" has no way to see the rest;
   Summary headings start at h3 before the page's h2.
 - Next: the Work tab plan is done. Open work is the Deferred notes above and in Parts 1–3.
+
+**Change (2026-10-07): Tasks from notes reads uploaded files and drafts sprints and milestones.**
+Branch `claude/notes-file-plan`. No SQL.
+- Work › Tasks › From notes has a third source, Upload a file (PDF, Word .docx, Excel .xlsx, CSV,
+  text, Markdown; 10 MB). The browser reads the text (`lib/general/notesFile.ts`: pdfjs, mammoth,
+  the existing xlsx reader) and sends it to `work-ai` `tasks` with `file_name`; nothing is stored.
+  A scanned PDF with no text says so. Over 60,000 characters, only the first part is read.
+- `work-ai` `tasks` (all sources) now also returns `sprints` and `milestones`, and each task a
+  `start`, `sprint` and `milestone` name. Sprints only when the text lays them out by name with
+  their tasks; milestones only when named with a date. A plain task list makes no sprints, so its
+  tasks go to the backlog. Up to 60 tasks (was 25), 16k output tokens. Redeployed with
+  `supabase functions deploy work-ai` (outside git).
+- The review step lists the drafted sprints (name, goal, dates, task count) and milestones (name,
+  date) above the tasks, each with keep/drop; each task gets start and due dates and Sprint and
+  Milestone pickers. A drafted sprint whose name matches an open sprint already there is reused
+  (said in a note). An undated drafted sprint takes its tasks' span. Save creates the kept sprints
+  (planned, not started) and milestones, then the tasks in them, then tags.
+- Who: work = `manage_tasks` creates sprints and milestones; without it the tasks go to the
+  backlog with a note. Class (student, open board) = sprints go on the group's board; milestones
+  are the professor's, so a task is tagged only to an existing class milestone of the same name
+  and the rest are left out with a note.
+- Code: `lib/work/notesPlan.ts` (shapePlan, planProblem, commitPlan, resolveKey, byMilestone,
+  addedMessage; 12 tests), `general/TasksFromNotes.tsx`, `tasks/ClassTasksFromNotes.tsx` (now takes
+  sprints, milestones, locked from `StudentTasksView`), `lib/api/workAi.ts`.
+- Checked: build, eslint, 717 Vitest, a11y-names, contrast. Live function with the user's two
+  test PDFs: the 4-sprint plan gave 4 sprints and 30 tasks all in the right sprint with start and
+  end dates; the tasks-only list gave 30 tasks and no sprints. Browser (dev server) in a throwaway
+  work project (deleted after): uploaded both PDFs and saved, DB showed 4 planned sprints with
+  7/7/7/9 tasks, then 30 more in the backlog; pasted notes with two milestones saved both and tagged
+  three tasks; upload step at 375 wide, no sideways scroll.
+- Not tried: the class (student board) save in the browser; a .docx or .xlsx upload; the review
+  step at 375 wide with sprints.
+- Deferred: the source picker keeps the last choice between openings (as before); a draft of a
+  long plan takes 30 to 40 s with only a spinner; drafted sprints may overlap existing ones (the
+  table allows it).
+- Next: no plan open. Deferred notes here and in the Work tab parts.
