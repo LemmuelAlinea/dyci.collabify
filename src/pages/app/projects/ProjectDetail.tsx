@@ -473,24 +473,40 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
             </p>
           ) : (
             <ul className="mt-4 space-y-3">
+              {/* Folded to the week and its dates: topics and assessments open
+                  on demand, so a long span does not push the brief down. */}
               {span.map((w) => (
-                <li key={w.week_id} className="rounded-xl border border-line px-4 py-3">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <p className="text-[14px] font-semibold text-ink">
-                      Week {w.week_no}
-                      {w.title ? ` · ${w.title}` : ''}
-                    </p>
-                    <p className="font-mono text-[12px] text-faint">{weekRange(w)}</p>
-                  </div>
-                  {w.topics && (
-                    <p className="mt-1 text-[13px] leading-relaxed text-muted">{w.topics}</p>
-                  )}
-                  {w.assessments && (
-                    <p className="mt-1.5 flex gap-2 text-[12px] leading-relaxed text-warning-700 dark:text-warning-300">
-                      <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
-                      {w.assessments}
-                    </p>
-                  )}
+                <li key={w.week_id} className="rounded-xl border border-line">
+                  <details className="group">
+                    <summary className="flex cursor-pointer list-none items-center gap-3 rounded-xl px-4 py-3 hover:bg-[var(--surface-sunken)] [&::-webkit-details-marker]:hidden">
+                      <Icon
+                        name="chevronRight"
+                        size={14}
+                        className="shrink-0 text-faint transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                      />
+                      <span className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        <span className="text-[14px] font-semibold text-ink">
+                          Week {w.week_no}
+                          {w.title ? ` · ${w.title}` : ''}
+                        </span>
+                        <span className="font-mono text-[12px] text-faint">{weekRange(w)}</span>
+                      </span>
+                    </summary>
+                    <div className="px-4 pb-3 pl-[42px]">
+                      {w.topics && (
+                        <p className="text-[13px] leading-relaxed text-muted">{w.topics}</p>
+                      )}
+                      {w.assessments && (
+                        <p className="mt-1.5 flex gap-2 text-[12px] leading-relaxed text-warning-700 dark:text-warning-300">
+                          <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
+                          {w.assessments}
+                        </p>
+                      )}
+                      {!w.topics && !w.assessments && (
+                        <p className="text-[13px] text-faint">No topics listed for this week.</p>
+                      )}
+                    </div>
+                  </details>
                 </li>
               ))}
             </ul>
