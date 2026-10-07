@@ -1,10 +1,12 @@
 /**
  * Where a task sits on a project's timeline.
  *
- * Everything here answers in percentages of the window, because the chart is
- * drawn with CSS widths and offsets rather than a canvas — the same way
- * `src/components/analytics/PressureChart.tsx` draws its bars. Nothing in this
- * file knows about React or about how a date should read to a person.
+ * The chart is a grid of columns at one of three scales: months, weeks
+ * (Monday first, like the calendar) or the days of one month. Every column is
+ * the same width on screen, so a position is worked out inside the column it
+ * falls in: a date lands on its own day even though months differ in length.
+ * Answers are percentages of the chart's width, drawn with CSS offsets.
+ * Nothing in this file knows about React.
  */
 
 export type WorkStatus = 'todo' | 'in_progress' | 'done'
@@ -22,23 +24,34 @@ export type TimelineTask = {
   group_id: string | null
 }
 
-/**
- * The span the chart covers, and where it came from.
- *
- * `source` is on the record so the panel can say "from this project's dates"
- * or "from its tasks" — a reader who does not know which is being shown cannot
- * tell whether a gap at the end is slack or a missing end date.
- */
-export type TimelineWindow = { start: number; end: number; source: 'project' | 'tasks' | 'none' }
-
-export type Placement =
-  | { shape: 'bar'; left: number; width: number }
-  | { shape: 'diamond'; left: number }
-  | { shape: 'none' }
-
-export type Tick = { at: number; left: number; label: string }
-
 export type TimelineRow = { group: string | null; groupName: string; tasks: TimelineTask[] }
+
+export type Scale = 'month' | 'week' | 'day'
+
+export const SCALE_LABEL: Record<Scale, string> = { month: 'Months', week: 'Weeks', day: 'Days' }
+
+/** On-screen width of one column, in pixels. */
+export const COLUMN_WIDTH: Record<Scale, number> = { month: 128, week: 92, day: 40 }
+
+export type Range = { start: number; end: number }
+
+export type Column = {
+  start: number
+  end: number
+  /** The column's own label: "Oct", "Oct 12", "12". */
+  label: string
+  /** A second line: the weekday under a day, the week's last day under a week. */
+  sub: string
+  /** Saturdays and Sundays in day scale. */
+  weekend: boolean
+  /** Holds today. */
+  today: boolean
+}
+
+/** A label spanning several columns in the header's top row: a year, or a month. */
+export type ColumnGroup = { label: string; span: number }
+
+export type Chart = { scale: Scale; start: number; end: number; columns: Column[]; groups: ColumnGroup[] }
 
 const DAY = 86_400_000
 
@@ -56,100 +69,192 @@ function taskDates(task: TimelineTask) {
   return [instant(task.starts_at), instant(task.due_at)].filter((n): n is number => n !== null)
 }
 
+const midnight = (t: number) => {
+  const d = new Date(t)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+}
+const monthStart = (t: number) => {
+  const d = new Date(t)
+  return new Date(d.getFullYear(), d.getMonth(), 1).getTime()
+}
+const addMonths = (t: number, n: number) => {
+  const d = new Date(t)
+  return new Date(d.getFullYear(), d.getMonth() + n, 1).getTime()
+}
+const addDaysAt = (t: number, n: number) => {
+  const d = new Date(t)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n).getTime()
+}
+const mondayOf = (t: number) => addDaysAt(midnight(t), -((new Date(t).getDay() + 6) % 7))
+
+/** `YYYY-MM` for the month holding `t`. */
+export function monthKey(t: number) {
+  const d = new Date(t)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function fromMonthKey(key: string) {
+  const [y, m] = key.split('-').map(Number)
+  return new Date(y, m - 1, 1).getTime()
+}
+
+export function monthLabel(key: string) {
+  return new Date(fromMonthKey(key)).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
+
 /**
- * `extra` is other instants the chart draws (milestones, sprint bands). They
- * widen a window taken from the tasks so an end milestone is not clipped off
- * the edge; a project's own dates stay as they are.
+ * Every date the chart draws: the tasks' starts and dues, plus `extra`
+ * (sprint ends, milestones). The project's own dates are only a fallback for a
+ * project whose work has no dates yet: the chart follows the work.
  */
-export function timelineWindow(
-  project: { starts_on: string | null; ends_on: string | null },
+export function dataRange(
   tasks: readonly TimelineTask[],
   extra: readonly number[] = [],
-): TimelineWindow {
-  if (project.starts_on && project.ends_on) {
-    const start = dayStart(project.starts_on)
-    // The end day is a whole day, not the instant it begins.
-    const end = dayStart(project.ends_on) + DAY
-    if (end > start) return { start, end, source: 'project' }
-  }
-
+  project: { starts_on: string | null; ends_on: string | null } = { starts_on: null, ends_on: null },
+): Range | null {
   const all = [...tasks.flatMap(taskDates), ...extra.filter(Number.isFinite)]
-  if (all.length === 0) return { start: 0, end: 0, source: 'none' }
-
+  if (all.length === 0) {
+    if (project.starts_on && project.ends_on) {
+      const start = dayStart(project.starts_on)
+      const end = dayStart(project.ends_on) + DAY
+      return end > start ? { start, end } : null
+    }
+    return null
+  }
   const start = Math.min(...all)
   const end = Math.max(...all)
-  // A project whose every date is the same day still needs a width to draw in.
-  return { start, end: end > start ? end : start + DAY, source: 'tasks' }
+  return { start, end: end > start ? end : start + 1 }
 }
 
-const clamp = (n: number) => Math.min(100, Math.max(0, n))
-
-function offset(at: number, window: TimelineWindow) {
-  return clamp(((at - window.start) / (window.end - window.start)) * 100)
+/** Days for a month or less, weeks for up to about six months, months beyond. */
+export function defaultScale(range: Range): Scale {
+  const days = (range.end - range.start) / DAY
+  if (days <= 31 && monthKey(range.start) === monthKey(range.end - 1)) return 'day'
+  if (days <= 182) return 'week'
+  return 'month'
 }
 
-export function placeTask(task: TimelineTask, window: TimelineWindow): Placement {
-  if (window.source === 'none') return { shape: 'none' }
+/** The months the range touches, oldest first, as `YYYY-MM`. */
+export function monthsIn(range: Range): string[] {
+  const out: string[] = []
+  for (let t = monthStart(range.start), i = 0; t < range.end && i < 240; t = addMonths(t, 1), i++) out.push(monthKey(t))
+  return out
+}
 
+/** This month when the work runs through it, else the first month with work in it. */
+export function defaultMonth(range: Range, now = Date.now()) {
+  const months = monthsIn(range)
+  return months.includes(monthKey(now)) ? monthKey(now) : months[0]
+}
+
+/**
+ * The chart's columns. Month and week scales cover the whole range, widened
+ * to whole units; day scale covers `month` (a `YYYY-MM`) alone.
+ */
+export function buildChart(scale: Scale, range: Range, month?: string, now = Date.now()): Chart {
+  const columns: Column[] = []
+  const today = midnight(now)
+  const push = (start: number, end: number, label: string, sub: string, weekend = false) =>
+    columns.push({ start, end, label, sub, weekend, today: today >= start && today < end })
+
+  if (scale === 'day') {
+    const first = fromMonthKey(month ?? monthKey(range.start))
+    const next = addMonths(first, 1)
+    for (let t = first; t < next; t = addDaysAt(t, 1)) {
+      const d = new Date(t)
+      push(
+        t,
+        addDaysAt(t, 1),
+        String(d.getDate()),
+        d.toLocaleDateString('en-US', { weekday: 'narrow' }),
+        d.getDay() === 0 || d.getDay() === 6,
+      )
+    }
+  } else if (scale === 'week') {
+    // Guarded rather than while(true): a bad range must not hang the page.
+    for (let t = mondayOf(range.start), i = 0; t < range.end && i < 520; t = addDaysAt(t, 7), i++) {
+      const last = new Date(addDaysAt(t, 6))
+      push(
+        t,
+        addDaysAt(t, 7),
+        new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        `to ${last.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+      )
+    }
+  } else {
+    for (let t = monthStart(range.start), i = 0; t < range.end && i < 240; t = addMonths(t, 1), i++) {
+      push(t, addMonths(t, 1), new Date(t).toLocaleDateString('en-US', { month: 'short' }), '')
+    }
+  }
+
+  // The header's top row: the year over months, the month over weeks and days.
+  const groupOf = (c: Column) =>
+    scale === 'month'
+      ? String(new Date(c.start).getFullYear())
+      : new Date(c.start).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const groups: ColumnGroup[] = []
+  for (const c of columns) {
+    const label = groupOf(c)
+    const last = groups[groups.length - 1]
+    if (last && last.label === label) last.span++
+    else groups.push({ label, span: 1 })
+  }
+
+  return { scale, start: columns[0]?.start ?? range.start, end: columns[columns.length - 1]?.end ?? range.end, columns, groups }
+}
+
+/** Where `t` falls across the chart, 0 to 100, counted inside its own column. */
+export function xOf(chart: Chart, t: number) {
+  const n = chart.columns.length
+  if (n === 0 || t <= chart.start) return 0
+  if (t >= chart.end) return 100
+  const i = chart.columns.findIndex((c) => t >= c.start && t < c.end)
+  const c = chart.columns[i]
+  return ((i + (t - c.start) / (c.end - c.start)) / n) * 100
+}
+
+export type Placement =
+  /** `clippedStart`/`clippedEnd`: the bar runs on past that edge of the chart. */
+  | { shape: 'bar'; left: number; width: number; clippedStart: boolean; clippedEnd: boolean }
+  | { shape: 'diamond'; left: number }
+  /** Dated, but wholly before or after what the chart shows (another month in day scale). */
+  | { shape: 'outside'; side: 'before' | 'after' }
+  | { shape: 'none' }
+
+/**
+ * A task with both dates is a bar from the start of its first day to the end
+ * of its last; one with a single date is a diamond in the middle of that day.
+ */
+export function placeTask(task: TimelineTask, chart: Chart): Placement {
   const from = instant(task.starts_at)
   const to = instant(task.due_at)
+  if (from === null && to === null) return { shape: 'none' }
 
   if (from !== null && to !== null) {
-    const left = offset(Math.min(from, to), window)
-    const right = offset(Math.max(from, to), window)
-    // A task that starts and ends the same day would otherwise be invisible —
-    // but a bar drawn past the right edge reads as missing, which is worse, so
-    // the visibility floor is capped by what is left of the window, not the
-    // other way around.
-    return { shape: 'bar', left, width: Math.min(100 - left, Math.max(1, right - left)) }
+    const start = midnight(Math.min(from, to))
+    const end = addDaysAt(midnight(Math.max(from, to)), 1)
+    if (end <= chart.start) return { shape: 'outside', side: 'before' }
+    if (start >= chart.end) return { shape: 'outside', side: 'after' }
+    const left = xOf(chart, start)
+    return {
+      shape: 'bar',
+      left,
+      width: Math.max(0.4, xOf(chart, end) - left),
+      clippedStart: start < chart.start,
+      clippedEnd: end > chart.end,
+    }
   }
 
-  const only = from ?? to
-  if (only === null) return { shape: 'none' }
-  return { shape: 'diamond', left: offset(only, window) }
+  const at = midnight((from ?? to)!) + DAY / 2
+  if (at < chart.start) return { shape: 'outside', side: 'before' }
+  if (at >= chart.end) return { shape: 'outside', side: 'after' }
+  return { shape: 'diamond', left: xOf(chart, at) }
 }
 
-export function axisTicks(window: TimelineWindow): Tick[] {
-  if (window.source === 'none') return []
-
-  const span = window.end - window.start
-  const byMonth = span > 70 * DAY
-  const out: Tick[] = []
-
-  const cursor = new Date(window.start)
-  cursor.setHours(0, 0, 0, 0)
-  if (byMonth) cursor.setDate(1)
-
-  // Guarded rather than while(true): a bad window must not hang the page.
-  for (let i = 0; i < 400; i++) {
-    const at = cursor.getTime()
-    if (at > window.end) break
-    if (at >= window.start) {
-      out.push({
-        at,
-        left: offset(at, window),
-        label: cursor.toLocaleDateString('en-US',
-          byMonth ? { month: 'short' } : { month: 'short', day: 'numeric' }),
-      })
-    }
-    if (byMonth) cursor.setMonth(cursor.getMonth() + 1)
-    else cursor.setDate(cursor.getDate() + 7)
-  }
-
-  // A 'tasks' window can start mid-day, so rounding the cursor back to
-  // midnight puts the first candidate before window.start; the step from
-  // there can then clear a short window in one jump and leave nothing behind.
-  // The window itself is always a fair tick.
-  if (out.length === 0) {
-    out.push({
-      at: window.start,
-      left: 0,
-      label: new Date(window.start).toLocaleDateString('en-US',
-        byMonth ? { month: 'short' } : { month: 'short', day: 'numeric' }),
-    })
-  }
-
-  return out
+/** Where today sits, or null when the chart does not show it. */
+export function nowMarker(chart: Chart, now = Date.now()): number | null {
+  if (now < chart.start || now >= chart.end) return null
+  return xOf(chart, now)
 }
 
 export function groupRows(
@@ -184,13 +289,6 @@ export function groupRows(
   return rows
 }
 
-/** Where today sits, or null when today is outside the window. */
-export function nowMarker(window: TimelineWindow, now = Date.now()): number | null {
-  if (window.source === 'none') return null
-  if (now < window.start || now > window.end) return null
-  return offset(now, window)
-}
-
 /** A stretch of time drawn behind the tasks: a sprint, from its first day to the end of its last. */
 export type Band = { id: string; label: string; start: number; end: number }
 
@@ -200,10 +298,10 @@ export function sprintBands(
   return sprints.map((s) => ({ id: s.id, label: s.name, start: dayStart(s.starts_on), end: dayStart(s.ends_on) + DAY }))
 }
 
-export function placeBand(band: Band, window: TimelineWindow) {
-  if (window.source === 'none' || band.end <= window.start || band.start >= window.end) return null
-  const left = offset(band.start, window)
-  return { left, width: Math.max(0.5, offset(band.end, window) - left) }
+export function placeBand(band: Band, chart: Chart) {
+  if (band.end <= chart.start || band.start >= chart.end) return null
+  const left = xOf(chart, band.start)
+  return { left, width: Math.max(0.4, xOf(chart, band.end) - left) }
 }
 
 /** A single dated point drawn above the tasks: a milestone, at noon on its day. */
@@ -213,7 +311,7 @@ export function milestoneMarks(milestones: readonly { id: string; name: string; 
   return milestones.map((m) => ({ id: m.id, label: m.name, at: dayStart(m.due_on) + DAY / 2 }))
 }
 
-export function placeMark(mark: Mark, window: TimelineWindow) {
-  if (window.source === 'none' || mark.at < window.start || mark.at > window.end) return null
-  return offset(mark.at, window)
+export function placeMark(mark: Mark, chart: Chart) {
+  if (mark.at < chart.start || mark.at >= chart.end) return null
+  return xOf(chart, mark.at)
 }

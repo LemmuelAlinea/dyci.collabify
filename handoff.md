@@ -3049,3 +3049,30 @@ Branch `claude/notes-file-plan`. No SQL.
 - Deferred: in Tasks from notes a task in a linked sprint cannot be set to "No milestone" (the
   database would tag it anyway); a professor cannot see which group sprints count toward a
   milestone.
+
+**Change (2026-10-07): milestone menu and a new timeline.** Branch `claude/menu-timeline`. No SQL.
+- Work › Milestones: Tag tasks, Add sprint and Mark reached, then (after a divider) Edit and
+  Delete, now sit in one three-dot menu on each milestone (`ui/ActionMenu`), shown only with the
+  items the viewer may use.
+- Work › Tasks › Timeline (both spaces) is rebuilt. A Months / Weeks / Days switch (remembered on
+  the device in localStorage `collabify:timeline-scale`); Days shows one month with a month
+  picker and previous/next; a Today button. The range comes from the tasks, sprints and
+  milestones (the project's own dates only when nothing has a date), so nothing is pinned to the
+  edges any more (the old chart clamped tasks outside the project dates and placed tick labels
+  by percent). With no saved choice it opens on Days for work inside one month, Weeks up to about
+  six months, else Months; Days opens on this month when the work runs through it. Every column is
+  the same width and a date is placed inside its own column, so bars start at the start of their
+  first day and end at the end of their last. Weekends are shaded in Days; a task outside the
+  shown month shows its date at the edge and opens its month. Task names stay put while the chart
+  scrolls sideways; it opens scrolled to today.
+- Code: `lib/work/timeline.ts` (dataRange, defaultScale, monthsIn, defaultMonth, buildChart, xOf,
+  placeTask with clipping and 'outside'; timelineWindow and axisTicks are gone),
+  `components/work/TimelineView.tsx`, `components/work/MilestonesView.tsx`.
+- Checked: build, src eslint, 710 Vitest (timeline 27, rewritten), a11y-names, contrast,
+  motion-lint. Browser, dark, throwaway project with the capstone dates (deleted after): Weeks
+  chosen by itself with every bar on its dates and the sprint and milestone rows; Days for
+  October with weekends, the Oct 9 diamond and "Nov 2 >" hints; Months; the menu reads Tag tasks,
+  Add sprint, Mark reached, divider, Edit, Delete; 375 wide, the chart scrolls inside and the page
+  does not.
+- Not tried: light mode; the class professor's timeline (rows per board).
+- Deferred: no zoom beyond the three scales; bar labels only in the tooltip.

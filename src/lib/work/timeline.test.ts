@@ -1,18 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import {
-  axisTicks,
+  buildChart,
+  dataRange,
+  defaultMonth,
+  defaultScale,
   groupRows,
   milestoneMarks,
+  monthsIn,
   nowMarker,
   placeBand,
   placeMark,
   placeTask,
   sprintBands,
-  timelineWindow,
+  xOf,
 } from './timeline'
 import type { TimelineTask } from './timeline'
 
-const day = (iso: string) => new Date(iso).getTime()
+/** Local time, the way the chart reads dates. */
+const at = (s: string, h = 0, min = 0) => {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d, h, min).getTime()
+}
+const iso = (s: string, h = 0, min = 0) => new Date(at(s, h, min)).toISOString()
 
 function task(over: Partial<TimelineTask> = {}): TimelineTask {
   return {
@@ -26,180 +35,119 @@ function task(over: Partial<TimelineTask> = {}): TimelineTask {
   }
 }
 
-const project = (starts_on: string | null, ends_on: string | null) => ({ starts_on, ends_on })
+const range = (from: string, to: string) => ({ start: at(from), end: at(to) })
 
-describe('timelineWindow', () => {
-  it('uses the project’s own dates when it has them', () => {
-    const w = timelineWindow(project('2026-10-01', '2026-12-01'), [])
-    expect(w.source).toBe('project')
-    expect(new Date(w.start).getMonth()).toBe(9)
-    expect(new Date(w.end).getMonth()).toBe(11)
-  })
-
-  it('falls back to the tasks when the project has no dates', () => {
-    const w = timelineWindow(project(null, null), [
-      task({ starts_at: '2026-10-05T00:00:00Z', due_at: '2026-10-09T00:00:00Z' }),
-      task({ due_at: '2026-11-20T00:00:00Z' }),
-    ])
-    expect(w.source).toBe('tasks')
-    expect(w.start).toBe(day('2026-10-05T00:00:00Z'))
-    expect(w.end).toBe(day('2026-11-20T00:00:00Z'))
-  })
-
-  it('falls back when the project has only one of its two dates', () => {
-    const w = timelineWindow(project('2026-10-01', null), [task({ due_at: '2026-11-01T00:00:00Z' })])
-    expect(w.source).toBe('tasks')
-  })
-
-  it('says it has nothing to draw when neither has a date', () => {
-    expect(timelineWindow(project(null, null), [task()]).source).toBe('none')
-    expect(timelineWindow(project(null, null), []).source).toBe('none')
-  })
-
-  it('widens a window taken from the tasks to take in the extra instants', () => {
-    const w = timelineWindow(
-      project(null, null),
-      [task({ starts_at: '2026-10-05T00:00:00Z', due_at: '2026-10-09T00:00:00Z' })],
-      [day('2026-10-01T12:00:00Z'), day('2026-10-30T12:00:00Z')],
+describe('dataRange', () => {
+  it('spans every task date and extra instant', () => {
+    const r = dataRange(
+      [task({ starts_at: iso('2026-10-12'), due_at: iso('2026-10-13', 23, 59) }), task({ due_at: iso('2026-12-04', 23, 59) })],
+      [at('2026-10-05')],
     )
-    expect(w.source).toBe('tasks')
-    expect(w.start).toBe(day('2026-10-01T12:00:00Z'))
-    expect(w.end).toBe(day('2026-10-30T12:00:00Z'))
+    expect(r).toEqual({ start: at('2026-10-05'), end: at('2026-12-04', 23, 59) })
   })
 
-  it('draws a window from the extras alone when no task has a date', () => {
-    const w = timelineWindow(project(null, null), [task()], [day('2026-10-10T12:00:00Z'), day('2026-10-20T12:00:00Z')])
-    expect(w).toEqual({ start: day('2026-10-10T12:00:00Z'), end: day('2026-10-20T12:00:00Z'), source: 'tasks' })
+  it('follows the work, not the project dates, when the work has dates', () => {
+    const r = dataRange([task({ due_at: iso('2026-12-01') })], [], { starts_on: '2026-01-01', ends_on: '2026-02-01' })
+    expect(r?.start).toBe(at('2026-12-01'))
   })
 
-  it('keeps the project’s own dates whatever the extras say', () => {
-    const w = timelineWindow(project('2026-10-01', '2026-10-11'), [], [day('2027-01-01T00:00:00Z')])
-    expect(w.source).toBe('project')
-    expect(w.end).toBeLessThan(day('2026-10-13T00:00:00Z'))
+  it('falls back to the project dates, then to nothing', () => {
+    expect(dataRange([task()], [], { starts_on: '2026-10-01', ends_on: '2026-10-31' })).toEqual(
+      range('2026-10-01', '2026-11-01'),
+    )
+    expect(dataRange([task()])).toBeNull()
+  })
+})
+
+describe('defaultScale and months', () => {
+  it('picks days inside one month, weeks up to about six months, months beyond', () => {
+    expect(defaultScale(range('2026-10-05', '2026-10-20'))).toBe('day')
+    expect(defaultScale(range('2026-10-25', '2026-11-05'))).toBe('week')
+    expect(defaultScale(range('2026-10-12', '2026-12-05'))).toBe('week')
+    expect(defaultScale(range('2026-01-01', '2026-12-31'))).toBe('month')
   })
 
-  it('places a milestone that falls after the last task once it is an extra', () => {
-    const tasks = [task({ starts_at: '2026-10-05T00:00:00Z', due_at: '2026-10-09T00:00:00Z' })]
-    const [mark] = milestoneMarks([{ id: 'm', name: 'Defense', due_on: '2026-10-20' }])
-    expect(placeMark(mark, timelineWindow(project(null, null), tasks))).toBeNull()
-    expect(placeMark(mark, timelineWindow(project(null, null), tasks, [mark.at]))).toBe(100)
+  it('lists the months a range touches and opens on this month when it is in them', () => {
+    const r = range('2026-10-12', '2026-12-05')
+    expect(monthsIn(r)).toEqual(['2026-10', '2026-11', '2026-12'])
+    expect(defaultMonth(r, at('2026-11-20'))).toBe('2026-11')
+    expect(defaultMonth(r, at('2027-03-01'))).toBe('2026-10')
+  })
+})
+
+describe('buildChart', () => {
+  it('lays out every day of the chosen month, weekends marked, today flagged', () => {
+    const c = buildChart('day', range('2026-10-12', '2026-12-05'), '2026-11', at('2026-11-03', 9))
+    expect(c.columns).toHaveLength(30)
+    expect(c.columns[0]).toMatchObject({ start: at('2026-11-01'), label: '1', weekend: true })
+    expect(c.columns[2].today).toBe(true)
+    expect(c.groups).toEqual([{ label: 'November 2026', span: 30 }])
+    expect(c.end).toBe(at('2026-12-01'))
   })
 
-  it('never returns a window of zero width', () => {
-    const w = timelineWindow(project(null, null), [task({ due_at: '2026-10-05T00:00:00Z' })])
-    expect(w.end).toBeGreaterThan(w.start)
+  it('starts weeks on Monday and groups them by month', () => {
+    const c = buildChart('week', range('2026-10-14', '2026-11-05'))
+    expect(c.columns.map((x) => x.label)).toEqual(['Oct 12', 'Oct 19', 'Oct 26', 'Nov 2'])
+    expect(c.columns[0].sub).toBe('to Oct 18')
+    expect(c.groups).toEqual([
+      { label: 'October 2026', span: 3 },
+      { label: 'November 2026', span: 1 },
+    ])
+  })
+
+  it('covers whole months and groups them by year', () => {
+    const c = buildChart('month', range('2026-11-20', '2027-01-10'))
+    expect(c.columns.map((x) => x.label)).toEqual(['Nov', 'Dec', 'Jan'])
+    expect(c.groups).toEqual([
+      { label: '2026', span: 2 },
+      { label: '2027', span: 1 },
+    ])
+  })
+})
+
+describe('xOf', () => {
+  it('counts inside the column, so February and March are the same width', () => {
+    const c = buildChart('month', range('2026-02-01', '2026-03-31'))
+    expect(xOf(c, at('2026-03-01'))).toBeCloseTo(50, 5)
+    expect(xOf(c, at('2026-02-15'))).toBeCloseTo(25, 5)
+    expect(xOf(c, at('2026-03-16', 12))).toBeCloseTo(75, 5)
   })
 })
 
 describe('placeTask', () => {
-  const w = timelineWindow(project('2026-10-01', '2026-10-11'), [])
+  const nov = buildChart('day', range('2026-10-01', '2026-12-31'), '2026-11')
 
-  it('draws a bar for a task with both dates', () => {
-    const p = placeTask(
-      task({ starts_at: '2026-10-01T00:00:00Z', due_at: '2026-10-06T00:00:00Z' }),
-      w,
-    )
-    expect(p.shape).toBe('bar')
-    if (p.shape !== 'bar') return
-    expect(p.left).toBeGreaterThanOrEqual(0)
-    expect(p.left + p.width).toBeLessThanOrEqual(100)
-    expect(p.width).toBeGreaterThan(0)
+  it('draws a bar from the start of its first day to the end of its last', () => {
+    const p = placeTask(task({ starts_at: iso('2026-11-02'), due_at: iso('2026-11-03', 23, 59) }), nov)
+    expect(p).toMatchObject({ shape: 'bar', clippedStart: false, clippedEnd: false })
+    if (p.shape !== 'bar') throw new Error('bar')
+    expect(p.left).toBeCloseTo((1 / 30) * 100, 5)
+    expect(p.width).toBeCloseTo((2 / 30) * 100, 5)
   })
 
-  it('draws a diamond for a task with only a due date', () => {
-    const p = placeTask(task({ due_at: '2026-10-06T00:00:00Z' }), w)
+  it('clips a bar that runs past the month and says so', () => {
+    const p = placeTask(task({ starts_at: iso('2026-10-30'), due_at: iso('2026-11-02', 23, 59) }), nov)
+    expect(p).toMatchObject({ shape: 'bar', left: 0, clippedStart: true, clippedEnd: false })
+  })
+
+  it('puts a one-date task mid-day as a diamond', () => {
+    const p = placeTask(task({ due_at: iso('2026-11-10', 23, 59) }), nov)
     expect(p.shape).toBe('diamond')
+    if (p.shape !== 'diamond') throw new Error('diamond')
+    expect(p.left).toBeCloseTo((9.5 / 30) * 100, 5)
   })
 
-  it('draws a diamond for a task with only a start date', () => {
-    const p = placeTask(task({ starts_at: '2026-10-06T00:00:00Z' }), w)
-    expect(p.shape).toBe('diamond')
+  it('says which side a task outside the month is on, and when it has no date', () => {
+    expect(placeTask(task({ due_at: iso('2026-10-20') }), nov)).toEqual({ shape: 'outside', side: 'before' })
+    expect(placeTask(task({ starts_at: iso('2026-12-01'), due_at: iso('2026-12-04') }), nov)).toEqual({
+      shape: 'outside',
+      side: 'after',
+    })
+    expect(placeTask(task(), nov)).toEqual({ shape: 'none' })
   })
 
-  it('draws nothing for a task with no dates at all', () => {
-    expect(placeTask(task(), w).shape).toBe('none')
-  })
-
-  it('draws nothing when there is no window', () => {
-    const none = timelineWindow(project(null, null), [])
-    expect(placeTask(task({ due_at: '2026-10-06T00:00:00Z' }), none).shape).toBe('none')
-  })
-
-  it('keeps a task that runs past the window inside it', () => {
-    const p = placeTask(
-      task({ starts_at: '2026-09-01T00:00:00Z', due_at: '2026-12-01T00:00:00Z' }),
-      w,
-    )
-    expect(p.shape).toBe('bar')
-    if (p.shape !== 'bar') return
-    expect(p.left).toBe(0)
-    expect(p.width).toBe(100)
-  })
-
-  it('gives a one-day bar a width somebody can see', () => {
-    const p = placeTask(
-      task({ starts_at: '2026-10-05T00:00:00Z', due_at: '2026-10-05T00:00:00Z' }),
-      w,
-    )
-    expect(p.shape).toBe('bar')
-    if (p.shape !== 'bar') return
-    expect(p.width).toBeGreaterThanOrEqual(1)
-  })
-
-  it('keeps a task entirely after the window inside it', () => {
-    const p = placeTask(
-      task({ starts_at: '2026-11-01T00:00:00Z', due_at: '2026-11-05T00:00:00Z' }),
-      w,
-    )
-    expect(p.shape).toBe('bar')
-    if (p.shape !== 'bar') return
-    expect(p.left).toBeGreaterThanOrEqual(0)
-    expect(p.width).toBeGreaterThanOrEqual(0)
-    expect(p.left + p.width).toBeLessThanOrEqual(100)
-  })
-
-  it('keeps a task entirely before the window inside it', () => {
-    const p = placeTask(
-      task({ starts_at: '2026-09-01T00:00:00Z', due_at: '2026-09-05T00:00:00Z' }),
-      w,
-    )
-    expect(p.shape).toBe('bar')
-    if (p.shape !== 'bar') return
-    expect(p.left).toBeGreaterThanOrEqual(0)
-    expect(p.width).toBeGreaterThanOrEqual(0)
-    expect(p.left + p.width).toBeLessThanOrEqual(100)
-  })
-})
-
-describe('axisTicks', () => {
-  it('ticks by week over a short project', () => {
-    const ticks = axisTicks(timelineWindow(project('2026-10-01', '2026-11-01'), []))
-    expect(ticks.length).toBeGreaterThan(2)
-    expect(ticks.length).toBeLessThanOrEqual(8)
-    expect(ticks[0].left).toBeGreaterThanOrEqual(0)
-    expect(ticks[ticks.length - 1].left).toBeLessThanOrEqual(100)
-  })
-
-  it('ticks by month over a long one', () => {
-    const ticks = axisTicks(timelineWindow(project('2026-01-01', '2026-12-31'), []))
-    expect(ticks.length).toBeLessThanOrEqual(13)
-    expect(ticks.some((t) => /Jan|Feb|Mar/.test(t.label))).toBe(true)
-  })
-
-  it('has nothing to tick with no window', () => {
-    expect(axisTicks(timelineWindow(project(null, null), []))).toEqual([])
-  })
-
-  it('always has a tick for a tasks-sourced window that does not start at midnight', () => {
-    const w = timelineWindow(project(null, null), [
-      task({ due_at: '2026-10-05T15:30:00Z' }),
-    ])
-    const ticks = axisTicks(w)
-    expect(ticks.length).toBeGreaterThanOrEqual(1)
-    for (const t of ticks) {
-      expect(t.left).toBeGreaterThanOrEqual(0)
-      expect(t.left).toBeLessThanOrEqual(100)
-    }
+  it('reads a start after the due as the same span', () => {
+    expect(placeTask(task({ starts_at: iso('2026-11-05'), due_at: iso('2026-11-02') }), nov)).toMatchObject({ shape: 'bar' })
   })
 })
 
@@ -211,11 +159,7 @@ describe('groupRows', () => {
 
   it('puts project-wide work first, then teams by name', () => {
     const rows = groupRows(
-      [
-        task({ id: '1', group_id: 'b' }),
-        task({ id: '2', group_id: null }),
-        task({ id: '3', group_id: 'a' }),
-      ],
+      [task({ id: '1', group_id: 'b' }), task({ id: '2', group_id: null }), task({ id: '3', group_id: 'a' })],
       teams,
     )
     expect(rows.map((r) => r.groupName)).toEqual(['Whole project', 'Development', 'Testing'])
@@ -265,59 +209,45 @@ describe('groupRows', () => {
 })
 
 describe('nowMarker', () => {
-  const w = timelineWindow(project('2026-10-01', '2026-10-11'), [])
+  const c = buildChart('day', range('2026-10-01', '2026-10-31'), '2026-10')
 
-  it('places today inside the window', () => {
-    const at = nowMarker(w, day('2026-10-06T00:00:00Z'))
-    expect(at).not.toBeNull()
-    expect(at as number).toBeGreaterThan(0)
-    expect(at as number).toBeLessThan(100)
+  it('places today inside the chart', () => {
+    expect(nowMarker(c, at('2026-10-16', 12))).toBeCloseTo((15.5 / 31) * 100, 5)
   })
 
-  it('says nothing when today is outside the window', () => {
-    expect(nowMarker(w, day('2026-09-01T00:00:00Z'))).toBeNull()
-    expect(nowMarker(w, day('2026-12-01T00:00:00Z'))).toBeNull()
+  it('says nothing when today is outside it', () => {
+    expect(nowMarker(c, at('2026-09-01'))).toBeNull()
+    expect(nowMarker(c, at('2026-11-01'))).toBeNull()
   })
 })
 
 describe('sprint bands', () => {
-  const day = (s: string) => {
-    const [y, m, d] = s.split('-').map(Number)
-    return new Date(y, m - 1, d).getTime()
-  }
-  const window = { start: day('2026-10-01'), end: day('2026-10-31'), source: 'project' as const }
+  const c = buildChart('day', range('2026-10-01', '2026-10-31'), '2026-10')
 
   it('spans a sprint from its first day to the end of its last', () => {
     const [band] = sprintBands([{ id: 's', name: 'Sprint 1', starts_on: '2026-10-05', ends_on: '2026-10-18' }])
-    expect(band).toEqual({ id: 's', label: 'Sprint 1', start: day('2026-10-05'), end: day('2026-10-19') })
+    expect(band).toEqual({ id: 's', label: 'Sprint 1', start: at('2026-10-05'), end: at('2026-10-19') })
   })
 
-  it('places a band inside the window', () => {
-    const place = placeBand({ id: 's', label: 'S', start: day('2026-10-01'), end: day('2026-10-16') }, window)
+  it('places a band inside the chart and drops one outside', () => {
+    const place = placeBand({ id: 's', label: 'S', start: at('2026-10-01'), end: at('2026-10-16') }, c)
     expect(place?.left).toBe(0)
-    expect(place?.width).toBeCloseTo(50, 0)
-  })
-
-  it('leaves out a band outside the window', () => {
-    expect(placeBand({ id: 's', label: 'S', start: day('2026-11-02'), end: day('2026-11-09') }, window)).toBeNull()
-    expect(placeBand({ id: 's', label: 'S', start: 0, end: 1 }, { start: 0, end: 0, source: 'none' })).toBeNull()
+    expect(place?.width).toBeCloseTo((15 / 31) * 100, 5)
+    expect(placeBand({ id: 's', label: 'S', start: at('2026-11-02'), end: at('2026-11-09') }, c)).toBeNull()
   })
 })
 
 describe('milestone marks', () => {
-  const localDay = (s: string, h = 0) => {
-    const [y, m, d] = s.split('-').map(Number)
-    return new Date(y, m - 1, d, h).getTime()
-  }
-  const window = { start: localDay('2026-10-01'), end: localDay('2026-11-01'), source: 'project' as const }
+  const c = buildChart('day', range('2026-10-01', '2026-10-31'), '2026-10')
+
   it('sits at noon on its day', () => {
     expect(milestoneMarks([{ id: 'm', name: 'Beta', due_on: '2026-10-16' }])).toEqual([
-      { id: 'm', label: 'Beta', at: localDay('2026-10-16', 12) },
+      { id: 'm', label: 'Beta', at: at('2026-10-16', 12) },
     ])
   })
-  it('places inside the window and drops what falls outside', () => {
-    expect(placeMark({ id: 'm', label: 'B', at: localDay('2026-10-01') }, window)).toBe(0)
-    expect(placeMark({ id: 'm', label: 'B', at: localDay('2026-11-05') }, window)).toBeNull()
-    expect(placeMark({ id: 'm', label: 'B', at: 1 }, { start: 0, end: 0, source: 'none' })).toBeNull()
+
+  it('places inside the chart and drops what falls outside', () => {
+    expect(placeMark({ id: 'm', label: 'B', at: at('2026-10-01') }, c)).toBe(0)
+    expect(placeMark({ id: 'm', label: 'B', at: at('2026-11-05') }, c)).toBeNull()
   })
 })

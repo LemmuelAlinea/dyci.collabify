@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { ActionMenu } from '../ui/ActionMenu'
 import { Icon } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
 import { MilestoneDialog } from './MilestoneDialog'
@@ -96,49 +97,26 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
                     </p>
                     {m.description && <p className="mt-1.5 max-w-prose text-[13px] text-muted">{m.description}</p>}
                   </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {source.canTag && (
-                      <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setTagging(m)}>
-                        <Icon name="plus" size={15} />
-                        Tag tasks
-                      </Button>
-                    )}
-                    {source.canTag && source.sprints.length > 0 && (
-                      <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setAddingSprint(m)}>
-                        <Icon name="plus" size={15} />
-                        Add sprint
-                      </Button>
-                    )}
-                    {source.canMarkReached && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => void run(() => source.setReached(m.id, !m.reached_at), 'Could not change that milestone.')}
-                      >
-                        {m.reached_at ? 'Not reached yet' : 'Mark reached'}
-                      </Button>
-                    )}
-                    {source.canManage && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setEditing(m)}
-                          aria-label={`Edit ${m.name}`}
-                          className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
-                        >
-                          <Icon name="edit" size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleting(m)}
-                          aria-label={`Delete ${m.name}`}
-                          className="grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-400"
-                        >
-                          <Icon name="trash" size={15} />
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  <ActionMenu
+                    label={`Actions for ${m.name}`}
+                    items={[
+                      source.canTag && { label: 'Tag tasks', icon: 'plus', onSelect: () => setTagging(m) },
+                      source.canTag &&
+                        source.sprints.length > 0 && { label: 'Add sprint', icon: 'target', onSelect: () => setAddingSprint(m) },
+                      source.canMarkReached && {
+                        label: m.reached_at ? 'Not reached yet' : 'Mark reached',
+                        icon: m.reached_at ? 'undo' : 'checkCircle',
+                        onSelect: () => void run(() => source.setReached(m.id, !m.reached_at), 'Could not change that milestone.'),
+                      },
+                      source.canManage && {
+                        label: 'Edit',
+                        icon: 'edit',
+                        onSelect: () => setEditing(m),
+                        separated: source.canTag || source.canMarkReached,
+                      },
+                      source.canManage && { label: 'Delete', icon: 'trash', tone: 'danger', onSelect: () => setDeleting(m) },
+                    ]}
+                  />
                 </div>
 
                 {professor ? (
