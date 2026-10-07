@@ -13,6 +13,8 @@ export type Sprint = {
   started_at: string | null
   completed_at: string | null
   created_at: string
+  /** The milestone it counts toward: its tasks are tagged with it. Null for none. */
+  milestone_id: string | null
 }
 
 export type SprintInput = { name: string; goal: string; startsOn: string; endsOn: string }
@@ -83,8 +85,10 @@ export type MilestoneSource = {
   groups: MilestoneGroup[]
   /** May create, edit and delete milestones. */
   canManage: boolean
-  /** May tag and untag `items`. */
+  /** May tag and untag `items`, and add or take off `sprints`. */
   canTag: boolean
+  /** The sprints this viewer can add to a milestone (empty for a professor). */
+  sprints: Sprint[]
   /** Work projects: may mark a milestone reached by hand. */
   canMarkReached: boolean
   /** Shown as a note when this viewer can only read; '' otherwise. */
@@ -95,4 +99,6 @@ export type MilestoneSource = {
   deleteMilestone: (id: string) => Promise<void>
   setReached: (id: string, reached: boolean) => Promise<void>
   tag: (taskIds: string[], milestoneId: string | null) => Promise<void>
+  /** Count a sprint's tasks toward a milestone, or (null) stop. */
+  linkSprint: (sprintId: string, milestoneId: string | null) => Promise<void>
 }

@@ -20,6 +20,7 @@ const sprint = (over: Partial<Sprint> = {}): Sprint => ({
   goal: '',
   starts_on: '2026-10-05',
   ends_on: '2026-10-18',
+  milestone_id: null,
   state: 'planned',
   started_at: null,
   completed_at: null,

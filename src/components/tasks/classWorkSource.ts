@@ -4,6 +4,7 @@ import {
   deleteSprint,
   finishSprint,
   moveTasksToSprint,
+  setSprintMilestone,
   setTaskRank,
   startSprint,
   updateSprint,
@@ -104,6 +105,7 @@ export function classMilestoneSource(t: ProjectTasks, projectId: string): Milest
       : [],
     canManage: t.isProfessor,
     canTag,
+    sprints: t.isProfessor || !board ? [] : t.sprints,
     canMarkReached: false,
     readOnlyReason: t.isProfessor
       ? ''
@@ -118,5 +120,9 @@ export function classMilestoneSource(t: ProjectTasks, projectId: string): Milest
     deleteMilestone: (id) => then(deleteMilestone(home, id)),
     setReached: async () => undefined,
     tag: (ids, milestoneId) => then(tagTasks(home, ids, milestoneId)),
+    linkSprint: async (sprintId, milestoneId) => {
+      if (!board) return
+      await then(setSprintMilestone({ kind: 'class', boardId: board.id }, sprintId, milestoneId))
+    },
   }
 }

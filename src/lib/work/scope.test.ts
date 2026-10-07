@@ -4,7 +4,7 @@ import type { Sprint } from './types'
 
 const sprint = (over: Partial<Sprint>): Sprint => ({
   id: 's', name: 'Sprint', goal: '', starts_on: '2026-10-05', ends_on: '2026-10-18',
-  state: 'planned', started_at: null, completed_at: null, created_at: '2026-10-01T00:00:00Z', ...over,
+  state: 'planned', started_at: null, completed_at: null, created_at: '2026-10-01T00:00:00Z', milestone_id: null, ...over,
 })
 
 const running = sprint({ id: 'r', name: 'Sprint 2', state: 'active' })

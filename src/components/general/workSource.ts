@@ -12,6 +12,7 @@ import {
   deleteSprint,
   finishSprint,
   moveTasksToSprint,
+  setSprintMilestone,
   setTaskRank,
   startSprint,
   updateSprint,
@@ -97,6 +98,7 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
     groups: [],
     canManage: can,
     canTag: can,
+    sprints: state.sprints,
     canMarkReached: can,
     readOnlyReason: state.archived
       ? 'This project is archived, so nothing in it can change.'
@@ -109,5 +111,7 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
     deleteMilestone: (id) => then(deleteMilestone(home, id)),
     setReached: (id, reached) => then(setMilestoneReached(id, reached)),
     tag: (ids, milestoneId) => then(tagTasks(home, ids, milestoneId)),
+    linkSprint: (sprintId, milestoneId) =>
+      then(setSprintMilestone({ kind: 'work', projectId: home.projectId }, sprintId, milestoneId)),
   }
 }
