@@ -10,6 +10,7 @@ import { BoardVerdict } from './BoardVerdict'
 import { FanOutForm } from './FanOutForm'
 import { GenerateTasksModal } from './GenerateTasksModal'
 import { GroupProgressTable } from './GroupProgressTable'
+import { GroupMilestoneGrid } from '../work/GroupMilestoneGrid'
 import { HandInQueue } from './HandInQueue'
 import { MemberProgress } from './MemberProgress'
 import { TaskBoard } from './TaskBoard'
@@ -132,6 +133,23 @@ export function ProfessorTasksView({
                   show(authErrorMessage(err, 'Could not accept that.'), 'error')
                 }
               }}
+            />
+          </section>
+
+          {/* 3 ── every group against every milestone */}
+          <section className="space-y-3 border-t border-line pt-6">
+            <div>
+              <h3>Milestones by {who}</h3>
+              <p className="mt-0.5 text-[13px] text-muted">
+                How far each {who} is toward each milestone. Open {solo ? 'a student' : 'a group'} to see its tasks.
+              </p>
+            </div>
+            <GroupMilestoneGrid
+              milestones={t.milestones}
+              groups={classMilestoneSource(t, project.id).groups}
+              who={who}
+              onOpenGroup={openBoard}
+              onSetMilestones={() => t.setSection('milestones')}
             />
           </section>
 

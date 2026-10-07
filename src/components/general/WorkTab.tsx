@@ -39,7 +39,11 @@ export function WorkTab({ state }: { state: GeneralProjectState }) {
     <div className="space-y-5">
       <WorkNav active={section} onChange={(s) => setParams(withWork(params, { section: s }))} />
       {section === 'summary' ? (
-        <WorkSummary state={state} onOpenTask={showTask} />
+        <WorkSummary
+          state={state}
+          onOpenTask={showTask}
+          onSection={(s) => setParams(withWork(params, { section: s }))}
+        />
       ) : section === 'backlog' ? (
         <BacklogView source={source} />
       ) : section === 'sprints' ? (

@@ -1,30 +1,53 @@
 // src/components/general/WorkSummary.tsx
 import { Avatar } from '../app/Avatar'
 import { Icon } from '../ui/Icon'
+import { WorkGlance } from '../work/WorkGlance'
 import { SummaryTile, StatusDonut } from '../tasks/TaskSummary'
 import { useNow } from '../../hooks/useNow'
 import { dateRange, isOverdue } from '../../lib/general/dates'
 import { projectProgress } from '../../lib/general/progress'
 import type { GeneralTask } from '../../lib/general/types'
+import type { WorkSection } from '../../lib/work/nav'
 import { formatMinutes } from '../../lib/types'
 import { ForecastPanel } from './ForecastPanel'
 import { PressurePanel } from './PressurePanel'
+import { generalWorkItems } from './workSource'
 import type { GeneralProjectState } from './useGeneralProject'
 
 const DAY = 86_400_000
 
 /**
- * How the project is going, in the order somebody asks: how far, what moved
- * this week, who carries it, will it finish, what is late. It took in the old
- * Progress tab; the timeline went to Tasks › Timeline.
+ * How the project is going, in the order somebody asks: what is running and what needs me,
+ * how far, what moved this week, who carries it, will it finish, what is late. It took in
+ * the old Progress tab; the timeline went to Tasks › Timeline.
  */
-export function WorkSummary({ state, onOpenTask }: { state: GeneralProjectState; onOpenTask: (id: string) => void }) {
+export function WorkSummary({
+  state,
+  onOpenTask,
+  onSection,
+}: {
+  state: GeneralProjectState
+  onOpenTask: (id: string) => void
+  onSection: (s: WorkSection) => void
+}) {
   const project = state.project
   if (!project) return null
   const progress = projectProgress(state.tasks)
+  const me = state.viewerId
+  const mine = new Set(me ? state.tasks.filter((t) => t.assignee_ids.includes(me)).map((t) => t.id) : [])
 
   return (
     <div className="space-y-6">
+      <WorkGlance
+        items={generalWorkItems(state)}
+        sprints={state.sprints}
+        milestones={state.milestones}
+        mine={mine}
+        canPlan={!state.archived && state.can('manage_tasks')}
+        onOpenTask={onOpenTask}
+        onSection={onSection}
+      />
+
       <section className="rounded-panel border border-line surface p-4 sm:p-5">
         <h2>Where we are</h2>
         <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">

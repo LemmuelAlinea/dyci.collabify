@@ -2952,3 +2952,29 @@ plan: docs/superpowers/plans/2026-10-06-work-tab-part-1.md). Branch `claude/work
   duplicated `then` helper in both work sources; FanOutForm shows the first copy's milestone.
 - Next: Part 4, Summary (running sprint card, next milestone card, "Needs you", professor groups ×
   milestones grid).
+
+**Change (2026-10-07): Summary in Work.** Part 4 of 4 of the Work tab plan, which is now complete
+(plan: docs/superpowers/plans/2026-10-07-work-tab-part-4.md). Branch `claude/work-tab-4`.
+- Work › Summary opens on three cards: the running sprint (goal, dates, days left, done of total,
+  burndown; with none running, "No sprint is running" and, for someone who can plan, a pointer to
+  Backlog), the next milestone (earliest not reached, late ones first; date, due-in, status,
+  progress), and Needs you (your unfinished tasks overdue or due in the next 7 days, and every
+  unfinished task nobody holds; five per group, then "and N more"; rows open the task). Below them
+  each Summary keeps what it had. Work space and class students get the cards; the class
+  professor gets "Milestones by group/student" under the groups table instead: one row per board,
+  one column per milestone in date order, done/tagged and status per cell, a row opens that board's
+  tasks. No sprint card for professors (sprints are per group). No SQL.
+- Code: `lib/work/summary.ts` (`needsYou`, `nextMilestone`, `milestoneGrid`),
+  `components/work/{WorkGlance,GroupMilestoneGrid,MilestoneBits}.tsx` (MilestoneBits holds the
+  status pill and bar MilestonesView used), `general/workSource.ts` `generalWorkItems`, wiring in
+  `general/{WorkSummary,WorkTab}` and `tasks/{StudentTasksView,ProfessorTasksView}`.
+- Checked: build, eslint, 705 Vitest (summary 8 new). Final review (opus) With fixes, all applied
+  (grid labels and titles, grid background, "Due soon" wording, sprint hint only for planners).
+  Browser (dev server, dark): class student Summary with a real running sprint and burndown, Open
+  Sprints and a Needs you row both work, 375 wide no sideways scroll; work project Summary as a
+  Member with the planning grant; class professor Summary shows the grid's empty state. Not seen:
+  the grid with real milestones (no project has one yet), light mode.
+- Deferred: no boundary tests for a task due exactly now / exactly 7 days out; "Nobody on it" lists
+  backlog tasks too (could narrow to the running sprint); "and N more" has no way to see the rest;
+  Summary headings start at h3 before the page's h2.
+- Next: the Work tab plan is done. Open work is the Deferred notes above and in Parts 1–3.

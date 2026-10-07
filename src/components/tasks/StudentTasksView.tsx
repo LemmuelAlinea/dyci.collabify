@@ -19,7 +19,8 @@ import { MilestonesView } from '../work/MilestonesView'
 import { SprintsView } from '../work/SprintsView'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { NO_SPAN, TimelineView } from '../work/TimelineView'
-import { classMilestoneSource, classWorkSource } from './classWorkSource'
+import { classMilestoneSource, classWorkItem, classWorkSource } from './classWorkSource'
+import { WorkGlance } from '../work/WorkGlance'
 import { reachedIn } from '../../lib/work/milestones'
 import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
 import { scopeOptions, scopeTargetSprint } from '../../lib/work/scope'
@@ -97,6 +98,15 @@ export function StudentTasksView({
         <>
           {t.section === 'summary' ? (
             <div className="space-y-4">
+              <WorkGlance
+                items={t.tasks.map(classWorkItem)}
+                sprints={t.sprints}
+                milestones={t.milestones}
+                mine={new Set(viewerId ? t.tasks.filter((x) => isMine(x, viewerId)).map((x) => x.id) : [])}
+                canPlan={canPlanBoard(active, locked)}
+                onOpenTask={t.showTask}
+                onSection={t.setSection}
+              />
               <BoardProgress board={active} />
               <MemberProgress
                 rows={t.progress}
