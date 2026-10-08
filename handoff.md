@@ -3076,3 +3076,14 @@ Branch `claude/notes-file-plan`. No SQL.
   does not.
 - Not tried: light mode; the class professor's timeline (rows per board).
 - Deferred: no zoom beyond the three scales; bar labels only in the tooltip.
+
+**Change (2026-10-08): small UI follow-ups.** On main. No SQL.
+- Landing: below `md` the header has a menu button (section links, Sign in, Sign up); phones no
+  longer show only Get started.
+- Class project Brief: each syllabus week is a `<details>` row, closed by default.
+- Work sections (`WorkNav`) and the timeline's Months / Weeks / Days switch fill the selected item
+  with `banner-end` (the banner's right-hand colour) instead of navy, in both spaces. New token
+  `--banner-end-ink` (default `#10162e`; `lib/palette.ts` sets it with `inkFor` whenever it sets
+  `--banner-end`).
+- Checked: build, lib Vitest; browser (dark, gradient banner) shows Tasks and Weeks in the
+  banner's amber end with dark text. Not seen: light mode, a custom solid banner.

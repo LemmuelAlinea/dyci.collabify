@@ -224,6 +224,7 @@
   --color-banner-glow: var(--banner-glow);
   --color-banner-edge: var(--banner-edge);
   --color-banner-end: var(--banner-end);
+  --color-banner-end-ink: var(--banner-end-ink);
   --color-pending-soft: var(--pending-soft, var(--surface-sunken));
   --color-pending-ink: var(--pending-ink, var(--ink-muted));
   --color-progress: var(--progress);
@@ -305,6 +306,9 @@
     /* The banner's right-hand colour as an icon on a sunken tile. The default glow's
        amber is too pale on light tiles, so light mode takes a darker step of it. */
     --banner-end: var(--color-amber-600);
+    /* Text on a fill of that colour (the selected Work section, the timeline
+       scale). Both default ends are amber, so the dark ink reads on either. */
+    --banner-end-ink: #10162e;
     --progress: oklch(69.6% 0.17 162.48);
     --nav-active: #26327a;
     --nav-active-ink: #ffffff;

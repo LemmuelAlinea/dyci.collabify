@@ -339,7 +339,7 @@ export function TimelineView({
               aria-checked={scale === s}
               onClick={() => choose(s)}
               className={`rounded-md px-3 py-1 text-[13px] transition-colors ${
-                scale === s ? 'bg-navy-600 font-medium text-white dark:bg-navy-400 dark:text-navy-950' : 'text-muted hover:text-ink'
+                scale === s ? 'bg-banner-end font-medium text-banner-end-ink' : 'text-muted hover:text-ink'
               }`}
             >
               {SCALE_LABEL[s]}

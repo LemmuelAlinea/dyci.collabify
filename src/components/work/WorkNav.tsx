@@ -13,8 +13,9 @@ const LOOK: Record<WorkSection, { label: string; icon: IconName }> = {
 
 /**
  * The sections inside Work. A level above the task layouts, so it is drawn
- * filled navy rather than as another grey pill switch, and it scrolls sideways
- * on a phone instead of wrapping onto a second line.
+ * filled in the banner's right-hand colour rather than as another grey pill
+ * switch, and it scrolls sideways on a phone instead of wrapping onto a second
+ * line.
  */
 export function WorkNav({ active, onChange }: { active: WorkSection; onChange: (s: WorkSection) => void }) {
   return (
@@ -30,7 +31,7 @@ export function WorkNav({ active, onChange }: { active: WorkSection; onChange: (
               onClick={() => onChange(id)}
               className={`flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] whitespace-nowrap transition-colors ${
                 on
-                  ? 'bg-navy-600 font-medium text-white dark:bg-navy-500'
+                  ? 'bg-banner-end font-medium text-banner-end-ink'
                   : 'text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
               }`}
             >

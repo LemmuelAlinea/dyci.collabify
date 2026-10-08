@@ -354,6 +354,7 @@ export const PALETTE_VARS: readonly string[] = [
   '--banner-glow',
   '--banner-edge',
   '--banner-end',
+  '--banner-end-ink',
   '--pending-soft',
   '--pending-ink',
   '--nav-icon',
@@ -450,6 +451,7 @@ export function toCssVars(picks: Picks | undefined, mode: Mode): Record<string, 
     // colour itself. Card icons use it on a sunken tile, so 3:1 against that.
     const end = style === 'gradient' ? grounds[1] : style === 'glow' ? accent : first
     vars['--banner-end'] = withContrast(end, g.sunken, 3)
+    vars['--banner-end-ink'] = inkFor(vars['--banner-end'])
   }
   if (style !== 'glow') vars['--banner-deco'] = 'hidden'
   if (style === 'gradient') {
