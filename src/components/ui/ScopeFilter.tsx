@@ -14,14 +14,17 @@ export function ScopeFilter({
   value,
   onChange,
   counts,
+  options = OPTIONS,
 }: {
   value: Scope
   onChange: (scope: Scope) => void
   counts?: Partial<Record<Scope, number>>
+  /** A page with no All view (Projects) passes just Classes and Work. */
+  options?: { value: Scope; label: string }[]
 }) {
   return (
     <div role="group" aria-label="Show" className="flex gap-1 rounded-lg surface-sunken p-1">
-      {OPTIONS.map((option) => (
+      {options.map((option) => (
         <button
           key={option.value}
           type="button"

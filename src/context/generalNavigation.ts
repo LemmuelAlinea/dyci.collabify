@@ -4,6 +4,7 @@ import type {
   GeneralSpaceSummary,
   MySpaceInvitation,
 } from '../lib/general/types'
+import type { ProjectSummary } from '../lib/types'
 
 export type GeneralNavigationValue = {
   spaces: GeneralSpaceSummary[] | null
@@ -14,6 +15,11 @@ export type GeneralNavigationValue = {
   projects: GeneralProjectSummary[] | null
   /** The projects that are yours, across every space. Never space-scoped. */
   myProjects: GeneralProjectSummary[] | null
+  /**
+   * The class projects across the reader's classes — only the released ones
+   * for a student. Feeds the rail's Quick access beside `myProjects`.
+   */
+  classProjects: ProjectSummary[] | null
   error: string | null
   reload: () => Promise<void>
   reportProjectSpace: (projectId: string, spaceId: string) => void

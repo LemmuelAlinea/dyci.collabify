@@ -8,6 +8,8 @@ const titles = (groups: NavGroup[]) => groups.map((g) => g.title)
 const tos = (groups: NavGroup[]) =>
   groups.flatMap((g) => [...g.items.map((i) => i.to), ...(g.more ? [g.more.to] : [])])
 const spaces = (groups: NavGroup[]) => groups.find((g) => g.title === 'Spaces')
+const section = (groups: NavGroup[], title: string) =>
+  groups.find((g) => g.title === title)?.items.map((i) => i.label)
 
 const account = (role: Role | null, status: AccountStatus = 'active', can_teach = false) => ({
   role,
@@ -20,43 +22,56 @@ const nonTeacher = account('faculty')
 const admin = account('admin')
 
 describe('navFor', () => {
-  it('puts Archive beside Trash for everyone admitted, the program archive for admins', () => {
-    const account = (groups: NavGroup[]) => groups.find((g) => g.title === 'Account')!.items.map((i) => i.label)
-    expect(account(navFor(student, true, { inClass: true, hasWork: false }))).toEqual(['Archive', 'Trash', 'Settings'])
-    expect(account(navFor(teacher, true))).toEqual(['Archive', 'Trash', 'Settings'])
-    expect(account(navFor(nonTeacher, true))).toEqual(['Archive', 'Trash', 'Settings'])
-    expect(account(navFor(admin, true, { inClass: false, hasWork: true }))).toEqual(['Archive', 'Trash', 'Settings'])
-    expect(account(navFor(admin, true))).toEqual(['Archive', 'Trash', 'Settings'])
-    const adminArchive = navFor(admin, true).find((g) => g.title === 'Account')!.items[0]
+  it('puts Archive between Settings and Trash for everyone admitted, the program archive for admins', () => {
+    const account = (groups: NavGroup[]) => section(groups, 'Account')
+    expect(account(navFor(student, true, { inClass: true, hasWork: false }))).toEqual(['Settings', 'Archive', 'Trash'])
+    expect(account(navFor(teacher, true))).toEqual(['Settings', 'Archive', 'Trash'])
+    expect(account(navFor(nonTeacher, true))).toEqual(['Settings', 'Archive', 'Trash'])
+    expect(account(navFor(admin, true, { inClass: false, hasWork: true }))).toEqual(['Settings', 'Archive', 'Trash'])
+    expect(account(navFor(admin, true))).toEqual(['Settings', 'Archive', 'Trash'])
+    const adminArchive = navFor(admin, true).find((g) => g.title === 'Account')!.items[1]
     expect(adminArchive.to).toBe('/admin/archive')
-    expect(account(navFor(student, false))).toEqual(['Trash', 'Settings'])
+    expect(account(navFor(student, false))).toEqual(['Settings', 'Trash'])
   })
 
-  it('gives a student nobody has let in only Home, Trash and Settings', () => {
-    expect(labels(navFor(student, false))).toEqual(['Home', 'Trash', 'Settings'])
+  it('gives a student nobody has let in only Home, Settings and Trash', () => {
+    expect(labels(navFor(student, false))).toEqual(['Home', 'Settings', 'Trash'])
   })
 
-  it('gives a student with only classes Main, Classes with Your record, and Account', () => {
+  it('gives a student with only classes their class side, Your record under Resources', () => {
     const groups = navFor(student, true, { inClass: true, hasWork: false })
-    expect(titles(groups)).toEqual(['Main', 'Classes', 'Account'])
-    expect(labels(groups)).toContain('Your record')
-    expect(titles(navFor(student, true))).toEqual(['Main', 'Classes', 'Account'])
+    expect(titles(groups)).toEqual(['Overview', 'Work', 'Classes', 'Quick access', 'Resources', 'Account'])
+    expect(section(groups, 'Resources')).toEqual(['Your record'])
+    expect(titles(navFor(student, true))).toEqual(['Overview', 'Work', 'Classes', 'Quick access', 'Resources', 'Account'])
   })
 
-  it('adds Spaces and Projects once a student is invited to some work', () => {
+  it('adds Spaces after Classes once a student is invited to some work', () => {
     const groups = navFor(student, true, { inClass: true, hasWork: true })
-    expect(titles(groups)).toEqual(['Main', 'Classes', 'Spaces', 'Projects', 'Account'])
+    expect(titles(groups)).toEqual(['Overview', 'Work', 'Classes', 'Spaces', 'Quick access', 'Resources', 'Account'])
     expect(spaces(groups)?.hideWhenEmpty).toBe(true)
   })
 
-  it('gives teaching faculty Classes and Teaching, and no Your record', () => {
+  it('opens teaching faculty on Spaces, with Teaching and Resources and no Your record', () => {
     const groups = navFor(teacher, true)
-    expect(titles(groups)).toEqual(['Main', 'Classes', 'Spaces', 'Projects', 'Teaching', 'Account'])
+    expect(titles(groups)).toEqual([
+      'Spaces',
+      'Overview',
+      'Work',
+      'Classes',
+      'Quick access',
+      'Teaching',
+      'Resources',
+      'Account',
+    ])
+    expect(section(groups, 'Teaching')).toEqual(['Submissions', 'Reassignments', 'Analytics', 'Reports'])
+    expect(section(groups, 'Resources')).toEqual(['Syllabi', 'Curriculum'])
     expect(labels(groups)).not.toContain('Your record')
   })
 
-  it('gives faculty who do not teach no Classes and no Teaching', () => {
-    expect(titles(navFor(nonTeacher, true))).toEqual(['Main', 'Spaces', 'Projects', 'Account'])
+  it('opens faculty who do not teach on Spaces, with no Classes, Teaching or Groups', () => {
+    const groups = navFor(nonTeacher, true)
+    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Work', 'Quick access', 'Account'])
+    expect(section(groups, 'Work')).toEqual(['My tasks', 'Projects', 'Meetings'])
   })
 
   it('never narrows faculty on the admission flag', () => {
@@ -76,26 +91,27 @@ describe('navFor', () => {
     expect(groups[0].items.map((i) => i.label)).toEqual(['Home', 'Inbox'])
   })
 
-  it('puts Meetings in Main, between Calendar and Inbox', () => {
-    const main = navFor(student, true)[0]
-    expect(main.items.map((i) => i.label)).toEqual(['Home', 'My tasks', 'Calendar', 'Meetings', 'Inbox'])
+  it('splits the spine into Overview and Work', () => {
+    const groups = navFor(student, true)
+    expect(section(groups, 'Overview')).toEqual(['Home', 'Inbox', 'Calendar'])
+    expect(section(groups, 'Work')).toEqual(['My tasks', 'Projects', 'Groups', 'Meetings'])
   })
 
   it('calls the conversations page Inbox for everyone', () => {
     for (const who of [student, teacher, nonTeacher, admin]) {
-      const main = navFor(who, true, { inClass: true, hasWork: true })[0]
-      expect(main.items.find((i) => i.to === '/inbox')?.label).toBe('Inbox')
+      const overview = navFor(who, true, { inClass: true, hasWork: true }).find((g) => g.title === 'Overview')!
+      expect(overview.items.find((i) => i.to === '/inbox')?.label).toBe('Inbox')
     }
   })
 
-  it('gives an admin in work Main, Spaces and Projects, and never Classes', () => {
+  it('gives an admin in work the non-teaching faculty rail with Admin, and never Classes', () => {
     const groups = navFor(admin, true, { inClass: false, hasWork: true })
-    expect(titles(groups)).toEqual(['Main', 'Spaces', 'Projects', 'Admin', 'Account'])
+    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Work', 'Quick access', 'Admin', 'Account'])
   })
 
   it('lists an admin\'s classes under Spaces once one invites them', () => {
     const groups = navFor(admin, true, { inClass: true, hasWork: false })
-    expect(titles(groups)).toEqual(['Main', 'Spaces', 'Projects', 'Admin', 'Account'])
+    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Work', 'Quick access', 'Admin', 'Account'])
     expect(spaces(groups)?.withClasses).toBe(true)
   })
 
@@ -111,16 +127,18 @@ describe('navFor', () => {
     expect(spaces(navFor(admin, true, { inClass: false, hasWork: true }))?.hideWhenEmpty).toBe(true)
   })
 
-  it('never hides Projects', () => {
+  it('fills Quick access with recent projects and hides it while there are none', () => {
     for (const who of [student, teacher, nonTeacher]) {
-      expect(navFor(who, true, { inClass: true, hasWork: true }).find((g) => g.title === 'Projects')?.hideWhenEmpty).toBeFalsy()
+      const quick = navFor(who, true, { inClass: true, hasWork: true }).find((g) => g.title === 'Quick access')
+      expect(quick?.live).toBe('recent')
+      expect(quick?.hideWhenEmpty).toBe(true)
     }
   })
 
-  it('gives an account with no role, or one not active, only Trash and Settings', () => {
-    expect(labels(navFor(account(null, 'pending'), true))).toEqual(['Trash', 'Settings'])
-    expect(labels(navFor(account('faculty', 'pending', true), true))).toEqual(['Trash', 'Settings'])
-    expect(labels(navFor(null, true))).toEqual(['Trash', 'Settings'])
+  it('gives an account with no role, or one not active, only Settings and Trash', () => {
+    expect(labels(navFor(account(null, 'pending'), true))).toEqual(['Settings', 'Trash'])
+    expect(labels(navFor(account('faculty', 'pending', true), true))).toEqual(['Settings', 'Trash'])
+    expect(labels(navFor(null, true))).toEqual(['Settings', 'Trash'])
   })
 
   it('routes every item through one of the allowed prefixes', () => {
@@ -137,7 +155,6 @@ describe('navFor', () => {
       '/projects',
       '/classes',
       '/groups',
-      '/class-projects',
       '/record',
       '/teaching/',
       '/admin/',

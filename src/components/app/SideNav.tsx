@@ -8,7 +8,6 @@ import { useAdmission } from '../../hooks/useAdmission'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { usePendingInvitations } from '../../hooks/usePendingInvitations'
 import { membershipOf } from '../../lib/access'
-import { recentProjects } from '../../lib/general/dashboard'
 import { paths } from '../../lib/paths'
 import { Logo, LogoMark } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
@@ -109,14 +108,27 @@ export function SideNav({
   )
 
   function live({ live: kind, withClasses }: NavGroup): { rows: LiveRow[]; loading: boolean } {
-    if (kind === 'projects') {
-      return {
-        loading: navigation.myProjects === null,
-        rows: recentProjects(liveProjects, PROJECT_CAP).map((project) => ({
+    if (kind === 'recent') {
+      // Class and work projects in one list, most recently changed first.
+      const all = [
+        ...liveProjects.map((project) => ({
           id: project.id,
           name: project.name,
           to: paths.project(project.id),
+          tone: 'work' as const,
+          updated_at: project.updated_at,
         })),
+        ...(navigation.classProjects ?? []).map((project) => ({
+          id: project.id,
+          name: project.title,
+          to: paths.classProject(project.id),
+          tone: 'education' as const,
+          updated_at: project.updated_at,
+        })),
+      ]
+      return {
+        loading: navigation.myProjects === null || navigation.classProjects === null,
+        rows: all.sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, PROJECT_CAP),
       }
     }
     return {
@@ -172,7 +184,7 @@ export function SideNav({
               ? group.items.filter((item) => item.to && here(item.to, item.end))
               : group.items
             const showMore = !collapsed && group.more && (!isFolded || here(group.more.to, true))
-            const listId = `nav-${group.title.toLowerCase()}`
+            const listId = `nav-${group.title.toLowerCase().replace(/\s+/g, '-')}`
 
             return (
               <div key={group.title}>
@@ -197,12 +209,10 @@ export function SideNav({
                     />
                   ))}
 
-                  {/* Classes always has its own rows below, so it needs no
-                      empty line; Spaces and Projects do. */}
-                  {!collapsed && !isFolded && group.live && group.items.length === 0 && rows.length === 0 && !loading && (
-                    <li className="px-3 py-1 text-[13px] text-faint">
-                      {group.live === 'projects' ? 'No projects yet.' : 'No spaces yet.'}
-                    </li>
+                  {/* Only Spaces can stay up empty, for teaching faculty, who
+                      make their own. Classes has its All link under it. */}
+                  {!collapsed && !isFolded && group.live === 'spaces' && rows.length === 0 && !loading && (
+                    <li className="px-3 py-1 text-[13px] text-faint">No spaces yet.</li>
                   )}
 
                   {/* Collapsed there is no header to hang the link on. */}

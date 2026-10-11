@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { DirectoryHero } from '../../components/app/DirectoryHero'
-import { JoinProjectDialog } from '../../components/general/JoinProjectDialog'
-import { WorkProjectCard } from '../../components/general/WorkProjectCard'
-import { Alert } from '../../components/ui/Alert'
-import { Button } from '../../components/ui/Button'
-import { EmptyState } from '../../components/ui/EmptyState'
-import { FilterField, FilterPopover, FilterSearch } from '../../components/ui/FilterPopover'
-import { Icon, Spinner } from '../../components/ui/Icon'
-import { Select } from '../../components/ui/Select'
+import type { ReactNode } from 'react'
+import { DirectoryHero } from '../app/DirectoryHero'
+import { JoinProjectDialog } from './JoinProjectDialog'
+import { WorkProjectCard } from './WorkProjectCard'
+import { Alert } from '../ui/Alert'
+import { Button } from '../ui/Button'
+import { EmptyState } from '../ui/EmptyState'
+import { FilterField, FilterPopover, FilterSearch } from '../ui/FilterPopover'
+import { Icon, Spinner } from '../ui/Icon'
+import { Select } from '../ui/Select'
 import { useAuth } from '../../context/AuthContext'
 import { useLive } from '../../hooks/useLive'
 import { isFaculty } from '../../lib/access'
@@ -22,7 +23,8 @@ import type { GeneralProjectSummary, GeneralStatus } from '../../lib/general/typ
  */
 const UNNAMED_SPACE = 'unnamed'
 
-export default function GeneralProjects() {
+/** The Work half of the Projects page: every workspace project the reader is on. */
+export function WorkProjectsView({ scope }: { scope?: ReactNode }) {
   const { profile } = useAuth()
   const faculty = isFaculty(profile)
   const [projects, setProjects] = useState<GeneralProjectSummary[] | null>(null)
@@ -43,7 +45,6 @@ export default function GeneralProjects() {
   }, [])
 
   useEffect(() => {
-    document.title = 'Projects · Collabify'
     void load()
   }, [load])
 
@@ -89,9 +90,9 @@ export default function GeneralProjects() {
   return (
     <div className="w-full space-y-6">
       <DirectoryHero
-        title="Your General"
+        title="Your workspace"
         accent="projects."
-        description="Every General workplace project you joined, across all spaces, in one place."
+        description="Every workspace project you joined, across all spaces, in one place."
         action={
           faculty ? (
             <Button variant="onNavy" size="sm" onClick={() => setJoinOpen(true)}>
@@ -109,6 +110,12 @@ export default function GeneralProjects() {
       )}
 
       {error && <Alert tone="error">{error}</Alert>}
+
+      {/* With nothing to filter the section header below is not drawn, but
+          the switch to the class side still has to be reachable. */}
+      {scope && (projects === null || live.length === 0) && (
+        <div className="flex justify-end">{scope}</div>
+      )}
 
       {projects === null ? (
         <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
@@ -129,6 +136,7 @@ export default function GeneralProjects() {
         <section className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="mr-auto">All projects</h2>
+            {scope}
             <FilterPopover
               align="right"
               label="Filter projects"

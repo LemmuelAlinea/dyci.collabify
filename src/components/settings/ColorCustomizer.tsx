@@ -991,7 +991,7 @@ function GroupPreview({ id, mode, picks, depth }: { id: GroupId; mode: Mode; pic
           <span className="relative flex items-center gap-2 rounded-md bg-[var(--surface-sunken)] px-2.5 py-1.5 font-semibold text-[var(--ink)]">
             <span className="absolute inset-y-1 left-0 w-[3px] rounded-full bg-nav-marker" />
             <Icon name="kanban" size={14} className="text-nav-active" />
-            Class projects
+            Projects
           </span>
           <span className="flex items-center gap-2 px-2.5 py-1.5">
             <Icon name="calendar" size={14} className="text-nav-icon" />

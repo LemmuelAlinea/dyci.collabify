@@ -58,7 +58,6 @@ const Notices = lazy(() => import('./pages/app/admin/Notices'))
 const ProfessorApprovals = lazy(() => import('./pages/app/admin/ProfessorApprovals'))
 const ProfessorClasses = lazy(() => import('./pages/app/classes/ProfessorClasses'))
 const ProfessorGroups = lazy(() => import('./pages/app/groups/ProfessorGroups'))
-const ProfessorProjects = lazy(() => import('./pages/app/projects/ProfessorProjects'))
 const ProgramClasses = lazy(() => import('./pages/app/admin/ProgramClasses'))
 const ProgramLibrary = lazy(() => import('./pages/app/admin/ProgramLibrary'))
 const ProjectDetail = lazy(() => import('./pages/app/projects/ProjectDetail'))
@@ -72,14 +71,13 @@ const Archive = lazy(() => import('./pages/app/Archive'))
 const ClassSpace = lazy(() => import('./pages/app/classes/ClassSpace'))
 const StudentClasses = lazy(() => import('./pages/app/classes/StudentClasses'))
 const StudentGroups = lazy(() => import('./pages/app/groups/StudentGroups'))
-const StudentProjects = lazy(() => import('./pages/app/projects/StudentProjects'))
 const StudentReports = lazy(() => import('./pages/app/reports/StudentReports'))
 const Syllabi = lazy(() => import('./pages/app/resources/Syllabi'))
 const SyllabusDetail = lazy(() => import('./pages/app/resources/SyllabusDetail'))
 const SpaceLayout = lazy(() => import('./pages/general/SpaceLayout'))
 const SpaceHome = lazy(() => import('./pages/general/SpaceHome'))
 const SpaceProjects = lazy(() => import('./pages/general/SpaceProjects'))
-const GeneralProjects = lazy(() => import('./pages/general/GeneralProjects'))
+const Projects = lazy(() => import('./pages/app/projects/Projects'))
 const GeneralTeams = lazy(() => import('./pages/general/GeneralTeams'))
 const SpacePicker = lazy(() => import('./pages/general/SpacePicker'))
 const SpaceMembers = lazy(() => import('./pages/general/SpaceMembers'))
@@ -177,10 +175,11 @@ export default function App() {
                 <Route path="settings" element={<SpaceSettings />} />
               </Route>
 
-              {/* Flat, not nested under the space: a project id is unique on its
-                  own, and nesting would break every link and deep link already
-                  out there. The space is derived from the project. */}
-              <Route path="/projects" element={<GeneralProjects />} />
+              {/* Class and workspace projects on one page. A workspace project's
+                  own page is flat, not nested under the space: a project id is
+                  unique on its own, and nesting would break every link and deep
+                  link already out there. The space is derived from the project. */}
+              <Route path="/projects" element={<Projects />} />
               <Route path="/projects/:projectId" element={<GeneralProject />} />
               <Route path="/projects/:projectId/archive" element={<ProjectArchive />} />
 
@@ -213,9 +212,11 @@ export default function App() {
                 }
               />
 
+              {/* Class projects moved onto the one Projects page; old links land
+                  on its Classes side. */}
               <Route
                 path="/class-projects"
-                element={<RoleSwitch student={<StudentProjects />} faculty={<ProfessorProjects />} />}
+                element={<Navigate to={`${paths.projects}?show=classes`} replace />}
               />
               <Route
                 path="/class-projects/:projectId"

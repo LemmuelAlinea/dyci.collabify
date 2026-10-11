@@ -3087,3 +3087,26 @@ Branch `claude/notes-file-plan`. No SQL.
   `--banner-end`).
 - Checked: build, lib Vitest; browser (dark, gradient banner) shows Tasks and Weeks in the
   banner's amber end with dark text. Not seen: light mode, a custom solid banner.
+
+**Change (2026-10-12): sidebar reorganized; one Projects page.** On main. No SQL.
+- Scrollbars hidden (still scrollable) on the rail (`.scroll-hidden`) and on the workspace page
+  (`html:has(.app-ui)`).
+- Rail sections (`components/app/nav.ts`): Overview (Home, Inbox, Calendar), Work (My tasks,
+  Projects, Groups for class accounts, Meetings), Classes (live rows + View all classes), Spaces,
+  Quick access (3 most recently updated projects, class and work mixed, hidden while empty),
+  Teaching (Submissions, Reassignments, Analytics, Reports), Resources (faculty: Syllabi,
+  Curriculum; students: Your record), Account (Settings, Archive, Trash). Order: students
+  Overview, Work, Classes, [Spaces once invited], Quick access, Resources, Account; teaching
+  faculty Spaces first, then Overview, Work, Classes, Quick access, Teaching, Resources, Account;
+  non-teaching faculty Spaces, Overview, Work, Quick access, Account; admins in something the
+  same with Admin before Account. Narrow rails (waiting student, admin in nothing) unchanged.
+- Quick access data: `GeneralNavigationContext` now also loads `classProjects` for the reader's
+  classes (released only for students).
+- `/projects` is one page (`pages/app/projects/Projects.tsx`) over `ClassProjectsView` and
+  `WorkProjectsView` (the old Student/ProfessorProjects and GeneralProjects). Classes · Work switch
+  in `?show=` only for students with work and teaching faculty; students open on Classes, faculty
+  on Work. `/class-projects` redirects to `/projects?show=classes`; detail routes unchanged.
+- Checked: build, eslint on touched files, nav + access Vitest (rewritten nav tests per rail).
+  Browser as teaching faculty: rail order, Quick access mixing Capstone 2 / Midterm Exam /
+  Intramurals 2026 with the right links, switch writes `?show=classes`, redirect lands.
+- Not seen in a browser: student and non-teaching faculty rails (covered by unit tests only).

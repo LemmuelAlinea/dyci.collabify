@@ -4,9 +4,13 @@ import { useLocation } from 'react-router-dom'
 import { useLive } from '../hooks/useLive'
 import { landingSpace, rememberSpace, useMySpaces } from '../hooks/useSpaces'
 import { listMyGeneralProjects, listSpaceProjects } from '../lib/api/general'
+import { listProjectsForClasses } from '../lib/api/projects'
 import { authErrorMessage } from '../lib/authError'
 import { projectRouteId, spaceRouteId } from '../lib/general/navigation'
 import type { GeneralProjectSummary } from '../lib/general/types'
+import { isReleased } from '../lib/types'
+import type { ProjectSummary } from '../lib/types'
+import { useAuth } from './AuthContext'
 import { GeneralNavigationContext } from './generalNavigation'
 import type { GeneralNavigationValue } from './generalNavigation'
 
@@ -20,6 +24,8 @@ export function GeneralNavigationProvider({
   children: ReactNode
 }) {
   const location = useLocation()
+  const isStudent = useAuth().profile?.role === 'student'
+  const [classProjects, setClassProjects] = useState<ProjectSummary[] | null>(null)
   const { spaces, invitations, error: spacesError, reload: reloadSpaces } = useMySpaces(enabled)
   const [reported, setReported] = useState<ProjectSpace | null>(null)
   // Only holds a fetch of its own while a space is in view; with no current
@@ -114,6 +120,40 @@ export function GeneralNavigationProvider({
     void loadMine()
   }, [loadMine])
 
+  // The ids as one string, so a spaces refresh that changes nothing about the
+  // reader's classes does not refetch their projects.
+  const spacesReady = spaces !== null
+  const classIds = (spaces ?? [])
+    .filter((space) => space.kind === 'education' && space.my_level && space.class_id && !space.archived_at)
+    .map((space) => space.class_id!)
+    .sort()
+    .join(',')
+
+  /**
+   * Class projects for the rail's Quick access. A student sees only what has
+   * opened to them; a professor sees their drafts too, since those are work
+   * they are in the middle of. Failing quietly is fine here: the rail just
+   * shows work projects, and the Projects page reports its own errors.
+   */
+  const loadClassProjects = useCallback(async () => {
+    if (!enabled || !spacesReady) {
+      setClassProjects(null)
+      return
+    }
+    try {
+      const all = await listProjectsForClasses(classIds ? classIds.split(',') : [])
+      setClassProjects(
+        all.filter((project) => (isStudent ? isReleased(project) : !project.archived_at)),
+      )
+    } catch {
+      setClassProjects((previous) => previous ?? [])
+    }
+  }, [classIds, enabled, isStudent, spacesReady])
+
+  useEffect(() => {
+    void loadClassProjects()
+  }, [loadClassProjects])
+
   // Nothing forgets the remembered space here any more. It used to be wiped
   // whenever a space URL resolved to nothing — which is somebody following a
   // link into a space they are not in, and cost them the space they did have.
@@ -129,10 +169,11 @@ export function GeneralNavigationProvider({
     { enabled },
   )
   useLive(loadMine, ['general_projects', 'general_members'], { enabled })
+  useLive(loadClassProjects, ['projects'], { enabled })
 
   const reload = useCallback(async () => {
-    await Promise.all([reloadSpaces(), loadProjects(), loadMine()])
-  }, [loadMine, loadProjects, reloadSpaces])
+    await Promise.all([reloadSpaces(), loadProjects(), loadMine(), loadClassProjects()])
+  }, [loadClassProjects, loadMine, loadProjects, reloadSpaces])
 
   const reportProjectSpace = useCallback((projectId: string, spaceId: string) => {
     setReported({ projectId, spaceId })
@@ -151,11 +192,13 @@ export function GeneralNavigationProvider({
       currentSpace,
       projects,
       myProjects,
+      classProjects,
       error: spacesError ?? projectError ?? mineError,
       reload,
       reportProjectSpace,
     }),
     [
+      classProjects,
       currentSpace,
       currentSpaceId,
       invitations,
