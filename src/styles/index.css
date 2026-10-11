@@ -757,6 +757,14 @@
     height: 0;
   }
 
+  /* Scrolls by wheel, touch and keyboard, with no visible bar. */
+  .scroll-hidden {
+    scrollbar-width: none;
+  }
+  .scroll-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
   /**
    * Overlay motion, said once — true of these durations, not yet of every
    * duration in the app. `--dur-press/fast/base/overlay` above are the source

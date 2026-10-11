@@ -134,7 +134,7 @@ export function SideNav({
     <>
       <nav
         aria-label="Primary"
-        className={`flex min-h-0 flex-1 flex-col overflow-y-auto py-4 ${collapsed ? 'px-2' : 'px-4'}`}
+        className={`flex min-h-0 flex-1 flex-col overflow-y-auto scroll-hidden py-4 ${collapsed ? 'px-2' : 'px-4'}`}
       >
         <div className="space-y-5">
           {showLogo && (
