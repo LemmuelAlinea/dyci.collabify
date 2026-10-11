@@ -3110,3 +3110,23 @@ Branch `claude/notes-file-plan`. No SQL.
   Browser as teaching faculty: rail order, Quick access mixing Capstone 2 / Midterm Exam /
   Intramurals 2026 with the right links, switch writes `?show=classes`, redirect lands.
 - Not seen in a browser: student and non-teaching faculty rails (covered by unit tests only).
+
+**Change (2026-10-12): places card at the top of the rail.** On main. No SQL.
+- Classes and Spaces are no longer separate rail sections. Every admitted rail opens on one card
+  (`components/app/PlacePicker.tsx`, `NavGroup.picker` in `nav.ts`): students with only classes
+  get a Classes card; students invited to work get "Classes & spaces" with a Classes · Spaces
+  switch (Classes first); teaching faculty get the same with Spaces first; non-teaching faculty
+  and admins get a Spaces card (classes listed among spaces, `withClasses`). With
+  `hideWhenEmpty`, a kind with no rows drops out of the switch.
+- Drawn in the banner's colours: `.place-card`, `.place-row-active`, `.place-tile` in
+  `index.css` use `--banner-edge` → `--banner-end`; the selected switch item is
+  `bg-banner-end text-banner-end-ink`. The working space (`currentSpaceId`) shows a status dot and
+  "Active space"; class rows show their section as a second line (`LiveRow.detail`). The All link
+  is a full-width row ending in a chevron, no arrow. The switch follows the page in view
+  (`/classes/:id`, `/spaces/:id`), otherwise the last pick on the device (`collabify:nav-place`).
+- Icon rail (collapsed) keeps letter rows plus each kind's All row.
+- Also fixed: the previous commit's PowerShell rewrite of `nav.ts` had turned its em dashes into
+  `â€”`; restored.
+- Checked: build, eslint on components/app, nav + spaceRows Vitest; browser drawer as teaching
+  faculty, dark (gradient banner) and light: Spaces and Classes tabs, active space row, All rows.
+- Not seen: student and non-teaching faculty cards, desktop rail at full size.

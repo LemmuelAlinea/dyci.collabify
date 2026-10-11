@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import type { FocusEvent, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink, matchPath, useLocation } from 'react-router-dom'
@@ -13,6 +13,8 @@ import { Logo, LogoMark } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
 import { navFor } from './nav'
 import type { NavGroup, NavItem } from './nav'
+import { PlacePicker } from './PlacePicker'
+import type { PlaceList } from './PlacePicker'
 import { PROJECT_CAP, classRows, spaceAndClassRows, workSpaceRows } from './spaceRows'
 import type { LiveRow } from './spaceRows'
 
@@ -107,7 +109,27 @@ export function SideNav({
     (project) => project.my_level && !project.archived_at,
   )
 
-  function live({ live: kind, withClasses }: NavGroup): { rows: LiveRow[]; loading: boolean } {
+  /**
+   * The places card's lists, one per kind the rail offers. With
+   * `hideWhenEmpty` a kind with no rows is left out — the switch goes with it
+   * — and so is every kind while the spaces load, so nothing flashes in and
+   * back out.
+   */
+  function places({ picker = [], withClasses, hideWhenEmpty }: NavGroup): PlaceList[] {
+    const lists: PlaceList[] = picker.map((kind) =>
+      kind === 'classes'
+        ? { kind, rows: classRows(spaces), more: { to: paths.classes, label: 'All classes' } }
+        : {
+            kind,
+            rows: withClasses ? spaceAndClassRows(spaces) : workSpaceRows(spaces),
+            more: { to: paths.spaces, label: 'All spaces' },
+          },
+    )
+    if (!hideWhenEmpty) return lists
+    return navigation.spaces === null ? [] : lists.filter((list) => list.rows.length > 0)
+  }
+
+  function live({ live: kind }: NavGroup): { rows: LiveRow[]; loading: boolean } {
     if (kind === 'recent') {
       // Class and work projects in one list, most recently changed first.
       const all = [
@@ -131,15 +153,7 @@ export function SideNav({
         rows: all.sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, PROJECT_CAP),
       }
     }
-    return {
-      loading: navigation.spaces === null,
-      rows:
-        kind === 'classes'
-          ? classRows(spaces)
-          : withClasses
-            ? spaceAndClassRows(spaces)
-            : workSpaceRows(spaces),
-    }
+    return { loading: false, rows: [] }
   }
 
   return (
@@ -169,6 +183,46 @@ export function SideNav({
           )}
 
           {groups.map((group) => {
+            if (group.picker) {
+              const lists = places(group)
+              if (lists.length === 0) return null
+              const listId = `nav-${group.title.toLowerCase().replace(/[^a-z]+/g, '-')}`
+              // The icon rail has no room for the card: each kind's letters,
+              // then its All link, as before.
+              if (collapsed) {
+                return (
+                  <ul key={group.title} className="space-y-0.5">
+                    {lists.map((list) => (
+                      <Fragment key={list.kind}>
+                        {list.rows.map((row) => (
+                          <LiveRowLink
+                            key={row.id}
+                            row={row}
+                            collapsed
+                            onNavigate={onNavigate}
+                            hintHandlers={hintHandlers}
+                          />
+                        ))}
+                        <MoreRow more={list.more} onNavigate={onNavigate} hintHandlers={hintHandlers} />
+                      </Fragment>
+                    ))}
+                  </ul>
+                )
+              }
+              return (
+                <PlacePicker
+                  key={group.title}
+                  title={group.title}
+                  lists={lists}
+                  open={!folded.includes(group.title)}
+                  controls={listId}
+                  onToggle={() => toggleFold(group.title)}
+                  currentSpaceId={navigation.currentSpaceId}
+                  onNavigate={onNavigate}
+                />
+              )
+            }
+
             const { rows: allRows, loading } = group.live ? live(group) : { rows: [], loading: false }
             // Hidden while loading too, so a student with no spaces never sees
             // the section flash in and back out.
@@ -208,12 +262,6 @@ export function SideNav({
                       hintHandlers={hintHandlers}
                     />
                   ))}
-
-                  {/* Only Spaces can stay up empty, for teaching faculty, who
-                      make their own. Classes has its All link under it. */}
-                  {!collapsed && !isFolded && group.live === 'spaces' && rows.length === 0 && !loading && (
-                    <li className="px-3 py-1 text-[13px] text-faint">No spaces yet.</li>
-                  )}
 
                   {/* Collapsed there is no header to hang the link on. */}
                   {collapsed && group.more && (
@@ -282,13 +330,15 @@ function LiveRowLink({
   onNavigate?: () => void
   hintHandlers: (text: string) => Record<string, unknown>
 }) {
+  // A class row carries its section separately; the tooltip names both.
+  const label = row.tone === 'education' && row.detail ? `${row.name} · ${row.detail}` : row.name
   return (
     <li>
       <NavLink
         to={row.to}
         onClick={onNavigate}
-        aria-label={collapsed ? row.name : undefined}
-        {...hintHandlers(row.name)}
+        aria-label={collapsed ? label : undefined}
+        {...hintHandlers(label)}
         className={({ isActive }) =>
           `${ROW} h-9 text-[14px] ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
             isActive ? ACTIVE : IDLE

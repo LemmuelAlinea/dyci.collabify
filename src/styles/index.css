@@ -764,6 +764,48 @@
   .scroll-hidden::-webkit-scrollbar {
     display: none;
   }
+  /**
+   * The rail's places card, drawn in the person's banner: an outline that runs
+   * from its left-hand colour to its right-hand one, over a faint wash of the
+   * same. `--banner-edge` and `--banner-end` are the banner's two ends already
+   * held to 3:1 against the page, so the outline stays visible on any banner.
+   */
+  .place-card {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(
+          135deg,
+          color-mix(in oklab, var(--banner-edge) 12%, var(--surface)),
+          color-mix(in oklab, var(--banner-end) 5%, var(--surface))
+        )
+        padding-box,
+      linear-gradient(135deg, var(--banner-edge), var(--banner-end)) border-box;
+  }
+  /* The place you are in, inside the card: a stronger wash and a softer outline. */
+  .place-row-active {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(
+          120deg,
+          color-mix(in oklab, var(--banner-edge) 24%, var(--surface)),
+          color-mix(in oklab, var(--banner-end) 9%, var(--surface))
+        )
+        padding-box,
+      linear-gradient(
+          120deg,
+          color-mix(in oklab, var(--banner-edge) 75%, transparent),
+          color-mix(in oklab, var(--banner-end) 45%, transparent)
+        )
+        border-box;
+  }
+  /* A place's letter tile, outlined in the banner's two colours. */
+  .place-tile {
+    border: 2px solid transparent;
+    background:
+      linear-gradient(var(--surface-sunken), var(--surface-sunken)) padding-box,
+      linear-gradient(135deg, var(--banner-edge), var(--banner-end)) border-box;
+  }
+
   /* The workspace page scrolls the window, so its bar is the document's. */
   html:has(.app-ui) {
     scrollbar-width: none;

@@ -16,16 +16,27 @@ export type NavItem = {
   end?: boolean
 }
 
+export type PlaceKind = 'classes' | 'spaces'
+
 export type NavGroup = {
   title: string
   items: NavItem[]
-  /** Live rows `SideNav` fills in above `items`: the reader's own classes, spaces or recent projects. */
-  live?: 'classes' | 'spaces' | 'recent'
+  /** Live rows `SideNav` fills in above `items`: the reader's recent projects. */
+  live?: 'recent'
+  /**
+   * The places card: the reader's classes and/or spaces, each kind with its
+   * own All link. Two kinds get a switch between them; the first is the default.
+   */
+  picker?: PlaceKind[]
   /** The page listing all of them, linked in small type under the live rows. */
   more?: { to: string; label: string }
-  /** Leave the whole section out until there is at least one live row. */
+  /**
+   * Leave the whole section out until there is at least one live row. On the
+   * places card, a kind with no rows is left out instead, and the card with it
+   * once none are left.
+   */
   hideWhenEmpty?: boolean
-  /** Spaces lists the reader's classes too â€” for anyone with no Classes section. */
+  /** The Spaces kind lists the reader's classes too — for anyone with no Classes kind. */
   withClasses?: boolean
   /** The header folds the section away, live rows included. Remembered per device. */
   collapsible?: boolean
@@ -35,15 +46,13 @@ export type NavGroup = {
 /**
  * One rail, for everyone.
  *
- * It opens on the spine every account shares (Overview, then Work), then the
- * reader's own classes, spaces and recent projects â€” live data `SideNav`
- * fills in, but placed here so the order lives in one file â€” then whatever
- * their role adds on top. Faculty and admins open on Spaces instead, since
- * their own work comes before the program's; students keep their classes on
- * top and find Spaces after them. A section someone cannot use is not shown
- * to them: faculty the admin has not let teach get no Classes, Teaching or
- * Resources, and an account that cannot make a space of its own sees Spaces
- * only once somebody has invited it into one.
+ * It opens on the reader's own places — a card of their classes and spaces,
+ * live data `SideNav` fills in, but placed here so the order lives in one
+ * file — then the spine every account shares (Overview, then Work), their
+ * recent projects, and whatever their role adds on top. A section someone
+ * cannot use is not shown to them: faculty the admin has not let teach get no
+ * Classes, Teaching or Resources, and an account that cannot make a space of
+ * its own sees Spaces only once somebody has invited it into one.
  */
 const OVERVIEW: NavGroup = {
   title: 'Overview',
@@ -85,7 +94,7 @@ function workGroup(groups: boolean): NavGroup {
  * The queue for whoever *answers* those requests is deliberately not here. The
  * handler is one named professor, this list is static per role, and giving
  * every professor a permanently empty screen would be worse than the link
- * living on the handler's own request page â€” which is where it does.
+ * living on the handler's own request page — which is where it does.
  */
 const SETTINGS: NavItem = { label: 'Settings', icon: 'settings', to: paths.settings }
 const TRASH: NavItem = { label: 'Trash', icon: 'trash', to: paths.trash }
@@ -114,31 +123,31 @@ const ADMIN_ACCOUNT: NavGroup = {
   items: [SETTINGS, { label: 'Archive', icon: 'archive', to: paths.admin.archive }, TRASH],
 }
 
-/** The reader's classes. Groups and projects sit under Work. */
-const CLASSES: NavGroup = {
-  title: 'Classes',
-  live: 'classes',
-  collapsible: true,
-  more: { to: paths.classes, label: 'View all classes' },
-  items: [],
-}
-
 /**
- * Work spaces. Someone with a Classes section finds their classes there;
- * anyone without one â€” faculty who do not teach, admins â€” finds them here,
+ * The card at the top of the rail: the reader's classes, their spaces, or
+ * both behind a switch, with the first kind listed open by default. Groups
+ * and projects sit under Work.
+ *
+ * Anyone with spaces but no classes of their own to run — faculty who do not
+ * teach, admins — finds any class they sit in among their spaces,
  * `withClasses`, the same way their Spaces page lists them.
  */
-function spacesGroup(hideWhenEmpty: boolean, withClasses = false): NavGroup {
+function placesGroup(
+  picker: PlaceKind[],
+  { hideWhenEmpty = false, withClasses = false }: { hideWhenEmpty?: boolean; withClasses?: boolean } = {},
+): NavGroup {
   return {
-    title: 'Spaces',
-    live: 'spaces',
+    title: picker.length > 1 ? 'Classes & spaces' : picker[0] === 'classes' ? 'Classes' : 'Spaces',
+    picker,
     collapsible: true,
-    more: { to: paths.spaces, label: 'All spaces' },
     hideWhenEmpty,
     withClasses,
     items: [],
   }
 }
+
+/** Faculty who do not teach, and admins: their spaces, any class among them. */
+const SPACES_ONLY = placesGroup(['spaces'], { hideWhenEmpty: true, withClasses: true })
 
 /**
  * The projects the reader touched last, class and work alike. No "All" link:
@@ -187,7 +196,7 @@ function resourcesGroup(role: Role): NavGroup {
 
 /**
  * What the office sets up, who is in the program, and the program read back
- * as figures â€” the same three bands the admin rail always had.
+ * as figures — the same three bands the admin rail always had.
  */
 const ADMIN: NavGroup = {
   title: 'Admin',
@@ -233,12 +242,15 @@ const MAIN_WAITING: NavGroup = {
  * `admitted` narrows only a student's Main group, to just Home; faculty and
  * admins are admitted by approval, which the route guard has already
  * checked before this ever renders. An account with no role yet, or one that
- * isn't active, has nothing to open but Settings â€” every other page here
+ * isn't active, has nothing to open but Settings — every other page here
  * needs an admitted account.
  *
- * Spaces hides while empty for anyone who cannot open a class â€” students,
- * faculty who do not teach, admins. Teaching faculty keep it, empty or not,
- * because making spaces is part of their job.
+ * Every admitted rail opens on the places card. A student's lists Classes,
+ * then Spaces once somebody invites them into one; teaching faculty get
+ * Spaces then Classes, Spaces open first. Spaces drops out while empty for
+ * anyone who cannot open a class — students, faculty who do not teach,
+ * admins. Teaching faculty keep it, empty or not, because making spaces is
+ * part of their job.
  *
  * An admin runs the program rather than sitting in it, so until someone
  * invites them into a class, space or project their rail is Admin and
@@ -259,17 +271,16 @@ export function navFor(
       // Invited but not yet in: the Inbox is where they answer.
       return membership?.invited ? [ADMIN_INVITED, ADMIN, ADMIN_ACCOUNT] : [ADMIN, ADMIN_ACCOUNT]
     }
-    return [spacesGroup(true, true), OVERVIEW, workGroup(false), QUICK_ACCESS, ADMIN, ADMIN_ACCOUNT]
+    return [SPACES_ONLY, OVERVIEW, workGroup(false), QUICK_ACCESS, ADMIN, ADMIN_ACCOUNT]
   }
   if (role === 'student') {
     if (!admitted) return [MAIN_WAITING, ACCOUNT]
     // A student cannot make a space; work arrives by invitation, and only
     // then does Spaces earn a place, after their classes.
     return [
+      placesGroup(membership?.hasWork ? ['classes', 'spaces'] : ['classes'], { hideWhenEmpty: true }),
       OVERVIEW,
       workGroup(true),
-      CLASSES,
-      ...(membership?.hasWork ? [spacesGroup(true)] : []),
       QUICK_ACCESS,
       resourcesGroup(role),
       ACCOUNT_WITH_ARCHIVE,
@@ -277,15 +288,14 @@ export function navFor(
   }
   if (canTeach(profile)) {
     return [
-      spacesGroup(false),
+      placesGroup(['spaces', 'classes']),
       OVERVIEW,
       workGroup(true),
-      CLASSES,
       QUICK_ACCESS,
       TEACHING,
       resourcesGroup(role),
       ACCOUNT_WITH_ARCHIVE,
     ]
   }
-  return [spacesGroup(true, true), OVERVIEW, workGroup(false), QUICK_ACCESS, ACCOUNT_WITH_ARCHIVE]
+  return [SPACES_ONLY, OVERVIEW, workGroup(false), QUICK_ACCESS, ACCOUNT_WITH_ARCHIVE]
 }

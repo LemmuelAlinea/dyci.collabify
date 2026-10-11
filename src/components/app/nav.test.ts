@@ -7,7 +7,8 @@ const labels = (groups: NavGroup[]) => groups.flatMap((g) => g.items.map((i) => 
 const titles = (groups: NavGroup[]) => groups.map((g) => g.title)
 const tos = (groups: NavGroup[]) =>
   groups.flatMap((g) => [...g.items.map((i) => i.to), ...(g.more ? [g.more.to] : [])])
-const spaces = (groups: NavGroup[]) => groups.find((g) => g.title === 'Spaces')
+const places = (groups: NavGroup[]) => groups.find((g) => g.picker)
+const spaces = (groups: NavGroup[]) => groups.find((g) => g.picker?.includes('spaces'))
 const section = (groups: NavGroup[], title: string) =>
   groups.find((g) => g.title === title)?.items.map((i) => i.label)
 
@@ -38,31 +39,33 @@ describe('navFor', () => {
     expect(labels(navFor(student, false))).toEqual(['Home', 'Settings', 'Trash'])
   })
 
-  it('gives a student with only classes their class side, Your record under Resources', () => {
+  it('opens a student with only classes on a Classes card, Your record under Resources', () => {
     const groups = navFor(student, true, { inClass: true, hasWork: false })
-    expect(titles(groups)).toEqual(['Overview', 'Work', 'Classes', 'Quick access', 'Resources', 'Account'])
+    expect(titles(groups)).toEqual(['Classes', 'Overview', 'Work', 'Quick access', 'Resources', 'Account'])
+    expect(places(groups)?.picker).toEqual(['classes'])
     expect(section(groups, 'Resources')).toEqual(['Your record'])
-    expect(titles(navFor(student, true))).toEqual(['Overview', 'Work', 'Classes', 'Quick access', 'Resources', 'Account'])
+    expect(titles(navFor(student, true))).toEqual(['Classes', 'Overview', 'Work', 'Quick access', 'Resources', 'Account'])
   })
 
-  it('adds Spaces after Classes once a student is invited to some work', () => {
+  it('adds Spaces after Classes on the card once a student is invited to some work', () => {
     const groups = navFor(student, true, { inClass: true, hasWork: true })
-    expect(titles(groups)).toEqual(['Overview', 'Work', 'Classes', 'Spaces', 'Quick access', 'Resources', 'Account'])
+    expect(titles(groups)).toEqual(['Classes & spaces', 'Overview', 'Work', 'Quick access', 'Resources', 'Account'])
+    expect(places(groups)?.picker).toEqual(['classes', 'spaces'])
     expect(spaces(groups)?.hideWhenEmpty).toBe(true)
   })
 
-  it('opens teaching faculty on Spaces, with Teaching and Resources and no Your record', () => {
+  it('opens teaching faculty on a card with Spaces first, with Teaching and Resources and no Your record', () => {
     const groups = navFor(teacher, true)
     expect(titles(groups)).toEqual([
-      'Spaces',
+      'Classes & spaces',
       'Overview',
       'Work',
-      'Classes',
       'Quick access',
       'Teaching',
       'Resources',
       'Account',
     ])
+    expect(places(groups)?.picker).toEqual(['spaces', 'classes'])
     expect(section(groups, 'Teaching')).toEqual(['Submissions', 'Reassignments', 'Analytics', 'Reports'])
     expect(section(groups, 'Resources')).toEqual(['Syllabi', 'Curriculum'])
     expect(labels(groups)).not.toContain('Your record')
@@ -75,7 +78,7 @@ describe('navFor', () => {
   })
 
   it('never narrows faculty on the admission flag', () => {
-    expect(titles(navFor(teacher, false))).toContain('Classes')
+    expect(places(navFor(teacher, false))?.picker).toContain('classes')
   })
 
   it('gives an admin in nothing only Admin and Account', () => {
