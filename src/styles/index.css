@@ -764,6 +764,13 @@
   .scroll-hidden::-webkit-scrollbar {
     display: none;
   }
+  /* The workspace page scrolls the window, so its bar is the document's. */
+  html:has(.app-ui) {
+    scrollbar-width: none;
+  }
+  html:has(.app-ui)::-webkit-scrollbar {
+    display: none;
+  }
 
   /**
    * Overlay motion, said once — true of these durations, not yet of every
