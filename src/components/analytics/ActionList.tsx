@@ -29,7 +29,14 @@ const REMINDABLE: ActionKind[] = [
  * Six at a time. A list of thirty recommendations is a list nobody finishes,
  * and the ordering is the point of it.
  */
-export function ActionList({ actions }: { actions: Action[] }) {
+export function ActionList({
+  actions,
+  onSeeWhy,
+}: {
+  actions: Action[]
+  /** Opens the chart that is the evidence for this card. */
+  onSeeWhy?: (a: Action) => void
+}) {
   const [all, setAll] = useState(false)
 
   if (actions.length === 0) {
@@ -85,6 +92,15 @@ export function ActionList({ actions }: { actions: Action[] }) {
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                {onSeeWhy && (
+                  <button
+                    type="button"
+                    onClick={() => onSeeWhy(a)}
+                    className="shrink-0 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-muted transition-colors hover:text-ink"
+                  >
+                    See why
+                  </button>
+                )}
                 {a.boardId && !a.names && REMINDABLE.includes(a.kind) && (
                   <NudgeButton boardId={a.boardId} name="this board" />
                 )}
