@@ -6,7 +6,8 @@ import { WeekBars } from '../charts/WeekBars'
 import { Modal } from '../ui/Modal'
 import { useNow } from '../../hooks/useNow'
 import { addDays, manilaDay, weeklyActivity } from '../../lib/analyticsMath'
-import { analyseTeam, latestRoundRows, PEER_FLAG_META } from '../../lib/peerMath'
+import { analyseTeam, PEER_FLAG_META } from '../../lib/peerMath'
+import type { PeerResult } from '../../lib/types'
 import { classWindow } from '../../pages/app/analytics/window'
 import type { AnalyticsData } from '../../pages/app/analytics/useAnalytics'
 import { FLAG_META } from './flags'
@@ -40,12 +41,24 @@ export function StudentDrawer({
     .filter((m) => m.student_id === entry.student_id && m.class_id === entry.class_id)
     .sort((a, b) => b.task_count - a.task_count)[0]
 
-  const peerRows = latestRoundRows(data.shownPeer.filter((r) => r.class_id === entry.class_id))
-  const myPeerBoard = peerRows.find((r) => r.student_id === entry.student_id)?.board_id
-  const myPeer = myPeerBoard
-    ? analyseTeam(peerRows.filter((r) => r.board_id === myPeerBoard)).find(
-        (r) => r.student_id === entry.student_id,
-      )
+  // The student's latest round across every group board they are on; a tie on
+  // the open date prefers the round still in progress.
+  const myPeerRow = data.shownPeer
+    .filter((r) => r.class_id === entry.class_id && r.student_id === entry.student_id)
+    .reduce<PeerResult | undefined>(
+      (best, r) =>
+        !best || r.opens_at > best.opens_at || (r.opens_at === best.opens_at && r.is_open && !best.is_open)
+          ? r
+          : best,
+      undefined,
+    )
+  const myPeer = myPeerRow
+    ? analyseTeam(
+        data.shownPeer.filter((r) => r.round_id === myPeerRow.round_id && r.board_id === myPeerRow.board_id),
+      ).find((r) => r.student_id === entry.student_id)
+    : undefined
+  const myPeerProject = myPeerRow
+    ? data.shownBurns.find((b) => b.project_id === myPeerRow.project_id)?.project_title
     : undefined
 
   const lanes: Lane[] = tasks.map((t) => {
@@ -94,8 +107,8 @@ export function StudentDrawer({
         )}
 
         <p className="text-[13px] text-muted">
-          {myPeer
-            ? <>Teammates' rating: <span className="font-mono text-ink">{myPeer.factor === null ? 'too few raters' : `factor ${myPeer.factor.toFixed(2)}`}</span>
+          {myPeer && myPeerRow
+            ? <>Teammates' rating ({[myPeerRow.group_name ?? 'Group', myPeerProject].filter(Boolean).join(' · ')}{myPeerRow.is_open ? ' · in progress' : ''}): <span className="font-mono text-ink">{myPeer.factor === null ? 'too few raters' : `factor ${myPeer.factor.toFixed(2)}`}</span>
               {myPeer.flags.map((f) => (
                 <span key={f} className={`ml-1.5 rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL[PEER_FLAG_META[f].tone]}`}>
                   {PEER_FLAG_META[f].label}

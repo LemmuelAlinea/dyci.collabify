@@ -90,8 +90,19 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
       >
         {(() => {
           const latest = latestRoundRows(data.shownPeer)
-          const boards = [...new Set(latest.map((r) => r.board_id))]
-          if (boards.length === 0) {
+          const titleOf = (projectId: string) =>
+            data.shownBurns.find((x) => x.project_id === projectId)?.project_title
+          const entries = [...new Set(latest.map((r) => r.board_id))]
+            .map((b) => {
+              const rows = latest.filter((r) => r.board_id === b)
+              const groupName = rows[0].group_name ?? 'Group'
+              return { b, rows, groupName, projectTitle: titleOf(rows[0].project_id) ?? '' }
+            })
+            .sort(
+              (x, y) =>
+                x.groupName.localeCompare(y.groupName) || x.projectTitle.localeCompare(y.projectTitle),
+            )
+          if (entries.length === 0) {
             return (
               <p className="text-[13px] text-muted">
                 No peer evaluation yet. Open one from a group project's Work tab.
@@ -100,19 +111,21 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
           }
           return (
             <div className="space-y-6">
-              {boards.map((b) => {
-                const rows = latest.filter((r) => r.board_id === b)
+              {entries.map(({ b, rows, groupName, projectTitle }) => {
                 const first = rows[0]
                 return (
                   <div key={b} className="space-y-2">
                     <p className="text-[13px] text-ink">
-                      {first.group_name ?? 'Group'}{' '}
+                      {groupName}{' '}
                       <span className="text-faint">
-                        · {first.kind === 'final' ? 'Final' : 'Check-in'}
+                        {projectTitle ? `· ${projectTitle} ` : ''}· {first.kind === 'final' ? 'Final' : 'Check-in'}
                         {first.is_open ? ' · in progress' : ''}
                       </span>
                     </p>
-                    <PeerResultsTable rows={rows} label={first.group_name ?? 'Group'} />
+                    <PeerResultsTable
+                      rows={rows}
+                      label={projectTitle ? `${groupName} · ${projectTitle}` : groupName}
+                    />
                   </div>
                 )
               })}
