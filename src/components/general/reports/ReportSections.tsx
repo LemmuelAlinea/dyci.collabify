@@ -16,12 +16,12 @@ import { describeActivity } from '../../../lib/general/history'
 import type { Totals } from '../../../lib/general/reportData'
 import { contributionScores, SCORE_PARTS, scoreFormula } from '../../../lib/general/reportScore'
 import type { Forecast } from '../../../lib/general/forecast'
-import { DonutChart } from './charts/DonutChart'
+import { DonutChart } from '../../charts/DonutChart'
 import { REVIEW, STATUS, day, hours, moment, time } from './format'
-import { LineChart } from './charts/LineChart'
-import type { LinePoint } from './charts/LineChart'
-import { ProgressBar } from './charts/ProgressBar'
-import { StackedBar } from './charts/StackedBar'
+import { LineChart } from '../../charts/LineChart'
+import type { LinePoint } from '../../charts/LineChart'
+import { ProgressBar } from '../../charts/ProgressBar'
+import { StackedBar } from '../../charts/StackedBar'
 
 /* ---------------------------------------------------------------- shared */
 

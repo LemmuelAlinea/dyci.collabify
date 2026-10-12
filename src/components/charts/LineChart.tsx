@@ -1,15 +1,11 @@
 import { useId } from 'react'
+import { shortDay } from './format'
 
 export type LinePoint = { day: string; value: number }
 
 const W = 640
 const H = 200
 const PAD = { top: 12, right: 12, bottom: 26, left: 36 }
-
-function shortDay(day: string) {
-  const [, m, d] = day.split('-').map(Number)
-  return `${d} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1]}`
-}
 
 /**
  * Per cent done per day, 0–100 on one scale. The previous period, when there
