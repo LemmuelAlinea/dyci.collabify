@@ -303,3 +303,16 @@ Rules for every chart:
 - **Gini on two-person groups** is coarse: it is 0 for an even split and 0.5 for a
   one-person-does-everything split. The thresholds account for this, and the share bar shows the
   raw split beside it.
+
+## Amendments during planning (2026-10-13)
+
+- The daily view is named `analytics_daily_activity`. It returns one row per day and the client buckets the days into weeks.
+- **Share of group work is `held_pct`, not `personal_pct`.** `personal_pct` is how much of a student's *own* work is finished (`task-points.sql:66`). The share bar, Gini and the "Low share" flag all use `held_pct`.
+- `analytics_board_cycles` has these columns: `returns, accepts, submitted_at, last_decided_at, decision_hours`. Returning a board clears `submitted_at`, so `decision_hours` covers the latest cycle only.
+- The roster uses the stored `late` flag (`deadline-lock.sql:28`) rather than comparing `done_at` with `due_at`. Late rate is late ÷ done.
+- **Syllabus pace** shows weeks covered and weeks elapsed as two bars, not lines over time. Coverage history is not recorded.
+- **Student drawer:**
+  - Shows total work-log hours, not hours per week; a per-week figure needs another view.
+  - Leaves out reassignment requests, which Analytics does not load.
+  - Uses the existing `Modal` (size `lg`) rather than a new side-sheet component.
+- **The "Needs attention" tile** has no sparkline, because past action counts are not recorded.
