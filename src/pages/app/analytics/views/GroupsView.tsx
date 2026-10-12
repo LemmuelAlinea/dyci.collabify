@@ -17,7 +17,7 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
   const today = manilaDay(new Date())
   const [allBurns, setAllBurns] = useState(false)
   const groupBoards = data.shownBurns.filter((b) => b.group_id)
-  const atRisk = data.shownBurns.filter((b) => !b.submitted_at && b.task_count > 0 && b.done_count < b.task_count)
+  const atRisk = groupBoards.filter((b) => !b.submitted_at && b.task_count > 0 && b.done_count < b.task_count)
 
   const board = data.scope.boardId ? groupBoards.find((b) => b.board_id === data.scope.boardId) : null
   const { from } = classWindow(data, today)
@@ -36,12 +36,17 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
     const d = manilaDay(t.created_at)
     return d < min ? d : min
   }, today)
+  const series = projectBoards.map((b) => ({
+    board: b,
+    pts: burnupSeries(projectTasks.filter((t) => t.board_id === b.board_id), projectFrom, today),
+  }))
+  const sharedMax = Math.max(1, ...series.flatMap((s) => s.pts.map((p) => p.scope)))
 
   return (
     <div className="space-y-5">
       <Section
         title="Group health"
-        subtitle="Each group on the measures that predict trouble. Hover a heading's cells for what the number means."
+        subtitle="Each group on the measures that predict trouble. Hover a cell for what the number means."
       >
         <GroupHealthGrid data={data} today={today} />
       </Section>
@@ -83,13 +88,12 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
             <p className="text-[13px] text-muted">Choose a project to compare its groups.</p>
           ) : (
             <ul className="grid gap-4 sm:grid-cols-2">
-              {projectBoards.map((b) => {
-                const pts = burnupSeries(projectTasks.filter((t) => t.board_id === b.board_id), projectFrom, today)
+              {series.map(({ board: b, pts }) => {
                 return (
                   <li key={b.board_id} className="min-w-0">
                     <p className="mb-1 truncate text-[12px] text-muted">{b.group_name}</p>
                     {pts.length > 1 ? (
-                      <Burnup compact points={pts} endDay={b.project_due_at ? manilaDay(b.project_due_at) : null} title={`${b.group_name} burnup`} />
+                      <Burnup compact yMax={sharedMax} points={pts} endDay={b.project_due_at ? manilaDay(b.project_due_at) : null} title={`${b.group_name} burnup`} />
                     ) : (
                       <p className="text-[12px] text-faint">No history yet.</p>
                     )}
@@ -110,7 +114,7 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
       </div>
 
       <Section title="Will each group finish on time" subtitle="Tasks finished per day since each board started, against the days left. Every figure is a division you can redo by hand.">
-        <ForecastSummary burns={data.shownBurns} />
+        <ForecastSummary burns={groupBoards} />
         {atRisk.length > 0 && (
           <>
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -132,7 +136,7 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
       </Section>
 
       <Section title="Why groups are behind" subtitle="Each cause is measured, and the number that shows it sits in the line.">
-        <DiagnosisList rows={data.shownDiagnoses} />
+        <DiagnosisList rows={data.shownDiagnoses.filter((d) => d.group_id)} />
       </Section>
     </div>
   )

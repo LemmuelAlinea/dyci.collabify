@@ -13,11 +13,14 @@ export function Burnup({
   endDay,
   title,
   compact = false,
+  yMax,
 }: {
   points: BurnupPoint[]
   endDay?: string | null
   title: string
   compact?: boolean
+  /** Fixes the top of the axis so several charts share one scale. */
+  yMax?: number
 }) {
   const uid = useId()
   if (points.length === 0) return null
@@ -30,7 +33,7 @@ export function Burnup({
   const lastPoint = points[points.length - 1]
   const last = endDay && endDay > lastPoint.day ? endDay : lastPoint.day
   const span = Math.max(1, daysBetween(first, last))
-  const top = Math.max(1, ...points.map((p) => p.scope))
+  const top = Math.max(1, yMax ?? 0, ...points.map((p) => p.scope))
   const x = (day: string) => PAD.left + (daysBetween(first, day) / span) * (W - PAD.left - PAD.right)
   const y = (v: number) => PAD.top + (1 - v / top) * (H - PAD.top - PAD.bottom)
   const path = (key: 'scope' | 'done') =>
