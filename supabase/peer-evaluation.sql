@@ -99,6 +99,17 @@ returns uuid language sql stable security definer set search_path = public as $$
    limit 1;
 $$;
 
+/** True when the project, or the class it belongs to, is archived. */
+create or replace function public.peer_project_archived(p_project uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce(
+    (select p.archived_at is not null or c.archived_at is not null
+       from public.projects p
+       join public.classes c on c.id = p.class_id
+      where p.id = p_project),
+    false);
+$$;
+
 -- ---------------------------------------------------------------- rounds
 
 create or replace function public.open_peer_round(
@@ -111,7 +122,8 @@ declare
   proj public.projects%rowtype;
   r    public.peer_rounds%rowtype;
 begin
-  select * into proj from public.projects where id = p_project;
+  -- Locked so two simultaneous opens take turns and the one-open-round rule holds.
+  select * into proj from public.projects where id = p_project for update;
   if proj.id is null then
     raise exception 'That project no longer exists';
   end if;
@@ -123,7 +135,7 @@ begin
     raise exception 'Peer evaluation is for group projects, and this one is individual'
       using errcode = 'check_violation';
   end if;
-  if proj.archived_at is not null then
+  if public.peer_project_archived(p_project) then
     raise exception 'That project is archived. Restore it to run a peer evaluation'
       using errcode = 'check_violation';
   end if;
@@ -157,7 +169,9 @@ begin
     join public.group_members gm on gm.group_id = b.group_id
     join public.notification_prefs np on np.user_id = gm.student_id
    where b.project_id = p_project
-     and np.deadline_reminders;
+     and np.deadline_reminders
+     -- Somebody alone in their group has nobody to rate.
+     and (select count(*) from public.group_members m where m.group_id = b.group_id) > 1;
 
   return r;
 end;
@@ -181,10 +195,16 @@ begin
     raise exception 'That round is closed. Open a new one instead'
       using errcode = 'check_violation';
   end if;
+  if public.peer_project_archived(r.project_id) then
+    raise exception 'That project is archived, so this peer evaluation is closed'
+      using errcode = 'check_violation';
+  end if;
   if p_closes_at is null or p_closes_at <= clock_timestamp() then
     raise exception 'Pick a closing time in the future'
       using errcode = 'check_violation';
   end if;
+  -- Take turns with open_peer_round, which locks the same row.
+  perform 1 from public.projects where id = r.project_id for update;
   if exists (
     select 1 from public.peer_rounds x
      where x.project_id = r.project_id and x.id <> r.id
@@ -246,22 +266,31 @@ begin
     raise exception 'That round is closed, so there is nothing to remind them about'
       using errcode = 'check_violation';
   end if;
+  if public.peer_project_archived(r.project_id) then
+    raise exception 'That project is archived, so this peer evaluation is closed'
+      using errcode = 'check_violation';
+  end if;
   select * into proj from public.projects where id = r.project_id;
+  -- Once a day per round: only reminders sent since this round opened count.
   if exists (
     select 1 from public.notifications n
      where n.type = 'peer_round_reminder'
        and n.project_id = proj.id
+       and n.created_at > r.opens_at
        and n.created_at > now() - interval '20 hours'
   ) then
     raise exception 'They were reminded today already. Try again tomorrow'
       using errcode = 'check_violation';
   end if;
 
-  insert into public.notifications (user_id, type, class_id, project_id, group_id, title, preview)
+  -- Stamped with the clock, not the transaction start, so the daily count lines up
+  -- with opens_at (also a clock time).
+  insert into public.notifications (user_id, type, class_id, project_id, group_id, title, preview, created_at)
   select t.student_id, 'peer_round_reminder', proj.class_id, proj.id, t.group_id,
          'Reminder: ' || proj.title,
          'Rate your teammates before '
-           || to_char(r.closes_at at time zone 'Asia/Manila', 'Mon FMDD, FMHH12:MI AM')
+           || to_char(r.closes_at at time zone 'Asia/Manila', 'Mon FMDD, FMHH12:MI AM'),
+         clock_timestamp()
     from (
       select b.id as board_id, b.group_id, gm.student_id
         from public.project_boards b
@@ -276,13 +305,13 @@ begin
        group by b.id
     ) s on s.board_id = t.board_id
     left join (
-      select pr.rater_id, count(*) as n
+      select pr.rater_id, pr.board_id, count(*) as n
         from public.peer_ratings pr
         join public.project_boards b on b.id = pr.board_id
         join public.group_members gm on gm.group_id = b.group_id and gm.student_id = pr.ratee_id
        where pr.round_id = p_round
-       group by pr.rater_id
-    ) d on d.rater_id = t.student_id
+       group by pr.rater_id, pr.board_id
+    ) d on d.rater_id = t.student_id and d.board_id = t.board_id
    where s.n > 1 and coalesce(d.n, 0) < s.n;
 
   get diagnostics sent = row_count;
@@ -300,6 +329,8 @@ declare
   v_board uuid;
   v_team  uuid[];
   v_given uuid[];
+  v_el    jsonb;
+  k       text;
   saved   integer;
 begin
   select * into r from public.peer_rounds where id = p_round;
@@ -308,6 +339,10 @@ begin
   end if;
   if not public.peer_round_open(p_round) then
     raise exception 'This peer evaluation is closed, so ratings can no longer change'
+      using errcode = 'check_violation';
+  end if;
+  if public.peer_project_archived(r.project_id) then
+    raise exception 'That project is archived, so this peer evaluation is closed'
       using errcode = 'check_violation';
   end if;
   v_board := public.peer_my_board(r.project_id);
@@ -329,6 +364,26 @@ begin
     raise exception 'Send the ratings as a list'
       using errcode = 'check_violation';
   end if;
+  for v_el in select value from jsonb_array_elements(p_ratings) loop
+    if jsonb_typeof(v_el) <> 'object'
+       or jsonb_typeof(v_el -> 'ratee_id') is distinct from 'string'
+       or (v_el ->> 'ratee_id') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+      raise exception 'Each rating needs the teammate it is about'
+        using errcode = 'check_violation';
+    end if;
+    foreach k in array array['contributes', 'interacts', 'on_track', 'quality', 'skills'] loop
+      if jsonb_typeof(v_el -> k) is distinct from 'number'
+         or (v_el ->> k) not in ('1', '2', '3', '4', '5') then
+        raise exception 'Give every teammate a score from 1 to 5 on all five points'
+          using errcode = 'check_violation';
+      end if;
+    end loop;
+    if v_el ? 'comment' and jsonb_typeof(v_el -> 'comment') = 'string'
+       and char_length(v_el ->> 'comment') > 1000 then
+      raise exception 'Keep each comment under 1000 characters'
+        using errcode = 'check_violation';
+    end if;
+  end loop;
   select array_agg((e ->> 'ratee_id')::uuid order by (e ->> 'ratee_id')::uuid) into v_given
     from jsonb_array_elements(p_ratings) e;
   if v_given is distinct from v_team then
@@ -373,7 +428,7 @@ begin
      and clock_timestamp() < x.closes_at
    order by x.opens_at desc
    limit 1;
-  if r.id is null then
+  if r.id is null or public.peer_project_archived(p_project) then
     return null;
   end if;
   v_board := public.peer_my_board(p_project);
@@ -558,6 +613,7 @@ grant select on public.peer_rounds, public.peer_ratings to authenticated;
 grant execute on function public.peer_round_project(uuid) to authenticated;
 grant execute on function public.peer_round_open(uuid) to authenticated;
 grant execute on function public.peer_my_board(uuid) to authenticated;
+grant execute on function public.peer_project_archived(uuid) to authenticated;
 grant execute on function public.open_peer_round(uuid, public.peer_round_kind, timestamptz) to authenticated;
 grant execute on function public.set_peer_round_close(uuid, timestamptz) to authenticated;
 grant execute on function public.close_peer_round(uuid) to authenticated;

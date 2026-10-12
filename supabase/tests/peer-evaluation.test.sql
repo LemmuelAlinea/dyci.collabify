@@ -157,6 +157,18 @@ begin
           where np.deadline_reminders
             and np.user_id in ((select v from fx where k='a'), (select v from fx where k='b'),
                                (select v from fx where k='c'))));
+  if exists (select 1 from public.notification_prefs np
+              where np.deadline_reminders
+                and np.user_id in ((select v from fx where k='a'), (select v from fx where k='b'),
+                                   (select v from fx where k='c'))) then
+    perform pg_temp.must_be('and at least one student was actually told', n >= 1);
+  else
+    raise notice 'skipped: no fixture student has deadline reminders on';
+  end if;
+  select count(*) into n from public.notifications
+   where project_id = v_proj and type = 'peer_round_opened'
+     and user_id = (select v from fx where k='d');
+  perform pg_temp.must_be('someone outside the group is not told', n = 0);
 end $$;
 
 -- ------------------------------------------------------------ saving ratings
@@ -182,6 +194,15 @@ begin
   perform pg_temp.must_allow('a rates everyone, themselves included',
     format('select public.save_peer_ratings(%L, %L::jsonb)', v_round,
       pg_temp.ratings(v_a, 5, v_b, 4, v_c, 2, 'zz-quiet in meetings')));
+
+  perform pg_temp.must_refuse('a rating with a dimension missing is refused',
+    format('select public.save_peer_ratings(%L, %L::jsonb)', v_round,
+      (select jsonb_agg(e - 'skills') from jsonb_array_elements(
+         pg_temp.ratings(v_a, 3, v_b, 3, v_c, 3)) e)));
+  perform pg_temp.must_refuse('a student cannot send a reminder',
+    format('select public.remind_peer_round(%L)', v_round));
+  perform pg_temp.must_refuse('a student cannot move the close date',
+    format('select public.set_peer_round_close(%L, now() + interval ''4 days'')', v_round));
 
   perform pg_temp.act_as(v_d);
   perform pg_temp.must_refuse('someone outside the group cannot rate it',
@@ -348,7 +369,8 @@ declare
   v_c uuid := (select v from fx where k='c');
   v_g uuid := (select v from fx where k='group');
   v_round uuid := (select v from fx where k='round');
-  ra public.peer_results%rowtype;
+  ra public.peer_results%rowtype; rb public.peer_results%rowtype;
+  v_b uuid := (select v from fx where k='b');
   n int;
 begin
   delete from public.group_members where group_id = v_g and student_id = v_c;
@@ -359,6 +381,9 @@ begin
   select * into ra from public.peer_results where round_id = v_round and student_id = v_a;
   perform pg_temp.must_be('and their ratings of others no longer count',
     ra.raters = 1 and ra.received_avg = 4.0 and ra.team_size = 2);
+  select * into rb from public.peer_results where round_id = v_round and student_id = v_b;
+  perform pg_temp.must_be('and the others recompute: b keeps only the rating of 4 from a',
+    rb.raters = 1 and rb.received_avg = 4.0);
   perform pg_temp.act_as_service();
 end $$;
 
@@ -383,6 +408,54 @@ begin
     format('select public.save_peer_ratings(%L, %L::jsonb)', v_round,
       jsonb_build_array(jsonb_build_object('ratee_id', v_a, 'contributes', 3, 'interacts', 3,
         'on_track', 3, 'quality', 3, 'skills', 3, 'comment', ''))));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- ------------------------------------------------------------ an archived project
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_a uuid := (select v from fx where k='a');
+  v_b uuid := (select v from fx where k='b');
+  v_g uuid := (select v from fx where k='group');
+  v_set uuid;
+  v_proj uuid := (select v from fx where k='proj');
+  v_round uuid;
+  v_ok jsonb;
+begin
+  -- Put b back so the open round has a team of two and a can rate.
+  select set_id into v_set from public.groups where id = v_g;
+  insert into public.group_members (group_id, set_id, student_id) values (v_g, v_set, v_b);
+  select id into v_round from public.peer_rounds
+   where project_id = v_proj and kind = 'check_in' and closed_at is null;
+  v_ok := jsonb_build_array(
+    jsonb_build_object('ratee_id', v_a, 'contributes', 3, 'interacts', 3, 'on_track', 3,
+                       'quality', 3, 'skills', 3, 'comment', ''),
+    jsonb_build_object('ratee_id', v_b, 'contributes', 4, 'interacts', 4, 'on_track', 4,
+                       'quality', 4, 'skills', 4, 'comment', ''));
+
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_allow('control: a member rates on the open round',
+    format('select public.save_peer_ratings(%L, %L::jsonb)', v_round, v_ok));
+  perform pg_temp.must_be('control: the form is offered', public.peer_form(v_proj) is not null);
+
+  perform pg_temp.act_as_service();
+  update public.projects set archived_at = now() where id = v_proj;
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_refuse('an archived project takes no ratings',
+    format('select public.save_peer_ratings(%L, %L::jsonb)', v_round, v_ok));
+  perform pg_temp.must_be('and offers no form', public.peer_form(v_proj) is null);
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_refuse('an archived project cannot be reminded',
+    format('select public.remind_peer_round(%L)', v_round));
+  perform pg_temp.must_refuse('an archived project cannot move its close date',
+    format('select public.set_peer_round_close(%L, now() + interval ''4 days'')', v_round));
+
+  perform pg_temp.act_as_service();
+  update public.projects set archived_at = null where id = v_proj;
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_be('restored, the form is back', public.peer_form(v_proj) is not null);
   perform pg_temp.act_as_service();
 end $$;
 
