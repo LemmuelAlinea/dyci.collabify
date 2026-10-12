@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '../ui/Button'
+import { useToast } from '../ui/Toast'
 import { peerForm } from '../../lib/api/peer'
 import type { PeerForm } from '../../lib/types'
 import { RateTeamModal } from './RateTeamModal'
@@ -18,16 +19,27 @@ const dateFmt = new Intl.DateTimeFormat('en-PH', {
  * not in a group, or alone in one.
  */
 export function RateTeamButton({ projectId }: { projectId: string }) {
+  const { show } = useToast()
   const [form, setForm] = useState<PeerForm | null>(null)
   const [open, setOpen] = useState(false)
+  const openRef = useRef(false)
+  useEffect(() => {
+    openRef.current = open
+  }, [open])
 
   const load = useCallback(async () => {
     try {
-      setForm(await peerForm(projectId))
+      const next = await peerForm(projectId)
+      setForm(next)
+      if (!next) {
+        // Closed (or the group changed) while the modal was open: say so, not silently vanish.
+        if (openRef.current) show('This peer evaluation has closed, so your ratings were not saved.', 'error')
+        setOpen(false)
+      }
     } catch {
-      setForm(null)
+      // A failed reload keeps the form on screen, so a draft is never thrown away.
     }
-  }, [projectId])
+  }, [projectId, show])
 
   useEffect(() => {
     void load()
@@ -44,8 +56,9 @@ export function RateTeamButton({ projectId }: { projectId: string }) {
   return (
     <>
       <Button
+        variant={done ? 'onNavy' : 'create'}
         size="sm"
-        variant={done ? 'outline' : 'accent'}
+        className="!h-8 !rounded-lg !px-3"
         onClick={() => setOpen(true)}
         title={`Closes ${closes}`}
       >

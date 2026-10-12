@@ -12,6 +12,14 @@ type Draft = Record<string, Partial<Record<PeerDimension, number>> & { comment: 
 
 const SCORES = [1, 2, 3, 4, 5] as const
 
+const dateFmt = new Intl.DateTimeFormat('en-PH', {
+  timeZone: 'Asia/Manila',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+})
+
 function startDraft(form: PeerForm): Draft {
   const saved = new Map(form.ratings.map((r) => [r.ratee_id, r]))
   return Object.fromEntries(
@@ -50,8 +58,14 @@ export function RateTeamModal({
 
   const complete = form.team.every((m) => PEER_DIMENSIONS.every((d) => draft[m.id]?.[d.key]))
 
+  const closes = dateFmt.format(new Date(form.round.closes_at))
+  const left = form.team.reduce(
+    (n, m) => n + PEER_DIMENSIONS.filter((d) => !draft[m.id]?.[d.key]).length,
+    0,
+  )
+
   const set = (member: string, key: PeerDimension | 'comment', value: number | string) =>
-    setDraft((d) => ({ ...d, [member]: { ...d[member], [key]: value } }))
+    setDraft((d) => ({ ...d, [member]: { ...d[member], comment: d[member]?.comment ?? '', [key]: value } }))
 
   const save = async () => {
     setSaving(true)
@@ -60,12 +74,12 @@ export function RateTeamModal({
         const r = draft[m.id]
         return {
           ratee_id: m.id,
-          contributes: r.contributes as number,
-          interacts: r.interacts as number,
-          on_track: r.on_track as number,
-          quality: r.quality as number,
-          skills: r.skills as number,
-          comment: r.comment.trim(),
+          contributes: r?.contributes as number,
+          interacts: r?.interacts as number,
+          on_track: r?.on_track as number,
+          quality: r?.quality as number,
+          skills: r?.skills as number,
+          comment: (r?.comment ?? '').trim(),
         }
       })
       await savePeerRatings(form.round.id, rows)
@@ -85,9 +99,14 @@ export function RateTeamModal({
       onClose={onClose}
       size="lg"
       title="Rate your team"
-      description="Rate everyone in your group, yourself included. Your teammates never see what you write or who gave which rating."
+      description={`Rate everyone in your group, yourself included, by ${closes}. Your teammates never see what you write or who gave which rating.`}
       footer={
         <div className="flex items-center justify-end gap-2">
+          {left > 0 && (
+            <span className="mr-auto text-[13px] text-muted" aria-live="polite">
+              {left} {left === 1 ? 'answer' : 'answers'} left
+            </span>
+          )}
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={save} loading={saving} disabled={!complete || saving}>Save ratings</Button>
         </div>
@@ -98,17 +117,24 @@ export function RateTeamModal({
           <section key={m.id} className="space-y-4 rounded-card border border-line p-4">
             <h3 className="text-ink">{m.is_me ? `You (${m.name})` : m.name}</h3>
             {PEER_DIMENSIONS.map((d) => (
-              <fieldset key={d.key} className="space-y-2">
-                <legend className="text-[14px] font-medium text-ink">{d.label}</legend>
-                <div className="flex flex-wrap gap-1.5" role="radiogroup">
+              <fieldset
+                key={d.key}
+                className="space-y-2"
+                aria-describedby={`${m.id}-${d.key}-anchors`}
+              >
+                <legend className="text-[14px] font-medium text-ink">
+                  {d.label}
+                  <span className="sr-only"> — {m.is_me ? 'you' : m.name}</span>
+                </legend>
+                <div className="flex flex-wrap gap-1.5">
                   {SCORES.map((s) => {
                     const checked = draft[m.id]?.[d.key] === s
                     return (
                       <label
                         key={s}
-                        className={`grid h-9 w-11 cursor-pointer place-items-center rounded-lg border font-mono text-[13px] transition-colors ${
+                        className={`grid h-9 w-11 cursor-pointer place-items-center rounded-lg border font-mono text-[13px] transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-navy-600 dark:has-[:focus-visible]:outline-navy-300 ${
                           checked
-                            ? 'border-navy-600 bg-navy-600 text-white dark:border-navy-300 dark:bg-navy-300 dark:text-navy-950'
+                            ? 'border-navy-600 bg-navy-600 text-[var(--surface)] dark:border-navy-300 dark:bg-navy-300'
                             : 'border-line text-muted hover:border-line-strong'
                         }`}
                       >
@@ -125,7 +151,10 @@ export function RateTeamModal({
                     )
                   })}
                 </div>
-                <p className="grid gap-1 text-[12px] text-faint sm:grid-cols-3">
+                <p
+                  id={`${m.id}-${d.key}-anchors`}
+                  className="grid gap-1 text-[12px] text-faint sm:grid-cols-3"
+                >
                   <span>1 · {d.low}</span>
                   <span>3 · {d.mid}</span>
                   <span>5 · {d.high}</span>
@@ -146,9 +175,6 @@ export function RateTeamModal({
             </label>
           </section>
         ))}
-        {!complete && (
-          <p className="text-[13px] text-muted">Answer every row for everyone to save.</p>
-        )}
       </div>
     </Modal>
   )
