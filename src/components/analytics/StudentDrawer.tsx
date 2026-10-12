@@ -6,7 +6,7 @@ import { WeekBars } from '../charts/WeekBars'
 import { Modal } from '../ui/Modal'
 import { useNow } from '../../hooks/useNow'
 import { addDays, manilaDay, weeklyActivity } from '../../lib/analyticsMath'
-import { analyseTeam, PEER_FLAG_META } from '../../lib/peerMath'
+import { analyseTeam, peerFlagLabel } from '../../lib/peerMath'
 import type { PeerResult } from '../../lib/types'
 import { classWindow } from '../../pages/app/analytics/window'
 import type { AnalyticsData } from '../../pages/app/analytics/useAnalytics'
@@ -109,11 +109,14 @@ export function StudentDrawer({
         <p className="text-[13px] text-muted">
           {myPeer && myPeerRow
             ? <>Teammates' rating ({[myPeerRow.group_name ?? 'Group', myPeerProject].filter(Boolean).join(' · ')}{myPeerRow.is_open ? ' · in progress' : ''}): <span className="font-mono text-ink">{myPeer.factor === null ? 'too few raters' : `factor ${myPeer.factor.toFixed(2)}`}</span>
-              {myPeer.flags.map((f) => (
-                <span key={f} className={`ml-1.5 rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL[PEER_FLAG_META[f].tone]}`}>
-                  {PEER_FLAG_META[f].label}
-                </span>
-              ))}</>
+              {myPeer.flags.map((f) => {
+                const w = peerFlagLabel(f, myPeer.is_open)
+                return (
+                  <span key={f} className={`ml-1.5 rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL[w.tone]}`}>
+                    {w.label}
+                  </span>
+                )
+              })}</>
             : 'No peer evaluation yet.'}
         </p>
 

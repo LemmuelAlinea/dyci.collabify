@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { analyseTeam, latestRoundRows } from './peerMath'
+import { analyseTeam, latestRoundRows, peerFlagLabel } from './peerMath'
 import type { PeerInput } from './peerMath'
 import type { PeerResult } from './types'
 
@@ -63,6 +63,63 @@ describe('analyseTeam', () => {
       row({ student_id: 'y', received_avg: 4.5, self_avg: 4.5, raters: 2, received_spread: 0 }),
     ])
     expect(x.flags).toEqual(['underconfident'])
+  })
+
+  // Team mean 4.0 in both: 3.4 / 4 = 0.85 and 4.6 / 4 = 1.15; 4.4 / 4 = 1.1 and 3.6 / 4 = 0.9.
+  it('does not flag a factor of exactly 0.85 as low', () => {
+    const [x, y] = analyseTeam([
+      row({ student_id: 'x', received_avg: 3.4, raters: 2 }),
+      row({ student_id: 'y', received_avg: 4.6, raters: 2 }),
+    ])
+    expect(x.factor).toBe(0.85)
+    expect(x.flags).not.toContain('low')
+    expect(y.factor).toBe(1.15)
+    expect(y.flags).toContain('high')
+  })
+
+  it('does not flag a factor of exactly 1.10 as high', () => {
+    const [x, y] = analyseTeam([
+      row({ student_id: 'x', received_avg: 4.4, raters: 2 }),
+      row({ student_id: 'y', received_avg: 3.6, raters: 2 }),
+    ])
+    expect(x.factor).toBe(1.1)
+    expect(x.flags).not.toContain('high')
+    expect(y.factor).toBe(0.9)
+    expect(y.flags).not.toContain('low')
+  })
+
+  it('counts a self gap of one point as overconfident, float error included', () => {
+    const one = (received: number, self: number) =>
+      analyseTeam([row({ student_id: 'x', received_avg: received, self_avg: self, raters: 2, received_spread: 0 })])[0]
+    expect(one(3.2, 4.2).flags).toContain('overconfident')
+    // 4.6 - 3.6 is 0.9999999999999996 in floating point.
+    expect(4.6 - 3.6).toBeLessThan(1)
+    expect(one(3.6, 4.6).flags).toContain('overconfident')
+  })
+
+  it('does not count a gap just under one point', () => {
+    const [x] = analyseTeam([
+      row({ student_id: 'x', received_avg: 3.21, self_avg: 4.2, raters: 2, received_spread: 0 }),
+    ])
+    expect(x.flags).not.toContain('overconfident')
+  })
+
+  it('shows no conflict with only one rater, however wide the spread', () => {
+    const [x] = analyseTeam([
+      row({ student_id: 'x', received_avg: 3, self_avg: 3, raters: 1, received_spread: 2, team_size: 2 }),
+      row({ student_id: 'y', received_avg: 3, self_avg: 3, raters: 1, received_spread: 0, team_size: 2 }),
+    ])
+    expect(x.flags).not.toContain('conflict')
+    expect(x.flags).toEqual([])
+  })
+})
+
+describe('peerFlagLabel', () => {
+  it('words a missing answer as pending while the round is open', () => {
+    expect(peerFlagLabel('no_response', true)).toEqual({ label: 'Not answered yet', tone: 'pending' })
+    expect(peerFlagLabel('no_response', false)).toEqual({ label: "Didn't rate everyone", tone: 'warning' })
+    expect(peerFlagLabel('no_response')).toEqual({ label: "Didn't rate everyone", tone: 'warning' })
+    expect(peerFlagLabel('low', true)).toEqual({ label: 'Rated low by teammates', tone: 'danger' })
   })
 })
 

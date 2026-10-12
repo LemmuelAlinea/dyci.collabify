@@ -23,14 +23,28 @@ export type PeerFlag =
   | 'conflict'
   | 'no_response'
 
-export const PEER_FLAG_META: Record<PeerFlag, { label: string; tone: Tone }> = {
+type FlagWording = { label: string; tone: Tone }
+
+/** `open` is the wording while the round is still open, where it differs. */
+export const PEER_FLAG_META: Record<PeerFlag, FlagWording & { open?: FlagWording }> = {
   low: { label: 'Rated low by teammates', tone: 'danger' },
   high: { label: 'Rated high by teammates', tone: 'success' },
   overconfident: { label: 'Rates self higher than teammates do', tone: 'warning' },
   underconfident: { label: 'Rates self lower than teammates do', tone: 'pending' },
   manipulator: { label: 'Rates self far above others', tone: 'danger' },
   conflict: { label: 'Teammates disagree', tone: 'warning' },
-  no_response: { label: "Didn't rate everyone", tone: 'warning' },
+  no_response: {
+    label: "Didn't rate everyone",
+    tone: 'warning',
+    // Not a lapse yet: there is still time to answer.
+    open: { label: 'Not answered yet', tone: 'pending' },
+  },
+}
+
+/** A flag's chip, worded for whether its round is still open. */
+export function peerFlagLabel(flag: PeerFlag, isOpen = false): FlagWording {
+  const { label, tone, open } = PEER_FLAG_META[flag]
+  return isOpen && open ? open : { label, tone }
 }
 
 export type PeerInput = {
@@ -42,6 +56,8 @@ export type PeerInput = {
   received_spread: number | null
   rated_all: boolean
   team_size: number
+  /** Whether the round is still open; it changes how no_response reads. */
+  is_open?: boolean
 }
 
 const num = (v: number | null) => (v === null ? null : Number(v))

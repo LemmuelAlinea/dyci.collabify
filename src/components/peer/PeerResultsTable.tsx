@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import { TONE_CELL } from '../charts/format'
 import { PEER_DIMENSIONS } from '../../lib/peerDimensions'
-import { PEER_FLAG_META, analyseTeam } from '../../lib/peerMath'
+import { analyseTeam, peerFlagLabel } from '../../lib/peerMath'
 import type { PeerResult } from '../../lib/types'
 
 const fmt = (v: number | null, places = 1) => (v === null ? '—' : Number(v).toFixed(places))
@@ -45,11 +45,14 @@ export function PeerResultsTable({ rows, label }: { rows: PeerResult[]; label: s
                 <td className="px-2 py-2 font-mono text-muted">{m.raters}</td>
                 <td className="px-2 py-2">
                   <span className="flex flex-wrap gap-1">
-                    {m.flags.map((f) => (
-                      <span key={f} className={`rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL[PEER_FLAG_META[f].tone]}`}>
-                        {PEER_FLAG_META[f].label}
-                      </span>
-                    ))}
+                    {m.flags.map((f) => {
+                      const w = peerFlagLabel(f, m.is_open)
+                      return (
+                        <span key={f} className={`rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL[w.tone]}`}>
+                          {w.label}
+                        </span>
+                      )
+                    })}
                   </span>
                 </td>
               </tr>
