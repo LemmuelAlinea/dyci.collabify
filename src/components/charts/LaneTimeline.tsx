@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { daysBetween } from '../../lib/analyticsMath'
 import type { MilestoneState } from '../../lib/analyticsMath'
 import { shortDay } from './format'
@@ -43,8 +44,8 @@ export function LaneTimeline({
   const showToday = today >= from && today <= to
 
   return (
-    <figure className="space-y-1.5">
-      <div className="flex justify-between pl-[34%] font-mono text-[10px] text-faint sm:pl-[180px]">
+    <figure className="space-y-1.5" aria-label={title}>
+      <div className="flex justify-between pl-[calc(34%_+_12px)] font-mono text-[10px] text-faint sm:pl-[180px]">
         <span>{shortDay(from)}</span>
         <span>{shortDay(to)}</span>
       </div>
@@ -88,13 +89,31 @@ export function LaneTimeline({
         <caption>{title}</caption>
         <thead><tr><th>Row</th><th>Item</th><th>Date</th><th>State</th></tr></thead>
         <tbody>
-          {lanes.flatMap((l) =>
-            l.marks.map((m) => (
-              <tr key={`${l.key}-${m.key}`}>
-                <td>{l.label}</td><td>{m.label}</td><td>{m.day}</td><td>{MARK_WORD[m.state]}</td>
-              </tr>
-            )),
-          )}
+          {lanes.flatMap((l) => {
+            const rows: ReactNode[] = []
+            if (l.bar) {
+              rows.push(
+                <tr key={`${l.key}-span`}>
+                  <td>{l.label}</td><td>Span</td><td>{`${l.bar.from} to ${l.bar.to}`}</td><td>{l.bar.tone}</td>
+                </tr>,
+              )
+            }
+            for (const m of l.marks) {
+              rows.push(
+                <tr key={`${l.key}-${m.key}`}>
+                  <td>{l.label}</td><td>{m.label}</td><td>{m.day}</td><td>{MARK_WORD[m.state]}</td>
+                </tr>,
+              )
+            }
+            if (!l.bar && l.marks.length === 0) {
+              rows.push(
+                <tr key={`${l.key}-empty`}>
+                  <td>{l.label}</td><td>—</td><td></td><td></td>
+                </tr>,
+              )
+            }
+            return rows
+          })}
         </tbody>
       </table>
     </figure>

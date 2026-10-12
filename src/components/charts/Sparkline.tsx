@@ -31,6 +31,9 @@ export function Sparkline({ values, label }: { values: (number | null)[]; label:
   let lastIdx = values.length - 1
   while (values[lastIdx] === null) lastIdx--
   const last = values[lastIdx] as number
+  // A point with no drawn neighbour gets its own dot, or a path of one M draws nothing.
+  const at = (i: number) => (i < 0 || i >= values.length ? null : values[i])
+  const isolated = values.flatMap((v, i) => (v !== null && at(i - 1) === null && at(i + 1) === null ? [i] : []))
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="h-6 w-24 shrink-0" role="img" aria-label={label}>
@@ -42,6 +45,9 @@ export function Sparkline({ values, label }: { values: (number | null)[]; label:
         strokeLinecap="round"
         className="stroke-navy-600 dark:stroke-navy-300"
       />
+      {isolated.map((i) => (
+        <circle key={i} cx={x(i)} cy={y(values[i] as number)} r="1.75" className="fill-navy-600 dark:fill-navy-300" />
+      ))}
       <circle cx={x(lastIdx)} cy={y(last)} r="2.25" className="fill-navy-600 dark:fill-navy-300" />
     </svg>
   )

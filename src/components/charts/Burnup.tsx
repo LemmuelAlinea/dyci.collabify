@@ -36,7 +36,7 @@ export function Burnup({
   const path = (key: 'scope' | 'done') =>
     points.map((p, i) => `${i ? 'L' : 'M'}${x(p.day).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ')
   const area = `${path('done')} L${x(lastPoint.day).toFixed(1)},${y(0)} L${x(first).toFixed(1)},${y(0)} Z`
-  const ticks = compact ? [0, top] : [0, Math.round(top / 2), top]
+  const ticks = [...new Set(compact ? [0, top] : [0, Math.round(top / 2), top])]
   const desc = `${lastPoint.done} of ${lastPoint.scope} tasks done on ${shortDay(lastPoint.day)}.`
 
   return (
