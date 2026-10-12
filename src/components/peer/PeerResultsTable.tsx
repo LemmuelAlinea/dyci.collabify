@@ -1,20 +1,20 @@
 import { Fragment, useState } from 'react'
 import { TONE_CELL } from '../charts/format'
 import { PEER_DIMENSIONS } from '../../lib/peerDimensions'
-import { PEER_FLAG_META, PEER_MIN_RATERS, analyseTeam } from '../../lib/peerMath'
+import { PEER_FLAG_META, analyseTeam } from '../../lib/peerMath'
 import type { PeerResult } from '../../lib/types'
 
 const fmt = (v: number | null, places = 1) => (v === null ? '—' : Number(v).toFixed(places))
 
 /** One group in one round. The factor appears only with enough raters to mean something. */
-export function PeerResultsTable({ rows }: { rows: PeerResult[] }) {
+export function PeerResultsTable({ rows, label }: { rows: PeerResult[]; label: string }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const team = analyseTeam(rows).sort((a, b) => (a.factor ?? 9) - (b.factor ?? 9))
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] text-[13px]">
-        <caption className="sr-only">How teammates rated each other</caption>
+        <caption className="sr-only">How teammates rated each other: {label}</caption>
         <thead>
           <tr className="border-b border-line text-left text-[12px] text-faint">
             <th scope="col" className="px-2 py-2 font-medium">Member</th>
@@ -71,10 +71,6 @@ export function PeerResultsTable({ rows }: { rows: PeerResult[] }) {
           ))}
         </tbody>
       </table>
-      <p className="mt-2 text-[12px] text-faint">
-        Factor is a member's average from teammates divided by the team's. It appears once at
-        least {PEER_MIN_RATERS} teammates have rated them.
-      </p>
     </div>
   )
 }

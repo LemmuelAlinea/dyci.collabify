@@ -6,20 +6,30 @@ import type { PeerComment } from '../../lib/types'
  * What teammates wrote, grouped by who it is about. Rater names stay hidden until
  * asked for, so a professor reads the substance before the source.
  */
-export function PeerComments({ roundId, boardId }: { roundId: string; boardId: string }) {
+export function PeerComments({ roundId, boardId, revision }: { roundId: string; boardId: string; revision: number }) {
   const [rows, setRows] = useState<PeerComment[] | null>(null)
+  const [failed, setFailed] = useState(false)
   const [showRaters, setShowRaters] = useState(false)
 
   useEffect(() => {
     let live = true
+    setRows(null)
+    setFailed(false)
     peerComments(roundId)
       .then((all) => live && setRows(all.filter((c) => c.board_id === boardId)))
-      .catch(() => live && setRows([]))
+      .catch(() => live && setFailed(true))
     return () => {
       live = false
     }
-  }, [roundId, boardId])
+  }, [roundId, boardId, revision])
 
+  if (failed) {
+    return (
+      <p className="text-[12px] text-danger-700 dark:text-danger-300">
+        Could not load the comments. Reload the page to try again.
+      </p>
+    )
+  }
   if (rows === null) return null
   if (rows.length === 0) return <p className="text-[12px] text-faint">No written comments.</p>
 
@@ -30,7 +40,6 @@ export function PeerComments({ roundId, boardId }: { roundId: string; boardId: s
         <button
           type="button"
           onClick={() => setShowRaters((v) => !v)}
-          aria-pressed={showRaters}
           className="text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
         >
           {showRaters ? 'Hide raters' : 'Show raters'}

@@ -13,7 +13,7 @@ import {
 } from '../../lib/api/peer'
 import { authErrorMessage } from '../../lib/authError'
 import { addDays, manilaDay } from '../../lib/analyticsMath'
-import { latestRoundRows } from '../../lib/peerMath'
+import { PEER_MIN_RATERS, latestRoundRows } from '../../lib/peerMath'
 import type { PeerResult, PeerRoundKind, PeerRoundStatus } from '../../lib/types'
 import { PeerComments } from './PeerComments'
 import { PeerResultsTable } from './PeerResultsTable'
@@ -37,12 +37,14 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
   const [extendDay, setExtendDay] = useState('')
   const [closing, setClosing] = useState<PeerRoundStatus | null>(null)
   const [busy, setBusy] = useState(false)
+  const [revision, setRevision] = useState(0)
 
   const load = useCallback(async () => {
     try {
       const [r, res] = await Promise.all([listPeerRounds(projectId), projectPeerResults(projectId)])
       setRounds(r)
       setResults(res)
+      setRevision((n) => n + 1)
     } catch (err) {
       show(authErrorMessage(err, 'Could not load the peer evaluation.'), 'error')
     }
@@ -55,6 +57,7 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
 
   const openRound = rounds.find((r) => r.is_open) ?? null
   const hasFinal = rounds.some((r) => r.kind === 'final')
+  const effectiveKind: PeerRoundKind = hasFinal && kind === 'final' ? 'check_in' : kind
   const missing = openRound
     ? results.filter((r) => r.round_id === openRound.id && !r.rated_all && r.team_size > 1)
     : []
@@ -100,21 +103,26 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
               size="sm"
               variant="outline"
               disabled={busy || missing.length === 0}
-              onClick={() =>
-                act(async () => {
+              onClick={async () => {
+                setBusy(true)
+                try {
                   const n = await remindPeerRound(openRound.id)
-                  return n
-                }, 'Reminder sent to those who have not answered')
-              }
+                  show(n > 0 ? `Reminded ${n} ${n === 1 ? 'student' : 'students'}` : 'Everyone has already answered')
+                } catch (err) {
+                  show(authErrorMessage(err, 'That did not go through. Try again.'), 'error')
+                } finally {
+                  setBusy(false)
+                }
+              }}
             >
               Send reminder
             </Button>
             <label className="flex items-center gap-2 text-[13px] text-muted">
-              Extend to
+              Move close to
               <input
                 type="date"
                 value={extendDay}
-                min={addDays(manilaDay(new Date()), 1)}
+                min={manilaDay(new Date())}
                 onChange={(e) => setExtendDay(e.target.value)}
                 className="h-9 rounded-lg border border-line surface px-2 text-ink"
               />
@@ -125,7 +133,7 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
               disabled={busy || !extendDay}
               onClick={() => act(() => setPeerRoundClose(openRound.id, endOfDay(extendDay)), 'Closing date moved')}
             >
-              Extend
+              Move
             </Button>
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => setClosing(openRound)}>
               Close now
@@ -137,7 +145,7 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
           <label className="space-y-1 text-[13px] text-muted">
             <span className="block">Round</span>
             <select
-              value={kind}
+              value={effectiveKind}
               onChange={(e) => setKind(e.target.value as PeerRoundKind)}
               className="h-9 rounded-lg border border-line surface px-2 text-ink"
             >
@@ -160,7 +168,7 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
           <Button
             size="sm"
             disabled={busy || !day}
-            onClick={() => act(() => openPeerRound(projectId, kind, endOfDay(day)), 'Round opened. The groups have been told.')}
+            onClick={() => act(() => openPeerRound(projectId, effectiveKind, endOfDay(day)), 'Round opened. The groups have been told.')}
           >
             Open round
           </Button>
@@ -189,11 +197,15 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
                   {first.group_name ?? 'Group'} · {KIND[first.kind]}
                   {first.is_open && <span className="text-faint"> · in progress</span>}
                 </p>
-                <PeerResultsTable rows={rows} />
-                <PeerComments roundId={first.round_id} boardId={b} />
+                <PeerResultsTable rows={rows} label={first.group_name ?? 'Group'} />
+                <PeerComments roundId={first.round_id} boardId={b} revision={revision} />
               </div>
             )
           })}
+          <p className="text-[12px] text-faint">
+            Factor is a member's average from teammates divided by the team's. It appears once at
+            least {PEER_MIN_RATERS} teammates have rated them.
+          </p>
         </div>
       )}
 
@@ -202,6 +214,7 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
         title="Close this round now?"
         body="Students can no longer save or change ratings. You can still open a new round afterwards."
         confirmLabel="Close round"
+        tone="primary"
         onClose={() => setClosing(null)}
         onConfirm={() => {
           const r = closing
