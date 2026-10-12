@@ -1,40 +1,68 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { FilterChain } from '../../../components/analytics/FilterChain'
+import { NeedsAttention } from '../../../components/analytics/NeedsAttention'
+import type { Scope } from '../../../components/analytics/scope'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
 import { Alert } from '../../../components/ui/Alert'
-import { Spinner } from '../../../components/ui/Icon'
 import { EmptyState } from '../../../components/ui/EmptyState'
+import { Spinner } from '../../../components/ui/Icon'
+import { Tabs } from '../../../components/ui/Tabs'
+import type { Tab } from '../../../components/ui/Tabs'
 import { useAuth } from '../../../context/AuthContext'
+import { readAnalyticsView, viewForAction } from '../../../lib/analyticsView'
+import type { AnalyticsView } from '../../../lib/analyticsView'
 import { dueSoonLabel, taskStatusLabel } from '../../../lib/types'
-import { Descriptive } from './bands/Descriptive'
-import { Diagnostic } from './bands/Diagnostic'
-import { Predictive } from './bands/Predictive'
-import { Prescriptive } from './bands/Prescriptive'
 import { useAnalytics } from './useAnalytics'
+import { ClassView } from './views/ClassView'
+import { GroupsView } from './views/GroupsView'
+import { ProjectsView } from './views/ProjectsView'
+import { StudentsView } from './views/StudentsView'
+
+const VIEW_TABS: Tab<AnalyticsView>[] = [
+  { id: 'class', label: 'Class', icon: 'chart' },
+  { id: 'groups', label: 'Groups', icon: 'users' },
+  { id: 'students', label: 'Students', icon: 'user' },
+  { id: 'projects', label: 'Projects', icon: 'folder' },
+]
 
 /**
- * What is happening across a professor's classes, at whatever depth they ask.
- *
- * Four bands, read top to bottom as one argument: what has happened, why it is
- * where it is, what is coming, and what to do about it. The recommendations at
- * the bottom are the payoff of everything above them, which is why they are
- * last rather than first — a professor should be able to see the evidence for
- * an instruction before following it.
+ * What is happening across a professor's classes, asked four ways: the class,
+ * its groups, its students, its projects. What needs doing sits on top, and
+ * every item in it points at the chart that argues for it.
  *
  * Everything is counted, not guessed. The forward-looking figures are division,
- * and each prints the division beside it. A model over one class and sixteen
- * finished tasks would be a confident number with nothing behind it.
+ * and each prints the division beside it.
  */
 export default function Analytics({ classId }: { classId?: string }) {
   const { profile } = useAuth()
   const data = useAnalytics(classId)
   const [openTask, setOpenTask] = useState<string | null>(null)
+  const [params, setParams] = useSearchParams()
+  const view = readAnalyticsView(params.get('view'))
   const { scope, setScope, shownTasks } = data
 
   useEffect(() => {
     if (!classId) document.title = 'Analytics · Collabify'
   }, [classId])
+
+  const setView = (next: AnalyticsView) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p)
+        n.set('view', next)
+        return n
+      },
+      { replace: true },
+    )
+
+  // Narrowing to a person or a group is a question about them: go where it is answered.
+  const onScope = (next: Scope) => {
+    setScope(next)
+    if (next.studentId && next.studentId !== scope.studentId) setView('students')
+    else if (next.boardId && next.boardId !== scope.boardId) setView('groups')
+  }
 
   if (data.loading) {
     return (
@@ -45,13 +73,15 @@ export default function Analytics({ classId }: { classId?: string }) {
     )
   }
 
+  const empty = classId ? !data.health.some((c) => c.class_id === classId) : data.health.length === 0
+
   return (
     <div className="w-full space-y-6">
       {!classId && (
         <DirectoryHero
           title="Analytics,"
           accent="with context."
-          description="Move from what happened to why it happened, what is coming and what needs attention next."
+          description="Your class, its groups, its students and its projects, with what needs you first."
         />
       )}
 
@@ -64,7 +94,7 @@ export default function Analytics({ classId }: { classId?: string }) {
         </div>
         <FilterChain
           scope={scope}
-          onChange={setScope}
+          onChange={onScope}
           classes={classId ? data.health.filter((c) => c.class_id === classId) : data.health}
           burns={data.burns}
           members={data.members}
@@ -73,7 +103,7 @@ export default function Analytics({ classId }: { classId?: string }) {
         />
       </div>
 
-      {(classId ? !data.health.some((c) => c.class_id === classId) : data.health.length === 0) ? (
+      {empty ? (
         <EmptyState
           icon="chart"
           title="Nothing to measure yet"
@@ -81,19 +111,20 @@ export default function Analytics({ classId }: { classId?: string }) {
         />
       ) : (
         <>
-          <Descriptive data={data} />
-          <Diagnostic data={data} />
-          <Predictive data={data} />
-          <Prescriptive data={data} />
+          <NeedsAttention actions={data.actions} onSeeWhy={(a) => setView(viewForAction(a.kind))} />
 
-          {/* The leaf. Only worth the room once the question is narrow. */}
+          <Tabs variant="panel" tabs={VIEW_TABS} active={view} onChange={setView} />
+
+          {view === 'class' && <ClassView data={data} />}
+          {view === 'groups' && <GroupsView data={data} />}
+          {view === 'students' && <StudentsView data={data} onOpenTask={setOpenTask} />}
+          {view === 'projects' && <ProjectsView data={data} onOpenTask={setOpenTask} />}
+
           {(scope.boardId || scope.studentId || scope.taskId) && (
             <section className="space-y-3 border-t border-line pt-6">
               <h2>
                 Tasks
-                <span className="ml-2 font-mono text-[13px] text-faint">
-                  {shownTasks.length}
-                </span>
+                <span className="ml-2 font-mono text-[13px] text-faint">{shownTasks.length}</span>
               </h2>
               <ul className="max-h-[460px] space-y-2 overflow-y-auto pr-1">
                 {shownTasks.map((t) => {
@@ -120,11 +151,7 @@ export default function Analytics({ classId }: { classId?: string }) {
                             late
                           </span>
                         )}
-                        {due && !t.late && (
-                          <span className="shrink-0 font-mono text-[12px] text-faint">
-                            {due}
-                          </span>
-                        )}
+                        {due && !t.late && <span className="shrink-0 font-mono text-[12px] text-faint">{due}</span>}
                       </button>
                     </li>
                   )
