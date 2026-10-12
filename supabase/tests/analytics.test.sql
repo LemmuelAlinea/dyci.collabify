@@ -61,8 +61,12 @@ begin
          term_end   = (current_date + 28)::date    -- 8 weeks in total
    where id = v_class;
 
-  -- Wipe the real projects for this class so the arithmetic is ours alone.
-  delete from public.projects where class_id = v_class;
+  -- Archive the real projects for this class so the arithmetic is ours alone.
+  -- Not a delete: that cascades into the drafts guard, which refuses anyone
+  -- without an active signed-in account. Every view here already drops
+  -- archived projects, so this also leans on the filter production relies on.
+  update public.projects set archived_at = now()
+   where class_id = v_class and archived_at is null;
 
   -- Two projects covering weeks 1-2 and 5-5: three distinct weeks.
   insert into public.projects
