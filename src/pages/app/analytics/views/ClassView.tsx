@@ -58,6 +58,7 @@ export function ClassView({ data }: { data: AnalyticsData }) {
   const onTimeNow = pct(done.filter((t) => !t.late).length, done.length)
   const completionNow = pct(done.length, tasks.length)
 
+  const hasTerm = data.shownPace.length > 0
   const burn = burnupSeries(tasks, from, to)
   const weekly = weeklyActivity(data.shownActivity, from, to)
   const hasActivity = weekly.some((w) => w.work + w.talk > 0)
@@ -93,10 +94,14 @@ export function ClassView({ data }: { data: AnalyticsData }) {
       <div className="grid gap-5 lg:grid-cols-2">
         <Section
           title="Work against time"
-          subtitle="All tasks and finished tasks each day. The dashed line is the even pace that finishes today's tasks by the end of term."
+          subtitle={
+            hasTerm
+              ? "All tasks and finished tasks each day. The dashed line is the even pace that finishes today's tasks by the end of term."
+              : 'All tasks and finished tasks each day. Set term dates on the class to see the pace that finishes on time.'
+          }
         >
-          {burn.length > 1 ? (
-            <Burnup points={burn} endDay={end} title="Tasks and finished tasks over the term" />
+          {burn.length > 1 && tasks.length > 0 ? (
+            <Burnup points={burn} endDay={hasTerm ? end : null} title="Tasks and finished tasks over the term" />
           ) : (
             <EmptyState icon="chart" title="No history yet" body="This fills in day by day once the term starts and tasks are added." />
           )}

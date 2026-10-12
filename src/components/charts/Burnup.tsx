@@ -62,15 +62,17 @@ export function Burnup({
             </text>
           </>
         )}
-        <line
-          x1={x(first)}
-          y1={y(0)}
-          x2={x(last)}
-          y2={y(lastPoint.scope)}
-          strokeWidth="1.25"
-          strokeDasharray="4 4"
-          className="stroke-amber-400"
-        />
+        {endDay && (
+          <line
+            x1={x(first)}
+            y1={y(0)}
+            x2={x(last)}
+            y2={y(lastPoint.scope)}
+            strokeWidth="1.25"
+            strokeDasharray="4 4"
+            className="stroke-amber-400"
+          />
+        )}
         <path d={area} className="fill-navy-600/10 dark:fill-navy-300/10" />
         <path d={path('scope')} fill="none" strokeWidth="1.5" className="stroke-[var(--ink-faint)]" />
         <path d={path('done')} fill="none" strokeWidth="2.25" strokeLinejoin="round" className="stroke-navy-600 dark:stroke-navy-300" />
@@ -79,7 +81,9 @@ export function Burnup({
         <figcaption className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted">
           <span className="flex items-center gap-1.5"><span className="h-0.5 w-4 bg-navy-600 dark:bg-navy-300" />Done</span>
           <span className="flex items-center gap-1.5"><span className="h-0.5 w-4 bg-[var(--ink-faint)]" />All tasks</span>
-          <span className="flex items-center gap-1.5"><span className="h-0.5 w-4 border-t border-dashed border-amber-400" />Even pace</span>
+          {endDay && (
+            <span className="flex items-center gap-1.5"><span className="h-0.5 w-4 border-t border-dashed border-amber-400" />Even pace</span>
+          )}
         </figcaption>
       )}
       <table className="sr-only">
