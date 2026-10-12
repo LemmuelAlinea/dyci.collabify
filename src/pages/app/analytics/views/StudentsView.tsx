@@ -52,16 +52,9 @@ export function StudentsView({ data, onOpenTask }: { data: AnalyticsData; onOpen
         },
         now,
       )
-      const groups = [
-        ...new Set(
-          data.members
-            .filter((m) => m.student_id === r.student_id && m.class_id === r.class_id && m.group_name)
-            .map((m) => m.group_name as string),
-        ),
-      ]
-      return { ...r, flags, lowestShare, trend, idle: idleDays(r.last_active_at, now), groups }
+      return { ...r, flags, lowestShare, trend, idle: idleDays(r.last_active_at, now), groups: r.group_names }
     })
-  }, [data.shownRoster, data.shownMembers, data.shownActivity, data.people, data.pace, data.burns, data.members])
+  }, [data.shownRoster, data.shownMembers, data.shownActivity, data.people, data.pace, data.burns])
 
   // Narrowing to a student in the scope bar opens their drawer, once.
   const { studentId, classId } = data.scope

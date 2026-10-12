@@ -126,19 +126,19 @@ export function ClassView({ data }: { data: AnalyticsData }) {
               <div key={p.class_id} className="space-y-3">
                 <div className="space-y-1.5">
                   {[
-                    { label: 'Covered', value: p.weeks_covered, cls: 'bg-navy-600 dark:bg-navy-300' },
-                    { label: 'Elapsed', value: p.weeks_elapsed, cls: 'bg-amber-400' },
+                    { label: 'Covered', value: p.weeks_covered, of: Math.max(1, p.weeks_total), cls: 'bg-navy-600 dark:bg-navy-300' },
+                    { label: 'Elapsed', value: p.weeks_elapsed, of: Math.max(1, p.weeks_in_term), cls: 'bg-amber-400' },
                   ].map((b) => (
                     <div key={b.label} className="flex items-center gap-3 text-[12px]">
                       <span className="w-16 shrink-0 text-muted">{b.label}</span>
                       <span className="h-2 flex-1 overflow-hidden rounded-full surface-sunken">
                         <span
                           className={`block h-full rounded-full ${b.cls}`}
-                          style={{ width: `${Math.min(100, (b.value / Math.max(1, p.weeks_in_term)) * 100)}%` }}
+                          style={{ width: `${Math.min(100, (b.value / b.of) * 100)}%` }}
                         />
                       </span>
                       <span className="w-20 shrink-0 text-right font-mono text-faint">
-                        {b.value} of {p.weeks_in_term}
+                        {b.value} of {b.of}
                       </span>
                     </div>
                   ))}

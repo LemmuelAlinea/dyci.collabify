@@ -65,6 +65,7 @@ select c.id                                         as class_id,
        cm.student_id,
        btrim(pr.first_name || ' ' || pr.last_name)  as student_name,
        pr.avatar_url,
+       coalesce(gn.names, '{}'::text[])             as group_names,
        coalesce(h.held, 0)                          as held,
        coalesce(h.done, 0)                          as done,
        coalesce(h.late, 0)                          as late,
@@ -104,6 +105,15 @@ select c.id                                         as class_id,
       join live l on l.id = e.task_id
      group by l.class_id, e.actor_id
   ) ev on ev.class_id = c.id and ev.student_id = cm.student_id
+  left join (
+    select gs.class_id, gm.student_id,
+           array_agg(distinct g.name order by g.name) as names
+      from public.group_members gm
+      join public.groups g       on g.id = gm.group_id
+      join public.group_sets gs  on gs.id = g.set_id
+     where g.archived_at is null
+     group by gs.class_id, gm.student_id
+  ) gn on gn.class_id = c.id and gn.student_id = cm.student_id
  where c.archived_at is null
    and public.is_class_professor(c.id);
 

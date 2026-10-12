@@ -32,7 +32,9 @@ export function GroupHealthGrid({ data, today }: { data: AnalyticsData; today: s
       ).length
       const donePct = Math.round(Number(b.done_pct))
       const paceCell: HeatCell =
-        b.days_active === null
+        b.result_verdict === 'accepted'
+          ? { value: `${donePct}% · accepted`, tone: 'success', title: 'Accepted, so pace no longer applies' }
+          : b.days_active === null
           ? { value: 'Not started', tone: 'pending' }
           : b.days_left === null
             ? {

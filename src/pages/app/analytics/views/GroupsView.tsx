@@ -17,7 +17,7 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
   const today = manilaDay(new Date())
   const [allBurns, setAllBurns] = useState(false)
   const groupBoards = data.shownBurns.filter((b) => b.group_id)
-  const atRisk = groupBoards.filter((b) => !b.submitted_at && b.task_count > 0 && b.done_count < b.task_count)
+  const atRisk = groupBoards.filter((b) => !b.submitted_at && b.result_verdict !== 'accepted' && b.task_count > 0 && b.done_count < b.task_count)
 
   const board = data.scope.boardId ? groupBoards.find((b) => b.board_id === data.scope.boardId) : null
   const { from } = classWindow(data, today)

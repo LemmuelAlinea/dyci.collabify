@@ -133,6 +133,7 @@ begin
   perform pg_temp.must_be('the roster counts every live task a student holds', r.held = want);
   perform pg_temp.must_be('...never more done than held', r.done <= r.held);
   perform pg_temp.must_be('...never more late than done', r.late <= r.done);
+  perform pg_temp.must_be('group_names is never null', r.group_names is not null);
   perform pg_temp.must_be('last active is their latest event', r.last_active_at >= v_at);
   perform pg_temp.act_as_service();
 end $$;

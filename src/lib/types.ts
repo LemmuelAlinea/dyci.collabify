@@ -1229,6 +1229,8 @@ export type RosterRow = {
   student_id: string
   student_name: string
   avatar_url: string | null
+  /** Names of the live groups the student belongs to in this class. */
+  group_names: string[]
   held: number
   done: number
   late: number
