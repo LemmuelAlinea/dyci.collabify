@@ -89,11 +89,12 @@ returns boolean language sql stable security definer set search_path = public as
   );
 $$;
 
-/** The caller's group board on a project, or null. */
+/** The caller's group board on a project, or null. An archived group has no board here. */
 create or replace function public.peer_my_board(p_project uuid)
 returns uuid language sql stable security definer set search_path = public as $$
   select b.id
     from public.project_boards b
+    join public.groups g on g.id = b.group_id and g.archived_at is null
     join public.group_members gm on gm.group_id = b.group_id
    where b.project_id = p_project and gm.student_id = auth.uid()
    limit 1;
@@ -139,6 +140,10 @@ begin
     raise exception 'That project is archived. Restore it to run a peer evaluation'
       using errcode = 'check_violation';
   end if;
+  if proj.release_at is not null and proj.release_at > now() then
+    raise exception 'This project isn''t released yet. Release it, then open a round.'
+      using errcode = 'check_violation';
+  end if;
   if p_closes_at is null or p_closes_at <= clock_timestamp() then
     raise exception 'Pick a closing time in the future'
       using errcode = 'check_violation';
@@ -153,7 +158,7 @@ begin
   if p_kind = 'final' and exists (
     select 1 from public.peer_rounds x where x.project_id = p_project and x.kind = 'final'
   ) then
-    raise exception 'This project already has a final round'
+    raise exception 'This project already has a final round. Open a check-in round instead.'
       using errcode = 'check_violation';
   end if;
 
@@ -166,6 +171,7 @@ begin
          'Rate your teammates by '
            || to_char(p_closes_at at time zone 'Asia/Manila', 'Mon FMDD, FMHH12:MI AM')
     from public.project_boards b
+    join public.groups g on g.id = b.group_id and g.archived_at is null
     join public.group_members gm on gm.group_id = b.group_id
     join public.notification_prefs np on np.user_id = gm.student_id
    where b.project_id = p_project
@@ -233,6 +239,10 @@ begin
     raise exception 'Only someone teaching this class can close a peer evaluation'
       using errcode = 'insufficient_privilege';
   end if;
+  if public.peer_project_archived(r.project_id) then
+    raise exception 'That project is archived, so this peer evaluation is closed'
+      using errcode = 'check_violation';
+  end if;
   update public.peer_rounds
      set closed_at = coalesce(closed_at, clock_timestamp())
    where id = p_round
@@ -279,7 +289,7 @@ begin
        and n.created_at > r.opens_at
        and n.created_at > now() - interval '20 hours'
   ) then
-    raise exception 'They were reminded today already. Try again tomorrow'
+    raise exception 'You already sent a reminder today. Try again tomorrow.'
       using errcode = 'check_violation';
   end if;
 
@@ -294,12 +304,14 @@ begin
     from (
       select b.id as board_id, b.group_id, gm.student_id
         from public.project_boards b
+        join public.groups g on g.id = b.group_id and g.archived_at is null
         join public.group_members gm on gm.group_id = b.group_id
        where b.project_id = proj.id
     ) t
     join (
       select b.id as board_id, count(*) as n
         from public.project_boards b
+        join public.groups g on g.id = b.group_id and g.archived_at is null
         join public.group_members gm on gm.group_id = b.group_id
        where b.project_id = proj.id
        group by b.id
@@ -308,6 +320,7 @@ begin
       select pr.rater_id, pr.board_id, count(*) as n
         from public.peer_ratings pr
         join public.project_boards b on b.id = pr.board_id
+        join public.groups g on g.id = b.group_id and g.archived_at is null
         join public.group_members gm on gm.group_id = b.group_id and gm.student_id = pr.ratee_id
        where pr.round_id = p_round
        group by pr.rater_id, pr.board_id
@@ -343,6 +356,10 @@ begin
   end if;
   if public.peer_project_archived(r.project_id) then
     raise exception 'That project is archived, so this peer evaluation is closed'
+      using errcode = 'check_violation';
+  end if;
+  if not public.project_is_live(r.project_id) then
+    raise exception 'This project isn''t released yet, so its peer evaluation is closed'
       using errcode = 'check_violation';
   end if;
   v_board := public.peer_my_board(r.project_id);
@@ -428,7 +445,8 @@ begin
      and clock_timestamp() < x.closes_at
    order by x.opens_at desc
    limit 1;
-  if r.id is null or public.peer_project_archived(p_project) then
+  if r.id is null or public.peer_project_archived(p_project)
+     or not public.project_is_live(p_project) then
     return null;
   end if;
   v_board := public.peer_my_board(p_project);
@@ -483,7 +501,7 @@ with team as (
     from public.peer_rounds r
     join public.projects p on p.id = r.project_id
     join public.project_boards b on b.project_id = r.project_id
-    join public.groups g on g.id = b.group_id
+    join public.groups g on g.id = b.group_id and g.archived_at is null
     join public.group_members gm on gm.group_id = b.group_id
 ),
 rt as (
@@ -581,6 +599,7 @@ select pr.round_id, pr.board_id, r.project_id, pr.ratee_id,
   from public.peer_ratings pr
   join public.peer_rounds r on r.id = pr.round_id
   join public.project_boards b on b.id = pr.board_id
+  join public.groups g on g.id = b.group_id and g.archived_at is null
   join public.group_members ga on ga.group_id = b.group_id and ga.student_id = pr.rater_id
   join public.group_members ge on ge.group_id = b.group_id and ge.student_id = pr.ratee_id
   join public.profiles a on a.id = pr.rater_id
@@ -598,7 +617,8 @@ alter table public.peer_ratings enable row level security;
 drop policy if exists peer_rounds_select on public.peer_rounds;
 create policy peer_rounds_select on public.peer_rounds
   for select using (
-    public.is_project_professor(project_id) or public.peer_my_board(project_id) is not null
+    public.is_project_professor(project_id)
+    or (public.peer_my_board(project_id) is not null and public.project_is_live(project_id))
   );
 
 -- The rater and the teaching staff. Never the ratee, never a teammate.
@@ -608,7 +628,22 @@ create policy peer_ratings_select on public.peer_ratings
     rater_id = auth.uid() or public.is_project_professor(public.peer_round_project(round_id))
   );
 
+-- Anon gets nothing here, inline, so a rebuild that runs this file after
+-- anon-lockdown.sql stays locked down.
+revoke all on public.peer_rounds, public.peer_ratings from anon;
+revoke all on public.peer_results, public.peer_round_status, public.peer_comments from anon;
 grant select on public.peer_rounds, public.peer_ratings to authenticated;
+
+revoke all on function public.peer_round_project(uuid) from public, anon;
+revoke all on function public.peer_round_open(uuid) from public, anon;
+revoke all on function public.peer_my_board(uuid) from public, anon;
+revoke all on function public.peer_project_archived(uuid) from public, anon;
+revoke all on function public.open_peer_round(uuid, public.peer_round_kind, timestamptz) from public, anon;
+revoke all on function public.set_peer_round_close(uuid, timestamptz) from public, anon;
+revoke all on function public.close_peer_round(uuid) from public, anon;
+revoke all on function public.remind_peer_round(uuid) from public, anon;
+revoke all on function public.save_peer_ratings(uuid, jsonb) from public, anon;
+revoke all on function public.peer_form(uuid) from public, anon;
 
 grant execute on function public.peer_round_project(uuid) to authenticated;
 grant execute on function public.peer_round_open(uuid) to authenticated;

@@ -171,6 +171,60 @@ begin
   perform pg_temp.must_be('someone outside the group is not told', n = 0);
 end $$;
 
+-- ------------------------------------------------------- a scheduled project
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_a uuid := (select v from fx where k='a');
+  v_b uuid := (select v from fx where k='b');
+  v_c uuid := (select v from fx where k='c');
+  v_g uuid := (select v from fx where k='group');
+  v_set uuid;
+  v_class uuid;
+  v_sched uuid;
+  v_round uuid;
+  v_err text;
+  n int;
+begin
+  select g.set_id, s.class_id into v_set, v_class
+    from public.groups g join public.group_sets s on s.id = g.set_id where g.id = v_g;
+  insert into public.projects
+    (class_id, created_by, title, type, start_week, end_week, audience, group_set_id, due_at, release_at)
+  values (v_class, v_prof, 'zz-peer-scheduled', 'activity', 1, 2, 'group', v_set,
+          now() + interval '5 days', now() + interval '3 days')
+  returning id into v_sched;
+  perform public.ensure_project_boards(v_sched);
+
+  perform pg_temp.act_as(v_prof);
+  begin
+    perform public.open_peer_round(v_sched, 'check_in', now() + interval '2 days');
+  exception when others then v_err := sqlerrm;
+  end;
+  perform pg_temp.must_be('an unreleased project opens no round',
+    v_err like 'This project isn''t released yet%');
+  perform pg_temp.act_as_service();
+  select count(*) into n from public.notifications
+   where project_id = v_sched and type = 'peer_round_opened';
+  perform pg_temp.must_be('and nobody is told about one', n = 0);
+
+  -- A round that exists anyway (written straight to the table) stays out of reach.
+  insert into public.peer_rounds (project_id, kind, closes_at)
+  values (v_sched, 'check_in', now() + interval '2 days') returning id into v_round;
+  perform pg_temp.act_as(v_a);
+  select count(*) into n from public.peer_rounds where project_id = v_sched;
+  perform pg_temp.must_be('a member cannot see a round on an unreleased project', n = 0);
+  perform pg_temp.must_be('and gets no form', public.peer_form(v_sched) is null);
+  perform pg_temp.must_refuse('and cannot rate on it',
+    format('select public.save_peer_ratings(%L, %L::jsonb)', v_round,
+      pg_temp.ratings(v_a, 3, v_b, 3, v_c, 3)));
+  perform pg_temp.act_as(v_prof);
+  select count(*) into n from public.peer_rounds where project_id = v_sched;
+  perform pg_temp.must_be('control: the professor still sees it', n = 1);
+  perform pg_temp.act_as_service();
+  delete from public.peer_rounds where id = v_round;
+end $$;
+
 -- ------------------------------------------------------------ saving ratings
 
 do $$
@@ -306,6 +360,28 @@ begin
   perform pg_temp.must_be('the professor reads the one comment, with its rater', n = 1
     and (select rater_id from public.peer_comments where round_id = v_round) = v_a);
   perform pg_temp.act_as_service();
+end $$;
+
+-- ------------------------------------------------- the audience stays put
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_proj uuid := (select v from fx where k='proj');
+  v_err text;
+  n int;
+begin
+  perform pg_temp.act_as(v_prof);
+  begin
+    perform public.set_project_audience(v_proj, 'individual', null);
+  exception when others then v_err := sqlerrm;
+  end;
+  perform pg_temp.must_be('a project with peer ratings cannot change its audience',
+    v_err = 'This project has a peer evaluation. Its audience can''t change now.');
+  perform pg_temp.act_as_service();
+  select count(*) into n from public.peer_ratings pr
+    join public.project_boards b on b.id = pr.board_id where b.project_id = v_proj;
+  perform pg_temp.must_be('and its ratings are all still there', n = 9);
 end $$;
 
 -- ---------------------------------------------------------------- closing
@@ -451,11 +527,24 @@ begin
     format('select public.remind_peer_round(%L)', v_round));
   perform pg_temp.must_refuse('an archived project cannot move its close date',
     format('select public.set_peer_round_close(%L, now() + interval ''4 days'')', v_round));
+  perform pg_temp.must_refuse('an archived project cannot close its round',
+    format('select public.close_peer_round(%L)', v_round));
 
   perform pg_temp.act_as_service();
   update public.projects set archived_at = null where id = v_proj;
   perform pg_temp.act_as(v_a);
   perform pg_temp.must_be('restored, the form is back', public.peer_form(v_proj) is not null);
+
+  -- An archived group drops out: no board, no form.
+  perform pg_temp.act_as_service();
+  update public.groups set archived_at = now() where id = v_g;
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_be('a member of an archived group gets no form', public.peer_form(v_proj) is null);
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_be('and the group leaves the results',
+    not exists (select 1 from public.peer_results where round_id = v_round));
+  perform pg_temp.act_as_service();
+  update public.groups set archived_at = null where id = v_g;
   perform pg_temp.act_as_service();
 end $$;
 

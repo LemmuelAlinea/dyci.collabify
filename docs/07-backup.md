@@ -179,6 +179,11 @@ last sitting in a work project), and the daily pg_cron job `collabify-draft-remi
 (draft files left untouched and unsubmitted for three days), and
 `general_project_templates`, each person's own saved project templates.
 
+`peer-evaluation.sql` drops and recreates the views `peer_results`, `peer_round_status`
+and `peer_comments` without `cascade`. A later file that builds a view on
+`peer_results` must drop that view before re-running `peer-evaluation.sql`, or the
+drop fails. Re-run `anon-lockdown.sql` after it.
+
 `anon-lockdown.sql` runs last and takes EXECUTE on every public function away
 from the signed-out role, keeping signed-in access as it was. Re-run it after
 adding or redefining any function; `supabase/tests/anon-lockdown.test.sql`

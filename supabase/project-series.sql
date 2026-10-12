@@ -403,6 +403,16 @@ begin
     raise exception 'Students have already started on this project, so who does it can no longer change. Make a new project for the other arrangement instead.'
       using errcode = 'check_violation';
   end if;
+  -- The boards' delete cascades into peer_ratings, so a peer evaluation also
+  -- counts as started work. Resolved at run time, so peer-evaluation.sql can load later.
+  if exists (
+    select 1 from public.peer_ratings pr
+      join public.project_boards b on b.id = pr.board_id
+     where b.project_id = p_project
+  ) or exists (select 1 from public.peer_rounds r where r.project_id = p_project) then
+    raise exception 'This project has a peer evaluation. Its audience can''t change now.'
+      using errcode = 'check_violation';
+  end if;
 
   delete from public.project_boards where project_id = p_project;
   update public.projects set audience = p_audience, group_set_id = v_set where id = p_project;
