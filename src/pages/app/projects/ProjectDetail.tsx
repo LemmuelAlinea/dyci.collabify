@@ -18,6 +18,7 @@ import { SeriesActionDialog } from '../../../components/projects/SeriesActionDia
 import { BoardVerdict } from '../../../components/tasks/BoardVerdict'
 import { ClassFilesTab } from '../../../components/tasks/ClassFilesTab'
 import { ProjectGroupsTab } from '../../../components/groups/ProjectGroupsTab'
+import { RateTeamButton } from '../../../components/peer/RateTeamButton'
 import { ProjectTasksTab } from '../../../components/tasks/ProjectTasksTab'
 import { SubmitProject } from '../../../components/tasks/SubmitProject'
 import { useProjectTasks } from '../../../components/tasks/useProjectTasks'
@@ -295,7 +296,10 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
 
             {/* A student hands in from here, whichever tab they are on. */}
             {!canManage && t.active && (
-              <SubmitProject variant="header" board={t.active} locked={t.locked} onChanged={t.refresh} />
+              <div className="flex flex-wrap items-center gap-2">
+                {project.audience === 'group' && <RateTeamButton projectId={project.id} />}
+                <SubmitProject variant="header" board={t.active} locked={t.locked} onChanged={t.refresh} />
+              </div>
             )}
 
             {canManage && (
