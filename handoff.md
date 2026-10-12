@@ -3140,3 +3140,27 @@ Branch `claude/notes-file-plan`. No SQL.
   default (`collabify:nav-place-open`); single-kind cards have no chevron.
 - Checked: build, rail Vitest, eslint; drawer in dark with the gradient banner: folded and open,
   Spaces and Classes.
+
+## Analytics redesign — Phase A (2026-10-13)
+
+Spec: `docs/superpowers/specs/2026-10-13-class-analytics-redesign-design.md`.
+Plan: `docs/superpowers/plans/2026-10-13-class-analytics-redesign.md`.
+
+**Layout.** Analytics is four sub-views: Class, Groups, Students and Projects, kept in `?view=`. Narrowing to a group jumps to Groups, and narrowing to a student opens their record on Students.
+
+**Recommendations moved to the top.** The "Needs attention" strip replaces the old last-place Prescriptive band. Each card has "See why", which opens the view that holds its evidence (`lib/analyticsView.ts`).
+
+**Data.** `supabase/analytics-trends.sql` adds `analytics_daily_activity`, `analytics_student_roster`, `analytics_board_cycles`, `analytics_milestones` and `analytics_sprints`. `task_state` gained `created_at`, `sprint_id` and `milestone_id`. Days are Manila days. Reads past 1,000 rows page through `lib/api/paging.ts`.
+
+**Thresholds** live in `lib/analyticsMath.ts`:
+- `LOW_SHARE_PCT` 10, measured on `held_pct`, never `personal_pct`
+- `INACTIVE_DAYS` 7
+- often late: ≥3 late and ≥30% of finished
+- `STUCK_DAYS` 7
+- the health-grid bands in `healthTone`
+
+**Known gap.** The sprint report cannot show "committed at start" or "carried over", because completing a sprint moves open tasks on without a trace. Phase C adds sprint-membership history.
+
+**Next.**
+1. Phase C: peer evaluation (CATME-style), rubric scores with individual adjustment, intervention notes. This reverses the "no grade" rule above (`Analytics` section and `reports.sql:26-29`). That reversal was agreed with the user on 2026-10-13.
+2. Then Phase B: Reports rebuilt on the General Report Builder.
