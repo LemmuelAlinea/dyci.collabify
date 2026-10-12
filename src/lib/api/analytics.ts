@@ -138,34 +138,54 @@ export async function dailyActivity() {
 }
 
 export async function studentRoster() {
-  const { data, error } = await supabase
-    .from('analytics_student_roster')
-    .select('*')
-    .order('student_name')
-  if (error) throw error
-  return (data ?? []) as RosterRow[]
+  return pageAll<RosterRow>(async (from, to) => {
+    const { data, error } = await supabase
+      .from('analytics_student_roster')
+      .select('*')
+      .order('student_name')
+      .order('class_id')
+      .order('student_id')
+      .range(from, to)
+    if (error) throw error
+    return (data ?? []) as RosterRow[]
+  })
 }
 
 export async function boardCycles() {
-  const { data, error } = await supabase.from('analytics_board_cycles').select('*')
-  if (error) throw error
-  return (data ?? []) as BoardCycle[]
+  return pageAll<BoardCycle>(async (from, to) => {
+    const { data, error } = await supabase
+      .from('analytics_board_cycles')
+      .select('*')
+      .order('board_id')
+      .range(from, to)
+    if (error) throw error
+    return (data ?? []) as BoardCycle[]
+  })
 }
 
 export async function milestoneProgress() {
-  const { data, error } = await supabase
-    .from('analytics_milestones')
-    .select('*')
-    .order('due_on')
-  if (error) throw error
-  return (data ?? []) as MilestoneProgress[]
+  return pageAll<MilestoneProgress>(async (from, to) => {
+    const { data, error } = await supabase
+      .from('analytics_milestones')
+      .select('*')
+      .order('due_on')
+      .order('milestone_id')
+      .order('board_id')
+      .range(from, to)
+    if (error) throw error
+    return (data ?? []) as MilestoneProgress[]
+  })
 }
 
 export async function sprintProgress() {
-  const { data, error } = await supabase
-    .from('analytics_sprints')
-    .select('*')
-    .order('starts_on')
-  if (error) throw error
-  return (data ?? []) as SprintProgress[]
+  return pageAll<SprintProgress>(async (from, to) => {
+    const { data, error } = await supabase
+      .from('analytics_sprints')
+      .select('*')
+      .order('starts_on')
+      .order('sprint_id')
+      .range(from, to)
+    if (error) throw error
+    return (data ?? []) as SprintProgress[]
+  })
 }
