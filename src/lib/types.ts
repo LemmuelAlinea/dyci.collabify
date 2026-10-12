@@ -1184,8 +1184,6 @@ export type TaskState = {
   started_at: string | null
   done_at: string | null
   created_at: string
-  sprint_id: string | null
-  milestone_id: string | null
   board_id: string
   class_id: string
   project_id: string

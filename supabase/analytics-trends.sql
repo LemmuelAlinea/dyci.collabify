@@ -3,7 +3,10 @@
 -- Idempotent: safe to run repeatedly.
 -- Run with:  node scripts/db.mjs supabase/analytics-trends.sql
 -- Requires: tasks.sql, task-detail.sql, results.sql, class-milestones.sql,
--- class-planning.sql, analytics.sql.
+-- class-planning.sql, analytics.sql, task-archive.sql (project_tasks.archived_at),
+-- groups.sql (groups.archived_at), deadline-lock.sql (late).
+-- Re-running analytics.sql drops class_actions through a cascade; re-run
+-- analytics-insight.sql after it.
 
 /**
  * Views only. All of this was already recorded — task_events has held every
@@ -22,6 +25,11 @@ begin;
 
 -- ------------------------------------------------------------- activity
 
+/**
+ * Only active students' events count. The professor's own fan-outs, comments
+ * and edits are not group activity: one fan-out would read "Today" on every
+ * board for days.
+ */
 drop view if exists public.analytics_daily_activity;
 
 create view public.analytics_daily_activity
@@ -38,6 +46,9 @@ select p.class_id,
   join public.project_boards b on b.id = t.board_id
   join public.projects p       on p.id = b.project_id
   join public.classes c        on c.id = p.class_id
+  join public.class_members cm on cm.class_id = p.class_id
+                              and cm.student_id = e.actor_id
+                              and cm.status = 'active'
  where t.archived_at is null
    and p.archived_at is null
    and c.archived_at is null

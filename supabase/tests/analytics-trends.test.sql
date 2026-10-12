@@ -87,7 +87,8 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
--- Every event on a live task in the class is counted exactly once.
+-- Every event an active student made on a live task in the class is counted
+-- exactly once.
 do $$
 declare
   v_class uuid := (select v from fx where k='class');
@@ -98,12 +99,38 @@ begin
     join public.project_tasks t on t.id = e.task_id
     join public.project_boards b on b.id = t.board_id
     join public.projects p on p.id = b.project_id
+    join public.class_members cm on cm.class_id = p.class_id
+                                and cm.student_id = e.actor_id
+                                and cm.status = 'active'
    where p.class_id = v_class and t.archived_at is null and p.archived_at is null;
 
   perform pg_temp.act_as((select v from fx where k='prof'));
   select coalesce(sum(n), 0) into got
     from public.analytics_daily_activity where class_id = v_class;
   perform pg_temp.must_be('daily activity adds up to the events it is built from', got = want);
+  perform pg_temp.act_as_service();
+end $$;
+
+-- The professor's own actions are not group activity.
+do $$
+declare
+  v_board uuid := (select v from fx where k='board');
+  before_n int; after_n int;
+begin
+  perform pg_temp.act_as((select v from fx where k='prof'));
+  select coalesce(sum(n), 0) into before_n from public.analytics_daily_activity
+   where board_id = v_board and kind = 'commented' and day = date '2026-03-05';
+  perform pg_temp.act_as_service();
+
+  insert into public.task_events (task_id, actor_id, kind, at)
+  values ((select v from fx where k='task'), (select v from fx where k='prof'),
+          'commented', '2026-03-05 04:00:00+00');
+
+  perform pg_temp.act_as((select v from fx where k='prof'));
+  select coalesce(sum(n), 0) into after_n from public.analytics_daily_activity
+   where board_id = v_board and kind = 'commented' and day = date '2026-03-05';
+  perform pg_temp.must_be('a professor event is not counted as group activity',
+    after_n = before_n);
   perform pg_temp.act_as_service();
 end $$;
 
