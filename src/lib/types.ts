@@ -204,6 +204,8 @@ export type AppNotification = {
     | 'meeting_scheduled'
     | 'meeting_changed'
     | 'meeting_cancelled'
+    | 'peer_round_opened'
+    | 'peer_round_reminder'
   class_id: string | null
   announcement_id: string | null
   project_id: string | null
@@ -1276,6 +1278,79 @@ export type SprintProgress = {
   tasks: number
   done: number
   done_in_window: number
+}
+
+export type PeerRoundKind = 'check_in' | 'final'
+
+/** peer_round_status: a round and how many have answered. */
+export type PeerRoundStatus = {
+  id: string
+  project_id: string
+  class_id: string
+  kind: PeerRoundKind
+  opens_at: string
+  closes_at: string
+  closed_at: string | null
+  is_open: boolean
+  expected: number
+  answered: number
+}
+
+/** peer_results: one member of one group in one round. */
+export type PeerResult = {
+  round_id: string
+  project_id: string
+  class_id: string
+  kind: PeerRoundKind
+  opens_at: string
+  is_open: boolean
+  board_id: string
+  group_name: string | null
+  student_id: string
+  student_name: string
+  received_avg: number | null
+  raters: number
+  received_spread: number | null
+  self_avg: number | null
+  given_avg: number | null
+  contributes_avg: number | null
+  interacts_avg: number | null
+  on_track_avg: number | null
+  quality_avg: number | null
+  skills_avg: number | null
+  team_size: number
+  rated_all: boolean
+}
+
+/** peer_comments: what one teammate wrote about another. Teaching staff only. */
+export type PeerComment = {
+  round_id: string
+  board_id: string
+  project_id: string
+  ratee_id: string
+  ratee_name: string
+  rater_id: string
+  rater_name: string
+  comment: string
+  updated_at: string
+}
+
+export type PeerRatingInput = {
+  ratee_id: string
+  contributes: number
+  interacts: number
+  on_track: number
+  quality: number
+  skills: number
+  comment: string
+}
+
+/** peer_form(): what the student's form shows. */
+export type PeerForm = {
+  round: { id: string; kind: PeerRoundKind; closes_at: string }
+  board_id: string
+  team: { id: string; name: string; avatar_url: string | null; is_me: boolean }[]
+  ratings: PeerRatingInput[]
 }
 
 /**
