@@ -64,9 +64,8 @@ export function RateTeamButton({ projectId }: { projectId: string }) {
       >
         {done ? 'Edit ratings' : 'Rate your team'}
       </Button>
-      {open && (
-        <RateTeamModal form={form} open={open} onClose={() => setOpen(false)} onSaved={load} />
-      )}
+      {/* Stays mounted while the round lasts, so closing it keeps the draft. */}
+      <RateTeamModal key={form.round.id} form={form} open={open} onClose={() => setOpen(false)} onSaved={load} />
     </>
   )
 }

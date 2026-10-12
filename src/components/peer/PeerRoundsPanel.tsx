@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLive } from '../../hooks/useLive'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -35,9 +35,12 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
   const [kind, setKind] = useState<PeerRoundKind>('check_in')
   const [day, setDay] = useState(() => addDays(manilaDay(new Date()), 5))
   const [extendDay, setExtendDay] = useState('')
+  const [reopenDay, setReopenDay] = useState('')
   const [closing, setClosing] = useState<PeerRoundStatus | null>(null)
   const [busy, setBusy] = useState(false)
   const [revision, setRevision] = useState(0)
+  // Live updates retry the load often; one toast until it works again is enough.
+  const erroredRef = useRef(false)
 
   const load = useCallback(async () => {
     try {
@@ -45,8 +48,11 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
       setRounds(r)
       setResults(res)
       setRevision((n) => n + 1)
+      erroredRef.current = false
     } catch (err) {
-      show(authErrorMessage(err, 'Could not load the peer evaluation.'), 'error')
+      if (erroredRef.current) return
+      erroredRef.current = true
+      show(authErrorMessage(err, 'Could not load the peer evaluation. Reload the page to try again.'), 'error')
     }
   }, [projectId, show])
 
@@ -56,6 +62,13 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
   useLive(load, ['peer_rounds', 'peer_ratings', 'group_members'])
 
   const openRound = rounds.find((r) => r.is_open) ?? null
+  // The latest round ran past its closing time without being closed. It can be reopened.
+  const lapsed =
+    !openRound && rounds[0] && !rounds[0].is_open && rounds[0].closed_at === null &&
+    new Date(rounds[0].closes_at) <= new Date()
+      ? rounds[0]
+      : null
+  const roundState = (r: PeerRoundStatus) => (r.closed_at ? 'closed' : r.is_open ? 'open' : 'ended')
   const hasFinal = rounds.some((r) => r.kind === 'final')
   const effectiveKind: PeerRoundKind = hasFinal && kind === 'final' ? 'check_in' : kind
   const missing = openRound
@@ -141,38 +154,71 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="space-y-1 text-[13px] text-muted">
-            <span className="block">Round</span>
-            <select
-              value={effectiveKind}
-              onChange={(e) => setKind(e.target.value as PeerRoundKind)}
-              className="h-9 rounded-lg border border-line surface px-2 text-ink"
-            >
-              <option value="check_in">Check-in</option>
-              <option value="final" disabled={hasFinal}>
-                Final{hasFinal ? ' (already run)' : ''}
-              </option>
-            </select>
-          </label>
-          <label className="space-y-1 text-[13px] text-muted">
-            <span className="block">Closes at the end of</span>
-            <input
-              type="date"
-              value={day}
-              min={manilaDay(new Date())}
-              onChange={(e) => setDay(e.target.value)}
-              className="h-9 rounded-lg border border-line surface px-2 text-ink"
-            />
-          </label>
-          <Button
-            size="sm"
-            disabled={busy || !day}
-            onClick={() => act(() => openPeerRound(projectId, effectiveKind, endOfDay(day)), 'Round opened. The groups have been told.')}
-          >
-            Open round
-          </Button>
-        </div>
+        <>
+          {lapsed && (
+            <div className="space-y-3 rounded-card surface-sunken p-3">
+              <p className="text-[14px] text-ink">
+                {KIND[lapsed.kind]} round ended {dateFmt.format(new Date(lapsed.closes_at))} ·{' '}
+                <span className="font-mono">{lapsed.answered} of {lapsed.expected}</span> answered
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-2 text-[13px] text-muted">
+                  Reopen until
+                  <input
+                    type="date"
+                    value={reopenDay}
+                    min={manilaDay(new Date())}
+                    onChange={(e) => setReopenDay(e.target.value)}
+                    className="h-9 rounded-lg border border-line surface px-2 text-ink"
+                  />
+                </label>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || !reopenDay}
+                  onClick={() => act(() => setPeerRoundClose(lapsed.id, endOfDay(reopenDay)), 'Round reopened')}
+                >
+                  Reopen
+                </Button>
+              </div>
+            </div>
+          )}
+          {/* A lapsed final round is the last one: reopen it rather than start another. */}
+          {lapsed?.kind !== 'final' && (
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="space-y-1 text-[13px] text-muted">
+                <span className="block">Round</span>
+                <select
+                  value={effectiveKind}
+                  onChange={(e) => setKind(e.target.value as PeerRoundKind)}
+                  className="h-9 rounded-lg border border-line surface px-2 text-ink"
+                >
+                  <option value="check_in">Check-in</option>
+                  <option value="final" disabled={hasFinal}>
+                    Final{hasFinal ? ' (already run)' : ''}
+                  </option>
+                </select>
+              </label>
+              <label className="space-y-1 text-[13px] text-muted">
+                <span className="block">Closes at the end of</span>
+                <input
+                  type="date"
+                  value={day}
+                  min={manilaDay(new Date())}
+                  onChange={(e) => setDay(e.target.value)}
+                  className="h-9 rounded-lg border border-line surface px-2 text-ink"
+                />
+              </label>
+              <Button
+                size="sm"
+                disabled={busy || !day}
+                onClick={() => act(() => openPeerRound(projectId, effectiveKind, endOfDay(day)), 'Round opened. Each group got a notification.')}
+              >
+                Open round
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {rounds.length > 0 && (
@@ -180,7 +226,7 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
           {rounds.map((r) => (
             <li key={r.id}>
               {KIND[r.kind]} · {dateFmt.format(new Date(r.opens_at))} to {dateFmt.format(new Date(r.closed_at ?? r.closes_at))} ·{' '}
-              {r.answered} of {r.expected} answered{r.is_open ? ' · open' : ''}
+              {r.answered} of {r.expected} answered · {roundState(r)}
             </li>
           ))}
         </ul>
@@ -212,7 +258,11 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
       <ConfirmDialog
         open={closing !== null}
         title="Close this round now?"
-        body="Students can no longer save or change ratings. You can still open a new round afterwards."
+        body={
+          closing?.kind === 'final'
+            ? "This is the project's final round. Once closed it can't be reopened, and no other final round can be opened."
+            : 'Students can no longer save or change ratings. You can still open a new round afterwards.'
+        }
         confirmLabel="Close round"
         tone="primary"
         onClose={() => setClosing(null)}

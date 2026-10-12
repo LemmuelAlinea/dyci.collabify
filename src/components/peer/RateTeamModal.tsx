@@ -102,11 +102,9 @@ export function RateTeamModal({
       description={`Rate everyone in your group, yourself included, by ${closes}. Your teammates never see what you write or who gave which rating.`}
       footer={
         <div className="flex items-center justify-end gap-2">
-          {left > 0 && (
-            <span className="mr-auto text-[13px] text-muted" aria-live="polite">
-              {left} {left === 1 ? 'answer' : 'answers'} left
-            </span>
-          )}
+          <span className="mr-auto text-[13px] text-muted" aria-live="polite">
+            {left > 0 ? `${left} ${left === 1 ? 'answer' : 'answers'} left` : 'All answered'}
+          </span>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={save} loading={saving} disabled={!complete || saving}>Save ratings</Button>
         </div>

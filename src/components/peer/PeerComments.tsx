@@ -11,12 +11,21 @@ export function PeerComments({ roundId, boardId, revision }: { roundId: string; 
   const [failed, setFailed] = useState(false)
   const [showRaters, setShowRaters] = useState(false)
 
+  // A different round or group starts empty. A revision bump refetches in place,
+  // so the list stays up while it reloads.
   useEffect(() => {
-    let live = true
     setRows(null)
     setFailed(false)
+  }, [roundId, boardId])
+
+  useEffect(() => {
+    let live = true
     peerComments(roundId)
-      .then((all) => live && setRows(all.filter((c) => c.board_id === boardId)))
+      .then((all) => {
+        if (!live) return
+        setRows(all.filter((c) => c.board_id === boardId))
+        setFailed(false)
+      })
       .catch(() => live && setFailed(true))
     return () => {
       live = false
