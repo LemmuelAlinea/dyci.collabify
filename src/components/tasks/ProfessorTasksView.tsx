@@ -13,6 +13,7 @@ import { GroupProgressTable } from './GroupProgressTable'
 import { GroupMilestoneGrid } from '../work/GroupMilestoneGrid'
 import { HandInQueue } from './HandInQueue'
 import { MemberProgress } from './MemberProgress'
+import { PeerRoundsPanel } from '../peer/PeerRoundsPanel'
 import { TaskBoard } from './TaskBoard'
 import { TaskList } from './TaskList'
 import { TaskSummary } from './TaskSummary'
@@ -110,6 +111,8 @@ export function ProfessorTasksView({
             onOpen={(b) => openBoard(b.id)}
             onChanged={t.refresh}
           />
+
+          {!solo && <PeerRoundsPanel projectId={project.id} />}
 
           {/* 2 ── where everybody is, and where a group is chosen */}
           <section className="space-y-3">
