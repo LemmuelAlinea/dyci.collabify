@@ -139,7 +139,6 @@ function placesGroup(
   return {
     title: picker.length > 1 ? 'Classes & spaces' : picker[0] === 'classes' ? 'Classes' : 'Spaces',
     picker,
-    collapsible: true,
     hideWhenEmpty,
     withClasses,
     items: [],

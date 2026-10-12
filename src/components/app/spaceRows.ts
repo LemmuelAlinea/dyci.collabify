@@ -48,10 +48,10 @@ export function classRows(spaces: GeneralSpaceSummary[], cap = CAP): LiveRow[] {
  * Your classes and work spaces in one list, by name — the Spaces kind for
  * anyone whose classes live under Spaces rather than a Classes kind.
  */
-export function spaceAndClassRows(spaces: GeneralSpaceSummary[]): LiveRow[] {
+export function spaceAndClassRows(spaces: GeneralSpaceSummary[], cap = CAP): LiveRow[] {
   return [...classRows(spaces, Infinity), ...workSpaceRows(spaces, Infinity)]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .slice(0, CAP)
+    .slice(0, cap)
 }
 
 /** Your work spaces, as rows for the rail's places card. */

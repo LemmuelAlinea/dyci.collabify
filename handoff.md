@@ -3130,3 +3130,13 @@ Branch `claude/notes-file-plan`. No SQL.
 - Checked: build, eslint on components/app, nav + spaceRows Vitest; browser drawer as teaching
   faculty, dark (gradient banner) and light: Spaces and Classes tabs, active space row, All rows.
 - Not seen: student and non-teaching faculty cards, desktop rail at full size.
+
+**Change (2026-10-12): places card shows one place.** On main. No SQL.
+- The card always shows a single row: the active space (`currentSpaceId`) or the active class
+  (the one on screen, else the last opened on the device, `collabify:nav-class`, else the first),
+  with a green dot (new fixed token `--presence`, not `success-*`, which people recolour) and
+  "Active space" / "Active class · <section>". The All link is always shown under it, slimmer
+  (12.5px, muted). The header chevron now only reveals the Classes · Spaces switch, closed by
+  default (`collabify:nav-place-open`); single-kind cards have no chevron.
+- Checked: build, rail Vitest, eslint; drawer in dark with the gradient banner: folded and open,
+  Spaces and Classes.

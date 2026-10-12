@@ -225,6 +225,7 @@
   --color-banner-edge: var(--banner-edge);
   --color-banner-end: var(--banner-end);
   --color-banner-end-ink: var(--banner-end-ink);
+  --color-presence: var(--presence);
   --color-pending-soft: var(--pending-soft, var(--surface-sunken));
   --color-pending-ink: var(--pending-ink, var(--ink-muted));
   --color-progress: var(--progress);
@@ -309,6 +310,10 @@
     /* Text on a fill of that colour (the selected Work section, the timeline
        scale). Both default ends are amber, so the dark ink reads on either. */
     --banner-end-ink: #10162e;
+    /* "You are here, and it is live": the dot on the rail's active space or
+       class. Fixed green on purpose, not `success-*`, which a person can
+       recolour to mean "done". */
+    --presence: #16a34a;
     --progress: oklch(69.6% 0.17 162.48);
     --nav-active: #26327a;
     --nav-active-ink: #ffffff;
@@ -343,6 +348,7 @@
     /* The default banner is the dark page's own colour, so its outline would vanish. */
     --banner-edge: var(--color-navy-500);
     --banner-end: var(--banner-glow);
+    --presence: #22c55e;
     --surface: #131a3f;
     --surface-sunken: #0c1130;
     --surface-raised: #1a2255;

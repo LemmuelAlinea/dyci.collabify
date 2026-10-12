@@ -116,12 +116,15 @@ export function SideNav({
    * back out.
    */
   function places({ picker = [], withClasses, hideWhenEmpty }: NavGroup): PlaceList[] {
+    // Uncapped on the full rail: the card shows the active one, wherever it
+    // sorts. The icon rail lists rows, so it keeps the usual three.
+    const cap = collapsed ? undefined : Infinity
     const lists: PlaceList[] = picker.map((kind) =>
       kind === 'classes'
-        ? { kind, rows: classRows(spaces), more: { to: paths.classes, label: 'All classes' } }
+        ? { kind, rows: classRows(spaces, cap), more: { to: paths.classes, label: 'All classes' } }
         : {
             kind,
-            rows: withClasses ? spaceAndClassRows(spaces) : workSpaceRows(spaces),
+            rows: withClasses ? spaceAndClassRows(spaces, cap) : workSpaceRows(spaces, cap),
             more: { to: paths.spaces, label: 'All spaces' },
           },
     )
@@ -186,7 +189,6 @@ export function SideNav({
             if (group.picker) {
               const lists = places(group)
               if (lists.length === 0) return null
-              const listId = `nav-${group.title.toLowerCase().replace(/[^a-z]+/g, '-')}`
               // The icon rail has no room for the card: each kind's letters,
               // then its All link, as before.
               if (collapsed) {
@@ -214,9 +216,6 @@ export function SideNav({
                   key={group.title}
                   title={group.title}
                   lists={lists}
-                  open={!folded.includes(group.title)}
-                  controls={listId}
-                  onToggle={() => toggleFold(group.title)}
                   currentSpaceId={navigation.currentSpaceId}
                   onNavigate={onNavigate}
                 />
