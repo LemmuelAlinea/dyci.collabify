@@ -6,7 +6,11 @@ export type RosterEntry = RosterRow & {
   lowestShare: number | null
   trend: number[]
   idle: number | null
+  groups: string[]
 }
+
+/** One student in one class. The global page lists a student once per class. */
+export const entryKey = (e: Pick<RosterEntry, 'class_id' | 'student_id'>) => `${e.class_id}:${e.student_id}`
 
 export const FLAG_META: Record<StudentFlag, { word: (e: RosterEntry) => string; tone: Tone }> = {
   no_group: { word: () => 'In no group', tone: 'danger' },

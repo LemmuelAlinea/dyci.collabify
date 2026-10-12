@@ -29,14 +29,14 @@ export function StudentDrawer({
   if (!entry) return null
   const today = manilaDay(new Date(now))
   const { from } = classWindow(data, today)
-  const mine = data.shownActivity.filter((a) => a.actor_id === entry.student_id)
+  const mine = data.shownActivity.filter((a) => a.actor_id === entry.student_id && a.class_id === entry.class_id)
   const weekly = weeklyActivity(mine, from, today)
   const tasks = data.shownTasks
-    .filter((t) => t.assignee_ids.includes(entry.student_id))
+    .filter((t) => t.class_id === entry.class_id && t.assignee_ids.includes(entry.student_id))
     .sort((a, b) => (b.started_at ?? b.created_at).localeCompare(a.started_at ?? a.created_at))
     .slice(0, SHOWN_TASKS)
   const mainBoard = data.shownMembers
-    .filter((m) => m.student_id === entry.student_id)
+    .filter((m) => m.student_id === entry.student_id && m.class_id === entry.class_id)
     .sort((a, b) => b.task_count - a.task_count)[0]
 
   const lanes: Lane[] = tasks.map((t) => {
