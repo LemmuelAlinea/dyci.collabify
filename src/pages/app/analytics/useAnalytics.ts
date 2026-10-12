@@ -20,6 +20,7 @@ import {
   studentRoster,
   taskStates,
 } from '../../../lib/api/analytics'
+import { classPeerResults } from '../../../lib/api/peer'
 import { authErrorMessage } from '../../../lib/authError'
 import { rankActions } from '../../../lib/insight'
 import type { ActionRow, BoardDiagnosis, Participation, Pressure } from '../../../lib/insight'
@@ -33,6 +34,7 @@ import type {
   ClassUnmeasured,
   MemberLoad as Load,
   MilestoneProgress,
+  PeerResult,
   RosterRow,
   SprintProgress,
   TaskState,
@@ -68,6 +70,7 @@ export function useAnalytics(classId?: string) {
   const [cycles, setCycles] = useState<BoardCycle[]>([])
   const [milestones, setMilestones] = useState<MilestoneProgress[]>([])
   const [sprints, setSprints] = useState<SprintProgress[]>([])
+  const [peer, setPeer] = useState<PeerResult[]>([])
   const [error, setError] = useState<string | null>(null)
   const [scope, setScopeState] = useState<Scope>({ ...EMPTY_SCOPE, classId: classId ?? '' })
   // Locked to one class (inside a class's own page), every narrowing keeps it.
@@ -91,7 +94,7 @@ export function useAnalytics(classId?: string) {
     }
     running.current = true
     try {
-      const [p, u, g, h, m0, b0, t0, d0, pa, pr, ac, av, ro, cy, ms, sp] = await Promise.all([
+      const [p, u, g, h, m0, b0, t0, d0, pa, pr, ac, av, ro, cy, ms, sp, pe] = await Promise.all([
         classPace(),
         classesUnmeasured(),
         classGaps(),
@@ -108,6 +111,7 @@ export function useAnalytics(classId?: string) {
         boardCycles(),
         milestoneProgress(),
         sprintProgress(),
+        classPeerResults(),
       ])
       // The board-level views keep archived projects; the cycles view has one
       // row per board of a live project in a live class, so it decides.
@@ -132,6 +136,7 @@ export function useAnalytics(classId?: string) {
       setCycles(cy)
       setMilestones(ms)
       setSprints(sp)
+      setPeer(pe.filter((r) => live.has(r.board_id)))
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load the analytics.'))
@@ -154,6 +159,7 @@ export function useAnalytics(classId?: string) {
     'project_tasks', 'task_assignees', 'project_boards', 'projects', 'board_results',
     'task_events', 'task_reassignments', 'syllabus_weeks', 'class_members',
     'task_worklog', 'task_comments', 'board_sprints', 'project_milestones',
+    'peer_ratings', 'peer_rounds',
   ])
 
   const shownTasks = useMemo(
@@ -273,6 +279,14 @@ export function useAnalytics(classId?: string) {
         .filter((s) => (scope.boardId ? s.board_id === scope.boardId : true)),
     [sprints, scope],
   )
+  const shownPeer = useMemo(
+    () =>
+      peer
+        .filter((r) => (scope.classId ? r.class_id === scope.classId : true))
+        .filter((r) => (scope.projectId ? r.project_id === scope.projectId : true))
+        .filter((r) => (scope.boardId ? r.board_id === scope.boardId : true)),
+    [peer, scope],
+  )
 
   const narrowedBelowClass = Boolean(
     scope.projectId || scope.boardId || scope.studentId || scope.taskId,
@@ -358,6 +372,7 @@ export function useAnalytics(classId?: string) {
     shownCycles,
     shownMilestones,
     shownSprints,
+    shownPeer,
     // Raw, for class-level facts the views need whatever the narrowing.
     pace: pace ?? [],
     people,

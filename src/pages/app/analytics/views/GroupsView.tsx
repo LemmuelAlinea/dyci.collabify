@@ -6,7 +6,9 @@ import { GroupHealthGrid } from '../../../../components/analytics/GroupHealthGri
 import { Burnup } from '../../../../components/charts/Burnup'
 import { CalendarHeat } from '../../../../components/charts/CalendarHeat'
 import { ShareBar } from '../../../../components/charts/ShareBar'
+import { PeerResultsTable } from '../../../../components/peer/PeerResultsTable'
 import { LOW_SHARE_PCT, burnupSeries, manilaDay } from '../../../../lib/analyticsMath'
+import { PEER_MIN_RATERS, latestRoundRows } from '../../../../lib/peerMath'
 import type { AnalyticsData } from '../useAnalytics'
 import { classWindow } from '../window'
 import { Section } from './Section'
@@ -80,6 +82,46 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
             })}
           </ul>
         )}
+      </Section>
+
+      <Section
+        title="How teammates rated each other"
+        subtitle="Each group's latest peer evaluation. A factor below 0.85 means teammates rated someone well under the group's average. Use it to start a conversation, not to decide a grade."
+      >
+        {(() => {
+          const latest = latestRoundRows(data.shownPeer)
+          const boards = [...new Set(latest.map((r) => r.board_id))]
+          if (boards.length === 0) {
+            return (
+              <p className="text-[13px] text-muted">
+                No peer evaluation yet. Open one from a group project's Work tab.
+              </p>
+            )
+          }
+          return (
+            <div className="space-y-6">
+              {boards.map((b) => {
+                const rows = latest.filter((r) => r.board_id === b)
+                const first = rows[0]
+                return (
+                  <div key={b} className="space-y-2">
+                    <p className="text-[13px] text-ink">
+                      {first.group_name ?? 'Group'}{' '}
+                      <span className="text-faint">
+                        · {first.kind === 'final' ? 'Final' : 'Check-in'}
+                        {first.is_open ? ' · in progress' : ''}
+                      </span>
+                    </p>
+                    <PeerResultsTable rows={rows} label={first.group_name ?? 'Group'} />
+                  </div>
+                )
+              })}
+              <p className="text-[12px] text-faint">
+                Factor is a member's average from teammates divided by the team's. It appears once at least {PEER_MIN_RATERS} teammates have rated them.
+              </p>
+            </div>
+          )
+        })()}
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-2">

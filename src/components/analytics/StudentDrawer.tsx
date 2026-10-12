@@ -6,6 +6,7 @@ import { WeekBars } from '../charts/WeekBars'
 import { Modal } from '../ui/Modal'
 import { useNow } from '../../hooks/useNow'
 import { addDays, manilaDay, weeklyActivity } from '../../lib/analyticsMath'
+import { analyseTeam, latestRoundRows, PEER_FLAG_META } from '../../lib/peerMath'
 import { classWindow } from '../../pages/app/analytics/window'
 import type { AnalyticsData } from '../../pages/app/analytics/useAnalytics'
 import { FLAG_META } from './flags'
@@ -38,6 +39,14 @@ export function StudentDrawer({
   const mainBoard = data.shownMembers
     .filter((m) => m.student_id === entry.student_id && m.class_id === entry.class_id)
     .sort((a, b) => b.task_count - a.task_count)[0]
+
+  const peerRows = latestRoundRows(data.shownPeer.filter((r) => r.class_id === entry.class_id))
+  const myPeerBoard = peerRows.find((r) => r.student_id === entry.student_id)?.board_id
+  const myPeer = myPeerBoard
+    ? analyseTeam(peerRows.filter((r) => r.board_id === myPeerBoard)).find(
+        (r) => r.student_id === entry.student_id,
+      )
+    : undefined
 
   const lanes: Lane[] = tasks.map((t) => {
     const start = manilaDay(t.started_at ?? t.created_at)
@@ -83,6 +92,17 @@ export function StudentDrawer({
             ))}
           </p>
         )}
+
+        <p className="text-[13px] text-muted">
+          {myPeer
+            ? <>Teammates' rating: <span className="font-mono text-ink">{myPeer.factor === null ? 'too few raters' : `factor ${myPeer.factor.toFixed(2)}`}</span>
+              {myPeer.flags.map((f) => (
+                <span key={f} className={`ml-1.5 rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL[PEER_FLAG_META[f].tone]}`}>
+                  {PEER_FLAG_META[f].label}
+                </span>
+              ))}</>
+            : 'No peer evaluation yet.'}
+        </p>
 
         <section className="space-y-2">
           <h4 className="text-ink">Activity by week</h4>
