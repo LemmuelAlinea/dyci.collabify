@@ -49,17 +49,31 @@ export async function classHealth() {
   return (data ?? []) as ClassHealth[]
 }
 
+/** Paged: a class of forty across several projects passes a thousand rows. */
 export async function memberLoad() {
-  const { data, error } = await supabase.from('class_member_load').select('*')
-  if (error) throw error
-  return (data ?? []) as MemberLoad[]
+  return pageAll<MemberLoad>(async (from, to) => {
+    const { data, error } = await supabase
+      .from('class_member_load')
+      .select('*')
+      .order('board_id')
+      .order('student_id')
+      .range(from, to)
+    if (error) throw error
+    return (data ?? []) as MemberLoad[]
+  })
 }
 
-/** Board-level burn: the projection one level below the syllabus. */
+/** Board-level burn: the projection one level below the syllabus. Paged. */
 export async function boardBurn() {
-  const { data, error } = await supabase.from('board_burn').select('*')
-  if (error) throw error
-  return (data ?? []) as BoardBurn[]
+  return pageAll<BoardBurn>(async (from, to) => {
+    const { data, error } = await supabase
+      .from('board_burn')
+      .select('*')
+      .order('board_id')
+      .range(from, to)
+    if (error) throw error
+    return (data ?? []) as BoardBurn[]
+  })
 }
 
 /* ------------------------------------------------ why, what next, what to do */

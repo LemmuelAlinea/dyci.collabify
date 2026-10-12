@@ -96,6 +96,7 @@ export function ActionList({
                   <button
                     type="button"
                     onClick={() => onSeeWhy(a)}
+                    aria-label={`See why: ${a.title}`}
                     className="shrink-0 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-muted transition-colors hover:text-ink"
                   >
                     See why

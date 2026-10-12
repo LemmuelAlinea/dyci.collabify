@@ -5,6 +5,7 @@ import type { RosterEntry } from '../../../../components/analytics/flags'
 import { StudentDrawer } from '../../../../components/analytics/StudentDrawer'
 import { idleDays, lastWeeks, manilaDay, studentFlags } from '../../../../lib/analyticsMath'
 import type { AnalyticsData } from '../useAnalytics'
+import { termsOf } from '../window'
 import { Section } from './Section'
 
 export function StudentsView({ data, onOpenTask }: { data: AnalyticsData; onOpenTask: (id: string) => void }) {
@@ -17,13 +18,16 @@ export function StudentsView({ data, onOpenTask }: { data: AnalyticsData; onOpen
     setClosedFor(null)
   }
 
+  const { shownPace, shownUnmeasured } = data
   const entries = useMemo<RosterEntry[]>(() => {
     const now = new Date()
     const today = manilaDay(now)
     const weeks = lastWeeks(today, 8)
     const inGroup = new Map(data.people.map((p) => [`${p.class_id}:${p.student_id}`, p.in_any_group]))
     const boardTasks = new Map(data.burns.map((b) => [b.board_id, b.task_count]))
-    const termStarted = new Map(data.pace.map((p) => [p.class_id, p.term_start <= today]))
+    const termStarted = new Map(
+      [...termsOf({ shownPace, shownUnmeasured })].map(([id, t]) => [id, t.start <= today]),
+    )
     return data.shownRoster.map((r) => {
       const shares = data.shownMembers
         .filter(
@@ -48,13 +52,14 @@ export function StudentsView({ data, onOpenTask }: { data: AnalyticsData; onOpen
           lowestShare,
           inAnyGroup: inGroup.get(`${r.class_id}:${r.student_id}`) ?? true,
           lastActiveAt: r.last_active_at,
-          termStarted: termStarted.get(r.class_id) ?? true,
+          // No term at all means not started: no "inactive" flag before one is set.
+          termStarted: termStarted.get(r.class_id) ?? false,
         },
         now,
       )
       return { ...r, flags, lowestShare, trend, idle: idleDays(r.last_active_at, now), groups: r.group_names }
     })
-  }, [data.shownRoster, data.shownMembers, data.shownActivity, data.people, data.pace, data.burns])
+  }, [data.shownRoster, data.shownMembers, data.shownActivity, data.people, shownPace, shownUnmeasured, data.burns])
 
   // Narrowing to a student in the scope bar opens their drawer, once.
   const { studentId, classId } = data.scope

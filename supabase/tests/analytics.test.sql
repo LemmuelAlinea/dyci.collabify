@@ -63,8 +63,8 @@ begin
 
   -- Archive the real projects for this class so the arithmetic is ours alone.
   -- Not a delete: that cascades into the drafts guard, which refuses anyone
-  -- without an active signed-in account. Every view here already drops
-  -- archived projects, so this also leans on the filter production relies on.
+  -- without an active signed-in account. The class-level views drop archived
+  -- projects; the board-level ones keep them and the page filters them out.
   update public.projects set archived_at = now()
    where class_id = v_class and archived_at is null;
 

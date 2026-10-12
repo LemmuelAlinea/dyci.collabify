@@ -167,23 +167,36 @@ export function onTimeByWeek(tasks: FinishedTask[], weeks: string[]): (number | 
 
 export type HealthMeasure = 'pace' | 'overdue' | 'gini' | 'idle' | 'returns'
 
+/** Points behind the elapsed time at which pace turns danger (warning above it). */
+export const PACE_DANGER_GAP = -20
+/** Overdue tasks at which a board turns danger; one up to this is warning. */
+export const OVERDUE_DANGER = 3
+/** Gini at which the split turns warning, and above which it turns danger. */
+export const GINI_WARN = 0.3
+export const GINI_DANGER = 0.5
+/** Idle days at which a board turns warning; INACTIVE_DAYS turns it danger. */
+export const IDLE_WARN_DAYS = 4
+/** Returns at which a board turns danger; one is warning. */
+export const RETURNS_DANGER = 2
+
 /**
  * The colour of one cell in the group health grid. `pace` is points of
  * completion ahead of (positive) or behind (negative) the time elapsed.
+ * Overdue and returns are whole counts.
  */
 export function healthTone(measure: HealthMeasure, value: number | null): Tone {
   if (value === null) return 'pending'
   switch (measure) {
     case 'pace':
-      return value >= 0 ? 'success' : value > -20 ? 'warning' : 'danger'
+      return value >= 0 ? 'success' : value > PACE_DANGER_GAP ? 'warning' : 'danger'
     case 'overdue':
-      return value === 0 ? 'success' : value <= 2 ? 'warning' : 'danger'
+      return value === 0 ? 'success' : value < OVERDUE_DANGER ? 'warning' : 'danger'
     case 'gini':
-      return value < 0.3 ? 'success' : value <= 0.5 ? 'warning' : 'danger'
+      return value < GINI_WARN ? 'success' : value <= GINI_DANGER ? 'warning' : 'danger'
     case 'idle':
-      return value < 4 ? 'success' : value < INACTIVE_DAYS ? 'warning' : 'danger'
+      return value < IDLE_WARN_DAYS ? 'success' : value < INACTIVE_DAYS ? 'warning' : 'danger'
     case 'returns':
-      return value === 0 ? 'success' : value === 1 ? 'warning' : 'danger'
+      return value === 0 ? 'success' : value < RETURNS_DANGER ? 'warning' : 'danger'
   }
 }
 

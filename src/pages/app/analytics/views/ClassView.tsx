@@ -16,7 +16,7 @@ import {
   weeklyActivity,
 } from '../../../../lib/analyticsMath'
 import type { AnalyticsData } from '../useAnalytics'
-import { classWindow } from '../window'
+import { classWindow, termsOf } from '../window'
 import { Section } from './Section'
 
 const pct = (n: number, d: number) => (d === 0 ? null : Math.round((n / d) * 100))
@@ -58,7 +58,7 @@ export function ClassView({ data }: { data: AnalyticsData }) {
   const onTimeNow = pct(done.filter((t) => !t.late).length, done.length)
   const completionNow = pct(done.length, tasks.length)
 
-  const hasTerm = data.shownPace.length > 0
+  const hasTerm = termsOf(data).size > 0
   const burn = burnupSeries(tasks, from, to)
   const weekly = weeklyActivity(data.shownActivity, from, to)
   const hasActivity = weekly.some((w) => w.work + w.talk > 0)

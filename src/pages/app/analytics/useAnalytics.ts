@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { EMPTY_SCOPE } from '../../../components/analytics/scope'
 import type { Scope } from '../../../components/analytics/scope'
@@ -76,9 +76,22 @@ export function useAnalytics(classId?: string) {
     [classId],
   )
 
+  // A load takes seconds and useLive fires on every change, focus and poll.
+  // One runs at a time; anything asked for meanwhile becomes one more load
+  // after it, so results never land out of order.
+  const running = useRef(false)
+  const dirty = useRef(false)
+  // The load itself, for the follow-up run; set once it exists.
+  const again = useRef<() => Promise<void>>(async () => {})
+
   const load = useCallback(async () => {
+    if (running.current) {
+      dirty.current = true
+      return
+    }
+    running.current = true
     try {
-      const [p, u, g, h, m, b, t, d, pa, pr, ac, av, ro, cy, ms, sp] = await Promise.all([
+      const [p, u, g, h, m0, b0, t0, d0, pa, pr, ac, av, ro, cy, ms, sp] = await Promise.all([
         classPace(),
         classesUnmeasured(),
         classGaps(),
@@ -96,6 +109,13 @@ export function useAnalytics(classId?: string) {
         milestoneProgress(),
         sprintProgress(),
       ])
+      // The board-level views keep archived projects; the cycles view has one
+      // row per board of a live project in a live class, so it decides.
+      const live = new Set(cy.map((c) => c.board_id))
+      const m = m0.filter((r) => live.has(r.board_id))
+      const b = b0.filter((r) => live.has(r.board_id))
+      const t = t0.filter((r) => live.has(r.board_id))
+      const d = d0.filter((r) => live.has(r.board_id))
       setPace(p)
       setUnmeasured(u)
       setGaps(g)
@@ -116,10 +136,17 @@ export function useAnalytics(classId?: string) {
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load the analytics.'))
       setPace([])
+    } finally {
+      running.current = false
+      if (dirty.current) {
+        dirty.current = false
+        void again.current()
+      }
     }
   }, [])
 
   useEffect(() => {
+    again.current = load
     void load()
   }, [load])
 
