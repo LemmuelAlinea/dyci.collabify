@@ -4,6 +4,7 @@ import { EMPTY_SCOPE } from '../../../components/analytics/scope'
 import type { Scope } from '../../../components/analytics/scope'
 import {
   boardBurn,
+  boardCycles,
   boardDiagnoses,
   classActions,
   classGaps,
@@ -11,20 +12,29 @@ import {
   classPace,
   classParticipation,
   classesUnmeasured,
+  dailyActivity,
   deadlinePressure,
   memberLoad,
+  milestoneProgress,
+  sprintProgress,
+  studentRoster,
   taskStates,
 } from '../../../lib/api/analytics'
 import { authErrorMessage } from '../../../lib/authError'
 import { rankActions } from '../../../lib/insight'
 import type { ActionRow, BoardDiagnosis, Participation, Pressure } from '../../../lib/insight'
 import type {
+  ActivityDay,
   BoardBurn,
+  BoardCycle,
   ClassGap,
   ClassHealth,
   ClassPace,
   ClassUnmeasured,
   MemberLoad as Load,
+  MilestoneProgress,
+  RosterRow,
+  SprintProgress,
   TaskState,
 } from '../../../lib/types'
 
@@ -53,6 +63,11 @@ export function useAnalytics(classId?: string) {
   const [people, setPeople] = useState<Participation[]>([])
   const [pressure, setPressure] = useState<Pressure[]>([])
   const [actionRows, setActionRows] = useState<ActionRow[]>([])
+  const [activity, setActivity] = useState<ActivityDay[]>([])
+  const [roster, setRoster] = useState<RosterRow[]>([])
+  const [cycles, setCycles] = useState<BoardCycle[]>([])
+  const [milestones, setMilestones] = useState<MilestoneProgress[]>([])
+  const [sprints, setSprints] = useState<SprintProgress[]>([])
   const [error, setError] = useState<string | null>(null)
   const [scope, setScopeState] = useState<Scope>({ ...EMPTY_SCOPE, classId: classId ?? '' })
   // Locked to one class (inside a class's own page), every narrowing keeps it.
@@ -63,7 +78,7 @@ export function useAnalytics(classId?: string) {
 
   const load = useCallback(async () => {
     try {
-      const [p, u, g, h, m, b, t, d, pa, pr, ac] = await Promise.all([
+      const [p, u, g, h, m, b, t, d, pa, pr, ac, av, ro, cy, ms, sp] = await Promise.all([
         classPace(),
         classesUnmeasured(),
         classGaps(),
@@ -75,6 +90,11 @@ export function useAnalytics(classId?: string) {
         classParticipation(),
         deadlinePressure(),
         classActions(),
+        dailyActivity(),
+        studentRoster(),
+        boardCycles(),
+        milestoneProgress(),
+        sprintProgress(),
       ])
       setPace(p)
       setUnmeasured(u)
@@ -87,6 +107,11 @@ export function useAnalytics(classId?: string) {
       setPeople(pa)
       setPressure(pr)
       setActionRows(ac)
+      setActivity(av)
+      setRoster(ro)
+      setCycles(cy)
+      setMilestones(ms)
+      setSprints(sp)
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load the analytics.'))
@@ -98,7 +123,11 @@ export function useAnalytics(classId?: string) {
     void load()
   }, [load])
 
-  useLive(load, ['project_tasks', 'task_assignees', 'project_boards', 'projects', 'board_results', 'task_events', 'task_reassignments', 'syllabus_weeks', 'class_members'])
+  useLive(load, [
+    'project_tasks', 'task_assignees', 'project_boards', 'projects', 'board_results',
+    'task_events', 'task_reassignments', 'syllabus_weeks', 'class_members',
+    'task_worklog', 'task_comments', 'board_sprints', 'project_milestones',
+  ])
 
   const shownTasks = useMemo(
     () =>
@@ -175,6 +204,47 @@ export function useAnalytics(classId?: string) {
   const shownPressure = useMemo(
     () => pressure.filter((p) => (scope.classId ? p.class_id === scope.classId : true)),
     [pressure, scope.classId],
+  )
+
+  const shownActivity = useMemo(
+    () =>
+      activity
+        .filter((a) => (scope.classId ? a.class_id === scope.classId : true))
+        .filter((a) => (scope.projectId ? a.project_id === scope.projectId : true))
+        .filter((a) => (scope.boardId ? a.board_id === scope.boardId : true))
+        .filter((a) => (scope.studentId ? a.actor_id === scope.studentId : true)),
+    [activity, scope],
+  )
+  const shownRoster = useMemo(
+    () =>
+      roster
+        .filter((r) => (scope.classId ? r.class_id === scope.classId : true))
+        .filter((r) => (scope.studentId ? r.student_id === scope.studentId : true)),
+    [roster, scope.classId, scope.studentId],
+  )
+  const shownCycles = useMemo(
+    () =>
+      cycles
+        .filter((c) => (scope.classId ? c.class_id === scope.classId : true))
+        .filter((c) => (scope.projectId ? c.project_id === scope.projectId : true))
+        .filter((c) => (scope.boardId ? c.board_id === scope.boardId : true)),
+    [cycles, scope],
+  )
+  const shownMilestones = useMemo(
+    () =>
+      milestones
+        .filter((m) => (scope.classId ? m.class_id === scope.classId : true))
+        .filter((m) => (scope.projectId ? m.project_id === scope.projectId : true))
+        .filter((m) => (scope.boardId ? m.board_id === scope.boardId : true)),
+    [milestones, scope],
+  )
+  const shownSprints = useMemo(
+    () =>
+      sprints
+        .filter((s) => (scope.classId ? s.class_id === scope.classId : true))
+        .filter((s) => (scope.projectId ? s.project_id === scope.projectId : true))
+        .filter((s) => (scope.boardId ? s.board_id === scope.boardId : true)),
+    [sprints, scope],
   )
 
   const narrowedBelowClass = Boolean(
@@ -256,5 +326,15 @@ export function useAnalytics(classId?: string) {
     shownPeople,
     shownPressure,
     actions,
+    shownActivity,
+    shownRoster,
+    shownCycles,
+    shownMilestones,
+    shownSprints,
+    // Raw, for class-level facts the views need whatever the narrowing.
+    pace: pace ?? [],
+    people,
   }
 }
+
+export type AnalyticsData = ReturnType<typeof useAnalytics>

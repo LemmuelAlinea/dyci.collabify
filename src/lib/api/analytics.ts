@@ -1,13 +1,19 @@
 import { supabase } from '../supabase'
 import type {
+  ActivityDay,
   BoardBurn,
+  BoardCycle,
   ClassGap,
   ClassHealth,
   ClassPace,
   ClassUnmeasured,
   MemberLoad,
+  MilestoneProgress,
+  RosterRow,
+  SprintProgress,
   TaskState,
 } from '../types'
+import { pageAll } from './paging'
 import type { ActionRow, BoardDiagnosis, Participation, Pressure } from '../insight'
 
 /**
@@ -95,11 +101,71 @@ export async function classActions() {
   return (data ?? []) as ActionRow[]
 }
 
-/** The leaf of the filter chain. */
+/**
+ * The leaf of the filter chain. Paged: a busy class passes a thousand tasks.
+ * Due date keeps the list the way the page shows it; the id makes the order
+ * stable between pages.
+ */
 export async function taskStates() {
-  const { data, error } = await supabase.from('task_state').select('*').order('due_at', {
-    nullsFirst: false,
+  return pageAll<TaskState>(async (from, to) => {
+    const { data, error } = await supabase
+      .from('task_state')
+      .select('*')
+      .order('due_at', { nullsFirst: false })
+      .order('task_id')
+      .range(from, to)
+    if (error) throw error
+    return (data ?? []) as TaskState[]
   })
+}
+
+/* ------------------------------------------------------------ over time */
+
+/** Events per board, person, day and kind. Paged: a term runs to thousands of rows. */
+export async function dailyActivity() {
+  return pageAll<ActivityDay>(async (from, to) => {
+    const { data, error } = await supabase
+      .from('analytics_daily_activity')
+      .select('*')
+      .order('day')
+      .order('board_id')
+      .order('actor_id', { nullsFirst: true })
+      .order('kind')
+      .range(from, to)
+    if (error) throw error
+    return (data ?? []) as ActivityDay[]
+  })
+}
+
+export async function studentRoster() {
+  const { data, error } = await supabase
+    .from('analytics_student_roster')
+    .select('*')
+    .order('student_name')
   if (error) throw error
-  return (data ?? []) as TaskState[]
+  return (data ?? []) as RosterRow[]
+}
+
+export async function boardCycles() {
+  const { data, error } = await supabase.from('analytics_board_cycles').select('*')
+  if (error) throw error
+  return (data ?? []) as BoardCycle[]
+}
+
+export async function milestoneProgress() {
+  const { data, error } = await supabase
+    .from('analytics_milestones')
+    .select('*')
+    .order('due_on')
+  if (error) throw error
+  return (data ?? []) as MilestoneProgress[]
+}
+
+export async function sprintProgress() {
+  const { data, error } = await supabase
+    .from('analytics_sprints')
+    .select('*')
+    .order('starts_on')
+  if (error) throw error
+  return (data ?? []) as SprintProgress[]
 }

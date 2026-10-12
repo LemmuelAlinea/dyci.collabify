@@ -1183,6 +1183,9 @@ export type TaskState = {
   weight: number
   started_at: string | null
   done_at: string | null
+  created_at: string
+  sprint_id: string | null
+  milestone_id: string | null
   board_id: string
   class_id: string
   project_id: string
@@ -1192,6 +1195,87 @@ export type TaskState = {
   board_student_name: string | null
   assignee_ids: string[]
   assignee_names: string
+}
+
+/** `task_event_kind` in the database, including the kinds task-detail.sql adds. */
+export type ActivityKind =
+  | 'created'
+  | 'edited'
+  | 'claimed'
+  | 'unclaimed'
+  | 'assigned'
+  | 'started'
+  | 'finished'
+  | 'reopened'
+  | 'commented'
+  | 'logged'
+  | 'file_added'
+  | 'file_removed'
+
+/** analytics_daily_activity: events per board, person, Philippine day and kind. */
+export type ActivityDay = {
+  class_id: string
+  project_id: string
+  board_id: string
+  actor_id: string | null
+  day: string
+  kind: ActivityKind
+  n: number
+}
+
+/** analytics_student_roster: one active class member and the evidence of their work. */
+export type RosterRow = {
+  class_id: string
+  student_id: string
+  student_name: string
+  avatar_url: string | null
+  held: number
+  done: number
+  late: number
+  worklog_minutes: number
+  comments: number
+  last_active_at: string | null
+}
+
+/** analytics_board_cycles: every answer a board has had. */
+export type BoardCycle = {
+  board_id: string
+  class_id: string
+  project_id: string
+  returns: number
+  accepts: number
+  submitted_at: string | null
+  last_decided_at: string | null
+  /** The latest cycle only; null while a hand-in waits for an answer. */
+  decision_hours: number | null
+}
+
+/** analytics_milestones: one project milestone as one board is reaching it. */
+export type MilestoneProgress = {
+  milestone_id: string
+  project_id: string
+  board_id: string
+  class_id: string
+  name: string
+  due_on: string
+  tasks: number
+  done: number
+  last_done_at: string | null
+}
+
+/** analytics_sprints: what a sprint finished inside its own dates. */
+export type SprintProgress = {
+  sprint_id: string
+  board_id: string
+  class_id: string
+  project_id: string
+  name: string
+  starts_on: string
+  ends_on: string
+  state: 'planned' | 'active' | 'completed'
+  tasks: number
+  done: number
+  done_in_window: number
 }
 
 /**
