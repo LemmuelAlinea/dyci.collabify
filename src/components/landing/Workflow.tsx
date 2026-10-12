@@ -178,7 +178,6 @@ export function Workflow() {
                     src={CAPTIONS}
                     srcLang="en"
                     label="English"
-                    default
                   />
                 </video>
 
