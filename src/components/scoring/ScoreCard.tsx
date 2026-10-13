@@ -44,6 +44,7 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
     const v = value(c).trim()
     if (v === '') return 'Score this criterion'
     const n = Number(v)
+    if (n < 0) return 'Use zero or more'
     if (!isHalfStep(n)) return 'Use whole or half points'
     if (n > c.max_points) return `At most ${c.max_points}`
     return null
@@ -61,6 +62,7 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
     (r.final !== null && r.overridden ? String(r.final) : String(suggested(r) ?? ''))
   const finalProblem = (r: ScoreSheetRow) => {
     const n = Number(finalText(r))
+    if (finalText(r).trim() !== '' && n < 0) return 'Use zero or more'
     if (finalText(r).trim() === '' || !isHalfStep(n)) return 'Use whole or half points'
     if (n > total) return `At most ${total}`
     return null
@@ -122,7 +124,8 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
 
       <ul className="space-y-3">
         {criteria.map((c) => {
-          const err = edits[c.id] !== undefined ? problem(c) : null
+          // Once anything is edited, a blank box says why Save is off.
+          const err = edits[c.id] !== undefined || (dirty && value(c).trim() === '') ? problem(c) : null
           return (
             <li key={c.id} className="flex flex-wrap items-start gap-3">
               <label htmlFor={`pts-${board.id}-${c.id}`} className="min-w-0 flex-1">
