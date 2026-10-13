@@ -3400,3 +3400,78 @@ Both start with "zz test".
 - "Gathering it…" flashes on every live refresh.
 
 **Next.** B2: the Weekly class check-in and the Intervention log, which adds the `class_note_log` view.
+
+---
+
+## Phase B2: weekly check-in and intervention log (2026-10-14)
+
+- **Spec:** `docs/superpowers/specs/2026-10-13-phase-b-reports-design.md` (B2 sections).
+- **Plan:** `docs/superpowers/plans/2026-10-14-phase-b2-checkin-intervention-log.md`. Its rulings:
+  1. the check-in waits for all its data, including `class_actions`;
+  2. figures count events;
+  3. a hand-in is the board's current `submitted_at`, and returns come from `board_results`;
+  4. stuck and idle are measured as of the range's last day, never later than today (the final review added this);
+  5. an ended class gets a note instead of figures;
+  6. the log reads oldest first.
+
+**What.** A third catalogue group, **For check-ins**, sits between For grading and Older reports.
+- **Weekly class check-in:**
+  - **Dates:** This week, Last week, Last 7 days, or Choose dates. A range typed backwards is put in order, and a half-filled range falls back to the last 7 days with a hint.
+  - **Measured as of** `min(range end, today)`. "This week" mid-week reads "This week so far" and is compared with the same number of days just before it.
+  - **KPIs with changes:** tasks finished, tasks started, hand-ins, returns, comments and files, students active.
+  - **Tables:**
+    - Moved this week (per board);
+    - Stuck: tasks 7+ days in progress, and groups or students idle 7+ days;
+    - Coming up (the next 7 days);
+    - Needs attention: the ranked actions plus open follow-ups, with overdue ones tagged.
+  - **Chart:** 8-week work and talk bars.
+  - **Scope:** only projects that are live and released by the as-of day count. A group is "never active" only 7 days after both the term and its project started.
+- **Intervention log:**
+  - every class note, meeting, follow-up and reminder in a date range (default the last 30 days), with who wrote it;
+  - filters for kind, status, student and group. The header names every active filter;
+  - KPIs per kind, plus open follow-ups, overdue follow-ups and reminders sent;
+  - "Only teaching staff can read these notes."
+- **Export:** both reports have Print and Export (Excel, Word, CSV).
+  - In Excel, the cover writes each change as "up 3", "down 9" or "no change", so the sign survives.
+  - Word writes it as "5 (+3)".
+  - File names now include the class.
+
+**Code.**
+
+| File | What it does |
+|---|---|
+| `supabase/report-notes.sql` | The `class_note_log` view: `security_invoker`, professor-only, with names joined. Anon is revoked. It is in the schema-drift ORDER and both rebuild lines. Test: `supabase/tests/report-notes.test.sql`. |
+| `lib/reports/range.ts` | Manila day ranges: choices, resolve, the previous span, text. |
+| `lib/reports/checkIn.ts`, `interventionLog.ts` | Pure builders, all tested. |
+| `lib/reports/doc.ts`, `export.ts`, `ReportDocView` | The `weekBars` chart, KPI `delta` and `compareLabel`. The Excel cover now carries notes and summaries, and sets column widths. `csvSafe` also guards a leading tab or carriage return. |
+| `lib/api/notes.ts`, `results.ts`, `paging.ts` | `listClassNoteLog`, and `boardResultsFor`, which is paged and sends ids in chunks of 100. |
+| `pages/app/reports/useReportDoc.ts` | Each report listens only to the tables it reads. A live refresh is paced (10 s for the check-in, 1.5 s otherwise), and a build in flight is marked dirty rather than cancelled. |
+| `useReports.ts`, `Reports.tsx` | The URL keys `rrange`, `rfrom`, `rto`, `rkinds` and `rstatus`, and the picker extras. The board loader runs only for the board report. |
+
+**Checked.**
+- Vitest: 918 pass. Build and `eslint src` are clean. SQL: 4/4.
+- Browser, live, as faculty on QM:
+  - This week (partial-week note, compared with Oct 9–11);
+  - a custom range typed backwards, which read as Oct 5–11 as it stood;
+  - the log with the two "zz test" notes and their author;
+  - the kind, status and group filters, and the empty sentence;
+  - Excel and Word run in the page and read back;
+  - light and dark;
+  - 375, 768 and 1440 with no sideways scroll;
+  - no console errors.
+- No files were downloaded.
+
+**Deferred** (ledger):
+- A solo board shows as a "Group" row named after its student, so a never-active solo student appears twice (once as Group, once as Student).
+- Students read "never active" once the term starts, whatever the project's age. Groups wait for their project.
+- A task moved back to todo, or reopened, loses its past-week timestamps (a data-model limit).
+- A range wholly in the future compares against the day before it.
+- The release check is by day, not by time.
+- Follow-ups on archived-project boards still list.
+- An open tab across midnight keeps the old "This week" until something rebuilds it.
+- A stale `rgroup` or `rstudent` shows the first select option; the document ignores it.
+- A refocused check-in tab can wait up to 10 s.
+- Range-only changes refetch all eight check-in sets.
+- The class loader's "Gathering it…" takes about 15 s on QM.
+
+**Next.** B3: the Group progress report, and Deliverables & milestone compliance.
