@@ -75,4 +75,12 @@ describe('boardScoreStatus', () => {
     expect(boardScoreStatus([sheetRow(done)])).toBe('confirmed')
     expect(boardScoreStatus([sheetRow({ ...done, released: true })])).toBe('released')
   })
+  it('is scored again when a confirmed suggestion has changed', () => {
+    const done = { scored: 2, confirmed_at: '2026-10-13T00:00:00Z' }
+    expect(boardScoreStatus([
+      sheetRow({ ...done, student_id: 'a' }),
+      sheetRow({ ...done, student_id: 'b', suggestion_changed: true }),
+    ])).toBe('scored')
+    expect(boardScoreStatus([sheetRow({ ...done, released: true, suggestion_changed: true })])).toBe('scored')
+  })
 })

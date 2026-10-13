@@ -41,10 +41,14 @@ export const SCORE_STATUS_META: Record<ScoreStatus, { label: string; tone: Tone 
   released: { label: 'Released', tone: 'success' },
 }
 
-/** One board's standing, from its score_sheet rows. */
+/**
+ * One board's standing, from its score_sheet rows. A confirmed score whose
+ * suggestion has changed since counts as scored again: it needs confirming.
+ */
 export function boardScoreStatus(rows: ScoreSheetRow[]): ScoreStatus {
   const first = rows[0]
   if (!first || first.criteria === 0 || first.scored < first.criteria) return 'not_scored'
   if (!rows.every((r) => r.confirmed_at)) return 'scored'
+  if (rows.some((r) => r.suggestion_changed)) return 'scored'
   return first.released ? 'released' : 'confirmed'
 }

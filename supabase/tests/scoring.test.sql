@@ -632,6 +632,12 @@ begin
     exists (select 1 from public.member_scores
              where board_id = v_sb and student_id = v_a and final = 45
                and factor is null and not overridden));
+  perform pg_temp.must_allow('the professor rescores the individual board after confirming',
+    format('select public.save_board_scores(%L, %L::jsonb)', v_sb,
+           jsonb_build_array(jsonb_build_object('criterion_id', v_cs, 'points', 40))::text));
+  perform pg_temp.must_be('which marks its confirmed 45 as stale',
+    (select suggestion_changed and final = 45 and suggested_now = 40
+       from public.score_sheet(v_solo) where board_id = v_sb));
 
   perform pg_temp.act_as_service();
   update public.projects set archived_at = now() where id = v_solo;

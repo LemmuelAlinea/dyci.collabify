@@ -76,6 +76,11 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
     (m, r) => (m === null || (r.confirmed_at ?? '') > m ? r.confirmed_at : m),
     null,
   )
+  // An individual board confirmed at one total and scored differently since.
+  const soloRow = solo ? rows[0] : undefined
+  const soloNow = soloRow ? suggested(soloRow) : null
+  const soloStale =
+    soloRow !== undefined && soloRow.final !== null && soloNow !== null && Number(soloRow.final) !== soloNow
   const footerText = dirty
     ? 'Save the scores before confirming.'
     : someConfirmed && unconfirmed.length === 0 && latestConfirmed
@@ -233,12 +238,17 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
                             <span className={`rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL.pending}`}>Not confirmed</span>
                           )}
                           {r.suggestion_changed && (
-                            <span
-                              className={`rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL.warning}`}
-                              title={`Confirmed with ${formatPoints(r.suggested_saved)}; today it would be ${formatPoints(r.suggested_now)}. Confirm again to bring it up to date.`}
-                            >
-                              Suggestion changed
-                            </span>
+                            <>
+                              <span
+                                className={`rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL.warning}`}
+                                title={`Confirmed with ${formatPoints(r.suggested_saved)}; today it would be ${formatPoints(r.suggested_now)}. Confirm again to bring it up to date.`}
+                              >
+                                Suggestion changed
+                              </span>
+                              <span className="text-[12px] text-warning-700 dark:text-warning-300">
+                                was {formatPoints(r.suggested_saved)}, now {formatPoints(r.suggested_now)}
+                              </span>
+                            </>
                           )}
                           {err && <span className="text-[12px] text-danger-700 dark:text-danger-300">{err}</span>}
                         </span>
@@ -250,6 +260,13 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
             </table>
           </div>
         </div>
+      )}
+
+      {soloStale && soloRow && (
+        <p className="text-[12px] text-warning-700 dark:text-warning-300">
+          Confirmed {formatPoints(soloRow.final)}. The board total is now {formatPoints(soloNow)}. Confirm
+          again to update it.
+        </p>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
