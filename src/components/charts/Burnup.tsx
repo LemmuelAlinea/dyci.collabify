@@ -89,7 +89,9 @@ export function Burnup({
           )}
         </figcaption>
       )}
-      <table className="sr-only">
+      {/* sr-only on a table is ignored: tables size to their rows. */}
+      <div className="sr-only">
+      <table>
         <caption>{title}</caption>
         <thead>
           <tr><th>Day</th><th>All tasks</th><th>Done</th></tr>
@@ -100,6 +102,7 @@ export function Burnup({
           ))}
         </tbody>
       </table>
+      </div>
     </figure>
   )
 }

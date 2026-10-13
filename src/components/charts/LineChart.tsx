@@ -90,7 +90,9 @@ export function LineChart({
           </g>
         )}
       </svg>
-      <table className="sr-only">
+      {/* sr-only on a table is ignored: tables size to their rows. */}
+      <div className="sr-only">
+      <table>
         <caption>{title}</caption>
         <thead>
           <tr>
@@ -109,6 +111,7 @@ export function LineChart({
           ))}
         </tbody>
       </table>
+      </div>
     </figure>
   )
 }
