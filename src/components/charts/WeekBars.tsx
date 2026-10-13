@@ -47,7 +47,9 @@ export function WeekBars({ rows, title }: { rows: WeekRow[]; title: string }) {
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-navy-600 dark:bg-navy-300" />Work</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />Comments and files</span>
       </figcaption>
-      <table className="sr-only">
+      {/* sr-only on a table is ignored: tables size to their rows. */}
+      <div className="sr-only">
+      <table>
         <caption>{title}</caption>
         <thead><tr><th>Week of</th><th>Work</th><th>Comments and files</th></tr></thead>
         <tbody>
@@ -56,6 +58,7 @@ export function WeekBars({ rows, title }: { rows: WeekRow[]; title: string }) {
           ))}
         </tbody>
       </table>
+      </div>
     </figure>
   )
 }

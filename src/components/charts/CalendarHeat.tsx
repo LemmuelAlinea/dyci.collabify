@@ -46,7 +46,9 @@ export function CalendarHeat({
           }),
         )}
       </div>
-      <table className="sr-only">
+      {/* sr-only on a table is ignored: tables size to their rows. */}
+      <div className="sr-only">
+      <table>
         <caption>{title}</caption>
         <thead><tr><th>Day</th><th>Actions</th></tr></thead>
         <tbody>
@@ -55,6 +57,7 @@ export function CalendarHeat({
           ))}
         </tbody>
       </table>
+      </div>
     </figure>
   )
 }

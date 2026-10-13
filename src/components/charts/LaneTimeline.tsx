@@ -85,7 +85,9 @@ export function LaneTimeline({
         ))}
         <span className="flex items-center gap-1.5"><span className="h-3 w-px bg-amber-400" />Today</span>
       </figcaption>
-      <table className="sr-only">
+      {/* sr-only on a table is ignored: tables size to their rows. */}
+      <div className="sr-only">
+      <table>
         <caption>{title}</caption>
         <thead><tr><th>Row</th><th>Item</th><th>Date</th><th>State</th></tr></thead>
         <tbody>
@@ -116,6 +118,7 @@ export function LaneTimeline({
           })}
         </tbody>
       </table>
+      </div>
     </figure>
   )
 }
