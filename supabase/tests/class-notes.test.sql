@@ -155,6 +155,21 @@ begin
   end if;
 end $$;
 
+-- Deleting a project's boards would cascade into the group note above.
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_proj uuid := (select v from fx where k='proj');
+  v_board uuid := (select v from fx where k='board');
+begin
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_refuse('changing who a project with group notes goes to is refused',
+    format('select public.set_project_audience(%L, ''individual'', null)', v_proj));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('the group note survives the refused change',
+    exists (select 1 from public.class_notes where board_id = v_board and body = 'zz-group split the work again'));
+end $$;
+
 -- ------------------------------------------------------ reading (Task 1)
 
 do $$

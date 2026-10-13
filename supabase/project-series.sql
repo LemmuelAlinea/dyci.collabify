@@ -394,7 +394,8 @@ $$;
  * old boards are removed and ensure_project_boards makes the new ones through
  * the projects update trigger. That is only safe before anybody has started:
  * a task, a hand-in, a result, or anything in a board's Files or Discussion
- * refuses the change rather than throwing that work away.
+ * refuses the change rather than throwing that work away. So do a peer
+ * evaluation, scores, and staff notes on a group: boards cascade into them.
  *
  * Security definer because a professor may not delete boards directly; the
  * caller is checked against the class the same way the projects policy does.
@@ -452,6 +453,17 @@ begin
   -- run time, so scoring.sql can load later.
   if public.scores_exist(p_project) then
     raise exception 'This project has scores. Clear them before changing who it goes to.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- The same cascade takes class_notes about a group with it, and a note is a
+  -- record that is never deleted. Resolved at run time, so class-notes.sql can load later.
+  if exists (
+    select 1 from public.class_notes cn
+      join public.project_boards b on b.id = cn.board_id
+     where b.project_id = p_project
+  ) then
+    raise exception 'This project has notes on its groups. They stay as a record, so who it goes to cannot change now.'
       using errcode = 'check_violation';
   end if;
 
