@@ -2,7 +2,7 @@
 -- Idempotent: safe to run repeatedly.
 -- Run with:  node scripts/db.mjs supabase/class-notes.sql
 -- Requires: classes.sql, groups.sql, projects.sql, tasks.sql (project_boards),
--- one-workplace.sql (is_class_professor with co-teachers).
+-- one-workplace.sql / teaching-guards.sql (is_class_professor with co-teachers).
 -- Re-run supabase/anon-lockdown.sql afterwards.
 
 /**
@@ -83,6 +83,10 @@ begin
   end if;
   if p_kind not in ('note', 'meeting', 'follow_up') then
     raise exception 'Reminders are logged when you send them. Choose note, meeting or follow-up'
+      using errcode = 'check_violation';
+  end if;
+  if p_kind = 'follow_up' and p_follow_up is null then
+    raise exception 'Pick the day to follow up'
       using errcode = 'check_violation';
   end if;
   if p_student is null and p_board is null then

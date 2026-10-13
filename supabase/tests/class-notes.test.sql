@@ -130,6 +130,9 @@ begin
   perform pg_temp.must_allow('and a note on a group',
     format('select public.add_class_note(%L, null, %L, ''note'', ''zz-group split the work again'', null)',
            v_class, v_board));
+  perform pg_temp.must_refuse('a follow-up needs a date',
+    format('select public.add_class_note(%L, %L, null, ''follow_up'', ''zz-undated'', null)', v_class, v_a));
+  -- Control: the meeting above, saved with a date, shows the refusal is about the missing date.
   perform pg_temp.must_refuse('a note needs a student or a group',
     format('select public.add_class_note(%L, null, null, ''note'', ''zz-about nobody'', null)', v_class));
   perform pg_temp.must_refuse('a note needs words',

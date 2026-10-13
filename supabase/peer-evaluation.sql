@@ -252,7 +252,7 @@ end;
 $$;
 
 /**
- * Remind the students who have not rated everyone yet. Once a day per project,
+ * Remind the students who have not rated everyone yet. Once a day per round,
  * counted from the professor's notes log (class-notes.sql), which students
  * cannot delete. Each board reached gets one 'peer_reminder' note.
  */

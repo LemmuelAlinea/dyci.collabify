@@ -42,6 +42,8 @@ export function NotesPanel({
   const [resolving, setResolving] = useState<string | null>(null)
   const [outcome, setOutcome] = useState('')
 
+  const needsDate = kind === 'follow_up' && !followUp
+
   const add = async () => {
     setBusy(true)
     try {
@@ -86,7 +88,7 @@ export function NotesPanel({
                 <p className="flex flex-wrap items-center gap-2 text-[12px] text-faint">
                   <span className={`rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL[meta.tone]}`}>{meta.label}</span>
                   {stampFmt.format(new Date(n.created_at))}
-                  {n.follow_up_on && !n.resolved_at && (
+                  {n.follow_up_on && (
                     <span className={due ? 'text-warning-700 dark:text-warning-300' : ''}>
                       · Follow up by {dayFmt(n.follow_up_on)}
                     </span>
@@ -96,6 +98,8 @@ export function NotesPanel({
                 <p className="whitespace-pre-wrap text-[13px] text-ink">{n.body}</p>
                 {n.resolved_at && n.outcome && <p className="text-[13px] text-muted">Outcome: {n.outcome}</p>}
                 {!n.resolved_at &&
+                  n.kind !== 'nudge' &&
+                  n.kind !== 'peer_reminder' &&
                   (resolving === n.id ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <label htmlFor={`${ids}-outcome-${n.id}`} className="sr-only">
@@ -138,7 +142,7 @@ export function NotesPanel({
         className="space-y-2 rounded-xl surface-sunken p-3"
         onSubmit={(e) => {
           e.preventDefault()
-          if (body.trim()) void add()
+          if (body.trim() && !needsDate) void add()
         }}
       >
         <div className="flex flex-wrap items-end gap-2">
@@ -157,7 +161,7 @@ export function NotesPanel({
             </select>
           </label>
           <label className="space-y-1 text-[12px] text-muted">
-            <span className="block">Follow up by (optional)</span>
+            <span className="block">{kind === 'follow_up' ? 'Follow up by' : 'Follow up by (optional)'}</span>
             <input
               type="date"
               value={followUp}
@@ -165,6 +169,7 @@ export function NotesPanel({
               onChange={(e) => setFollowUp(e.target.value)}
               className={`${field} h-9`}
             />
+            {needsDate && <span className="block text-[12px] text-faint">Pick the day to follow up.</span>}
           </label>
         </div>
         <label className="block space-y-1 text-[12px] text-muted">
@@ -179,7 +184,7 @@ export function NotesPanel({
           />
         </label>
         <div className="flex justify-end">
-          <Button size="sm" type="submit" disabled={busy || !body.trim()}>
+          <Button size="sm" type="submit" disabled={busy || !body.trim() || needsDate}>
             Add note
           </Button>
         </div>
