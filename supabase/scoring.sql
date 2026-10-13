@@ -145,16 +145,24 @@ create trigger board_scores_guard
 /**
  * Points, criteria and order lock while scores exist; wording does not. A project
  * being deleted takes its criteria and scores with it, so that is let through.
+ * A criterion moved between projects is checked against both.
  */
 create or replace function public.guard_scored_criteria()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
-  v_project uuid := coalesce(new.project_id, old.project_id);
+  v_scored boolean := false;
 begin
-  if not exists (select 1 from public.projects where id = v_project) then
-    return coalesce(new, old);
+  if tg_op <> 'INSERT'
+     and exists (select 1 from public.projects where id = old.project_id)
+     and public.scores_exist(old.project_id) then
+    v_scored := true;
   end if;
-  if not public.scores_exist(v_project) then
+  if tg_op <> 'DELETE'
+     and exists (select 1 from public.projects where id = new.project_id)
+     and public.scores_exist(new.project_id) then
+    v_scored := true;
+  end if;
+  if not v_scored then
     return coalesce(new, old);
   end if;
   if tg_op = 'UPDATE'
@@ -220,8 +228,8 @@ create trigger groups_score_guard_delete
   for each row execute function public.guard_scored_group_delete();
 
 -- History. Deletes are not logged row by row: clear_project_scores writes one
--- 'clear' entry, and a board or project going away takes its history's subject
--- with it.
+-- 'clear' entry, confirm_member_scores logs the score of a member who left,
+-- and a board or project going away takes its history's subject with it.
 
 create or replace function public.log_board_score()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -458,6 +466,8 @@ begin
     raise exception 'That board no longer exists';
   end if;
   perform public.score_guard(v_project);
+  -- Takes turns with clear_project_scores, which locks the project for update.
+  perform 1 from public.projects where id = v_project for share;
 
   if p_points is null or jsonb_typeof(p_points) <> 'array' then
     raise exception 'Send the scores as a list'
@@ -532,6 +542,8 @@ begin
     raise exception 'That board no longer exists';
   end if;
   perform public.score_guard(b.project_id);
+  -- Takes turns with clear_project_scores, which locks the project for update.
+  perform 1 from public.projects where id = b.project_id for share;
 
   select p.total_points into v_total from public.projects p where p.id = b.project_id;
   select count(*)::int into v_criteria from public.project_criteria where project_id = b.project_id;
@@ -592,6 +604,11 @@ begin
   end if;
 
   -- Somebody who left the group since an earlier confirm has no score here now.
+  -- The history records the score that goes.
+  insert into public.score_history (project_id, board_id, student_id, action, old_value, new_value)
+  select b.project_id, ms.board_id, ms.student_id, 'confirm', ms.final, null
+    from public.member_scores ms
+   where ms.board_id = p_board and ms.student_id <> all (v_team);
   delete from public.member_scores where board_id = p_board and student_id <> all (v_team);
 
   insert into public.member_scores

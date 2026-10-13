@@ -212,6 +212,11 @@ begin
     format('delete from public.project_criteria where id = %L', v_cb));
   perform pg_temp.must_refuse('scores lock the project total',
     format('update public.projects set total_points = 90 where id = %L', v_proj));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_refuse('a scored criterion cannot move to an unscored project',
+    format('update public.project_criteria set project_id = %L where id = %L',
+           (select v from fx where k='solo'), v_ca));
+  perform pg_temp.act_as(v_prof);
   perform pg_temp.must_allow('wording stays editable',
     format('update public.project_criteria set label = ''zz-Function, renamed'', description = ''zz-said better'' where id = %L', v_ca));
   perform pg_temp.must_be('and the professor can tell the rubric is scored',
@@ -604,6 +609,17 @@ begin
   perform pg_temp.act_as(v_a);
   perform pg_temp.must_be('and a still sees the first board''s 84',
     (public.my_grade(v_proj) ->> 'final')::numeric = 84);
+
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_allow('re-confirming the first board drops c, who left it',
+    format('select public.confirm_member_scores(%L, %L::jsonb)', v_board,
+           jsonb_build_array(jsonb_build_object('student_id', v_a, 'final', 84),
+                             jsonb_build_object('student_id', v_b, 'final', 84))::text));
+  perform pg_temp.must_be('and the history records c''s 55 going',
+    not exists (select 1 from public.member_scores where board_id = v_board and student_id = v_c)
+    and exists (select 1 from public.score_history
+                 where board_id = v_board and student_id = v_c and action = 'confirm'
+                   and old_value = 55 and new_value is null));
 
   -- Put everything back for the blocks below.
   perform pg_temp.act_as_service();
