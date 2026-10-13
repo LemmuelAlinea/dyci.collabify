@@ -189,6 +189,36 @@ create trigger projects_score_total_lock
   before update of total_points on public.projects
   for each row execute function public.guard_scored_total();
 
+/**
+ * A group's boards cascade away with it, and their scores with them. So a
+ * scored group cannot be deleted on its own: by the button, a re-saved
+ * arrangement (save_group_arrangement) or Trash (delete_trashed_item). Deleting
+ * the whole class from Trash sets collabify.class_delete (archive-page.sql) and
+ * is let through, as guard_group_delete does.
+ */
+create or replace function public.guard_scored_group_delete()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if coalesce(current_setting('collabify.class_delete', true), '') = 'on' then
+    return old;
+  end if;
+  if exists (
+    select 1 from public.board_scores s
+      join public.project_boards b on b.id = s.board_id
+     where b.group_id = old.id
+  ) then
+    raise exception '% has scores. Clear them first, or archive the group instead.', old.name
+      using errcode = 'check_violation';
+  end if;
+  return old;
+end;
+$$;
+
+drop trigger if exists groups_score_guard_delete on public.groups;
+create trigger groups_score_guard_delete
+  before delete on public.groups
+  for each row execute function public.guard_scored_group_delete();
+
 -- History. Deletes are not logged row by row: clear_project_scores writes one
 -- 'clear' entry, and a board or project going away takes its history's subject
 -- with it.
@@ -807,6 +837,7 @@ grant select on public.board_scores, public.member_scores, public.score_releases
 
 revoke all on function public.score_board_project(uuid) from public, anon;
 revoke all on function public.scores_exist(uuid) from public, anon, authenticated;
+revoke all on function public.guard_scored_group_delete() from public, anon;
 revoke all on function public.project_has_scores(uuid) from public, anon;
 revoke all on function public.project_scores_released(uuid) from public, anon;
 

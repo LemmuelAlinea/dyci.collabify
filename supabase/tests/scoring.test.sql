@@ -733,6 +733,20 @@ begin
   perform pg_temp.must_be('a project edit that changes scored points names the section and the reason',
     msg like '%·%' and msg like '%Scores exist%');
 
+  begin
+    execute format('delete from public.groups where id = %L', (select v from fx where k='group'));
+    msg := null;
+  exception when others then
+    msg := sqlerrm;
+  end;
+  perform pg_temp.must_be('the professor cannot delete a scored group, and is told why',
+    msg like '%has scores. Clear them first, or archive the group instead.');
+  perform pg_temp.must_refuse('nor wipe it by re-saving the set''s arrangement',
+    format('select public.save_group_arrangement(%L, ''[]''::jsonb)', (select v from fx where k='set')));
+  perform pg_temp.must_be('and the group and its scores are still there',
+    exists (select 1 from public.groups where id = (select v from fx where k='group'))
+    and (select count(*) from public.board_scores where board_id = v_board) = 2);
+
   perform public.clear_project_scores(v_proj);
   perform pg_temp.must_allow('once cleared, the points change',
     format('select public.series_write_criteria(%L, %L::jsonb)', v_proj, new_points));
