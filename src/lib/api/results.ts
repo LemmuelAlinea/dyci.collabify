@@ -62,3 +62,15 @@ export async function nudgeBoard(boardId: string, note?: string) {
   if (error) throw error
   return (data as number | null) ?? 0
 }
+
+/** Every decision on the given boards, oldest first. */
+export async function boardResultsFor(boardIds: string[]) {
+  if (boardIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('board_results')
+    .select('board_id, verdict, decided_at')
+    .in('board_id', boardIds)
+    .order('decided_at')
+  if (error) throw error
+  return (data ?? []) as { board_id: string; verdict: 'accepted' | 'returned'; decided_at: string }[]
+}

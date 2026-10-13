@@ -1425,6 +1425,14 @@ export type ClassNote = {
   created_at: string
 }
 
+/** class_note_log: a note with the names a printed log needs. Staff only. */
+export type NoteLogRow = ClassNote & {
+  student_name: string | null
+  group_name: string | null
+  project_title: string | null
+  author_name: string | null
+}
+
 /**
  * The same shape as projectFinish, one level down: work finished per day,
  * extended across what is left, against the days that remain.

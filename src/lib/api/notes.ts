@@ -1,7 +1,7 @@
 import { supabase } from '../supabase'
 import { pageAll } from './paging'
 import type { AddableNoteKind } from '../notes'
-import type { ClassNote } from '../types'
+import type { ClassNote, NoteLogRow } from '../types'
 
 export type NewClassNote = {
   classId: string
@@ -24,6 +24,21 @@ export async function listClassNotes() {
       .range(from, to)
     if (error) throw error
     return (data ?? []) as ClassNote[]
+  })
+}
+
+/** One class's notes with names, oldest first, archived classes included. */
+export async function listClassNoteLog(classId: string) {
+  return pageAll<NoteLogRow>(async (from, to) => {
+    const { data, error } = await supabase
+      .from('class_note_log')
+      .select('*')
+      .eq('class_id', classId)
+      .order('created_at')
+      .order('id')
+      .range(from, to)
+    if (error) throw error
+    return (data ?? []) as NoteLogRow[]
   })
 }
 
