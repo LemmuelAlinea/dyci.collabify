@@ -1,4 +1,4 @@
-import type { Tone } from '../analyticsMath'
+import type { Tone, WeekRow } from '../analyticsMath'
 import { manilaDay } from '../analyticsMath'
 import { formatPoints } from '../scoreMath'
 
@@ -26,7 +26,8 @@ export type Cell = string | number | null | RichCell
 export type Kpi = { label: string; value: number | string; unit?: string; delta?: number | null }
 
 export type BarsChart = { kind: 'bars'; rows: { label: string; value: number }[]; max: number; unit?: string }
-export type ChartSpec = BarsChart
+export type WeekBarsChart = { kind: 'weekBars'; rows: WeekRow[] }
+export type ChartSpec = BarsChart | WeekBarsChart
 
 export type TableBlock = {
   kind: 'table'
@@ -40,7 +41,7 @@ export type TableBlock = {
 }
 
 export type Block =
-  | { kind: 'kpis'; items: Kpi[] }
+  | { kind: 'kpis'; items: Kpi[]; compareLabel?: string }
   | { kind: 'heading'; text: string; level: 2 | 3 }
   | { kind: 'paragraph'; text: string }
   | TableBlock
@@ -125,6 +126,13 @@ export function columnHeader(col: Column): string {
   if (col.type === 'score' && col.outOf) return `${col.label} (of ${col.outOf})`
   if (col.type === 'percent') return `${col.label} (%)`
   return col.label
+}
+
+/** A change against the previous period: signed, never a ratio. */
+export function deltaText(d: number): string {
+  if (d === 0) return '±0'
+  const v = formatPoints(Math.abs(d))
+  return d > 0 ? `+${v}` : `−${v}`
 }
 
 export function tableBlocks(doc: ReportDoc): TableBlock[] {

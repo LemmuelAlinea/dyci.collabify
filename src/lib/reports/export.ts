@@ -1,6 +1,6 @@
 import { downloadCsv, reportFilename, toCsv } from '../report'
 import type { Workbook, Sheet } from '../general/sheet'
-import { cellExport, cellText, columnHeader, tableBlocks } from './doc'
+import { cellExport, cellText, columnHeader, deltaText, tableBlocks } from './doc'
 import type { Block, ReportDoc } from './doc'
 
 /** Neither end may be an apostrophe; Excel and ExcelJS refuse the sheet otherwise. */
@@ -50,20 +50,34 @@ export function docToWorkbook(doc: ReportDoc): Workbook {
     [''],
   ]
   for (const b of doc.blocks) {
-    if (b.kind === 'kpis') for (const k of b.items) cover.push([gridText(k.label), kpiText(k.value), gridText(k.unit ?? '')])
+    if (b.kind !== 'kpis') continue
+    for (const k of b.items) {
+      const delta = k.delta === null || k.delta === undefined ? '' : deltaText(k.delta)
+      cover.push([gridText(k.label), kpiText(k.value), gridText(k.unit ?? ''), gridText(delta)])
+    }
+    if (b.compareLabel) cover.push([gridText(`Changes are against ${b.compareLabel}`)])
   }
+  const extras: string[][] = []
+  for (const b of doc.blocks) {
+    if (b.kind === 'note' || b.kind === 'paragraph') extras.push([gridText(b.text)])
+    else if (b.kind === 'chart') extras.push([gridText(`${b.title}: ${b.summary}`)])
+    else if (b.kind === 'table' && b.note) extras.push([gridText(`${b.title}: ${b.note}`)])
+  }
+  if (extras.length) cover.push([''], ...extras)
   if (doc.footer.lines.length) cover.push([''], ...doc.footer.lines.map((l) => [gridText(l)]))
 
   const sheets: Sheet[] = [{ name: sheetName('Report', used), rows: cover }]
   for (const t of tableBlocks(doc)) {
-    sheets.push({
-      name: sheetName(t.title, used),
-      rows: [
-        t.columns.map((c) => gridText(columnHeader(c))),
-        ...t.rows.map((row) => t.columns.map((col, i) => gridText(cellExport(row[i] ?? null, col)))),
-      ],
-      freeze: { rows: 1, cols: 0 },
+    const rows = [
+      t.columns.map((c) => gridText(columnHeader(c))),
+      ...t.rows.map((row) => t.columns.map((col, i) => gridText(cellExport(row[i] ?? null, col)))),
+    ]
+    const cols: Record<string, number> = {}
+    t.columns.forEach((_, i) => {
+      const longest = Math.max(...rows.map((r) => r[i].length))
+      cols[String(i)] = Math.min(420, Math.max(64, longest * 7 + 16))
     })
+    sheets.push({ name: sheetName(t.title, used), rows, cols, freeze: { rows: 1, cols: 0 } })
   }
   return { sheets }
 }
@@ -73,10 +87,15 @@ const esc = (s: string) =>
 
 function blockHtml(b: Block): string {
   switch (b.kind) {
-    case 'kpis':
-      return `<table><tbody>${b.items
-        .map((k) => `<tr><td>${esc(k.label)}</td><td>${esc(String(k.value))}${k.unit ? ` ${esc(k.unit)}` : ''}</td></tr>`)
-        .join('')}</tbody></table>`
+    case 'kpis': {
+      const rows = b.items
+        .map((k) => {
+          const delta = k.delta !== null && k.delta !== undefined ? ` (${deltaText(k.delta)})` : ''
+          return `<tr><td>${esc(k.label)}</td><td>${esc(String(k.value))}${k.unit ? ` ${esc(k.unit)}` : ''}${delta}</td></tr>`
+        })
+        .join('')
+      return `<table><tbody>${rows}</tbody></table>${b.compareLabel ? `<p>Changes are against ${esc(b.compareLabel)}</p>` : ''}`
+    }
     case 'heading':
       return `<h${b.level}>${esc(b.text)}</h${b.level}>`
     case 'paragraph':

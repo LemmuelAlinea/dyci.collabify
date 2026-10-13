@@ -1,6 +1,7 @@
 import { Bars } from '../charts/Bars'
 import { TONE_CELL } from '../charts/format'
-import { cellText, cellValue } from '../../lib/reports/doc'
+import { WeekBars } from '../charts/WeekBars'
+import { cellText, cellValue, deltaText } from '../../lib/reports/doc'
 import type { Block, Cell, Column, ReportDoc } from '../../lib/reports/doc'
 import { Sheet } from './Sheet'
 
@@ -30,17 +31,23 @@ function BlockView({ block }: { block: Block }) {
   switch (block.kind) {
     case 'kpis':
       return (
-        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4 print:grid-cols-4">
-          {block.items.map((k) => (
-            <div key={k.label} className="rounded-xl border border-line px-3 py-2 print:break-inside-avoid">
-              <dt className="text-[12px] text-muted">{k.label}</dt>
-              <dd className="font-mono text-[18px] tabular-nums text-ink">
-                {k.value}
-                {k.unit && <span className="ml-1 text-[12px] text-faint">{k.unit}</span>}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <div className="space-y-2">
+          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4 print:grid-cols-4">
+            {block.items.map((k) => (
+              <div key={k.label} className="rounded-xl border border-line px-3 py-2 print:break-inside-avoid">
+                <dt className="text-[12px] text-muted">{k.label}</dt>
+                <dd className="font-mono text-[18px] tabular-nums text-ink">
+                  {k.value}
+                  {k.unit && <span className="ml-1 text-[12px] text-faint">{k.unit}</span>}
+                  {typeof k.delta === 'number' && (
+                    <span className="block font-mono text-[11px] text-faint">{deltaText(k.delta)}</span>
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {block.compareLabel && <p className="text-[12px] text-faint">Changes are against {block.compareLabel}.</p>}
+        </div>
       )
     case 'heading':
       return block.level === 2 ? <h3 className="text-ink">{block.text}</h3> : <h4 className="text-ink">{block.text}</h4>
@@ -60,7 +67,11 @@ function BlockView({ block }: { block: Block }) {
       return (
         <figure className="space-y-2 print:break-inside-avoid">
           <figcaption className="text-[13px] font-medium text-ink">{block.title}</figcaption>
-          <Bars rows={block.chart.rows} max={block.chart.max} unit={block.chart.unit} title={block.title} />
+          {block.chart.kind === 'weekBars' ? (
+            <WeekBars rows={block.chart.rows} title={block.title} />
+          ) : (
+            <Bars rows={block.chart.rows} max={block.chart.max} unit={block.chart.unit} title={block.title} />
+          )}
           <p className="sr-only">{block.summary}</p>
         </figure>
       )

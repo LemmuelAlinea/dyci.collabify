@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cellExport, cellText, columnHeader, tableBlocks } from './doc'
+import { cellExport, cellText, columnHeader, deltaText, tableBlocks } from './doc'
 import type { Column, ReportDoc } from './doc'
 
 const col = (type: Column['type'], outOf?: number): Column => ({ key: 'k', label: 'Final', type, outOf })
@@ -77,5 +77,14 @@ describe('tableBlocks', () => {
       footer: { lines: [], signatures: [] },
     }
     expect(tableBlocks(doc).map((t) => t.id)).toEqual(['a', 'b'])
+  })
+})
+
+describe('deltaText', () => {
+  it('signs a change and never divides', () => {
+    expect(deltaText(5)).toBe('+5')
+    expect(deltaText(-2)).toBe('−2')
+    expect(deltaText(0)).toBe('±0')
+    expect(deltaText(1.5)).toBe('+1.5')
   })
 })

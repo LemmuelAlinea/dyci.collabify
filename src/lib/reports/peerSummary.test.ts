@@ -47,7 +47,7 @@ describe('peerSummaryDoc', () => {
   })
   it('charts the class dimension averages out of 5', () => {
     const chart = doc.blocks.find((b) => b.kind === 'chart')
-    expect(chart && chart.kind === 'chart' && chart.chart.max).toBe(5)
+    expect(chart && chart.kind === 'chart' && chart.chart.kind === 'bars' && chart.chart.max).toBe(5)
   })
   it('leaves comments out and the header plain by default', () => {
     expect(tableBlocks(doc).some((t) => t.id === 'comments')).toBe(false)

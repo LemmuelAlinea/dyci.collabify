@@ -135,3 +135,39 @@ describe('formula guard', () => {
     expect(csv).toContain(' @cmd,')
   })
 })
+
+describe('the fuller Excel cover', () => {
+  const withMore: ReportDoc = {
+    ...doc,
+    blocks: [
+      { kind: 'kpis', compareLabel: 'Oct 5 to Oct 11, 2026', items: [{ label: 'Tasks finished', value: 5, delta: 5 }] },
+      { kind: 'note', tone: 'info', text: 'Nothing is stuck.' },
+      { kind: 'paragraph', text: 'A quiet week.' },
+      { kind: 'chart', id: 'w', title: 'Weekly activity', chart: { kind: 'weekBars', rows: [{ week: '2026-10-12', work: 3, talk: 1 }] }, summary: 'This week: 3 work, 1 talk.' },
+      ...doc.blocks.filter((b) => b.kind === 'table'),
+    ],
+  }
+  const wb = docToWorkbook(withMore)
+  const cover = wb.sheets[0].rows
+
+  it('lists each KPI with its change and the comparison', () => {
+    expect(cover).toContainEqual(['Tasks finished', '5', '', '+5'])
+    expect(cover.flat()).toContain('Changes are against Oct 5 to Oct 11, 2026')
+  })
+  it('carries notes, paragraphs and chart summaries', () => {
+    const flat = cover.flat()
+    expect(flat).toContain('Nothing is stuck.')
+    expect(flat).toContain('A quiet week.')
+    expect(flat).toContain('Weekly activity: This week: 3 work, 1 talk.')
+  })
+  it('sets a width on every table column', () => {
+    for (const s of wb.sheets.slice(1)) {
+      const widths = Object.values(s.cols ?? {})
+      expect(widths.length).toBe(s.rows[0].length)
+      for (const w of widths) expect(w).toBeGreaterThanOrEqual(64)
+    }
+  })
+  it('shows the change in Word', () => {
+    expect(docToHtml(withMore)).toContain('5 (+5)')
+  })
+})
