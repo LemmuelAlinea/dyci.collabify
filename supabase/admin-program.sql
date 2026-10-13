@@ -3,13 +3,11 @@
 --
 --   node scripts/db.mjs supabase/admin-program.sql
 --
--- Reads task_board_overview, which its owners drop with `cascade`. After
--- re-running results.sql, tasks.sql, task-points.sql, task-claim-limit.sql or
--- deadline-lock.sql, rebuild the chain:
---
---   node scripts/db.mjs supabase/results.sql supabase/analytics.sql \
---     supabase/analytics-insight.sql supabase/reports.sql \
---     supabase/student-reports.sql supabase/admin-program.sql
+-- Counts off the base tables, not task_board_overview, so the `cascade` drops
+-- in results.sql and its kin leave this view standing. task-archive.sql
+-- redefines it with archived tasks left out; this file produces that same
+-- shape once project_tasks.archived_at exists, so re-running it reverts
+-- nothing. Keep the two definitions in step.
 
 /**
  * The admin of this product is the BSIT program chair: a non-teaching academic
@@ -68,6 +66,12 @@ begin;
 
 drop view if exists public.admin_class_overview;
 
+-- Built with `execute` so the archived-task filter (%s below) goes in only once
+-- task-archive.sql has added the column. On a fresh build this runs first and
+-- task-archive.sql replaces it; on any later re-run it already matches.
+do $do$
+begin
+  execute format($view$
 create view public.admin_class_overview
 with (security_barrier = true) as
 select c.id                                       as class_id,
@@ -130,7 +134,7 @@ select c.id                                       as class_id,
            max(t.updated_at)                                           as last_activity
       from public.project_boards bd
       join public.projects x on x.id = bd.project_id
-      left join public.project_tasks t on t.board_id = bd.id
+      left join public.project_tasks t on t.board_id = bd.id%s
      where x.class_id = c.id
   ) b
   cross join lateral (
@@ -141,7 +145,14 @@ select c.id                                       as class_id,
               cross join lateral generate_series(x.start_week, x.end_week) as g(week_no)
              where x.class_id = c.id and x.archived_at is null)::int as weeks_covered
   ) w
- where public.is_admin();
+ where public.is_admin()
+$view$,
+    case when exists (select 1 from information_schema.columns
+                       where table_schema = 'public' and table_name = 'project_tasks'
+                         and column_name = 'archived_at')
+         then ' and t.archived_at is null' else '' end);
+end
+$do$;
 
 -- Signed-in callers only, and of those only an admin gets a row.
 revoke all on public.admin_class_overview from anon;

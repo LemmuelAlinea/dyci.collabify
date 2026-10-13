@@ -420,8 +420,11 @@ returns text language sql stable security definer set search_path = public as $$
 $$;
 
 -- The admin overview reads with the owner's rights (no security_invoker), so it
--- leaves archived tasks out itself. Same columns, same order.
-create or replace view public.admin_class_overview as
+-- leaves archived tasks out itself. Same columns, same order. `create or
+-- replace` resets view options to the ones given here, so the security barrier
+-- from admin-program.sql must be restated or it is lost.
+create or replace view public.admin_class_overview
+with (security_barrier = true) as
  SELECT c.id AS class_id,
     c.initial AS class_initial,
     c.name AS class_name,

@@ -74,6 +74,24 @@ Re-run `class-planning.sql` after `class-schedule.sql`. Both recreate `task_deta
 `task-archive.sql`, `tasks.sql` or `term-shifts.sql` on its own, or the planned
 start goes back to being ignored by those three.
 
+`results.sql` drops `task_board_overview` with `cascade` (so do `tasks.sql` and
+`task-points.sql`, which hold older copies and must be followed by
+`results.sql`). The cascade takes every
+view built on it: the analytics views, the `report_*` views and the student's
+`my_work_report` and `my_board_*`. After re-running any of those files, rebuild
+the whole chain in one command:
+
+```bash
+node scripts/db.mjs supabase/results.sql supabase/analytics.sql supabase/analytics-insight.sql supabase/reports.sql supabase/student-reports.sql supabase/anon-lockdown.sql
+```
+
+`admin_class_overview` (`admin-program.sql`) is not in the chain: it counts off
+the base tables, so the cascade leaves it standing. `task-archive.sql`
+redefines it with archived tasks left out and the security barrier kept;
+`admin-program.sql` builds that same shape once `project_tasks.archived_at`
+exists, so re-running it, alone or with the chain, reverts nothing. Change one
+definition and the other must change with it.
+
 `access.sql` runs last and redefines, as supersets, functions from
 `workplaces.sql`, `consent.sql`, `audit.sql`, `admin-rename.sql`,
 `approvals.sql` (which recreates `decide_professor`), `accounts.sql`,
