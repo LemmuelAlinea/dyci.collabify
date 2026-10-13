@@ -3277,3 +3277,65 @@ The privacy policy and terms were updated to say so and published as **version 2
 - `insight`, `class-files` and `admin-program` SQL tests fail, believed pre-existing.
 
 **Next.** C3: intervention notes (`class_notes`); nudges and peer reminders log into it. Then Phase B: reports, including released scores.
+
+---
+
+## Phase C3: intervention notes (2026-10-13)
+
+Spec: `docs/superpowers/specs/2026-10-13-phase-c-grading-design.md` (C3).
+Plan: `docs/superpowers/plans/2026-10-13-phase-c3-intervention-notes.md`. Its spec corrections are rulings 1–7.
+
+**What.** A notes log that only teaching staff can read, about one student or one group.
+- **Student drawer** (Analytics → Students → a name): a Notes section listing the student's notes and their groups' notes, newest first.
+  - **Add note:** kind Note, Meeting or Follow-up; a Follow-up needs a date.
+  - **Resolve…:** takes an optional outcome.
+- **Groups view:** each group card has a collapsible "Notes (N)" section with the same panel.
+- **Needs attention:** an open note whose follow-up date has come (as a Manila day) becomes "Follow up with {name}", severity 2. "See why" narrows the scope to that student and opens their drawer; a group note opens the Groups view instead.
+  - Only subjects the page can open raise a card. Notes in archived classes, or about students who left, stay in the history but raise no card.
+- **Reminders log themselves.** A nudge writes a `nudge` note on the board. A peer-evaluation reminder writes one `peer_reminder` note per board ("Reminded N students to rate their teammates"). Both daily limits now count the log, not notifications, so a student deleting the notification no longer resets the limit.
+- **Privacy line** on the Students view: "Flags are prompts for a conversation. Notes record that conversation and only teaching staff can read them."
+
+**Data.** `supabase/class-notes.sql` runs after `scoring.sql`.
+- **Tables:** enum `class_note_kind` and table `class_notes`.
+- **Who reads:** class staff only (`is_class_professor`, which includes co-teachers). Students never read a note, not even one about themselves.
+- **Writes:** only `add_class_note` (note, meeting, follow-up) and `resolve_class_note`. There is no delete.
+- **Audience lock:** `set_project_audience` (`project-series.sql`) now also refuses once a project has group notes.
+- **Changed functions:**
+  - `nudge_board` (`automation.sql`): applied to live **alone**. Never re-run all of `automation.sql`, because `task-archive.sql` later redefines `send_overdue_notices`.
+  - `remind_peer_round` (`peer-evaluation.sql`).
+- **Front end:**
+  - `lib/notes.ts`: `notesAbout`, `openableNotes`, `followUpActions`.
+  - `lib/api/notes.ts`: the reads and writes.
+  - `useAnalytics`: loads notes on their own loader (`notes`, `notesError`, `reloadNotes`), separate from the slow analytics load.
+- **Errors:** a failed notes load shows an alert with a Retry button.
+
+**Checked.**
+- **Tests:** SQL suites `class-notes` 30 PASS, `automation` 27, `peer-evaluation` 71, `scoring` 127 and `anon-lockdown` 15 all pass. Build and eslint are clean, and 800 Vitest tests pass.
+- **Browser, live, as faculty:**
+  1. On Lemmuel Rodge, a Follow-up with no date keeps Add disabled and shows the hint.
+  2. Dated today, the note saved and showed as due.
+  3. "Follow up with Lemmuel Rodge Alinea" appeared in Needs attention.
+  4. "See why" opened the drawer, and opened it again after the drawer was closed.
+  5. Resolved with an outcome; the card left the list.
+  6. A note on Group 1 changed its count to "Notes (1)".
+
+**Test data on live.** These two notes stay, because notes can't be deleted:
+- QM: a resolved Follow-up on Lemmuel Rodge;
+- a Note on Group 1.
+
+Both start with "zz test".
+
+**Deferred** (from the ledger):
+- Every note is loaded on every poll, across all terms; it could be scoped by class.
+- The note's author is not shown in the list.
+- Deleting a group or group set still deletes its board notes. This was ruled a deliberate removal.
+- Deleting a profile deletes the notes about that student (a product decision).
+- Two nudges sent at the same moment can both pass the limit (an old race).
+- The "1 student" wording is untested.
+- `seeWhy` has no tests.
+- "Resolve…" and "Cancel" ignore the busy state.
+- The "Notes (N)" summary has no chevron.
+- The date input has no accessible name.
+- One 403 appears in the console at page load. It is not an API call and is not from notes (checked); its source wasn't found.
+
+**Next.** Phase B: rebuild class Reports on the General report engine, including released scores (C2) and the notes log (C3).
