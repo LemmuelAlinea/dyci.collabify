@@ -326,6 +326,27 @@ begin
 end;
 $$;
 
+/**
+ * Is this student still on this board: its own student, or a member of its group
+ * (not archived)? A confirmed row outlives a move to another group, so reads and
+ * notifications go through this instead of trusting member_scores alone.
+ * Only security-definer functions call it.
+ */
+create or replace function public.score_member_current(p_board uuid, p_student uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+      from public.project_boards b
+     where b.id = p_board
+       and (b.student_id = p_student
+            or exists (select 1
+                         from public.groups g
+                         join public.group_members gm on gm.group_id = g.id
+                        where g.id = b.group_id and g.archived_at is null
+                          and gm.student_id = p_student))
+  );
+$$;
+
 -- ---------------------------------------------------------------- reading
 
 /**
@@ -598,7 +619,8 @@ begin
     join public.project_boards b on b.id = ms.board_id
     join public.notification_prefs np on np.user_id = ms.student_id
    where b.project_id = p_project
-     and np.announcements;
+     and np.announcements
+     and public.score_member_current(ms.board_id, ms.student_id);
 
   get diagnostics sent = row_count;
   return sent;
@@ -734,6 +756,7 @@ language sql stable security definer set search_path = public as $$
     join public.projects p on p.id = p_project
     join public.score_releases r on r.project_id = p_project
    where ms.student_id = auth.uid()
+     and public.score_member_current(ms.board_id, ms.student_id)
      and public.project_is_live(p_project)
    limit 1;
 $$;
@@ -813,6 +836,7 @@ end $$;
 revoke all on function public.suggest_score(numeric, numeric, int) from public, anon;
 revoke all on function public.peer_final_factors(uuid) from public, anon;
 revoke all on function public.score_guard(uuid) from public, anon, authenticated;
+revoke all on function public.score_member_current(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.score_sheet(uuid) from public, anon;
 revoke all on function public.save_board_scores(uuid, jsonb) from public, anon;
 revoke all on function public.confirm_member_scores(uuid, jsonb) from public, anon;

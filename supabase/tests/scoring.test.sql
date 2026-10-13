@@ -535,6 +535,84 @@ begin
   perform pg_temp.must_be('and the grade is hidden again', public.my_grade(v_proj) is null);
 end $$;
 
+-- ------------------------------------------- a student who changes groups (Task 2)
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_a uuid := (select v from fx where k='a');
+  v_b uuid := (select v from fx where k='b');
+  v_c uuid := (select v from fx where k='c');
+  v_d uuid := (select v from fx where k='d');
+  v_set uuid := (select v from fx where k='set');
+  v_g1 uuid := (select v from fx where k='group');
+  v_proj uuid := (select v from fx where k='proj');
+  v_board uuid := (select v from fx where k='board');
+  v_ca uuid := (select v from fx where k='crit_a');
+  v_cb uuid := (select v from fx where k='crit_b');
+  v_g2 uuid;
+  v_board2 uuid;
+  n int;
+  expected int;
+begin
+  -- c moves from the confirmed group to a new one with d.
+  perform pg_temp.act_as_service();
+  insert into public.groups (set_id, name) values (v_set, 'zz-score-group-2') returning id into v_g2;
+  delete from public.group_members where group_id = v_g1 and student_id = v_c;
+  insert into public.group_members (group_id, set_id, student_id)
+  values (v_g2, v_set, v_c), (v_g2, v_set, v_d);
+  perform public.ensure_project_boards(v_proj);
+  select id into v_board2 from public.project_boards where project_id = v_proj and group_id = v_g2;
+
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_allow('the professor scores the new group''s board',
+    format('select public.save_board_scores(%L, %L::jsonb)', v_board2, pg_temp.pts(v_ca, 40, v_cb, 20)));
+  perform pg_temp.must_be('c and d have no factor there, so the suggestion is the group score',
+    (select bool_and(suggested_now = 60 and factor is null) from public.score_sheet(v_proj) where board_id = v_board2));
+  perform pg_temp.must_allow('and confirms c and d',
+    format('select public.confirm_member_scores(%L, %L::jsonb)', v_board2,
+           jsonb_build_array(jsonb_build_object('student_id', v_c, 'final', 60),
+                             jsonb_build_object('student_id', v_d, 'final', 60))::text));
+  perform pg_temp.must_be('c''s old confirm on the first board is still stored',
+    exists (select 1 from public.member_scores where board_id = v_board and student_id = v_c));
+
+  -- Release from a clean slate of notifications.
+  perform pg_temp.act_as_service();
+  delete from public.notifications where project_id = v_proj and type = 'grades_released';
+  perform pg_temp.act_as(v_prof);
+  perform public.release_project_scores(v_proj);
+
+  perform pg_temp.act_as_service();
+  select count(*) into n from public.notifications
+   where project_id = v_proj and type = 'grades_released' and user_id = v_c;
+  select count(*) into expected from public.notification_prefs np
+   where np.announcements and np.user_id = v_c;
+  perform pg_temp.must_be('a student who moved is notified once, not once per board', n = expected);
+  select count(*) into n from public.notifications
+   where project_id = v_proj and type = 'grades_released';
+  select count(*) into expected from public.notification_prefs np
+   where np.announcements and np.user_id in (v_a, v_b, v_c, v_d);
+  perform pg_temp.must_be('and each current member is notified once', n = expected);
+
+  perform pg_temp.act_as(v_c);
+  perform pg_temp.must_be('c sees the new group''s 60, not the old board''s 55',
+    (public.my_grade(v_proj) ->> 'final')::numeric = 60);
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_be('and a still sees the first board''s 84',
+    (public.my_grade(v_proj) ->> 'final')::numeric = 84);
+
+  -- Put everything back for the blocks below.
+  perform pg_temp.act_as_service();
+  delete from public.score_releases where project_id = v_proj;
+  delete from public.notifications where project_id = v_proj and type = 'grades_released';
+  delete from public.member_scores where board_id = v_board2;
+  delete from public.board_scores where board_id = v_board2;
+  delete from public.project_boards where id = v_board2;
+  delete from public.group_members where group_id = v_g2;
+  delete from public.groups where id = v_g2;
+  insert into public.group_members (group_id, set_id, student_id) values (v_g1, v_set, v_c);
+end $$;
+
 -- ------------------------------------------------- an individual board (Task 2)
 
 do $$
