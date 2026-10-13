@@ -331,7 +331,12 @@ begin
        and u.table_name in ('board_scores', 'member_scores')
   loop
     perform pg_temp.act_as(v_student);
-    execute format('select count(*) from public.%I', rv.view_name) into n;
+    -- A view later closed to every signed-in user reads nothing, which is the point.
+    begin
+      execute format('select count(*) from public.%I', rv.view_name) into n;
+    exception when insufficient_privilege then
+      n := 0;
+    end;
     perform pg_temp.act_as_service();
     perform pg_temp.must_be(format('a student reads no score from %s', rv.view_name), n = 0);
   end loop;

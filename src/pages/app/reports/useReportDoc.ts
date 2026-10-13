@@ -16,19 +16,24 @@ const finalRows = (rows: PeerResult[]) => rows.filter((p) => p.kind === 'final' 
 
 /** Loads the data a new-style report needs and builds its document. Old sheets return null. */
 export function useReportDoc(r: R, professor: string) {
-  const [doc, setDoc] = useState<ReportDoc | null>(null)
-  const [rounds, setRounds] = useState<PeerRoundStatus[]>([])
+  // The doc and the choices it was built for travel together, so a rebuild in
+  // flight never lets the previous project's sheet pass for the current one.
+  const [built, setBuilt] = useState<{ doc: ReportDoc | null; key: string }>({ doc: null, key: '' })
+  // Tagged with its project, so a new project never shows the previous one's rounds.
+  const [roundsOf, setRoundsOf] = useState<{ projectId: string; list: PeerRoundStatus[] }>({ projectId: '', list: [] })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [nonce, setNonce] = useState(0)
   const retry = useCallback(() => setNonce((n) => n + 1), [])
 
-  const { kind, cls, projectId, studentId, roundId, comments, projects, boards, work, students, ready } = r
+  const { kind, cls, classId, projectId, studentId, roundId, comments, projects, boards, work, students, ready } = r
+  const currentKey = [kind, classId, projectId, studentId, roundId, comments ? 1 : 0].join('|')
 
   useEffect(() => {
     let live = true
+    const key = currentKey
     if ((kind !== 'grading' && kind !== 'peer') || !ready || !cls) {
-      setDoc(null)
+      setBuilt({ doc: null, key })
       setLoading(false)
       setError(null)
       return
@@ -100,7 +105,7 @@ export function useReportDoc(r: R, professor: string) {
           const p = projects.find((x) => x.id === projectId)
           if (p) {
             const rs = await listPeerRounds(p.id)
-            if (live) setRounds(rs)
+            if (live) setRoundsOf({ projectId: p.id, list: rs })
             const round = rs.find((x) => x.id === roundId) ?? defaultRound(rs)
             if (round) {
               // Written comments are fetched for the chosen round only, and only when asked for.
@@ -118,10 +123,10 @@ export function useReportDoc(r: R, professor: string) {
             }
           }
         }
-        if (live) setDoc(next)
+        if (live) setBuilt({ doc: next, key })
       } catch (err) {
         if (live) {
-          setDoc(null)
+          setBuilt({ doc: null, key })
           setError(authErrorMessage(err, 'Could not build that report. Try again.'))
         }
       } finally {
@@ -131,7 +136,7 @@ export function useReportDoc(r: R, professor: string) {
     return () => {
       live = false
     }
-  }, [kind, cls, projectId, studentId, roundId, comments, projects, boards, work, students, ready, professor, nonce])
+  }, [currentKey, kind, cls, projectId, studentId, roundId, comments, projects, boards, work, students, ready, professor, nonce])
 
-  return { doc, loading, error, retry, rounds }
+  return { doc: built.doc, current: built.key === currentKey, loading, error, retry, rounds: roundsOf.projectId === projectId ? roundsOf.list : [] }
 }

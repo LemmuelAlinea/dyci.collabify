@@ -38,6 +38,14 @@ export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student
 /** Reports that take a student but do not need one. */
 export const OPTIONAL_STUDENT: ReportKind[] = ['grading']
 
+/** Whether a project choice is one this report can take: 'all' for the grading sheet, group projects for peer. */
+function projectFits(kind: ReportKind, projectId: string, projects: { id: string; audience: string }[]) {
+  if (!projectId) return false
+  if (projectId === 'all') return kind === 'grading'
+  const p = projects.find((x) => x.id === projectId)
+  return p !== undefined && (kind !== 'peer' || p.audience === 'group')
+}
+
 /**
  * Everything the reports page reads, loaded in the order the pickers narrow.
  *
@@ -207,9 +215,9 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     (next: ReportKind) => {
       // A picker the new report does not use would otherwise keep narrowing it.
       const out: Record<string, string> = { report: next }
-      if (!NEEDS[next].includes('project')) out.rproject = ''
-      // "All projects" only means something to the grading sheet.
-      else if (next !== 'grading' && projectId === 'all') out.rproject = ''
+      // A project the new report cannot take (all projects, or a solo project
+      // for peer evaluation) is dropped rather than left to draw nothing.
+      if (!NEEDS[next].includes('project') || !projectFits(next, projectId, projects)) out.rproject = ''
       if (!NEEDS[next].includes('board')) out.rgroup = ''
       if (!NEEDS[next].includes('student') && !OPTIONAL_STUDENT.includes(next)) out.rstudent = ''
       if (next !== 'peer') {
@@ -218,14 +226,14 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
       }
       patch(out)
     },
-    [patch, projectId],
+    [patch, projectId, projects],
   )
 
   /** Whether the chosen report has everything it needs to be drawn. */
   const ready =
     (!NEEDS[kind].includes('class') || Boolean(cls)) &&
     (!NEEDS[kind].includes('project') ||
-      Boolean(projectId) ||
+      projectFits(kind, projectId, projects) ||
       (OPTIONAL_STUDENT.includes(kind) && Boolean(studentId))) &&
     (!NEEDS[kind].includes('board') || Boolean(board)) &&
     (!NEEDS[kind].includes('student') || Boolean(studentId))

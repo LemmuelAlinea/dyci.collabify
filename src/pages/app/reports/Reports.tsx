@@ -184,7 +184,7 @@ export default function Reports({ classId }: { classId?: string }) {
   const newKind = r.kind === 'grading' || r.kind === 'peer'
   const exports: ActionMenuItem[] | undefined = !newKind
     ? undefined
-    : d.doc
+    : d.doc && d.current
       ? exportItems(d.doc, r.kind === 'grading' ? 'grading-sheet' : 'peer-summary', (m) => show(m, 'error'))
       : [{ label: 'Nothing to export yet', onSelect: () => {}, disabled: true }]
 
@@ -310,7 +310,8 @@ function Preview({
   switch (r.kind) {
     case 'grading':
     case 'peer':
-      if (d.loading) {
+      // A document built for other choices never stands in for these ones.
+      if (!d.current || (!d.doc && d.loading)) {
         return (
           <p className="flex items-center gap-2 py-6 text-[13px] text-muted">
             <Spinner size={14} />
@@ -325,7 +326,20 @@ function Preview({
           </Alert>
         )
       }
-      if (d.doc) return <ReportDocView doc={d.doc} />
+      // A refresh behind a sheet someone is reading leaves the sheet where it is.
+      if (d.doc) {
+        return (
+          <>
+            {d.loading && (
+              <p className="mb-3 flex items-center gap-2 text-[13px] text-muted print:hidden">
+                <Spinner size={14} />
+                Updating…
+              </p>
+            )}
+            <ReportDocView doc={d.doc} />
+          </>
+        )
+      }
       if (r.kind === 'peer') {
         return (
           <EmptyState
