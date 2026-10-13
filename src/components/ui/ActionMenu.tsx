@@ -23,6 +23,7 @@ export function ActionMenu({
   size = 'md',
   icon = 'dots',
   triggerClassName,
+  showLabel = false,
 }: {
   label: string
   items: (ActionMenuItem | false | null | undefined)[]
@@ -33,6 +34,8 @@ export function ActionMenu({
   icon?: IconName
   /** Replaces the trigger's size and colours, for a menu that sits in a toolbar. */
   triggerClassName?: string
+  /** Writes the label beside the glyph, for a trigger that reads as a button. */
+  showLabel?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
@@ -118,6 +121,7 @@ export function ActionMenu({
         }
       >
         <Icon name={icon} size={size === 'sm' ? 15 : icon === 'dots' ? 17 : 19} strokeWidth={icon === 'dots' ? 2.4 : 1.7} />
+        {showLabel && label}
       </button>
       {open &&
         createPortal(

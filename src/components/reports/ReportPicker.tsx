@@ -1,5 +1,9 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
+import { ActionMenu } from '../ui/ActionMenu'
+import type { ActionMenuItem } from '../ui/ActionMenu'
 import { Button } from '../ui/Button'
+import { buttonClass } from '../ui/buttonClass'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
@@ -9,7 +13,7 @@ import type { ReportKind } from '../../pages/app/reports/useReports'
 /**
  * Choosing a report, at three widths.
  *
- * There are seven reports in three groups, each with a sentence explaining it,
+ * There are nine reports in two groups, each with a sentence explaining it,
  * and then up to four things to narrow it by. On a wide screen that is a column
  * beside the sheet and it reads well. Below that it was the whole of it stacked
  * on top of the sheet — on a phone you scrolled past seven cards and four
@@ -55,6 +59,12 @@ export type PickerState = {
   studentId: string
   setStudentId: (v: string) => void
   ready: boolean
+  /** Replaces the project list, for a report with an extra choice such as all projects. */
+  projectOptions?: { value: string; label: string }[]
+  /** The student is a way to narrow the report, not something it needs. */
+  studentOptional?: boolean
+  /** Anything a report adds under its selects, such as a round or a switch. */
+  extras?: ReactNode
 }
 
 const flat = (catalogue: ReportGroup[]) => catalogue.flatMap((g) => g.items)
@@ -98,7 +108,7 @@ function About({ r }: { r: PickerState }) {
           value={r.projectId}
           onChange={(e) => r.setProjectId(e.target.value)}
           placeholder="Pick a project"
-          options={r.projects.map((p) => ({ value: p.id, label: p.title }))}
+          options={r.projectOptions ?? r.projects.map((p) => ({ value: p.id, label: p.title }))}
           className={size}
         />
       )}
@@ -125,6 +135,19 @@ function About({ r }: { r: PickerState }) {
           className={size}
         />
       )}
+      {r.studentOptional && (
+        <div className="space-y-1">
+          <Select
+            aria-label="Student"
+            value={r.studentId}
+            onChange={(e) => r.setStudentId(e.target.value)}
+            options={[{ value: '', label: 'Whole class' }, ...r.students]}
+            className={size}
+          />
+          <p className="px-1 text-[12px] text-muted">Picking a student shows them across every project.</p>
+        </div>
+      )}
+      {r.extras}
     </>
   )
 }
@@ -133,11 +156,13 @@ function Actions({
   r,
   csv,
   onCsv,
+  exports,
   className = '',
 }: {
   r: PickerState
   csv: boolean
   onCsv: () => void
+  exports?: ActionMenuItem[]
   className?: string
 }) {
   return (
@@ -153,7 +178,19 @@ function Actions({
         <Icon name="file" size={14} />
         Print
       </Button>
-      {csv && (
+      {exports ? (
+        <ActionMenu
+          label="Export"
+          icon="download"
+          items={exports}
+          disabled={!r.ready}
+          size="sm"
+          showLabel
+          align="start"
+          triggerClassName={buttonClass({ variant: 'outline', size: 'sm', className: '!h-11 !rounded-xl sm:!h-9' })}
+        />
+      ) : (
+        csv && (
         <Button
           size="sm"
           variant="outline"
@@ -165,6 +202,7 @@ function Actions({
           <span className="sm:hidden">CSV</span>
           <span className="hidden sm:inline">Download CSV</span>
         </Button>
+        )
       )}
     </div>
   )
@@ -282,11 +320,13 @@ export function ReportSidebar({
   r,
   csv,
   onCsv,
+  exports,
 }: {
   catalogue: ReportGroup[]
   r: PickerState
   csv: boolean
   onCsv: () => void
+  exports?: ActionMenuItem[]
 }) {
   return (
     <div className="hidden @min-[860px]:block print:hidden">
@@ -300,7 +340,7 @@ export function ReportSidebar({
           <About r={r} />
         </section>
 
-        <Actions r={r} csv={csv} onCsv={onCsv} />
+        <Actions r={r} csv={csv} onCsv={onCsv} exports={exports} />
       </div>
     </div>
   )
@@ -312,14 +352,16 @@ export function ReportBar({
   r,
   csv,
   onCsv,
+  exports,
 }: {
   catalogue: ReportGroup[]
   r: PickerState
   csv: boolean
   onCsv: () => void
+  exports?: ActionMenuItem[]
 }) {
   const [open, setOpen] = useState(false)
-  const needs = NEEDS[r.kind].length
+  const needs = NEEDS[r.kind].length + (r.studentOptional ? 1 : 0) + (r.extras ? 1 : 0)
 
   return (
     <div className="space-y-3 @min-[860px]:hidden print:hidden">
@@ -347,7 +389,7 @@ export function ReportBar({
         <About r={r} />
       </div>
 
-      <Actions r={r} csv={csv} onCsv={onCsv} />
+      <Actions r={r} csv={csv} onCsv={onCsv} exports={exports} />
 
       <Modal
         open={open}

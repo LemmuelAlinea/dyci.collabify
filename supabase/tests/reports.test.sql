@@ -309,30 +309,33 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
--- -------------------------------------------------- no unreleased marks in here
+-- --------------------------------------------- scores only in staff-only reads
 
 /**
- * Grades live in Collabify now (scoring.sql), but a student sees one only once
- * the professor releases it, and a printed report must not leak one earlier.
- * So any report view that reads a score table must also read score_releases.
- * Phase B adds released scores to reports; this keeps that honest.
+ * Reports may now carry scores, released or not (Phase B), because they are
+ * the professor's own record. What must never happen is a report view handing
+ * a score to a student. So every report view that reads a score table is read
+ * here as a student, and must return nothing.
  */
 do $$
 declare
-  bad text;
+  rv record;
+  n int;
+  v_student uuid := (select v from fx where k='a');
 begin
-  select string_agg(distinct u.view_name, ', ') into bad
-    from information_schema.view_table_usage u
-   where u.view_schema = 'public'
-     and u.view_name like 'report\_%'
-     and u.table_name in ('board_scores', 'member_scores')
-     and not exists (
-       select 1 from information_schema.view_table_usage r
-        where r.view_schema = 'public' and r.view_name = u.view_name
-          and r.table_name = 'score_releases'
-     );
-  perform pg_temp.must_be('no report view carries a score that has not been released',
-    bad is null);
+  for rv in
+    select distinct u.view_name
+      from information_schema.view_table_usage u
+     where u.view_schema = 'public'
+       and u.view_name like 'report_%'
+       and u.table_name in ('board_scores', 'member_scores')
+  loop
+    perform pg_temp.act_as(v_student);
+    execute format('select count(*) from public.%I', rv.view_name) into n;
+    perform pg_temp.act_as_service();
+    perform pg_temp.must_be(format('a student reads no score from %s', rv.view_name), n = 0);
+  end loop;
+  raise notice 'PASS  score views checked (none yet is fine)';
 end $$;
 
 -- ---------------------------------------------------------------- who sees

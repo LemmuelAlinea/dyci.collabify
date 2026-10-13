@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useLive } from '../../../hooks/useLive'
 import { listMembers } from '../../../lib/api/classes'
 import { boardsFor } from '../../../lib/api/dashboard'
@@ -18,6 +19,8 @@ export type ReportKind =
   | 'comparison'
   | 'class_record'
   | 'term_summary'
+  | 'grading'
+  | 'peer'
 
 /** Which pickers a report needs before it can be drawn. */
 export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student')[]> = {
@@ -28,7 +31,12 @@ export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student
   comparison: ['class', 'project'],
   class_record: ['class'],
   term_summary: [],
+  grading: ['class', 'project'],
+  peer: ['class', 'project'],
 }
+
+/** Reports that take a student but do not need one. */
+export const OPTIONAL_STUDENT: ReportKind[] = ['grading']
 
 /**
  * Everything the reports page reads, loaded in the order the pickers narrow.
@@ -39,11 +47,32 @@ export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student
  * time, and the class list alone is enough to draw the page.
  */
 export function useReports(professorId: string | undefined, lockedClassId?: string) {
-  const [kind, setKind] = useState<ReportKind>('class_term')
-  const [classId, setClassId] = useState('')
-  const [projectId, setProjectId] = useState('')
-  const [boardId, setBoardId] = useState('')
-  const [studentId, setStudentId] = useState('')
+  // Every choice lives in the address, so a report can be linked and a reload
+  // keeps it. The keys are prefixed because this page also renders inside a
+  // class, whose own tab sits in `?tab=`.
+  const [params, setParams] = useSearchParams()
+  const patch = useCallback(
+    (next: Record<string, string>) =>
+      setParams(
+        (p) => {
+          const n = new URLSearchParams(p)
+          for (const [k, v] of Object.entries(next)) {
+            if (v) n.set(k, v)
+            else n.delete(k)
+          }
+          return n
+        },
+        { replace: true },
+      ),
+    [setParams],
+  )
+  const asked = params.get('report')
+  const kind: ReportKind = asked && asked in NEEDS ? (asked as ReportKind) : 'grading'
+  const projectId = params.get('rproject') ?? ''
+  const boardId = params.get('rgroup') ?? ''
+  const studentId = params.get('rstudent') ?? ''
+  const roundId = params.get('rround') ?? ''
+  const comments = params.get('rcomments') === '1'
 
   const [classes, setClasses] = useState<ClassReport[] | null>(null)
   const [weeks, setWeeks] = useState<WeekCoverage[]>([])
@@ -57,6 +86,17 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  const classId = lockedClassId || params.get('rclass') || classes?.[0]?.class_id || ''
+  const setClassId = useCallback(
+    (v: string) => patch({ rclass: v, rproject: '', rgroup: '', rstudent: '', rround: '' }),
+    [patch],
+  )
+  const setProjectId = useCallback((v: string) => patch({ rproject: v, rround: '' }), [patch])
+  const setBoardId = useCallback((v: string) => patch({ rgroup: v }), [patch])
+  const setStudentId = useCallback((v: string) => patch({ rstudent: v }), [patch])
+  const setRoundId = useCallback((v: string) => patch({ rround: v }), [patch])
+  const setComments = useCallback((on: boolean) => patch({ rcomments: on ? '1' : '' }), [patch])
+
   const loadClasses = useCallback(async () => {
     if (!professorId) return
     try {
@@ -64,7 +104,6 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
         (row) => !lockedClassId || row.class_id === lockedClassId,
       )
       setClasses(rows)
-      setClassId((id) => id || (rows[0]?.class_id ?? ''))
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load your classes.'))
@@ -109,20 +148,6 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     void loadClass()
   }, [loadClass])
 
-  /**
-   * Clearing the pickers is a separate effect, keyed on the class alone.
-   *
-   * It used to sit inside the fetch above, which was harmless while that ran
-   * only when the class changed. It is not harmless now: a live refresh runs
-   * the same fetch, and a professor who had picked a project would have had it
-   * taken back every time somebody else touched a task.
-   */
-  useEffect(() => {
-    setProjectId('')
-    setBoardId('')
-    setStudentId('')
-  }, [classId])
-
   useLive(loadClass, [
     'projects',
     'project_boards',
@@ -162,7 +187,7 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     [classes, classId],
   )
   const shownBoards = useMemo(
-    () => boards.filter((b) => (projectId ? b.project_id === projectId : true)),
+    () => boards.filter((b) => (projectId && projectId !== 'all' ? b.project_id === projectId : true)),
     [boards, projectId],
   )
   const board = useMemo(() => boards.find((b) => b.id === boardId) ?? null, [boards, boardId])
@@ -178,18 +203,30 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     )
   }, [members])
 
-  const choose = useCallback((next: ReportKind) => {
-    setKind(next)
-    // A picker the new report does not use would otherwise keep narrowing it.
-    if (!NEEDS[next].includes('project')) setProjectId('')
-    if (!NEEDS[next].includes('board')) setBoardId('')
-    if (!NEEDS[next].includes('student')) setStudentId('')
-  }, [])
+  const choose = useCallback(
+    (next: ReportKind) => {
+      // A picker the new report does not use would otherwise keep narrowing it.
+      const out: Record<string, string> = { report: next }
+      if (!NEEDS[next].includes('project')) out.rproject = ''
+      // "All projects" only means something to the grading sheet.
+      else if (next !== 'grading' && projectId === 'all') out.rproject = ''
+      if (!NEEDS[next].includes('board')) out.rgroup = ''
+      if (!NEEDS[next].includes('student') && !OPTIONAL_STUDENT.includes(next)) out.rstudent = ''
+      if (next !== 'peer') {
+        out.rround = ''
+        out.rcomments = ''
+      }
+      patch(out)
+    },
+    [patch, projectId],
+  )
 
   /** Whether the chosen report has everything it needs to be drawn. */
   const ready =
     (!NEEDS[kind].includes('class') || Boolean(cls)) &&
-    (!NEEDS[kind].includes('project') || Boolean(projectId)) &&
+    (!NEEDS[kind].includes('project') ||
+      Boolean(projectId) ||
+      (OPTIONAL_STUDENT.includes(kind) && Boolean(studentId))) &&
     (!NEEDS[kind].includes('board') || Boolean(board)) &&
     (!NEEDS[kind].includes('student') || Boolean(studentId))
 
@@ -209,6 +246,11 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     setBoardId,
     studentId,
     setStudentId,
+    roundId,
+    setRoundId,
+    comments,
+    setComments,
+    params,
     weeks,
     work,
     members,
