@@ -21,6 +21,7 @@ export function Sheet({
   signatureLabel = 'Signature over printed name',
   letterhead,
   footerNote,
+  generatedAt,
   id,
 }: {
   title: string
@@ -42,6 +43,11 @@ export function Sheet({
   letterhead?: ReactNode
   /** Replaces the footer — the not-a-grade note and the signature line. */
   footerNote?: ReactNode
+  /**
+   * The time the report was made, when it was stamped earlier than this render,
+   * so the sheet and its exports show the same moment. Defaults to now.
+   */
+  generatedAt?: string
   id?: string
 }) {
   return (
@@ -56,7 +62,7 @@ export function Sheet({
         <p className="shrink-0 text-right font-mono text-[12px] leading-relaxed text-faint">
           Generated
           <br />
-          {generatedOn()}
+          {generatedAt ?? generatedOn()}
         </p>
       </header>
       )}

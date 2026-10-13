@@ -80,7 +80,6 @@ function BlockView({ block }: { block: Block }) {
                       className={`px-2 py-1.5 font-medium ${RIGHT.includes(c.type) ? 'text-right' : ''}`}
                     >
                       {c.label}
-                      {c.type === 'score' && c.outOf ? <span className="font-mono"> /{c.outOf}</span> : null}
                     </th>
                   ))}
                 </tr>
@@ -123,6 +122,7 @@ export function ReportDocView({ doc }: { doc: ReportDoc }) {
       title={h.title}
       subject={h.subtitle}
       meta={[h.classLine, h.rangeLabel ?? '']}
+      generatedAt={h.madeAt}
       footerNote={
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div className="max-w-[62ch] space-y-1 text-[12px] leading-relaxed text-faint">

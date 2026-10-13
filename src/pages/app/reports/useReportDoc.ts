@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { listPeerRounds, peerComments, projectPeerResults } from '../../../lib/api/peer'
 import { listCriteria } from '../../../lib/api/projects'
 import { projectBoardScores, scoreSheet } from '../../../lib/api/scores'
@@ -12,44 +12,77 @@ import type { useReports } from './useReports'
 
 type R = ReturnType<typeof useReports>
 
+type Built = {
+  doc: ReportDoc | null
+  key: string
+  /** The build for this key failed and there is no sheet to fall back on. */
+  error: string | null
+  /** A refresh failed behind a sheet that is still shown. */
+  refreshError: string | null
+}
+
 const finalRows = (rows: PeerResult[]) => rows.filter((p) => p.kind === 'final' && !p.is_open)
 
 /** Loads the data a new-style report needs and builds its document. Old sheets return null. */
 export function useReportDoc(r: R, professor: string) {
   // The doc and the choices it was built for travel together, so a rebuild in
   // flight never lets the previous project's sheet pass for the current one.
-  const [built, setBuilt] = useState<{ doc: ReportDoc | null; key: string }>({ doc: null, key: '' })
+  const [built, setBuilt] = useState<Built>({ doc: null, key: '', error: null, refreshError: null })
   // Tagged with its project, so a new project never shows the previous one's rounds.
   const [roundsOf, setRoundsOf] = useState<{ projectId: string; list: PeerRoundStatus[] }>({ projectId: '', list: [] })
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [nonce, setNonce] = useState(0)
   const retry = useCallback(() => setNonce((n) => n + 1), [])
 
   const { kind, cls, classId, projectId, studentId, roundId, comments, projects, boards, work, students, ready } = r
   const currentKey = [kind, classId, projectId, studentId, roundId, comments ? 1 : 0].join('|')
+  const classLine = cls ? `${cls.class_initial} · ${cls.class_name} · ${cls.section}` : ''
+
+  // Live updates hand back fresh arrays with the same rows in them. The build
+  // keys on what is in them, so a refresh that changed nothing it reads does
+  // not fetch and redraw the sheet.
+  const onePerProject = kind === 'grading' && !studentId && projectId !== '' && projectId !== 'all'
+  const projectsSig = useMemo(() => projects.map((p) => `${p.id}:${p.title}:${p.total_points}`).join('|'), [projects])
+  const studentsSig = useMemo(() => students.map((s) => s.value).join('|'), [students])
+  const boardsSig = useMemo(
+    () => (onePerProject ? boards.map((b) => `${b.id}:${b.group_name ?? b.student_name ?? ''}`).join('|') : ''),
+    [onePerProject, boards],
+  )
+  const workSig = useMemo(
+    () =>
+      onePerProject
+        ? work
+            .filter((w) => w.project_id === projectId)
+            .map((w) => `${w.board_id}:${w.student_id}:${w.held_pct}:${w.tasks_done}:${w.tasks_late}`)
+            .join('|')
+        : '',
+    [onePerProject, work, projectId],
+  )
+
+  // The arrays themselves, read when a build starts. Kept beside the effect
+  // rather than in its dependencies, which are the signatures above.
+  const data = useRef({ projects, boards, work, students })
+  useEffect(() => {
+    data.current = { projects, boards, work, students }
+  })
 
   useEffect(() => {
     let live = true
     const key = currentKey
-    if ((kind !== 'grading' && kind !== 'peer') || !ready || !cls) {
-      setBuilt({ doc: null, key })
+    if ((kind !== 'grading' && kind !== 'peer') || !ready || !classLine) {
+      setBuilt({ doc: null, key, error: null, refreshError: null })
       setLoading(false)
-      setError(null)
       return
     }
-    const head = {
-      classLine: `${cls.class_initial} · ${cls.class_name} · ${cls.section}`,
-      professor,
-      madeAt: generatedOn(),
-    }
+    const { projects, boards, work, students } = data.current
+    const head = { classLine, professor, madeAt: generatedOn() }
     const asProject = (p: { id: string; title: string; total_points: number }) => ({
       id: p.id,
       title: p.title,
       total_points: p.total_points,
     })
     setLoading(true)
-    setError(null)
+    setBuilt((prev) => (prev.error || prev.refreshError ? { ...prev, error: null, refreshError: null } : prev))
     void (async () => {
       try {
         let next: ReportDoc | null = null
@@ -123,11 +156,16 @@ export function useReportDoc(r: R, professor: string) {
             }
           }
         }
-        if (live) setBuilt({ doc: next, key })
+        if (live) setBuilt({ doc: next, key, error: null, refreshError: null })
       } catch (err) {
         if (live) {
-          setBuilt({ doc: null, key })
-          setError(authErrorMessage(err, 'Could not build that report. Try again.'))
+          const message = authErrorMessage(err, 'Could not build that report. Try again.')
+          // A failed refresh keeps the sheet already on screen for these choices.
+          setBuilt((prev) =>
+            prev.key === key && prev.doc
+              ? { ...prev, refreshError: message }
+              : { doc: null, key, error: message, refreshError: null },
+          )
         }
       } finally {
         if (live) setLoading(false)
@@ -136,7 +174,31 @@ export function useReportDoc(r: R, professor: string) {
     return () => {
       live = false
     }
-  }, [currentKey, kind, cls, projectId, studentId, roundId, comments, projects, boards, work, students, ready, professor, nonce])
+  }, [
+    currentKey,
+    kind,
+    classLine,
+    projectId,
+    studentId,
+    roundId,
+    comments,
+    ready,
+    professor,
+    nonce,
+    projectsSig,
+    studentsSig,
+    boardsSig,
+    workSig,
+  ])
 
-  return { doc: built.doc, current: built.key === currentKey, loading, error, retry, rounds: roundsOf.projectId === projectId ? roundsOf.list : [] }
+  const current = built.key === currentKey
+  return {
+    doc: built.doc,
+    current,
+    loading,
+    error: current ? built.error : null,
+    refreshError: current ? built.refreshError : null,
+    retry,
+    rounds: roundsOf.projectId === projectId ? roundsOf.list : [],
+  }
 }

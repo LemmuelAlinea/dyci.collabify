@@ -122,8 +122,10 @@ function exportItems(doc: ReportDoc, kind: string, fail: (message: string) => vo
  *
  * Analytics is read on screen by the person who owns the class. A report is
  * printed and handed to somebody else — a chair, a course file, your own record
- * — so it prints on letterhead, carries the date it was made, and says in its
- * footer that it is not a grade record.
+ * — so it prints on letterhead and carries the date it was made. The older
+ * reports say in their footer that they are not a grade record; the grading
+ * sheet and the peer summary replace that footer with their own lines and a
+ * Prepared by signature.
  *
  * Unlike every analytics view, these keep archived classes and projects. A
  * report is asked for after the term ends, which is exactly when analytics
@@ -182,6 +184,8 @@ export default function Reports({ classId }: { classId?: string }) {
 
   // The new reports export through a menu; the older ones keep their one CSV button.
   const newKind = r.kind === 'grading' || r.kind === 'peer'
+  // A new report prints only once its document is built for these choices, as it exports.
+  const printReady = newKind ? Boolean(d.doc && d.current) : r.ready
   const exports: ActionMenuItem[] | undefined = !newKind
     ? undefined
     : d.doc && d.current
@@ -252,6 +256,7 @@ export default function Reports({ classId }: { classId?: string }) {
             r={picker}
             csv={Boolean(csv)}
             exports={exports}
+            printReady={printReady}
             onCsv={() => csv && downloadCsv(csv.name, toCsv(csv.headers, csv.body))}
           />
           <ReportSidebar
@@ -259,6 +264,7 @@ export default function Reports({ classId }: { classId?: string }) {
             r={picker}
             csv={Boolean(csv)}
             exports={exports}
+            printReady={printReady}
             onCsv={() => csv && downloadCsv(csv.name, toCsv(csv.headers, csv.body))}
           />
 
@@ -328,14 +334,24 @@ function Preview({
           </Alert>
         )
       }
-      // A refresh behind a sheet someone is reading leaves the sheet where it is.
+      // A refresh behind a sheet someone is reading leaves the sheet where it
+      // is, and so does a refresh that fails.
       if (d.doc) {
         return (
           <>
-            {d.loading && (
+            {/* The page's own "Gathering it…" already says so while the class reloads. */}
+            {d.loading && !r.busy && !r.settling && (
               <p className="mb-3 flex items-center gap-2 text-[13px] text-muted print:hidden">
                 <Spinner size={14} />
                 Updating…
+              </p>
+            )}
+            {d.refreshError && !d.loading && (
+              <p className="mb-3 flex flex-wrap items-center gap-2 text-[13px] text-muted print:hidden">
+                Could not refresh. Showing the last version.
+                <button type="button" onClick={d.retry} className="text-ink underline underline-offset-2">
+                  Try again
+                </button>
               </p>
             )}
             <ReportDocView doc={d.doc} />
