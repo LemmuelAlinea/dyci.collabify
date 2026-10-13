@@ -24,7 +24,7 @@ import { listClassNotes } from '../../../lib/api/notes'
 import { classPeerResults } from '../../../lib/api/peer'
 import { authErrorMessage } from '../../../lib/authError'
 import { rankActions } from '../../../lib/insight'
-import { followUpActions } from '../../../lib/notes'
+import { followUpActions, openableNotes } from '../../../lib/notes'
 import { manilaDay } from '../../../lib/analyticsMath'
 import type { ActionRow, BoardDiagnosis, Participation, Pressure } from '../../../lib/insight'
 import type {
@@ -84,7 +84,7 @@ export function useAnalytics(classId?: string) {
     } catch (err) {
       // Keep the notes already loaded. A silent empty list would read as
       // "nothing is due", so say that the load failed.
-      setNotesError(authErrorMessage(err, 'Could not load the notes. Reload the page to try again.'))
+      setNotesError(authErrorMessage(err, 'Could not load the notes. Try again.'))
     }
   }, [])
   useEffect(() => {
@@ -324,7 +324,12 @@ export function useAnalytics(classId?: string) {
       )
     const names = new Map(roster.map((r) => [`${r.class_id}:${r.student_id}`, r.student_name]))
     const boardNames = new Map(burns.map((b) => [b.board_id, b.group_name ?? b.student_name ?? 'A group']))
-    const due = notes
+    // A card needs somewhere to open: notes about archived classes or students
+    // no longer active stay in the drawer history but raise no card.
+    const due = openableNotes(notes, {
+      students: new Set(names.keys()),
+      boards: new Set(burns.map((b) => b.board_id)),
+    })
       .filter((n) => (scope.classId ? n.class_id === scope.classId : true))
       .filter((n) => (scope.boardId ? n.board_id === scope.boardId : true))
       .filter((n) => (scope.studentId ? n.student_id === scope.studentId || boardsInView.has(n.board_id ?? '') : true))

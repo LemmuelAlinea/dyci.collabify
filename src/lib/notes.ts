@@ -30,7 +30,29 @@ export function notesAbout(
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
 }
 
+/**
+ * The notes whose subject the page can open: a student in the roster (keyed
+ * `${class_id}:${student_id}`), or, for a note with no student, a live board.
+ * Notes about archived classes or removed students have nowhere to open.
+ */
+export function openableNotes(
+  notes: ClassNote[],
+  openable: { students: Set<string>; boards: Set<string> },
+): ClassNote[] {
+  return notes.filter((n) =>
+    n.student_id
+      ? openable.students.has(`${n.class_id}:${n.student_id}`)
+      : n.board_id !== null && openable.boards.has(n.board_id),
+  )
+}
+
 const dayFmt = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' })
+
+const BODY_MAX = 140
+const brief = (body: string) => {
+  const t = body.trim()
+  return t.length > BODY_MAX ? `${t.slice(0, BODY_MAX)}…` : t
+}
 
 /**
  * Open notes whose follow-up date has come, as Needs attention cards. `today`
@@ -44,7 +66,7 @@ export function followUpActions(notes: ClassNote[], today: string, nameOf: (n: C
       kind: 'follow_up_due' as const,
       severity: 2,
       title: `Follow up with ${nameOf(n)}`,
-      evidence: `Due ${dayFmt.format(new Date(`${n.follow_up_on}T00:00:00+08:00`))}. You noted: ${n.body}`,
+      evidence: `Due ${dayFmt.format(new Date(`${n.follow_up_on}T00:00:00+08:00`))}. Noted: ${brief(n.body)}`,
       to: null,
       classId: n.class_id,
       boardId: n.board_id,

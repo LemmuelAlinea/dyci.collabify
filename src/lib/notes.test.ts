@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { followUpActions, notesAbout } from './notes'
+import { followUpActions, notesAbout, openableNotes } from './notes'
 import type { ClassNote } from './types'
 
 const note = (over: Partial<ClassNote> & { id: string }): ClassNote => ({
@@ -43,9 +43,46 @@ describe('followUpActions', () => {
     ).toEqual([])
   })
 
+  it('says "Noted:" and cuts a long body to 140 characters', () => {
+    const [a] = followUpActions(
+      [note({ id: 'n7', student_id: 's1', follow_up_on: '2026-10-14', body: `  ${'x'.repeat(300)}  ` })],
+      '2026-10-14',
+      name,
+    )
+    expect(a.evidence).toContain('Noted: ')
+    expect(a.evidence).not.toContain('You noted')
+    expect(a.evidence).toContain(`${'x'.repeat(140)}…`)
+    expect(a.evidence).not.toContain('x'.repeat(141))
+  })
+
+  it('leaves a short body whole', () => {
+    const [a] = followUpActions([note({ id: 'n8', student_id: 's1', follow_up_on: '2026-10-14', body: 'Short' })], '2026-10-14', name)
+    expect(a.evidence).toMatch(/Noted: Short$/)
+  })
+
   it('names a group for a note on a board', () => {
     const out = followUpActions([note({ id: 'n6', board_id: 'b1', follow_up_on: '2026-10-14' })], '2026-10-14', name)
     expect(out[0]).toMatchObject({ title: 'Follow up with Group 1', boardId: 'b1', studentId: null })
+  })
+})
+
+describe('openableNotes', () => {
+  const openable = { students: new Set(['c1:s1']), boards: new Set(['b1']) }
+
+  it('keeps a student note whose student is openable', () => {
+    expect(openableNotes([note({ id: 'a', student_id: 's1' })], openable)).toHaveLength(1)
+  })
+
+  it('drops a student note for a removed student or an archived class', () => {
+    expect(
+      openableNotes([note({ id: 'b', student_id: 's9' }), note({ id: 'c', student_id: 's1', class_id: 'c2' })], openable),
+    ).toEqual([])
+  })
+
+  it('keeps or drops a board-only note by its board', () => {
+    expect(
+      openableNotes([note({ id: 'd', board_id: 'b1' }), note({ id: 'e', board_id: 'b2' })], openable).map((n) => n.id),
+    ).toEqual(['d'])
   })
 })
 
