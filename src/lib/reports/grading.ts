@@ -1,4 +1,4 @@
-import { analyseTeam, peerFlagLabel } from '../peerMath'
+import { analyseTeam, PEER_MIN_RATERS, peerFlagLabel } from '../peerMath'
 import { PEER_DIMENSIONS } from '../peerDimensions'
 import type { StudentWork } from '../report'
 import { formatPoints } from '../scoreMath'
@@ -77,20 +77,26 @@ export function gradingClassDoc(input: ReportHead & {
   )
   const rows: Cell[][] = sorted.map((r) => {
     const w = workOf.get(`${r.board_id}:${r.student_id}`)
-    const final: Cell =
-      r.final === null || !r.confirmed_at
-        ? null
-        : r.overridden
-          ? { value: Number(r.final), tag: 'Overridden', tone: 'pending' }
-          : Number(r.final)
+    const isConfirmed = !!r.confirmed_at && r.final !== null
+    // A confirmed final was made from the saved factor and suggestion, so those are what sit beside it.
+    const factor = isConfirmed ? r.factor_saved : r.factor
+    const suggested = isConfirmed ? r.suggested_saved : r.suggested_now
+    let final: Cell = null
+    if (isConfirmed) {
+      const value = Number(r.final)
+      if (r.overridden && r.suggestion_changed) final = { value, tag: 'Overridden · suggestion changed', tone: 'warning' }
+      else if (r.overridden) final = { value, tag: 'Overridden', tone: 'pending' }
+      else if (r.suggestion_changed) final = { value, tag: 'Suggestion changed', tone: 'warning' }
+      else final = value
+    }
     return [
       r.student_name,
       boardNames.get(r.board_id) ?? (r.in_group ? 'Group' : 'Individual'),
       ...criteria.map((c) => points.get(`${r.board_id}:${c.id}`) ?? null),
       r.group_total === null ? null : Number(r.group_total),
-      r.factor === null ? null : Number(r.factor),
+      factor === null || factor === undefined ? null : Number(factor),
       flagsOf.get(`${r.board_id}:${r.student_id}`) || null,
-      r.suggested_now === null ? null : Number(r.suggested_now),
+      suggested === null || suggested === undefined ? null : Number(suggested),
       final,
       status(r),
       w ? Number(w.held_pct) : null,
@@ -258,12 +264,21 @@ export function gradingStudentDoc(input: ReportHead & {
       rows: input.projects.map(({ project, row }) => {
         const final = row && row.confirmed_at && row.final !== null ? Number(row.final) : null
         const group = row?.group_total === null || row?.group_total === undefined ? null : Number(row.group_total)
+        const adjustment =
+          final !== null && group !== null && row?.in_group
+            ? Math.round((final - Math.min(group, project.total_points)) * 2) / 2
+            : null
+        const adjust: Cell =
+          adjustment !== null && row?.suggestion_changed
+            ? { value: adjustment, tag: 'Suggestion changed', tone: 'warning' }
+            : adjustment
+        const factor = row?.factor_saved ?? row?.factor ?? null
         return [
           `${project.title} (of ${project.total_points})`,
           final,
           group,
-          final !== null && group !== null && row?.in_group ? Math.round((final - Math.min(group, project.total_points)) * 2) / 2 : null,
-          row?.factor_saved === null || row?.factor_saved === undefined ? null : Number(row.factor_saved),
+          adjust,
+          factor === null ? null : Number(factor),
           row ? status(row) : { value: 'Not on this project', tone: 'pending' },
         ]
       }),
@@ -286,8 +301,8 @@ export function gradingStudentDoc(input: ReportHead & {
       rows: criteria.map((c) => [c.label, points.get(c.id) ?? null, c.max_points]),
     })
     const mine = peer.find((p) => p.student_id === input.student.id && p.board_id === row.board_id)
-    if (mine && mine.raters >= 2) {
-      const team = peer.filter((p) => p.board_id === row.board_id)
+    if (mine && mine.raters >= PEER_MIN_RATERS) {
+      const team = peer.filter((p) => p.board_id === row.board_id && p.raters >= PEER_MIN_RATERS)
       const avg = (key: string) => {
         const xs = team.map((p) => (p as unknown as Record<string, number | null>)[key]).filter((v): v is number => v !== null)
         return xs.length ? Math.round((xs.reduce((s, x) => s + Number(x), 0) / xs.length) * 100) / 100 : null

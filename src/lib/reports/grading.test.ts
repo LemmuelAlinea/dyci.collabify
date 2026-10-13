@@ -104,6 +104,37 @@ describe('gradingClassDoc', () => {
   })
 })
 
+describe('gradingClassDoc saved versus live', () => {
+  const build = (r: ScoreSheetRow) =>
+    gradingClassDoc({
+      ...head, project, criteria, boardScores, boardNames: new Map([['b1', 'Group 1']]), work: [], peer: [],
+      sheet: [r],
+    })
+  const cell = (doc: ReportDoc, key: string) => {
+    const t = tableBlocks(doc).find((x) => x.id === 'grades')!
+    return t.rows[0][t.columns.map((c) => c.key).indexOf(key)]
+  }
+  it('shows the saved suggestion and factor of a confirmed row, and flags the drift', () => {
+    const doc = build(row({
+      suggested_now: 76, suggested_saved: 84, factor: 1.0, factor_saved: 1.05, final: 84, suggestion_changed: true,
+    }))
+    expect(cell(doc, 'suggested')).toBe(84)
+    expect(cell(doc, 'factor')).toBe(1.05)
+    expect(cell(doc, 'final')).toEqual({ value: 84, tag: 'Suggestion changed', tone: 'warning' })
+  })
+  it('keeps the override tag and adds the drift on an overridden row', () => {
+    const doc = build(row({ final: 70, overridden: true, suggestion_changed: true }))
+    expect(cell(doc, 'final')).toEqual({ value: 70, tag: 'Overridden · suggestion changed', tone: 'warning' })
+  })
+  it('shows the live suggestion and factor of an unconfirmed row', () => {
+    const doc = build(row({
+      suggested_now: 76, suggested_saved: 84, factor: 1.0, factor_saved: 1.05, final: null, confirmed_at: null,
+    }))
+    expect(cell(doc, 'suggested')).toBe(76)
+    expect(cell(doc, 'factor')).toBe(1)
+  })
+})
+
 describe('gradingGridDoc', () => {
   const doc = gradingGridDoc({
     ...head,
@@ -135,6 +166,29 @@ describe('gradingStudentDoc', () => {
     const cols = projects.columns.map((c) => c.key)
     expect(projects.rows[0][cols.indexOf('adjust')]).toBe(4)
     expect(tableBlocks(doc).some((t) => t.id === 'rubric-p1')).toBe(true)
+    const seen = tableBlocks(doc).find((t) => t.id === 'peer-p1')!
+    expect(seen.rows[0]).toEqual([expect.any(String), 4, 3.5])
+  })
+  it('flags an adjustment whose suggestion has changed since the confirm', () => {
+    const doc = gradingStudentDoc({
+      ...head,
+      student: { id: 's1', name: 'Ana Cruz' },
+      projects: [{ project, row: row({ final: 84, factor: 1.0, factor_saved: 1.05, suggestion_changed: true }), criteria, boardScores, peer: [] }],
+    })
+    const projects = tableBlocks(doc).find((t) => t.id === 'projects')!
+    const cols = projects.columns.map((c) => c.key)
+    expect(projects.rows[0][cols.indexOf('adjust')]).toEqual({ value: 4, tag: 'Suggestion changed', tone: 'warning' })
+    expect(projects.rows[0][cols.indexOf('factor')]).toBe(1.05)
+  })
+  it('leaves a teammate with too few raters out of the team mean', () => {
+    const doc = gradingStudentDoc({
+      ...head,
+      student: { id: 's1', name: 'Ana Cruz' },
+      projects: [{
+        project, row: row({ final: 84 }), criteria, boardScores,
+        peer: [peer('s1', 4), peer('s2', 3), { ...peer('s3', 1), raters: 1 }],
+      }],
+    })
     const seen = tableBlocks(doc).find((t) => t.id === 'peer-p1')!
     expect(seen.rows[0]).toEqual([expect.any(String), 4, 3.5])
   })
