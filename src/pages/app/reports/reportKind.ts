@@ -8,6 +8,8 @@ export type ReportKind =
   | 'term_summary'
   | 'grading'
   | 'peer'
+  | 'checkin'
+  | 'notes'
 
 /** Which pickers a report needs before it can be drawn. */
 export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student')[]> = {
@@ -20,6 +22,8 @@ export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student
   term_summary: [],
   grading: ['class', 'project'],
   peer: ['class', 'project'],
+  checkin: ['class'],
+  notes: ['class'],
 }
 
 /**

@@ -8,14 +8,19 @@ import { listReassignments } from '../../../lib/api/reassignments'
 import { boardResult } from '../../../lib/api/results'
 import { boardTasks, classReports, studentWork, weekCoverage } from '../../../lib/api/reports'
 import { authErrorMessage } from '../../../lib/authError'
+import { NOTE_KIND_META } from '../../../lib/notes'
 import type { BoardTask, ClassReport, StudentWork, WeekCoverage } from '../../../lib/report'
-import type { BoardSummary, ClassMember, ProjectSummary, ReassignmentRow } from '../../../lib/types'
+import { parseRangeChoice } from '../../../lib/reports/range'
+import type { RangeChoice } from '../../../lib/reports/range'
+import type { BoardSummary, ClassMember, ClassNoteKind, ProjectSummary, ReassignmentRow } from '../../../lib/types'
 
 import { NEEDS, parseReportKind } from './reportKind'
 import type { ReportKind } from './reportKind'
 
 /** Reports that take a student but do not need one. */
-export const OPTIONAL_STUDENT: ReportKind[] = ['grading']
+export const OPTIONAL_STUDENT: ReportKind[] = ['grading', 'notes']
+
+export type NoteStatus = 'open' | 'resolved' | 'all'
 
 /** Whether a project choice is one this report can take: 'all' for the grading sheet, group projects for peer. */
 function projectFits(kind: ReportKind, projectId: string, projects: { id: string; audience: string }[]) {
@@ -59,6 +64,18 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
   const studentId = params.get('rstudent') ?? ''
   const roundId = params.get('rround') ?? ''
   const comments = params.get('rcomments') === '1'
+  // The check-in has no 30-day window, so a link carrying one reads as this week.
+  const rawRange = parseRangeChoice(params.get('rrange'), kind === 'notes' ? 'last30' : 'thisWeek')
+  const rangeChoice = kind === 'checkin' && rawRange === 'last30' ? 'thisWeek' : rawRange
+  const customFrom = params.get('rfrom') ?? ''
+  const customTo = params.get('rto') ?? ''
+  const rawKinds = params.get('rkinds') ?? ''
+  const noteKinds = useMemo(
+    () => rawKinds.split(',').filter((k) => Object.hasOwn(NOTE_KIND_META, k)) as ClassNoteKind[],
+    [rawKinds],
+  )
+  const rawStatus = params.get('rstatus') ?? ''
+  const noteStatus: NoteStatus = rawStatus === 'open' || rawStatus === 'resolved' ? rawStatus : 'all'
 
   const [classes, setClasses] = useState<ClassReport[] | null>(null)
   const [weeks, setWeeks] = useState<WeekCoverage[]>([])
@@ -88,6 +105,13 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
   const setStudentId = useCallback((v: string) => patch({ rstudent: v }), [patch])
   const setRoundId = useCallback((v: string) => patch({ rround: v }), [patch])
   const setComments = useCallback((on: boolean) => patch({ rcomments: on ? '1' : '' }), [patch])
+  const setRangeChoice = useCallback(
+    (v: RangeChoice) => patch(v === 'custom' ? { rrange: v } : { rrange: v, rfrom: '', rto: '' }),
+    [patch],
+  )
+  const setCustomRange = useCallback((from: string, to: string) => patch({ rfrom: from, rto: to }), [patch])
+  const setNoteKinds = useCallback((list: ClassNoteKind[]) => patch({ rkinds: list.join(',') }), [patch])
+  const setNoteStatus = useCallback((v: NoteStatus) => patch({ rstatus: v === 'all' ? '' : v }), [patch])
 
   const loadClasses = useCallback(async () => {
     if (!professorId) return
@@ -176,7 +200,9 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
   useEffect(() => {
     const mine = ++boardSeq.current
     const latest = () => mine === boardSeq.current
-    if (!boardId) {
+    // Only the group report reads a board's tasks and verdict. For the intervention
+    // log the group is just a filter, and fetching them would flash "Gathering it…".
+    if (!boardId || kind !== 'board') {
       setTasks([])
       setFeedback(null)
       setBoardBusy(false)
@@ -196,7 +222,7 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
         if (latest()) setBoardBusy(false)
       }
     })()
-  }, [boardId])
+  }, [boardId, kind])
 
   const cls = useMemo(
     () => (classes ?? []).find((c) => c.class_id === classId) ?? null,
@@ -229,8 +255,19 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
       // A project the new report cannot take (all projects, or a solo project
       // for peer evaluation) is dropped rather than left to draw nothing.
       if (!NEEDS[next].includes('project') || (!settling && !projectFits(next, projectId, projects))) out.rproject = ''
-      if (!NEEDS[next].includes('board')) out.rgroup = ''
+      // The intervention log filters by group without needing one.
+      if (!NEEDS[next].includes('board') && next !== 'notes') out.rgroup = ''
       if (!NEEDS[next].includes('student') && !OPTIONAL_STUDENT.includes(next)) out.rstudent = ''
+      // Dates and note filters belong to the two reports that use them.
+      if (next !== 'checkin' && next !== 'notes') {
+        out.rrange = ''
+        out.rfrom = ''
+        out.rto = ''
+      }
+      if (next !== 'notes') {
+        out.rkinds = ''
+        out.rstatus = ''
+      }
       if (next !== 'peer') {
         out.rround = ''
         out.rcomments = ''
@@ -271,12 +308,23 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     setRoundId,
     comments,
     setComments,
+    rangeChoice,
+    setRangeChoice,
+    customFrom,
+    customTo,
+    setCustomRange,
+    noteKinds,
+    setNoteKinds,
+    noteStatus,
+    setNoteStatus,
     params,
     weeks,
     work,
     members,
     projects,
     boards: shownBoards,
+    /** The class's boards, whatever project is picked. */
+    allBoards: boards,
     board,
     tasks,
     feedback,

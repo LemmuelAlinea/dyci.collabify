@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
+import { boardBurn, classActions, dailyActivity, milestoneProgress, studentRoster, taskStates } from '../../../lib/api/analytics'
+import { listClassNoteLog, listClassNotes } from '../../../lib/api/notes'
 import { listPeerRounds, peerComments, projectPeerResults } from '../../../lib/api/peer'
 import { listCriteria } from '../../../lib/api/projects'
+import { boardResultsFor } from '../../../lib/api/results'
 import { projectBoardScores, scoreSheet } from '../../../lib/api/scores'
+import { manilaDay } from '../../../lib/analyticsMath'
 import { authErrorMessage } from '../../../lib/authError'
+import { rankActions } from '../../../lib/insight'
 import { generatedOn } from '../../../lib/report'
+import { checkInDoc } from '../../../lib/reports/checkIn'
 import type { ReportDoc } from '../../../lib/reports/doc'
 import { gradingClassDoc, gradingGridDoc, gradingStudentDoc } from '../../../lib/reports/grading'
+import { interventionLogDoc } from '../../../lib/reports/interventionLog'
 import { defaultRound, peerSummaryDoc } from '../../../lib/reports/peerSummary'
-import type { PeerResult, PeerRoundStatus } from '../../../lib/types'
+import { resolveRange } from '../../../lib/reports/range'
+import type { ClassNoteKind, PeerResult, PeerRoundStatus } from '../../../lib/types'
 import type { useReports } from './useReports'
 
 type R = ReturnType<typeof useReports>
@@ -35,17 +43,31 @@ export function useReportDoc(r: R, professor: string) {
   const [nonce, setNonce] = useState(0)
   const retry = useCallback(() => setNonce((n) => n + 1), [])
 
-  const { kind, cls, classId, projectId, studentId, roundId, comments, projects, boards, work, students, ready } = r
-  const currentKey = [kind, classId, projectId, studentId, roundId, comments ? 1 : 0].join('|')
+  const {
+    kind, cls, classId, projectId, boardId, studentId, roundId, comments, projects, boards, allBoards, work, students, ready,
+    rangeChoice, customFrom, customTo, noteKinds, noteStatus,
+  } = r
+  const noteKindsKey = noteKinds.join(',')
+  const currentKey = [
+    kind, classId, projectId, studentId, roundId, comments ? 1 : 0,
+    rangeChoice, customFrom, customTo, noteKindsKey, noteStatus, boardId,
+  ].join('|')
+  const termStart = cls?.term_start ?? null
+  const ended = Boolean(cls?.archived_at)
   const classLine = cls ? `${cls.class_initial} · ${cls.class_name} · ${cls.section}` : ''
 
   // Scores and peer ratings are not in the class loader's tables. Listen for
   // them here so a score confirmed in another tab reaches the sheet; realtime
-  // and focus only, no extra poll.
-  useLive(retry, ['member_scores', 'board_scores', 'score_releases', 'project_criteria', 'peer_ratings', 'peer_rounds'], {
-    every: 0,
-    enabled: (kind === 'grading' || kind === 'peer') && ready,
-  })
+  // and focus only, no extra poll. The check-in and the log read tasks, events,
+  // decisions and notes, which the class loader does not watch.
+  useLive(
+    retry,
+    [
+      'member_scores', 'board_scores', 'score_releases', 'project_criteria', 'peer_ratings', 'peer_rounds',
+      'class_notes', 'task_events', 'project_tasks', 'board_results',
+    ],
+    { every: 0, enabled: (kind === 'grading' || kind === 'peer' || kind === 'checkin' || kind === 'notes') && ready },
+  )
 
   // Live updates hand back fresh arrays with the same rows in them. The build
   // keys on what is in them, so a refresh that changed nothing it reads does
@@ -68,23 +90,39 @@ export function useReportDoc(r: R, professor: string) {
     [onePerProject, work, projectId],
   )
 
+  // The check-in reads hand-ins and due dates off the class loader's arrays, so a
+  // hand-in or a moved deadline arriving there has to rebuild it.
+  const checkInSig = useMemo(
+    () =>
+      kind === 'checkin'
+        ? [
+            ...allBoards.map((b) => `${b.id}:${b.group_name ?? b.student_name ?? ''}:${b.project_title}:${b.submitted_at ?? ''}`),
+            ...projects.map((p) => `${p.id}:${p.due_at ?? ''}`),
+          ].join('|')
+        : '',
+    [kind, allBoards, projects],
+  )
+
   // The arrays themselves, read when a build starts. Kept beside the effect
   // rather than in its dependencies, which are the signatures above.
-  const data = useRef({ projects, boards, work, students })
+  const data = useRef({ projects, boards, allBoards, work, students })
   useEffect(() => {
-    data.current = { projects, boards, work, students }
+    data.current = { projects, boards, allBoards, work, students }
   })
 
   useEffect(() => {
     let live = true
     const key = currentKey
-    if ((kind !== 'grading' && kind !== 'peer') || !ready || !classLine) {
+    if ((kind !== 'grading' && kind !== 'peer' && kind !== 'checkin' && kind !== 'notes') || !ready || !classLine) {
       setBuilt({ doc: null, key, error: null, refreshError: null })
       setLoading(false)
       return
     }
-    const { projects, boards, work, students } = data.current
+    const { projects, boards, allBoards, work, students } = data.current
     const head = { classLine, professor, madeAt: generatedOn() }
+    // A custom range typed backwards is put in order, and a half-filled one reads as the last 7 days.
+    const today = manilaDay(new Date())
+    const range = resolveRange(rangeChoice, today, { from: customFrom, to: customTo })
     const asProject = (p: { id: string; title: string; total_points: number }) => ({
       id: p.id,
       title: p.title,
@@ -164,6 +202,51 @@ export function useReportDoc(r: R, professor: string) {
               })
             }
           }
+        } else if (kind === 'checkin') {
+          // An ended class has nothing in the Phase A views, so the document says so without fetching them.
+          const load = <T,>(f: () => Promise<T[]>) => (ended ? Promise.resolve([] as T[]) : f())
+          const [activity, tasks, roster, milestones, actionRows, burns, results, notes] = await Promise.all([
+            load(dailyActivity), load(taskStates), load(studentRoster), load(milestoneProgress), load(classActions), load(boardBurn),
+            load(() => boardResultsFor(allBoards.map((b) => b.id))), load(listClassNotes),
+          ])
+          const inClass = <T extends { class_id: string }>(xs: T[]) => xs.filter((x) => x.class_id === classId)
+          const names = new Map(inClass(roster).map((x) => [x.student_id, x.student_name]))
+          const boardName = new Map(allBoards.map((b) => [b.id, b.group_name ?? b.student_name ?? 'A board']))
+          next = checkInDoc({
+            ...head,
+            range,
+            termStart,
+            ended,
+            activity: inClass(activity),
+            tasks: inClass(tasks),
+            roster: inClass(roster),
+            milestones: inClass(milestones),
+            boards: allBoards.map((b) => ({
+              board_id: b.id,
+              name: boardName.get(b.id)!,
+              project_title: b.project_title,
+              submitted_at: b.submitted_at,
+            })),
+            results,
+            projects: projects.map((p) => ({ id: p.id, title: p.title, due_at: p.due_at })),
+            actions: rankActions(inClass(actionRows), inClass(burns)),
+            notes: inClass(notes),
+            noteName: (n) => (n.student_id ? (names.get(n.student_id) ?? 'a student') : (boardName.get(n.board_id ?? '') ?? 'a group')),
+          })
+        } else if (kind === 'notes') {
+          const rows = await listClassNoteLog(classId)
+          next = interventionLogDoc({
+            ...head,
+            range,
+            asOf: today,
+            notes: rows,
+            filters: {
+              kinds: noteKindsKey ? (noteKindsKey.split(',') as ClassNoteKind[]) : [],
+              status: noteStatus,
+              studentId,
+              boardId,
+            },
+          })
         }
         if (live) setBuilt({ doc: next, key, error: null, refreshError: null })
       } catch (err) {
@@ -189,8 +272,17 @@ export function useReportDoc(r: R, professor: string) {
     classLine,
     projectId,
     studentId,
+    boardId,
     roundId,
     comments,
+    rangeChoice,
+    customFrom,
+    customTo,
+    noteKindsKey,
+    noteStatus,
+    termStart,
+    ended,
+    classId,
     ready,
     professor,
     nonce,
@@ -198,6 +290,7 @@ export function useReportDoc(r: R, professor: string) {
     studentsSig,
     boardsSig,
     workSig,
+    checkInSig,
   ])
 
   const current = built.key === currentKey

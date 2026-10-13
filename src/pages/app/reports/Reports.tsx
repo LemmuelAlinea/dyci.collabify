@@ -15,17 +15,23 @@ import { Alert } from '../../../components/ui/Alert'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { Spinner } from '../../../components/ui/Icon'
 import { EmptyState } from '../../../components/ui/EmptyState'
-import { Toggle } from '../../../components/ui/Field'
+import { Input, Toggle } from '../../../components/ui/Field'
 import { Select } from '../../../components/ui/Select'
 import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
+import { NOTE_KIND_META } from '../../../lib/notes'
 import { downloadCsv, reportFilename, toCsv } from '../../../lib/report'
 import type { ReportDoc } from '../../../lib/reports/doc'
 import { docCsvFiles, exportCsv, exportDocx, exportXlsx, reportBase } from '../../../lib/reports/export'
 import { defaultRound } from '../../../lib/reports/peerSummary'
+import { RANGE_CHOICES } from '../../../lib/reports/range'
+import type { RangeChoice } from '../../../lib/reports/range'
 import { fullName } from '../../../lib/types'
+import type { ClassNoteKind } from '../../../lib/types'
+import type { ReportKind } from './reportKind'
 import { useReportDoc } from './useReportDoc'
 import { useReports } from './useReports'
+import type { NoteStatus } from './useReports'
 
 const CATALOGUE: ReportGroup[] = [
   {
@@ -40,6 +46,21 @@ const CATALOGUE: ReportGroup[] = [
         kind: 'peer',
         label: 'Peer evaluation summary',
         body: 'How each group rated its members on the five behaviours, the response rate and the flags worth a conversation.',
+      },
+    ],
+  },
+  {
+    group: 'For check-ins',
+    items: [
+      {
+        kind: 'checkin',
+        label: 'Weekly class check-in',
+        body: 'What moved this week against the week before, what is stuck, what falls due next, and what needs you.',
+      },
+      {
+        kind: 'notes',
+        label: 'Intervention log',
+        body: 'Every note, meeting, follow-up and reminder in a date range, with who wrote it. The record that you acted.',
       },
     ],
   },
@@ -94,6 +115,14 @@ const DAY = new Intl.DateTimeFormat('en-PH', {
   day: 'numeric',
   year: 'numeric',
 })
+
+/** The new-style reports, and the name each one's files start with. */
+const EXPORT_BASE: Partial<Record<ReportKind, string>> = {
+  grading: 'grading-sheet',
+  peer: 'peer-summary',
+  checkin: 'weekly-check-in',
+  notes: 'intervention-log',
+}
 
 /** The ways out of a new-style report: a workbook, a Word file and one CSV per table. */
 function exportItems(doc: ReportDoc, kind: string, fail: (message: string) => void): ActionMenuItem[] {
@@ -183,13 +212,13 @@ export default function Reports({ classId }: { classId?: string }) {
   const csv = csvFor()
 
   // The new reports export through a menu; the older ones keep their one CSV button.
-  const newKind = r.kind === 'grading' || r.kind === 'peer'
+  const newKind = Object.hasOwn(EXPORT_BASE, r.kind)
   // A new report prints only once its document is built for these choices, as it exports.
   const printReady = newKind ? Boolean(d.doc && d.current) : r.ready
   const exports: ActionMenuItem[] | undefined = !newKind
     ? undefined
     : d.doc && d.current
-      ? exportItems(d.doc, r.kind === 'grading' ? 'grading-sheet' : 'peer-summary', (m) => show(m, 'error'))
+      ? exportItems(d.doc, EXPORT_BASE[r.kind] ?? '', (m) => show(m, 'error'))
       : [{ label: 'Nothing to export yet', onSelect: () => {}, disabled: true }]
 
   // What each new report adds beside the pickers. The older ones add nothing.
@@ -204,9 +233,11 @@ export default function Reports({ classId }: { classId?: string }) {
         : r.kind === 'peer'
           ? r.projects.filter((p) => p.audience === 'group').map((p) => ({ value: p.id, label: p.title }))
           : undefined,
-    studentOptional: r.kind === 'grading',
+    studentOptional: r.kind === 'grading' || r.kind === 'notes',
     extras:
-      r.kind === 'peer' ? (
+      r.kind === 'checkin' || r.kind === 'notes' ? (
+        <CheckInExtras r={r} />
+      ) : r.kind === 'peer' ? (
         <div className="space-y-3">
           {d.rounds.length > 0 && (
             <Select
@@ -304,6 +335,102 @@ export default function Reports({ classId }: { classId?: string }) {
   )
 }
 
+const FIELD_SIZE = '!h-11 !text-[13px] sm:!h-10 sm:!text-[13px]'
+
+/** What the check-in and the intervention log add under the pickers: dates, and for the log its filters. */
+function CheckInExtras({ r }: { r: ReturnType<typeof useReports> }) {
+  const log = r.kind === 'notes'
+  // The check-in compares one week with the one before, so it has no 30-day window.
+  const choices = RANGE_CHOICES.filter((c) => log || c.value !== 'last30')
+  const toggle = (k: ClassNoteKind) =>
+    r.setNoteKinds(
+      (Object.keys(NOTE_KIND_META) as ClassNoteKind[]).filter((x) => (x === k ? !r.noteKinds.includes(x) : r.noteKinds.includes(x))),
+    )
+  const groups = r.allBoards
+    .map((b) => ({ value: b.id, label: `${b.group_name ?? b.student_name ?? 'A board'} · ${b.project_title}` }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+
+  return (
+    <div className="space-y-3">
+      <Select
+        aria-label="Dates"
+        value={r.rangeChoice}
+        onChange={(e) => r.setRangeChoice(e.target.value as RangeChoice)}
+        options={choices}
+        className={FIELD_SIZE}
+      />
+      {r.rangeChoice === 'custom' && (
+        <div className="space-y-1">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block space-y-1 text-[12px] text-muted">
+              <span className="block px-1">From</span>
+              <Input
+                type="date"
+                value={r.customFrom}
+                onChange={(e) => r.setCustomRange(e.target.value, r.customTo)}
+                className={FIELD_SIZE}
+              />
+            </label>
+            <label className="block space-y-1 text-[12px] text-muted">
+              <span className="block px-1">To</span>
+              <Input
+                type="date"
+                value={r.customTo}
+                onChange={(e) => r.setCustomRange(r.customFrom, e.target.value)}
+                className={FIELD_SIZE}
+              />
+            </label>
+          </div>
+          {(!r.customFrom || !r.customTo) && (
+            <p className="px-1 text-[12px] text-muted">Set both dates. Until then the report covers the last 7 days.</p>
+          )}
+        </div>
+      )}
+      {log && (
+        <>
+          <fieldset className="space-y-1.5">
+            <legend className="px-1 pb-1 text-[12px] text-muted">Kinds. None picked shows every kind.</legend>
+            <div className="flex flex-wrap gap-1.5">
+              {(Object.entries(NOTE_KIND_META) as [ClassNoteKind, { label: string }][]).map(([k, meta]) => (
+                <label
+                  key={k}
+                  className="surface inline-flex min-h-9 cursor-pointer items-center rounded-full border border-line px-3 text-[13px] text-ink transition-colors hover:border-line-strong has-[:checked]:border-navy-400 has-[:checked]:bg-navy-500/8 has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-navy-500/12"
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={r.noteKinds.includes(k)}
+                    onChange={() => toggle(k)}
+                  />
+                  {meta.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <Select
+            aria-label="Status"
+            value={r.noteStatus}
+            onChange={(e) => r.setNoteStatus(e.target.value as NoteStatus)}
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'open', label: 'Open' },
+              { value: 'resolved', label: 'Resolved' },
+            ]}
+            className={FIELD_SIZE}
+          />
+          <Select
+            aria-label="Group"
+            value={r.boardId}
+            onChange={(e) => r.setBoardId(e.target.value)}
+            options={[{ value: '', label: 'Every group' }, ...groups]}
+            className={FIELD_SIZE}
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
 function Preview({
   r,
   d,
@@ -318,6 +445,8 @@ function Preview({
   switch (r.kind) {
     case 'grading':
     case 'peer':
+    case 'checkin':
+    case 'notes':
       // A document built for other choices never stands in for these ones.
       if (!d.current || (!d.doc && d.loading)) {
         return (
