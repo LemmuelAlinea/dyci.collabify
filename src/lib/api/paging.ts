@@ -17,3 +17,25 @@ export async function pageAll<T>(
     if (rows.length < size) return out
   }
 }
+
+/** Ids sent in one `.in()` filter. Thousands of uuids make a URL the server refuses. */
+export const ID_CHUNK = 100
+
+/**
+ * Every row matching a list of ids: the ids go in chunks of at most
+ * `ID_CHUNK`, and each chunk is paged. Chunks are read in turn; the caller
+ * orders the rows it gets back.
+ */
+export async function pageAllIn<T>(
+  ids: string[],
+  fetchPage: (chunk: string[], from: number, to: number) => Promise<T[]>,
+  size = PAGE_SIZE,
+): Promise<T[]> {
+  const unique = [...new Set(ids)]
+  const out: T[] = []
+  for (let i = 0; i < unique.length; i += ID_CHUNK) {
+    const chunk = unique.slice(i, i + ID_CHUNK)
+    out.push(...(await pageAll((from, to) => fetchPage(chunk, from, to), size)))
+  }
+  return out
+}

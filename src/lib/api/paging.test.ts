@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pageAll } from './paging'
+import { pageAll, pageAllIn } from './paging'
 
 /**
  * Supabase hands back at most a thousand rows per select. A term of daily
@@ -35,5 +35,31 @@ describe('pageAll', () => {
 
   it('returns an empty list for an empty source', async () => {
     expect(await pageAll(async () => [], 1000)).toEqual([])
+  })
+})
+
+describe('pageAllIn', () => {
+  // 250 boards with 9 rows each: 2250 rows, past one page, over three chunks.
+  const ids = Array.from({ length: 250 }, (_, i) => `b${i}`)
+  const rows = ids.flatMap((id) => Array.from({ length: 9 }, (_, n) => ({ id, n })))
+
+  it('sends at most 100 ids a call and reads every row of each chunk', async () => {
+    const sent: number[] = []
+    const got = await pageAllIn(ids, async (chunk, from, to) => {
+      sent.push(chunk.length)
+      return rows.filter((r) => chunk.includes(r.id)).slice(from, to + 1)
+    })
+    expect(Math.max(...sent)).toBeLessThanOrEqual(100)
+    expect(got).toHaveLength(rows.length)
+    expect(new Set(got.map((r) => `${r.id}:${r.n}`)).size).toBe(rows.length)
+  })
+
+  it('drops repeated ids and asks nothing for none', async () => {
+    let calls = 0
+    expect(await pageAllIn([], async () => (calls++, []))).toEqual([])
+    expect(calls).toBe(0)
+    const seen: string[][] = []
+    await pageAllIn(['a', 'a', 'b'], async (chunk) => (seen.push(chunk), []))
+    expect(seen).toEqual([['a', 'b']])
   })
 })

@@ -2,6 +2,7 @@ import { downloadCsv, reportFilename, toCsv } from '../report'
 import type { Workbook, Sheet } from '../general/sheet'
 import { cellExport, cellText, columnHeader, deltaText, tableBlocks } from './doc'
 import type { Block, ReportDoc } from './doc'
+import { formatPoints } from '../scoreMath'
 
 /** Neither end may be an apostrophe; Excel and ExcelJS refuse the sheet otherwise. */
 const trimQuotes = (s: string) => s.replace(/^['\s]+|['\s]+$/g, '')
@@ -32,9 +33,22 @@ function gridText(v: string | number | null): string {
 
 const kpiText = (v: number | string) => (typeof v === 'number' ? String(v) : gridText(v))
 
-/** A CSV cell. Excel and Sheets read a leading = + - or @ as a formula, and peer comments are exported. */
+/**
+ * A CSV cell. Excel and Sheets read a leading = + - or @ as a formula, and peer
+ * comments are exported. A leading tab or carriage return is stripped on import
+ * and can expose one, so it is guarded too.
+ */
 function csvSafe(s: string): string {
-  return /^[=+\-@]/.test(s) ? ` ${s}` : s
+  return /^[=+\-@\t\r]/.test(s) ? ` ${s}` : s
+}
+
+/**
+ * A change on the Excel cover, in words. The writer turns numeric text into a
+ * number, and "+5" would land as 5, losing its sign; words stay text.
+ */
+function deltaWords(d: number): string {
+  if (d === 0) return 'no change'
+  return `${d > 0 ? 'up' : 'down'} ${formatPoints(Math.abs(d))}`
 }
 
 export function docToWorkbook(doc: ReportDoc): Workbook {
@@ -52,7 +66,7 @@ export function docToWorkbook(doc: ReportDoc): Workbook {
   for (const b of doc.blocks) {
     if (b.kind !== 'kpis') continue
     for (const k of b.items) {
-      const delta = k.delta === null || k.delta === undefined ? '' : deltaText(k.delta)
+      const delta = k.delta === null || k.delta === undefined ? '' : deltaWords(k.delta)
       cover.push([gridText(k.label), kpiText(k.value), gridText(k.unit ?? ''), gridText(delta)])
     }
     if (b.compareLabel) cover.push([gridText(`Changes are against ${b.compareLabel}`)])
@@ -168,8 +182,15 @@ export function docCsvFiles(doc: ReportDoc, base: string) {
   })
 }
 
-export function reportBase(kind: string, subject: string) {
-  return reportFilename(kind, subject).replace(/\.csv$/, '')
+/**
+ * A file name without its extension. The class line ("QM · Quantitative
+ * methods · BSIT 3A") adds its first and last parts, so two sections' reports
+ * for the same dates or project never share a name.
+ */
+export function reportBase(kind: string, subject: string, classLine = '') {
+  const parts = classLine.split('·').map((s) => s.trim()).filter(Boolean)
+  const cls = parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1]}` : (parts[0] ?? '')
+  return reportFilename(cls ? `${kind} ${cls}` : kind, subject).replace(/\.csv$/, '')
 }
 
 export async function exportXlsx(doc: ReportDoc, base: string) {

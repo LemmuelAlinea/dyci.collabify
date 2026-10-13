@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import ExcelJS from 'exceljs'
+import { workbookToXlsx } from '../general/office'
 import { docCsvFiles, docToHtml, docToWorkbook, reportBase, sheetName } from './export'
 import type { ReportDoc } from './doc'
 
@@ -98,6 +100,12 @@ describe('reportBase', () => {
   it('drops the csv extension from the shared filename helper', () => {
     expect(reportBase('grading', 'Lab 6')).toMatch(/^grading-lab-6-\d{4}-\d{2}-\d{2}$/)
   })
+  it('names the class, so two sections of one week do not share a file name', () => {
+    const a = reportBase('weekly-check-in', 'Oct 12 to Oct 18, 2026', 'QM · Quantitative methods · BSIT 3A')
+    const b = reportBase('weekly-check-in', 'Oct 12 to Oct 18, 2026', 'QM · Quantitative methods · BSIT 3B')
+    expect(a).toMatch(/^weekly-check-in-qm-bsit-3a-oct-12-to-oct-18-2026-\d{4}-\d{2}-\d{2}$/)
+    expect(a).not.toBe(b)
+  })
 })
 
 describe('formula guard', () => {
@@ -134,6 +142,15 @@ describe('formula guard', () => {
     expect(csv).toContain(' =1+1,-5')
     expect(csv).toContain(' @cmd,')
   })
+  it('also guards a leading tab or carriage return in CSV', () => {
+    const csvDoc: ReportDoc = {
+      ...doc,
+      blocks: [{ kind: 'table', id: 't', title: 'T', columns: [{ key: 'a', label: 'A', type: 'text' }], rows: [['\t=1+1'], ['\r=2+2']] }],
+    }
+    const csv = docCsvFiles(csvDoc, 'b')[0].csv
+    expect(csv).toContain(' \t=1+1')
+    expect(csv).toContain(' \r=2+2')
+  })
 })
 
 describe('the fuller Excel cover', () => {
@@ -151,8 +168,29 @@ describe('the fuller Excel cover', () => {
   const cover = wb.sheets[0].rows
 
   it('lists each KPI with its change and the comparison', () => {
-    expect(cover).toContainEqual(['Tasks finished', '5', '', '+5'])
+    expect(cover).toContainEqual(['Tasks finished', '5', '', 'up 5'])
     expect(cover.flat()).toContain('Changes are against Oct 5 to Oct 11, 2026')
+  })
+  it('writes the change in words, so Excel keeps the sign', () => {
+    const changes = docToWorkbook({
+      ...withMore,
+      blocks: [{ kind: 'kpis', items: [{ label: 'Up', value: 5, delta: 5 }, { label: 'Down', value: 1, delta: -3 }, { label: 'Same', value: 2, delta: 0 }] }],
+    }).sheets[0].rows
+    expect(changes).toContainEqual(['Up', '5', '', 'up 5'])
+    expect(changes).toContainEqual(['Down', '1', '', 'down 3'])
+    expect(changes).toContainEqual(['Same', '2', '', 'no change'])
+    for (const w of ['up 5', 'down 3', 'no change']) expect(Number.isNaN(Number(w))).toBe(true)
+  })
+  it('lands the change in the .xlsx file as text', async () => {
+    const blob = await workbookToXlsx(wb)
+    const book = new ExcelJS.Workbook()
+    await book.xlsx.load(await blob.arrayBuffer())
+    const sheet = book.worksheets[0]
+    let found: unknown = undefined
+    sheet.eachRow((row) => {
+      if (row.getCell(1).value === 'Tasks finished') found = row.getCell(4).value
+    })
+    expect(found).toBe('up 5')
   })
   it('carries notes, paragraphs and chart summaries', () => {
     const flat = cover.flat()
@@ -167,7 +205,7 @@ describe('the fuller Excel cover', () => {
       for (const w of widths) expect(w).toBeGreaterThanOrEqual(64)
     }
   })
-  it('shows the change in Word', () => {
+  it('shows the change in Word with its sign', () => {
     expect(docToHtml(withMore)).toContain('5 (+5)')
   })
 })

@@ -126,7 +126,8 @@ const EXPORT_BASE: Partial<Record<ReportKind, string>> = {
 
 /** The ways out of a new-style report: a workbook, a Word file and one CSV per table. */
 function exportItems(doc: ReportDoc, kind: string, fail: (message: string) => void): ActionMenuItem[] {
-  const base = reportBase(kind, doc.header.subtitle)
+  // The class is in the name, so two sections' sheets for the same dates never share one.
+  const base = reportBase(kind, doc.header.subtitle, doc.header.classLine)
   return [
     {
       label: 'Excel (.xlsx)',
@@ -470,7 +471,8 @@ function Preview({
           <>
             {/* The page's own "Gathering it…" already says so while the class reloads. */}
             {/* The line's height is kept whether or not it shows, so the sheet does not jump when it does. */}
-            <div className="mb-3 min-h-5 print:hidden" aria-live="polite">
+            {/* Not a live region: a live class would announce it every few seconds. */}
+            <div className="mb-3 min-h-5 print:hidden">
               {d.loading && !r.busy && !r.settling && (
                 <p className="flex items-center gap-2 text-[13px] text-muted">
                   <Spinner size={14} />
