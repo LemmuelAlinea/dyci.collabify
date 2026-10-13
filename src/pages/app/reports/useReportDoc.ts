@@ -10,7 +10,7 @@ import { manilaDay } from '../../../lib/analyticsMath'
 import { authErrorMessage } from '../../../lib/authError'
 import { rankActions } from '../../../lib/insight'
 import { generatedOn } from '../../../lib/report'
-import { checkInDoc } from '../../../lib/reports/checkIn'
+import { checkInAsOf, checkInDoc, liveProjects, onProjects } from '../../../lib/reports/checkIn'
 import type { ReportDoc } from '../../../lib/reports/doc'
 import { gradingClassDoc, gradingGridDoc, gradingStudentDoc } from '../../../lib/reports/grading'
 import { interventionLogDoc } from '../../../lib/reports/interventionLog'
@@ -68,22 +68,24 @@ export function useReportDoc(r: R, professor: string) {
   // the first event starts a timer that is never reset: events while it runs are
   // dropped, and one reload follows when it ends. The check-in refetches
   // `class_actions`, which is slow, so it waits longer.
+  //
+  // A reload never cancels a build in flight: under a steady stream that would
+  // cancel every build, and the sheet would never land. The timer marks the
+  // build dirty instead, and one more build follows when it settles.
   const pace = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The build in flight, by number; null when none is.
+  const buildSeq = useRef(0)
+  const building = useRef<number | null>(null)
+  const dirty = useRef(false)
   const delay = kind === 'checkin' ? 10_000 : 1_500
   const paced = useCallback(() => {
     if (pace.current) return
     pace.current = setTimeout(() => {
       pace.current = null
-      retry()
+      if (building.current !== null) dirty.current = true
+      else retry()
     }, delay)
   }, [retry, delay])
-  useEffect(
-    () => () => {
-      if (pace.current) clearTimeout(pace.current)
-      pace.current = null
-    },
-    [],
-  )
 
   // Scores and peer ratings are not in the class loader's tables. Listen for
   // them here so a score confirmed in another tab reaches the sheet; realtime
@@ -95,11 +97,18 @@ export function useReportDoc(r: R, professor: string) {
       : kind === 'checkin'
         ? ['class_notes', 'task_events', 'project_tasks', 'board_results']
         : ['member_scores', 'board_scores', 'score_releases', 'project_criteria', 'peer_ratings', 'peer_rounds']
-  useLive(paced, liveTables, {
-    every: 0,
-    // An ended class has no check-in to refresh.
-    enabled: (kind === 'grading' || kind === 'peer' || kind === 'checkin' || kind === 'notes') && ready && !(kind === 'checkin' && ended),
-  })
+  // An ended class has no check-in to refresh.
+  const liveOn = (kind === 'grading' || kind === 'peer' || kind === 'checkin' || kind === 'notes') && ready && !(kind === 'checkin' && ended)
+  useLive(paced, liveTables, { every: 0, enabled: liveOn })
+  // A reload asked for by another report, class or listener is dropped with it.
+  useEffect(
+    () => () => {
+      if (pace.current) clearTimeout(pace.current)
+      pace.current = null
+      dirty.current = false
+    },
+    [kind, classId, liveOn],
+  )
 
   // Live updates hand back fresh arrays with the same rows in them. The build
   // keys on what is in them, so a refresh that changed nothing it reads does
@@ -132,7 +141,7 @@ export function useReportDoc(r: R, professor: string) {
         : kind === 'checkin'
         ? [
             ...allBoards.map((b) => `${b.id}:${b.group_name ?? b.student_name ?? ''}:${b.project_title}:${b.submitted_at ?? ''}`),
-            ...projects.map((p) => `${p.id}:${p.due_at ?? ''}`),
+            ...projects.map((p) => `${p.id}:${p.title}:${p.due_at ?? ''}:${p.release_at ?? ''}:${p.archived_at ?? ''}`),
           ].join('|')
         : '',
     [kind, allBoards, projects],
@@ -164,6 +173,10 @@ export function useReportDoc(r: R, professor: string) {
     })
     setLoading(true)
     setBuilt((prev) => (prev.error || prev.refreshError ? { ...prev, error: null, refreshError: null } : prev))
+    // This build reads fresh rows, so a reload asked for before it is already answered.
+    const run = ++buildSeq.current
+    building.current = run
+    dirty.current = false
     void (async () => {
       try {
         let next: ReportDoc | null = null
@@ -244,11 +257,15 @@ export function useReportDoc(r: R, professor: string) {
             load(() => boardResultsFor(allBoards.map((b) => b.id))), load(listClassNotes),
           ])
           const inClass = <T extends { class_id: string }>(xs: T[]) => xs.filter((x) => x.class_id === classId)
+          // The ranked list folds rows into cards, so an archived or unreleased
+          // project's rows leave before ranking, not after.
+          const liveIds = new Set(liveProjects(projects, checkInAsOf(range, today)).map((p) => p.id))
           const names = new Map(inClass(roster).map((x) => [x.student_id, x.student_name]))
           const boardName = new Map(allBoards.map((b) => [b.id, b.group_name ?? b.student_name ?? 'A board']))
           next = checkInDoc({
             ...head,
             range,
+            today,
             termStart,
             ended,
             activity: inClass(activity),
@@ -257,13 +274,21 @@ export function useReportDoc(r: R, professor: string) {
             milestones: inClass(milestones),
             boards: allBoards.map((b) => ({
               board_id: b.id,
+              project_id: b.project_id,
               name: boardName.get(b.id)!,
               project_title: b.project_title,
               submitted_at: b.submitted_at,
             })),
             results,
-            projects: projects.map((p) => ({ id: p.id, title: p.title, due_at: p.due_at })),
-            actions: rankActions(inClass(actionRows), inClass(burns)),
+            projects: projects.map((p) => ({
+              id: p.id,
+              title: p.title,
+              due_at: p.due_at,
+              release_at: p.release_at,
+              archived_at: p.archived_at,
+              created_at: p.created_at,
+            })),
+            actions: rankActions(onProjects(inClass(actionRows), liveIds), onProjects(inClass(burns), liveIds)),
             notes: inClass(notes),
             noteName: (n) => (n.student_id ? (names.get(n.student_id) ?? 'a student') : (boardName.get(n.board_id ?? '') ?? 'a group')),
           })
@@ -296,6 +321,14 @@ export function useReportDoc(r: R, professor: string) {
         }
       } finally {
         if (live) setLoading(false)
+        // The newest build settling clears the flag; a reload asked for meanwhile runs once now.
+        if (run === building.current) {
+          building.current = null
+          if (dirty.current) {
+            dirty.current = false
+            if (live) retry()
+          }
+        }
       }
     })()
     return () => {
@@ -320,6 +353,7 @@ export function useReportDoc(r: R, professor: string) {
     ready,
     professor,
     nonce,
+    retry,
     projectsSig,
     studentsSig,
     boardsSig,
