@@ -320,9 +320,10 @@ recorded. A group that did everything and one that did nothing both finished on
 exactly what "fix this and hand it in again" means. Accepting leaves it submitted, so it
 stays frozen. That reuse is the reason there is no new freeze logic anywhere.
 
-**Deliberately no score**, decided with the user: a number here would be a second grade
-record beside the school's, and the one here would not be the one that counts. `total_points`
-and `project_criteria` remain unused — that is not an oversight.
+**Grades now live in Collabify** (reversed with the user on 2026-10-13, Phase C2). A board
+result stays a verdict and a reason with no number. The mark is a rubric score the professor
+confirms per student in `scoring.sql`, and students see it only after release. See the
+Phase C2 section at the end of this file.
 
 Two rules worth keeping: a **return must carry a reason** (a check constraint — a return
 with no reason is a rejection slip, not a response), and results **only ever arrive through

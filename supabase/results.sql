@@ -10,10 +10,10 @@
  *
  * So a board gets an answer: accepted, or returned to be fixed.
  *
- * Deliberately no score. A number here would be a second grade record beside
- * whatever the school already keeps, and the one here would not be the one that
- * counts. A verdict and a reason do not compete with a grade book, and they
- * belong where the work is rather than in a spreadsheet away from it.
+ * The verdict carries no number. Grades live in scoring.sql as rubric scores
+ * the professor confirms, and students see them only after release. A verdict
+ * and a reason stay separate from the mark: "fix this and hand it in again" is
+ * a different message from "this earned 72".
  *
  * Returning reuses the submission rather than inventing a second state: it
  * un-submits the board, which unfreezes it, which is exactly what "fix this and

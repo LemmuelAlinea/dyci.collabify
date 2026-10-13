@@ -309,24 +309,29 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
--- -------------------------------------------------------- no marks in here
+-- -------------------------------------------------- no unreleased marks in here
 
 /**
- * Collabify records no grade, and a printed report is exactly where a
- * completion figure would start being read as one. Asserting on the column
- * names means widening a report to carry a mark cannot happen quietly.
+ * Grades live in Collabify now (scoring.sql), but a student sees one only once
+ * the professor releases it, and a printed report must not leak one earlier.
+ * So any report view that reads a score table must also read score_releases.
+ * Phase B adds released scores to reports; this keeps that honest.
  */
 do $$
 declare
   bad text;
 begin
-  select string_agg(table_name || '.' || column_name, ', ') into bad
-    from information_schema.columns
-   where table_schema = 'public'
-     and table_name in ('report_class_summary', 'report_week_coverage',
-                        'report_student_work', 'report_board_tasks')
-     and column_name ~* '(score|grade|mark|rating|points|percentage_grade)';
-  perform pg_temp.must_be('no report view carries anything that could pass for a mark',
+  select string_agg(distinct u.view_name, ', ') into bad
+    from information_schema.view_table_usage u
+   where u.view_schema = 'public'
+     and u.view_name like 'report\_%'
+     and u.table_name in ('board_scores', 'member_scores')
+     and not exists (
+       select 1 from information_schema.view_table_usage r
+        where r.view_schema = 'public' and r.view_name = u.view_name
+          and r.table_name = 'score_releases'
+     );
+  perform pg_temp.must_be('no report view carries a score that has not been released',
     bad is null);
 end $$;
 

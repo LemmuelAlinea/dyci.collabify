@@ -23,10 +23,10 @@
  *      report anybody actually asks for. The archive date travels with the row
  *      and the sheet prints "term ended" beside it.
  *
- *   2. **No grade, no score, no mark.** Collabify records none, and a report is
- *      precisely where a completion percentage would start being read as one.
- *      `total_points` and `project_criteria` stay out. The suite asserts no
- *      column here is named anything a mark could hide behind.
+ *   2. **No unreleased grade.** Grades live in scoring.sql, and a student sees
+ *      one only after the professor releases it. These views carry none yet;
+ *      Phase B adds released scores. The suite asserts that any report view
+ *      reading a score table also reads score_releases.
  *
  *   3. Scoped by `is_class_professor`, `security_invoker = true`, like every
  *      other view in this database.
