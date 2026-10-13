@@ -14,6 +14,9 @@ import { GroupMilestoneGrid } from '../work/GroupMilestoneGrid'
 import { HandInQueue } from './HandInQueue'
 import { MemberProgress } from './MemberProgress'
 import { PeerRoundsPanel } from '../peer/PeerRoundsPanel'
+import { GradesTable } from '../scoring/GradesTable'
+import { ScoreCard } from '../scoring/ScoreCard'
+import { useProjectScores } from '../scoring/useProjectScores'
 import { TaskBoard } from './TaskBoard'
 import { TaskList } from './TaskList'
 import { TaskSummary } from './TaskSummary'
@@ -82,6 +85,7 @@ export function ProfessorTasksView({
   const [editingOrigin, setEditingOrigin] = useState<ProfessorTaskGroup | null>(null)
   const [deletingOrigin, setDeletingOrigin] = useState<ProfessorTaskGroup | null>(null)
   const { active, solo, boards } = t
+  const scores = useProjectScores(project.id, (boards ?? []).map((b) => b.id))
 
   const who = solo ? 'student' : 'group'
   const whoPlural = solo ? 'students' : 'groups'
@@ -136,6 +140,24 @@ export function ProfessorTasksView({
                   show(authErrorMessage(err, 'Could not accept that.'), 'error')
                 }
               }}
+            />
+          </section>
+
+          {/* 2b ── grading against the rubric */}
+          <section className="space-y-3 border-t border-line pt-6">
+            <div>
+              <h3>Grades</h3>
+              <p className="mt-0.5 text-[13px] text-muted">
+                Score each {who} against the rubric, confirm each student, then release. Open a{' '}
+                {who} to score it.
+              </p>
+            </div>
+            <GradesTable
+              projectId={project.id}
+              boards={boards ?? []}
+              solo={solo}
+              scores={scores}
+              onOpen={openBoard}
             />
           </section>
 
@@ -241,6 +263,7 @@ export function ProfessorTasksView({
               ) : (
                 <div className="space-y-4">
                   <BoardVerdict board={active} role={role} onChanged={t.refresh} />
+                  <ScoreCard key={active.id} board={active} scores={scores} />
                   <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.6fr)] xl:items-start">
                     <BoardProgress board={active} />
                     <MemberProgress rows={t.progress} title="Share of the group" dense />
