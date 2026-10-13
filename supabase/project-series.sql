@@ -413,6 +413,12 @@ begin
     raise exception 'This project has a peer evaluation. Its audience can''t change now.'
       using errcode = 'check_violation';
   end if;
+  -- The same cascade takes board_scores and member_scores with it. Resolved at
+  -- run time, so scoring.sql can load later.
+  if public.scores_exist(p_project) then
+    raise exception 'This project has scores. Clear them before changing who it goes to.'
+      using errcode = 'check_violation';
+  end if;
 
   delete from public.project_boards where project_id = p_project;
   update public.projects set audience = p_audience, group_set_id = v_set where id = p_project;

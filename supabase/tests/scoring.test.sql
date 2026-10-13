@@ -229,6 +229,20 @@ begin
     and (select total_points from public.projects where id = v_proj) = 100);
 end $$;
 
+-- ----------------------------------------------- audience change (Task 1)
+
+do $$
+declare
+  v_proj uuid := (select v from fx where k='proj');
+begin
+  perform pg_temp.act_as((select v from fx where k='prof'));
+  perform pg_temp.must_refuse('changing who a scored project goes to is refused',
+    format('select public.set_project_audience(%L, ''individual'', null)', v_proj));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('and the scored board is still there',
+    exists (select 1 from public.board_scores where board_id = (select v from fx where k='board')));
+end $$;
+
 -- ------------------------------------------------------- who sees (Task 1)
 
 do $$
