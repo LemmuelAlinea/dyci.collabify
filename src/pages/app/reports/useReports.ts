@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useLive } from '../../../hooks/useLive'
 import { listMembers } from '../../../lib/api/classes'
@@ -11,29 +11,8 @@ import { authErrorMessage } from '../../../lib/authError'
 import type { BoardTask, ClassReport, StudentWork, WeekCoverage } from '../../../lib/report'
 import type { BoardSummary, ClassMember, ProjectSummary, ReassignmentRow } from '../../../lib/types'
 
-export type ReportKind =
-  | 'class_term'
-  | 'coverage'
-  | 'contribution'
-  | 'board'
-  | 'comparison'
-  | 'class_record'
-  | 'term_summary'
-  | 'grading'
-  | 'peer'
-
-/** Which pickers a report needs before it can be drawn. */
-export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student')[]> = {
-  class_term: ['class'],
-  coverage: ['class'],
-  contribution: ['class', 'student'],
-  board: ['class', 'project', 'board'],
-  comparison: ['class', 'project'],
-  class_record: ['class'],
-  term_summary: [],
-  grading: ['class', 'project'],
-  peer: ['class', 'project'],
-}
+import { NEEDS, parseReportKind } from './reportKind'
+import type { ReportKind } from './reportKind'
 
 /** Reports that take a student but do not need one. */
 export const OPTIONAL_STUDENT: ReportKind[] = ['grading']
@@ -74,8 +53,7 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
       ),
     [setParams],
   )
-  const asked = params.get('report')
-  const kind: ReportKind = asked && asked in NEEDS ? (asked as ReportKind) : 'grading'
+  const kind = parseReportKind(params.get('report'))
   const projectId = params.get('rproject') ?? ''
   const boardId = params.get('rgroup') ?? ''
   const studentId = params.get('rstudent') ?? ''
@@ -92,7 +70,10 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
   const [feedback, setFeedback] = useState<string | null>(null)
   const [reassignments, setReassignments] = useState<ReassignmentRow[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  // One flag per loader, so one finishing never clears the other's spinner.
+  const [classBusy, setClassBusy] = useState(false)
+  const [boardBusy, setBoardBusy] = useState(false)
+  const busy = classBusy || boardBusy
   // The class the arrays above were last loaded for. Until it matches, a project
   // choice in the address cannot be judged, so it is neither used nor dropped.
   const [loadedFor, setLoadedFor] = useState('')
@@ -130,9 +111,18 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
 
   // One class's worth of everything. Cheap enough to fetch together, and it
   // keeps the four sheets that read from a class in step with each other.
+  // Each load takes a number; only the newest may write. Otherwise a slow load
+  // for the previous class (or an older live refresh) landing last would put
+  // its arrays and its `loadedFor` over the current class's.
+  const classSeq = useRef(0)
   const loadClass = useCallback(async () => {
-    if (!classId) return
-    setBusy(true)
+    const mine = ++classSeq.current
+    const latest = () => mine === classSeq.current
+    if (!classId) {
+      setClassBusy(false)
+      return
+    }
+    setClassBusy(true)
     try {
       const [w, s, m, p, r] = await Promise.all([
         weekCoverage(classId),
@@ -141,18 +131,25 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
         listProjectsForClasses([classId]),
         listReassignments(),
       ])
+      if (!latest()) return
+      const b = await boardsFor(p.map((x) => x.id))
+      if (!latest()) return
+      // Written together after both round trips, so the page never holds this
+      // class's projects beside another load's boards.
       setWeeks(w)
       setWork(s)
       setMembers(m)
       setProjects(p)
       setReassignments(r.filter((x) => x.class_id === classId))
-      setBoards(await boardsFor(p.map((x) => x.id)))
+      setBoards(b)
       setError(null)
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not load that class.'))
+      if (latest()) setError(authErrorMessage(err, 'Could not load that class.'))
     } finally {
-      setLoadedFor(classId)
-      setBusy(false)
+      if (latest()) {
+        setLoadedFor(classId)
+        setClassBusy(false)
+      }
     }
   }, [classId])
 
@@ -173,23 +170,30 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
 
   // The verdict's reason lives on the result row rather than the board, so it
   // is only worth fetching once a board is actually chosen.
+  // Its own counter: switching boards quickly must not let the first board's
+  // tasks land over the second's.
+  const boardSeq = useRef(0)
   useEffect(() => {
+    const mine = ++boardSeq.current
+    const latest = () => mine === boardSeq.current
     if (!boardId) {
       setTasks([])
       setFeedback(null)
+      setBoardBusy(false)
       return
     }
     void (async () => {
-      setBusy(true)
+      setBoardBusy(true)
       try {
         const [t, r] = await Promise.all([boardTasks(boardId), boardResult(boardId)])
+        if (!latest()) return
         setTasks(t)
         setFeedback(r?.feedback ?? null)
         setError(null)
       } catch (err) {
-        setError(authErrorMessage(err, 'Could not load that board.'))
+        if (latest()) setError(authErrorMessage(err, 'Could not load that board.'))
       } finally {
-        setBusy(false)
+        if (latest()) setBoardBusy(false)
       }
     })()
   }, [boardId])

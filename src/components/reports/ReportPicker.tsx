@@ -7,8 +7,8 @@ import { buttonClass } from '../ui/buttonClass'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
-import { NEEDS } from '../../pages/app/reports/useReports'
-import type { ReportKind } from '../../pages/app/reports/useReports'
+import { NEEDS } from '../../pages/app/reports/reportKind'
+import type { ReportKind } from '../../pages/app/reports/reportKind'
 
 /**
  * Choosing a report, at three widths.
@@ -157,12 +157,15 @@ function Actions({
   csv,
   onCsv,
   exports,
+  printReady,
   className = '',
 }: {
   r: PickerState
   csv: boolean
   onCsv: () => void
   exports?: ActionMenuItem[]
+  /** Whether there is a sheet to print. Defaults to the report having its choices. */
+  printReady?: boolean
   className?: string
 }) {
   return (
@@ -172,7 +175,7 @@ function Actions({
       <Button
         size="sm"
         className="!h-11 !rounded-xl sm:!h-9"
-        disabled={!r.ready}
+        disabled={!(printReady ?? r.ready)}
         onClick={() => window.print()}
       >
         <Icon name="file" size={14} />
@@ -321,12 +324,14 @@ export function ReportSidebar({
   csv,
   onCsv,
   exports,
+  printReady,
 }: {
   catalogue: ReportGroup[]
   r: PickerState
   csv: boolean
   onCsv: () => void
   exports?: ActionMenuItem[]
+  printReady?: boolean
 }) {
   return (
     <div className="hidden @min-[860px]:block print:hidden">
@@ -340,7 +345,7 @@ export function ReportSidebar({
           <About r={r} />
         </section>
 
-        <Actions r={r} csv={csv} onCsv={onCsv} exports={exports} />
+        <Actions r={r} csv={csv} onCsv={onCsv} exports={exports} printReady={printReady} />
       </div>
     </div>
   )
@@ -353,12 +358,14 @@ export function ReportBar({
   csv,
   onCsv,
   exports,
+  printReady,
 }: {
   catalogue: ReportGroup[]
   r: PickerState
   csv: boolean
   onCsv: () => void
   exports?: ActionMenuItem[]
+  printReady?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const needs = NEEDS[r.kind].length + (r.studentOptional ? 1 : 0) + (r.extras ? 1 : 0)
@@ -389,7 +396,7 @@ export function ReportBar({
         <About r={r} />
       </div>
 
-      <Actions r={r} csv={csv} onCsv={onCsv} exports={exports} />
+      <Actions r={r} csv={csv} onCsv={onCsv} exports={exports} printReady={printReady} />
 
       <Modal
         open={open}
