@@ -3164,3 +3164,46 @@ Plan: `docs/superpowers/plans/2026-10-13-class-analytics-redesign.md`.
 **Next.**
 1. Phase C: peer evaluation (CATME-style), rubric scores with individual adjustment, intervention notes. This reverses the "no grade" rule above (`Analytics` section and `reports.sql:26-29`). That reversal was agreed with the user on 2026-10-13.
 2. Then Phase B: Reports rebuilt on the General Report Builder.
+
+## Phase C1 — peer evaluation (2026-10-13)
+
+Spec: `docs/superpowers/specs/2026-10-13-phase-c-grading-design.md` (C1).
+Plan: `docs/superpowers/plans/2026-10-13-phase-c1-peer-evaluation.md`.
+
+**What.**
+- Professors open a check-in or final round on a group project from its Work tab, in the Peer evaluation panel. The panel can also move the close date, close a round, reopen a lapsed one, and send a reminder (one per round per day).
+- Students rate every group member, themselves included, on five CATME behaviours (1–5, anchors in `lib/peerDimensions.ts`) through "Rate your team" in the project header.
+- Results show in the panel (with comments, rater names hidden until asked), in Analytics → Groups, and in the student drawer.
+
+**Data.** `supabase/peer-evaluation.sql`.
+- Tables: `peer_rounds`, `peer_ratings`.
+- Writes go only through functions: `open_peer_round`, `set_peer_round_close`, `close_peer_round`, `remind_peer_round`, `save_peer_ratings`. The student reads `peer_form`.
+- Views, staff only: `peer_results`, `peer_round_status`, `peer_comments`.
+- Ratings are readable by the rater and teaching staff, never by the person rated.
+- Teammates are the board's current, non-archived group members, so anyone who leaves drops out of every average.
+- Archived, unreleased (`project_is_live`) and closed rounds refuse writes. A closed (locked) project can still run its final round.
+- `set_project_audience` (`project-series.sql`) now refuses once a project has any peer round.
+
+**Arithmetic.** `lib/peerMath.ts`.
+- factor = received average ÷ the team's mean, shown only with at least 2 raters.
+- Flags:
+  - low < 0.85, high > 1.10
+  - over- or underconfident ±1.0
+  - manipulator: self 1.5 above what they gave, and factor < 1
+  - conflict: rater spread ≥ 1.0
+  - didn't rate, shown as "Not answered yet" while the round is open
+- `FACTOR_CAP` 1.05 is for C2.
+
+**Decided while building.**
+- The reminder limit reads `notifications` until C3 moves it to the notes log.
+- `my_peer_summary` is built in C2.
+- Comments live in the Work-tab panel, not in Analytics.
+- Re-running `peer-evaluation.sql` drops its three views without cascade, so a C2 view built on `peer_results` must be dropped first. Re-run `anon-lockdown.sql` after it.
+
+**Found in the browser and fixed.**
+- Hidden screen-reader tables inside charts stretched the page past its layout. The fix wraps each in an `sr-only` div; it shipped to main separately.
+- The rating dialog jumped when a score was picked, because each hidden radio was positioned against the dialog instead of its chip.
+
+**Test data on live.** Lab 6 (QM) has one closed check-in round: Lemmuel Rodge's ratings and a "zz test" comment.
+
+**Next.** C2: rubric scoring, individual adjustment from the final round (round the factor to 3 places before comparing or capping, as `peerMath` does), release, and the student grade card.
