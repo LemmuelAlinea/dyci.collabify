@@ -130,7 +130,7 @@ export function RateTeamModal({
                     return (
                       <label
                         key={s}
-                        className={`grid h-9 w-11 cursor-pointer place-items-center rounded-lg border font-mono text-[13px] transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-navy-600 dark:has-[:focus-visible]:outline-navy-300 ${
+                        className={`relative grid h-9 w-11 cursor-pointer place-items-center rounded-lg border font-mono text-[13px] transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-navy-600 dark:has-[:focus-visible]:outline-navy-300 ${
                           checked
                             ? 'border-navy-600 bg-navy-600 text-[var(--surface)] dark:border-navy-300 dark:bg-navy-300'
                             : 'border-line text-muted hover:border-line-strong'
