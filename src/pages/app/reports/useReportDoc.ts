@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLive } from '../../../hooks/useLive'
 import { listPeerRounds, peerComments, projectPeerResults } from '../../../lib/api/peer'
 import { listCriteria } from '../../../lib/api/projects'
 import { projectBoardScores, scoreSheet } from '../../../lib/api/scores'
@@ -38,6 +39,14 @@ export function useReportDoc(r: R, professor: string) {
   const currentKey = [kind, classId, projectId, studentId, roundId, comments ? 1 : 0].join('|')
   const classLine = cls ? `${cls.class_initial} · ${cls.class_name} · ${cls.section}` : ''
 
+  // Scores and peer ratings are not in the class loader's tables. Listen for
+  // them here so a score confirmed in another tab reaches the sheet; realtime
+  // and focus only, no extra poll.
+  useLive(retry, ['member_scores', 'board_scores', 'score_releases', 'project_criteria', 'peer_ratings', 'peer_rounds'], {
+    every: 0,
+    enabled: (kind === 'grading' || kind === 'peer') && ready,
+  })
+
   // Live updates hand back fresh arrays with the same rows in them. The build
   // keys on what is in them, so a refresh that changed nothing it reads does
   // not fetch and redraw the sheet.
@@ -53,7 +62,7 @@ export function useReportDoc(r: R, professor: string) {
       onePerProject
         ? work
             .filter((w) => w.project_id === projectId)
-            .map((w) => `${w.board_id}:${w.student_id}:${w.held_pct}:${w.tasks_done}:${w.tasks_late}`)
+            .map((w) => `${w.board_id}:${w.student_id}:${w.held_pct}:${w.tasks_held}:${w.tasks_done}:${w.tasks_late}`)
             .join('|')
         : '',
     [onePerProject, work, projectId],
