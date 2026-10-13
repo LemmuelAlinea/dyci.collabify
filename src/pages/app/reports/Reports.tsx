@@ -469,12 +469,15 @@ function Preview({
         return (
           <>
             {/* The page's own "Gathering it…" already says so while the class reloads. */}
-            {d.loading && !r.busy && !r.settling && (
-              <p className="mb-3 flex items-center gap-2 text-[13px] text-muted print:hidden">
-                <Spinner size={14} />
-                Updating…
-              </p>
-            )}
+            {/* The line's height is kept whether or not it shows, so the sheet does not jump when it does. */}
+            <div className="mb-3 min-h-5 print:hidden" aria-live="polite">
+              {d.loading && !r.busy && !r.settling && (
+                <p className="flex items-center gap-2 text-[13px] text-muted">
+                  <Spinner size={14} />
+                  Updating…
+                </p>
+              )}
+            </div>
             {d.refreshError && !d.loading && (
               <p className="mb-3 flex flex-wrap items-center gap-2 text-[13px] text-muted print:hidden">
                 Could not refresh. Showing the last version.

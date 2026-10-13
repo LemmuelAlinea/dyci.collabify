@@ -48,26 +48,58 @@ export function useReportDoc(r: R, professor: string) {
     rangeChoice, customFrom, customTo, noteKinds, noteStatus,
   } = r
   const noteKindsKey = noteKinds.join(',')
+  // The key carries the dates the choice resolves to, not the raw strings, so a
+  // half-typed custom date that still reads as the same range does not rebuild.
+  const byDates = kind === 'checkin' || kind === 'notes'
+  // A custom range typed backwards is put in order, and a half-filled one reads as the last 7 days.
+  const resolved = resolveRange(rangeChoice, manilaDay(new Date()), { from: customFrom, to: customTo })
+  const rangeFrom = byDates ? resolved.from : ''
+  const rangeTo = byDates ? resolved.to : ''
   const currentKey = [
     kind, classId, projectId, studentId, roundId, comments ? 1 : 0,
-    rangeChoice, customFrom, customTo, noteKindsKey, noteStatus, boardId,
+    rangeFrom, rangeTo, noteKindsKey, noteStatus, boardId,
   ].join('|')
   const termStart = cls?.term_start ?? null
   const ended = Boolean(cls?.archived_at)
   const classLine = cls ? `${cls.class_initial} · ${cls.class_name} · ${cls.section}` : ''
 
+  // A burst of events (a class working through tasks) must not rebuild the sheet
+  // each time, and a trailing debounce would never fire under a steady stream. So
+  // the first event starts a timer that is never reset: events while it runs are
+  // dropped, and one reload follows when it ends. The check-in refetches
+  // `class_actions`, which is slow, so it waits longer.
+  const pace = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const delay = kind === 'checkin' ? 10_000 : 1_500
+  const paced = useCallback(() => {
+    if (pace.current) return
+    pace.current = setTimeout(() => {
+      pace.current = null
+      retry()
+    }, delay)
+  }, [retry, delay])
+  useEffect(
+    () => () => {
+      if (pace.current) clearTimeout(pace.current)
+      pace.current = null
+    },
+    [],
+  )
+
   // Scores and peer ratings are not in the class loader's tables. Listen for
   // them here so a score confirmed in another tab reaches the sheet; realtime
-  // and focus only, no extra poll. The check-in and the log read tasks, events,
-  // decisions and notes, which the class loader does not watch.
-  useLive(
-    retry,
-    [
-      'member_scores', 'board_scores', 'score_releases', 'project_criteria', 'peer_ratings', 'peer_rounds',
-      'class_notes', 'task_events', 'project_tasks', 'board_results',
-    ],
-    { every: 0, enabled: (kind === 'grading' || kind === 'peer' || kind === 'checkin' || kind === 'notes') && ready },
-  )
+  // and focus only, no extra poll. The check-in and the log listen only to what
+  // they read: notes, task events and tasks, and decisions.
+  const liveTables =
+    kind === 'notes'
+      ? ['class_notes']
+      : kind === 'checkin'
+        ? ['class_notes', 'task_events', 'project_tasks', 'board_results']
+        : ['member_scores', 'board_scores', 'score_releases', 'project_criteria', 'peer_ratings', 'peer_rounds']
+  useLive(paced, liveTables, {
+    every: 0,
+    // An ended class has no check-in to refresh.
+    enabled: (kind === 'grading' || kind === 'peer' || kind === 'checkin' || kind === 'notes') && ready && !(kind === 'checkin' && ended),
+  })
 
   // Live updates hand back fresh arrays with the same rows in them. The build
   // keys on what is in them, so a refresh that changed nothing it reads does
@@ -94,7 +126,10 @@ export function useReportDoc(r: R, professor: string) {
   // hand-in or a moved deadline arriving there has to rebuild it.
   const checkInSig = useMemo(
     () =>
-      kind === 'checkin'
+      // The log only needs to know which boards exist, to drop a group id from another class.
+      kind === 'notes'
+        ? allBoards.map((b) => b.id).join('|')
+        : kind === 'checkin'
         ? [
             ...allBoards.map((b) => `${b.id}:${b.group_name ?? b.student_name ?? ''}:${b.project_title}:${b.submitted_at ?? ''}`),
             ...projects.map((p) => `${p.id}:${p.due_at ?? ''}`),
@@ -120,9 +155,8 @@ export function useReportDoc(r: R, professor: string) {
     }
     const { projects, boards, allBoards, work, students } = data.current
     const head = { classLine, professor, madeAt: generatedOn() }
-    // A custom range typed backwards is put in order, and a half-filled one reads as the last 7 days.
     const today = manilaDay(new Date())
-    const range = resolveRange(rangeChoice, today, { from: customFrom, to: customTo })
+    const range = { from: rangeFrom, to: rangeTo }
     const asProject = (p: { id: string; title: string; total_points: number }) => ({
       id: p.id,
       title: p.title,
@@ -243,8 +277,9 @@ export function useReportDoc(r: R, professor: string) {
             filters: {
               kinds: noteKindsKey ? (noteKindsKey.split(',') as ClassNoteKind[]) : [],
               status: noteStatus,
-              studentId,
-              boardId,
+              // An id left in the address from another class matches nothing, so it is dropped.
+              studentId: students.some((s) => s.value === studentId) ? studentId : '',
+              boardId: allBoards.some((b) => b.id === boardId) ? boardId : '',
             },
           })
         }
@@ -275,9 +310,8 @@ export function useReportDoc(r: R, professor: string) {
     boardId,
     roundId,
     comments,
-    rangeChoice,
-    customFrom,
-    customTo,
+    rangeFrom,
+    rangeTo,
     noteKindsKey,
     noteStatus,
     termStart,
