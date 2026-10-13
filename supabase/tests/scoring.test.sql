@@ -310,6 +310,299 @@ end $$;
 
 -- ================================================= Task 2 appends below here
 
+-- ------------------------------------------------- the suggestion (Task 2)
+
+do $$
+begin
+  perform pg_temp.must_be('no factor: the group score', public.suggest_score(80, null, 100) = 80);
+  perform pg_temp.must_be('80 × 0.9 gives 72', public.suggest_score(80, 0.9, 100) = 72);
+  perform pg_temp.must_be('the factor caps at 1.05: 80 × 1.2 gives 84', public.suggest_score(80, 1.2, 100) = 84);
+  perform pg_temp.must_be('never above the total', public.suggest_score(100, 1.04, 100) = 100);
+  perform pg_temp.must_be('never above the total without a factor either', public.suggest_score(110, null, 100) = 100);
+  perform pg_temp.must_be('a half rounds up: 10 × 1.025 gives 10.5', public.suggest_score(10, 1.025, 100) = 10.5);
+  perform pg_temp.must_be('75.5 × 0.987 gives 74.5', public.suggest_score(75.5, 0.987, 100) = 74.5);
+  perform pg_temp.must_be('80 × 0.632 gives 50.5', public.suggest_score(80, 0.632, 100) = 50.5);
+  perform pg_temp.must_be('nothing scored, nothing suggested', public.suggest_score(null, 1, 100) is null);
+end $$;
+
+-- ------------------------------------------------------ saving (Task 2)
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_a uuid := (select v from fx where k='a');
+  v_b uuid := (select v from fx where k='b');
+  v_c uuid := (select v from fx where k='c');
+  v_board uuid := (select v from fx where k='board');
+  v_ca uuid := (select v from fx where k='crit_a');
+  v_cb uuid := (select v from fx where k='crit_b');
+  v_cs uuid := (select v from fx where k='crit_s');
+begin
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_refuse('a student cannot score',
+    format('select public.save_board_scores(%L, %L::jsonb)', v_board, pg_temp.pts(v_ca, 50, v_cb, 30)));
+
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_refuse('every criterion must be scored',
+    format('select public.save_board_scores(%L, %L::jsonb)', v_board,
+           jsonb_build_array(jsonb_build_object('criterion_id', v_ca, 'points', 50))::text));
+  perform pg_temp.must_refuse('a criterion from another project is refused',
+    format('select public.save_board_scores(%L, %L::jsonb)', v_board, pg_temp.pts(v_ca, 50, v_cs, 30)));
+  perform pg_temp.must_refuse('quarter points are refused',
+    format('select public.save_board_scores(%L, %L::jsonb)', v_board, pg_temp.pts(v_ca, 50.25, v_cb, 30)));
+  perform pg_temp.must_refuse('a hundredth that would round to a whole point is refused',
+    format('select public.save_board_scores(%L, %L::jsonb)', v_board, pg_temp.pts(v_ca, 50.04, v_cb, 30)));
+  perform pg_temp.must_refuse('points above the maximum are refused',
+    format('select public.save_board_scores(%L, %L::jsonb)', v_board, pg_temp.pts(v_ca, 61, v_cb, 30)));
+  perform pg_temp.must_refuse('confirming before scoring is refused',
+    format('select public.confirm_member_scores(%L, %L::jsonb)', v_board,
+           pg_temp.finals(v_a, 0, v_b, 0, v_c, 0)));
+  perform pg_temp.must_allow('the professor scores the board',
+    format('select public.save_board_scores(%L, %L::jsonb)', v_board, pg_temp.pts(v_ca, 50, v_cb, 30)));
+  perform pg_temp.must_be('and the scores are stored',
+    (select sum(points) from public.board_scores where board_id = v_board) = 80);
+end $$;
+
+-- ------------------------------------------- confirming with peer factors (Task 2)
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_a uuid := (select v from fx where k='a');
+  v_b uuid := (select v from fx where k='b');
+  v_c uuid := (select v from fx where k='c');
+  v_d uuid := (select v from fx where k='d');
+  v_proj uuid := (select v from fx where k='proj');
+  v_board uuid := (select v from fx where k='board');
+  v_round uuid;
+  s record;
+begin
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_be('with no final round, everyone''s suggestion is the group score',
+    (select bool_and(suggested_now = 80 and factor is null) from public.score_sheet(v_proj)));
+
+  perform public.open_peer_round(v_proj, 'final', now() + interval '2 days');
+  select id into v_round from public.peer_rounds where project_id = v_proj and kind = 'final';
+  perform pg_temp.act_as(v_a);
+  perform public.save_peer_ratings(v_round, pg_temp.ratings(v_a, 5, v_b, 4, v_c, 2));
+  perform pg_temp.act_as(v_b);
+  perform public.save_peer_ratings(v_round, pg_temp.ratings(v_a, 4, v_b, 4, v_c, 2));
+  perform pg_temp.act_as(v_c);
+  perform public.save_peer_ratings(v_round, pg_temp.ratings(v_a, 4, v_b, 3, v_c, 5));
+
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_be('a final round still open gives no factor',
+    (select bool_and(factor is null and suggested_now = 80) from public.score_sheet(v_proj)));
+
+  perform pg_temp.must_refuse('a confirm must cover the whole group',
+    format('select public.confirm_member_scores(%L, %L::jsonb)', v_board,
+           jsonb_build_array(jsonb_build_object('student_id', v_a, 'final', 80))::text));
+  perform pg_temp.must_refuse('a confirm cannot name someone outside the group',
+    format('select public.confirm_member_scores(%L, %L::jsonb)', v_board,
+           pg_temp.finals(v_a, 80, v_b, 80, v_d, 80)));
+  perform pg_temp.must_refuse('a final above the total is refused',
+    format('select public.confirm_member_scores(%L, %L::jsonb)', v_board,
+           pg_temp.finals(v_a, 101, v_b, 80, v_c, 80)));
+  perform pg_temp.must_refuse('a final must be whole or half points',
+    format('select public.confirm_member_scores(%L, %L::jsonb)', v_board,
+           pg_temp.finals(v_a, 80.3, v_b, 80, v_c, 80)));
+  perform pg_temp.must_allow('the professor confirms while the round is open',
+    format('select public.confirm_member_scores(%L, %L::jsonb)', v_board,
+           pg_temp.finals(v_a, 80, v_b, 80, v_c, 70)));
+
+  select * into s from public.score_sheet(v_proj) where student_id = v_c;
+  perform pg_temp.must_be('a changed final is marked overridden', s.overridden and s.final = 70);
+  perform pg_temp.must_be('and nothing has changed under it yet', not s.suggestion_changed);
+
+  perform public.close_peer_round(v_round);
+  perform pg_temp.must_be('closing the final round sets the factors (a 1.263, b 1.105, c 0.632)',
+    (select factor from public.score_sheet(v_proj) where student_id = v_a) = 1.263
+    and (select factor from public.score_sheet(v_proj) where student_id = v_b) = 1.105
+    and (select factor from public.score_sheet(v_proj) where student_id = v_c) = 0.632);
+  perform pg_temp.must_be('and the suggestions follow (84, 84, 50.5)',
+    (select suggested_now from public.score_sheet(v_proj) where student_id = v_a) = 84
+    and (select suggested_now from public.score_sheet(v_proj) where student_id = v_b) = 84
+    and (select suggested_now from public.score_sheet(v_proj) where student_id = v_c) = 50.5);
+  perform pg_temp.must_be('so every earlier confirm reads "suggestion changed"',
+    (select bool_and(suggestion_changed) from public.score_sheet(v_proj)));
+
+  perform pg_temp.must_allow('the professor confirms the suggestions',
+    format('select public.confirm_member_scores(%L, %L::jsonb)', v_board,
+           pg_temp.finals(v_a, 84, v_b, 84, v_c, 50.5)));
+  perform pg_temp.must_be('now nothing is overridden or stale',
+    (select bool_and(not overridden and not suggestion_changed) from public.score_sheet(v_proj)));
+  perform pg_temp.must_be('and the factor used is kept with the score',
+    (select factor from public.member_scores where board_id = v_board and student_id = v_a) = 1.263);
+  perform pg_temp.must_allow('the professor raises c''s score',
+    format('select public.confirm_member_scores(%L, %L::jsonb)', v_board,
+           pg_temp.finals(v_a, 84, v_b, 84, v_c, 55)));
+
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('each confirm that changed a final is in the history',
+    (select count(*) from public.score_history
+      where board_id = v_board and student_id = v_c and action = 'confirm') = 3);
+
+  -- Somebody joins the group after the confirm.
+  insert into public.group_members (group_id, set_id, student_id)
+  values ((select v from fx where k='group'), (select v from fx where k='set'), v_d);
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_refuse('after a join, the old list no longer covers the group',
+    format('select public.confirm_member_scores(%L, %L::jsonb)', v_board,
+           pg_temp.finals(v_a, 84, v_b, 84, v_c, 55)));
+  perform pg_temp.must_be('the newcomer shows up unconfirmed, with no factor',
+    exists (select 1 from public.score_sheet(v_proj)
+             where student_id = v_d and confirmed_at is null and factor is null and suggested_now = 80));
+  perform pg_temp.must_be('and everyone else''s factor is unchanged',
+    (select factor from public.score_sheet(v_proj) where student_id = v_a) = 1.263);
+  perform pg_temp.act_as_service();
+  delete from public.group_members where group_id = (select v from fx where k='group') and student_id = v_d;
+end $$;
+
+-- ------------------------------------------------------- release (Task 2)
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_a uuid := (select v from fx where k='a');
+  v_b uuid := (select v from fx where k='b');
+  v_c uuid := (select v from fx where k='c');
+  v_d uuid := (select v from fx where k='d');
+  v_proj uuid := (select v from fx where k='proj');
+  v_board uuid := (select v from fx where k='board');
+  v_ca uuid := (select v from fx where k='crit_a');
+  v_cb uuid := (select v from fx where k='crit_b');
+  g jsonb;
+  n int;
+  expected int;
+begin
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_be('before release a student has no grade', public.my_grade(v_proj) is null);
+  perform pg_temp.must_be('and no peer summary', public.my_peer_summary(v_proj) is null);
+  perform pg_temp.must_refuse('a student cannot release grades',
+    format('select public.release_project_scores(%L)', v_proj));
+
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_allow('the professor releases grades',
+    format('select public.release_project_scores(%L)', v_proj));
+
+  perform pg_temp.act_as_service();
+  select count(*) into n from public.notifications where project_id = v_proj and type = 'grades_released';
+  select count(*) into expected from public.notification_prefs np
+   where np.announcements and np.user_id in (v_a, v_b, v_c);
+  perform pg_temp.must_be('release tells each confirmed student who has announcements on', n = expected);
+
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_be('releasing again tells nobody twice',
+    public.release_project_scores(v_proj) = 0);
+
+  perform pg_temp.act_as(v_a);
+  g := public.my_grade(v_proj);
+  perform pg_temp.must_be('a sees 84 of 100 from a group score of 80',
+    (g ->> 'final')::numeric = 84 and (g ->> 'total_points')::int = 100
+    and (g ->> 'group_total')::numeric = 80 and (g ->> 'in_group')::boolean);
+  perform pg_temp.must_be('with the rubric breakdown, in order',
+    jsonb_array_length(g -> 'criteria') = 2
+    and (g -> 'criteria' -> 0 ->> 'points')::numeric = 50
+    and (g -> 'criteria' -> 1 ->> 'points')::numeric = 30
+    and (g -> 'criteria' -> 1 ->> 'max_points')::int = 40);
+  perform pg_temp.must_be('and how teammates saw them: 4.00 from 2 raters, team 3.17',
+    (g -> 'peer' ->> 'raters')::int = 2
+    and (g -> 'peer' -> 'me' ->> 'contributes')::numeric = 4.00
+    and (g -> 'peer' -> 'team' ->> 'contributes')::numeric = 3.17);
+
+  perform pg_temp.act_as(v_c);
+  perform pg_temp.must_be('c sees the overridden 55',
+    (public.my_grade(v_proj) ->> 'final')::numeric = 55);
+  perform pg_temp.act_as(v_d);
+  perform pg_temp.must_be('a classmate outside the group has no grade here',
+    public.my_grade(v_proj) is null);
+
+  -- Changing a criterion after release.
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_allow('the professor can still correct a criterion after release',
+    format('select public.save_board_scores(%L, %L::jsonb)', v_board, pg_temp.pts(v_ca, 55, v_cb, 30)));
+  perform pg_temp.must_be('which marks the confirmed scores as stale',
+    (select suggestion_changed from public.score_sheet(v_proj) where student_id = v_a));
+  perform pg_temp.act_as(v_a);
+  g := public.my_grade(v_proj);
+  perform pg_temp.must_be('the student sees the new breakdown and keeps the confirmed score',
+    (g ->> 'group_total')::numeric = 85 and (g ->> 'final')::numeric = 84);
+
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_allow('the professor unreleases',
+    format('select public.unrelease_project_scores(%L)', v_proj));
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_be('and the grade is hidden again', public.my_grade(v_proj) is null);
+end $$;
+
+-- ------------------------------------------------- an individual board (Task 2)
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_a uuid := (select v from fx where k='a');
+  v_solo uuid := (select v from fx where k='solo');
+  v_sb uuid := (select v from fx where k='solo_board');
+  v_cs uuid := (select v from fx where k='crit_s');
+begin
+  perform pg_temp.act_as(v_prof);
+  perform public.save_board_scores(v_sb,
+    jsonb_build_array(jsonb_build_object('criterion_id', v_cs, 'points', 45)));
+  perform pg_temp.must_allow('an individual board confirms with no list',
+    format('select public.confirm_member_scores(%L, ''[]''::jsonb)', v_sb));
+  perform pg_temp.must_be('its one student gets the board total, with no factor',
+    exists (select 1 from public.member_scores
+             where board_id = v_sb and student_id = v_a and final = 45
+               and factor is null and not overridden));
+
+  perform pg_temp.act_as_service();
+  update public.projects set archived_at = now() where id = v_solo;
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_refuse('an archived project''s scores cannot change',
+    format('select public.save_board_scores(%L, %L::jsonb)', v_sb,
+           jsonb_build_array(jsonb_build_object('criterion_id', v_cs, 'points', 40))::text));
+  perform pg_temp.act_as_service();
+  update public.projects set archived_at = null where id = v_solo;
+end $$;
+
+-- ------------------------------------------------------- clearing (Task 2)
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_a uuid := (select v from fx where k='a');
+  v_proj uuid := (select v from fx where k='proj');
+  v_board uuid := (select v from fx where k='board');
+  v_cb uuid := (select v from fx where k='crit_b');
+begin
+  perform pg_temp.act_as(v_prof);
+  perform public.release_project_scores(v_proj);
+
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_refuse('a student cannot clear scores',
+    format('select public.clear_project_scores(%L)', v_proj));
+
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_allow('the professor clears the project''s scores',
+    format('select public.clear_project_scores(%L)', v_proj));
+
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('every score and confirm on the project is gone',
+    not exists (select 1 from public.board_scores where board_id = v_board)
+    and not exists (select 1 from public.member_scores where board_id = v_board));
+  perform pg_temp.must_be('the release went with them',
+    not exists (select 1 from public.score_releases where project_id = v_proj));
+  perform pg_temp.must_be('the history kept everything and recorded the clear',
+    exists (select 1 from public.score_history where project_id = v_proj and action = 'clear')
+    and exists (select 1 from public.score_history where project_id = v_proj and action = 'confirm'));
+
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_allow('clearing unlocks the rubric',
+    format('update public.project_criteria set max_points = 45 where id = %L', v_cb));
+  perform pg_temp.act_as_service();
+  update public.project_criteria set max_points = 40 where id = v_cb;
+end $$;
+
 -- ---------------------------------------------- a scored project can go (last)
 
 do $$
