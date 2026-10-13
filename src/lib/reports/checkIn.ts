@@ -11,6 +11,8 @@ export type CheckInResult = { board_id: string; verdict: 'accepted' | 'returned'
 
 export type CheckInInput = ReportHead & {
   range: DayRange
+  /** First day of the term (a Manila day). Nobody is called never-active before it starts. */
+  termStart: string | null
   /** The class has ended; Phase A views carry nothing for it. */
   ended: boolean
   activity: ActivityDay[]
@@ -131,10 +133,13 @@ export function checkInDoc(input: CheckInInput): ReportDoc {
   // Stuck, measured as of the last day of the range.
   const asOf = r.to
   const stuck: Cell[][] = []
+  // Judged by started_at and done_at, not today's status, so a past week reads as it stood.
+  const doneBy = (t: TaskState) => t.status === 'done' && !t.done_at ? true : !!t.done_at && manilaDay(t.done_at) <= asOf
+  const termStarted = input.termStart !== null && input.termStart <= asOf
   for (const t of input.tasks) {
-    if (t.status !== 'in_progress' || !t.started_at) continue
+    if (!t.started_at) continue
     const since = manilaDay(t.started_at)
-    if (since > asOf) continue
+    if (since > asOf || doneBy(t)) continue
     const days = daysBetween(since, asOf)
     if (days >= STUCK_DAYS) {
       stuck.push([{ value: 'Task', tone: 'warning' }, t.title, `${t.group_name ?? t.board_student_name ?? 'A board'} · ${t.project_title}`, since, days])
@@ -145,7 +150,7 @@ export function checkInDoc(input: CheckInInput): ReportDoc {
     const days = input.activity.filter((a) => a.board_id === b.board_id && a.day <= asOf).map((a) => a.day).sort()
     const last = days.at(-1) ?? null
     const idle = last ? daysBetween(last, asOf) : null
-    if (idle === null || idle >= INACTIVE_DAYS) {
+    if (idle === null ? termStarted : idle >= INACTIVE_DAYS) {
       stuck.push([{ value: 'Group', tone: 'warning' }, b.name, b.project_title, last, idle])
     }
   }
@@ -153,7 +158,7 @@ export function checkInDoc(input: CheckInInput): ReportDoc {
     const days = input.activity.filter((a) => a.actor_id === s.student_id && a.day <= asOf).map((a) => a.day).sort()
     const last = days.at(-1) ?? null
     const idle = last ? daysBetween(last, asOf) : null
-    if (idle === null || idle >= INACTIVE_DAYS) {
+    if (idle === null ? termStarted : idle >= INACTIVE_DAYS) {
       stuck.push([{ value: 'Student', tone: 'pending' }, s.student_name, s.group_names.join(', ') || null, last, idle])
     }
   }
@@ -172,7 +177,7 @@ export function checkInDoc(input: CheckInInput): ReportDoc {
         { key: 'days', label: 'Days', type: 'number' },
       ],
       rows: stuck,
-      note: `A task counts after ${STUCK_DAYS} days in progress; a group or student after ${INACTIVE_DAYS} days with no activity. Never active shows no date.`,
+      note: `A task counts after ${STUCK_DAYS} days in progress; a group or student after ${INACTIVE_DAYS} days with no activity. Never active shows no date; it is listed once the term has started.`,
     })
   }
 
@@ -182,7 +187,7 @@ export function checkInDoc(input: CheckInInput): ReportDoc {
   const soon = (day: string) => day >= from && day <= to
   const coming: Cell[][] = []
   for (const t of input.tasks) {
-    if (t.status === 'done' || !t.due_at) continue
+    if (!t.due_at || doneBy(t)) continue
     const d = manilaDay(t.due_at)
     if (soon(d)) coming.push([d, 'Task', t.title, `${t.group_name ?? t.board_student_name ?? 'A board'} · ${t.project_title}`])
   }
@@ -243,7 +248,7 @@ export function checkInDoc(input: CheckInInput): ReportDoc {
     })
   }
 
-  const weeks = weeklyActivity(input.activity, addDays(mondayOf(r.to), -49), r.to)
+  const weeks = weeklyActivity(input.activity.filter((a) => a.day <= r.to), addDays(mondayOf(r.to), -49), r.to)
   const last = weeks.at(-1)
   const avg = weeks.length ? Math.round(weeks.reduce((s, w) => s + w.work + w.talk, 0) / weeks.length) : 0
   blocks.push({
@@ -251,7 +256,7 @@ export function checkInDoc(input: CheckInInput): ReportDoc {
     id: 'weekly',
     title: 'Activity, the last 8 weeks',
     chart: { kind: 'weekBars', rows: weeks },
-    summary: `The week of ${DAY.format(new Date(`${last?.week ?? r.to}T00:00:00+08:00`))}: ${last?.work ?? 0} work events and ${last?.talk ?? 0} comments or files. The 8-week average is ${avg} a week.`,
+    summary: `The week ending ${DAY.format(new Date(`${r.to}T00:00:00+08:00`))}: ${last?.work ?? 0} work events and ${last?.talk ?? 0} comments or files. The 8-week average is ${avg} a week.`,
   })
 
   return { header, blocks, footer }

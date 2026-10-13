@@ -26,7 +26,7 @@ const note = (over: Partial<ClassNote>): ClassNote => ({
 })
 
 const base: CheckInInput = {
-  ...head, range: week, ended: false,
+  ...head, range: week, termStart: '2026-09-01', ended: false,
   activity: [
     act('2026-10-13', 'finished', 3), act('2026-10-13', 'started', 2), act('2026-10-14', 'commented', 4),
     act('2026-10-06', 'finished', 1),
@@ -57,6 +57,11 @@ describe('weekFigures', () => {
     expect(weekFigures(base, week)).toEqual({ finished: 3, started: 2, comments: 4, handIns: 1, returns: 1, active: 1 })
     expect(weekFigures(base, { from: '2026-10-05', to: '2026-10-11' }).finished).toBe(1)
   })
+  it('counts a hand-in made just after Manila midnight on the first day', () => {
+    const boards = [{ board_id: 'b1', name: 'Group 1', project_title: 'Lab 6', submitted_at: '2026-10-11T17:00:00Z' }]
+    expect(weekFigures({ ...base, boards }, week).handIns).toBe(1)
+    expect(weekFigures({ ...base, boards }, { from: '2026-10-05', to: '2026-10-11' }).handIns).toBe(0)
+  })
 })
 
 describe('checkInDoc', () => {
@@ -86,13 +91,50 @@ describe('checkInDoc', () => {
     expect(stuck.rows.some((r) => r[1] === 'Ben Diaz')).toBe(true)
     expect(stuck.rows.some((r) => r[1] === 'Ana Cruz')).toBe(false)
   })
+  it('keeps a task stuck that finished only after the range ended', () => {
+    const late = checkInDoc({ ...base, tasks: [task({ task_id: 't1', title: 'Write the model', status: 'done', started_at: '2026-10-05T01:00:00Z', done_at: '2026-10-20T01:00:00Z' })] })
+    expect(table(late, 'stuck')!.rows.some((r) => r[1] === 'Write the model')).toBe(true)
+    const early = checkInDoc({ ...base, tasks: [task({ task_id: 't1', title: 'Write the model', status: 'done', started_at: '2026-10-05T01:00:00Z', done_at: '2026-10-17T01:00:00Z' })] })
+    expect(table(early, 'stuck')!.rows.some((r) => r[1] === 'Write the model')).toBe(false)
+  })
+  it('counts a task stuck at exactly 7 days in progress, not 6', () => {
+    const at = (started_at: string) => checkInDoc({ ...base, tasks: [task({ title: 'Edge', status: 'in_progress', started_at })] })
+    expect(table(at('2026-10-11T04:00:00Z'), 'stuck')!.rows.some((r) => r[1] === 'Edge')).toBe(true)
+    expect(table(at('2026-10-12T04:00:00Z'), 'stuck')!.rows.some((r) => r[1] === 'Edge')).toBe(false)
+  })
+  it('counts a student idle at exactly 7 days, not 6', () => {
+    const only = (day: string) => checkInDoc({ ...base, activity: [act(day, 'finished', 1, 's1')], roster: [student('s1', 'Ana Cruz')], boards: [] })
+    expect(table(only('2026-10-11'), 'stuck')!.rows.some((r) => r[1] === 'Ana Cruz')).toBe(true)
+    const six = table(only('2026-10-12'), 'stuck')
+    expect(six === undefined || !six.rows.some((r) => r[1] === 'Ana Cruz')).toBe(true)
+  })
+  it('lists never-active groups and students only once the term has started', () => {
+    const never = (termStart: string | null) => table(checkInDoc({ ...base, termStart }), 'stuck')!
+    expect(never('2026-09-01').rows.some((r) => r[1] === 'Ben Diaz')).toBe(true)
+    expect(never('2026-09-01').rows.some((r) => r[1] === 'Group 2')).toBe(true)
+    expect(never(null).rows.some((r) => r[1] === 'Ben Diaz' || r[1] === 'Group 2')).toBe(false)
+    expect(never('2026-10-19').rows.some((r) => r[1] === 'Ben Diaz' || r[1] === 'Group 2')).toBe(false)
+  })
   it('lists what falls due in the 7 days after the range', () => {
     const coming = table(doc, 'coming')!
     expect(coming.rows.map((r) => [r[1], r[2]])).toEqual([['Task', 'Due soon'], ['Project', 'Lab 6']])
   })
+  it('lists a task due in the window that was finished only after the range ended', () => {
+    const due = '2026-10-20T15:00:00Z'
+    const rows = (done_at: string) =>
+      table(checkInDoc({ ...base, projects: [], tasks: [task({ title: 'Due soon', status: 'done', due_at: due, done_at })] }), 'coming')
+    expect(rows('2026-10-19T01:00:00Z')!.rows.map((r) => r[2])).toEqual(['Due soon'])
+    expect(rows('2026-10-17T01:00:00Z')).toBeUndefined()
+  })
   it('lists the ranked actions, then open follow-ups due in the range', () => {
     const attention = table(doc, 'attention')!
     expect(attention.rows.map((r) => r[1])).toEqual(['Group 2 has stopped', 'Follow up with Ana Cruz'])
+  })
+  it('leaves activity after the range out of the chart', () => {
+    const late = checkInDoc({ ...base, activity: [...base.activity, act('2026-10-20', 'finished', 50)] })
+    const chart = late.blocks.find((b) => b.kind === 'chart')
+    expect(chart && chart.kind === 'chart' && chart.chart.kind === 'weekBars' && chart.chart.rows.at(-1)).toMatchObject({ work: 5, talk: 4 })
+    expect(chart && chart.kind === 'chart' && chart.summary).toContain('The week ending Oct 18')
   })
   it('charts the 8 weeks ending on the range', () => {
     const chart = doc.blocks.find((b) => b.kind === 'chart')
