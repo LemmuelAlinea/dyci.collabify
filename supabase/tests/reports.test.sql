@@ -327,7 +327,7 @@ begin
     select distinct u.view_name
       from information_schema.view_table_usage u
      where u.view_schema = 'public'
-       and u.view_name like 'report_%'
+       and u.view_name like 'report\_%'
        and u.table_name in ('board_scores', 'member_scores')
   loop
     perform pg_temp.act_as(v_student);

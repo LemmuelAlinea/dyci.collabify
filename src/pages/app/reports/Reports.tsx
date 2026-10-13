@@ -272,18 +272,20 @@ export default function Reports({ classId }: { classId?: string }) {
               cap, so the sheet itself is unchanged on paper. */}
           <div className="min-w-0 @min-[860px]:rounded-card @min-[860px]:bg-[var(--surface-sunken)] @min-[860px]:p-6 print:!bg-transparent print:!p-0">
             <div className="mx-auto w-full @min-[860px]:max-w-[900px] print:!max-w-none">
-            {r.busy && (
+            {(r.busy || r.settling) && (
               <p className="mb-3 flex items-center gap-2 text-[13px] text-muted print:hidden">
                 <Spinner size={14} />
                 Gathering it…
               </p>
             )}
             {!r.ready ? (
-              <EmptyState
-                icon="file"
-                title="Choose what the report is about"
-                body="Pick the class, and the project, group or student the report should cover."
-              />
+              r.settling ? null : (
+                <EmptyState
+                  icon="file"
+                  title="Choose what the report is about"
+                  body="Pick the class, and the project, group or student the report should cover."
+                />
+              )
             ) : (
               <Preview r={r} d={d} professor={professor} />
             )}

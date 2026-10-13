@@ -93,6 +93,9 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
   const [reassignments, setReassignments] = useState<ReassignmentRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // The class the arrays above were last loaded for. Until it matches, a project
+  // choice in the address cannot be judged, so it is neither used nor dropped.
+  const [loadedFor, setLoadedFor] = useState('')
 
   const classId = lockedClassId || params.get('rclass') || classes?.[0]?.class_id || ''
   const setClassId = useCallback(
@@ -148,6 +151,7 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load that class.'))
     } finally {
+      setLoadedFor(classId)
       setBusy(false)
     }
   }, [classId])
@@ -211,13 +215,16 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     )
   }, [members])
 
+  /** True from choosing a class until its projects, boards and work have arrived. */
+  const settling = Boolean(classId) && loadedFor !== classId
+
   const choose = useCallback(
     (next: ReportKind) => {
       // A picker the new report does not use would otherwise keep narrowing it.
       const out: Record<string, string> = { report: next }
       // A project the new report cannot take (all projects, or a solo project
       // for peer evaluation) is dropped rather than left to draw nothing.
-      if (!NEEDS[next].includes('project') || !projectFits(next, projectId, projects)) out.rproject = ''
+      if (!NEEDS[next].includes('project') || (!settling && !projectFits(next, projectId, projects))) out.rproject = ''
       if (!NEEDS[next].includes('board')) out.rgroup = ''
       if (!NEEDS[next].includes('student') && !OPTIONAL_STUDENT.includes(next)) out.rstudent = ''
       if (next !== 'peer') {
@@ -226,11 +233,12 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
       }
       patch(out)
     },
-    [patch, projectId, projects],
+    [patch, projectId, projects, settling],
   )
 
   /** Whether the chosen report has everything it needs to be drawn. */
   const ready =
+    !settling &&
     (!NEEDS[kind].includes('class') || Boolean(cls)) &&
     (!NEEDS[kind].includes('project') ||
       projectFits(kind, projectId, projects) ||
@@ -243,6 +251,7 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     choose,
     loading: classes === null,
     busy,
+    settling,
     error,
     classes: classes ?? [],
     cls,
