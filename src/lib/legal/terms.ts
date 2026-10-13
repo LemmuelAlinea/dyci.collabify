@@ -21,8 +21,8 @@ export const TERMS: LegalDoc = {
   title: `Terms of use`,
   kicker: `The rules of the account`,
   summary: `What you agree to when you use Collabify, and what you keep.`,
-  version: `2026-09-08`,
-  effective: `2026-09-08`,
+  version: `2026-10-13`,
+  effective: `2026-10-13`,
   sections: [
     {
       id: 'what-this-is',
@@ -183,7 +183,7 @@ export const TERMS: LegalDoc = {
       blocks: [
         {
           kind: 'p',
-          text: `This is version 2026-09-08, effective 8 September 2026. Your agreement is recorded against the version you were shown.`,
+          text: `This is version 2026-10-13, effective 13 October 2026. Your agreement is recorded against the version you were shown.`,
         },
         {
           kind: 'p',

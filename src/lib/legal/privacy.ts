@@ -25,8 +25,8 @@ export const PRIVACY: LegalDoc = {
   title: `Privacy policy`,
   kicker: `How your information is handled`,
   summary: `What Collabify holds about you, who can see it, how long it is kept, and what you can ask for.`,
-  version: `2026-09-08`,
-  effective: `2026-09-08`,
+  version: `2026-10-13`,
+  effective: `2026-10-13`,
   sections: [
     {
       id: 'who-is-responsible',
@@ -103,6 +103,7 @@ export const PRIVACY: LegalDoc = {
           items: [
             `Running your classes — enrolment, groups, projects, boards, deadlines and handing work in.`,
             `Showing a professor how their classes are progressing, so they can act before a deadline turns into a problem.`,
+            `Grading. Your professor scores projects against their rubric and confirms each student's score. Final-round peer ratings feed a suggested score that your professor confirms or changes. Nothing is graded automatically.`,
             `Sending you notifications and the emails that confirm your address or reset your password.`,
             `Keeping an administrative record of account and class changes, so a mistake can be traced and undone.`,
             `Protecting the system — throttling repeated sign-in attempts and repeated uploads.`,
@@ -392,7 +393,7 @@ export const PRIVACY: LegalDoc = {
       blocks: [
         {
           kind: 'p',
-          text: `Each version carries a date. This is version 2026-09-08, effective 8 September 2026. Your agreement is recorded against the version you were shown, and you can see which one that was on [the request page](/privacy/request).`,
+          text: `Each version carries a date. This is version 2026-10-13, effective 13 October 2026. Your agreement is recorded against the version you were shown, and you can see which one that was on [the request page](/privacy/request).`,
         },
         {
           kind: 'p',

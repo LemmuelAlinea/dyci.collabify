@@ -297,7 +297,9 @@ create trigger on_auth_user_created after insert on auth.users
 insert into public.legal_versions (document, version, effective_on, material)
 values
   ('privacy', '2026-09-08', '2026-09-08', true),
-  ('terms',   '2026-09-08', '2026-09-08', true)
+  ('terms',   '2026-09-08', '2026-09-08', true),
+  ('privacy', '2026-10-13', '2026-10-13', true),
+  ('terms',   '2026-10-13', '2026-10-13', true)
 on conflict (document, version) do nothing;
 
 commit;
