@@ -3339,3 +3339,64 @@ Both start with "zz test".
 - One 403 appears in the console at page load. It is not an API call and is not from notes (checked); its source wasn't found.
 
 **Next.** Phase B: rebuild class Reports on the General report engine, including released scores (C2) and the notes log (C3).
+
+---
+
+## Phase B1: report engine and grading reports (2026-10-14)
+
+- **Spec:** `docs/superpowers/specs/2026-10-13-phase-b-reports-design.md`. B1 is the first of four parts; B2–B4 follow.
+- **Plan:** `docs/superpowers/plans/2026-10-13-phase-b1-report-engine-grading.md`. Its rulings 1–6 cover dates as text in Excel, "not released" on the grade-book column header, the `Bars` chart, the `report`/`rclass`/`rproject`/`rgroup`/`rstudent`/`rround`/`rcomments` URL keys, the one-student switch, and the score-rule test.
+
+**What.**
+- The class Reports catalogue now opens with two groups:
+  - **For grading:** the new reports.
+  - **Older reports:** the seven old sheets, unchanged until B4.
+- Every choice lives in the URL, so a link reopens the same report.
+- Each new report has Print and an **Export** menu: Excel (.xlsx), Word (.docx), and one CSV per table.
+- **Individual grading sheet:**
+  - **One project:** KPIs, a grades table, the spread chart and the rubric.
+    - The grades table shows criteria, group total, peer factor (2 dp), flags, suggested and final.
+    - For a confirmed final it shows the *saved* suggestion and factor, and tags "Suggestion changed" when the live value has drifted.
+    - Each row also carries a status (Released / Not released / Not confirmed) and contribution.
+  - **All projects:** the grade book. "(not released)" sits on the column header.
+  - **One student:** that student across every project, with the rubric breakdown and their peer view beside the team's.
+- **Peer evaluation summary:**
+  - response rate and flag counts (open-round wording);
+  - the class averages on the five behaviours;
+  - one table per group (2 dp);
+  - optional comments, marked confidential, with a From column of Self or Teammate. Rater names are never shown, and comments are sorted so the input order never shows.
+
+**Code.**
+
+| File | What it does |
+|---|---|
+| `lib/reports/doc.ts` | The `ReportDoc` model, plus `cellText`/`cellExport`, with `decimals` and an invalid-date guard. |
+| `lib/reports/export.ts` | Excel, Word and CSV output. Every text cell is guarded against becoming a formula. Sheet names are Excel-safe: apostrophes are stripped and "History" is reserved. |
+| `components/reports/ReportDocView.tsx`, `charts/Bars.tsx` | The on-screen and print renderer. |
+| `lib/reports/grading.ts`, `peerSummary.ts` | The pure document builders, all tested. |
+| `pages/app/reports/useReportDoc.ts` | Builds a doc keyed by the choices it was made for. A live refresh keeps the sheet on screen and refetches on score and peer table changes. A failed refresh keeps the last version. |
+| `useReports.ts` | Choices held in the URL. Loads use sequence guards. A `settling` flag stops a choice being judged before its class has loaded. |
+| `reportKind.ts` | The tested parser for the report kind in the URL. |
+
+`reports.test.sql` now holds the new rule: any `report\_%` view that reads a score table returns zero rows to a student.
+
+**Checked.**
+- Vitest: 857 tests pass, and the build is clean.
+- Browser, on live data, as faculty:
+  - the grading sheet for Lab 6 (not scored, so it shows the no-spread note), the grade book, and one student;
+  - the peer summary with comments off and on;
+  - the Export menu;
+  - Excel and Word run in the page and read back: tables kept, nothing turned into a formula, sheet names valid;
+  - an old report;
+  - 375 px with no sideways scroll.
+- No files were downloaded.
+
+**Deferred** (from the ledger, for B2):
+- Excel leaves out notes, paragraphs, chart summaries and signatures, and sets no column widths.
+- Word KPIs are unformatted.
+- CSV file names can collide.
+- Text that looks like a number is turned into a number.
+- Repeated live events can delay a class load.
+- "Gathering it…" flashes on every live refresh.
+
+**Next.** B2: the Weekly class check-in and the Intervention log, which adds the `class_note_log` view.
