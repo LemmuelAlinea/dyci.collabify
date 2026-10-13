@@ -1,3 +1,4 @@
+import type { PeerDimension } from './peerDimensions'
 import { localDay } from './termShift'
 
 export type Role = 'student' | 'faculty' | 'admin'
@@ -206,6 +207,7 @@ export type AppNotification = {
     | 'meeting_cancelled'
     | 'peer_round_opened'
     | 'peer_round_reminder'
+    | 'grades_released'
   class_id: string | null
   announcement_id: string | null
   project_id: string | null
@@ -1351,6 +1353,54 @@ export type PeerForm = {
   board_id: string
   team: { id: string; name: string; avatar_url: string | null; is_me: boolean }[]
   ratings: PeerRatingInput[]
+}
+
+/** score_sheet(): one board and person, with today's suggestion beside what was confirmed. */
+export type ScoreSheetRow = {
+  board_id: string
+  student_id: string
+  student_name: string
+  /** False on an individual board, which has no teammates and no factor. */
+  in_group: boolean
+  group_total: number | null
+  scored: number
+  criteria: number
+  total_points: number
+  factor: number | null
+  raters: number
+  suggested_now: number | null
+  suggested_saved: number | null
+  final: number | null
+  overridden: boolean | null
+  factor_saved: number | null
+  confirmed_at: string | null
+  suggestion_changed: boolean
+  released: boolean
+}
+
+export type BoardScore = {
+  board_id: string
+  criterion_id: string
+  points: number
+  scored_at: string
+}
+
+/** my_peer_summary(): the student's averages from teammates beside the team's. */
+export type MyPeerSummary = {
+  raters: number
+  me: Record<PeerDimension, number>
+  team: Record<PeerDimension, number>
+}
+
+/** my_grade(): a released grade, as the student sees it. */
+export type MyGrade = {
+  final: number
+  group_total: number
+  total_points: number
+  in_group: boolean
+  released_at: string
+  criteria: { label: string; description: string; max_points: number; points: number | null }[]
+  peer: MyPeerSummary | null
 }
 
 /**
