@@ -146,7 +146,7 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
                   onChange={(e) => setEdits((d) => ({ ...d, [c.id]: e.target.value }))}
                   className={box}
                 />
-                <span className="font-mono text-[12px] text-faint">/ {c.max_points}</span>
+                <span className="w-12 text-left font-mono text-[12px] tabular-nums text-faint">/ {c.max_points}</span>
               </span>
               {err && (
                 <p id={`pts-${board.id}-${c.id}-err`} className="basis-full text-right text-[12px] text-danger-700 dark:text-danger-300">

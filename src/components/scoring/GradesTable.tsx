@@ -134,7 +134,7 @@ export function GradesTable({
               const status = SCORE_STATUS_META[boardScoreStatus(rowsOf.get(b.id) ?? [])]
               return (
                 <tr key={b.id} className="border-b border-line last:border-0">
-                  <th scope="row" className="px-2 py-2 text-left font-normal">
+                  <th scope="row" className="whitespace-nowrap px-2 py-2 text-left font-normal">
                     <button type="button" onClick={() => onOpen(b.id)} className="text-ink hover:underline">
                       {boardOwnerName(b)}
                     </button>
@@ -145,7 +145,7 @@ export function GradesTable({
                       {formatPoints(v)}
                     </td>
                   ))}
-                  <td className="px-2 py-2 font-mono text-ink">
+                  <td className="whitespace-nowrap px-2 py-2 font-mono text-ink">
                     {formatPoints(total)} <span className="text-faint">/ {totalPoints}</span>
                   </td>
                   <td className="px-2 py-2">

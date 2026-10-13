@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLive } from '../../hooks/useLive'
 import { Alert } from '../ui/Alert'
-import { ProgressBar } from '../charts/ProgressBar'
 import { myGrade } from '../../lib/api/scores'
 import { authErrorMessage } from '../../lib/authError'
 import { PEER_DIMENSIONS } from '../../lib/peerDimensions'
@@ -9,6 +8,9 @@ import { formatPoints } from '../../lib/scoreMath'
 import type { MyGrade } from '../../lib/types'
 
 const dateFmt = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' })
+
+const barPct = (points: number | string | null, max: number) =>
+  points === null || max <= 0 ? 0 : Math.round(Math.min(100, Math.max(0, (Number(points) / max) * 100)))
 
 /**
  * The student's released grade: the score, the board's rubric breakdown, any
@@ -90,10 +92,12 @@ export function GradeCard({ projectId }: { projectId: string }) {
                     {formatPoints(c.points === null ? null : Number(c.points))} / {c.max_points}
                   </span>
                 </div>
-                <ProgressBar
-                  value={c.points === null ? 0 : (Number(c.points) / c.max_points) * 100}
-                  label=" "
-                />
+                <span aria-hidden="true" className="block h-1.5 w-full overflow-hidden rounded-full surface-sunken">
+                  <span
+                    className="block h-full rounded-full bg-progress"
+                    style={{ width: `${barPct(c.points, c.max_points)}%` }}
+                  />
+                </span>
               </li>
             ))}
           </ul>
