@@ -182,12 +182,13 @@ begin
       using errcode = 'check_violation';
   end if;
 
+  -- Once a day per board, counted from the professor's own log (class-notes.sql).
+  -- Students can delete their notifications, so counting those let the limit slip.
   if exists (
-    select 1 from public.notifications n
-     where n.user_id = any (recipients)
-       and n.type = 'nudge'
-       and n.project_id = proj.id
-       and n.created_at > now() - interval '20 hours'
+    select 1 from public.class_notes cn
+     where cn.board_id = p_board
+       and cn.kind = 'nudge'
+       and cn.created_at > now() - interval '20 hours'
   ) then
     raise exception 'They were reminded today already. Try again tomorrow'
       using errcode = 'check_violation';
@@ -205,6 +206,9 @@ begin
              || ' is checking in. Move a task forward, or say on the board what is in the way.')
     from unnest(recipients) as t(user_id);
   get diagnostics sent = row_count;
+
+  insert into public.class_notes (class_id, board_id, kind, body)
+  values (proj.class_id, p_board, 'nudge', coalesce(note, 'Reminder sent'));
   return sent;
 end;
 $$;

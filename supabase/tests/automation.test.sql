@@ -232,6 +232,9 @@ begin
 
   -- Not on handed-in work.
   delete from public.notifications where user_id = v_a and type = 'nudge';
+  -- The daily limit now reads the professor's log, so clear that too: this
+  -- check is about handed-in work, not the limit.
+  delete from public.class_notes where board_id = v_board and kind = 'nudge';
   update public.project_boards set submitted_at = now(), submitted_by = v_a where id = v_board;
   perform pg_temp.act_as(v_prof);
   refused := false;

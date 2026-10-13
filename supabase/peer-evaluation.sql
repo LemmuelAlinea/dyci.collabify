@@ -252,9 +252,9 @@ end;
 $$;
 
 /**
- * Remind the students who have not rated everyone yet. Once a day per project:
- * counted from the reminders already sent, as nudge_board does. Phase C3 moves
- * this count to the professor's notes log, which students cannot delete.
+ * Remind the students who have not rated everyone yet. Once a day per project,
+ * counted from the professor's notes log (class-notes.sql), which students
+ * cannot delete. Each board reached gets one 'peer_reminder' note.
  */
 create or replace function public.remind_peer_round(p_round uuid)
 returns integer
@@ -281,13 +281,14 @@ begin
       using errcode = 'check_violation';
   end if;
   select * into proj from public.projects where id = r.project_id;
-  -- Once a day per round: only reminders sent since this round opened count.
+  -- Once a day per round: only reminders logged since this round opened count.
   if exists (
-    select 1 from public.notifications n
-     where n.type = 'peer_round_reminder'
-       and n.project_id = proj.id
-       and n.created_at > r.opens_at
-       and n.created_at > now() - interval '20 hours'
+    select 1 from public.class_notes cn
+      join public.project_boards b on b.id = cn.board_id
+     where cn.kind = 'peer_reminder'
+       and b.project_id = proj.id
+       and cn.created_at > r.opens_at
+       and cn.created_at > now() - interval '20 hours'
   ) then
     raise exception 'You already sent a reminder today. Try again tomorrow.'
       using errcode = 'check_violation';
@@ -295,39 +296,55 @@ begin
 
   -- Stamped with the clock, not the transaction start, so the daily count lines up
   -- with opens_at (also a clock time).
-  insert into public.notifications (user_id, type, class_id, project_id, group_id, title, preview, created_at)
-  select t.student_id, 'peer_round_reminder', proj.class_id, proj.id, t.group_id,
-         'Reminder: ' || proj.title,
-         'Rate your teammates before '
-           || to_char(r.closes_at at time zone 'Asia/Manila', 'Mon FMDD, FMHH12:MI AM'),
-         clock_timestamp()
-    from (
-      select b.id as board_id, b.group_id, gm.student_id
-        from public.project_boards b
-        join public.groups g on g.id = b.group_id and g.archived_at is null
-        join public.group_members gm on gm.group_id = b.group_id
-       where b.project_id = proj.id
-    ) t
-    join (
-      select b.id as board_id, count(*) as n
-        from public.project_boards b
-        join public.groups g on g.id = b.group_id and g.archived_at is null
-        join public.group_members gm on gm.group_id = b.group_id
-       where b.project_id = proj.id
-       group by b.id
-    ) s on s.board_id = t.board_id
-    left join (
-      select pr.rater_id, pr.board_id, count(*) as n
-        from public.peer_ratings pr
-        join public.project_boards b on b.id = pr.board_id
-        join public.groups g on g.id = b.group_id and g.archived_at is null
-        join public.group_members gm on gm.group_id = b.group_id and gm.student_id = pr.ratee_id
-       where pr.round_id = p_round
-       group by pr.rater_id, pr.board_id
-    ) d on d.rater_id = t.student_id and d.board_id = t.board_id
-   where s.n > 1 and coalesce(d.n, 0) < s.n;
-
-  get diagnostics sent = row_count;
+  with recipients as (
+    select t.board_id, t.group_id, t.student_id
+      from (
+        select b.id as board_id, b.group_id, gm.student_id
+          from public.project_boards b
+          join public.groups g on g.id = b.group_id and g.archived_at is null
+          join public.group_members gm on gm.group_id = b.group_id
+         where b.project_id = proj.id
+      ) t
+      join (
+        select b.id as board_id, count(*) as n
+          from public.project_boards b
+          join public.groups g on g.id = b.group_id and g.archived_at is null
+          join public.group_members gm on gm.group_id = b.group_id
+         where b.project_id = proj.id
+         group by b.id
+      ) s on s.board_id = t.board_id
+      left join (
+        select pr.rater_id, pr.board_id, count(*) as n
+          from public.peer_ratings pr
+          join public.project_boards b on b.id = pr.board_id
+          join public.groups g on g.id = b.group_id and g.archived_at is null
+          join public.group_members gm on gm.group_id = b.group_id and gm.student_id = pr.ratee_id
+         where pr.round_id = p_round
+         group by pr.rater_id, pr.board_id
+      ) d on d.rater_id = t.student_id and d.board_id = t.board_id
+     where s.n > 1 and coalesce(d.n, 0) < s.n
+  ),
+  notified as (
+    insert into public.notifications (user_id, type, class_id, project_id, group_id, title, preview, created_at)
+    select x.student_id, 'peer_round_reminder', proj.class_id, proj.id, x.group_id,
+           'Reminder: ' || proj.title,
+           'Rate your teammates before '
+             || to_char(r.closes_at at time zone 'Asia/Manila', 'Mon FMDD, FMHH12:MI AM'),
+           clock_timestamp()
+      from recipients x
+    returning user_id
+  ),
+  logged as (
+    insert into public.class_notes (class_id, board_id, kind, body, created_at)
+    select proj.class_id, x.board_id, 'peer_reminder',
+           'Reminded ' || case when count(*) = 1 then '1 student' else count(*) || ' students' end
+             || ' to rate their teammates',
+           clock_timestamp()
+      from recipients x
+     group by x.board_id
+    returning 1
+  )
+  select count(*) into sent from notified;
   return sent;
 end;
 $$;

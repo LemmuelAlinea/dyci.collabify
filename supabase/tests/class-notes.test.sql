@@ -231,4 +231,62 @@ end $$;
 
 -- ================================================= Task 2 appends below here
 
+-- ------------------------------------------------ a nudge is logged (Task 2)
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_a uuid := (select v from fx where k='a');
+  v_proj uuid := (select v from fx where k='proj');
+  v_board uuid := (select v from fx where k='board');
+  n int;
+begin
+  perform pg_temp.act_as(v_prof);
+  n := public.nudge_board(v_board, '  zz-Show me a draft by Friday.  ');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('the nudge reached the group', n = 2);
+  perform pg_temp.must_be('and is logged as a note on the board, by the professor',
+    exists (select 1 from public.class_notes
+             where board_id = v_board and kind = 'nudge'
+               and body = 'zz-Show me a draft by Friday.' and created_by = v_prof));
+
+  -- The students clear their notifications.
+  delete from public.notifications where project_id = v_proj and type = 'nudge';
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_refuse('the daily limit holds after the students delete the notification',
+    format('select public.nudge_board(%L, null)', v_board));
+
+  perform pg_temp.act_as(v_a);
+  perform pg_temp.must_be('students still cannot read the log',
+    (select count(*) from public.class_notes where board_id = v_board) = 0);
+end $$;
+
+-- ------------------------------------------ a peer reminder is logged (Task 2)
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_proj uuid := (select v from fx where k='proj');
+  v_board uuid := (select v from fx where k='board');
+  v_round uuid;
+  n int;
+begin
+  perform pg_temp.act_as(v_prof);
+  perform public.open_peer_round(v_proj, 'check_in', now() + interval '2 days');
+  select id into v_round from public.peer_rounds where project_id = v_proj;
+  n := public.remind_peer_round(v_round);
+  perform pg_temp.must_be('the reminder reached both students who have not rated', n = 2);
+
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('and is logged once for the board, saying how many',
+    (select count(*) from public.class_notes
+      where board_id = v_board and kind = 'peer_reminder'
+        and body = 'Reminded 2 students to rate their teammates') = 1);
+
+  delete from public.notifications where project_id = v_proj and type = 'peer_round_reminder';
+  perform pg_temp.act_as(v_prof);
+  perform pg_temp.must_refuse('the peer reminder limit holds after the notifications are deleted',
+    format('select public.remind_peer_round(%L)', v_round));
+end $$;
+
 rollback;
