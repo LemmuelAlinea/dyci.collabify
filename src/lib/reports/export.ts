@@ -25,29 +25,34 @@ function gridText(v: string | number | null): string {
 
 const kpiText = (v: number | string) => (typeof v === 'number' ? String(v) : gridText(v))
 
+/** A CSV cell. Excel and Sheets read a leading = + - or @ as a formula, and peer comments are exported. */
+function csvSafe(s: string): string {
+  return /^[=+\-@]/.test(s) ? ` ${s}` : s
+}
+
 export function docToWorkbook(doc: ReportDoc): Workbook {
   const used = new Set<string>()
   const h = doc.header
   const cover: string[][] = [
-    [h.title],
-    [h.subtitle],
-    [h.classLine],
-    ...(h.rangeLabel ? [[h.rangeLabel]] : []),
-    [`Made ${h.madeAt}`],
-    ...(h.confidential ? [[h.confidential]] : []),
+    [gridText(h.title)],
+    [gridText(h.subtitle)],
+    [gridText(h.classLine)],
+    ...(h.rangeLabel ? [[gridText(h.rangeLabel)]] : []),
+    [gridText(`Made ${h.madeAt}`)],
+    ...(h.confidential ? [[gridText(h.confidential)]] : []),
     [''],
   ]
   for (const b of doc.blocks) {
-    if (b.kind === 'kpis') for (const k of b.items) cover.push([k.label, kpiText(k.value), k.unit ?? ''])
+    if (b.kind === 'kpis') for (const k of b.items) cover.push([gridText(k.label), kpiText(k.value), gridText(k.unit ?? '')])
   }
-  if (doc.footer.lines.length) cover.push([''], ...doc.footer.lines.map((l) => [l]))
+  if (doc.footer.lines.length) cover.push([''], ...doc.footer.lines.map((l) => [gridText(l)]))
 
   const sheets: Sheet[] = [{ name: sheetName('Report', used), rows: cover }]
   for (const t of tableBlocks(doc)) {
     sheets.push({
       name: sheetName(t.title, used),
       rows: [
-        t.columns.map(columnHeader),
+        t.columns.map((c) => gridText(columnHeader(c))),
         ...t.rows.map((row) => t.columns.map((col, i) => gridText(cellExport(row[i] ?? null, col)))),
       ],
       freeze: { rows: 1, cols: 0 },
@@ -125,8 +130,13 @@ export function docCsvFiles(doc: ReportDoc, base: string) {
       name: `${base}-${n === 1 ? s : `${s}-${n}`}.csv`,
       label: t.title,
       csv: toCsv(
-        t.columns.map(columnHeader),
-        t.rows.map((row) => t.columns.map((col, i) => cellExport(row[i] ?? null, col))),
+        t.columns.map((c) => csvSafe(columnHeader(c))),
+        t.rows.map((row) =>
+          t.columns.map((col, i) => {
+            const v = cellExport(row[i] ?? null, col)
+            return typeof v === 'string' ? csvSafe(v) : v
+          }),
+        ),
       ),
     }
   })

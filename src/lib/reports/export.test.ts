@@ -89,3 +89,39 @@ describe('reportBase', () => {
     expect(reportBase('grading', 'Lab 6')).toMatch(/^grading-lab-6-\d{4}-\d{2}-\d{2}$/)
   })
 })
+
+describe('formula guard', () => {
+  it('keeps a formula-looking title or column label from becoming a live formula in Excel', () => {
+    const guarded: ReportDoc = {
+      ...doc,
+      header: { ...doc.header, subtitle: '=HYPERLINK("https://example.test","open")' },
+      blocks: [{ kind: 'table', id: 'x', title: 'Peers', columns: [{ key: 'a', label: '=Sum', type: 'text' }], rows: [['ok']] }],
+    }
+    const wb = docToWorkbook(guarded)
+    expect(wb.sheets[0].rows[1][0]).toBe(' =HYPERLINK("https://example.test","open")')
+    expect(wb.sheets[1].rows[0][0]).toBe(' =Sum')
+    expect(wb.sheets.flatMap((s) => s.rows.flat()).some((c) => c.startsWith('='))).toBe(false)
+  })
+  it('stops = + - and @ text cells being read as formulas in CSV, and leaves numbers alone', () => {
+    const csvDoc: ReportDoc = {
+      ...doc,
+      blocks: [
+        {
+          kind: 'table', id: 'peers', title: 'Peers',
+          columns: [
+            { key: 'a', label: '+Label', type: 'text' },
+            { key: 'n', label: 'Score', type: 'number' },
+          ],
+          rows: [
+            ['=1+1', -5],
+            ['@cmd', null],
+          ],
+        },
+      ],
+    }
+    const csv = docCsvFiles(csvDoc, 'b')[0].csv
+    expect(csv).toContain(' +Label,Score')
+    expect(csv).toContain(' =1+1,-5')
+    expect(csv).toContain(' @cmd,')
+  })
+})
