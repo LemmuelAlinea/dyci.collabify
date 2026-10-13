@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { FilterChain } from '../../../components/analytics/FilterChain'
 import { NeedsAttention } from '../../../components/analytics/NeedsAttention'
+import { EMPTY_SCOPE } from '../../../components/analytics/scope'
 import type { Scope } from '../../../components/analytics/scope'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
@@ -40,6 +41,7 @@ export default function Analytics({ classId }: { classId?: string }) {
   const { profile } = useAuth()
   const data = useAnalytics(classId)
   const [openTask, setOpenTask] = useState<string | null>(null)
+  const [openRequest, setOpenRequest] = useState(0)
   const [params, setParams] = useSearchParams()
   const view = readAnalyticsView(params.get('view'))
   const { scope, setScope, shownTasks } = data
@@ -68,12 +70,14 @@ export default function Analytics({ classId }: { classId?: string }) {
   // A follow-up is about a person or a group: open their record, not just a tab.
   const seeWhy = (a: Action) => {
     if (a.kind === 'follow_up_due' && a.studentId) {
-      setScope({ ...scope, studentId: a.studentId, boardId: '', taskId: '' })
+      setScope({ ...EMPTY_SCOPE, classId: a.classId, studentId: a.studentId })
+      setOpenRequest((n) => n + 1)
       setView('students')
       return
     }
     if (a.kind === 'follow_up_due' && a.boardId) {
-      setScope({ ...scope, boardId: a.boardId, studentId: '', taskId: '' })
+      const projectId = data.burns.find((b) => b.board_id === a.boardId)?.project_id ?? ''
+      setScope({ ...EMPTY_SCOPE, classId: a.classId, projectId, boardId: a.boardId })
       setView('groups')
       return
     }
@@ -134,7 +138,7 @@ export default function Analytics({ classId }: { classId?: string }) {
 
           {view === 'class' && <ClassView data={data} />}
           {view === 'groups' && <GroupsView data={data} />}
-          {view === 'students' && <StudentsView data={data} onOpenTask={setOpenTask} />}
+          {view === 'students' && <StudentsView data={data} onOpenTask={setOpenTask} openRequest={openRequest} />}
           {view === 'projects' && <ProjectsView data={data} onOpenTask={setOpenTask} />}
 
           {(scope.boardId || scope.studentId || scope.taskId) && (

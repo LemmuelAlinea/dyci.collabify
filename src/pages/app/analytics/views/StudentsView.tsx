@@ -8,9 +8,24 @@ import type { AnalyticsData } from '../useAnalytics'
 import { termsOf } from '../window'
 import { Section } from './Section'
 
-export function StudentsView({ data, onOpenTask }: { data: AnalyticsData; onOpenTask: (id: string) => void }) {
+export function StudentsView({
+  data,
+  onOpenTask,
+  openRequest,
+}: {
+  data: AnalyticsData
+  onOpenTask: (id: string) => void
+  /** Bumped each time a follow-up asks for the scoped student's record, even one just closed. */
+  openRequest: number
+}) {
   const [picked, setPicked] = useState<string | null>(null)
   const [closedFor, setClosedFor] = useState<string | null>(null)
+  const [seenRequest, setSeenRequest] = useState(openRequest)
+  if (seenRequest !== openRequest) {
+    setSeenRequest(openRequest)
+    setClosedFor(null)
+    setPicked(null)
+  }
   const [seenScope, setSeenScope] = useState(data.scope.studentId)
   // A new scope starts fresh, so picking a student again reopens their drawer.
   if (seenScope !== data.scope.studentId) {
