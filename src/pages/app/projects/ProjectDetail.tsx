@@ -18,6 +18,7 @@ import { SeriesActionDialog } from '../../../components/projects/SeriesActionDia
 import { BoardVerdict } from '../../../components/tasks/BoardVerdict'
 import { ClassFilesTab } from '../../../components/tasks/ClassFilesTab'
 import { ProjectGroupsTab } from '../../../components/groups/ProjectGroupsTab'
+import { GradeCard } from '../../../components/scoring/GradeCard'
 import { RateTeamButton } from '../../../components/peer/RateTeamButton'
 import { ProjectTasksTab } from '../../../components/tasks/ProjectTasksTab'
 import { SubmitProject } from '../../../components/tasks/SubmitProject'
@@ -469,6 +470,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         )}
 
         <div className="grid gap-6 lg:grid-cols-2">
+        {role === 'student' && <GradeCard projectId={project.id} />}
         {/* The syllabus lines it was built on — the reason the project exists. */}
         <section className="rounded-panel border border-line surface p-4 shadow-card sm:p-6 lg:col-span-2">
           <div className="flex items-center justify-between gap-3">
