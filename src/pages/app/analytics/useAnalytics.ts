@@ -20,9 +20,12 @@ import {
   studentRoster,
   taskStates,
 } from '../../../lib/api/analytics'
+import { listClassNotes } from '../../../lib/api/notes'
 import { classPeerResults } from '../../../lib/api/peer'
 import { authErrorMessage } from '../../../lib/authError'
 import { rankActions } from '../../../lib/insight'
+import { followUpActions } from '../../../lib/notes'
+import { manilaDay } from '../../../lib/analyticsMath'
 import type { ActionRow, BoardDiagnosis, Participation, Pressure } from '../../../lib/insight'
 import type {
   ActivityDay,
@@ -30,6 +33,7 @@ import type {
   BoardCycle,
   ClassGap,
   ClassHealth,
+  ClassNote,
   ClassPace,
   ClassUnmeasured,
   MemberLoad as Load,
@@ -71,6 +75,18 @@ export function useAnalytics(classId?: string) {
   const [milestones, setMilestones] = useState<MilestoneProgress[]>([])
   const [sprints, setSprints] = useState<SprintProgress[]>([])
   const [peer, setPeer] = useState<PeerResult[]>([])
+  const [notes, setNotes] = useState<ClassNote[]>([])
+  const reloadNotes = useCallback(async () => {
+    try {
+      setNotes(await listClassNotes())
+    } catch {
+      // The notes are an extra; the page still answers without them.
+    }
+  }, [])
+  useEffect(() => {
+    void reloadNotes()
+  }, [reloadNotes])
+  useLive(reloadNotes, ['class_notes'])
   const [error, setError] = useState<string | null>(null)
   const [scope, setScopeState] = useState<Scope>({ ...EMPTY_SCOPE, classId: classId ?? '' })
   // Locked to one class (inside a class's own page), every narrowing keeps it.
@@ -302,8 +318,19 @@ export function useAnalytics(classId?: string) {
       .filter((a) =>
         scope.studentId ? a.student_id === scope.studentId || boardsInView.has(a.board_id ?? '') : true,
       )
-    return rankActions(rows, shownBurns)
-  }, [actionRows, scope, shownBurns, boardsInView])
+    const names = new Map(roster.map((r) => [`${r.class_id}:${r.student_id}`, r.student_name]))
+    const boardNames = new Map(burns.map((b) => [b.board_id, b.group_name ?? b.student_name ?? 'A group']))
+    const due = notes
+      .filter((n) => (scope.classId ? n.class_id === scope.classId : true))
+      .filter((n) => (scope.boardId ? n.board_id === scope.boardId : true))
+      .filter((n) => (scope.studentId ? n.student_id === scope.studentId || boardsInView.has(n.board_id ?? '') : true))
+    const followUps = followUpActions(due, manilaDay(new Date()), (n) =>
+      n.student_id
+        ? names.get(`${n.class_id}:${n.student_id}`) ?? 'a student'
+        : boardNames.get(n.board_id ?? '') ?? 'a group',
+    )
+    return rankActions(rows, shownBurns, followUps)
+  }, [actionRows, scope, shownBurns, boardsInView, notes, roster, burns])
 
   const totals = useMemo(() => {
     // Counted off the boards in view rather than class_health, so the numbers
@@ -373,6 +400,8 @@ export function useAnalytics(classId?: string) {
     shownMilestones,
     shownSprints,
     shownPeer,
+    notes,
+    reloadNotes,
     // Raw, for class-level facts the views need whatever the narrowing.
     pace: pace ?? [],
     people,

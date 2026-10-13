@@ -104,6 +104,8 @@ export type ActionKind =
   | 'class_unmeasured'
   /** Composed here rather than in SQL: it needs the burn projection. */
   | 'will_miss_deadline'
+  /** Composed from class_notes in lib/notes.ts: a follow-up date has come. */
+  | 'follow_up_due'
 
 /** class_actions: the facts arguing for one recommendation. */
 export type ActionRow = {
@@ -133,6 +135,8 @@ export type Action = {
   classId: string
   boardId: string | null
   projectId: string | null
+  /** Set when the card is about one student, so "See why" can open their record. */
+  studentId?: string | null
 }
 
 /* ------------------------------------------------------------ diagnostics */
@@ -387,6 +391,8 @@ function sentence(a: ActionRow): { title: string; evidence: string } {
       }
     case 'will_miss_deadline':
       return { title: `${who} will miss its deadline`, evidence: '' }
+    case 'follow_up_due':
+      return { title: `Follow up with ${who}`, evidence: '' }
   }
 }
 
@@ -438,7 +444,7 @@ function fold(kind: ActionKind, rows: ActionRow[]): Action {
  * into a single card that names them. A list of thirty cards is a list nobody
  * reads to the end.
  */
-export function rankActions(rows: ActionRow[], burns: BoardBurn[]): Action[] {
+export function rankActions(rows: ActionRow[], burns: BoardBurn[], extra: Action[] = []): Action[] {
   const projected: Action[] = burns
     .filter((b) => !b.submitted_at && b.result_verdict !== 'accepted')
     .map((b) => ({ b, f: forecast(b) }))
@@ -500,7 +506,7 @@ export function rankActions(rows: ActionRow[], burns: BoardBurn[]): Action[] {
     )
   })
 
-  return [...projected, ...single, ...groups].sort(
+  return [...projected, ...single, ...groups, ...extra].sort(
     (a, b) => a.severity - b.severity || a.title.localeCompare(b.title),
   )
 }

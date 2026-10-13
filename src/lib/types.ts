@@ -1407,6 +1407,24 @@ export type MyGrade = {
   peer: MyPeerSummary | null
 }
 
+export type ClassNoteKind = 'note' | 'nudge' | 'meeting' | 'follow_up' | 'peer_reminder'
+
+/** class_notes: what the teaching staff noted or did. Staff only. */
+export type ClassNote = {
+  id: string
+  class_id: string
+  student_id: string | null
+  board_id: string | null
+  kind: ClassNoteKind
+  body: string
+  /** A Manila day, YYYY-MM-DD. */
+  follow_up_on: string | null
+  resolved_at: string | null
+  outcome: string
+  created_by: string | null
+  created_at: string
+}
+
 /**
  * The same shape as projectFinish, one level down: work finished per day,
  * extended across what is left, against the days that remain.

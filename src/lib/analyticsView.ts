@@ -19,6 +19,7 @@ const VIEW_FOR: Record<ActionKind, AnalyticsView> = {
   unclaimed_work: 'groups',
   carrying_alone: 'groups',
   will_miss_deadline: 'groups',
+  follow_up_due: 'students',
   not_in_a_group: 'students',
   holding_nothing: 'students',
   pending_reassignment: 'students',

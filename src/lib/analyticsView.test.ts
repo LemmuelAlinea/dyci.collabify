@@ -12,6 +12,9 @@ describe('readAnalyticsView', () => {
 })
 
 describe('viewForAction', () => {
+  it('sends a follow-up to Students', () => {
+    expect(viewForAction('follow_up_due')).toBe('students')
+  })
   it('sends board problems to Groups', () => {
     expect(viewForAction('carrying_alone')).toBe('groups')
     expect(viewForAction('stalled_board')).toBe('groups')
