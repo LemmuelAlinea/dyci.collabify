@@ -35,6 +35,8 @@ export function ProjectWizard({
   editing,
   editingCriteria,
   onSaved,
+  rubricLocked = false,
+  onClearScores,
 }: {
   open: boolean
   onClose: () => void
@@ -45,6 +47,9 @@ export function ProjectWizard({
   editing?: ProjectSummary
   editingCriteria?: CriterionInput[]
   onSaved: (projectId: string) => Promise<void> | void
+  /** Scores exist: the total and the rubric's points are fixed. */
+  rubricLocked?: boolean
+  onClearScores?: () => Promise<void>
 }) {
   const [classId, setClassId] = useState(fixedClassId ?? editing?.class_id ?? '')
   const [weeks, setWeeks] = useState<ClassWeek[] | null>(null)
@@ -270,6 +275,8 @@ export function ProjectWizard({
                 : { primary: cls, classes: mine, groupSets: sets }
             }
             onSubmit={save}
+            rubricLocked={rubricLocked}
+            onClearScores={onClearScores}
           />
         )}
       </div>

@@ -43,6 +43,7 @@ import {
   uploadProjectFile,
 } from '../../../lib/api/projects'
 import type { CriterionInput } from '../../../lib/api/projects'
+import { clearProjectScores, projectHasScores } from '../../../lib/api/scores'
 import { classWeekMap } from '../../../lib/api/syllabus'
 import { authErrorMessage } from '../../../lib/authError'
 import { paths } from '../../../lib/paths'
@@ -96,6 +97,7 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
 
   const [project, setProject] = useState<ProjectSummary | null>(null)
   const [criteria, setCriteria] = useState<ProjectCriterion[]>([])
+  const [scored, setScored] = useState(false)
   const [files, setFiles] = useState<ProjectAttachment[]>([])
   const [weeks, setWeeks] = useState<ClassWeek[]>([])
   const [classes, setClasses] = useState<ClassSummary[]>([])
@@ -162,29 +164,31 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         setError('That project does not exist, or you do not have access to it.')
         return
       }
-      const [c, f, w, m] = await Promise.all([
+      const [c, f, w, m, s] = await Promise.all([
         listCriteria(p.id),
         listAttachments(p.id),
         classWeekMap(p.class_id),
         listSeriesMembers(p.series_id),
+        role === 'professor' ? projectHasScores(p.id) : Promise.resolve(false),
       ])
       setCriteria(c)
       setFiles(f)
       setWeeks(w)
       setMembers(m)
+      setScored(s)
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load that project.'))
     } finally {
       setLoading(false)
     }
-  }, [projectId])
+  }, [projectId, role])
 
   useEffect(() => {
     void load()
   }, [load])
 
-  useLive(load, ['projects', 'project_boards', 'project_tasks', 'task_assignees', 'board_results', 'groups', 'group_members'])
+  useLive(load, ['projects', 'project_boards', 'project_tasks', 'task_assignees', 'board_results', 'groups', 'group_members', 'board_scores'])
 
   useEffect(() => {
     if (!canManage || !profile) return
@@ -653,6 +657,12 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
             max_points: c.max_points,
           }))}
           onSaved={load}
+          rubricLocked={scored}
+          onClearScores={async () => {
+            await clearProjectScores(project.id)
+            setScored(false)
+            show('Scores cleared. The rubric is unlocked.')
+          }}
         />
       )}
 

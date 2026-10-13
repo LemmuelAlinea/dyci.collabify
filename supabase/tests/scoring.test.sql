@@ -681,6 +681,61 @@ begin
   update public.project_criteria set max_points = 40 where id = v_cb;
 end $$;
 
+-- ------------------------------------------- the rubric write path (Task 4)
+
+do $$
+declare
+  v_prof uuid := (select v from fx where k='prof');
+  v_proj uuid := (select v from fx where k='proj');
+  v_board uuid := (select v from fx where k='board');
+  v_ca uuid := (select v from fx where k='crit_a');
+  v_cb uuid := (select v from fx where k='crit_b');
+  same_points text := '[{"label":"zz-Function, again","description":"x","max_points":60},'
+                      '{"label":"zz-Docs","description":"y","max_points":40}]';
+  new_points text := '[{"label":"zz-Function","description":"x","max_points":50},'
+                     '{"label":"zz-Docs","description":"y","max_points":50}]';
+  one_row text := '[{"label":"zz-Function","description":"x","max_points":60}]';
+  p public.projects%rowtype;
+  msg text;
+begin
+  perform pg_temp.act_as(v_prof);
+  perform public.save_board_scores(v_board, pg_temp.pts(v_ca, 50, v_cb, 30)::jsonb);
+
+  perform pg_temp.must_allow('a scored rubric can be reworded through the edit path',
+    format('select public.series_write_criteria(%L, %L::jsonb)', v_proj, same_points));
+  perform pg_temp.must_be('and each criterion keeps its id, so its score still points at it',
+    (select label from public.project_criteria where id = v_ca) = 'zz-Function, again'
+    and (select count(*) from public.board_scores where board_id = v_board) = 2);
+  perform pg_temp.must_refuse('new points on a scored rubric are refused',
+    format('select public.series_write_criteria(%L, %L::jsonb)', v_proj, new_points));
+  perform pg_temp.must_refuse('dropping a criterion from a scored rubric is refused',
+    format('select public.series_write_criteria(%L, %L::jsonb)', v_proj, one_row));
+
+  select * into p from public.projects where id = v_proj;
+  begin
+    perform public.update_project_series(
+      array[v_proj], p.title, p.type, p.type_label, p.guidelines, p.start_week, p.end_week,
+      p.total_points, p.due_at, p.release_at, new_points::jsonb);
+    msg := null;
+  exception when others then
+    msg := sqlerrm;
+  end;
+  perform pg_temp.must_be('a project edit that changes scored points names the section and the reason',
+    msg like '%·%' and msg like '%Scores exist%');
+
+  perform public.clear_project_scores(v_proj);
+  perform pg_temp.must_allow('once cleared, the points change',
+    format('select public.series_write_criteria(%L, %L::jsonb)', v_proj, new_points));
+  perform pg_temp.must_be('in place, keeping the ids',
+    (select max_points from public.project_criteria where id = v_ca) = 50
+    and (select max_points from public.project_criteria where id = v_cb) = 50);
+  perform pg_temp.must_allow('and a criterion can be dropped',
+    format('select public.series_write_criteria(%L, %L::jsonb)', v_proj, one_row));
+  perform pg_temp.must_be('leaving just the first',
+    (select count(*) from public.project_criteria where project_id = v_proj) = 1
+    and exists (select 1 from public.project_criteria where id = v_ca));
+end $$;
+
 -- ---------------------------------------------- a scored project can go (last)
 
 do $$

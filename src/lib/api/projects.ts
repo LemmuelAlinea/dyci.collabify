@@ -266,28 +266,6 @@ export async function listCriteria(projectId: string) {
   return (data ?? []) as ProjectCriterion[]
 }
 
-/** The rubric is edited as a whole, so it is written as a whole. */
-export async function replaceCriteria(projectId: string, rows: CriterionInput[]) {
-  const { error: delErr } = await supabase
-    .from('project_criteria')
-    .delete()
-    .eq('project_id', projectId)
-  if (delErr) throw delErr
-
-  const clean = rows.filter((r) => r.label.trim())
-  if (clean.length === 0) return
-  const { error } = await supabase.from('project_criteria').insert(
-    clean.map((r, i) => ({
-      project_id: projectId,
-      position: i + 1,
-      label: r.label.trim(),
-      description: r.description.trim(),
-      max_points: r.max_points,
-    })),
-  )
-  if (error) throw error
-}
-
 /* ------------------------------------------------------------- attachments */
 
 export async function listAttachments(projectId: string) {

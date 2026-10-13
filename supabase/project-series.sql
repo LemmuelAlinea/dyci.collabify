@@ -178,22 +178,53 @@ begin
 end;
 $$;
 
-/** Writes a rubric wholesale, the same way the client always has. */
+/** The rubric as the form sent it: named rows only, numbered from 1 in order. */
+create or replace function public.series_rubric_rows(p_criteria jsonb)
+returns table (pos int, label text, description text, max_points int)
+language sql immutable set search_path = public as $$
+  select (row_number() over (order by c.ord))::int,
+         btrim(c.v ->> 'label'),
+         coalesce(c.v ->> 'description', ''),
+         coalesce((c.v ->> 'max_points')::int, 10)
+    from jsonb_array_elements(p_criteria) with ordinality as c(v, ord)
+   where btrim(coalesce(c.v ->> 'label', '')) <> '';
+$$;
+
+/**
+ * Writes a rubric onto one project, matched by position: row 1 updates row 1,
+ * rows past the new list go, and missing rows are added. Matching rather than
+ * delete-and-insert keeps each criterion's id, which scores point at
+ * (scoring.sql). While scores exist the lock there refuses anything but new
+ * wording, and an edit that keeps the same rows and points is exactly that.
+ */
 create or replace function public.series_write_criteria(p_project uuid, p_criteria jsonb)
 returns void language plpgsql set search_path = public as $$
+declare
+  n int;
 begin
   if p_criteria is null then return; end if;
 
-  delete from public.project_criteria where project_id = p_project;
+  select count(*) into n from public.series_rubric_rows(p_criteria);
+
+  delete from public.project_criteria
+   where project_id = p_project and position > n;
+
+  -- Only rows that change are touched, so an untouched rubric passes the lock.
+  update public.project_criteria pc
+     set label = i.label, description = i.description, max_points = i.max_points
+    from public.series_rubric_rows(p_criteria) i
+   where pc.project_id = p_project
+     and pc.position = i.pos
+     and (pc.label, pc.description, pc.max_points)
+         is distinct from (i.label, i.description, i.max_points);
 
   insert into public.project_criteria (project_id, position, label, description, max_points)
-  select p_project,
-         (row_number() over ())::int,
-         btrim(c->>'label'),
-         coalesce(c->>'description', ''),
-         coalesce((c->>'max_points')::int, 10)
-    from jsonb_array_elements(p_criteria) c
-   where btrim(coalesce(c->>'label', '')) <> '';
+  select p_project, i.pos, i.label, i.description, i.max_points
+    from public.series_rubric_rows(p_criteria) i
+   where not exists (
+     select 1 from public.project_criteria pc
+      where pc.project_id = p_project and pc.position = i.pos
+   );
 end;
 $$;
 
@@ -338,7 +369,11 @@ begin
     end;
 
     if p_criteria is not null then
-      perform public.series_write_criteria(r.id, p_criteria);
+      begin
+        perform public.series_write_criteria(r.id, p_criteria);
+      exception when others then
+        raise exception '% — %', label, sqlerrm;
+      end;
     end if;
     n := n + 1;
   end loop;
@@ -489,6 +524,8 @@ $$;
 
 revoke all on function public.series_targets_check(uuid[])        from public;
 revoke all on function public.series_write_criteria(uuid, jsonb)  from public;
+revoke all on function public.series_rubric_rows(jsonb) from public;
+grant execute on function public.series_rubric_rows(jsonb) to authenticated;
 
 grant execute on function public.series_targets_check(uuid[])       to authenticated;
 grant execute on function public.series_write_criteria(uuid, jsonb) to authenticated;

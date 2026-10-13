@@ -101,6 +101,8 @@ export function ProjectForm({
   sectionOptions,
   error,
   onSubmit,
+  rubricLocked = false,
+  onClearScores,
 }: {
   formId: string
   weeks: ClassWeek[]
@@ -111,6 +113,9 @@ export function ProjectForm({
   sectionOptions?: SectionOptions
   error?: string | null
   onSubmit: (value: ProjectFormValue) => void
+  /** Scores exist: the total and the rubric's points are fixed. */
+  rubricLocked?: boolean
+  onClearScores?: () => Promise<void>
 }) {
   // Default to the week the class is in now, so the common case is one click.
   const firstOpen =
@@ -525,11 +530,18 @@ export function ProjectForm({
                 max={1000}
                 value={totalPoints}
                 onChange={(e) => setTotalPoints(Number(e.target.value))}
+                disabled={rubricLocked}
                 className="sm:max-w-[160px]"
               />
             )}
           </Field>
-          <RubricEditor rows={criteria} onChange={setCriteria} totalPoints={totalPoints} />
+          <RubricEditor
+            rows={criteria}
+            onChange={setCriteria}
+            totalPoints={totalPoints}
+            locked={rubricLocked}
+            onClearScores={onClearScores}
+          />
         </div>
       </Section>
 
