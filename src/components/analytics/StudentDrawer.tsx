@@ -6,12 +6,14 @@ import { WeekBars } from '../charts/WeekBars'
 import { Modal } from '../ui/Modal'
 import { useNow } from '../../hooks/useNow'
 import { addDays, manilaDay, weeklyActivity } from '../../lib/analyticsMath'
+import { notesAbout } from '../../lib/notes'
 import { analyseTeam, peerFlagLabel } from '../../lib/peerMath'
 import type { PeerResult } from '../../lib/types'
 import { classWindow } from '../../pages/app/analytics/window'
 import type { AnalyticsData } from '../../pages/app/analytics/useAnalytics'
 import { FLAG_META } from './flags'
 import type { RosterEntry } from './flags'
+import { NotesPanel } from './NotesPanel'
 
 const SHOWN_TASKS = 12
 
@@ -40,6 +42,10 @@ export function StudentDrawer({
   const mainBoard = data.shownMembers
     .filter((m) => m.student_id === entry.student_id && m.class_id === entry.class_id)
     .sort((a, b) => b.task_count - a.task_count)[0]
+  const myBoards = data.members
+    .filter((m) => m.student_id === entry.student_id && m.class_id === entry.class_id)
+    .map((m) => m.board_id)
+  const myNotes = notesAbout(data.notes, { classId: entry.class_id, studentId: entry.student_id, boardIds: myBoards })
 
   // The student's latest round across every group board they are on; a tie on
   // the open date prefers the round still in progress.
@@ -151,6 +157,17 @@ export function StudentDrawer({
               </ul>
             </>
           )}
+        </section>
+
+        <section className="space-y-2">
+          <h4 className="text-ink">Notes</h4>
+          <p className="text-[12px] text-faint">Only teaching staff read these, never the student.</p>
+          <NotesPanel
+            classId={entry.class_id}
+            studentId={entry.student_id}
+            notes={myNotes}
+            onChanged={data.reloadNotes}
+          />
         </section>
 
         {mainBoard && (

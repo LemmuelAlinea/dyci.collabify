@@ -6,8 +6,10 @@ import { GroupHealthGrid } from '../../../../components/analytics/GroupHealthGri
 import { Burnup } from '../../../../components/charts/Burnup'
 import { CalendarHeat } from '../../../../components/charts/CalendarHeat'
 import { ShareBar } from '../../../../components/charts/ShareBar'
+import { NotesPanel } from '../../../../components/analytics/NotesPanel'
 import { PeerResultsTable } from '../../../../components/peer/PeerResultsTable'
 import { LOW_SHARE_PCT, burnupSeries, manilaDay } from '../../../../lib/analyticsMath'
+import { notesAbout } from '../../../../lib/notes'
 import { PEER_MIN_RATERS, latestRoundRows } from '../../../../lib/peerMath'
 import type { AnalyticsData } from '../useAnalytics'
 import { classWindow } from '../window'
@@ -77,6 +79,24 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
                       low: m.group_size >= 2 && Number(m.held_pct) < LOW_SHARE_PCT,
                     }))}
                   />
+                  {(() => {
+                    const boardNotes = notesAbout(data.notes, { classId: b.class_id, boardIds: [b.board_id] })
+                    return (
+                      <details className="group rounded-lg">
+                        <summary className="cursor-pointer list-none text-[12px] font-medium text-muted hover:text-ink [&::-webkit-details-marker]:hidden">
+                          Notes ({boardNotes.length})
+                        </summary>
+                        <div className="mt-2">
+                          <NotesPanel
+                            classId={b.class_id}
+                            boardId={b.board_id}
+                            notes={boardNotes}
+                            onChanged={data.reloadNotes}
+                          />
+                        </div>
+                      </details>
+                    )
+                  })()}
                 </li>
               )
             })}

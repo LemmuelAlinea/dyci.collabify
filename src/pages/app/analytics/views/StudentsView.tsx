@@ -75,7 +75,7 @@ export function StudentsView({ data, onOpenTask }: { data: AnalyticsData; onOpen
     <div className="space-y-5">
       <Section
         title="Students"
-        subtitle={`${flagged} of ${entries.length} flagged. Flags are prompts for a conversation, never grades. Select a name for their full record.`}
+        subtitle={`${flagged} of ${entries.length} flagged. Flags are prompts for a conversation. Notes record that conversation and only teaching staff can read them. Select a name for their full record.`}
       >
         <Roster entries={entries} onOpen={setPicked} />
       </Section>

@@ -13,6 +13,7 @@ import type { Tab } from '../../../components/ui/Tabs'
 import { useAuth } from '../../../context/AuthContext'
 import { readAnalyticsView, viewForAction } from '../../../lib/analyticsView'
 import type { AnalyticsView } from '../../../lib/analyticsView'
+import type { Action } from '../../../lib/insight'
 import { dueSoonLabel, taskStatusLabel } from '../../../lib/types'
 import { useAnalytics } from './useAnalytics'
 import { ClassView } from './views/ClassView'
@@ -64,6 +65,21 @@ export default function Analytics({ classId }: { classId?: string }) {
     else if (next.boardId && next.boardId !== scope.boardId) setView('groups')
   }
 
+  // A follow-up is about a person or a group: open their record, not just a tab.
+  const seeWhy = (a: Action) => {
+    if (a.kind === 'follow_up_due' && a.studentId) {
+      setScope({ ...scope, studentId: a.studentId, boardId: '', taskId: '' })
+      setView('students')
+      return
+    }
+    if (a.kind === 'follow_up_due' && a.boardId) {
+      setScope({ ...scope, boardId: a.boardId, studentId: '', taskId: '' })
+      setView('groups')
+      return
+    }
+    setView(viewForAction(a.kind))
+  }
+
   if (data.loading) {
     return (
       <div className="flex items-center gap-3 py-10 text-[14px] text-muted">
@@ -111,7 +127,8 @@ export default function Analytics({ classId }: { classId?: string }) {
         />
       ) : (
         <>
-          <NeedsAttention actions={data.actions} onSeeWhy={(a) => setView(viewForAction(a.kind))} />
+          {data.notesError && <Alert tone="error" onRetry={data.reloadNotes}>{data.notesError}</Alert>}
+          <NeedsAttention actions={data.actions} onSeeWhy={seeWhy} />
 
           <Tabs variant="panel" tabs={VIEW_TABS} active={view} onChange={setView} />
 
