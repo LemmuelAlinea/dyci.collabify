@@ -1,4 +1,4 @@
-import { PEER_FLAG_META, analyseTeam } from '../peerMath'
+import { analyseTeam, peerFlagLabel } from '../peerMath'
 import type { PeerFlag } from '../peerMath'
 import { PEER_DIMENSIONS } from '../peerDimensions'
 import type { PeerComment, PeerResult, PeerRoundStatus } from '../types'
@@ -38,26 +38,30 @@ export function peerSummaryDoc(input: ReportHead & {
           label: 'Response rate',
           value: round.expected > 0 ? `${((round.answered / round.expected) * 100).toFixed(1)}%` : '—',
         },
-        ...[...flagCount].map(([f, n]) => ({ label: PEER_FLAG_META[f].label, value: n })),
+        ...[...flagCount].map(([f, n]) => ({ label: peerFlagLabel(f, round.is_open).label, value: n })),
       ],
     },
   ]
 
-  if (results.length === 0) {
+  const dims = PEER_DIMENSIONS.map<{ label: string; value: number | null }>((d) => {
+    const xs = results.map((r) => num((r as unknown as Record<string, number | null>)[`${d.key}_avg`])).filter((v): v is number => v !== null)
+    return { label: d.label, value: xs.length ? Math.round((xs.reduce((s, x) => s + x, 0) / xs.length) * 100) / 100 : null }
+  })
+  const charted = dims.filter((d): d is { label: string; value: number } => d.value !== null)
+
+  if (charted.length === 0) {
     blocks.push({ kind: 'note', tone: 'info', text: 'Nobody has rated anyone in this round yet.' })
   } else {
-    const dims = PEER_DIMENSIONS.map((d) => {
-      const xs = results.map((r) => num((r as unknown as Record<string, number | null>)[`${d.key}_avg`])).filter((v): v is number => v !== null)
-      return { label: d.label, value: xs.length ? Math.round((xs.reduce((s, x) => s + x, 0) / xs.length) * 100) / 100 : 0 }
-    })
     blocks.push({
       kind: 'chart',
       id: 'dimensions',
       title: 'Class averages on the five behaviours (out of 5)',
-      chart: { kind: 'bars', rows: dims, max: 5 },
-      summary: `Across the class: ${dims.map((d) => `${d.label} ${d.value}`).join('; ')}.`,
+      chart: { kind: 'bars', rows: charted, max: 5 },
+      summary: `Across the class: ${charted.map((d) => `${d.label} ${d.value}`).join('; ')}.`,
     })
+  }
 
+  if (results.length > 0) {
     const columns: Column[] = [
       { key: 'member', label: 'Member', type: 'text' },
       { key: 'received', label: 'From teammates', type: 'number' },
@@ -83,7 +87,7 @@ export function peerSummaryDoc(input: ReportHead & {
           num(m.self_avg),
           m.factor,
           m.raters,
-          m.flags.map((f) => PEER_FLAG_META[f].label).join('; ') || null,
+          m.flags.map((f) => peerFlagLabel(f, round.is_open).label).join('; ') || null,
           ...PEER_DIMENSIONS.map((d) => num((m as unknown as Record<string, number | null>)[`${d.key}_avg`])),
         ]),
       })
@@ -101,7 +105,11 @@ export function peerSummaryDoc(input: ReportHead & {
         { key: 'group', label: 'Group', type: 'text' },
         { key: 'comment', label: 'Comment', type: 'text' },
       ],
-      rows: input.comments.map((c) => [c.ratee_name, groupOf.get(c.board_id) ?? null, c.comment]),
+      // Sorted so the caller's order (perhaps by rater) never shows who wrote what.
+      rows: input.comments
+        .map((c) => ({ about: c.ratee_name, group: groupOf.get(c.board_id) ?? null, comment: c.comment }))
+        .sort((x, y) => (x.group ?? '').localeCompare(y.group ?? '') || x.about.localeCompare(y.about) || x.comment.localeCompare(y.comment))
+        .map<Cell[]>((c) => [c.about, c.group, c.comment]),
       note: 'Who wrote each comment is left out on purpose.',
     })
   }

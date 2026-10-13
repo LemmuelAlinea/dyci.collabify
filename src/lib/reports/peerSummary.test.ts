@@ -63,6 +63,27 @@ describe('peerSummaryDoc', () => {
     expect(JSON.stringify(t.rows)).not.toContain('"B"')
     expect(withComments.header.confidential).toBe('Contains confidential peer comments')
   })
+  it('charts nothing when every average is empty', () => {
+    const blank = { ...res('a', 0), received_avg: null, self_avg: null, given_avg: null, contributes_avg: null, interacts_avg: null, on_track_avg: null, quality_avg: null, skills_avg: null, raters: 0 }
+    const d = peerSummaryDoc({ ...head, projectTitle: 'Lab 6', round: round({ is_open: true, closed_at: null }), results: [blank], comments: null })
+    expect(d.blocks.some((b) => b.kind === 'chart')).toBe(false)
+    expect(d.blocks.some((b) => b.kind === 'note')).toBe(true)
+  })
+  it('words the no-response flag for an open round', () => {
+    const open = round({ is_open: true, closed_at: null })
+    const rows = [res('a', 3), { ...res('b', 3), rated_all: false }, res('c', 3)]
+    const d = peerSummaryDoc({ ...head, projectTitle: 'Lab 6', round: open, results: rows, comments: null })
+    expect(kpi(d, 'Not answered yet')).toBe(1)
+    expect(kpi(d, "Didn't rate everyone")).toBeUndefined()
+    const t = tableBlocks(d).find((x) => x.id === 'group-b1')!
+    expect(JSON.stringify(t.rows)).toContain('Not answered yet')
+  })
+  it('sorts comments so the caller order never shows', () => {
+    const c = (ratee: string, text: string, rater: string) => ({ round_id: 'r1', board_id: 'b1', project_id: 'p1', ratee_id: ratee, ratee_name: ratee.toUpperCase(), rater_id: rater, rater_name: rater, comment: text, updated_at: '' })
+    const d = peerSummaryDoc({ ...head, projectTitle: 'Lab 6', round: round({ kind: 'final' }), results, comments: [c('b', 'Late', 'x'), c('a', 'Quiet', 'y')] })
+    const t = tableBlocks(d).find((x) => x.id === 'comments')!
+    expect(t.rows.map((r) => r[0])).toEqual(['A', 'B'])
+  })
   it('never divides by zero', () => {
     const none = peerSummaryDoc({ ...head, projectTitle: 'Lab 6', round: round({ expected: 0, answered: 0 }), results: [], comments: null })
     expect(kpi(none, 'Response rate')).toBe('—')
