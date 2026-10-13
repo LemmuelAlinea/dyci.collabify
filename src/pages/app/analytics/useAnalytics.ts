@@ -76,11 +76,15 @@ export function useAnalytics(classId?: string) {
   const [sprints, setSprints] = useState<SprintProgress[]>([])
   const [peer, setPeer] = useState<PeerResult[]>([])
   const [notes, setNotes] = useState<ClassNote[]>([])
+  const [notesError, setNotesError] = useState<string | null>(null)
   const reloadNotes = useCallback(async () => {
     try {
       setNotes(await listClassNotes())
-    } catch {
-      // The notes are an extra; the page still answers without them.
+      setNotesError(null)
+    } catch (err) {
+      // Keep the notes already loaded. A silent empty list would read as
+      // "nothing is due", so say that the load failed.
+      setNotesError(authErrorMessage(err, 'Could not load the notes. Reload the page to try again.'))
     }
   }, [])
   useEffect(() => {
@@ -401,6 +405,7 @@ export function useAnalytics(classId?: string) {
     shownSprints,
     shownPeer,
     notes,
+    notesError,
     reloadNotes,
     // Raw, for class-level facts the views need whatever the narrowing.
     pace: pace ?? [],
