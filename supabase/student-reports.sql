@@ -32,7 +32,8 @@
  *   - **Nothing of any other group**, and nothing class-wide. No analytics, no
  *     diagnosis, no other board's tasks.
  *
- * As with every report: no grade. Collabify records none.
+ * As with every report: no grade. Reports carry no grades yet; released scores
+ * arrive in Phase B.
  */
 
 begin;

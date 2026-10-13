@@ -9,8 +9,8 @@ import type { ClassMember } from '../../lib/types'
  * finished, and how much of the board it was.
  *
  * The one report that is really a spreadsheet, and the reason CSV exists here.
- * Collabify holds no grades, so this is the sheet a professor takes into
- * whatever record actually carries the marks.
+ * Reports carry no grades yet (released scores arrive in Phase B), so this is
+ * the sheet a professor takes into whatever record actually carries the marks.
  *
  * Students on no board at all still get a row. They are the ones this is most
  * useful for, and leaving them out would quietly make the class look complete.

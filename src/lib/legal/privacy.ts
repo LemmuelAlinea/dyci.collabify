@@ -61,7 +61,7 @@ export const PRIVACY: LegalDoc = {
         },
         {
           kind: 'note',
-          text: `Collabify holds no grades. There is no grade column anywhere in it, and nothing in it is your grade. Your grades live wherever the college keeps them.`,
+          text: `Collabify keeps the rubric scores your professor gives each project and the score your professor confirms for you. Until your professor releases them, only the teaching staff of the class see them. After release you see your own score and your group's rubric breakdown, never a classmate's. Your official grades live wherever the college keeps them.`,
         },
       ],
     },
@@ -133,11 +133,14 @@ export const PRIVACY: LegalDoc = {
             [`Whether you are in no group, or holding no tasks`, `Your professor`],
             [`Whether a board has stopped moving, and for how long`, `Your professor`],
             [`Counts of your held, finished and late tasks across a class`, `Your professor`],
+            [`The rubric scores your professor gives your project, and the score your professor confirms for you`, `The class's teaching staff. You, once your professor releases them: your own score and your group's rubric breakdown, never a classmate's`],
+            [`A history of every score given, changed, confirmed or released`, `The class's teaching staff only. It is kept as a record`],
+            [`Peer ratings: how teammates rate each other's work`, `Whoever gave the rating, and the class's teaching staff. The person rated sees only averages, once scores are released, and never who rated them. Final-round ratings feed a suggested score that your professor confirms or changes`],
           ],
         },
         {
           kind: 'p',
-          text: `Three things are true about all of it. Your classmates never see any of it. None of it is a grade, and Collabify holds no grades. And nothing is decided automatically — a professor reads it and makes their own decision.`,
+          text: `Three things are true about all of it. Your classmates never see your measures or your score; a teammate sees only the ratings they gave you, and your group shares its rubric breakdown. Your official grades live wherever the college keeps them. And nothing is decided automatically — a professor reads it and makes their own decision.`,
         },
         {
           kind: 'p',

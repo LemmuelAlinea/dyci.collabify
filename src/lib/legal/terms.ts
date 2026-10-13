@@ -34,7 +34,7 @@ export const TERMS: LegalDoc = {
         },
         {
           kind: 'note',
-          text: `Collabify holds no grades. Nothing it shows is a grade, nothing in it is worth marks by itself, and no number it displays is your standing in a subject. Your grades are recorded wherever the college records grades.`,
+          text: `Your professor can record rubric scores and a confirmed score for each project in Collabify. You see yours only after your professor releases them. Collabify suggests a score and your professor decides it. Official grades are recorded wherever the college records grades.`,
         },
         {
           kind: 'p',

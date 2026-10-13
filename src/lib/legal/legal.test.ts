@@ -199,7 +199,7 @@ describe('the privacy policy', () => {
     expect(all).toContain('email address')
     expect(all).toContain('does not expire')
     expect(all).toContain('cannot be altered')
-    expect(all).toContain('no grades')
+    expect(all).toContain('until your professor releases them, only the teaching staff of the class see them')
   })
 
   it('names the profiling section, which §16 requires to be disclosed', () => {
