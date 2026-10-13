@@ -3,14 +3,21 @@ import type { Workbook, Sheet } from '../general/sheet'
 import { cellExport, cellText, columnHeader, tableBlocks } from './doc'
 import type { Block, ReportDoc } from './doc'
 
-/** Excel sheet names: at most 31 characters, none of []:*?/\, unique ignoring case. */
+/** Neither end may be an apostrophe; Excel and ExcelJS refuse the sheet otherwise. */
+const trimQuotes = (s: string) => s.replace(/^['\s]+|['\s]+$/g, '')
+
+/**
+ * Excel sheet names: at most 31 characters, none of []:*?/\, no apostrophe at
+ * either end, unique ignoring case, and never "History", which Excel reserves.
+ */
 export function sheetName(title: string, used: Set<string>): string {
-  const base = (title.replace(/[[\]:*?/\\]/g, ' ').replace(/\s+/g, ' ').trim() || 'Sheet').slice(0, 31)
+  const base = trimQuotes(trimQuotes(title.replace(/[[\]:*?/\\]/g, ' ').replace(/\s+/g, ' ')).slice(0, 31)) || 'Sheet'
   let name = base
   let n = 2
-  while (used.has(name.toLowerCase())) {
+  while (used.has(name.toLowerCase()) || name.toLowerCase() === 'history') {
     const suffix = ` (${n++})`
     name = base.slice(0, 31 - suffix.length).trimEnd() + suffix
+    // The suffix ends in ")", so the cut never leaves an apostrophe at the end.
   }
   used.add(name.toLowerCase())
   return name

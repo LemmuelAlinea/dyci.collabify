@@ -64,12 +64,12 @@ export function peerSummaryDoc(input: ReportHead & {
   if (results.length > 0) {
     const columns: Column[] = [
       { key: 'member', label: 'Member', type: 'text' },
-      { key: 'received', label: 'From teammates', type: 'number' },
-      { key: 'self', label: 'Self', type: 'number' },
-      { key: 'factor', label: 'Factor', type: 'number' },
+      { key: 'received', label: 'From teammates', type: 'number', decimals: 2 },
+      { key: 'self', label: 'Self', type: 'number', decimals: 2 },
+      { key: 'factor', label: 'Factor', type: 'number', decimals: 2 },
       { key: 'raters', label: 'Raters', type: 'number' },
       { key: 'flags', label: 'Flags', type: 'text' },
-      ...PEER_DIMENSIONS.map<Column>((d) => ({ key: d.key, label: d.label, type: 'number' })),
+      ...PEER_DIMENSIONS.map<Column>((d) => ({ key: d.key, label: d.label, type: 'number', decimals: 2 })),
     ]
     const groups = boards
       .map((b) => ({ b, name: results.find((r) => r.board_id === b)?.group_name ?? 'Group' }))
@@ -102,15 +102,28 @@ export function peerSummaryDoc(input: ReportHead & {
       title: 'Comments',
       columns: [
         { key: 'about', label: 'About', type: 'text' },
+        { key: 'from', label: 'From', type: 'text' },
         { key: 'group', label: 'Group', type: 'text' },
         { key: 'comment', label: 'Comment', type: 'text' },
       ],
       // Sorted so the caller's order (perhaps by rater) never shows who wrote what.
+      // "From" says only whether it was the student about themselves, never which teammate.
       rows: input.comments
-        .map((c) => ({ about: c.ratee_name, group: groupOf.get(c.board_id) ?? null, comment: c.comment }))
-        .sort((x, y) => (x.group ?? '').localeCompare(y.group ?? '') || x.about.localeCompare(y.about) || x.comment.localeCompare(y.comment))
-        .map<Cell[]>((c) => [c.about, c.group, c.comment]),
-      note: 'Who wrote each comment is left out on purpose.',
+        .map((c) => ({
+          about: c.ratee_name,
+          from: c.rater_id === c.ratee_id ? 'Self' : 'Teammate',
+          group: groupOf.get(c.board_id) ?? null,
+          comment: c.comment,
+        }))
+        .sort(
+          (x, y) =>
+            (x.group ?? '').localeCompare(y.group ?? '') ||
+            x.about.localeCompare(y.about) ||
+            x.from.localeCompare(y.from) ||
+            x.comment.localeCompare(y.comment),
+        )
+        .map<Cell[]>((c) => [c.about, c.from, c.group, c.comment]),
+      note: 'Who wrote each comment is left out on purpose. From says only whether it was a teammate or the student about themselves.',
     })
   }
 

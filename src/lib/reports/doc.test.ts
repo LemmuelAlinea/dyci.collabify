@@ -24,6 +24,14 @@ describe('cellText', () => {
   it('reads the value out of a rich cell', () => {
     expect(cellText({ value: 'Released', tone: 'success' }, col('status'))).toBe('Released')
   })
+  it('shows a number to fixed places when the column asks for them', () => {
+    expect(cellText(0.857, { key: 'k', label: 'Factor', type: 'number', decimals: 2 })).toBe('0.86')
+    expect(cellText(1, { key: 'k', label: 'Factor', type: 'number', decimals: 2 })).toBe('1.00')
+  })
+  it('shows an unreadable date as it came rather than crashing', () => {
+    expect(cellText('not a date', col('date'))).toBe('not a date')
+    expect(cellText('not a date', col('datetime'))).toBe('not a date')
+  })
 })
 
 describe('cellExport', () => {
@@ -38,6 +46,13 @@ describe('cellExport', () => {
   })
   it('leaves an empty cell empty', () => {
     expect(cellExport(null, col('number'))).toBeNull()
+  })
+  it('keeps full precision whatever the screen shows', () => {
+    expect(cellExport(0.857, { key: 'k', label: 'Factor', type: 'number', decimals: 2 })).toBe(0.857)
+  })
+  it('writes an unreadable date as it came rather than crashing', () => {
+    expect(cellExport('not a date', col('date'))).toBe('not a date')
+    expect(cellExport('not a date', col('datetime'))).toBe('not a date')
   })
 })
 

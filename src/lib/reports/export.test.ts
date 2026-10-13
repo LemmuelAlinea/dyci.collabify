@@ -37,6 +37,16 @@ describe('sheetName', () => {
   it('drops characters Excel refuses', () => {
     expect(sheetName('Grades: [Lab 6]/final?', new Set())).not.toMatch(/[[\]:*?/\\]/)
   })
+  it('never starts or ends a name with an apostrophe', () => {
+    expect(sheetName("'Lab'", new Set())).toBe('Lab')
+    const cut = sheetName(`${'a'.repeat(30)}'bc`, new Set())
+    expect(cut).toBe('a'.repeat(30))
+    expect(sheetName("''", new Set())).toBe('Sheet')
+  })
+  it('treats History as taken, whatever its case', () => {
+    expect(sheetName('History', new Set())).toBe('History (2)')
+    expect(sheetName('HISTORY', new Set())).toBe('HISTORY (2)')
+  })
 })
 
 describe('docToWorkbook', () => {

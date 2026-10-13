@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { gradingClassDoc, gradingGridDoc, gradingStudentDoc, scoreBand } from './grading'
-import { tableBlocks } from './doc'
+import { cellText, tableBlocks } from './doc'
 import type { ReportDoc } from './doc'
 import type { PeerResult, ScoreSheetRow } from '../types'
 
@@ -102,6 +102,22 @@ describe('gradingClassDoc', () => {
     expect(empty.blocks.some((b) => b.kind === 'chart')).toBe(false)
     expect(empty.blocks.some((b) => b.kind === 'note' && b.text.includes('No score is confirmed yet'))).toBe(true)
   })
+  it('prints the peer factor to two places', () => {
+    const d = gradingClassDoc({
+      ...head, project, criteria, boardScores, boardNames: new Map(), work: [], peer: [],
+      sheet: [row({ factor_saved: 1.05 })],
+    })
+    const t = tableBlocks(d).find((x) => x.id === 'grades')!
+    const i = t.columns.findIndex((c) => c.key === 'factor')
+    expect(cellText(t.rows[0][i], t.columns[i])).toBe('1.05')
+  })
+  it('says so in words when the project has no rubric', () => {
+    const bare = gradingClassDoc({
+      ...head, project, criteria: [], boardScores: [], boardNames: new Map(), work: [], peer: [], sheet: [row({})],
+    })
+    expect(tableBlocks(bare).some((t) => t.id === 'rubric')).toBe(false)
+    expect(bare.blocks.some((b) => b.kind === 'note' && b.text === 'This project has no rubric yet.')).toBe(true)
+  })
 })
 
 describe('gradingClassDoc saved versus live', () => {
@@ -152,6 +168,15 @@ describe('gradingGridDoc', () => {
   it('gives each student their finals and an overall percent over the projects they have', () => {
     expect(grid.rows[0]).toEqual(['Ana Cruz', 84, 40, (124 / 150) * 100])
     expect(grid.rows[1]).toEqual(['Ben Diaz', 70, null, 70])
+  })
+  it('says there is no grade book, instead of an empty table, when there are no students or projects', () => {
+    const text = 'There are no students or no projects in this class yet, so there is no grade book.'
+    const noProjects = gradingGridDoc({ ...head, students: [{ id: 's1', name: 'Ana Cruz' }], projects: [] })
+    const noStudents = gradingGridDoc({ ...head, students: [], projects: [{ project, sheet: [] }] })
+    for (const d of [noProjects, noStudents]) {
+      expect(tableBlocks(d)).toHaveLength(0)
+      expect(d.blocks.some((b) => b.kind === 'note' && b.text === text)).toBe(true)
+    }
   })
 })
 

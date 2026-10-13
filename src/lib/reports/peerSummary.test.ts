@@ -56,12 +56,26 @@ describe('peerSummaryDoc', () => {
   it('adds comments without rater names and marks the report confidential', () => {
     const withComments = peerSummaryDoc({
       ...head, projectTitle: 'Lab 6', round: round({ kind: 'final' }), results,
-      comments: [{ round_id: 'r1', board_id: 'b1', project_id: 'p1', ratee_id: 'a', ratee_name: 'A', rater_id: 'b', rater_name: 'B', comment: 'Quiet', updated_at: '' }],
+      comments: [
+        { round_id: 'r1', board_id: 'b1', project_id: 'p1', ratee_id: 'a', ratee_name: 'A', rater_id: 'zed-rater-id', rater_name: 'Zed Rater', comment: 'Quiet', updated_at: '' },
+        { round_id: 'r1', board_id: 'b1', project_id: 'p1', ratee_id: 'a', ratee_name: 'A', rater_id: 'a', rater_name: 'A', comment: 'I did my part', updated_at: '' },
+      ],
     })
     const t = tableBlocks(withComments).find((x) => x.id === 'comments')!
-    expect(t.columns.map((c) => c.label)).toEqual(['About', 'Group', 'Comment'])
-    expect(JSON.stringify(t.rows)).not.toContain('"B"')
+    expect(t.columns.map((c) => c.label)).toEqual(['About', 'From', 'Group', 'Comment'])
+    expect(t.rows.find((r) => r[3] === 'I did my part')?.[1]).toBe('Self')
+    expect(t.rows.find((r) => r[3] === 'Quiet')?.[1]).toBe('Teammate')
+    const all = JSON.stringify(withComments)
+    expect(all).not.toContain('Zed Rater')
+    expect(all).not.toContain('zed-rater-id')
     expect(withComments.header.confidential).toBe('Contains confidential peer comments')
+  })
+  it('prints factors and averages to two places', () => {
+    const t = tableBlocks(doc).find((x) => x.id === 'group-b1')!
+    for (const key of ['received', 'self', 'factor', 'contributes', 'interacts', 'on_track', 'quality', 'skills']) {
+      expect(t.columns.find((c) => c.key === key)?.decimals).toBe(2)
+    }
+    expect(t.columns.find((c) => c.key === 'raters')?.decimals).toBeUndefined()
   })
   it('charts nothing when every average is empty', () => {
     const blank = { ...res('a', 0), received_avg: null, self_avg: null, given_avg: null, contributes_avg: null, interacts_avg: null, on_track_avg: null, quality_avg: null, skills_avg: null, raters: 0 }

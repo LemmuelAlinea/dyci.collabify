@@ -60,7 +60,7 @@ export function gradingClassDoc(input: ReportHead & {
     { key: 'group', label: 'Group', type: 'text' },
     ...criteria.map<Column>((c) => ({ key: `crit-${c.id}`, label: c.label, type: 'score', outOf: c.max_points })),
     { key: 'groupTotal', label: 'Group total', type: 'score', outOf: total },
-    { key: 'factor', label: 'Peer factor', type: 'number' },
+    { key: 'factor', label: 'Peer factor', type: 'number', decimals: 2 },
     { key: 'flags', label: 'Peer flags', type: 'text' },
     { key: 'suggested', label: 'Suggested', type: 'score', outOf: total },
     { key: 'final', label: 'Final', type: 'score', outOf: total },
@@ -148,17 +148,21 @@ export function gradingClassDoc(input: ReportHead & {
       })
     }
   }
-  blocks.push({
-    kind: 'table',
-    id: 'rubric',
-    title: 'Rubric',
-    columns: [
-      { key: 'criterion', label: 'Criterion', type: 'text' },
-      { key: 'description', label: 'What earns full marks', type: 'text' },
-      { key: 'points', label: 'Points', type: 'number' },
-    ],
-    rows: criteria.map((c) => [c.label, c.description || null, c.max_points]),
-  })
+  if (criteria.length === 0) {
+    blocks.push({ kind: 'note', tone: 'info', text: 'This project has no rubric yet.' })
+  } else {
+    blocks.push({
+      kind: 'table',
+      id: 'rubric',
+      title: 'Rubric',
+      columns: [
+        { key: 'criterion', label: 'Criterion', type: 'text' },
+        { key: 'description', label: 'What earns full marks', type: 'text' },
+        { key: 'points', label: 'Points', type: 'number' },
+      ],
+      rows: criteria.map((c) => [c.label, c.description || null, c.max_points]),
+    })
+  }
 
   return {
     header: {
@@ -224,14 +228,20 @@ export function gradingGridDoc(input: ReportHead & {
           { label: 'Released', value: released },
         ],
       },
-      {
-        kind: 'table',
-        id: 'gradebook',
-        title: 'Grade book',
-        columns,
-        rows,
-        note: 'A blank cell has no confirmed score. Overall is the student’s finals over the totals of the projects they have a score on.',
-      },
+      input.students.length === 0 || input.projects.length === 0
+        ? {
+            kind: 'note',
+            tone: 'info',
+            text: 'There are no students or no projects in this class yet, so there is no grade book.',
+          }
+        : {
+            kind: 'table',
+            id: 'gradebook',
+            title: 'Grade book',
+            columns,
+            rows,
+            note: 'A blank cell has no confirmed score. Overall is the student’s finals over the totals of the projects they have a score on.',
+          },
     ],
     footer: footer(input.professor, released < input.projects.length),
   }
@@ -248,8 +258,11 @@ export function gradingStudentDoc(input: ReportHead & {
     peer: PeerResult[]
   }[]
 }): ReportDoc {
-  const blocks: Block[] = [
-    {
+  const blocks: Block[] = []
+  if (input.projects.length === 0) {
+    blocks.push({ kind: 'note', tone: 'info', text: 'This class has no projects yet.' })
+  } else {
+    blocks.push({
       kind: 'table',
       id: 'projects',
       title: 'Projects',
@@ -258,7 +271,7 @@ export function gradingStudentDoc(input: ReportHead & {
         { key: 'final', label: 'Final', type: 'number' },
         { key: 'groupTotal', label: 'Group total', type: 'number' },
         { key: 'adjust', label: 'Adjustment', type: 'number' },
-        { key: 'factor', label: 'Peer factor', type: 'number' },
+        { key: 'factor', label: 'Peer factor', type: 'number', decimals: 2 },
         { key: 'status', label: 'Status', type: 'status' },
       ],
       rows: input.projects.map(({ project, row }) => {
@@ -282,8 +295,8 @@ export function gradingStudentDoc(input: ReportHead & {
           row ? status(row) : { value: 'Not on this project', tone: 'pending' },
         ]
       }),
-    },
-  ]
+    })
+  }
 
   for (const { project, row, criteria, boardScores, peer } of input.projects) {
     if (!row) continue
@@ -313,8 +326,8 @@ export function gradingStudentDoc(input: ReportHead & {
         title: `${project.title}: how teammates saw ${input.student.name}`,
         columns: [
           { key: 'dimension', label: 'Behaviour', type: 'text' },
-          { key: 'mine', label: input.student.name, type: 'number' },
-          { key: 'team', label: 'Team', type: 'number' },
+          { key: 'mine', label: input.student.name, type: 'number', decimals: 2 },
+          { key: 'team', label: 'Team', type: 'number', decimals: 2 },
         ],
         rows: PEER_DIMENSIONS.map((d) => {
           const v = (mine as unknown as Record<string, number | null>)[`${d.key}_avg`]

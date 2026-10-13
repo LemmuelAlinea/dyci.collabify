@@ -16,6 +16,8 @@ export type Column = {
   type: ColumnType
   /** For a score column: what it is out of. */
   outOf?: number
+  /** For a number column: fixed places on screen, print and Word. Exports keep full precision. */
+  decimals?: number
 }
 
 export type RichCell = { value: string | number | null; tag?: string; tone?: Tone }
@@ -71,13 +73,15 @@ const CLOCK = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: 
 /** A bare day is a Manila day; anything else is a moment. */
 const asDate = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T00:00:00+08:00`) : new Date(v))
 const toNumber = (v: string | number) => (typeof v === 'number' ? v : Number(v))
+const invalid = (d: Date) => Number.isNaN(d.getTime())
 
 export function cellText(c: Cell, col: Column): string {
   const v = cellValue(c)
   if (v === null || v === '') return '—'
   switch (col.type) {
     case 'number':
-      return Number.isFinite(toNumber(v)) ? formatPoints(toNumber(v)) : String(v)
+      if (!Number.isFinite(toNumber(v))) return String(v)
+      return col.decimals !== undefined ? toNumber(v).toFixed(col.decimals) : formatPoints(toNumber(v))
     case 'percent':
       return Number.isFinite(toNumber(v)) ? `${toNumber(v).toFixed(1)}%` : String(v)
     case 'score': {
@@ -86,9 +90,11 @@ export function cellText(c: Cell, col: Column): string {
       return col.outOf ? `${s} / ${col.outOf}` : s
     }
     case 'date':
-      return DAY.format(asDate(String(v)))
-    case 'datetime':
-      return MOMENT.format(asDate(String(v)))
+    case 'datetime': {
+      const d = asDate(String(v))
+      if (invalid(d)) return String(v)
+      return (col.type === 'date' ? DAY : MOMENT).format(d)
+    }
     default:
       return String(v)
   }
@@ -105,10 +111,10 @@ export function cellExport(c: Cell, col: Column): string | number | null {
     case 'percent':
       return Number.isFinite(toNumber(v)) ? Math.round(toNumber(v) * 10) / 10 : String(v)
     case 'date':
-      return manilaDay(asDate(String(v)))
     case 'datetime': {
       const d = asDate(String(v))
-      return `${manilaDay(d)} ${CLOCK.format(d)}`
+      if (invalid(d)) return String(v)
+      return col.type === 'date' ? manilaDay(d) : `${manilaDay(d)} ${CLOCK.format(d)}`
     }
     default:
       return String(v)
