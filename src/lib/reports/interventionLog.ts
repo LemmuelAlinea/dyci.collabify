@@ -27,7 +27,7 @@ export function interventionLogDoc(input: ReportHead & {
     .filter((n) => (filters.status === 'open' ? !n.resolved_at : filters.status === 'resolved' ? !!n.resolved_at : true))
     .filter((n) => !filters.studentId || n.student_id === filters.studentId)
     .filter((n) => !filters.boardId || n.board_id === filters.boardId)
-    .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+    .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id.localeCompare(b.id))
 
   const count = (k: ClassNoteKind) => shown.filter((n) => n.kind === k).length
   const openFollowUps = shown.filter((n) => !n.resolved_at && n.follow_up_on !== null)
@@ -73,9 +73,20 @@ export function interventionLogDoc(input: ReportHead & {
     })
   }
 
+  // Named from any note, in range or not, so the label survives a filter that matches nothing.
+  const studentName = filters.studentId
+    ? input.notes.find((n) => n.student_id === filters.studentId && n.student_name)?.student_name
+    : null
+  const board = filters.boardId ? input.notes.find((n) => n.board_id === filters.boardId && n.group_name) : null
   const parts = [
     filters.kinds.length ? filters.kinds.map((k) => NOTE_KIND_META[k].label).join(', ') : null,
     filters.status !== 'all' ? (filters.status === 'open' ? 'Open only' : 'Resolved only') : null,
+    filters.studentId ? (studentName ? `Student: ${studentName}` : 'One student') : null,
+    filters.boardId
+      ? board
+        ? `Group: ${board.group_name}${board.project_title ? ` · ${board.project_title}` : ''}`
+        : 'One group'
+      : null,
   ].filter(Boolean)
 
   return {

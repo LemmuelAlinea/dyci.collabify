@@ -59,6 +59,37 @@ describe('interventionLogDoc', () => {
     expect(none.blocks.some((b) => b.kind === 'note' && b.text === 'No notes in these dates. Widen the dates or add notes from Analytics.')).toBe(true)
     expect(kpi(none, 'Open follow-ups')).toBe(0)
   })
+  it('names the student and group filters in the header', () => {
+    const label = (f: Partial<LogFilters>, ns = notes) =>
+      interventionLogDoc({ ...head, range, asOf: '2026-10-14', notes: ns, filters: { ...all, ...f } }).header.rangeLabel
+    expect(label({ studentId: 's1' })).toBe('Student: Ana Cruz')
+    expect(label({ boardId: 'b1' })).toBe('Group: Group 1 · Lab 6')
+    expect(label({ boardId: 'b1' }, [row({ board_id: 'b1', group_name: 'Group 1', project_title: null })])).toBe('Group: Group 1')
+    expect(label({ studentId: 'nobody', boardId: 'none' })).toBe('One student · One group')
+    expect(label({})).toBeNull()
+  })
+  it('orders equal moments by id', () => {
+    const same = [
+      row({ id: 'b', body: 'second' }),
+      row({ id: 'a', body: 'first' }),
+    ]
+    const d = interventionLogDoc({ ...head, range, asOf: '2026-10-14', notes: same, filters: all })
+    expect(tableBlocks(d)[0].rows.map((r) => r[3])).toEqual(['first', 'second'])
+  })
+  it('puts the range edges on Manila days', () => {
+    const edge = [
+      row({ id: 'nov', created_at: '2026-10-31T17:00:00Z', body: 'Nov 1 in Manila' }),
+      row({ id: 'oct', created_at: '2026-09-30T16:30:00Z', body: 'Oct 1 in Manila' }),
+    ]
+    const d = interventionLogDoc({ ...head, range, asOf: '2026-10-14', notes: edge, filters: all })
+    expect(tableBlocks(d)[0].rows.map((r) => r[3])).toEqual(['Oct 1 in Manila'])
+  })
+  it('counts a follow-up due today as open, not overdue', () => {
+    const due = [row({ id: 'due', kind: 'follow_up', follow_up_on: '2026-10-14' })]
+    const d = interventionLogDoc({ ...head, range, asOf: '2026-10-14', notes: due, filters: all })
+    expect(kpi(d, 'Open follow-ups')).toBe(1)
+    expect(kpi(d, 'Overdue follow-ups')).toBe(0)
+  })
   it('carries the staff-only footer', () => {
     expect(doc.footer.lines).toContain('Only teaching staff can read these notes.')
   })
