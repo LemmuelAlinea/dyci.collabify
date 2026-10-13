@@ -53,7 +53,7 @@ export function useProjectScores(projectId: string, boardIds: string[]): Project
   useEffect(() => {
     void reload()
   }, [reload])
-  useLive(reload, ['board_scores', 'member_scores', 'score_releases', 'project_criteria', 'peer_rounds'])
+  useLive(reload, ['board_scores', 'member_scores', 'score_releases', 'group_members'])
 
   return { ...data, loaded, reload }
 }

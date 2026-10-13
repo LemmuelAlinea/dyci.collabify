@@ -57,7 +57,8 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
   const team = new Map(analyseTeam(scores.finalPeer.filter((r) => r.board_id === board.id)).map((m) => [m.student_id, m]))
   const suggested = (r: ScoreSheetRow) => suggestScore(savedTotal, r.in_group ? r.factor : null, total)
   const finalText = (r: ScoreSheetRow) =>
-    finals[r.student_id] ?? (r.final !== null ? String(r.final) : String(suggested(r) ?? ''))
+    finals[r.student_id] ??
+    (r.final !== null && r.overridden ? String(r.final) : String(suggested(r) ?? ''))
   const finalProblem = (r: ScoreSheetRow) => {
     const n = Number(finalText(r))
     if (finalText(r).trim() === '' || !isHalfStep(n)) return 'Use whole or half points'
@@ -68,6 +69,22 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
   const status = SCORE_STATUS_META[boardScoreStatus(rows)]
   const handedIn = Boolean(board.submitted_at || board.result_verdict)
   const released = rows[0]?.released ?? false
+  const confirmedRows = rows.filter((r) => r.confirmed_at)
+  const someConfirmed = confirmedRows.length > 0
+  const unconfirmed = rows.filter((r) => !r.confirmed_at)
+  const latestConfirmed = confirmedRows.reduce<string | null>(
+    (m, r) => (m === null || (r.confirmed_at ?? '') > m ? r.confirmed_at : m),
+    null,
+  )
+  const footerText = dirty
+    ? 'Save the scores before confirming.'
+    : someConfirmed && unconfirmed.length === 0 && latestConfirmed
+      ? `Confirmed ${dateFmt.format(new Date(latestConfirmed))}`
+      : someConfirmed
+        ? `${unconfirmed.map((r) => r.student_name).join(', ')} ${unconfirmed.length === 1 ? 'has' : 'have'} no confirmed score yet`
+        : solo
+          ? 'Confirming sets the student’s score to the board total.'
+          : 'Confirm once each member’s score is right.'
 
   const run = async (fn: () => Promise<void>, done: string, reset: () => void) => {
     setBusy(true)
@@ -212,6 +229,9 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
                           {over && (
                             <span className={`rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL.pending}`}>Overridden</span>
                           )}
+                          {someConfirmed && !r.confirmed_at && (
+                            <span className={`rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL.pending}`}>Not confirmed</span>
+                          )}
                           {r.suggestion_changed && (
                             <span
                               className={`rounded-md px-1.5 py-0.5 text-[11px] ${TONE_CELL.warning}`}
@@ -234,13 +254,7 @@ export function ScoreCard({ board, scores }: { board: BoardSummary; scores: Proj
 
       <div className="flex flex-wrap items-center gap-3">
         <p className="mr-auto text-[12px] text-faint">
-          {dirty
-            ? 'Save the scores before confirming.'
-            : rows[0]?.confirmed_at
-              ? `Confirmed ${dateFmt.format(new Date(rows[0].confirmed_at))}`
-              : solo
-                ? 'Confirming sets the student’s score to the board total.'
-                : 'Confirm once each member’s score is right.'}
+          {footerText}
         </p>
         <Button
           size="sm"
