@@ -509,10 +509,14 @@ begin
     (g -> 'peer' ->> 'raters')::int = 2
     and (g -> 'peer' -> 'me' ->> 'contributes')::numeric = 4.00
     and (g -> 'peer' -> 'team' ->> 'contributes')::numeric = 3.17);
+  perform pg_temp.must_be('a''s grade carries the factor 1.263 and is not overridden',
+    (g ->> 'factor')::numeric = 1.263 and not (g ->> 'overridden')::boolean);
 
   perform pg_temp.act_as(v_c);
   perform pg_temp.must_be('c sees the overridden 55',
     (public.my_grade(v_proj) ->> 'final')::numeric = 55);
+  perform pg_temp.must_be('and c''s grade says it was overridden',
+    (public.my_grade(v_proj) ->> 'overridden')::boolean);
   perform pg_temp.act_as(v_d);
   perform pg_temp.must_be('a classmate outside the group has no grade here',
     public.my_grade(v_proj) is null);

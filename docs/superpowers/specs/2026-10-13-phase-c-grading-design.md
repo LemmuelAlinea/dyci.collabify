@@ -334,7 +334,7 @@ The factor is only used once the final round has closed. A final round that is s
 - After release, a **Your grade** card sits at the top of the project's Brief tab. It shows:
   - the score out of `total_points` and the release date;
   - the group's rubric breakdown (criterion, points / max);
-  - "Adjusted for teamwork: ±N" when the final differs from the group total;
+  - "Adjusted for teamwork: ±N" only when the peer factor produced the difference (a stored factor, not overridden, and the final differs from the group total). When the final differs for any other reason, it says neutrally: "Your professor set your score at {final}. Your group scored {group}.";
   - **How your teammates saw you**: the five dimensions, theirs next to the team's (from `my_peer_summary`). This is shown only when a final round exists and they had at least `PEER_MIN_RATERS` raters.
 - Before release the card does not appear.
 - The notification type `grades_released` routes to the project.

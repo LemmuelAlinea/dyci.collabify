@@ -741,6 +741,9 @@ language sql stable security definer set search_path = public as $$
            'group_total', (select sum(s.points) from public.board_scores s where s.board_id = ms.board_id),
            'total_points', p.total_points,
            'in_group', b.group_id is not null,
+           -- So the page can tell a peer-factor adjustment from the professor's own call.
+           'factor', ms.factor,
+           'overridden', ms.overridden,
            'released_at', r.released_at,
            'criteria', (
              select coalesce(jsonb_agg(jsonb_build_object(

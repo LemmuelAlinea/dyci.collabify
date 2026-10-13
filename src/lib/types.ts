@@ -1398,6 +1398,10 @@ export type MyGrade = {
   group_total: number
   total_points: number
   in_group: boolean
+  /** The peer factor stored when the score was confirmed; null without one. */
+  factor: number | null
+  /** The professor changed the suggestion when confirming. */
+  overridden: boolean
   released_at: string
   criteria: { label: string; description: string; max_points: number; points: number | null }[]
   peer: MyPeerSummary | null

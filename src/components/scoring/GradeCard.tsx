@@ -44,7 +44,9 @@ export function GradeCard({ projectId }: { projectId: string }) {
 
   const final = Number(grade.final)
   const group = Number(grade.group_total)
-  const adjust = grade.in_group ? Math.round((final - group) * 2) / 2 : 0
+  const adjust = Math.round((final - group) * 2) / 2
+  // Only the peer factor counts as a teamwork adjustment; any other gap is the professor's call.
+  const teamwork = adjust !== 0 && grade.in_group && grade.factor !== null && !grade.overridden
 
   return (
     <section
@@ -62,11 +64,18 @@ export function GradeCard({ projectId }: { projectId: string }) {
         {formatPoints(final)}
         <span className="text-[18px] text-muted"> / {grade.total_points}</span>
       </p>
-      {adjust !== 0 && (
+      {teamwork ? (
         <p className="mt-2 text-[13px] text-muted">
           Adjusted for teamwork: {adjust > 0 ? '+' : '−'}
           {formatPoints(Math.abs(adjust))} from your group’s {formatPoints(group)}
         </p>
+      ) : (
+        adjust !== 0 && (
+          <p className="mt-2 text-[13px] text-muted">
+            Your professor set your score at {formatPoints(final)}.{' '}
+            {grade.in_group ? 'Your group scored' : 'Your rubric total is'} {formatPoints(group)}.
+          </p>
+        )
       )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
