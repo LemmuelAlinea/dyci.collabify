@@ -3208,3 +3208,72 @@ Plan: `docs/superpowers/plans/2026-10-13-phase-c1-peer-evaluation.md`.
 **Test data on live.** Lab 6 (QM) has one closed check-in round: Lemmuel Rodge's ratings and a "zz test" comment.
 
 **Next.** C2: rubric scoring, individual adjustment from the final round (round the factor to 3 places before comparing or capping, as `peerMath` does), release, and the student grade card.
+
+---
+
+## Phase C2: rubric scoring and release (2026-10-13)
+
+Spec: `docs/superpowers/specs/2026-10-13-phase-c-grading-design.md` (C2).
+Plan: `docs/superpowers/plans/2026-10-13-phase-c2-rubric-scoring.md`. Its "Spec corrections" table lists 12 rulings made while planning.
+
+**The rule now.** Grades live in Collabify, reversing the old "no grade" rule:
+- a board is scored against its rubric;
+- the professor confirms each student's score, which Collabify suggests;
+- students see nothing until the professor releases the project.
+
+The privacy policy and terms were updated to say so and published as **version 2026-10-13, material**. Both rows are in `legal_versions` on live, with matching rows in `consent.sql`.
+
+**What.**
+- **Work → Summary.** A Grades table: one row per group, with hand-in, criteria, total and status. Its actions are Release grades, Unrelease, and Clear scores… with a confirmation. Opening a row opens that board.
+- **Board panel.** A Score card:
+  - half-point criterion boxes, each of which says why when refused;
+  - a live total and Save scores;
+  - on group boards, a members table with factor, flags, suggested and an editable final, plus Overridden, Not confirmed and "Suggestion changed (was X, now Y)" markers;
+  - Confirm.
+  - On an individual board, it says when the board total has moved since the confirm.
+- **Student Brief tab.** A "Your grade" card after release, with:
+  - the score and the rubric breakdown;
+  - "Adjusted for teamwork" only when the peer factor made the difference (neutral wording otherwise);
+  - "How your teammates saw you" when the final round closed with at least 2 raters.
+- **Project edit.** The rubric locks its points and criteria once anything is scored; wording stays editable. Clear scores… unlocks it.
+
+**Data.** `supabase/scoring.sql`, which runs after `peer-evaluation.sql`.
+- **Tables:** `board_scores`, `member_scores`, `score_releases`, `score_history`.
+- **Triggers** cover point bounds, the history, the rubric and total lock, and refusing to delete a group that has scores.
+- **Functions** do all writes: `save_board_scores`, `confirm_member_scores` (recomputes the suggestion and factor on the server), `release_project_scores`, `unrelease_project_scores`, `clear_project_scores`.
+- **Reads:**
+  - the professor reads `score_sheet(project)`;
+  - the student reads `my_grade(project)`, which embeds `my_peer_summary`;
+  - only rows for the board the student is on now count (`score_member_current`).
+- **Suggestion:** `suggest_score` in SQL and `suggestScore` in `lib/scoreMath.ts`. Both are tested on the same hand values. Both work in integer halves × thousandths, so 10 × 1.025 lands on 10.5 on both sides.
+- **Other files:**
+  - `project-series.sql`: `series_write_criteria` writes the rubric by position and keeps criterion ids; `set_project_audience` refuses on a scored project.
+  - `reports.test.sql` now asserts that no report view reads a score without `score_releases`.
+
+**Re-running `results.sql`** cascade-drops the analytics and report views. Rebuild in this order: `results`, `analytics`, `analytics-insight`, `reports`, `student-reports`, `admin-program`, then `anon-lockdown`. Check `admin_class_overview` after: the follow-up session that fixed its drift between `admin-program.sql` and `task-archive.sql` says how.
+
+**Checked.**
+- SQL tests: scoring 127 PASS, plus peer-evaluation, reports, rls-coverage, anon-lockdown and task-archive.
+- Build, eslint, and 788 Vitest tests.
+- Browser, live Lab 6:
+  - as faculty: refusal messages for 7.25, -1, 16/15 and blank; save 86.5; override one student to 80; confirm; release (3 notified); Grades table at 375 px wide;
+  - as Lemmuel Rodge: the card shows 86.5 with the breakdown, and the notification arrives;
+  - afterwards, cleared as the professor. The history shows the whole trail.
+
+**Deferred** (the ledger's minors, kept):
+- Notifications:
+  - students confirmed after a release are not notified;
+  - unreleasing and releasing again notifies everyone again.
+
+  The user chose to leave both as built.
+- The teamwork line still shows when a board was rescored after release and not reconfirmed.
+- A stale group board's chip says "Scored" while its footer says "Confirmed {date}".
+- `my_peer_summary`'s "team" is the mean of raw ratings, not the factor's baseline.
+- `my_grade` ignores a class archive.
+- Refusals for a missing project or board carry no error code.
+- `projectBoardScores` puts every board id in the URL.
+- ScoreCard's rules have no unit tests.
+- The first Save click once missed during the walk-through. It may be a layout shift on blur; it was not reproduced.
+- `insight`, `class-files` and `admin-program` SQL tests fail, believed pre-existing.
+
+**Next.** C3: intervention notes (`class_notes`); nudges and peer reminders log into it. Then Phase B: reports, including released scores.
