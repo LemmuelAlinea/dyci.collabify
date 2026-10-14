@@ -1,7 +1,7 @@
 import { burnupSeries, manilaDay } from '../analyticsMath'
 import type { BurnupPoint } from '../analyticsMath'
 import type { BoardDecision, DeliverableRow, MemberLoad, ReportSprint, ResultVerdict, TaskState } from '../types'
-import { deliverableCell } from './deliverables'
+import { CLASS_ENDED_NOTE, LEFT_OUT_LINE, deliverableCell } from './deliverables'
 import { dayText } from './doc'
 import type { Block, Cell, Column, ReportDoc } from './doc'
 import type { ReportHead } from './grading'
@@ -13,8 +13,6 @@ export type ProgressBoard = {
   submitted_at: string | null
   submitted_by_name: string | null
   result_verdict: ResultVerdict | null
-  task_count: number
-  done_pct: number
 }
 
 export type ProgressProject = {
@@ -37,6 +35,18 @@ type Input = ReportHead & {
   history: BoardDecision[]
   /** A Manila day. */
   today: string
+  /** The class is archived. */
+  classEnded?: boolean
+  /** The page left out boards with nobody on them. */
+  leftOut?: boolean
+}
+
+/** A board's share of its weight done, as task_board_overview.done_pct works it out. */
+function donePct(tasks: TaskState[]) {
+  const total = tasks.reduce((s, t) => s + t.weight, 0)
+  if (total === 0) return 0
+  const done = tasks.reduce((s, t) => s + (t.status === 'done' ? t.weight : 0), 0)
+  return Math.round((done / total) * 1000) / 10
 }
 
 const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true })
@@ -56,7 +66,7 @@ function verdictCell(b: ProgressBoard, history: BoardDecision[]): Cell {
     .filter((h) => h.board_id === b.board_id)
     .reduce<BoardDecision | null>((best, h) => (!best || Date.parse(h.decided_at) > Date.parse(best.decided_at) ? h : best), null)
   if (b.submitted_at && (!last || Date.parse(last.decided_at) < Date.parse(b.submitted_at))) {
-    return { value: 'Waiting for you', tone: 'pending' }
+    return { value: 'Waiting for an answer', tone: 'pending' }
   }
   if (b.result_verdict === 'accepted') return { value: 'Accepted', tone: 'success' }
   if (b.result_verdict === 'returned') return { value: 'Returned', tone: 'warning' }
@@ -112,10 +122,14 @@ export function groupProgressDoc(input: Input): ReportDoc {
     },
     blocks,
     footer: {
-      lines: ['Counts are tasks recorded in Collabify. A flag is a prompt for a conversation, not a verdict.'],
+      lines: [
+        'Counts are tasks recorded in Collabify. A flag is a prompt for a conversation, not a verdict.',
+        ...(input.leftOut ? [LEFT_OUT_LINE] : []),
+      ],
       signatures: [{ role: 'Prepared by', name: input.professor }],
     },
   })
+  if (input.classEnded) blocks.push({ kind: 'note', tone: 'info', text: CLASS_ENDED_NOTE })
   if (project.archived_at) blocks.push({ kind: 'note', tone: 'info', text: 'This project is archived. The report shows it as it was left.' })
 
   if (single) {
@@ -123,8 +137,8 @@ export function groupProgressDoc(input: Input): ReportDoc {
     blocks.push({
       kind: 'kpis',
       items: [
-        { label: 'Done', value: b.done_pct, unit: '%' },
-        { label: 'Tasks', value: b.task_count },
+        { label: 'Done', value: donePct(tasksOf(b.board_id)), unit: '%' },
+        { label: 'Tasks', value: tasksOf(b.board_id).length },
         { label: 'Late tasks', value: tasksOf(b.board_id).filter((t) => isLate(t, today)).length },
         { label: 'Hand-in', value: handInText(b) },
         { label: 'Verdict', value: cellValueText(verdictCell(b, history)) },
@@ -138,7 +152,7 @@ export function groupProgressDoc(input: Input): ReportDoc {
         { label: group ? 'Groups' : 'Students', value: boards.length },
         {
           label: 'Average done',
-          value: boards.length ? Math.round((boards.reduce((s, b) => s + b.done_pct, 0) / boards.length) * 10) / 10 : 0,
+          value: boards.length ? Math.round((boards.reduce((s, b) => s + donePct(tasksOf(b.board_id)), 0) / boards.length) * 10) / 10 : 0,
           unit: '%',
         },
         { label: 'Handed in', value: `${handedIn} of ${boards.length}` },
@@ -153,7 +167,13 @@ export function groupProgressDoc(input: Input): ReportDoc {
       ],
     })
     if (boards.length === 0) {
-      blocks.push({ kind: 'note', tone: 'info', text: 'This project has no groups yet. Groups appear once students are placed in them.' })
+      blocks.push({
+        kind: 'note',
+        tone: 'info',
+        text: group
+          ? 'This project has no groups yet. Groups appear once students are placed in them.'
+          : 'This project has no students yet. Students appear once they join the class.',
+      })
       return finish()
     }
     blocks.push({
@@ -171,8 +191,8 @@ export function groupProgressDoc(input: Input): ReportDoc {
       ],
       rows: boards.map<Cell[]>((b) => [
         b.name,
-        b.done_pct,
-        b.task_count,
+        donePct(tasksOf(b.board_id)),
+        tasksOf(b.board_id).length,
         tasksOf(b.board_id).filter((t) => isLate(t, today)).length,
         handInText(b),
         verdictCell(b, history),
@@ -258,7 +278,7 @@ export function groupProgressDoc(input: Input): ReportDoc {
     .filter((s) => ids.has(s.board_id))
     .sort((a, b) => byName(nameOf.get(a.board_id) ?? '', nameOf.get(b.board_id) ?? '') || a.starts_on.localeCompare(b.starts_on))
   if (sprints.length === 0) {
-    blocks.push({ kind: 'note', tone: 'info', text: 'No sprints planned yet.' })
+    blocks.push({ kind: 'note', tone: 'info', text: 'No sprints planned yet. Sprints appear once a group plans one on its board.' })
   } else {
     blocks.push({
       kind: 'table',

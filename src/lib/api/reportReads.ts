@@ -5,15 +5,14 @@ import { pageAll, pageAllIn } from './paging'
 /**
  * Reads for the B3 reports, each scoped to one class. The views are already
  * scoped to the class's own professor; the class filter keeps a professor with
- * many classes from loading all of them for one report.
+ * many classes from loading all of them for one report. A project id narrows a
+ * read to that one project, for a report about it alone.
  */
 
-export async function listDeliverables(classId: string) {
+export async function listDeliverables(classId: string, projectId?: string) {
   return pageAll<DeliverableRow>(async (from, to) => {
-    const { data, error } = await supabase
-      .from('report_deliverables')
-      .select('*')
-      .eq('class_id', classId)
+    const q = supabase.from('report_deliverables').select('*').eq('class_id', classId)
+    const { data, error } = await (projectId ? q.eq('project_id', projectId) : q)
       .order('project_id')
       .order('board_id')
       .order('kind')
@@ -24,12 +23,10 @@ export async function listDeliverables(classId: string) {
   })
 }
 
-export async function listReportSprints(classId: string) {
+export async function listReportSprints(classId: string, projectId?: string) {
   return pageAll<ReportSprint>(async (from, to) => {
-    const { data, error } = await supabase
-      .from('report_sprints')
-      .select('*')
-      .eq('class_id', classId)
+    const q = supabase.from('report_sprints').select('*').eq('class_id', classId)
+    const { data, error } = await (projectId ? q.eq('project_id', projectId) : q)
       .order('starts_on')
       .order('sprint_id')
       .range(from, to)
@@ -38,12 +35,10 @@ export async function listReportSprints(classId: string) {
   })
 }
 
-export async function classTaskStates(classId: string) {
+export async function classTaskStates(classId: string, projectId?: string) {
   return pageAll<TaskState>(async (from, to) => {
-    const { data, error } = await supabase
-      .from('task_state')
-      .select('*')
-      .eq('class_id', classId)
+    const q = supabase.from('task_state').select('*').eq('class_id', classId)
+    const { data, error } = await (projectId ? q.eq('project_id', projectId) : q)
       .order('task_id')
       .range(from, to)
     if (error) throw error
@@ -51,12 +46,10 @@ export async function classTaskStates(classId: string) {
   })
 }
 
-export async function classMemberLoad(classId: string) {
+export async function classMemberLoad(classId: string, projectId?: string) {
   return pageAll<MemberLoad>(async (from, to) => {
-    const { data, error } = await supabase
-      .from('class_member_load')
-      .select('*')
-      .eq('class_id', classId)
+    const q = supabase.from('class_member_load').select('*').eq('class_id', classId)
+    const { data, error } = await (projectId ? q.eq('project_id', projectId) : q)
       .order('board_id')
       .order('student_id')
       .range(from, to)

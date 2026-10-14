@@ -21,6 +21,7 @@ import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import { NOTE_KIND_META } from '../../../lib/notes'
 import { downloadCsv, reportFilename, toCsv } from '../../../lib/report'
+import { countableBoard } from '../../../lib/reports/deliverables'
 import type { ReportDoc } from '../../../lib/reports/doc'
 import { docCsvFiles, exportCsv, exportDocx, exportXlsx, reportBase } from '../../../lib/reports/export'
 import { defaultRound } from '../../../lib/reports/peerSummary'
@@ -460,16 +461,18 @@ function CheckInExtras({ r }: { r: ReturnType<typeof useReports> }) {
 function ProgressExtras({ r }: { r: ReturnType<typeof useReports> }) {
   const individual = r.projects.find((p) => p.id === r.projectId)?.audience === 'individual'
   // r.boards is every board in the class until a project is picked, so the options come from the project's own.
+  // A group with nobody in it, or a student who has left the class, is left out of the report and of this list.
+  const active = new Set(r.members.filter((m) => m.status === 'active').map((m) => m.student_id))
   const options = r.projects.some((p) => p.id === r.projectId)
     ? r.boards
-        .filter((b) => b.project_id === r.projectId)
+        .filter((b) => b.project_id === r.projectId && countableBoard(b, active))
         .map((b) => ({ value: b.id, label: b.group_name ?? b.student_name ?? 'A board' }))
         .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
     : []
   return (
     <Select
-      aria-label="Group"
-      // A group left in the address from another project reads as every group.
+      aria-label={individual ? 'Student' : 'Group'}
+      // A group left in the address from another project, or one left out, reads as every group.
       value={options.some((o) => o.value === r.boardId) ? r.boardId : ''}
       onChange={(e) => r.setBoardId(e.target.value)}
       options={[{ value: '', label: individual ? 'Every student' : 'Every group' }, ...options]}

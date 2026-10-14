@@ -8,6 +8,24 @@ import type { DayRange } from './range'
 
 export type DeliverableProject = { id: string; title: string; audience: 'group' | 'individual' }
 
+/** Said under both B3 reports when the page left boards out. */
+export const LEFT_OUT_LINE = 'Groups with no members and students no longer in the class are left out.'
+/** Opens both B3 reports for an archived class. */
+export const CLASS_ENDED_NOTE = 'This class has ended. The report shows it as it was left.'
+
+/**
+ * Whether a board belongs in the B3 reports: a group's while it has members, a
+ * student's while they are still active in the class. `active` is the class's
+ * active student ids.
+ */
+export function countableBoard(
+  b: { group_id: string | null; student_id: string | null; member_count: number },
+  active: ReadonlySet<string>,
+) {
+  if (b.group_id) return b.member_count > 0
+  return b.student_id !== null && active.has(b.student_id)
+}
+
 const TONE: Record<DeliverableState, Tone> = { on_time: 'success', late: 'warning', missing: 'danger', not_due: 'pending' }
 
 export function deliverableLabel(r: Pick<DeliverableRow, 'state' | 'days_late'>): string {
@@ -61,17 +79,25 @@ export function deliverablesDoc(input: ReportHead & {
   /** Null means every date. */
   window: DayRange | null
   notice?: string | null
+  /** The class is archived. */
+  classEnded?: boolean
+  /** The page left out boards with nobody on them. */
+  leftOut?: boolean
 }): ReportDoc {
   const { window } = input
   const wanted = new Set(input.projects.map((p) => p.id))
   const inWindow = (r: DeliverableRow) =>
     window === null || (r.due_day !== null && r.due_day >= window.from && r.due_day <= window.to)
-  const shown = input.rows.filter((r) => wanted.has(r.project_id) && inWindow(r))
+  const mineAll = input.rows.filter((r) => wanted.has(r.project_id))
+  const shown = mineAll.filter(inWindow)
+  // A project with no rows at all has no boards: nothing could ever fall due on it.
+  const hasRows = new Set(mineAll.map((r) => r.project_id))
 
   const due = shown.filter((r) => r.state !== 'not_due')
   const count = (s: DeliverableState) => shown.filter((r) => r.state === s).length
   const rate = due.length ? Math.round((count('on_time') / due.length) * 1000) / 10 : null
   const blocks: Block[] = []
+  if (input.classEnded) blocks.push({ kind: 'note', tone: 'info', text: CLASS_ENDED_NOTE })
   if (input.notice) blocks.push({ kind: 'note', tone: 'info', text: input.notice })
   blocks.push({
     kind: 'kpis',
@@ -88,7 +114,14 @@ export function deliverablesDoc(input: ReportHead & {
   for (const p of input.projects) {
     const mine = shown.filter((r) => r.project_id === p.id)
     if (mine.length === 0) {
-      if (input.projects.length > 1) blocks.push({ kind: 'note', tone: 'info', text: `Nothing on ${p.title} falls due in these dates.` })
+      // When no project has rows the closing sentence says so for all of them.
+      if (input.projects.length > 1 && hasRows.size > 0) {
+        blocks.push({
+          kind: 'note',
+          tone: 'info',
+          text: hasRows.has(p.id) ? `Nothing on ${p.title} falls due in these dates.` : `${p.title} has no groups or students yet.`,
+        })
+      }
       continue
     }
     // One column per deliverable: milestones by due day, then title; the hand-in last.
@@ -130,7 +163,12 @@ export function deliverablesDoc(input: ReportHead & {
     blocks.push({
       kind: 'note',
       tone: 'info',
-      text: 'No milestones or hand-ins fall due in these dates. Widen the dates or pick another project.',
+      text:
+        hasRows.size > 0
+          ? 'No milestones or hand-ins fall due in these dates. Widen the dates or pick another project.'
+          : input.projects.length === 1
+            ? 'This project has no groups or students yet.'
+            : 'These projects have no groups or students yet.',
     })
   } else {
     blocks.push(LEGEND)
@@ -149,6 +187,7 @@ export function deliverablesDoc(input: ReportHead & {
       lines: [
         'A milestone is met when all its tasks are done by the end of its due day, Manila time.',
         "A hand-in is on time when it arrives by the project's deadline. Collabify keeps the latest hand-in time only.",
+        ...(input.leftOut ? [LEFT_OUT_LINE] : []),
       ],
       signatures: [{ role: 'Prepared by', name: input.professor }],
     },

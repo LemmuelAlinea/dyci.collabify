@@ -12,7 +12,7 @@ import { authErrorMessage } from '../../../lib/authError'
 import { rankActions } from '../../../lib/insight'
 import { generatedOn } from '../../../lib/report'
 import { checkInAsOf, checkInDoc, liveProjects, onProjects } from '../../../lib/reports/checkIn'
-import { deliverablesDoc } from '../../../lib/reports/deliverables'
+import { countableBoard, deliverablesDoc } from '../../../lib/reports/deliverables'
 import type { ReportDoc } from '../../../lib/reports/doc'
 import { gradingClassDoc, gradingGridDoc, gradingStudentDoc } from '../../../lib/reports/grading'
 import { groupProgressDoc } from '../../../lib/reports/groupProgress'
@@ -48,7 +48,7 @@ export function useReportDoc(r: R, professor: string) {
   const retry = useCallback(() => setNonce((n) => n + 1), [])
 
   const {
-    kind, cls, classId, projectId, boardId, studentId, roundId, comments, projects, boards, allBoards, work, students, ready,
+    kind, cls, classId, projectId, boardId, studentId, roundId, comments, projects, boards, allBoards, work, students, members, ready,
     rangeChoice, customFrom, customTo, dueChoice, noteKinds, noteStatus,
   } = r
   const noteKindsKey = noteKinds.join(',')
@@ -146,6 +146,12 @@ export function useReportDoc(r: R, professor: string) {
     [onePerProject, work, projectId],
   )
 
+  // The B3 reports leave out a group with nobody in it and a student who has left the class.
+  const active = useMemo(
+    () => new Set(members.filter((m) => m.status === 'active').map((m) => m.student_id)),
+    [members],
+  )
+
   // The check-in reads hand-ins and due dates off the class loader's arrays, so a
   // hand-in or a moved deadline arriving there has to rebuild it.
   const checkInSig = useMemo(
@@ -160,26 +166,29 @@ export function useReportDoc(r: R, professor: string) {
           ].join('|')
         : kind === 'progress' || kind === 'deliverables'
           ? [
-              // Hand-ins and verdicts arrive through the class loader, not the live tables.
-              // Compliance reads its rows from the view, so board progress would only rebuild it for nothing.
-              // Group progress reads only the chosen project's boards, and their progress and hand-in.
+              // Hand-ins arrive through the class loader, not the live tables, and so does
+              // whether a board still counts. Compliance reads its states from the view,
+              // so a verdict or board progress would only rebuild it for nothing. Group
+              // progress reads only the chosen project's boards and their hand-in and
+              // verdict; its task figures come from task_state, which the paced
+              // project_tasks and task_assignees listener covers.
               ...allBoards
                 .filter((b) => kind === 'deliverables' || b.project_id === projectId)
                 .map((b) => {
-                  const head = `${b.id}:${b.project_id}:${b.group_name ?? b.student_name ?? ''}:${b.submitted_at ?? ''}:${b.result_verdict ?? ''}:${b.result_at ?? ''}`
-                  return kind === 'progress' ? `${head}:${b.submitted_by_name ?? ''}:${b.done_pct}:${b.task_count}` : head
+                  const head = `${b.id}:${b.project_id}:${b.group_name ?? b.student_name ?? ''}:${b.submitted_at ?? ''}:${countableBoard(b, active) ? 1 : 0}`
+                  return kind === 'progress' ? `${head}:${b.result_verdict ?? ''}:${b.result_at ?? ''}:${b.submitted_by_name ?? ''}` : head
                 }),
               ...projects.map((p) => `${p.id}:${p.title}:${p.audience}:${p.due_at ?? ''}:${p.release_at ?? ''}:${p.archived_at ?? ''}`),
             ].join('|')
           : '',
-    [kind, allBoards, projects, projectId],
+    [kind, allBoards, projects, projectId, active],
   )
 
   // The arrays themselves, read when a build starts. Kept beside the effect
   // rather than in its dependencies, which are the signatures above.
-  const data = useRef({ projects, boards, allBoards, work, students })
+  const data = useRef({ projects, boards, allBoards, work, students, active })
   useEffect(() => {
-    data.current = { projects, boards, allBoards, work, students }
+    data.current = { projects, boards, allBoards, work, students, active }
   })
 
   useEffect(() => {
@@ -190,7 +199,8 @@ export function useReportDoc(r: R, professor: string) {
       setLoading(false)
       return
     }
-    const { projects, boards, allBoards, work, students } = data.current
+    const { projects, boards, allBoards, work, students, active } = data.current
+    const countable = (b: (typeof allBoards)[number]) => countableBoard(b, active)
     const head = { classLine, professor, madeAt: generatedOn() }
     const today = manilaDay(new Date())
     const range = { from: rangeFrom, to: rangeTo }
@@ -339,16 +349,19 @@ export function useReportDoc(r: R, professor: string) {
           const p = projects.find((x) => x.id === projectId)
           if (!p) throw new Error('Pick a project to see its groups.')
           const onProject = allBoards.filter((b) => b.project_id === p.id)
-          // A group left in the address from another project means every group.
-          const chosen = onProject.find((b) => b.id === boardId)
-          const shown = chosen ? [chosen] : onProject
+          const counted = onProject.filter(countable)
+          // A group left in the address from another project, or one left out, means every group.
+          const chosen = counted.find((b) => b.id === boardId)
+          const shown = chosen ? [chosen] : counted
           const [tasks, members, deliverables, sprints, history] = await Promise.all([
-            classTaskStates(classId), classMemberLoad(classId), listDeliverables(classId),
-            listReportSprints(classId), boardHistoryFor(shown.map((b) => b.id)),
+            classTaskStates(classId, p.id), classMemberLoad(classId, p.id), listDeliverables(classId, p.id),
+            listReportSprints(classId, p.id), boardHistoryFor(shown.map((b) => b.id)),
           ])
           next = groupProgressDoc({
             ...head,
             today,
+            classEnded: ended,
+            leftOut: !chosen && counted.length < onProject.length,
             single: Boolean(chosen),
             project: { id: p.id, title: p.title, audience: p.audience, due_at: p.due_at, archived_at: p.archived_at, created_at: p.created_at },
             boards: shown.map((b) => ({
@@ -357,8 +370,6 @@ export function useReportDoc(r: R, professor: string) {
               submitted_at: b.submitted_at,
               submitted_by_name: b.submitted_by_name,
               result_verdict: b.result_verdict,
-              task_count: b.task_count,
-              done_pct: b.done_pct,
             })),
             tasks, members, deliverables, sprints, history,
           })
@@ -367,7 +378,10 @@ export function useReportDoc(r: R, professor: string) {
           const released = (x: { archived_at: string | null; release_at: string | null }) =>
             Boolean(x.archived_at) || !x.release_at || Date.parse(x.release_at) <= Date.now()
           const chosen = projectId === 'all' ? projects.filter(released) : projects.filter((x) => x.id === projectId)
-          const rows = await listDeliverables(classId)
+          // One project's rows when one is picked; the class's under "All projects".
+          const rows = await listDeliverables(classId, projectId === 'all' ? undefined : projectId)
+          const shownIds = new Set(chosen.map((x) => x.id))
+          const counted = new Set(allBoards.filter(countable).map((b) => b.id))
           const window = dueFrom && dueTo ? { from: dueFrom, to: dueTo } : null
           const notices = [
             projectId !== 'all' && chosen.some((x) => !released(x)) ? 'This project is not released yet.' : '',
@@ -375,8 +389,10 @@ export function useReportDoc(r: R, professor: string) {
           ].filter(Boolean)
           next = deliverablesDoc({
             ...head,
-            rows,
+            rows: rows.filter((x) => counted.has(x.board_id)),
             window,
+            classEnded: ended,
+            leftOut: allBoards.some((b) => shownIds.has(b.project_id) && !countable(b)),
             projects: chosen.map((x) => ({ id: x.id, title: x.title, audience: x.audience })),
             notice: notices.length ? notices.join(' ') : null,
           })

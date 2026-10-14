@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deliverableCell, deliverableLabel, deliverablesDoc } from './deliverables'
+import { countableBoard, deliverableCell, deliverableLabel, deliverablesDoc } from './deliverables'
 import { docToWorkbook } from './export'
 import { tableBlocks } from './doc'
 import type { ReportDoc } from './doc'
@@ -88,11 +88,11 @@ describe('deliverablesDoc', () => {
     expect(grid.columns[0].label).toBe('Student')
     expect(grid.rows[0][0]).toBe('Ana Cruz')
   })
-  it('gives each project its own grid, says which have nothing due, and ends with the legend', () => {
+  it('gives each project its own grid, says which have no boards, and ends with the legend', () => {
     const essay = { id: 'p2', title: 'Essay', audience: 'individual' as const }
     const doc = deliverablesDoc({ ...head, projects: [lab6, essay], rows, window: null })
     expect(tableBlocks(doc).map((t) => t.title)).toEqual(['Lab 6', 'Legend'])
-    expect(notes(doc)).toContain('Nothing on Essay falls due in these dates.')
+    expect(notes(doc)).toContain('Essay has no groups or students yet.')
     expect(doc.header.subtitle).toBe('All projects')
   })
   it('passes on a notice from the page', () => {
@@ -141,5 +141,58 @@ describe('deliverablesDoc', () => {
     const evil = [row({ group_name: '=1+1' })]
     const wb = docToWorkbook(deliverablesDoc({ ...head, projects: [lab6], rows: evil, window: null }))
     expect(wb.sheets[1].rows[1][0]).toBe(' =1+1')
+  })
+})
+
+describe('deliverablesDoc, final fixes', () => {
+  const essay = { id: 'p2', title: 'Essay', audience: 'individual' as const }
+  it('says a project with no boards has no groups or students, in place of the dates sentence', () => {
+    const doc = deliverablesDoc({ ...head, projects: [lab6, essay], rows, window: null })
+    expect(notes(doc)).toContain('Essay has no groups or students yet.')
+    expect(notes(doc)).not.toContain('Nothing on Essay falls due in these dates.')
+    const windowed = deliverablesDoc({ ...head, projects: [lab6, essay], rows, window: { from: '2026-10-01', to: '2026-10-10' } })
+    expect(notes(windowed)).toContain('Essay has no groups or students yet.')
+  })
+  it('keeps the dates sentence for a project whose rows fall outside the window, never under every date', () => {
+    const essayRows = [row({ project_id: 'p2', project_title: 'Essay', ref_id: 'm9', due_day: '2026-11-15' })]
+    const windowed = deliverablesDoc({ ...head, projects: [lab6, essay], rows: [...rows, ...essayRows], window: { from: '2026-10-01', to: '2026-10-10' } })
+    expect(notes(windowed)).toContain('Nothing on Essay falls due in these dates.')
+    const every = deliverablesDoc({ ...head, projects: [lab6, essay], rows: [...rows, ...essayRows], window: null })
+    expect(notes(every).some((t) => t.startsWith('Nothing on'))).toBe(false)
+  })
+  it('says the projects have no groups or students when none has any rows', () => {
+    const doc = deliverablesDoc({ ...head, projects: [lab6, essay], rows: [], window: null })
+    expect(notes(doc)).toContain('These projects have no groups or students yet.')
+    expect(notes(doc)).not.toContain('No milestones or hand-ins fall due in these dates. Widen the dates or pick another project.')
+    expect(notes(doc).some((t) => t.endsWith('has no groups or students yet.'))).toBe(false)
+    expect(tableBlocks(doc)).toHaveLength(0)
+    expect(kpi(doc, 'On-time rate')).toBe('—')
+  })
+  it('opens with a note when the class has ended', () => {
+    const doc = deliverablesDoc({ ...head, projects: [lab6], rows, window: null, classEnded: true, notice: 'This project is not released yet.' })
+    expect(doc.blocks[0]).toEqual({ kind: 'note', tone: 'info', text: 'This class has ended. The report shows it as it was left.' })
+    expect(notes(deliverablesDoc({ ...head, projects: [lab6], rows, window: null }))).not.toContain('This class has ended. The report shows it as it was left.')
+  })
+  it('says in the footer when boards were left out', () => {
+    const line = 'Groups with no members and students no longer in the class are left out.'
+    expect(deliverablesDoc({ ...head, projects: [lab6], rows, window: null, leftOut: true }).footer.lines).toContain(line)
+    expect(deliverablesDoc({ ...head, projects: [lab6], rows, window: null }).footer.lines).not.toContain(line)
+  })
+})
+
+describe('countableBoard', () => {
+  const active = new Set(['s1'])
+  it('counts a group board only while its group has members', () => {
+    expect(countableBoard({ group_id: 'g1', student_id: null, member_count: 3 }, active)).toBe(true)
+    expect(countableBoard({ group_id: 'g1', student_id: null, member_count: 0 }, active)).toBe(false)
+  })
+  it('counts a student board only while the student is an active class member', () => {
+    expect(countableBoard({ group_id: null, student_id: 's1', member_count: 0 }, active)).toBe(true)
+    expect(countableBoard({ group_id: null, student_id: 's2', member_count: 0 }, active)).toBe(false)
+    expect(countableBoard({ group_id: null, student_id: null, member_count: 0 }, active)).toBe(false)
+  })
+  it('says one project has no groups or students when it has no rows', () => {
+    const doc = deliverablesDoc({ ...head, projects: [lab6], rows: [], window: null })
+    expect(notes(doc)).toEqual(['This project has no groups or students yet.'])
   })
 })

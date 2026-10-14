@@ -47,8 +47,8 @@ const sprints = [sprint({}), sprint({ sprint_id: 'sp2', name: 'Sprint 2', starts
 const history: BoardDecision[] = [
   { board_id: 'b1', verdict: 'returned', feedback: 'Add the model', decided_at: '2026-10-09T03:00:00Z', decided_by_name: 'Prof. Reyes' },
 ]
-const b1 = { board_id: 'b1', name: 'Group 1', submitted_at: '2026-10-12T03:00:00Z', submitted_by_name: 'Ana Cruz', result_verdict: 'returned' as const, task_count: 4, done_pct: 50 }
-const b2 = { board_id: 'b2', name: 'Group 2', submitted_at: null, submitted_by_name: null, result_verdict: null, task_count: 1, done_pct: 100 }
+const b1 = { board_id: 'b1', name: 'Group 1', submitted_at: '2026-10-12T03:00:00Z', submitted_by_name: 'Ana Cruz', result_verdict: 'returned' as const }
+const b2 = { board_id: 'b2', name: 'Group 2', submitted_at: null, submitted_by_name: null, result_verdict: null }
 const base = { ...head, project, tasks, members, deliverables, sprints, history, today }
 const kpi = (doc: ReportDoc, label: string) =>
   doc.blocks.flatMap((b) => (b.kind === 'kpis' ? b.items : [])).find((k) => k.label === label)?.value
@@ -65,7 +65,7 @@ describe('groupProgressDoc, one group', () => {
     expect(kpi(doc, 'Tasks')).toBe(4)
     expect(kpi(doc, 'Late tasks')).toBe(2) // t2 finished late, t3 open past its due day
     expect(kpi(doc, 'Hand-in')).toBe('Handed in Oct 12, 2026')
-    expect(kpi(doc, 'Verdict')).toBe('Waiting for you') // handed in again after the return
+    expect(kpi(doc, 'Verdict')).toBe('Waiting for an answer') // handed in again after the return
   })
   it('charts scope against done over the project, to the due day', () => {
     const chart = doc.blocks.find((b) => b.kind === 'chart')
@@ -133,7 +133,7 @@ describe('groupProgressDoc, edges', () => {
     expect(texts).toEqual(expect.arrayContaining([
       'No tasks on this board yet, so there is nothing to chart.',
       "This project has no milestones. Add them on the project's Work tab.",
-      'No sprints planned yet.',
+      'No sprints planned yet. Sprints appear once a group plans one on its board.',
       'Nothing handed in or answered yet.',
     ]))
     expect(tableBlocks(doc).map((t) => t.title)).toEqual([])
@@ -187,5 +187,54 @@ describe('groupProgressDoc, fix round 1', () => {
     const doc = groupProgressDoc({ ...base, boards: [], single: false })
     expect(doc.blocks.some((b) => b.kind === 'note' && b.text === 'This project has no groups yet. Groups appear once students are placed in them.')).toBe(true)
     expect(tableBlocks(doc)).toEqual([])
+  })
+})
+
+describe('groupProgressDoc, final fixes', () => {
+  const notesOf = (doc: ReportDoc) => doc.blocks.flatMap((b) => (b.kind === 'note' ? [b.text] : []))
+  it('works out each board’s tasks and done % from its tasks, by weight', () => {
+    const doc = groupProgressDoc({ ...base, boards: [b1, b2], single: false })
+    expect(table(doc, 'Groups')?.rows.map((r) => [r[0], r[1], r[2]])).toEqual([['Group 1', 50, 4], ['Group 2', 100, 1]])
+    expect(kpi(doc, 'Average done')).toBe(75)
+  })
+  it('weighs done % by task weight and rounds it to one decimal', () => {
+    const weighted = [
+      task({ task_id: 'w1', status: 'done', done_at: '2026-10-05T02:00:00Z', weight: 1 }),
+      task({ task_id: 'w2', status: 'in_progress', weight: 1 }),
+      task({ task_id: 'w3', status: 'todo', weight: 1 }),
+      task({ task_id: 'w4', board_id: 'b2', status: 'done', done_at: '2026-10-05T02:00:00Z', weight: 3 }),
+      task({ task_id: 'w5', board_id: 'b2', status: 'todo', weight: 1 }),
+    ]
+    const doc = groupProgressDoc({ ...base, tasks: weighted, boards: [b1, b2], single: false })
+    expect(table(doc, 'Groups')?.rows.map((r) => [r[1], r[2]])).toEqual([[33.3, 3], [75, 2]])
+    const one = groupProgressDoc({ ...base, tasks: weighted, boards: [b2], single: true })
+    expect(kpi(one, 'Done')).toBe(75)
+    expect(kpi(one, 'Tasks')).toBe(2)
+  })
+  it('reads 0% and no tasks for a board with no tasks', () => {
+    const doc = groupProgressDoc({ ...base, tasks: [], boards: [b1], single: true })
+    expect(kpi(doc, 'Done')).toBe(0)
+    expect(kpi(doc, 'Tasks')).toBe(0)
+  })
+  it('says an individual project has no students yet when it has no boards', () => {
+    const solo = { ...project, audience: 'individual' as const }
+    const doc = groupProgressDoc({ ...base, project: solo, boards: [], single: false })
+    expect(notesOf(doc)).toContain('This project has no students yet. Students appear once they join the class.')
+    expect(notesOf(doc)).not.toContain('This project has no groups yet. Groups appear once students are placed in them.')
+  })
+  it('says a group has no members yet', () => {
+    const doc = groupProgressDoc({ ...base, boards: [b1], single: true, members: [] })
+    expect(notesOf(doc)).toContain('No members yet. Members appear once students join the group.')
+    expect(table(doc, 'Members')).toBeUndefined()
+  })
+  it('opens with a note when the class has ended', () => {
+    const doc = groupProgressDoc({ ...base, boards: [b1], single: true, classEnded: true, project: { ...project, archived_at: '2026-10-13T00:00:00Z' } })
+    expect(doc.blocks[0]).toEqual({ kind: 'note', tone: 'info', text: 'This class has ended. The report shows it as it was left.' })
+    expect(notesOf(groupProgressDoc({ ...base, boards: [b1], single: true }))).not.toContain('This class has ended. The report shows it as it was left.')
+  })
+  it('says in the footer when boards were left out', () => {
+    const line = 'Groups with no members and students no longer in the class are left out.'
+    expect(groupProgressDoc({ ...base, boards: [b1], single: false, leftOut: true }).footer.lines).toContain(line)
+    expect(groupProgressDoc({ ...base, boards: [b1], single: false }).footer.lines).not.toContain(line)
   })
 })

@@ -32,7 +32,7 @@ export function WeekBars({ rows, title }: { rows: WeekRow[]; title: string }) {
           const cx = PAD.left + slot * i + slot / 2
           return (
             <g key={r.week}>
-              <rect x={cx - bw / 2} y={base - h(r.work)} width={bw} height={h(r.work)} rx="2" className="fill-navy-600 dark:fill-navy-300" />
+              <rect x={cx - bw / 2} y={base - h(r.work)} width={bw} height={h(r.work)} rx="2" className="fill-navy-600 dark:fill-navy-300 print:fill-navy-600" />
               <rect x={cx - bw / 2} y={base - h(r.work) - h(r.talk)} width={bw} height={h(r.talk)} rx="2" className="fill-amber-400" />
               {(i % labelEvery === 0 || i === rows.length - 1) && (
                 <text x={cx} y={H - 8} textAnchor="middle" className="fill-[var(--ink-faint)] font-mono text-[10px]">
@@ -44,7 +44,7 @@ export function WeekBars({ rows, title }: { rows: WeekRow[]; title: string }) {
         })}
       </svg>
       <figcaption className="mt-2 flex gap-4 text-[12px] text-muted">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-navy-600 dark:bg-navy-300" />Work</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-navy-600 dark:bg-navy-300 print:bg-navy-600" />Work</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />Comments and files</span>
       </figcaption>
       {/* sr-only on a table is ignored: tables size to their rows. */}
