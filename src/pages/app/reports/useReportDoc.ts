@@ -20,6 +20,7 @@ import { interventionLogDoc } from '../../../lib/reports/interventionLog'
 import { defaultRound, peerSummaryDoc } from '../../../lib/reports/peerSummary'
 import { resolveDueWindow, resolveRange } from '../../../lib/reports/range'
 import type { ClassNoteKind, PeerResult, PeerRoundStatus } from '../../../lib/types'
+import { DOC_KINDS } from './reportKind'
 import type { useReports } from './useReports'
 
 type R = ReturnType<typeof useReports>
@@ -112,7 +113,7 @@ export function useReportDoc(r: R, professor: string) {
             ? ['project_tasks', 'board_results', 'project_milestones']
             : ['member_scores', 'board_scores', 'score_releases', 'project_criteria', 'peer_ratings', 'peer_rounds']
   // An ended class has no check-in to refresh.
-  const liveOn = (kind === 'grading' || kind === 'peer' || kind === 'checkin' || kind === 'notes' || kind === 'progress' || kind === 'deliverables') && ready && !(kind === 'checkin' && ended)
+  const liveOn = DOC_KINDS.includes(kind) && ready && !(kind === 'checkin' && ended)
   useLive(paced, liveTables, { every: 0, enabled: liveOn })
   // A reload asked for by another report, class or listener is dropped with it.
   useEffect(
@@ -160,14 +161,18 @@ export function useReportDoc(r: R, professor: string) {
         : kind === 'progress' || kind === 'deliverables'
           ? [
               // Hand-ins and verdicts arrive through the class loader, not the live tables.
-              ...allBoards.map(
-                (b) =>
-                  `${b.id}:${b.project_id}:${b.group_name ?? b.student_name ?? ''}:${b.submitted_at ?? ''}:${b.result_verdict ?? ''}:${b.result_at ?? ''}:${b.done_pct}:${b.task_count}`,
-              ),
+              // Compliance reads its rows from the view, so board progress would only rebuild it for nothing.
+              // Group progress reads only the chosen project's boards, and their progress and hand-in.
+              ...allBoards
+                .filter((b) => kind === 'deliverables' || b.project_id === projectId)
+                .map((b) => {
+                  const head = `${b.id}:${b.project_id}:${b.group_name ?? b.student_name ?? ''}:${b.submitted_at ?? ''}:${b.result_verdict ?? ''}:${b.result_at ?? ''}`
+                  return kind === 'progress' ? `${head}:${b.submitted_by_name ?? ''}:${b.done_pct}:${b.task_count}` : head
+                }),
               ...projects.map((p) => `${p.id}:${p.title}:${p.audience}:${p.due_at ?? ''}:${p.release_at ?? ''}:${p.archived_at ?? ''}`),
             ].join('|')
           : '',
-    [kind, allBoards, projects],
+    [kind, allBoards, projects, projectId],
   )
 
   // The arrays themselves, read when a build starts. Kept beside the effect
@@ -180,7 +185,7 @@ export function useReportDoc(r: R, professor: string) {
   useEffect(() => {
     let live = true
     const key = currentKey
-    if ((kind !== 'grading' && kind !== 'peer' && kind !== 'checkin' && kind !== 'notes' && kind !== 'progress' && kind !== 'deliverables') || !ready || !classLine) {
+    if (!DOC_KINDS.includes(kind) || !ready || !classLine) {
       setBuilt({ doc: null, key, error: null, refreshError: null })
       setLoading(false)
       return

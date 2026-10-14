@@ -13,6 +13,9 @@ export type ReportKind =
   | 'progress'
   | 'deliverables'
 
+/** The reports built as a ReportDoc, which share the preview, the live refresh and the export menu. */
+export const DOC_KINDS: ReportKind[] = ['grading', 'peer', 'checkin', 'notes', 'progress', 'deliverables']
+
 /** Which pickers a report needs before it can be drawn. */
 export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student')[]> = {
   class_term: ['class'],

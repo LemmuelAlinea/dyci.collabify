@@ -28,6 +28,7 @@ import { DUE_CHOICES, RANGE_CHOICES } from '../../../lib/reports/range'
 import type { DueChoice, RangeChoice } from '../../../lib/reports/range'
 import { fullName } from '../../../lib/types'
 import type { ClassNoteKind } from '../../../lib/types'
+import { DOC_KINDS } from './reportKind'
 import type { ReportKind } from './reportKind'
 import { useReportDoc } from './useReportDoc'
 import { useReports } from './useReports'
@@ -230,7 +231,7 @@ export default function Reports({ classId }: { classId?: string }) {
   const csv = csvFor()
 
   // The new reports export through a menu; the older ones keep their one CSV button.
-  const newKind = Object.hasOwn(EXPORT_BASE, r.kind)
+  const newKind = DOC_KINDS.includes(r.kind)
   // A new report prints only once its document is built for these choices, as it exports.
   const printReady = newKind ? Boolean(d.doc && d.current) : r.ready
   const exports: ActionMenuItem[] | undefined = !newKind
@@ -458,7 +459,13 @@ function CheckInExtras({ r }: { r: ReturnType<typeof useReports> }) {
 /** Group progress covers every group on the project unless one is picked. */
 function ProgressExtras({ r }: { r: ReturnType<typeof useReports> }) {
   const individual = r.projects.find((p) => p.id === r.projectId)?.audience === 'individual'
-  const options = r.boards.map((b) => ({ value: b.id, label: b.group_name ?? b.student_name ?? 'A board' }))
+  // r.boards is every board in the class until a project is picked, so the options come from the project's own.
+  const options = r.projects.some((p) => p.id === r.projectId)
+    ? r.boards
+        .filter((b) => b.project_id === r.projectId)
+        .map((b) => ({ value: b.id, label: b.group_name ?? b.student_name ?? 'A board' }))
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+    : []
   return (
     <Select
       aria-label="Group"
