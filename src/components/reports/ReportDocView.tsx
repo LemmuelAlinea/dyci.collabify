@@ -1,4 +1,5 @@
 import { Bars } from '../charts/Bars'
+import { Burnup } from '../charts/Burnup'
 import { TONE_CELL } from '../charts/format'
 import { WeekBars } from '../charts/WeekBars'
 import { cellText, cellValue, deltaText } from '../../lib/reports/doc'
@@ -69,6 +70,8 @@ function BlockView({ block }: { block: Block }) {
           <figcaption className="text-[13px] font-medium text-ink">{block.title}</figcaption>
           {block.chart.kind === 'weekBars' ? (
             <WeekBars rows={block.chart.rows} title={block.title} />
+          ) : block.chart.kind === 'burnup' ? (
+            <Burnup points={block.chart.points} endDay={block.chart.endDay} yMax={block.chart.yMax} title={block.title} />
           ) : (
             <Bars rows={block.chart.rows} max={block.chart.max} unit={block.chart.unit} title={block.title} />
           )}

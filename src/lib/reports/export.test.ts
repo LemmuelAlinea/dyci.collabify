@@ -153,6 +153,32 @@ describe('formula guard', () => {
   })
 })
 
+describe('export values in the grid', () => {
+  const doc: ReportDoc = {
+    header: { title: 'Compliance', subtitle: 'Lab 6', classLine: 'QM', rangeLabel: null, madeAt: 'today' },
+    blocks: [
+      {
+        kind: 'table', id: 'g', title: 'Compliance',
+        columns: [{ key: 'g', label: 'Group', type: 'text' }, { key: 'm', label: 'Draft', type: 'status' }],
+        rows: [
+          ['Group 1', { value: 'Late (3 days)', tone: 'warning', exportValue: 3 }],
+          ['Group 2', { value: 'Missing', tone: 'danger', exportValue: null }],
+        ],
+      },
+      { kind: 'chart', id: 'b', title: 'Scope and done', chart: { kind: 'burnup', points: [{ day: '2026-10-01', scope: 2, done: 1 }], endDay: null }, summary: '1 of 2 tasks done by Oct 1, 2026.' },
+    ],
+    footer: { lines: [], signatures: [] },
+  }
+  it('writes days late as numbers and missing as empty, in Excel and CSV', () => {
+    const wb = docToWorkbook(doc)
+    expect(wb.sheets[1].rows.slice(1)).toEqual([['Group 1', '3'], ['Group 2', '']])
+    expect(docCsvFiles(doc, 'x')[0].csv).toContain('Group 1,3')
+  })
+  it('puts the burnup summary on the cover', () => {
+    expect(docToWorkbook(doc).sheets[0].rows.flat()).toContain('Scope and done: 1 of 2 tasks done by Oct 1, 2026.')
+  })
+})
+
 describe('the fuller Excel cover', () => {
   const withMore: ReportDoc = {
     ...doc,

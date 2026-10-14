@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cellExport, cellText, columnHeader, deltaText, tableBlocks } from './doc'
+import { cellExport, cellText, columnHeader, dayText, deltaText, tableBlocks } from './doc'
 import type { Column, ReportDoc } from './doc'
 
 const col = (type: Column['type'], outOf?: number): Column => ({ key: 'k', label: 'Final', type, outOf })
@@ -86,5 +86,20 @@ describe('deltaText', () => {
     expect(deltaText(-2)).toBe('−2')
     expect(deltaText(0)).toBe('±0')
     expect(deltaText(1.5)).toBe('+1.5')
+  })
+})
+
+describe('export values and days', () => {
+  const status = { key: 's', label: 'State', type: 'status' as const }
+  it('exports a cell by its export value when it has one', () => {
+    expect(cellExport({ value: 'Late (3 days)', tone: 'warning', exportValue: 3 }, status)).toBe(3)
+    expect(cellExport({ value: 'On time', tone: 'success', exportValue: 0 }, status)).toBe(0)
+    expect(cellExport({ value: 'Missing', tone: 'danger', exportValue: null }, status)).toBeNull()
+    expect(cellExport({ value: 'Accepted', tone: 'success' }, status)).toBe('Accepted')
+  })
+  it('writes a day or a moment as a Manila day', () => {
+    expect(dayText('2026-10-07')).toBe('Oct 7, 2026')
+    expect(dayText('2026-10-06T17:30:00Z')).toBe('Oct 7, 2026')
+    expect(dayText('not a day')).toBe('not a day')
   })
 })

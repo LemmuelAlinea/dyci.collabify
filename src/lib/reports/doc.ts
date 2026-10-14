@@ -1,4 +1,4 @@
-import type { Tone, WeekRow } from '../analyticsMath'
+import type { BurnupPoint, Tone, WeekRow } from '../analyticsMath'
 import { manilaDay } from '../analyticsMath'
 import { formatPoints } from '../scoreMath'
 
@@ -20,14 +20,21 @@ export type Column = {
   decimals?: number
 }
 
-export type RichCell = { value: string | number | null; tag?: string; tone?: Tone }
+export type RichCell = {
+  value: string | number | null
+  tag?: string
+  tone?: Tone
+  /** What Excel and CSV get instead of `value`, when set (null writes an empty cell). */
+  exportValue?: string | number | null
+}
 export type Cell = string | number | null | RichCell
 
 export type Kpi = { label: string; value: number | string; unit?: string; delta?: number | null }
 
 export type BarsChart = { kind: 'bars'; rows: { label: string; value: number }[]; max: number; unit?: string }
 export type WeekBarsChart = { kind: 'weekBars'; rows: WeekRow[] }
-export type ChartSpec = BarsChart | WeekBarsChart
+export type BurnupChart = { kind: 'burnup'; points: BurnupPoint[]; endDay: string | null; yMax?: number }
+export type ChartSpec = BarsChart | WeekBarsChart | BurnupChart
 
 export type TableBlock = {
   kind: 'table'
@@ -103,6 +110,7 @@ export function cellText(c: Cell, col: Column): string {
 
 /** What a spreadsheet or CSV gets: numbers as numbers, days as YYYY-MM-DD. */
 export function cellExport(c: Cell, col: Column): string | number | null {
+  if (c !== null && typeof c === 'object' && c.exportValue !== undefined) return c.exportValue
   const v = cellValue(c)
   if (v === null || v === '') return null
   switch (col.type) {
@@ -120,6 +128,12 @@ export function cellExport(c: Cell, col: Column): string | number | null {
     default:
       return String(v)
   }
+}
+
+/** A Manila day ("Oct 7, 2026") from a bare day or a moment. */
+export function dayText(v: string): string {
+  const d = asDate(v)
+  return invalid(d) ? v : DAY.format(d)
 }
 
 export function columnHeader(col: Column): string {
