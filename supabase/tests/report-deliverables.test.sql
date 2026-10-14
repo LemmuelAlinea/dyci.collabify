@@ -37,6 +37,7 @@ declare
   v_today date := (now() at time zone 'Asia/Manila')::date;
   v_class uuid; v_prof uuid; v_a uuid; v_b uuid; v_set uuid; v_g1 uuid; v_g2 uuid; v_g3 uuid;
   v_proj uuid; v_solo uuid; v_b1 uuid; v_b2 uuid; v_b3 uuid; v_sa uuid;
+  v_edge uuid; v_e1 uuid; v_m_2330 uuid; v_m_0030 uuid;
   v_m_on uuid; v_m_late uuid; v_m_miss uuid; v_m_future uuid; v_m_empty uuid; v_sprint uuid; v_t uuid;
   r record;
 begin
@@ -108,6 +109,22 @@ begin
   select id into v_sa from public.project_boards where project_id = v_solo and student_id = v_a;
   update public.project_boards set submitted_at = now() - interval '1 day' where id = v_sa;
 
+  -- Edges: a second group project. Its hand-in lands 2 hours past a deadline that then moves back,
+  -- and two milestones sit either side of Manila midnight on their due day.
+  insert into public.projects (class_id, created_by, title, type, start_week, end_week, audience, group_set_id, due_at)
+  values (v_class, v_prof, 'zz-del-edge', 'activity', 1, 2, 'group', v_set, now() + interval '5 days')
+  returning id into v_edge;
+  perform public.ensure_project_boards(v_edge);
+  select id into v_e1 from public.project_boards where project_id = v_edge and group_id = v_g1;
+  insert into public.project_milestones (project_id, name, due_on) values (v_edge, 'zz-2330', v_today - 10) returning id into v_m_2330;
+  insert into public.project_milestones (project_id, name, due_on) values (v_edge, 'zz-0030', v_today - 10) returning id into v_m_0030;
+  insert into public.project_tasks (board_id, title, status, milestone_id) values (v_e1, 'zz at 2330', 'done', v_m_2330) returning id into v_t;
+  update public.project_tasks set done_at = ((v_today - 10)::timestamp + time '23:30') at time zone 'Asia/Manila' where id = v_t;
+  insert into public.project_tasks (board_id, title, status, milestone_id) values (v_e1, 'zz at 0030', 'done', v_m_0030) returning id into v_t;
+  update public.project_tasks set done_at = ((v_today - 9)::timestamp + time '00:30') at time zone 'Asia/Manila' where id = v_t;
+  update public.project_boards set submitted_at = now() - interval '1 hour' where id = v_e1;
+  update public.projects set due_at = now() - interval '3 hours' where id = v_edge;
+
   perform pg_temp.act_as(v_prof);
 
   select * into r from public.report_deliverables where board_id = v_b1 and kind = 'milestone' and ref_id = v_m_on;
@@ -136,6 +153,13 @@ begin
     r.state = 'on_time' and r.due_day is null and r.student_name is not null and r.group_name is null);
   perform pg_temp.must_be('no deadline: not handed in is not due',
     (select state from public.report_deliverables where project_id = v_solo and kind = 'hand_in' and board_id <> v_sa limit 1) = 'not_due');
+
+  select * into r from public.report_deliverables where board_id = v_e1 and kind = 'hand_in';
+  perform pg_temp.must_be('a hand-in 2 hours past the deadline is late by 1 day', r.state = 'late' and r.days_late = 1);
+  select * into r from public.report_deliverables where board_id = v_e1 and kind = 'milestone' and ref_id = v_m_2330;
+  perform pg_temp.must_be('a milestone done at 23:30 Manila on its due day is on time', r.state = 'on_time' and r.days_late = 0);
+  select * into r from public.report_deliverables where board_id = v_e1 and kind = 'milestone' and ref_id = v_m_0030;
+  perform pg_temp.must_be('a milestone done at 00:30 Manila the next day is late by 1', r.state = 'late' and r.days_late = 1);
 
   select * into r from public.report_sprints where sprint_id = v_sprint;
   perform pg_temp.must_be('a sprint counts work finished inside its dates', r.tasks = 2 and r.done = 2 and r.done_in_window = 1);
