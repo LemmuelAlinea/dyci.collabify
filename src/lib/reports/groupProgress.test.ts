@@ -25,8 +25,8 @@ const member = (over: Partial<MemberLoad>): MemberLoad => ({
   first_activity: null, last_finish: null, ...over,
 })
 const members = [
-  member({}),
-  member({ student_id: 's2', student_name: 'Ben Diaz', task_count: 2, done_count: 1, personal_pct: 50 }),
+  member({ held_pct: 33.3, personal_pct: 100 }),
+  member({ student_id: 's2', student_name: 'Ben Diaz', task_count: 2, done_count: 1, held_pct: 66.7, personal_pct: 50 }),
   member({ board_id: 'b2', group_name: 'Group 2', student_id: 's3', student_name: 'Cara Uy' }),
 ]
 const milestone = (over: Partial<DeliverableRow>): DeliverableRow => ({
@@ -74,8 +74,8 @@ describe('groupProgressDoc, one group', () => {
   })
   it('lists members with share, finished, held and late', () => {
     expect(table(doc, 'Members')?.rows).toEqual([
-      ['Ana Cruz', 50, 1, 1, 0],
-      ['Ben Diaz', 50, 1, 2, 2],
+      ['Ana Cruz', 33.3, 1, 1, 0], // share is the portion held, not own completion
+      ['Ben Diaz', 66.7, 1, 2, 2],
     ])
   })
   it('lists milestones with the compliance state', () => {
@@ -122,7 +122,7 @@ describe('groupProgressDoc, every group', () => {
 describe('groupProgressDoc, edges', () => {
   it('leaves out members on an individual project and names the student', () => {
     const solo = { ...project, audience: 'individual' as const }
-    const doc = groupProgressDoc({ ...base, project: solo, boards: [{ ...b2, name: 'Ana Cruz' }], single: false, members: [] })
+    const doc = groupProgressDoc({ ...base, project: solo, boards: [{ ...b2, name: 'Ana Cruz' }], single: false })
     expect(table(doc, 'Members')).toBeUndefined()
     expect(table(doc, 'Students')?.columns[0].label).toBe('Student')
     expect(doc.header.subtitle).toBe('Lab 6 · every student')
@@ -132,7 +132,7 @@ describe('groupProgressDoc, edges', () => {
     const texts = doc.blocks.flatMap((b) => (b.kind === 'note' ? [b.text] : []))
     expect(texts).toEqual(expect.arrayContaining([
       'No tasks on this board yet, so there is nothing to chart.',
-      'This project has no milestones.',
+      "This project has no milestones. Add them on the project's Work tab.",
       'No sprints planned yet.',
       'Nothing handed in or answered yet.',
     ]))
@@ -141,5 +141,51 @@ describe('groupProgressDoc, edges', () => {
   it('marks an archived project', () => {
     const doc = groupProgressDoc({ ...base, project: { ...project, archived_at: '2026-10-13T00:00:00Z' }, boards: [b1], single: true })
     expect(doc.blocks.some((b) => b.kind === 'note' && b.text === 'This project is archived. The report shows it as it was left.')).toBe(true)
+  })
+})
+
+describe('groupProgressDoc, fix round 1', () => {
+  const lastDay = (doc: ReportDoc) => {
+    const c = doc.blocks.find((b) => b.kind === 'chart')
+    return c?.kind === 'chart' && c.chart.kind === 'burnup' ? c.chart.points.at(-1)?.day : undefined
+  }
+  const reopened = task({ task_id: 't5', status: 'todo', done_at: '2026-10-12T02:00:00Z' })
+  it('ends an archived burnup at the later of last finish and due day, not at a reopened task', () => {
+    const archived = { ...project, archived_at: '2026-10-13T00:00:00Z', due_at: '2026-10-09T09:00:00Z' }
+    const doc = groupProgressDoc({ ...base, project: archived, boards: [b1], single: true, tasks: [...tasks, reopened] })
+    expect(lastDay(doc)).toBe('2026-10-09')
+  })
+  it('never ends an archived burnup after today', () => {
+    const archived = { ...project, archived_at: '2026-10-13T00:00:00Z', due_at: '2026-10-30T09:00:00Z' }
+    expect(lastDay(groupProgressDoc({ ...base, project: archived, boards: [b1], single: true }))).toBe(today)
+  })
+  it('shows carried over as empty on the last day of an active sprint', () => {
+    const doc = groupProgressDoc({ ...base, boards: [b1], single: true, sprints: [sprint({ ends_on: today, state: 'active' })] })
+    expect(table(doc, 'Sprints')?.rows[0][5]).toBeNull()
+  })
+  it('sorts group names by number', () => {
+    const g10 = { ...b2, board_id: 'b10', name: 'Group 10' }
+    const doc = groupProgressDoc({ ...base, boards: [g10, b2], single: false })
+    expect(table(doc, 'Groups')?.rows.map((r) => r[0])).toEqual(['Group 2', 'Group 10'])
+  })
+  it('does not count a board handed in again after an accept as accepted', () => {
+    const again = { ...b1, result_verdict: 'accepted' as const }
+    const accepted: BoardDecision[] = [{ board_id: 'b1', verdict: 'accepted', feedback: '', decided_at: '2026-10-09T03:00:00Z', decided_by_name: 'Prof. Reyes' }]
+    const doc = groupProgressDoc({ ...base, boards: [again, b2], single: false, history: accepted })
+    expect(kpi(doc, 'Accepted')).toBe(0)
+  })
+  it('finds the last answer by date, whatever the order', () => {
+    const answers: BoardDecision[] = [
+      { board_id: 'b1', verdict: 'accepted', feedback: '', decided_at: '2026-10-13T03:00:00Z', decided_by_name: null },
+      { board_id: 'b1', verdict: 'returned', feedback: 'Add the model', decided_at: '2026-10-09T03:00:00Z', decided_by_name: 'Prof. Reyes' },
+    ]
+    const done = { ...b1, result_verdict: 'accepted' as const, submitted_at: '2026-10-12T03:00:00Z' }
+    const doc = groupProgressDoc({ ...base, boards: [done], single: true, history: answers })
+    expect(kpi(doc, 'Verdict')).toBe('Accepted')
+  })
+  it('says so when there are no boards', () => {
+    const doc = groupProgressDoc({ ...base, boards: [], single: false })
+    expect(doc.blocks.some((b) => b.kind === 'note' && b.text === 'This project has no groups yet. Groups appear once students are placed in them.')).toBe(true)
+    expect(tableBlocks(doc)).toEqual([])
   })
 })

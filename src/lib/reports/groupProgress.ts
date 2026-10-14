@@ -52,7 +52,9 @@ function handInText(b: ProgressBoard) {
 
 /** The standing answer. A hand-in after the last answer is waiting for one. */
 function verdictCell(b: ProgressBoard, history: BoardDecision[]): Cell {
-  const last = history.filter((h) => h.board_id === b.board_id).at(-1)
+  const last = history
+    .filter((h) => h.board_id === b.board_id)
+    .reduce<BoardDecision | null>((best, h) => (!best || Date.parse(h.decided_at) > Date.parse(best.decided_at) ? h : best), null)
   if (b.submitted_at && (!last || Date.parse(last.decided_at) < Date.parse(b.submitted_at))) {
     return { value: 'Waiting for you', tone: 'pending' }
   }
@@ -71,7 +73,7 @@ function burnup(project: ProgressProject, tasks: TaskState[], today: string): Bu
   }, manilaDay(project.created_at))
   let to = today
   if (project.archived_at) {
-    const lastDone = tasks.reduce<string>((max, t) => (t.done_at && manilaDay(t.done_at) > max ? manilaDay(t.done_at) : max), from)
+    const lastDone = tasks.reduce<string>((max, t) => (t.status === 'done' && t.done_at && manilaDay(t.done_at) > max ? manilaDay(t.done_at) : max), from)
     const due = project.due_at ? manilaDay(project.due_at) : from
     to = [lastDone, due].reduce((a, b) => (b > a ? b : a))
     if (to > today) to = today
@@ -100,6 +102,20 @@ export function groupProgressDoc(input: Input): ReportDoc {
   const leadCol: Column[] = single ? [] : [{ key: 'who', label: who, type: 'text' }]
 
   const blocks: Block[] = []
+  const finish = (): ReportDoc => ({
+    header: {
+      title: 'Group progress report',
+      subtitle: single ? `${boards[0].name} · ${project.title}` : `${project.title} · every ${group ? 'group' : 'student'}`,
+      classLine: input.classLine,
+      rangeLabel: null,
+      madeAt: input.madeAt,
+    },
+    blocks,
+    footer: {
+      lines: ['Counts are tasks recorded in Collabify. A flag is a prompt for a conversation, not a verdict.'],
+      signatures: [{ role: 'Prepared by', name: input.professor }],
+    },
+  })
   if (project.archived_at) blocks.push({ kind: 'note', tone: 'info', text: 'This project is archived. The report shows it as it was left.' })
 
   if (single) {
@@ -126,10 +142,20 @@ export function groupProgressDoc(input: Input): ReportDoc {
           unit: '%',
         },
         { label: 'Handed in', value: `${handedIn} of ${boards.length}` },
-        { label: 'Accepted', value: boards.filter((b) => b.result_verdict === 'accepted').length },
+        {
+          label: 'Accepted',
+          value: boards.filter((b) => {
+            const v = verdictCell(b, history)
+            return v !== null && typeof v === 'object' && v.value === 'Accepted'
+          }).length,
+        },
         { label: 'Late tasks', value: tasks.filter((t) => isLate(t, today)).length },
       ],
     })
+    if (boards.length === 0) {
+      blocks.push({ kind: 'note', tone: 'info', text: 'This project has no groups yet. Groups appear once students are placed in them.' })
+      return finish()
+    }
     blocks.push({
       kind: 'table',
       id: 'groups',
@@ -177,7 +203,7 @@ export function groupProgressDoc(input: Input): ReportDoc {
       .filter((m) => ids.has(m.board_id))
       .sort((a, b) => byName(nameOf.get(a.board_id) ?? '', nameOf.get(b.board_id) ?? '') || byName(a.student_name, b.student_name))
     if (people.length === 0) {
-      blocks.push({ kind: 'note', tone: 'info', text: 'No members on this board.' })
+      blocks.push({ kind: 'note', tone: 'info', text: 'No members yet. Members appear once students join the group.' })
     } else {
       blocks.push({
         kind: 'table',
@@ -194,7 +220,7 @@ export function groupProgressDoc(input: Input): ReportDoc {
         rows: people.map<Cell[]>((m) => [
           ...lead(m.board_id),
           m.student_name,
-          m.personal_pct,
+          m.held_pct,
           m.done_count,
           m.task_count,
           tasksOf(m.board_id).filter((t) => t.assignee_ids.includes(m.student_id) && isLate(t, today)).length,
@@ -209,7 +235,7 @@ export function groupProgressDoc(input: Input): ReportDoc {
       byName(nameOf.get(a.board_id) ?? '', nameOf.get(b.board_id) ?? '') ||
       (a.due_day ?? '').localeCompare(b.due_day ?? '') || byName(a.title, b.title))
   if (milestones.length === 0) {
-    blocks.push({ kind: 'note', tone: 'info', text: 'This project has no milestones.' })
+    blocks.push({ kind: 'note', tone: 'info', text: "This project has no milestones. Add them on the project's Work tab." })
   } else {
     blocks.push({
       kind: 'table',
@@ -287,18 +313,5 @@ export function groupProgressDoc(input: Input): ReportDoc {
     })
   }
 
-  return {
-    header: {
-      title: 'Group progress report',
-      subtitle: single ? `${boards[0].name} · ${project.title}` : `${project.title} · every ${group ? 'group' : 'student'}`,
-      classLine: input.classLine,
-      rangeLabel: null,
-      madeAt: input.madeAt,
-    },
-    blocks,
-    footer: {
-      lines: ['Counts are tasks recorded in Collabify. A flag is a prompt for a conversation, not a verdict.'],
-      signatures: [{ role: 'Prepared by', name: input.professor }],
-    },
-  }
+  return finish()
 }
