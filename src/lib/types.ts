@@ -1282,6 +1282,47 @@ export type SprintProgress = {
   done_in_window: number
 }
 
+/** report_deliverables: one milestone or hand-in on one board, already judged. */
+export type DeliverableState = 'on_time' | 'late' | 'missing' | 'not_due'
+
+export type DeliverableRow = {
+  kind: 'milestone' | 'hand_in'
+  board_id: string
+  project_id: string
+  class_id: string
+  project_title: string
+  project_archived_at: string | null
+  group_name: string | null
+  /** Set only on an individual project's board. */
+  student_name: string | null
+  /** The milestone's id, or the project's id for a hand-in. */
+  ref_id: string
+  title: string
+  /** A Manila day. Null for a hand-in on a project with no deadline. */
+  due_day: string | null
+  /** The hand-in deadline as a moment; null for a milestone. */
+  due_at: string | null
+  /** Null for a hand-in. */
+  tasks: number | null
+  done: number | null
+  /** When the last task finished (milestone, all done) or the board was handed in. */
+  done_at: string | null
+  days_late: number | null
+  state: DeliverableState
+}
+
+/** report_sprints: the analytics sprint shape, with ended projects and classes kept. */
+export type ReportSprint = SprintProgress
+
+/** One answer to a hand-in, with who gave it. */
+export type BoardDecision = {
+  board_id: string
+  verdict: ResultVerdict
+  feedback: string
+  decided_at: string
+  decided_by_name: string | null
+}
+
 export type PeerRoundKind = 'check_in' | 'final'
 
 /** peer_round_status: a round and how many have answered. */
