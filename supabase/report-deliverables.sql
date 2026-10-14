@@ -23,7 +23,9 @@ drop view if exists public.report_sprints;
 
 create view public.report_deliverables
 with (security_invoker = true) as
-with base as (
+-- Not materialized, so a caller's class_id filter reaches projects through its
+-- index instead of judging every board the professor can see first.
+with base as not materialized (
   select b.id as board_id, p.id as project_id, p.class_id, p.title as project_title,
          p.due_at as project_due_at, p.archived_at as project_archived_at,
          g.name as group_name,
