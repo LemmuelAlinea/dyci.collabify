@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
-import { GroupCard } from './GroupCard'
+import { GroupTable } from './GroupTable'
 import { GroupFilters } from './GroupFilters'
 import { EMPTY_FILTERS } from './groupFilterState'
 import type { GroupFilterState } from './groupFilterState'
@@ -18,9 +18,9 @@ type Props = {
   sets: GroupSet[]
   groups: GroupSummary[]
   members: GroupMember[]
-  /** Where a card links to. */
+  /** Where a row links to. */
   linkBase: string
-  /** Marks the viewer's own group on the card. */
+  /** Marks the viewer's own group in the table. */
   viewerId?: string
   emptyTitle: string
   emptyBody: string
@@ -56,7 +56,7 @@ export function GroupsBoard({
   const [filters, setFilters] = useState<GroupFilterState>(EMPTY_FILTERS)
   const [work, setWork] = useState(new Map<string, GroupWorkSummary>())
 
-  // One query for the page: a card should not have to ask what its group holds.
+  // One query for the page: a row should not have to ask what its group holds.
   const groupIds = groups.map((g) => g.id).join(',')
   useEffect(() => {
     if (!groupIds) return setWork(new Map())
@@ -187,22 +187,19 @@ export function GroupsBoard({
                 {setActions?.(set)}
               </header>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:gap-5">
-                {(bySet.get(setId) ?? []).map((g) => (
-                  <GroupCard
-                    key={g.id}
-                    group={g}
-                    members={membersOf(members, g.id)}
-                    className={cls?.initial ?? ''}
-                    to={`${linkBase}/${g.id}`}
-                    highlight={
-                      Boolean(viewerId) &&
-                      membersOf(members, g.id).some((m) => m.student_id === viewerId)
-                    }
-                    work={work.get(g.id)}
-                  />
-                ))}
-              </div>
+              <GroupTable
+                caption={`${set.name} groups`}
+                rows={(bySet.get(setId) ?? []).map((g) => {
+                  const people = membersOf(members, g.id)
+                  return {
+                    group: g,
+                    members: people,
+                    to: `${linkBase}/${g.id}`,
+                    mine: Boolean(viewerId) && people.some((m) => m.student_id === viewerId),
+                    work: work.get(g.id),
+                  }
+                })}
+              />
             </section>
           )
         })
