@@ -186,7 +186,7 @@ export function deliverablesDoc(input: ReportHead & {
     footer: {
       lines: [
         'A milestone is met when all its tasks are done by the end of its due day, Manila time.',
-        "A hand-in is on time when it arrives by the project's deadline. Collabify keeps the latest hand-in time only.",
+        "A hand-in is on time when it arrives by the project's deadline. Collabify keeps the latest hand-in time, so work you accepted counts from the first time you accepted it.",
         ...(input.leftOut ? [LEFT_OUT_LINE] : []),
       ],
       signatures: [{ role: 'Prepared by', name: input.professor }],

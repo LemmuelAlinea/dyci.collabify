@@ -10,10 +10,11 @@
  * keep them.
  *
  * A milestone is met when all its tasks are done by the end of its Manila due
- * day; one with no tasks on a board has nothing done. A hand-in is the board's
- * current submitted_at against the project's deadline: Collabify keeps only
- * the latest hand-in, so a returned board not handed in again is missing once
- * the deadline passes.
+ * day; one with no tasks on a board has nothing done. A hand-in is judged on
+ * the earlier of the board's current submitted_at and its first acceptance:
+ * Collabify keeps only the latest hand-in, so work accepted on time and handed
+ * in again later would otherwise read late. A returned board not handed in
+ * again, and never accepted, is missing once the deadline passes.
  */
 
 begin;
@@ -59,7 +60,12 @@ hand_ins as (
          x.project_archived_at, x.group_name, x.student_name,
          x.project_id as ref_id, 'Hand-in'::text as title,
          (x.project_due_at at time zone 'Asia/Manila')::date as due_day, x.project_due_at as due_at,
-         null::int as tasks, null::int as done, x.submitted_at as done_at
+         null::int as tasks, null::int as done,
+         -- Work the professor accepted was handed in by then, whatever
+         -- happened to it afterwards; least() skips a missing side.
+         least(x.submitted_at,
+               (select min(r.decided_at) from public.board_results r
+                 where r.board_id = x.board_id and r.verdict = 'accepted')) as done_at
     from base x
 ),
 everything as (

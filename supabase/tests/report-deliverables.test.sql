@@ -37,7 +37,7 @@ declare
   v_today date := (now() at time zone 'Asia/Manila')::date;
   v_class uuid; v_prof uuid; v_a uuid; v_b uuid; v_set uuid; v_g1 uuid; v_g2 uuid; v_g3 uuid;
   v_proj uuid; v_solo uuid; v_b1 uuid; v_b2 uuid; v_b3 uuid; v_sa uuid;
-  v_edge uuid; v_e1 uuid; v_m_2330 uuid; v_m_0030 uuid;
+  v_edge uuid; v_e1 uuid; v_e2 uuid; v_m_2330 uuid; v_m_0030 uuid;
   v_m_on uuid; v_m_late uuid; v_m_miss uuid; v_m_future uuid; v_m_empty uuid; v_sprint uuid; v_t uuid;
   r record;
 begin
@@ -123,6 +123,11 @@ begin
   insert into public.project_tasks (board_id, title, status, milestone_id) values (v_e1, 'zz at 0030', 'done', v_m_0030) returning id into v_t;
   update public.project_tasks set done_at = ((v_today - 9)::timestamp + time '00:30') at time zone 'Asia/Manila' where id = v_t;
   update public.project_boards set submitted_at = now() - interval '1 hour' where id = v_e1;
+  -- e2: accepted four days ago, then handed in again an hour ago, past the deadline.
+  select id into v_e2 from public.project_boards where project_id = v_edge and group_id = v_g2;
+  insert into public.board_results (board_id, verdict, feedback, decided_by, decided_at)
+  values (v_e2, 'accepted', '', v_prof, now() - interval '4 days');
+  update public.project_boards set submitted_at = now() - interval '1 hour' where id = v_e2;
   update public.projects set due_at = now() - interval '3 hours' where id = v_edge;
 
   perform pg_temp.act_as(v_prof);
@@ -156,6 +161,9 @@ begin
 
   select * into r from public.report_deliverables where board_id = v_e1 and kind = 'hand_in';
   perform pg_temp.must_be('a hand-in 2 hours past the deadline is late by 1 day', r.state = 'late' and r.days_late = 1);
+  select * into r from public.report_deliverables where board_id = v_e2 and kind = 'hand_in';
+  perform pg_temp.must_be('work accepted before the deadline stays on time when handed in again later',
+    r.state = 'on_time' and r.days_late = 0);
   select * into r from public.report_deliverables where board_id = v_e1 and kind = 'milestone' and ref_id = v_m_2330;
   perform pg_temp.must_be('a milestone done at 23:30 Manila on its due day is on time', r.state = 'on_time' and r.days_late = 0);
   select * into r from public.report_deliverables where board_id = v_e1 and kind = 'milestone' and ref_id = v_m_0030;
