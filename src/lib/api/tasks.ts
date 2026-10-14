@@ -345,8 +345,15 @@ export async function updateTask(taskId: string, input: TaskInput) {
   if (error) throw error
 }
 
-export async function setTaskStatus(taskId: string, status: TaskStatus) {
-  const { error } = await supabase.from('project_tasks').update({ status }).eq('id', taskId)
+/**
+ * Moves a task. With a stage, it lands on that progress stage (the database
+ * keeps the status in step); without one, a status lands on its usual stage.
+ */
+export async function setTaskStatus(taskId: string, status: TaskStatus, stage?: number) {
+  const { error } = await supabase
+    .from('project_tasks')
+    .update(stage === undefined ? { status } : { status, stage })
+    .eq('id', taskId)
   if (error) throw error
 }
 

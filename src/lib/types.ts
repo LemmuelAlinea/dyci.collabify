@@ -440,6 +440,8 @@ export type ProjectAudience = 'group' | 'individual'
 
 export type ProjectRow = {
   id: string
+  /** Progress stages, read by getProject only; see lib/stages.ts. */
+  stages?: string[] | null
   class_id: string
   created_by: string
   title: string
@@ -835,6 +837,8 @@ export type ProjectTask = {
   rank: number
   /** The milestone it counts toward; null when untagged. */
   milestone_id: string | null
+  /** Its column in the project's progress stages; see lib/stages.ts. */
+  stage?: number | null
   position: number
   created_by: string | null
   author_role: TaskAuthor

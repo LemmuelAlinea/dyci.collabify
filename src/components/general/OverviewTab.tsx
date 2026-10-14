@@ -15,6 +15,8 @@ import { checkFieldValue, formatFieldValue, isEmptyValue } from '../../lib/gener
 import { PROJECT_STATUSES, projectStatusLabel } from '../../lib/general/types'
 import type { GeneralField, GeneralStatus } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
+import { checkStages, stagesOf, stagesToSave } from '../../lib/stages'
+import { StagesEditor } from '../tasks/StagesEditor'
 import { FieldDialog } from './FieldDialog'
 import { FieldInput } from './FieldInput'
 import { RequestAccessButton } from './RequestAccessButton'
@@ -76,6 +78,10 @@ function DetailsView({ state }: { state: GeneralProjectState }) {
         <dd className="text-ink">{dateRange(p.starts_on, p.ends_on)}</dd>
       </div>
       <div>
+        <dt className="text-[12px] text-faint">Progress stages</dt>
+        <dd className="text-ink">{stagesOf(p.stages).join(' → ')}</dd>
+      </div>
+      <div>
         <dt className="text-[12px] text-faint">About</dt>
         <dd className="whitespace-pre-wrap text-ink">{p.description || 'No description yet.'}</dd>
       </div>
@@ -91,6 +97,7 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
   const [startsOn, setStartsOn] = useState('')
   const [endsOn, setEndsOn] = useState('')
   const [description, setDescription] = useState('')
+  const [stages, setStages] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -104,6 +111,7 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
     setStartsOn(p.starts_on ?? '')
     setEndsOn(p.ends_on ?? '')
     setDescription(p.description)
+    setStages([...stagesOf(p.stages)])
   }, [updatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!p) return null
@@ -113,6 +121,8 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
     setError(null)
     if (!name.trim()) return setError('A project needs a name.')
     if (startsOn && endsOn && endsOn < startsOn) return setError('The end date is before the start date.')
+    const stageProblem = checkStages(stages)
+    if (stageProblem) return setError(`Progress stages: ${stageProblem}`)
     setBusy(true)
     try {
       await updateGeneralProject(p.id, {
@@ -121,6 +131,7 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
         starts_on: startsOn || null,
         ends_on: endsOn || null,
         description,
+        stages: stagesToSave(stages),
       })
       show('Project saved')
       await state.reload()
@@ -167,6 +178,11 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
           />
         )}
       </Field>
+      <div className="space-y-2">
+        <p className="text-[13px] font-medium text-ink">Progress stages</p>
+        <p className="text-[12px] text-muted">The columns this project's tasks move through.</p>
+        <StagesEditor value={stages} onChange={setStages} disabled={busy} />
+      </div>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onDone} disabled={busy}>
           Cancel

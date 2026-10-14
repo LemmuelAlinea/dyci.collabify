@@ -36,7 +36,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { formatDue } from '../../lib/general/dates'
 import { buildTree, isKeep } from '../../lib/general/files'
 import type { TreeNode } from '../../lib/general/files'
-import { TASK_STATUSES } from '../../lib/general/progress'
+import { stageName } from '../../lib/stages'
 import type { ArchivedDraftFile, ArchivedGeneralFile, GeneralDraftFile, GeneralTask, RemovedGeneralRepoPath } from '../../lib/general/types'
 import { formatBytes } from '../../lib/formatBytes'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
@@ -205,7 +205,7 @@ export default function ProjectArchive() {
                     <div className="min-w-[14rem] flex-1">
                       <p className="font-medium text-ink">{task.title}</p>
                       <p className="mt-0.5 text-[12px] text-muted">
-                        {TASK_STATUSES.find((s) => s.value === task.status)?.label ?? task.status}
+                        {stageName(state.project?.stages, task)}
                         {task.due_at ? ` · Due ${formatDue(task.due_at)}` : ''}
                         {task.archived_at ? ` · Archived ${formatDue(task.archived_at)}` : ''}
                       </p>

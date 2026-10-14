@@ -20,6 +20,7 @@ export function TaskList({
   onOpen,
   canMove,
   onStatus,
+  stages,
 }: {
   rows: ProjectTaskRow[]
   /** Total weight per board, so each row's share is against its own board. */
@@ -32,7 +33,9 @@ export function TaskList({
   onOpen: (taskId: string) => void
   /** Whether the viewer may move this row's stage; without it every stage is read-only. */
   canMove?: (row: ProjectTaskRow) => boolean
-  onStatus?: (row: ProjectTaskRow, to: TaskStatus) => Promise<void>
+  onStatus?: (row: ProjectTaskRow, to: TaskStatus, stage: number) => Promise<void>
+  /** The project's progress stages. */
+  stages?: readonly string[]
 }) {
   if (rows.length === 0) {
     return (
@@ -140,9 +143,15 @@ export function TaskList({
 
                 <td className="py-2.5 pr-3">
                   {onStatus && canMove?.(t) ? (
-                    <StageSelect status={t.status} title={t.title} onChange={(to) => onStatus(t, to)} />
+                    <StageSelect
+                      status={t.status}
+                      stage={t.stage}
+                      stages={stages}
+                      title={t.title}
+                      onChange={(to, stage) => onStatus(t, to, stage)}
+                    />
                   ) : (
-                    <StageBadge status={t.status} />
+                    <StageBadge status={t.status} stage={t.stage} stages={stages} />
                   )}
                 </td>
 

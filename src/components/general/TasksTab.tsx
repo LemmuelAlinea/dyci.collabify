@@ -16,7 +16,8 @@ import { useToast } from '../ui/Toast'
 import { createTask, updateTask } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue } from '../../lib/general/dates'
-import { TASK_STATUSES, projectProgress } from '../../lib/general/progress'
+import { projectProgress } from '../../lib/general/progress'
+import { STAGE_TONE, nextStep, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import type { GeneralTask } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
@@ -31,19 +32,6 @@ import { ScopePicker } from '../work/ScopePicker'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { TimelineView } from '../work/TimelineView'
 import type { GeneralProjectState } from './useGeneralProject'
-
-/** The same column colours as a class board. */
-const COLUMN_TONE: Record<GeneralTaskStatus, string> = {
-  todo: 'text-pending-ink',
-  in_progress: 'text-warning-700 dark:text-warning-300',
-  done: 'text-success-700 dark:text-success-300',
-}
-
-const NEXT: Record<GeneralTaskStatus, { to: GeneralTaskStatus; label: string; icon: 'check' | 'refresh' }> = {
-  todo: { to: 'in_progress', label: 'Start', icon: 'check' },
-  in_progress: { to: 'done', label: 'Mark done', icon: 'check' },
-  done: { to: 'todo', label: 'Reopen', icon: 'refresh' },
-}
 
 /**
  * A work project's tasks: Board, List, Timeline and Calendar over the same
@@ -68,15 +56,19 @@ export function TasksTab({
   const [query, setQuery] = useState('')
   const [team, setTeam] = useState('')
   const [assignee, setAssignee] = useState('')
-  const [status, setStatus] = useState<GeneralTaskStatus | ''>('')
+  // A stage index as text, or '' for every stage.
+  const [status, setStatus] = useState('')
   const [creating, setCreating] = useState(false)
   const [fromNotes, setFromNotes] = useState(false)
   const showTask = onOpenTask
 
   const project = state.project
+  const stages = stagesOf(project?.stages)
   const scoped = useMemo(() => applyScope(state.tasks, scope, state.sprints), [state.tasks, scope, state.sprints])
+  const projectStages = state.project?.stages
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
+    const stageCount = stagesOf(projectStages).length
     return scoped
       .filter((t) => (team ? t.team_id === team : true))
       .filter((t) =>
@@ -86,9 +78,9 @@ export function TasksTab({
             ? t.assignee_ids.length === 0
             : t.assignee_ids.includes(assignee),
       )
-      .filter((t) => (status ? t.status === status : true))
+      .filter((t) => (status ? stageIndex(t.status, t.stage, stageCount) === Number(status) : true))
       .filter((t) => (q ? `${t.title} ${t.description}`.toLowerCase().includes(q) : true))
-  }, [scoped, query, team, assignee, status])
+  }, [scoped, query, team, assignee, status, projectStages])
 
   if (!project) return null
   const progress = projectProgress(scoped)
@@ -107,9 +99,9 @@ export function TasksTab({
     !state.archived &&
     (state.can('manage_tasks') || Boolean(state.viewerId && t.assignee_ids.includes(state.viewerId)))
 
-  async function move(t: GeneralTask, to: GeneralTaskStatus) {
+  async function move(t: GeneralTask, to: GeneralTaskStatus, stage: number) {
     try {
-      await updateTask(t.id, { status: to })
+      await updateTask(t.id, { status: to, stage })
       await state.reload()
     } catch (err) {
       show(authErrorMessage(err, 'Could not move that task.'), 'error')
@@ -132,7 +124,7 @@ export function TasksTab({
                 query.trim() && `“${query.trim()}”`,
                 team && state.teams.find((t) => t.id === team)?.name,
                 assignee && assigneeOptions.find((o) => o.value === assignee)?.label,
-                status && TASK_STATUSES.find((s) => s.value === status)?.label,
+                status && stages[Number(status)],
               ]
                 .filter(Boolean)
                 .join(' · ')}
@@ -169,9 +161,9 @@ export function TasksTab({
               <FilterField label="Stage">
                 <Select
                   value={status}
-                  onChange={(e) => setStatus(e.target.value as GeneralTaskStatus | '')}
+                  onChange={(e) => setStatus(e.target.value)}
                   placeholder="Every stage"
-                  options={TASK_STATUSES}
+                  options={stages.map((name, i) => ({ value: String(i), label: name }))}
                   className="!h-10 !text-[13px]"
                 />
               </FilterField>
@@ -247,13 +239,20 @@ export function TasksTab({
       ) : shown.length === 0 ? (
         <EmptyState icon="search" title="Nothing matches" body="No task fits these filters. Clear one and try again." />
       ) : layout === 'board' ? (
-        <div className="grid gap-4 lg:grid-cols-3">
-          {TASK_STATUSES.map((s) => {
-            const column = shown.filter((t) => t.status === s.value)
+        // Three stages share the width; more run side by side and scroll.
+        <div
+          className={`grid gap-4 ${
+            stages.length === 3
+              ? 'lg:grid-cols-3'
+              : 'sm:grid-cols-2 lg:auto-cols-[minmax(250px,1fr)] lg:grid-flow-col lg:grid-cols-none lg:overflow-x-auto lg:pb-2'
+          }`}
+        >
+          {stages.map((name, index) => {
+            const column = shown.filter((t) => stageIndex(t.status, t.stage, stages.length) === index)
             return (
-              <section key={s.value} className="space-y-3">
+              <section key={`${index}-${name}`} className="min-w-0 space-y-3">
                 <header className="flex items-baseline justify-between gap-2 border-b border-line pb-2">
-                  <h3 className={`font-semibold ${COLUMN_TONE[s.value]}`}>{s.label}</h3>
+                  <h3 className={`truncate font-semibold ${STAGE_TONE[statusForStage(index, stages.length)]}`}>{name}</h3>
                   <span className="font-mono text-[12px] text-faint">{column.length}</span>
                 </header>
                 {column.length === 0 ? (
@@ -267,7 +266,8 @@ export function TasksTab({
                       task={t}
                       state={state}
                       canMove={mayMove(t)}
-                      onMove={(to) => void move(t, to)}
+                      stages={stages}
+                      onMove={(to, stage) => void move(t, to, stage)}
                       onOpen={() => showTask(t.id)}
                     />
                   ))
@@ -277,7 +277,7 @@ export function TasksTab({
           })}
         </div>
       ) : layout === 'list' ? (
-        <TaskTable tasks={shown} state={state} onOpen={showTask} mayMove={mayMove} onMove={move} />
+        <TaskTable tasks={shown} state={state} stages={stages} onOpen={showTask} mayMove={mayMove} onMove={move} />
       ) : layout === 'timeline' ? (
         <TimelineView
           tasks={shown.map((t) => ({
@@ -350,19 +350,21 @@ function TaskCard({
   task,
   state,
   canMove,
+  stages,
   onMove,
   onOpen,
 }: {
   task: GeneralTask
   state: GeneralProjectState
   canMove: boolean
-  onMove: (to: GeneralTaskStatus) => void
+  stages: readonly string[]
+  onMove: (to: GeneralTaskStatus, stage: number) => void
   onOpen: () => void
 }) {
   const teamName = state.teams.find((t) => t.id === task.team_id)?.name
   const overdue = isOverdue(task.due_at, task.status)
   const yours = Boolean(state.viewerId && task.assignee_ids.includes(state.viewerId))
-  const next = NEXT[task.status]
+  const next = nextStep(stageIndex(task.status, task.stage, stages.length), stages)
 
   return (
     <article
@@ -431,7 +433,7 @@ function TaskCard({
         {canMove ? (
           <button
             type="button"
-            onClick={() => onMove(next.to)}
+            onClick={() => onMove(next.status, next.stage)}
             className="flex items-center gap-2 rounded-lg px-2 py-1 text-[12px] font-medium text-navy-600 transition-colors hover:bg-[var(--surface-sunken)] dark:text-navy-200"
           >
             <Icon name={next.icon} size={14} />
@@ -458,15 +460,17 @@ function TaskCard({
 function TaskTable({
   tasks,
   state,
+  stages,
   onOpen,
   mayMove,
   onMove,
 }: {
   tasks: GeneralTask[]
   state: GeneralProjectState
+  stages: readonly string[]
   onOpen: (id: string) => void
   mayMove: (t: GeneralTask) => boolean
-  onMove: (t: GeneralTask, to: GeneralTaskStatus) => Promise<void>
+  onMove: (t: GeneralTask, to: GeneralTaskStatus, stage: number) => Promise<void>
 }) {
   return (
     <div className="surface overflow-x-auto rounded-card border border-line shadow-card">
@@ -523,9 +527,15 @@ function TaskTable({
                 </td>
                 <td className="py-2.5 pr-3">
                   {mayMove(t) ? (
-                    <StageSelect status={t.status} title={t.title} onChange={(to) => onMove(t, to)} />
+                    <StageSelect
+                      status={t.status}
+                      stage={t.stage}
+                      stages={stages}
+                      title={t.title}
+                      onChange={(to, stage) => onMove(t, to, stage)}
+                    />
                   ) : (
-                    <StageBadge status={t.status} />
+                    <StageBadge status={t.status} stage={t.stage} stages={stages} />
                   )}
                 </td>
                 <td className={`py-2.5 pr-3 font-mono text-[12px] ${overdue ? 'text-danger-600 dark:text-danger-400' : 'text-faint'}`}>

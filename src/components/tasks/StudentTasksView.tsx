@@ -26,6 +26,7 @@ import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } fro
 import { scopeOptions, scopeTargetSprint } from '../../lib/work/scope'
 import { milestoneMarks, sprintBands } from '../../lib/work/timeline'
 import { setTaskStatus } from '../../lib/api/tasks'
+import { stagesOf } from '../../lib/stages'
 import { authErrorMessage } from '../../lib/authError'
 import { boardWeight, canPlanBoard, isBoardSubmitted, isMine } from '../../lib/types'
 import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
@@ -206,9 +207,10 @@ export function StudentTasksView({
                     canPlanBoard(active, locked) &&
                     Boolean(viewerId && (isMine(row, viewerId) || active?.student_id))
                   }
-                  onStatus={async (row, to) => {
+                  stages={stagesOf(project.stages)}
+                  onStatus={async (row, to, stage) => {
                     try {
-                      await setTaskStatus(row.id, to)
+                      await setTaskStatus(row.id, to, stage)
                       await t.refresh()
                     } catch (err) {
                       show(authErrorMessage(err, 'Could not move that task.'), 'error')
@@ -230,6 +232,7 @@ export function StudentTasksView({
                   // "Add task" here only produces an error.
                   canWork={canPlanBoard(active, locked)}
                   newTaskSprint={scopeTargetSprint(t.sprintScope, t.sprints)}
+                  stages={project.stages}
                   onChanged={t.refresh}
                 />
               )}

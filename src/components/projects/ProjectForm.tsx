@@ -10,6 +10,7 @@ import { formatBytes } from '../../lib/formatBytes'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { RubricEditor } from './RubricEditor'
+import { StagesEditor } from '../tasks/StagesEditor'
 import { SectionPicker } from './SectionPicker'
 import type { SectionChoice } from './SectionPicker'
 import { WeekSpanPicker } from './WeekSpanPicker'
@@ -27,7 +28,8 @@ import type {
   ProjectType,
 } from '../../lib/types'
 import type { LiveGroupSet } from '../../lib/api/groups'
-import { draftProject } from '../../lib/api/projects'
+import { draftProject, getProjectStages } from '../../lib/api/projects'
+import { checkStages, stagesOf, stagesToSave } from '../../lib/stages'
 import type { CriterionInput, ProjectInput } from '../../lib/api/projects'
 import { authErrorMessage } from '../../lib/authError'
 
@@ -156,6 +158,22 @@ export function ProjectForm({
   const [draftNote, setDraftNote] = useState<string | null>(null)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [confirmDraft, setConfirmDraft] = useState(false)
+  const [stages, setStages] = useState<string[]>([...stagesOf(defaults?.stages)])
+  const [stagesTouched, setStagesTouched] = useState(false)
+  // A project opened from a list has no stages on it yet; read them, so a save
+  // that leaves this field alone keeps them.
+  const defaultsId = defaults?.id
+  const stagesKnown = defaults?.stages !== undefined
+  useEffect(() => {
+    if (!defaultsId || stagesKnown) return
+    let live = true
+    void getProjectStages(defaultsId)
+      .then((s) => live && setStages([...stagesOf(s)]))
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [defaultsId, stagesKnown])
 
   const hasBrief =
     guidelines.trim().length > 0 || criteria.some((c) => c.label.trim() || c.description.trim())
@@ -270,6 +288,8 @@ export function ProjectForm({
     if (!guidelines.trim()) {
       return fail('Say what the work is. Students see this as the brief.')
     }
+    const stageProblem = checkStages(stages)
+    if (stageProblem) return fail(`Progress stages: ${stageProblem}`)
 
     // A half-filled row is worse than no row: it marks against a criterion
     // nobody named, or names one worth nothing.
@@ -298,6 +318,8 @@ export function ProjectForm({
         totalPoints,
         dueAt: fromLocalInput(dueAt),
         releaseAt: scheduled ? fromLocalInput(releaseAt) : null,
+        // Untouched on an edit, the stored stages stay as they are.
+        stages: !defaults || stagesTouched ? stagesToSave(stages) : undefined,
       },
       criteria: criteria.filter((c) => c.label.trim()),
       file,
@@ -499,6 +521,20 @@ export function ProjectForm({
               />
             )}
           </Field>
+
+          <div className="space-y-2">
+            <p className="text-[13px] font-medium text-ink">Progress stages</p>
+            <p className="text-[12px] text-muted">
+              The columns every board on this project moves its tasks through.
+            </p>
+            <StagesEditor
+              value={stages}
+              onChange={(next) => {
+                setStages(next)
+                setStagesTouched(true)
+              }}
+            />
+          </div>
         </div>
       </Section>
 

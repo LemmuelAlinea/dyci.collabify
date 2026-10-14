@@ -21,20 +21,14 @@ import {
 } from '../../lib/api/tasks'
 import type { TaskInput } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
-import { boardWeight, isMine, TASK_STATUSES, taskShare } from '../../lib/types'
+import { STAGE_TONE, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
+import { boardWeight, isMine, taskShare } from '../../lib/types'
 import type {
   BoardSummary,
   GroupMember,
   MemberProgress,
   ProjectTask, TeachingViewRole,
-  TaskStatus,
 } from '../../lib/types'
-
-const COLUMN_TONE: Record<TaskStatus, string> = {
-  todo: 'text-pending-ink',
-  in_progress: 'text-warning-700 dark:text-warning-300',
-  done: 'text-success-700 dark:text-success-300',
-}
 
 export function TaskBoard({
   board,
@@ -45,6 +39,7 @@ export function TaskBoard({
   viewerId, role,
   canWork,
   newTaskSprint = null,
+  stages: projectStages = null,
   onChanged,
 }: {
   board: BoardSummary
@@ -60,8 +55,11 @@ export function TaskBoard({
   canWork: boolean
   /** New tasks join this sprint; null puts them in the backlog. */
   newTaskSprint?: string | null
+  /** The project's progress stages; null is To do, In progress and Done. */
+  stages?: readonly string[] | null
   onChanged: () => Promise<void> | void
 }) {
+  const stages = stagesOf(projectStages)
   const { show } = useToast()
   // The open task lives in the URL, so a task can be linked and reloaded into.
   const [params, setParams] = useSearchParams()
@@ -159,14 +157,21 @@ export function TaskBoard({
           }
         />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-3">
-          {TASK_STATUSES.map((column) => {
-            const inColumn = tasks.filter((t) => t.status === column.value)
+        // Three stages share the width; more run side by side and scroll.
+        <div
+          className={`grid gap-4 ${
+            stages.length === 3
+              ? 'lg:grid-cols-3'
+              : 'sm:grid-cols-2 lg:auto-cols-[minmax(250px,1fr)] lg:grid-flow-col lg:grid-cols-none lg:overflow-x-auto lg:pb-2'
+          }`}
+        >
+          {stages.map((name, index) => {
+            const inColumn = tasks.filter((t) => stageIndex(t.status, t.stage, stages.length) === index)
             return (
-              <section key={column.value} className="space-y-3">
+              <section key={`${index}-${name}`} className="min-w-0 space-y-3">
                 <header className="flex items-baseline justify-between gap-2 border-b border-line pb-2">
-                  <h3 className={` font-semibold ${COLUMN_TONE[column.value]}`}>
-                    {column.label}
+                  <h3 className={`truncate font-semibold ${STAGE_TONE[statusForStage(index, stages.length)]}`}>
+                    {name}
                   </h3>
                   <span className="font-mono text-[12px] text-faint">{inColumn.length}</span>
                 </header>
@@ -186,8 +191,9 @@ export function TaskBoard({
                       viewerId={viewerId}
                       role={role}
                       canWork={canWork}
-                      onStatus={(status) =>
-                        run(() => setTaskStatus(task.id, status), 'Could not move that task.')
+                      stages={stages}
+                      onStatus={(status, stage) =>
+                        run(() => setTaskStatus(task.id, status, stage), 'Could not move that task.')
                       }
                       onEdit={() => setEditing(task)}
                       onDelete={() => setDeleting(task)}

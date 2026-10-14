@@ -36,6 +36,7 @@ import { milestoneMarks, sprintBands } from '../../lib/work/timeline'
 import { deleteProfessorTask } from '../../lib/api/tasks'
 import { recordResult } from '../../lib/api/results'
 import type { ProfessorTaskGroup } from '../../lib/api/tasks'
+import { stagesOf } from '../../lib/stages'
 import { boardOwnerName, boardWeight } from '../../lib/types'
 import { authErrorMessage } from '../../lib/authError'
 import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
@@ -301,6 +302,7 @@ export function ProfessorTasksView({
                   ownerLabel={solo ? 'Student' : 'Group'}
                   ownerFor={t.ownerFor}
                   onOpen={t.showTask}
+                  stages={stagesOf(project.stages)}
                 />
               )}
               {t.view === 'board' &&
@@ -315,6 +317,7 @@ export function ProfessorTasksView({
                       viewerId={viewerId}
                       role={role}
                       canWork={false}
+                      stages={project.stages}
                       onChanged={t.refresh}
                     />
                   )

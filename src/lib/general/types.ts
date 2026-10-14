@@ -26,6 +26,8 @@ export type Person = Pick<Profile, 'id' | 'first_name' | 'last_name' | 'avatar_u
 
 export type GeneralProject = {
   id: string
+  /** Progress stages, read by getGeneralProject only; see lib/stages.ts. */
+  stages?: string[] | null
   name: string
   description: string
   starts_on: string | null
@@ -274,6 +276,8 @@ export type GeneralTask = {
   rank: number
   /** The milestone it counts toward; null when untagged. */
   milestone_id: string | null
+  /** Its column in the project's progress stages; see lib/stages.ts. */
+  stage?: number | null
 }
 
 export type GeneralComment = {

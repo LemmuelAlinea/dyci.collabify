@@ -3534,3 +3534,40 @@ Both start with "zz test".
 - Members reflect today's groups, not the groups at the time of an archived project.
 
 **Next.** B4: the Formal term record and the Activity / audit log, then retiring the seven old sheets.
+
+---
+
+## Progress stages, hand-in links, groups table, See why (2026-10-14)
+
+**What.**
+- **Progress stages.** Every class and workspace project names the columns its work moves through. Presets: Default (To do · In progress · Done), System development (Planning · Development · Testing · Revision · Completed), Research (Topic selection · Research · Drafting · Review · Revision · Final), or Custom (3 to 8 names, each up to 40 characters, no repeats).
+  - Faculty set them per class project in the project form (step 2, under Guidelines). Every board on the project uses them. Workspace projects set them in Overview → Edit, by whoever can edit the project.
+  - The rule: the first stage is `todo`, the last is `done`, every middle stage is `in_progress`. Status is unchanged in meaning, so reports, grading, late checks, locks and "wording fixed once started" all read as before.
+  - Boards draw one column per stage. Three share the width; more run side by side at 250 px and scroll inside the board on desktop. The card's one-click move says Start, then "Move to <next>", then Reopen; the default three keep Start / Mark done / Reopen. List views, the class task detail, the workspace task dialog, the workspace stage filter and the workspace archive read the stage names.
+- **Hand-in notifications** open the class's Submissions tab already on "Waiting on you" (`/classes/<id>?tab=submissions&status=waiting`). The status filter lives in `?status=`, so it works even with the page open.
+- **Groups** show as a table (one per set) on the Groups page, a class's Groups tab and a project's Groups tab: group, members, leader, filled, work. Narrower screens drop Work, then Leader (it moves under the name), then the faces. `GroupCard.tsx` is gone; `CapacityPill` moved to `GroupTable.tsx`.
+- **Analytics "See why"** switches to the view and scrolls to the exact row the card is about, outlined in amber for ~2.6 s: the group's health row, its "Who holds the work" split, its forecast card (expanding "Show the other N" if needed), the student's roster row (solo boards land here too), the pile-up week, the syllabus week, or the unmeasured class. Folded cards land on their section. "Open" on a board card now opens that board (`?tab=work&board=`); "in no group" / "holds no task" open the class's Groups tab; a syllabus gap opens the class's Syllabus tab.
+
+**Code.**
+
+| File | What it does |
+|---|---|
+| `supabase/task-stages.sql` | `projects.stages`, `general_projects.stages` (text[], null = default, checked by `stages_ok`), `project_tasks.stage`, `general_tasks.stage`. `align_task_stage` and the triggers `project_tasks_a_stage` / `general_tasks_a_stage` (named to fire before the guards) keep status and stage in step, and refuse a middle-stage move by someone who could not move the status. Recreates `task_detail_overview` and `general_task_overview` with `stage`; anon revoked. Last in ORDER and both rebuild lines. Test: `supabase/tests/task-stages.test.sql`, 21 PASS. |
+| `lib/stages.ts` | Presets, `stagesOf`, `stageIndex` (status wins at the ends, so renaming or shortening a list never rewrites tasks), `statusForStage`, `nextStep`, `checkStages`, `stagesToSave`. Tested. |
+| `components/tasks/StagesEditor.tsx` | The preset chips and the rename / reorder / add / remove list. |
+| `lib/api/projects.ts`, `general.ts` | `getProject` / `getGeneralProject` read `stages` beside the overviews (which predate them). `createProjectSeries` / `updateProjectSeries` write stages after their RPC via `setProjectStages`. `setTaskStatus(id, status, stage?)`; workspace `updateTask` takes `stage`. |
+| `lib/analyticsView.ts` | `evidenceFor` replaces `viewForAction`: the view plus the element ids to scroll to, most exact first. |
+| `components/groups/GroupTable.tsx` | The groups table. |
+
+**Checked.**
+- Vitest 990 pass; build and `eslint src` clean; SQL 21/21 on the live DB.
+- Browser, live data as faculty: Problem Set 3 set to System development showed five columns (250 px each, scrolling inside the board, no page scroll at 1440), reopened with the preset selected, then saved back to Default (stored null). Mobile Legends Tournament set to Research; a task moved Topic selection → Research → Drafting from its card; task and project restored to todo / default afterwards by SQL (its history keeps the two moves).
+- See why on five cards landed on the exact row (group health, roster for a solo board, forecast) or its section for folded cards; the Groups page table at 800 px.
+
+**Deferred.**
+- My tasks and the dashboard panels mix projects, so they still read To do / In progress / Done; "Mark done" there jumps an in-progress task straight to the last stage.
+- A middle-stage move is not written to task history (only start and finish are).
+- The workspace New project dialog has no stages field; set them in Overview after creating.
+- Class task filters still filter by status, not stage.
+
+**Next.** Nothing queued; open work is the Deferred lists.

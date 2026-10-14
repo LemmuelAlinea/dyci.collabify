@@ -24,6 +24,8 @@ export type ProjectInput = {
   totalPoints: number
   dueAt: string | null
   releaseAt: string | null
+  /** Progress stages; null is the default three, undefined leaves them be. */
+  stages?: string[] | null
 }
 
 function toRow(input: ProjectInput) {
@@ -40,6 +42,7 @@ function toRow(input: ProjectInput) {
     total_points: input.totalPoints,
     due_at: input.dueAt,
     release_at: input.releaseAt,
+    ...(input.stages !== undefined && { stages: input.stages }),
   }
 }
 
@@ -58,13 +61,14 @@ export async function listProjectsForClasses(classIds: string[]) {
 }
 
 export async function getProject(id: string) {
-  const { data, error } = await supabase
-    .from('project_overview')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
+  // The overview predates stages, so they come from the table beside it.
+  const [{ data, error }, stages] = await Promise.all([
+    supabase.from('project_overview').select('*').eq('id', id).maybeSingle(),
+    supabase.from('projects').select('stages').eq('id', id).maybeSingle(),
+  ])
   if (error) throw error
-  return (data as ProjectSummary | null) ?? null
+  if (!data) return null
+  return { ...(data as ProjectSummary), stages: (stages.data?.stages as string[] | null) ?? null }
 }
 
 export async function createProject(input: ProjectInput, createdBy: string) {
@@ -174,7 +178,9 @@ export async function createProjectSeries(
     p_criteria: criteriaArg(criteria),
   })
   if (error) throw error
-  return (data ?? []) as string[]
+  const ids = (data ?? []) as string[]
+  if (input.stages !== undefined) await setProjectStages(ids, input.stages)
+  return ids
 }
 
 /**
@@ -194,6 +200,17 @@ export async function updateProjectSeries(
     ...sharedArgs(input),
     p_criteria: criteriaArg(criteria),
   })
+  if (error) throw error
+  if (input.stages !== undefined) await setProjectStages(projectIds, input.stages)
+}
+
+/**
+ * The series functions predate stages, so the stages are written beside them,
+ * to the same sections. Null puts them back on the default three.
+ */
+export async function setProjectStages(projectIds: string[], stages: string[] | null) {
+  if (projectIds.length === 0) return
+  const { error } = await supabase.from('projects').update({ stages }).in('id', projectIds)
   if (error) throw error
 }
 
@@ -355,4 +372,11 @@ export async function draftProject(input: {
     audience: input.audience,
     total_points: input.totalPoints,
   })
+}
+
+/** A class project's progress stages; null is the default three. */
+export async function getProjectStages(projectId: string) {
+  const { data, error } = await supabase.from('projects').select('stages').eq('id', projectId).maybeSingle()
+  if (error) throw error
+  return (data?.stages as string[] | null | undefined) ?? null
 }

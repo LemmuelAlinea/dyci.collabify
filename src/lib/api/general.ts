@@ -112,13 +112,14 @@ export async function listSpaceProjects(spaceId: string) {
 }
 
 export async function getGeneralProject(projectId: string) {
-  const { data, error } = await supabase
-    .from('general_project_overview')
-    .select('*')
-    .eq('id', projectId)
-    .maybeSingle()
+  // The overview predates stages, so they come from the table beside it.
+  const [{ data, error }, stages] = await Promise.all([
+    supabase.from('general_project_overview').select('*').eq('id', projectId).maybeSingle(),
+    supabase.from('general_projects').select('stages').eq('id', projectId).maybeSingle(),
+  ])
   if (error) throw error
-  return (data as GeneralProjectSummary | null) ?? null
+  if (!data) return null
+  return { ...(data as GeneralProjectSummary), stages: (stages.data?.stages as string[] | null) ?? null }
 }
 
 /**
@@ -235,6 +236,8 @@ export type ProjectPatch = Partial<{
   starts_on: string | null
   ends_on: string | null
   status: GeneralStatus
+  /** Null puts the project back on To do, In progress and Done. */
+  stages: string[] | null
 }>
 
 export async function updateGeneralProject(projectId: string, patch: ProjectPatch) {
@@ -835,6 +838,8 @@ export type TaskPatch = Partial<{
   title: string
   description: string
   status: GeneralTaskStatus
+  /** Its progress stage; the database sets the status it implies. */
+  stage: number
   due_at: string | null
   starts_at: string | null
   team_id: string | null

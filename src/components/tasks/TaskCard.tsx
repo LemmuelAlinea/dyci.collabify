@@ -1,5 +1,6 @@
 import { AssigneePicker } from './AssigneePicker'
 import { Icon } from '../ui/Icon'
+import { DEFAULT_STAGES, nextStep, stageIndex } from '../../lib/stages'
 import { dueSoonLabel, isMine } from '../../lib/types'
 import type {
   GroupMember,
@@ -7,12 +8,6 @@ import type {
   ProjectTask, TeachingViewRole,
   TaskStatus,
 } from '../../lib/types'
-
-const NEXT: Record<TaskStatus, { to: TaskStatus; label: string; icon: 'check' | 'refresh' }> = {
-  todo: { to: 'in_progress', label: 'Start', icon: 'check' },
-  in_progress: { to: 'done', label: 'Mark done', icon: 'check' },
-  done: { to: 'todo', label: 'Reopen', icon: 'refresh' },
-}
 
 export function TaskCard({
   task,
@@ -30,6 +25,7 @@ export function TaskCard({
   onOpen,
   counts,
   solo = false,
+  stages = DEFAULT_STAGES,
 }: {
   task: ProjectTask
   /** This task's slice of the board's 100. */
@@ -40,7 +36,7 @@ export function TaskCard({
   role: TeachingViewRole
   /** False for a professor: they write the work, the group does it. */
   canWork: boolean
-  onStatus: (status: TaskStatus) => Promise<void> | void
+  onStatus: (status: TaskStatus, stage: number) => Promise<void> | void
   onEdit: () => void
   onDelete: () => void
   /** Only for a task that is this student's (added it, or on it) or nobody's yet. */
@@ -53,8 +49,10 @@ export function TaskCard({
   counts?: { file_count: number; comment_count: number }
   /** An individual project: the owner already owns it, so nothing is claimed. */
   solo?: boolean
+  /** The project's progress stages. */
+  stages?: readonly string[]
 }) {
-  const next = NEXT[task.status]
+  const next = nextStep(stageIndex(task.status, task.stage, stages.length), stages)
   const due = dueSoonLabel(task.due_at)
   const overdue = due === 'Overdue' && task.status !== 'done'
   // Handed in, but after the deadline. The chip says it better than the due
@@ -182,7 +180,7 @@ export function TaskCard({
         {canWork && (yours || solo) ? (
           <button
             type="button"
-            onClick={() => void onStatus(next.to)}
+            onClick={() => void onStatus(next.status, next.stage)}
             className="flex items-center gap-2 rounded-lg px-2 py-1 text-[12px] font-medium text-navy-600 transition-colors hover:bg-[var(--surface-sunken)] dark:text-navy-200"
           >
             <Icon name={next.icon} size={14} />

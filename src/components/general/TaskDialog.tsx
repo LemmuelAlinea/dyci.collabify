@@ -31,7 +31,7 @@ import { trashTaskFile } from '../../lib/api/trash'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue, toLocalInput } from '../../lib/general/dates'
 import { describeEvent } from '../../lib/general/history'
-import { TASK_STATUSES } from '../../lib/general/progress'
+import { stageIndex, stageName, stagesOf, statusForStage } from '../../lib/stages'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import { attachFromRepo, attachSummary, repoTree } from '../../lib/general/attachFromRepo'
 import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent } from '../../lib/general/types'
@@ -57,7 +57,7 @@ export function TaskDialog({
       open={Boolean(task)}
       onClose={onClose}
       title={task?.title ?? 'Task'}
-      description={task ? TASK_STATUSES.find((s) => s.value === task.status)?.label : undefined}
+      description={task ? stageName(state.project?.stages, task) : undefined}
       size="xl"
     >
       {task && <TaskBody key={task.id} state={state} taskId={task.id} onClose={onClose} />}
@@ -404,7 +404,9 @@ function TaskDetails({
   const task = state.tasks.find((t) => t.id === taskId)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [status, setStatus] = useState<GeneralTaskStatus>('todo')
+  // The task's stage, as an index into the project's stages.
+  const [stage, setStage] = useState(0)
+  const stages = stagesOf(state.project?.stages)
   const [due, setDue] = useState('')
   const [starts, setStarts] = useState('')
   const [team, setTeam] = useState('')
@@ -416,7 +418,7 @@ function TaskDetails({
     if (!task) return
     setTitle(task.title)
     setDescription(task.description)
-    setStatus(task.status)
+    setStage(stageIndex(task.status, task.stage, stagesOf(state.project?.stages).length))
     setDue(toLocalInput(task.due_at))
     setStarts(toLocalInput(task.starts_at))
     setTeam(task.team_id ?? '')
@@ -431,7 +433,7 @@ function TaskDetails({
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] sm:grid-cols-4">
           <div>
             <dt className="text-[12px] text-faint">Stage</dt>
-            <dd className="text-ink">{TASK_STATUSES.find((x) => x.value === task.status)?.label}</dd>
+            <dd className="text-ink">{stageName(stages, task)}</dd>
           </div>
           <div>
             <dt className="text-[12px] text-faint">Starts</dt>
@@ -480,7 +482,8 @@ function TaskDetails({
       await updateTask(task.id, {
         title: title.trim(),
         description,
-        status,
+        status: statusForStage(stage, stages.length) as GeneralTaskStatus,
+        stage,
         due_at: dueAt,
         starts_at: startsAt,
         team_id: team || null,
@@ -505,9 +508,9 @@ function TaskDetails({
           {(id) => (
             <Select
               id={id}
-              value={status}
-              onChange={(e) => setStatus(e.target.value as GeneralTaskStatus)}
-              options={TASK_STATUSES}
+              value={String(stage)}
+              onChange={(e) => setStage(Number(e.target.value))}
+              options={stages.map((name, i) => ({ value: String(i), label: name }))}
             />
           )}
         </Field>

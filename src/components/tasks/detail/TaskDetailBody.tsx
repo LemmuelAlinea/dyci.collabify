@@ -9,14 +9,13 @@ import { TaskHistory } from './TaskHistory'
 import { WorkLogList } from './WorkLogList'
 import { useNow } from '../../../hooks/useNow'
 import { withdrawReassignment } from '../../../lib/api/reassignments'
+import { DEFAULT_STAGES, stageIndex, statusForStage } from '../../../lib/stages'
 import {
-  TASK_STATUSES,
   canRequestReassignment,
   formatMinutes,
   fullName,
   isMine,
   taskShare,
-  taskStatusLabel,
 } from '../../../lib/types'
 import type {
   ReassignmentRow,
@@ -58,6 +57,7 @@ export function TaskDetailBody({
   /** The live request on this task, when the viewer is allowed to see one. */
   reassignment,
   viewerCanRequest = false,
+  stages = DEFAULT_STAGES,
   onStatus,
   onChanged,
 }: {
@@ -74,7 +74,9 @@ export function TaskDetailBody({
   reassignment?: ReassignmentRow | null
   /** False for a professor: they decide requests, they do not file them. */
   viewerCanRequest?: boolean
-  onStatus: (status: TaskStatus) => void
+  /** The project's progress stages. */
+  stages?: readonly string[]
+  onStatus: (status: TaskStatus, stage: number) => void
   onChanged: () => Promise<void> | void
 }) {
   const [askOpen, setAskOpen] = useState(false)
@@ -94,7 +96,7 @@ export function TaskDetailBody({
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] sm:grid-cols-3">
             <div>
               <dt className="text-[12px] text-faint">Stage</dt>
-              <dd className="text-ink">{taskStatusLabel(task.status)}</dd>
+              <dd className="text-ink">{stages[stageIndex(task.status, task.stage, stages.length)]}</dd>
             </div>
             <div>
               <dt className="text-[12px] text-faint">Worth</dt>
@@ -138,9 +140,12 @@ export function TaskDetailBody({
             <div className="max-w-[16rem]">
               <Select
                 aria-label="Move this task"
-                value={task.status}
-                onChange={(e) => onStatus(e.target.value as TaskStatus)}
-                options={TASK_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
+                value={String(stageIndex(task.status, task.stage, stages.length))}
+                onChange={(e) => {
+                  const to = Number(e.target.value)
+                  onStatus(statusForStage(to, stages.length) as TaskStatus, to)
+                }}
+                options={stages.map((name, i) => ({ value: String(i), label: name }))}
                 className="!h-9 !text-[13px]"
               />
             </div>
