@@ -108,4 +108,38 @@ describe('deliverablesDoc', () => {
       ['Group 10', '', ''],
     ])
   })
+  it('orders groups by name whatever order the rows arrive in', () => {
+    const doc = deliverablesDoc({ ...head, projects: [lab6], rows: [...rows].reverse(), window: null })
+    expect(tableBlocks(doc)[0].rows.map((r) => r[0])).toEqual(['Group 1', 'Group 2', 'Group 10'])
+  })
+  it('orders milestones by due day first, then by title with numbers read as numbers', () => {
+    const ms = [
+      row({ ref_id: 'm10', title: 'Milestone 10', due_day: '2026-10-07' }),
+      row({ ref_id: 'm2', title: 'Milestone 2', due_day: '2026-10-07' }),
+      row({ ref_id: 'm99', title: 'Zeta', due_day: '2026-10-01' }),
+    ]
+    const doc = deliverablesDoc({ ...head, projects: [lab6], rows: ms, window: null })
+    expect(tableBlocks(doc)[0].columns.map((c) => c.label.split(' (')[0])).toEqual(['Group', 'Zeta', 'Milestone 2', 'Milestone 10'])
+  })
+  it('marks a grid archived when its project is', () => {
+    const archived = rows.map((r) => ({ ...r, project_archived_at: '2026-10-12T00:00:00Z' }))
+    expect(tableBlocks(deliverablesDoc({ ...head, projects: [lab6], rows: archived, window: null }))[0].title).toBe('Compliance (archived)')
+    const essay = { id: 'p2', title: 'Essay', audience: 'group' as const }
+    const both = [...archived, row({ project_id: 'p2', project_title: 'Essay', ref_id: 'm9' })]
+    const titles = tableBlocks(deliverablesDoc({ ...head, projects: [lab6, essay], rows: both, window: null })).map((t) => t.title)
+    expect(titles).toEqual(['Lab 6 (archived)', 'Essay', 'Legend'])
+  })
+  it('keeps sheet names and table ids unique for projects with the same title', () => {
+    const twin = { id: 'p2', title: 'Lab 6', audience: 'group' as const }
+    const both = [...rows, row({ project_id: 'p2', ref_id: 'm9' })]
+    const doc = deliverablesDoc({ ...head, projects: [lab6, twin], rows: both, window: null })
+    const ids = doc.blocks.flatMap((b) => (b.kind === 'table' ? [b.id] : []))
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(docToWorkbook(doc).sheets.map((s) => s.name)).toEqual(['Report', 'Lab 6', 'Lab 6 (2)', 'Legend'])
+  })
+  it('writes a group named like a formula as text in Excel', () => {
+    const evil = [row({ group_name: '=1+1' })]
+    const wb = docToWorkbook(deliverablesDoc({ ...head, projects: [lab6], rows: evil, window: null }))
+    expect(wb.sheets[1].rows[1][0]).toBe(' =1+1')
+  })
 })

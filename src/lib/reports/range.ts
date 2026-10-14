@@ -79,7 +79,10 @@ export function resolveDueWindow(
   term: { start: string | null; end: string | null },
   custom: { from?: string; to?: string },
 ): DayRange | null {
-  if (choice === 'term') return isDay(term.start ?? undefined) && isDay(term.end ?? undefined) ? { from: term.start as string, to: term.end as string } : null
+  if (choice === 'term') {
+    if (!isDay(term.start ?? undefined) || !isDay(term.end ?? undefined)) return null
+    return term.start! <= term.end! ? { from: term.start!, to: term.end! } : { from: term.end!, to: term.start! }
+  }
   if (choice === 'custom' && isDay(custom.from) && isDay(custom.to)) {
     return custom.from <= custom.to ? { from: custom.from, to: custom.to } : { from: custom.to, to: custom.from }
   }

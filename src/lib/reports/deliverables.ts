@@ -48,8 +48,8 @@ const LEGEND: Block = {
     { key: 'sheet', label: 'In Excel and CSV', type: 'text' },
   ],
   rows: [
-    [{ value: 'On time', tone: 'success' }, 'Handed in, or every task done, by the end of the due day.', '0'],
-    [{ value: 'Late (N days)', tone: 'warning' }, 'Done after the due day. N counts the days late.', 'N'],
+    [{ value: 'On time', tone: 'success' }, 'Handed in by the deadline, or every task done by the end of the due day.', '0'],
+    [{ value: 'Late (N days)', tone: 'warning' }, 'Done after the deadline or due day. N counts the days late, rounded up.', 'N'],
     [{ value: 'Missing', tone: 'danger' }, 'Past due and not done.', 'Empty'],
     [{ value: 'Not due yet', tone: 'pending' }, 'Due later.', 'Empty'],
   ],
@@ -119,7 +119,7 @@ export function deliverablesDoc(input: ReportHead & {
     blocks.push({
       kind: 'table',
       id: `compliance-${p.id}`,
-      title: input.projects.length > 1 ? p.title : 'Compliance',
+      title: `${input.projects.length > 1 ? p.title : 'Compliance'}${mine.some((r) => r.project_archived_at) ? ' (archived)' : ''}`,
       columns,
       rows,
     })

@@ -55,6 +55,7 @@ describe('due windows', () => {
     expect(resolveDueWindow('all', term, {})).toBeNull()
     expect(resolveDueWindow('term', term, {})).toEqual({ from: '2026-08-03', to: '2026-12-12' })
     expect(resolveDueWindow('term', { start: null, end: '2026-12-12' }, {})).toBeNull()
+    expect(resolveDueWindow('term', { start: '2026-12-12', end: '2026-08-03' }, {})).toEqual({ from: '2026-08-03', to: '2026-12-12' })
     expect(resolveDueWindow('custom', term, { from: '2026-10-31', to: '2026-10-01' })).toEqual({ from: '2026-10-01', to: '2026-10-31' })
     expect(resolveDueWindow('custom', term, { from: '2026-10-01' })).toBeNull()
   })
