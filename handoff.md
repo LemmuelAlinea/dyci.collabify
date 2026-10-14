@@ -3475,3 +3475,62 @@ Both start with "zz test".
 - The class loader's "Gathering it…" takes about 15 s on QM.
 
 **Next.** B3: the Group progress report, and Deliverables & milestone compliance.
+
+---
+
+## Phase B3: group progress and deliverables compliance (2026-10-14)
+
+- **Spec:** `docs/superpowers/specs/2026-10-13-phase-b-reports-design.md`, B3 sections.
+- **Plan:** `docs/superpowers/plans/2026-10-14-phase-b3-progress-deliverables.md`, rulings 1–10. Rulings made during review:
+  - A hand-in is judged on the earlier of the board's current `submitted_at` and its **first acceptance**. Collabify keeps only the latest hand-in, so Lab 6's Group 1 read "Late (25 days)" although its work was accepted before the deadline.
+  - Only **countable boards** appear: groups with members, and students still in the class. A footer line says when any were left out.
+  - "Share" is `held_pct`, the portion of the group's work the member holds.
+
+**What.** A fourth catalogue group, **For tracking projects**, holds two reports.
+
+- **Group progress report**
+  - Covers one group or every group on a project.
+  - **One group:** KPIs (Done %, weighted from `task_state`; Tasks; Late tasks, meaning finished late or open past due; Hand-in; Verdict, with "Waiting for an answer" after a re-hand-in).
+  - Then a burnup, followed by Members, Milestones, Sprints and Feedback history. Feedback history holds every answer plus the current hand-in, oldest first.
+  - **Every group:** a Groups overview, one burnup per group on a shared scale, then combined tables with a Group column.
+  - **Individual projects:** rows are named for students and there is no Members table.
+  - Every empty table is replaced by a sentence saying what would fill it.
+- **Deliverables & milestone compliance**
+  - A grid of groups (or students) against each milestone, then the hand-in. Each cell is On time, Late (N days), Missing or Not due yet, shown in status tones.
+  - KPIs: on-time rate, on time, late, missing, not due yet.
+  - Due window (`rdue`): Every date, This term, or Choose dates.
+  - Excel and CSV write days late as numbers: 0 for on time, empty for missing or not due. A Legend sheet explains them.
+  - "All projects" leaves out unreleased projects. An unreleased project picked on its own says so.
+  - Archived projects get "(archived)", and an ended class gets a note.
+
+**Code.**
+
+| File | What it does |
+|---|---|
+| `supabase/report-deliverables.sql` | `report_deliverables` (every milestone and hand-in per board, judged) and `report_sprints`. Both are staff-only, `security_invoker`, keep archived work, and revoke anon. `base` is `not materialized` so the class filter reaches `projects_class_idx`. Test: `supabase/tests/report-deliverables.test.sql`, 20 PASS. In ORDER and on both rebuild lines after `report-notes`. |
+| `lib/api/reportReads.ts` | Class- or project-scoped, paged reads: `listDeliverables`, `listReportSprints`, `classTaskStates`, `classMemberLoad`, and `boardHistoryFor` (answers with names). |
+| `lib/reports/deliverables.ts`, `groupProgress.ts` | Pure builders, all tested. Also holds `countableBoard`. |
+| `lib/reports/doc.ts`, `ReportDocView`, `charts/Burnup.tsx`, `WeekBars.tsx` | The `burnup` chart, `RichCell.exportValue` and `dayText`. Charts print in the light palette (`print:` variants). |
+| `lib/reports/range.ts` | `DueChoice`, `resolveDueWindow`. |
+| `pages/app/reports/*` | Adds the kinds `progress` and `deliverables` and the shared `DOC_KINDS`. Live tables per kind, using the B2 throttle; `group_members` is now on the class loader's live list. The group picker shows only the chosen project's countable boards. |
+
+**Checked.**
+- Vitest: 975 pass. Build and `eslint src` are clean. SQL: 20/20 on the live DB.
+- Browser, live, as faculty on QM:
+  - Group progress: Lab 6 with one group and with every group; Midterm Exam (individual).
+  - Compliance: All projects with Every date, This term, and an empty custom range.
+  - Excel and Word run in the page and read back.
+  - Dark mode.
+  - 375 and 768 px: no sideways scroll.
+  - After a clean reload, switching across seven reports logged no console errors.
+- No files were downloaded.
+
+**Deferred** (from the ledger):
+- The milestone half of `report_deliverables` still scans `project_boards` and `project_tasks` in full. That is fine at today's sizes.
+- When every project in a window is empty, both the per-project sentences and the overall sentence show, which is redundant.
+- A release moment surfaces on the next rebuild.
+- `rfrom`/`rto` carry between check-in, notes and compliance.
+- `decided_by_name` prints "—" for a co-teacher whose profile is hidden.
+- Members reflect today's groups, not the groups at the time of an archived project.
+
+**Next.** B4: the Formal term record and the Activity / audit log, then retiring the seven old sheets.
