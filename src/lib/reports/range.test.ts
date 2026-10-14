@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseRangeChoice, previousRange, rangeText, resolveRange } from './range'
+import { parseDueChoice, parseRangeChoice, previousRange, rangeText, resolveDueWindow, resolveRange } from './range'
 
 // 2026-10-14 is a Wednesday.
 const today = '2026-10-14'
@@ -40,5 +40,22 @@ describe('parseRangeChoice', () => {
     expect(parseRangeChoice('lastWeek', 'thisWeek')).toBe('lastWeek')
     expect(parseRangeChoice('toString', 'thisWeek')).toBe('thisWeek')
     expect(parseRangeChoice(null, 'last30')).toBe('last30')
+  })
+})
+
+describe('due windows', () => {
+  const term = { start: '2026-08-03', end: '2026-12-12' }
+  it('reads the choice from the address', () => {
+    expect(parseDueChoice('term')).toBe('term')
+    expect(parseDueChoice('custom')).toBe('custom')
+    expect(parseDueChoice(null)).toBe('all')
+    expect(parseDueChoice('toString')).toBe('all')
+  })
+  it('resolves every date, the term and chosen dates', () => {
+    expect(resolveDueWindow('all', term, {})).toBeNull()
+    expect(resolveDueWindow('term', term, {})).toEqual({ from: '2026-08-03', to: '2026-12-12' })
+    expect(resolveDueWindow('term', { start: null, end: '2026-12-12' }, {})).toBeNull()
+    expect(resolveDueWindow('custom', term, { from: '2026-10-31', to: '2026-10-01' })).toEqual({ from: '2026-10-01', to: '2026-10-31' })
+    expect(resolveDueWindow('custom', term, { from: '2026-10-01' })).toBeNull()
   })
 })

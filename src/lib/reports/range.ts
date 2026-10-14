@@ -59,3 +59,29 @@ export function rangeText(r: DayRange): string {
 export function parseRangeChoice(raw: string | null, fallback: RangeChoice): RangeChoice {
   return RANGE_CHOICES.some((c) => c.value === raw) ? (raw as RangeChoice) : fallback
 }
+
+/** Which deliverables a compliance report covers, by when they fall due. */
+export type DueChoice = 'all' | 'term' | 'custom'
+
+export const DUE_CHOICES: { value: DueChoice; label: string }[] = [
+  { value: 'all', label: 'Every date' },
+  { value: 'term', label: 'This term' },
+  { value: 'custom', label: 'Choose dates' },
+]
+
+export function parseDueChoice(raw: string | null): DueChoice {
+  return raw === 'term' || raw === 'custom' ? raw : 'all'
+}
+
+/** Null means every date: no window, or a term or choice that is not complete. */
+export function resolveDueWindow(
+  choice: DueChoice,
+  term: { start: string | null; end: string | null },
+  custom: { from?: string; to?: string },
+): DayRange | null {
+  if (choice === 'term') return isDay(term.start ?? undefined) && isDay(term.end ?? undefined) ? { from: term.start as string, to: term.end as string } : null
+  if (choice === 'custom' && isDay(custom.from) && isDay(custom.to)) {
+    return custom.from <= custom.to ? { from: custom.from, to: custom.to } : { from: custom.to, to: custom.from }
+  }
+  return null
+}
