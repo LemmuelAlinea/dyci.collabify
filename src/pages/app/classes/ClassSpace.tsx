@@ -115,6 +115,8 @@ function ClassSpaceView({ classId }: { classId: string }) {
         const out = new URLSearchParams(prev)
         if (next === 'overview') out.delete('tab')
         else out.set('tab', next)
+        // Submissions' status filter means nothing on another tab.
+        if (next !== 'submissions') out.delete('status')
         return out
       },
       { replace: true },

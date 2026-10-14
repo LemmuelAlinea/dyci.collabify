@@ -60,6 +60,10 @@ function destination(n: AppNotification, role: Role | null, teaches: boolean): s
     case 'meeting_changed':
     case 'meeting_cancelled':
       return n.meeting_id ? `${paths.meetings}?meeting=${n.meeting_id}` : paths.meetings
+    case 'board_submitted':
+      // A hand-in is answered from its class's Submissions, where it waits.
+      if (teaches && n.class_id) return `${paths.class(n.class_id)}?tab=submissions&status=waiting`
+      break
     case 'group_leader':
       return n.group_id ? paths.group(n.group_id) : paths.home
     case 'general_access_requested':

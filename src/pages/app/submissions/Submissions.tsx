@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Alert } from '../../../components/ui/Alert'
 import { Button } from '../../../components/ui/Button'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
@@ -83,7 +83,28 @@ export default function Submissions({ classId }: { classId?: string }) {
   const [classes, setClasses] = useState<ClassSummary[] | null>(null)
   const [rows, setRows] = useState<Submission[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [filters, setFilters] = useState<SubmissionFilters>(EMPTY_SUBMISSION_FILTERS)
+  const [narrowing, setFilters] = useState<SubmissionFilters>(EMPTY_SUBMISSION_FILTERS)
+  // The status lives in `?status=`, so a hand-in notification can open the
+  // page already on "Waiting on you", even while the page is open.
+  const [params, setParams] = useSearchParams()
+  const raw = params.get('status')
+  const status: SubmissionStatus | '' = SUBMISSION_STATUSES.some((s) => s.value === raw)
+    ? (raw as SubmissionStatus)
+    : ''
+  const filters = useMemo(() => ({ ...narrowing, status }), [narrowing, status])
+  const setStatus = useCallback(
+    (next: SubmissionStatus | '') =>
+      setParams(
+        (prev) => {
+          const out = new URLSearchParams(prev)
+          if (next) out.set('status', next)
+          else out.delete('status')
+          return out
+        },
+        { replace: true },
+      ),
+    [setParams],
+  )
 
   useEffect(() => {
     if (!classId) document.title = 'Submissions · Collabify'
@@ -153,7 +174,10 @@ export default function Submissions({ classId }: { classId?: string }) {
     [load, show],
   )
 
-  const set = (patch: Partial<SubmissionFilters>) => setFilters((f) => ({ ...f, ...patch }))
+  const set = (patch: Partial<SubmissionFilters>) => {
+    if (patch.status !== undefined) setStatus(patch.status)
+    setFilters((f) => ({ ...f, ...patch }))
+  }
 
   const all = useMemo(() => rows ?? [], [rows])
   // The status tabs count what the other filters leave, so a number never
@@ -186,7 +210,10 @@ export default function Submissions({ classId }: { classId?: string }) {
   ].filter(Boolean).length
   const narrowedTotal = counts.waiting + counts.accepted + counts.returned
 
-  const clearAll = () => setFilters(EMPTY_SUBMISSION_FILTERS)
+  const clearAll = () => {
+    setFilters(EMPTY_SUBMISSION_FILTERS)
+    setStatus('')
+  }
   const loading = rows === null || classes === null
 
   return (
@@ -259,7 +286,7 @@ export default function Submissions({ classId }: { classId?: string }) {
                 ]
                   .filter(Boolean)
                   .join(' · ')}
-                onClear={() => setFilters((f) => ({ ...EMPTY_SUBMISSION_FILTERS, status: f.status }))}
+                onClear={() => setFilters(EMPTY_SUBMISSION_FILTERS)}
                 label="Filter submissions"
               >
                 <FilterField label="Search">
