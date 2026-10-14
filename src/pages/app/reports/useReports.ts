@@ -195,6 +195,7 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     'task_reassignments',
     'syllabus_weeks',
     'class_members',
+    'group_members',
   ])
 
   // The verdict's reason lives on the result row rather than the board, so it
