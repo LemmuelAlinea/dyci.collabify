@@ -96,5 +96,6 @@ export function GroupHealthGrid({ data, today }: { data: AnalyticsData; today: s
   if (rows.length === 0) {
     return <p className="text-[13px] text-muted">No group boards in view. Individual projects appear under Students.</p>
   }
-  return <HeatGrid columns={COLUMNS} rows={rows} caption="Group health" />
+  // Five groups in view; the rest scroll inside the table.
+  return <HeatGrid columns={COLUMNS} rows={rows} caption="Group health" maxRows={5} />
 }

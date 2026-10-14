@@ -3571,3 +3571,7 @@ Both start with "zz test".
 - Class task filters still filter by status, not stage.
 
 **Next.** Nothing queued; open work is the Deferred lists.
+
+**Follow-up (same day).**
+- Analytics → Groups → Group health shows at most five groups; past five, the table scrolls inside itself under a header that stays put (`HeatGrid` `maxRows`, measured from the rows; the stuck header covers the cell spacing so rows do not show through).
+- Every app page shows its scrollbar again (it was hidden on `html:has(.app-ui)`): the same thin 10 px bar as the panels inside, with the gutter held open so short pages do not shift. The side rail keeps its hidden bar. Scrollbar corners are transparent.

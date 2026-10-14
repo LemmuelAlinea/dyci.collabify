@@ -452,7 +452,8 @@
     width: 10px;
     height: 10px;
   }
-  ::-webkit-scrollbar-track {
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
@@ -812,12 +813,21 @@
       linear-gradient(135deg, var(--banner-edge), var(--banner-end)) border-box;
   }
 
-  /* The workspace page scrolls the window, so its bar is the document's. */
+  /*
+   * The workspace page scrolls the window, so its bar is the document's: the
+   * same thin bar as every scrolling panel inside it, down the right-hand edge.
+   * The rail keeps its own hidden one (`.scroll-hidden` in SideNav). The gutter
+   * is held open so a page short enough not to scroll does not shift sideways.
+   */
   html:has(.app-ui) {
-    scrollbar-width: none;
+    scrollbar-gutter: stable;
   }
-  html:has(.app-ui)::-webkit-scrollbar {
-    display: none;
+  /* Firefox has no ::-webkit-scrollbar; give it the same colours. */
+  @supports not selector(::-webkit-scrollbar) {
+    html:has(.app-ui) {
+      scrollbar-width: thin;
+      scrollbar-color: var(--line-strong) transparent;
+    }
   }
 
   /**
