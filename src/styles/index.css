@@ -1218,3 +1218,24 @@ html.has-modal .app-ui:not([role='menu']) {
     stroke-dashoffset: 0;
   }
 }
+
+/*
+ * Analytics "See why": the row or card a Needs-attention item is about, picked
+ * out for a moment after the page scrolls to it. An outline, so nothing in the
+ * layout moves; under reduced motion it simply holds, then goes.
+ */
+[data-attn] {
+  outline: 2px solid var(--color-amber-400);
+  outline-offset: 3px;
+  border-radius: 10px;
+  animation: collabify-attn 2.6s ease-out forwards;
+}
+@keyframes collabify-attn {
+  0%,
+  60% {
+    outline-color: var(--color-amber-400);
+  }
+  100% {
+    outline-color: transparent;
+  }
+}

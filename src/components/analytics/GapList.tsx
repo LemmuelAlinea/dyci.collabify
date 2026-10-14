@@ -44,6 +44,7 @@ export function GapList({ gaps }: { gaps: ClassGap[] }) {
         {sorted.map((g) => (
           <li
             key={`${g.class_id}-${g.week_no}`}
+            id={`attn-gap-${g.class_id}-${g.week_no}`}
             className={`surface flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-3.5 py-2.5 ${
               g.phase === 'past'
                 ? 'border-danger-200 dark:border-danger-500/30'

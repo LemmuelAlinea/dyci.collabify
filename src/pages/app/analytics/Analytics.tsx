@@ -12,7 +12,7 @@ import { Spinner } from '../../../components/ui/Icon'
 import { Tabs } from '../../../components/ui/Tabs'
 import type { Tab } from '../../../components/ui/Tabs'
 import { useAuth } from '../../../context/AuthContext'
-import { readAnalyticsView, viewForAction } from '../../../lib/analyticsView'
+import { evidenceFor, readAnalyticsView } from '../../../lib/analyticsView'
 import type { AnalyticsView } from '../../../lib/analyticsView'
 import type { Action } from '../../../lib/insight'
 import { dueSoonLabel, taskStatusLabel } from '../../../lib/types'
@@ -67,8 +67,25 @@ export default function Analytics({ classId }: { classId?: string }) {
     else if (next.boardId && next.boardId !== scope.boardId) setView('groups')
   }
 
+  // "See why" lands on the evidence itself: the view it is drawn in, scrolled
+  // to the row it names. Bumped on every click, so the same card works twice.
+  const [focus, setFocus] = useState<{ ids: string[]; boardId: string | null; n: number } | null>(null)
+
+  const soloStudentOf = (boardId: string) => {
+    const burn = data.burns.find((b) => b.board_id === boardId)
+    if (!burn || burn.group_id) return null
+    // Member load covers group boards; a solo board is known by its student's name.
+    return (
+      data.members.find((m) => m.board_id === boardId)?.student_id ??
+      data.shownRoster.find((r) => r.class_id === burn.class_id && r.student_name === burn.student_name)?.student_id ??
+      ''
+    )
+  }
+
   // A follow-up is about a person or a group: open their record, not just a tab.
   const seeWhy = (a: Action) => {
+    const target = evidenceFor(a, soloStudentOf)
+    setFocus((f) => ({ ids: target.ids, boardId: a.boardId, n: (f?.n ?? 0) + 1 }))
     if (a.kind === 'follow_up_due' && a.studentId) {
       setScope({ ...EMPTY_SCOPE, classId: a.classId, studentId: a.studentId })
       setOpenRequest((n) => n + 1)
@@ -81,8 +98,40 @@ export default function Analytics({ classId }: { classId?: string }) {
       setView('groups')
       return
     }
-    setView(viewForAction(a.kind))
+    setView(target.view)
   }
+
+  // The view may still be mounting, so look for a moment before giving up.
+  useEffect(() => {
+    if (!focus || focus.ids.length === 0) return
+    let tries = 0
+    let timer = 0
+    let unflash = 0
+    let flashed: HTMLElement | null = null
+    const find = () => {
+      const el = focus.ids.map((id) => document.getElementById(id)).find(Boolean)
+      if (!el) {
+        if (++tries < 30) timer = window.setTimeout(find, 50)
+        return
+      }
+      const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      // A whole section taller than the screen is read from its top.
+      const tall = el.getBoundingClientRect().height > window.innerHeight * 0.7
+      el.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: tall ? 'start' : 'center' })
+      el.removeAttribute('data-attn')
+      // Re-adding restarts the highlight when the same card is clicked again.
+      void el.offsetWidth
+      el.setAttribute('data-attn', '')
+      flashed = el
+      unflash = window.setTimeout(() => el.removeAttribute('data-attn'), 2600)
+    }
+    timer = window.setTimeout(find, 0)
+    return () => {
+      window.clearTimeout(timer)
+      window.clearTimeout(unflash)
+      flashed?.removeAttribute('data-attn')
+    }
+  }, [focus])
 
   if (data.loading) {
     return (
@@ -137,7 +186,7 @@ export default function Analytics({ classId }: { classId?: string }) {
           <Tabs variant="panel" tabs={VIEW_TABS} active={view} onChange={setView} />
 
           {view === 'class' && <ClassView data={data} />}
-          {view === 'groups' && <GroupsView data={data} />}
+          {view === 'groups' && <GroupsView data={data} focusBoardId={focus?.boardId ?? null} />}
           {view === 'students' && <StudentsView data={data} onOpenTask={setOpenTask} openRequest={openRequest} />}
           {view === 'projects' && <ProjectsView data={data} onOpenTask={setOpenTask} />}
 

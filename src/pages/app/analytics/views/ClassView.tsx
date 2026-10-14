@@ -152,10 +152,10 @@ export function ClassView({ data }: { data: AnalyticsData }) {
 
       {!data.narrowedBelowClass && (
         <div className="grid gap-5 lg:grid-cols-2">
-          <Section title="What falls due next" subtitle="Open work by the week it is due, for the next four weeks.">
+          <Section id="attn-pressure" title="What falls due next" subtitle="Open work by the week it is due, for the next four weeks.">
             <PressureChart rows={data.shownPressure} />
           </Section>
-          <Section title="Weeks with nothing set" subtitle="Syllabus weeks that ask for an assessment but have no project against them.">
+          <Section id="attn-gaps" title="Weeks with nothing set" subtitle="Syllabus weeks that ask for an assessment but have no project against them.">
             <GapList gaps={data.shownGaps} />
           </Section>
         </div>

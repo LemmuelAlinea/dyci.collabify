@@ -71,7 +71,7 @@ export function Roster({ entries, onOpen }: { entries: RosterEntry[]; onOpen: (i
         </thead>
         <tbody>
           {rows.map((e) => (
-            <tr key={entryKey(e)} className="border-b border-line last:border-0 hover:bg-[var(--surface-sunken)]">
+            <tr key={entryKey(e)} id={`attn-student-${entryKey(e)}`} className="border-b border-line last:border-0 hover:bg-[var(--surface-sunken)]">
               <th scope="row" className="px-2 py-2 text-left font-normal">
                 <button type="button" onClick={() => onOpen(entryKey(e))} className="flex items-center gap-2 text-ink hover:underline">
                   {e.avatar_url ? (

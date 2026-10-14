@@ -89,6 +89,7 @@ export function StudentsView({
   return (
     <div className="space-y-5">
       <Section
+        id="attn-students"
         title="Students"
         subtitle={`${flagged} of ${entries.length} flagged. Flags are prompts for a conversation. Notes record that conversation and only teaching staff can read them. Select a name for their full record.`}
       >

@@ -16,7 +16,7 @@ export function UnmeasuredList({ rows }: { rows: ClassUnmeasured[] }) {
   if (rows.length === 0) return null
 
   return (
-    <section className="space-y-3">
+    <section id="attn-unmeasured" className="space-y-3">
       <h2>Not being measured</h2>
       <p className="max-w-[66ch] text-[13px] text-muted">
         {rows.length === 1 ? 'This class is' : 'These classes are'} left out of every figure
@@ -27,6 +27,7 @@ export function UnmeasuredList({ rows }: { rows: ClassUnmeasured[] }) {
         {rows.map((c) => (
           <li
             key={c.class_id}
+            id={`attn-unmeasured-${c.class_id}`}
             className="surface flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-line px-3.5 py-2.5"
           >
             <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 font-mono text-[12px] text-muted">

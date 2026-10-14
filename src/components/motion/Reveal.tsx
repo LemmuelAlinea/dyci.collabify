@@ -16,6 +16,7 @@ type Props = {
   as?: 'div' | 'section' | 'li' | 'article' | 'span'
   /** Re-hide when scrolled back out, so the motion is reversible. */
   once?: boolean
+  id?: string
 }
 
 /**
@@ -45,6 +46,7 @@ export function Reveal({
   className = '',
   as: Tag = 'div',
   once = false,
+  id,
 }: Props) {
   const ref = useRef<HTMLElement | null>(null)
   const [shown, setShown] = useState(false)
@@ -99,6 +101,7 @@ export function Reveal({
   return (
     <Tag
       ref={ref as never}
+      id={id}
       data-reveal={reduce ? 'fade' : 'move'}
       className={className}
       style={{

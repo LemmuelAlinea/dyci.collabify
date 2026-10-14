@@ -17,11 +17,21 @@ import { Section } from './Section'
 
 const SHOWN = 6
 
-export function GroupsView({ data }: { data: AnalyticsData }) {
+export function GroupsView({
+  data,
+  focusBoardId = null,
+}: {
+  data: AnalyticsData
+  /** A "See why" about this board: its forecast card must be on the page. */
+  focusBoardId?: string | null
+}) {
   const today = manilaDay(new Date())
   const [allBurns, setAllBurns] = useState(false)
   const groupBoards = data.shownBurns.filter((b) => b.group_id)
   const atRisk = groupBoards.filter((b) => !b.submitted_at && b.result_verdict !== 'accepted' && b.task_count > 0 && b.done_count < b.task_count)
+
+  const focusHidden = atRisk.findIndex((b) => b.board_id === focusBoardId) >= SHOWN
+  const showAllBurns = allBurns || focusHidden
 
   const board = data.scope.boardId ? groupBoards.find((b) => b.board_id === data.scope.boardId) : null
   const { from } = classWindow(data, today)
@@ -49,6 +59,7 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
   return (
     <div className="space-y-5">
       <Section
+        id="attn-health"
         title="Group health"
         subtitle="Each group on the measures that predict trouble. Hover a cell for what the number means."
       >
@@ -56,6 +67,7 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
       </Section>
 
       <Section
+        id="attn-share"
         title="Who holds the work"
         subtitle={`Each group's work split by who holds it. Anyone under ${LOW_SHARE_PCT}% is outlined. A count is a prompt for a conversation, not a verdict.`}
       >
@@ -66,7 +78,7 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
             {groupBoards.map((b) => {
               const members = data.shownMembers.filter((m) => m.board_id === b.board_id)
               return (
-                <li key={b.board_id} className="min-w-0 space-y-2">
+                <li key={b.board_id} id={`attn-share-${b.board_id}`} className="min-w-0 space-y-2">
                   <p className="truncate text-[13px] text-ink">
                     {b.group_name} <span className="text-faint">· {b.project_title}</span>
                   </p>
@@ -188,12 +200,12 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
         </Section>
       </div>
 
-      <Section title="Will each group finish on time" subtitle="Tasks finished per day since each board started, against the days left. Every figure is a division you can redo by hand.">
+      <Section id="attn-forecast" title="Will each group finish on time" subtitle="Tasks finished per day since each board started, against the days left. Every figure is a division you can redo by hand.">
         <ForecastSummary burns={groupBoards} />
         {atRisk.length > 0 && (
           <>
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {(allBurns ? atRisk : atRisk.slice(0, SHOWN)).map((b) => (
+              {(showAllBurns ? atRisk : atRisk.slice(0, SHOWN)).map((b) => (
                 <BurnCard key={b.board_id} burn={b} />
               ))}
             </ul>
@@ -203,7 +215,7 @@ export function GroupsView({ data }: { data: AnalyticsData }) {
                 onClick={() => setAllBurns((v) => !v)}
                 className="text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
               >
-                {allBurns ? 'Show fewer' : `Show the other ${atRisk.length - SHOWN}`}
+                {showAllBurns ? 'Show fewer' : `Show the other ${atRisk.length - SHOWN}`}
               </button>
             )}
           </>

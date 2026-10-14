@@ -33,7 +33,7 @@ export function BurnCard({ burn }: { burn: BoardBurn }) {
   }[tone]
 
   return (
-    <li className={`@container surface rounded-card border shadow-card ${border}`}>
+    <li id={`attn-burn-${burn.board_id}`} className={`@container surface rounded-card border shadow-card ${border}`}>
       <div className="p-3 @min-[240px]:p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">

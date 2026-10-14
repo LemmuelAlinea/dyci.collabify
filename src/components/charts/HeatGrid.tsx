@@ -3,7 +3,7 @@ import type { Tone } from '../../lib/analyticsMath'
 import { TONE_CELL } from './format'
 
 export type HeatCell = { value: ReactNode; tone: Tone; title?: string }
-export type HeatRow = { key: string; label: ReactNode; cells: HeatCell[] }
+export type HeatRow = { key: string; label: ReactNode; cells: HeatCell[]; id?: string }
 
 /** A real table whose cells carry their tone. Readable without colour: every cell prints its value. */
 export function HeatGrid({
@@ -29,7 +29,7 @@ export function HeatGrid({
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.key}>
+            <tr key={r.key} id={r.id}>
               <th scope="row" className="max-w-[220px] px-2 py-1.5 text-left font-normal text-ink">{r.label}</th>
               {r.cells.map((c, i) => (
                 <td key={columns[i]} title={c.title} className={`rounded-md px-2 py-1.5 font-mono text-[12px] ${TONE_CELL[c.tone]}`}>

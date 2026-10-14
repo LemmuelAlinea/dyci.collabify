@@ -73,6 +73,7 @@ export function GroupHealthGrid({ data, today }: { data: AnalyticsData; today: s
 
       return {
         key: b.board_id,
+        id: `attn-board-${b.board_id}`,
         label: (
           <>
             <span className="block truncate">{b.group_name}</span>

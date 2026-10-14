@@ -45,7 +45,7 @@ export function PressureChart({ rows }: { rows: Pressure[] }) {
         {weeks.map((w) => {
           const heavy = w.due_count >= PILE_UP_TASKS
           return (
-            <li key={w.week_start} className="flex items-center gap-3">
+            <li key={w.week_start} id={`attn-week-${(w.week_start ?? '').slice(0, 10)}`} className="flex items-center gap-3">
               <span className="w-[92px] shrink-0 font-mono text-[12px] text-faint">
                 {new Date(w.week_start ?? '').toLocaleDateString(undefined, {
                   month: 'short',
