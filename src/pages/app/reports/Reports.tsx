@@ -24,8 +24,8 @@ import { downloadCsv, reportFilename, toCsv } from '../../../lib/report'
 import type { ReportDoc } from '../../../lib/reports/doc'
 import { docCsvFiles, exportCsv, exportDocx, exportXlsx, reportBase } from '../../../lib/reports/export'
 import { defaultRound } from '../../../lib/reports/peerSummary'
-import { RANGE_CHOICES } from '../../../lib/reports/range'
-import type { RangeChoice } from '../../../lib/reports/range'
+import { DUE_CHOICES, RANGE_CHOICES } from '../../../lib/reports/range'
+import type { DueChoice, RangeChoice } from '../../../lib/reports/range'
 import { fullName } from '../../../lib/types'
 import type { ClassNoteKind } from '../../../lib/types'
 import type { ReportKind } from './reportKind'
@@ -61,6 +61,21 @@ const CATALOGUE: ReportGroup[] = [
         kind: 'notes',
         label: 'Intervention log',
         body: 'Every note, meeting, follow-up and reminder in a date range, with who wrote it. The record that you acted.',
+      },
+    ],
+  },
+  {
+    group: 'For tracking projects',
+    items: [
+      {
+        kind: 'progress',
+        label: 'Group progress report',
+        body: 'One group, or every group, on a project: how far along, who did the work, milestones, sprints and every answer you gave.',
+      },
+      {
+        kind: 'deliverables',
+        label: 'Deliverables & milestone compliance',
+        body: 'Every milestone and hand-in, group by group: on time, late, missing or not due yet.',
       },
     ],
   },
@@ -122,6 +137,8 @@ const EXPORT_BASE: Partial<Record<ReportKind, string>> = {
   peer: 'peer-summary',
   checkin: 'weekly-check-in',
   notes: 'intervention-log',
+  progress: 'group-progress',
+  deliverables: 'deliverables',
 }
 
 /** The ways out of a new-style report: a workbook, a Word file and one CSV per table. */
@@ -233,11 +250,17 @@ export default function Reports({ classId }: { classId?: string }) {
           ]
         : r.kind === 'peer'
           ? r.projects.filter((p) => p.audience === 'group').map((p) => ({ value: p.id, label: p.title }))
-          : undefined,
+          : r.kind === 'deliverables'
+            ? [{ value: 'all', label: 'All projects' }, ...r.projects.map((p) => ({ value: p.id, label: p.title }))]
+            : undefined,
     studentOptional: r.kind === 'grading' || r.kind === 'notes',
     extras:
       r.kind === 'checkin' || r.kind === 'notes' ? (
         <CheckInExtras r={r} />
+      ) : r.kind === 'progress' ? (
+        <ProgressExtras r={r} />
+      ) : r.kind === 'deliverables' ? (
+        <DeliverablesExtras r={r} />
       ) : r.kind === 'peer' ? (
         <div className="space-y-3">
           {d.rounds.length > 0 && (
@@ -432,6 +455,64 @@ function CheckInExtras({ r }: { r: ReturnType<typeof useReports> }) {
   )
 }
 
+/** Group progress covers every group on the project unless one is picked. */
+function ProgressExtras({ r }: { r: ReturnType<typeof useReports> }) {
+  const individual = r.projects.find((p) => p.id === r.projectId)?.audience === 'individual'
+  const options = r.boards.map((b) => ({ value: b.id, label: b.group_name ?? b.student_name ?? 'A board' }))
+  return (
+    <Select
+      aria-label="Group"
+      // A group left in the address from another project reads as every group.
+      value={options.some((o) => o.value === r.boardId) ? r.boardId : ''}
+      onChange={(e) => r.setBoardId(e.target.value)}
+      options={[{ value: '', label: individual ? 'Every student' : 'Every group' }, ...options]}
+      className={FIELD_SIZE}
+    />
+  )
+}
+
+/** The compliance report covers the deliverables falling due in these dates. */
+function DeliverablesExtras({ r }: { r: ReturnType<typeof useReports> }) {
+  return (
+    <div className="space-y-3">
+      <Select
+        aria-label="Dates"
+        value={r.dueChoice}
+        onChange={(e) => r.setDueChoice(e.target.value as DueChoice)}
+        options={DUE_CHOICES}
+        className={FIELD_SIZE}
+      />
+      {r.dueChoice === 'custom' && (
+        <div className="space-y-1">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block space-y-1 text-[12px] text-muted">
+              <span className="block px-1">From</span>
+              <Input
+                type="date"
+                value={r.customFrom}
+                onChange={(e) => r.setCustomRange(e.target.value, r.customTo)}
+                className={FIELD_SIZE}
+              />
+            </label>
+            <label className="block space-y-1 text-[12px] text-muted">
+              <span className="block px-1">To</span>
+              <Input
+                type="date"
+                value={r.customTo}
+                onChange={(e) => r.setCustomRange(r.customFrom, e.target.value)}
+                className={FIELD_SIZE}
+              />
+            </label>
+          </div>
+          {(!r.customFrom || !r.customTo) && (
+            <p className="px-1 text-[12px] text-muted">Set both dates. Until then every date is shown.</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Preview({
   r,
   d,
@@ -448,6 +529,8 @@ function Preview({
     case 'peer':
     case 'checkin':
     case 'notes':
+    case 'progress':
+    case 'deliverables':
       // A document built for other choices never stands in for these ones.
       if (!d.current || (!d.doc && d.loading)) {
         return (

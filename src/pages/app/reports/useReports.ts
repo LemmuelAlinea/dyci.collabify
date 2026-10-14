@@ -10,8 +10,8 @@ import { boardTasks, classReports, studentWork, weekCoverage } from '../../../li
 import { authErrorMessage } from '../../../lib/authError'
 import { NOTE_KIND_META } from '../../../lib/notes'
 import type { BoardTask, ClassReport, StudentWork, WeekCoverage } from '../../../lib/report'
-import { parseRangeChoice } from '../../../lib/reports/range'
-import type { RangeChoice } from '../../../lib/reports/range'
+import { parseDueChoice, parseRangeChoice } from '../../../lib/reports/range'
+import type { DueChoice, RangeChoice } from '../../../lib/reports/range'
 import type { BoardSummary, ClassMember, ClassNoteKind, ProjectSummary, ReassignmentRow } from '../../../lib/types'
 
 import { NEEDS, parseReportKind } from './reportKind'
@@ -22,10 +22,10 @@ export const OPTIONAL_STUDENT: ReportKind[] = ['grading', 'notes']
 
 export type NoteStatus = 'open' | 'resolved' | 'all'
 
-/** Whether a project choice is one this report can take: 'all' for the grading sheet, group projects for peer. */
+/** Whether a project choice is one this report can take: 'all' for the grading sheet and compliance, group projects for peer. */
 function projectFits(kind: ReportKind, projectId: string, projects: { id: string; audience: string }[]) {
   if (!projectId) return false
-  if (projectId === 'all') return kind === 'grading'
+  if (projectId === 'all') return kind === 'grading' || kind === 'deliverables'
   const p = projects.find((x) => x.id === projectId)
   return p !== undefined && (kind !== 'peer' || p.audience === 'group')
 }
@@ -69,6 +69,7 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
   const rangeChoice = kind === 'checkin' && rawRange === 'last30' ? 'thisWeek' : rawRange
   const customFrom = params.get('rfrom') ?? ''
   const customTo = params.get('rto') ?? ''
+  const dueChoice = parseDueChoice(params.get('rdue'))
   const rawKinds = params.get('rkinds') ?? ''
   const noteKinds = useMemo(
     () => rawKinds.split(',').filter((k) => Object.hasOwn(NOTE_KIND_META, k)) as ClassNoteKind[],
@@ -107,6 +108,10 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
   const setComments = useCallback((on: boolean) => patch({ rcomments: on ? '1' : '' }), [patch])
   const setRangeChoice = useCallback(
     (v: RangeChoice) => patch(v === 'custom' ? { rrange: v } : { rrange: v, rfrom: '', rto: '' }),
+    [patch],
+  )
+  const setDueChoice = useCallback(
+    (v: DueChoice) => patch(v === 'custom' ? { rdue: v } : { rdue: v === 'all' ? '' : v, rfrom: '', rto: '' }),
     [patch],
   )
   const setCustomRange = useCallback((from: string, to: string) => patch({ rfrom: from, rto: to }), [patch])
@@ -258,12 +263,14 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
       // The intervention log filters by group without needing one.
       if (!NEEDS[next].includes('board') && next !== 'notes') out.rgroup = ''
       if (!NEEDS[next].includes('student') && !OPTIONAL_STUDENT.includes(next)) out.rstudent = ''
-      // Dates and note filters belong to the two reports that use them.
-      if (next !== 'checkin' && next !== 'notes') {
-        out.rrange = ''
+      // Dates and note filters belong to the reports that use them. The compliance
+      // report takes its dates from `rdue`, but shares the custom From and To.
+      if (next !== 'checkin' && next !== 'notes') out.rrange = ''
+      if (next !== 'checkin' && next !== 'notes' && next !== 'deliverables') {
         out.rfrom = ''
         out.rto = ''
       }
+      if (next !== 'deliverables') out.rdue = ''
       if (next !== 'notes') {
         out.rkinds = ''
         out.rstatus = ''
@@ -313,6 +320,8 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     customFrom,
     customTo,
     setCustomRange,
+    dueChoice,
+    setDueChoice,
     noteKinds,
     setNoteKinds,
     noteStatus,

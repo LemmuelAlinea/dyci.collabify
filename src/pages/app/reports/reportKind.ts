@@ -10,6 +10,8 @@ export type ReportKind =
   | 'peer'
   | 'checkin'
   | 'notes'
+  | 'progress'
+  | 'deliverables'
 
 /** Which pickers a report needs before it can be drawn. */
 export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student')[]> = {
@@ -24,6 +26,8 @@ export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student
   peer: ['class', 'project'],
   checkin: ['class'],
   notes: ['class'],
+  progress: ['class', 'project'],
+  deliverables: ['class', 'project'],
 }
 
 /**

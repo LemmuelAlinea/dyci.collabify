@@ -4,6 +4,7 @@ import { boardBurn, classActions, dailyActivity, milestoneProgress, studentRoste
 import { listClassNoteLog, listClassNotes } from '../../../lib/api/notes'
 import { listPeerRounds, peerComments, projectPeerResults } from '../../../lib/api/peer'
 import { listCriteria } from '../../../lib/api/projects'
+import { boardHistoryFor, classMemberLoad, classTaskStates, listDeliverables, listReportSprints } from '../../../lib/api/reportReads'
 import { boardResultsFor } from '../../../lib/api/results'
 import { projectBoardScores, scoreSheet } from '../../../lib/api/scores'
 import { manilaDay } from '../../../lib/analyticsMath'
@@ -11,11 +12,13 @@ import { authErrorMessage } from '../../../lib/authError'
 import { rankActions } from '../../../lib/insight'
 import { generatedOn } from '../../../lib/report'
 import { checkInAsOf, checkInDoc, liveProjects, onProjects } from '../../../lib/reports/checkIn'
+import { deliverablesDoc } from '../../../lib/reports/deliverables'
 import type { ReportDoc } from '../../../lib/reports/doc'
 import { gradingClassDoc, gradingGridDoc, gradingStudentDoc } from '../../../lib/reports/grading'
+import { groupProgressDoc } from '../../../lib/reports/groupProgress'
 import { interventionLogDoc } from '../../../lib/reports/interventionLog'
 import { defaultRound, peerSummaryDoc } from '../../../lib/reports/peerSummary'
-import { resolveRange } from '../../../lib/reports/range'
+import { resolveDueWindow, resolveRange } from '../../../lib/reports/range'
 import type { ClassNoteKind, PeerResult, PeerRoundStatus } from '../../../lib/types'
 import type { useReports } from './useReports'
 
@@ -45,7 +48,7 @@ export function useReportDoc(r: R, professor: string) {
 
   const {
     kind, cls, classId, projectId, boardId, studentId, roundId, comments, projects, boards, allBoards, work, students, ready,
-    rangeChoice, customFrom, customTo, noteKinds, noteStatus,
+    rangeChoice, customFrom, customTo, dueChoice, noteKinds, noteStatus,
   } = r
   const noteKindsKey = noteKinds.join(',')
   // The key carries the dates the choice resolves to, not the raw strings, so a
@@ -55,11 +58,18 @@ export function useReportDoc(r: R, professor: string) {
   const resolved = resolveRange(rangeChoice, manilaDay(new Date()), { from: customFrom, to: customTo })
   const rangeFrom = byDates ? resolved.from : ''
   const rangeTo = byDates ? resolved.to : ''
+  // The compliance dates resolve the same way: the key carries the days, not the raw strings.
+  const termStart = cls?.term_start ?? null
+  const termEnd = cls?.term_end ?? null
+  const dueWindow =
+    kind === 'deliverables' ? resolveDueWindow(dueChoice, { start: termStart, end: termEnd }, { from: customFrom, to: customTo }) : null
+  const dueFrom = dueWindow?.from ?? ''
+  const dueTo = dueWindow?.to ?? ''
+  const dueKey = kind === 'deliverables' ? `${dueChoice}:${dueFrom || 'all'}:${dueTo || 'all'}` : ''
   const currentKey = [
     kind, classId, projectId, studentId, roundId, comments ? 1 : 0,
-    rangeFrom, rangeTo, noteKindsKey, noteStatus, boardId,
+    rangeFrom, rangeTo, noteKindsKey, noteStatus, boardId, dueKey,
   ].join('|')
-  const termStart = cls?.term_start ?? null
   const ended = Boolean(cls?.archived_at)
   const classLine = cls ? `${cls.class_initial} · ${cls.class_name} · ${cls.section}` : ''
 
@@ -96,9 +106,13 @@ export function useReportDoc(r: R, professor: string) {
       ? ['class_notes']
       : kind === 'checkin'
         ? ['class_notes', 'task_events', 'project_tasks', 'board_results']
-        : ['member_scores', 'board_scores', 'score_releases', 'project_criteria', 'peer_ratings', 'peer_rounds']
+        : kind === 'progress'
+          ? ['project_tasks', 'task_assignees', 'board_results', 'project_milestones', 'board_sprints']
+          : kind === 'deliverables'
+            ? ['project_tasks', 'board_results', 'project_milestones']
+            : ['member_scores', 'board_scores', 'score_releases', 'project_criteria', 'peer_ratings', 'peer_rounds']
   // An ended class has no check-in to refresh.
-  const liveOn = (kind === 'grading' || kind === 'peer' || kind === 'checkin' || kind === 'notes') && ready && !(kind === 'checkin' && ended)
+  const liveOn = (kind === 'grading' || kind === 'peer' || kind === 'checkin' || kind === 'notes' || kind === 'progress' || kind === 'deliverables') && ready && !(kind === 'checkin' && ended)
   useLive(paced, liveTables, { every: 0, enabled: liveOn })
   // A reload asked for by another report, class or listener is dropped with it.
   useEffect(
@@ -143,7 +157,16 @@ export function useReportDoc(r: R, professor: string) {
             ...allBoards.map((b) => `${b.id}:${b.group_name ?? b.student_name ?? ''}:${b.project_title}:${b.submitted_at ?? ''}`),
             ...projects.map((p) => `${p.id}:${p.title}:${p.due_at ?? ''}:${p.release_at ?? ''}:${p.archived_at ?? ''}`),
           ].join('|')
-        : '',
+        : kind === 'progress' || kind === 'deliverables'
+          ? [
+              // Hand-ins and verdicts arrive through the class loader, not the live tables.
+              ...allBoards.map(
+                (b) =>
+                  `${b.id}:${b.project_id}:${b.group_name ?? b.student_name ?? ''}:${b.submitted_at ?? ''}:${b.result_verdict ?? ''}:${b.result_at ?? ''}:${b.done_pct}:${b.task_count}`,
+              ),
+              ...projects.map((p) => `${p.id}:${p.title}:${p.audience}:${p.due_at ?? ''}:${p.release_at ?? ''}:${p.archived_at ?? ''}`),
+            ].join('|')
+          : '',
     [kind, allBoards, projects],
   )
 
@@ -157,7 +180,7 @@ export function useReportDoc(r: R, professor: string) {
   useEffect(() => {
     let live = true
     const key = currentKey
-    if ((kind !== 'grading' && kind !== 'peer' && kind !== 'checkin' && kind !== 'notes') || !ready || !classLine) {
+    if ((kind !== 'grading' && kind !== 'peer' && kind !== 'checkin' && kind !== 'notes' && kind !== 'progress' && kind !== 'deliverables') || !ready || !classLine) {
       setBuilt({ doc: null, key, error: null, refreshError: null })
       setLoading(false)
       return
@@ -307,6 +330,51 @@ export function useReportDoc(r: R, professor: string) {
               boardId: allBoards.some((b) => b.id === boardId) ? boardId : '',
             },
           })
+        } else if (kind === 'progress') {
+          const p = projects.find((x) => x.id === projectId)
+          if (!p) throw new Error('Pick a project to see its groups.')
+          const onProject = allBoards.filter((b) => b.project_id === p.id)
+          // A group left in the address from another project means every group.
+          const chosen = onProject.find((b) => b.id === boardId)
+          const shown = chosen ? [chosen] : onProject
+          const [tasks, members, deliverables, sprints, history] = await Promise.all([
+            classTaskStates(classId), classMemberLoad(classId), listDeliverables(classId),
+            listReportSprints(classId), boardHistoryFor(shown.map((b) => b.id)),
+          ])
+          next = groupProgressDoc({
+            ...head,
+            today,
+            single: Boolean(chosen),
+            project: { id: p.id, title: p.title, audience: p.audience, due_at: p.due_at, archived_at: p.archived_at, created_at: p.created_at },
+            boards: shown.map((b) => ({
+              board_id: b.id,
+              name: b.group_name ?? b.student_name ?? 'A board',
+              submitted_at: b.submitted_at,
+              submitted_by_name: b.submitted_by_name,
+              result_verdict: b.result_verdict,
+              task_count: b.task_count,
+              done_pct: b.done_pct,
+            })),
+            tasks, members, deliverables, sprints, history,
+          })
+        } else if (kind === 'deliverables') {
+          // Under "All projects" a live project still waiting for its release stays out; an archived one stays in.
+          const released = (x: { archived_at: string | null; release_at: string | null }) =>
+            Boolean(x.archived_at) || !x.release_at || Date.parse(x.release_at) <= Date.now()
+          const chosen = projectId === 'all' ? projects.filter(released) : projects.filter((x) => x.id === projectId)
+          const rows = await listDeliverables(classId)
+          const window = dueFrom && dueTo ? { from: dueFrom, to: dueTo } : null
+          const notices = [
+            projectId !== 'all' && chosen.some((x) => !released(x)) ? 'This project is not released yet.' : '',
+            dueChoice === 'term' && window === null ? 'This class has no term dates, so every date is shown.' : '',
+          ].filter(Boolean)
+          next = deliverablesDoc({
+            ...head,
+            rows,
+            window,
+            projects: chosen.map((x) => ({ id: x.id, title: x.title, audience: x.audience })),
+            notice: notices.length ? notices.join(' ') : null,
+          })
         }
         if (live) setBuilt({ doc: next, key, error: null, refreshError: null })
       } catch (err) {
@@ -345,6 +413,9 @@ export function useReportDoc(r: R, professor: string) {
     comments,
     rangeFrom,
     rangeTo,
+    dueChoice,
+    dueFrom,
+    dueTo,
     noteKindsKey,
     noteStatus,
     termStart,
