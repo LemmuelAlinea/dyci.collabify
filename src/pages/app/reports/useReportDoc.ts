@@ -1,25 +1,39 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLive } from '../../../hooks/useLive'
 import { boardBurn, classActions, dailyActivity, milestoneProgress, studentRoster, taskStates } from '../../../lib/api/analytics'
+import { getClass, listMembers } from '../../../lib/api/classes'
+import { boardsFor } from '../../../lib/api/dashboard'
 import { listClassNoteLog, listClassNotes } from '../../../lib/api/notes'
 import { listPeerRounds, peerComments, projectPeerResults } from '../../../lib/api/peer'
-import { listCriteria } from '../../../lib/api/projects'
-import { boardHistoryFor, classMemberLoad, classTaskStates, listDeliverables, listReportSprints } from '../../../lib/api/reportReads'
+import { listCriteria, listProjectsForClasses } from '../../../lib/api/projects'
+import { weekCoverage } from '../../../lib/api/reports'
+import {
+  boardHistoryFor,
+  classMemberLoad,
+  classTaskStates,
+  listDeliverables,
+  listReportSprints,
+  listTaskEvents,
+} from '../../../lib/api/reportReads'
 import { boardResultsFor } from '../../../lib/api/results'
 import { projectBoardScores, scoreSheet } from '../../../lib/api/scores'
+import { listSpaceMembers } from '../../../lib/api/spaces'
 import { manilaDay } from '../../../lib/analyticsMath'
 import { authErrorMessage } from '../../../lib/authError'
 import { rankActions } from '../../../lib/insight'
 import { generatedOn } from '../../../lib/report'
+import { activityFilters, activityLogDoc } from '../../../lib/reports/activityLog'
 import { checkInAsOf, checkInDoc, liveProjects, onProjects } from '../../../lib/reports/checkIn'
 import { countableBoard, deliverablesDoc } from '../../../lib/reports/deliverables'
 import type { ReportDoc } from '../../../lib/reports/doc'
+import { coTeacherNames, formalRecordDoc, projectRan, termRecordAllDoc } from '../../../lib/reports/formalRecord'
 import { gradingClassDoc, gradingGridDoc, gradingStudentDoc } from '../../../lib/reports/grading'
 import { groupProgressDoc } from '../../../lib/reports/groupProgress'
 import { interventionLogDoc } from '../../../lib/reports/interventionLog'
 import { defaultRound, peerSummaryDoc } from '../../../lib/reports/peerSummary'
 import { resolveDueWindow, resolveRange } from '../../../lib/reports/range'
-import type { ClassNoteKind, PeerResult, PeerRoundStatus } from '../../../lib/types'
+import { fullName } from '../../../lib/types'
+import type { ClassNoteKind, PeerResult, PeerRoundStatus, TaskEventKind } from '../../../lib/types'
 import { DOC_KINDS } from './reportKind'
 import type { useReports } from './useReports'
 
@@ -48,13 +62,14 @@ export function useReportDoc(r: R, professor: string) {
   const retry = useCallback(() => setNonce((n) => n + 1), [])
 
   const {
-    kind, cls, classId, projectId, boardId, studentId, roundId, comments, projects, boards, allBoards, work, students, members, ready,
-    rangeChoice, customFrom, customTo, dueChoice, noteKinds, noteStatus,
+    kind, cls, classes, allClasses, classId, projectId, boardId, studentId, roundId, comments, projects, boards, allBoards, work, students, members, ready,
+    rangeChoice, customFrom, customTo, dueChoice, noteKinds, noteStatus, eventKinds,
   } = r
   const noteKindsKey = noteKinds.join(',')
+  const eventKindsKey = eventKinds.join(',')
   // The key carries the dates the choice resolves to, not the raw strings, so a
   // half-typed custom date that still reads as the same range does not rebuild.
-  const byDates = kind === 'checkin' || kind === 'notes'
+  const byDates = kind === 'checkin' || kind === 'notes' || kind === 'activity'
   // A custom range typed backwards is put in order, and a half-filled one reads as the last 7 days.
   const resolved = resolveRange(rangeChoice, manilaDay(new Date()), { from: customFrom, to: customTo })
   const rangeFrom = byDates ? resolved.from : ''
@@ -69,10 +84,14 @@ export function useReportDoc(r: R, professor: string) {
   const dueKey = kind === 'deliverables' ? `${dueChoice}:${dueFrom || 'all'}:${dueTo || 'all'}` : ''
   const currentKey = [
     kind, classId, projectId, studentId, roundId, comments ? 1 : 0,
-    rangeFrom, rangeTo, noteKindsKey, noteStatus, boardId, dueKey,
+    rangeFrom, rangeTo, noteKindsKey, noteStatus, boardId, dueKey, allClasses ? 'all' : '', eventKindsKey,
   ].join('|')
   const ended = Boolean(cls?.archived_at)
-  const classLine = cls ? `${cls.class_initial} · ${cls.class_name} · ${cls.section}` : ''
+  const classLine = allClasses
+    ? `${classes.length} ${classes.length === 1 ? 'class' : 'classes'}`
+    : cls
+      ? `${cls.class_initial} · ${cls.class_name} · ${cls.section}`
+      : ''
 
   // A burst of events (a class working through tasks) must not rebuild the sheet
   // each time, and a trailing debounce would never fire under a steady stream. So
@@ -111,7 +130,12 @@ export function useReportDoc(r: R, professor: string) {
           ? ['project_tasks', 'task_assignees', 'board_results', 'project_milestones', 'board_sprints']
           : kind === 'deliverables'
             ? ['project_tasks', 'board_results', 'project_milestones']
-            : ['member_scores', 'board_scores', 'score_releases', 'project_criteria', 'peer_ratings', 'peer_rounds']
+            : kind === 'formal'
+              ? ['projects', 'project_boards', 'board_results', 'class_members', 'group_members', 'member_scores',
+                 'score_releases', 'class_notes', 'general_space_members', 'syllabus_weeks']
+              : kind === 'activity'
+                ? ['task_events']
+                : ['member_scores', 'board_scores', 'score_releases', 'project_criteria', 'peer_ratings', 'peer_rounds']
   // An ended class has no check-in to refresh.
   const liveOn = DOC_KINDS.includes(kind) && ready && !(kind === 'checkin' && ended)
   useLive(paced, liveTables, { every: 0, enabled: liveOn })
@@ -152,6 +176,17 @@ export function useReportDoc(r: R, professor: string) {
     [members],
   )
 
+  // The term record reads its figures off the class list, which the page loads live.
+  const classesSig = useMemo(
+    () =>
+      kind === 'formal'
+        ? classes
+            .map((c) => `${c.class_id}:${c.students}:${c.students_removed}:${c.weeks_covered}:${c.weeks_total}:${c.tasks}:${c.tasks_done}:${c.tasks_late}:${c.tasks_unclaimed}:${c.archived_at ?? ''}:${c.term_start ?? ''}:${c.term_end ?? ''}`)
+            .join('|')
+        : '',
+    [kind, classes],
+  )
+
   // The check-in reads hand-ins and due dates off the class loader's arrays, so a
   // hand-in or a moved deadline arriving there has to rebuild it.
   const checkInSig = useMemo(
@@ -180,15 +215,25 @@ export function useReportDoc(r: R, professor: string) {
                 }),
               ...projects.map((p) => `${p.id}:${p.title}:${p.audience}:${p.due_at ?? ''}:${p.release_at ?? ''}:${p.archived_at ?? ''}`),
             ].join('|')
-          : '',
-    [kind, allBoards, projects, projectId, active],
+          : kind === 'formal' && !allClasses
+            ? [
+                ...allBoards.map((b) => `${b.id}:${b.project_id}:${b.submitted_at ?? ''}:${b.result_verdict ?? ''}:${countableBoard(b, active) ? 1 : 0}`),
+                ...projects.map((p) => `${p.id}:${p.title}:${p.type}:${p.start_week}:${p.end_week}:${p.due_at ?? ''}:${p.release_at ?? ''}:${p.archived_at ?? ''}:${p.total_points}`),
+              ].join('|')
+            : kind === 'activity'
+              ? [
+                  ...allBoards.map((b) => `${b.id}:${b.group_name ?? b.student_name ?? ''}:${b.project_title}`),
+                  ...projects.map((p) => `${p.id}:${p.title}`),
+                ].join('|')
+              : '',
+    [kind, allBoards, projects, projectId, active, allClasses],
   )
 
   // The arrays themselves, read when a build starts. Kept beside the effect
   // rather than in its dependencies, which are the signatures above.
-  const data = useRef({ projects, boards, allBoards, work, students, active })
+  const data = useRef({ cls, classes, projects, boards, allBoards, work, students, active })
   useEffect(() => {
-    data.current = { projects, boards, allBoards, work, students, active }
+    data.current = { cls, classes, projects, boards, allBoards, work, students, active }
   })
 
   useEffect(() => {
@@ -199,7 +244,7 @@ export function useReportDoc(r: R, professor: string) {
       setLoading(false)
       return
     }
-    const { projects, boards, allBoards, work, students, active } = data.current
+    const { cls, classes, projects, boards, allBoards, work, students, active } = data.current
     const countable = (b: (typeof allBoards)[number]) => countableBoard(b, active)
     const head = { classLine, professor, madeAt: generatedOn() }
     const today = manilaDay(new Date())
@@ -396,6 +441,68 @@ export function useReportDoc(r: R, professor: string) {
             projects: chosen.map((x) => ({ id: x.id, title: x.title, audience: x.audience })),
             notice: notices.length ? notices.join(' ') : null,
           })
+        } else if (kind === 'formal' && allClasses) {
+          const ids = classes.map((c) => c.class_id)
+          const everyProject = await listProjectsForClasses(ids)
+          const [everyBoard, rosters] = await Promise.all([
+            boardsFor(everyProject.map((p) => p.id)),
+            Promise.all(ids.map((id) => listMembers(id))),
+          ])
+          const activeBy = new Map(
+            ids.map((id, i) => [id, new Set(rosters[i].filter((m) => m.status === 'active').map((m) => m.student_id))]),
+          )
+          next = termRecordAllDoc({ ...head, classes, now: Date.now(), projects: everyProject, boards: everyBoard, active: activeBy })
+        } else if (kind === 'formal' && cls) {
+          const now = Date.now()
+          const [weeks, notes, overview, sheets] = await Promise.all([
+            weekCoverage(classId),
+            listClassNoteLog(classId),
+            getClass(classId),
+            // Released finals only matter on projects that ran.
+            Promise.all(projects.filter((p) => projectRan(p, now)).map(async (p) => [p.id, await scoreSheet(p.id)] as const)),
+          ])
+          const people = overview ? await listSpaceMembers(overview.space_id) : []
+          next = formalRecordDoc({
+            ...head,
+            cls,
+            now,
+            professorName: overview?.professor ? fullName(overview.professor) : professor,
+            coTeachers: overview ? coTeacherNames(people, overview.professor_id) : [],
+            projects,
+            boards: allBoards,
+            active,
+            scores: Object.fromEntries(sheets),
+            weeks,
+            notes,
+          })
+        } else if (kind === 'activity') {
+          const events = await listTaskEvents(classId, range)
+          const filters = activityFilters(
+            {
+              kinds: eventKindsKey ? (eventKindsKey.split(',') as TaskEventKind[]) : [],
+              projectId,
+              boardId,
+              actorId: studentId,
+            },
+            {
+              projects: new Set(projects.map((p) => p.id)),
+              boards: new Set(allBoards.map((b) => b.id)),
+              actors: new Set(students.map((s) => s.value)),
+            },
+          )
+          const p = projects.find((x) => x.id === filters.projectId)
+          const b = allBoards.find((x) => x.id === filters.boardId)
+          next = activityLogDoc({
+            ...head,
+            range,
+            events,
+            filters,
+            labels: {
+              project: p?.title ?? null,
+              board: b ? `${b.group_name ?? b.student_name ?? 'A board'} · ${b.project_title}` : null,
+              actor: students.find((s) => s.value === filters.actorId)?.label ?? null,
+            },
+          })
         }
         if (live) setBuilt({ doc: next, key, error: null, refreshError: null })
       } catch (err) {
@@ -439,6 +546,8 @@ export function useReportDoc(r: R, professor: string) {
     dueTo,
     noteKindsKey,
     noteStatus,
+    allClasses,
+    eventKindsKey,
     termStart,
     ended,
     classId,
@@ -451,6 +560,7 @@ export function useReportDoc(r: R, professor: string) {
     boardsSig,
     workSig,
     checkInSig,
+    classesSig,
   ])
 
   const current = built.key === currentKey

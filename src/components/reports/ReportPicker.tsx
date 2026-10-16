@@ -49,6 +49,10 @@ export type PickerState = {
   classes: { class_id: string; class_initial: string; class_name: string; archived_at: string | null }[]
   classId: string
   setClassId: (v: string) => void
+  /** Replaces the class list, for a report with an extra choice such as every class. */
+  classOptions?: { value: string; label: string }[]
+  /** The class select's value when it differs from `classId`, such as `all`. */
+  classValue?: string
   projects: { id: string; title: string }[]
   projectId: string
   setProjectId: (v: string) => void
@@ -90,15 +94,18 @@ function About({ r }: { r: PickerState }) {
 
   return (
     <>
-      {needs.includes('class') && r.classes.length > 1 && (
+      {needs.includes('class') && (r.classOptions !== undefined || r.classes.length > 1) && (
         <Select
           aria-label="Class"
-          value={r.classId}
+          value={r.classValue ?? r.classId}
           onChange={(e) => r.setClassId(e.target.value)}
-          options={r.classes.map((c) => ({
-            value: c.class_id,
-            label: `${c.class_initial} · ${c.class_name}${c.archived_at ? ' (ended)' : ''}`,
-          }))}
+          options={
+            r.classOptions ??
+            r.classes.map((c) => ({
+              value: c.class_id,
+              label: `${c.class_initial} · ${c.class_name}${c.archived_at ? ' (ended)' : ''}`,
+            }))
+          }
           className={size}
         />
       )}

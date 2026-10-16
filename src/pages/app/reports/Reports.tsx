@@ -21,6 +21,7 @@ import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import { NOTE_KIND_META } from '../../../lib/notes'
 import { downloadCsv, reportFilename, toCsv } from '../../../lib/report'
+import { EVENT_META } from '../../../lib/reports/activityLog'
 import { countableBoard } from '../../../lib/reports/deliverables'
 import type { ReportDoc } from '../../../lib/reports/doc'
 import { docCsvFiles, exportCsv, exportDocx, exportXlsx, reportBase } from '../../../lib/reports/export'
@@ -28,7 +29,7 @@ import { defaultRound } from '../../../lib/reports/peerSummary'
 import { DUE_CHOICES, RANGE_CHOICES } from '../../../lib/reports/range'
 import type { DueChoice, RangeChoice } from '../../../lib/reports/range'
 import { fullName } from '../../../lib/types'
-import type { ClassNoteKind } from '../../../lib/types'
+import type { ClassNoteKind, TaskEventKind } from '../../../lib/types'
 import { DOC_KINDS } from './reportKind'
 import type { ReportKind } from './reportKind'
 import { useReportDoc } from './useReportDoc'
@@ -78,6 +79,21 @@ const CATALOGUE: ReportGroup[] = [
         kind: 'deliverables',
         label: 'Deliverables & milestone compliance',
         body: 'Every milestone and hand-in, group by group: on time, late, missing or not due yet.',
+      },
+    ],
+  },
+  {
+    group: 'For the record',
+    items: [
+      {
+        kind: 'formal',
+        label: 'Formal term record',
+        body: 'The term on one record for the course file or accreditation: enrolment, projects, hand-ins, syllabus coverage and interventions, with signature lines.',
+      },
+      {
+        kind: 'activity',
+        label: 'Activity log',
+        body: 'Every change to every task in a date range: who did what, and when. The record for settling a dispute.',
       },
     ],
   },
@@ -141,6 +157,8 @@ const EXPORT_BASE: Partial<Record<ReportKind, string>> = {
   notes: 'intervention-log',
   progress: 'group-progress',
   deliverables: 'deliverables',
+  formal: 'term-record',
+  activity: 'activity-log',
 }
 
 /** The ways out of a new-style report: a workbook, a Word file and one CSV per table. */
@@ -255,9 +273,23 @@ export default function Reports({ classId }: { classId?: string }) {
           : r.kind === 'deliverables'
             ? [{ value: 'all', label: 'All projects' }, ...r.projects.map((p) => ({ value: p.id, label: p.title }))]
             : undefined,
+    // Every class is offered only on the term record, and never inside one class.
+    classOptions:
+      r.kind === 'formal' && !classId
+        ? [
+            { value: 'all', label: 'Every class' },
+            ...r.classes.map((c) => ({
+              value: c.class_id,
+              label: `${c.class_initial} · ${c.class_name}${c.archived_at ? ' (ended)' : ''}`,
+            })),
+          ]
+        : undefined,
+    classValue: r.allClasses ? 'all' : undefined,
     studentOptional: r.kind === 'grading' || r.kind === 'notes',
     extras:
-      r.kind === 'checkin' || r.kind === 'notes' ? (
+      r.kind === 'activity' ? (
+        <ActivityExtras r={r} />
+      ) : r.kind === 'checkin' || r.kind === 'notes' ? (
         <CheckInExtras r={r} />
       ) : r.kind === 'progress' ? (
         <ProgressExtras r={r} />
@@ -363,21 +395,10 @@ export default function Reports({ classId }: { classId?: string }) {
 
 const FIELD_SIZE = '!h-11 !text-[13px] sm:!h-10 sm:!text-[13px]'
 
-/** What the check-in and the intervention log add under the pickers: dates, and for the log its filters. */
-function CheckInExtras({ r }: { r: ReturnType<typeof useReports> }) {
-  const log = r.kind === 'notes'
-  // The check-in compares one week with the one before, so it has no 30-day window.
-  const choices = RANGE_CHOICES.filter((c) => log || c.value !== 'last30')
-  const toggle = (k: ClassNoteKind) =>
-    r.setNoteKinds(
-      (Object.keys(NOTE_KIND_META) as ClassNoteKind[]).filter((x) => (x === k ? !r.noteKinds.includes(x) : r.noteKinds.includes(x))),
-    )
-  const groups = r.allBoards
-    .map((b) => ({ value: b.id, label: `${b.group_name ?? b.student_name ?? 'A board'} · ${b.project_title}` }))
-    .sort((a, b) => a.label.localeCompare(b.label))
-
+/** A preset range, or two dates. Until both dates are set the range reads as the last 7 days. */
+function RangeFields({ r, choices }: { r: ReturnType<typeof useReports>; choices: { value: RangeChoice; label: string }[] }) {
   return (
-    <div className="space-y-3">
+    <>
       <Select
         aria-label="Dates"
         value={r.rangeChoice}
@@ -412,27 +433,110 @@ function CheckInExtras({ r }: { r: ReturnType<typeof useReports> }) {
           )}
         </div>
       )}
+    </>
+  )
+}
+
+/** Pill checkboxes for narrowing by kind. None picked means every kind. */
+function ChipToggles<K extends string>({
+  legend,
+  options,
+  chosen,
+  onChange,
+}: {
+  legend: string
+  options: { value: K; label: string }[]
+  chosen: K[]
+  onChange: (next: K[]) => void
+}) {
+  const toggle = (k: K) =>
+    onChange(options.map((o) => o.value).filter((x) => (x === k ? !chosen.includes(x) : chosen.includes(x))))
+  return (
+    <fieldset className="space-y-1.5">
+      <legend className="px-1 pb-1 text-[12px] text-muted">{legend}</legend>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((o) => (
+          <label
+            key={o.value}
+            className="surface inline-flex min-h-9 cursor-pointer items-center rounded-full border border-line px-3 text-[13px] text-ink transition-colors hover:border-line-strong has-[:checked]:border-navy-400 has-[:checked]:bg-navy-500/8 has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-navy-500/12"
+          >
+            <input type="checkbox" className="sr-only" checked={chosen.includes(o.value)} onChange={() => toggle(o.value)} />
+            {o.label}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  )
+}
+
+/** The activity log's dates and filters: project, group, who acted, and kinds of event. */
+function ActivityExtras({ r }: { r: ReturnType<typeof useReports> }) {
+  const projectChosen = r.projects.some((p) => p.id === r.projectId)
+  const groups = r.allBoards
+    .filter((b) => !projectChosen || b.project_id === r.projectId)
+    .map((b) => {
+      const name = b.group_name ?? b.student_name ?? 'A board'
+      return { value: b.id, label: projectChosen ? name : `${name} · ${b.project_title}` }
+    })
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+  return (
+    <div className="space-y-3">
+      <RangeFields r={r} choices={RANGE_CHOICES} />
+      <Select
+        aria-label="Project"
+        value={projectChosen ? r.projectId : ''}
+        onChange={(e) => {
+          r.setProjectId(e.target.value)
+          // A group belongs to one project, so a new project starts from every group.
+          r.setBoardId('')
+        }}
+        options={[{ value: '', label: 'All projects' }, ...r.projects.map((p) => ({ value: p.id, label: p.title }))]}
+        className={FIELD_SIZE}
+      />
+      <Select
+        aria-label="Group"
+        value={groups.some((g) => g.value === r.boardId) ? r.boardId : ''}
+        onChange={(e) => r.setBoardId(e.target.value)}
+        options={[{ value: '', label: 'Every group' }, ...groups]}
+        className={FIELD_SIZE}
+      />
+      <Select
+        aria-label="Who"
+        value={r.students.some((s) => s.value === r.studentId) ? r.studentId : ''}
+        onChange={(e) => r.setStudentId(e.target.value)}
+        options={[{ value: '', label: 'Everyone' }, ...r.students]}
+        className={FIELD_SIZE}
+      />
+      <ChipToggles
+        legend="Events. None picked shows every kind."
+        options={(Object.entries(EVENT_META) as [TaskEventKind, { label: string }][]).map(([value, m]) => ({ value, label: m.label }))}
+        chosen={r.eventKinds}
+        onChange={r.setEventKinds}
+      />
+    </div>
+  )
+}
+
+/** What the check-in and the intervention log add under the pickers: dates, and for the log its filters. */
+function CheckInExtras({ r }: { r: ReturnType<typeof useReports> }) {
+  const log = r.kind === 'notes'
+  // The check-in compares one week with the one before, so it has no 30-day window.
+  const choices = RANGE_CHOICES.filter((c) => log || c.value !== 'last30')
+  const groups = r.allBoards
+    .map((b) => ({ value: b.id, label: `${b.group_name ?? b.student_name ?? 'A board'} · ${b.project_title}` }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+
+  return (
+    <div className="space-y-3">
+      <RangeFields r={r} choices={choices} />
       {log && (
         <>
-          <fieldset className="space-y-1.5">
-            <legend className="px-1 pb-1 text-[12px] text-muted">Kinds. None picked shows every kind.</legend>
-            <div className="flex flex-wrap gap-1.5">
-              {(Object.entries(NOTE_KIND_META) as [ClassNoteKind, { label: string }][]).map(([k, meta]) => (
-                <label
-                  key={k}
-                  className="surface inline-flex min-h-9 cursor-pointer items-center rounded-full border border-line px-3 text-[13px] text-ink transition-colors hover:border-line-strong has-[:checked]:border-navy-400 has-[:checked]:bg-navy-500/8 has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-navy-500/12"
-                >
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={r.noteKinds.includes(k)}
-                    onChange={() => toggle(k)}
-                  />
-                  {meta.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <ChipToggles
+            legend="Kinds. None picked shows every kind."
+            options={(Object.entries(NOTE_KIND_META) as [ClassNoteKind, { label: string }][]).map(([value, m]) => ({ value, label: m.label }))}
+            chosen={r.noteKinds}
+            onChange={r.setNoteKinds}
+          />
           <Select
             aria-label="Status"
             value={r.noteStatus}
@@ -541,6 +645,8 @@ function Preview({
     case 'notes':
     case 'progress':
     case 'deliverables':
+    case 'formal':
+    case 'activity':
       // A document built for other choices never stands in for these ones.
       if (!d.current || (!d.doc && d.loading)) {
         return (
