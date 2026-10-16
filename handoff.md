@@ -3575,3 +3575,58 @@ Both start with "zz test".
 **Follow-up (same day).**
 - Analytics → Groups → Group health shows at most five groups; past five, the table scrolls inside itself under a header that stays put (`HeatGrid` `maxRows`, measured from the rows; the stuck header covers the cell spacing so rows do not show through).
 - Every app page shows its scrollbar again (it was hidden on `html:has(.app-ui)`): the same thin 10 px bar as the panels inside, with the gutter held open so short pages do not shift. The side rail keeps its hidden bar. Scrollbar corners are transparent.
+
+---
+
+## Phase B4: formal term record, activity log, old sheets retired (2026-10-16)
+
+- **Spec:** `docs/superpowers/specs/2026-10-13-phase-b-reports-design.md`, B4 sections. **Phase B is complete.**
+- **Plan:** `docs/superpowers/plans/2026-10-16-phase-b4-term-record-activity-log.md`, rulings 1–12. Rulings made during the build:
+  - The term record's Professor row reads the class's own professor from its space members (`professorNameOf`), and says "Not recorded" if absent. It never falls back to the viewer. `class_overview` has no professor column, so the plan's fallback named a co-teacher as the professor.
+  - `boardsFor` now pages through `pageAllIn` with a stable order, so the every-class record cannot silently lose boards past the 1000-row cap.
+  - The activity log's project change goes through one patch (`setActivityProject`). Two `setSearchParams` calls in a row overwrite each other in react-router 7. Any handler that changes two address keys must use one patch.
+
+**What.** A fifth catalogue group, **For the record**, holds two reports, and the "Older reports" group is gone.
+
+- **Formal term record**
+  - **One class:** KPIs (students enrolled and removed, projects run, hand-in rate, accepted rate, syllabus weeks covered, work finished). Then tables: Class (course, code and section, year and semester, term, status, professor, co-teachers), Projects (type, weeks, due, groups or students, handed in, accepted, points, average released final, finals released), Syllabus coverage (every week; "Nothing set" where an assessment had no project), Interventions (notes by kind, follow-ups resolved, total), Work (the old term report's task counts). Signatures: Prepared by, and a blank Reviewed by (program chair).
+  - **Every class** (`rclass=all`, a choice in the class select, never inside a class page): one row per class with the same figures.
+  - Rates count countable boards (groups with members, students still in the class) on projects that ran (archived, or released to students). Unreleased projects are left out, with a footer line. Averages count released finals only.
+- **Activity log**
+  - Every task event in a date range (default Last 30 days), newest first: time (Manila, to the minute), who, event, task, group or student, project, detail.
+  - Filters: project, group, who (students), event kinds (`revents`). An id from another class reads as no filter.
+  - The screen and print show 500 rows; Excel and CSV carry every row.
+  - Events on archived tasks are left out, as archived work is everywhere.
+- **Old links.** The seven retired `?report=` values redirect, keeping class, project, student and group: class_term, coverage → formal; term_summary → formal with Every class; contribution → grading for that student; class_record → grading, All projects; comparison → progress, every group; board → progress, that group.
+
+**Code.**
+
+| File | What it does |
+|---|---|
+| `supabase/report-events.sql` | `report_task_events` (task events with task, group or student, project and actor names; staff-only, `security_invoker`, anon revoked, ended classes kept) and the index `task_events_at_idx`. Test: `supabase/tests/report-events.test.sql`, 7 PASS. In ORDER and on both rebuild lines after `report-deliverables`. |
+| `lib/api/reportReads.ts` | `listTaskEvents(classId, range)`, paged, Manila day bounds. |
+| `lib/api/dashboard.ts` | `boardsFor` pages through `pageAllIn`. |
+| `lib/reports/activityLog.ts`, `formalRecord.ts` | Pure builders, all tested: `activityLogDoc`, `activityFilters`, `EVENT_META`; `formalRecordDoc`, `termRecordAllDoc`, `projectRan`, `coTeacherNames`, `professorNameOf`. |
+| `pages/app/reports/reportKind.ts` | Eight kinds; `chosenClass` (the only place `rclass=all` is read); `LEGACY_REPORTS` and `legacyRedirect`. |
+| `pages/app/reports/*`, `components/reports/ReportPicker.tsx` | Both reports wired; `RangeFields`, `ChipToggles`, `ActivityExtras`; "Every class" via `classOptions`. Old-sheet loads, the CSV button and the five old sheets plus `components/reports/csv.ts` are gone. `BoardSheet` and `ContributionSheet` stay for the students' own Reports page. |
+
+**Checked.**
+- Vitest 1028 pass; build and `eslint src` clean; SQL 7/7 on the live DB.
+- Browser, live, as faculty on QM:
+  - Term record for QM: Professor Cloud Alinea, co-teacher Admin Alinea, 20 counted boards, 5% hand-in.
+  - Every class gives the same figures, and switching to grading drops `rclass=all`.
+  - Activity log: 89 events over 30 days. Lab 6 then Problem Set 3: the project sticks and the group resets.
+  - Excel and Word were built in the page and read back, with nothing downloaded. The activity log's Events sheet had 40 rows, and the term record's six sheets store their figures as numbers.
+  - Redirects: class_record, term_summary, and board (with project and group) on the Reports page, plus term_summary inside the QM class page.
+  - At 375 px the page does not scroll sideways, and dark mode reads correctly.
+  - No console errors.
+
+**Deferred** (from the ledger):
+- "Who" lists current students only; events by faculty, co-teachers or removed students cannot be filtered by person.
+- Every live event on the one-class term record re-runs `score_sheet` once per project that ran.
+- `PickerState` still declares `boards`/`boardId`/`setBoardId`, `DOC_KINDS` now lists every kind (its checks are always true), and `EXPORT_BASE[...] ?? ''` has a dead fallback.
+- Two lost spaces: `const setBoardId =useCallback` (`useReports.ts`) and `const termText =(` (`formalRecord.ts`). Fix them in the next commit that touches either file.
+- No unit coverage on `choose()` or the activity filters' page wiring.
+- `classesSig` omits class names, so a rename in every-class mode shows on the next change or reload.
+
+**Next.** Nothing queued; open work is the Deferred lists.
