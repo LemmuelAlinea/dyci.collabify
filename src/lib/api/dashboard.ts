@@ -1,6 +1,7 @@
 import { supabase } from './../supabase'
 import { listRecentAnnouncements } from './announcements'
 import { listStudentClasses } from './classes'
+import { pageAllIn } from './paging'
 import { listProjectsForClasses } from './projects'
 import { listBoards, myTasks } from './tasks'
 import type { MyTask } from './tasks'
@@ -70,13 +71,17 @@ export async function studentDashboard(studentId: string): Promise<StudentDashbo
 /* ------------------------------------------------------------------ parts */
 
 export async function boardsFor(projectIds: string[]) {
-  if (projectIds.length === 0) return []
-  const { data, error } = await supabase
-    .from('task_board_overview')
-    .select('*')
-    .in('project_id', projectIds)
-  if (error) throw error
-  return (data ?? []) as BoardSummary[]
+  // Past 1000 rows the server cuts a response short, so the read pages, in a stable order.
+  return pageAllIn<BoardSummary>(projectIds, async (chunk, from, to) => {
+    const { data, error } = await supabase
+      .from('task_board_overview')
+      .select('*')
+      .in('project_id', chunk)
+      .order('id')
+      .range(from, to)
+    if (error) throw error
+    return (data ?? []) as BoardSummary[]
+  })
 }
 
 /** The viewer's own row on every board, with the project it belongs to. */

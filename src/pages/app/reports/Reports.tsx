@@ -393,11 +393,7 @@ function ActivityExtras({ r }: { r: ReturnType<typeof useReports> }) {
       <Select
         aria-label="Project"
         value={projectChosen ? r.projectId : ''}
-        onChange={(e) => {
-          r.setProjectId(e.target.value)
-          // A group belongs to one project, so a new project starts from every group.
-          r.setBoardId('')
-        }}
+        onChange={(e) => r.setActivityProject(e.target.value)}
         options={[{ value: '', label: 'All projects' }, ...r.projects.map((p) => ({ value: p.id, label: p.title }))]}
         className={FIELD_SIZE}
       />

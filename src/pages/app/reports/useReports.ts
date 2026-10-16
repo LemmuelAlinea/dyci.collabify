@@ -118,7 +118,9 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     [patch],
   )
   const setProjectId = useCallback((v: string) => patch({ rproject: v, rround: '' }), [patch])
-  const setBoardId = useCallback((v: string) => patch({ rgroup: v }), [patch])
+  /** The activity log's project: a group belongs to one project, so a new project starts from every group. */
+  const setActivityProject = useCallback((v: string) => patch({ rproject: v, rgroup: '' }), [patch])
+  const setBoardId =useCallback((v: string) => patch({ rgroup: v }), [patch])
   const setStudentId = useCallback((v: string) => patch({ rstudent: v }), [patch])
   const setRoundId = useCallback((v: string) => patch({ rround: v }), [patch])
   const setComments = useCallback((on: boolean) => patch({ rcomments: on ? '1' : '' }), [patch])
@@ -294,6 +296,7 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     setClassId,
     projectId,
     setProjectId,
+    setActivityProject,
     boardId,
     setBoardId,
     studentId,

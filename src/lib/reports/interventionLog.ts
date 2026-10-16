@@ -8,7 +8,7 @@ import type { DayRange } from './range'
 
 export type LogFilters = { kinds: ClassNoteKind[]; status: 'open' | 'resolved' | 'all'; studentId: string; boardId: string }
 
-export const KIND_ORDER: ClassNoteKind[] =['note', 'meeting', 'follow_up', 'nudge', 'peer_reminder']
+export const KIND_ORDER: ClassNoteKind[] = ['note', 'meeting', 'follow_up', 'nudge', 'peer_reminder']
 
 export function interventionLogDoc(input: ReportHead & {
   range: DayRange

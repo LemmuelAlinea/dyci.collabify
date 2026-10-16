@@ -26,13 +26,12 @@ import { activityFilters, activityLogDoc } from '../../../lib/reports/activityLo
 import { checkInAsOf, checkInDoc, liveProjects, onProjects } from '../../../lib/reports/checkIn'
 import { countableBoard, deliverablesDoc } from '../../../lib/reports/deliverables'
 import type { ReportDoc } from '../../../lib/reports/doc'
-import { coTeacherNames, formalRecordDoc, projectRan, termRecordAllDoc } from '../../../lib/reports/formalRecord'
+import { coTeacherNames, formalRecordDoc, professorNameOf, projectRan, termRecordAllDoc } from '../../../lib/reports/formalRecord'
 import { gradingClassDoc, gradingGridDoc, gradingStudentDoc } from '../../../lib/reports/grading'
 import { groupProgressDoc } from '../../../lib/reports/groupProgress'
 import { interventionLogDoc } from '../../../lib/reports/interventionLog'
 import { defaultRound, peerSummaryDoc } from '../../../lib/reports/peerSummary'
 import { resolveDueWindow, resolveRange } from '../../../lib/reports/range'
-import { fullName } from '../../../lib/types'
 import type { ClassNoteKind, PeerResult, PeerRoundStatus, TaskEventKind } from '../../../lib/types'
 import { DOC_KINDS } from './reportKind'
 import type { useReports } from './useReports'
@@ -131,8 +130,11 @@ export function useReportDoc(r: R, professor: string) {
           : kind === 'deliverables'
             ? ['project_tasks', 'board_results', 'project_milestones']
             : kind === 'formal'
-              ? ['projects', 'project_boards', 'board_results', 'class_members', 'group_members', 'member_scores',
-                 'score_releases', 'class_notes', 'general_space_members', 'syllabus_weeks']
+              ? allClasses
+                // Every-class mode reads projects, boards and rosters, not scores, notes or the syllabus.
+                ? ['projects', 'project_boards', 'board_results', 'class_members', 'group_members']
+                : ['projects', 'project_boards', 'board_results', 'class_members', 'group_members', 'member_scores',
+                   'score_releases', 'class_notes', 'general_space_members', 'syllabus_weeks']
               : kind === 'activity'
                 ? ['task_events']
                 : ['member_scores', 'board_scores', 'score_releases', 'project_criteria', 'peer_ratings', 'peer_rounds']
@@ -466,7 +468,7 @@ export function useReportDoc(r: R, professor: string) {
             ...head,
             cls,
             now,
-            professorName: overview?.professor ? fullName(overview.professor) : professor,
+            professorName: overview ? professorNameOf(people, overview.professor_id) : 'Not recorded',
             coTeachers: overview ? coTeacherNames(people, overview.professor_id) : [],
             projects,
             boards: allBoards,

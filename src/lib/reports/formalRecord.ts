@@ -60,7 +60,16 @@ export function coTeacherNames(
     .sort((a, b) => a.localeCompare(b))
 }
 
-const termText = (start: string | null, end: string | null) =>
+/** The class's own professor by name, from its space's members; the database keeps them there as Owner. */
+export function professorNameOf(
+  people: Pick<SpacePerson, 'user_id' | 'first_name' | 'last_name'>[],
+  professorId: string,
+): string {
+  const p = people.find((x) => x.user_id === professorId)
+  return p ? `${p.first_name} ${p.last_name}`.trim() : 'Not recorded'
+}
+
+const termText =(start: string | null, end: string | null) =>
   start && end ? `${dayText(start)} to ${dayText(end)}` : 'No term dates set'
 
 const byWeek = (a: FormalProject, b: FormalProject) =>

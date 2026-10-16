@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { coTeacherNames, formalRecordDoc, projectRan, termRecordAllDoc } from './formalRecord'
+import { coTeacherNames, formalRecordDoc, professorNameOf, projectRan, termRecordAllDoc } from './formalRecord'
 import type { FormalBoard, FormalProject } from './formalRecord'
 import { tableBlocks } from './doc'
 import type { ReportDoc, TableBlock } from './doc'
@@ -83,6 +83,24 @@ describe('coTeacherNames', () => {
       { user_id: 's1', first_name: 'Ben', last_name: 'Lim', level: 'manager', is_student: true },
     ] as Parameters<typeof coTeacherNames>[0]
     expect(coTeacherNames(people, 'prof')).toEqual(['Ana Bautista', 'Jose Santos'])
+  })
+})
+
+describe('professorNameOf', () => {
+  const people = [
+    { user_id: 'f2', first_name: 'Jose', last_name: 'Santos' },
+    { user_id: 'prof', first_name: 'Maria', last_name: 'Reyes' },
+    { user_id: 'f1', first_name: 'Ana', last_name: 'Bautista' },
+  ]
+
+  it('finds the professor by id among several people, whoever is viewing', () => {
+    // A co-teacher viewing: they are in the list, and the result is still the professor.
+    expect(professorNameOf(people, 'prof')).toBe('Maria Reyes')
+  })
+
+  it('says Not recorded when the professor is not among the members', () => {
+    expect(professorNameOf(people, 'missing')).toBe('Not recorded')
+    expect(professorNameOf([], 'prof')).toBe('Not recorded')
   })
 })
 
