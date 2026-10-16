@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import type { BoardTask, ClassReport, StudentWork, WeekCoverage } from '../report'
+import type { ClassReport, StudentWork, WeekCoverage } from '../report'
 
 /**
  * What the reports page reads. Each view is scoped to the class's own professor
@@ -37,14 +37,4 @@ export async function studentWork(classId: string) {
     .order('student_name')
   if (error) throw error
   return (data ?? []) as StudentWork[]
-}
-
-export async function boardTasks(boardId: string) {
-  const { data, error } = await supabase
-    .from('report_board_tasks')
-    .select('*')
-    .eq('board_id', boardId)
-    .order('position')
-  if (error) throw error
-  return (data ?? []) as BoardTask[]
 }

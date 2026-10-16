@@ -50,7 +50,7 @@ type Built = {
 
 const finalRows = (rows: PeerResult[]) => rows.filter((p) => p.kind === 'final' && !p.is_open)
 
-/** Loads the data a new-style report needs and builds its document. Old sheets return null. */
+/** Loads the data a report needs and builds its document. */
 export function useReportDoc(r: R, professor: string) {
   // The doc and the choices it was built for travel together, so a rebuild in
   // flight never lets the previous project's sheet pass for the current one.

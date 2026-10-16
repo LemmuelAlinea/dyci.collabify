@@ -4,12 +4,10 @@ import { useLive } from '../../../hooks/useLive'
 import { listMembers } from '../../../lib/api/classes'
 import { boardsFor } from '../../../lib/api/dashboard'
 import { listProjectsForClasses } from '../../../lib/api/projects'
-import { listReassignments } from '../../../lib/api/reassignments'
-import { boardResult } from '../../../lib/api/results'
-import { boardTasks, classReports, studentWork, weekCoverage } from '../../../lib/api/reports'
+import { classReports, studentWork } from '../../../lib/api/reports'
 import { authErrorMessage } from '../../../lib/authError'
 import { NOTE_KIND_META } from '../../../lib/notes'
-import type { BoardTask, ClassReport, StudentWork, WeekCoverage } from '../../../lib/report'
+import type { ClassReport, StudentWork } from '../../../lib/report'
 import { EVENT_META } from '../../../lib/reports/activityLog'
 import { parseDueChoice, parseRangeChoice } from '../../../lib/reports/range'
 import type { DueChoice, RangeChoice } from '../../../lib/reports/range'
@@ -18,11 +16,10 @@ import type {
   ClassMember,
   ClassNoteKind,
   ProjectSummary,
-  ReassignmentRow,
   TaskEventKind,
 } from '../../../lib/types'
 
-import { chosenClass, NEEDS, parseReportKind } from './reportKind'
+import { chosenClass, legacyRedirect, NEEDS, parseReportKind } from './reportKind'
 import type { ReportKind } from './reportKind'
 
 /** Reports that take a student but do not need one. On the activity log the student is who acted. */
@@ -92,19 +89,12 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
   )
 
   const [classes, setClasses] = useState<ClassReport[] | null>(null)
-  const [weeks, setWeeks] = useState<WeekCoverage[]>([])
   const [work, setWork] = useState<StudentWork[]>([])
   const [members, setMembers] = useState<ClassMember[]>([])
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [boards, setBoards] = useState<BoardSummary[]>([])
-  const [tasks, setTasks] = useState<BoardTask[]>([])
-  const [feedback, setFeedback] = useState<string | null>(null)
-  const [reassignments, setReassignments] = useState<ReassignmentRow[]>([])
   const [error, setError] = useState<string | null>(null)
-  // One flag per loader, so one finishing never clears the other's spinner.
   const [classBusy, setClassBusy] = useState(false)
-  const [boardBusy, setBoardBusy] = useState(false)
-  const busy = classBusy || boardBusy
   // The class the arrays above were last loaded for. Until it matches, a project
   // choice in the address cannot be judged, so it is neither used nor dropped.
   const [loadedFor, setLoadedFor] = useState('')
@@ -116,6 +106,13 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     () => chosenClass(kind, rawClass, lockedClassId, firstClass),
     [kind, rawClass, lockedClassId, firstClass],
   )
+  // A link to a retired sheet opens its replacement.
+  const rawReport = params.get('report')
+  useEffect(() => {
+    const next = legacyRedirect(rawReport)
+    if (next) patch(next)
+  }, [rawReport, patch])
+
   const setClassId = useCallback(
     (v: string) => patch({ rclass: v, rproject: '', rgroup: '', rstudent: '', rround: '' }),
     [patch],
@@ -159,7 +156,7 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
   useLive(loadClasses, ['classes', 'class_members'])
 
   // One class's worth of everything. Cheap enough to fetch together, and it
-  // keeps the four sheets that read from a class in step with each other.
+  // keeps every report that reads from a class in step with the others.
   // Each load takes a number; only the newest may write. Otherwise a slow load
   // for the previous class (or an older live refresh) landing last would put
   // its arrays and its `loadedFor` over the current class's.
@@ -173,23 +170,19 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     }
     setClassBusy(true)
     try {
-      const [w, s, m, p, r] = await Promise.all([
-        weekCoverage(classId),
+      const [s, m, p] = await Promise.all([
         studentWork(classId),
         listMembers(classId),
         listProjectsForClasses([classId]),
-        listReassignments(),
       ])
       if (!latest()) return
       const b = await boardsFor(p.map((x) => x.id))
       if (!latest()) return
       // Written together after both round trips, so the page never holds this
       // class's projects beside another load's boards.
-      setWeeks(w)
       setWork(s)
       setMembers(m)
       setProjects(p)
-      setReassignments(r.filter((x) => x.class_id === classId))
       setBoards(b)
       setError(null)
     } catch (err) {
@@ -212,43 +205,9 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     'project_tasks',
     'task_assignees',
     'board_results',
-    'task_reassignments',
-    'syllabus_weeks',
     'class_members',
     'group_members',
   ])
-
-  // The verdict's reason lives on the result row rather than the board, so it
-  // is only worth fetching once a board is actually chosen.
-  // Its own counter: switching boards quickly must not let the first board's
-  // tasks land over the second's.
-  const boardSeq = useRef(0)
-  useEffect(() => {
-    const mine = ++boardSeq.current
-    const latest = () => mine === boardSeq.current
-    // Only the group report reads a board's tasks and verdict. For the intervention
-    // log the group is just a filter, and fetching them would flash "Gathering it…".
-    if (!boardId || kind !== 'board') {
-      setTasks([])
-      setFeedback(null)
-      setBoardBusy(false)
-      return
-    }
-    void (async () => {
-      setBoardBusy(true)
-      try {
-        const [t, r] = await Promise.all([boardTasks(boardId), boardResult(boardId)])
-        if (!latest()) return
-        setTasks(t)
-        setFeedback(r?.feedback ?? null)
-        setError(null)
-      } catch (err) {
-        if (latest()) setError(authErrorMessage(err, 'Could not load that board.'))
-      } finally {
-        if (latest()) setBoardBusy(false)
-      }
-    })()
-  }, [boardId, kind])
 
   const cls = useMemo(
     () => (classes ?? []).find((c) => c.class_id === classId) ?? null,
@@ -258,7 +217,6 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     () => boards.filter((b) => (projectId && projectId !== 'all' ? b.project_id === projectId : true)),
     [boards, projectId],
   )
-  const board = useMemo(() => boards.find((b) => b.id === boardId) ?? null, [boards, boardId])
 
   /** Everyone with work in this class, for the contribution picker. */
   const students = useMemo(() => {
@@ -287,8 +245,8 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
         (next === 'activity' && projectId === 'all')
       ) out.rproject = ''
       // The intervention log and the activity log filter by group without needing one.
-      if (!NEEDS[next].includes('board') && next !== 'notes' && next !== 'activity') out.rgroup = ''
-      if (!NEEDS[next].includes('student') && !OPTIONAL_STUDENT.includes(next)) out.rstudent = ''
+      if (next !== 'notes' && next !== 'activity') out.rgroup = ''
+      if (!OPTIONAL_STUDENT.includes(next)) out.rstudent = ''
       // Dates and filters belong to the reports that use them. The compliance report
       // takes its dates from `rdue`, but shares the custom From and To.
       const dated = next === 'checkin' || next === 'notes' || next === 'activity'
@@ -320,15 +278,13 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     (!NEEDS[kind].includes('class') || Boolean(cls) || allClasses) &&
     (!NEEDS[kind].includes('project') ||
       projectFits(kind, projectId, projects) ||
-      (OPTIONAL_STUDENT.includes(kind) && Boolean(studentId))) &&
-    (!NEEDS[kind].includes('board') || Boolean(board)) &&
-    (!NEEDS[kind].includes('student') || Boolean(studentId))
+      (OPTIONAL_STUDENT.includes(kind) && Boolean(studentId)))
 
   return {
     kind,
     choose,
     loading: classes === null,
-    busy,
+    busy: classBusy,
     settling,
     error,
     classes: classes ?? [],
@@ -360,17 +316,12 @@ export function useReports(professorId: string | undefined, lockedClassId?: stri
     eventKinds,
     setEventKinds,
     params,
-    weeks,
     work,
     members,
     projects,
     boards: shownBoards,
     /** The class's boards, whatever project is picked. */
     allBoards: boards,
-    board,
-    tasks,
-    feedback,
-    reassignments,
     students,
     ready,
   }

@@ -1,32 +1,10 @@
-export type ReportKind =
-  | 'class_term'
-  | 'coverage'
-  | 'contribution'
-  | 'board'
-  | 'comparison'
-  | 'class_record'
-  | 'term_summary'
-  | 'grading'
-  | 'peer'
-  | 'checkin'
-  | 'notes'
-  | 'progress'
-  | 'deliverables'
-  | 'formal'
-  | 'activity'
+export type ReportKind = 'grading' | 'peer' | 'checkin' | 'notes' | 'progress' | 'deliverables' | 'formal' | 'activity'
 
-/** The reports built as a ReportDoc, which share the preview, the live refresh and the export menu. */
+/** Every report is built as a ReportDoc and shares the preview, the live refresh and the export menu. */
 export const DOC_KINDS: ReportKind[] = ['grading', 'peer', 'checkin', 'notes', 'progress', 'deliverables', 'formal', 'activity']
 
 /** Which pickers a report needs before it can be drawn. */
-export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student')[]> = {
-  class_term: ['class'],
-  coverage: ['class'],
-  contribution: ['class', 'student'],
-  board: ['class', 'project', 'board'],
-  comparison: ['class', 'project'],
-  class_record: ['class'],
-  term_summary: [],
+export const NEEDS: Record<ReportKind, ('class' | 'project')[]> = {
   grading: ['class', 'project'],
   peer: ['class', 'project'],
   checkin: ['class'],
@@ -37,12 +15,32 @@ export const NEEDS: Record<ReportKind, ('class' | 'project' | 'board' | 'student
   activity: ['class'],
 }
 
+/** The seven sheets B4 retired, the report each now opens, and the address it needs there. */
+export const LEGACY_REPORTS: Record<string, { kind: ReportKind; set: Record<string, string> }> = {
+  class_term: { kind: 'formal', set: {} },
+  term_summary: { kind: 'formal', set: { rclass: 'all' } },
+  coverage: { kind: 'formal', set: {} },
+  contribution: { kind: 'grading', set: { rproject: '' } },
+  class_record: { kind: 'grading', set: { rproject: 'all', rstudent: '' } },
+  comparison: { kind: 'progress', set: { rgroup: '' } },
+  board: { kind: 'progress', set: {} },
+}
+
 /**
- * The report named in the address, or the grading sheet. An own-key check, so
- * `?report=toString` and the other names every object inherits never pass for a report.
+ * The report named in the address, or the grading sheet. A retired name reads
+ * as its replacement. An own-key check, so `?report=toString` and the other
+ * names every object inherits never pass for a report.
  */
 export function parseReportKind(raw: string | null): ReportKind {
+  if (raw && Object.hasOwn(LEGACY_REPORTS, raw)) return LEGACY_REPORTS[raw].kind
   return raw && Object.hasOwn(NEEDS, raw) ? (raw as ReportKind) : 'grading'
+}
+
+/** The address change that turns a retired sheet's link into its replacement, or null. */
+export function legacyRedirect(raw: string | null): Record<string, string> | null {
+  if (!raw || !Object.hasOwn(LEGACY_REPORTS, raw)) return null
+  const { kind, set } = LEGACY_REPORTS[raw]
+  return { report: kind, ...set }
 }
 
 /**

@@ -13,7 +13,7 @@ import type { ReportKind } from '../../pages/app/reports/reportKind'
 /**
  * Choosing a report, at three widths.
  *
- * There are nine reports in two groups, each with a sentence explaining it,
+ * There are eight reports in four groups, each with a sentence explaining it,
  * and then up to four things to narrow it by. On a wide screen that is a column
  * beside the sheet and it reads well. Below that it was the whole of it stacked
  * on top of the sheet — on a phone you scrolled past seven cards and four
@@ -30,14 +30,13 @@ import type { ReportKind } from '../../pages/app/reports/reportKind'
  *
  * The catalogue is deliberately a dialog rather than a native select. The
  * sentence under each report is the part that tells a professor which of the
- * seven they actually want, and a native option list cannot carry it.
+ * eight they actually want, and a native option list cannot carry it.
  */
 
 export type ReportItem = {
   kind: ReportKind
   label: string
   body: string
-  csv?: boolean
 }
 
 export type ReportGroup = { group: string; items: ReportItem[] }
@@ -84,14 +83,6 @@ function About({ r }: { r: PickerState }) {
   const needs = NEEDS[r.kind]
   const size = '!h-11 !text-[13px] sm:!h-10 sm:!text-[13px]'
 
-  if (needs.length === 0) {
-    return (
-      <p className="text-[12px] text-muted">
-        This one covers every class you teach, so there is nothing to choose.
-      </p>
-    )
-  }
-
   return (
     <>
       {needs.includes('class') && (r.classOptions !== undefined || r.classes.length > 1) && (
@@ -119,29 +110,6 @@ function About({ r }: { r: PickerState }) {
           className={size}
         />
       )}
-      {needs.includes('board') && (
-        <Select
-          aria-label="Group"
-          value={r.boardId}
-          onChange={(e) => r.setBoardId(e.target.value)}
-          placeholder="Pick a group"
-          options={r.boards.map((b) => ({
-            value: b.id,
-            label: b.group_name ?? b.student_name ?? 'A board',
-          }))}
-          className={size}
-        />
-      )}
-      {needs.includes('student') && (
-        <Select
-          aria-label="Student"
-          value={r.studentId}
-          onChange={(e) => r.setStudentId(e.target.value)}
-          placeholder="Pick a student"
-          options={r.students}
-          className={size}
-        />
-      )}
       {r.studentOptional && (
         <div className="space-y-1">
           <Select
@@ -161,16 +129,12 @@ function About({ r }: { r: PickerState }) {
 
 function Actions({
   r,
-  csv,
-  onCsv,
   exports,
   printReady,
   className = '',
 }: {
   r: PickerState
-  csv: boolean
-  onCsv: () => void
-  exports?: ActionMenuItem[]
+  exports: ActionMenuItem[]
   /** Whether there is a sheet to print. Defaults to the report having its choices. */
   printReady?: boolean
   className?: string
@@ -188,45 +152,29 @@ function Actions({
         <Icon name="file" size={14} />
         Print
       </Button>
-      {exports ? (
-        <ActionMenu
-          label="Export"
-          icon="download"
-          items={exports}
-          disabled={!r.ready}
-          size="sm"
-          showLabel
-          align="start"
-          triggerClassName={buttonClass({ variant: 'outline', size: 'sm', className: '!h-11 !rounded-xl sm:!h-9' })}
-        />
-      ) : (
-        csv && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="!h-11 !rounded-xl sm:!h-9"
-          disabled={!r.ready}
-          onClick={onCsv}
-        >
-          <Icon name="download" size={14} />
-          <span className="sm:hidden">CSV</span>
-          <span className="hidden sm:inline">Download CSV</span>
-        </Button>
-        )
-      )}
+      <ActionMenu
+        label="Export"
+        icon="download"
+        items={exports}
+        disabled={!r.ready}
+        size="sm"
+        showLabel
+        align="start"
+        triggerClassName={buttonClass({ variant: 'outline', size: 'sm', className: '!h-11 !rounded-xl sm:!h-9' })}
+      />
     </div>
   )
 }
 
 /**
- * The seven, grouped. Used by the column and by the dialog, and the difference
+ * The eight, grouped. Used by the column and by the dialog, and the difference
  * between them is the sentence under each one.
  *
- * **Dense**, in the column: only the chosen report explains itself. Seven
- * descriptions at once is roughly seven hundred pixels of prose that somebody
+ * **Dense**, in the column: only the chosen report explains itself. Eight
+ * descriptions at once is roughly eight hundred pixels of prose that somebody
  * reads once and then scrolls past every time afterwards — and it pushed Print
  * and the selects below the fold, which is how the controls for a page ended up
- * being the hardest part of it to find. Seven single lines are a list you can
+ * being the hardest part of it to find. Eight single lines are a list you can
  * take in at a glance, and the sentence arrives on the one you land on.
  *
  * **Full**, in the dialog: every description, because choosing is the only
@@ -278,11 +226,6 @@ function Catalogue({
                   } ${on && dense ? 'font-medium' : ''}`}
                 >
                   {item.label}
-                  {item.csv && (
-                    <span className="rounded-full surface-sunken px-1.5 py-0.5 font-mono text-[12px] tracking-wider text-muted uppercase">
-                      csv
-                    </span>
-                  )}
                   {on && (
                     <Icon
                       name="check"
@@ -328,16 +271,12 @@ function Catalogue({
 export function ReportSidebar({
   catalogue,
   r,
-  csv,
-  onCsv,
   exports,
   printReady,
 }: {
   catalogue: ReportGroup[]
   r: PickerState
-  csv: boolean
-  onCsv: () => void
-  exports?: ActionMenuItem[]
+  exports: ActionMenuItem[]
   printReady?: boolean
 }) {
   return (
@@ -352,7 +291,7 @@ export function ReportSidebar({
           <About r={r} />
         </section>
 
-        <Actions r={r} csv={csv} onCsv={onCsv} exports={exports} printReady={printReady} />
+        <Actions r={r} exports={exports} printReady={printReady} />
       </div>
     </div>
   )
@@ -362,16 +301,12 @@ export function ReportSidebar({
 export function ReportBar({
   catalogue,
   r,
-  csv,
-  onCsv,
   exports,
   printReady,
 }: {
   catalogue: ReportGroup[]
   r: PickerState
-  csv: boolean
-  onCsv: () => void
-  exports?: ActionMenuItem[]
+  exports: ActionMenuItem[]
   printReady?: boolean
 }) {
   const [open, setOpen] = useState(false)
@@ -403,7 +338,7 @@ export function ReportBar({
         <About r={r} />
       </div>
 
-      <Actions r={r} csv={csv} onCsv={onCsv} exports={exports} printReady={printReady} />
+      <Actions r={r} exports={exports} printReady={printReady} />
 
       <Modal
         open={open}

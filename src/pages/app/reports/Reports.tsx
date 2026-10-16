@@ -1,15 +1,7 @@
 import { useEffect } from 'react'
-import { BoardSheet } from '../../../components/reports/BoardSheet'
-import { ClassRecordSheet } from '../../../components/reports/ClassRecordSheet'
-import { classRecordCsv, comparisonCsv, termSummaryCsv } from '../../../components/reports/csv'
-import { ClassTermSheet } from '../../../components/reports/ClassTermSheet'
-import { ComparisonSheet } from '../../../components/reports/ComparisonSheet'
-import { ContributionSheet } from '../../../components/reports/ContributionSheet'
-import { CoverageSheet } from '../../../components/reports/CoverageSheet'
 import { ReportDocView } from '../../../components/reports/ReportDocView'
 import { ReportBar, ReportSidebar } from '../../../components/reports/ReportPicker'
 import type { ReportGroup } from '../../../components/reports/ReportPicker'
-import { TermSummarySheet } from '../../../components/reports/TermSummarySheet'
 import type { ActionMenuItem } from '../../../components/ui/ActionMenu'
 import { Alert } from '../../../components/ui/Alert'
 import { DirectoryHero } from '../../../components/app/DirectoryHero'
@@ -20,7 +12,6 @@ import { Select } from '../../../components/ui/Select'
 import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import { NOTE_KIND_META } from '../../../lib/notes'
-import { downloadCsv, reportFilename, toCsv } from '../../../lib/report'
 import { EVENT_META } from '../../../lib/reports/activityLog'
 import { countableBoard } from '../../../lib/reports/deliverables'
 import type { ReportDoc } from '../../../lib/reports/doc'
@@ -30,7 +21,6 @@ import { DUE_CHOICES, RANGE_CHOICES } from '../../../lib/reports/range'
 import type { DueChoice, RangeChoice } from '../../../lib/reports/range'
 import { fullName } from '../../../lib/types'
 import type { ClassNoteKind, TaskEventKind } from '../../../lib/types'
-import { DOC_KINDS } from './reportKind'
 import type { ReportKind } from './reportKind'
 import { useReportDoc } from './useReportDoc'
 import { useReports } from './useReports'
@@ -97,49 +87,6 @@ const CATALOGUE: ReportGroup[] = [
       },
     ],
   },
-  {
-    group: 'Older reports',
-    items: [
-      {
-        kind: 'class_term',
-        label: 'Class term report',
-        body: 'One class on one page: enrolment, what was run, how much finished, what was late.',
-      },
-      {
-        kind: 'term_summary',
-        label: 'Term summary',
-        body: 'Every class you teach in one table, with the totals underneath.',
-        csv: true,
-      },
-      {
-        kind: 'contribution',
-        label: 'Student contribution',
-        body: 'One student: what they held on each board, what they finished, and their share.',
-      },
-      {
-        kind: 'class_record',
-        label: 'Class record',
-        body: 'Every student against every project. The sheet you take into your own record.',
-        csv: true,
-      },
-      {
-        kind: 'comparison',
-        label: 'Project comparison',
-        body: 'One project, every group side by side. How the class did on that piece of work.',
-        csv: true,
-      },
-      {
-        kind: 'board',
-        label: 'Group project report',
-        body: 'One group: members, every task with who held it, what was handed in, your answer.',
-      },
-      {
-        kind: 'coverage',
-        label: 'Syllabus coverage',
-        body: 'Week by week: what the syllabus asked for and what was set against it.',
-      },
-    ],
-  },
 ]
 
 const DAY = new Intl.DateTimeFormat('en-PH', {
@@ -149,8 +96,8 @@ const DAY = new Intl.DateTimeFormat('en-PH', {
   year: 'numeric',
 })
 
-/** The new-style reports, and the name each one's files start with. */
-const EXPORT_BASE: Partial<Record<ReportKind, string>> = {
+/** The name each report's files start with. */
+const EXPORT_BASE: Record<ReportKind, string> = {
   grading: 'grading-sheet',
   peer: 'peer-summary',
   checkin: 'weekly-check-in',
@@ -161,7 +108,7 @@ const EXPORT_BASE: Partial<Record<ReportKind, string>> = {
   activity: 'activity-log',
 }
 
-/** The ways out of a new-style report: a workbook, a Word file and one CSV per table. */
+/** The ways out of a report: a workbook, a Word file and one CSV per table. */
 function exportItems(doc: ReportDoc, kind: string, fail: (message: string) => void): ActionMenuItem[] {
   // The class is in the name, so two sections' sheets for the same dates never share one.
   const base = reportBase(kind, doc.header.subtitle, doc.header.classLine)
@@ -189,10 +136,8 @@ function exportItems(doc: ReportDoc, kind: string, fail: (message: string) => vo
  *
  * Analytics is read on screen by the person who owns the class. A report is
  * printed and handed to somebody else — a chair, a course file, your own record
- * — so it prints on letterhead and carries the date it was made. The older
- * reports say in their footer that they are not a grade record; the grading
- * sheet and the peer summary replace that footer with their own lines and a
- * Prepared by signature.
+ * — so it prints on letterhead and carries the date it was made.
+ * Every report ends with its own footer lines and a Prepared by signature.
  *
  * Unlike every analytics view, these keep archived classes and projects. A
  * report is asked for after the term ends, which is exactly when analytics
@@ -218,48 +163,15 @@ export default function Reports({ classId }: { classId?: string }) {
     )
   }
 
-  // Inside one class, the cross-class term summary doesn't apply.
-  const catalogue = classId
-    ? CATALOGUE.map((g) => ({ ...g, items: g.items.filter((i) => i.kind !== 'term_summary') })).filter(
-        (g) => g.items.length > 0,
-      )
-    : CATALOGUE
+  const catalogue = CATALOGUE
 
-  const csvFor = () => {
-    if (!r.cls && r.kind !== 'term_summary') return null
-    if (r.kind === 'class_record' && r.cls) {
-      const { headers, body } = classRecordCsv(
-        r.members,
-        r.projects.map((p) => ({ id: p.id, title: p.title })),
-        r.work,
-      )
-      return { name: reportFilename('class-record', r.cls.class_initial), headers, body }
-    }
-    if (r.kind === 'comparison' && r.cls) {
-      const { headers, body } = comparisonCsv(r.boards)
-      const title = r.projects.find((p) => p.id === r.projectId)?.title ?? 'project'
-      return { name: reportFilename('project-comparison', title), headers, body }
-    }
-    if (r.kind === 'term_summary') {
-      const { headers, body } = termSummaryCsv(r.classes)
-      return { name: reportFilename('term-summary', professor), headers, body }
-    }
-    return null
-  }
-
-  const csv = csvFor()
-
-  // The new reports export through a menu; the older ones keep their one CSV button.
-  const newKind = DOC_KINDS.includes(r.kind)
-  // A new report prints only once its document is built for these choices, as it exports.
-  const printReady = newKind ? Boolean(d.doc && d.current) : r.ready
-  const exports: ActionMenuItem[] | undefined = !newKind
-    ? undefined
-    : d.doc && d.current
+  const printReady = Boolean(d.doc && d.current)
+  const exports: ActionMenuItem[] =
+    d.doc && d.current
       ? exportItems(d.doc, EXPORT_BASE[r.kind] ?? '', (m) => show(m, 'error'))
       : [{ label: 'Nothing to export yet', onSelect: () => {}, disabled: true }]
 
-  // What each new report adds beside the pickers. The older ones add nothing.
+  // What each report adds beside the pickers.
   const picker = {
     ...r,
     projectOptions:
@@ -343,18 +255,14 @@ export default function Reports({ classId }: { classId?: string }) {
           <ReportBar
             catalogue={catalogue}
             r={picker}
-            csv={Boolean(csv)}
             exports={exports}
             printReady={printReady}
-            onCsv={() => csv && downloadCsv(csv.name, toCsv(csv.headers, csv.body))}
           />
           <ReportSidebar
             catalogue={catalogue}
             r={picker}
-            csv={Boolean(csv)}
             exports={exports}
             printReady={printReady}
-            onCsv={() => csv && downloadCsv(csv.name, toCsv(csv.headers, csv.body))}
           />
 
           {/* On a wide screen the sheet sits on a ground rather than filling
@@ -382,7 +290,7 @@ export default function Reports({ classId }: { classId?: string }) {
                 />
               )
             ) : (
-              <Preview r={r} d={d} professor={professor} />
+              <Preview r={r} d={d} />
             )}
             </div>
           </div>
@@ -630,14 +538,10 @@ function DeliverablesExtras({ r }: { r: ReturnType<typeof useReports> }) {
 function Preview({
   r,
   d,
-  professor,
 }: {
   r: ReturnType<typeof useReports>
   d: ReturnType<typeof useReportDoc>
-  professor: string
 }) {
-  const cls = r.cls
-
   switch (r.kind) {
     case 'grading':
     case 'peer':
@@ -701,53 +605,5 @@ function Preview({
         )
       }
       return null
-    case 'term_summary':
-      return <TermSummarySheet classes={r.classes} professor={professor} />
-    case 'class_term':
-      return cls ? <ClassTermSheet cls={cls} weeks={r.weeks} professor={professor} /> : null
-    case 'coverage':
-      return cls ? <CoverageSheet cls={cls} weeks={r.weeks} professor={professor} /> : null
-    case 'class_record':
-      return cls ? (
-        <ClassRecordSheet
-          cls={cls}
-          members={r.members}
-          projects={r.projects.map((p) => ({ id: p.id, title: p.title }))}
-          rows={r.work}
-          professor={professor}
-        />
-      ) : null
-    case 'comparison':
-      return cls ? (
-        <ComparisonSheet
-          cls={cls}
-          boards={r.boards}
-          projectTitle={r.projects.find((p) => p.id === r.projectId)?.title ?? ''}
-          professor={professor}
-        />
-      ) : null
-    case 'contribution':
-      return cls ? (
-        <ContributionSheet
-          cls={cls}
-          rows={r.work.filter((w) => w.student_id === r.studentId)}
-          reassignments={r.reassignments.filter(
-            (x) => x.requested_by === r.studentId || x.from_student === r.studentId ||
-              x.to_student === r.studentId,
-          )}
-          professor={professor}
-        />
-      ) : null
-    case 'board':
-      return cls && r.board ? (
-        <BoardSheet
-          cls={cls}
-          board={r.board}
-          tasks={r.tasks}
-          members={r.work.filter((w) => w.board_id === r.boardId)}
-          feedback={r.feedback}
-          professor={professor}
-        />
-      ) : null
   }
 }

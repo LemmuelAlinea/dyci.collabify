@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chosenClass, parseReportKind } from './reportKind'
+import { chosenClass, legacyRedirect, parseReportKind } from './reportKind'
 
 describe('parseReportKind', () => {
   it('reads a known report', () => {
@@ -28,5 +28,27 @@ describe('chosenClass', () => {
   it('takes the class in the address, or the first', () => {
     expect(chosenClass('notes', 'c2', undefined, 'c1')).toEqual({ classId: 'c2', allClasses: false })
     expect(chosenClass('notes', null, undefined, 'c1')).toEqual({ classId: 'c1', allClasses: false })
+  })
+})
+
+describe('legacyRedirect', () => {
+  it('opens each retired sheet as its replacement, with the address it needs', () => {
+    expect(legacyRedirect('class_term')).toEqual({ report: 'formal' })
+    expect(legacyRedirect('term_summary')).toEqual({ report: 'formal', rclass: 'all' })
+    expect(legacyRedirect('coverage')).toEqual({ report: 'formal' })
+    expect(legacyRedirect('contribution')).toEqual({ report: 'grading', rproject: '' })
+    expect(legacyRedirect('class_record')).toEqual({ report: 'grading', rproject: 'all', rstudent: '' })
+    expect(legacyRedirect('comparison')).toEqual({ report: 'progress', rgroup: '' })
+    expect(legacyRedirect('board')).toEqual({ report: 'progress' })
+  })
+  it('leaves current and unknown reports alone', () => {
+    expect(legacyRedirect('grading')).toBeNull()
+    expect(legacyRedirect('toString')).toBeNull()
+    expect(legacyRedirect(null)).toBeNull()
+  })
+  it('reads a retired name as its replacement until the address changes', () => {
+    expect(parseReportKind('class_record')).toBe('grading')
+    expect(parseReportKind('board')).toBe('progress')
+    expect(parseReportKind('term_summary')).toBe('formal')
   })
 })
