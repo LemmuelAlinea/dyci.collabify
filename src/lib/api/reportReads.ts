@@ -1,5 +1,14 @@
 import { supabase } from '../supabase'
-import type { BoardDecision, DeliverableRow, MemberLoad, ReportSprint, ResultVerdict, TaskState } from '../types'
+import { addDays } from '../analyticsMath'
+import type {
+  BoardDecision,
+  DeliverableRow,
+  MemberLoad,
+  ReportEventRow,
+  ReportSprint,
+  ResultVerdict,
+  TaskState,
+} from '../types'
 import { pageAll, pageAllIn } from './paging'
 
 /**
@@ -102,4 +111,23 @@ export async function boardHistoryFor(boardIds: string[]): Promise<BoardDecision
       decided_at: r.decided_at,
       decided_by_name: r.decided_by ? names.get(r.decided_by) ?? null : null,
     }))
+}
+
+/** Every task event in the class between two Manila days, both included, oldest first. */
+export async function listTaskEvents(classId: string, range: { from: string; to: string }) {
+  const start = new Date(`${range.from}T00:00:00+08:00`).toISOString()
+  const end = new Date(`${addDays(range.to, 1)}T00:00:00+08:00`).toISOString()
+  return pageAll<ReportEventRow>(async (from, to) => {
+    const { data, error } = await supabase
+      .from('report_task_events')
+      .select('*')
+      .eq('class_id', classId)
+      .gte('at', start)
+      .lt('at', end)
+      .order('at')
+      .order('id')
+      .range(from, to)
+    if (error) throw error
+    return (data ?? []) as ReportEventRow[]
+  })
 }

@@ -1315,6 +1315,26 @@ export type DeliverableRow = {
   state: DeliverableState
 }
 
+/** report_task_events: one task event with the names an audit log prints. Staff only. */
+export type ReportEventRow = {
+  id: string
+  at: string
+  kind: TaskEventKind
+  detail: string
+  actor_id: string | null
+  /** Null when the account is gone. */
+  actor_name: string | null
+  task_id: string
+  task_title: string
+  board_id: string
+  /** The group, or the student on an individual board. */
+  board_name: string | null
+  project_id: string
+  project_title: string
+  project_archived_at: string | null
+  class_id: string
+}
+
 /** report_sprints: the analytics sprint shape, with ended projects and classes kept. */
 export type ReportSprint = SprintProgress
 
