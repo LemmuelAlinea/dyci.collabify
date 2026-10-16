@@ -198,7 +198,7 @@ export function BoardVerdict({
             )}
           </div>
 
-          {isProfessor && submitted && (
+          {isProfessor && submitted && !accepted && (
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
