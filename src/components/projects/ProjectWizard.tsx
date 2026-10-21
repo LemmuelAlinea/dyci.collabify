@@ -64,12 +64,20 @@ export function ProjectWizard({
   const [members, setMembers] = useState<SeriesMember[]>([])
   const [scope, setScope] = useState<string[]>([])
 
-  useEffect(() => {
-    if (open) setClassId(fixedClassId ?? editing?.class_id ?? '')
-  }, [open, fixedClassId, editing])
+  // The effects below read the project being edited by its values, never by the
+  // object. The project page refetches on every live change and on a 30-second
+  // poll, handing over a new object each time; keyed on that, each refetch
+  // blanked the weeks, which unmounted the form and threw away the edit.
+  const isEditing = Boolean(editing)
+  const editingClassId = editing?.class_id
+  const editingSeriesId = editing?.series_id
 
   useEffect(() => {
-    if (!open || editing) return
+    if (open) setClassId(fixedClassId ?? editingClassId ?? '')
+  }, [open, fixedClassId, editingClassId])
+
+  useEffect(() => {
+    if (!open || isEditing) return
     let live = true
     void listProfessorClasses(createdBy)
       .then((cs) => live && setMine(cs))
@@ -77,25 +85,25 @@ export function ProjectWizard({
     return () => {
       live = false
     }
-  }, [open, editing, createdBy])
+  }, [open, isEditing, createdBy])
 
   // The sections an edit could reach. Empty for a project that is not in a
   // series, which is what keeps the scope picker off an ordinary project.
   useEffect(() => {
-    if (!open || !editing) {
+    if (!open || !isEditing) {
       setMembers([])
       setScope([])
       return
     }
     let live = true
     setScope([])
-    void listSeriesMembers(editing.series_id)
+    void listSeriesMembers(editingSeriesId ?? null)
       .then((m) => live && setMembers(m))
       .catch(() => live && setMembers([]))
     return () => {
       live = false
     }
-  }, [open, editing])
+  }, [open, isEditing, editingSeriesId])
 
   useEffect(() => {
     if (!open || !classId) {
@@ -109,7 +117,7 @@ export function ProjectWizard({
     setSets([])
     // Sets are loaded for every class the professor teaches, not just this one:
     // each section of a fan-out names its own arrangement.
-    const ids = editing ? [classId] : [...new Set([classId, ...mine.map((c) => c.id)])]
+    const ids = isEditing ? [classId] : [...new Set([classId, ...mine.map((c) => c.id)])]
     void Promise.all([classWeekMap(classId), listLiveSets(ids)])
       .then(([w, s]) => {
         if (!live) return
@@ -124,7 +132,7 @@ export function ProjectWizard({
     return () => {
       live = false
     }
-  }, [open, classId, editing, mine])
+  }, [open, classId, isEditing, mine])
 
   const cls = classes.find((c) => c.id === classId) ?? mine.find((c) => c.id === classId)
 
