@@ -141,7 +141,8 @@ export function AppShell() {
                 >
                   <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-banner-ink/10 banner-fill px-4 text-banner-ink">
                     <Link to={paths.home} aria-label="Go to your dashboard">
-                      <Logo size={26} tone="onDark" showSubtitle={false} />
+                      {/* The same lockup the rail carries, at the same size. */}
+                      <Logo size={12} tone="onDark" showSubtitle={false} />
                     </Link>
                     <button
                       type="button"

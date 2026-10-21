@@ -176,7 +176,11 @@ export function SideNav({
               {collapsed ? (
                 <LogoMark size={30} tone="brand" />
               ) : (
-                <Logo size={24} tone="brand" showSubtitle={false} />
+                // 12 reads small because `size` is not pixels: Logo multiplies it
+                // by 1.85 for the mark's box, and the artwork is wider than it is
+                // tall, so 12 draws a mark 17.9 px high against the 18 px the
+                // wordmark beside it occupies. The two now match.
+                <Logo size={12} tone="brand" showSubtitle={false} />
               )}
             </Link>
           )}
