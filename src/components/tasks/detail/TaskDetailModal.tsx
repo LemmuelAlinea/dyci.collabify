@@ -89,6 +89,7 @@ export function TaskDetailModal({
       // The standard header, as the work task dialog has it.
       description={task ? stageName(stages, task) : undefined}
       size="xl"
+      headerTone="banner"
     >
       {loading && !task ? (
         <div className="flex items-center gap-3 py-10 text-[14px] text-muted">

@@ -59,6 +59,7 @@ export function TaskDialog({
       title={task?.title ?? 'Task'}
       description={task ? stageName(state.project?.stages, task) : undefined}
       size="xl"
+      headerTone="banner"
     >
       {task && <TaskBody key={task.id} state={state} taskId={task.id} onClose={onClose} />}
     </Modal>

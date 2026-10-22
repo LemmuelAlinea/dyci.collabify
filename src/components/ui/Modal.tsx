@@ -17,7 +17,8 @@ type Props = {
   bodyClassName?: string
   /** Buttons that sit beside Close, such as a full-screen toggle. */
   headerActions?: ReactNode
-  headerTone?: 'default' | 'navy'
+  /** `banner` paints the header in the person's own banner colours, as page banners are. */
+  headerTone?: 'default' | 'navy' | 'banner'
   /**
    * Open with the first field focused instead of the close button.
    *
@@ -37,6 +38,29 @@ const WIDTHS = {
   full: '',
 }
 
+/** The header's ground, title, description and Close button, per tone. */
+const TONES = {
+  default: {
+    header: 'border-line',
+    title: undefined,
+    description: 'text-muted',
+    close: 'text-faint hover:bg-[var(--surface-sunken)] hover:text-ink',
+  },
+  navy: {
+    header: 'border-white/10 bg-navy-950 text-amber-50',
+    title: 'text-amber-300',
+    description: 'text-amber-50/60',
+    close: 'text-amber-50/60 hover:bg-white/10 hover:text-amber-50',
+  },
+  // The same treatment as the phone drawer's header in AppShell.
+  banner: {
+    header: 'border-banner-ink/10 banner-fill text-banner-ink',
+    title: 'text-banner-ink',
+    description: 'text-banner-ink/65',
+    close: 'text-banner-ink/60 hover:bg-banner-ink/10 hover:text-banner-ink',
+  },
+}
+
 export function Modal({
   open,
   onClose,
@@ -51,6 +75,7 @@ export function Modal({
   headerActions,
 }: Props) {
   const full = size === 'full'
+  const tone = TONES[headerTone]
   const panel = useRef<HTMLDivElement>(null)
 
   // Callers pass an inline arrow for onClose, so it is a new function on every
@@ -178,23 +203,11 @@ export function Modal({
         }`}
       >
         <header
-          className={`flex items-start justify-between gap-4 border-b ${full ? 'px-4 py-3 sm:px-6' : 'px-6 py-5'} ${
-            headerTone === 'navy'
-              ? 'border-white/10 bg-navy-950 text-amber-50'
-              : 'border-line'
-          }`}
+          className={`flex items-start justify-between gap-4 border-b ${full ? 'px-4 py-3 sm:px-6' : 'px-6 py-5'} ${tone.header}`}
         >
           <div className="min-w-0">
-            <h2 className={headerTone === 'navy' ? 'text-amber-300' : undefined}>{title}</h2>
-            {description && (
-              <p
-                className={`mt-1 text-[13px] ${
-                  headerTone === 'navy' ? 'text-amber-50/60' : 'text-muted'
-                }`}
-              >
-                {description}
-              </p>
-            )}
+            <h2 className={tone.title}>{title}</h2>
+            {description && <p className={`mt-1 text-[13px] ${tone.description}`}>{description}</p>}
           </div>
           <div className="-mt-1 -mr-2 flex shrink-0 items-center gap-1">
           {headerActions}
@@ -202,11 +215,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition-[background-color,color,scale] duration-(--dur-press) active:scale-[0.97] ${
-              headerTone === 'navy'
-                ? 'text-amber-50/60 hover:bg-white/10 hover:text-amber-50'
-                : 'text-faint hover:bg-[var(--surface-sunken)] hover:text-ink'
-            }`}
+            className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition-[background-color,color,scale] duration-(--dur-press) active:scale-[0.97] ${tone.close}`}
           >
             <Icon name="x" size={18} />
           </button>
