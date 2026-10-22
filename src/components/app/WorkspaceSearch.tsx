@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { listProfessorClasses, listStudentClasses } from '../../lib/api/classes'
 import { listProjectsForClasses } from '../../lib/api/projects'
+import { SEARCH_MIN, searchWorkspace } from '../../lib/api/search'
+import type { SearchHits } from '../../lib/api/search'
 import { membershipOf } from '../../lib/access'
 import type { AccessProfile, Membership } from '../../lib/access'
 import { authErrorMessage } from '../../lib/authError'
@@ -126,8 +128,46 @@ export function WorkspaceSearch({ onClose }: { onClose?: () => void }) {
     if (!needle) return []
     return allResults
       .filter((result) => `${result.label} ${result.detail}`.toLowerCase().includes(needle))
-      .slice(0, 8)
+      .slice(0, 6)
   }, [allResults, query])
+
+  // Tasks, files and meetings are too many to load up front, so they are asked
+  // for once typing pauses. A reply to an older query is dropped.
+  const [hits, setHits] = useState<SearchHits | null>(null)
+  const [searching, setSearching] = useState(false)
+  useEffect(() => {
+    const q = query.trim()
+    if (!profile || q.length < SEARCH_MIN) {
+      setHits(null)
+      setSearching(false)
+      return
+    }
+    let stale = false
+    setSearching(true)
+    const timer = setTimeout(() => {
+      searchWorkspace(q)
+        .then((next) => {
+          if (!stale) setHits(next)
+        })
+        .catch(() => {
+          if (!stale) setHits({ tasks: [], files: [], meetings: [] })
+        })
+        .finally(() => {
+          if (!stale) setSearching(false)
+        })
+    }, 250)
+    return () => {
+      stale = true
+      clearTimeout(timer)
+    }
+  }, [profile, query])
+
+  const sections: { title: string; items: Result[] }[] = [
+    { title: 'Pages and places', items: results },
+    { title: 'Tasks', items: hits?.tasks.slice(0, 5) ?? [] },
+    { title: 'Files', items: hits?.files.slice(0, 5) ?? [] },
+    { title: 'Meetings', items: hits?.meetings.slice(0, 4) ?? [] },
+  ].filter((s) => s.items.length > 0)
 
   if (!profile) return null
 
@@ -166,30 +206,40 @@ export function WorkspaceSearch({ onClose }: { onClose?: () => void }) {
       />
 
       {open && query.trim() && (
-        <div className="surface absolute left-0 z-50 mt-2 max-h-80 w-full overflow-y-auto rounded-xl border border-line shadow-lift">
+        <div className="surface absolute left-0 z-50 mt-2 max-h-[min(70vh,520px)] w-full overflow-y-auto rounded-xl border border-line shadow-lift">
           {error ? (
             <p className="px-4 py-3 text-[13px] text-danger-600 dark:text-danger-300">{error}</p>
-          ) : results.length === 0 ? (
-            <p className="px-4 py-3 text-[13px] text-muted">No results.</p>
+          ) : sections.length === 0 ? (
+            <p className="px-4 py-3 text-[13px] text-muted">{searching ? 'Searching…' : 'No results.'}</p>
           ) : (
-            <ul className="py-1">
-              {results.map((result) => (
-                <li key={result.key}>
-                  <Link
-                    to={result.to}
-                    onClick={() => {
-                      setOpen(false)
-                      setQuery('')
-                      onClose?.()
-                    }}
-                    className="block px-4 py-2.5 text-[14px] hover:bg-[var(--surface-sunken)]"
-                  >
-                    <span className="block truncate font-medium text-ink">{result.label}</span>
-                    <span className="block truncate text-[12px] text-muted">{result.detail}</span>
-                  </Link>
-                </li>
+            <div className="py-1">
+              {sections.map((section) => (
+                <section key={section.title} aria-label={section.title}>
+                  <h3 className="px-4 pt-2.5 pb-1 text-[11px] font-semibold tracking-[0.06em] text-faint uppercase">
+                    {section.title}
+                  </h3>
+                  <ul>
+                    {section.items.map((result) => (
+                      <li key={result.key}>
+                        <Link
+                          to={result.to}
+                          onClick={() => {
+                            setOpen(false)
+                            setQuery('')
+                            onClose?.()
+                          }}
+                          className="block px-4 py-2 text-[14px] hover:bg-[var(--surface-sunken)]"
+                        >
+                          <span className="block truncate font-medium text-ink">{result.label}</span>
+                          <span className="block truncate text-[12px] text-muted">{result.detail}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               ))}
-            </ul>
+              {searching && <p className="px-4 py-2 text-[12px] text-faint">Searching tasks, files and meetings…</p>}
+            </div>
           )}
         </div>
       )}
