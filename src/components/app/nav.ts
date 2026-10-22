@@ -70,7 +70,7 @@ const OVERVIEW: NavGroup = {
  */
 function workGroup(groups: boolean): NavGroup {
   return {
-    title: 'Work',
+    title: 'Main',
     collapsible: true,
     items: [
       { label: 'My tasks', icon: 'check', to: paths.tasks },

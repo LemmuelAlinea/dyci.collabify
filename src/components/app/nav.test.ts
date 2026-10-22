@@ -41,15 +41,15 @@ describe('navFor', () => {
 
   it('opens a student with only classes on a Classes card, Your record under Resources', () => {
     const groups = navFor(student, true, { inClass: true, hasWork: false })
-    expect(titles(groups)).toEqual(['Classes', 'Overview', 'Work', 'Quick access', 'Resources', 'Account'])
+    expect(titles(groups)).toEqual(['Classes', 'Overview', 'Main', 'Quick access', 'Resources', 'Account'])
     expect(places(groups)?.picker).toEqual(['classes'])
     expect(section(groups, 'Resources')).toEqual(['Your record'])
-    expect(titles(navFor(student, true))).toEqual(['Classes', 'Overview', 'Work', 'Quick access', 'Resources', 'Account'])
+    expect(titles(navFor(student, true))).toEqual(['Classes', 'Overview', 'Main', 'Quick access', 'Resources', 'Account'])
   })
 
   it('adds Spaces after Classes on the card once a student is invited to some work', () => {
     const groups = navFor(student, true, { inClass: true, hasWork: true })
-    expect(titles(groups)).toEqual(['Classes & spaces', 'Overview', 'Work', 'Quick access', 'Resources', 'Account'])
+    expect(titles(groups)).toEqual(['Classes & spaces', 'Overview', 'Main', 'Quick access', 'Resources', 'Account'])
     expect(places(groups)?.picker).toEqual(['classes', 'spaces'])
     expect(spaces(groups)?.hideWhenEmpty).toBe(true)
   })
@@ -59,7 +59,7 @@ describe('navFor', () => {
     expect(titles(groups)).toEqual([
       'Classes & spaces',
       'Overview',
-      'Work',
+      'Main',
       'Quick access',
       'Teaching',
       'Resources',
@@ -73,8 +73,8 @@ describe('navFor', () => {
 
   it('opens faculty who do not teach on Spaces, with no Classes, Teaching or Groups', () => {
     const groups = navFor(nonTeacher, true)
-    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Work', 'Quick access', 'Account'])
-    expect(section(groups, 'Work')).toEqual(['My tasks', 'Projects', 'Meetings'])
+    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Main', 'Quick access', 'Account'])
+    expect(section(groups, 'Main')).toEqual(['My tasks', 'Projects', 'Meetings'])
   })
 
   it('never narrows faculty on the admission flag', () => {
@@ -94,10 +94,10 @@ describe('navFor', () => {
     expect(groups[0].items.map((i) => i.label)).toEqual(['Home', 'Inbox'])
   })
 
-  it('splits the spine into Overview and Work', () => {
+  it('splits the spine into Overview and Main', () => {
     const groups = navFor(student, true)
     expect(section(groups, 'Overview')).toEqual(['Home', 'Inbox', 'Calendar'])
-    expect(section(groups, 'Work')).toEqual(['My tasks', 'Projects', 'Groups', 'Meetings'])
+    expect(section(groups, 'Main')).toEqual(['My tasks', 'Projects', 'Groups', 'Meetings'])
   })
 
   it('calls the conversations page Inbox for everyone', () => {
@@ -109,12 +109,12 @@ describe('navFor', () => {
 
   it('gives an admin in work the non-teaching faculty rail with Admin, and never Classes', () => {
     const groups = navFor(admin, true, { inClass: false, hasWork: true })
-    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Work', 'Quick access', 'Admin', 'Account'])
+    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Main', 'Quick access', 'Admin', 'Account'])
   })
 
   it('lists an admin\'s classes under Spaces once one invites them', () => {
     const groups = navFor(admin, true, { inClass: true, hasWork: false })
-    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Work', 'Quick access', 'Admin', 'Account'])
+    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Main', 'Quick access', 'Admin', 'Account'])
     expect(spaces(groups)?.withClasses).toBe(true)
   })
 
