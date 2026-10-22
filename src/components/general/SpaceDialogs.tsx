@@ -15,8 +15,6 @@ import { ClassForm } from '../classes/ClassForm'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Field'
-import { Icon } from '../ui/Icon'
-import type { IconName } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
@@ -47,18 +45,16 @@ export function NewSpaceDialog({
   open: boolean
   onClose: () => void
   onCreated?: () => void | Promise<void>
-  /** Skip the choice and open straight at this kind. */
+  /** `education` opens the class form (Create class). Anything else makes a work space. */
   initialKind?: SpaceKind
 }) {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const { show } = useToast()
-  const teaching = canTeach(profile)
-  // Only faculty who teach choose; everyone else can only make a work space.
-  const startKind: SpaceKind | null = teaching ? (initialKind ?? null) : 'work'
-  const choosing = teaching && !initialKind
+  // Classes have their own Create class, so Create space always makes a work
+  // space. Only faculty who teach can open the class form.
+  const kind: SpaceKind = canTeach(profile) && initialKind === 'education' ? 'education' : 'work'
 
-  const [kind, setKind] = useState<SpaceKind | null>(startKind)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [syllabi, setSyllabi] = useState<TeachingResource[]>([])
@@ -71,10 +67,8 @@ export function NewSpaceDialog({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!open) return
-    setKind(startKind)
-    setError(null)
-  }, [open, startKind])
+    if (open) setError(null)
+  }, [open])
 
   useEffect(() => {
     if (!open || kind !== 'education' || !profile) return
@@ -100,11 +94,6 @@ export function NewSpaceDialog({
         // The dropdowns simply stay empty; making the class does not depend on them.
       })
   }, [open, kind, profile])
-
-  function pick(next: SpaceKind | null) {
-    setError(null)
-    setKind(next)
-  }
 
   async function createWork(event: FormEvent) {
     event.preventDefault()
@@ -159,46 +148,6 @@ export function NewSpaceDialog({
     }
   }
 
-  const back = choosing ? (
-    <Button variant="ghost" onClick={() => pick(null)} disabled={busy}>
-      Back
-    </Button>
-  ) : null
-
-  if (kind === null) {
-    return (
-      <Modal
-        open={open}
-        onClose={onClose}
-        title="Create space"
-        description="Choose what the space is for. A space keeps its kind."
-        size="sm"
-        footer={
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-        }
-      >
-        <div className="grid gap-3">
-          <KindOption
-            icon="folder"
-            tone="education"
-            title="Education"
-            body="A class. Students join with its code, and it has syllabus weeks, groups, projects and grading."
-            onPick={() => pick('education')}
-          />
-          <KindOption
-            icon="kanban"
-            tone="work"
-            title="Work"
-            body="Projects, teams and reports for anything that isn't a class."
-            onPick={() => pick('work')}
-          />
-        </div>
-      </Modal>
-    )
-  }
-
   if (kind === 'education') {
     return (
       <Modal
@@ -209,7 +158,6 @@ export function NewSpaceDialog({
         size="lg"
         footer={
           <>
-            {back}
             <Button variant="ghost" onClick={onClose} disabled={busy}>
               Cancel
             </Button>
@@ -278,7 +226,6 @@ export function NewSpaceDialog({
       focusField
       footer={
         <>
-          {back}
           <Button variant="ghost" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
@@ -320,43 +267,6 @@ export function NewSpaceDialog({
         </Field>
       </form>
     </Modal>
-  )
-}
-
-/** One kind of space to pick, badged the way the sidebar badges it. */
-function KindOption({
-  icon,
-  tone,
-  title,
-  body,
-  onPick,
-}: {
-  icon: IconName
-  tone: SpaceKind
-  title: string
-  body: string
-  onPick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      className="flex w-full items-start gap-3 rounded-card border border-line p-4 text-left transition-colors hover:border-line-strong"
-    >
-      <span
-        className={`grid size-9 shrink-0 place-items-center rounded-lg ${
-          tone === 'education'
-            ? 'bg-warning-400/18 text-warning-700 dark:text-warning-300'
-            : 'surface-sunken text-muted'
-        }`}
-      >
-        <Icon name={icon} size={17} />
-      </span>
-      <span>
-        <span className="block text-[14px] font-medium text-ink">{title}</span>
-        <span className="mt-0.5 block text-[13px] text-muted">{body}</span>
-      </span>
-    </button>
   )
 }
 
