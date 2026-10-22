@@ -1249,3 +1249,21 @@ html.has-modal .app-ui:not([role='menu']) {
     outline-color: transparent;
   }
 }
+
+/*
+ * The theme switch (ThemeToggle): the new theme grows out of the button as a
+ * circle over the old one. The old photograph holds still underneath instead of
+ * the default cross-fade, and ThemeToggle animates the new one's clip-path.
+ * While it runs, colour transitions are off, so the new photograph is taken in
+ * the new colours rather than halfway through fading into them.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
