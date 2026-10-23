@@ -61,9 +61,10 @@ begin
   perform pg_temp.act_as_service();
   insert into public.general_members (project_id, user_id, level)
   values (proj.id, manager_id, 'manager'), (proj.id, member_id, 'member');
-  -- Somebody in the same space who is on neither project.
+  -- A co-Owner of the same space who is on neither project. Only the space's
+  -- Owners read projects they are not on (project-visibility.sql).
   insert into public.general_space_members (space_id, user_id, level)
-  values (proj.space_id, neighbour, 'member')
+  values (proj.space_id, neighbour, 'owner')
   on conflict do nothing;
   insert into public.general_tasks (project_id, title, created_by)
   values (proj.id, 'A task', owner_id) returning id into task_id;
@@ -75,7 +76,7 @@ begin
   -------------------------------------------------- before archiving
   perform pg_temp.act_as(neighbour);
   select count(*) into n from public.general_project_overview where id = proj.id;
-  perform pg_temp.ok('a live project is readable across its space', n = 1);
+  perform pg_temp.ok('a live project is readable by the space''s Owners', n = 1);
 
   -------------------------------------------------- archived
   perform pg_temp.act_as(owner_id);
@@ -118,7 +119,7 @@ begin
   perform pg_temp.ok('restoring clears who archived it', proj.archived_by is null);
   perform pg_temp.act_as(neighbour);
   select count(*) into n from public.general_project_overview where id = proj.id;
-  perform pg_temp.ok('a restored project is back for the whole space', n = 1);
+  perform pg_temp.ok('a restored project is back for the space''s Owners', n = 1);
 
   -------------------------------------------------- deleting
   perform pg_temp.act_as(owner_id);

@@ -308,16 +308,18 @@ declare
   v_staff   uuid := (select v from fx where k = 'staff');
   v_space   uuid := (select v from fx where k = 'space');
   v_project uuid := (select v from fx where k = 'project');
-  v_space_code   text;
   v_project_code text;
 begin
   perform pg_temp.act_as(v_staff);
-  v_space_code := public.set_general_space_join_code(v_space, true, true);
+  -- Space codes are retired (project-visibility.sql): people enter a space
+  -- through its projects.
+  perform pg_temp.must_refuse('a space join code cannot be opened',
+    format('select public.set_general_space_join_code(%L, true, true)', v_space));
   v_project_code := public.set_general_join_code(v_project, true, true);
 
   perform pg_temp.act_as(v_student);
   perform pg_temp.must_refuse('a student cannot join a work space by code',
-    format('select public.join_general_space(%L)', v_space_code));
+    $q$select public.join_general_space('ZZNOCODE')$q$);
   -- Project roles (project-roles.sql): students use project codes, as members.
   perform pg_temp.must_allow('a student joins a work-space project by code',
     format('select public.join_general_project(%L)', v_project_code));
@@ -326,10 +328,14 @@ begin
     (select role = 'member' and level = 'member' from public.general_members
       where project_id = v_project and user_id = v_student));
 
+  perform pg_temp.must_be('...and is in its space, as a member',
+    (select level = 'member' from public.general_space_members
+      where space_id = v_space and user_id = v_student));
+
   perform pg_temp.act_as(v_teacher);
-  perform pg_temp.must_allow('a member joins a work space by code',
-    format('select public.join_general_space(%L)', v_space_code));
-  perform pg_temp.must_allow('...and a project by code',
+  perform pg_temp.must_refuse('a member cannot join a work space by code either',
+    $q$select public.join_general_space('ZZNOCODE')$q$);
+  perform pg_temp.must_allow('...but joins a project by code',
     format('select public.join_general_project(%L)', v_project_code));
 end $$;
 
@@ -344,15 +350,15 @@ declare
   v_project  uuid := (select v from fx where k = 'project');
   v_inv      uuid;
 begin
+  -- Work-space invites are for co-owners with Project manager turned on
+  -- (project-visibility.sql); the student came in through a project above.
   perform pg_temp.act_as(v_staff);
-  v_inv := (public.invite_to_general_space(v_space, v_student)).id;
+  perform pg_temp.must_refuse('a project manager cannot invite a student into a work space',
+    format('select public.invite_to_general_space(%L, %L)', v_space, v_student2));
   perform pg_temp.act_as(v_student);
-  perform public.respond_general_space_invitation(v_inv, true);
-  perform pg_temp.must_be('a student let into a space is admitted', public.am_i_admitted());
+  perform pg_temp.must_be('a student let into a space through a project is admitted',
+    public.am_i_admitted());
   perform pg_temp.act_as_service();
-  perform pg_temp.must_be('a project manager invites a student into a work space, as a member',
-    (select level = 'member' from public.general_space_members
-      where space_id = v_space and user_id = v_student));
 
   perform pg_temp.act_as(v_staff);
   perform pg_temp.must_refuse('a student cannot be made a Manager of a space',
@@ -487,9 +493,18 @@ begin
   values (v_space, v_student3, 'owner');
 
   perform pg_temp.act_as(v_student3);
+  -- The RPC refuses first now: a work-space invitee needs Project manager.
   perform pg_temp.must_refuse_with('a grandfathered student Owner still cannot invite a student',
     format('select public.invite_to_general_space(%L, %L)', v_space, v_student2),
+    'Only people with Project manager turned on can co-own a space');
+  -- So prove the trigger on its own: insert as postgres (no RLS) with the
+  -- student Owner's claims.
+  perform set_config('role', 'none', true);
+  perform pg_temp.must_refuse_with('...and the invite trigger on its own refuses it too',
+    format($q$insert into public.general_space_invitations (space_id, invitee, invited_by)
+              values (%L, %L, %L)$q$, v_space, v_student2, v_student3),
     'Only project managers and teachers can invite a student');
+  perform pg_temp.act_as_service();
 end $$;
 
 -- ------------------------------------------------------------------ anonymous callers

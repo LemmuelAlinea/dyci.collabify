@@ -94,9 +94,11 @@ begin
 
   perform pg_temp.act_as(prof);
   space := public.create_general_space('zz Meeting space', '');
-  code := public.set_general_space_join_code(space.id, true);
-  perform pg_temp.act_as(worker);
-  perform public.join_general_space(code);
+  -- Space codes are retired (project-visibility.sql); seat the worker as a
+  -- plain space member directly.
+  perform pg_temp.act_as_service();
+  insert into public.general_space_members (space_id, user_id, level)
+  values (space.id, worker, 'member');
   perform pg_temp.act_as(prof);
   team := public.create_general_space_team(space.id, 'zz Crew', '', array[worker]);
   project := public.create_general_project('zz Meeting project', '', null, null, null, null, space.id, team.id);

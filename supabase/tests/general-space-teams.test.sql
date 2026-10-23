@@ -58,9 +58,11 @@ begin
   space := public.create_general_space('Production space', '');
   other := public.create_general_space('Other space', '');
 
-  code := public.set_general_space_join_code(space.id, true);
-  perform pg_temp.act_as(teammate_id);
-  perform public.join_general_space(code);
+  -- Space codes are retired (project-visibility.sql); seat the teammate as a
+  -- plain space member directly.
+  perform set_config('role', 'none', true);
+  insert into public.general_space_members (space_id, user_id, level)
+  values (space.id, teammate_id, 'member');
   perform pg_temp.act_as(owner_id);
 
   team := public.create_general_space_team(space.id, 'Writers', 'Reusable writing team', array[teammate_id]);

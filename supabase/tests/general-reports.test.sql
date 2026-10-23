@@ -77,7 +77,7 @@ begin
   insert into public.general_members (project_id, user_id, level)
   values (proj.id, pmgr_id, 'manager'), (proj.id, member_id, 'member'), (proj.id, leaver, 'member');
   insert into public.general_space_members (space_id, user_id, level)
-  values (proj.space_id, viewer_id, 'member'), (proj.space_id, smgr_id, 'manager'),
+  values (proj.space_id, viewer_id, 'member'), (proj.space_id, smgr_id, 'owner'),
          (proj.space_id, member_id, 'member'), (proj.space_id, pmgr_id, 'member')
   on conflict do nothing;
 
@@ -107,7 +107,7 @@ begin
   -------------------------------------------------- who is a lead
   perform pg_temp.ok('a project Owner is a lead', public.general_report_is_lead(proj.id));
   perform pg_temp.act_as(smgr_id);
-  perform pg_temp.ok('a space Manager is a lead in every project of the space',
+  perform pg_temp.ok('a space Owner is a lead in every project of the space',
                      public.general_report_is_lead(proj.id) and public.general_report_is_lead(proj2.id));
   perform pg_temp.act_as(member_id);
   perform pg_temp.ok('a project Member is not a lead', not public.general_report_is_lead(proj.id));
@@ -129,7 +129,20 @@ begin
   select count(*) into n
     from public.general_report_people(proj.space_id, array[proj.id], v_from, v_to)
    where user_id = member_id and name is not null;
-  perform pg_temp.ok('a space Manager sees names in a project they are not on', n = 1);
+  perform pg_temp.ok('a space Owner sees names in a project they are not on', n = 1);
+
+  -- A space Manager is neither a lead nor a reader of projects they are not on.
+  perform pg_temp.act_as_service();
+  update public.general_space_members set level = 'manager'
+   where space_id = proj.space_id and user_id = smgr_id;
+  perform pg_temp.act_as(smgr_id);
+  perform pg_temp.ok('a space Manager is not a lead: only Owners see every project',
+                     not public.general_report_is_lead(proj.id));
+  select count(*) into n from public.general_report_scope(proj.space_id);
+  perform pg_temp.ok('...and gets no project they are not on', n = 0);
+  perform pg_temp.act_as_service();
+  update public.general_space_members set level = 'owner'
+   where space_id = proj.space_id and user_id = smgr_id;
 
   -------------------------------------------------- member sees only themselves
   perform pg_temp.act_as(member_id);
@@ -156,10 +169,12 @@ begin
   perform pg_temp.ok('a member''s task table holds only their tasks', n = 1);
 
   -------------------------------------------------- space-only viewer
+  -- A plain space member not on the project reads none of it
+  -- (project-visibility.sql).
   perform pg_temp.act_as(viewer_id);
-  select tasks_total into n
+  select count(*) into n
     from public.general_report_summary(proj.space_id, array[proj.id], v_from, v_to);
-  perform pg_temp.ok('a space-only viewer gets totals', n = 2);
+  perform pg_temp.ok('a space-only viewer gets no totals', n = 0);
   select count(*) into n
     from public.general_report_people(proj.space_id, array[proj.id], v_from, v_to)
    where name is not null;

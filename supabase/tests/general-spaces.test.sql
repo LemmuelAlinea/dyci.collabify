@@ -1,7 +1,9 @@
 -- Spaces: what a space member may read, and everything they may not do.
 --
--- The whole design is one split — read widens to the space, write stays on the
--- project — so most of this file is the negative half of it.
+-- A plain space member reads the space, not its projects: a work project is
+-- read by its members and by the space's Owners (project-visibility.sql).
+-- Writes stay on the project. Space codes are retired and space invites are
+-- for co-owners, so most of this file is the negative half of it.
 --
 -- Rolls back; nothing here survives.
 begin;
@@ -65,38 +67,41 @@ begin
   insert into public.general_tasks (project_id, title, created_by)
   values (proj.id, 'Write chapter 1', owner_id) returning id into task;
 
-  -- The watcher joins the SPACE by code, and never the project.
-  code := public.set_general_space_join_code(space.id, true);
-  perform pg_temp.ok('an Owner can open a join code', code is not null and length(code) = 8);
+  -- Space codes are retired: opening one is refused.
+  begin
+    code := public.set_general_space_join_code(space.id, true);
+    perform pg_temp.ok('an Owner cannot open a space join code', false);
+  exception when check_violation then
+    perform pg_temp.ok('an Owner cannot open a space join code', true);
+  end;
 
+  -- The watcher is a plain member of the SPACE (as from an older code or
+  -- invite), and never on the project.
+  perform set_config('role', 'none', true);
+  insert into public.general_space_members (space_id, user_id, level)
+  values (space.id, watcher_id, 'member');
   perform pg_temp.act_as(watcher_id);
-  joined := public.join_general_space(code);
-  perform pg_temp.ok('a correct code joins the space', joined = space.id);
-  perform pg_temp.ok('joining a space does not join its projects',
+  perform pg_temp.ok('the watcher is in the space',
+    exists (select 1 from public.general_spaces where id = space.id));
+  perform pg_temp.ok('being in a space does not join its projects',
     not exists (select 1 from public.general_members
                  where project_id = proj.id and user_id = watcher_id));
 
-  ------------------------------------------------------------------ the widening
+  ------------------------------------------------------------------ no widening
   select count(*) into n from public.general_projects where id = proj.id;
-  perform pg_temp.ok('a space member reads a project they are not on', n = 1);
+  perform pg_temp.ok('a plain space member does not read a project they are not on', n = 0);
 
   select count(*) into n from public.general_tasks where project_id = proj.id;
-  perform pg_temp.ok('...and its tasks', n = 1);
+  perform pg_temp.ok('...nor its tasks', n = 0);
 
   select count(*) into n from public.general_members where project_id = proj.id;
-  perform pg_temp.ok('...and who is on it', n = 1);
+  perform pg_temp.ok('...nor who is on it', n = 0);
 
   select count(*) into n from public.general_project_overview where id = proj.id;
-  perform pg_temp.ok('...and the overview view, which is security_invoker', n = 1);
+  perform pg_temp.ok('...nor the overview view, which is security_invoker', n = 0);
 
-  -- The client half of the same change: a space member holds no level on the
-  -- project, so anything reading my_level has to treat null as no permissions.
-  perform pg_temp.ok('...where their level on the project is null',
-    (select my_level from public.general_project_overview where id = proj.id) is null);
-  perform pg_temp.ok('...and the join code is still withheld',
-    (select join_code from public.general_project_overview where id = proj.id) is null);
-  perform pg_temp.ok('...while the progress figures are real',
-    (select task_count from public.general_project_overview where id = proj.id) = 1);
+  perform pg_temp.ok('...and the space overview counts no project for them',
+    (select project_count from public.general_space_overview where id = space.id) = 0);
 
   ------------------------------------------------------------------ but writes nothing
   begin
@@ -108,16 +113,16 @@ begin
   end;
 
   update public.general_tasks set title = 'Renamed by a watcher' where id = task;
-  perform pg_temp.ok('a space member cannot rename a task',
-    (select title from public.general_tasks where id = task) = 'Write chapter 1');
+  get diagnostics n = row_count;
+  perform pg_temp.ok('a space member cannot rename a task', n = 0);
 
   update public.general_projects set name = 'Renamed by a watcher' where id = proj.id;
-  perform pg_temp.ok('a space member cannot rename the project',
-    (select name from public.general_projects where id = proj.id) = 'Capstone');
+  get diagnostics n = row_count;
+  perform pg_temp.ok('a space member cannot rename the project', n = 0);
 
   delete from public.general_tasks where id = task;
-  perform pg_temp.ok('a space member cannot delete a task',
-    exists (select 1 from public.general_tasks where id = task));
+  get diagnostics n = row_count;
+  perform pg_temp.ok('a space member cannot delete a task', n = 0);
 
   begin
     insert into public.general_members (project_id, user_id, level)
@@ -136,8 +141,12 @@ begin
   select count(*) into n from public.profiles where id = owner_id;
   perform pg_temp.ok('a space member cannot read a project member''s profile row', n = 0);
 
-  select count(*) into n from public.list_general_project_members(proj.id);
-  perform pg_temp.ok('...but the members list RPC still names them', n = 1);
+  begin
+    perform public.list_general_project_members(proj.id);
+    perform pg_temp.ok('...nor list the project''s members', false);
+  exception when insufficient_privilege then
+    perform pg_temp.ok('...nor list the project''s members', true);
+  end;
 
   ------------------------------------------------------------------ a stranger
   perform pg_temp.act_as(stranger_id);
@@ -208,18 +217,20 @@ begin
       where project_id = p2.id and user_id = watcher_id) = 'owner');
   perform pg_temp.act_as(owner_id);
   select count(*) into n from public.general_projects where id = p2.id;
-  perform pg_temp.ok('...which everyone else in the space can now read', n = 1);
+  perform pg_temp.ok('...which the space''s Owner can read', n = 1);
 
-  ------------------------------------------------------------------ join code misses
+  ------------------------------------------------------------------ space codes
   perform pg_temp.act_as(stranger_id);
-  perform pg_temp.ok('a wrong code is a miss, not an error',
-                     public.join_general_space('ZZZZZZZZ') is null);
+  begin
+    joined := public.join_general_space('ZZZZZZZZ');
+    perform pg_temp.ok('joining a space by code is refused', false);
+  exception when check_violation then
+    perform pg_temp.ok('joining a space by code is refused', true);
+  end;
 
   perform pg_temp.act_as(owner_id);
   perform public.set_general_space_join_code(space.id, false);
-  perform pg_temp.act_as(stranger_id);
-  perform pg_temp.ok('a closed code no longer joins',
-                     public.join_general_space(code) is null);
+  perform pg_temp.ok('closing a space code still works', true);
 
   ------------------------------------------------------------------ the last Owner
   perform pg_temp.act_as(owner_id);
@@ -265,9 +276,14 @@ begin
   perform public.respond_general_space_invitation(
     (select id from public.general_space_invitations
       where space_id = other.id and invitee = stranger_id), true);
-  perform pg_temp.ok('accepting an invitation joins the space',
-    exists (select 1 from public.general_space_members
-             where space_id = other.id and user_id = stranger_id));
+  perform pg_temp.ok('accepting an invitation joins the space as an Owner',
+    (select level from public.general_space_members
+      where space_id = other.id and user_id = stranger_id) = 'owner');
+
+  -- Make them a plain Member for the checks below.
+  perform pg_temp.act_as(watcher_id);
+  perform public.set_general_space_level(other.id, stranger_id, 'member');
+  perform pg_temp.act_as(stranger_id);
 
   begin
     perform public.invite_to_general_space(other.id, owner_id);
@@ -283,14 +299,22 @@ begin
     perform pg_temp.ok('a Member cannot rename the space', true);
   end;
 
-  -- A Manager invites but does not rename.
+  -- A Manager neither invites (only Owners invite co-owners) nor renames.
   perform pg_temp.act_as(watcher_id);
   perform public.set_general_space_level(other.id, stranger_id, 'manager');
   perform pg_temp.act_as(stranger_id);
+  begin
+    perform public.invite_to_general_space(other.id, owner_id);
+    perform pg_temp.ok('a Manager cannot invite', false);
+  exception when insufficient_privilege then
+    perform pg_temp.ok('a Manager cannot invite', true);
+  end;
+  perform pg_temp.act_as(watcher_id);
   perform public.invite_to_general_space(other.id, owner_id);
-  perform pg_temp.ok('a Manager can invite',
+  perform pg_temp.ok('...while an Owner can',
     exists (select 1 from public.general_space_invitations
              where space_id = other.id and invitee = owner_id and status = 'pending'));
+  perform pg_temp.act_as(stranger_id);
   begin
     perform public.update_general_space(other.id, 'Renamed', '');
     perform pg_temp.ok('a Manager still cannot rename the space', false);
