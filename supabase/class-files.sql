@@ -1,4 +1,7 @@
 -- Collabify — a class project's Files: the same repository a work project has,
+--
+-- company-accounts.sql is the final owner of guard_general_creator.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
 -- one per group board.
 --
 --   node scripts/db.mjs supabase/class-files.sql

@@ -17,7 +17,7 @@ npm run dev          # http://localhost:5173
 npm run build        # tsc -b && vite build
 npm run typecheck
 node scripts/db.mjs supabase/schema.sql
-node scripts/set-role.mjs <email> <role> [status]
+node scripts/set-role.mjs <email> <student|member|admin> [status]
 ```
 
 Run `npm run build` before claiming anything works — `tsc -b` runs first and catches
@@ -70,8 +70,10 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
 
 ## Security invariants
 
-- `role` and `status` are only changeable by an admin — enforced by the
-  `profiles_guard_privileged` trigger, not just by UI.
+- `role`, `status`, `can_teach` and `can_manage_projects` are only changeable by an
+  admin — enforced by the `profiles_guard_privileged` trigger, not just by UI. Its final
+  copy lives in `supabase/company-accounts.sql`; re-run that file after any earlier one
+  that redefines the guard (see `docs/07-backup.md`).
 - `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_DB_URL` never appear in frontend code, in
   Vercel, or in any committed file.
 - Avatar uploads are scoped to `avatars/<user-id>/…` by storage policy.

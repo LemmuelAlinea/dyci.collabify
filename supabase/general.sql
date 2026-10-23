@@ -1,5 +1,8 @@
 -- Collabify — the General workplace: projects anybody at the school runs.
 --
+-- company-accounts.sql is the final owner of join_general_project.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
+--
 --   node scripts/db.mjs supabase/general.sql
 --
 -- Separate tables from Education on purpose. A class project is fenced by

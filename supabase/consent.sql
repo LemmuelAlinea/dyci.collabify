@@ -1,4 +1,7 @@
 -- Collabify — what a person agreed to, and when.
+--
+-- company-accounts.sql is the final owner of handle_new_user.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
 -- Idempotent: safe to run repeatedly.
 --
 --   node scripts/db.mjs supabase/consent.sql

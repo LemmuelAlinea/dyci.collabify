@@ -1,4 +1,7 @@
 -- Collabify — the third role is called `admin`, not `superadmin`.
+--
+-- company-accounts.sql is the final owner of guard_privileged_columns.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
 -- Idempotent: safe to run repeatedly.
 -- Run with:  node scripts/db.mjs supabase/admin-rename.sql
 

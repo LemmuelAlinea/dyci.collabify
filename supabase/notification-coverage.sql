@@ -1,5 +1,8 @@
 -- Collabify — notifications for everything that was silent.
 --
+-- company-accounts.sql is the final owner of class_teacher_ids.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
+--
 --   node scripts/db.mjs supabase/notification-coverage.sql
 --
 -- Before this file, being invited to a space, handing work in, asking for a

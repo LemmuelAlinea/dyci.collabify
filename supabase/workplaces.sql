@@ -1,5 +1,9 @@
 -- Collabify — nullable Education role guards.
 --
+-- company-accounts.sql is the final owner of guard_privileged_columns,
+-- guard_profile_insert, handle_new_user.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
+--
 --   node scripts/db.mjs supabase/workplaces.sql
 --
 -- `role` becomes nullable: null means the account has not entered Education.

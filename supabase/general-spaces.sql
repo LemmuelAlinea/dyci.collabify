@@ -1,5 +1,8 @@
 -- Spaces: the container a General project lives in.
 --
+-- company-accounts.sql is the final owner of join_general_space.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
+--
 -- General projects were a flat list. A space holds projects, and everything a
 -- project already holds stays exactly where it is — this file adds a level
 -- above a project and changes nothing inside one.

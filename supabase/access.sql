@@ -1,5 +1,13 @@
 -- Collabify — admission-gated access. One workplace, phase 1.
 --
+-- company-accounts.sql is the final owner of guard_privileged_columns,
+-- guard_profile_insert, handle_new_user, log_profile_change,
+-- is_teaching_faculty, am_i_admitted, guard_general_creator,
+-- guard_student_invite, guard_student_level, join_general_project,
+-- join_general_space, set_account_role, set_faculty_teaching,
+-- professor_accounts, and drops is_faculty and decide_faculty.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
+--
 --   node scripts/db.mjs supabase/access.sql
 --
 -- Nobody does anything until somebody admits them. The admin admits faculty

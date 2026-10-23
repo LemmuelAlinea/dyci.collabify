@@ -1,4 +1,7 @@
 -- Collabify — which teaching faculty each section is assigned to.
+--
+-- company-accounts.sql is the final owner of set_section_faculty.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
 -- Idempotent: safe to run repeatedly.
 --
 --   node scripts/db.mjs supabase/section-faculty.sql

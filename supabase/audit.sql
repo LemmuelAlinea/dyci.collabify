@@ -1,4 +1,7 @@
 -- Collabify — a record of who changed somebody's access, and when.
+--
+-- company-accounts.sql is the final owner of log_profile_change.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
 -- Idempotent: safe to run repeatedly.
 -- Run with:  node scripts/db.mjs supabase/audit.sql
 

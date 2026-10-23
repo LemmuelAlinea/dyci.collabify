@@ -1,4 +1,8 @@
 -- Collabify — phase 1 schema (profiles, notification prefs, avatars, RLS).
+--
+-- company-accounts.sql is the final owner of guard_privileged_columns,
+-- handle_new_user.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
 -- Idempotent: safe to run repeatedly.
 -- Run with:  node scripts/db.mjs supabase/schema.sql
 

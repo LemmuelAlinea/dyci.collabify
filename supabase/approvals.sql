@@ -1,4 +1,7 @@
 -- Collabify — the program admin verifies faculty before they get advisers' tools.
+--
+-- company-accounts.sql is the final owner of professor_accounts.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
 -- Idempotent: safe to run repeatedly.
 -- Run with:  node scripts/db.mjs supabase/approvals.sql
 

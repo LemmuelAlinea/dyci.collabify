@@ -222,6 +222,20 @@ student, group, project and author names, for the Intervention log report. Re-ru
 
 `report-events.sql` runs after `report-deliverables.sql`. It holds `report_task_events` (every task event with its task, group or student, project and actor; staff-only, ended classes kept) for the Activity log, and an index on `task_events (at)`.
 
+`company-accounts.sql` runs last of the list. It is the final owner of every function it
+redefines — the account guards (`guard_privileged_columns`, which keeps `role`, `status`,
+`can_teach` and `can_manage_projects` admin-only), `handle_new_user`, the teaching and
+space helpers — and it drops `is_faculty` and `decide_faculty`. Re-run
+`company-accounts.sql` (then `anon-lockdown.sql`) after re-running any of `access.sql`,
+`accounts.sql`, `admin-invitable.sql`, `admin-rename.sql`, `approvals.sql`, `audit.sql`,
+`class-files.sql`, `consent.sql`, `general.sql`, `general-spaces.sql`, `meetings.sql`,
+`messages.sql`, `notification-coverage.sql`, `one-workplace.sql`, `schema.sql`,
+`section-faculty.sql` or `workplaces.sql`. Each holds an older copy of one of those
+functions or views: re-running `access.sql` alone lets anybody switch on their own
+`can_manage_projects`; `access.sql`, `class-files.sql`, `one-workplace.sql` and
+`admin-invitable.sql` put back bodies that call the dropped `is_faculty`; the rest put
+back copies from before the Member account type.
+
 `anon-lockdown.sql` runs last and takes EXECUTE on every public function away
 from the signed-out role, keeping signed-in access as it was. Re-run it after
 adding or redefining any function; `supabase/tests/anon-lockdown.test.sql`

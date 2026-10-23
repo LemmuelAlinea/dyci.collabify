@@ -1,5 +1,8 @@
 -- Collabify — admins can be invited, classes included.
 --
+-- company-accounts.sql is the final owner of search_faculty.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
+--
 --   node scripts/db.mjs supabase/admin-invitable.sql
 --
 -- An admin has no classes, spaces or projects of their own, but anyone may

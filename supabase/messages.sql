@@ -1,4 +1,7 @@
 -- Collabify — messages: class chats, group chats, professor↔student direct threads.
+--
+-- company-accounts.sql is the final owner of start_direct_conversation.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
 -- Idempotent: safe to run repeatedly.
 -- Run with:  node scripts/db.mjs supabase/messages.sql
 

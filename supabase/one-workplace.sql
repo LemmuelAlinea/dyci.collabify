@@ -1,5 +1,10 @@
 -- Collabify — one workplace, phase 2: every class is a space.
 --
+-- company-accounts.sql is the final owner of teaches_in_space,
+-- start_direct_conversation, search_faculty, guard_class_space_member,
+-- guard_class_space_side.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
+--
 --   node scripts/db.mjs supabase/one-workplace.sql
 --
 -- A class keeps being the thing a professor creates, edits, archives and

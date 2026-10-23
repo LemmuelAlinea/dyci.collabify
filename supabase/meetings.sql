@@ -1,4 +1,7 @@
 -- Collabify — meetings: a Zoom or Google Meet link, a time and an audience.
+--
+-- company-accounts.sql is the final owner of meeting_audience.
+-- Re-run it, then anon-lockdown.sql, after re-running this file on its own.
 -- Idempotent: safe to run repeatedly.
 --
 --   node scripts/db.mjs supabase/meetings.sql
