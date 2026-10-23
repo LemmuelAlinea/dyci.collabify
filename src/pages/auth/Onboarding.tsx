@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Field, Input } from '../../components/ui/Field'
 import { Alert } from '../../components/ui/Alert'
 import { RoleChoice } from '../../components/ui/RoleChoice'
+import type { Choice } from '../../components/ui/RoleChoice'
 import { ConsentChecks } from '../../components/legal/ConsentChecks'
 import { allConsented, emptyConsent } from '../../lib/legal'
 import type { ConsentState } from '../../lib/legal'
@@ -14,7 +15,6 @@ import { authErrorMessage } from '../../lib/authError'
 import { joinPath, pendingJoin } from '../../lib/pendingJoin'
 import { homeFor } from '../../lib/access'
 import { paths } from '../../lib/paths'
-import type { Role } from '../../lib/types'
 
 /**
  * Google sign-in carries no role, so first-time OAuth users finish their
@@ -34,7 +34,7 @@ export default function Onboarding() {
   const meta = user?.user_metadata ?? {}
   const guessed = String(meta.full_name ?? meta.name ?? '').trim().split(/\s+/)
 
-  const [role, setRole] = useState<Exclude<Role, 'admin'>>('student')
+  const [role, setRole] = useState<Choice>('student')
   const [firstName, setFirstName] = useState(guessed[0] ?? '')
   const [middleName, setMiddleName] = useState('')
   const [lastName, setLastName] = useState(guessed.length > 1 ? guessed[guessed.length - 1] : '')
@@ -62,9 +62,7 @@ export default function Onboarding() {
         role,
       })
       const waiting = role === 'student' ? pendingJoin() : null
-      navigate(waiting ? joinPath(waiting) : role === 'faculty' ? '/pending' : paths.home, {
-        replace: true,
-      })
+      navigate(waiting ? joinPath(waiting) : paths.home, { replace: true })
     } catch (err) {
       setError(authErrorMessage(err, 'Could not finish setting up your account.'))
     } finally {
@@ -81,12 +79,7 @@ export default function Onboarding() {
         {error && <Alert tone="error">{error}</Alert>}
 
         <RoleChoice value={role} onChange={setRole} />
-        {role === 'faculty' ? (
-          <Alert tone="info">
-            The program admin reviews faculty accounts. You can sign in straight away, and your
-            tools open once you are approved.
-          </Alert>
-        ) : (
+        {role === 'student' && (
           <Alert tone="info">
             Your classes open once you join one with the code a faculty member gives you.
           </Alert>

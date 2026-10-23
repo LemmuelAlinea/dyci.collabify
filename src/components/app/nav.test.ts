@@ -12,10 +12,16 @@ const spaces = (groups: NavGroup[]) => groups.find((g) => g.picker?.includes('sp
 const section = (groups: NavGroup[], title: string) =>
   groups.find((g) => g.title === title)?.items.map((i) => i.label)
 
-const account = (role: Role | null, status: AccountStatus = 'active', can_teach = false) => ({
+const account = (
+  role: Role | null,
+  status: AccountStatus = 'active',
+  can_teach = false,
+  can_manage_projects = false,
+) => ({
   role,
   status,
   can_teach,
+  can_manage_projects,
 })
 const student = account('student')
 const teacher = account('member', 'active', true)
@@ -168,6 +174,29 @@ describe('navFor', () => {
         expect(allowed.some((prefix) => to?.startsWith(prefix))).toBe(true)
       }
     }
+  })
+
+  it('gives a member with no switches, in nothing, only Home, Inbox and Account', () => {
+    const groups = navFor(nonTeacher, true, { inClass: false, hasWork: false })
+    expect(titles(groups)).toEqual(['Main', 'Account'])
+    expect(section(groups, 'Main')).toEqual(['Home', 'Inbox'])
+    // The plain Account group: Settings and Trash, no Archive.
+    expect(section(groups, 'Account')).toEqual(section(navFor(null, true), 'Account'))
+    expect(labels(groups)).not.toContain('Spaces')
+  })
+
+  it('keeps Spaces on the rail of a project manager who is in nothing', () => {
+    const manager = account('member', 'active', false, true)
+    const groups = navFor(manager, true, { inClass: false, hasWork: false })
+    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Main', 'Quick access', 'Account'])
+    expect(spaces(groups)?.hideWhenEmpty).toBe(false)
+    expect(spaces(navFor(manager, true))?.hideWhenEmpty).toBe(false)
+  })
+
+  it('gives a member with no switches but work the normal spaces rail', () => {
+    const groups = navFor(nonTeacher, true, { inClass: false, hasWork: true })
+    expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Main', 'Quick access', 'Account'])
+    expect(spaces(groups)?.hideWhenEmpty).toBe(true)
   })
 
   it('gives a legacy faculty account the same rail as a member', () => {

@@ -3,7 +3,8 @@ import { RoleSwitch } from '../routes/RoleSwitch'
 import { WorkOverview } from '../components/general/WorkOverview'
 import { useAuth } from '../context/AuthContext'
 import { useGeneralNavigation } from '../context/generalNavigation'
-import { canTeach, membershipOf } from '../lib/access'
+import { WaitingHome } from '../components/app/WaitingHome'
+import { canManageProjects, canTeach, isMember, membershipOf } from '../lib/access'
 
 // Lazy, same as every other role page: a student opening /home never fetches
 // the admin console, and the reverse.
@@ -39,6 +40,15 @@ export default function Home() {
   // Still loading counts as no work, so the class dashboard shows meanwhile.
   const studentWithWork =
     profile?.role === 'student' && Boolean(membershipOf(spaces, myProjects)?.hasWork)
+  // A member with no switches and nothing to open, once both lists have loaded.
+  const membership = membershipOf(spaces, myProjects)
+  const waiting =
+    isMember(profile) &&
+    !canTeach(profile) &&
+    !canManageProjects(profile) &&
+    Boolean(membership) &&
+    !membership?.inClass &&
+    !membership?.hasWork
 
   function choose(next: View) {
     setView(next)
@@ -56,6 +66,8 @@ export default function Home() {
       <ProfessorHome onSwitch={() => choose('work')} />
     )
   }
+
+  if (waiting) return <WaitingHome />
 
   if (studentWithWork) {
     return view === 'work' ? (

@@ -1,19 +1,18 @@
 import { Icon } from './Icon'
-import type { Role } from '../../lib/types'
 
-type Choice = Exclude<Role, 'admin'>
+export type Choice = 'student' | 'member'
 
 const OPTIONS: { value: Choice; label: string; note: string; icon: 'user' | 'users' }[] = [
   {
     value: 'student',
     label: 'Student',
-    note: 'Join your classes with a code from a faculty member',
+    note: "Join your classes and the projects you're invited to.",
     icon: 'user',
   },
   {
-    value: 'faculty',
-    label: 'Faculty',
-    note: 'Faculty and school staff · needs admin approval',
+    value: 'member',
+    label: 'Member',
+    note: "A plain account. You'll see work once a project manager invites you or an admin gives you a role.",
     icon: 'users',
   },
 ]

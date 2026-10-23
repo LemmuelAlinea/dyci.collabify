@@ -7,6 +7,7 @@ import { Field, Input, PasswordInput } from '../../components/ui/Field'
 import { Alert } from '../../components/ui/Alert'
 import { GoogleButton } from '../../components/ui/GoogleButton'
 import { RoleChoice } from '../../components/ui/RoleChoice'
+import type { Choice } from '../../components/ui/RoleChoice'
 import { ConsentChecks } from '../../components/legal/ConsentChecks'
 import { allConsented, emptyConsent } from '../../lib/legal'
 import type { ConsentState } from '../../lib/legal'
@@ -14,13 +15,12 @@ import { useAuth } from '../../context/AuthContext'
 import { authErrorMessage, isAlreadyRegistered } from '../../lib/authError'
 import { useCooldown } from '../../components/auth/useCooldown'
 import { LIMIT } from '../../lib/limits'
-import type { Role } from '../../lib/types'
 
 export default function Register() {
   const { signUpWithEmail, signInWithGoogle, configured } = useAuth()
   const navigate = useNavigate()
 
-  const [role, setRole] = useState<Exclude<Role, 'admin'>>('student')
+  const [role, setRole] = useState<Choice>('student')
   const [firstName, setFirstName] = useState('')
   const [middleName, setMiddleName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -125,12 +125,7 @@ export default function Register() {
         {error && <Alert tone="error">{error}</Alert>}
 
         <RoleChoice value={role} onChange={setRole} />
-        {role === 'faculty' ? (
-          <Alert tone="info">
-            The program admin reviews faculty accounts. You can sign in straight away, and your
-            tools open once you are approved.
-          </Alert>
-        ) : (
+        {role === 'student' && (
           <Alert tone="info">
             Your classes open once you join one with the code a faculty member gives you.
           </Alert>

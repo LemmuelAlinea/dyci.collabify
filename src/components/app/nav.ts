@@ -1,5 +1,5 @@
 import type { IconName } from '../ui/Icon'
-import { canTeach } from '../../lib/access'
+import { canManageProjects, canTeach } from '../../lib/access'
 import type { AccessProfile, Membership } from '../../lib/access'
 import type { Role } from '../../lib/types'
 import { paths } from '../../lib/paths'
@@ -215,7 +215,11 @@ const ADMIN: NavGroup = {
   ],
 }
 
-/** An admin in nothing yet, with an invitation to answer. */
+/**
+ * An admin in nothing yet, with an invitation to answer. A member with no
+ * switches who is in nothing yet gets the same two rows: Home says why it is
+ * empty, Inbox is where the invitation will arrive.
+ */
 const ADMIN_INVITED: NavGroup = {
   title: 'Main',
   items: [
@@ -255,6 +259,10 @@ const MAIN_WAITING: NavGroup = {
  * Account. Once they belong to something they get the same rail as faculty
  * who do not teach, with Admin above Account. `membership` still loading
  * counts as belonging to nothing, so Overview never flashes in and out.
+ *
+ * A member with neither switch, once loaded as in nothing, gets only Home and
+ * Inbox above Account: Home explains the wait, Inbox is where an invitation
+ * arrives. A member with Project manager always keeps Spaces.
  */
 export function navFor(
   profile: AccessProfile,
@@ -295,5 +303,15 @@ export function navFor(
       ACCOUNT_WITH_ARCHIVE,
     ]
   }
-  return [SPACES_ONLY, OVERVIEW, workGroup(false), QUICK_ACCESS, ACCOUNT_WITH_ARCHIVE]
+  const manager = canManageProjects(profile)
+  // A member with no switches, in no class and with no work, has nothing to
+  // open. `membership` still loading is not "nothing" here: unlike an admin,
+  // they would see the full rail flash away.
+  if (!manager && membership && !membership.inClass && !membership.hasWork) {
+    return [ADMIN_INVITED, ACCOUNT]
+  }
+  // A project manager keeps Spaces even while it is empty: making spaces is
+  // their job, the same as teaching faculty.
+  const spaces = manager ? placesGroup(['spaces'], { withClasses: true }) : SPACES_ONLY
+  return [spaces, OVERVIEW, workGroup(false), QUICK_ACCESS, ACCOUNT_WITH_ARCHIVE]
 }

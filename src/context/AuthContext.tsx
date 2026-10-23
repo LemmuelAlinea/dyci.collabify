@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import type { NotificationPrefs, Profile, Role } from '../lib/types'
+import type { NotificationPrefs, Profile } from '../lib/types'
 
 export type SignUpInput = {
   firstName: string
@@ -8,7 +8,7 @@ export type SignUpInput = {
   lastName: string
   email: string
   password: string
-  role: Exclude<Role, 'admin'>
+  role: 'student' | 'member'
 }
 
 export type AuthValue = {
@@ -28,7 +28,7 @@ export type AuthValue = {
     firstName: string
     middleName?: string
     lastName: string
-    role: Exclude<Role, 'admin'>
+    role: 'student' | 'member'
   }) => Promise<void>
   loadNotificationPrefs: () => Promise<NotificationPrefs | null>
   updateNotificationPrefs: (patch: Partial<NotificationPrefs>) => Promise<void>
