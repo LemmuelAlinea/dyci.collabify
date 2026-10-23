@@ -72,6 +72,11 @@ $$;
 /**
  * Onboarding writes the profile row itself. A student or a member, active at
  * once, and neither switch: those are only ever granted by the admin.
+ *
+ * A stale onboarding bundle still sends `faculty`, and gets a member, the same
+ * as handle_new_user does. This BEFORE trigger runs ahead of the
+ * profiles_no_faculty check. (`professor` is not an enum value, so it fails
+ * the cast before any trigger sees it.)
  */
 create or replace function public.guard_profile_insert()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -82,6 +87,9 @@ begin
   if new.id is distinct from auth.uid() then
     raise exception 'You can only create your own profile'
       using errcode = 'insufficient_privilege';
+  end if;
+  if new.role::text in ('faculty', 'professor') then
+    new.role := 'member';
   end if;
   if new.role is null or new.role not in ('student', 'member') then
     raise exception 'Choose student or member to finish your profile'

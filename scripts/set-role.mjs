@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// Promote or approve an existing Collabify account.
+// Set an existing Collabify account's role and status. The two switches,
+// Can teach and Project manager, are set from the Accounts page.
 //
 //   node scripts/set-role.mjs you@example.com admin
-//   node scripts/set-role.mjs prof@example.com professor active
+//   node scripts/set-role.mjs someone@example.com member active
 //
 // The user must already have signed up (the row is created by the auth trigger).
 
@@ -21,11 +22,11 @@ for (const file of ['.env.local', '.env']) {
 const [email, role = 'admin', status = 'active'] = process.argv.slice(2)
 
 if (!email) {
-  console.error('Usage: node scripts/set-role.mjs <email> [student|professor|admin] [active|pending|rejected]')
+  console.error('Usage: node scripts/set-role.mjs <email> [student|member|admin] [active|pending|rejected]')
   process.exit(1)
 }
-if (!['student', 'professor', 'admin'].includes(role)) {
-  console.error(`Unknown role "${role}".`)
+if (!['student', 'member', 'admin'].includes(role)) {
+  console.error(`Unknown role "${role}". Use student, member or admin.`)
   process.exit(1)
 }
 if (!['active', 'pending', 'rejected'].includes(status)) {

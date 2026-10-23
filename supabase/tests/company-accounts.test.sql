@@ -195,13 +195,30 @@ end $$;
 
 do $$
 declare
-  v_bare uuid := (select v from fx where k = 'bare');
+  v_bare  uuid := (select v from fx where k = 'bare');
+  v_stale uuid := gen_random_uuid();
 begin
-  perform pg_temp.act_as(v_bare);
-  perform pg_temp.must_refuse_with('onboarding cannot pick faculty', format(
+  -- A stale onboarding bundle that still sends 'faculty'.
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          created_at, updated_at)
+  values (v_stale, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'zz-ca-stale@example.test', '', now(), now());
+  perform pg_temp.act_as(v_stale);
+  perform pg_temp.must_refuse_with('onboarding cannot pick admin', format(
     $q$insert into public.profiles (id, email, first_name, last_name, role)
-       values (%L, 'zz-ca-bare@example.test', 'Zz', 'Cabare', 'faculty')$q$, v_bare),
+       values (%L, 'zz-ca-stale@example.test', 'Zz', 'Castale', 'admin')$q$, v_stale),
     'Choose student or member');
+  perform pg_temp.must_allow('onboarding that sends faculty is let in', format(
+    $q$insert into public.profiles
+         (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+       values (%L, 'zz-ca-stale@example.test', 'Zz', 'Castale', 'faculty', 'pending', true, true)$q$,
+    v_stale));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...as an active member with both switches off',
+    (select role = 'member' and status = 'active' and not can_teach and not can_manage_projects
+       from public.profiles where id = v_stale));
+
+  perform pg_temp.act_as(v_bare);
   perform pg_temp.must_allow('onboarding as a member is allowed', format(
     $q$insert into public.profiles
          (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)

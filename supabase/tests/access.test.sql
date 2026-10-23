@@ -153,9 +153,13 @@ begin
   perform pg_temp.must_refuse('onboarding cannot skip choosing student or member', format(
     $q$insert into public.profiles (id, email, first_name, last_name, role, status)
        values (%L, 'zz-acc-bare@example.test', 'Zz', 'Bare', null, 'active')$q$, v_bare));
-  perform pg_temp.must_refuse('onboarding cannot pick faculty', format(
+  -- A stale bundle that still sends faculty gets a member (company-accounts.sql).
+  perform pg_temp.must_allow('onboarding that sends faculty is let in', format(
     $q$insert into public.profiles (id, email, first_name, last_name, role, status)
        values (%L, 'zz-acc-bare@example.test', 'Zz', 'Bare', 'faculty', 'active')$q$, v_bare));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...as a member, never faculty',
+    (select role = 'member' from public.profiles where id = v_bare));
 
   perform pg_temp.act_as(v_bare2);
   perform pg_temp.must_allow('onboarding as a member is allowed', format(
