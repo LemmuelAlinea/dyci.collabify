@@ -21,6 +21,7 @@ import {
   PERMISSIONS,
   ROLE_LABEL,
   assignableRoles,
+  canRemoveRole,
   permissionLabel,
 } from '../../lib/general/permissions'
 import type { ProjectRole } from '../../lib/general/permissions'
@@ -59,21 +60,16 @@ function MemberList({ state }: { state: GeneralProjectState }) {
   const project = state.project
   if (!project) return null
 
-  // Nobody removes the project manager, and a Coordinator leaves the other
-  // Coordinators to the project manager. The database refuses both as well.
+  // The database refuses what canRemoveRole refuses.
   const canRemove = (m: GeneralMember) =>
     m.user_id !== state.viewerId &&
     state.can('manage_members') &&
-    m.role !== 'pm' &&
-    !(state.myRole === 'coordinator' && m.role === 'coordinator')
+    canRemoveRole(state.myRole, m.role)
 
   /** The roles a row's select offers: its own, then the ones the viewer may move it to. */
   function roleChoices(m: GeneralMember): ProjectRole[] {
     if (!state.myRole || state.archived) return []
-    const moves = assignableRoles(state.myRole, m.role).filter(
-      // A student only ever holds Member.
-      (r) => m.profile?.role !== 'student' || r === 'member',
-    )
+    const moves = assignableRoles(state.myRole, m.role)
     return moves.some((r) => r !== m.role) ? [m.role, ...moves.filter((r) => r !== m.role)] : []
   }
 
@@ -81,7 +77,7 @@ function MemberList({ state }: { state: GeneralProjectState }) {
     if (!project) return
     try {
       await setMemberRole(project.id, m.user_id, role)
-      show(`${state.nameOf(m.user_id)} is now ${ROLE_LABEL[role].toLowerCase()}`)
+      show(`${state.nameOf(m.user_id)} is now a ${ROLE_LABEL[role].toLowerCase()}`)
       await state.reload()
     } catch (err) {
       show(authErrorMessage(err, 'Could not change that role.'), 'error')

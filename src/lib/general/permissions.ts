@@ -176,6 +176,16 @@ export function assignableRoles(actor: ProjectRole, target: ProjectRole): Projec
 }
 
 /**
+ * Whether an actor may offer to remove a target. Nobody removes the project
+ * manager, and only the project manager removes a Coordinator, whatever else
+ * the actor holds or was granted. Mirrors remove_general_member.
+ */
+export function canRemoveRole(actor: ProjectRole | null, target: ProjectRole): boolean {
+  if (!actor || target === 'pm') return false
+  return target !== 'coordinator' || actor === 'pm'
+}
+
+/**
  * yes    the role does it
  * team   only for tasks of people on the team the person leads
  * grant  not by default; the project manager can grant it

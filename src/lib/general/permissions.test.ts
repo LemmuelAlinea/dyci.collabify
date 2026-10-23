@@ -8,6 +8,7 @@ import {
   assignableRoles,
   can,
   canAs,
+  canRemoveRole,
   canStepDown,
   levelLabel,
   levelPermissions,
@@ -149,6 +150,28 @@ describe('canAs', () => {
     // general_has() in the database ignores their grants, so the UI must too.
     for (const role of ['qa', 'stakeholder'] as const)
       for (const p of PERMISSIONS) expect(canAs(role, [p.value], p.value)).toBe(false)
+  })
+})
+
+describe('canRemoveRole', () => {
+  it('never offers to remove the project manager', () => {
+    for (const actor of ['pm', 'coordinator', 'member'] as const)
+      expect(canRemoveRole(actor, 'pm')).toBe(false)
+  })
+
+  it('leaves Coordinators to the project manager, even for a Member with a grant', () => {
+    expect(canRemoveRole('pm', 'coordinator')).toBe(true)
+    expect(canRemoveRole('coordinator', 'coordinator')).toBe(false)
+    expect(canRemoveRole('member', 'coordinator')).toBe(false)
+  })
+
+  it('lets anyone who may manage members remove a Member', () => {
+    for (const actor of ['pm', 'coordinator', 'member'] as const)
+      expect(canRemoveRole(actor, 'member')).toBe(true)
+  })
+
+  it('offers nothing to somebody with no role', () => {
+    expect(canRemoveRole(null, 'member')).toBe(false)
   })
 })
 

@@ -81,6 +81,12 @@ function Search({ state }: { state: GeneralProjectState }) {
 
   const memberIds = new Set(state.members.map((m) => m.user_id))
 
+  // Every pick starts at Member, so a Coordinator is always a deliberate choice.
+  function pick(hit: PersonHit | null) {
+    setPicked(hit)
+    setRole('member')
+  }
+
   async function invite(hit: PersonHit, as: ProjectRole) {
     if (!state.project) return
     setInviting(hit.person_id)
@@ -88,8 +94,7 @@ function Search({ state }: { state: GeneralProjectState }) {
       await inviteToProject(state.project.id, hit.person_id, as)
       show(`Invited ${hit.first_name} ${hit.last_name}`)
       setQuery('')
-      setPicked(null)
-      setRole('member')
+      pick(null)
       await state.reload()
     } catch (err) {
       show(authErrorMessage(err, 'Could not send that invitation.'), 'error')
@@ -128,7 +133,7 @@ function Search({ state }: { state: GeneralProjectState }) {
                     size="sm"
                     variant={picked?.person_id === hit.person_id ? 'outline' : 'primary'}
                     loading={inviting === hit.person_id}
-                    onClick={() => (canChooseRole ? setPicked(hit) : void invite(hit, 'member'))}
+                    onClick={() => (canChooseRole ? pick(hit) : void invite(hit, 'member'))}
                   >
                     Invite
                   </Button>
@@ -152,7 +157,7 @@ function Search({ state }: { state: GeneralProjectState }) {
               className="mt-1 !h-9 !text-[13px]"
             />
           </div>
-          <Button size="sm" variant="ghost" onClick={() => setPicked(null)} disabled={inviting !== null}>
+          <Button size="sm" variant="ghost" onClick={() => pick(null)} disabled={inviting !== null}>
             Cancel
           </Button>
           <Button size="sm" loading={inviting === picked.person_id} onClick={() => void invite(picked, role)}>
