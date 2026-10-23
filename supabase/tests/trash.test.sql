@@ -49,7 +49,7 @@ begin
          now(), now(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'
     from (values (owner_id, 'trash-owner@test.local', 'Owner'),
                  (member, 'trash-member@test.local', 'Member')) as v(id, em, ln);
-  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
+  update public.profiles set can_teach = true, can_manage_projects = true where created_at = now() and role = 'member';
 
   perform pg_temp.act_as(owner_id);
   proj := public.create_general_project('Trash project', '');

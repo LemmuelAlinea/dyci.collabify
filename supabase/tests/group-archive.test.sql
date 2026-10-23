@@ -92,9 +92,9 @@ begin
          'authenticated', u.id::text || '@test.invalid', '', now(), now()
     from (values (prof), (student)) as u(id);
 
-  insert into public.profiles (id, email, first_name, last_name, role, status)
-  values (prof,    prof::text    || '@test.invalid', 'Group', 'Prof',    'faculty',   'active'),
-         (student, student::text || '@test.invalid', 'Group', 'Student', 'student',   'active');
+  insert into public.profiles (id, email, first_name, last_name, role, status, can_teach)
+  values (prof,    prof::text    || '@test.invalid', 'Group', 'Prof',    'member',    'active', true),
+         (student, student::text || '@test.invalid', 'Group', 'Student', 'student',   'active', false);
 
   -- `guard_project_weeks` refuses a project whose weeks the class's syllabus
   -- does not have, so the class needs one before a project can exist on it.

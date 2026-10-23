@@ -97,8 +97,8 @@ begin
       (v_s3,      'zz-ow-s3@example.test',      'Sthree',   'student')
     ) as v(id, em, ln, r);
 
-  -- Approved faculty; only the teacher may open classes.
-  update public.profiles set status = 'active', can_teach = (id = v_teacher)
+  -- Members who teach: a co-teacher and a Manager seat both need Can teach now.
+  update public.profiles set can_teach = true
    where id in (v_teacher, v_cot, v_staff);
 
   create temp table fx (k text primary key, v uuid) on commit drop;

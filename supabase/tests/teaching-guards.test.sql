@@ -44,7 +44,7 @@ begin
    order by c.created_at limit 1;
   select student_id into v_a from public.class_members where class_id = v_class and status = 'active' order by student_id limit 1;
   select student_id into v_b from public.class_members where class_id = v_class and status = 'active' and student_id <> v_a order by student_id limit 1;
-  select id into v_other from public.profiles where role = 'faculty' and id <> v_prof order by created_at limit 1;
+  select id into v_other from public.profiles where role = 'member' and can_teach and id <> v_prof order by created_at limit 1;
 
   ------------------------------------------------------------------ 3. syllabus
   insert into public.teaching_resources (professor_id, kind, title, file_path, file_name)

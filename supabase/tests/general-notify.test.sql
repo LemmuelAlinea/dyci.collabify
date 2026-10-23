@@ -74,8 +74,8 @@ begin
     (b, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
      'zz-gnote-bravo@example.test', '',
      jsonb_build_object('first_name', 'Zzgnote', 'last_name', 'Bravo', 'role', 'professor'), now(), now());
-  -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
+  -- Members who run projects get both switches: supabase/company-accounts.sql.
+  update public.profiles set can_teach = true, can_manage_projects = true where created_at = now() and role = 'member';
 
   perform pg_temp.act_as(a);
   select (public.create_general_project('Zz Science fair')).id into p;

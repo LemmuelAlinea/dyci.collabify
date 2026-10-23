@@ -84,11 +84,11 @@ begin
          'authenticated', u.id::text || '@test.invalid', '', now(), now()
     from (values (prof), (ana), (ben), (cy)) as u(id);
 
-  insert into public.profiles (id, email, first_name, last_name, role, status)
-  values (prof, prof::text || '@test.invalid', 'Lead', 'Prof', 'faculty', 'active'),
-         (ana,  ana::text  || '@test.invalid', 'Ana',  'One',  'student', 'active'),
-         (ben,  ben::text  || '@test.invalid', 'Ben',  'Two',  'student', 'active'),
-         (cy,   cy::text   || '@test.invalid', 'Cy',   'Three','student', 'active');
+  insert into public.profiles (id, email, first_name, last_name, role, status, can_teach)
+  values (prof, prof::text || '@test.invalid', 'Lead', 'Prof', 'member',  'active', true),
+         (ana,  ana::text  || '@test.invalid', 'Ana',  'One',  'student', 'active', false),
+         (ben,  ben::text  || '@test.invalid', 'Ben',  'Two',  'student', 'active', false),
+         (cy,   cy::text   || '@test.invalid', 'Cy',   'Three','student', 'active', false);
 
   insert into public.teaching_resources (professor_id, kind, title, file_path, file_name)
   values (prof, 'syllabus', 'zz Group Leader syllabus', 'x/l.pdf', 'l.pdf')

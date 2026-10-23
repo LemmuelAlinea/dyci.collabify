@@ -60,8 +60,8 @@ begin
          u.id::text || '@test.invalid', '', now(), now()
     from (values (prof), (other), (st)) as u(id);
   insert into public.profiles (id, email, first_name, last_name, role, status, can_teach)
-  values (prof,  prof::text  || '@test.invalid', 'Link', 'Prof',  'faculty', 'active', true),
-         (other, other::text || '@test.invalid', 'Link', 'Other', 'faculty', 'active', true),
+  values (prof,  prof::text  || '@test.invalid', 'Link', 'Prof',  'member', 'active', true),
+         (other, other::text || '@test.invalid', 'Link', 'Other', 'member', 'active', true),
          (st,    st::text    || '@test.invalid', 'Link', 'Stud',  'student', 'active', false)
   on conflict (id) do update set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach;
 

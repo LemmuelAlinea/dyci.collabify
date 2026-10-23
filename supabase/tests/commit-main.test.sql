@@ -74,7 +74,7 @@ begin
     from (values (owner_id, 'cm-owner@test.local', 'Owner'),
                  (dev_id, 'cm-dev@test.local', 'Dev'),
                  (ask_id, 'cm-ask@test.local', 'Ask')) as v(id, em, ln);
-  update public.profiles set status = 'active' where id in (owner_id, dev_id, ask_id);
+  update public.profiles set can_teach = true, can_manage_projects = true where id in (owner_id, dev_id, ask_id);
 
   perform pg_temp.act_as(owner_id);
   proj := public.create_general_project('Commit project', '');

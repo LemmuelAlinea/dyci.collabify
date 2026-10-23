@@ -60,6 +60,9 @@ $$;
 create or replace function pg_temp.age_board(p_board uuid, p_days int) returns void
 language plpgsql as $$
 begin
+  -- The milestone foreign key is deferred, and ALTER TABLE refuses a table with
+  -- checks still pending from this transaction's inserts.
+  set constraints all immediate;
   alter table public.project_tasks disable trigger project_tasks_touch;
   update public.project_tasks
      set updated_at = now() - (p_days || ' days')::interval

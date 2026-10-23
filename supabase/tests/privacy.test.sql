@@ -88,11 +88,11 @@ begin
          'authenticated', u.id::text || '@test.invalid', '', now(), now()
     from (values (student), (other), (prof), (boss)) as u(id);
 
-  insert into public.profiles (id, email, first_name, last_name, role, status)
-  values (student, student::text || '@test.invalid', 'Test', 'Student', 'student', 'active'),
-         (other,   other::text   || '@test.invalid', 'Other', 'Student', 'student', 'active'),
-         (prof,    prof::text    || '@test.invalid', 'Test', 'Prof',    'faculty',   'active'),
-         (boss,    boss::text    || '@test.invalid', 'Test', 'Admin',   'admin',   'active');
+  insert into public.profiles (id, email, first_name, last_name, role, status, can_teach)
+  values (student, student::text || '@test.invalid', 'Test', 'Student', 'student', 'active', false),
+         (other,   other::text   || '@test.invalid', 'Other', 'Student', 'student', 'active', false),
+         (prof,    prof::text    || '@test.invalid', 'Test', 'Prof',    'member',  'active', true),
+         (boss,    boss::text    || '@test.invalid', 'Test', 'Admin',   'admin',   'active', false);
 
   select version into live from public.legal_versions where document = 'privacy' limit 1;
 

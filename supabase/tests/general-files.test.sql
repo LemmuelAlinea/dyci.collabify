@@ -44,8 +44,8 @@ begin
          now(), now(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'
     from (values (owner_id, 'file-owner@test.local', 'Owner'),
                  (other_id, 'file-other@test.local', 'Other')) as v(id, em, ln);
-  -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
+  -- Members who run projects get both switches: supabase/company-accounts.sql.
+  update public.profiles set can_teach = true, can_manage_projects = true where created_at = now() and role = 'member';
 
   perform pg_temp.act_as(owner_id);
   proj  := public.create_general_project('File project', '');

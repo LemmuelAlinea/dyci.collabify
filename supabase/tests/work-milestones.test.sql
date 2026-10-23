@@ -63,9 +63,9 @@ begin
             jsonb_build_object('first_name', 'Zzwmile', 'last_name', v_names[i], 'role', 'professor'),
             now(), now());
   end loop;
-  -- General accounts are approved faculty: supabase/access.sql.
-  update public.profiles set status = 'active'
-   where id = any (v_ids) and role = 'faculty' and status = 'pending';
+  -- Members who run projects get both switches: supabase/company-accounts.sql.
+  update public.profiles set can_teach = true, can_manage_projects = true
+   where id = any (v_ids) and role = 'member';
   a := v_ids[1]; b := v_ids[2]; d := v_ids[3];
 
   perform pg_temp.act_as(a);

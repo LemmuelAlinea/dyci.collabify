@@ -56,7 +56,7 @@ begin
          now(), now(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'
     from (values (owner_id, 'cover-owner@test.local', 'Owner'),
                  (mate_id,  'cover-mate@test.local',  'Mate')) as v(id, em, ln);
-  update public.profiles set status = 'active' where id in (owner_id, mate_id);
+  update public.profiles set can_teach = true, can_manage_projects = true where id in (owner_id, mate_id);
 
   ------------------------------------------------------------------ space invitations
   perform pg_temp.act_as(owner_id);

@@ -59,8 +59,8 @@ begin
             jsonb_build_object('first_name', 'Zzsmile', 'last_name', v_names[i], 'role', 'professor'),
             now(), now());
   end loop;
-  update public.profiles set status = 'active'
-   where id = any (v_ids) and role = 'faculty' and status = 'pending';
+  update public.profiles set can_teach = true, can_manage_projects = true
+   where id = any (v_ids) and role = 'member';
   a := v_ids[1]; b := v_ids[2];
 
   perform pg_temp.act_as(a);

@@ -21,8 +21,8 @@ begin
     (other_id, 'preset-other@test.local', 'x', now(),
      jsonb_build_object('first_name', 'Pres', 'last_name', 'Other', 'role', 'professor'),
      now(), now(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000');
-  -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
+  -- Members who run projects get both switches: supabase/company-accounts.sql.
+  update public.profiles set can_teach = true, can_manage_projects = true where created_at = now() and role = 'member';
 
   perform set_config('request.jwt.claims',
     json_build_object('sub', owner_id, 'role', 'authenticated')::text, true);

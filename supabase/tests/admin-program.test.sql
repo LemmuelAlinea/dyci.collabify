@@ -43,7 +43,16 @@ declare
   v_admin uuid; v_prof uuid; v_class uuid; v_stud uuid;
   v_syllabus uuid; v_proj uuid; v_board uuid;
 begin
-  select id into v_admin from public.profiles where role = 'admin' order by created_at limit 1;
+  -- A fresh admin with no seats. The program's real admin can be seated in a
+  -- class space, which makes them a member of its conversation and lets them
+  -- read its messages by membership, not as the chair.
+  v_admin := gen_random_uuid();
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          created_at, updated_at)
+  values (v_admin, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'zz-chair@example.test', '', now(), now());
+  insert into public.profiles (id, email, first_name, last_name, role, status)
+  values (v_admin, 'zz-chair@example.test', 'Zz', 'Chair', 'admin', 'active');
 
   -- A class with real work in it, so the counts have something to be wrong about.
   select c.professor_id, c.id, c.syllabus_id into v_prof, v_class, v_syllabus
@@ -188,17 +197,30 @@ declare
   v_admin uuid := (select v from fx where k='admin');
   v_class uuid := (select v from fx where k='class');
   v_prof uuid := (select v from fx where k='prof');
-  before_covered int; after_covered int; v_new uuid;
+  before_covered int; after_covered int; v_new uuid; v_w int;
 begin
   perform pg_temp.act_as(v_admin);
   select weeks_covered into before_covered
     from public.admin_class_overview where class_id = v_class;
   perform pg_temp.act_as_service();
 
-  -- A project spanning two weeks nobody has covered yet.
+  -- A project spanning two syllabus weeks nobody has covered yet. Picked from
+  -- the class's live projects, since real work moves which weeks are free.
+  select w.week_no into v_w
+    from public.syllabus_weeks w
+    join public.classes c on c.syllabus_id = w.resource_id and c.id = v_class
+   where exists (select 1 from public.syllabus_weeks w2
+                  where w2.resource_id = w.resource_id and w2.week_no = w.week_no + 1)
+     and not exists (select 1 from public.projects x
+                      where x.class_id = v_class and x.archived_at is null
+                        and x.start_week <= w.week_no + 1 and x.end_week >= w.week_no)
+   order by w.week_no limit 1;
+  if v_w is null then
+    raise exception 'This suite needs two uncovered, adjacent syllabus weeks in the class';
+  end if;
   insert into public.projects
     (class_id, created_by, title, type, start_week, end_week, audience, due_at)
-  values (v_class, v_prof, 'zz-admin-coverage', 'activity', 14, 15, 'individual',
+  values (v_class, v_prof, 'zz-admin-coverage', 'activity', v_w, v_w + 1, 'individual',
           now() + interval '20 days')
   returning id into v_new;
 

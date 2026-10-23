@@ -19,7 +19,7 @@ declare
   refused boolean;
   someone uuid;
 begin
-  select id into prof from public.profiles where role = 'faculty' and status = 'active' order by created_at limit 1;
+  select id into prof from public.profiles where role = 'member' and can_teach and status = 'active' order by created_at limit 1;
   select id into someone from public.profiles where status = 'active' order by created_at limit 1;
 
   insert into storage.objects (bucket_id, name, created_at) values

@@ -70,11 +70,12 @@ begin
   select u.id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
          u.id::text || '@test.invalid', '', now(), now()
     from (values (prof), (s1), (s2)) as u(id);
-  insert into public.profiles (id, email, first_name, last_name, role, status, can_teach)
-  values (prof, prof::text || '@test.invalid', 'Arc', 'Prof', 'faculty', 'active', true),
-         (s1,   s1::text   || '@test.invalid', 'Arc', 'One',  'student', 'active', false),
-         (s2,   s2::text   || '@test.invalid', 'Arc', 'Two',  'student', 'active', false)
-  on conflict (id) do update set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach;
+  insert into public.profiles (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+  values (prof, prof::text || '@test.invalid', 'Arc', 'Prof', 'member', 'active', true, true),
+         (s1,   s1::text   || '@test.invalid', 'Arc', 'One',  'student', 'active', false, false),
+         (s2,   s2::text   || '@test.invalid', 'Arc', 'Two',  'student', 'active', false, false)
+  on conflict (id) do update set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach,
+    can_manage_projects = excluded.can_manage_projects;
 
   insert into public.teaching_resources (professor_id, kind, title, file_path, file_name)
   values (prof, 'syllabus', 'zz Arc syllabus', 'x/a.pdf', 'a.pdf') returning id into res;

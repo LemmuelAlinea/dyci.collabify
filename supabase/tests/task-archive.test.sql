@@ -58,11 +58,12 @@ begin
   select u.id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
          u.id::text || '@test.invalid', '', now(), now()
     from (values (prof), (s1), (s2)) as u(id);
-  insert into public.profiles (id, email, first_name, last_name, role, status, can_teach)
-  values (prof, prof::text || '@test.invalid', 'Arch', 'Prof', 'faculty', 'active', true),
-         (s1,   s1::text   || '@test.invalid', 'Arch', 'One',  'student', 'active', false),
-         (s2,   s2::text   || '@test.invalid', 'Arch', 'Two',  'student', 'active', false)
-  on conflict (id) do update set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach;
+  insert into public.profiles (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+  values (prof, prof::text || '@test.invalid', 'Arch', 'Prof', 'member', 'active', true, true),
+         (s1,   s1::text   || '@test.invalid', 'Arch', 'One',  'student', 'active', false, false),
+         (s2,   s2::text   || '@test.invalid', 'Arch', 'Two',  'student', 'active', false, false)
+  on conflict (id) do update set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach,
+    can_manage_projects = excluded.can_manage_projects;
 
   insert into public.teaching_resources (professor_id, kind, title, file_path, file_name)
   values (prof, 'syllabus', 'zz Archive syllabus', 'x/a.pdf', 'a.pdf') returning id into res;
@@ -236,7 +237,7 @@ begin
             jsonb_build_object('first_name', 'Zztarch', 'last_name', 'P' || i, 'role', 'professor'),
             now(), now());
   end loop;
-  update public.profiles set status = 'active' where id = any(ids);
+  update public.profiles set can_teach = true, can_manage_projects = true where id = any(ids);
   owner := ids[1]; maker := ids[2]; other := ids[3];
 
   perform pg_temp.act_as(owner);

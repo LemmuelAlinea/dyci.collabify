@@ -81,8 +81,8 @@ begin
             jsonb_build_object('first_name', 'Zzgen', 'last_name', v_names[i],
                                'role', 'professor'),
             now(), now());
-  -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
+  -- Members who run projects get both switches: supabase/company-accounts.sql.
+  update public.profiles set can_teach = true, can_manage_projects = true where created_at = now() and role = 'member';
   end loop;
 
   create temp table fx (k text primary key, v uuid) on commit drop;
