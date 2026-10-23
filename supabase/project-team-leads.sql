@@ -24,14 +24,20 @@
 -- Runs after project-visibility.sql and everything else in docs/07-backup.md,
 -- and redefines from their latest (live) copies: guard_general_task
 -- (task-archive.sql), sync_general_task_stage (task-stages.sql),
+-- guard_general_task_plan (work-planning.sql),
 -- guard_general_structure (general.sql), the general_task_assignees_insert and
 -- general_task_assignees_delete policies (general-tasks.sql) and the
 -- general_project_events kinds check (project-roles.sql). Re-run it after
 -- re-running any of those files, then anon-lockdown.sql.
 --
--- Not changed here, on purpose: guard_general_task_plan still keeps a task's
--- rank and sprint to whoever manages tasks, and guard_general_task_child still
--- refuses adding a second holder to a held task for anyone who does not.
+-- guard_general_task_plan (work-planning.sql) lets a leader reorder (rank) a
+-- task somebody on their team holds; putting a task in a sprint still needs
+-- manage_tasks. Not changed here, on purpose: guard_general_task_child still
+-- refuses adding a second holder to a held task for anyone who does not manage
+-- tasks, leaders included.
+--
+-- An archived work project's guards now say the project manager restores it
+-- (general_archived_message); a class board's still say an Owner does.
 --
 -- Idempotent. Safe to re-run.
 
@@ -74,6 +80,9 @@ returns boolean language sql stable security definer set search_path = public as
       from public.general_teams t
       join public.general_projects gp on gp.id = t.project_id and gp.class_board_id is null
       join public.general_team_members tm on tm.team_id = t.id and tm.user_id = p_user
+      -- The lead is on the team too (guard_general_team_leader insists, and
+      -- clear_general_team_leader keeps it so; asked here as well).
+      join public.general_team_members tl on tl.team_id = t.id and tl.user_id = p_lead
       join public.general_members m on m.project_id = t.project_id and m.user_id = p_lead
       join public.profiles pr on pr.id = p_lead
      where t.project_id = p_project
@@ -81,6 +90,21 @@ returns boolean language sql stable security definer set search_path = public as
        and m.role <> 'stakeholder'
        and pr.status = 'active'
   );
+$$;
+
+/**
+ * What the guards say when a project is archived. A work project's project
+ * manager restores it; a class board's Files project keeps "an Owner".
+ * Not security definer: it is only called from security-definer guards.
+ */
+create or replace function public.general_archived_message(p_project uuid)
+returns text language sql stable set search_path = public as $$
+  select case
+    when exists (select 1 from public.general_projects
+                  where id = p_project and class_board_id is not null)
+      then 'This project is archived. An Owner can restore it to make changes.'
+    else 'This project is archived. The project manager can restore it to make changes.'
+  end;
 $$;
 
 -- ---------------------------------------------------------------- who may lead
@@ -94,7 +118,7 @@ begin
   end if;
   if exists (select 1 from public.general_projects p
               where p.id = new.project_id and p.class_board_id is not null) then
-    raise exception 'Teams in a class board''s files have no leader.'
+    raise exception 'Teams in a class board''s files have no leader. Pick leaders for teams in a work project.'
       using errcode = 'check_violation';
   end if;
   if not exists (select 1 from public.general_team_members tm
@@ -178,8 +202,9 @@ create trigger general_members_leader_clear
   execute function public.clear_general_team_leader();
 
 /**
- * general.sql's guard, as live. One addition: clear_general_team_leader's
- * update goes through on an archived project, so a leader can still leave it.
+ * general.sql's guard, as live, with two changes: clear_general_team_leader's
+ * update goes through on an archived project, so a leader can still leave it;
+ * and the archived message names the project manager on a work project.
  */
 create or replace function public.guard_general_structure()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -197,7 +222,7 @@ begin
     return new;
   end if;
   if auth.uid() is not null and public.general_is_archived(p) then
-    raise exception 'This project is archived. An Owner can restore it to make changes.'
+    raise exception '%', public.general_archived_message(p)
       using errcode = 'check_violation';
   end if;
   if tg_op = 'UPDATE' then
@@ -216,11 +241,12 @@ declare
 begin
   select * into t from public.general_teams where id = p_team for update;
   if t.id is null or not coalesce(public.can_read_general_project(t.project_id), false) then
-    raise exception 'That team is not on a project you can see' using errcode = 'no_data_found';
+    raise exception 'That team is not on a project you can see. Refresh the page and pick a team again.'
+      using errcode = 'no_data_found';
   end if;
   if exists (select 1 from public.general_projects p
               where p.id = t.project_id and p.class_board_id is not null) then
-    raise exception 'Teams in a class board''s files have no leader.'
+    raise exception 'Teams in a class board''s files have no leader. Pick leaders for teams in a work project.'
       using errcode = 'check_violation';
   end if;
   if not public.general_has(t.project_id, 'manage_structure') then
@@ -228,7 +254,7 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
   if public.general_is_archived(t.project_id) then
-    raise exception 'This project is archived. The project manager can restore it to make changes.'
+    raise exception '%', public.general_archived_message(t.project_id)
       using errcode = 'check_violation';
   end if;
   if t.leader_id is not distinct from p_user then
@@ -242,8 +268,9 @@ $$;
 -- ---------------------------------------------------------------- the lead and tasks
 
 /**
- * task-archive.sql's guard, as live. One addition: someone who leads a current
- * holder of the task (general_leads_user) may change it like a holder can.
+ * task-archive.sql's guard, as live, with two changes: someone who leads a
+ * current holder of the task (general_leads_user) may change it like a holder
+ * can, and the archived message names the project manager on a work project.
  * Points still need manage_tasks (the weight check below is unchanged).
  */
 create or replace function public.guard_general_task()
@@ -264,7 +291,7 @@ begin
 
   if tg_op = 'INSERT' then
     if public.general_is_archived(new.project_id) then
-      raise exception 'This project is archived. An Owner can restore it to make changes.'
+      raise exception '%', public.general_archived_message(new.project_id)
         using errcode = 'check_violation';
     end if;
     new.created_by := auth.uid();
@@ -288,7 +315,7 @@ begin
   end if;
 
   if public.general_is_archived(old.project_id) then
-    raise exception 'This project is archived. An Owner can restore it to make changes.'
+    raise exception '%', public.general_archived_message(old.project_id)
       using errcode = 'check_violation';
   end if;
 
@@ -401,6 +428,60 @@ begin
     new.status::text, new.stage);
   new.status := r.status::public.general_task_status;
   new.stage := r.stage;
+  return new;
+end;
+$$;
+
+/**
+ * work-planning.sql's guard, as live. One addition: a team leader may change
+ * the rank (backlog order) of a task somebody on their team holds. Moving a
+ * task into or out of a sprint still needs manage_tasks.
+ */
+create or replace function public.guard_general_task_plan()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.sprint_id is not null
+     and (tg_op = 'INSERT' or new.sprint_id is distinct from old.sprint_id)
+     and exists (select 1 from public.general_sprints s
+                  where s.id = new.sprint_id and s.state = 'completed') then
+    raise exception 'This sprint is finished, so tasks can no longer join it. Pick a planned sprint or the backlog.'
+      using errcode = 'check_violation';
+  end if;
+
+  if tg_op = 'INSERT' then
+    if auth.uid() is not null and not public.general_can(new.project_id, 'manage_tasks') then
+      if new.sprint_id is not null then
+        raise exception 'Only someone who manages tasks can put a task in a sprint.'
+          using errcode = 'check_violation';
+      end if;
+      -- A member's task joins the end of the backlog, whatever rank was sent.
+      new.rank := extract(epoch from clock_timestamp());
+    end if;
+    return new;
+  end if;
+
+  if auth.uid() is not null
+     and (new.sprint_id is distinct from old.sprint_id
+          or (new.rank is distinct from old.rank
+              -- A team leader reorders tasks somebody on their team holds.
+              and not exists (
+                select 1 from public.general_task_assignees a
+                 where a.task_id = old.id
+                   and public.general_leads_user(old.project_id, auth.uid(), a.user_id)
+              )))
+     and not public.general_can(old.project_id, 'manage_tasks') then
+    raise exception 'Only someone who manages tasks can plan sprints and order the backlog.'
+      using errcode = 'check_violation';
+  end if;
+
+  if old.sprint_id is not null
+     and new.sprint_id is not distinct from old.sprint_id
+     and new.status <> 'done'
+     and (old.status = 'done' or (old.archived_at is not null and new.archived_at is null))
+     and exists (select 1 from public.general_sprints s
+                  where s.id = old.sprint_id and s.state = 'completed') then
+    new.sprint_id := null;
+  end if;
   return new;
 end;
 $$;

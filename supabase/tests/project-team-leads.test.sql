@@ -104,6 +104,8 @@ declare
   v_tv    uuid;
   v_free  uuid;
   v_free2 uuid;
+  v_tuv   uuid;
+  v_sprint uuid;
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           created_at, updated_at)
@@ -158,16 +160,19 @@ begin
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz held by V') returning id into v_tv;
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz unheld') returning id into v_free;
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz unheld two') returning id into v_free2;
+  insert into public.general_tasks (project_id, title) values (v_p, 'Zz held by U and V') returning id into v_tuv;
   insert into public.general_task_assignees (task_id, project_id, user_id) values
-    (v_tu, v_p, v_u), (v_tv, v_p, v_v);
+    (v_tu, v_p, v_u), (v_tv, v_p, v_v), (v_tuv, v_p, v_u), (v_tuv, v_p, v_v);
   perform pg_temp.act_as_service();
+  insert into public.general_sprints (project_id, name, starts_on, ends_on)
+  values (v_p, 'Zz sprint', current_date, current_date + 14) returning id into v_sprint;
 
   create temp table fx (k text primary key, v uuid) on commit drop;
   grant select on fx to authenticated;
   insert into fx values
     ('pm', v_pm), ('coord', v_coord), ('lead', v_lead), ('u', v_u), ('v', v_v), ('s', v_s),
     ('x', v_x), ('p', v_p), ('a', v_a), ('b', v_b), ('tu', v_tu), ('tv', v_tv),
-    ('free', v_free), ('free2', v_free2);
+    ('free', v_free), ('free2', v_free2), ('tuv', v_tuv), ('sprint', v_sprint);
   raise notice 'fixture ready';
 end $$;
 
@@ -241,6 +246,8 @@ declare
   v_tv    uuid := (select v from fx where k = 'tv');
   v_free  uuid := (select v from fx where k = 'free');
   v_free2 uuid := (select v from fx where k = 'free2');
+  v_tuv   uuid := (select v from fx where k = 'tuv');
+  v_sprint uuid := (select v from fx where k = 'sprint');
 begin
   perform pg_temp.act_as(v_u);
   perform pg_temp.must_be('general_leads_user: L leads U', public.general_leads_user(v_p, v_lead, v_u));
@@ -268,6 +275,22 @@ begin
   perform pg_temp.must_refuse_with('...and so is moving its status',
     format($q$update public.general_tasks set status = 'in_progress' where id = %L$q$, v_tv),
     'Only whoever holds this task');
+  perform pg_temp.must_allow('L edits a task held by U (team A) and V (team B): one holder on L''s team is enough',
+    format($q$update public.general_tasks set description = 'Zz shared, edited by L' where id = %L$q$, v_tuv));
+  perform pg_temp.must_allow('L reorders U''s task in the backlog',
+    format($q$update public.general_tasks set rank = 42 where id = %L$q$, v_tu));
+  perform pg_temp.must_refuse_with('...but L cannot put U''s task in a sprint',
+    format($q$update public.general_tasks set sprint_id = %L where id = %L$q$, v_sprint, v_tu),
+    'plan sprints and order the backlog');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...the shared task and the new rank landed, and U''s task is in no sprint',
+    (select description = 'Zz shared, edited by L' from public.general_tasks where id = v_tuv)
+    and (select rank = 42 and sprint_id is null from public.general_tasks where id = v_tu));
+  perform pg_temp.act_as(v_u);
+  perform pg_temp.must_refuse_with('...and U, who leads nobody, cannot reorder U''s own task',
+    format($q$update public.general_tasks set rank = 7 where id = %L$q$, v_tu),
+    'plan sprints and order the backlog');
+  perform pg_temp.act_as(v_lead);
   perform pg_temp.must_refuse_with('L changes the points of U''s task: refused',
     format($q$update public.general_tasks set weight = 3 where id = %L$q$, v_tu),
     'manages tasks changes points');
@@ -314,7 +337,12 @@ declare
   v_u     uuid := (select v from fx where k = 'u');
   v_v     uuid := (select v from fx where k = 'v');
   v_tu    uuid := (select v from fx where k = 'tu');
+  v_x     uuid := (select v from fx where k = 'x');
 begin
+  perform pg_temp.act_as(v_x);
+  perform pg_temp.must_refuse_with('someone not on P cannot pick a leader of its team',
+    format('select public.set_general_team_leader(%L, %L)', v_a, v_u),
+    'not on a project you can see');
   perform pg_temp.act_as(v_coord);
   perform pg_temp.must_allow('a coordinator makes U the leader of team A',
     format('select public.set_general_team_leader(%L, %L)', v_a, v_u));
@@ -362,7 +390,20 @@ begin
   perform pg_temp.act_as(v_coord);
   perform pg_temp.must_refuse_with('no leader can be picked on an archived project',
     format('select public.set_general_team_leader(%L, null)', v_b),
-    'archived');
+    'This project is archived. The project manager can restore it');
+  -- An insert, since an update is filtered out by RLS before the guard speaks.
+  perform pg_temp.must_refuse_with('...and adding a team says the project manager restores it',
+    format($q$insert into public.general_teams (project_id, name) values (%L, 'Zz team C')$q$, v_p),
+    'The project manager can restore it');
+  -- The pm, who still reads the archived project's tasks (a member does not,
+  -- so their update finds no row before the guard speaks).
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('...and so does editing a task',
+    format($q$update public.general_tasks set title = 'Zz archived' where id = %L$q$, v_tu),
+    'The project manager can restore it');
+  perform pg_temp.must_refuse_with('...and adding one',
+    format($q$insert into public.general_tasks (project_id, title) values (%L, 'Zz archived new')$q$, v_p),
+    'The project manager can restore it');
   perform pg_temp.act_as(v_v);
   perform pg_temp.must_allow('V, team B''s leader, leaves the archived project',
     format('select public.leave_general_project(%L)', v_p));
@@ -396,6 +437,29 @@ begin
     exists (select 1 from public.general_teams where project_id = v_q));
   perform pg_temp.must_be('...with no leader',
     not exists (select 1 from public.general_teams where project_id = v_q and leader_id is not null));
+end $$;
+
+-- ------------------------------------------------------------------ the lead is on the team
+
+-- The triggers never leave a leader off their team, so to see general_leads_user
+-- ask for it on its own, the clearing trigger is switched off for the rest of
+-- this (rolled back) transaction. Last on purpose: the lock it takes is held
+-- only until the rollback just below.
+do $$
+declare
+  v_p    uuid := (select v from fx where k = 'p');
+  v_a    uuid := (select v from fx where k = 'a');
+  v_lead uuid := (select v from fx where k = 'lead');
+  v_u    uuid := (select v from fx where k = 'u');
+begin
+  perform pg_temp.act_as_service();
+  insert into public.general_team_members (team_id, project_id, user_id) values (v_a, v_p, v_lead);
+  update public.general_teams set leader_id = v_lead where id = v_a;
+  perform pg_temp.must_be('L leads U again', public.general_leads_user(v_p, v_lead, v_u));
+  alter table public.general_team_members disable trigger general_team_members_leader_clear;
+  delete from public.general_team_members where team_id = v_a and user_id = v_lead;
+  perform pg_temp.must_be('a leader_id left behind by hand leads nobody once its holder is off the team',
+    pg_temp.leader_of(v_a) = v_lead and not public.general_leads_user(v_p, v_lead, v_u));
 end $$;
 
 rollback;

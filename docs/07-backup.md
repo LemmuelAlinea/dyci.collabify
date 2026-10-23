@@ -263,16 +263,19 @@ only touches rows whose role does not match their level, so re-running it change
 `general_teams.leader_id`, `general_leads_user`, `set_general_team_leader`, the
 leader triggers (`general_teams_leader_guard`, `general_teams_leader_event`,
 `general_team_members_leader_clear`, `general_members_leader_clear`) and the
-`team_leader` event kind. It is the final owner of `guard_general_task`,
-`sync_general_task_stage`, `guard_general_structure`, the
-`general_task_assignees_insert` and `general_task_assignees_delete` policies and the
-`general_project_events` kinds check. Re-run it (then `anon-lockdown.sql`) after
-re-running any of `general.sql`, `general-tasks.sql`, `general-archive-rbac.sql`,
-`task-archive.sql`, `task-stages.sql` or `project-roles.sql`: they put back a task guard
-and stage sync that ignore team leaders, assignee policies without the lead branch, and a
-structure guard that stops a leader leaving an archived project. `project-roles.sql`
-lists `team_leader` in its own copy of the kinds check, so re-running it alone does not
-fail once team leader events exist.
+`team_leader` event kind, and `general_archived_message` (an archived work project's
+guards name the project manager; a class board's still name an Owner). It is the final
+owner of `guard_general_task`, `sync_general_task_stage`, `guard_general_task_plan`,
+`guard_general_structure`, the `general_task_assignees_insert` and
+`general_task_assignees_delete` policies and the `general_project_events` kinds check.
+Re-run it (then `anon-lockdown.sql`) after re-running any of `general.sql`,
+`general-tasks.sql`, `general-archive-rbac.sql`, `task-archive.sql`, `task-stages.sql`,
+`work-planning.sql` or `project-roles.sql`: they put back a task guard, stage sync and
+planning guard that ignore team leaders, assignee policies without the lead branch, and a
+structure guard that stops a leader leaving an archived project. `general-reports.sql`
+and `project-roles.sql` list every kind (`member_role`, `pm_handover`, `team_leader`
+included) in their own copies of the kinds check, so a fresh table takes them and
+re-running `project-roles.sql` alone does not fail once those events exist.
 
 `anon-lockdown.sql` runs last and takes EXECUTE on every public function away
 from the signed-out role, keeping signed-in access as it was. Re-run it after

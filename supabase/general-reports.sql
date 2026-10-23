@@ -55,7 +55,10 @@ create table if not exists public.general_project_events (
   created_at timestamptz not null default now(),
   constraint general_project_events_kind check (kind in (
     'task_archived', 'task_restored', 'project_status', 'project_archived',
-    'project_restored', 'member_joined', 'member_left', 'member_removed', 'member_level'))
+    'project_restored', 'member_joined', 'member_left', 'member_removed', 'member_level',
+    -- Added by later files (project-roles.sql, project-team-leads.sql), which
+    -- own the check; listed here so a fresh table already takes them.
+    'member_role', 'pm_handover', 'team_leader'))
 );
 
 create index if not exists general_project_events_project_idx
