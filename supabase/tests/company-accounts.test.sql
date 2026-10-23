@@ -92,6 +92,8 @@ declare
   v_teachfree uuid := gen_random_uuid();  -- member, teaches, no seats
   v_opener    uuid := gen_random_uuid();  -- member, teaches, opens a class
   v_runner    uuid := gen_random_uuid();  -- member, project manager, owns a work project
+  v_oldseat   uuid := gen_random_uuid();  -- member, teaches, Manager of an archived class space
+  v_oldspace  uuid;
   v_class     uuid;
   v_cspace    uuid;
   v_wspace    uuid;
@@ -126,7 +128,8 @@ begin
       (v_seatonly,  'zz-ca-seatonly@example.test', '{}'::jsonb),
       (v_teachfree, 'zz-ca-teachfree@example.test', '{}'::jsonb),
       (v_opener,    'zz-ca-opener@example.test', '{}'::jsonb),
-      (v_runner,    'zz-ca-runner@example.test', '{}'::jsonb)
+      (v_runner,    'zz-ca-runner@example.test', '{}'::jsonb),
+      (v_oldseat,   'zz-ca-oldseat@example.test', '{}'::jsonb)
     ) as v(id, em, meta);
 
   insert into public.profiles
@@ -137,7 +140,15 @@ begin
     (v_seatonly,  'zz-ca-seatonly@example.test',  'Zz', 'Caseatonly',  'member', 'active', false, false),
     (v_teachfree, 'zz-ca-teachfree@example.test', 'Zz', 'Cateachfree', 'member', 'active', true,  false),
     (v_opener,    'zz-ca-opener@example.test',    'Zz', 'Caopener',    'member', 'active', true,  false),
-    (v_runner,    'zz-ca-runner@example.test',    'Zz', 'Carunner',    'member', 'active', false, true);
+    (v_runner,    'zz-ca-runner@example.test',    'Zz', 'Carunner',    'member', 'active', false, true),
+    (v_oldseat,   'zz-ca-oldseat@example.test',   'Zz', 'Caoldseat',   'member', 'active', true,  false);
+
+  -- A class space that has been archived, still with a teacher seated in it.
+  insert into public.general_spaces (name, created_by, kind, archived_at)
+  values ('Zz CA archived class space', v_oldseat, 'education', now())
+  returning id into v_oldspace;
+  insert into public.general_space_members (space_id, user_id, level)
+  values (v_oldspace, v_oldseat, 'manager');
 
   -- Two seats in a live class space, one held by someone who teaches.
   insert into public.general_space_members (space_id, user_id, level) values
@@ -161,7 +172,7 @@ begin
     ('admin', v_admin), ('fac_sign', v_fac_sign), ('prof_sign', v_prof_sign),
     ('student', v_student), ('bare', v_bare), ('plain', v_plain), ('coteach', v_coteach),
     ('seatonly', v_seatonly), ('teachfree', v_teachfree), ('opener', v_opener),
-    ('runner', v_runner), ('class', v_class), ('cspace', v_cspace), ('project', v_project);
+    ('runner', v_runner), ('oldseat', v_oldseat), ('class', v_class), ('cspace', v_cspace), ('project', v_project);
   raise notice 'fixture ready';
 end $$;
 
@@ -187,9 +198,10 @@ declare
   v_bare uuid := (select v from fx where k = 'bare');
 begin
   perform pg_temp.act_as(v_bare);
-  perform pg_temp.must_refuse('onboarding cannot pick faculty', format(
+  perform pg_temp.must_refuse_with('onboarding cannot pick faculty', format(
     $q$insert into public.profiles (id, email, first_name, last_name, role)
-       values (%L, 'zz-ca-bare@example.test', 'Zz', 'Cabare', 'faculty')$q$, v_bare));
+       values (%L, 'zz-ca-bare@example.test', 'Zz', 'Cabare', 'faculty')$q$, v_bare),
+    'Choose student or member');
   perform pg_temp.must_allow('onboarding as a member is allowed', format(
     $q$insert into public.profiles
          (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
@@ -380,6 +392,9 @@ begin
   perform pg_temp.must_refuse_with('...and they cannot be made a student either',
     format('select public.set_account_role(%L, ''student''::public.user_role)', v_coteach),
     'Hand over their classes and projects first');
+  perform pg_temp.must_refuse_with('...and while they hold a seat in an archived class',
+    format('select public.set_faculty_teaching(%L, false)', (select v from fx where k = 'oldseat')),
+    'They still teach a class');
   perform pg_temp.must_allow('one who teaches nothing can have it turned off',
     format('select public.set_faculty_teaching(%L, false)', v_teachfree));
   perform pg_temp.must_refuse_with('a student cannot teach',
@@ -402,8 +417,9 @@ declare
   v_teachfree uuid := (select v from fx where k = 'teachfree');
 begin
   perform pg_temp.act_as(v_admin);
-  perform pg_temp.must_refuse('nobody is made faculty any more',
-    format('select public.set_account_role(%L, ''faculty''::public.user_role)', v_student));
+  perform pg_temp.must_refuse_with('nobody is made faculty any more',
+    format('select public.set_account_role(%L, ''faculty''::public.user_role)', v_student),
+    'An account is a student or a member');
   perform pg_temp.must_allow('a student is made a member',
     format('select public.set_account_role(%L, ''member''::public.user_role)', v_student));
   perform pg_temp.act_as_service();

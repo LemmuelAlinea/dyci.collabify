@@ -376,7 +376,7 @@ begin
       where p.id = w.id and p.role = 'member' and p.status = 'active' and p.can_teach
    );
   if bad > 0 then
-    raise exception 'Only active faculty who teach can be assigned a section'
+    raise exception 'Only active members who teach can be assigned a section.'
       using errcode = 'check_violation';
   end if;
 
@@ -768,7 +768,11 @@ $$;
 revoke execute on function public.managed_project_count(uuid) from public, anon;
 grant execute on function public.managed_project_count(uuid) to authenticated;
 
-/** A seat that teaches: a class they run, or Owner/Manager of a live class space. */
+/**
+ * A seat that teaches: a class they run, or Owner/Manager of any class space.
+ * Archived class spaces count too: a class can be restored, and it should not
+ * come back taught by somebody who no longer teaches.
+ */
 create or replace function public.holds_class_seat(p_user uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.classes c
@@ -778,8 +782,7 @@ returns boolean language sql stable security definer set search_path = public as
                    join public.general_spaces s on s.id = m.space_id
                   where m.user_id = p_user
                     and m.level in ('owner', 'manager')
-                    and s.kind = 'education'
-                    and s.archived_at is null);
+                    and s.kind = 'education');
 $$;
 
 revoke execute on function public.holds_class_seat(uuid) from public, anon, authenticated;
