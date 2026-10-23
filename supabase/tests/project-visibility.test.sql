@@ -135,6 +135,7 @@ declare
   v_nopm    uuid := gen_random_uuid();  -- no Project manager switch
   v_manager uuid := gen_random_uuid();  -- space Manager on P as a member
   v_student uuid := gen_random_uuid();  -- student added to P
+  v_pm2     uuid := gen_random_uuid();  -- Project manager on, plain space member
   v_space   uuid;
   v_project uuid;
 begin
@@ -151,7 +152,8 @@ begin
       (v_cowner,  'zz-pv-cowner@example.test'),
       (v_nopm,    'zz-pv-nopm@example.test'),
       (v_manager, 'zz-pv-manager@example.test'),
-      (v_student, 'zz-pv-student@example.test')
+      (v_student, 'zz-pv-student@example.test'),
+      (v_pm2,     'zz-pv-pm2@example.test')
     ) as v(id, em);
 
   insert into public.profiles
@@ -165,7 +167,8 @@ begin
     (v_cowner,  'zz-pv-cowner@example.test',  'Zz', 'Pvcowner',  'member',  'active', false, true),
     (v_nopm,    'zz-pv-nopm@example.test',    'Zz', 'Pvnopm',    'member',  'active', false, false),
     (v_manager, 'zz-pv-manager@example.test', 'Zz', 'Pvmanager', 'member',  'active', false, false),
-    (v_student, 'zz-pv-student@example.test', 'Zz', 'Pvstudent', 'student', 'active', false, false)
+    (v_student, 'zz-pv-student@example.test', 'Zz', 'Pvstudent', 'student', 'active', false, false),
+    (v_pm2,     'zz-pv-pm2@example.test',     'Zz', 'Pvpmtwo',   'member',  'active', false, true)
   on conflict (id) do update
     set role = excluded.role, status = excluded.status,
         can_manage_projects = excluded.can_manage_projects;
@@ -175,11 +178,14 @@ begin
   perform pg_temp.act_as_service();
 
   insert into public.general_space_members (space_id, user_id, level) values
-    (v_space, v_pm, 'member'), (v_space, v_plain, 'member'), (v_space, v_manager, 'manager');
+    (v_space, v_pm, 'member'), (v_space, v_plain, 'member'), (v_space, v_manager, 'manager'),
+    (v_space, v_pm2, 'member');
 
   perform pg_temp.act_as(v_pm);
   v_project := (public.create_general_project('Zz PV project', '', null, null, null, null,
                                               v_space)).id;
+  -- A project code is open, so the overview has one to withhold.
+  perform public.set_general_join_code(v_project, true, true);
   perform pg_temp.act_as_service();
 
   insert into public.general_members (project_id, user_id) values
@@ -199,7 +205,7 @@ begin
   insert into fx values
     ('owner', v_owner), ('pm', v_pm), ('plain', v_plain), ('member', v_member),
     ('joiner', v_joiner), ('cowner', v_cowner), ('nopm', v_nopm),
-    ('manager', v_manager), ('student', v_student),
+    ('manager', v_manager), ('student', v_student), ('pm2', v_pm2),
     ('space', v_space), ('project', v_project);
   raise notice 'fixture ready';
 end $$;
@@ -257,6 +263,10 @@ begin
     (select count(*) from public.list_general_project_members(v_project)) = 3);
   perform pg_temp.must_be('...and can still ask whether P has a project manager',
     public.general_project_has_pm(v_project));
+  perform pg_temp.must_be('...where they hold no level on P',
+    (select my_level is null from public.general_project_overview where id = v_project));
+  perform pg_temp.must_be('...and the project''s join code is withheld',
+    (select join_code is null from public.general_project_overview where id = v_project));
   perform pg_temp.must_be('...and is a report lead on P',
     public.general_report_is_lead(v_project));
   -- An internal helper the report RPCs call; read as postgres with O's claims.
@@ -388,6 +398,127 @@ begin
       where space_id = v_space and user_id = v_cowner));
 end $$;
 
+-- A plain member with Project manager can be invited to co-own; an Owner cannot.
+do $$
+declare
+  v_space uuid := (select v from fx where k = 'space');
+  v_owner uuid := (select v from fx where k = 'owner');
+  v_pm    uuid := (select v from fx where k = 'pm');
+  v_cowner uuid := (select v from fx where k = 'cowner');
+begin
+  perform pg_temp.act_as(v_owner);
+  perform pg_temp.must_refuse_with('inviting someone who already co-owns the space is refused',
+    format('select public.invite_to_general_space(%L, %L)', v_space, v_cowner),
+    'They already co-own this space');
+  perform pg_temp.must_allow('the Owner invites a plain space member who has Project manager',
+    format('select public.invite_to_general_space(%L, %L)', v_space, v_pm));
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('...who accepts',
+    format('select public.respond_general_space_invitation(%L, true)',
+      (select id from public.general_space_invitations
+        where space_id = v_space and invitee = v_pm and status = 'pending')));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and is raised from member to Owner',
+    (select level = 'owner' from public.general_space_members
+      where space_id = v_space and user_id = v_pm));
+end $$;
+
+-- Making someone an Owner directly follows the same rule.
+do $$
+declare
+  v_space uuid := (select v from fx where k = 'space');
+  v_owner uuid := (select v from fx where k = 'owner');
+  v_plain uuid := (select v from fx where k = 'plain');
+  v_pm2   uuid := (select v from fx where k = 'pm2');
+begin
+  perform pg_temp.act_as(v_owner);
+  perform pg_temp.must_refuse_with('an Owner cannot make someone without Project manager an Owner',
+    format('select public.set_general_space_level(%L, %L, %L)', v_space, v_plain, 'owner'),
+    'Only people with Project manager turned on can co-own a space');
+  perform pg_temp.must_allow('...but can make someone with it an Owner',
+    format('select public.set_general_space_level(%L, %L, %L)', v_space, v_pm2, 'owner'));
+  perform pg_temp.must_allow('...and can still make the plain member a Manager',
+    format('select public.set_general_space_level(%L, %L, %L)', v_space, v_plain, 'manager'));
+  perform pg_temp.must_allow('...and back to member',
+    format('select public.set_general_space_level(%L, %L, %L)', v_space, v_plain, 'member'));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...so they are a member again and the switch-holder an Owner',
+    (select level = 'member' from public.general_space_members where space_id = v_space and user_id = v_plain)
+    and (select level = 'owner' from public.general_space_members where space_id = v_space and user_id = v_pm2));
+end $$;
+
+-- In a work space a Manager runs no invitations or codes; an Owner does.
+do $$
+declare
+  v_space   uuid := (select v from fx where k = 'space');
+  v_owner   uuid := (select v from fx where k = 'owner');
+  v_manager uuid := (select v from fx where k = 'manager');
+  v_nopm    uuid := (select v from fx where k = 'nopm');
+  v_inv     uuid;
+begin
+  update public.profiles set can_manage_projects = true where id = v_nopm;
+  perform pg_temp.act_as(v_owner);
+  v_inv := (public.invite_to_general_space(v_space, v_nopm)).id;
+  perform pg_temp.act_as_service();
+  insert into public.general_space_join_codes (space_id, code, open)
+  values (v_space, 'ZZPVCODE', false);
+
+  perform pg_temp.act_as(v_manager);
+  perform pg_temp.must_be('a work-space Manager reads no pending invitations',
+    not exists (select 1 from public.general_space_invitations where id = v_inv));
+  perform pg_temp.must_be('...nor the join code',
+    not exists (select 1 from public.general_space_join_codes where space_id = v_space));
+  perform pg_temp.must_refuse_with('...cannot list the invitations',
+    format('select * from public.list_general_space_invitations(%L)', v_space),
+    'You need permission to see this space''s invitations');
+  perform pg_temp.must_refuse_with('...cannot withdraw one',
+    format('select public.withdraw_general_space_invitation(%L)', v_inv),
+    'You need permission to withdraw this invitation');
+  perform pg_temp.must_refuse_with('...and cannot close the join code',
+    format('select public.set_general_space_join_code(%L, false)', v_space),
+    'You need permission to change this space''s join code');
+
+  perform pg_temp.act_as(v_owner);
+  perform pg_temp.must_be('the Owner reads the pending invitation',
+    exists (select 1 from public.general_space_invitations where id = v_inv));
+  perform pg_temp.must_be('...and the join code',
+    exists (select 1 from public.general_space_join_codes where space_id = v_space));
+  perform pg_temp.must_be('...lists the invitations',
+    exists (select 1 from public.list_general_space_invitations(v_space) where invitation_id = v_inv));
+  perform pg_temp.must_allow('...and withdraws one',
+    format('select public.withdraw_general_space_invitation(%L)', v_inv));
+  perform pg_temp.act_as_service();
+  -- The closed code stays: a join code is never removed, only turned off.
+  update public.profiles set can_manage_projects = false where id = v_nopm;
+end $$;
+
+-- A project stays in its space and keeps its class-board link.
+do $$
+declare
+  v_project uuid := (select v from fx where k = 'project');
+  v_space   uuid := (select v from fx where k = 'space');
+  v_pm      uuid := (select v from fx where k = 'pm');
+  v_elsewhere uuid;
+  v_board   uuid := (select id from public.project_boards limit 1);
+begin
+  perform pg_temp.act_as(v_pm);
+  v_elsewhere := (public.create_general_space('Zz PV elsewhere', '')).id;
+  perform pg_temp.must_refuse_with('the project manager cannot move P to another space',
+    format('update public.general_projects set space_id = %L where id = %L', v_elsewhere, v_project),
+    'A project stays in the space it was created in');
+  perform pg_temp.must_refuse_with('...nor turn it into a class board''s Files project',
+    format('update public.general_projects set class_board_id = %L where id = %L',
+           coalesce(v_board, gen_random_uuid()), v_project),
+    'link to a class board cannot be changed');
+  perform pg_temp.must_allow('...while renaming it, space unchanged, still works',
+    format($q$update public.general_projects set name = 'Zz PV moved?', space_id = %L where id = %L$q$,
+           v_space, v_project));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and P is still in its space, with no board',
+    (select space_id = v_space and class_board_id is null
+       from public.general_projects where id = v_project));
+end $$;
+
 -- An invitee whose switch was turned off after the invite cannot accept it.
 do $$
 declare
@@ -436,8 +567,8 @@ begin
 
   -- An older open code (none live) still closes, and admits nobody meanwhile.
   perform pg_temp.act_as_service();
-  insert into public.general_space_join_codes (space_id, code, open)
-  values (v_space, 'ZZPVCODE', true);
+  update public.general_space_join_codes set open = true
+   where space_id = v_space and code = 'ZZPVCODE';
   perform pg_temp.act_as(v_nopm);
   perform pg_temp.must_refuse_with('joining by an open space code is refused',
     'select public.join_general_space(''ZZPVCODE'')',
