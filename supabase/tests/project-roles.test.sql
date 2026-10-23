@@ -747,20 +747,12 @@ begin
   perform public.set_general_member_level(v_r, v_mem2, 'member');
   perform pg_temp.must_be('...and member as member', public.general_role_of(v_r, v_mem2) = 'member');
 
-  perform pg_temp.must_allow('set_general_member_level owner hands the project over',
-    format($q$select public.set_general_member_level(%L, %L, 'owner')$q$, v_r, v_pm2));
-  perform pg_temp.must_be('...pm2 is pm and the old pm a coordinator',
-    public.general_role_of(v_r, v_pm2) = 'pm' and public.general_role_of(v_r, v_pm) = 'coordinator');
-  perform pg_temp.act_as(v_pm2);
-  perform public.hand_over_general_project(v_r, v_pm);
-  perform pg_temp.act_as(v_pm);
-  perform public.set_general_member_role(v_r, v_pm2, 'member');
+  perform pg_temp.must_refuse_with('set_general_member_level owner is refused, not a quiet hand over',
+    format($q$select public.set_general_member_level(%L, %L, 'owner')$q$, v_r, v_pm2),
+    'Use hand over to change the project manager.');
   perform pg_temp.act_as_service();
-  perform pg_temp.must_be('...and back again', public.general_role_of(v_r, v_pm) = 'pm'
+  perform pg_temp.must_be('...and nothing moved', public.general_role_of(v_r, v_pm) = 'pm'
     and public.general_role_of(v_r, v_pm2) = 'member');
-  -- So the hand-over block below counts only its own.
-  delete from public.general_project_events where project_id = v_r and kind = 'pm_handover';
-  delete from public.notifications where user_id = v_pm2 and general_project_id = v_r;
 end $$;
 
 -- ------------------------------------------------------------------ inviting
@@ -776,6 +768,7 @@ declare
   v_mem2     uuid := (select v from fx where k = 'mem2');
   v_student2 uuid := (select v from fx where k = 'student2');
   inv public.general_invitations%rowtype;
+  v_code text;
 begin
   perform pg_temp.act_as(v_pm);
   inv := public.invite_to_general_project(v_r, v_inv1, 'coordinator');
@@ -826,6 +819,27 @@ begin
     inv.role = 'coordinator'
     and (select count(*) = 1 from public.general_invitations
           where project_id = v_r and invitee = v_inv3 and status = 'pending'));
+
+  -- The join code honours a pending invitation's role.
+  v_code := public.set_general_join_code(v_r, true);
+  perform pg_temp.act_as(v_inv3);
+  perform pg_temp.must_be('someone invited as coordinator who uses the join code instead',
+    public.join_general_project(v_code) = v_r);
+  perform pg_temp.act_as(v_inv2);
+  perform pg_temp.must_be('...and someone invited as member who does the same',
+    public.join_general_project(v_code) = v_r);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...joins as coordinator, the invitation''s role',
+    (select role = 'coordinator' from public.general_members
+      where project_id = v_r and user_id = v_inv3));
+  perform pg_temp.must_be('...while the member invitee joins as member',
+    (select role = 'member' from public.general_members
+      where project_id = v_r and user_id = v_inv2));
+  perform pg_temp.must_be('...and both invitations are accepted',
+    not exists (select 1 from public.general_invitations
+                 where project_id = v_r and invitee in (v_inv2, v_inv3) and status = 'pending'));
+  perform pg_temp.act_as(v_pm);
+  perform public.set_general_join_code(v_r, false);
   perform pg_temp.act_as_service();
 end $$;
 
@@ -952,6 +966,23 @@ begin
     format('select public.assign_general_project_pm(%L, %L)', v_r, v_out),
     'This project already has a project manager.');
 
+  -- Archived, R is hidden from a space owner who is not a lead, so the gated
+  -- has_pm reads false for them. Assign must not take that as "no pm".
+  perform pg_temp.act_as(v_pm2);
+  perform public.archive_general_project(v_r, true);
+  perform pg_temp.act_as(v_sowner);
+  perform pg_temp.must_be('archived, the gated has_pm tells a non-lead space owner nothing',
+    public.general_project_has_pm(v_r) is false);
+  perform pg_temp.must_refuse_with('...but assigning over the active pm is still refused',
+    format('select public.assign_general_project_pm(%L, %L)', v_r, v_out),
+    'This project already has a project manager.');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and the pm is untouched',
+    (select role = 'pm' from public.general_members where project_id = v_r and user_id = v_pm2));
+  perform pg_temp.act_as(v_pm2);
+  perform public.archive_general_project(v_r, false);
+  perform pg_temp.act_as(v_sowner);
+
   -- The pm is deactivated.
   perform pg_temp.act_as_service();
   update public.profiles set status = 'rejected' where id = v_pm2;
@@ -989,6 +1020,9 @@ begin
   -- An admin recovers too: the outsider loses the switch.
   update public.profiles set can_manage_projects = false where id = v_out;
   perform pg_temp.act_as(v_admin);
+  perform pg_temp.must_refuse_with('an admin assigning on a project that does not exist is told so',
+    format('select public.assign_general_project_pm(%L, %L)', gen_random_uuid(), v_pm),
+    'That project was not found. Check the link');
   perform pg_temp.must_allow('an admin assigns a pm',
     format('select public.assign_general_project_pm(%L, %L)', v_r, v_pm));
   perform pg_temp.act_as_service();

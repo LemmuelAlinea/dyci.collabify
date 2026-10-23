@@ -430,9 +430,11 @@ begin
     format('select public.archive_general_project(%L, false)', p));
 
   -- Project roles (project-roles.sql): one project manager per work project, so
-  -- making somebody else Owner hands the project over to them.
-  perform pg_temp.must_allow('the Owner makes somebody else Owner, which hands the project over',
+  -- making somebody else Owner is refused; the hand over moves it.
+  perform pg_temp.must_refuse('the Owner cannot make somebody else a second Owner',
     format('select public.set_general_member_level(%L, %L, %L)', p, b, 'owner'));
+  perform pg_temp.must_allow('the Owner hands the project over instead',
+    format('select public.hand_over_general_project(%L, %L)', p, b));
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('...they are the one Owner and the old Owner a Manager',
     (select level = 'owner' from public.general_members where project_id = p and user_id = b)

@@ -373,10 +373,10 @@ begin
       where project_id = v_project and user_id = v_student2));
 
   -- Project roles (project-roles.sql): a student may hold any role but pm.
-  -- Owner is now a hand over, and a student never has Project manager on.
+  -- Only the hand over moves pm, and a student never has Project manager on.
   perform pg_temp.act_as(v_staff);
   begin
-    perform public.set_general_member_level(v_project, v_student2, 'owner');
+    perform public.hand_over_general_project(v_project, v_student2);
     raise exception 'FAIL  a student cannot be made the Owner (pm) of a project — it went through';
   exception
     when check_violation then

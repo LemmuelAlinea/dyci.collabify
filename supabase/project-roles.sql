@@ -295,8 +295,9 @@ begin
   end if;
   -- No student refusal any more (the copy in company-accounts.sql had one).
   -- A student joins a work project by its code like anybody else, as a
-  -- member, and the project manager can change the role afterwards. Spaces
-  -- are another matter: join_general_space keeps its own rules.
+  -- member (or with the role a pending invitation holds), and the project
+  -- manager can change the role afterwards. Spaces are another matter:
+  -- join_general_space keeps its own rules.
 
   -- Counted before the code is read, so a wrong guess costs an attempt.
   perform public.rate_limit('general_join', 10, interval '10 minutes',
@@ -310,8 +311,15 @@ begin
     return null; -- a miss, not a refusal; the rate-limit count already committed
   end if;
 
+  -- A pending invitation's role wins: only the project manager can have made
+  -- it coordinator, and the code should not undo that. Never pm.
   insert into public.general_members (project_id, user_id, role)
-  values (p.id, auth.uid(), 'member')
+  values (p.id, auth.uid(), coalesce(
+    (select i.role from public.general_invitations i
+      where i.project_id = p.id and i.invitee = auth.uid() and i.status = 'pending'
+        and i.role <> 'pm'
+      order by i.created_at desc limit 1),
+    'member'))
   on conflict do nothing;
 
   update public.general_invitations
@@ -488,6 +496,12 @@ begin
   if target.user_id is null then
     raise exception 'They are not on this project' using errcode = 'no_data_found';
   end if;
+  -- Asked again under the lock: a hand over may have moved the caller since.
+  me := public.general_role_of(p_project, auth.uid());
+  if me is null or me not in ('pm', 'coordinator') then
+    raise exception 'Only the project manager or a coordinator changes roles.'
+      using errcode = 'insufficient_privilege';
+  end if;
 
   if me = 'coordinator' then
     if target.role not in ('member', 'qa', 'stakeholder') then
@@ -601,12 +615,22 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
   if proj.id is null then
-    raise exception 'That project was not found' using errcode = 'no_data_found';
+    raise exception 'That project was not found. Check the link or ask its project manager.'
+      using errcode = 'no_data_found';
   end if;
 
+  -- The project row first, so two assigns on a project with no pm row queue
+  -- here instead of meeting at general_members_one_pm.
+  perform 1 from public.general_projects where id = p_project for update;
   perform 1 from public.general_members
    where project_id = p_project and role = 'pm' for update;
-  if public.general_project_has_pm(p_project) then
+  -- general_project_has_pm's rule, ungated: its read gate hides an archived
+  -- project from a space owner who is not a lead, and would read as no pm.
+  if exists (select 1
+               from public.general_members m
+               join public.profiles pr on pr.id = m.user_id
+              where m.project_id = p_project and m.role = 'pm'
+                and pr.status = 'active' and pr.can_manage_projects) then
     raise exception 'This project already has a project manager.'
       using errcode = 'check_violation';
   end if;
@@ -634,8 +658,9 @@ $$;
 
 /**
  * general.sql's copy, kept until the UI calls set_general_member_role. On a
- * work project Owner is a hand over, Manager is coordinator and Member is
- * member, each by the new rules. Class-board Files projects keep the old body.
+ * work project Manager is coordinator and Member is member, by the new rules;
+ * Owner is refused, since only hand_over_general_project moves the project
+ * manager. Class-board Files projects keep the old body.
  */
 create or replace function public.set_general_member_level(p_project uuid, p_user uuid, p_level public.general_level)
 returns void language plpgsql security definer set search_path = public as $$
@@ -646,11 +671,11 @@ begin
   if exists (select 1 from public.general_projects
               where id = p_project and class_board_id is null) then
     if p_level = 'owner' then
-      perform public.hand_over_general_project(p_project, p_user);
-    else
-      perform public.set_general_member_role(p_project, p_user,
-        case p_level when 'manager' then 'coordinator' else 'member' end::public.general_role);
+      raise exception 'Use hand over to change the project manager.'
+        using errcode = 'check_violation';
     end if;
+    perform public.set_general_member_role(p_project, p_user,
+      case p_level when 'manager' then 'coordinator' else 'member' end::public.general_role);
     return;
   end if;
 
