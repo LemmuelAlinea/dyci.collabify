@@ -318,8 +318,13 @@ begin
   perform pg_temp.act_as(v_student);
   perform pg_temp.must_refuse('a student cannot join a work space by code',
     format('select public.join_general_space(%L)', v_space_code));
-  perform pg_temp.must_refuse('a student cannot join a work-space project by code',
+  -- Project roles (project-roles.sql): students use project codes, as members.
+  perform pg_temp.must_allow('a student joins a work-space project by code',
     format('select public.join_general_project(%L)', v_project_code));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...as a member',
+    (select role = 'member' and level = 'member' from public.general_members
+      where project_id = v_project and user_id = v_student));
 
   perform pg_temp.act_as(v_teacher);
   perform pg_temp.must_allow('a member joins a work space by code',
@@ -367,9 +372,24 @@ begin
     (select level = 'member' from public.general_members
       where project_id = v_project and user_id = v_student2));
 
+  -- Project roles (project-roles.sql): a student may hold any role but pm.
   perform pg_temp.act_as(v_staff);
-  perform pg_temp.must_refuse('a student cannot be made a Manager of a project',
+  begin
+    perform public.set_general_member_level(v_project, v_student2, 'owner');
+    raise exception 'FAIL  a student cannot be made the Owner (pm) of a project — it went through';
+  exception
+    when check_violation then
+      if sqlerrm <> 'A student cannot be the project manager.' then
+        raise exception 'FAIL  a student cannot be made the Owner (pm) — refused by: %', sqlerrm;
+      end if;
+      raise notice 'PASS  a student cannot be made the Owner (pm) of a project  (refused: %)', sqlerrm;
+  end;
+  perform pg_temp.must_allow('...but can be made a Manager (coordinator)',
     format('select public.set_general_member_level(%L, %L, %L)', v_project, v_student2, 'manager'));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and reads back as a coordinator',
+    (select role = 'coordinator' and level = 'manager' from public.general_members
+      where project_id = v_project and user_id = v_student2));
 end $$;
 
 -- ------------------------------------------------------------------ classes

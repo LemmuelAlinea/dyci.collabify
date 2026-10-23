@@ -429,9 +429,22 @@ begin
   perform pg_temp.must_allow('an Owner restores it',
     format('select public.archive_general_project(%L, false)', p));
 
-  perform pg_temp.must_allow('the Owner makes somebody else an Owner',
-    format('select public.set_general_member_level(%L, %L, %L)', p, b, 'owner'));
-  perform pg_temp.must_allow('...and can then leave',
+  -- Project roles (project-roles.sql): one project manager per work project, so
+  -- a second Owner is refused. The hand-over is written directly here.
+  begin
+    perform public.set_general_member_level(p, b, 'owner');
+    raise exception 'FAIL  the Owner cannot make somebody else a second Owner — it went through';
+  exception
+    when unique_violation then
+      if position('general_members_one_pm' in sqlerrm) = 0 then raise; end if;
+      raise notice 'PASS  the Owner cannot make somebody else a second Owner  (refused: %)',
+        left(sqlerrm, 60);
+  end;
+  perform pg_temp.act_as_service();
+  update public.general_members set role = 'coordinator' where project_id = p and user_id = a;
+  update public.general_members set role = 'pm' where project_id = p and user_id = b;
+  perform pg_temp.act_as(a);
+  perform pg_temp.must_allow('...and once handed over, the old Owner can leave',
     format('select public.leave_general_project(%L)', p));
   perform pg_temp.act_as_service();
 end $$;
@@ -482,11 +495,12 @@ declare
 begin
   -- b is now the fixture project's sole active Owner (a left above); d is
   -- already deactivated from the block above.
+  -- One project manager per work project (project-roles.sql), so a deactivated
+  -- account can no longer sit beside b as a second Owner; it can be a Manager.
   perform pg_temp.act_as(b);
-  perform pg_temp.must_allow('the Owner makes a deactivated account an Owner too',
-    format('select public.set_general_member_level(%L, %L, %L)', p, d, 'owner'));
-  perform pg_temp.must_allow(
-    '...and can still demote that deactivated Owner, despite being the only active one',
+  perform pg_temp.must_allow('the Owner makes a deactivated account a Manager',
+    format('select public.set_general_member_level(%L, %L, %L)', p, d, 'manager'));
+  perform pg_temp.must_allow('...and can demote that deactivated Manager again',
     format('select public.set_general_member_level(%L, %L, %L)', p, d, 'member'));
   perform pg_temp.act_as_service();
 end $$;

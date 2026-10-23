@@ -68,8 +68,9 @@ begin
   perform pg_temp.svc();
   insert into public.general_space_members (space_id, user_id, level) values (sp.id, mate_id, 'member')
   on conflict do nothing;
-  insert into public.general_members (project_id, user_id, level) values (p1.id, mate_id, 'owner');
+  -- One project manager per project (project-roles.sql): out first, then in.
   delete from public.general_members where project_id = p1.id and user_id = owner_id;
+  insert into public.general_members (project_id, user_id, level) values (p1.id, mate_id, 'owner');
 
   ------------------------------------------------------------------ live spaces stay
   perform pg_temp.act_as(owner_id);
