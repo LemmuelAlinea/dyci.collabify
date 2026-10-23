@@ -3630,3 +3630,21 @@ Both start with "zz test".
 - `classesSig` omits class names, so a rename in every-class mode shows on the next change or reload.
 
 **Next.** Nothing queued; open work is the Deferred lists.
+
+## Milestones per sprint and the milestone timeline (2026-10-23)
+
+**What.** The New milestone modal can make one milestone per sprint, and the Milestones tab opens with a timeline diagram.
+
+| File | What it does |
+|---|---|
+| `components/work/MilestoneDialog.tsx` | Optional `perSprint` prop. With it, a "One milestone / One per sprint" switch; per sprint lists planned and running sprints, checked unless the sprint already counts toward a milestone ("Counts toward X"; checking moves it). Each checked sprint becomes a milestone named after it, due on `ends_on`, with the sprint linked. The description goes on every one. A partial failure drops the finished sprints from the checklist and says how many were added. |
+| `components/work/MilestoneChart.tsx` | One horizontal line, milestones evenly spaced in date order at (i+1)/(n+1), names taking turns above and below. Filled navy dot = reached, hollow = not. Below `sm` it turns into a vertical list. Clicking scrolls to the card. |
+| `components/work/MilestonesView.tsx` | Renders the chart above the cards, and passes `perSprint` only when `canTag` and there are open sprints (so professors in class projects see the old modal). Cards carry `id="milestone-<id>"` and flash a navy outline for 1.6 s; scrolling honours reduced motion. |
+
+**Checked.** The build is clean. In the browser, live on Capstone 2 as Cloud: the per-sprint modal listed 4 sprints with Sprint 1 unchecked ("Counts toward Milestone 1") and made 3 linked milestones. The chart drew 4 dots with Milestone 1 filled and no horizontal overflow at 800 px. Click-to-card and its outline worked, and the chart read correctly in dark mode and at 375 px (vertical). The 3 test milestones were deleted afterwards and the sprints are back to unlinked.
+
+**Deferred.**
+- The highlight uses an outline because `.shadow-card` sets `box-shadow` directly and beats Tailwind's `ring-*`. Other cards that want a ring hit the same thing.
+- Per-sprint creation is one create plus one link per sprint, run in sequence (about 1.5 s each). A batch RPC would make it a single round trip.
+
+**Next.** Nothing queued; open work is the Deferred lists.

@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useReducedMotion } from 'motion/react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { ActionMenu } from '../ui/ActionMenu'
 import { Icon } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
+import { MilestoneChart } from './MilestoneChart'
 import { MilestoneDialog } from './MilestoneDialog'
 import { ProgressBar, StatusPill } from './MilestoneBits'
 import { AddSprintDialog } from './AddSprintDialog'
@@ -35,9 +37,26 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
   const [deleting, setDeleting] = useState<Milestone | null>(null)
   const [tagging, setTagging] = useState<Milestone | null>(null)
   const [addingSprint, setAddingSprint] = useState<Milestone | null>(null)
+  const [flash, setFlash] = useState<string | null>(null)
+  const still = useReducedMotion()
   const list = sortMilestones(source.milestones)
   // A professor's source carries one group per board; everyone else reads their own items.
   const professor = source.groups.length > 0
+  // A finished sprint is fixed, so only planned and running ones get a milestone each.
+  const openSprints = source.sprints.filter((s) => s.state !== 'completed')
+
+  useEffect(() => {
+    if (!flash) return
+    const t = window.setTimeout(() => setFlash(null), 1600)
+    return () => window.clearTimeout(t)
+  }, [flash])
+
+  function showCard(id: string) {
+    document
+      .getElementById(`milestone-${id}`)
+      ?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' })
+    setFlash(id)
+  }
 
   async function run(action: () => Promise<unknown>, failure: string) {
     try {
@@ -73,6 +92,12 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
         )}
       </div>
 
+      <MilestoneChart
+        milestones={list}
+        isReached={(m) => milestoneStatus(m, milestoneProgress(source.items, m.id), now) === 'reached'}
+        onPick={showCard}
+      />
+
       {list.length === 0 ? (
         <p className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-[13px] text-muted">
           No milestones yet. {source.canManage ? 'Add the first one, such as a draft or a defense date.' : 'When one is set, it shows here.'}
@@ -85,7 +110,14 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
             const tagged = source.items.filter((i) => i.milestone_id === m.id)
             const linked = source.sprints.filter((sp) => sp.milestone_id === m.id)
             return (
-              <li key={m.id} className="card space-y-3 p-4 shadow-card">
+              <li
+                key={m.id}
+                id={`milestone-${m.id}`}
+                // An outline, since `shadow-card` owns the box-shadow a ring would use.
+                className={`card space-y-3 p-4 shadow-card ${
+                  flash === m.id ? 'outline-2 outline-offset-2 outline-navy-500 dark:outline-navy-300' : ''
+                }`}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -212,6 +244,18 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
         submitLabel="Add milestone"
         initial={{ name: '', description: '', dueOn: addDays(toDay(now), 14) }}
         onSubmit={(input) => source.createMilestone(input)}
+        perSprint={
+          source.canTag && openSprints.length > 0
+            ? {
+                sprints: openSprints,
+                nameOf: (id) => source.milestones.find((m) => m.id === id)?.name,
+                create: async (sprint, description) => {
+                  const id = await source.createMilestone({ name: sprint.name, description, dueOn: sprint.ends_on })
+                  await source.linkSprint(sprint.id, id)
+                },
+              }
+            : undefined
+        }
       />
       {editing && (
         <MilestoneDialog
