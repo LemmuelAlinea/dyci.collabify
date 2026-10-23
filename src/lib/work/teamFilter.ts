@@ -1,31 +1,37 @@
 /**
- * The Team filter on Tasks and Backlog. A team's tasks are the tasks held by
- * anyone on the team, so a task a teammate holds shows under the team even if
- * it was never filed under it.
+ * The Team filter on Tasks and Backlog. A task belongs to a team when it is
+ * filed under the team or when anyone on the team holds it, so a task a
+ * teammate picked up shows under the team even if it was never filed there.
  */
 
-/** The ids on one team; null for All teams, which narrows nothing. */
-export function teamMemberIds(
+/** A chosen team and who is on it. */
+export type TeamSelection = { id: string; memberIds: readonly string[] }
+
+/** The chosen team with its people; null for All teams, which narrows nothing. */
+export function teamSelection(
   links: readonly { team_id: string; user_id: string }[],
   teamId: string,
-): string[] | null {
+): TeamSelection | null {
   if (!teamId) return null
-  return links.filter((l) => l.team_id === teamId).map((l) => l.user_id)
+  return { id: teamId, memberIds: links.filter((l) => l.team_id === teamId).map((l) => l.user_id) }
 }
 
 /**
- * Tasks held by at least one of the people; everything when `memberIds` is
- * null. `holders` says who holds a task, since a project task and a backlog
- * row keep their holders under different names.
+ * Tasks filed under the team or held by one of its people; everything when
+ * `selection` is null. `read` says where a task keeps its team and holders,
+ * since a project task and a backlog row name them differently.
  */
 export function filterByTeam<T>(
   items: T[],
-  memberIds: readonly string[] | null,
-  holders: (item: T) => readonly string[] | undefined,
+  selection: TeamSelection | null,
+  read: (item: T) => { teamId?: string | null; holders?: readonly string[] },
 ): T[] {
-  if (!memberIds) return items
-  const team = new Set(memberIds)
-  return items.filter((i) => (holders(i) ?? []).some((id) => team.has(id)))
+  if (!selection) return items
+  const team = new Set(selection.memberIds)
+  return items.filter((item) => {
+    const { teamId, holders } = read(item)
+    return teamId === selection.id || (holders ?? []).some((id) => team.has(id))
+  })
 }
 
 /**

@@ -51,6 +51,8 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
 
   const project = state.project
   if (!project) return null
+  // A class board's Files project keeps the old model: its teams have no leader.
+  const leaders = !project.class_board_id
 
   /** Answers whether it went through, so a caller only clears what was taken. */
   async function run(action: () => Promise<void>, done: string, failed: string) {
@@ -126,6 +128,7 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
                     </>
                   )}
                 </div>
+                {leaders && (
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
                   <p className="text-muted">
                     {team.leader_id ? (
@@ -148,6 +151,7 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
                     </button>
                   )}
                 </div>
+                )}
                 <PeopleChips
                   ids={inTeam}
                   state={state}
@@ -175,7 +179,7 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
               e.preventDefault()
               if (!teamName.trim()) return
               const people = teamPeople
-              const leader = people.includes(teamLeader) ? teamLeader : ''
+              const leader = leaders && people.includes(teamLeader) ? teamLeader : ''
               const clear = () => {
                 setTeamName('')
                 setTeamPeople([])
@@ -195,7 +199,7 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
                   }
                 },
                 'Team added',
-                'The team was added, but not everyone could be put on it. Open the team to finish.',
+                'The team was added, but its people or leader could not be set. Open the team to finish.',
               ).then((ok) => ok && clear())
             }}
           >
@@ -232,6 +236,7 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
                 />
               )}
             </div>
+            {leaders && (
             <div className="max-w-[16rem]">
               <label htmlFor="new-team-leader" className="text-[12px] font-medium text-muted">
                 Leader
@@ -250,6 +255,7 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
                 <p className="mt-1 text-[12px] text-faint">Add people first. The leader is one of them.</p>
               )}
             </div>
+            )}
           </form>
         )}
       </div>

@@ -42,6 +42,8 @@ export type GeneralProject = {
   preset: string | null
   /** The space that holds it. Every project has one. */
   space_id: string
+  /** Set on a class board's Files project, read by getGeneralProject only. Its teams have no leader. */
+  class_board_id?: string | null
 }
 
 /**

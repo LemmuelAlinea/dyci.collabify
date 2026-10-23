@@ -27,7 +27,7 @@ import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } fro
 import type { TaskLayout } from '../../lib/work/nav'
 import { applyScope, scopeOptions, scopeSprintId, scopeTargetSprint } from '../../lib/work/scope'
 import type { TaskScope } from '../../lib/work/scope'
-import { filterByTeam, teamMemberIds } from '../../lib/work/teamFilter'
+import { filterByTeam, teamSelection } from '../../lib/work/teamFilter'
 import { milestoneMarks, sprintBands } from '../../lib/work/timeline'
 import { ScopePicker } from '../work/ScopePicker'
 import { TaskCalendar } from '../work/TaskCalendar'
@@ -73,7 +73,7 @@ export function TasksTab({
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     const stageCount = stagesOf(projectStages).length
-    return filterByTeam(scoped, teamMemberIds(teamLinks, team), (t) => t.assignee_ids)
+    return filterByTeam(scoped, teamSelection(teamLinks, team), (t) => ({ teamId: t.team_id, holders: t.assignee_ids }))
       .filter((t) =>
         assignee === ''
           ? true

@@ -1,37 +1,54 @@
 import { describe, expect, it } from 'vitest'
-import { filterByTeam, initialTeamFilter, teamMemberIds } from './teamFilter'
+import { filterByTeam, initialTeamFilter, teamSelection } from './teamFilter'
 
-const task = (id: string, holderIds?: string[]) => ({ id, holderIds })
-const by = (t: { holderIds?: string[] }) => t.holderIds
+const task = (id: string, holderIds?: string[], teamId?: string | null) => ({ id, holderIds, teamId })
+const read = (t: { holderIds?: string[]; teamId?: string | null }) => ({ teamId: t.teamId, holders: t.holderIds })
 
 describe('filterByTeam', () => {
-  const rows = [task('a', ['u1']), task('b', ['u2', 'u9']), task('c', ['u3']), task('d', []), task('e')]
+  const rows = [
+    task('held', ['u1'], null),
+    task('held-two', ['u2', 'u9'], 'other'),
+    task('filed', [], 't1'),
+    task('filed-held-elsewhere', ['u9'], 't1'),
+    task('neither', ['u3'], 'other'),
+    task('unheld', [], null),
+    task('bare'),
+  ]
+  const team = { id: 't1', memberIds: ['u1', 'u2'] }
 
-  it('keeps tasks held by any team member and drops the rest', () => {
-    expect(filterByTeam(rows, ['u1', 'u2'], by).map((r) => r.id)).toEqual(['a', 'b'])
+  it('keeps a task filed under the team that no member holds', () => {
+    expect(filterByTeam(rows, team, read).map((r) => r.id)).toContain('filed')
+    expect(filterByTeam(rows, team, read).map((r) => r.id)).toContain('filed-held-elsewhere')
   })
 
-  it('drops tasks nobody holds when a team is chosen', () => {
-    expect(filterByTeam(rows, ['u3'], by).map((r) => r.id)).toEqual(['c'])
+  it('keeps a task filed elsewhere but held by a member', () => {
+    expect(filterByTeam(rows, team, read).map((r) => r.id)).toEqual(['held', 'held-two', 'filed', 'filed-held-elsewhere'])
+  })
+
+  it('drops a task neither filed under the team nor held by a member', () => {
+    const ids = filterByTeam(rows, team, read).map((r) => r.id)
+    expect(ids).not.toContain('neither')
+    expect(ids).not.toContain('unheld')
+    expect(ids).not.toContain('bare')
   })
 
   it('keeps everything for All teams', () => {
-    expect(filterByTeam(rows, null, by)).toBe(rows)
+    expect(filterByTeam(rows, null, read)).toBe(rows)
   })
 
-  it('keeps nothing for a team with no members', () => {
-    expect(filterByTeam(rows, [], by)).toEqual([])
+  it('keeps only tasks filed under a team with no members', () => {
+    expect(filterByTeam(rows, { id: 't1', memberIds: [] }, read).map((r) => r.id)).toEqual(['filed', 'filed-held-elsewhere'])
   })
 })
 
-describe('teamMemberIds', () => {
+describe('teamSelection', () => {
   const links = [
     { team_id: 't1', user_id: 'u1' },
     { team_id: 't1', user_id: 'u2' },
     { team_id: 't2', user_id: 'u3' },
   ]
-  it('lists one team\'s people', () => expect(teamMemberIds(links, 't1')).toEqual(['u1', 'u2']))
-  it('is null for All teams', () => expect(teamMemberIds(links, '')).toBeNull())
+  it("lists one team's people", () => expect(teamSelection(links, 't1')).toEqual({ id: 't1', memberIds: ['u1', 'u2'] }))
+  it('is null for All teams', () => expect(teamSelection(links, '')).toBeNull())
 })
 
 describe('initialTeamFilter', () => {

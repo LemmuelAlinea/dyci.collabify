@@ -35,6 +35,8 @@ export type WorkItem = {
   holders: string[]
   /** Who holds it, where the space can say (work projects); the Team filter reads this. */
   holderIds?: string[]
+  /** The team it is filed under, where the space has teams (work projects). */
+  teamId?: string | null
   created_at: string
 }
 

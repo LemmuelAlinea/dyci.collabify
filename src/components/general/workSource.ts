@@ -35,6 +35,7 @@ export function generalWorkItems(state: GeneralProjectState): WorkItem[] {
     rank: t.rank,
     holders: t.assignee_ids.map((id) => state.nameOf(id)),
     holderIds: t.assignee_ids,
+    teamId: t.team_id,
     created_at: t.created_at,
   }))
 }

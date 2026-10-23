@@ -115,11 +115,15 @@ export async function getGeneralProject(projectId: string) {
   // The overview predates stages, so they come from the table beside it.
   const [{ data, error }, stages] = await Promise.all([
     supabase.from('general_project_overview').select('*').eq('id', projectId).maybeSingle(),
-    supabase.from('general_projects').select('stages').eq('id', projectId).maybeSingle(),
+    supabase.from('general_projects').select('stages, class_board_id').eq('id', projectId).maybeSingle(),
   ])
   if (error) throw error
   if (!data) return null
-  return { ...(data as GeneralProjectSummary), stages: (stages.data?.stages as string[] | null) ?? null }
+  return {
+    ...(data as GeneralProjectSummary),
+    stages: (stages.data?.stages as string[] | null) ?? null,
+    class_board_id: (stages.data?.class_board_id as string | null) ?? null,
+  }
 }
 
 /**

@@ -13,7 +13,7 @@ import { useTeamFilter } from './useTeamFilter'
 import { authErrorMessage } from '../../lib/authError'
 import { dateRange, formatDue, isOverdue } from '../../lib/general/dates'
 import { backlogItems, rankForMove, sprintItems } from '../../lib/work/backlog'
-import { filterByTeam, teamMemberIds } from '../../lib/work/teamFilter'
+import { filterByTeam, teamSelection } from '../../lib/work/teamFilter'
 import { nextSprintDraft, plannedSprints, runningSprint } from '../../lib/work/sprints'
 import type { Sprint, WorkItem, WorkSource } from '../../lib/work/types'
 
@@ -36,8 +36,8 @@ export function BacklogView({ source }: { source: WorkSource }) {
   const [adding, setAdding] = useState(false)
 
   const [team, setTeam] = useTeamFilter(source.teams?.projectId, source.teams?.viewerId, source.teams?.teams ?? [])
-  const teamIds = source.teams ? teamMemberIds(source.teams.members, team) : null
-  const visible = filterByTeam(source.items, teamIds, (i) => i.holderIds)
+  const selection = source.teams ? teamSelection(source.teams.members, team) : null
+  const visible = filterByTeam(source.items, selection, (i) => ({ teamId: i.teamId, holders: i.holderIds }))
 
   const running = runningSprint(source.sprints)
   const planned = plannedSprints(source.sprints)
@@ -48,7 +48,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
     ...planned.map((s) => ({ value: s.id, label: s.name })),
   ]
   // Tasks can vanish (or a sprint start or be deleted) while a check or a target is held.
-  const live = [...checked].filter((id) => source.items.some((i) => i.id === id))
+  const live = [...checked].filter((id) => visible.some((i) => i.id === id))
   const bulkValid = targets.some((t) => t.value === bulkTarget) ? bulkTarget : BACKLOG
 
   async function run(action: () => Promise<unknown>, failure: string) {
@@ -96,7 +96,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
             item={item}
             canPlan={source.canPlan}
             // A move lands between the neighbours the row can see, so it is off while the list is cut down.
-            canStep={!teamIds}
+            canStep={!selection}
             checked={checked.has(item.id)}
             onCheck={() => toggle(item.id)}
             onOpen={() => source.openTask(item.id)}
@@ -132,7 +132,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
               className="!h-10 !text-[13px]"
             />
           </div>
-          {teamIds && (
+          {selection && (
             <p className="text-[12px] text-faint">
               Showing tasks held by this team. Reordering is off until you pick All teams.
             </p>
