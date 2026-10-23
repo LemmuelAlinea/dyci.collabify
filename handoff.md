@@ -3648,3 +3648,52 @@ Both start with "zz test".
 - Per-sprint creation is one create plus one link per sprint, run in sequence (about 1.5 s each). A batch RPC would make it a single round trip.
 
 **Next.** Nothing queued; open work is the Deferred lists.
+
+## Company roles, phase 1: members and two switches (2026-10-23)
+
+- **Spec:** `docs/superpowers/specs/2026-10-23-company-roles-design.md`. **Plan:** `docs/superpowers/plans/2026-10-23-company-roles-phase-1-accounts.md`. Phase 1 of the company roles is complete and live; phase 2 (project roles) is next.
+
+**What.** The Faculty account type is gone. Accounts are `student`, `member` or `admin`, and the admin sets two switches on a member.
+
+- **Roles.** Registration and onboarding offer Student or Member. A member is admitted at once, with no approval step, and the approvals page is gone (`/admin/approvals` redirects to Accounts). The database refuses the old `faculty` role.
+- **Can teach** (`can_teach`). Opens classes and the Teaching section. Mirrors `is_teaching_faculty`. The admin cannot turn it off for someone who still holds a class seat (refused, with a toast).
+- **Project manager** (`can_manage_projects`). Lets a member or the admin create work spaces and projects. Mirrors `is_project_manager`. The admin has no default: it takes the switch like anyone else, so admins lost the New space buttons until it is turned on for them.
+- **Waiting home.** A member with neither switch and nothing to belong to yet sees a short "You're in" page and a rail of Home, Inbox and Account. Inviting them into a space or class gives them the normal rail.
+- **Accounts page.** Make student / Make member, and the two switches on each member row.
+- **Live data.** 4 members teach; Arthur and Cloud have Project manager; the admin has neither switch. The migration's notice list: `enum label "member" already exists, skipping` (re-run), `Class seat without Can teach: none`.
+- **Legacy tolerance removed (task 7).** `'faculty'` is gone from `Role`, `isMemberRole`, `canManageProjects` (no more undefined-means-manager branch) and `gate`; `Profile.can_manage_projects` is required. In `paths.ts` only `faculty` left `LegacyRole`: old URLs are role-independent and nothing can produce it now, and `/reports` still redirects for `member`.
+
+**Code.**
+
+| File | What it does |
+|---|---|
+| `supabase/company-accounts.sql` | Adds the `member` role, `can_manage_projects`, `is_project_manager`, the switch RPCs and guards, and moves every gate from faculty to members and switches. Last in ORDER (`scripts/schema-drift.mjs`) and on both rebuild lines in `docs/07-backup.md`. Test: `supabase/tests/company-accounts.test.sql`; the other SQL suites' fixtures now sign up members. |
+| `lib/types.ts`, `lib/access.ts`, `routes/gate.ts` | `Role` is student, member, admin. `isMember`, `canTeach`, `canManageProjects` are the one place a screen asks. |
+| `components/app/nav.ts`, `components/app/WaitingHome.tsx`, `pages/Home.tsx` | The waiting rail and the waiting home. |
+| `pages/app/admin/Accounts.tsx`, `lib/api/accounts.ts`, `lib/api/admin.ts` | Role changes and the two switches. `ProfessorApprovals.tsx` is deleted. |
+| `components/ui/RoleChoice.tsx`, `pages/auth/Register.tsx`, `Onboarding.tsx`, `context/Auth*.tsx` | Student or Member at sign-up. |
+| `components/general/*`, `pages/general/*`, `lib/classSpace.ts`, `lib/api/calendar.ts` | New space, New project and Join gated on `canManageProjects`; teaching gated on `canTeach`. |
+
+**Checked.**
+- Vitest 1034 pass, build and `eslint src` clean. SQL tests pass on the live DB (company-accounts 58, plus the fixture suites).
+- Browser, live, as Cloud (member, Can teach, Project manager): see the walk results in the task report.
+- `rg "'faculty'" src` shows only the presets' audience names.
+
+**Still to check by you.**
+1. As the admin, on Accounts: turn Project manager on and off for a member; turn Can teach off for someone with a class seat and see it refused with a toast; open `/admin/approvals` and land on Accounts.
+2. Register a throwaway Member and look at the waiting home (layout, the `shell !px-0` wrapper, the rail) at desktop and 375 px.
+
+**Deferred** (from the ledger):
+- `RoleSwitch` has no render test for the member prop.
+- A stale "Faculty always keep…" comment near `WorkOverview.tsx` (~line 139).
+- A member turned into a student can keep a class Manager seat or own a project-less work space (the gap pre-dates this for faculty; live count 0).
+- `is_project_manager` is granted to `authenticated`, matching `is_teaching_faculty`.
+- The recreated views carry the default anon ACL (no leak; tidier to revoke).
+- `holds_class_seat` filters archived classes but not archived education spaces; the branches differ, and it is documented.
+- Accounts: the switch's visible label is not clickable (aria-hidden span); another admin's Project manager switch is disabled with no explanation; switches show on deactivated accounts; a stale doc comment near `Accounts.tsx:342`; no render test for the switch visibility matrix or the approvals redirect; an account with no role is offered Make student, not Make member (pre-existing).
+- A switchless member sees the full rail and a brief ProfessorHome flash while membership loads (no data leak, every cold load).
+- WaitingHome: `Reveal` lacks `once`, the `shell !px-0` wrapper is unusual, and the Member note is long on a phone. No Home gating test.
+- About 25 `general-*` SQL suites grant both switches to every sign-up fixture, so none runs a switchless collaborator outside company-accounts.
+- Some SQL suites are coupled to live data (series, storage-sweep, teaching-guards, safety, audit, admin-program); `presets.test.sql` FAILs are notice-only.
+
+**Next.** Phase 2, project roles, per `docs/superpowers/specs/2026-10-23-company-roles-design.md`.

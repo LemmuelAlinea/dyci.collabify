@@ -52,11 +52,6 @@ describe('gate', () => {
     expect(gate(true, p('admin', 'active'), { allow: ['member', 'admin'] })).toBe('ok')
   })
 
-  it('treats a legacy faculty account as a member', () => {
-    expect(gate(true, p('faculty', 'active'), { allow: ['member', 'admin'] })).toBe('ok')
-    expect(gate(true, p('faculty', 'active'), { allow: ['admin'] })).toBe('/home')
-  })
-
   it('sends home a role not on the allow list', () => {
     expect(gate(true, p('student', 'active'), { allow: ['member', 'admin'] })).toBe('/home')
     expect(gate(true, p('member', 'active'), { allow: ['admin'] })).toBe('/home')

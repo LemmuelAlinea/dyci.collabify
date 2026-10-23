@@ -16,13 +16,12 @@ const p = (
   role: Role | null,
   status: 'active' | 'pending' | 'rejected',
   can_teach = false,
-  can_manage_projects?: boolean,
+  can_manage_projects = false,
 ) => ({ role, status, can_teach, can_manage_projects })
 
 describe('isMemberRole', () => {
-  it('is a member, or the legacy faculty role it replaces', () => {
+  it('is a member and nobody else', () => {
     expect(isMemberRole('member')).toBe(true)
-    expect(isMemberRole('faculty')).toBe(true)
     expect(isMemberRole('student')).toBe(false)
     expect(isMemberRole('admin')).toBe(false)
     expect(isMemberRole(null)).toBe(false)
@@ -31,9 +30,8 @@ describe('isMemberRole', () => {
 })
 
 describe('isMember', () => {
-  it('admits an approved member, and legacy faculty', () => {
+  it('admits an approved member', () => {
     expect(isMember(p('member', 'active'))).toBe(true)
-    expect(isMember(p('faculty', 'active'))).toBe(true)
   })
 
   it('keeps out students, the admin, deactivated accounts and nobody', () => {
@@ -51,7 +49,6 @@ describe('canTeach', () => {
     expect(canTeach(p('member', 'active', true))).toBe(true)
     expect(canTeach(p('member', 'active', false))).toBe(false)
     expect(canTeach(p('member', 'pending', true))).toBe(false)
-    expect(canTeach(p('faculty', 'active', true))).toBe(true)
     expect(canTeach(p('student', 'active', true))).toBe(false)
     expect(canTeach(p('admin', 'active', true))).toBe(false)
   })
@@ -69,15 +66,6 @@ describe('canManageProjects', () => {
   it('keeps out an account that is not active, and nobody', () => {
     expect(canManageProjects(p('member', 'pending', false, true))).toBe(false)
     expect(canManageProjects(null)).toBe(false)
-  })
-
-  it('lets legacy faculty and admins manage until the column exists', () => {
-    expect(canManageProjects(p('admin', 'active'))).toBe(true)
-    expect(canManageProjects(p('admin', 'pending'))).toBe(false)
-    expect(canManageProjects(p('member', 'active'))).toBe(false)
-    expect(canManageProjects(p('faculty', 'active'))).toBe(true)
-    expect(canManageProjects(p('faculty', 'active', false, false))).toBe(false)
-    expect(canManageProjects(p('faculty', 'pending'))).toBe(false)
   })
 })
 
@@ -129,7 +117,6 @@ describe('showsClassScope', () => {
     expect(showsClassScope(p('member', 'active', true), work)).toBe(false)
     expect(showsClassScope(p('member', 'active', true), cls)).toBe(true)
     expect(showsClassScope(p('member', 'active'), cls)).toBe(true)
-    expect(showsClassScope(p('faculty', 'active'), cls)).toBe(true)
   })
 
   it('offers it to admins only once someone invites them into a class', () => {

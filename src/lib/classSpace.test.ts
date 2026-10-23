@@ -24,10 +24,6 @@ describe('teachesClass', () => {
     expect(teachesClass({ id: 'a1', role: 'admin' }, 'other', 'manager')).toBe(false)
   })
 
-  it('still counts legacy faculty as a member', () => {
-    expect(teachesClass({ id: 'p1', role: 'faculty' }, 'p1', null)).toBe(true)
-  })
-
   it('is never a student, whatever the seat says', () => {
     expect(teachesClass({ id: 's1', role: 'student' }, 's1', 'owner')).toBe(false)
   })

@@ -198,10 +198,4 @@ describe('navFor', () => {
     expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Main', 'Quick access', 'Account'])
     expect(spaces(groups)?.hideWhenEmpty).toBe(true)
   })
-
-  it('gives a legacy faculty account the same rail as a member', () => {
-    const legacy = account('faculty', 'active', true)
-    expect(navFor(legacy, true)).toEqual(navFor(teacher, true))
-    expect(navFor(account('faculty'), true)).toEqual(navFor(nonTeacher, true))
-  })
 })

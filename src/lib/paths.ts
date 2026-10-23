@@ -68,7 +68,7 @@ export const paths = {
   },
 } as const
 
-type LegacyRole = 'student' | 'professor' | 'member' | 'faculty' | 'admin' | null
+type LegacyRole = 'student' | 'professor' | 'member' | 'admin' | null
 
 /** Old role-section paths, after the prefix, onto new ones. */
 const CLASS_SIDE: [RegExp, (m: RegExpMatchArray, role: LegacyRole) => string][] = [
@@ -78,7 +78,7 @@ const CLASS_SIDE: [RegExp, (m: RegExpMatchArray, role: LegacyRole) => string][] 
   [/^\/tasks$/, () => '/tasks'],
   [/^\/calendar$/, () => '/calendar'],
   [/^\/messages(\/[^/]+)?$/, (m) => `/inbox${m[1] ?? ''}`],
-  [/^\/reports$/, (_m, role) => (role === 'professor' || role === 'member' || role === 'faculty' ? '/teaching/reports' : '/record')],
+  [/^\/reports$/, (_m, role) => (role === 'professor' || role === 'member' ? '/teaching/reports' : '/record')],
   [/^\/(submissions|reassignments|analytics|curriculum)$/, (m) => `/teaching/${m[1]}`],
   [/^\/syllabi(\/[^/]+)?$/, (m) => `/teaching/syllabi${m[1] ?? ''}`],
   [/^\/privacy$/, () => '/privacy/queue'],

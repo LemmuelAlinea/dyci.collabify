@@ -1,7 +1,8 @@
 # Collabify — working notes
 
-Project management for BSIT programs in the Philippines. Roles: `student`, `faculty`,
-`admin` (only faculty with `can_teach` run classes; admins do not teach). Every planned
+Project management for BSIT programs in the Philippines. Roles: `student`, `member` and
+`admin`. Teaching is the `can_teach` switch (members only; admins do not teach), and
+creating work spaces is the `can_manage_projects` switch (members and admins). Every planned
 phase has shipped and is live at dyci-collabify.vercel.app from `main`. There is no
 phase backlog: open work is the **Deferred** notes in `handoff.md` plus whatever the
 user asks for next. Read the end of `handoff.md` for the latest state.

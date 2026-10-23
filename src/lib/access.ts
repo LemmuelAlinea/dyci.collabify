@@ -13,9 +13,8 @@ export type AccessProfile =
   | undefined
 export type HomeProfile = Pick<Profile, 'role' | 'status'> | null | undefined
 
-/** A member, or the legacy faculty role that phase 1 replaces with it. */
 export function isMemberRole(role: Role | null | undefined): boolean {
-  return role === 'member' || role === 'faculty'
+  return role === 'member'
 }
 
 /** Approved members, who work in the company. Never the admin. */
@@ -30,14 +29,11 @@ export function canTeach(p: AccessProfile): boolean {
 
 /**
  * Members and admins the admin lets create and run projects. Mirrors
- * `is_project_manager`. Legacy, removed in phase 1 task 7: while the column
- * does not exist the field is undefined, and legacy faculty and admins keep
- * what they had, so they count as managers.
+ * `is_project_manager`.
  */
 export function canManageProjects(p: AccessProfile): boolean {
   if (!p || p.status !== 'active') return false
   if (!isMemberRole(p.role) && p.role !== 'admin') return false
-  if (p.can_manage_projects === undefined) return p.role === 'faculty' || p.role === 'admin'
   return p.can_manage_projects
 }
 

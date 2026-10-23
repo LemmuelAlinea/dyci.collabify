@@ -6,6 +6,7 @@ const account = (role: 'student' | 'member' | 'admin', can_teach = false) => ({
   role,
   status: 'active' as const,
   can_teach,
+  can_manage_projects: false,
 })
 const student = account('student')
 const teacher = account('member', true)
@@ -69,7 +70,7 @@ describe('archiveKindsFor', () => {
   })
 
   it('gives an account that is not active nothing', () => {
-    expect(archiveKindsFor({ role: 'student', status: 'pending', can_teach: false }, undefined)).toEqual([])
+    expect(archiveKindsFor({ role: 'student', status: 'pending', can_teach: false, can_manage_projects: false }, undefined)).toEqual([])
     expect(archiveKindsFor(null, undefined)).toEqual([])
   })
 })
