@@ -30,13 +30,14 @@ export function canTeach(p: AccessProfile): boolean {
 
 /**
  * Members and admins the admin lets create and run projects. Mirrors
- * `is_project_manager`. Until the column exists, legacy faculty keep what they
- * had: the field is undefined, so they count as managers.
+ * `is_project_manager`. Legacy, removed in phase 1 task 7: while the column
+ * does not exist the field is undefined, and legacy faculty and admins keep
+ * what they had, so they count as managers.
  */
 export function canManageProjects(p: AccessProfile): boolean {
   if (!p || p.status !== 'active') return false
-  if (p.role !== 'member' && p.role !== 'admin' && p.role !== 'faculty') return false
-  if (p.can_manage_projects === undefined) return p.role === 'faculty'
+  if (!isMemberRole(p.role) && p.role !== 'admin') return false
+  if (p.can_manage_projects === undefined) return p.role === 'faculty' || p.role === 'admin'
   return p.can_manage_projects
 }
 

@@ -71,7 +71,10 @@ describe('canManageProjects', () => {
     expect(canManageProjects(null)).toBe(false)
   })
 
-  it('lets legacy faculty manage until the column exists', () => {
+  it('lets legacy faculty and admins manage until the column exists', () => {
+    expect(canManageProjects(p('admin', 'active'))).toBe(true)
+    expect(canManageProjects(p('admin', 'pending'))).toBe(false)
+    expect(canManageProjects(p('member', 'active'))).toBe(false)
     expect(canManageProjects(p('faculty', 'active'))).toBe(true)
     expect(canManageProjects(p('faculty', 'active', false, false))).toBe(false)
     expect(canManageProjects(p('faculty', 'pending'))).toBe(false)
