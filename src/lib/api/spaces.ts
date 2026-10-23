@@ -78,31 +78,6 @@ export async function archiveSpace(spaceId: string, archived: boolean) {
   return data as GeneralSpace
 }
 
-/* ---------------------------------------------------------------- joining */
-
-/** Opens or closes the space's join code. A space has one code for good; it never changes. */
-export async function setSpaceJoinCode(spaceId: string, open: boolean) {
-  const { data, error } = await supabase.rpc('set_general_space_join_code', {
-    p_space: spaceId,
-    p_open: open,
-  })
-  if (error) throw error
-  return (data as string | null) ?? null
-}
-
-/**
- * A wrong code comes back as null rather than an error, so the rate limit that
- * counted the attempt is not rolled back with it.
- */
-export async function joinSpace(code: string) {
-  const { data, error } = await supabase.rpc('join_general_space', { p_code: code })
-  if (error) throw error
-  if (!data) {
-    throw new Error('That code does not match an open space. Check it with whoever shared it.')
-  }
-  return data as string
-}
-
 /* ---------------------------------------------------------------- people */
 
 export async function listSpaceMembers(spaceId: string) {

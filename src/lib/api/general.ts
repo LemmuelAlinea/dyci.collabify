@@ -15,6 +15,7 @@ import type { FieldType, FieldValue } from '../general/fields'
 import type { GeneralPermission, ProjectRole } from '../general/permissions'
 import type { GeneralTaskStatus } from '../general/progress'
 import type {
+  AdminWorkProject,
   ArchivedDraftFile,
   ArchivedGeneralFile,
   GeneralAccessRequest,
@@ -432,7 +433,10 @@ export async function revokePermission(projectId: string, userId: string, permis
   if (error) throw error
 }
 
-/** RLS narrows this: an Owner gets every request, anyone else only their own. */
+/**
+ * RLS narrows this (general_can_grant): the project manager gets every request,
+ * a Coordinator the ones it can give, anyone else only their own.
+ */
 export async function listAccessRequests(projectId: string) {
   const { data, error } = await supabase
     .from('general_access_requests')
@@ -472,6 +476,23 @@ export async function searchPeople(query: string) {
   const { data, error } = await supabase.rpc('search_general_people', { p_query: query })
   if (error) throw error
   return (data ?? []) as PersonHit[]
+}
+
+/** Like searchPeople, but only people with Project manager turned on. For space owners and admins. */
+export async function searchProjectManagers(query: string) {
+  const { data, error } = await supabase.rpc('search_project_managers', { p_query: query })
+  if (error) throw error
+  return (data ?? []) as PersonHit[]
+}
+
+/** Every work project, for the admin. The view returns nothing to anyone else. */
+export async function listAdminWorkProjects() {
+  const { data, error } = await supabase
+    .from('admin_work_projects')
+    .select('id, name, space_name, pm_name, has_pm, archived_at')
+    .order('name')
+  if (error) throw error
+  return (data ?? []) as AdminWorkProject[]
 }
 
 export async function inviteToProject(

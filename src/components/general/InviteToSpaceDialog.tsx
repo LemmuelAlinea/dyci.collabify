@@ -17,6 +17,7 @@ export function InviteToSpaceDialog({
   search = searchPeople,
   title = 'Invite to this space',
   description = 'They will be able to see every project in it.',
+  noMatch = 'Nobody by that name.',
 }: {
   open: boolean
   onClose: () => void
@@ -25,6 +26,8 @@ export function InviteToSpaceDialog({
   search?: (query: string) => Promise<PersonHit[]>
   title?: string
   description?: string
+  /** What an empty search says. */
+  noMatch?: string
 }) {
   const { show } = useToast()
   const [query, setQuery] = useState('')
@@ -98,7 +101,7 @@ export function InviteToSpaceDialog({
             </li>
           ))}
           {query.trim().length >= 3 && hits.length === 0 && (
-            <li className="px-1 py-2 text-[13px] text-muted">Nobody by that name.</li>
+            <li className="px-1 py-2 text-[13px] text-muted">{noMatch}</li>
           )}
         </ul>
       </div>

@@ -374,6 +374,18 @@ export type PersonHit = {
   email: string | null
 }
 
+/** admin_work_projects: one row per work project, for the admin. */
+export type AdminWorkProject = {
+  id: string
+  name: string
+  space_name: string | null
+  /** The name on the project manager row, if there is one, active or not. */
+  pm_name: string | null
+  /** Whether an active project manager with Project manager on holds it. */
+  has_pm: boolean
+  archived_at: string | null
+}
+
 export type GeneralCounts = {
   projects: number
   active_projects: number

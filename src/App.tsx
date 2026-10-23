@@ -45,6 +45,7 @@ const Accounts = lazy(() => import('./pages/app/admin/Accounts'))
 const AdminArchive = lazy(() => import('./pages/app/admin/AdminArchive'))
 const Analytics = lazy(() => import('./pages/app/analytics/Analytics'))
 const AuditLog = lazy(() => import('./pages/app/admin/AuditLog'))
+const WorkProjects = lazy(() => import('./pages/app/admin/WorkProjects'))
 const Calendar = lazy(() => import('./pages/app/calendar/Calendar'))
 const Meetings = lazy(() => import('./pages/app/meetings/Meetings'))
 const Cohort = lazy(() => import('./pages/app/admin/Cohort'))
@@ -263,6 +264,7 @@ export default function App() {
               <Route path="/admin/audit" element={<AuditLog />} />
               <Route path="/admin/privacy" element={<PrivacyQueue />} />
               <Route path="/admin/accounts" element={<Accounts />} />
+              <Route path="/admin/projects" element={<WorkProjects />} />
               <Route path="/admin/archive" element={<AdminArchive />} />
             </Route>
           </Route>

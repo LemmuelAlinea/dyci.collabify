@@ -6,7 +6,6 @@ import {
   inAnyClass,
   isMember,
   isMemberRole,
-  joinsSpaces,
   membershipOf,
   opensTeaching,
   showsClassScope,
@@ -69,26 +68,6 @@ describe('opensTeaching', () => {
     expect(opensTeaching(p('member', 'rejected', true))).toBe(false)
     expect(opensTeaching(p('admin', 'rejected'))).toBe(false)
     expect(opensTeaching(null)).toBe(false)
-  })
-})
-
-describe('joinsSpaces', () => {
-  it('offers a code to project managers and teachers', () => {
-    expect(joinsSpaces(p('member', 'active', false, true))).toBe(true)
-    expect(joinsSpaces(p('member', 'active', true, false))).toBe(true)
-    expect(joinsSpaces(p('admin', 'active', false, true))).toBe(true)
-  })
-
-  it('leaves the rest to be invited', () => {
-    expect(joinsSpaces(p('member', 'active'))).toBe(false)
-    expect(joinsSpaces(p('admin', 'active'))).toBe(false)
-    expect(joinsSpaces(p('student', 'active', true, true))).toBe(false)
-  })
-
-  it('a teacher without the switch joins but does not create', () => {
-    const teacher = p('member', 'active', true, false)
-    expect(joinsSpaces(teacher)).toBe(true)
-    expect(canManageProjects(teacher)).toBe(false)
   })
 })
 

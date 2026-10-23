@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
-import { JoinSpaceDialog, NewSpaceDialog } from '../../components/general/SpaceDialogs'
+import { NewSpaceDialog } from '../../components/general/SpaceDialogs'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -10,7 +10,7 @@ import { Icon, Spinner } from '../../components/ui/Icon'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { rememberSpace } from '../../hooks/useSpaces'
-import { canManageProjects, canTeach, inAnyClass, isMember, joinsSpaces } from '../../lib/access'
+import { canManageProjects, canTeach, inAnyClass, isMember } from '../../lib/access'
 import { levelLabel } from '../../lib/general/permissions'
 import type { GeneralSpaceSummary } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
@@ -18,9 +18,8 @@ import { paths } from '../../lib/paths'
 /**
  * Every space you are in.
  *
- * A space holds projects, and everyone in a space can see every project in it.
- * That is the whole reason this page exists rather than one long list: work for
- * one group stays with that group.
+ * A space holds projects. A member sees the projects they are on; the space's
+ * owners see all of them. Work for one group stays with that group.
  *
  * Classes appear here only for members the admin has not let teach, and for
  * admins. Anyone with a Classes section in the rail — students and teaching
@@ -34,13 +33,10 @@ export default function SpacePicker() {
   const location = useLocation()
   const { profile } = useAuth()
   // Create space always makes a work space, which only a project manager may
-  // open. Admins are invited in unless project managing is switched on for them.
-  // Teachers without it may still join a space somebody gave them a code for.
+  // open. Everybody else comes into a space through a project in it.
   const canCreate = canManageProjects(profile)
-  const canJoin = joinsSpaces(profile)
   const { spaces, error, reload } = useGeneralNavigation()
   const [newOpen, setNewOpen] = useState(false)
-  const [joinOpen, setJoinOpen] = useState(false)
   const [params, setParams] = useSearchParams()
 
   useEffect(() => {
@@ -78,18 +74,12 @@ export default function SpacePicker() {
         viewingArchived
           ? 'Archived spaces appear here after an Owner archives them.'
           : canCreate
-            ? 'Create one to hold your projects, or join a space somebody else has opened with a code.'
-            : canJoin
-              ? 'Join a space somebody else has opened with a code, or a project manager can invite you in.'
-              : 'A project manager can invite you into a space.'
+            ? 'Create one to hold your projects. Projects you are invited to bring their space with them.'
+            : 'Projects you are invited to bring their space with them.'
       }
       action={!viewingArchived && canCreate ? (
         <Button variant="accent" onClick={() => setNewOpen(true)}>
           Create space
-        </Button>
-      ) : !viewingArchived && canJoin ? (
-        <Button variant="accent" onClick={() => setJoinOpen(true)}>
-          Join with a code
         </Button>
       ) : undefined}
     />
@@ -103,20 +93,13 @@ export default function SpacePicker() {
         description={
           viewingArchived
             ? 'Archived spaces stay readable, but they no longer show in your active spaces.'
-            : 'A space holds projects. Everyone in a space can see every project in it, so keep separate work in separate spaces.'
+            : "A space holds projects. You see the projects you're on; the space's owners see all of them."
         }
-        action={!viewingArchived && canJoin ? (
-          <div className="flex flex-wrap gap-2">
-            {canCreate && (
-              <Button variant="create" onClick={() => setNewOpen(true)}>
-                <Icon name="plus" size={17} />
-                Create space
-              </Button>
-            )}
-            <Button variant="onNavy" onClick={() => setJoinOpen(true)}>
-              Join with a code
-            </Button>
-          </div>
+        action={!viewingArchived && canCreate ? (
+          <Button variant="create" onClick={() => setNewOpen(true)}>
+            <Icon name="plus" size={17} />
+            Create space
+          </Button>
         ) : undefined}
       />
 
@@ -204,7 +187,6 @@ export default function SpacePicker() {
       </div>
 
       <NewSpaceDialog open={newOpen} onClose={() => setNewOpen(false)} onCreated={reload} />
-      <JoinSpaceDialog open={joinOpen} onClose={() => setJoinOpen(false)} onJoined={reload} />
     </div>
   )
 }

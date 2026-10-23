@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { describeEvent } from './history'
+import { ACTIVITY_KINDS, describeActivity, describeEvent } from './history'
+import type { ActivityEvent } from './history'
 import type { GeneralTaskEvent } from './types'
 
 const names: Record<string, string> = { a: 'Ana Reyes', b: 'Ben Cruz' }
@@ -210,5 +211,73 @@ describe('describeEvent on a start date', () => {
         nameOf,
       ),
     ).toBe('Ana Reyes changed the start date and due date')
+  })
+})
+
+function activity(over: Partial<ActivityEvent>): ActivityEvent {
+  return {
+    kind: 'member_role',
+    actor_name: 'Ben Cruz',
+    subject_name: 'Ana',
+    task_title: null,
+    detail: {},
+    ...over,
+  }
+}
+
+describe('describeActivity on project roles', () => {
+  it('says what role somebody now has, in the role labels', () => {
+    expect(describeActivity(activity({ detail: { from: 'member', to: 'coordinator' } }))).toBe(
+      'Ana is now a coordinator',
+    )
+    expect(describeActivity(activity({ detail: { from: 'coordinator', to: 'member' } }))).toBe(
+      'Ana is now a member',
+    )
+    expect(describeActivity(activity({ detail: { from: 'member', to: 'pm' } }))).toBe(
+      'Ana is now the project manager',
+    )
+    expect(describeActivity(activity({ detail: { from: 'member', to: 'qa' } }))).toBe('Ana is now QA')
+  })
+
+  it('names who handed the project to whom', () => {
+    expect(
+      describeActivity(activity({ kind: 'pm_handover', actor_name: 'Ben', subject_name: 'Ana' })),
+    ).toBe('Ben handed the project to Ana')
+  })
+
+  it('names the team a new leader leads', () => {
+    expect(
+      describeActivity(
+        activity({ kind: 'team_leader', detail: { team_id: 't', team_name: 'Design', from: null, to: 'a' } }),
+      ),
+    ).toBe('Ana now leads Design')
+  })
+
+  it('says when a team is left with no leader', () => {
+    expect(
+      describeActivity(
+        activity({ kind: 'team_leader', detail: { team_id: 't', team_name: 'Design', from: 'a', to: null } }),
+      ),
+    ).toBe('Design has no leader')
+  })
+
+  it('reads a leader change written before the team name was kept', () => {
+    expect(
+      describeActivity(activity({ kind: 'team_leader', detail: { team_id: 't', from: null, to: 'a' } })),
+    ).toBe('Ana now leads a team')
+    expect(
+      describeActivity(activity({ kind: 'team_leader', detail: { team_id: 't', from: 'a', to: null } })),
+    ).toBe('A team has no leader')
+  })
+
+  it('keeps the old level wording for rows from before roles', () => {
+    expect(
+      describeActivity(activity({ kind: 'member_level', subject_name: 'Ana', detail: { to: 'manager' } })),
+    ).toBe('Ben Cruz made Ana a Manager')
+  })
+
+  it('offers the new kinds in the people filter', () => {
+    const people = ACTIVITY_KINDS.find((k) => k.label === 'Project and people')?.kinds ?? []
+    for (const kind of ['member_role', 'pm_handover', 'team_leader']) expect(people).toContain(kind)
   })
 })

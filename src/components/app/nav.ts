@@ -201,6 +201,7 @@ const ADMIN: NavGroup = {
   title: 'Admin',
   items: [
     { label: 'Accounts', icon: 'users', to: paths.admin.accounts },
+    { label: 'Work projects', icon: 'kanban', to: paths.admin.projects },
     { label: 'Audit log', icon: 'clock', to: paths.admin.audit },
     // Admins are the fallback handler while nobody is named, so this row is
     // never dead for them the way it would be for most faculty.

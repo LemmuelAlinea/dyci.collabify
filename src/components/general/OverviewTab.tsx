@@ -19,6 +19,7 @@ import { checkStages, stagesOf, stagesToSave } from '../../lib/stages'
 import { StagesEditor } from '../tasks/StagesEditor'
 import { FieldDialog } from './FieldDialog'
 import { FieldInput } from './FieldInput'
+import { NoPmNotice } from './NoPmNotice'
 import { RequestAccessButton } from './RequestAccessButton'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -35,6 +36,7 @@ export function OverviewTab({ state }: { state: GeneralProjectState }) {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">
+      <NoPmNotice state={state} />
       <section className="rounded-panel border border-line surface p-4 sm:p-5">
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>

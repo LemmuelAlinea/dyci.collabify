@@ -45,15 +45,6 @@ export function canManageProjects(p: AccessProfile): boolean {
   return p.can_manage_projects
 }
 
-/**
- * Who gets Join with a code on the Spaces page. Creating a space stays with
- * `canManageProjects` — it always makes a work space — but a teacher without
- * the switch may still join one somebody shared a code for.
- */
-export function joinsSpaces(p: AccessProfile): boolean {
-  return canManageProjects(p) || canTeach(p)
-}
-
 /** Whether this account sits in any class, whatever its role there. */
 export function inAnyClass(spaces: Pick<GeneralSpaceSummary, 'kind' | 'my_level'>[] | null): boolean {
   return Boolean(spaces?.some((s) => s.kind === 'education' && s.my_level))

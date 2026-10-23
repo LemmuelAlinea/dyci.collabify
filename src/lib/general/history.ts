@@ -1,5 +1,7 @@
 // src/lib/general/history.ts
 import { formatDue } from './dates'
+import { ROLE_LABEL } from './permissions'
+import type { ProjectRole } from './permissions'
 import { TASK_STATUSES } from './progress'
 import type { GeneralTaskStatus } from './progress'
 import type { GeneralTaskEvent } from './types'
@@ -92,6 +94,16 @@ export type ActivityEvent = {
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const numOf = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0)
+const capital = (s: string) => `${s[0]?.toUpperCase() ?? ''}${s.slice(1)}`
+
+/** "a coordinator", "the project manager", "QA": what follows "is now". */
+function rolePhrase(role: string) {
+  const label = ROLE_LABEL[role as ProjectRole]
+  if (!label) return 'a member'
+  if (role === 'pm') return `the ${label.toLowerCase()}`
+  if (role === 'qa') return label
+  return `a ${label.toLowerCase()}`
+}
 
 /**
  * A report timeline line, as a sentence. Unlike `describeEvent`, which reads
@@ -165,8 +177,19 @@ export function describeActivity(e: ActivityEvent) {
       return `${subject[0].toUpperCase()}${subject.slice(1)} left the project`
     case 'member_removed':
       return `${actor} removed ${subject} from the project`
+    // Rows from before roles, kept readable.
     case 'member_level':
       return `${actor} made ${subject} ${str(d.to) === 'owner' ? 'an Owner' : str(d.to) === 'manager' ? 'a Manager' : 'a Member'}`
+    case 'member_role':
+      return `${capital(subject)} is now ${rolePhrase(str(d.to))}`
+    case 'pm_handover':
+      return `${actor} handed the project to ${subject}`
+    case 'team_leader': {
+      const team = str(d.team_name)
+      return d.to
+        ? `${capital(subject)} now leads ${team || 'a team'}`
+        : `${team || 'A team'} has no leader`
+    }
     default:
       return `${actor} did something on ${task}`
   }
@@ -179,8 +202,8 @@ export const ACTIVITY_KINDS: { label: string; kinds: string[] }[] = [
   { label: 'Time', kinds: ['time_logged'] },
   { label: 'Files', kinds: ['file_added', 'file_archived'] },
   { label: 'Repository', kinds: ['commit', 'review_requested', 'review_applied', 'review_declined', 'review_withdrawn', 'review_comment'] },
-  { label: 'Project and people', kinds: ['project_status', 'project_archived', 'project_restored', 'member_joined', 'member_left', 'member_removed', 'member_level'] },
+  { label: 'Project and people', kinds: ['project_status', 'project_archived', 'project_restored', 'member_joined', 'member_left', 'member_removed', 'member_level', 'member_role', 'pm_handover', 'team_leader'] },
 ]
 
 /** Kinds only recorded since general_project_events went live. */
-export const LATE_KINDS = ['task_archived', 'task_restored', 'project_status', 'project_archived', 'project_restored', 'member_joined', 'member_left', 'member_removed', 'member_level']
+export const LATE_KINDS = ['task_archived', 'task_restored', 'project_status', 'project_archived', 'project_restored', 'member_joined', 'member_left', 'member_removed', 'member_level', 'member_role', 'pm_handover', 'team_leader']

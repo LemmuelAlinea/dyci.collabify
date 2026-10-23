@@ -13,11 +13,11 @@ import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useLive } from '../../hooks/useLive'
 import { forgetSpace } from '../../hooks/useSpaces'
+import { searchProjectManagers } from '../../lib/api/general'
 import {
   listSpaceInvitations,
   listSpaceMembers,
   removeSpaceMember,
-  setSpaceJoinCode,
   setSpaceLevel,
   withdrawSpaceInvitation,
 } from '../../lib/api/spaces'
@@ -28,12 +28,13 @@ import type { SpaceInvitation, SpacePerson } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
 
 /**
- * Who is in a space, and the two doors into it.
+ * Who is in a space, and its one door: an Owner adds a co-owner, who must have
+ * Project manager turned on. Everybody else comes in through a project.
  *
  * The levels here decide only what somebody may do to the space itself —
- * rename it, invite to it, archive it (Settings). None of them grants any power inside a
- * project: a space Owner who is not on a project reads it like everybody else
- * and changes nothing.
+ * rename it, add co-owners, archive it (Settings). A space Owner who is not on
+ * a project reads it and changes nothing, except assigning a project manager
+ * when it has none.
  */
 export default function SpaceMembers() {
   const { spaceId } = useParams<{ spaceId: string }>()
@@ -49,7 +50,6 @@ export default function SpaceMembers() {
 
   const [members, setMembers] = useState<SpacePerson[] | null>(null)
   const [invites, setInvites] = useState<SpaceInvitation[]>([])
-  const [code, setCode] = useState<string | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [removing, setRemoving] = useState<SpacePerson | null>(null)
@@ -59,6 +59,20 @@ export default function SpaceMembers() {
   const canInvite = !archived && (space?.my_level === 'owner' || space?.my_level === 'manager')
   const isOwner = space?.my_level === 'owner'
   const canManageLevels = isOwner && !archived
+  // A work space's only invite. A class's space keeps its own (FacultyPanel).
+  const canAddCoOwner = isOwner && !archived && space?.kind === 'work'
+  // Owners only in a work space; a class's space lets its Managers see them too.
+  const seesInvites =
+    !archived && (isOwner || (space?.kind !== 'work' && space?.my_level === 'manager'))
+
+  // Co-owners need Project manager, so the search lists only them, and never
+  // the Owner doing the adding.
+  const viewerId = profile?.id
+  const searchCoOwners = useCallback(
+    async (query: string) =>
+      (await searchProjectManagers(query)).filter((hit) => hit.person_id !== viewerId),
+    [viewerId],
+  )
 
   useEffect(() => {
     document.title = space ? `Members · ${space.name} · Collabify` : 'Members · Collabify'
@@ -70,7 +84,10 @@ export default function SpaceMembers() {
       setMembers(await listSpaceMembers(spaceId))
       // Only somebody who may invite can read either of these, so they are
       // asked for separately and their refusal is not the page's failure.
-      if (!space.archived_at && (space.my_level === 'owner' || space.my_level === 'manager')) {
+      if (
+        !space.archived_at &&
+        (space.my_level === 'owner' || (space.kind !== 'work' && space.my_level === 'manager'))
+      ) {
         setInvites(await listSpaceInvitations(spaceId))
       } else {
         setInvites([])
@@ -87,16 +104,6 @@ export default function SpaceMembers() {
   }, [load])
 
   useLive(load, ['general_space_members', 'general_space_invitations', 'general_spaces'])
-
-  async function toggleCode(open: boolean) {
-    if (!spaceId) return
-    try {
-      setCode(await setSpaceJoinCode(spaceId, open))
-      show(open ? 'Join code is open' : 'Join code is closed')
-    } catch (err) {
-      show(authErrorMessage(err, 'Could not change the join code.'), 'error')
-    }
-  }
 
   async function changeLevel(person: SpacePerson, level: GeneralLevel) {
     if (!spaceId) return
@@ -138,14 +145,14 @@ export default function SpaceMembers() {
     <div className="w-full">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-[62ch] text-[13px] text-muted">
-          Everyone here can see every project in this space. What they can change inside one
-          still depends on whether they are on it.
+          A space holds projects. You see the projects you're on; the space's owners see all of
+          them.
         </p>
         <div className="flex flex-wrap gap-2">
-          {canInvite && (
+          {canAddCoOwner && (
             <Button size="sm" onClick={() => setInviteOpen(true)}>
               <Icon name="plus" size={15} />
-              Invite
+              Add a co-owner
             </Button>
           )}
         </div>
@@ -161,32 +168,7 @@ export default function SpaceMembers() {
           </Alert>
         )}
 
-        {canInvite && (
-          <section className="rounded-panel border border-line p-4 sm:p-5">
-            <h2 className="text-[15px]">Join code</h2>
-            <p className="mt-1 text-[13px] text-muted">
-              Anybody with an open code can join this space and read every project in it. The code
-              stays the same for good, so close it when you are done sharing it.
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {(code ?? null) && (
-                <code className="rounded-lg surface-sunken px-3 py-1.5 font-mono text-[15px] tracking-[0.2em]">
-                  {code}
-                </code>
-              )}
-              <Button size="sm" variant="outline" onClick={() => void toggleCode(true)}>
-                {code ? 'Show again' : 'Open a code'}
-              </Button>
-              {code && (
-                <Button size="sm" variant="ghost" onClick={() => void toggleCode(false)}>
-                  Close
-                </Button>
-              )}
-            </div>
-          </section>
-        )}
-
-        {invites.length > 0 && (
+        {seesInvites && invites.length > 0 && (
           <section className="overflow-hidden rounded-panel border border-line">
             <header className="border-b border-line px-4 py-3 sm:px-5">
               <h2 className="text-[15px]">Invited</h2>
@@ -236,7 +218,7 @@ export default function SpaceMembers() {
             Loading members…
           </div>
         ) : members.length === 0 ? (
-          <EmptyState icon="users" title="Nobody here yet" body="Invite people or open a join code." />
+          <EmptyState icon="users" title="Nobody here yet" body="People join a space through its projects." />
         ) : (
           <section className="overflow-hidden rounded-panel border border-line">
             <header className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-5">
@@ -291,6 +273,10 @@ export default function SpaceMembers() {
         onClose={() => setInviteOpen(false)}
         spaceId={spaceId ?? ''}
         onDone={load}
+        search={searchCoOwners}
+        title="Add a co-owner"
+        description="A co-owner sees every project in this space and can add co-owners too. Only people with Project manager turned on are listed."
+        noMatch="Nobody by that name has Project manager turned on."
       />
 
       <ConfirmDialog

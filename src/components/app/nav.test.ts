@@ -95,6 +95,12 @@ describe('navFor', () => {
     expect(labels(navFor(admin, true, none))).not.toContain('Faculty approvals')
   })
 
+  it('puts Work projects in the admin rail, right after Accounts', () => {
+    const rail = section(navFor(admin, true), 'Admin') ?? []
+    expect(rail).toContain('Work projects')
+    expect(rail.indexOf('Work projects')).toBe(rail.indexOf('Accounts') + 1)
+  })
+
   it('gives an admin in nothing but invited Home and Inbox, so they can answer', () => {
     const groups = navFor(admin, true, { inClass: false, hasWork: false, invited: true })
     expect(titles(groups)).toEqual(['Main', 'Admin', 'Account'])
