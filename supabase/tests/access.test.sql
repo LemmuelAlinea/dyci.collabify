@@ -392,7 +392,7 @@ begin
       raise notice 'PASS  a student cannot be made the Owner (pm) of a project  (refused: %)', sqlerrm;
   end;
   perform pg_temp.must_allow('...but can be made a Manager (coordinator)',
-    format('select public.set_general_member_level(%L, %L, %L)', v_project, v_student2, 'manager'));
+    format('select public.set_general_member_role(%L, %L, %L)', v_project, v_student2, 'coordinator'));
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('...and reads back as a coordinator',
     (select role = 'coordinator' and level = 'manager' from public.general_members

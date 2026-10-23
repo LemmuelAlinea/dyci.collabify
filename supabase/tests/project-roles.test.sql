@@ -734,25 +734,12 @@ end $$;
 -- ------------------------------------------------------------------ old level RPC
 
 do $$
-declare
-  v_r    uuid := (select v from fx where k = 'r');
-  v_pm   uuid := (select v from fx where k = 'pm');
-  v_pm2  uuid := (select v from fx where k = 'pm2');
-  v_mem2 uuid := (select v from fx where k = 'mem2');
 begin
-  perform pg_temp.act_as(v_pm);
-  perform pg_temp.must_allow('set_general_member_level manager still works',
-    format($q$select public.set_general_member_level(%L, %L, 'manager')$q$, v_r, v_mem2));
-  perform pg_temp.must_be('...as coordinator', public.general_role_of(v_r, v_mem2) = 'coordinator');
-  perform public.set_general_member_level(v_r, v_mem2, 'member');
-  perform pg_temp.must_be('...and member as member', public.general_role_of(v_r, v_mem2) = 'member');
-
-  perform pg_temp.must_refuse_with('set_general_member_level owner is refused, not a quiet hand over',
-    format($q$select public.set_general_member_level(%L, %L, 'owner')$q$, v_r, v_pm2),
-    'Use hand over to change the project manager.');
-  perform pg_temp.act_as_service();
-  perform pg_temp.must_be('...and nothing moved', public.general_role_of(v_r, v_pm) = 'pm'
-    and public.general_role_of(v_r, v_pm2) = 'member');
+  -- The UI sets roles (set_general_member_role); the level RPC is gone.
+  perform pg_temp.must_be('set_general_member_level no longer exists',
+    to_regprocedure('public.set_general_member_level(uuid, uuid, public.general_level)') is null
+    and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                     where n.nspname = 'public' and p.proname = 'set_general_member_level'));
 end $$;
 
 -- ------------------------------------------------------------------ inviting
@@ -1029,6 +1016,161 @@ begin
   perform pg_temp.must_be('...the old pm is pm again and the outsider a coordinator',
     public.general_role_of(v_r, v_pm) = 'pm' and public.general_role_of(v_r, v_out) = 'coordinator'
     and (select count(*) = 1 from public.general_members where project_id = v_r and role = 'pm'));
+end $$;
+
+-- ------------------------------------------------------------------ grants
+
+-- Coordinators give grants and answer access requests too (the spec's table:
+-- PM "gives", Coordinator "gives"). Grants are for members only, and only the
+-- pm gives Edit project details, which a coordinator does not hold. A project
+-- of its own (G), so the blocks above stay as they are.
+do $$
+declare
+  v_pm    uuid := (select v from fx where k = 'pm');
+  v_coord uuid := (select v from fx where k = 'coord');
+  v_plain uuid := (select v from fx where k = 'plain');
+  v_inv1  uuid := (select v from fx where k = 'inv1');   -- a second coordinator
+  v_inv2  uuid := (select v from fx where k = 'inv2');   -- member granted manage_members
+  v_inv3  uuid := (select v from fx where k = 'inv3');   -- member
+  v_g     uuid;
+  v_req   uuid;
+  v_req_ep uuid;
+  v_seen  int;
+begin
+  perform pg_temp.act_as(v_pm);
+  v_g := (public.create_general_project('Zz PR grants', '')).id;
+  perform pg_temp.act_as_service();
+  insert into public.general_members (project_id, user_id, role) values
+    (v_g, v_coord, 'coordinator'),
+    (v_g, v_inv1, 'coordinator'),
+    (v_g, v_plain, 'member'),
+    (v_g, v_inv2, 'member'),
+    (v_g, v_inv3, 'member');
+  insert into public.general_grants (project_id, user_id, permission, granted_by)
+  values (v_g, v_inv2, 'manage_members', v_pm);
+  insert into public.general_access_requests (project_id, user_id, permission, reason)
+  values (v_g, v_plain, 'manage_tasks', 'Zz') returning id into v_req;
+  insert into public.general_access_requests (project_id, user_id, permission, reason)
+  values (v_g, v_plain, 'edit_project', 'Zz') returning id into v_req_ep;
+
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_be('general_can_grant: a coordinator gives edit_files',
+    public.general_can_grant(v_g, 'edit_files'));
+  perform pg_temp.must_be('...but not edit_project, which only the pm holds',
+    not public.general_can_grant(v_g, 'edit_project'));
+  perform pg_temp.must_allow('a coordinator grants edit_files to a member',
+    format($q$select public.grant_general_permission(%L, %L, 'edit_files')$q$, v_g, v_plain));
+  perform pg_temp.must_be('...and the member holds it',
+    exists (select 1 from public.general_grants
+             where project_id = v_g and user_id = v_plain and permission = 'edit_files'));
+  perform pg_temp.must_refuse_with('a coordinator cannot grant to a coordinator',
+    format($q$select public.grant_general_permission(%L, %L, 'edit_files')$q$, v_g, v_inv1),
+    'already hold every permission');
+  perform pg_temp.must_refuse_with('...nor to the pm',
+    format($q$select public.grant_general_permission(%L, %L, 'edit_files')$q$, v_g, v_pm),
+    'already hold every permission');
+  perform pg_temp.must_refuse_with('...nor give edit_project',
+    format($q$select public.grant_general_permission(%L, %L, 'edit_project')$q$, v_g, v_plain),
+    'Only the project manager gives Edit project details.');
+  perform pg_temp.must_allow('a coordinator takes a grant back',
+    format($q$select public.revoke_general_permission(%L, %L, 'edit_files')$q$, v_g, v_plain));
+  perform pg_temp.must_be('...and it is gone',
+    not exists (select 1 from public.general_grants
+                 where project_id = v_g and user_id = v_plain and permission = 'edit_files'));
+  perform pg_temp.must_be('general_commit_rights says a coordinator decides Commit to Main',
+    (public.general_commit_rights(v_g)->>'grant')::boolean);
+
+  -- Access requests: the coordinator reads and answers what it can give.
+  select count(*) into v_seen from public.general_access_requests where project_id = v_g;
+  perform pg_temp.must_be('a coordinator reads the request it can answer, not the edit_project one',
+    v_seen = 1
+    and exists (select 1 from public.general_access_requests where id = v_req)
+    and not exists (select 1 from public.general_access_requests where id = v_req_ep));
+  perform pg_temp.must_refuse_with('a coordinator cannot answer an edit_project request',
+    format('select public.answer_general_access_request(%L, true)', v_req_ep),
+    'Only an Owner answers access requests');
+  perform pg_temp.must_allow('a coordinator approves a request',
+    format('select public.answer_general_access_request(%L, true)', v_req));
+  perform pg_temp.must_be('...and the member gets the grant',
+    exists (select 1 from public.general_grants
+             where project_id = v_g and user_id = v_plain and permission = 'manage_tasks'));
+
+  -- A member holding manage_members still gives nothing.
+  perform pg_temp.act_as(v_inv2);
+  perform pg_temp.must_be('a member with manage_members cannot grant',
+    not public.general_can_grant(v_g, 'edit_files'));
+  perform pg_temp.must_refuse_with('...and grant_general_permission refuses them',
+    format($q$select public.grant_general_permission(%L, %L, 'edit_files')$q$, v_g, v_inv3),
+    'Only the project manager or a coordinator gives permissions.');
+  perform pg_temp.must_be('...nor do they read anyone else''s request',
+    not exists (select 1 from public.general_access_requests where id = v_req_ep));
+
+  -- The pm still gives everything, edit_project included.
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('the pm answers the edit_project request',
+    format('select public.answer_general_access_request(%L, true)', v_req_ep));
+  perform pg_temp.must_be('...and the member holds edit_project',
+    exists (select 1 from public.general_grants
+             where project_id = v_g and user_id = v_plain and permission = 'edit_project'));
+
+  -- QA and stakeholders get no grants (level member, but not role member).
+  perform pg_temp.act_as_service();
+  update public.general_members set role = 'qa' where project_id = v_g and user_id = v_inv3;
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_refuse_with('grants are for members only, not QA',
+    format($q$select public.grant_general_permission(%L, %L, 'edit_files')$q$, v_g, v_inv3),
+    'Grants are for members only.');
+  perform pg_temp.act_as_service();
+
+  insert into fx values ('g', v_g);
+end $$;
+
+-- ------------------------------------------------------------------ admin list
+
+do $$
+declare
+  v_g     uuid := (select v from fx where k = 'g');
+  v_admin uuid := (select v from fx where k = 'admin');
+  v_plain uuid := (select v from fx where k = 'plain');
+  v_n     int;
+begin
+  perform pg_temp.act_as(v_admin);
+  perform pg_temp.must_be('admin_work_projects lists a work project for the admin, with its pm',
+    exists (select 1 from public.admin_work_projects
+             where id = v_g and name = 'Zz PR grants' and pm_name = 'Zz Prpm'
+               and has_pm and archived_at is null and space_name is not null));
+  perform pg_temp.must_be('...and never a class-board Files project',
+    not exists (select 1 from public.admin_work_projects w
+                  join public.general_projects p on p.id = w.id
+                 where p.class_board_id is not null));
+  perform pg_temp.act_as(v_plain);
+  select count(*) into v_n from public.admin_work_projects;
+  perform pg_temp.must_be('...and returns nothing to a member', v_n = 0);
+  perform pg_temp.act_as_service();
+end $$;
+
+-- ------------------------------------------------------------------ PM search
+
+do $$
+declare
+  v_admin  uuid := (select v from fx where k = 'admin');
+  v_sowner uuid := (select v from fx where k = 'sowner');
+  v_plain  uuid := (select v from fx where k = 'plain');
+  v_pm     uuid := (select v from fx where k = 'pm');
+begin
+  perform pg_temp.act_as(v_admin);
+  perform pg_temp.must_be('search_project_managers finds a person with Project manager on',
+    exists (select 1 from public.search_project_managers('Zz Prpm') where person_id = v_pm));
+  perform pg_temp.must_be('...and never one without it',
+    not exists (select 1 from public.search_project_managers('Zz Prplain')));
+  perform pg_temp.act_as(v_sowner);
+  perform pg_temp.must_be('a space owner searches too',
+    exists (select 1 from public.search_project_managers('Zz Prpm') where person_id = v_pm));
+  perform pg_temp.act_as(v_plain);
+  perform pg_temp.must_refuse_with('somebody who cannot pick a project manager cannot search',
+    $q$select * from public.search_project_managers('Zz Prpm')$q$,
+    'Only space owners and admins');
+  perform pg_temp.act_as_service();
 end $$;
 
 rollback;

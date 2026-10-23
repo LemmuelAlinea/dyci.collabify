@@ -14,7 +14,8 @@
 --     set_general_team_leader(team, user), null clears.
 --   - Leaving the team, leaving the project or becoming a stakeholder leaves
 --     the team with no leader (clear_general_team_leader).
---   - Every change writes a team_leader event {team_id, from, to}.
+--   - Every change writes a team_leader event {team_id, team_name, from, to};
+--     team_name is the team's name at the time, for the activity log's line.
 --   - Teams seeded from a space team start with no leader.
 --
 -- Class-board Files projects keep the old model: their teams have no leader,
@@ -141,7 +142,11 @@ create trigger general_teams_leader_guard
   before insert or update of leader_id on public.general_teams
   for each row execute function public.guard_general_team_leader();
 
-/** A change of leader, however it happened, writes a team_leader event. */
+/**
+ * A change of leader, however it happened, writes a team_leader event. The
+ * team's name goes with it, so the activity log can say which team without
+ * reading teams the reader may no longer see.
+ */
 create or replace function public.log_general_team_leader()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
@@ -150,7 +155,8 @@ begin
   end if;
   insert into public.general_project_events (project_id, actor_id, subject_id, kind, detail)
   values (new.project_id, auth.uid(), coalesce(new.leader_id, old.leader_id), 'team_leader',
-          jsonb_build_object('team_id', new.id, 'from', old.leader_id, 'to', new.leader_id));
+          jsonb_build_object('team_id', new.id, 'team_name', new.name,
+                             'from', old.leader_id, 'to', new.leader_id));
   return new;
 end;
 $$;

@@ -216,6 +216,11 @@ begin
   perform pg_temp.must_be('...and L leads team A', pg_temp.leader_of(v_a) = v_lead);
   perform pg_temp.must_be('...and a team_leader event {team_id, from: null, to: L} is written',
     pg_temp.leader_events(v_a, null, v_lead) = 1);
+  perform pg_temp.must_be('...carrying the team''s name for the activity log',
+    exists (select 1 from public.general_project_events
+             where project_id = v_p and kind = 'team_leader'
+               and detail->>'team_id' = v_a::text
+               and detail->>'team_name' = (select name from public.general_teams where id = v_a)));
   perform pg_temp.must_be('leading never changes L''s role (still member)',
     (select role = 'member' from public.general_members where project_id = v_p and user_id = v_lead));
 

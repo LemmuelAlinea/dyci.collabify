@@ -17,18 +17,22 @@
 -- their rows are all `member` by role and `level` is theirs alone.
 --
 -- Runs after company-accounts.sql and everything else in docs/07-backup.md, and
--- redefines from their latest (live) copies: general_has (general.sql),
--- guard_student_level and join_general_project (company-accounts.sql), and the
--- general_members_student_level trigger (access.sql); set_general_member_level,
--- invite_to_general_project, respond_general_invitation, remove_general_member
--- and leave_general_project (general.sql); log_general_member_change and the
--- general_project_events kinds (general-reports.sql); notify_general_membership
--- (class-files.sql) and the general_members_notify_level trigger
--- (notification-coverage.sql). Re-run it after re-running any of access.sql,
--- company-accounts.sql, general.sql, general-reports.sql,
+-- redefines from their latest (live) copies: general_has and general_can_grant
+-- (general.sql), guard_student_level and join_general_project
+-- (company-accounts.sql), and the general_members_student_level trigger
+-- (access.sql); invite_to_general_project, respond_general_invitation,
+-- remove_general_member, leave_general_project, grant_general_permission and
+-- answer_general_access_request (general.sql); log_general_member_change and
+-- the general_project_events kinds (general-reports.sql);
+-- notify_general_membership (class-files.sql) and the
+-- general_members_notify_level trigger (notification-coverage.sql). It drops
+-- general.sql's set_general_member_level. Re-run it after re-running any of
+-- access.sql, company-accounts.sql, general.sql, general-reports.sql,
 -- notification-coverage.sql or class-files.sql, then anon-lockdown.sql. It also
 -- redefines general_project_overview (general-project-space.sql) and
 -- list_general_project_members (one-workplace.sql) with the role columns added.
+-- project-visibility.sql and project-team-leads.sql run after it and redefine
+-- some of what it defines, so re-run those two after it, in that order.
 --
 -- Idempotent. Safe to re-run.
 
@@ -77,11 +81,13 @@ $$;
  * The role a work-project row ends up with once the sync trigger has run.
  * Shared by the sync trigger and the student guard, which fires first.
  *
- * The role wins whenever the caller set it. Older callers write only `level`:
+ * The role wins whenever the caller changed it. Older callers write only
+ * `level`:
  *   - an INSERT that leaves role at its default with level owner/manager gets
  *     pm/coordinator (create_general_project, space-team seeding);
  *   - an UPDATE that changes level and leaves role alone gets the role for
- *     that level (set_general_member_level, until it maps roles itself).
+ *     that level. That includes an UPDATE that sets role to the value it
+ *     already had: role is unchanged, so the new level wins.
  */
 create or replace function public.general_member_role_for(
   p_insert    boolean,
@@ -280,6 +286,33 @@ create or replace function public.general_has(
         )
         or (p_permission = 'commit_main' and public.general_class_commit_ok(p_project))
       )
+  end;
+$$;
+
+/**
+ * May give, take back and answer requests for this permission.
+ *
+ * Work projects: the pm gives every permission, and a coordinator every one it
+ * holds itself, so all but edit_project. Nobody else gives anything, whatever
+ * they were granted. Grants go to members only (grant_general_permission).
+ * Class-board Files projects keep general.sql's body unchanged: an Owner, or
+ * the group's leader for commit_main.
+ */
+create or replace function public.general_can_grant(p_project uuid, p_permission public.general_permission)
+returns boolean language sql stable security definer set search_path = public as $$
+  select case
+    when exists (select 1 from public.general_projects gp
+                  where gp.id = p_project and gp.class_board_id is null) then
+      coalesce(public.is_general_member(p_project) and (
+        case public.general_role_of(p_project, auth.uid())
+          when 'pm' then true
+          when 'coordinator' then p_permission <> 'edit_project'
+          else false
+        end
+      ), false)
+    else
+      public.is_general_owner(p_project)
+      or (p_permission = 'commit_main' and public.general_class_board_leads(p_project))
   end;
 $$;
 
@@ -661,74 +694,115 @@ $$;
 
 -- ---------------------------------------------------------------- the old level RPC
 
+-- general.sql's set_general_member_level is gone: the app sets roles with
+-- set_general_member_role and moves the pm with hand_over_general_project.
+-- general.sql still defines it, so re-running general.sql brings it back
+-- until this file runs again, as the header says it must.
+drop function if exists public.set_general_member_level(uuid, uuid, public.general_level);
+
+-- ---------------------------------------------------------------- grants
+
 /**
- * general.sql's copy, kept until the UI calls set_general_member_role. On a
- * work project Manager is coordinator and Member is member, by the new rules;
- * Owner is refused, since only hand_over_general_project moves the project
- * manager. Class-board Files projects keep the old body.
+ * general.sql's copy. On a work project the refusals name the project manager
+ * and coordinators (general_can_grant), and grants go to members only: not a
+ * coordinator or the pm, who hold them already, and not QA or a stakeholder,
+ * whose level is member but whose role is not.
  */
-create or replace function public.set_general_member_level(p_project uuid, p_user uuid, p_level public.general_level)
+create or replace function public.grant_general_permission(
+  p_project uuid, p_user uuid, p_permission public.general_permission)
 returns void language plpgsql security definer set search_path = public as $$
 declare
-  target public.general_members%rowtype;
-  owners int;
+  lvl public.general_level;
+  rl  public.general_role;
+  is_work boolean := exists (select 1 from public.general_projects
+                              where id = p_project and class_board_id is null);
 begin
-  if exists (select 1 from public.general_projects
-              where id = p_project and class_board_id is null) then
-    if p_level = 'owner' then
-      raise exception 'Use hand over to change the project manager.'
-        using errcode = 'check_violation';
+  if not public.general_can_grant(p_project, p_permission) then
+    if is_work and public.general_role_of(p_project, auth.uid()) = 'coordinator' then
+      raise exception 'Only the project manager gives Edit project details.'
+        using errcode = 'insufficient_privilege';
+    elsif is_work then
+      raise exception 'Only the project manager or a coordinator gives permissions.'
+        using errcode = 'insufficient_privilege';
     end if;
-    perform public.set_general_member_role(p_project, p_user,
-      case p_level when 'manager' then 'coordinator' else 'member' end::public.general_role);
-    return;
-  end if;
-
-  if not public.is_general_owner(p_project) then
-    raise exception 'Only an Owner changes access levels' using errcode = 'insufficient_privilege';
+    raise exception 'Only an Owner grants permissions' using errcode = 'insufficient_privilege';
   end if;
   if public.general_is_archived(p_project) then
     raise exception 'This project is archived. An Owner can restore it to make changes.'
       using errcode = 'check_violation';
   end if;
 
-  -- Every Owner row locked before counting, so two Owners stepping down at
-  -- once cannot both see the other still there.
-  perform 1 from public.general_members
-   where project_id = p_project and level = 'owner' for update;
-
-  select * into target from public.general_members
-   where project_id = p_project and user_id = p_user for update;
-  if target.user_id is null then
+  select level, role into lvl, rl from public.general_members
+   where project_id = p_project and user_id = p_user;
+  if lvl is null then
     raise exception 'They are not on this project' using errcode = 'no_data_found';
   end if;
+  if lvl <> 'member' then
+    raise exception '%', case when is_work
+                          then 'The project manager and coordinators already hold every permission'
+                          else 'Owners and Managers already hold every permission' end
+      using errcode = 'check_violation';
+  end if;
+  if is_work and rl <> 'member' then
+    raise exception 'Grants are for members only.' using errcode = 'check_violation';
+  end if;
 
-  -- Stepping down a deactivated Owner never changes how many active Owners
-  -- there are, so it is never blocked by this check — only demoting somebody
-  -- who is still active can leave the project with zero of them.
-  if target.level = 'owner' and p_level <> 'owner'
-     and exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
-    select count(*) into owners
-      from public.general_members m
-      join public.profiles pr on pr.id = m.user_id
-     where m.project_id = p_project and m.level = 'owner' and pr.status <> 'rejected';
-    if owners <= 1 then
-      raise exception 'A project needs at least one Owner. Make someone else an Owner first.'
-        using errcode = 'check_violation';
+  insert into public.general_grants (project_id, user_id, permission, granted_by)
+  values (p_project, p_user, p_permission, auth.uid())
+  on conflict do nothing;
+
+  -- Granting what somebody asked for answers their request.
+  update public.general_access_requests
+     set status = 'approved', answered_by = auth.uid(), answered_at = now()
+   where project_id = p_project and user_id = p_user
+     and permission = p_permission and status = 'open';
+end;
+$$;
+
+/**
+ * general.sql's copy. Approving gives the grant only to someone whose role is
+ * member, so on a work project not to QA or a stakeholder.
+ */
+create or replace function public.answer_general_access_request(
+  p_request uuid, p_approve boolean, p_note text default '')
+returns public.general_access_requests
+language plpgsql security definer set search_path = public as $$
+declare
+  req public.general_access_requests%rowtype;
+  lvl public.general_level;
+  rl  public.general_role;
+begin
+  select * into req from public.general_access_requests where id = p_request for update;
+  if req.id is null or not public.general_can_grant(req.project_id, req.permission) then
+    raise exception 'Only an Owner answers access requests' using errcode = 'insufficient_privilege';
+  end if;
+  if req.status <> 'open' then
+    raise exception 'That request was already answered' using errcode = 'check_violation';
+  end if;
+  if public.general_is_archived(req.project_id) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+
+  update public.general_access_requests
+     set status = case when p_approve then 'approved' else 'declined' end::public.general_request_status,
+         answered_by = auth.uid(),
+         answered_at = now(),
+         note = btrim(coalesce(p_note, ''))
+   where id = p_request
+  returning * into req;
+
+  if p_approve then
+    select level, role into lvl, rl from public.general_members
+     where project_id = req.project_id and user_id = req.user_id;
+    -- Class-board rows are all member by role, so this is the old rule there.
+    if lvl = 'member' and rl = 'member' then
+      insert into public.general_grants (project_id, user_id, permission, granted_by)
+      values (req.project_id, req.user_id, req.permission, auth.uid())
+      on conflict do nothing;
     end if;
   end if;
-
-  update public.general_members set level = p_level
-   where project_id = p_project and user_id = p_user;
-
-  -- A Manager or Owner already holds every permission, so the extras and any
-  -- open requests for them are moot.
-  if p_level <> 'member' then
-    delete from public.general_grants where project_id = p_project and user_id = p_user;
-    update public.general_access_requests
-       set status = 'withdrawn', answered_at = now()
-     where project_id = p_project and user_id = p_user and status = 'open';
-  end if;
+  return req;
 end;
 $$;
 
@@ -1027,13 +1101,108 @@ $$;
 revoke execute on function public.list_general_project_members(uuid) from public, anon;
 grant execute on function public.list_general_project_members(uuid) to authenticated, service_role;
 
+-- ---------------------------------------------------------------- picking a pm
+
+/**
+ * search_general_people (general.sql), narrowed to people who have Project
+ * manager turned on: the picker for a project's new pm
+ * (assign_general_project_pm) and for a work space's co-owners
+ * (invite_to_general_space). Same columns, and still no email unless the
+ * search was that exact address. The caller is included, so a space owner can
+ * pick themself. Only somebody who can use the answer asks: an admin, a space
+ * owner, or someone with Project manager on (who owns the spaces they create).
+ */
+create or replace function public.search_project_managers(p_query text)
+returns table (person_id uuid, first_name text, last_name text, avatar_url text, email text)
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
+declare
+  q text := btrim(coalesce(p_query, ''));
+  pattern text;
+begin
+  if not public.general_viewer_active() then
+    raise exception 'Sign in with an active account to search'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not (public.is_admin()
+          or public.is_project_manager(auth.uid())
+          or exists (select 1 from public.general_space_members sm
+                      where sm.user_id = auth.uid() and sm.level = 'owner')) then
+    raise exception 'Only space owners and admins can search for project managers.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if char_length(q) < 3 then
+    return;
+  end if;
+
+  perform public.rate_limit('general_people_search', 60, interval '1 minute',
+    'Too many searches at once. Wait a minute and try again.');
+
+  pattern := '%' || replace(replace(replace(q, '\', '\\'), '%', '\%'), '_', '\_') || '%';
+
+  return query
+    select pr.id, pr.first_name, pr.last_name, pr.avatar_url,
+           case when lower(pr.email) = lower(q) then pr.email end
+      from public.profiles pr
+     where pr.role in ('member', 'admin')
+       and pr.status = 'active'
+       and pr.can_manage_projects
+       and (lower(pr.email) = lower(q)
+            or btrim(pr.first_name || ' ' || pr.last_name) ilike pattern)
+     order by pr.last_name, pr.first_name
+     limit 10;
+end;
+$$;
+
+-- ---------------------------------------------------------------- admin list
+
+/**
+ * Every work project for the admin's Work projects page: its space, its pm's
+ * name, whether it has a pm (general_project_has_pm's rule) and whether it is
+ * archived. An admin reads no project rows through RLS, so the rows come from
+ * this definer function, which answers an admin and nobody else. Class-board
+ * Files projects and trashed projects are left out.
+ */
+create or replace function public.admin_work_project_rows()
+returns table (id uuid, name text, space_name text, pm_name text, has_pm boolean,
+               archived_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select p.id,
+         p.name,
+         s.name,
+         nullif(btrim(coalesce(pr.first_name, '') || ' ' || coalesce(pr.last_name, '')), ''),
+         coalesce(pr.status = 'active' and pr.can_manage_projects, false),
+         p.archived_at
+    from public.general_projects p
+    left join public.general_spaces s on s.id = p.space_id
+    left join public.general_members m on m.project_id = p.id and m.role = 'pm'
+    left join public.profiles pr on pr.id = m.user_id
+   where public.is_admin()
+     and p.class_board_id is null
+     and p.trashed_at is null;
+$$;
+
+revoke execute on function public.admin_work_project_rows() from public, anon;
+grant execute on function public.admin_work_project_rows() to authenticated;
+
+/** The page reads this view; security_invoker, so it is the caller asking. */
+create or replace view public.admin_work_projects
+with (security_invoker = true) as
+select r.id, r.name, r.space_name, r.pm_name, r.has_pm, r.archived_at
+  from public.admin_work_project_rows() r;
+
+revoke all on public.admin_work_projects from public, anon;
+grant select on public.admin_work_projects to authenticated;
+
 -- ---------------------------------------------------------------- grants
 
 grant execute on function public.set_general_member_role(uuid, uuid, public.general_role) to authenticated;
 grant execute on function public.hand_over_general_project(uuid, uuid) to authenticated;
 grant execute on function public.assign_general_project_pm(uuid, uuid) to authenticated;
 grant execute on function public.invite_to_general_project(uuid, uuid, public.general_role) to authenticated;
-grant execute on function public.set_general_member_level(uuid, uuid, public.general_level) to authenticated;
+grant execute on function public.search_project_managers(text) to authenticated;
+grant execute on function public.grant_general_permission(uuid, uuid, public.general_permission) to authenticated;
+grant execute on function public.answer_general_access_request(uuid, boolean, text) to authenticated;
 grant execute on function public.respond_general_invitation(uuid, boolean) to authenticated;
 grant execute on function public.remove_general_member(uuid, uuid) to authenticated;
 grant execute on function public.leave_general_project(uuid) to authenticated;

@@ -156,16 +156,16 @@ begin
     format('select public.invite_to_general_project(%L, %L)', p, c));
   perform pg_temp.act_as(a);
   perform pg_temp.must_allow('an Owner makes them a Manager',
-    format('select public.set_general_member_level(%L, %L, %L)', p, b, 'manager'));
+    format('select public.set_general_member_role(%L, %L, %L)', p, b, 'coordinator'));
   perform pg_temp.act_as(b);
   perform pg_temp.must_allow('a Manager can invite',
     format('select public.invite_to_general_project(%L, %L)', p, c));
   perform pg_temp.must_refuse('a Manager cannot change access levels',
-    format('select public.set_general_member_level(%L, %L, %L)', p, a, 'member'));
+    format('select public.set_general_member_role(%L, %L, %L)', p, a, 'member'));
 
   perform pg_temp.act_as(a);
   perform pg_temp.must_allow('the Owner sets them back to Member',
-    format('select public.set_general_member_level(%L, %L, %L)', p, b, 'member'));
+    format('select public.set_general_member_role(%L, %L, %L)', p, b, 'member'));
   perform pg_temp.act_as_service();
 end $$;
 
@@ -326,21 +326,24 @@ end $$;
 do $$
 declare
   a uuid := (select v from fx where k = 'a');
+  b uuid := (select v from fx where k = 'b');
   d uuid := (select v from fx where k = 'd');
   e uuid := (select v from fx where k = 'e');
   p uuid := (select v from fx where k = 'project');
 begin
   perform pg_temp.act_as(a);
   perform pg_temp.must_allow('an Owner makes a Member a Manager, for this check',
-    format('select public.set_general_member_level(%L, %L, %L)', p, d, 'manager'));
+    format('select public.set_general_member_role(%L, %L, %L)', p, d, 'coordinator'));
 
   perform pg_temp.act_as(d);
-  perform pg_temp.must_refuse('a Manager cannot grant a permission',
-    format('select public.grant_general_permission(%L, %L, %L)', p, e, 'edit_files'));
+  -- Coordinators give grants (project-roles.sql), but not Edit project details,
+  -- which only the project manager holds.
+  perform pg_temp.must_refuse('a Coordinator cannot grant Edit project details',
+    format('select public.grant_general_permission(%L, %L, %L)', p, b, 'edit_project'));
 
   perform pg_temp.act_as(a);
   perform pg_temp.must_allow('the Owner sets the Manager back to Member',
-    format('select public.set_general_member_level(%L, %L, %L)', p, d, 'member'));
+    format('select public.set_general_member_role(%L, %L, %L)', p, d, 'member'));
 
   perform pg_temp.must_refuse('a direct insert into general_members is refused, even for an Owner',
     format('insert into public.general_members (project_id, user_id) values (%L, %L)', p, e));
@@ -420,7 +423,7 @@ begin
   perform pg_temp.must_refuse('the last Owner cannot leave',
     format('select public.leave_general_project(%L)', p));
   perform pg_temp.must_refuse('the last Owner cannot step down',
-    format('select public.set_general_member_level(%L, %L, %L)', p, a, 'manager'));
+    format('select public.set_general_member_role(%L, %L, %L)', p, a, 'coordinator'));
 
   perform pg_temp.must_allow('an Owner archives the project',
     format('select public.archive_general_project(%L, true)', p));
@@ -432,7 +435,7 @@ begin
   -- Project roles (project-roles.sql): one project manager per work project, so
   -- making somebody else Owner is refused; the hand over moves it.
   perform pg_temp.must_refuse('the Owner cannot make somebody else a second Owner',
-    format('select public.set_general_member_level(%L, %L, %L)', p, b, 'owner'));
+    format('select public.set_general_member_role(%L, %L, %L)', p, b, 'pm'));
   perform pg_temp.must_allow('the Owner hands the project over instead',
     format('select public.hand_over_general_project(%L, %L)', p, b));
   perform pg_temp.act_as_service();
@@ -496,9 +499,9 @@ begin
   -- account can no longer sit beside b as a second Owner; it can be a Manager.
   perform pg_temp.act_as(b);
   perform pg_temp.must_allow('the Owner makes a deactivated account a Manager',
-    format('select public.set_general_member_level(%L, %L, %L)', p, d, 'manager'));
+    format('select public.set_general_member_role(%L, %L, %L)', p, d, 'coordinator'));
   perform pg_temp.must_allow('...and can demote that deactivated Manager again',
-    format('select public.set_general_member_level(%L, %L, %L)', p, d, 'member'));
+    format('select public.set_general_member_role(%L, %L, %L)', p, d, 'member'));
   perform pg_temp.act_as_service();
 end $$;
 
