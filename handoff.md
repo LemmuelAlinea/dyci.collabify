@@ -3676,12 +3676,20 @@ Both start with "zz test".
 
 **Checked.**
 - Vitest 1034 pass, build and `eslint src` clean. SQL tests pass on the live DB (company-accounts 58, plus the fixture suites).
-- Browser, live, as Cloud (member, Can teach, Project manager): see the walk results in the task report.
+- Browser, on localhost against the live database, as Cloud (member, Can teach, Project manager):
+  - Home shows the professor dashboard.
+  - The QM class opens, and its Members tab shows the Faculty panel (Cloud, Admin, Keneth) with the Invite faculty dialog opening.
+  - Teaching, Reports loads, and the Individual grading sheet lists the whole QM class, so grade access is intact.
+  - Spaces shows Create space and Join with a code.
+  - At 375 px nothing scrolls sideways; dark mode looked right (class toggled in the page, nothing saved).
+- The co-teacher search (`search_faculty`) is covered by `supabase/tests/company-accounts.test.sql`: a teacher finds another teacher by name.
 - `rg "'faculty'" src` shows only the presets' audience names.
 
 **Still to check by you.**
 1. As the admin, on Accounts: turn Project manager on and off for a member; turn Can teach off for someone with a class seat and see it refused with a toast; open `/admin/approvals` and land on Accounts.
 2. Register a throwaway Member and look at the waiting home (layout, the `shell !px-0` wrapper, the rail) at desktop and 375 px.
+3. In the browser as a teacher: type a name in a class's Invite faculty picker and see the other teachers appear. Only the SQL test covered this.
+4. Reload a few pages (Home, a class, Spaces, Accounts) and check the console is clean. The walk's console still held old hot-reload errors from earlier tasks and could not be told apart.
 
 **Deferred** (from the ledger):
 - `RoleSwitch` has no render test for the member prop.

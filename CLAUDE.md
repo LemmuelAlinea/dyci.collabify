@@ -2,10 +2,13 @@
 
 Project management for BSIT programs in the Philippines. Roles: `student`, `member` and
 `admin`. Teaching is the `can_teach` switch (members only; admins do not teach), and
-creating work spaces is the `can_manage_projects` switch (members and admins). Every planned
-phase has shipped and is live at dyci-collabify.vercel.app from `main`. There is no
-phase backlog: open work is the **Deferred** notes in `handoff.md` plus whatever the
-user asks for next. Read the end of `handoff.md` for the latest state.
+creating work spaces is the `can_manage_projects` switch (members and admins). Admins have
+it off by default: they create work spaces only once an admin turns it on for them. Every
+planned phase has shipped and is live at dyci-collabify.vercel.app from `main`, and company
+roles phase 1 (members and the two switches) is live. Phase 2, project roles, is next
+(`docs/superpowers/specs/2026-10-23-company-roles-design.md`). Other open work is the
+**Deferred** notes in `handoff.md` plus whatever the user asks for next. Read the end of
+`handoff.md` for the latest state.
 
 ## Commands
 

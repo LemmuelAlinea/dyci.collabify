@@ -63,7 +63,7 @@ describe('archiveKindsFor', () => {
     expect(kinds).not.toContain('class_file')
   })
 
-  it('gives faculty who do not teach nothing about classes', () => {
+  it('gives members who do not teach nothing about classes', () => {
     const kinds = archiveKindsFor(nonTeacher, { inClass: true, hasWork: true })
     expect(kinds).toEqual(['space', 'team', 'project', 'work_task', 'work_file'])
     expect(areasOf(kinds)).toEqual(['work'])
