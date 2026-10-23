@@ -345,7 +345,10 @@ alter table public.general_project_events drop constraint if exists general_proj
 alter table public.general_project_events add constraint general_project_events_kind check (kind in (
   'task_archived', 'task_restored', 'project_status', 'project_archived',
   'project_restored', 'member_joined', 'member_left', 'member_removed', 'member_level',
-  'member_role', 'pm_handover'));
+  'member_role', 'pm_handover',
+  -- project-team-leads.sql's kind, listed here too so re-running this file
+  -- once team_leader events exist does not fail on them.
+  'team_leader'));
 
 /**
  * general-reports.sql's logger. A work project logs a change of role
