@@ -102,7 +102,7 @@ export default function GeneralProject() {
     )
   }
 
-  const openForOwner = state.isOwner ? state.requests.filter((r) => r.status === 'open').length : 0
+  const openForOwner = state.canGrant ? state.requests.filter((r) => r.status === 'open').length : 0
 
   async function restore() {
     if (!p) return

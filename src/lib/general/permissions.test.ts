@@ -8,6 +8,7 @@ import {
   assignableRoles,
   can,
   canAs,
+  canGive,
   canRemoveRole,
   canStepDown,
   levelLabel,
@@ -150,6 +151,22 @@ describe('canAs', () => {
     // general_has() in the database ignores their grants, so the UI must too.
     for (const role of ['qa', 'stakeholder'] as const)
       for (const p of PERMISSIONS) expect(canAs(role, [p.value], p.value)).toBe(false)
+  })
+})
+
+describe('canGive', () => {
+  it('lets the project manager give every permission', () => {
+    for (const p of PERMISSIONS) expect(canGive('pm', p.value)).toBe(true)
+  })
+
+  it('lets a Coordinator give what it holds, so not Edit project details', () => {
+    for (const p of PERMISSIONS)
+      expect(canGive('coordinator', p.value)).toBe(p.value !== 'edit_project')
+  })
+
+  it('gives everybody else nothing to give, grants or not', () => {
+    for (const role of [null, 'member', 'qa', 'stakeholder'] as const)
+      for (const p of PERMISSIONS) expect(canGive(role, p.value)).toBe(false)
   })
 })
 

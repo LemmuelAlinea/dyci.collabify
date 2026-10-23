@@ -73,6 +73,12 @@ export type GeneralProjectState = {
    */
   myRole: ProjectRole | null
   isOwner: boolean
+  /**
+   * Gives grants and answers access requests: the project manager or a
+   * Coordinator on a work project, an Owner on a class board's Files project
+   * (general_can_grant). Which permissions a Coordinator gives is `canGive`.
+   */
+  canGrant: boolean
   ownerCount: number
   can: (permission: GeneralPermission) => boolean
   /** Whether the viewer leads a team that this person is on. */
@@ -245,6 +251,7 @@ export function useGeneralProject(
       archived,
       myRole,
       isOwner: myRole === 'pm',
+      canGrant: legacy ? me?.level === 'owner' : myRole === 'pm' || myRole === 'coordinator',
       ownerCount: members.filter(
         (m) => effectiveRole(m) === 'pm' && m.profile?.status !== 'rejected',
       ).length,

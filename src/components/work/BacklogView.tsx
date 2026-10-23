@@ -134,7 +134,8 @@ export function BacklogView({ source }: { source: WorkSource }) {
           </div>
           {selection && (
             <p className="text-[12px] text-faint">
-              Showing tasks held by this team. Reordering is off until you pick All teams.
+              Showing tasks filed under or held by this team. Reordering is off until you pick All
+              teams.
             </p>
           )}
         </div>

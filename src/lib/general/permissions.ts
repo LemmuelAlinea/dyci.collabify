@@ -2,7 +2,8 @@
  * Who may do what inside a General workplace project.
  *
  * Two layers. A member's **role** gives a fixed set of permissions, and the
- * project manager can **grant** one member a single permission on top of it.
+ * project manager or a Coordinator can **grant** one member a single
+ * permission on top of it (`canGive`).
  * Roles are the easy part to understand; grants are how a Treasurer gets file
  * editing without becoming a Coordinator.
  *
@@ -186,9 +187,20 @@ export function canRemoveRole(actor: ProjectRole | null, target: ProjectRole): b
 }
 
 /**
+ * Whether a role may give this permission as a grant, take it back, or answer
+ * a request for it. The project manager gives all six; a Coordinator gives the
+ * ones it holds itself, so not Edit project details. A grant never makes its
+ * holder a giver. Mirrors general_can_grant() in supabase/project-roles.sql.
+ */
+export function canGive(role: ProjectRole | null, permission: GeneralPermission): boolean {
+  if (role === 'pm') return true
+  return role === 'coordinator' && permission !== 'edit_project'
+}
+
+/**
  * yes    the role does it
  * team   only for tasks of people on the team the person leads
- * grant  not by default; the project manager can grant it
+ * grant  not by default; the project manager or a Coordinator can grant it
  * own    only what the person made or holds
  * read   sees it, cannot change it
  */

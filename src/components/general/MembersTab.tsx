@@ -21,6 +21,7 @@ import {
   PERMISSIONS,
   ROLE_LABEL,
   assignableRoles,
+  canGive,
   canRemoveRole,
   permissionLabel,
 } from '../../lib/general/permissions'
@@ -101,7 +102,8 @@ function MemberList({ state }: { state: GeneralProjectState }) {
           <h2>Members</h2>
           <p className="mt-0.5 text-[12px] text-muted">
             The project manager runs the project. Coordinators handle members, tasks, files and
-            meetings. Members do the work, plus anything the project manager grants them.
+            meetings. Members do the work, plus anything the project manager or a coordinator
+            grants them.
           </p>
         </div>
         <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted ring-1 ring-[var(--line)]">
@@ -144,7 +146,7 @@ function MemberList({ state }: { state: GeneralProjectState }) {
                 ) : (
                   <RoleBadge role={m.role} lead={lead} />
                 )}
-                {state.isOwner && !state.archived && m.role === 'member' && (
+                {state.canGrant && !state.archived && m.role === 'member' && m.level === 'member' && (
                   <Button size="sm" variant="ghost" onClick={() => setPermissionsFor(m)}>
                     Permissions
                   </Button>
@@ -263,19 +265,28 @@ function PermissionsDialog({
       <ul className="space-y-2">
         {PERMISSIONS.map((p) => {
           const on = held.includes(p.value)
+          // A class board's Owner gives everything; on a work project a
+          // Coordinator gives only what it holds (general_can_grant).
+          const givable = state.myRole === 'coordinator' ? canGive('coordinator', p.value) : true
           return (
             <li key={p.value}>
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line px-3.5 py-3 hover:bg-[var(--surface-sunken)]">
+              <label
+                className={`flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 ${
+                  givable ? 'cursor-pointer hover:bg-[var(--surface-sunken)]' : 'cursor-not-allowed opacity-70'
+                }`}
+              >
                 <input
                   type="checkbox"
                   className="mt-1"
                   checked={on}
-                  disabled={busy !== null}
+                  disabled={busy !== null || !givable}
                   onChange={(e) => void toggle(p.value, e.target.checked)}
                 />
                 <span>
                   <span className="block text-[14px] font-medium text-ink">{p.label}</span>
-                  <span className="block text-[12px] text-muted">{p.note}</span>
+                  <span className="block text-[12px] text-muted">
+                    {givable ? p.note : 'Only the project manager gives this.'}
+                  </span>
                 </span>
               </label>
             </li>

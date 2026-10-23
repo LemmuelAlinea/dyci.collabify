@@ -41,7 +41,8 @@ export function RoleGuide() {
         <span>
           <span className="block text-[15px] font-medium text-ink">Who can do what</span>
           <span className="mt-0.5 block text-[12px] text-muted">
-            What each role does in this project, and what the project manager can grant.
+            What each role does in this project, and what the project manager or a coordinator
+            can grant.
           </span>
         </span>
         <Icon

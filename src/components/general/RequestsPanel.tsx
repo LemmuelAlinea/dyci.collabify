@@ -18,12 +18,13 @@ const STATUS_LABEL: Record<GeneralAccessRequest['status'], string> = {
 }
 
 /**
- * An Owner answers here; everybody else sees what they asked for and can ask
- * for more. Requests are the one thing on this tab that waits on a person, so
- * the panel sits at the top of its column.
+ * The project manager or a Coordinator answers here (a Coordinator sees only
+ * the requests it can give, by RLS); everybody else sees what they asked for
+ * and can ask for more. Requests are the one thing on this tab that waits on a
+ * person, so the panel sits at the top of its column.
  */
 export function RequestsPanel({ state }: { state: GeneralProjectState }) {
-  if (state.isOwner && !state.archived) return <OwnerRequests state={state} />
+  if (state.canGrant && !state.archived) return <OwnerRequests state={state} />
   return <MyRequests state={state} />
 }
 
@@ -32,7 +33,7 @@ function OwnerRequests({ state }: { state: GeneralProjectState }) {
   return (
     <section className="rounded-panel border border-line surface p-4 sm:p-5">
       <h2>Access requests</h2>
-      <p className="mt-0.5 text-[12px] text-muted">Members asking for a permission their level does not include.</p>
+      <p className="mt-0.5 text-[12px] text-muted">Members asking for a permission their role does not include.</p>
       {open.length === 0 ? (
         <p className="mt-4 rounded-xl border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
           Nothing waiting on you.
@@ -123,7 +124,7 @@ function MyRequests({ state }: { state: GeneralProjectState }) {
       <p className="mt-0.5 text-[12px] text-muted">
         {state.myGrants.length > 0
           ? `Beyond Member, you can: ${state.myGrants.map(permissionLabel).join(', ')}.`
-          : 'You have what every Member has. Ask an Owner for more.'}
+          : 'You have what every Member has. Ask the project manager or a coordinator for more.'}
       </p>
 
       {mine.length > 0 && (
