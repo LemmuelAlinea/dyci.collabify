@@ -107,6 +107,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(await fetchProfile(userId))
   }, [userId, fetchProfile])
 
+  /**
+   * Picks up what the admin changed since the profile loaded — a switch turned
+   * on, an account approved — when the person comes back to the tab. At most
+   * once a minute, and a failed read keeps the profile already held so a
+   * dropped connection does not look like a signed-out account.
+   */
+  useEffect(() => {
+    if (!userId) return
+    let last = Date.now()
+    function onReturn() {
+      if (document.visibilityState !== 'visible' || !userId) return
+      if (Date.now() - last < 60_000) return
+      last = Date.now()
+      void fetchProfile(userId).then((next) => {
+        if (!next || fetchedFor.current !== userId) return
+        setProfile((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
+      })
+    }
+    window.addEventListener('focus', onReturn)
+    document.addEventListener('visibilitychange', onReturn)
+    return () => {
+      window.removeEventListener('focus', onReturn)
+      document.removeEventListener('visibilitychange', onReturn)
+    }
+  }, [userId, fetchProfile])
+
   const signUpWithEmail = useCallback(async (input: SignUpInput) => {
     requireConfigured()
     guardRate('signUp', input.email)

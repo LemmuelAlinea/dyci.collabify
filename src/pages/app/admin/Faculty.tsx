@@ -158,7 +158,7 @@ export default function Faculty() {
         <EmptyState
           icon="users"
           title="No professors yet"
-          body="Approve a professor and their load appears here."
+          body="Turn on Can teach for a member in Accounts and their load appears here."
         />
       ) : (
         <>

@@ -12,23 +12,29 @@ describe('teachingClassFilter', () => {
 })
 
 describe('teachesClass', () => {
-  const prof = { id: 'p1', role: 'member' as const }
+  const prof = { id: 'p1', role: 'member' as const, can_teach: true }
 
   it('is the class professor', () => {
     expect(teachesClass(prof, 'p1', null)).toBe(true)
   })
 
-  it('is faculty holding Owner or Manager in the class space', () => {
+  it('is a member with Can teach holding Owner or Manager in the class space', () => {
     expect(teachesClass(prof, 'other', 'manager')).toBe(true)
     expect(teachesClass(prof, 'other', 'owner')).toBe(true)
-    expect(teachesClass({ id: 'a1', role: 'admin' }, 'other', 'manager')).toBe(false)
+    expect(teachesClass({ id: 'a1', role: 'admin', can_teach: true }, 'other', 'manager')).toBe(false)
+  })
+
+  it('is not a member without Can teach, whatever the seat says', () => {
+    const plain = { id: 'm1', role: 'member' as const, can_teach: false }
+    expect(teachesClass(plain, 'other', 'owner')).toBe(false)
+    expect(teachesClass(plain, 'other', 'manager')).toBe(false)
   })
 
   it('is never a student, whatever the seat says', () => {
-    expect(teachesClass({ id: 's1', role: 'student' }, 's1', 'owner')).toBe(false)
+    expect(teachesClass({ id: 's1', role: 'student', can_teach: false }, 's1', 'owner')).toBe(false)
   })
 
-  it('is not faculty without a teaching seat', () => {
+  it('is not a teacher without a teaching seat', () => {
     expect(teachesClass(prof, 'other', 'member')).toBe(false)
     expect(teachesClass(prof, 'other', null)).toBe(false)
     expect(teachesClass(null, 'p1', null)).toBe(false)

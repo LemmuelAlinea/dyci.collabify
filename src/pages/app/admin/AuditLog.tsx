@@ -156,7 +156,7 @@ export default function AuditLog() {
             <EmptyState
               icon="clock"
               title="Nothing recorded yet"
-              body="Approvals, role changes and class changes appear here as they happen."
+              body="Role, status and switch changes, and class changes, appear here as they happen."
             />
           ) : (
             <ol className="space-y-6">

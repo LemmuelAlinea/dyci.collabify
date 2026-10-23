@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { LogoMark } from '../components/brand/Logo'
 import { Spinner } from '../components/ui/Icon'
 import { useAuth } from '../context/AuthContext'
+import { opensTeaching } from '../lib/access'
 import { gate } from './gate'
 import type { Role } from '../lib/types'
 
@@ -48,4 +49,14 @@ export function RequireAdmitted({ allow }: { allow?: Role[] }) {
   const result = gate(true, profile, { allow })
   if (result === 'ok') return <Outlet />
   return <Navigate to={result === '/login' ? '/login' : result} replace />
+}
+
+/**
+ * The teaching pages, inside `RequireAdmitted`: members who can teach, and the
+ * admin. A member without Can teach goes home instead of opening pages that
+ * would only come back empty.
+ */
+export function RequireTeaching() {
+  const { profile } = useAuth()
+  return opensTeaching(profile) ? <Outlet /> : <Navigate to="/home" replace />
 }

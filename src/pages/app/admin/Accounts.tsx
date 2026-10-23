@@ -76,7 +76,7 @@ function SwitchRow({
 }
 
 export default function Accounts() {
-  const { profile } = useAuth()
+  const { profile, refreshProfile } = useAuth()
   const { show } = useToast()
   const [rows, setRows] = useState<Account[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -117,6 +117,8 @@ export default function Accounts() {
       show(done)
       setChanging(null)
       setDeactivating(null)
+      // A change to your own account changes what the rail and pages offer you.
+      if (id === profile?.id) await refreshProfile()
       await load()
     } catch (err) {
       show(authErrorMessage(err, 'Could not make that change.'), 'error')

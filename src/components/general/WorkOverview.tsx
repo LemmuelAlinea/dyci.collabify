@@ -96,7 +96,7 @@ export function WorkOverview({
   const loaded = myProjects !== null
   const hasSomething = mineProjects.length > 0 || liveSpaces.length > 0
 
-  // Faculty always keep the New space / Join with code doors open, including
+  // Project managers always keep the New space / Join with code doors open, including
   // while this is still loading. Everyone else sees nothing until we know
   // there is something to show — no flash of an empty section on the way in.
   if (!canStart && (!loaded || !hasSomething)) return null

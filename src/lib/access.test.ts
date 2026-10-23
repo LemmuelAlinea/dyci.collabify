@@ -6,7 +6,9 @@ import {
   inAnyClass,
   isMember,
   isMemberRole,
+  joinsSpaces,
   membershipOf,
+  opensTeaching,
   showsClassScope,
 } from './access'
 import type { GeneralProjectSummary, GeneralSpaceSummary } from './general/types'
@@ -51,6 +53,42 @@ describe('canTeach', () => {
     expect(canTeach(p('member', 'pending', true))).toBe(false)
     expect(canTeach(p('student', 'active', true))).toBe(false)
     expect(canTeach(p('admin', 'active', true))).toBe(false)
+  })
+})
+
+describe('opensTeaching', () => {
+  it('lets in members who can teach and the admin', () => {
+    expect(opensTeaching(p('member', 'active', true))).toBe(true)
+    expect(opensTeaching(p('admin', 'active'))).toBe(true)
+  })
+
+  it('keeps out plain members, project managers, students and deactivated accounts', () => {
+    expect(opensTeaching(p('member', 'active'))).toBe(false)
+    expect(opensTeaching(p('member', 'active', false, true))).toBe(false)
+    expect(opensTeaching(p('student', 'active', true))).toBe(false)
+    expect(opensTeaching(p('member', 'rejected', true))).toBe(false)
+    expect(opensTeaching(p('admin', 'rejected'))).toBe(false)
+    expect(opensTeaching(null)).toBe(false)
+  })
+})
+
+describe('joinsSpaces', () => {
+  it('offers a code to project managers and teachers', () => {
+    expect(joinsSpaces(p('member', 'active', false, true))).toBe(true)
+    expect(joinsSpaces(p('member', 'active', true, false))).toBe(true)
+    expect(joinsSpaces(p('admin', 'active', false, true))).toBe(true)
+  })
+
+  it('leaves the rest to be invited', () => {
+    expect(joinsSpaces(p('member', 'active'))).toBe(false)
+    expect(joinsSpaces(p('admin', 'active'))).toBe(false)
+    expect(joinsSpaces(p('student', 'active', true, true))).toBe(false)
+  })
+
+  it('a teacher without the switch joins but does not create', () => {
+    const teacher = p('member', 'active', true, false)
+    expect(joinsSpaces(teacher)).toBe(true)
+    expect(canManageProjects(teacher)).toBe(false)
   })
 })
 

@@ -10,7 +10,7 @@ import { Icon, Spinner } from '../../components/ui/Icon'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { rememberSpace } from '../../hooks/useSpaces'
-import { canManageProjects, canTeach, inAnyClass, isMember } from '../../lib/access'
+import { canManageProjects, canTeach, inAnyClass, isMember, joinsSpaces } from '../../lib/access'
 import { levelLabel } from '../../lib/general/permissions'
 import type { GeneralSpaceSummary } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
@@ -33,8 +33,11 @@ type Show = 'all' | 'classes' | 'spaces'
 export default function SpacePicker() {
   const location = useLocation()
   const { profile } = useAuth()
-  // Admins are invited in unless the admin switched project managing on for them.
-  const canStart = canManageProjects(profile) || canTeach(profile)
+  // Create space always makes a work space, which only a project manager may
+  // open. Admins are invited in unless project managing is switched on for them.
+  // Teachers without it may still join a space somebody gave them a code for.
+  const canCreate = canManageProjects(profile)
+  const canJoin = joinsSpaces(profile)
   const { spaces, error, reload } = useGeneralNavigation()
   const [newOpen, setNewOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
@@ -74,13 +77,19 @@ export default function SpacePicker() {
       body={
         viewingArchived
           ? 'Archived spaces appear here after an Owner archives them.'
-          : canStart
+          : canCreate
             ? 'Create one to hold your projects, or join a space somebody else has opened with a code.'
-            : 'A project manager can invite you into a space.'
+            : canJoin
+              ? 'Join a space somebody else has opened with a code, or a project manager can invite you in.'
+              : 'A project manager can invite you into a space.'
       }
-      action={!viewingArchived && canStart ? (
+      action={!viewingArchived && canCreate ? (
         <Button variant="accent" onClick={() => setNewOpen(true)}>
           Create space
+        </Button>
+      ) : !viewingArchived && canJoin ? (
+        <Button variant="accent" onClick={() => setJoinOpen(true)}>
+          Join with a code
         </Button>
       ) : undefined}
     />
@@ -96,12 +105,14 @@ export default function SpacePicker() {
             ? 'Archived spaces stay readable, but they no longer show in your active spaces.'
             : 'A space holds projects. Everyone in a space can see every project in it, so keep separate work in separate spaces.'
         }
-        action={!viewingArchived && canStart ? (
+        action={!viewingArchived && canJoin ? (
           <div className="flex flex-wrap gap-2">
-            <Button variant="create" onClick={() => setNewOpen(true)}>
-              <Icon name="plus" size={17} />
-              Create space
-            </Button>
+            {canCreate && (
+              <Button variant="create" onClick={() => setNewOpen(true)}>
+                <Icon name="plus" size={17} />
+                Create space
+              </Button>
+            )}
             <Button variant="onNavy" onClick={() => setJoinOpen(true)}>
               Join with a code
             </Button>

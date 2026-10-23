@@ -32,7 +32,7 @@ export default function AdminHome() {
     <>
       <RoleHome
         headline="Program overview"
-        intro="Classes, faculty load and cohort progress are live, beside approvals, accounts and the audit log. Everything here is counts — what happens inside a class stays with its professor and their students."
+        intro="Classes, faculty load and cohort progress are live, beside accounts and the audit log. Everything here is counts — what happens inside a class stays with its professor and their students."
         upcoming={UPCOMING}
       />
       <GeneralCountsBand />

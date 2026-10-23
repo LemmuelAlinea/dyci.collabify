@@ -3,7 +3,7 @@ import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-do
 import { ThemeSync } from './components/ThemeSync'
 import { AppShell } from './components/app/AppShell'
 import { ErrorBoundary } from './components/app/ErrorBoundary'
-import { ProtectedRoute, RequireAdmitted } from './routes/ProtectedRoute'
+import { ProtectedRoute, RequireAdmitted, RequireTeaching } from './routes/ProtectedRoute'
 import { RoleSwitch } from './routes/RoleSwitch'
 import { LegacyRedirect } from './routes/LegacyRedirect'
 import { PageLoading } from './components/ui/PageLoading'
@@ -233,13 +233,16 @@ export default function App() {
             </Route>
 
             <Route element={<RequireAdmitted allow={['member', 'admin']} />}>
-              <Route path="/teaching/submissions" element={<Submissions />} />
-              <Route path="/teaching/reassignments" element={<Reassignments />} />
-              <Route path="/teaching/analytics" element={<Analytics />} />
-              <Route path="/teaching/reports" element={<Reports />} />
-              <Route path="/teaching/syllabi" element={<Syllabi />} />
-              <Route path="/teaching/syllabi/:resourceId" element={<SyllabusDetail />} />
-              <Route path="/teaching/curriculum" element={<Curriculum />} />
+              {/* Teaching needs Can teach. The admin reads these across the program. */}
+              <Route element={<RequireTeaching />}>
+                <Route path="/teaching/submissions" element={<Submissions />} />
+                <Route path="/teaching/reassignments" element={<Reassignments />} />
+                <Route path="/teaching/analytics" element={<Analytics />} />
+                <Route path="/teaching/reports" element={<Reports />} />
+                <Route path="/teaching/syllabi" element={<Syllabi />} />
+                <Route path="/teaching/syllabi/:resourceId" element={<SyllabusDetail />} />
+                <Route path="/teaching/curriculum" element={<Curriculum />} />
+              </Route>
               {/* The queue is the same page for both roles. is_privacy_handler()
                   decides what it returns, so a professor who is not the handler
                   sees only their own requests rather than an empty screen with a

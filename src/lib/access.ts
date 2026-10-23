@@ -28,6 +28,14 @@ export function canTeach(p: AccessProfile): boolean {
 }
 
 /**
+ * Who opens the teaching pages (/teaching/*): members who can teach, and the
+ * admin, who reads them across the program without teaching.
+ */
+export function opensTeaching(p: AccessProfile): boolean {
+  return canTeach(p) || Boolean(p && p.status === 'active' && p.role === 'admin')
+}
+
+/**
  * Members and admins the admin lets create and run projects. Mirrors
  * `is_project_manager`.
  */
@@ -35,6 +43,15 @@ export function canManageProjects(p: AccessProfile): boolean {
   if (!p || p.status !== 'active') return false
   if (!isMemberRole(p.role) && p.role !== 'admin') return false
   return p.can_manage_projects
+}
+
+/**
+ * Who gets Join with a code on the Spaces page. Creating a space stays with
+ * `canManageProjects` — it always makes a work space — but a teacher without
+ * the switch may still join one somebody shared a code for.
+ */
+export function joinsSpaces(p: AccessProfile): boolean {
+  return canManageProjects(p) || canTeach(p)
 }
 
 /** Whether this account sits in any class, whatever its role there. */

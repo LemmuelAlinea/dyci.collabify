@@ -16,12 +16,12 @@ export default function Pending() {
   const rejected = profile?.status === 'rejected'
   const roleless = !rejected && profile?.status === 'active' && !profile.role
 
-  const title = rejected ? 'Account not active' : roleless ? 'No role on this account' : 'Waiting on approval'
+  const title = rejected ? 'Account not active' : roleless ? 'No role on this account' : 'Waiting on the program admin'
   const subtitle = rejected
-    ? 'The program admin has not approved this account, or has deactivated it.'
+    ? 'The program admin has deactivated this account, or has not let it in yet.'
     : roleless
-      ? 'This account was made before registration asked for student or faculty.'
-      : 'Your faculty account is with the program admin.'
+      ? 'This account was made before registration asked what kind of account it is.'
+      : 'Your account is with the program admin.'
 
   return (
     <AuthLayout title={title} subtitle={subtitle}>
@@ -29,16 +29,15 @@ export default function Pending() {
         <Alert tone={rejected ? 'error' : 'info'}>
           {rejected ? (
             <>
-              Reach out to your program admin if you think this is a mistake. They can approve
-              the account from the admin console.
+              Reach out to your program admin if you think this is a mistake. They can turn the
+              account back on from Accounts.
             </>
           ) : roleless ? (
             <>Ask the program admin to set your role. This page opens your dashboard once they do.</>
           ) : (
             <>
-              Check again once the program admin approves you, and this page becomes your
-              dashboard. Everything stays locked until then, so the only people running a class or
-              a space are faculty the school has checked.
+              Check again once the program admin lets you in, and this page becomes your
+              dashboard. Everything stays locked until then.
             </>
           )}
         </Alert>

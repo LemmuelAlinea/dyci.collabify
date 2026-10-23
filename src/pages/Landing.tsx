@@ -315,8 +315,8 @@ export default function Landing() {
                     </ol>
 
                     <p className="relative mt-7 rounded-xl border border-amber-50/10 bg-white/[0.045] px-4 py-3 text-[11.5px] leading-relaxed text-amber-50/58">
-                      Teaching a class needs the program's approval first. Everything else you can
-                      start today.
+                      A member account opens what an admin or a project manager gives it access to.
+                      Teaching a class needs Can teach from the program admin.
                     </p>
                   </aside>
                 </Rise>

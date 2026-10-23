@@ -52,7 +52,7 @@ export function NewSpaceDialog({
   const { profile } = useAuth()
   const { show } = useToast()
   // Classes have their own Create class, so Create space always makes a work
-  // space. Only faculty who teach can open the class form.
+  // space. Only members who can teach can open the class form.
   const kind: SpaceKind = canTeach(profile) && initialKind === 'education' ? 'education' : 'work'
 
   const [name, setName] = useState('')
