@@ -1,7 +1,12 @@
 import type { PeerDimension } from './peerDimensions'
 import { localDay } from './termShift'
 
-export type Role = 'student' | 'faculty' | 'admin'
+export type Role =
+  | 'student'
+  | 'member'
+  | 'admin'
+  /** Legacy, removed in phase 1 task 7. */
+  | 'faculty'
 export type TeachingViewRole = 'professor' | 'student'
 export type AccountStatus = 'active' | 'pending' | 'rejected'
 
@@ -22,8 +27,10 @@ export type Profile = {
   /** Null until the account enters the Education workplace. */
   role: Role | null
   status: AccountStatus
-  /** Set by the admin. Faculty with this on can open classes. */
+  /** Set by the admin. Members with this on can open classes. */
   can_teach: boolean
+  /** Set by the admin. Members and admins with this on can run projects. Optional until the column exists. */
+  can_manage_projects?: boolean
   avatar_url: string | null
   theme: ThemeMode
   created_at: string
@@ -46,6 +53,7 @@ export type NotificationKey = Exclude<keyof NotificationPrefs, 'user_id'>
 
 export const ROLE_LABEL: Record<Role, string> = {
   student: 'Student',
+  member: 'Member',
   faculty: 'Faculty',
   admin: 'Admin',
 }

@@ -14,7 +14,7 @@ import { Select } from '../../../components/ui/Select'
 import { ScopeFilter } from '../../../components/ui/ScopeFilter'
 import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
-import { inAnyClass, membershipOf, showsClassScope } from '../../../lib/access'
+import { inAnyClass, isMemberRole, membershipOf, showsClassScope } from '../../../lib/access'
 import { useGeneralDashboard } from '../../../hooks/useGeneralDashboard'
 import { listCalendar, listWeekBands } from '../../../lib/api/calendar'
 import { authErrorMessage } from '../../../lib/authError'
@@ -57,7 +57,7 @@ export default function Calendar() {
 
   const role = profile?.role
   // An admin in a class reads it as a co-teacher does.
-  const staff = role === 'faculty' || role === 'admin'
+  const staff = isMemberRole(role) || role === 'admin'
   const openTask = params.get('task')
   const general = useGeneralNavigation()
   const spaces = general.spaces
@@ -85,7 +85,7 @@ export default function Calendar() {
       const invited = new Set((spaces ?? []).filter((s) => s.kind === 'education' && s.my_level).map((s) => s.class_id))
       const rows =
         role === 'admin'
-          ? (await listCalendar('faculty')).filter((r) => invited.has(r.class_id))
+          ? (await listCalendar('member')).filter((r) => invited.has(r.class_id))
           : await listCalendar(role)
       setEvents(rows)
       setWeeks(await listWeekBands([...new Set(rows.map((r) => r.class_id))]))

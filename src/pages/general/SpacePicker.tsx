@@ -10,7 +10,7 @@ import { Icon, Spinner } from '../../components/ui/Icon'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { rememberSpace } from '../../hooks/useSpaces'
-import { canTeach, inAnyClass, isFaculty } from '../../lib/access'
+import { canManageProjects, canTeach, inAnyClass, isMember } from '../../lib/access'
 import { levelLabel } from '../../lib/general/permissions'
 import type { GeneralSpaceSummary } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
@@ -22,9 +22,9 @@ import { paths } from '../../lib/paths'
  * That is the whole reason this page exists rather than one long list: work for
  * one group stays with that group.
  *
- * Classes appear here only for faculty the admin has not let teach, and for
+ * Classes appear here only for members the admin has not let teach, and for
  * admins. Anyone with a Classes section in the rail — students and teaching
- * faculty — finds their classes there, so this page stays work spaces only
+ * members — finds their classes there, so this page stays work spaces only
  * for them. The others get the two kinds in their own sections, with a
  * filter, and only once they have a class at all.
  */
@@ -33,8 +33,8 @@ type Show = 'all' | 'classes' | 'spaces'
 export default function SpacePicker() {
   const location = useLocation()
   const { profile } = useAuth()
-  // Admins are invited in, never make or join a space themselves.
-  const faculty = isFaculty(profile) && profile?.role !== 'admin'
+  // Admins are invited in unless the admin switched project managing on for them.
+  const canStart = canManageProjects(profile) || canTeach(profile)
   const { spaces, error, reload } = useGeneralNavigation()
   const [newOpen, setNewOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
@@ -58,7 +58,7 @@ export default function SpacePicker() {
   // Whether this page sorts into Classes and Spaces at all. Judged on every
   // class, archived or not, so the filter does not come and go between tabs.
   const split =
-    (profile?.role === 'admin' || (profile?.role === 'faculty' && !canTeach(profile))) &&
+    (profile?.role === 'admin' || (isMember(profile) && !canTeach(profile))) &&
     inAnyClass(spaces)
   const requested = params.get('show')
   const filter: Show = split && (requested === 'classes' || requested === 'spaces') ? requested : 'all'
@@ -74,11 +74,11 @@ export default function SpacePicker() {
       body={
         viewingArchived
           ? 'Archived spaces appear here after an Owner archives them.'
-          : faculty
+          : canStart
             ? 'Create one to hold your projects, or join a space somebody else has opened with a code.'
-            : 'A faculty member can invite you into a space.'
+            : 'A project manager can invite you into a space.'
       }
-      action={!viewingArchived && faculty ? (
+      action={!viewingArchived && canStart ? (
         <Button variant="accent" onClick={() => setNewOpen(true)}>
           Create space
         </Button>
@@ -96,7 +96,7 @@ export default function SpacePicker() {
             ? 'Archived spaces stay readable, but they no longer show in your active spaces.'
             : 'A space holds projects. Everyone in a space can see every project in it, so keep separate work in separate spaces.'
         }
-        action={!viewingArchived && faculty ? (
+        action={!viewingArchived && canStart ? (
           <div className="flex flex-wrap gap-2">
             <Button variant="create" onClick={() => setNewOpen(true)}>
               <Icon name="plus" size={17} />

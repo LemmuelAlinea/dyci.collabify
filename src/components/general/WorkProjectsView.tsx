@@ -11,7 +11,7 @@ import { Icon, Spinner } from '../ui/Icon'
 import { Select } from '../ui/Select'
 import { useAuth } from '../../context/AuthContext'
 import { useLive } from '../../hooks/useLive'
-import { isFaculty } from '../../lib/access'
+import { canManageProjects } from '../../lib/access'
 import { listMyGeneralProjects } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { PROJECT_STATUSES, projectStatusLabel } from '../../lib/general/types'
@@ -26,7 +26,7 @@ const UNNAMED_SPACE = 'unnamed'
 /** The Work half of the Projects page: every workspace project the reader is on. */
 export function WorkProjectsView({ scope }: { scope?: ReactNode }) {
   const { profile } = useAuth()
-  const faculty = isFaculty(profile)
+  const canStart = canManageProjects(profile)
   const [projects, setProjects] = useState<GeneralProjectSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -94,7 +94,7 @@ export function WorkProjectsView({ scope }: { scope?: ReactNode }) {
         accent="projects."
         description="Every workspace project you joined, across all spaces, in one place."
         action={
-          faculty ? (
+          canStart ? (
             <Button variant="onNavy" size="sm" onClick={() => setJoinOpen(true)}>
               <Icon name="lock" size={15} />
               Join with code
@@ -105,7 +105,7 @@ export function WorkProjectsView({ scope }: { scope?: ReactNode }) {
 
       {/* Also on the space dashboard, but a project code does not need a space
           and somebody who has none can only reach this page. */}
-      {faculty && (
+      {canStart && (
         <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} onJoined={load} />
       )}
 
@@ -127,9 +127,9 @@ export function WorkProjectsView({ scope }: { scope?: ReactNode }) {
           icon="kanban"
           title="No projects yet"
           body={
-            faculty
+            canStart
               ? 'Projects appear here after you create one or accept an invitation.'
-              : 'Projects appear here after a faculty member invites you to one.'
+              : 'Projects appear here after a project manager invites you to one.'
           }
         />
       ) : (

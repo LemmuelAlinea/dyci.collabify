@@ -1,35 +1,80 @@
 import { describe, expect, it } from 'vitest'
-import { canTeach, homeFor, inAnyClass, isFaculty, membershipOf, showsClassScope } from './access'
+import {
+  canManageProjects,
+  canTeach,
+  homeFor,
+  inAnyClass,
+  isMember,
+  isMemberRole,
+  membershipOf,
+  showsClassScope,
+} from './access'
 import type { GeneralProjectSummary, GeneralSpaceSummary } from './general/types'
+import type { Role } from './types'
 
 const p = (
-  role: 'student' | 'faculty' | 'admin' | null,
+  role: Role | null,
   status: 'active' | 'pending' | 'rejected',
   can_teach = false,
-) => ({ role, status, can_teach })
+  can_manage_projects?: boolean,
+) => ({ role, status, can_teach, can_manage_projects })
 
-describe('isFaculty', () => {
-  it('admits approved faculty and the admin', () => {
-    expect(isFaculty(p('faculty', 'active'))).toBe(true)
-    expect(isFaculty(p('admin', 'active'))).toBe(true)
+describe('isMemberRole', () => {
+  it('is a member, or the legacy faculty role it replaces', () => {
+    expect(isMemberRole('member')).toBe(true)
+    expect(isMemberRole('faculty')).toBe(true)
+    expect(isMemberRole('student')).toBe(false)
+    expect(isMemberRole('admin')).toBe(false)
+    expect(isMemberRole(null)).toBe(false)
+    expect(isMemberRole(undefined)).toBe(false)
+  })
+})
+
+describe('isMember', () => {
+  it('admits an approved member, and legacy faculty', () => {
+    expect(isMember(p('member', 'active'))).toBe(true)
+    expect(isMember(p('faculty', 'active'))).toBe(true)
   })
 
-  it('keeps out students, waiting faculty, deactivated accounts and nobody', () => {
-    expect(isFaculty(p('student', 'active'))).toBe(false)
-    expect(isFaculty(p('faculty', 'pending'))).toBe(false)
-    expect(isFaculty(p('faculty', 'rejected'))).toBe(false)
-    expect(isFaculty(p(null, 'active'))).toBe(false)
-    expect(isFaculty(null)).toBe(false)
+  it('keeps out students, the admin, deactivated accounts and nobody', () => {
+    expect(isMember(p('student', 'active'))).toBe(false)
+    expect(isMember(p('admin', 'active'))).toBe(false)
+    expect(isMember(p('member', 'rejected'))).toBe(false)
+    expect(isMember(p('member', 'pending'))).toBe(false)
+    expect(isMember(p(null, 'active'))).toBe(false)
+    expect(isMember(null)).toBe(false)
   })
 })
 
 describe('canTeach', () => {
   it('needs approval and the teaching switch both', () => {
+    expect(canTeach(p('member', 'active', true))).toBe(true)
+    expect(canTeach(p('member', 'active', false))).toBe(false)
+    expect(canTeach(p('member', 'pending', true))).toBe(false)
     expect(canTeach(p('faculty', 'active', true))).toBe(true)
-    expect(canTeach(p('faculty', 'active', false))).toBe(false)
-    expect(canTeach(p('faculty', 'pending', true))).toBe(false)
     expect(canTeach(p('student', 'active', true))).toBe(false)
     expect(canTeach(p('admin', 'active', true))).toBe(false)
+  })
+})
+
+describe('canManageProjects', () => {
+  it('needs the project manager switch, for a member or the admin', () => {
+    expect(canManageProjects(p('member', 'active', false, true))).toBe(true)
+    expect(canManageProjects(p('member', 'active', false, false))).toBe(false)
+    expect(canManageProjects(p('admin', 'active', false, true))).toBe(true)
+    expect(canManageProjects(p('admin', 'active', false, false))).toBe(false)
+    expect(canManageProjects(p('student', 'active', false, true))).toBe(false)
+  })
+
+  it('keeps out an account that is not active, and nobody', () => {
+    expect(canManageProjects(p('member', 'pending', false, true))).toBe(false)
+    expect(canManageProjects(null)).toBe(false)
+  })
+
+  it('lets legacy faculty manage until the column exists', () => {
+    expect(canManageProjects(p('faculty', 'active'))).toBe(true)
+    expect(canManageProjects(p('faculty', 'active', false, false))).toBe(false)
+    expect(canManageProjects(p('faculty', 'pending'))).toBe(false)
   })
 })
 
@@ -41,7 +86,7 @@ describe('homeFor', () => {
   it('stops inactive accounts at the door', () => {
     expect(homeFor(p('student', 'rejected'))).toBe('/pending')
     expect(homeFor(p(null, 'rejected'))).toBe('/pending')
-    expect(homeFor(p('faculty', 'pending'))).toBe('/pending')
+    expect(homeFor(p('member', 'pending'))).toBe('/pending')
   })
 
   it('parks an old account that never got a role', () => {
@@ -51,7 +96,7 @@ describe('homeFor', () => {
   it('lands any admitted account on the one dashboard', () => {
     expect(homeFor(p('admin', 'active'))).toBe('/home')
     expect(homeFor(p('student', 'active'))).toBe('/home')
-    expect(homeFor(p('faculty', 'active'))).toBe('/home')
+    expect(homeFor(p('member', 'active'))).toBe('/home')
   })
 })
 
@@ -77,9 +122,10 @@ describe('showsClassScope', () => {
     expect(showsClassScope(p('student', 'active'), work)).toBe(true)
   })
 
-  it('offers it to faculty only once they are in a class, teaching or not', () => {
-    expect(showsClassScope(p('faculty', 'active', true), work)).toBe(false)
-    expect(showsClassScope(p('faculty', 'active', true), cls)).toBe(true)
+  it('offers it to members only once they are in a class, teaching or not', () => {
+    expect(showsClassScope(p('member', 'active', true), work)).toBe(false)
+    expect(showsClassScope(p('member', 'active', true), cls)).toBe(true)
+    expect(showsClassScope(p('member', 'active'), cls)).toBe(true)
     expect(showsClassScope(p('faculty', 'active'), cls)).toBe(true)
   })
 
@@ -90,7 +136,7 @@ describe('showsClassScope', () => {
 
   it('offers it to nobody while membership is still loading', () => {
     expect(showsClassScope(p('student', 'active'), undefined)).toBe(false)
-    expect(showsClassScope(p('faculty', 'active'), undefined)).toBe(false)
+    expect(showsClassScope(p('member', 'active'), undefined)).toBe(false)
   })
 })
 

@@ -12,7 +12,7 @@ describe('teachingClassFilter', () => {
 })
 
 describe('teachesClass', () => {
-  const prof = { id: 'p1', role: 'faculty' as const }
+  const prof = { id: 'p1', role: 'member' as const }
 
   it('is the class professor', () => {
     expect(teachesClass(prof, 'p1', null)).toBe(true)
@@ -22,6 +22,10 @@ describe('teachesClass', () => {
     expect(teachesClass(prof, 'other', 'manager')).toBe(true)
     expect(teachesClass(prof, 'other', 'owner')).toBe(true)
     expect(teachesClass({ id: 'a1', role: 'admin' }, 'other', 'manager')).toBe(false)
+  })
+
+  it('still counts legacy faculty as a member', () => {
+    expect(teachesClass({ id: 'p1', role: 'faculty' }, 'p1', null)).toBe(true)
   })
 
   it('is never a student, whatever the seat says', () => {
@@ -54,16 +58,16 @@ describe('seatKnown', () => {
   })
 
   it('is known for the class professor, before spaces ever load', () => {
-    expect(seatKnown('faculty', 'p1', 'p1', false)).toBe(true)
+    expect(seatKnown('member', 'p1', 'p1', false)).toBe(true)
   })
 
   it('is known once spaces have loaded, for anyone', () => {
-    expect(seatKnown('faculty', 'other', 'p1', true)).toBe(true)
+    expect(seatKnown('member', 'other', 'p1', true)).toBe(true)
     expect(seatKnown(null, 'other', 'p1', true)).toBe(true)
   })
 
   it('is unknown for a co-teacher whose spaces have not loaded yet', () => {
-    expect(seatKnown('faculty', 'cot1', 'p1', false)).toBe(false)
+    expect(seatKnown('member', 'cot1', 'p1', false)).toBe(false)
   })
 })
 

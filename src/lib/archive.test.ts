@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { archiveKindsFor, areasOf, filterArchive, hrefOf, readKinds } from './archive'
 import type { ArchiveFilter, ArchiveItem } from './archive'
 
-const account = (role: 'student' | 'faculty' | 'admin', can_teach = false) => ({
+const account = (role: 'student' | 'member' | 'admin', can_teach = false) => ({
   role,
   status: 'active' as const,
   can_teach,
 })
 const student = account('student')
-const teacher = account('faculty', true)
-const nonTeacher = account('faculty')
+const teacher = account('member', true)
+const nonTeacher = account('member')
 
 const item = (over: Partial<ArchiveItem>): ArchiveItem => ({
   kind: 'class_task',

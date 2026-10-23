@@ -14,7 +14,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { Spinner } from '../../components/ui/Icon'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
-import { isFaculty } from '../../lib/access'
+import { canManageProjects } from '../../lib/access'
 import { comingUp, myTasks, recentProjects } from '../../lib/general/dashboard'
 import { useSpaceOutlet } from './spaceOutlet'
 
@@ -64,9 +64,9 @@ export default function SpaceHome() {
           icon="kanban"
           title="No projects yet"
           body={
-            isFaculty(profile)
+            canManageProjects(profile)
               ? 'Create one for anything this space is running, or join one with a code somebody shared with you.'
-              : 'A faculty member can add you to a project in this space.'
+              : 'A project manager can add you to a project in this space.'
           }
           action={
             canStart ? (

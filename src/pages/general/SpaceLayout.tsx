@@ -11,7 +11,7 @@ import { Tabs } from '../../components/ui/Tabs'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
-import { isFaculty } from '../../lib/access'
+import { canManageProjects } from '../../lib/access'
 import { dueCounts, myTasks } from '../../lib/general/dashboard'
 import { paths } from '../../lib/paths'
 import { plural } from '../../lib/plural'
@@ -68,8 +68,8 @@ export default function SpaceLayout() {
 
   const isOwner = space?.my_level === 'owner'
   const archived = Boolean(space?.archived_at)
-  // Students are invited onto projects; only faculty open or join one here.
-  const canStart = !archived && isFaculty(profile)
+  // Students are invited onto projects; only project managers open or join one here.
+  const canStart = !archived && canManageProjects(profile)
 
   const data = dashboard.data
   const now = data?.at ?? 0

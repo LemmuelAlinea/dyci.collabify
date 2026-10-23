@@ -148,7 +148,7 @@ export default function App() {
               <Route
                 path="/calendar"
                 element={
-                  <RoleSwitch student={<Calendar />} faculty={<Calendar />} admin={<Calendar />} />
+                  <RoleSwitch student={<Calendar />} member={<Calendar />} admin={<Calendar />} />
                 }
               />
               {/* Every role: what shows is whatever the reader belongs to. */}
@@ -188,26 +188,26 @@ export default function App() {
                 element={
                   <RoleSwitch
                     student={<StudentClasses />}
-                    faculty={<ProfessorClasses />}
+                    member={<ProfessorClasses />}
                     admin={<Navigate to={paths.admin.classes} replace />}
                   />
                 }
               />
               <Route
                 path="/classes/:classId"
-                element={<RoleSwitch student={<ClassSpace />} faculty={<ClassSpace />} />}
+                element={<RoleSwitch student={<ClassSpace />} member={<ClassSpace />} />}
               />
 
               <Route
                 path="/groups"
-                element={<RoleSwitch student={<StudentGroups />} faculty={<ProfessorGroups />} />}
+                element={<RoleSwitch student={<StudentGroups />} member={<ProfessorGroups />} />}
               />
               <Route
                 path="/groups/:groupId"
                 element={
                   <RoleSwitch
                     student={<GroupDetail role="student" />}
-                    faculty={<GroupDetail role="professor" />}
+                    member={<GroupDetail role="professor" />}
                   />
                 }
               />
@@ -223,7 +223,7 @@ export default function App() {
                 element={
                   <RoleSwitch
                     student={<ProjectDetail role="student" />}
-                    faculty={<ProjectDetail role="professor" />}
+                    member={<ProjectDetail role="professor" />}
                   />
                 }
               />
@@ -233,7 +233,7 @@ export default function App() {
               <Route path="/record" element={<StudentReports />} />
             </Route>
 
-            <Route element={<RequireAdmitted allow={['faculty', 'admin']} />}>
+            <Route element={<RequireAdmitted allow={['member', 'admin']} />}>
               <Route path="/teaching/submissions" element={<Submissions />} />
               <Route path="/teaching/reassignments" element={<Reassignments />} />
               <Route path="/teaching/analytics" element={<Analytics />} />

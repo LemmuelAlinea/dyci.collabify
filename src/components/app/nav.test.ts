@@ -18,8 +18,8 @@ const account = (role: Role | null, status: AccountStatus = 'active', can_teach 
   can_teach,
 })
 const student = account('student')
-const teacher = account('faculty', 'active', true)
-const nonTeacher = account('faculty')
+const teacher = account('member', 'active', true)
+const nonTeacher = account('member')
 const admin = account('admin')
 
 describe('navFor', () => {
@@ -140,7 +140,7 @@ describe('navFor', () => {
 
   it('gives an account with no role, or one not active, only Settings and Trash', () => {
     expect(labels(navFor(account(null, 'pending'), true))).toEqual(['Settings', 'Trash'])
-    expect(labels(navFor(account('faculty', 'pending', true), true))).toEqual(['Settings', 'Trash'])
+    expect(labels(navFor(account('member', 'pending', true), true))).toEqual(['Settings', 'Trash'])
     expect(labels(navFor(null, true))).toEqual(['Settings', 'Trash'])
   })
 
@@ -167,5 +167,11 @@ describe('navFor', () => {
         expect(allowed.some((prefix) => to?.startsWith(prefix))).toBe(true)
       }
     }
+  })
+
+  it('gives a legacy faculty account the same rail as a member', () => {
+    const legacy = account('faculty', 'active', true)
+    expect(navFor(legacy, true)).toEqual(navFor(teacher, true))
+    expect(navFor(account('faculty'), true)).toEqual(navFor(nonTeacher, true))
   })
 })

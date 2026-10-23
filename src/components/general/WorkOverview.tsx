@@ -13,7 +13,7 @@ import { Icon, Spinner } from '../ui/Icon'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
-import { canTeach, isFaculty } from '../../lib/access'
+import { canManageProjects, canTeach } from '../../lib/access'
 import { listMyProjectVisits } from '../../lib/api/general'
 import { comingUp, dueCounts, firstComing, myTasks, recentlyVisited } from '../../lib/general/dashboard'
 import { plural } from '../../lib/plural'
@@ -35,11 +35,11 @@ function greeting() {
  * Spaces here are work spaces only; class spaces (`kind: 'education'`) belong
  * to the classes side of the rail and never count toward this section.
  *
- * Renders nothing for a non-faculty person until we know there is something
- * to show — no flash while `myProjects` is still loading, and nothing at all
- * once loaded if there are no projects, no work spaces and no invitations.
- * Faculty always keep the New space / Join with code doors open, including
- * while this is loading.
+ * Renders nothing for someone who cannot manage projects until we know there
+ * is something to show — no flash while `myProjects` is still loading, and
+ * nothing at all once loaded if there are no projects, no work spaces and no
+ * invitations. Project managers always keep the New space / Join with code
+ * doors open, including while this is loading.
  *
  * `standalone` is a teacher's other dashboard rather than a section: it greets
  * instead of titling, and `onSwitch` puts the way back to the class dashboard
@@ -50,8 +50,8 @@ export function WorkOverview({
   onSwitch,
 }: { standalone?: boolean; onSwitch?: () => void } = {}) {
   const { profile } = useAuth()
-  // Admins are invited in, never make or join a space themselves.
-  const faculty = isFaculty(profile) && profile?.role !== 'admin'
+  // Admins are invited in unless the admin switched project managing on for them.
+  const canStart = canManageProjects(profile)
   const { myProjects, spaces, error, reload } = useGeneralNavigation()
   const [joinOpen, setJoinOpen] = useState(false)
   const [newSpaceOpen, setNewSpaceOpen] = useState(false)
@@ -99,7 +99,7 @@ export function WorkOverview({
   // Faculty always keep the New space / Join with code doors open, including
   // while this is still loading. Everyone else sees nothing until we know
   // there is something to show — no flash of an empty section on the way in.
-  if (!faculty && (!loaded || !hasSomething)) return null
+  if (!canStart && (!loaded || !hasSomething)) return null
 
   const { overdue, thisWeek } = dueCounts(mine, now)
   // The same one sentence the class dashboard above opens with, about work.
@@ -135,7 +135,7 @@ export function WorkOverview({
           line={line}
           urgent={overdue > 0}
           action={
-            faculty ? (
+            canStart ? (
               <>
                 <Button size="sm" variant="create" onClick={() => setNewSpaceOpen(true)}>
                   <Icon name="plus" size={15} />
@@ -202,12 +202,12 @@ export function WorkOverview({
             icon="folder"
             title="No spaces or projects yet"
             body={
-              faculty
+              canStart
                 ? 'Make a space to hold your own projects, or join a project somebody else runs with the code they give you.'
-                : 'A faculty member can invite you into a space or onto a project. Your classes are listed above.'
+                : 'A project manager can invite you into a space or onto a project. Your classes are listed above.'
             }
             action={
-              faculty ? (
+              canStart ? (
                 <Button onClick={() => setNewSpaceOpen(true)} className="!rounded-xl">
                   New space
                 </Button>

@@ -6,7 +6,7 @@ import { listProfessorClasses, listStudentClasses } from '../../lib/api/classes'
 import { listProjectsForClasses } from '../../lib/api/projects'
 import { SEARCH_MIN, searchWorkspace } from '../../lib/api/search'
 import type { SearchHits } from '../../lib/api/search'
-import { membershipOf } from '../../lib/access'
+import { isMemberRole, membershipOf } from '../../lib/access'
 import type { AccessProfile, Membership } from '../../lib/access'
 import { authErrorMessage } from '../../lib/authError'
 import { paths } from '../../lib/paths'
@@ -68,10 +68,10 @@ export function WorkspaceSearch({ onClose }: { onClose?: () => void }) {
       try {
         let classes: ClassSummary[] = []
         if (profile.role === 'student') classes = await listStudentClasses(profile.id)
-        if (profile.role === 'faculty') classes = await listProfessorClasses(profile.id)
+        if (isMemberRole(profile.role)) classes = await listProfessorClasses(profile.id)
 
         const projects: ProjectSummary[] =
-          profile.role === 'student' || profile.role === 'faculty'
+          profile.role === 'student' || isMemberRole(profile.role)
             ? await listProjectsForClasses(classes.map((c) => c.id))
             : []
         if (cancelled) return

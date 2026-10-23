@@ -1,4 +1,5 @@
 import type { GeneralLevel } from './general/permissions'
+import { isMemberRole } from './access'
 import type { Role } from './types'
 
 /**
@@ -28,7 +29,7 @@ const SHARED: ClassTab[] = ['overview', 'projects', 'groups', 'members', 'syllab
 const TEACHING: ClassTab[] = ['submissions', 'analytics', 'reports', 'settings']
 
 /**
- * Whether this viewer teaches the class: its professor, or faculty holding
+ * Whether this viewer teaches the class: its professor, or a member holding
  * Owner or Manager in its space. The same rule as is_class_professor, so the
  * page never offers a tool the database would then refuse.
  */
@@ -37,7 +38,7 @@ export function teachesClass(
   professorId: string,
   myLevel: GeneralLevel | null,
 ): boolean {
-  if (!viewer || viewer.role !== 'faculty') return false
+  if (!viewer || !isMemberRole(viewer.role)) return false
   return viewer.id === professorId || myLevel === 'owner' || myLevel === 'manager'
 }
 

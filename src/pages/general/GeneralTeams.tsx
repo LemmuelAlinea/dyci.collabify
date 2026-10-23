@@ -14,7 +14,7 @@ import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useLive } from '../../hooks/useLive'
-import { isFaculty } from '../../lib/access'
+import { canManageProjects } from '../../lib/access'
 import {
   addSpaceTeamMember,
   archiveSpaceTeam,
@@ -143,7 +143,7 @@ export default function GeneralTeams() {
               {archivePage ? 'Active teams' : 'Archived teams'}
             </Link>
           )}
-          {!archivePage && !archived && spaceId && isFaculty(profile) && (
+          {!archivePage && !archived && spaceId && canManageProjects(profile) && (
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Icon name="plus" size={15} />
               Create team
@@ -167,9 +167,9 @@ export default function GeneralTeams() {
           icon="users"
           title="No teams yet"
           body={
-            isFaculty(profile)
+            canManageProjects(profile)
               ? 'Create a team here, then reuse it when creating projects in this Space.'
-              : 'Teams a faculty member makes in this Space show up here.'
+              : 'Teams a project manager makes in this Space show up here.'
           }
         />
       ) : (

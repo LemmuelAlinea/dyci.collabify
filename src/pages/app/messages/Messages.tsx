@@ -12,7 +12,7 @@ import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useConversations } from '../../../hooks/useConversations'
-import { canTeach, membershipOf, showsClassScope } from '../../../lib/access'
+import { canTeach, isMember, membershipOf, showsClassScope } from '../../../lib/access'
 import { paths } from '../../../lib/paths'
 import { conversationScope, readScope, writeScope } from '../../../lib/scope'
 
@@ -30,7 +30,7 @@ export default function Messages() {
   const { conversations, error, reload } = useConversations(profile?.id, 'all')
   const [newOpen, setNewOpen] = useState(false)
 
-  const canModerateHere = profile?.role === 'faculty' || profile?.role === 'admin'
+  const canModerateHere = isMember(profile) || profile?.role === 'admin'
   // Starting a direct thread is a teaching act — an admin who does not teach
   // has no student to message here, even though they can still moderate a
   // class or group chat below.

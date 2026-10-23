@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { isMember } from '../lib/access'
 import { paths } from '../lib/paths'
 
 /**
@@ -14,17 +15,17 @@ import { paths } from '../lib/paths'
  */
 export function RoleSwitch({
   student,
-  faculty,
+  member,
   admin,
 }: {
   student: ReactNode
-  faculty: ReactNode
+  member: ReactNode
   admin?: ReactNode
 }) {
   const { profile } = useAuth()
 
   if (profile?.role === 'student') return <>{student}</>
-  if (profile?.role === 'faculty') return <>{faculty}</>
+  if (isMember(profile)) return <>{member}</>
   if (profile?.role === 'admin') return admin !== undefined ? <>{admin}</> : <Navigate to={paths.home} replace />
   return <Navigate to={paths.home} replace />
 }
