@@ -77,12 +77,14 @@ $$;
 
 do $$
 begin
-  perform pg_temp.must_be('every work project has exactly one project manager',
+  -- At most one: PM recovery leaves a project with none until a space owner or
+  -- an admin assigns one (assign_general_project_pm).
+  perform pg_temp.must_be('no work project has more than one project manager',
     not exists (
       select 1 from public.general_projects p
        where p.class_board_id is null
          and (select count(*) from public.general_members m
-               where m.project_id = p.id and m.role = 'pm') <> 1));
+               where m.project_id = p.id and m.role = 'pm') > 1));
   perform pg_temp.must_be('...and it is the old Owner: the one Owner row, now pm',
     not exists (
       select 1 from public.general_members m
@@ -516,6 +518,483 @@ begin
   perform pg_temp.must_be('a wrong code is still a miss, not a refusal',
     public.join_general_project('ZZZZZZZZ') is null);
   perform pg_temp.act_as_service();
+end $$;
+
+-- ================================================================== task 2
+-- Role management, hand over, PM recovery and the role activity log, on a
+-- project of their own (R) so the blocks above stay as they are.
+
+do $$
+declare
+  v_mem2     uuid := gen_random_uuid();  -- member
+  v_out      uuid := gen_random_uuid();  -- Project manager on, on no project
+  v_sowner   uuid := gen_random_uuid();  -- co-owner of R's space, not on R
+  v_smember  uuid := gen_random_uuid();  -- plain member of R's space, not on R
+  v_admin    uuid := gen_random_uuid();
+  v_inv1     uuid := gen_random_uuid();
+  v_inv2     uuid := gen_random_uuid();
+  v_inv3     uuid := gen_random_uuid();
+  v_stranger uuid := gen_random_uuid();  -- on nothing at all
+  v_pm       uuid := (select v from fx where k = 'pm');
+  v_r        uuid;
+  v_space    uuid;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          created_at, updated_at)
+  select v.id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+         v.em, '', now(), now()
+    from (values
+      (v_mem2,     'zz-pr-mem2@example.test'),
+      (v_out,      'zz-pr-out@example.test'),
+      (v_sowner,   'zz-pr-sowner@example.test'),
+      (v_smember,  'zz-pr-smember@example.test'),
+      (v_admin,    'zz-pr-admin@example.test'),
+      (v_inv1,     'zz-pr-inv1@example.test'),
+      (v_inv2,     'zz-pr-inv2@example.test'),
+      (v_inv3,     'zz-pr-inv3@example.test'),
+      (v_stranger, 'zz-pr-stranger@example.test')
+    ) as v(id, em);
+
+  insert into public.profiles
+    (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+  values
+    (v_mem2,     'zz-pr-mem2@example.test',     'Zz', 'Prmemtwo',   'member', 'active', false, false),
+    (v_out,      'zz-pr-out@example.test',      'Zz', 'Prout',      'member', 'active', false, true),
+    (v_sowner,   'zz-pr-sowner@example.test',   'Zz', 'Prsowner',   'member', 'active', false, true),
+    (v_smember,  'zz-pr-smember@example.test',  'Zz', 'Prsmember',  'member', 'active', false, false),
+    (v_admin,    'zz-pr-admin@example.test',    'Zz', 'Pradmin',    'admin',  'active', false, false),
+    (v_inv1,     'zz-pr-inv1@example.test',     'Zz', 'Prinvone',   'member', 'active', false, false),
+    (v_inv2,     'zz-pr-inv2@example.test',     'Zz', 'Prinvtwo',   'member', 'active', false, false),
+    (v_inv3,     'zz-pr-inv3@example.test',     'Zz', 'Prinvthree', 'member', 'active', false, false),
+    (v_stranger, 'zz-pr-stranger@example.test', 'Zz', 'Prstranger', 'member', 'active', false, false)
+  on conflict (id) do update
+    set role = excluded.role, status = excluded.status,
+        can_manage_projects = excluded.can_manage_projects;
+
+  perform pg_temp.act_as(v_pm);
+  v_r := (public.create_general_project('Zz PR roles', '')).id;
+  perform pg_temp.act_as_service();
+  v_space := (select space_id from public.general_projects where id = v_r);
+
+  insert into public.general_space_members (space_id, user_id, level)
+  values (v_space, v_sowner, 'owner'), (v_space, v_smember, 'member')
+  on conflict (space_id, user_id) do update set level = excluded.level;
+
+  -- R: pm (pm), coord (coordinator), plain, granted, mem2, pm2 (members).
+  insert into public.general_members (project_id, user_id, role) values
+    (v_r, (select v from fx where k = 'coord'), 'coordinator'),
+    (v_r, (select v from fx where k = 'plain'), 'member'),
+    (v_r, (select v from fx where k = 'granted'), 'member'),
+    (v_r, v_mem2, 'member'),
+    (v_r, (select v from fx where k = 'pm2'), 'member');
+  insert into public.general_grants (project_id, user_id, permission, granted_by)
+  values (v_r, (select v from fx where k = 'granted'), 'edit_files', v_pm);
+  insert into public.general_access_requests (project_id, user_id, permission, note)
+  values (v_r, (select v from fx where k = 'granted'), 'manage_tasks', 'Zz');
+
+  insert into fx values
+    ('r', v_r), ('space', v_space), ('mem2', v_mem2), ('out', v_out), ('sowner', v_sowner),
+    ('smember', v_smember), ('admin', v_admin), ('inv1', v_inv1), ('inv2', v_inv2),
+    ('inv3', v_inv3), ('stranger', v_stranger);
+  raise notice 'task 2 fixture ready';
+end $$;
+
+-- How many events of a kind R has about a person.
+create or replace function pg_temp.events(p_kind text, p_subject uuid) returns int
+language sql as $$
+  select count(*)::int from public.general_project_events
+   where project_id = (select v from fx where k = 'r') and kind = p_kind
+     and subject_id = p_subject;
+$$;
+
+-- ------------------------------------------------------------------ set role
+
+do $$
+declare
+  v_r       uuid := (select v from fx where k = 'r');
+  v_pm      uuid := (select v from fx where k = 'pm');
+  v_coord   uuid := (select v from fx where k = 'coord');
+  v_plain   uuid := (select v from fx where k = 'plain');
+  v_granted uuid := (select v from fx where k = 'granted');
+  v_mem2    uuid := (select v from fx where k = 'mem2');
+  v_stranger uuid := (select v from fx where k = 'stranger');
+begin
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('the pm makes a member a coordinator',
+    format($q$select public.set_general_member_role(%L, %L, 'coordinator')$q$, v_r, v_plain));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...who is now a coordinator at level manager',
+    (select role = 'coordinator' and level = 'manager' from public.general_members
+      where project_id = v_r and user_id = v_plain));
+  perform pg_temp.must_be('...and a member_role event says from member to coordinator',
+    exists (select 1 from public.general_project_events
+             where project_id = v_r and kind = 'member_role' and subject_id = v_plain
+               and actor_id = v_pm
+               and detail = jsonb_build_object('from', 'member', 'to', 'coordinator')));
+  perform pg_temp.must_be('...and no member_level event for a work project',
+    pg_temp.events('member_level', v_plain) = 0);
+  perform pg_temp.must_be('...and they are told "You are now a coordinator"',
+    exists (select 1 from public.notifications
+             where user_id = v_plain and type = 'membership_changed'
+               and general_project_id = v_r and preview = 'You are now a coordinator'));
+
+  -- Moving away from member drops grants and open requests.
+  perform pg_temp.act_as(v_pm);
+  perform public.set_general_member_role(v_r, v_granted, 'coordinator');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a member made coordinator loses their grants',
+    not exists (select 1 from public.general_grants where project_id = v_r and user_id = v_granted));
+  perform pg_temp.must_be('...and their open requests are withdrawn',
+    not exists (select 1 from public.general_access_requests
+                 where project_id = v_r and user_id = v_granted and status = 'open'));
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('the pm demotes a coordinator to member',
+    format($q$select public.set_general_member_role(%L, %L, 'member')$q$, v_r, v_granted));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...who is told "You are now a member"',
+    exists (select 1 from public.notifications
+             where user_id = v_granted and type = 'membership_changed'
+               and general_project_id = v_r and preview = 'You are now a member'));
+
+  -- Coordinators.
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_refuse_with('a coordinator cannot make a member a coordinator',
+    format($q$select public.set_general_member_role(%L, %L, 'coordinator')$q$, v_r, v_mem2),
+    'Only the project manager can make someone a coordinator');
+  perform pg_temp.must_refuse_with('a coordinator cannot demote a coordinator',
+    format($q$select public.set_general_member_role(%L, %L, 'member')$q$, v_r, v_plain),
+    'Only the project manager can change a coordinator');
+  perform pg_temp.must_refuse_with('...nor change their own role',
+    format($q$select public.set_general_member_role(%L, %L, 'member')$q$, v_r, v_coord),
+    'Only the project manager can change a coordinator');
+  perform pg_temp.must_refuse_with('...nor the pm''s',
+    format($q$select public.set_general_member_role(%L, %L, 'member')$q$, v_r, v_pm),
+    'Only the project manager can change a coordinator');
+
+  -- A role-only change (same level) is still a change: the event and the
+  -- notification key on the role. qa is written directly; the RPCs refuse it.
+  perform pg_temp.act_as_service();
+  update public.general_members set role = 'qa' where project_id = v_r and user_id = v_mem2;
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_allow('a coordinator moves a qa back to member',
+    format($q$select public.set_general_member_role(%L, %L, 'member')$q$, v_r, v_mem2));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...a member_role event from qa to member, though level stayed member',
+    exists (select 1 from public.general_project_events
+             where project_id = v_r and kind = 'member_role' and subject_id = v_mem2
+               and actor_id = v_coord
+               and detail = jsonb_build_object('from', 'qa', 'to', 'member')));
+  perform pg_temp.must_be('...and the notification goes out',
+    exists (select 1 from public.notifications
+             where user_id = v_mem2 and type = 'membership_changed'
+               and general_project_id = v_r and preview = 'You are now a member'));
+
+  -- pm, qa and stakeholder.
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('the pm cannot set someone to pm',
+    format($q$select public.set_general_member_role(%L, %L, 'pm')$q$, v_r, v_mem2),
+    'Use hand over to change the project manager.');
+  perform pg_temp.must_refuse_with('...nor step down by setting their own role',
+    format($q$select public.set_general_member_role(%L, %L, 'coordinator')$q$, v_r, v_pm),
+    'Use hand over to change the project manager.');
+  perform pg_temp.must_refuse_with('the pm cannot set qa',
+    format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_r, v_mem2),
+    'QA and stakeholder roles are not available yet.');
+  perform pg_temp.must_refuse_with('...nor stakeholder',
+    format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_r, v_mem2),
+    'QA and stakeholder roles are not available yet.');
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_refuse_with('a coordinator cannot set qa',
+    format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_r, v_mem2),
+    'QA and stakeholder roles are not available yet.');
+  perform pg_temp.act_as(v_stranger);
+  perform pg_temp.must_refuse_with('nor can somebody off the project',
+    format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_r, v_mem2),
+    'QA and stakeholder roles are not available yet.');
+
+  -- Who may set roles at all.
+  perform pg_temp.must_refuse_with('somebody off the project cannot set roles',
+    format($q$select public.set_general_member_role(%L, %L, 'member')$q$, v_r, v_mem2),
+    'Only the project manager or a coordinator');
+  perform pg_temp.act_as(v_mem2);
+  perform pg_temp.must_refuse_with('a member cannot set roles',
+    format($q$select public.set_general_member_role(%L, %L, 'coordinator')$q$, v_r, v_granted),
+    'Only the project manager or a coordinator');
+
+  -- Archived projects.
+  perform pg_temp.act_as(v_pm);
+  perform public.archive_general_project(v_r, true);
+  perform pg_temp.must_refuse_with('roles do not change on an archived project',
+    format($q$select public.set_general_member_role(%L, %L, 'coordinator')$q$, v_r, v_mem2),
+    'archived');
+  perform public.archive_general_project(v_r, false);
+  perform pg_temp.act_as_service();
+end $$;
+
+-- ------------------------------------------------------------------ old level RPC
+
+do $$
+declare
+  v_r    uuid := (select v from fx where k = 'r');
+  v_pm   uuid := (select v from fx where k = 'pm');
+  v_pm2  uuid := (select v from fx where k = 'pm2');
+  v_mem2 uuid := (select v from fx where k = 'mem2');
+begin
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('set_general_member_level manager still works',
+    format($q$select public.set_general_member_level(%L, %L, 'manager')$q$, v_r, v_mem2));
+  perform pg_temp.must_be('...as coordinator', public.general_role_of(v_r, v_mem2) = 'coordinator');
+  perform public.set_general_member_level(v_r, v_mem2, 'member');
+  perform pg_temp.must_be('...and member as member', public.general_role_of(v_r, v_mem2) = 'member');
+
+  perform pg_temp.must_allow('set_general_member_level owner hands the project over',
+    format($q$select public.set_general_member_level(%L, %L, 'owner')$q$, v_r, v_pm2));
+  perform pg_temp.must_be('...pm2 is pm and the old pm a coordinator',
+    public.general_role_of(v_r, v_pm2) = 'pm' and public.general_role_of(v_r, v_pm) = 'coordinator');
+  perform pg_temp.act_as(v_pm2);
+  perform public.hand_over_general_project(v_r, v_pm);
+  perform pg_temp.act_as(v_pm);
+  perform public.set_general_member_role(v_r, v_pm2, 'member');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and back again', public.general_role_of(v_r, v_pm) = 'pm'
+    and public.general_role_of(v_r, v_pm2) = 'member');
+  -- So the hand-over block below counts only its own.
+  delete from public.general_project_events where project_id = v_r and kind = 'pm_handover';
+  delete from public.notifications where user_id = v_pm2 and general_project_id = v_r;
+end $$;
+
+-- ------------------------------------------------------------------ inviting
+
+do $$
+declare
+  v_r        uuid := (select v from fx where k = 'r');
+  v_pm       uuid := (select v from fx where k = 'pm');
+  v_coord    uuid := (select v from fx where k = 'coord');
+  v_inv1     uuid := (select v from fx where k = 'inv1');
+  v_inv2     uuid := (select v from fx where k = 'inv2');
+  v_inv3     uuid := (select v from fx where k = 'inv3');
+  v_mem2     uuid := (select v from fx where k = 'mem2');
+  v_student2 uuid := (select v from fx where k = 'student2');
+  inv public.general_invitations%rowtype;
+begin
+  perform pg_temp.act_as(v_pm);
+  inv := public.invite_to_general_project(v_r, v_inv1, 'coordinator');
+  perform pg_temp.must_be('the pm invites as coordinator; the invitation holds the role',
+    inv.role = 'coordinator');
+  perform pg_temp.act_as(v_inv1);
+  perform public.respond_general_invitation(inv.id, true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and the invitee joins as coordinator',
+    (select role = 'coordinator' and level = 'manager' from public.general_members
+      where project_id = v_r and user_id = v_inv1));
+
+  perform pg_temp.act_as(v_pm);
+  inv := public.invite_to_general_project(v_r, v_student2, 'coordinator');
+  perform pg_temp.act_as(v_student2);
+  perform pg_temp.must_allow('a student invited as coordinator accepts',
+    format('select public.respond_general_invitation(%L, true)', inv.id));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and is a coordinator',
+    public.general_role_of(v_r, v_student2) = 'coordinator');
+
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_refuse_with('a coordinator cannot invite a coordinator',
+    format($q$select public.invite_to_general_project(%L, %L, 'coordinator')$q$, v_r, v_inv2),
+    'Only the project manager can invite a coordinator');
+  perform pg_temp.must_allow('a coordinator invites as member',
+    format($q$select public.invite_to_general_project(%L, %L, 'member')$q$, v_r, v_inv2));
+  perform pg_temp.must_allow('...and the old two-argument call still works',
+    format('select public.invite_to_general_project(%L, %L)', v_r, v_inv3));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...both stored as member',
+    (select count(*) = 2 from public.general_invitations
+      where project_id = v_r and invitee in (v_inv2, v_inv3) and status = 'pending'
+        and role = 'member'));
+
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('nobody is invited as pm',
+    format($q$select public.invite_to_general_project(%L, %L, 'pm')$q$, v_r, v_inv3),
+    'Use hand over to change the project manager.');
+  perform pg_temp.must_refuse_with('...nor as qa',
+    format($q$select public.invite_to_general_project(%L, %L, 'qa')$q$, v_r, v_inv3),
+    'QA and stakeholder roles are not available yet.');
+  perform pg_temp.must_refuse_with('inviting someone already on the project is refused',
+    format($q$select public.invite_to_general_project(%L, %L, 'member')$q$, v_r, v_mem2),
+    'already on this project');
+  inv := public.invite_to_general_project(v_r, v_inv3, 'coordinator');
+  perform pg_temp.must_be('the pm re-inviting as coordinator updates the pending invitation',
+    inv.role = 'coordinator'
+    and (select count(*) = 1 from public.general_invitations
+          where project_id = v_r and invitee = v_inv3 and status = 'pending'));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- ------------------------------------------------------------------ removing, leaving
+
+do $$
+declare
+  v_r        uuid := (select v from fx where k = 'r');
+  v_pm       uuid := (select v from fx where k = 'pm');
+  v_coord    uuid := (select v from fx where k = 'coord');
+  v_plain    uuid := (select v from fx where k = 'plain');
+  v_inv1     uuid := (select v from fx where k = 'inv1');
+  v_student2 uuid := (select v from fx where k = 'student2');
+  v_granted  uuid := (select v from fx where k = 'granted');
+begin
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_refuse_with('a coordinator cannot remove the pm',
+    format('select public.remove_general_member(%L, %L)', v_r, v_pm),
+    'Hand over the project before removing its project manager.');
+  perform pg_temp.must_refuse_with('a coordinator cannot remove a coordinator',
+    format('select public.remove_general_member(%L, %L)', v_r, v_plain),
+    'Only the project manager removes a coordinator');
+  perform pg_temp.must_allow('a coordinator removes a member',
+    format('select public.remove_general_member(%L, %L)', v_r, v_granted));
+
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('the pm removes a coordinator',
+    format('select public.remove_general_member(%L, %L)', v_r, v_student2));
+  perform pg_temp.must_refuse_with('the pm cannot leave',
+    format('select public.leave_general_project(%L)', v_r),
+    'Hand over the project before you leave.');
+
+  perform pg_temp.act_as(v_inv1);
+  perform pg_temp.must_allow('a coordinator leaves',
+    format('select public.leave_general_project(%L)', v_r));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and the pm is still there',
+    public.general_role_of(v_r, v_pm) = 'pm');
+end $$;
+
+-- ------------------------------------------------------------------ hand over
+
+do $$
+declare
+  v_r     uuid := (select v from fx where k = 'r');
+  v_pm    uuid := (select v from fx where k = 'pm');
+  v_pm2   uuid := (select v from fx where k = 'pm2');
+  v_coord uuid := (select v from fx where k = 'coord');
+  v_mem2  uuid := (select v from fx where k = 'mem2');
+  v_out   uuid := (select v from fx where k = 'out');
+  n_roles int;
+begin
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('hand over to a member without Project manager is refused',
+    format('select public.hand_over_general_project(%L, %L)', v_r, v_mem2),
+    'Only someone with Project manager turned on can run a project.');
+  perform pg_temp.must_refuse_with('...and to somebody not on the project',
+    format('select public.hand_over_general_project(%L, %L)', v_r, v_out),
+    'They are not on this project');
+
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_refuse_with('a coordinator cannot hand over',
+    format('select public.hand_over_general_project(%L, %L)', v_r, v_pm2),
+    'Only the project manager can hand over');
+
+  perform pg_temp.act_as_service();
+  n_roles := (select count(*) from public.general_project_events
+               where project_id = v_r and kind = 'member_role');
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('the pm hands over to a member with Project manager on',
+    format('select public.hand_over_general_project(%L, %L)', v_r, v_pm2));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...exactly one pm afterwards, and it is them',
+    (select count(*) = 1 from public.general_members where project_id = v_r and role = 'pm')
+    and public.general_role_of(v_r, v_pm2) = 'pm');
+  perform pg_temp.must_be('...the old pm is a coordinator',
+    public.general_role_of(v_r, v_pm) = 'coordinator');
+  perform pg_temp.must_be('...one pm_handover event, from the old pm to the new',
+    (select count(*) = 1 from public.general_project_events
+      where project_id = v_r and kind = 'pm_handover' and actor_id = v_pm
+        and subject_id = v_pm2
+        and detail = jsonb_build_object('from_user', v_pm, 'to_user', v_pm2)));
+  perform pg_temp.must_be('...and not two member_role events besides',
+    (select count(*) from public.general_project_events
+      where project_id = v_r and kind = 'member_role') = n_roles);
+  perform pg_temp.must_be('...the new pm is told "You are now the project manager"',
+    exists (select 1 from public.notifications
+             where user_id = v_pm2 and type = 'membership_changed'
+               and general_project_id = v_r and preview = 'You are now the project manager'));
+
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('the old pm can no longer hand over',
+    format('select public.hand_over_general_project(%L, %L)', v_r, v_pm),
+    'Only the project manager can hand over');
+  perform pg_temp.act_as_service();
+end $$;
+
+-- ------------------------------------------------------------------ PM recovery
+
+do $$
+declare
+  v_r        uuid := (select v from fx where k = 'r');
+  v_pm       uuid := (select v from fx where k = 'pm');
+  v_pm2      uuid := (select v from fx where k = 'pm2');   -- R's pm now
+  v_plain    uuid := (select v from fx where k = 'plain');
+  v_out      uuid := (select v from fx where k = 'out');
+  v_sowner   uuid := (select v from fx where k = 'sowner');
+  v_smember  uuid := (select v from fx where k = 'smember');
+  v_admin    uuid := (select v from fx where k = 'admin');
+  v_stranger uuid := (select v from fx where k = 'stranger');
+begin
+  -- has_pm answers only somebody who can read the project.
+  perform pg_temp.act_as(v_stranger);
+  perform pg_temp.must_be('general_project_has_pm tells somebody who cannot read R nothing',
+    public.general_project_has_pm(v_r) is false);
+  perform pg_temp.act_as(v_sowner);
+  perform pg_temp.must_be('...but a space owner sees that R has a pm',
+    public.general_project_has_pm(v_r));
+  perform pg_temp.act_as(v_admin);
+  perform pg_temp.must_be('...and so does an admin', public.general_project_has_pm(v_r));
+
+  perform pg_temp.act_as(v_sowner);
+  perform pg_temp.must_refuse_with('assigning a pm while one is active is refused',
+    format('select public.assign_general_project_pm(%L, %L)', v_r, v_out),
+    'This project already has a project manager.');
+
+  -- The pm is deactivated.
+  perform pg_temp.act_as_service();
+  update public.profiles set status = 'rejected' where id = v_pm2;
+  perform pg_temp.act_as(v_sowner);
+  perform pg_temp.must_be('a deactivated pm leaves R with no pm',
+    not public.general_project_has_pm(v_r));
+
+  perform pg_temp.act_as(v_smember);
+  perform pg_temp.must_refuse_with('a plain space member cannot assign a pm',
+    format('select public.assign_general_project_pm(%L, %L)', v_r, v_out),
+    'Only an owner of this project''s space or an admin');
+  perform pg_temp.act_as(v_stranger);
+  perform pg_temp.must_refuse_with('...nor can a stranger',
+    format('select public.assign_general_project_pm(%L, %L)', v_r, v_out),
+    'Only an owner of this project''s space or an admin');
+
+  perform pg_temp.act_as(v_sowner);
+  perform pg_temp.must_refuse_with('the space owner cannot assign someone without Project manager',
+    format('select public.assign_general_project_pm(%L, %L)', v_r, v_plain),
+    'Only someone with Project manager turned on can run a project.');
+  perform pg_temp.must_allow('the space owner assigns a PM-enabled outsider',
+    format('select public.assign_general_project_pm(%L, %L)', v_r, v_out));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...the outsider is on R as pm',
+    (select role = 'pm' and level = 'owner' from public.general_members
+      where project_id = v_r and user_id = v_out));
+  perform pg_temp.must_be('...the deactivated pm is now a coordinator',
+    (select role = 'coordinator' from public.general_members
+      where project_id = v_r and user_id = v_pm2));
+  perform pg_temp.must_be('...with exactly one pm',
+    (select count(*) = 1 from public.general_members where project_id = v_r and role = 'pm'));
+  perform pg_temp.must_be('...and the space owner is still not on R',
+    not exists (select 1 from public.general_members where project_id = v_r and user_id = v_sowner));
+
+  -- An admin recovers too: the outsider loses the switch.
+  update public.profiles set can_manage_projects = false where id = v_out;
+  perform pg_temp.act_as(v_admin);
+  perform pg_temp.must_allow('an admin assigns a pm',
+    format('select public.assign_general_project_pm(%L, %L)', v_r, v_pm));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...the old pm is pm again and the outsider a coordinator',
+    public.general_role_of(v_r, v_pm) = 'pm' and public.general_role_of(v_r, v_out) = 'coordinator'
+    and (select count(*) = 1 from public.general_members where project_id = v_r and role = 'pm'));
 end $$;
 
 rollback;

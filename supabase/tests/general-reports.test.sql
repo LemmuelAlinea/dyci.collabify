@@ -254,10 +254,11 @@ begin
    where project_id = proj.id and kind = 'member_joined' and subject_id = member_id;
   perform pg_temp.ok('a member joining is recorded', n = 1);
 
+  -- A work project records the role (project-roles.sql), not the level.
   perform public.set_general_member_level(proj.id, member_id, 'manager');
   select detail->>'to' into txt from public.general_project_events
-   where project_id = proj.id and kind = 'member_level' and subject_id = member_id;
-  perform pg_temp.ok('a level change is recorded', txt = 'manager');
+   where project_id = proj.id and kind = 'member_role' and subject_id = member_id;
+  perform pg_temp.ok('a level change is recorded, as a role', txt = 'coordinator');
   perform public.set_general_member_level(proj.id, member_id, 'member');
 
   perform public.remove_general_member(proj.id, pmgr_id);

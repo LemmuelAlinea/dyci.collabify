@@ -241,12 +241,22 @@ back copies from before the Member account type.
 trigger that keeps `level` in step with `role` on work projects, the one-PM index
 `general_members_one_pm`, and the role-aware `general_has`. It is the final owner of
 `general_has`, `guard_student_level`, `join_general_project` and the
-`general_members_student_level` trigger. Re-run `project-roles.sql` (then
-`anon-lockdown.sql`) after re-running any of `access.sql`, `company-accounts.sql` or
-`general.sql`: `general.sql` puts back a `general_has` that hands a coordinator
-`edit_project`, `access.sql` puts back a student trigger that ignores a change of role,
-and `company-accounts.sql` and `access.sql` put back a `guard_student_level` that refuses
-student coordinators and a `join_general_project` that refuses students. Its migration
+`general_members_student_level` trigger. It adds the role RPCs
+(`set_general_member_role`, `hand_over_general_project`, `assign_general_project_pm`)
+and is also the final owner of `set_general_member_level`, `invite_to_general_project`
+(now with a role; it drops the two-argument copy), `respond_general_invitation`,
+`remove_general_member`, `leave_general_project`, `log_general_member_change`, the
+`general_project_events` kinds check, `notify_general_membership` and the
+`general_members_notify_level` trigger. Re-run `project-roles.sql` (then
+`anon-lockdown.sql`) after re-running any of `access.sql`, `company-accounts.sql`,
+`general.sql`, `general-reports.sql`, `notification-coverage.sql` or `class-files.sql`:
+`general.sql` puts back a `general_has` that hands a coordinator `edit_project`, the
+level-only member RPCs and a second, two-argument `invite_to_general_project` that makes
+old calls ambiguous; `access.sql` puts back a student trigger that ignores a change of
+role; `company-accounts.sql` and `access.sql` put back a `guard_student_level` that
+refuses student coordinators and a `join_general_project` that refuses students;
+`general-reports.sql`, `notification-coverage.sql` and `class-files.sql` put back a log,
+a notification and a trigger that ignore a change of role. Its migration
 only touches rows whose role does not match their level, so re-running it changes nothing.
 
 `anon-lockdown.sql` runs last and takes EXECUTE on every public function away

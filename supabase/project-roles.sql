@@ -19,9 +19,14 @@
 -- Runs after company-accounts.sql and everything else in docs/07-backup.md, and
 -- redefines from their latest (live) copies: general_has (general.sql),
 -- guard_student_level and join_general_project (company-accounts.sql), and the
--- general_members_student_level trigger (access.sql). Re-run it after
--- re-running any of access.sql, company-accounts.sql or general.sql, then
--- anon-lockdown.sql.
+-- general_members_student_level trigger (access.sql); set_general_member_level,
+-- invite_to_general_project, respond_general_invitation, remove_general_member
+-- and leave_general_project (general.sql); log_general_member_change and the
+-- general_project_events kinds (general-reports.sql); notify_general_membership
+-- (class-files.sql) and the general_members_notify_level trigger
+-- (notification-coverage.sql). Re-run it after re-running any of access.sql,
+-- company-accounts.sql, general.sql, general-reports.sql,
+-- notification-coverage.sql or class-files.sql, then anon-lockdown.sql.
 --
 -- Idempotent. Safe to re-run.
 
@@ -210,10 +215,16 @@ returns public.general_role language sql stable security definer set search_path
           or coalesce(public.can_read_general_project(p_project), false));
 $$;
 
-/** True when someone active, with Project manager on, is the project's pm. */
+/**
+ * True when someone active, with Project manager on, is the project's pm.
+ * Answers only somebody who can read the project (or an admin, or the service
+ * role). Anyone else gets false, so it cannot be used to probe other projects.
+ */
 create or replace function public.general_project_has_pm(p_project uuid)
 returns boolean language sql stable security definer set search_path = public as $$
-  select exists (
+  select (auth.uid() is null or public.is_admin()
+          or coalesce(public.can_read_general_project(p_project), false))
+     and exists (
     select 1
       from public.general_members m
       join public.profiles pr on pr.id = m.user_id
@@ -310,5 +321,607 @@ begin
   return p.id;
 end;
 $$;
+
+-- ================================================================ setting roles
+--
+-- Who sets what, on a work project:
+--   - the pm sets coordinator or member on anyone but themself, and hands over;
+--   - a coordinator switches people among member (member, qa and stakeholder
+--     once those open), and never touches a coordinator or the pm;
+--   - qa and stakeholder are refused for now, and pm only moves by hand over.
+-- Class-board Files projects keep their levels and the old bodies below.
+
+-- ---------------------------------------------------------------- activity log
+
+alter table public.general_project_events drop constraint if exists general_project_events_kind;
+alter table public.general_project_events add constraint general_project_events_kind check (kind in (
+  'task_archived', 'task_restored', 'project_status', 'project_archived',
+  'project_restored', 'member_joined', 'member_left', 'member_removed', 'member_level',
+  'member_role', 'pm_handover'));
+
+/**
+ * general-reports.sql's logger. A work project logs a change of role
+ * (member_role, {from, to}) and no longer a change of level, which only
+ * follows the role. hand_over_general_project writes one pm_handover in place
+ * of its two role changes. Class-board Files projects log levels as before.
+ */
+create or replace function public.log_general_member_change()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.general_project_events (project_id, actor_id, subject_id, kind, detail)
+    values (new.project_id, auth.uid(), new.user_id, 'member_joined',
+            jsonb_build_object('level', new.level));
+    return new;
+  elsif tg_op = 'UPDATE' then
+    if exists (select 1 from public.general_projects p
+                where p.id = new.project_id and p.class_board_id is null) then
+      if new.role is distinct from old.role
+         and coalesce(current_setting('collabify.pm_handover', true), 'off') <> 'on' then
+        insert into public.general_project_events (project_id, actor_id, subject_id, kind, detail)
+        values (new.project_id, auth.uid(), new.user_id, 'member_role',
+                jsonb_build_object('from', old.role, 'to', new.role));
+      end if;
+    elsif new.level is distinct from old.level then
+      insert into public.general_project_events (project_id, actor_id, subject_id, kind, detail)
+      values (new.project_id, auth.uid(), new.user_id, 'member_level',
+              jsonb_build_object('from', old.level, 'to', new.level));
+    end if;
+    return new;
+  end if;
+
+  -- A cascade from a deleted project or profile records nothing: the project
+  -- is going, or the person is.
+  if pg_trigger_depth() > 1
+     or not exists (select 1 from public.general_projects where id = old.project_id) then
+    return old;
+  end if;
+  insert into public.general_project_events (project_id, actor_id, subject_id, kind)
+  values (old.project_id, auth.uid(), old.user_id,
+          case when auth.uid() = old.user_id then 'member_left' else 'member_removed' end);
+  return old;
+end;
+$$;
+
+-- ---------------------------------------------------------------- notifications
+
+/** What follows "You are now" when a work-project role changes. */
+create or replace function public.general_role_phrase(p_role public.general_role)
+returns text language sql immutable set search_path = public as $$
+  select case p_role
+    when 'pm' then 'the project manager'
+    when 'coordinator' then 'a coordinator'
+    when 'qa' then 'QA'
+    when 'stakeholder' then 'a stakeholder'
+    else 'a member'
+  end;
+$$;
+
+/** class-files.sql's copy. A work project's member is told their new role. */
+create or replace function public.notify_general_membership()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  who uuid := coalesce(new.user_id, old.user_id);
+  label text;
+  msg text;
+begin
+  if auth.uid() is null or auth.uid() = who then return coalesce(new, old); end if;
+
+  if tg_table_name = 'general_members' then
+    -- A class board's Files project is kept in step with the group by the
+    -- database; nobody is removed by a person, so nobody is told.
+    select name into label from public.general_projects
+     where id = coalesce(new.project_id, old.project_id) and class_board_id is null;
+  else
+    select name into label from public.general_spaces
+     where id = coalesce(new.space_id, old.space_id) and kind = 'work';
+  end if;
+  if label is null then return coalesce(new, old); end if;
+
+  if tg_op = 'DELETE' then
+    msg := public.display_name(auth.uid()) || ' removed you';
+  elsif tg_table_name = 'general_members' then
+    -- Only work projects get this far, and they hold roles.
+    msg := 'You are now ' || public.general_role_phrase(new.role);
+  else
+    msg := 'You are now ' || public.general_level_label(new.level);
+  end if;
+
+  if tg_table_name = 'general_members' then
+    insert into public.notifications (user_id, type, general_project_id, title, preview)
+    select who, 'membership_changed', case when tg_op = 'DELETE' then null else new.project_id end, label, msg
+      from public.notification_prefs np
+     where np.user_id = who and np.project_updates;
+  else
+    insert into public.notifications (user_id, type, general_space_id, title, preview)
+    select who, 'membership_changed', case when tg_op = 'DELETE' then null else new.space_id end, label, msg
+      from public.notification_prefs np
+     where np.user_id = who and np.project_updates;
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+-- notification-coverage.sql's trigger, now also on a change of role alone
+-- (member to qa keeps level member).
+drop trigger if exists general_members_notify_level on public.general_members;
+create trigger general_members_notify_level after update of level, role on public.general_members
+  for each row when (old.level is distinct from new.level or old.role is distinct from new.role)
+  execute function public.notify_general_membership();
+
+-- ---------------------------------------------------------------- set a role
+
+create or replace function public.set_general_member_role(
+  p_project uuid,
+  p_user    uuid,
+  p_role    public.general_role
+) returns void language plpgsql security definer set search_path = public as $$
+declare
+  me     public.general_role;
+  target public.general_members%rowtype;
+begin
+  if p_role in ('qa', 'stakeholder') then
+    raise exception 'QA and stakeholder roles are not available yet.'
+      using errcode = 'check_violation';
+  end if;
+  if p_role = 'pm' then
+    raise exception 'Use hand over to change the project manager.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- Class-board Files projects hold no pm or coordinator, so they stop here too.
+  me := public.general_role_of(p_project, auth.uid());
+  if me is null or me not in ('pm', 'coordinator') then
+    raise exception 'Only the project manager or a coordinator changes roles.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_is_archived(p_project) then
+    raise exception 'This project is archived. The project manager can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- The pm's row, then the target's: the hand over locks in the same order.
+  perform 1 from public.general_members
+   where project_id = p_project and role = 'pm' for update;
+  select * into target from public.general_members
+   where project_id = p_project and user_id = p_user for update;
+  if target.user_id is null then
+    raise exception 'They are not on this project' using errcode = 'no_data_found';
+  end if;
+
+  if me = 'coordinator' then
+    if target.role not in ('member', 'qa', 'stakeholder') then
+      raise exception 'Only the project manager can change a coordinator or the project manager.'
+        using errcode = 'insufficient_privilege';
+    end if;
+    if p_role = 'coordinator' then
+      raise exception 'Only the project manager can make someone a coordinator.'
+        using errcode = 'insufficient_privilege';
+    end if;
+  elsif target.role = 'pm' then
+    raise exception 'Use hand over to change the project manager.'
+      using errcode = 'check_violation';
+  end if;
+
+  if target.role = p_role then
+    return;
+  end if;
+
+  update public.general_members set role = p_role
+   where project_id = p_project and user_id = p_user;
+
+  -- Grants are extras for members only, so anyone moved off member loses
+  -- theirs and any open requests for more.
+  if p_role <> 'member' then
+    delete from public.general_grants where project_id = p_project and user_id = p_user;
+    update public.general_access_requests
+       set status = 'withdrawn', answered_at = now()
+     where project_id = p_project and user_id = p_user and status = 'open';
+  end if;
+end;
+$$;
+
+-- ---------------------------------------------------------------- hand over
+
+create or replace function public.hand_over_general_project(p_project uuid, p_to uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  target public.general_members%rowtype;
+begin
+  if public.general_role_of(p_project, auth.uid()) is distinct from 'pm' then
+    raise exception 'Only the project manager can hand over the project.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_to = auth.uid() then
+    raise exception 'You are already the project manager.' using errcode = 'check_violation';
+  end if;
+
+  perform 1 from public.general_members
+   where project_id = p_project and role = 'pm' for update;
+  -- Asked again under the lock, in case two hand overs raced.
+  if not exists (select 1 from public.general_members
+                  where project_id = p_project and user_id = auth.uid() and role = 'pm') then
+    raise exception 'Only the project manager can hand over the project.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  select * into target from public.general_members
+   where project_id = p_project and user_id = p_to for update;
+  if target.user_id is null then
+    raise exception 'They are not on this project. Invite them first, then hand over.'
+      using errcode = 'no_data_found';
+  end if;
+  if not public.is_project_manager(p_to) then
+    raise exception 'Only someone with Project manager turned on can run a project.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- Demote first, then promote, so general_members_one_pm holds throughout.
+  -- The two role changes are logged as one pm_handover below.
+  perform set_config('collabify.pm_handover', 'on', true);
+  update public.general_members set role = 'coordinator'
+   where project_id = p_project and user_id = auth.uid();
+  update public.general_members set role = 'pm'
+   where project_id = p_project and user_id = p_to;
+  perform set_config('collabify.pm_handover', 'off', true);
+
+  delete from public.general_grants where project_id = p_project and user_id = p_to;
+  update public.general_access_requests
+     set status = 'withdrawn', answered_at = now()
+   where project_id = p_project and user_id = p_to and status = 'open';
+
+  insert into public.general_project_events (project_id, actor_id, subject_id, kind, detail)
+  values (p_project, auth.uid(), p_to, 'pm_handover',
+          jsonb_build_object('from_user', auth.uid(), 'to_user', p_to));
+end;
+$$;
+
+-- ---------------------------------------------------------------- PM recovery
+
+/**
+ * Gives a project with no pm (deactivated, or Project manager turned off) a new
+ * one. Only an owner of the project's space or an admin, and only while
+ * general_project_has_pm is false. Any leftover pm row becomes a coordinator,
+ * and the new pm joins the project first if they were not on it.
+ */
+create or replace function public.assign_general_project_pm(p_project uuid, p_user uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  proj public.general_projects%rowtype;
+begin
+  select * into proj from public.general_projects
+   where id = p_project and class_board_id is null;
+
+  if not public.general_viewer_active()
+     or not (public.is_admin()
+             or exists (select 1 from public.general_space_members sm
+                         where sm.space_id = proj.space_id and sm.user_id = auth.uid()
+                           and sm.level = 'owner')) then
+    raise exception 'Only an owner of this project''s space or an admin can assign a project manager.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if proj.id is null then
+    raise exception 'That project was not found' using errcode = 'no_data_found';
+  end if;
+
+  perform 1 from public.general_members
+   where project_id = p_project and role = 'pm' for update;
+  if public.general_project_has_pm(p_project) then
+    raise exception 'This project already has a project manager.'
+      using errcode = 'check_violation';
+  end if;
+  if not public.is_project_manager(p_user) then
+    raise exception 'Only someone with Project manager turned on can run a project.'
+      using errcode = 'check_violation';
+  end if;
+
+  update public.general_members set role = 'coordinator'
+   where project_id = p_project and role = 'pm' and user_id <> p_user;
+  insert into public.general_members (project_id, user_id, role)
+  values (p_project, p_user, 'member')
+  on conflict do nothing;
+  update public.general_members set role = 'pm'
+   where project_id = p_project and user_id = p_user;
+
+  delete from public.general_grants where project_id = p_project and user_id = p_user;
+  update public.general_access_requests
+     set status = 'withdrawn', answered_at = now()
+   where project_id = p_project and user_id = p_user and status = 'open';
+end;
+$$;
+
+-- ---------------------------------------------------------------- the old level RPC
+
+/**
+ * general.sql's copy, kept until the UI calls set_general_member_role. On a
+ * work project Owner is a hand over, Manager is coordinator and Member is
+ * member, each by the new rules. Class-board Files projects keep the old body.
+ */
+create or replace function public.set_general_member_level(p_project uuid, p_user uuid, p_level public.general_level)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  target public.general_members%rowtype;
+  owners int;
+begin
+  if exists (select 1 from public.general_projects
+              where id = p_project and class_board_id is null) then
+    if p_level = 'owner' then
+      perform public.hand_over_general_project(p_project, p_user);
+    else
+      perform public.set_general_member_role(p_project, p_user,
+        case p_level when 'manager' then 'coordinator' else 'member' end::public.general_role);
+    end if;
+    return;
+  end if;
+
+  if not public.is_general_owner(p_project) then
+    raise exception 'Only an Owner changes access levels' using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_is_archived(p_project) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- Every Owner row locked before counting, so two Owners stepping down at
+  -- once cannot both see the other still there.
+  perform 1 from public.general_members
+   where project_id = p_project and level = 'owner' for update;
+
+  select * into target from public.general_members
+   where project_id = p_project and user_id = p_user for update;
+  if target.user_id is null then
+    raise exception 'They are not on this project' using errcode = 'no_data_found';
+  end if;
+
+  -- Stepping down a deactivated Owner never changes how many active Owners
+  -- there are, so it is never blocked by this check — only demoting somebody
+  -- who is still active can leave the project with zero of them.
+  if target.level = 'owner' and p_level <> 'owner'
+     and exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
+    select count(*) into owners
+      from public.general_members m
+      join public.profiles pr on pr.id = m.user_id
+     where m.project_id = p_project and m.level = 'owner' and pr.status <> 'rejected';
+    if owners <= 1 then
+      raise exception 'A project needs at least one Owner. Make someone else an Owner first.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  update public.general_members set level = p_level
+   where project_id = p_project and user_id = p_user;
+
+  -- A Manager or Owner already holds every permission, so the extras and any
+  -- open requests for them are moot.
+  if p_level <> 'member' then
+    delete from public.general_grants where project_id = p_project and user_id = p_user;
+    update public.general_access_requests
+       set status = 'withdrawn', answered_at = now()
+     where project_id = p_project and user_id = p_user and status = 'open';
+  end if;
+end;
+$$;
+
+-- ---------------------------------------------------------------- inviting
+
+-- The two-argument copy goes, so an old two-argument call resolves to this one
+-- through the default and is never ambiguous.
+drop function if exists public.invite_to_general_project(uuid, uuid);
+
+/** general.sql's copy, plus the role the invitee joins with. */
+create or replace function public.invite_to_general_project(
+  p_project uuid,
+  p_user    uuid,
+  p_role    public.general_role default 'member'
+) returns public.general_invitations language plpgsql security definer set search_path = public as $$
+declare
+  inv public.general_invitations%rowtype;
+  i_am_pm boolean := public.general_role_of(p_project, auth.uid()) is not distinct from 'pm';
+begin
+  if not public.general_can(p_project, 'manage_members') then
+    raise exception 'You need permission to invite people to this project'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_role in ('qa', 'stakeholder') then
+    raise exception 'QA and stakeholder roles are not available yet.'
+      using errcode = 'check_violation';
+  end if;
+  if p_role = 'pm' then
+    raise exception 'Use hand over to change the project manager.'
+      using errcode = 'check_violation';
+  end if;
+  if p_role = 'coordinator' and not i_am_pm then
+    raise exception 'Only the project manager can invite a coordinator.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
+    raise exception 'That account cannot be invited' using errcode = 'check_violation';
+  end if;
+  if exists (select 1 from public.general_members where project_id = p_project and user_id = p_user) then
+    raise exception 'They are already on this project' using errcode = 'unique_violation';
+  end if;
+
+  select * into inv from public.general_invitations
+   where project_id = p_project and invitee = p_user and status = 'pending';
+  if inv.id is not null then
+    -- Already invited, and inviting again is not an error. The pm may change
+    -- the role it carries; anyone else gets it back as it stands.
+    if i_am_pm and inv.role is distinct from p_role then
+      update public.general_invitations set role = p_role where id = inv.id
+      returning * into inv;
+    end if;
+    return inv;
+  end if;
+
+  perform public.rate_limit('general_invite', 100, interval '1 hour',
+    'You have sent a lot of invitations in the last hour. Try again later.');
+
+  insert into public.general_invitations (project_id, invitee, invited_by, role)
+  values (p_project, p_user, auth.uid(), p_role)
+  returning * into inv;
+  return inv;
+end;
+$$;
+
+/** general.sql's copy. The invitee joins with the role the invitation holds. */
+create or replace function public.respond_general_invitation(p_invitation uuid, p_accept boolean)
+returns public.general_invitations
+language plpgsql security definer set search_path = public as $$
+declare
+  inv public.general_invitations%rowtype;
+begin
+  if not public.general_viewer_active() then
+    raise exception 'Sign in with an active account to answer an invitation'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  select * into inv from public.general_invitations where id = p_invitation for update;
+  if inv.id is null or inv.invitee is distinct from auth.uid() then
+    raise exception 'That invitation is not yours to answer' using errcode = 'insufficient_privilege';
+  end if;
+  if inv.status <> 'pending' then
+    raise exception 'That invitation was already answered or withdrawn' using errcode = 'check_violation';
+  end if;
+  if p_accept and public.general_is_archived(inv.project_id) then
+    raise exception 'That project is archived, so it cannot take new members'
+      using errcode = 'check_violation';
+  end if;
+
+  update public.general_invitations
+     set status = case when p_accept then 'accepted' else 'declined' end::public.general_invite_status,
+         answered_at = now()
+   where id = p_invitation
+  returning * into inv;
+
+  if p_accept then
+    insert into public.general_members (project_id, user_id, role)
+    values (inv.project_id, auth.uid(), inv.role)
+    on conflict do nothing;
+  end if;
+  return inv;
+end;
+$$;
+
+-- ---------------------------------------------------------------- removing, leaving
+
+/**
+ * general.sql's copy. On a work project the pm cannot be removed (hand over
+ * first) and only the pm removes a coordinator. Class-board Files projects keep
+ * the Owner rules.
+ */
+create or replace function public.remove_general_member(p_project uuid, p_user uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  target public.general_members%rowtype;
+  owners int;
+  is_work boolean := exists (select 1 from public.general_projects
+                              where id = p_project and class_board_id is null);
+begin
+  if p_user = auth.uid() then
+    raise exception 'Use Leave project to remove yourself' using errcode = 'check_violation';
+  end if;
+  if not public.general_can(p_project, 'manage_members') then
+    raise exception 'You need permission to remove people from this project'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  perform 1 from public.general_members
+   where project_id = p_project and level = 'owner' for update;
+  select * into target from public.general_members
+   where project_id = p_project and user_id = p_user for update;
+  if target.user_id is null then
+    raise exception 'They are not on this project' using errcode = 'no_data_found';
+  end if;
+
+  if is_work then
+    if target.role = 'pm' then
+      raise exception 'Hand over the project before removing its project manager.'
+        using errcode = 'check_violation';
+    end if;
+    if target.role = 'coordinator'
+       and public.general_role_of(p_project, auth.uid()) is distinct from 'pm' then
+      raise exception 'Only the project manager removes a coordinator.'
+        using errcode = 'insufficient_privilege';
+    end if;
+  else
+    if target.level in ('owner', 'manager') and not public.is_general_owner(p_project) then
+      raise exception 'Only an Owner removes an Owner or a Manager'
+        using errcode = 'insufficient_privilege';
+    end if;
+    -- Removing a deactivated Owner never changes how many active Owners there
+    -- are, so it is never blocked by this check.
+    if target.level = 'owner'
+       and exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
+      select count(*) into owners
+        from public.general_members m
+        join public.profiles pr on pr.id = m.user_id
+       where m.project_id = p_project and m.level = 'owner' and pr.status <> 'rejected';
+      if owners <= 1 then
+        raise exception 'A project needs at least one Owner' using errcode = 'check_violation';
+      end if;
+    end if;
+  end if;
+
+  delete from public.general_members where project_id = p_project and user_id = p_user;
+end;
+$$;
+
+/** general.sql's copy. On a work project the pm hands over before leaving. */
+create or replace function public.leave_general_project(p_project uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  me public.general_members%rowtype;
+  owners int;
+  is_work boolean := exists (select 1 from public.general_projects
+                              where id = p_project and class_board_id is null);
+begin
+  -- Same lock order as set_general_member_level and remove_general_member: a
+  -- lock-free existence check first, then every Owner row, then the caller's
+  -- own row — so two people leaving the same project at once cannot deadlock
+  -- on each other's locks.
+  if not exists (
+    select 1 from public.general_members where project_id = p_project and user_id = auth.uid()
+  ) then
+    raise exception 'You are not on this project' using errcode = 'no_data_found';
+  end if;
+
+  perform 1 from public.general_members
+   where project_id = p_project and level = 'owner' for update;
+
+  select * into me from public.general_members
+   where project_id = p_project and user_id = auth.uid() for update;
+  if me.user_id is null then
+    raise exception 'You are not on this project' using errcode = 'no_data_found';
+  end if;
+
+  if is_work then
+    if me.role = 'pm' then
+      raise exception 'Hand over the project before you leave.' using errcode = 'check_violation';
+    end if;
+  elsif me.level = 'owner' then
+    select count(*) into owners
+      from public.general_members m
+      join public.profiles pr on pr.id = m.user_id
+     where m.project_id = p_project and m.level = 'owner' and pr.status <> 'rejected';
+    if owners <= 1 then
+      raise exception 'You are the last Owner. Make someone else an Owner before you leave.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  delete from public.general_members where project_id = p_project and user_id = auth.uid();
+end;
+$$;
+
+-- ---------------------------------------------------------------- grants
+
+grant execute on function public.set_general_member_role(uuid, uuid, public.general_role) to authenticated;
+grant execute on function public.hand_over_general_project(uuid, uuid) to authenticated;
+grant execute on function public.assign_general_project_pm(uuid, uuid) to authenticated;
+grant execute on function public.invite_to_general_project(uuid, uuid, public.general_role) to authenticated;
+grant execute on function public.set_general_member_level(uuid, uuid, public.general_level) to authenticated;
+grant execute on function public.respond_general_invitation(uuid, boolean) to authenticated;
+grant execute on function public.remove_general_member(uuid, uuid) to authenticated;
+grant execute on function public.leave_general_project(uuid) to authenticated;
 
 commit;

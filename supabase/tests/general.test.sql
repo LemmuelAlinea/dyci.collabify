@@ -430,19 +430,14 @@ begin
     format('select public.archive_general_project(%L, false)', p));
 
   -- Project roles (project-roles.sql): one project manager per work project, so
-  -- a second Owner is refused. The hand-over is written directly here.
-  begin
-    perform public.set_general_member_level(p, b, 'owner');
-    raise exception 'FAIL  the Owner cannot make somebody else a second Owner — it went through';
-  exception
-    when unique_violation then
-      if position('general_members_one_pm' in sqlerrm) = 0 then raise; end if;
-      raise notice 'PASS  the Owner cannot make somebody else a second Owner  (refused: %)',
-        left(sqlerrm, 60);
-  end;
+  -- making somebody else Owner hands the project over to them.
+  perform pg_temp.must_allow('the Owner makes somebody else Owner, which hands the project over',
+    format('select public.set_general_member_level(%L, %L, %L)', p, b, 'owner'));
   perform pg_temp.act_as_service();
-  update public.general_members set role = 'coordinator' where project_id = p and user_id = a;
-  update public.general_members set role = 'pm' where project_id = p and user_id = b;
+  perform pg_temp.must_be('...they are the one Owner and the old Owner a Manager',
+    (select level = 'owner' from public.general_members where project_id = p and user_id = b)
+    and (select level = 'manager' from public.general_members where project_id = p and user_id = a)
+    and (select count(*) = 1 from public.general_members where project_id = p and level = 'owner'));
   perform pg_temp.act_as(a);
   perform pg_temp.must_allow('...and once handed over, the old Owner can leave',
     format('select public.leave_general_project(%L)', p));
