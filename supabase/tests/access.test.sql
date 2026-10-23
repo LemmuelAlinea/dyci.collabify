@@ -2,8 +2,9 @@
 --
 --   node scripts/db.mjs supabase/tests/access.test.sql
 --
--- Nobody does anything until somebody admits them: the admin admits faculty
--- and says whether they teach, faculty admit students with a class code.
+-- Nobody does anything until somebody admits them: the admin says which
+-- members teach and which manage projects, and they admit students with a
+-- class code or an invitation.
 -- Every refusal is paired with somebody who is allowed the same thing.
 
 begin;
@@ -68,9 +69,9 @@ declare
   v_student  uuid := gen_random_uuid();
   v_student2 uuid := gen_random_uuid();
   v_student3 uuid := gen_random_uuid();  -- joins a class, and nothing else
-  v_teacher  uuid := gen_random_uuid();  -- approved, teaches
-  v_staff    uuid := gen_random_uuid();  -- approved, does not teach
-  v_pending  uuid := gen_random_uuid();  -- faculty waiting on the admin
+  v_teacher  uuid := gen_random_uuid();  -- member, will teach
+  v_staff    uuid := gen_random_uuid();  -- member, will manage projects, does not teach
+  v_pending  uuid := gen_random_uuid();  -- a member left pending from before
   v_legacy   uuid := gen_random_uuid();  -- an old client still sending workplace = general
   v_bare     uuid := gen_random_uuid();  -- Google, no profile yet
   v_bare2    uuid := gen_random_uuid();
@@ -105,6 +106,9 @@ begin
     raise exception 'This suite needs an active admin account in the database';
   end if;
 
+  -- Sign-up no longer makes a pending account, but old rows keep the status.
+  update public.profiles set status = 'pending' where id = v_pending;
+
   create temp table fx (k text primary key, v uuid) on commit drop;
   grant select, insert on fx to authenticated;
   insert into fx values
@@ -126,8 +130,9 @@ begin
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('a student signup is active and does not teach',
     (select status = 'active' and not can_teach from public.profiles where id = v_student));
-  perform pg_temp.must_be('a faculty signup waits for the admin and does not teach',
-    (select status = 'pending' and not can_teach from public.profiles where id = v_teacher));
+  perform pg_temp.must_be('a professor signup is an active member with neither switch',
+    (select role = 'member' and status = 'active' and not can_teach and not can_manage_projects
+       from public.profiles where id = v_teacher));
   perform pg_temp.must_be('a signup naming only a workplace gets no profile until onboarding',
     not exists (select 1 from public.profiles where id = v_legacy));
   perform pg_temp.must_be('a Google account gets no profile until onboarding',
@@ -145,18 +150,23 @@ begin
   perform pg_temp.must_refuse('onboarding cannot make you an admin', format(
     $q$insert into public.profiles (id, email, first_name, last_name, role, status)
        values (%L, 'zz-acc-bare@example.test', 'Zz', 'Bare', 'admin', 'active')$q$, v_bare));
-  perform pg_temp.must_refuse('onboarding cannot skip choosing student or faculty', format(
+  perform pg_temp.must_refuse('onboarding cannot skip choosing student or member', format(
     $q$insert into public.profiles (id, email, first_name, last_name, role, status)
        values (%L, 'zz-acc-bare@example.test', 'Zz', 'Bare', null, 'active')$q$, v_bare));
+  perform pg_temp.must_refuse('onboarding cannot pick faculty', format(
+    $q$insert into public.profiles (id, email, first_name, last_name, role, status)
+       values (%L, 'zz-acc-bare@example.test', 'Zz', 'Bare', 'faculty', 'active')$q$, v_bare));
 
   perform pg_temp.act_as(v_bare2);
-  perform pg_temp.must_allow('onboarding as faculty is allowed', format(
-    $q$insert into public.profiles (id, email, first_name, last_name, role, status, can_teach)
-       values (%L, 'zz-acc-bare2@example.test', 'Zz', 'Baretwo', 'faculty', 'active', true)$q$,
+  perform pg_temp.must_allow('onboarding as a member is allowed', format(
+    $q$insert into public.profiles
+         (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+       values (%L, 'zz-acc-bare2@example.test', 'Zz', 'Baretwo', 'member', 'pending', true, true)$q$,
     v_bare2));
   perform pg_temp.act_as_service();
-  perform pg_temp.must_be('...but it waits for approval and does not teach, whatever was sent',
-    (select status = 'pending' and not can_teach from public.profiles where id = v_bare2));
+  perform pg_temp.must_be('...active at once, and holding neither switch, whatever was sent',
+    (select status = 'active' and not can_teach and not can_manage_projects
+       from public.profiles where id = v_bare2));
 end $$;
 
 -- ------------------------------------------------------------------ privileged columns
@@ -166,11 +176,12 @@ declare
   v_student uuid := (select v from fx where k = 'student');
 begin
   perform pg_temp.act_as(v_student);
-  update public.profiles set role = 'faculty', status = 'active', can_teach = true
+  update public.profiles
+     set role = 'member', status = 'active', can_teach = true, can_manage_projects = true
    where id = v_student;
   perform pg_temp.act_as_service();
-  perform pg_temp.must_be('an account cannot write its own role, status or teaching',
-    (select role = 'student' and status = 'active' and not can_teach
+  perform pg_temp.must_be('an account cannot write its own role, status or switches',
+    (select role = 'student' and status = 'active' and not can_teach and not can_manage_projects
        from public.profiles where id = v_student));
 
   perform pg_temp.must_be('enter_education is gone',
@@ -189,25 +200,28 @@ declare
   v_admin   uuid := (select v from fx where k = 'admin');
 begin
   perform pg_temp.act_as(v_staff);
-  perform pg_temp.must_refuse('faculty cannot approve themselves',
-    format('select public.decide_faculty(%L, true, true)', v_staff));
+  perform pg_temp.must_refuse('a member cannot give themselves teaching',
+    format('select public.set_faculty_teaching(%L, true)', v_staff));
+  perform pg_temp.must_refuse('...or Project manager',
+    format('select public.set_project_manager(%L, true)', v_staff));
 
   perform pg_temp.act_as(v_admin);
-  perform pg_temp.must_allow('the admin approves a teacher',
-    format('select public.decide_faculty(%L, true, true)', v_teacher));
-  perform pg_temp.must_allow('the admin approves staff who do not teach',
-    format('select public.decide_faculty(%L, true, false)', v_staff));
-  perform pg_temp.must_refuse('a student does not go through faculty approval',
-    format('select public.decide_faculty(%L, true, true)', v_student));
+  perform pg_temp.must_allow('the admin lets a member teach',
+    format('select public.set_faculty_teaching(%L, true)', v_teacher));
+  perform pg_temp.must_allow('the admin makes another a project manager',
+    format('select public.set_project_manager(%L, true)', v_staff));
+  perform pg_temp.must_refuse('a student cannot be a project manager',
+    format('select public.set_project_manager(%L, true)', v_student));
 
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('the teacher is active and teaches',
     (select status = 'active' and can_teach from public.profiles where id = v_teacher));
-  perform pg_temp.must_be('the staff member is active and does not teach',
-    (select status = 'active' and not can_teach from public.profiles where id = v_staff));
+  perform pg_temp.must_be('the project manager is active and does not teach',
+    (select status = 'active' and not can_teach and can_manage_projects
+       from public.profiles where id = v_staff));
 
   perform pg_temp.act_as(v_teacher);
-  perform pg_temp.must_refuse('faculty cannot change who teaches',
+  perform pg_temp.must_refuse('a teacher cannot change who teaches',
     format('select public.set_faculty_teaching(%L, true)', v_staff));
 
   perform pg_temp.act_as(v_admin);
@@ -215,7 +229,7 @@ begin
     format('select public.set_faculty_teaching(%L, true)', v_staff));
   perform pg_temp.must_allow('...and off again',
     format('select public.set_faculty_teaching(%L, false)', v_staff));
-  perform pg_temp.must_refuse('teaching is only for faculty accounts',
+  perform pg_temp.must_refuse('teaching is only for members',
     format('select public.set_faculty_teaching(%L, true)', v_student));
 
   perform pg_temp.act_as_service();
@@ -236,11 +250,11 @@ begin
   perform pg_temp.must_be('a student in nothing is not admitted', not public.am_i_admitted());
 
   perform pg_temp.act_as(v_pending);
-  perform pg_temp.must_be('pending faculty are not admitted', not public.am_i_admitted());
+  perform pg_temp.must_be('a pending member is not admitted', not public.am_i_admitted());
   perform pg_temp.must_be('...and cannot read General', not public.general_viewer_active());
 
   perform pg_temp.act_as(v_staff);
-  perform pg_temp.must_be('approved faculty are admitted', public.am_i_admitted());
+  perform pg_temp.must_be('an active member is admitted', public.am_i_admitted());
   perform pg_temp.must_be('...and can read General', public.general_viewer_active());
 end $$;
 
@@ -250,6 +264,7 @@ do $$
 declare
   v_student uuid := (select v from fx where k = 'student');
   v_pending uuid := (select v from fx where k = 'pending');
+  v_teacher uuid := (select v from fx where k = 'teacher');
   v_staff   uuid := (select v from fx where k = 'staff');
   v_space   uuid;
 begin
@@ -260,11 +275,15 @@ begin
     $q$select public.create_general_project('Zz student project')$q$);
 
   perform pg_temp.act_as(v_pending);
-  perform pg_temp.must_refuse('pending faculty cannot create a space',
+  perform pg_temp.must_refuse('a pending member cannot create a space',
     $q$select public.create_general_space('Zz pending space', '')$q$);
 
+  perform pg_temp.act_as(v_teacher);
+  perform pg_temp.must_refuse('a teacher who is not a project manager cannot create a work space',
+    $q$select public.create_general_space('Zz teacher space', '')$q$);
+
   perform pg_temp.act_as(v_staff);
-  perform pg_temp.must_allow('approved faculty create a space, teaching or not',
+  perform pg_temp.must_allow('a project manager creates a space, teaching or not',
     $q$select public.create_general_space('Zz office', '')$q$);
 
   perform pg_temp.act_as_service();
@@ -299,7 +318,7 @@ begin
     format('select public.join_general_project(%L)', v_project_code));
 
   perform pg_temp.act_as(v_teacher);
-  perform pg_temp.must_allow('faculty join a work space by code',
+  perform pg_temp.must_allow('a member joins a work space by code',
     format('select public.join_general_space(%L)', v_space_code));
   perform pg_temp.must_allow('...and a project by code',
     format('select public.join_general_project(%L)', v_project_code));
@@ -322,7 +341,7 @@ begin
   perform public.respond_general_space_invitation(v_inv, true);
   perform pg_temp.must_be('a student let into a space is admitted', public.am_i_admitted());
   perform pg_temp.act_as_service();
-  perform pg_temp.must_be('faculty invite a student into a work space, as a member',
+  perform pg_temp.must_be('a project manager invites a student into a work space, as a member',
     (select level = 'member' from public.general_space_members
       where space_id = v_space and user_id = v_student));
 
@@ -340,7 +359,7 @@ begin
   perform public.respond_general_invitation(v_inv, true);
   perform pg_temp.must_be('a student let onto a project is admitted', public.am_i_admitted());
   perform pg_temp.act_as_service();
-  perform pg_temp.must_be('faculty invite a student onto a project, as a member',
+  perform pg_temp.must_be('a project manager invites a student onto a project, as a member',
     (select level = 'member' from public.general_members
       where project_id = v_project and user_id = v_student2));
 
@@ -359,14 +378,14 @@ declare
   v_result   text;
 begin
   perform pg_temp.act_as(v_staff);
-  perform pg_temp.must_refuse('faculty who do not teach cannot open a class', format(
+  perform pg_temp.must_refuse('members who do not teach cannot open a class', format(
     $q$insert into public.classes
          (professor_id, name, initial, code, section, year_level, semester, school_year)
        values (%L, 'Zz Staff class', 'ZZS', 'ZZACC-STAFF', 'BSIT 1A', '1st', '1st', '2026-2027')$q$,
     v_staff));
 
   perform pg_temp.act_as(v_teacher);
-  perform pg_temp.must_allow('teaching faculty open a class', format(
+  perform pg_temp.must_allow('members who teach open a class', format(
     $q$insert into public.classes
          (professor_id, name, initial, code, section, year_level, semester, school_year)
        values (%L, 'Zz Teacher class', 'ZZT', 'ZZACC-TEACH', 'BSIT 1A', '1st', '1st', '2026-2027')$q$,
@@ -393,7 +412,7 @@ begin
     format('select public.create_general_space_team(%L, %L)', v_space, 'Zz student team'));
 
   perform pg_temp.act_as(v_staff);
-  perform pg_temp.must_allow('faculty create a space team',
+  perform pg_temp.must_allow('a project manager creates a space team',
     format('select public.create_general_space_team(%L, %L)', v_space, 'Zz staff team'));
   select id into v_team from public.general_space_teams
    where space_id = v_space and name = 'Zz staff team';
@@ -445,7 +464,7 @@ begin
   perform pg_temp.act_as(v_student3);
   perform pg_temp.must_refuse_with('a grandfathered student Owner still cannot invite a student',
     format('select public.invite_to_general_space(%L, %L)', v_space, v_student2),
-    'Only faculty can invite a student');
+    'Only project managers and teachers can invite a student');
 end $$;
 
 -- ------------------------------------------------------------------ anonymous callers
@@ -457,8 +476,8 @@ declare
 begin
   perform pg_temp.act_as_service();
   foreach fn in array array[
-    'public.decide_faculty(uuid, boolean, boolean)',
     'public.set_faculty_teaching(uuid, boolean)',
+    'public.set_project_manager(uuid, boolean)',
     'public.set_account_role(uuid, public.user_role)',
     'public.set_account_active(uuid, boolean)',
     'public.apply_shift_to_deadlines(uuid, uuid[], uuid[])',
@@ -475,12 +494,13 @@ begin
 
   perform set_config('role', 'anon', true);
   perform set_config('request.jwt.claims', '{"role":"anon"}', true);
-  perform pg_temp.must_refuse('a signed-out caller cannot approve faculty',
-    format('select public.decide_faculty(%L, true, true)', v_pending));
+  perform pg_temp.must_refuse('a signed-out caller cannot hand out Project manager',
+    format('select public.set_project_manager(%L, true)', v_pending));
 
   perform pg_temp.act_as_service();
-  perform pg_temp.must_be('...and the account is still waiting',
-    (select status = 'pending' from public.profiles where id = v_pending));
+  perform pg_temp.must_be('...and the account is untouched',
+    (select status = 'pending' and not can_manage_projects
+       from public.profiles where id = v_pending));
 end $$;
 
 rollback;

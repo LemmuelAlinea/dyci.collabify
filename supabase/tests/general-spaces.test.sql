@@ -46,8 +46,10 @@ begin
     from (values (owner_id,    'space-owner@test.local',    'Owner'),
                  (watcher_id,  'space-watcher@test.local',  'Watcher'),
                  (stranger_id, 'space-stranger@test.local', 'Stranger')) as v(id, em, ln);
-  -- General accounts are approved faculty now: supabase/access.sql.
-  update public.profiles set status = 'active' where created_at = now() and role = 'faculty' and status = 'pending';
+  -- Sign-up makes active members; making spaces needs Project manager, which
+  -- only the admin hands out (supabase/company-accounts.sql).
+  update public.profiles set can_manage_projects = true
+   where id in (owner_id, watcher_id, stranger_id);
 
   ------------------------------------------------------------------ setup
   perform pg_temp.act_as(owner_id);

@@ -103,7 +103,7 @@ begin
     'public.list_general_space_members(uuid)',
     'public.create_general_space(text,text)',
     'public.start_direct_conversation(uuid)',
-    'public.decide_faculty(uuid,boolean,boolean)',
+    'public.set_project_manager(uuid,boolean)',
     'public.rate_limit_ok(text,integer,interval)',
     'public.rate_limit(text,integer,interval,text)'
   ] loop

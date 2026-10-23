@@ -61,9 +61,9 @@ begin
     from (values (adm), (f1), (f2), (nt), (st)) as u(id);
   insert into public.profiles (id, email, first_name, last_name, role, status, can_teach)
   values (adm, adm::text || '@test.invalid', 'Sec', 'Admin',   'admin',   'active', false),
-         (f1,  f1::text  || '@test.invalid', 'Sec', 'One',     'faculty', 'active', true),
-         (f2,  f2::text  || '@test.invalid', 'Sec', 'Two',     'faculty', 'active', true),
-         (nt,  nt::text  || '@test.invalid', 'Sec', 'NoTeach', 'faculty', 'active', false),
+         (f1,  f1::text  || '@test.invalid', 'Sec', 'One',     'member', 'active', true),
+         (f2,  f2::text  || '@test.invalid', 'Sec', 'Two',     'member', 'active', true),
+         (nt,  nt::text  || '@test.invalid', 'Sec', 'NoTeach', 'member', 'active', false),
          (st,  st::text  || '@test.invalid', 'Sec', 'Student', 'student', 'active', false)
   on conflict (id) do update set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach;
 

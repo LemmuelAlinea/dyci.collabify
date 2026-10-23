@@ -69,15 +69,16 @@ begin
          u.id::text || '@test.invalid', '', now(), now()
     from (values (prof), (s1), (s2), (s3), (worker), (outsider)) as u(id);
 
-  insert into public.profiles (id, email, first_name, last_name, role, status, can_teach)
-  values (prof,     prof::text     || '@test.invalid', 'Meet', 'Prof',     'faculty', 'active', true),
-         (s1,       s1::text       || '@test.invalid', 'Meet', 'One',      'student', 'active', false),
-         (s2,       s2::text       || '@test.invalid', 'Meet', 'Two',      'student', 'active', false),
-         (s3,       s3::text       || '@test.invalid', 'Meet', 'Three',    'student', 'active', false),
-         (worker,   worker::text   || '@test.invalid', 'Meet', 'Worker',   'faculty', 'active', false),
-         (outsider, outsider::text || '@test.invalid', 'Meet', 'Outsider', 'faculty', 'active', false)
+  insert into public.profiles (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+  values (prof,     prof::text     || '@test.invalid', 'Meet', 'Prof',     'member', 'active', true, true),
+         (s1,       s1::text       || '@test.invalid', 'Meet', 'One',      'student', 'active', false, false),
+         (s2,       s2::text       || '@test.invalid', 'Meet', 'Two',      'student', 'active', false, false),
+         (s3,       s3::text       || '@test.invalid', 'Meet', 'Three',    'student', 'active', false, false),
+         (worker,   worker::text   || '@test.invalid', 'Meet', 'Worker',   'member', 'active', false, true),
+         (outsider, outsider::text || '@test.invalid', 'Meet', 'Outsider', 'member', 'active', false, true)
   on conflict (id) do update set role = excluded.role, status = excluded.status,
                                  can_teach = excluded.can_teach,
+                                 can_manage_projects = excluded.can_manage_projects,
                                  first_name = excluded.first_name, last_name = excluded.last_name;
 
   insert into public.classes (professor_id, name, initial, code, section, year_level, semester, school_year)

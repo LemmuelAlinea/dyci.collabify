@@ -1,8 +1,11 @@
--- Professor approvals — rolled back, touches nothing permanently.
+-- Professor approvals, retired — rolled back, touches nothing permanently.
 --
 --   node scripts/db.mjs supabase/tests/approvals.test.sql
 --
--- Every refusal is paired with somebody who is allowed the same statement.
+-- Sign-up no longer produces a pending account, so there is nothing to approve:
+-- decide_faculty is gone (supabase/company-accounts.sql). What is left of the
+-- page is the teachers list, and the rules around it still hold. Every refusal
+-- is paired with somebody who is allowed the same statement.
 
 begin;
 
@@ -58,138 +61,96 @@ $$;
 
 do $$
 declare
-  v_admin uuid; v_student uuid; v_prof uuid; v_new uuid;
+  v_admin uuid; v_student uuid; v_teach uuid; v_off uuid;
 begin
-  select id into v_admin from public.profiles where role = 'admin' limit 1;
+  select id into v_admin from public.profiles where role = 'admin' and status = 'active' limit 1;
   select id into v_student from public.profiles where role = 'student' limit 1;
-  select id into v_prof from public.profiles where role = 'faculty' limit 1;
 
-  -- A freshly signed-up professor, waiting.
-  v_new := gen_random_uuid();
+  -- A member who teaches, and a deactivated one.
+  v_teach := gen_random_uuid();
+  v_off := gen_random_uuid();
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           created_at, updated_at)
-  values (v_new, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-          'zz-pending-prof@example.test', '', now(), now());
-  insert into public.profiles (id, first_name, last_name, email, role, status)
-  values (v_new, 'Zz', 'Pending', 'zz-pending-prof@example.test', 'faculty', 'pending');
+  values (v_teach, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'zz-ap-teach@example.test', '', now(), now()),
+         (v_off, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'zz-ap-off@example.test', '', now(), now());
+  insert into public.profiles (id, first_name, last_name, email, role, status, can_teach)
+  values (v_teach, 'Zz', 'Apteach', 'zz-ap-teach@example.test', 'member', 'active', true),
+         (v_off, 'Zz', 'Apoff', 'zz-ap-off@example.test', 'member', 'rejected', true);
 
   create temp table fx (k text primary key, v uuid) on commit drop;
   grant select, insert on fx to authenticated;
   insert into fx values
-    ('admin', v_admin), ('student', v_student), ('prof', v_prof), ('new', v_new);
+    ('admin', v_admin), ('student', v_student), ('teach', v_teach), ('off', v_off);
   raise notice 'fixture ready';
 end $$;
 
--- ------------------------------------------------------------------ who may
+-- ------------------------------------------------------------------ retired
 
 do $$
-declare
-  v_student uuid := (select v from fx where k='student');
-  v_prof uuid := (select v from fx where k='prof');
-  v_new uuid := (select v from fx where k='new');
 begin
-  perform pg_temp.act_as(v_student);
-  perform pg_temp.must_refuse('a student cannot approve a professor',
-    format('select public.decide_faculty(%L, true)', v_new));
-
-  -- Not even another professor: this is the program admin's alone.
-  perform pg_temp.act_as(v_prof);
-  perform pg_temp.must_refuse('nor can another professor',
-    format('select public.decide_faculty(%L, true)', v_new));
-
-  -- And the pending account cannot wave itself through.
-  perform pg_temp.act_as(v_new);
-  perform pg_temp.must_refuse('nor the account itself',
-    format('select public.decide_faculty(%L, true)', v_new));
-  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('decide_faculty is gone',
+    to_regprocedure('public.decide_faculty(uuid, boolean, boolean)') is null);
+  perform pg_temp.must_be('...while set_account_active, which reactivates, is here',
+    to_regprocedure('public.set_account_active(uuid, boolean)') is not null);
 end $$;
 
 -- The older guard still holds: a direct write pins the columns back rather
 -- than raising, so this checks the value, not an error.
 do $$
 declare
-  v_new uuid := (select v from fx where k='new');
-begin
-  perform pg_temp.act_as(v_new);
-  update public.profiles set status = 'active' where id = v_new;
-  perform pg_temp.act_as_service();
-
-  perform pg_temp.must_be('a pending account cannot set its own status',
-    (select status = 'pending' from public.profiles where id = v_new));
-end $$;
-
--- ---------------------------------------------------------------- approving
-
-do $$
-declare
   v_admin uuid := (select v from fx where k='admin');
-  v_new uuid := (select v from fx where k='new');
-  n int;
+  v_off uuid := (select v from fx where k='off');
 begin
-  perform pg_temp.act_as(v_admin);
-
-  select count(*) into n from public.professor_accounts where status = 'pending';
-  perform pg_temp.must_be('the admin sees the waiting account', n >= 1);
-
-  perform pg_temp.must_allow('the admin approves it',
-    format('select public.decide_faculty(%L, true)', v_new));
+  perform pg_temp.act_as(v_off);
+  update public.profiles set status = 'active' where id = v_off;
   perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a deactivated account cannot set its own status',
+    (select status = 'rejected' from public.profiles where id = v_off));
 
-  perform pg_temp.must_be('...and it is active',
-    (select status = 'active' from public.profiles where id = v_new));
-  perform pg_temp.must_be('...recording who let them in',
-    (select decided_by = v_admin and decided_at is not null
-       from public.profiles where id = v_new));
-end $$;
-
--- Turning down, and undoing it — an account rejected by mistake is otherwise
--- dead, and its owner can do nothing about it.
-do $$
-declare
-  v_admin uuid := (select v from fx where k='admin');
-  v_new uuid := (select v from fx where k='new');
-begin
-  perform pg_temp.act_as(v_admin);
-  perform pg_temp.must_allow('the admin turns it down',
-    format('select public.decide_faculty(%L, false)', v_new));
-  perform pg_temp.act_as_service();
-  perform pg_temp.must_be('...and it is rejected',
-    (select status = 'rejected' from public.profiles where id = v_new));
+  perform pg_temp.act_as(v_off);
+  perform pg_temp.must_refuse('...nor reactivate itself',
+    format('select public.set_account_active(%L, true)', v_off));
 
   perform pg_temp.act_as(v_admin);
   perform pg_temp.must_allow('the admin can put it back',
-    format('select public.decide_faculty(%L, true)', v_new));
+    format('select public.set_account_active(%L, true)', v_off));
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('...and it is active again',
-    (select status = 'active' from public.profiles where id = v_new));
+    (select status = 'active' from public.profiles where id = v_off));
 end $$;
 
--- Only professors go through approval at all.
+-- ------------------------------------------------------------- the teachers list
+
 do $$
 declare
   v_admin uuid := (select v from fx where k='admin');
+  v_teach uuid := (select v from fx where k='teach');
   v_student uuid := (select v from fx where k='student');
   n int;
 begin
   perform pg_temp.act_as(v_admin);
-  perform pg_temp.must_refuse('a student account is not an approval matter',
-    format('select public.decide_faculty(%L, false)', v_student));
+  select count(*) into n from public.professor_accounts where id = v_teach;
+  perform pg_temp.must_be('the admin sees a member who teaches', n = 1);
 
   select count(*) into n from public.professor_accounts where id = v_student;
-  perform pg_temp.must_be('...and does not appear in the console', n = 0);
+  perform pg_temp.must_be('...and not a student', n = 0);
   perform pg_temp.act_as_service();
 end $$;
 
--- A professor cannot browse the whole faculty list through the new view.
+-- A teacher cannot browse the whole list through the view.
 do $$
 declare
-  v_prof uuid := (select v from fx where k='prof');
-  v_new uuid := (select v from fx where k='new');
+  v_teach uuid := (select v from fx where k='teach');
+  v_off uuid := (select v from fx where k='off');
   n int;
 begin
-  perform pg_temp.act_as(v_prof);
-  select count(*) into n from public.professor_accounts where id = v_new;
-  perform pg_temp.must_be('a professor cannot read another professor''s account', n = 0);
+  perform pg_temp.act_as(v_teach);
+  select count(*) into n from public.professor_accounts where id = v_teach;
+  perform pg_temp.must_be('a teacher reads their own row', n = 1);
+  select count(*) into n from public.professor_accounts where id = v_off;
+  perform pg_temp.must_be('...but not another teacher''s', n = 0);
   perform pg_temp.act_as_service();
 end $$;
 
