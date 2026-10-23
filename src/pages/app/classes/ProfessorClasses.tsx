@@ -105,7 +105,7 @@ export default function ProfessorClasses() {
               view === 'active'
                 ? teaching
                   ? 'Create your first class and share its code with your section. Students join with the code — you never add them by hand.'
-                  : 'Classes open once the program admin turns on teaching for your account. Work spaces are open to you now.'
+                  : 'Classes open once the program admin turns on Can teach for your account.'
                 : 'Archived classes disappear for students but stay here for your records.'
             }
             action={
