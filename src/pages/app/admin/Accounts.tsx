@@ -11,11 +11,18 @@ import {
   FilterPopover,
   FilterSearch,
 } from '../../../components/ui/FilterPopover'
+import { Toggle } from '../../../components/ui/Field'
 import { Select } from '../../../components/ui/Select'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
-import { listAccounts, setAccountActive, setAccountRole } from '../../../lib/api/accounts'
+import {
+  listAccounts,
+  setAccountActive,
+  setAccountRole,
+  setProjectManager,
+} from '../../../lib/api/accounts'
+import { setCanTeach } from '../../../lib/api/admin'
 import { authErrorMessage } from '../../../lib/authError'
 import { ACCOUNT_STATUS_LABEL, fullName, ROLE_LABEL } from '../../../lib/types'
 import type { Account, AccountStatus } from '../../../lib/types'
@@ -44,9 +51,29 @@ function when(iso: string) {
  */
 const ROLE_FILTERS = [
   { value: 'student', label: 'Students' },
-  { value: 'faculty', label: 'Faculty' },
+  { value: 'member', label: 'Members' },
   { value: 'admin', label: 'Admins' },
 ]
+
+/** A switch with its label beside it, so the state reads without hovering. */
+function SwitchRow({
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  disabled?: boolean
+  onChange: (next: boolean) => void
+}) {
+  return (
+    <span className="flex items-center gap-2 text-[12px] text-muted">
+      <span aria-hidden>{label}</span>
+      <Toggle checked={checked} onChange={onChange} label={label} disabled={disabled} />
+    </span>
+  )
+}
 
 export default function Accounts() {
   const { profile } = useAuth()
@@ -56,7 +83,7 @@ export default function Accounts() {
   const [query, setQuery] = useState('')
   const [role, setRole] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
-  const [promoting, setPromoting] = useState<Account | null>(null)
+  const [changing, setChanging] = useState<{ account: Account; to: 'student' | 'member' } | null>(null)
   const [deactivating, setDeactivating] = useState<Account | null>(null)
 
   const load = useCallback(async () => {
@@ -88,7 +115,7 @@ export default function Accounts() {
     try {
       await work()
       show(done)
-      setPromoting(null)
+      setChanging(null)
       setDeactivating(null)
       await load()
     } catch (err) {
@@ -197,6 +224,37 @@ export default function Accounts() {
                   {ACCOUNT_STATUS_LABEL[a.status]}
                 </span>
 
+                {a.role === 'member' || isAdmin ? (
+                  <span className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1">
+                    <SwitchRow
+                      label="Project manager"
+                      checked={a.can_manage_projects}
+                      disabled={working || (isAdmin && !self)}
+                      onChange={(on) =>
+                        void run(
+                          a.id,
+                          () => setProjectManager(a.id, on),
+                          `${fullName(a)} ${on ? 'can manage projects' : 'no longer manages projects'}`,
+                        )
+                      }
+                    />
+                    {a.role === 'member' && (
+                      <SwitchRow
+                        label="Can teach"
+                        checked={a.can_teach}
+                        disabled={working}
+                        onChange={(on) =>
+                          void run(
+                            a.id,
+                            () => setCanTeach(a.id, on),
+                            `${fullName(a)} ${on ? 'can teach' : 'no longer teaches'}`,
+                          )
+                        }
+                      />
+                    )}
+                  </span>
+                ) : null}
+
                 {/* An admin is not changed from here, and neither is yourself. */}
                 {isAdmin || self ? (
                   <span className="shrink-0 text-[12px] text-faint">Not editable here</span>
@@ -207,16 +265,10 @@ export default function Accounts() {
                       size="sm"
                       disabled={working}
                       onClick={() =>
-                        a.role === 'student'
-                          ? setPromoting(a)
-                          : void run(
-                              a.id,
-                              () => setAccountRole(a.id, 'student'),
-                              `${fullName(a)} is a student now`,
-                            )
+                        setChanging({ account: a, to: a.role === 'student' ? 'member' : 'student' })
                       }
                     >
-                      {a.role === 'student' ? 'Make faculty' : 'Make student'}
+                      {a.role === 'student' ? 'Make member' : 'Make student'}
                     </Button>
                     <Button
                       variant="ghost"
@@ -245,26 +297,27 @@ export default function Accounts() {
       </section>
 
       <ConfirmDialog
-        open={Boolean(promoting)}
-        onClose={() => setPromoting(null)}
+        open={Boolean(changing)}
+        onClose={() => setChanging(null)}
         onConfirm={() =>
-          promoting
+          changing
             ? run(
-                promoting.id,
-                () => setAccountRole(promoting.id, 'faculty'),
-                `${fullName(promoting)} is waiting for approval`,
+                changing.account.id,
+                () => setAccountRole(changing.account.id, changing.to),
+                `${fullName(changing.account)} is ${changing.to === 'member' ? 'a member' : 'a student'} now`,
               )
             : undefined
         }
-        tone="primary"
-        title="Make this account faculty?"
-        confirmLabel="Make faculty"
+        tone={changing?.to === 'member' ? 'primary' : undefined}
+        title={changing?.to === 'member' ? 'Make this account a member?' : 'Make this account a student?'}
+        confirmLabel={changing?.to === 'member' ? 'Make member' : 'Make student'}
         body={
           <p>
-            {promoting && fullName(promoting)} becomes faculty and lands in{' '}
-            <strong className="text-ink">Faculty approvals</strong>, waiting on you — a
-            promotion is not a verification, so they still go through the same check as
-            anyone who signed up as one.
+            {changing && fullName(changing.account)} changes to{' '}
+            {changing?.to === 'member' ? 'a member' : 'a student'}.{' '}
+            {changing?.to === 'member'
+              ? 'They get a plain member account. Turn on a switch to give them access.'
+              : 'They lose both switches.'}
           </p>
         }
       />

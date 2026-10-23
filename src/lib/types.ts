@@ -1584,6 +1584,11 @@ export type Account = {
   /** Live classes they run. A count only — what is inside one is not this page's. */
   class_count: number
   enrolment_count: number
+  /** The admin's switches. Only a member can teach; a member or an admin can manage projects. */
+  can_teach: boolean
+  can_manage_projects: boolean
+  /** Active work projects they run, which keeps Project manager on. */
+  managed_project_count: number
 }
 
 /* --------------------------------------------------------------- audit log */

@@ -12,7 +12,6 @@ describe('paths', () => {
     expect(paths.class('k1')).toBe('/classes/k1')
     expect(paths.group('g1')).toBe('/groups/g1')
     expect(paths.syllabus('r1')).toBe('/teaching/syllabi/r1')
-    expect(paths.admin.approvals).toBe('/admin/approvals')
   })
 })
 

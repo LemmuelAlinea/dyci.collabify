@@ -85,7 +85,8 @@ describe('navFor', () => {
     const none = { inClass: false, hasWork: false }
     expect(titles(navFor(admin, true, none))).toEqual(['Admin', 'Account'])
     expect(titles(navFor(admin, true))).toEqual(['Admin', 'Account'])
-    expect(labels(navFor(admin, true, none))).toContain('Faculty approvals')
+    expect(labels(navFor(admin, true, none))).toContain('Accounts')
+    expect(labels(navFor(admin, true, none))).not.toContain('Faculty approvals')
   })
 
   it('gives an admin in nothing but invited Home and Inbox, so they can answer', () => {

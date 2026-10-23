@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import type { Account, Role } from '../types'
+import type { Account } from '../types'
 
 /**
  * Every account, for the admin. RLS decides the audience — `profiles_select_own`
@@ -15,13 +15,22 @@ export async function listAccounts() {
 }
 
 /**
- * Move somebody between student and professor. Promotion lands them pending —
- * a promotion is not a verification, so they still go through approval.
+ * Move somebody between student and member. A member starts with both switches
+ * off; the admin turns them on one at a time.
  */
-export async function setAccountRole(userId: string, role: Exclude<Role, 'admin'>) {
+export async function setAccountRole(userId: string, role: 'student' | 'member') {
   const { error } = await supabase.rpc('set_account_role', {
     p_user: userId,
     p_role: role,
+  })
+  if (error) throw error
+}
+
+/** Let a member or an admin create and run projects, or stop it. */
+export async function setProjectManager(userId: string, on: boolean) {
+  const { error } = await supabase.rpc('set_project_manager', {
+    p_user: userId,
+    p_on: on,
   })
   if (error) throw error
 }

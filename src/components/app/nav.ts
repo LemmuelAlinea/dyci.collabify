@@ -200,7 +200,6 @@ function resourcesGroup(role: Role): NavGroup {
 const ADMIN: NavGroup = {
   title: 'Admin',
   items: [
-    { label: 'Faculty approvals', icon: 'shield', to: paths.admin.approvals },
     { label: 'Accounts', icon: 'users', to: paths.admin.accounts },
     { label: 'Audit log', icon: 'clock', to: paths.admin.audit },
     // Admins are the fallback handler while nobody is named, so this row is

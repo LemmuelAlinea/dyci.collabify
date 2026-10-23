@@ -72,7 +72,7 @@ export default function Sections() {
       ])
       setRows(sections)
       setClasses(cls)
-      setAdvisers(people.filter((a) => a.role === 'faculty' && a.status === 'active'))
+      setAdvisers(people.filter((a) => a.role === 'member' && a.can_teach && a.status === 'active'))
       setTeachers(faculty.filter((f) => f.status === 'active' && f.can_teach))
       setAssigned(links)
       setYear((y) => y || currentSchoolYear(cls))
@@ -532,7 +532,7 @@ function AssignFacultyDialog({
         {error && <Alert tone="error">{error}</Alert>}
         {teachers.length === 0 ? (
           <p className="text-[13px] text-muted">
-            No faculty can teach yet. Allow teaching for someone in Faculty approvals first.
+            No faculty can teach yet. Turn on Can teach for a member in Accounts first.
           </p>
         ) : (
           <>

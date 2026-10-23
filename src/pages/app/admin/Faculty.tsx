@@ -40,7 +40,7 @@ export default function Faculty() {
     try {
       const [classes, people] = await Promise.all([programClasses(), listAccounts()])
       setRows(classes)
-      setAccounts(people.filter((a) => a.role === 'faculty'))
+      setAccounts(people.filter((a) => a.can_teach))
       setYear((y) => y || currentSchoolYear(classes))
       setError(null)
     } catch (err) {
@@ -71,7 +71,7 @@ export default function Faculty() {
    * Ordered by what the chair is looking for, not by name: somebody with no
    * load at all, then somebody whose classes cannot start, then the heaviest
    * loads. An account that is not active sinks to the bottom — it cannot be
-   * given a class, and approving it is the approvals page's business.
+   * given a class, and switching teaching on is the accounts page's business.
    */
   const ordered = useMemo(() => {
     const rank = (a: Account) => {
