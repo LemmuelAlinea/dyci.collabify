@@ -26,7 +26,9 @@
 -- (class-files.sql) and the general_members_notify_level trigger
 -- (notification-coverage.sql). Re-run it after re-running any of access.sql,
 -- company-accounts.sql, general.sql, general-reports.sql,
--- notification-coverage.sql or class-files.sql, then anon-lockdown.sql.
+-- notification-coverage.sql or class-files.sql, then anon-lockdown.sql. It also
+-- redefines general_project_overview (general-project-space.sql) and
+-- list_general_project_members (one-workplace.sql) with the role columns added.
 --
 -- Idempotent. Safe to re-run.
 
@@ -940,6 +942,90 @@ begin
   delete from public.general_members where project_id = p_project and user_id = auth.uid();
 end;
 $$;
+
+-- ---------------------------------------------------------------- readers
+
+/**
+ * general_project_overview gains my_role and has_pm at the end, so the page
+ * can tell a project that lost its manager from one that has none to give.
+ * Redefined from general-project-space.sql, the last file to own it; re-run
+ * this file after re-running that one.
+ */
+create or replace view public.general_project_overview
+with (security_invoker = true) as
+select p.id,
+       p.name,
+       p.description,
+       p.starts_on,
+       p.ends_on,
+       p.status,
+       p.points_enabled,
+       (select jc.code from public.general_join_codes jc where jc.project_id = p.id) as join_code,
+       coalesce((select jc.open from public.general_join_codes jc where jc.project_id = p.id), false)
+         as join_open,
+       p.created_by,
+       p.archived_at,
+       p.created_at,
+       p.updated_at,
+       m.level as my_level,
+       (select count(*) from public.general_members x where x.project_id = p.id)::int as member_count,
+       coalesce(t.task_count, 0) as task_count,
+       coalesce(t.done_count, 0) as done_count,
+       case
+         when coalesce(t.task_count, 0) = 0 then 0::numeric
+         when p.points_enabled then round(t.done_weight / nullif(t.total_weight, 0) * 100, 1)
+         else round(t.done_count::numeric / t.task_count * 100, 1)
+       end as progress_pct,
+       (select count(*) from public.general_access_requests r
+         where r.project_id = p.id and r.status = 'open')::int as open_request_count,
+       p.preset,
+       p.has_code,
+       p.space_id,
+       s.name as space_name,
+       m.role as my_role,
+       public.general_project_has_pm(p.id) as has_pm
+  from public.general_projects p
+  left join public.general_members m on m.project_id = p.id and m.user_id = auth.uid()
+  left join public.general_spaces s on s.id = p.space_id
+  left join lateral (
+    select count(*)::int as task_count,
+           count(*) filter (where x.status = 'done')::int as done_count,
+           sum(x.weight) as total_weight,
+           coalesce(sum(x.weight) filter (where x.status = 'done'), 0) as done_weight
+      from public.general_tasks x
+     where x.project_id = p.id and x.archived_at is null
+  ) t on true;
+
+grant select on public.general_project_overview to authenticated;
+
+/**
+ * list_general_project_members gains role at the end. Redefined from
+ * one-workplace.sql; re-run this file after re-running that one.
+ */
+drop function if exists public.list_general_project_members(uuid);
+create function public.list_general_project_members(p_project uuid)
+returns table (user_id uuid, first_name text, last_name text, avatar_url text,
+               level public.general_level, joined_at timestamptz, is_student boolean,
+               role public.general_role)
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
+begin
+  if not public.can_read_general_project(p_project) then
+    raise exception 'You cannot see this project' using errcode = 'insufficient_privilege';
+  end if;
+
+  return query
+    select m.user_id, pr.first_name, pr.last_name, pr.avatar_url, m.level, m.joined_at,
+           pr.role = 'student', m.role
+      from public.general_members m
+      join public.profiles pr on pr.id = m.user_id
+     where m.project_id = p_project
+     order by m.level, pr.last_name, pr.first_name;
+end;
+$$;
+
+revoke execute on function public.list_general_project_members(uuid) from public, anon;
+grant execute on function public.list_general_project_members(uuid) to authenticated, service_role;
 
 -- ---------------------------------------------------------------- grants
 

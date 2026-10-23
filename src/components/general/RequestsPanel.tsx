@@ -103,7 +103,7 @@ function MyRequests({ state }: { state: GeneralProjectState }) {
   const { show } = useToast()
   const mine = state.requests.filter((r) => r.user_id === state.viewerId)
   const askable =
-    state.me && !state.archived ? requestable(state.me.level, state.myGrants, state.myOpenRequests) : []
+    state.me && !state.archived ? requestable(state.myRole, state.myGrants, state.myOpenRequests) : []
 
   async function withdraw(r: GeneralAccessRequest) {
     try {
@@ -115,7 +115,7 @@ function MyRequests({ state }: { state: GeneralProjectState }) {
     }
   }
 
-  if (state.me?.level !== 'member') return null
+  if (state.myRole !== 'member') return null
 
   return (
     <section className="rounded-panel border border-line surface p-4 sm:p-5">

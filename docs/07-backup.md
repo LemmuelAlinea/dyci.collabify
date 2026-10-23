@@ -247,7 +247,9 @@ and is also the final owner of `set_general_member_level`, `invite_to_general_pr
 (now with a role; it drops the two-argument copy), `respond_general_invitation`,
 `remove_general_member`, `leave_general_project`, `log_general_member_change`, the
 `general_project_events` kinds check, `notify_general_membership` and the
-`general_members_notify_level` trigger. Re-run `project-roles.sql` (then
+`general_members_notify_level` trigger. It also owns `general_project_overview` (with
+`my_role` and `has_pm` at the end) and `list_general_project_members` (with `role`), so
+re-run it after `general-project-space.sql` or `one-workplace.sql`. Re-run `project-roles.sql` (then
 `anon-lockdown.sql`) after re-running any of `access.sql`, `company-accounts.sql`,
 `general.sql`, `general-reports.sql`, `notification-coverage.sql` or `class-files.sql`:
 `general.sql` puts back a `general_has` that hands a coordinator `edit_project`, the

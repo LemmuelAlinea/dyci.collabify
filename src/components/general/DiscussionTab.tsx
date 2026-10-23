@@ -139,7 +139,7 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
   useLive(load, ['general_discussions', 'general_discussion_folders'])
 
   const readOnly = state.archived
-  const lead = state.me?.level === 'owner' || state.me?.level === 'manager'
+  const lead = state.myRole === 'pm' || state.myRole === 'coordinator'
   const live = discussions.find((d) => !d.ended_at) ?? null
   // Opening the tab while a discussion runs puts you in its room; Leave room
   // steps out to the list, and the page's banner comes back.
@@ -558,7 +558,7 @@ function LiveRoom({
   }, [messages?.length])
 
   const starterHere = state.members.some((m) => m.user_id === discussion.started_by)
-  const lead = state.me?.level === 'owner' || state.me?.level === 'manager'
+  const lead = state.myRole === 'pm' || state.myRole === 'coordinator'
   const mayStop = !readOnly && (discussion.started_by === state.viewerId || (lead && !starterHere))
 
   function pick(list: FileList | null) {

@@ -319,7 +319,7 @@ export async function joinGeneralProject(code: string) {
 export async function listGeneralMembers(projectId: string) {
   const { data, error } = await supabase
     .from('general_members')
-    .select(`project_id, user_id, level, joined_at, profile:profiles (${PERSON}, status, role)`)
+    .select(`project_id, user_id, level, role, joined_at, profile:profiles (${PERSON}, status, role)`)
     .eq('project_id', projectId)
     .order('joined_at')
   if (error) throw error

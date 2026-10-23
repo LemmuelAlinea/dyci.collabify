@@ -19,8 +19,8 @@ import type { CommitRights } from '../../lib/api/general'
 import { listMilestones } from '../../lib/api/milestones'
 import { listSprints } from '../../lib/api/sprints'
 import { authErrorMessage } from '../../lib/authError'
-import { can as canDo } from '../../lib/general/permissions'
-import type { GeneralPermission } from '../../lib/general/permissions'
+import { can as canDo, canAs } from '../../lib/general/permissions'
+import type { GeneralLevel, GeneralPermission, ProjectRole } from '../../lib/general/permissions'
 import type {
   GeneralAccessRequest,
   GeneralField,
@@ -38,6 +38,12 @@ import { fullName } from '../../lib/types'
 import type { Milestone, Sprint } from '../../lib/work/types'
 
 const NO_RIGHTS: CommitRights = { commit: false, grant: false, board: false, committers: [] }
+
+const LEVEL_ROLE: Record<GeneralLevel, ProjectRole> = {
+  owner: 'pm',
+  manager: 'coordinator',
+  member: 'member',
+}
 
 export type GeneralProjectState = {
   project: GeneralProjectSummary | null
@@ -65,9 +71,17 @@ export type GeneralProjectState = {
   myGrants: GeneralPermission[]
   myOpenRequests: GeneralPermission[]
   archived: boolean
+  /**
+   * The viewer's role here; null for somebody who reaches the project through
+   * its space. A class board's Files project has no roles of its own, so its
+   * Owner reads as the project manager and its Manager as a Coordinator.
+   */
+  myRole: ProjectRole | null
   isOwner: boolean
   ownerCount: number
   can: (permission: GeneralPermission) => boolean
+  /** Whether the viewer leads a team that this person is on. */
+  leadsUser: (userId: string) => boolean
   /** Who may commit to Main and who decides it, from the server. */
   commitRights: CommitRights
   nameOf: (userId: string) => string
@@ -195,6 +209,17 @@ export function useGeneralProject(
       .filter((r) => r.user_id === viewerId && r.status === 'open')
       .map((r) => r.permission)
     const archived = Boolean(project?.archived_at)
+    // A class board keeps the old model: every row is a member by role while
+    // its level is Owner or Manager. On a work project level follows role, so
+    // this cannot happen there.
+    const legacy = Boolean(me && me.role === 'member' && me.level !== 'member')
+    const myRole: ProjectRole | null = me ? (legacy ? LEVEL_ROLE[me.level] : me.role) : null
+    const myTeams = new Set(teams.filter((t) => t.leader_id === viewerId).map((t) => t.id))
+    const led = new Set(
+      myTeams.size > 0 && myRole !== 'stakeholder'
+        ? teamMembers.filter((tm) => myTeams.has(tm.team_id)).map((tm) => tm.user_id)
+        : [],
+    )
     const names = new Map(
       members.map((m) => [m.user_id, m.profile ? fullName(m.profile) : 'A member']),
     )
@@ -221,6 +246,7 @@ export function useGeneralProject(
       myGrants,
       myOpenRequests,
       archived,
+      myRole,
       isOwner: me?.level === 'owner',
       ownerCount: members.filter(
         (m) => m.level === 'owner' && m.profile?.status !== 'rejected',
@@ -228,7 +254,10 @@ export function useGeneralProject(
       can: (permission: GeneralPermission) =>
         permission === 'commit_main'
           ? !archived && commitRights.commit
-          : canDo(me?.level ?? null, myGrants, permission, archived),
+          : legacy
+            ? canDo(me?.level ?? null, myGrants, permission, archived)
+            : !archived && canAs(myRole, myGrants, permission),
+      leadsUser: (userId: string) => led.has(userId),
       commitRights,
       nameOf: (userId: string) => names.get(userId) ?? 'A former member',
     }

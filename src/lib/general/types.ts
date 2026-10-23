@@ -5,7 +5,7 @@
  */
 import type { AccountStatus, Profile, Role } from '../types'
 import type { FieldType, FieldValue } from './fields'
-import type { GeneralLevel, GeneralPermission } from './permissions'
+import type { GeneralLevel, GeneralPermission, ProjectRole } from './permissions'
 import type { GeneralTaskStatus } from './progress'
 
 export type GeneralStatus = 'planning' | 'in_progress' | 'on_hold' | 'done' | 'cancelled'
@@ -84,6 +84,8 @@ export type SpacePerson = {
   joined_at: string
   /** Students only ever hold Member, so the level pickers offer nothing else. */
   is_student: boolean
+  /** A project's role for the person. Only list_general_project_members returns it. */
+  role?: ProjectRole
 }
 
 /** list_my_general_space_invitations. */
@@ -119,6 +121,10 @@ export type GeneralProjectSummary = GeneralProject & {
   join_open: boolean
   /** Null for somebody who reaches this project through its space, not its members. */
   my_level: GeneralLevel | null
+  /** The viewer's role; null for somebody who reaches the project through its space. */
+  my_role: ProjectRole | null
+  /** Whether an active project manager holds the project. False while it waits for one. */
+  has_pm: boolean
   member_count: number
   task_count: number
   done_count: number
@@ -138,6 +144,8 @@ export type GeneralMember = {
   project_id: string
   user_id: string
   level: GeneralLevel
+  /** What the person does in the project. `level` follows it and is read only by spaces. */
+  role: ProjectRole
   joined_at: string
   /**
    * `status` rides along because the database's last-Owner rules count only
@@ -147,7 +155,14 @@ export type GeneralMember = {
   profile: (Person & { status: AccountStatus; role: Role | null }) | null
 }
 
-export type GeneralTeam = { id: string; project_id: string; name: string; created_at: string }
+export type GeneralTeam = {
+  id: string
+  project_id: string
+  name: string
+  created_at: string
+  /** Always somebody on the team. Null while it has no lead. */
+  leader_id: string | null
+}
 
 export type GeneralTeamMember = { team_id: string; project_id: string; user_id: string }
 

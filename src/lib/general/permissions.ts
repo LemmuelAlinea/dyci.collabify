@@ -1,14 +1,23 @@
 /**
  * Who may do what inside a General workplace project.
  *
- * Two layers. A member's **level** (Owner, Manager, Member) gives a fixed set of
- * permissions, and an Owner can **grant** one member a single permission on top
- * of their level. Levels are the easy part to understand; grants are how a
- * Treasurer gets file editing without becoming a Manager.
+ * Two layers. A member's **role** gives a fixed set of permissions, and the
+ * project manager can **grant** one member a single permission on top of it.
+ * Roles are the easy part to understand; grants are how a Treasurer gets file
+ * editing without becoming a Coordinator.
  *
- * This file mirrors `general_can()` in supabase/general.sql, which is the
- * enforcement. Keep the two in step.
+ * Work projects use roles (`rolePermissions`, `canAs`), which mirror
+ * `general_has()` in supabase/project-roles.sql. Spaces and class spaces still
+ * use the older three **levels** (`levelPermissions`, `can`), which mirror
+ * `general_can()` in supabase/general.sql. The database is the enforcement.
+ * Keep the two in step.
  */
+
+/**
+ * A person's role in a work project. QA and Stakeholder are stored from phase
+ * 2 and become usable in phases 3 and 4; until then they hold no permission.
+ */
+export type ProjectRole = 'pm' | 'coordinator' | 'member' | 'qa' | 'stakeholder'
 
 export type GeneralLevel = 'owner' | 'manager' | 'member'
 
@@ -84,13 +93,13 @@ export function can(
   return levelPermissions(level).includes(permission) || grants.includes(permission)
 }
 
-/** What a member could still ask an Owner for. */
+/** What a Member could still ask the project manager for. */
 export function requestable(
-  level: GeneralLevel | null,
+  role: ProjectRole | null,
   grants: readonly GeneralPermission[],
   open: readonly GeneralPermission[],
 ): GeneralPermission[] {
-  if (level !== 'member') return []
+  if (role !== 'member') return []
   return ALL.filter((p) => !grants.includes(p) && !open.includes(p))
 }
 
@@ -112,3 +121,130 @@ export function levelLabel(l: GeneralLevel | null): string {
   if (!l) return 'watching from the space'
   return LEVELS.find((x) => x.value === l)?.label ?? l
 }
+
+/* ------------------------------------------------------------------ roles */
+
+export const ROLE_LABEL: Record<ProjectRole, string> = {
+  pm: 'Project manager',
+  coordinator: 'Coordinator',
+  member: 'Member',
+  qa: 'QA',
+  stakeholder: 'Stakeholder',
+}
+
+/** What a person's name wears on a member row. A plain Member wears nothing. */
+export const ROLE_BADGE: Record<ProjectRole, string | null> = {
+  pm: 'PM',
+  coordinator: 'Coordinator',
+  member: null,
+  qa: 'QA',
+  stakeholder: 'Stakeholder',
+}
+
+/**
+ * The project manager holds all six, a Coordinator all but edit_project, and
+ * everybody else only what they are granted.
+ */
+export function rolePermissions(role: ProjectRole): GeneralPermission[] {
+  if (role === 'pm') return [...ALL]
+  if (role === 'coordinator') return ALL.filter((p) => p !== 'edit_project')
+  return []
+}
+
+/** Whether a role plus its grants holds the permission. No role holds nothing. */
+export function canAs(
+  role: ProjectRole | null,
+  grants: readonly GeneralPermission[],
+  p: GeneralPermission,
+): boolean {
+  if (!role) return false
+  return rolePermissions(role).includes(p) || grants.includes(p)
+}
+
+/**
+ * The roles an actor may move a target to. In phase 2 the project manager
+ * switches anyone but the project manager between Coordinator and Member, and a
+ * Coordinator turns a Member into a Member (the one move they may make). Making
+ * somebody project manager is a hand over, never a role change.
+ */
+export function assignableRoles(actor: ProjectRole, target: ProjectRole): ProjectRole[] {
+  if (actor === 'pm' && target !== 'pm') return ['coordinator', 'member']
+  if (actor === 'coordinator' && target === 'member') return ['member']
+  return []
+}
+
+/**
+ * yes    the role does it
+ * team   only for tasks of people on the team the person leads
+ * grant  not by default; the project manager can grant it
+ * own    only what the person made or holds
+ * read   sees it, cannot change it
+ */
+export type RoleMark = 'yes' | 'team' | 'grant' | 'own' | 'read'
+
+/**
+ * What each role can do, in plain words, for the "What each role can do" table.
+ * `lead` is the Team lead tag, which sits on top of whatever role the person
+ * has. A missing key means no. This is the spec's table row for row, QA and
+ * Stakeholder included, so it reads right once those roles are usable.
+ */
+export const ROLE_MATRIX: {
+  action: string
+  roles: Partial<Record<ProjectRole | 'lead', RoleMark>>
+}[] = [
+  {
+    action: 'See the project, tasks, sprints, milestones, files and meetings',
+    roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'yes', stakeholder: 'read' },
+  },
+  { action: 'Edit project details and stages, archive and delete', roles: { pm: 'yes' } },
+  { action: 'Mark the QA stage', roles: { pm: 'yes' } },
+  {
+    action: 'Invite and remove people, and set roles (not project manager)',
+    roles: { pm: 'yes', coordinator: 'yes' },
+  },
+  { action: 'Hand over project manager', roles: { pm: 'yes' } },
+  { action: 'Create and manage teams, and pick team leads', roles: { pm: 'yes', coordinator: 'yes' } },
+  {
+    action: 'Create, assign and edit any task',
+    roles: { pm: 'yes', coordinator: 'yes', lead: 'team', member: 'grant' },
+  },
+  {
+    action: 'Create tasks and edit your own (QA: bug tasks only)',
+    roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'own' },
+  },
+  { action: 'Plan sprints and milestones', roles: { pm: 'yes', coordinator: 'yes', member: 'grant' } },
+  {
+    action: 'Move a task out of the QA stage (QA, when the project has QA)',
+    roles: { pm: 'yes', qa: 'yes' },
+  },
+  {
+    action: 'Files tab: folders, move, rename and delete any file',
+    roles: { pm: 'yes', coordinator: 'yes', member: 'grant' },
+  },
+  {
+    action: 'Commit to Main',
+    roles: { pm: 'yes', coordinator: 'yes', lead: 'grant', member: 'grant' },
+  },
+  {
+    action: 'Keep your own drafts and submit changes for review',
+    roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'yes' },
+  },
+  {
+    action: 'Schedule and edit project meetings',
+    roles: { pm: 'yes', coordinator: 'yes', lead: 'own', member: 'own', qa: 'own' },
+  },
+  {
+    action: 'Comment on tasks, and join discussions and the project chat',
+    roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'yes' },
+  },
+  { action: 'Post in Feedback', roles: { pm: 'yes', coordinator: 'yes', stakeholder: 'yes' } },
+  { action: 'Change the status of Feedback', roles: { pm: 'yes', coordinator: 'yes' } },
+  {
+    action: 'Read Feedback',
+    roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'yes', stakeholder: 'yes' },
+  },
+  {
+    action: 'Give grants and answer access requests, or ask for them',
+    roles: { pm: 'yes', coordinator: 'yes', lead: 'grant', member: 'grant' },
+  },
+]

@@ -2,12 +2,18 @@ import { describe, expect, it } from 'vitest'
 import {
   LEVELS,
   PERMISSIONS,
+  ROLE_BADGE,
+  ROLE_LABEL,
+  ROLE_MATRIX,
+  assignableRoles,
   can,
+  canAs,
   canStepDown,
   levelLabel,
   levelPermissions,
   permissionLabel,
   requestable,
+  rolePermissions,
 } from './permissions'
 
 /**
@@ -61,9 +67,14 @@ describe('requestable', () => {
     ])
   })
 
-  it('offers an Owner or Manager nothing, because they hold it all', () => {
-    expect(requestable('owner', [], [])).toEqual([])
-    expect(requestable('manager', [], [])).toEqual([])
+  it('offers a project manager or Coordinator nothing, because they hold it all', () => {
+    expect(requestable('pm', [], [])).toEqual([])
+    expect(requestable('coordinator', [], [])).toEqual([])
+  })
+
+  it('offers QA and Stakeholder nothing, because they cannot ask', () => {
+    expect(requestable('qa', [], [])).toEqual([])
+    expect(requestable('stakeholder', [], [])).toEqual([])
   })
 
   it('offers a non-member nothing', () => {
@@ -87,5 +98,106 @@ describe('labels', () => {
   it('names every level and permission', () => {
     for (const l of LEVELS) expect(levelLabel(l.value)).toBe(l.label)
     for (const p of PERMISSIONS) expect(permissionLabel(p.value)).toBe(p.label)
+  })
+})
+
+describe('rolePermissions', () => {
+  it('gives the project manager every permission', () => {
+    expect(rolePermissions('pm')).toEqual(PERMISSIONS.map((p) => p.value))
+  })
+
+  it('gives a Coordinator everything but edit_project', () => {
+    const held = rolePermissions('coordinator')
+    expect(held).toContain('manage_tasks')
+    expect(held).not.toContain('edit_project')
+    expect(held).toEqual([
+      'manage_members',
+      'manage_structure',
+      'manage_tasks',
+      'edit_files',
+      'commit_main',
+    ])
+  })
+
+  it('gives a Member, QA and Stakeholder none', () => {
+    expect(rolePermissions('member')).toEqual([])
+    expect(rolePermissions('qa')).toEqual([])
+    expect(rolePermissions('stakeholder')).toEqual([])
+  })
+})
+
+describe('canAs', () => {
+  it('lets a Member do what they were granted and nothing else', () => {
+    expect(canAs('member', ['edit_files'], 'edit_files')).toBe(true)
+    expect(canAs('member', [], 'manage_tasks')).toBe(false)
+  })
+
+  it('refuses somebody with no role', () => {
+    expect(canAs(null, ['edit_files'], 'edit_files')).toBe(false)
+  })
+
+  it('lets a Coordinator manage tasks but not edit the project', () => {
+    expect(canAs('coordinator', [], 'manage_tasks')).toBe(true)
+    expect(canAs('coordinator', [], 'edit_project')).toBe(false)
+  })
+
+  it('lets the project manager do everything', () => {
+    for (const p of PERMISSIONS) expect(canAs('pm', [], p.value)).toBe(true)
+  })
+})
+
+describe('assignableRoles', () => {
+  it('lets the project manager switch anyone else between Coordinator and Member', () => {
+    expect(assignableRoles('pm', 'member')).toEqual(['coordinator', 'member'])
+    expect(assignableRoles('pm', 'coordinator')).toEqual(['coordinator', 'member'])
+  })
+
+  it('gives nobody a role change for the project manager', () => {
+    expect(assignableRoles('pm', 'pm')).toEqual([])
+    expect(assignableRoles('coordinator', 'pm')).toEqual([])
+  })
+
+  it('lets a Coordinator only keep a Member a Member', () => {
+    expect(assignableRoles('coordinator', 'member')).toEqual(['member'])
+    expect(assignableRoles('coordinator', 'coordinator')).toEqual([])
+  })
+
+  it('gives Members, QA and Stakeholders nothing', () => {
+    expect(assignableRoles('member', 'member')).toEqual([])
+    expect(assignableRoles('qa', 'member')).toEqual([])
+    expect(assignableRoles('stakeholder', 'member')).toEqual([])
+  })
+})
+
+describe('role labels', () => {
+  it('names every role, and gives a plain Member no badge', () => {
+    expect(ROLE_LABEL).toEqual({
+      pm: 'Project manager',
+      coordinator: 'Coordinator',
+      member: 'Member',
+      qa: 'QA',
+      stakeholder: 'Stakeholder',
+    })
+    expect(ROLE_BADGE.member).toBeNull()
+    expect(ROLE_BADGE.pm).toBe('PM')
+  })
+})
+
+describe('ROLE_MATRIX', () => {
+  it('lets only the project manager hand over', () => {
+    const row = ROLE_MATRIX.find((r) => r.action.includes('Hand over'))
+    expect(row?.roles).toEqual({ pm: 'yes' })
+  })
+
+  it('agrees with rolePermissions on what a Coordinator may not do', () => {
+    const edit = ROLE_MATRIX.find((r) => r.action.startsWith('Edit project details'))
+    expect(edit?.roles.coordinator).toBeUndefined()
+    expect(canAs('coordinator', [], 'edit_project')).toBe(false)
+  })
+
+  it('shows Stakeholders reading and posting in Feedback', () => {
+    const see = ROLE_MATRIX[0]
+    expect(see.roles.stakeholder).toBe('read')
+    expect(ROLE_MATRIX.find((r) => r.action === 'Post in Feedback')?.roles.stakeholder).toBe('yes')
   })
 })

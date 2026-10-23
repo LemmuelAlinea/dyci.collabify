@@ -34,7 +34,7 @@ export function RequestAccessButton({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  if (!state.project || state.archived || state.me?.level !== 'member') return null
+  if (!state.project || state.archived || state.myRole !== 'member') return null
   // A class board's leader, or anyone there while the group has no leader, already can.
   if (state.can(permission)) return null
   if (state.myOpenRequests.includes(permission)) {
@@ -45,7 +45,7 @@ export function RequestAccessButton({
       </span>
     )
   }
-  if (!requestable(state.me.level, state.myGrants, state.myOpenRequests).includes(permission)) return null
+  if (!requestable(state.myRole, state.myGrants, state.myOpenRequests).includes(permission)) return null
 
   async function send() {
     if (!state.project) return

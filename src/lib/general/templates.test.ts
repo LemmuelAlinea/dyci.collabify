@@ -14,7 +14,7 @@ describe('templatePayload', () => {
   it('keeps structure, drops archived tasks, names teams, orders by date', () => {
     const p = templatePayload({
       fields: [{ id: 'f', project_id: 'p', name: 'Venue', type: 'short_text', options: [], sort: 0, created_at: '' }],
-      teams: [{ id: 'tm', project_id: 'p', name: 'Logistics', created_at: '' }],
+      teams: [{ id: 'tm', project_id: 'p', name: 'Logistics', created_at: '', leader_id: null }],
       positions: [{ id: 'ps', project_id: 'p', team_id: 'tm', name: 'Head', sort: 0, created_at: '' }],
       tasks: [
         task({ id: 'b', title: 'Later', due_at: '2026-03-01T00:00:00Z', team_id: 'tm' }),
