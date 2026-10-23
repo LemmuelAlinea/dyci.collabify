@@ -4,6 +4,7 @@ import { Alert } from '../ui/Alert'
 import { Avatar } from '../app/Avatar'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
+import { Select } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { FilterSearch } from '../ui/FilterPopover'
 import { useLive } from '../../hooks/useLive'
@@ -15,6 +16,8 @@ import {
   withdrawInvitation,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
+import { ROLE_LABEL } from '../../lib/general/permissions'
+import type { ProjectRole } from '../../lib/general/permissions'
 import type { PersonHit, ProjectInvitation } from '../../lib/general/types'
 import { fullName } from '../../lib/types'
 import { RequestAccessButton } from './RequestAccessButton'
@@ -55,6 +58,10 @@ function Search({ state }: { state: GeneralProjectState }) {
   const [hits, setHits] = useState<PersonHit[]>([])
   const [searching, setSearching] = useState(false)
   const [inviting, setInviting] = useState<string | null>(null)
+  // Only the project manager has a choice to make: a Coordinator invites Members.
+  const [picked, setPicked] = useState<PersonHit | null>(null)
+  const [role, setRole] = useState<ProjectRole>('member')
+  const canChooseRole = state.myRole === 'pm'
 
   useEffect(() => {
     const q = query.trim()
@@ -74,13 +81,15 @@ function Search({ state }: { state: GeneralProjectState }) {
 
   const memberIds = new Set(state.members.map((m) => m.user_id))
 
-  async function invite(hit: PersonHit) {
+  async function invite(hit: PersonHit, as: ProjectRole) {
     if (!state.project) return
     setInviting(hit.person_id)
     try {
-      await inviteToProject(state.project.id, hit.person_id)
+      await inviteToProject(state.project.id, hit.person_id, as)
       show(`Invited ${hit.first_name} ${hit.last_name}`)
       setQuery('')
+      setPicked(null)
+      setRole('member')
       await state.reload()
     } catch (err) {
       show(authErrorMessage(err, 'Could not send that invitation.'), 'error')
@@ -115,7 +124,12 @@ function Search({ state }: { state: GeneralProjectState }) {
                 {onIt ? (
                   <span className="text-[12px] text-faint">On the project</span>
                 ) : (
-                  <Button size="sm" loading={inviting === hit.person_id} onClick={() => void invite(hit)}>
+                  <Button
+                    size="sm"
+                    variant={picked?.person_id === hit.person_id ? 'outline' : 'primary'}
+                    loading={inviting === hit.person_id}
+                    onClick={() => (canChooseRole ? setPicked(hit) : void invite(hit, 'member'))}
+                  >
                     Invite
                   </Button>
                 )}
@@ -123,6 +137,28 @@ function Search({ state }: { state: GeneralProjectState }) {
             )
           })}
         </ul>
+      )}
+      {picked && canChooseRole && hits.some((h) => h.person_id === picked.person_id) && (
+        <div className="flex flex-wrap items-end gap-2 rounded-xl border border-line surface-sunken p-3">
+          <div className="min-w-[10rem] flex-1">
+            <label htmlFor="invite-role" className="block text-[12px] font-medium text-muted">
+              Invite {picked.first_name} as
+            </label>
+            <Select
+              id="invite-role"
+              value={role}
+              onChange={(e) => setRole(e.target.value as ProjectRole)}
+              options={(['member', 'coordinator'] as const).map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+              className="mt-1 !h-9 !text-[13px]"
+            />
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => setPicked(null)} disabled={inviting !== null}>
+            Cancel
+          </Button>
+          <Button size="sm" loading={inviting === picked.person_id} onClick={() => void invite(picked, role)}>
+            Send invitation
+          </Button>
+        </div>
       )}
       {!searching && query.trim().length >= 3 && hits.length === 0 && (
         <p className="text-[12px] text-faint">Nobody matches. They may need to create an account first.</p>

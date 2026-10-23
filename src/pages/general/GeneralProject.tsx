@@ -26,7 +26,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
 import { generalTab } from '../../lib/general/navigation'
 import type { GeneralTabId } from '../../lib/general/navigation'
-import { levelLabel } from '../../lib/general/permissions'
+import { ROLE_LABEL } from '../../lib/general/permissions'
 import { projectStatusLabel } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
 
@@ -132,7 +132,7 @@ export default function GeneralProject() {
       <DirectoryHero
         title={p.name}
         accent={p.archived_at ? 'archived.' : 'project.'}
-        description={`${projectStatusLabel(p.status)} · You are ${levelLabel(p.my_level)} · ${dateRange(p.starts_on, p.ends_on)} · ${p.member_count} ${p.member_count === 1 ? 'member' : 'members'} · ${Number(p.progress_pct)}% done`}
+        description={`${projectStatusLabel(p.status)} · Your role: ${p.my_role ? ROLE_LABEL[p.my_role] : 'watching from the space'} · ${dateRange(p.starts_on, p.ends_on)} · ${p.member_count} ${p.member_count === 1 ? 'member' : 'members'} · ${Number(p.progress_pct)}% done`}
         action={
           <div className="flex flex-wrap gap-1.5">
             <IconAction icon="history" label="Project archive" to={paths.projectArchive(p.id)} />

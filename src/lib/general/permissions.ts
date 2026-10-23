@@ -157,7 +157,9 @@ export function canAs(
   grants: readonly GeneralPermission[],
   p: GeneralPermission,
 ): boolean {
-  if (!role) return false
+  // The database's general_has() ignores QA and Stakeholder grants, so the
+  // UI must too, or it offers buttons the server refuses.
+  if (!role || role === 'qa' || role === 'stakeholder') return false
   return rolePermissions(role).includes(p) || grants.includes(p)
 }
 

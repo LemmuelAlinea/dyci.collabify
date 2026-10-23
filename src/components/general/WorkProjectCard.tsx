@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { dateRange } from '../../lib/general/dates'
-import { levelLabel } from '../../lib/general/permissions'
+import { ROLE_LABEL } from '../../lib/general/permissions'
 import { presetById } from '../../lib/general/presets'
 import { projectStatusLabel } from '../../lib/general/types'
 import type { GeneralProjectSummary, GeneralStatus } from '../../lib/general/types'
@@ -93,7 +93,7 @@ export function WorkProjectCard({
           <div className="min-w-0">
             <p className="text-[11px] text-faint">Your role</p>
             <p className="mt-0.5 truncate text-[13px] font-medium text-ink">
-              {p.my_level ? levelLabel(p.my_level) : 'Space member'}
+              {p.my_role ? ROLE_LABEL[p.my_role] : 'Space member'}
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1.5">

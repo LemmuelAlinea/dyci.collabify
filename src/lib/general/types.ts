@@ -152,7 +152,9 @@ export type GeneralMember = {
    * Owners whose account is not deactivated. Null when the profile row is not
    * readable, which is counted as live so nothing is refused that would work.
    */
-  profile: (Person & { status: AccountStatus; role: Role | null }) | null
+  profile:
+    | (Person & { status: AccountStatus; role: Role | null; can_manage_projects: boolean })
+    | null
 }
 
 export type GeneralTeam = {

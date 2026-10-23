@@ -12,7 +12,7 @@ import { supabase } from '../supabase'
 import { pathsNotRemoved, rowDeleteError } from '../general/storage'
 import type { PresetPayload } from '../general/presets'
 import type { FieldType, FieldValue } from '../general/fields'
-import type { GeneralLevel, GeneralPermission } from '../general/permissions'
+import type { GeneralPermission, ProjectRole } from '../general/permissions'
 import type { GeneralTaskStatus } from '../general/progress'
 import type {
   ArchivedDraftFile,
@@ -319,7 +319,7 @@ export async function joinGeneralProject(code: string) {
 export async function listGeneralMembers(projectId: string) {
   const { data, error } = await supabase
     .from('general_members')
-    .select(`project_id, user_id, level, role, joined_at, profile:profiles (${PERSON}, status, role)`)
+    .select(`project_id, user_id, level, role, joined_at, profile:profiles (${PERSON}, status, role, can_manage_projects)`)
     .eq('project_id', projectId)
     .order('joined_at')
   if (error) throw error
@@ -351,17 +351,37 @@ export async function listGeneralMembers(projectId: string) {
               avatar_url: hit.avatar_url,
               status: 'active' as const,
               role: hit.is_student ? ('student' as const) : null,
+              can_manage_projects: false,
             }
           })(),
         },
   )
 }
 
-export async function setMemberLevel(projectId: string, userId: string, level: GeneralLevel) {
-  const { error } = await supabase.rpc('set_general_member_level', {
+/** The project manager moves anyone between Coordinator and Member. Not to or from PM: that is a hand over. */
+export async function setMemberRole(projectId: string, userId: string, role: ProjectRole) {
+  const { error } = await supabase.rpc('set_general_member_role', {
     p_project: projectId,
     p_user: userId,
-    p_level: level,
+    p_role: role,
+  })
+  if (error) throw error
+}
+
+/** The project manager becomes a Coordinator and the other person takes over. */
+export async function handOverProject(projectId: string, toUserId: string) {
+  const { error } = await supabase.rpc('hand_over_general_project', {
+    p_project: projectId,
+    p_to: toUserId,
+  })
+  if (error) throw error
+}
+
+/** Gives a project that has no project manager a new one. Space owners and admins only. */
+export async function assignProjectPm(projectId: string, userId: string) {
+  const { error } = await supabase.rpc('assign_general_project_pm', {
+    p_project: projectId,
+    p_user: userId,
   })
   if (error) throw error
 }
@@ -450,10 +470,15 @@ export async function searchPeople(query: string) {
   return (data ?? []) as PersonHit[]
 }
 
-export async function inviteToProject(projectId: string, userId: string) {
+export async function inviteToProject(
+  projectId: string,
+  userId: string,
+  role: ProjectRole = 'member',
+) {
   const { error } = await supabase.rpc('invite_to_general_project', {
     p_project: projectId,
     p_user: userId,
+    p_role: role,
   })
   if (error) throw error
 }

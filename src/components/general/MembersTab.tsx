@@ -13,23 +13,32 @@ import {
   leaveProject,
   removeMember,
   revokePermission,
-  setMemberLevel,
+  setMemberRole,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { paths } from '../../lib/paths'
-import { LEVELS, PERMISSIONS, canStepDown, levelLabel, permissionLabel } from '../../lib/general/permissions'
-import type { GeneralLevel } from '../../lib/general/permissions'
+import {
+  PERMISSIONS,
+  ROLE_LABEL,
+  assignableRoles,
+  permissionLabel,
+} from '../../lib/general/permissions'
+import type { ProjectRole } from '../../lib/general/permissions'
 import type { GeneralMember } from '../../lib/general/types'
+import { HandOverDialog } from './HandOverDialog'
 import { InvitePanel } from './InvitePanel'
 import { RequestsPanel } from './RequestsPanel'
+import { RoleBadge } from './RoleBadge'
+import { RoleGuide } from './RoleGuide'
 import { StructurePanel } from './StructurePanel'
 import type { GeneralProjectState } from './useGeneralProject'
 
 export function MembersTab({ state }: { state: GeneralProjectState }) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start">
       <div className="space-y-6">
         <MemberList state={state} />
+        <RoleGuide />
         <StructurePanel state={state} />
       </div>
       <div className="space-y-6">
@@ -46,24 +55,40 @@ function MemberList({ state }: { state: GeneralProjectState }) {
   const [permissionsFor, setPermissionsFor] = useState<GeneralMember | null>(null)
   const [removing, setRemoving] = useState<GeneralMember | null>(null)
   const [leaving, setLeaving] = useState(false)
+  const [handingOver, setHandingOver] = useState(false)
   const project = state.project
   if (!project) return null
 
+  // Nobody removes the project manager, and a Coordinator leaves the other
+  // Coordinators to the project manager. The database refuses both as well.
   const canRemove = (m: GeneralMember) =>
     m.user_id !== state.viewerId &&
     state.can('manage_members') &&
-    (m.level === 'member' || state.isOwner)
+    m.role !== 'pm' &&
+    !(state.myRole === 'coordinator' && m.role === 'coordinator')
 
-  async function changeLevel(m: GeneralMember, level: GeneralLevel) {
+  /** The roles a row's select offers: its own, then the ones the viewer may move it to. */
+  function roleChoices(m: GeneralMember): ProjectRole[] {
+    if (!state.myRole || state.archived) return []
+    const moves = assignableRoles(state.myRole, m.role).filter(
+      // A student only ever holds Member.
+      (r) => m.profile?.role !== 'student' || r === 'member',
+    )
+    return moves.some((r) => r !== m.role) ? [m.role, ...moves.filter((r) => r !== m.role)] : []
+  }
+
+  async function changeRole(m: GeneralMember, role: ProjectRole) {
     if (!project) return
     try {
-      await setMemberLevel(project.id, m.user_id, level)
-      show(`${state.nameOf(m.user_id)} is now ${levelLabel(level)}`)
+      await setMemberRole(project.id, m.user_id, role)
+      show(`${state.nameOf(m.user_id)} is now ${ROLE_LABEL[role].toLowerCase()}`)
       await state.reload()
     } catch (err) {
-      show(authErrorMessage(err, 'Could not change that access level.'), 'error')
+      show(authErrorMessage(err, 'Could not change that role.'), 'error')
     }
   }
+
+  const leads = new Set(state.teams.flatMap((t) => (t.leader_id ? [t.leader_id] : [])))
 
   const positionsOf = (userId: string) =>
     state.holders
@@ -79,7 +104,8 @@ function MemberList({ state }: { state: GeneralProjectState }) {
         <div>
           <h2>Members</h2>
           <p className="mt-0.5 text-[12px] text-muted">
-            Owners and Managers can do everything. Members do what they were given.
+            The project manager runs the project. Coordinators handle members, tasks, files and
+            meetings. Members do the work, plus anything the project manager grants them.
           </p>
         </div>
         <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted ring-1 ring-[var(--line)]">
@@ -91,6 +117,8 @@ function MemberList({ state }: { state: GeneralProjectState }) {
         {state.members.map((m) => {
           const grants = state.grants.filter((g) => g.user_id === m.user_id).map((g) => g.permission)
           const positions = positionsOf(m.user_id)
+          const choices = roleChoices(m)
+          const lead = leads.has(m.user_id)
           return (
             <li key={m.user_id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 sm:px-5">
               {m.profile && <Avatar profile={m.profile} size={36} />}
@@ -106,24 +134,21 @@ function MemberList({ state }: { state: GeneralProjectState }) {
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-                {state.isOwner && !state.archived ? (
-                  <Select
-                    aria-label={`Access level for ${state.nameOf(m.user_id)}`}
-                    value={m.level}
-                    onChange={(e) => void changeLevel(m, e.target.value as GeneralLevel)}
-                    options={LEVELS.filter(
-                      (l) =>
-                        (l.value === m.level || canStepDown(m.level, state.ownerCount)) &&
-                        (m.profile?.role !== 'student' || l.value === 'member'),
-                    ).map((l) => ({ value: l.value, label: l.label }))}
-                    className="!h-9 !w-[8.5rem] !text-[13px]"
-                  />
+                {choices.length > 0 ? (
+                  <>
+                    <RoleBadge role="member" lead={lead} />
+                    <Select
+                      aria-label={`Role for ${state.nameOf(m.user_id)}`}
+                      value={m.role}
+                      onChange={(e) => void changeRole(m, e.target.value as ProjectRole)}
+                      options={choices.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+                      className="!h-9 !w-[9.5rem] !text-[13px]"
+                    />
+                  </>
                 ) : (
-                  <span className="rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
-                    {levelLabel(m.level)}
-                  </span>
+                  <RoleBadge role={m.role} lead={lead} />
                 )}
-                {state.isOwner && !state.archived && m.level === 'member' && (
+                {state.isOwner && !state.archived && m.role === 'member' && (
                   <Button size="sm" variant="ghost" onClick={() => setPermissionsFor(m)}>
                     Permissions
                   </Button>
@@ -146,20 +171,29 @@ function MemberList({ state }: { state: GeneralProjectState }) {
 
       {me && (
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 sm:px-5">
-          {canStepDown(me.level, state.ownerCount) ? (
+          {me.role === 'pm' ? (
+            <>
+              <p className="text-[12px] text-faint">
+                You are the project manager. Hand the project over before you leave.
+              </p>
+              {!state.archived && (
+                <Button size="sm" variant="outline" onClick={() => setHandingOver(true)}>
+                  Hand over project
+                </Button>
+              )}
+            </>
+          ) : (
             <>
               <p className="text-[12px] text-faint">Leaving removes your tasks' assignments and your positions.</p>
               <Button size="sm" variant="ghost" onClick={() => setLeaving(true)}>
                 Leave project
               </Button>
             </>
-          ) : (
-            <p className="text-[12px] text-faint">
-              You are the only Owner. Make someone else an Owner before you leave.
-            </p>
           )}
         </footer>
       )}
+
+      <HandOverDialog open={handingOver} onClose={() => setHandingOver(false)} state={state} />
 
       <PermissionsDialog member={permissionsFor} state={state} onClose={() => setPermissionsFor(null)} />
 
@@ -227,7 +261,7 @@ function PermissionsDialog({
       open={Boolean(member)}
       onClose={onClose}
       title={member ? `What ${state.nameOf(member.user_id)} can also do` : 'Permissions'}
-      description="On top of what every Member can do. To give everything, make them a Manager instead."
+      description="On top of what every Member can do. To give them all of it, make them a Coordinator instead."
       footer={<Button onClick={onClose}>Done</Button>}
     >
       <ul className="space-y-2">

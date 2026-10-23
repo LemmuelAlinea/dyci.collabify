@@ -45,6 +45,15 @@ const LEVEL_ROLE: Record<GeneralLevel, ProjectRole> = {
   member: 'member',
 }
 
+/**
+ * A class board's Files project keeps the old model: every row is a member by
+ * role while its level is Owner or Manager. On a work project level follows
+ * role, so a row like that cannot exist there.
+ */
+function effectiveRole(m: Pick<GeneralMember, 'role' | 'level'>): ProjectRole {
+  return m.role === 'member' && m.level !== 'member' ? LEVEL_ROLE[m.level] : m.role
+}
+
 export type GeneralProjectState = {
   project: GeneralProjectSummary | null
   members: GeneralMember[]
@@ -209,11 +218,8 @@ export function useGeneralProject(
       .filter((r) => r.user_id === viewerId && r.status === 'open')
       .map((r) => r.permission)
     const archived = Boolean(project?.archived_at)
-    // A class board keeps the old model: every row is a member by role while
-    // its level is Owner or Manager. On a work project level follows role, so
-    // this cannot happen there.
     const legacy = Boolean(me && me.role === 'member' && me.level !== 'member')
-    const myRole: ProjectRole | null = me ? (legacy ? LEVEL_ROLE[me.level] : me.role) : null
+    const myRole: ProjectRole | null = me ? effectiveRole(me) : null
     const myTeams = new Set(teams.filter((t) => t.leader_id === viewerId).map((t) => t.id))
     const led = new Set(
       myTeams.size > 0 && myRole !== 'stakeholder'
@@ -247,9 +253,9 @@ export function useGeneralProject(
       myOpenRequests,
       archived,
       myRole,
-      isOwner: me?.level === 'owner',
+      isOwner: myRole === 'pm',
       ownerCount: members.filter(
-        (m) => m.level === 'owner' && m.profile?.status !== 'rejected',
+        (m) => effectiveRole(m) === 'pm' && m.profile?.status !== 'rejected',
       ).length,
       can: (permission: GeneralPermission) =>
         permission === 'commit_main'

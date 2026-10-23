@@ -144,6 +144,12 @@ describe('canAs', () => {
   it('lets the project manager do everything', () => {
     for (const p of PERMISSIONS) expect(canAs('pm', [], p.value)).toBe(true)
   })
+
+  it('holds nothing for QA and Stakeholder, grants or not', () => {
+    // general_has() in the database ignores their grants, so the UI must too.
+    for (const role of ['qa', 'stakeholder'] as const)
+      for (const p of PERMISSIONS) expect(canAs(role, [p.value], p.value)).toBe(false)
+  })
 })
 
 describe('assignableRoles', () => {
