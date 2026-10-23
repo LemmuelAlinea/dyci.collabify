@@ -3705,3 +3705,65 @@ Both start with "zz test".
 - Some SQL suites are coupled to live data (series, storage-sweep, teaching-guards, safety, audit, admin-program); `presets.test.sql` FAILs are notice-only.
 
 **Next.** Phase 2, project roles, per `docs/superpowers/specs/2026-10-23-company-roles-design.md`.
+
+
+## Company roles, phase 2: project roles (2026-10-24)
+
+- **Spec:** `docs/superpowers/specs/2026-10-23-company-roles-design.md` (Work spaces, Project roles, Seeing roles). **Plan:** `docs/superpowers/plans/2026-10-23-company-roles-phase-2-project-roles.md`. Phase 2 is complete and live (commits `7b82ebf` to `5463df7`); phase 3 (stakeholders) is next.
+
+**What.** A work project gives each person one role instead of a level, and spaces are entered through projects.
+
+- **Roles.** `pm` (exactly one; Owner before), `coordinator` (Manager before), `member`, plus `qa` and `stakeholder`, which are stored but refused until phases 3 and 4. `general_members.role` is the source of truth; `level` follows it by trigger, so older checks still work. The migration made each project's creator its pm (5 rows) and changes nothing on a re-run. Class boards' hidden Files projects keep levels.
+- **Who sets what.** The pm sets any role and hands over (the old pm becomes a coordinator). Coordinators add and remove people and switch them among the member roles, never touching a coordinator or the pm. Coordinators also give grants and answer access requests, for every permission they hold (all but Edit project details); grants go to members only.
+- **No project manager.** If the pm is deactivated or loses Project manager, the project keeps working. Its coordinators and space owners see a notice on Overview, and a space owner (or the admin, from **Work projects**) assigns a new pm from people with Project manager on.
+- **Visibility.** A space member sees only the projects they are on; space owners see every project, read-only. Joining a project adds you to its space. Space join codes are retired, and the only space invite is **Add a co-owner** (Project manager on).
+- **Team leaders.** A project team can have a leader, who may edit, assign and reorder tasks held by people on their team. Tasks and Backlog have a team filter (filed under or held by the team).
+- **Seeing roles.** PM, Coordinator, Lead, QA and Stakeholder badges in Members, task holders, comments, the discussion and project chat. A "Who can do what" table on the Members tab. Role changes, hand overs and leader changes show in the report's activity log.
+- **`set_general_member_level` is dropped.** Tests use `set_general_member_role`.
+
+**Code.**
+
+| File | What it does |
+|---|---|
+| `supabase/project-roles.sql` | Role enum and columns, level sync, migration, one-PM index, role-aware `general_has` and `general_can_grant`, role RPCs (`set_general_member_role`, `hand_over_general_project`, `assign_general_project_pm`), invitations with a role, grants for members only, `search_project_managers`, the admin-only `admin_work_projects` view, the role activity log and notifications, and `general_project_overview` with `my_role` / `has_pm`. Test: `supabase/tests/project-roles.test.sql`. |
+| `supabase/project-visibility.sql` | Narrowed `can_read_general_project`, joining a project adds you to its space, co-owner-only space invites, retired space codes. Test: `project-visibility.test.sql`. |
+| `supabase/project-team-leads.sql` | `general_teams.leader_id`, `set_general_team_leader`, the leader guards and the lead branches in the task rules; `team_leader` events carry `team_name`. Test: `project-team-leads.test.sql`. |
+| `supabase/general-reports.sql` | The events kinds check lists the three new kinds. |
+| `lib/general/permissions.ts`, `lib/general/roleLookup.ts` | `ProjectRole`, `ROLE_LABEL`, `rolePermissions`, `canAs`, `canGive`, `assignableRoles`, `canRemoveRole`, `ROLE_MATRIX`; `effectiveRole` and `roleLookup` for badges. |
+| `components/general/useGeneralProject.ts` | `myRole`, role-based `can`, `canGrant`, `leadsUser`, `roleOf`, `isLead`. |
+| `components/general/MembersTab.tsx`, `InvitePanel.tsx`, `HandOverDialog.tsx`, `RoleGuide.tsx`, `RoleBadge.tsx`, `RequestsPanel.tsx` | The Members tab on roles: role select, invite with a role, hand over, Who can do what, badges, Permissions and requests for the pm or a coordinator. |
+| `components/general/StructurePanel.tsx`, `components/work/*`, `components/messages/useProjectRoles.ts` | Leader picker, team filter, badges in tasks and chat. |
+| `components/general/NoPmNotice.tsx` | The no-PM notice and `AssignPmDialog`, shared with the admin page. |
+| `pages/app/admin/WorkProjects.tsx` | `/admin/projects` ("Work projects" in the admin rail, after Accounts): every work project with its pm or a **No project manager** chip, and Assign. |
+| `pages/general/SpaceMembers.tsx`, `SpacePicker.tsx`, `components/general/SpaceDialogs.tsx`, `InviteToSpaceDialog.tsx` | New space copy, no join-code section, no Join a space, Add a co-owner. |
+| `lib/general/history.ts` | Activity lines: "Ana is now a coordinator", "Ben handed the project to Ana", "Ana now leads Design" / "Design has no leader". Old `member_level` rows still read. |
+
+**Checked.**
+- Vitest 1090 pass; `npm run build` and `eslint src` clean (one old warning in `RoleBadge.tsx`). Every `supabase/tests/*.test.sql` passes on the live database (project-roles 160 checks, project-visibility 82, project-team-leads 57), except the 2 known live-data NOTICE fails in `class-files.test.sql`. `scripts/schema-drift.mjs` shows no new suspects.
+- The SQL files were applied live in rebuild order (`project-roles.sql`, `project-visibility.sql`, `project-team-leads.sql`, `anon-lockdown.sql`).
+- The new screens (Work projects, the no-PM notice, the coordinator's requests panel, a space's Members page) were checked in a temporary mocked harness at desktop and 375 px, with no sideways scroll. The harness is deleted. Nothing was checked live: the browser pane is signed in as a member with no projects.
+
+**Still to check by you.**
+1. As Cloud, on a work project's Members tab: change a role with the select, invite someone as Coordinator and as Member, open Hand over project (cancel it), open Who can do what, and open Permissions on a member.
+2. Badges beside names in a task's holders and comments, the discussion, and project chat.
+3. In Structure, pick and clear a team leader; on Tasks and Backlog, use the Team filter.
+4. The no-PM notice. It needs a project whose pm is deactivated or has Project manager off. As its space owner, use Assign a project manager.
+5. As the admin, open `/admin/projects` (Work projects in the rail) and check the list and the Assign picker.
+6. As Cloud, on a work space's Members page: the new copy, no join-code section, and Add a co-owner listing only people with Project manager on.
+
+**Deferred** (from the ledger):
+- A comment in `project-roles.sql` overstated "role wins" for a same-role, different-level update (fixed in this task).
+- `general_role_of` checks `status = 'active'` while `is_general_member` checks `<> 'rejected'` (no pending accounts live).
+- `project-roles.test.sql` repeats the migration statements word for word.
+- The old MembersTab offered Owner and errored until the role select replaced it (resolved by Task 6).
+- `list_general_space_teams.project_count` counts projects the caller is not on (count only).
+- Space teams visibility and space member removal still use owner-or-manager (0 work-space Managers live).
+- A lead can take an unheld task tagged to another team by assigning their own member (the same as that member claiming it).
+- `manage_structure` through a member grant also lets that member pick leaders (1 grant live).
+- Leads cannot add a second holder to a task that is already held (claim lock).
+- `ROLE_MATRIX` has no distinct mark for "bug tasks only" or "gives vs can get"; the action text carries it.
+- `canRemove` in MembersTab has no component test (vitest runs in node).
+- The leader UI's class-board guard fails open if its `general_projects` read errors; checked rows hidden by the team filter come back checked when it is cleared.
+- New in this task: request counts on cards and dashboards (`WorkProjectCard`, `WorkOverview`, `SpaceHome`, `dashboard.ts`) still show only for `my_level = 'owner'`, so a coordinator sees requests on the Members tab but not on cards. `request_general_access` still checks level, not role, so QA or a stakeholder could ask (both roles are refused today). A few grant and request errors on work projects still say "Owner".
+
+**Next.** Phase 3, stakeholders: read-only enforcement, the Feedback tab and its notifications, the slim sidebar and the stakeholder Home, per the spec's Rollout.

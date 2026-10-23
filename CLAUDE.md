@@ -5,8 +5,9 @@ Project management for BSIT programs in the Philippines. Roles: `student`, `memb
 creating work spaces is the `can_manage_projects` switch (members and admins). Admins have
 it off by default: they create work spaces only once an admin turns it on for them. Every
 planned phase has shipped and is live at dyci-collabify.vercel.app from `main`, and company
-roles phase 1 (members and the two switches) is live. Phase 2, project roles, is next
-(`docs/superpowers/specs/2026-10-23-company-roles-design.md`). Other open work is the
+roles phases 1 (members and the two switches) and 2 (project roles) are live. Phase 3,
+stakeholders, is next (`docs/superpowers/specs/2026-10-23-company-roles-design.md`, then
+phase 4, QA). Other open work is the
 **Deferred** notes in `handoff.md` plus whatever the user asks for next. Read the end of
 `handoff.md` for the latest state.
 
@@ -67,6 +68,24 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
 - `supabase/schema.sql` must stay idempotent — it gets re-run.
 - Copy style: sentence case, active voice, no exclamation marks, no "please", no
   "successfully". Errors say what happened and what to do next.
+
+## Project roles (work projects)
+
+- A work project (`general_projects.class_board_id is null`) gives each person one
+  `general_members.role`: `pm` (exactly one), `coordinator`, `member`, `qa`,
+  `stakeholder`. `role` is the source of truth; `level` is derived from it by the
+  `sync_general_member_level` trigger (pm → owner, coordinator → manager, else member)
+  so older checks keep working. Write `role`, never `level`, on a work project. A class
+  board's hidden Files project keeps the old level model.
+- On the frontend, read `myRole`, `can`, `canGrant` from `useGeneralProject` and the
+  helpers in `lib/general/permissions.ts` (`rolePermissions`, `canAs`, `canGive`), which
+  mirror `general_has` and `general_can_grant` in SQL.
+- The phase-2 SQL lives in four files that build on each other: `general-reports.sql`
+  (event kinds), then `project-roles.sql`, `project-visibility.sql` and
+  `project-team-leads.sql`, in that order. Re-running one of the last three means
+  re-running the ones after it too, then `anon-lockdown.sql`. Always start a
+  redefinition from the live `pg_get_functiondef`; `docs/07-backup.md` lists what each
+  owns.
 
 ## Security invariants
 

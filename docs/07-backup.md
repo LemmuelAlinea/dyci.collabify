@@ -243,18 +243,24 @@ trigger that keeps `level` in step with `role` on work projects, the one-PM inde
 `general_has`, `guard_student_level`, `join_general_project` and the
 `general_members_student_level` trigger. It adds the role RPCs
 (`set_general_member_role`, `hand_over_general_project`, `assign_general_project_pm`)
-and is also the final owner of `set_general_member_level`, `invite_to_general_project`
+and is also the final owner of `invite_to_general_project`
 (now with a role; it drops the two-argument copy), `respond_general_invitation`,
 `remove_general_member`, `leave_general_project`, `log_general_member_change`, the
 `general_project_events` kinds check, `notify_general_membership` and the
-`general_members_notify_level` trigger. It also owns `general_project_overview` (with
+`general_members_notify_level` trigger. It owns the grant rules too:
+`general_can_grant` (a coordinator gives every permission it holds),
+`grant_general_permission` and `answer_general_access_request` (grants go to members
+only). It drops `general.sql`'s `set_general_member_level`, and adds
+`search_project_managers` (the PM and co-owner pickers) and the admin-only
+`admin_work_projects` view over `admin_work_project_rows()`. It also owns
+`general_project_overview` (with
 `my_role` and `has_pm` at the end) and `list_general_project_members` (with `role`), so
 re-run it after `general-project-space.sql` or `one-workplace.sql`. Re-run `project-roles.sql` (then
 `anon-lockdown.sql`) after re-running any of `access.sql`, `company-accounts.sql`,
 `general.sql`, `general-reports.sql`, `notification-coverage.sql` or `class-files.sql`:
-`general.sql` puts back a `general_has` that hands a coordinator `edit_project`, the
-level-only member RPCs and a second, two-argument `invite_to_general_project` that makes
-old calls ambiguous; `access.sql` puts back a student trigger that ignores a change of
+`general.sql` puts back a `general_has` that hands a coordinator `edit_project`, an
+owner-only `general_can_grant`, the level-only `set_general_member_level` and a second,
+two-argument `invite_to_general_project` that makes old calls ambiguous; `access.sql` puts back a student trigger that ignores a change of
 role; `company-accounts.sql` and `access.sql` put back a `guard_student_level` that
 refuses student coordinators and a `join_general_project` that refuses students;
 `general-reports.sql`, `notification-coverage.sql` and `class-files.sql` put back a log,
@@ -265,7 +271,7 @@ only touches rows whose role does not match their level, so re-running it change
 `general_teams.leader_id`, `general_leads_user`, `set_general_team_leader`, the
 leader triggers (`general_teams_leader_guard`, `general_teams_leader_event`,
 `general_team_members_leader_clear`, `general_members_leader_clear`) and the
-`team_leader` event kind, and `general_archived_message` (an archived work project's
+`team_leader` event kind (its detail carries `team_name` for the activity log), and `general_archived_message` (an archived work project's
 guards name the project manager; a class board's still name an Owner). It is the final
 owner of `guard_general_task`, `sync_general_task_stage`, `guard_general_task_plan`,
 `guard_general_structure`, the `general_task_assignees_insert` and
