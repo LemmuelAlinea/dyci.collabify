@@ -9,9 +9,11 @@ import { Input } from '../ui/Field'
 import { Select } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { SprintDialog } from './SprintDialog'
+import { useTeamFilter } from './useTeamFilter'
 import { authErrorMessage } from '../../lib/authError'
 import { dateRange, formatDue, isOverdue } from '../../lib/general/dates'
 import { backlogItems, rankForMove, sprintItems } from '../../lib/work/backlog'
+import { filterByTeam, teamMemberIds } from '../../lib/work/teamFilter'
 import { nextSprintDraft, plannedSprints, runningSprint } from '../../lib/work/sprints'
 import type { Sprint, WorkItem, WorkSource } from '../../lib/work/types'
 
@@ -33,9 +35,13 @@ export function BacklogView({ source }: { source: WorkSource }) {
   const [title, setTitle] = useState('')
   const [adding, setAdding] = useState(false)
 
+  const [team, setTeam] = useTeamFilter(source.teams?.projectId, source.teams?.viewerId, source.teams?.teams ?? [])
+  const teamIds = source.teams ? teamMemberIds(source.teams.members, team) : null
+  const visible = filterByTeam(source.items, teamIds, (i) => i.holderIds)
+
   const running = runningSprint(source.sprints)
   const planned = plannedSprints(source.sprints)
-  const backlog = backlogItems(source.items)
+  const backlog = backlogItems(visible)
   const targets = [
     { value: BACKLOG, label: 'Backlog' },
     ...(running ? [{ value: running.id, label: `${running.name} (running)` }] : []),
@@ -89,6 +95,8 @@ export function BacklogView({ source }: { source: WorkSource }) {
             key={item.id}
             item={item}
             canPlan={source.canPlan}
+            // A move lands between the neighbours the row can see, so it is off while the list is cut down.
+            canStep={!teamIds}
             checked={checked.has(item.id)}
             onCheck={() => toggle(item.id)}
             onOpen={() => source.openTask(item.id)}
@@ -108,6 +116,29 @@ export function BacklogView({ source }: { source: WorkSource }) {
   return (
     <div className="space-y-6">
       {source.readOnlyReason && <Alert tone="info">{source.readOnlyReason}</Alert>}
+
+      {source.teams && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <label htmlFor="backlog-team" className="text-[13px] font-medium text-muted">
+            Team
+          </label>
+          <div className="w-full max-w-[14rem]">
+            <Select
+              id="backlog-team"
+              value={team}
+              onChange={(e) => setTeam(e.target.value)}
+              placeholder="All teams"
+              options={source.teams.teams.map((t) => ({ value: t.id, label: t.name }))}
+              className="!h-10 !text-[13px]"
+            />
+          </div>
+          {teamIds && (
+            <p className="text-[12px] text-faint">
+              Showing tasks held by this team. Reordering is off until you pick All teams.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -133,7 +164,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
         </p>
       ) : (
         planned.map((s) => {
-          const items = sprintItems(source.items, s.id)
+          const items = sprintItems(visible, s.id)
           return (
             <section key={s.id} className="card overflow-hidden shadow-card">
               <header className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-4 py-3">
@@ -272,6 +303,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
 function ItemRow({
   item,
   canPlan,
+  canStep,
   checked,
   onCheck,
   onOpen,
@@ -283,6 +315,7 @@ function ItemRow({
 }: {
   item: WorkItem
   canPlan: boolean
+  canStep: boolean
   checked: boolean
   onCheck: () => void
   onOpen: () => void
@@ -327,12 +360,16 @@ function ItemRow({
       </div>
       {canPlan && (
         <div className="flex items-center gap-1">
-          <button type="button" className={step} onClick={() => onStep(-1)} disabled={first} aria-label={`Move ${item.title} up`}>
-            <Icon name="chevronDown" size={15} className="rotate-180" />
-          </button>
-          <button type="button" className={step} onClick={() => onStep(1)} disabled={last} aria-label={`Move ${item.title} down`}>
-            <Icon name="chevronDown" size={15} />
-          </button>
+          {canStep && (
+            <>
+              <button type="button" className={step} onClick={() => onStep(-1)} disabled={first} aria-label={`Move ${item.title} up`}>
+                <Icon name="chevronDown" size={15} className="rotate-180" />
+              </button>
+              <button type="button" className={step} onClick={() => onStep(1)} disabled={last} aria-label={`Move ${item.title} down`}>
+                <Icon name="chevronDown" size={15} />
+              </button>
+            </>
+          )}
           <Select
             value={item.sprint_id ?? BACKLOG}
             onChange={(e) => onMove(e.target.value)}

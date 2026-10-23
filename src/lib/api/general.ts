@@ -585,8 +585,20 @@ export async function listTeams(projectId: string) {
   return (data ?? []) as GeneralTeam[]
 }
 
+/** Answers the new team's id, so people and a leader can be put on it. */
 export async function createTeam(projectId: string, name: string) {
-  const { error } = await supabase.from('general_teams').insert({ project_id: projectId, name: name.trim() })
+  const { data, error } = await supabase
+    .from('general_teams')
+    .insert({ project_id: projectId, name: name.trim() })
+    .select('id')
+    .single()
+  if (error) throw error
+  return (data as { id: string }).id
+}
+
+/** Picks a work project team's leader, who must already be on it; null clears it. */
+export async function setTeamLeader(teamId: string, userId: string | null) {
+  const { error } = await supabase.rpc('set_general_team_leader', { p_team: teamId, p_user: userId })
   if (error) throw error
 }
 

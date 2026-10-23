@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Avatar } from '../app/Avatar'
 import { ActionMenu } from '../ui/ActionMenu'
 import { Button } from '../ui/Button'
@@ -104,6 +105,8 @@ type Props = {
   canModerate: boolean
   showSender: boolean
   viewerId: string
+  /** A role badge to wear beside the sender's name (project chat). */
+  badge?: ReactNode
   onPollChanged: () => Promise<void> | void
   onEdit: (id: string, body: string) => Promise<void>
   onDeleteForMe: (id: string) => void
@@ -117,6 +120,7 @@ export function MessageBubble({
   canModerate,
   showSender,
   viewerId,
+  badge,
   onPollChanged,
   onEdit,
   onDeleteForMe,
@@ -163,8 +167,9 @@ export function MessageBubble({
 
       <div className={`flex min-w-0 max-w-[min(78%,520px)] flex-col ${mine ? 'items-end' : 'items-start'}`}>
         {showSender && !mine && message.sender && (
-          <p className="mb-1 px-1 text-[12px] font-medium text-muted">
+          <p className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[12px] font-medium text-muted">
             {message.sender.first_name} {message.sender.last_name}
+            {badge}
           </p>
         )}
 

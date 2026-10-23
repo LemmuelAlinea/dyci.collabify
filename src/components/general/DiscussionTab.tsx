@@ -49,6 +49,7 @@ import { matches } from '../../lib/general/search'
 import type { GeneralDiscussion, GeneralDiscussionFolder, GeneralDiscussionMessage } from '../../lib/general/types'
 import { FolderBar } from './FolderBar'
 import { RichEditor } from './RichEditor'
+import { PersonBadge } from './RoleBadge'
 import type { GeneralProjectState } from './useGeneralProject'
 import { Linkify } from '../ui/Linkify'
 import { DriveLinkCards } from '../ui/DriveLinkCards'
@@ -686,8 +687,9 @@ function LiveRoom({
                   }`}
                 >
                   {!mine && (
-                    <p className="mb-0.5 text-[11px] font-medium text-muted">
+                    <p className="mb-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] font-medium text-muted">
                       {m.sender_id ? state.nameOf(m.sender_id) : 'A former member'}
+                      {m.sender_id && <PersonBadge userId={m.sender_id} roles={state} />}
                     </p>
                   )}
                   {isEditing ? (

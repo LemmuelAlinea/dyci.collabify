@@ -37,3 +37,18 @@ export function RoleBadge({ role, lead = false }: { role: ProjectRole; lead?: bo
     </span>
   )
 }
+
+/** The badge for a person by id, from anything that knows roles; nothing for a stranger. */
+export function PersonBadge({
+  userId,
+  roles,
+}: {
+  userId: string
+  roles: {
+    roleOf: (userId: string) => ProjectRole | null
+    isLead: (userId: string) => boolean
+  }
+}) {
+  const role = roles.roleOf(userId)
+  return role ? <RoleBadge role={role} lead={roles.isLead(userId)} /> : null
+}

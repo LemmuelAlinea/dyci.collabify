@@ -33,7 +33,17 @@ export type WorkItem = {
   rank: number
   /** Names of whoever holds it; empty when nobody does. */
   holders: string[]
+  /** Who holds it, where the space can say (work projects); the Team filter reads this. */
+  holderIds?: string[]
   created_at: string
+}
+
+/** A project's teams, for the Team filter on Backlog. Work projects only. */
+export type WorkTeams = {
+  projectId: string
+  viewerId: string | undefined
+  teams: { id: string; name: string; leader_id: string | null }[]
+  members: { team_id: string; user_id: string }[]
 }
 
 /**
@@ -49,6 +59,8 @@ export type WorkSource = {
   canAdd: boolean
   /** Why planning is off for this viewer; '' when it is on. */
   readOnlyReason: string
+  /** Set when the project has teams, so Backlog offers a Team filter. */
+  teams?: WorkTeams
   openTask: (id: string) => void
   createSprint: (input: SprintInput) => Promise<string>
   updateSprint: (id: string, input: SprintInput) => Promise<void>

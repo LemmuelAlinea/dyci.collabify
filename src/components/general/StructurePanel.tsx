@@ -18,6 +18,7 @@ import {
   removeTeamMember,
   renamePosition,
   renameTeam,
+  setTeamLeader,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { LIMIT } from '../../lib/limits'
@@ -26,6 +27,7 @@ import type { GeneralProjectState } from './useGeneralProject'
 
 type Renaming = { kind: 'team' | 'position'; id: string; name: string } | null
 type Removing = { kind: 'team' | 'position'; id: string; name: string } | null
+type ChangingLeader = { id: string; name: string; members: string[]; current: string | null } | null
 
 /**
  * Teams split a project's people; positions say what somebody is to it.
@@ -38,6 +40,9 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
   const { show } = useToast()
   const editable = state.can('manage_structure')
   const [teamName, setTeamName] = useState('')
+  const [teamPeople, setTeamPeople] = useState<string[]>([])
+  const [teamLeader, setTeamLeaderChoice] = useState('')
+  const [changingLeader, setChangingLeader] = useState<ChangingLeader>(null)
   const [positionName, setPositionName] = useState('')
   const [positionTeam, setPositionTeam] = useState('')
   const [renaming, setRenaming] = useState<Renaming>(null)
@@ -63,6 +68,12 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
       setBusy(false)
     }
   }
+
+  /** A stakeholder reads the project and never leads a team. */
+  const leaderOptions = (ids: string[]) =>
+    ids
+      .filter((id) => state.roleOf(id) !== 'stakeholder')
+      .map((id) => ({ value: id, label: state.nameOf(id) }))
 
   const memberOptions = (taken: string[]) =>
     state.members
@@ -115,6 +126,28 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
                     </>
                   )}
                 </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+                  <p className="text-muted">
+                    {team.leader_id ? (
+                      <>
+                        Lead: <span className="font-medium text-ink">{state.nameOf(team.leader_id)}</span>
+                      </>
+                    ) : (
+                      'No lead yet'
+                    )}
+                  </p>
+                  {editable && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setChangingLeader({ id: team.id, name: team.name, members: inTeam, current: team.leader_id })
+                      }
+                      className="font-medium text-navy-700 underline-offset-2 hover:underline dark:text-navy-200"
+                    >
+                      Change leader
+                    </button>
+                  )}
+                </div>
                 <PeopleChips
                   ids={inTeam}
                   state={state}
@@ -137,26 +170,86 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
         </ul>
         {editable && (
           <form
-            className="mt-3 flex gap-2"
+            className="mt-3 space-y-3 rounded-xl border border-dashed border-line p-3"
             onSubmit={(e) => {
               e.preventDefault()
               if (!teamName.trim()) return
-              void run(() => createTeam(project.id, teamName), 'Team added', 'Could not add that team.').then(
-                (ok) => ok && setTeamName(''),
-              )
+              const people = teamPeople
+              const leader = people.includes(teamLeader) ? teamLeader : ''
+              const clear = () => {
+                setTeamName('')
+                setTeamPeople([])
+                setTeamLeaderChoice('')
+              }
+              void run(
+                async () => {
+                  const id = await createTeam(project.id, teamName)
+                  try {
+                    for (const userId of people) await addTeamMember(id, project.id, userId)
+                    if (leader) await setTeamLeader(id, leader)
+                  } catch (err) {
+                    // The team exists now; leaving the form full would add it twice.
+                    clear()
+                    await state.reload()
+                    throw err
+                  }
+                },
+                'Team added',
+                'The team was added, but not everyone could be put on it. Open the team to finish.',
+              ).then((ok) => ok && clear())
             }}
           >
-            <Input
-              aria-label="New team name"
-              placeholder="Logistics, Program, Finance"
-              maxLength={LIMIT.generalShortName}
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              className="!h-10"
-            />
-            <Button type="submit" size="sm" variant="outline" className="!h-10 shrink-0">
-              Add team
-            </Button>
+            <div className="flex gap-2">
+              <Input
+                aria-label="New team name"
+                placeholder="Logistics, Program, Finance"
+                maxLength={LIMIT.generalShortName}
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                className="!h-10"
+              />
+              <Button type="submit" size="sm" variant="outline" className="!h-10 shrink-0">
+                Add team
+              </Button>
+            </div>
+            <div>
+              <p className="text-[12px] font-medium text-muted">People</p>
+              {teamPeople.length > 0 && (
+                <PeopleChips
+                  ids={teamPeople}
+                  state={state}
+                  editable
+                  onRemove={(userId) => {
+                    setTeamPeople((prev) => prev.filter((id) => id !== userId))
+                    if (teamLeader === userId) setTeamLeaderChoice('')
+                  }}
+                />
+              )}
+              {memberOptions(teamPeople).length > 0 && (
+                <AddPerson
+                  options={memberOptions(teamPeople)}
+                  onAdd={(userId) => setTeamPeople((prev) => [...prev, userId])}
+                />
+              )}
+            </div>
+            <div className="max-w-[16rem]">
+              <label htmlFor="new-team-leader" className="text-[12px] font-medium text-muted">
+                Leader
+              </label>
+              <div className="mt-1">
+                <Select
+                  id="new-team-leader"
+                  value={teamPeople.includes(teamLeader) ? teamLeader : ''}
+                  onChange={(e) => setTeamLeaderChoice(e.target.value)}
+                  placeholder="No leader"
+                  options={leaderOptions(teamPeople)}
+                  className="!h-10 !text-[13px]"
+                />
+              </div>
+              {teamPeople.length === 0 && (
+                <p className="mt-1 text-[12px] text-faint">Add people first. The leader is one of them.</p>
+              )}
+            </div>
           </form>
         )}
       </div>
@@ -261,6 +354,17 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
         )}
       </div>
 
+      <LeaderDialog
+        changing={changingLeader}
+        options={leaderOptions(changingLeader?.members ?? [])}
+        onClose={() => setChangingLeader(null)}
+        onSave={async (userId) => {
+          if (!changingLeader) return
+          await setTeamLeader(changingLeader.id, userId)
+          show(userId ? 'Leader changed' : 'Leader cleared')
+          await state.reload()
+        }}
+      />
       <RenameDialog
         renaming={renaming}
         onClose={() => setRenaming(null)}
@@ -404,6 +508,72 @@ function RenameDialog({
           <Input id={id} maxLength={LIMIT.generalShortName} value={name} onChange={(e) => setName(e.target.value)} />
         )}
       </Field>
+    </Modal>
+  )
+}
+
+function LeaderDialog({
+  changing,
+  options,
+  onClose,
+  onSave,
+}: {
+  changing: ChangingLeader
+  options: { value: string; label: string }[]
+  onClose: () => void
+  onSave: (userId: string | null) => Promise<void>
+}) {
+  const { show } = useToast()
+  const [leader, setLeader] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    setLeader(changing?.current ?? '')
+  }, [changing])
+
+  async function save() {
+    setBusy(true)
+    try {
+      await onSave(leader || null)
+      onClose()
+    } catch (err) {
+      show(authErrorMessage(err, 'Could not change the leader.'), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal
+      open={Boolean(changing)}
+      onClose={onClose}
+      title={`Leader of ${changing?.name ?? 'the team'}`}
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button onClick={() => void save()} loading={busy}>
+            Save
+          </Button>
+        </>
+      }
+    >
+      <Field label="Leader">
+        {(id) => (
+          <Select
+            id={id}
+            value={leader}
+            onChange={(e) => setLeader(e.target.value)}
+            placeholder="No leader"
+            options={options}
+          />
+        )}
+      </Field>
+      <p className="mt-2 text-[12px] text-muted">
+        The leader is somebody on the team, and never a Stakeholder. They can edit and assign their team&apos;s tasks.
+      </p>
     </Modal>
   )
 }

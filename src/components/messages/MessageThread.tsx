@@ -9,6 +9,8 @@ import { useToast } from '../ui/Toast'
 import { CreatePollDialog } from './CreatePollDialog'
 import { MessageBubble } from './MessageBubble'
 import { MessageComposer } from './MessageComposer'
+import { useProjectRoles } from './useProjectRoles'
+import { PersonBadge } from '../general/RoleBadge'
 import {
   deleteForEveryone,
   deleteForMe,
@@ -57,6 +59,7 @@ export function MessageThread({
   const [pollOpen, setPollOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const atBottomRef = useRef(true)
+  const roles = useProjectRoles(conversation)
 
   const load = useCallback(
     async (markSeen = false) => {
@@ -215,6 +218,7 @@ export function MessageThread({
                     canModerate={canModerate}
                     showSender={showSender}
                     viewerId={viewerId}
+                    badge={roles && <PersonBadge userId={m.sender_id} roles={roles} />}
                     onPollChanged={load}
                     onEdit={async (id, body) => {
                       try {

@@ -39,6 +39,7 @@ import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
 import { ProjectFilePicker } from './ProjectFilePicker'
 import { RequestAccessButton } from './RequestAccessButton'
+import { PersonBadge } from './RoleBadge'
 import type { GeneralProjectState } from './useGeneralProject'
 import { Linkify } from '../ui/Linkify'
 
@@ -162,9 +163,10 @@ function TaskBody({
             {comments.map((c) => (
               <li key={c.id} className="rounded-xl surface-sunken px-3.5 py-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[12px] font-medium text-ink">
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-medium text-ink">
                     {c.author_id ? state.nameOf(c.author_id) : 'A former member'}
-                    <span className="ml-2 font-normal text-faint">{formatDue(c.created_at)}</span>
+                    {c.author_id && <PersonBadge userId={c.author_id} roles={state} />}
+                    <span className="font-normal text-faint">{formatDue(c.created_at)}</span>
                   </p>
                   {(c.author_id === me || canManage) && !archived && (
                     <button
@@ -203,6 +205,7 @@ function TaskBody({
                 className="flex items-center gap-1 rounded-full surface-sunken py-0.5 pr-1 pl-2.5 text-[12px] text-ink"
               >
                 {state.nameOf(id)}
+                <PersonBadge userId={id} roles={state} />
                 {!archived && (canManage || id === me) && (
                   <button
                     type="button"

@@ -20,7 +20,8 @@ import { listMilestones } from '../../lib/api/milestones'
 import { listSprints } from '../../lib/api/sprints'
 import { authErrorMessage } from '../../lib/authError'
 import { can as canDo, canAs } from '../../lib/general/permissions'
-import type { GeneralLevel, GeneralPermission, ProjectRole } from '../../lib/general/permissions'
+import type { GeneralPermission, ProjectRole } from '../../lib/general/permissions'
+import { effectiveRole, roleLookup } from '../../lib/general/roleLookup'
 import type {
   GeneralAccessRequest,
   GeneralField,
@@ -38,21 +39,6 @@ import { fullName } from '../../lib/types'
 import type { Milestone, Sprint } from '../../lib/work/types'
 
 const NO_RIGHTS: CommitRights = { commit: false, grant: false, board: false, committers: [] }
-
-const LEVEL_ROLE: Record<GeneralLevel, ProjectRole> = {
-  owner: 'pm',
-  manager: 'coordinator',
-  member: 'member',
-}
-
-/**
- * A class board's Files project keeps the old model: every row is a member by
- * role while its level is Owner or Manager. On a work project level follows
- * role, so a row like that cannot exist there.
- */
-function effectiveRole(m: Pick<GeneralMember, 'role' | 'level'>): ProjectRole {
-  return m.role === 'member' && m.level !== 'member' ? LEVEL_ROLE[m.level] : m.role
-}
 
 export type GeneralProjectState = {
   project: GeneralProjectSummary | null
@@ -91,6 +77,10 @@ export type GeneralProjectState = {
   can: (permission: GeneralPermission) => boolean
   /** Whether the viewer leads a team that this person is on. */
   leadsUser: (userId: string) => boolean
+  /** A member's role as their name should wear it; null for somebody not on the project. */
+  roleOf: (userId: string) => ProjectRole | null
+  /** Whether the person leads a team of this project. */
+  isLead: (userId: string) => boolean
   /** Who may commit to Main and who decides it, from the server. */
   commitRights: CommitRights
   nameOf: (userId: string) => string
@@ -229,6 +219,7 @@ export function useGeneralProject(
     const names = new Map(
       members.map((m) => [m.user_id, m.profile ? fullName(m.profile) : 'A member']),
     )
+    const { roleOf, isLead } = roleLookup(members, teams)
     return {
       project,
       members,
@@ -264,6 +255,8 @@ export function useGeneralProject(
             ? canDo(me?.level ?? null, myGrants, permission, archived)
             : !archived && canAs(myRole, myGrants, permission),
       leadsUser: (userId: string) => led.has(userId),
+      roleOf,
+      isLead,
       commitRights,
       nameOf: (userId: string) => names.get(userId) ?? 'A former member',
     }

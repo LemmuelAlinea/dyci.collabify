@@ -34,6 +34,7 @@ export function generalWorkItems(state: GeneralProjectState): WorkItem[] {
     milestone_id: t.milestone_id,
     rank: t.rank,
     holders: t.assignee_ids.map((id) => state.nameOf(id)),
+    holderIds: t.assignee_ids,
     created_at: t.created_at,
   }))
 }
@@ -63,6 +64,10 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
       : canPlan
         ? ''
         : 'Owners and Managers plan the sprints. You can follow the plan and add tasks to the backlog.',
+    teams:
+      project && state.teams.length > 0
+        ? { projectId: project.id, viewerId: state.viewerId, teams: state.teams, members: state.teamMembers }
+        : undefined,
     openTask,
     createSprint: (input) => then(createSprint(home, input)),
     updateSprint: (id, input) => then(updateSprint(home, id, input)),

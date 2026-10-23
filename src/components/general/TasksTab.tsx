@@ -27,10 +27,13 @@ import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } fro
 import type { TaskLayout } from '../../lib/work/nav'
 import { applyScope, scopeOptions, scopeSprintId, scopeTargetSprint } from '../../lib/work/scope'
 import type { TaskScope } from '../../lib/work/scope'
+import { filterByTeam, teamMemberIds } from '../../lib/work/teamFilter'
 import { milestoneMarks, sprintBands } from '../../lib/work/timeline'
 import { ScopePicker } from '../work/ScopePicker'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { TimelineView } from '../work/TimelineView'
+import { PersonBadge } from './RoleBadge'
+import { useTeamFilter } from '../work/useTeamFilter'
 import type { GeneralProjectState } from './useGeneralProject'
 
 /**
@@ -54,7 +57,7 @@ export function TasksTab({
 }) {
   const { show } = useToast()
   const [query, setQuery] = useState('')
-  const [team, setTeam] = useState('')
+  const [team, setTeam] = useTeamFilter(state.project?.id, state.viewerId, state.teams)
   const [assignee, setAssignee] = useState('')
   // A stage index as text, or '' for every stage.
   const [status, setStatus] = useState('')
@@ -66,11 +69,11 @@ export function TasksTab({
   const stages = stagesOf(project?.stages)
   const scoped = useMemo(() => applyScope(state.tasks, scope, state.sprints), [state.tasks, scope, state.sprints])
   const projectStages = state.project?.stages
+  const teamLinks = state.teamMembers
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     const stageCount = stagesOf(projectStages).length
-    return scoped
-      .filter((t) => (team ? t.team_id === team : true))
+    return filterByTeam(scoped, teamMemberIds(teamLinks, team), (t) => t.assignee_ids)
       .filter((t) =>
         assignee === ''
           ? true
@@ -80,7 +83,7 @@ export function TasksTab({
       )
       .filter((t) => (status ? stageIndex(t.status, t.stage, stageCount) === Number(status) : true))
       .filter((t) => (q ? `${t.title} ${t.description}`.toLowerCase().includes(q) : true))
-  }, [scoped, query, team, assignee, status, projectStages])
+  }, [scoped, query, team, teamLinks, assignee, status, projectStages])
 
   if (!project) return null
   const progress = projectProgress(scoped)
@@ -143,7 +146,7 @@ export function TasksTab({
                   <Select
                     value={team}
                     onChange={(e) => setTeam(e.target.value)}
-                    placeholder="Every team"
+                    placeholder="All teams"
                     options={state.teams.map((t) => ({ value: t.id, label: t.name }))}
                     className="!h-10 !text-[13px]"
                   />
@@ -342,6 +345,12 @@ function Holders({ task, state, size = 22 }: { task: GeneralTask; state: General
       <span className="min-w-0 truncate text-[12px] text-muted">
         {task.assignee_ids.length > 1 ? `${first.split(' ')[0]} +${task.assignee_ids.length - 1}` : first}
       </span>
+      {/* With several holders the name stands for the first of them, so a badge would point at one of many. */}
+      {task.assignee_ids.length === 1 && (
+        <span className="shrink-0">
+          <PersonBadge userId={task.assignee_ids[0]} roles={state} />
+        </span>
+      )}
     </span>
   )
 }
