@@ -16,7 +16,9 @@ export function QaQueue({ state, onOpenTask }: { state: GeneralProjectState; onO
   const stages = stagesOf(state.project?.stages)
   const stageLabel = stages[qaStageIndex(stages, state.project?.qa_stage)] ?? 'QA'
   const waiting = queueOrder(state.tasks.filter((t) => inQa(t, stages, state.project?.qa_stage)))
-  const decides = !state.readOnly && (state.myRole === 'qa' || state.myRole === 'pm')
+  // Only while the project has active QA; the section itself shows only then.
+  const decides =
+    !state.readOnly && Boolean(state.project?.has_qa) && (state.myRole === 'qa' || state.myRole === 'pm')
 
   return (
     <section className="space-y-3">

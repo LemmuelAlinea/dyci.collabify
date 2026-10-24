@@ -9,7 +9,7 @@ import { isReleased } from '../../lib/types'
 import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
 
 /** A class project's Work has no QA. */
-const CLASS_SECTIONS = workSectionsFor({ hasQa: false, role: null })
+const CLASS_SECTIONS = workSectionsFor(false)
 
 /**
  * Work inside one project: Summary and Tasks. A student sees their own board; a professor sees

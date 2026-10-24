@@ -46,26 +46,19 @@ describe('workSection', () => {
 })
 
 describe('workSectionsFor', () => {
-  it('leaves the QA queue out of a project without QA', () => {
-    expect(workSectionsFor({ hasQa: false, role: 'member' })).not.toContain('qa')
-    expect(workSectionsFor({ hasQa: false, role: 'coordinator' })).not.toContain('qa')
+  it('leaves the QA queue out of a project without QA, for the project manager too', () => {
+    expect(workSectionsFor(false)).not.toContain('qa')
   })
 
   it('lists the QA queue once the project has QA', () => {
-    expect(workSectionsFor({ hasQa: true, role: 'member' })).toContain('qa')
-    expect(workSectionsFor({ hasQa: true, role: null })).toContain('qa')
-  })
-
-  it('lists it for QA and the project manager even before the project has QA', () => {
-    expect(workSectionsFor({ hasQa: false, role: 'qa' })).toContain('qa')
-    expect(workSectionsFor({ hasQa: false, role: 'pm' })).toContain('qa')
+    expect(workSectionsFor(true)).toContain('qa')
   })
 
   it('keeps the other sections in order, with the queue last', () => {
-    expect(workSectionsFor({ hasQa: true, role: 'qa' })).toEqual([
+    expect(workSectionsFor(true)).toEqual([
       'summary', 'backlog', 'sprints', 'tasks', 'milestones', 'qa',
     ])
-    expect(workSectionsFor({ hasQa: false, role: 'member' })).toEqual([
+    expect(workSectionsFor(false)).toEqual([
       'summary', 'backlog', 'sprints', 'tasks', 'milestones',
     ])
   })

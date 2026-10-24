@@ -142,9 +142,11 @@ function TaskBody({
     state.members.filter((m) => m.profile?.status !== 'rejected').map((m) => m.user_id),
     state.roleOf,
   )
-  // QA and the project manager pass or send back a task that is waiting in QA.
+  // QA and the project manager pass or send back a task that is waiting in QA,
+  // on a project that has active QA (without it the QA stage is ordinary).
   const waitingForQa =
     !readOnly &&
+    state.project.has_qa &&
     (state.myRole === 'qa' || state.myRole === 'pm') &&
     inQa(task, stagesOf(state.project.stages), state.project.qa_stage)
   const canAttach = !readOnly && (holds || state.can('edit_files'))

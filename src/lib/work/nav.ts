@@ -1,5 +1,3 @@
-import type { ProjectRole } from '../general/permissions'
-
 /**
  * Where you are inside a project's Work tab, kept in the address so a link,
  * a reload or the back button lands on the same section and layout.
@@ -14,13 +12,11 @@ export type TaskLayout = 'board' | 'list' | 'timeline' | 'calendar'
 export const WORK_SECTIONS: readonly WorkSection[] = ['summary', 'backlog', 'sprints', 'tasks', 'milestones', 'qa']
 
 /**
- * The sections this viewer is offered. The QA queue shows once the project has
- * active QA, and for QA and the project manager even before it does, so they
- * can see where it will appear.
+ * The sections a project offers. The QA queue shows only once the project has
+ * active QA (somebody active in the qa role), for everyone on it.
  */
-export function workSectionsFor(gate: { hasQa: boolean; role: ProjectRole | null }): readonly WorkSection[] {
-  const queue = gate.hasQa || gate.role === 'qa' || gate.role === 'pm'
-  return queue ? WORK_SECTIONS : WORK_SECTIONS.filter((s) => s !== 'qa')
+export function workSectionsFor(hasQa: boolean): readonly WorkSection[] {
+  return hasQa ? WORK_SECTIONS : WORK_SECTIONS.filter((s) => s !== 'qa')
 }
 export const TASK_LAYOUTS: readonly TaskLayout[] = ['board', 'list', 'timeline', 'calendar']
 

@@ -20,7 +20,7 @@ import { generalMilestoneSource, generalWorkSource } from './workSource'
  */
 export function WorkTab({ state }: { state: GeneralProjectState }) {
   const [params, setParams] = useSearchParams()
-  const sections = workSectionsFor({ hasQa: Boolean(state.project?.has_qa), role: state.myRole })
+  const sections = workSectionsFor(Boolean(state.project?.has_qa))
   const asked = workSection(params, 'tasks')
   // A link to the queue of a project that has no QA lands on Tasks.
   const section = sections.includes(asked) ? asked : 'tasks'
