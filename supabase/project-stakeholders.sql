@@ -6,8 +6,8 @@
 -- nothing. Until now every member write in a work project was gated by
 -- is_general_member, which also drives reads. This file adds
 --
---   general_can_write(project)  the caller is an active member and, on a work
---                               project, their role is not 'stakeholder'.
+--   general_can_write(project)  the caller is a member (not rejected) who, on a
+--                               work project, isn't a stakeholder.
 --
 -- and puts it at every write chokepoint a plain member passes. Reads keep
 -- is_general_member. Anything already gated by general_has / general_can is
@@ -24,8 +24,9 @@
 --
 -- Unchanged on purpose: leave_general_project (a stakeholder can leave),
 -- join_general_project (always joins as a member), every read path, the
--- discussion and project chat (they are a later task), and the stakeholder's
--- own meetings and report templates.
+-- discussion and project chat (they are a later task), and space report
+-- templates. A meeting a stakeholder scheduled while still a member is theirs
+-- to see but no longer to change or cancel.
 --
 -- Runs after project-team-leads.sql and everything else in docs/07-backup.md,
 -- and redefines from their latest (live) copies:
@@ -50,9 +51,12 @@
 -- general_drafts_select / _insert / _update / _delete (general-drafts.sql),
 -- general_repo_changes_insert / _update and general_repo_comments_insert /
 -- _delete (general-repo.sql), and on storage.objects general_project_files_write
--- (general-files.sql), general_files_write (general-archive-rbac.sql) and
--- general_files_remove (storage-sweep.sql). Re-run it after re-running any of
--- those files, then anon-lockdown.sql.
+-- (general-files.sql), general_files_write and general_files_remove
+-- (general-archive-rbac.sql). Also meeting_can_manage, update_meeting and
+-- cancel_meeting (meetings.sql) and guard_general_repo_change
+-- (general-repo.sql). Re-run it after re-running any of those files, or
+-- general-schedule-guard.sql (an older guard_general_task), then
+-- anon-lockdown.sql.
 --
 -- Idempotent. Safe to re-run.
 
@@ -78,8 +82,8 @@ as $$
 $$;
 
 comment on function public.general_can_write(uuid) is
-  'True when the caller is an active member of the project and, on a work project, '
-  'not a stakeholder. Gates every member write; reads keep is_general_member.';
+  'True when the caller is a member of the project (not rejected) who, on a work project, '
+  'isn''t a stakeholder. Gates every member write; reads keep is_general_member.';
 
 -- ---------------------------------------------------------------- tasks
 
@@ -695,8 +699,9 @@ begin
 end;
 $$;
 
--- A stakeholder's Trash leaves out task files and discussions they can no
--- longer restore or delete.
+-- A stakeholder's Trash leaves out the draft files, task files and
+-- discussions they can no longer restore or delete; empty_my_trash leaves them
+-- where they are.
 create or replace function public.list_my_trash()
 returns table(kind text, id uuid, repo_id uuid, root text, name text, is_folder boolean,
               file_count integer, size_bytes bigint, trashed_at timestamptz, purge_at timestamptz,
@@ -719,6 +724,7 @@ as $$
       join public.general_draft_files f on f.draft_id = d.id
      where d.user_id = auth.uid()
        and f.trashed_at is not null
+       and public.general_can_write(d.project_id)
      group by d.repo_id, d.project_id, f.trash_root
   ),
   rows as (
@@ -837,6 +843,7 @@ begin
    using public.general_drafts d
    where d.id = f.draft_id and d.user_id = auth.uid()
      and f.trashed_at is not null
+     and public.general_can_write(d.project_id)
      and not public.general_is_archived(d.project_id);
   get diagnostics n = row_count;
 
@@ -1396,6 +1403,90 @@ begin
 end;
 $$;
 
+-- A change opened by hand names no stakeholder as reviewer either.
+create or replace function public.guard_general_repo_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if public.general_is_archived(coalesce(new.project_id, old.project_id)) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if tg_op = 'INSERT' then
+    if new.author_id is distinct from auth.uid() then
+      raise exception 'A change is opened by whoever wrote it' using errcode = 'insufficient_privilege';
+    end if;
+    if new.status <> 'open' or new.decided_by is not null or new.decided_at is not null then
+      raise exception 'A change starts open and undecided' using errcode = 'insufficient_privilege';
+    end if;
+    if new.reviewer_id is not null and not new.reviewer_id = any (new.reviewer_ids) then
+      new.reviewer_ids := array_prepend(new.reviewer_id, new.reviewer_ids);
+    end if;
+    if new.author_id = any (new.reviewer_ids) then
+      raise exception 'Choose somebody else to review your change'
+        using errcode = 'insufficient_privilege';
+    end if;
+    if exists (
+      select 1 from unnest(new.reviewer_ids) as x
+       where not exists (
+         select 1 from public.general_members m
+         join public.profiles pr on pr.id = m.user_id
+          where m.project_id = new.project_id and m.user_id = x
+            and pr.status <> 'rejected')
+    ) then
+      raise exception 'Every reviewer must be on this project'
+        using errcode = 'insufficient_privilege';
+    end if;
+    if exists (
+      select 1 from public.general_members m
+       where m.project_id = new.project_id and m.user_id = any (new.reviewer_ids)
+         and m.role = 'stakeholder'
+    ) then
+      raise exception 'Stakeholders can''t review changes. Choose somebody else to review it.'
+        using errcode = 'insufficient_privilege';
+    end if;
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if new.id <> old.id or new.project_id <> old.project_id or new.repo_id <> old.repo_id then
+      raise exception 'A change cannot move' using errcode = 'insufficient_privilege';
+    end if;
+    if new.author_id is distinct from old.author_id or new.created_at <> old.created_at then
+      raise exception 'A change keeps who opened it' using errcode = 'insufficient_privilege';
+    end if;
+    if (new.reviewer_id is distinct from old.reviewer_id or new.reviewer_ids is distinct from old.reviewer_ids)
+       and coalesce(current_setting('collabify.general_repo_op', true), 'off') <> 'on' then
+      raise exception 'A change keeps its reviewer' using errcode = 'insufficient_privilege';
+    end if;
+    if old.status <> 'open' then
+      raise exception 'That change was already answered' using errcode = 'insufficient_privilege';
+    end if;
+    -- The author may keep editing their own open change; deciding one is the
+    -- RPC's, which sets collabify.general_repo_op.
+    if new.status <> old.status then
+      if new.status = 'withdrawn' then
+        if old.author_id is distinct from auth.uid() then
+          raise exception 'Only whoever opened a change withdraws it'
+            using errcode = 'insufficient_privilege';
+        end if;
+      elsif coalesce(current_setting('collabify.general_repo_op', true), 'off') <> 'on' then
+        raise exception 'Use the review buttons to answer a change'
+          using errcode = 'insufficient_privilege';
+      end if;
+    elsif new.author_id is distinct from auth.uid()
+          and coalesce(current_setting('collabify.general_repo_op', true), 'off') <> 'on' then
+      raise exception 'Only whoever opened a change edits it' using errcode = 'insufficient_privilege';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
 drop policy if exists general_repo_changes_insert on public.general_repo_changes;
 create policy general_repo_changes_insert on public.general_repo_changes
   for insert with check (
@@ -1815,6 +1906,104 @@ as $$
     join public.general_spaces s on s.id = p.space_id
    where p.archived_at is null and s.archived_at is null and public.is_general_team_member(t.id)
      and p.class_board_id is null;
+$$;
+
+-- Whoever scheduled a project or project-team meeting keeps managing it only
+-- while they can write to the project; the project's leads always can.
+create or replace function public.meeting_can_manage(m public.meetings)
+returns boolean
+language sql
+stable security definer
+set search_path = public
+as $$
+  select public.meeting_can_see(m) and (
+    (m.created_by = auth.uid()
+     and (m.scope not in ('project', 'project_team') or public.general_can_write(m.project_id)))
+    or case m.scope
+      when 'class' then public.is_class_professor(m.class_id)
+      when 'group' then public.is_class_professor(m.class_id)
+      when 'space' then public.general_space_has_manage(m.space_id)
+      when 'project' then public.general_leads(m.project_id)
+      when 'space_team' then public.general_space_team_can_manage(m.space_team_id)
+      when 'project_team' then public.general_leads(m.project_id)
+    end
+  );
+$$;
+
+create or replace function public.update_meeting(p_meeting uuid, p_title text, p_agenda text, p_join_url text,
+                                                 p_starts_at timestamptz, p_duration_min integer)
+returns public.meetings
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  m public.meetings;
+begin
+  select * into m from public.meetings where id = p_meeting for update;
+  if not found or not public.meeting_can_see(m) then
+    raise exception 'That meeting is gone, or you are no longer in it.' using errcode = 'no_data_found';
+  end if;
+  if m.scope in ('project', 'project_team')
+     and public.is_general_member(m.project_id) and not public.general_can_write(m.project_id) then
+    raise exception 'Stakeholders can view this project but not change it.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not public.meeting_can_manage(m) then
+    raise exception 'Only whoever scheduled this meeting, or whoever leads its audience, can change it.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if m.cancelled_at is not null then
+    raise exception 'This meeting was cancelled. Schedule a new one instead.' using errcode = 'check_violation';
+  end if;
+  if public.meeting_audience_archived(m) then
+    raise exception 'This is archived, so its meetings cannot change. Restore it first.'
+      using errcode = 'check_violation';
+  end if;
+  if not public.meeting_url_ok(p_join_url) then
+    raise exception 'Paste a Zoom, Google Meet or Google Calendar invite link. It starts with https://zoom.us/, https://meet.google.com/ or https://calendar.app.google/.'
+      using errcode = 'check_violation';
+  end if;
+  if p_starts_at is distinct from m.starts_at and p_starts_at < now() - interval '5 minutes' then
+    raise exception 'That start time has passed. Pick a time from now on.' using errcode = 'check_violation';
+  end if;
+
+  update public.meetings
+     set title = btrim(p_title),
+         agenda = coalesce(p_agenda, ''),
+         join_url = btrim(p_join_url),
+         starts_at = p_starts_at,
+         duration_min = coalesce(p_duration_min, duration_min)
+   where id = p_meeting
+   returning * into m;
+  return m;
+end;
+$$;
+
+create or replace function public.cancel_meeting(p_meeting uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  m public.meetings;
+begin
+  select * into m from public.meetings where id = p_meeting for update;
+  if not found or not public.meeting_can_see(m) then
+    raise exception 'That meeting is gone, or you are no longer in it.' using errcode = 'no_data_found';
+  end if;
+  if m.scope in ('project', 'project_team')
+     and public.is_general_member(m.project_id) and not public.general_can_write(m.project_id) then
+    raise exception 'Stakeholders can view this project but not change it.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not public.meeting_can_manage(m) then
+    raise exception 'Only whoever scheduled this meeting, or whoever leads its audience, can cancel it.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  update public.meetings set cancelled_at = coalesce(cancelled_at, now()) where id = p_meeting;
+end;
 $$;
 
 -- ---------------------------------------------------------------- grants

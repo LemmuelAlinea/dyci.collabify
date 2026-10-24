@@ -143,6 +143,8 @@ declare
   v_team  uuid;
   v_c0    uuid;  -- the PM's change, S its reviewer
   v_share uuid;
+  v_t5    uuid;  -- the PM's, held by S
+  v_meet  uuid;  -- S's project meeting
 begin
   perform pg_temp.act_as(v_pm);
   v_p := (public.create_general_project('Zz SH project', '')).id;
@@ -170,9 +172,22 @@ begin
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz M spare') returning id into v_t3;
   insert into public.general_task_comments (task_id, project_id, body) values (v_t1, v_p, 'M was here');
 
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_tasks (project_id, title) values (v_p, 'Zz S holds') returning id into v_t5;
+
   perform pg_temp.act_as(v_s);
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz S task') returning id into v_ts;
   perform public.save_general_draft_file(v_repo, 's.md', 'added', 'text', 'S wrote this');
+  -- S holds a task, with a file on it, and has a draft file in Trash.
+  insert into public.general_task_assignees (task_id, project_id, user_id) values (v_t5, v_p, v_s);
+  insert into storage.objects (bucket_id, name, owner_id)
+  values ('general-files', v_p || '/' || v_t5 || '/s.txt', v_s::text);
+  insert into public.general_task_files (task_id, project_id, file_path, file_name)
+  values (v_t5, v_p, v_p || '/' || v_t5 || '/s.txt', 's.txt');
+  perform public.save_general_draft_file(v_repo, 'trash.md', 'added', 'text', 'S threw this out');
+  perform public.trash_general_draft_path(v_repo, 'trash.md');
+  v_meet := (public.create_meeting('project', v_p, 'Zz S meeting', '', 'https://zoom.us/j/1234567890',
+                                   now() + interval '1 day', 60)).id;
 
   -- The PM's change names S as reviewer, and the PM shares a file with S.
   perform pg_temp.act_as(v_pm);
@@ -188,7 +203,8 @@ begin
 
   insert into fx values
     ('p', v_p), ('repo', v_repo), ('t1', v_t1), ('t2', v_t2),
-    ('t3', v_t3), ('ts', v_ts), ('team', v_team), ('c0', v_c0), ('share', v_share);
+    ('t3', v_t3), ('ts', v_ts), ('team', v_team), ('c0', v_c0), ('share', v_share),
+    ('t5', v_t5), ('meet', v_meet);
   raise notice 'fixture ready';
 end $$;
 
@@ -226,6 +242,7 @@ declare
   v_t2 uuid := (select v from fx where k = 't2');
   v_t3 uuid := (select v from fx where k = 't3');
   v_ts uuid := (select v from fx where k = 'ts');
+  v_t4 uuid;
 begin
   perform pg_temp.act_as(v_s);
   perform pg_temp.must_refuse_stakeholder('S adds a task',
@@ -267,6 +284,10 @@ begin
               values (%L, %L, %L, 30)$q$, v_t1, v_p, v_m));
   perform pg_temp.must_allow('M archives a task they added',
     format($q$select public.archive_general_task(%L, true)$q$, v_t3));
+  insert into public.general_tasks (project_id, title) values (v_p, 'Zz M gone') returning id into v_t4;
+  delete from public.general_tasks where id = v_t4;
+  perform pg_temp.must_be('M deleting their own unheld task removes it',
+    not exists (select 1 from public.general_tasks where id = v_t4));
   perform pg_temp.act_as_service();
 end $$;
 
@@ -279,7 +300,11 @@ declare
   v_m   uuid := (select v from fx where k = 'm');
   v_pm  uuid := (select v from fx where k = 'pm');
   v_repo  uuid := (select v from fx where k = 'repo');
+  v_t1    uuid := (select v from fx where k = 't1');
+  v_t5    uuid := (select v from fx where k = 't5');
   v_draft uuid;
+  v_share uuid;
+  v_chg   uuid;
 begin
   perform pg_temp.act_as(v_s);
   perform pg_temp.must_refuse_with('S uploads to the project''s files',
@@ -309,6 +334,22 @@ begin
     format($q$insert into public.general_repo_comments (change_id, project_id, author_id, body)
               values (%L, %L, %L, 'Zz no')$q$, (select v from fx where k = 'c0'), v_p, v_s),
     'row-level security');
+  perform pg_temp.must_refuse_with('S, still holding a task, uploads a file to it',
+    format($q$insert into storage.objects (bucket_id, name, owner_id)
+              values ('general-files', %L, %L)$q$, v_p || '/' || v_t5 || '/s2.txt', v_s),
+    'row-level security');
+  -- The Storage API's own delete goes through these policies; SQL needs the switch.
+  perform set_config('storage.allow_delete_query', 'true', true);
+  delete from storage.objects where bucket_id = 'general-files' and name = v_p || '/' || v_t5 || '/s.txt';
+  perform pg_temp.must_be('...and removing the file they put there removes nothing',
+    exists (select 1 from storage.objects
+             where bucket_id = 'general-files' and name = v_p || '/' || v_t5 || '/s.txt'));
+  perform pg_temp.must_be('S''s Trash leaves out their trashed draft file',
+    not exists (select 1 from public.list_my_trash() where kind = 'draft'));
+  perform pg_temp.must_allow('S empties Trash', 'select public.empty_my_trash()');
+  perform pg_temp.must_be('...which leaves that draft file where it was',
+    exists (select 1 from public.general_draft_files
+             where draft_id = v_draft and path = 'trash.md' and trashed_at is not null));
   -- With the old draft gone, S cannot start one by hand either.
   perform pg_temp.act_as_service();
   perform set_config('collabify.trash_purge', 'on', true);
@@ -338,6 +379,33 @@ begin
   perform pg_temp.must_allow('M comments on a change',
     format($q$insert into public.general_repo_comments (change_id, project_id, author_id, body)
               values (%L, %L, %L, 'Zz yes')$q$, (select v from fx where k = 'c0'), v_p, v_m));
+  perform pg_temp.must_refuse_with('M cannot open a change by hand naming S as reviewer',
+    format($q$insert into public.general_repo_changes
+                (repo_id, project_id, author_id, reviewer_ids, title, base_seq, files)
+              values (%L, %L, %L, array[%L]::uuid[], 'Zz by hand', 1, '[]'::jsonb)$q$,
+           v_repo, v_p, v_m, v_s),
+    'Stakeholders can''t review changes');
+  perform public.save_general_draft_file(v_repo, 'one.md', 'added', 'text', 'One file');
+  perform pg_temp.must_allow('M submits one file',
+    format($q$select public.submit_general_draft_file(%L, 'one.md', 'Zz one', '', %L)$q$, v_repo, v_pm));
+  perform pg_temp.must_allow('M uploads a file to the task they hold',
+    format($q$insert into storage.objects (bucket_id, name, owner_id)
+              values ('general-files', %L, %L)$q$, v_p || '/' || v_t1 || '/m.txt', v_m));
+  insert into public.general_task_files (task_id, project_id, file_path, file_name)
+  values (v_t1, v_p, v_p || '/' || v_t1 || '/m.txt', 'm.txt');
+  delete from storage.objects where bucket_id = 'general-files' and name = v_p || '/' || v_t1 || '/m.txt';
+  perform pg_temp.must_be('...and removing it removes it',
+    not exists (select 1 from storage.objects
+                 where bucket_id = 'general-files' and name = v_p || '/' || v_t1 || '/m.txt'));
+  perform public.save_general_draft_file(v_repo, 'mtrash.md', 'added', 'text', 'M threw this out');
+  perform public.trash_general_draft_path(v_repo, 'mtrash.md');
+  perform pg_temp.must_be('M''s Trash lists their trashed draft file',
+    exists (select 1 from public.list_my_trash() where kind = 'draft' and root = 'mtrash.md'));
+  perform pg_temp.must_allow('M empties Trash', 'select public.empty_my_trash()');
+  perform pg_temp.must_be('...which removes it',
+    not exists (select 1 from public.general_draft_files f
+                  join public.general_drafts d on d.id = f.draft_id
+                 where d.repo_id = v_repo and d.user_id = v_m and f.path = 'mtrash.md'));
 
   perform pg_temp.act_as(v_pm);
   perform pg_temp.must_refuse_with('the pm shares a draft file with S',
@@ -345,6 +413,18 @@ begin
     'Stakeholders can''t receive shared files.');
   perform pg_temp.must_allow('the pm shares it with M',
     format($q$select public.share_general_draft_path(%L, 'pm.md', false, array[%L]::uuid[])$q$, v_repo, v_m));
+  v_chg := (select id from public.general_repo_changes
+             where repo_id = v_repo and author_id = v_m and status = 'open' order by created_at limit 1);
+  perform pg_temp.must_allow('the pm answers M''s change',
+    format($q$select public.answer_general_repo_change(%L, false, 'Not yet')$q$, v_chg));
+  perform pg_temp.must_allow('the pm commits a draft path',
+    format($q$select public.commit_general_draft_path(%L, 'pm.md', false, 'Zz')$q$, v_repo));
+
+  perform pg_temp.act_as(v_m);
+  v_share := (select s.id from public.general_shares s
+               where s.repo_id = v_repo and s.path = 'pm.md' and s.sender_id = v_pm);
+  perform pg_temp.must_allow('M copies the share they got',
+    format($q$select public.copy_general_share_to_draft(%L)$q$, v_share));
   perform pg_temp.act_as_service();
 end $$;
 
@@ -368,6 +448,13 @@ begin
   perform pg_temp.must_be('...nor the project team',
     exists (select 1 from public.meeting_audiences() a
              where a.scope = 'project_team' and a.audience_id = v_team and not a.can_create));
+  perform pg_temp.must_refuse_stakeholder('S changes the meeting they scheduled as a member',
+    format($q$select public.update_meeting(%L, 'Zz renamed', '', 'https://zoom.us/j/1234567890',
+                                           now() + interval '2 days', 60)$q$, (select v from fx where k = 'meet')));
+  perform pg_temp.must_refuse_stakeholder('...or cancels it',
+    format($q$select public.cancel_meeting(%L)$q$, (select v from fx where k = 'meet')));
+  perform pg_temp.must_be('...and meeting_can_manage says so',
+    not public.meeting_can_manage((select m from public.meetings m where m.id = (select v from fx where k = 'meet'))));
   perform pg_temp.must_refuse_stakeholder('S asks for edit_files',
     format($q$select public.request_general_access(%L, 'edit_files', 'Zz')$q$, v_p));
 
@@ -389,6 +476,11 @@ begin
   perform pg_temp.must_allow('M schedules a project team meeting',
     format($q$select public.create_meeting('project_team', %L, 'Zz sync', '', 'https://zoom.us/j/1234567890',
                                            now() + interval '1 day', 60)$q$, v_team));
+  perform pg_temp.act_as((select v from fx where k = 'pm'));
+  perform pg_temp.must_allow('the pm can still change S''s meeting',
+    format($q$select public.update_meeting(%L, 'Zz renamed', '', 'https://zoom.us/j/1234567890',
+                                           now() + interval '2 days', 60)$q$, (select v from fx where k = 'meet')));
+  perform pg_temp.act_as((select v from fx where k = 'm'));
   perform pg_temp.must_allow('M asks for edit_files',
     format($q$select public.request_general_access(%L, 'edit_files', 'Zz')$q$, v_p));
   perform pg_temp.act_as_service();

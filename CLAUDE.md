@@ -95,8 +95,8 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   work project to its whole space; re-running a file `project-stakeholders.sql`
   supersedes hands stakeholders back a member's writes. `docs/07-backup.md` lists what
   each of the five owns. Always start a redefinition from the live `pg_get_functiondef`.
-- Member writes in a work project gate on `general_can_write(project)` (a member who is
-  not a stakeholder); reads keep `is_general_member`. A new member-write path uses
+- Member writes in a work project gate on `general_can_write(project)` (a member (not
+  rejected) who isn't a stakeholder); reads keep `is_general_member`. A new member-write path uses
   `general_can_write`.
 
 ## Security invariants

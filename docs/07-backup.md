@@ -318,10 +318,12 @@ included) in their own copies of the kinds check, so a fresh table takes them an
 re-running `project-roles.sql` alone does not fail once those events exist.
 
 `project-stakeholders.sql` runs after `project-team-leads.sql`. It adds
-`general_can_write(project)` (an active member who, on a work project, is not a
+`general_can_write(project)` (a member (not rejected) who, on a work project, isn't a
 stakeholder) and puts it at every member write; reads keep `is_general_member`. A
 stakeholder's refused write says "Stakeholders can view this project but not change it."
-where a trigger or function raises it. It is the final owner of `guard_general_task`,
+where a trigger or function raises it, and a stakeholder's Trash leaves out (and Empty
+Trash leaves alone) the draft files, task files and discussions they can no longer touch.
+It is the final owner of `guard_general_task`,
 `sync_general_task_stage`, `guard_general_task_plan` (from `project-team-leads.sql`),
 `guard_general_task_child` (`general-tasks.sql`), `archive_general_task`
 (`task-archive.sql`), `general_archive_guard` (`general-archive-rbac.sql`),
@@ -331,22 +333,25 @@ where a trigger or function raises it. It is the final owner of `guard_general_t
 `submit_general_draft_folder` and `general_review_reviewers` (`general-drafts.sql`),
 `commit_general_draft_path` (`general-draft-commit.sql`), `share_general_draft_path` and
 `copy_general_share_to_draft` (`general-shares.sql`), `answer_general_repo_change`
-(`general-repo.sql`), `request_general_access` (`general.sql`; QA and stakeholders ask for
-nothing), `create_meeting` and `meeting_audiences` (`meetings.sql`); of the policies
+(`general-repo.sql`), `guard_general_repo_change` (`general-repo.sql`; no stakeholder
+reviewers on a change opened by hand), `request_general_access` (`general.sql`; QA and
+stakeholders ask for nothing), `create_meeting`, `meeting_audiences`, `meeting_can_manage`,
+`update_meeting` and `cancel_meeting` (`meetings.sql`; a meeting a stakeholder scheduled as
+a member is no longer theirs to change); of the policies
 `general_tasks_insert` / `_update` / `_delete`, `general_task_comments_insert` / `_update` /
 `_delete`, `general_task_files_insert` / `_delete`, `general_task_logs_insert` / `_delete`
 (`general-tasks.sql`, `general-archive-rbac.sql`), `general_task_assignees_insert` /
 `_delete` (`project-team-leads.sql`), `general_repo_changes_insert` / `_update` and
 `general_repo_comments_insert` / `_delete` (`general-repo.sql`); and on `storage.objects`
 of `general_project_files_write` (`general-files.sql`), `general_files_write`
-(`general-archive-rbac.sql`) and `general_files_remove` (`storage-sweep.sql`). It drops
+and `general_files_remove` (`general-archive-rbac.sql`). It drops
 `general-drafts.sql`'s `general_drafts_own` and splits it into `general_drafts_select`
 (members) and `general_drafts_insert` / `_update` / `_delete` (`general_can_write`).
 Re-run it (then `anon-lockdown.sql`) after re-running any of `general.sql`,
-`general-tasks.sql`, `general-repo.sql`, `general-files.sql`, `general-drafts.sql`,
-`general-archive-rbac.sql`, `general-project-archive-rbac.sql`, `general-draft-commit.sql`,
-`meetings.sql`, `general-shares.sql`, `storage-sweep.sql`, `trash.sql`, `task-archive.sql`,
-`archive-page.sql`, `task-stages.sql`, `work-planning.sql` or `project-team-leads.sql`
+`general-tasks.sql`, `general-schedule-guard.sql`, `general-repo.sql`, `general-files.sql`,
+`general-drafts.sql`, `general-archive-rbac.sql`, `general-draft-commit.sql`, `meetings.sql`,
+`general-shares.sql`, `trash.sql`, `task-archive.sql`, `archive-page.sql`, `task-stages.sql`,
+`work-planning.sql` or `project-team-leads.sql`
 (and so after any of the four files before it). Each of those alone hands a stakeholder
 back a member's writes, and nothing fails to tell you; `general-drafts.sql` alone also
 recreates `general_drafts_own`, which sits beside the split policies and reopens drafts.
