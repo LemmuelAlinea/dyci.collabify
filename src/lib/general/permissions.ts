@@ -15,8 +15,9 @@
  */
 
 /**
- * A person's role in a work project. QA and Stakeholder are stored from phase
- * 2 and become usable in phases 3 and 4; until then they hold no permission.
+ * A person's role in a work project. Stakeholder is usable from phase 3 (it
+ * reads and holds no permission); QA becomes usable in phase 4. Neither holds
+ * a permission by role.
  */
 export type ProjectRole = 'pm' | 'coordinator' | 'member' | 'qa' | 'stakeholder'
 
@@ -165,14 +166,28 @@ export function canAs(
 }
 
 /**
- * The roles an actor may move a target to. In phase 2 the project manager
- * switches anyone but the project manager between Coordinator and Member, and a
- * Coordinator turns a Member into a Member (the one move they may make). Making
- * somebody project manager is a hand over, never a role change.
+ * The roles an actor may move a target to. The project manager switches anyone
+ * but the project manager between Coordinator, Member and Stakeholder; a
+ * Coordinator moves a Member or Stakeholder between those two. QA is still
+ * refused by the database until phase 4. Making somebody project manager is a
+ * hand over, never a role change.
  */
 export function assignableRoles(actor: ProjectRole, target: ProjectRole): ProjectRole[] {
-  if (actor === 'pm' && target !== 'pm') return ['coordinator', 'member']
-  if (actor === 'coordinator' && target === 'member') return ['member']
+  if (actor === 'pm' && target !== 'pm') return ['coordinator', 'member', 'stakeholder']
+  if (actor === 'coordinator' && (target === 'member' || target === 'stakeholder')) {
+    return ['member', 'stakeholder']
+  }
+  return []
+}
+
+/**
+ * The roles an actor may invite someone as: the project manager any but
+ * project manager, a Coordinator a Member or Stakeholder. Mirrors
+ * invite_to_general_project.
+ */
+export function inviteRoles(actor: ProjectRole): ProjectRole[] {
+  if (actor === 'pm') return ['member', 'coordinator', 'stakeholder']
+  if (actor === 'coordinator') return ['member', 'stakeholder']
   return []
 }
 
@@ -340,17 +355,14 @@ export const ROLE_MATRIX: {
   {
     action: 'Post in Feedback',
     roles: { pm: 'yes', coordinator: 'yes', stakeholder: 'yes' },
-    later: 'Coming later',
   },
   {
     action: 'Change the status of Feedback',
     roles: { pm: 'yes', coordinator: 'yes' },
-    later: 'Coming later',
   },
   {
     action: 'Read Feedback',
     roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'yes', stakeholder: 'yes' },
-    later: 'Coming later',
   },
   { action: 'Give grants and answer access requests', roles: { pm: 'yes', coordinator: 'yes' } },
   { action: 'Ask for more access', roles: { lead: 'yes', member: 'yes' } },

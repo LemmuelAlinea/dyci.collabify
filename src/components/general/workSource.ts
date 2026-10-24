@@ -45,7 +45,7 @@ export function generalWorkItems(state: GeneralProjectState): WorkItem[] {
 export function generalWorkSource(state: GeneralProjectState, openTask: (id: string) => void): WorkSource {
   const project = state.project
   const home: SprintHome = { kind: 'work', projectId: project?.id ?? '' }
-  const live = Boolean(project) && !state.archived
+  const live = Boolean(project) && !state.readOnly
   const canPlan = live && state.can('manage_tasks')
   // Reload even when the action fails: a partial write still changed rows.
   const then = async <T,>(action: Promise<T>) => {
@@ -65,11 +65,13 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     canAdd: live,
     readOnlyReason: state.archived
       ? 'This project is archived, so nothing in it can change.'
-      : canPlan
-        ? ''
-        : state.teams.some((t) => t.leader_id === state.viewerId)
-          ? 'Owners and Managers plan the sprints. You can follow the plan, add tasks to the backlog, and reorder the tasks the people you lead hold.'
-          : 'Owners and Managers plan the sprints. You can follow the plan and add tasks to the backlog.',
+      : state.readOnly
+        ? 'Stakeholders can follow the plan but not change it.'
+        : canPlan
+          ? ''
+          : state.teams.some((t) => t.leader_id === state.viewerId)
+            ? 'Owners and Managers plan the sprints. You can follow the plan, add tasks to the backlog, and reorder the tasks the people you lead hold.'
+            : 'Owners and Managers plan the sprints. You can follow the plan and add tasks to the backlog.',
     teams:
       project && state.teams.length > 0
         ? { projectId: project.id, viewerId: state.viewerId, teams: state.teams, members: state.teamMembers }
@@ -94,7 +96,7 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
 export function generalMilestoneSource(state: GeneralProjectState, openTask: (id: string) => void): MilestoneSource {
   const project = state.project
   const home: MilestoneHome = { kind: 'work', projectId: project?.id ?? '' }
-  const can = Boolean(project) && !state.archived && state.can('manage_tasks')
+  const can = Boolean(project) && !state.readOnly && state.can('manage_tasks')
   // Reload even when the action fails: a partial write still changed rows.
   const then = async <T,>(action: Promise<T>) => {
     try {
@@ -113,9 +115,11 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
     canMarkReached: can,
     readOnlyReason: state.archived
       ? 'This project is archived, so nothing in it can change.'
-      : can
-        ? ''
-        : 'Owners and Managers run the milestones. You can follow how close each one is.',
+      : state.readOnly
+        ? 'Stakeholders can follow the plan but not change it.'
+        : can
+          ? ''
+          : 'Owners and Managers run the milestones. You can follow how close each one is.',
     openTask,
     createMilestone: (input) => then(createMilestone(home, input)),
     updateMilestone: (id, input) => then(updateMilestone(home, id, input)),

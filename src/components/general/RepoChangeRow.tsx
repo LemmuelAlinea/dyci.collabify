@@ -72,7 +72,7 @@ export function RepoChangeRow({
   const stale = change.status === 'open' && change.base_seq !== repo.commit_count
   // Declined or withdrawn work can go back to its author's draft to be reworked.
   const canRestore =
-    mine && (change.status === 'declined' || change.status === 'withdrawn') && !state.archived
+    mine && (change.status === 'declined' || change.status === 'withdrawn') && !state.readOnly
   const { shown, folders } = useMemo(() => shownFiles(change.files), [change.files])
 
   const load = useCallback(async () => {
@@ -151,7 +151,7 @@ export function RepoChangeRow({
         <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
           {CHANGE_LABEL[change.status]}
         </span>
-        {mine && change.status === 'open' && !state.archived && (
+        {mine && change.status === 'open' && !state.readOnly && (
           <ActionMenu
             label={`Actions for ${change.title}`}
             disabled={busy}
@@ -267,7 +267,7 @@ export function RepoChangeRow({
                     {c.path && <span className="ml-1.5 font-mono text-[11px] text-faint">{c.path}</span>}{' '}
                     <span className="whitespace-pre-wrap break-words text-muted"><Linkify text={c.body} /></span>
                   </span>
-                  {!state.archived && (c.author_id === state.viewerId || state.can('edit_files')) && (
+                  {!state.readOnly && (c.author_id === state.viewerId || state.can('edit_files')) && (
                     <button
                       type="button"
                       aria-label="Remove comment"
@@ -289,7 +289,7 @@ export function RepoChangeRow({
               {comments.length === 0 && <li className="text-[12px] text-faint">No comments yet.</li>}
             </ul>
 
-            {!state.archived && state.viewerId && (
+            {!state.readOnly && state.viewerId && (
               <form
                 className="mt-2 flex gap-2"
                 onSubmit={(e) => {
@@ -324,7 +324,7 @@ export function RepoChangeRow({
             )}
           </section>
 
-          {!state.archived && (
+          {!state.readOnly && (
             <div className="flex flex-wrap items-center gap-2">
               {mayAnswer && (
                 <div className="ml-auto flex flex-wrap items-center gap-2">

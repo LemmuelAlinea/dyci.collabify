@@ -43,7 +43,7 @@ export function WorkSummary({
         sprints={state.sprints}
         milestones={state.milestones}
         mine={mine}
-        canPlan={!state.archived && state.can('manage_tasks')}
+        canPlan={!state.readOnly && state.can('manage_tasks')}
         onOpenTask={onOpenTask}
         onSection={onSection}
       />

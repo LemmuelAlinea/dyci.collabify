@@ -164,7 +164,7 @@ function Body({
   onSaved: () => Promise<void>
 }) {
   const { show } = useToast()
-  const readOnly = state.archived || file.sharedBy !== undefined
+  const readOnly = state.readOnly || file.sharedBy !== undefined
   const mayCommit = state.can('commit_main') && !readOnly
   const misreadOfficeFile = file.kind === 'text' && looksLikeMisreadOfficeFile(file.content)
   const frozen = readOnly || !isEditable(file.kind) || misreadOfficeFile

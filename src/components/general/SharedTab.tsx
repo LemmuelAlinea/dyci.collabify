@@ -156,7 +156,7 @@ export function SharedTab({ state }: { state: GeneralProjectState }) {
 
   const received = shares.filter((s) => s.sender_id !== viewerId && viewerId && s.recipient_ids.includes(viewerId))
   const sent = shares.filter((s) => s.sender_id === viewerId)
-  const mayCopy = !state.archived
+  const mayCopy = !state.readOnly
   const hit = (s: GeneralShare) =>
     matches(query, s.path, state.nameOf(s.sender_id), ...s.recipient_ids.map((id) => state.nameOf(id)))
 

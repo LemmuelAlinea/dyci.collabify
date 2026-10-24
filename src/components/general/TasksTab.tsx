@@ -107,7 +107,7 @@ export function TasksTab({
       {
         viewerId: state.viewerId,
         manageTasks: state.can('manage_tasks'),
-        archived: state.archived,
+        archived: state.readOnly,
         leadsUser: state.leadsUser,
       },
       t,
@@ -205,7 +205,7 @@ export function TasksTab({
             </>
           )}
         </p>
-        {!state.archived && (
+        {!state.readOnly && (
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setFromNotes(true)}>
               <Icon name="spark" size={15} />
@@ -225,7 +225,7 @@ export function TasksTab({
           title="No tasks yet"
           body="Break the project into pieces somebody can pick up. Anyone on the project can add one."
           action={
-            !state.archived ? (
+            !state.readOnly ? (
               <div className="flex flex-wrap justify-center gap-2">
                 <Button className="!rounded-xl" onClick={() => setCreating(true)}>
                   Add the first task

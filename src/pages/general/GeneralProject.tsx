@@ -102,6 +102,14 @@ export default function GeneralProject() {
     )
   }
 
+  // A Stakeholder is not in discussions, and has nothing shared with them.
+  const stakeholder = state.myRole === 'stakeholder'
+  if (stakeholder && (tab === 'discussion' || tab === 'shared')) {
+    const changed = new URLSearchParams(params)
+    changed.delete('tab')
+    return <Navigate to={{ search: changed.toString() }} replace />
+  }
+
   const openForOwner = state.canGrant ? state.requests.filter((r) => r.status === 'open').length : 0
 
   async function restore() {
@@ -167,15 +175,19 @@ export default function GeneralProject() {
         </Alert>
       )}
 
+      {stakeholder && (
+        <Alert tone="info">You're a stakeholder here. You can view everything and post in Feedback.</Alert>
+      )}
+
       <SinceLastVisit projectId={p.id} />
 
       <Tabs<GeneralTabId>
         tabs={[
           { id: 'overview', label: 'Overview', icon: 'file' },
-          { id: 'discussion', label: 'Discussion', icon: 'message' },
+          ...(stakeholder ? [] : [{ id: 'discussion' as const, label: 'Discussion', icon: 'message' as const }]),
           { id: 'work', label: 'Work', icon: 'kanban', count: state.tasks.length },
           { id: 'files', label: 'Files', icon: 'folder' },
-          { id: 'shared', label: 'Shared with me', icon: 'users' },
+          ...(stakeholder ? [] : [{ id: 'shared' as const, label: 'Shared with me', icon: 'users' as const }]),
           {
             id: 'members',
             label: 'Members',

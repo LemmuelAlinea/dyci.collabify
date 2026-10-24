@@ -139,7 +139,7 @@ export function DiscussionTab({ state }: { state: GeneralProjectState }) {
 
   useLive(load, ['general_discussions', 'general_discussion_folders'])
 
-  const readOnly = state.archived
+  const readOnly = state.readOnly
   const lead = state.myRole === 'pm' || state.myRole === 'coordinator'
   const live = discussions.find((d) => !d.ended_at) ?? null
   // Opening the tab while a discussion runs puts you in its room; Leave room

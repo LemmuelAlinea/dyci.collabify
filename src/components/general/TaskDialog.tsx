@@ -122,7 +122,7 @@ function TaskBody({
   const holds = Boolean(me && task.assignee_ids.includes(me))
   const canManage = state.can('manage_tasks')
   const createdByMe = task.created_by === me
-  const archived = state.archived
+  const archived = state.readOnly
   const viewer: TaskViewer = { viewerId: me, manageTasks: canManage, archived, leadsUser: state.leadsUser }
   // A team leader edits, assigns and unassigns for the people they lead.
   const canEdit = canEditTask(viewer, task)
@@ -467,7 +467,7 @@ function TaskDetails({
         <p className="whitespace-pre-wrap break-words text-ink">
           {task.description || 'No description.'}
         </p>
-        {!state.archived && (
+        {!state.readOnly && (
           <p className="flex flex-wrap items-center gap-2 text-[12px] text-muted">
             Take this task or ask to manage tasks to change it.
             <RequestAccessButton state={state} permission="manage_tasks" />

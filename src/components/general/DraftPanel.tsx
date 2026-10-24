@@ -139,7 +139,7 @@ export function DraftPanel({
           {describeDraft(files)}
           {draft && <span className="text-faint"> · started from commit {draft.base_seq}</span>}
         </p>
-        {!state.archived && (
+        {!state.readOnly && (
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => setDiscarding(true)}>
               Discard it all
@@ -154,7 +154,7 @@ export function DraftPanel({
           path={path}
           onNavigate={onNavigate}
           actions={
-            path && !state.archived ? (
+            path && !state.readOnly ? (
               <>
                 <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRename(path)}>
                   <Icon name="edit" size={14} />
@@ -226,7 +226,7 @@ export function DraftPanel({
                   key={node.path}
                   node={node}
                   fullPath
-                  readOnly={state.archived}
+                  readOnly={state.readOnly}
                   busy={busy}
                   behind={behind}
                   conflicts={conflicts}
@@ -253,7 +253,7 @@ export function DraftPanel({
             <DraftNode
               key={node.path}
               node={node}
-              readOnly={state.archived}
+              readOnly={state.readOnly}
               busy={busy}
               behind={behind}
               conflicts={conflicts}

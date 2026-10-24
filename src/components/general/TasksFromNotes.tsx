@@ -112,7 +112,7 @@ export function TasksFromNotes({
   const [error, setError] = useState<string | null>(null)
   const projectId = state.project?.id
   const mayAssign = mayAssignOverride ?? state.can('manage_tasks')
-  const workPlans = Boolean(state.project) && !state.archived && state.can('manage_tasks')
+  const workPlans = Boolean(state.project) && !state.readOnly && state.can('manage_tasks')
   const scope: NotesPlanScope = planOverride ?? {
     sprints: state.sprints,
     milestones: state.milestones,

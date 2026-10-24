@@ -15,6 +15,7 @@ import {
   canStepDown,
   canStepRank,
   canUnassign,
+  inviteRoles,
   levelLabel,
   levelPermissions,
   permissionLabel,
@@ -198,9 +199,10 @@ describe('canRemoveRole', () => {
 })
 
 describe('assignableRoles', () => {
-  it('lets the project manager switch anyone else between Coordinator and Member', () => {
-    expect(assignableRoles('pm', 'member')).toEqual(['coordinator', 'member'])
-    expect(assignableRoles('pm', 'coordinator')).toEqual(['coordinator', 'member'])
+  it('lets the project manager switch anyone else between Coordinator, Member and Stakeholder', () => {
+    expect(assignableRoles('pm', 'member')).toEqual(['coordinator', 'member', 'stakeholder'])
+    expect(assignableRoles('pm', 'coordinator')).toEqual(['coordinator', 'member', 'stakeholder'])
+    expect(assignableRoles('pm', 'stakeholder')).toEqual(['coordinator', 'member', 'stakeholder'])
   })
 
   it('gives nobody a role change for the project manager', () => {
@@ -208,8 +210,9 @@ describe('assignableRoles', () => {
     expect(assignableRoles('coordinator', 'pm')).toEqual([])
   })
 
-  it('lets a Coordinator only keep a Member a Member', () => {
-    expect(assignableRoles('coordinator', 'member')).toEqual(['member'])
+  it('lets a Coordinator move a Member or Stakeholder between those two, and nobody else', () => {
+    expect(assignableRoles('coordinator', 'member')).toEqual(['member', 'stakeholder'])
+    expect(assignableRoles('coordinator', 'stakeholder')).toEqual(['member', 'stakeholder'])
     expect(assignableRoles('coordinator', 'coordinator')).toEqual([])
   })
 
@@ -217,6 +220,22 @@ describe('assignableRoles', () => {
     expect(assignableRoles('member', 'member')).toEqual([])
     expect(assignableRoles('qa', 'member')).toEqual([])
     expect(assignableRoles('stakeholder', 'member')).toEqual([])
+  })
+})
+
+describe('inviteRoles', () => {
+  it('lets the project manager invite a Member, Coordinator or Stakeholder', () => {
+    expect(inviteRoles('pm')).toEqual(['member', 'coordinator', 'stakeholder'])
+  })
+
+  it('lets a Coordinator invite a Member or Stakeholder', () => {
+    expect(inviteRoles('coordinator')).toEqual(['member', 'stakeholder'])
+  })
+
+  it('gives everybody else nothing', () => {
+    expect(inviteRoles('member')).toEqual([])
+    expect(inviteRoles('qa')).toEqual([])
+    expect(inviteRoles('stakeholder')).toEqual([])
   })
 })
 
@@ -264,16 +283,16 @@ describe('ROLE_MATRIX grants and requests', () => {
     expect(ask?.roles).toEqual({ lead: 'yes', member: 'yes' })
   })
 
-  it('marks the rows not built yet as coming later', () => {
+  it('marks the rows not built yet as coming later, and Feedback is built', () => {
     const later = ROLE_MATRIX.filter((r) => r.later).map((r) => r.action)
     expect(later).toEqual([
       'Mark the QA stage',
       'Create tasks and edit your own (QA: bug tasks only)',
       'Move a task out of the QA stage (QA, when the project has QA)',
-      'Post in Feedback',
-      'Change the status of Feedback',
-      'Read Feedback',
     ])
+    const feedback = ROLE_MATRIX.filter((r) => r.action.includes('Feedback'))
+    expect(feedback).toHaveLength(3)
+    expect(feedback.every((r) => r.later === undefined)).toBe(true)
   })
 })
 

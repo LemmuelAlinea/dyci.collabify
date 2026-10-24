@@ -67,6 +67,12 @@ export type GeneralProjectState = {
   myOpenRequests: GeneralPermission[]
   archived: boolean
   /**
+   * Nothing here can change for this viewer: the project is archived, or they
+   * are a Stakeholder, who reads everything and writes nowhere but Feedback.
+   * Gate write controls on this, not on `archived`.
+   */
+  readOnly: boolean
+  /**
    * The viewer's role here; null for somebody who reaches the project through
    * its space. A class board's Files project has no roles of its own, so its
    * Owner reads as the project manager and its Manager as a Coordinator.
@@ -216,6 +222,7 @@ export function useGeneralProject(
     const archived = Boolean(project?.archived_at)
     const legacy = Boolean(me && me.role === 'member' && me.level !== 'member')
     const myRole: ProjectRole | null = me ? effectiveRole(me) : null
+    const readOnly = archived || myRole === 'stakeholder'
     const myTeams = new Set(teams.filter((t) => t.leader_id === viewerId).map((t) => t.id))
     const led = new Set(
       myTeams.size > 0 && myRole !== 'stakeholder'
@@ -249,6 +256,7 @@ export function useGeneralProject(
       myGrants,
       myOpenRequests,
       archived,
+      readOnly,
       myRole,
       isOwner: myRole === 'pm',
       canGrant: legacy ? me?.level === 'owner' : myRole === 'pm' || myRole === 'coordinator',
@@ -257,10 +265,10 @@ export function useGeneralProject(
       ).length,
       can: (permission: GeneralPermission) =>
         permission === 'commit_main'
-          ? !archived && commitRights.commit
+          ? !readOnly && commitRights.commit
           : legacy
             ? canDo(me?.level ?? null, myGrants, permission, archived)
-            : !archived && canAs(myRole, myGrants, permission),
+            : !readOnly && canAs(myRole, myGrants, permission),
       leadsUser: (userId: string) => led.has(userId),
       roleOf,
       isLead,

@@ -105,7 +105,7 @@ export default function ProjectArchive() {
     [draftFiles, files, repoPaths, tasks],
   )
   const loading = state.loading || tasks === null || files === null || draftFiles === null || repoPaths === null
-  const canActInArchive = !state.archived
+  const canActInArchive = !state.readOnly
   const q = query.trim().toLowerCase()
   const archivedTasks = q
     ? tasks?.filter((task) => `${task.title} ${task.status}`.toLowerCase().includes(q)) ?? []

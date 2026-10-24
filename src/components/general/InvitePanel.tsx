@@ -16,7 +16,7 @@ import {
   withdrawInvitation,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { ROLE_LABEL } from '../../lib/general/permissions'
+import { ROLE_LABEL, inviteRoles } from '../../lib/general/permissions'
 import type { ProjectRole } from '../../lib/general/permissions'
 import type { PersonHit, ProjectInvitation } from '../../lib/general/types'
 import { fullName } from '../../lib/types'
@@ -58,10 +58,11 @@ function Search({ state }: { state: GeneralProjectState }) {
   const [hits, setHits] = useState<PersonHit[]>([])
   const [searching, setSearching] = useState(false)
   const [inviting, setInviting] = useState<string | null>(null)
-  // Only the project manager has a choice to make: a Coordinator invites Members.
+  // The project manager and a Coordinator each choose a role; anyone else invites no one.
   const [picked, setPicked] = useState<PersonHit | null>(null)
   const [role, setRole] = useState<ProjectRole>('member')
-  const canChooseRole = state.myRole === 'pm'
+  const roles = state.myRole ? inviteRoles(state.myRole) : []
+  const canChooseRole = roles.length > 1
 
   useEffect(() => {
     const q = query.trim()
@@ -81,7 +82,7 @@ function Search({ state }: { state: GeneralProjectState }) {
 
   const memberIds = new Set(state.members.map((m) => m.user_id))
 
-  // Every pick starts at Member, so a Coordinator is always a deliberate choice.
+  // Every pick starts at Member, so Coordinator and Stakeholder are always deliberate choices.
   function pick(hit: PersonHit | null) {
     setPicked(hit)
     setRole('member')
@@ -153,7 +154,7 @@ function Search({ state }: { state: GeneralProjectState }) {
               id="invite-role"
               value={role}
               onChange={(e) => setRole(e.target.value as ProjectRole)}
-              options={(['member', 'coordinator'] as const).map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+              options={roles.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
               className="mt-1 !h-9 !text-[13px]"
             />
           </div>

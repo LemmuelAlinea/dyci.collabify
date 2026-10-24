@@ -77,8 +77,11 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
   const [params, setParams] = useSearchParams()
+  // A Stakeholder reads Main and has no draft: the server refuses them one.
+  const noDraft = state.myRole === 'stakeholder'
   const rawView = params.get('view') as View | null
-  const view: View = rawView && VIEWS.includes(rawView) ? rawView : 'main'
+  const view: View =
+    rawView && VIEWS.includes(rawView) && !(noDraft && rawView === 'draft') ? rawView : 'main'
   const folder = view === 'main' || view === 'draft' ? params.get('path') ?? '' : ''
   const [renaming, setRenaming] = useState<string | null>(null)
   const [open, setOpen] = useState<OpenFile | null>(null)
@@ -102,19 +105,21 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
         setDraftFiles([])
         setConflicts([])
       } else {
-        const [t, c, ch, d] = await Promise.all([
-          listTree(r.id),
-          listCommits(r.id),
-          listRepoChanges(r.id),
-          myDraft(r.id),
-        ])
+        const [t, c, ch] = await Promise.all([listTree(r.id), listCommits(r.id), listRepoChanges(r.id)])
         setTree(t)
         setCommits(c)
         setChanges(ch)
-        setDraft(d)
-        const [df, cf] = await Promise.all([listDraftFiles(d.id), draftConflicts(r.id)])
-        setDraftFiles(df)
-        setConflicts(cf)
+        if (noDraft) {
+          setDraft(null)
+          setDraftFiles([])
+          setConflicts([])
+        } else {
+          const d = await myDraft(r.id)
+          setDraft(d)
+          const [df, cf] = await Promise.all([listDraftFiles(d.id), draftConflicts(r.id)])
+          setDraftFiles(df)
+          setConflicts(cf)
+        }
       }
       setFailed(false)
     } catch {
@@ -122,7 +127,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
     } finally {
       setLoaded(true)
     }
-  }, [projectId])
+  }, [projectId, noDraft])
 
   useEffect(() => {
     void load()
@@ -218,11 +223,11 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {!state.can('commit_main') && !state.archived && (
+          {!state.can('commit_main') && !state.readOnly && (
             <RequestAccessButton state={state} permission="commit_main" />
           )}
           {state.commitRights.board && state.commitRights.grant && <CommitAccessButton state={state} />}
-          {!state.archived && (
+          {!state.readOnly && (
             <Button size="sm" onClick={() => setAdding(true)}>
               <Icon name="plus" size={14} />
               New
@@ -242,7 +247,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
       <Tabs<View>
         tabs={[
           { id: 'main', label: 'Main', icon: 'folder', count: tree.filter((f) => !isKeep(f.path)).length },
-          { id: 'draft', label: 'My draft', icon: 'edit', count: draftCount },
+          ...(noDraft ? [] : [{ id: 'draft' as const, label: 'My draft', icon: 'edit' as const, count: draftCount }]),
           { id: 'changes', label: 'For review', icon: 'refresh', count: openChanges.length },
           { id: 'history', label: 'History', icon: 'clock', count: commits.length },
         ]}
@@ -283,7 +288,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           }}
         />
       )}
-      {view === 'draft' && (
+      {view === 'draft' && !noDraft && (
         <DraftPanel
           draft={draft}
           files={draftFiles}
@@ -569,7 +574,7 @@ function StarterFolders({
 function StartFiles({ state, onDone }: { state: GeneralProjectState; onDone: () => Promise<void> }) {
   const { show } = useToast()
   const [busy, setBusy] = useState(false)
-  const may = state.can('commit_main') && !state.archived
+  const may = state.can('commit_main') && !state.readOnly
 
   return (
     <div className="rounded-panel border border-dashed border-line px-4 py-10 text-center">
@@ -602,7 +607,7 @@ function StartFiles({ state, onDone }: { state: GeneralProjectState; onDone: () 
           Start the project's files
         </Button>
       ) : (
-        !state.archived && (
+        !state.readOnly && (
           <div className="mt-4">
             <RequestAccessButton state={state} permission="commit_main" />
           </div>
@@ -640,7 +645,7 @@ function MainView({
   const all = buildTree(tree)
 
   if (tree.length === 0) {
-    return draftFiles.length === 0 && state.can('commit_main') && !state.archived ? (
+    return draftFiles.length === 0 && state.can('commit_main') && !state.readOnly ? (
       <StarterFolders repo={repo} state={state} onDone={onStarted} />
     ) : (
       <p className="rounded-xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-muted">
@@ -679,7 +684,7 @@ function MainView({
         actions={
           <>
             <ZipButton tree={tree} path={path} project={state.project?.name ?? 'Files'} />
-            {path && !state.archived && (
+            {path && !state.readOnly && (
               <Button size="sm" variant="ghost" onClick={() => onRename(path)}>
                 <Icon name="edit" size={14} />
                 Rename
