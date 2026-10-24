@@ -145,7 +145,7 @@ declare
   v_team  uuid;
   v_c0    uuid;  -- the PM's change, S its reviewer
   v_share uuid;
-  v_t5    uuid;  -- the PM's, held by S
+  v_t5    uuid;  -- the PM's, held by S (kept by the hand-made role change below)
   v_meet  uuid;  -- S's project meeting
 begin
   perform pg_temp.act_as(v_pm);
@@ -199,7 +199,11 @@ begin
   v_c0 := (public.submit_general_draft_file(v_repo, 'review.md', 'Zz review', '', v_s)).id;
   perform public.save_general_draft_file(v_repo, 'pm.md', 'added', 'text', 'PM file');
 
-  -- S becomes a stakeholder.
+  -- S becomes a stakeholder. By hand, as the service role, so S keeps holding
+  -- the PM's task: set_general_member_role would take S off it (checked in
+  -- "Task holders" below), and a row like this only exists when somebody writes
+  -- around the RPC. It keeps the storage and task-file policies' own
+  -- general_can_write gate under test, with nothing else in the way.
   perform pg_temp.act_as_service();
   update public.general_members set role = 'stakeholder' where project_id = v_p and user_id = v_s;
 
@@ -741,6 +745,117 @@ begin
     format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_p, v_c2));
   perform pg_temp.must_be('...who is out of the chat', not pg_temp.in_chat(v_p, v_c2));
   perform pg_temp.act_as_service();
+end $$;
+
+-- Task holders: a stakeholder holds no tasks. H holds two tasks here (one of
+-- them archived) and one in another project; becoming a stakeholder here lets
+-- go of the two, and nobody can hand them another.
+do $$
+declare
+  v_p    uuid := (select v from fx where k = 'p');
+  v_pm   uuid := (select v from fx where k = 'pm');
+  v_m    uuid := (select v from fx where k = 'm');
+  v_c    uuid := (select v from fx where k = 'c');
+  v_repo uuid := (select v from fx where k = 'repo');
+  v_h    uuid := gen_random_uuid();
+  v_p2   uuid;
+  v_ta   uuid;
+  v_tb   uuid;
+  v_tc   uuid;
+  v_td   uuid;
+  v_draft uuid;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          created_at, updated_at)
+  values (v_h, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'zz-sh-h@example.test', '', now(), now());
+  insert into public.profiles
+    (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+  values (v_h, 'zz-sh-h@example.test', 'Zz', 'Shh', 'member', 'active', false, false)
+  on conflict (id) do update set role = excluded.role, status = excluded.status;
+
+  perform pg_temp.act_as(v_pm);
+  v_p2 := (public.create_general_project('Zz SH other project', '')).id;
+  perform pg_temp.act_as_service();
+  insert into public.general_members (project_id, user_id, role)
+  values (v_p, v_h, 'member'), (v_p2, v_h, 'member');
+
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_tasks (project_id, title) values (v_p, 'Zz H holds') returning id into v_ta;
+  insert into public.general_tasks (project_id, title) values (v_p, 'Zz H archived') returning id into v_tb;
+  insert into public.general_tasks (project_id, title) values (v_p2, 'Zz H elsewhere') returning id into v_tc;
+  insert into public.general_tasks (project_id, title) values (v_p, 'Zz unheld') returning id into v_td;
+  insert into public.general_task_assignees (task_id, project_id, user_id)
+  values (v_ta, v_p, v_h), (v_tb, v_p, v_h), (v_tc, v_p2, v_h);
+  perform public.archive_general_task(v_tb, true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('before: H holds two tasks here, one archived, and one elsewhere',
+    (select count(*) from public.general_task_assignees where project_id = v_p and user_id = v_h) = 2
+    and exists (select 1 from public.general_task_assignees where task_id = v_tc and user_id = v_h));
+
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('the pm makes task holder H a stakeholder',
+    format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_p, v_h));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('H holds no task here now, the archived one included',
+    not exists (select 1 from public.general_task_assignees where project_id = v_p and user_id = v_h));
+  perform pg_temp.must_be('...still holds the task in the other project',
+    exists (select 1 from public.general_task_assignees where task_id = v_tc and user_id = v_h));
+  perform pg_temp.must_be('...and each letting go is in the task history',
+    (select count(*) from public.general_task_events
+      where task_id in (v_ta, v_tb) and kind = 'unassigned' and detail->>'user_id' = v_h::text) = 2);
+
+  perform pg_temp.act_as(v_pm);
+  begin
+    insert into public.general_task_assignees (task_id, project_id, user_id) values (v_ta, v_p, v_h);
+    raise exception 'FAIL  the pm hands stakeholder H a task — it went through';
+  exception when insufficient_privilege then
+    perform pg_temp.must_be('the pm cannot hand stakeholder H a task',
+      sqlerrm = 'Stakeholders can''t hold tasks. Pick someone else.');
+  end;
+  perform pg_temp.must_allow('...but hands member M the task',
+    format($q$insert into public.general_task_assignees (task_id, project_id, user_id)
+              values (%L, %L, %L)$q$, v_ta, v_p, v_m));
+  perform pg_temp.act_as(v_c);
+  perform pg_temp.must_refuse_with('a coordinator cannot hand stakeholder H a task either',
+    format($q$insert into public.general_task_assignees (task_id, project_id, user_id)
+              values (%L, %L, %L)$q$, v_td, v_p, v_h),
+    'Stakeholders can''t hold tasks. Pick someone else.');
+
+  -- Reminders skip a stakeholder even with a row written around the guards.
+  perform pg_temp.act_as_service();
+  insert into public.general_task_assignees (task_id, project_id, user_id) values (v_ta, v_p, v_h);
+  update public.general_tasks set due_at = now() + interval '2 hours', status = 'todo' where id = v_ta;
+  insert into public.notification_prefs (user_id, deadline_reminders)
+  values (v_h, true), (v_m, true), (v_pm, true)
+  on conflict (user_id) do update set deadline_reminders = true;
+  delete from public.notifications where general_task_id = v_ta;
+  perform public.send_general_deadline_reminders();
+  perform pg_temp.must_be('a deadline reminder reaches member M',
+    exists (select 1 from public.notifications
+             where user_id = v_m and general_task_id = v_ta and type = 'general_deadline_soon'));
+  perform pg_temp.must_be('...but not stakeholder H',
+    not exists (select 1 from public.notifications
+                 where user_id = v_h and general_task_id = v_ta and type = 'general_deadline_soon'));
+
+  -- A draft quiet for four days: the PM's gets a reminder, stakeholder H's does not.
+  alter table public.general_drafts disable trigger user;
+  insert into public.general_drafts (repo_id, project_id, user_id, base_seq)
+  values (v_repo, v_p, v_h, 0) returning id into v_draft;
+  alter table public.general_drafts enable trigger user;
+  alter table public.general_draft_files disable trigger user;
+  insert into public.general_draft_files (draft_id, project_id, path, action, kind, content, updated_at)
+  values (v_draft, v_p, 'zz/h.txt', 'added', 'text', 'x', now() - interval '4 days');
+  update public.general_draft_files set updated_at = now() - interval '4 days'
+   where draft_id = (select id from public.general_drafts where repo_id = v_repo and user_id = v_pm);
+  alter table public.general_draft_files enable trigger user;
+  perform public.send_draft_reminders();
+  perform pg_temp.must_be('a draft reminder reaches the pm',
+    exists (select 1 from public.notifications
+             where user_id = v_pm and general_project_id = v_p and type = 'draft_waiting'));
+  perform pg_temp.must_be('...but not stakeholder H',
+    not exists (select 1 from public.notifications
+                 where user_id = v_h and general_project_id = v_p and type = 'draft_waiting'));
 end $$;
 
 -- Invitations and join codes.

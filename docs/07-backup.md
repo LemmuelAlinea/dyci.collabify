@@ -199,6 +199,8 @@ projects into a new one as archived drafts.
 last sitting in a work project), and the daily pg_cron job `collabify-draft-reminders`
 (draft files left untouched and unsubmitted for three days), and
 `general_project_templates`, each person's own saved project templates.
+`project-stakeholders.sql` later redefines `send_draft_reminders` to skip stakeholders,
+so re-run it (then `project-feedback.sql` and `anon-lockdown.sql`) after this file.
 
 `peer-evaluation.sql` drops and recreates the views `peer_results`, `peer_round_status`
 and `peer_comments` without `cascade`. A later file that builds a view on
@@ -370,7 +372,11 @@ stakeholder role, by a role change, a hand over or a PM assignment); and of
 `set_general_member_role` and `invite_to_general_project` (`project-roles.sql`; the PM
 sets or invites as stakeholder, a coordinator switches people between member and
 stakeholder and invites as either, QA stays refused with "QA roles are not available
-yet."). A cleanup statement takes current
+yet."; becoming a stakeholder takes the person off every task they held in the project,
+and `guard_general_task_child` refuses a stakeholder assignee with "Stakeholders can't hold
+tasks. Pick someone else."). It is also the final owner of `send_general_deadline_reminders`
+(`general-archive-rbac.sql`, first in `general-notify.sql`) and `send_draft_reminders`
+(`work-automation.sql`), which skip stakeholders. A cleanup statement takes current
 stakeholders out of project chats.
 
 Re-run it (then `anon-lockdown.sql`) after re-running any of `general.sql`,
@@ -378,15 +384,16 @@ Re-run it (then `anon-lockdown.sql`) after re-running any of `general.sql`,
 `general-files.sql`, `general-drafts.sql`, `general-archive-rbac.sql`,
 `general-draft-commit.sql`, `meetings.sql`, `general-shares.sql`, `general-discussions.sql`,
 `discussion-polls-voice.sql`, `trash.sql`, `task-archive.sql`, `archive-page.sql`,
-`task-stages.sql`, `work-planning.sql`, `project-roles.sql`, `project-visibility.sql` or
-`project-team-leads.sql`
+`task-stages.sql`, `work-planning.sql`, `work-automation.sql`, `project-roles.sql`,
+`project-visibility.sql` or `project-team-leads.sql`
 (and so after any of the four files before it). Each of those alone hands a stakeholder
 back a member's writes, or the discussion, the chat or the role refusal, and nothing fails
 to tell you; `general-drafts.sql` alone also
 recreates `general_drafts_own`, which sits beside the split policies and reopens drafts;
 `general-notify.sql` alone puts every stakeholder back in the project chat (its backfill),
 which the cleanup statement undoes; `project-roles.sql` alone refuses the stakeholder role
-again.
+again; `general-notify.sql`, `general-archive-rbac.sql` or `work-automation.sql` alone sends
+stakeholders deadline or draft reminders again.
 
 `project-feedback.sql` runs after `project-stakeholders.sql`. It adds the Feedback tab's
 data: the `general_feedback_kind` and `general_feedback_status` enums, the

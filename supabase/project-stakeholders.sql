@@ -74,7 +74,12 @@
 -- (project-visibility.sql; it adds the general_members_space_role trigger,
 -- which seats someone in the space when they leave the stakeholder role),
 -- set_general_member_role and invite_to_general_project (project-roles.sql;
--- QA is refused with "QA roles are not available yet."). Re-run it after re-running
+-- QA is refused with "QA roles are not available yet."; becoming a stakeholder
+-- takes them off every task they held, and guard_general_task_child refuses a
+-- stakeholder assignee). Last, the reminder jobs skip stakeholders:
+-- send_general_deadline_reminders (general-archive-rbac.sql, first written in
+-- general-notify.sql) and send_draft_reminders (work-automation.sql).
+-- Re-run it after re-running
 -- any of those files, or general-schedule-guard.sql (an older
 -- guard_general_task), then anon-lockdown.sql. general-notify.sql alone also
 -- puts every stakeholder back in the project chat; the cleanup below takes
@@ -387,6 +392,13 @@ begin
   if tg_op = 'INSERT' then
     case tg_table_name
       when 'general_task_assignees' then
+        -- Nobody hands a stakeholder a task, whichever policy branch let the row in.
+        if exists (select 1 from public.general_members
+                    where project_id = new.project_id and user_id = new.user_id
+                      and role = 'stakeholder') then
+          raise exception 'Stakeholders can''t hold tasks. Pick someone else.'
+            using errcode = 'insufficient_privilege';
+        end if;
         new.assigned_by := auth.uid();
         -- Locks the task row so two simultaneous claims cannot both see it unheld.
         perform 1 from public.general_tasks where id = new.task_id for update;
@@ -2268,6 +2280,7 @@ create trigger general_members_space_role
 -- people between member and stakeholder. QA stays refused until phase 4.
 -- Leaving member deletes grants and withdraws requests (below), and
 -- general_members_leader_clear clears a team they led (project-team-leads.sql).
+-- Becoming a stakeholder also takes them off every task they held here.
 create or replace function public.set_general_member_role(
   p_project uuid,
   p_user    uuid,
@@ -2341,6 +2354,15 @@ begin
        set status = 'withdrawn', answered_at = now()
      where project_id = p_project and user_id = p_user and status = 'open';
   end if;
+
+  -- A stakeholder holds no tasks: becoming one lets go of every task they
+  -- held here, archived ones too (the archive op lets that delete past the
+  -- archived-task guard). Each one leaves an "unassigned" event in the history.
+  if p_role = 'stakeholder' then
+    perform set_config('collabify.general_archive_op', 'on', true);
+    delete from public.general_task_assignees where project_id = p_project and user_id = p_user;
+    perform set_config('collabify.general_archive_op', 'off', true);
+  end if;
 end;
 $$;
 
@@ -2403,9 +2425,106 @@ begin
 end;
 $$;
 
+-- ---------------------------------------------------------------- reminders
+
+-- general-archive-rbac.sql's send_general_deadline_reminders, as live, with
+-- stakeholders skipped. They hold no tasks now, so this only matters for a row
+-- written around the guards.
+create or replace function public.send_general_deadline_reminders()
+ returns integer
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $$
+declare
+  sent integer;
+begin
+  insert into public.notifications
+    (user_id, type, general_project_id, general_task_id, title, preview)
+  select a.user_id,
+         'general_deadline_soon'::public.notification_type,
+         t.project_id,
+         t.id,
+         t.title,
+         'Due ' || to_char(t.due_at at time zone 'Asia/Manila', 'FMDay, FMMon FMDD at FMHH12:MI AM')
+    from public.general_tasks t
+    join public.general_task_assignees a on a.task_id = t.id
+    join public.general_projects p on p.id = t.project_id
+    join public.notification_prefs np on np.user_id = a.user_id
+   where t.due_at is not null
+     and t.status <> 'done'
+     and t.due_at > now()
+     and t.due_at <= now() + interval '24 hours'
+     and p.archived_at is null
+     and np.deadline_reminders
+     and public.general_user_sees_task(t.id, a.user_id)
+     and not exists (
+       select 1 from public.general_members m
+        where m.project_id = t.project_id and m.user_id = a.user_id
+          and m.role = 'stakeholder'
+     )
+     and not exists (
+       select 1 from public.notifications n
+        where n.user_id = a.user_id
+          and n.general_task_id = t.id
+          and n.type = 'general_deadline_soon'
+     );
+  get diagnostics sent = row_count;
+  return sent;
+end;
+$$;
+
+-- work-automation.sql's send_draft_reminders, as live, with stakeholders
+-- skipped: they can't open My draft, so a draft left from before is not theirs
+-- to submit.
+create or replace function public.send_draft_reminders()
+ returns integer
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $$
+declare
+  sent integer;
+begin
+  with waiting as (
+    select d.user_id, d.project_id, count(*)::int as files, max(f.updated_at) as last_touched
+      from public.general_drafts d
+      join public.general_draft_files f on f.draft_id = d.id
+     where f.archived_at is null
+       and f.trashed_at is null
+     group by d.user_id, d.project_id
+    having max(f.updated_at) < now() - interval '3 days'
+  )
+  insert into public.notifications (user_id, type, general_project_id, title, preview)
+  select w.user_id, 'draft_waiting', w.project_id, p.name,
+         w.files || case when w.files = 1 then ' file has' else ' files have' end
+           || ' waited in your draft since '
+           || to_char(w.last_touched at time zone 'Asia/Manila', 'FMMon FMDD')
+           || '. The group sees them once you submit them for review.'
+    from waiting w
+    join public.general_projects p on p.id = w.project_id
+    join public.general_members m on m.project_id = w.project_id and m.user_id = w.user_id
+    join public.notification_prefs np on np.user_id = w.user_id
+   where p.archived_at is null
+     and m.role <> 'stakeholder'
+     and np.deadline_reminders
+     and not exists (
+       select 1 from public.notifications n
+        where n.user_id = w.user_id
+          and n.general_project_id = w.project_id
+          and n.type = 'draft_waiting'
+          and n.created_at > w.last_touched
+     );
+  get diagnostics sent = row_count;
+  return sent;
+end;
+$$;
+
 -- ---------------------------------------------------------------- grants
 
 revoke all on function public.general_can_write(uuid) from public, anon;
 grant execute on function public.general_can_write(uuid) to authenticated;
+revoke execute on function public.send_general_deadline_reminders() from public, anon, authenticated;
+revoke all on function public.send_draft_reminders() from public, anon, authenticated;
 
 commit;
