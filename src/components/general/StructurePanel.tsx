@@ -88,7 +88,9 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
         <div>
           <h2>Teams and positions</h2>
           <p className="mt-0.5 text-[12px] text-muted">
-            Name them whatever this project calls them. They describe people; they grant nothing.
+            {leaders
+              ? "Name them whatever this project calls them. A team's leader can run the tasks its people hold; positions grant nothing."
+              : 'Name them whatever this project calls them. They describe people; they grant nothing.'}
           </p>
         </div>
         {!editable && <RequestAccessButton state={state} permission="manage_structure" />}
