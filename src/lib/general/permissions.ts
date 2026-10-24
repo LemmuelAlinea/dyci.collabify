@@ -197,6 +197,78 @@ export function canGive(role: ProjectRole | null, permission: GeneralPermission)
   return role === 'coordinator' && permission !== 'edit_project'
 }
 
+/* ------------------------------------------------------------ task powers */
+
+/**
+ * The viewer, as the task rules read them. `leadsUser` says whether the viewer
+ * leads a team this person is on (useGeneralProject's `leadsUser`).
+ */
+export type TaskViewer = {
+  viewerId: string | undefined
+  manageTasks: boolean
+  archived: boolean
+  leadsUser: (userId: string) => boolean
+}
+
+/** A task's holders and creator, which is all the task rules read. */
+export type TaskHolders = { assignee_ids: readonly string[]; created_by: string | null }
+
+/**
+ * Whether the viewer may change a task's details and stage: someone who
+ * manages tasks, a holder, its creator while nobody holds it, or the leader of
+ * a team one of its holders is on. Mirrors guard_general_task and
+ * sync_general_task_stage (supabase/project-team-leads.sql). Points are not
+ * covered: they still need manage_tasks.
+ */
+export function canEditTask(v: TaskViewer, task: TaskHolders): boolean {
+  if (v.archived) return false
+  if (v.manageTasks) return true
+  const me = v.viewerId
+  if (me && task.assignee_ids.includes(me)) return true
+  if (me && task.created_by === me && task.assignee_ids.length === 0) return true
+  return task.assignee_ids.some(v.leadsUser)
+}
+
+/**
+ * Whether the viewer may take this holder off the task: someone who manages
+ * tasks, the holder themselves, or a leader of a team the holder is on.
+ * Mirrors the general_task_assignees_delete policy.
+ */
+export function canUnassign(v: TaskViewer, userId: string): boolean {
+  if (v.archived) return false
+  return v.manageTasks || userId === v.viewerId || v.leadsUser(userId)
+}
+
+/**
+ * Whom the viewer may assign to the task, from `candidates`. Someone who
+ * manages tasks assigns anyone not already on it. A team leader assigns people
+ * they lead, but only while nobody holds the task: the database refuses a
+ * second holder from anyone who does not manage tasks. The viewer themselves
+ * is left out for a leader, who takes the task with "Take this task" instead.
+ * Mirrors the general_task_assignees_insert policy and guard_general_task_child.
+ */
+export function assignableTo(v: TaskViewer, task: TaskHolders, candidates: readonly string[]): string[] {
+  if (v.archived) return []
+  const free = candidates.filter((id) => !task.assignee_ids.includes(id))
+  if (v.manageTasks) return free
+  if (task.assignee_ids.length > 0) return []
+  return free.filter((id) => id !== v.viewerId && v.leadsUser(id))
+}
+
+/**
+ * Whether the viewer may move a task up or down its list (its rank). Planners
+ * reorder anything; a team leader reorders tasks somebody they lead holds.
+ * Moving a task between sprints still needs planning. Mirrors
+ * guard_general_task_plan.
+ */
+export function canStepRank(
+  canPlan: boolean,
+  holderIds: readonly string[] | undefined,
+  leadsUser: (userId: string) => boolean,
+): boolean {
+  return canPlan || (holderIds ?? []).some(leadsUser)
+}
+
 /**
  * yes    the role does it
  * team   only for tasks of people on the team the person leads
@@ -211,17 +283,19 @@ export type RoleMark = 'yes' | 'team' | 'grant' | 'own' | 'read'
  * `lead` is the Team lead tag, which sits on top of whatever role the person
  * has. A missing key means no. This is the spec's table row for row, QA and
  * Stakeholder included, so it reads right once those roles are usable.
+ * `later` is a caption for a row (or part of one) that is not built yet.
  */
 export const ROLE_MATRIX: {
   action: string
   roles: Partial<Record<ProjectRole | 'lead', RoleMark>>
+  later?: string
 }[] = [
   {
     action: 'See the project, tasks, sprints, milestones, files and meetings',
     roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'yes', stakeholder: 'read' },
   },
   { action: 'Edit project details and stages, archive and delete', roles: { pm: 'yes' } },
-  { action: 'Mark the QA stage', roles: { pm: 'yes' } },
+  { action: 'Mark the QA stage', roles: { pm: 'yes' }, later: 'Coming later' },
   {
     action: 'Invite and remove people, and set roles (not project manager)',
     roles: { pm: 'yes', coordinator: 'yes' },
@@ -235,11 +309,13 @@ export const ROLE_MATRIX: {
   {
     action: 'Create tasks and edit your own (QA: bug tasks only)',
     roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'own' },
+    later: 'Bug tasks: coming later',
   },
   { action: 'Plan sprints and milestones', roles: { pm: 'yes', coordinator: 'yes', member: 'grant' } },
   {
     action: 'Move a task out of the QA stage (QA, when the project has QA)',
     roles: { pm: 'yes', qa: 'yes' },
+    later: 'Coming later',
   },
   {
     action: 'Files tab: folders, move, rename and delete any file',
@@ -261,14 +337,21 @@ export const ROLE_MATRIX: {
     action: 'Comment on tasks, and join discussions and the project chat',
     roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'yes' },
   },
-  { action: 'Post in Feedback', roles: { pm: 'yes', coordinator: 'yes', stakeholder: 'yes' } },
-  { action: 'Change the status of Feedback', roles: { pm: 'yes', coordinator: 'yes' } },
+  {
+    action: 'Post in Feedback',
+    roles: { pm: 'yes', coordinator: 'yes', stakeholder: 'yes' },
+    later: 'Coming later',
+  },
+  {
+    action: 'Change the status of Feedback',
+    roles: { pm: 'yes', coordinator: 'yes' },
+    later: 'Coming later',
+  },
   {
     action: 'Read Feedback',
     roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'yes', stakeholder: 'yes' },
+    later: 'Coming later',
   },
-  {
-    action: 'Give grants and answer access requests, or ask for them',
-    roles: { pm: 'yes', coordinator: 'yes', lead: 'grant', member: 'grant' },
-  },
+  { action: 'Give grants and answer access requests', roles: { pm: 'yes', coordinator: 'yes' } },
+  { action: 'Ask for more access', roles: { lead: 'yes', member: 'yes' } },
 ]

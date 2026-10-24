@@ -37,6 +37,8 @@ import { attachFromRepo, attachSummary, repoTree } from '../../lib/general/attac
 import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
+import { assignableTo, canEditTask, canUnassign } from '../../lib/general/permissions'
+import type { TaskViewer } from '../../lib/general/permissions'
 import { ProjectFilePicker } from './ProjectFilePicker'
 import { RequestAccessButton } from './RequestAccessButton'
 import { PersonBadge } from './RoleBadge'
@@ -121,7 +123,14 @@ function TaskBody({
   const canManage = state.can('manage_tasks')
   const createdByMe = task.created_by === me
   const archived = state.archived
-  const canEdit = !archived && (canManage || holds || (createdByMe && task.assignee_ids.length === 0))
+  const viewer: TaskViewer = { viewerId: me, manageTasks: canManage, archived, leadsUser: state.leadsUser }
+  // A team leader edits, assigns and unassigns for the people they lead.
+  const canEdit = canEditTask(viewer, task)
+  const assignable = assignableTo(
+    viewer,
+    task,
+    state.members.filter((m) => m.profile?.status !== 'rejected').map((m) => m.user_id),
+  )
   const canAttach = !archived && (holds || state.can('edit_files'))
   // Archiving: whoever added the task, at any point, or someone who manages tasks.
   const canDelete = !archived && (canManage || createdByMe)
@@ -206,7 +215,7 @@ function TaskBody({
               >
                 {state.nameOf(id)}
                 <PersonBadge userId={id} roles={state} />
-                {!archived && (canManage || id === me) && (
+                {canUnassign(viewer, id) && (
                   <button
                     type="button"
                     aria-label={id === me ? 'Release this task' : `Take ${state.nameOf(id)} off`}
@@ -223,7 +232,7 @@ function TaskBody({
             ))}
             {task.assignee_ids.length === 0 && <li className="text-[13px] text-faint">Nobody holds this yet.</li>}
           </ul>
-          {!archived && canManage && (
+          {(canManage ? !archived : assignable.length > 0) && (
             <div className="mt-2 max-w-[16rem]">
               <Select
                 aria-label="Assign someone"
@@ -232,13 +241,8 @@ function TaskBody({
                   const userId = e.target.value
                   if (userId) void act(() => assignTask(task.id, task.project_id, userId), 'Assigned', 'Could not assign that.')
                 }}
-                placeholder="Assign someone…"
-                options={state.members
-                  .filter(
-                    (m) =>
-                      !task.assignee_ids.includes(m.user_id) && m.profile?.status !== 'rejected',
-                  )
-                  .map((m) => ({ value: m.user_id, label: state.nameOf(m.user_id) }))}
+                placeholder={canManage ? 'Assign someone…' : 'Assign someone you lead…'}
+                options={assignable.map((id) => ({ value: id, label: state.nameOf(id) }))}
                 className="!h-9 !text-[13px]"
               />
             </div>

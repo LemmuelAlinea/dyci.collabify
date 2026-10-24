@@ -19,6 +19,7 @@ import {
 } from '../../lib/api/sprints'
 import type { SprintHome } from '../../lib/api/sprints'
 import { createTask } from '../../lib/api/general'
+import { canStepRank } from '../../lib/general/permissions'
 import type { MilestoneSource, WorkItem, WorkSource } from '../../lib/work/types'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -59,12 +60,16 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     items: generalWorkItems(state),
     sprints: state.sprints,
     canPlan,
+    // A team leader reorders the tasks people they lead hold; sprint moves stay with planners.
+    canStepItem: (item) => live && canStepRank(canPlan, item.holderIds, state.leadsUser),
     canAdd: live,
     readOnlyReason: state.archived
       ? 'This project is archived, so nothing in it can change.'
       : canPlan
         ? ''
-        : 'Owners and Managers plan the sprints. You can follow the plan and add tasks to the backlog.',
+        : state.teams.some((t) => t.leader_id === state.viewerId)
+          ? 'Owners and Managers plan the sprints. You can follow the plan, add tasks to the backlog, and reorder the tasks the people you lead hold.'
+          : 'Owners and Managers plan the sprints. You can follow the plan and add tasks to the backlog.',
     teams:
       project && state.teams.length > 0
         ? { projectId: project.id, viewerId: state.viewerId, teams: state.teams, members: state.teamMembers }

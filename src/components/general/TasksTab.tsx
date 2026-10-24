@@ -16,6 +16,7 @@ import { useToast } from '../ui/Toast'
 import { createTask, updateTask } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue } from '../../lib/general/dates'
+import { canEditTask } from '../../lib/general/permissions'
 import { projectProgress } from '../../lib/general/progress'
 import { STAGE_TONE, nextStep, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
@@ -97,10 +98,20 @@ export function TasksTab({
       .map((m) => ({ value: m.user_id, label: state.nameOf(m.user_id) })),
   ]
 
-  /** Who may move a task along: its holders, anyone who manages tasks. */
+  /**
+   * Who may move a task along: whoever may change it (its holders, its creator
+   * while nobody holds it, a leader of a holder, anyone who manages tasks).
+   */
   const mayMove = (t: GeneralTask) =>
-    !state.archived &&
-    (state.can('manage_tasks') || Boolean(state.viewerId && t.assignee_ids.includes(state.viewerId)))
+    canEditTask(
+      {
+        viewerId: state.viewerId,
+        manageTasks: state.can('manage_tasks'),
+        archived: state.archived,
+        leadsUser: state.leadsUser,
+      },
+      t,
+    )
 
   async function move(t: GeneralTask, to: GeneralTaskStatus, stage: number) {
     try {

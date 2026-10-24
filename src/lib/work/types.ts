@@ -57,6 +57,12 @@ export type WorkSource = {
   sprints: Sprint[]
   /** May create, edit, start, finish, move and reorder. */
   canPlan: boolean
+  /**
+   * May move this task up or down its list. Planners always may; a work
+   * project's team leader may for tasks somebody they lead holds. Unset means
+   * only planners.
+   */
+  canStepItem?: (item: WorkItem) => boolean
   /** May add a task to the backlog. */
   canAdd: boolean
   /** Why planning is off for this viewer; '' when it is on. */

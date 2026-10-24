@@ -75,6 +75,9 @@ export function RoleGuide() {
                     className="sticky left-0 z-10 w-[16rem] min-w-[14rem] surface px-4 py-2.5 font-normal text-ink sm:px-5"
                   >
                     {row.action}
+                    {row.later && (
+                      <span className="mt-0.5 block text-[11px] text-faint">{row.later}</span>
+                    )}
                   </th>
                   {COLUMNS.map((c) => {
                     const mark = row.roles[c.key]

@@ -6,17 +6,22 @@ import {
   ROLE_LABEL,
   ROLE_MATRIX,
   assignableRoles,
+  assignableTo,
   can,
   canAs,
+  canEditTask,
   canGive,
   canRemoveRole,
   canStepDown,
+  canStepRank,
+  canUnassign,
   levelLabel,
   levelPermissions,
   permissionLabel,
   requestable,
   rolePermissions,
 } from './permissions'
+import type { TaskViewer } from './permissions'
 
 /**
  * These mirror `general_can()` in supabase/general.sql. When the two disagree a
@@ -245,5 +250,121 @@ describe('ROLE_MATRIX', () => {
     const see = ROLE_MATRIX[0]
     expect(see.roles.stakeholder).toBe('read')
     expect(ROLE_MATRIX.find((r) => r.action === 'Post in Feedback')?.roles.stakeholder).toBe('yes')
+  })
+})
+
+describe('ROLE_MATRIX grants and requests', () => {
+  it('shows the project manager and Coordinator giving grants, and nobody else', () => {
+    const give = ROLE_MATRIX.find((r) => r.action === 'Give grants and answer access requests')
+    expect(give?.roles).toEqual({ pm: 'yes', coordinator: 'yes' })
+  })
+
+  it('shows Members and Team leads asking for more access', () => {
+    const ask = ROLE_MATRIX.find((r) => r.action === 'Ask for more access')
+    expect(ask?.roles).toEqual({ lead: 'yes', member: 'yes' })
+  })
+
+  it('marks the rows not built yet as coming later', () => {
+    const later = ROLE_MATRIX.filter((r) => r.later).map((r) => r.action)
+    expect(later).toEqual([
+      'Mark the QA stage',
+      'Create tasks and edit your own (QA: bug tasks only)',
+      'Move a task out of the QA stage (QA, when the project has QA)',
+      'Post in Feedback',
+      'Change the status of Feedback',
+      'Read Feedback',
+    ])
+  })
+})
+
+describe('task powers', () => {
+  const leads = (ids: string[]) => (id: string) => ids.includes(id)
+  const viewer = (over: Partial<TaskViewer> = {}): TaskViewer => ({
+    viewerId: 'me',
+    manageTasks: false,
+    archived: false,
+    leadsUser: leads([]),
+    ...over,
+  })
+  const task = (assignee_ids: string[], created_by: string | null = 'someone') => ({ assignee_ids, created_by })
+
+  describe('canEditTask', () => {
+    it('lets someone who manages tasks edit anything', () => {
+      expect(canEditTask(viewer({ manageTasks: true }), task(['x']))).toBe(true)
+    })
+
+    it('lets a holder edit, and the creator while nobody holds it', () => {
+      expect(canEditTask(viewer(), task(['me']))).toBe(true)
+      expect(canEditTask(viewer(), task([], 'me'))).toBe(true)
+      expect(canEditTask(viewer(), task(['x'], 'me'))).toBe(false)
+    })
+
+    it('lets a team leader edit a task somebody they lead holds', () => {
+      expect(canEditTask(viewer({ leadsUser: leads(['mate']) }), task(['other', 'mate']))).toBe(true)
+    })
+
+    it('refuses a leader for tasks held only by people they do not lead, or held by nobody', () => {
+      expect(canEditTask(viewer({ leadsUser: leads(['mate']) }), task(['other']))).toBe(false)
+      expect(canEditTask(viewer({ leadsUser: leads(['mate']) }), task([]))).toBe(false)
+    })
+
+    it('refuses everybody on an archived project', () => {
+      expect(canEditTask(viewer({ manageTasks: true, archived: true }), task(['me']))).toBe(false)
+    })
+  })
+
+  describe('canUnassign', () => {
+    it('lets a holder release themselves and a manager take anyone off', () => {
+      expect(canUnassign(viewer(), 'me')).toBe(true)
+      expect(canUnassign(viewer({ manageTasks: true }), 'x')).toBe(true)
+    })
+
+    it('lets a leader take off only people they lead', () => {
+      const lead = viewer({ leadsUser: leads(['mate']) })
+      expect(canUnassign(lead, 'mate')).toBe(true)
+      expect(canUnassign(lead, 'other')).toBe(false)
+    })
+
+    it('refuses everybody on an archived project', () => {
+      expect(canUnassign(viewer({ archived: true }), 'me')).toBe(false)
+    })
+  })
+
+  describe('assignableTo', () => {
+    const people = ['me', 'mate', 'mate2', 'other']
+
+    it('offers a manager everyone not already on the task', () => {
+      expect(assignableTo(viewer({ manageTasks: true }), task(['other']), people)).toEqual(['me', 'mate', 'mate2'])
+    })
+
+    it('offers a leader only the people they lead, and not themselves, while nobody holds it', () => {
+      const lead = viewer({ leadsUser: leads(['me', 'mate', 'mate2']) })
+      expect(assignableTo(lead, task([]), people)).toEqual(['mate', 'mate2'])
+    })
+
+    it('offers a leader nobody once the task is held, since a second holder is refused', () => {
+      const lead = viewer({ leadsUser: leads(['mate', 'mate2']) })
+      expect(assignableTo(lead, task(['mate']), people)).toEqual([])
+    })
+
+    it('offers a plain member nobody', () => {
+      expect(assignableTo(viewer(), task([]), people)).toEqual([])
+    })
+
+    it('offers nobody on an archived project', () => {
+      expect(assignableTo(viewer({ manageTasks: true, archived: true }), task([]), people)).toEqual([])
+    })
+  })
+
+  describe('canStepRank', () => {
+    it('lets planners reorder anything', () => {
+      expect(canStepRank(true, [], leads([]))).toBe(true)
+    })
+
+    it('lets a leader reorder tasks somebody they lead holds, and nothing else', () => {
+      expect(canStepRank(false, ['mate'], leads(['mate']))).toBe(true)
+      expect(canStepRank(false, ['other'], leads(['mate']))).toBe(false)
+      expect(canStepRank(false, undefined, leads(['mate']))).toBe(false)
+    })
   })
 })

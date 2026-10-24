@@ -96,7 +96,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
             item={item}
             canPlan={source.canPlan}
             // A move lands between the neighbours the row can see, so it is off while the list is cut down.
-            canStep={!selection}
+            canStep={!selection && (source.canStepItem ? source.canStepItem(item) : source.canPlan)}
             checked={checked.has(item.id)}
             onCheck={() => toggle(item.id)}
             onOpen={() => source.openTask(item.id)}
@@ -359,7 +359,7 @@ function ItemRow({
           )}
         </p>
       </div>
-      {canPlan && (
+      {(canPlan || canStep) && (
         <div className="flex items-center gap-1">
           {canStep && (
             <>
@@ -371,13 +371,15 @@ function ItemRow({
               </button>
             </>
           )}
-          <Select
-            value={item.sprint_id ?? BACKLOG}
-            onChange={(e) => onMove(e.target.value)}
-            options={targets}
-            aria-label={`Move ${item.title} to`}
-            className="!h-8 !w-auto max-w-[9rem] !pr-8 !pl-2.5 !text-[12px]"
-          />
+          {canPlan && (
+            <Select
+              value={item.sprint_id ?? BACKLOG}
+              onChange={(e) => onMove(e.target.value)}
+              options={targets}
+              aria-label={`Move ${item.title} to`}
+              className="!h-8 !w-auto max-w-[9rem] !pr-8 !pl-2.5 !text-[12px]"
+            />
+          )}
         </div>
       )}
     </li>
