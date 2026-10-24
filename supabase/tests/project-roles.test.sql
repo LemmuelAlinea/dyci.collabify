@@ -699,16 +699,16 @@ begin
     'Use hand over to change the project manager.');
   perform pg_temp.must_refuse_with('the pm cannot set qa',
     format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_r, v_mem2),
-    'QA and stakeholder roles are not available yet.');
+    'QA roles are not available yet.');
   -- Stakeholder is on since phase 3: project-stakeholders.test.sql covers it.
   perform pg_temp.act_as(v_coord);
   perform pg_temp.must_refuse_with('a coordinator cannot set qa',
     format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_r, v_mem2),
-    'QA and stakeholder roles are not available yet.');
+    'QA roles are not available yet.');
   perform pg_temp.act_as(v_stranger);
   perform pg_temp.must_refuse_with('nor can somebody off the project',
     format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_r, v_mem2),
-    'QA and stakeholder roles are not available yet.');
+    'QA roles are not available yet.');
 
   -- Who may set roles at all.
   perform pg_temp.must_refuse_with('somebody off the project cannot set roles',
@@ -795,7 +795,7 @@ begin
     'Use hand over to change the project manager.');
   perform pg_temp.must_refuse_with('...nor as qa',
     format($q$select public.invite_to_general_project(%L, %L, 'qa')$q$, v_r, v_inv3),
-    'QA and stakeholder roles are not available yet.');
+    'QA roles are not available yet.');
   perform pg_temp.must_refuse_with('inviting someone already on the project is refused',
     format($q$select public.invite_to_general_project(%L, %L, 'member')$q$, v_r, v_mem2),
     'already on this project');

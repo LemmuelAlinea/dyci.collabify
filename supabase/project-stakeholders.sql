@@ -24,7 +24,8 @@
 --
 -- Stakeholders are not in the discussion or the project chat: they neither
 -- read nor write either (the one read path that changes). Joining as a
--- stakeholder seats nobody in the project's space. The pm and coordinators can
+-- stakeholder seats nobody in the project's space; leaving the role later
+-- does (general_members_space_role). The pm and coordinators can
 -- now set and invite the stakeholder role; QA stays refused until phase 4.
 --
 -- Unchanged on purpose: leave_general_project (a stakeholder can leave),
@@ -70,8 +71,10 @@
 -- notify_discussion_started (general-discussions.sql),
 -- sync_general_conversation_member and the general_members_conversation
 -- trigger (general-notify.sql), add_general_member_to_space
--- (project-visibility.sql), set_general_member_role and
--- invite_to_general_project (project-roles.sql). Re-run it after re-running
+-- (project-visibility.sql; it adds the general_members_space_role trigger,
+-- which seats someone in the space when they leave the stakeholder role),
+-- set_general_member_role and invite_to_general_project (project-roles.sql;
+-- QA is refused with "QA roles are not available yet."). Re-run it after re-running
 -- any of those files, or general-schedule-guard.sql (an older
 -- guard_general_task), then anon-lockdown.sql. general-notify.sql alone also
 -- puts every stakeholder back in the project chat; the cleanup below takes
@@ -2096,14 +2099,18 @@ end;
 $$;
 
 -- Every discussion RPC (start, send, edit, polls, folders, trash) passes here.
--- A stakeholder is told they are not on it, as for the discussion they are.
+-- Somebody off the project keeps their message; a stakeholder gets theirs.
 create or replace function public.general_discussion_check(p_project uuid)
 returns void language plpgsql stable security definer set search_path = public as $$
 declare
   board uuid;
 begin
-  if not public.general_viewer_active() or not public.general_can_write(p_project) then
+  if not public.general_viewer_active() or not public.is_general_member(p_project) then
     raise exception 'You are not on this project' using errcode = 'insufficient_privilege';
+  end if;
+  if not public.general_can_write(p_project) then
+    raise exception 'Stakeholders can view this project but not change it.'
+      using errcode = 'insufficient_privilege';
   end if;
   if public.general_is_archived(p_project) then
     raise exception 'This project is archived. An Owner can restore it to make changes.'
@@ -2244,6 +2251,16 @@ begin
 end;
 $$;
 
+-- Leaving the stakeholder role (to member, coordinator, or pm by hand over or
+-- assignment) is being given a role in the project, so it seats them in the
+-- space as joining does. The same function, on its own trigger, apart from chat.
+drop trigger if exists general_members_space_role on public.general_members;
+create trigger general_members_space_role
+  after update of role on public.general_members
+  for each row
+  when (old.role = 'stakeholder' and new.role <> 'stakeholder')
+  execute function public.add_general_member_to_space();
+
 -- ---------------------------------------------------------------- the role, on
 
 -- project-roles.sql's set_general_member_role, as live, with stakeholder
@@ -2261,7 +2278,7 @@ declare
   target public.general_members%rowtype;
 begin
   if p_role = 'qa' then
-    raise exception 'QA and stakeholder roles are not available yet.'
+    raise exception 'QA roles are not available yet.'
       using errcode = 'check_violation';
   end if;
   if p_role = 'pm' then
@@ -2346,7 +2363,7 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
   if p_role = 'qa' then
-    raise exception 'QA and stakeholder roles are not available yet.'
+    raise exception 'QA roles are not available yet.'
       using errcode = 'check_violation';
   end if;
   if p_role = 'pm' then

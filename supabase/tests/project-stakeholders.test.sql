@@ -624,6 +624,13 @@ begin
   perform public.create_general_discussion_poll(v_d2, 'Zz which?', array['One', 'Two']);
   select id into v_poll from public.general_discussion_polls where discussion_id = v_d2;
   select id into v_opt from public.general_discussion_poll_options where poll_id = v_poll order by position limit 1;
+  -- A vote, a folder and a sent file, for the stakeholder not to see.
+  perform public.cast_general_discussion_poll_vote(v_opt, true);
+  perform public.create_general_discussion_folder(v_p, 'Zz SH folder');
+  insert into storage.objects (bucket_id, name, owner_id)
+  values ('discussion-files', v_p || '/' || v_d2 || '/brief.txt', v_pm::text);
+  perform public.send_general_discussion_files(v_d2, '', jsonb_build_array(
+    jsonb_build_object('path', v_p || '/' || v_d2 || '/brief.txt', 'name', 'brief.txt')));
   perform pg_temp.act_as_service();  -- notifications are read as their owner otherwise
   perform pg_temp.must_be('a new discussion notifies the qa',
     exists (select 1 from public.notifications
@@ -639,24 +646,34 @@ begin
     (select count(*) from public.general_discussion_messages where project_id = v_p) = 0);
   perform pg_temp.must_be('...no polls, options or votes',
     (select count(*) from public.general_discussion_polls where project_id = v_p) = 0
-    and (select count(*) from public.general_discussion_poll_options where project_id = v_p) = 0);
+    and (select count(*) from public.general_discussion_poll_options where project_id = v_p) = 0
+    and (select count(*) from public.general_discussion_poll_votes where project_id = v_p) = 0);
+  perform pg_temp.must_be('...no folders',
+    (select count(*) from public.general_discussion_folders where project_id = v_p) = 0);
+  perform pg_temp.must_be('...no sent files',
+    (select count(*) from public.general_discussion_files where project_id = v_p) = 0);
+  perform pg_temp.must_be('...nor the stored file behind one',
+    not exists (select 1 from storage.objects
+                 where bucket_id = 'discussion-files' and name = v_p || '/' || v_d2 || '/brief.txt'));
   perform pg_temp.must_be('...and no discussion recordings or files',
     not public.discussion_voice_readable(v_p || '/' || v_d2 || '/x.webm'));
   perform pg_temp.must_be('...and no project chat',
     not exists (select 1 from public.conversations where kind = 'project' and general_project_id = v_p));
-  perform pg_temp.must_refuse_with('stakeholder M posts in the discussion',
-    format($q$select public.send_general_discussion_message(%L, 'Zz no')$q$, v_d2),
-    'not on this project');
-  perform pg_temp.must_refuse_with('...starts a discussion',
-    format($q$select public.start_general_discussion(%L, null, 'Zz no')$q$, v_p),
-    'not on this project');
-  perform pg_temp.must_refuse_with('...votes in a poll',
-    format($q$select public.cast_general_discussion_poll_vote(%L, true)$q$, v_opt),
-    'not on this project');
+  perform pg_temp.must_refuse_stakeholder('stakeholder M posts in the discussion',
+    format($q$select public.send_general_discussion_message(%L, 'Zz no')$q$, v_d2));
+  perform pg_temp.must_refuse_stakeholder('...starts a discussion',
+    format($q$select public.start_general_discussion(%L, null, 'Zz no')$q$, v_p));
+  perform pg_temp.must_refuse_stakeholder('...votes in a poll',
+    format($q$select public.cast_general_discussion_poll_vote(%L, true)$q$, v_opt));
   perform pg_temp.must_refuse_with('...uploads a recording',
     format($q$insert into storage.objects (bucket_id, name, owner_id)
               values ('discussion-voice', %L, %L)$q$, v_p || '/' || v_d2 || '/m.webm', v_m),
     'row-level security');
+
+  perform pg_temp.act_as((select v from fx where k = 'out'));
+  perform pg_temp.must_refuse_with('somebody off the project posting keeps their message',
+    format($q$select public.send_general_discussion_message(%L, 'Zz no')$q$, v_d2),
+    'You are not on this project');
 
   perform pg_temp.act_as(v_pm);
   perform pg_temp.must_allow('the pm makes M a member again',
@@ -668,6 +685,13 @@ begin
   perform pg_temp.must_be('...their messages and polls',
     (select count(*) from public.general_discussion_messages where project_id = v_p) >= 1
     and (select count(*) from public.general_discussion_polls where project_id = v_p) = 1);
+  perform pg_temp.must_be('...the votes, folders and sent files',
+    (select count(*) from public.general_discussion_poll_votes where project_id = v_p) = 1
+    and (select count(*) from public.general_discussion_folders where project_id = v_p) = 1
+    and (select count(*) from public.general_discussion_files where project_id = v_p) = 1);
+  perform pg_temp.must_be('...and the stored file',
+    exists (select 1 from storage.objects
+             where bucket_id = 'discussion-files' and name = v_p || '/' || v_d2 || '/brief.txt'));
   perform pg_temp.must_be('...the recordings',
     public.discussion_voice_readable(v_p || '/' || v_d2 || '/x.webm'));
   perform pg_temp.must_allow('member M posts in the discussion',
@@ -704,7 +728,7 @@ begin
     'Only the project manager can change a coordinator or the project manager.');
   perform pg_temp.must_refuse_with('...nor set qa',
     format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_p, v_m),
-    'QA and stakeholder roles are not available yet.');
+    'QA roles are not available yet.');
 
   perform pg_temp.act_as(v_pm);
   perform pg_temp.must_refuse_with('the pm cannot make themself a stakeholder',
@@ -712,7 +736,7 @@ begin
     'Use hand over to change the project manager.');
   perform pg_temp.must_refuse_with('the pm still cannot set qa',
     format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_p, v_m),
-    'QA and stakeholder roles are not available yet.');
+    'QA roles are not available yet.');
   perform pg_temp.must_allow('the pm makes a coordinator a stakeholder',
     format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_p, v_c2));
   perform pg_temp.must_be('...who is out of the chat', not pg_temp.in_chat(v_p, v_c2));
@@ -734,7 +758,7 @@ begin
   perform pg_temp.act_as(v_pm);
   perform pg_temp.must_refuse_with('the pm cannot invite as qa',
     format($q$select public.invite_to_general_project(%L, %L, 'qa')$q$, v_p, v_x),
-    'QA and stakeholder roles are not available yet.');
+    'QA roles are not available yet.');
   v_inv := public.invite_to_general_project(v_p, v_x, 'stakeholder');
   perform pg_temp.must_be('the pm invites X as a stakeholder', v_inv.role = 'stakeholder');
   v_inv := public.invite_to_general_project(v_p, v_y, 'member');
@@ -749,6 +773,12 @@ begin
   perform pg_temp.must_be('...and not in the space', not pg_temp.in_space(v_p, v_x));
   perform pg_temp.must_be('...but reads the project',
     exists (select 1 from public.general_projects where id = v_p));
+  perform pg_temp.act_as(v_pm);
+  perform public.set_general_member_role(v_p, v_x, 'member');
+  perform pg_temp.must_be('X, made a member, is seated in the space', pg_temp.in_space(v_p, v_x));
+  perform pg_temp.must_be('...and in the chat', pg_temp.in_chat(v_p, v_x));
+  perform public.set_general_member_role(v_p, v_x, 'stakeholder');
+  perform pg_temp.must_be('X, a stakeholder again, keeps the space seat', pg_temp.in_space(v_p, v_x));
 
   perform pg_temp.act_as(v_y);
   perform public.respond_general_invitation(
@@ -762,7 +792,7 @@ begin
     'Only the project manager can invite a coordinator.');
   perform pg_temp.must_refuse_with('...nor as qa',
     format($q$select public.invite_to_general_project(%L, %L, 'qa')$q$, v_p, v_z),
-    'QA and stakeholder roles are not available yet.');
+    'QA roles are not available yet.');
   v_inv := public.invite_to_general_project(v_p, v_z, 'stakeholder');
   perform pg_temp.must_be('a coordinator invites Z as a stakeholder', v_inv.role = 'stakeholder');
 

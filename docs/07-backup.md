@@ -357,15 +357,19 @@ policies `general_discussion_folders_read`, `general_discussions_read`,
 (`discussion-polls-voice.sql`), all now on `general_can_write`; of
 `discussion_voice_readable` and `discussion_voice_path_ok` (`discussion-polls-voice.sql`;
 they guard discussion recordings and files in storage), `general_discussion_check` (every
-discussion RPC passes it) and `notify_discussion_started` (`general-discussions.sql`); of
+discussion RPC passes it; somebody off the project is told they are not on it, a
+stakeholder gets the stakeholder message) and `notify_discussion_started` (`general-discussions.sql`); of
 `sync_general_conversation_member` and the `general_members_conversation` trigger, now
 `after insert or update of role or delete` (`general-notify.sql`; joining as a stakeholder
 adds no chat row, becoming one removes it, leaving the role puts it back); of
 `add_general_member_to_space` (`project-visibility.sql`; a stakeholder is not seated in
-the space, and space membership someone already has stays); and of
+the space, and space membership someone already has stays; its new
+`general_members_space_role` trigger seats someone in the space when they leave the
+stakeholder role, by a role change, a hand over or a PM assignment); and of
 `set_general_member_role` and `invite_to_general_project` (`project-roles.sql`; the PM
 sets or invites as stakeholder, a coordinator switches people between member and
-stakeholder and invites as either, QA stays refused). A cleanup statement takes current
+stakeholder and invites as either, QA stays refused with "QA roles are not available
+yet."). A cleanup statement takes current
 stakeholders out of project chats.
 
 Re-run it (then `anon-lockdown.sql`) after re-running any of `general.sql`,
