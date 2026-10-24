@@ -82,19 +82,19 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   and the team-lead task rules `canEditTask`, `canUnassign`, `assignableTo`,
   `canStepRank`), which mirror `general_has`, `general_can_grant` and the task guards in
   SQL.
-- The company-roles SQL is five files that run last, in this order: `company-accounts.sql`,
+- The company-roles SQL is six files that run last, in this order: `company-accounts.sql`,
   `project-roles.sql`, `project-visibility.sql`, `project-team-leads.sql`,
-  `project-stakeholders.sql`. Between them they are the final owners of functions,
-  triggers and policies first written in many earlier files (`general.sql`,
-  `general-spaces.sql`, `general-tasks.sql`, `general-drafts.sql`, `general-repo.sql`,
-  `general-notify.sql`, `general-reports.sql`, `general-project-archive-rbac.sql`,
-  `meetings.sql`, `trash.sql`, `access.sql` and more). Re-running ANY file one of them
-  supersedes means re-running all five in that order, then `anon-lockdown.sql`;
-  re-running one of the five means re-running the ones after it, then
-  `anon-lockdown.sql`. Re-running `general-project-archive-rbac.sql` alone reopens every
+  `project-stakeholders.sql`, `project-feedback.sql`. Between them they are the final
+  owners of functions, triggers and policies first written in many earlier files
+  (`general.sql`, `general-spaces.sql`, `general-tasks.sql`, `general-drafts.sql`,
+  `general-repo.sql`, `general-notify.sql`, `general-reports.sql`,
+  `general-project-archive-rbac.sql`, `meetings.sql`, `trash.sql`, `access.sql`,
+  `storage-sweep.sql` and more). Re-running ANY file one of them supersedes means
+  re-running all six in that order, then `anon-lockdown.sql`; re-running one of the six
+  means re-running the ones after it, then `anon-lockdown.sql`. Re-running `general-project-archive-rbac.sql` alone reopens every
   work project to its whole space; re-running a file `project-stakeholders.sql`
   supersedes hands stakeholders back a member's writes. `docs/07-backup.md` lists what
-  each of the five owns. Always start a redefinition from the live `pg_get_functiondef`.
+  each of the six owns. Always start a redefinition from the live `pg_get_functiondef`.
 - Member writes in a work project gate on `general_can_write(project)` (a member (not
   rejected) who isn't a stakeholder); reads keep `is_general_member`. A new member-write path uses
   `general_can_write`.
