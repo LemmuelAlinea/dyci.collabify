@@ -132,11 +132,12 @@ do $$
 declare
   v_repo uuid; v_proj uuid; v_user uuid; v_draft uuid; n int;
 begin
-  -- A member of a project that has Files, with no draft there yet.
+  -- A member of a project that has Files, with no draft there yet. Not a
+  -- stakeholder: the draft job skips them (project-stakeholders.sql).
   select r.id, r.project_id, m.user_id into v_repo, v_proj, v_user
     from public.general_repos r
     join public.general_projects p on p.id = r.project_id and p.archived_at is null
-    join public.general_members m on m.project_id = r.project_id
+    join public.general_members m on m.project_id = r.project_id and m.role <> 'stakeholder'
     join public.profiles pr on pr.id = m.user_id and pr.status = 'active'
    where not exists (select 1 from public.general_drafts d where d.repo_id = r.id and d.user_id = m.user_id)
    limit 1;
