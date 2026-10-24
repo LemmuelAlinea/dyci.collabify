@@ -450,9 +450,12 @@ and `my_qa_queue()` (QA's Home count per live work project). It is the final own
 `sync_general_task_stage` (`project-stakeholders.sql`, before that `project-team-leads.sql`
 and `task-stages.sql`): on a work project with active QA, a task leaving the QA stage
 forward, judged on the stage it ends up on after alignment, goes only by QA or the PM
-("Only QA or the project manager can pass a task out of {stage}."), and QA's own moves
-pass the holder rule. `guard_general_task` lets those QA moves through when nothing else
-changes, and reads a bug-only QA's role off `general_members` (a pending account too).
+("Only QA or the project manager can pass a task out of {stage}."), nobody else gets a
+task to the last stage from an earlier stage or adds one there ("Only QA or the project
+manager can mark a task done while this project has QA."), and QA's own moves pass the
+holder rule. `guard_general_task` lets those QA moves through when nothing else changes,
+freezes an archived task's stage with its status, and reads a bug-only QA's role off
+`general_members` (a pending account too).
 Re-run it (then `anon-lockdown.sql`) after re-running `task-stages.sql`,
 `project-team-leads.sql` or `project-stakeholders.sql`, and so after any file whose re-run
 calls for one of them (`general-tasks.sql`, `general-schedule-guard.sql`,

@@ -688,6 +688,99 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
+-- Nobody but QA or the pm skips QA on the way to done: from an earlier stage,
+-- by status or stage, or by adding a task as done. Without QA they may.
+do $$
+declare
+  v_p2 uuid := (select v from fx where k = 'p2');
+  v_pm uuid := (select v from fx where k = 'pm');
+  v_m  uuid := (select v from fx where k = 'm');
+  v_m2 uuid := (select v from fx where k = 'm2');
+  v_q  uuid := (select v from fx where k = 'q');
+  v_p4 uuid;
+  v_p5 uuid;
+  v_t1 uuid;
+  v_t2 uuid;
+  v_t3 uuid;
+  v_t4 uuid;
+  v_ta uuid;
+begin
+  perform pg_temp.act_as(v_pm);
+  v_p4 := (public.create_general_project('Zz QA skip project', '')).id;
+  update public.general_projects set stages = array['Planning', 'Development', 'Testing', 'Done']
+   where id = v_p4;
+  v_p5 := (public.create_general_project('Zz QA default project', '')).id;
+
+  perform pg_temp.act_as_service();
+  insert into public.general_members (project_id, user_id, role)
+  values (v_p4, v_m, 'member'), (v_p4, v_q, 'qa'), (v_p5, v_m, 'member'), (v_p5, v_q, 'qa');
+
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_tasks (project_id, title, status, stage)
+  values (v_p4, 'Zz skip dev', 'in_progress', 1) returning id into v_t1;
+  insert into public.general_tasks (project_id, title) values (v_p4, 'Zz skip planning')
+  returning id into v_t2;
+  insert into public.general_tasks (project_id, title) values (v_p5, 'Zz skip default')
+  returning id into v_t3;
+  insert into public.general_tasks (project_id, title) values (v_p2, 'Zz no QA') returning id into v_t4;
+  insert into public.general_task_assignees (task_id, project_id, user_id)
+  values (v_t1, v_p4, v_m), (v_t2, v_p4, v_m), (v_t3, v_p5, v_m), (v_t4, v_p2, v_m2);
+
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_refuse_with('M cannot mark a Development task done (status only)',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_t1),
+    'Only QA or the project manager can mark a task done while this project has QA.');
+  perform pg_temp.must_refuse_with('...nor send it in progress to the last stage',
+    format($q$update public.general_tasks set status = 'in_progress', stage = 3 where id = %L$q$, v_t1),
+    'Only QA or the project manager can mark a task done while this project has QA.');
+  perform pg_temp.must_refuse_with('...nor move a Planning task to the last stage',
+    format($q$update public.general_tasks set stage = 3 where id = %L$q$, v_t2),
+    'Only QA or the project manager can mark a task done while this project has QA.');
+  perform pg_temp.must_refuse_with('...nor take a To do task to Done on the default stages',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_t3),
+    'Only QA or the project manager can mark a task done while this project has QA.');
+  perform pg_temp.must_refuse_with('...nor add a task as done',
+    format($q$insert into public.general_tasks (project_id, title, status) values (%L, 'Zz M done', 'done')$q$, v_p4),
+    'Only QA or the project manager can mark a task done while this project has QA.');
+  perform pg_temp.must_refuse_with('...nor add one on the last stage',
+    format($q$insert into public.general_tasks (project_id, title, stage) values (%L, 'Zz M last', 3)$q$, v_p4),
+    'Only QA or the project manager can mark a task done while this project has QA.');
+  perform pg_temp.must_allow('...but moves the Development task into Testing',
+    format($q$update public.general_tasks set stage = 2 where id = %L$q$, v_t1));
+  update public.general_tasks set stage = 1 where id = v_t1;
+
+  perform pg_temp.act_as(v_q);
+  perform pg_temp.must_refuse_with('QA cannot mark a Development task done either',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_t1),
+    'Only whoever holds this task');
+
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('the pm marks the Development task done',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_t1));
+  perform pg_temp.must_allow('...and adds a task as done',
+    format($q$insert into public.general_tasks (project_id, title, status) values (%L, 'Zz pm done', 'done')$q$, v_p4));
+
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_allow('M reopens the done task',
+    format($q$update public.general_tasks set stage = 1 where id = %L$q$, v_t1));
+
+  perform pg_temp.act_as(v_m2);
+  perform pg_temp.must_allow('without QA, M2 takes a To do task to Done',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_t4));
+  perform pg_temp.must_allow('...and adds a task as done',
+    format($q$insert into public.general_tasks (project_id, title, status) values (%L, 'Zz M2 done', 'done')$q$, v_p2));
+
+  -- An archived task's stage is frozen like its status, for everyone.
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_tasks (project_id, title, status, stage)
+  values (v_p4, 'Zz archived dev', 'in_progress', 1) returning id into v_ta;
+  perform public.archive_general_task(v_ta, true);
+  perform pg_temp.must_refuse_with('nobody moves an archived task to another middle stage',
+    format($q$update public.general_tasks set stage = 2 where id = %L$q$, v_ta),
+    'This task is archived.');
+  perform pg_temp.act_as_service();
+end $$;
+
 -- ------------------------------------------------------------------ class board
 
 -- A class board's hidden Files project: its members' task inserts are unaffected.
@@ -718,6 +811,12 @@ begin
     format($q$insert into public.general_tasks (project_id, title) values (%L, 'Zz QA board task')$q$, gp));
   perform pg_temp.must_be('...a task by kind',
     (select kind = 'task' from public.general_tasks where project_id = gp and title = 'Zz QA board task'));
+  perform pg_temp.must_allow('...and moves it to the last stage',
+    format($q$update public.general_tasks set stage = 2 where project_id = %L and title = 'Zz QA board task'$q$, gp));
+  perform pg_temp.must_be('...where it is done',
+    (select status = 'done' from public.general_tasks where project_id = gp and title = 'Zz QA board task'));
+  perform pg_temp.must_allow('...and adds a task as done',
+    format($q$insert into public.general_tasks (project_id, title, status) values (%L, 'Zz QA board done', 'done')$q$, gp));
   perform pg_temp.act_as_service();
 end $$;
 

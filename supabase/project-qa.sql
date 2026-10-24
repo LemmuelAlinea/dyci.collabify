@@ -40,6 +40,9 @@
 -- lands on the last stage):
 --   - leaving the QA stage forward goes only by QA or the pm ("Only QA or the
 --     project manager can pass a task out of {stage}.");
+--   - nor does anybody else get a task to the last stage another way, from an
+--     earlier stage or by adding it there ("Only QA or the project manager can
+--     mark a task done while this project has QA.");
 --   - anyone who may move the task moves it back;
 --   - QA, who holds nothing, moves a task from the QA stage to the last stage
 --     or the stage before QA, and changes nothing else with it.
@@ -211,7 +214,7 @@ revoke all on public.general_task_overview from anon;
 
 -- project-stakeholders.sql's guard_general_task, as live, with: QA inserts bug
 -- tasks only; a kind changes only with manage_tasks (QA holds no permission);
--- an archived task's kind is frozen like its other fields.
+-- an archived task's kind and stage are frozen like its other fields.
 create or replace function public.guard_general_task()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
@@ -282,6 +285,7 @@ begin
        and new.title is not distinct from old.title
        and new.description is not distinct from old.description
        and new.status is not distinct from old.status
+       and new.stage is not distinct from old.stage
        and new.due_at is not distinct from old.due_at
        and new.starts_at is not distinct from old.starts_at
        and new.weight is not distinct from old.weight
@@ -663,7 +667,8 @@ $$;
 --   - QA's moves out of the QA stage (general_qa_may_move) let past the holder
 --     rule, since QA holds no tasks;
 --   - the QA gate: on a work project with active QA, a task leaving the QA
---     stage forward goes only by QA or the pm.
+--     stage forward, or reaching the last stage from anywhere else (an insert
+--     included), goes only by QA or the pm.
 create or replace function public.sync_general_task_stage()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
@@ -718,16 +723,26 @@ begin
   end if;
 
   -- The QA gate, on effective stages. Without active QA the stage is ordinary.
-  if tg_op = 'UPDATE' and auth.uid() is not null and n is not null and v_board is null then
+  -- Besides QA and the pm, nobody moves a task out of the QA stage forward,
+  -- nor gets it to the last stage any other way: from an earlier stage, or by
+  -- adding it there. QA's own moves start on the QA stage (general_qa_may_move).
+  if auth.uid() is not null and n is not null and v_board is null then
     qa_i := public.general_qa_stage_pick(v_stages, v_qa_stage);
-    old_i := public.general_task_stage_at(old.status, old.stage, n);
     new_i := public.general_task_stage_at(r.status::public.general_task_status, r.stage, n);
-    if old_i = qa_i and new_i > qa_i
-       and public.general_project_has_qa(old.project_id)
-       and public.general_role_of(old.project_id, auth.uid()) is distinct from 'qa'
-       and public.general_role_of(old.project_id, auth.uid()) is distinct from 'pm' then
-      raise exception 'Only QA or the project manager can pass a task out of %.',
-        (coalesce(v_stages, array['To do', 'In progress', 'Done']))[qa_i + 1]
+    if tg_op = 'UPDATE' then
+      old_i := public.general_task_stage_at(old.status, old.stage, n);
+    end if;
+    if ((old_i = qa_i and new_i > qa_i)
+        or (new_i = n - 1 and old_i is distinct from n - 1))
+       and public.general_project_has_qa(new.project_id)
+       and public.general_role_of(new.project_id, auth.uid()) is distinct from 'qa'
+       and public.general_role_of(new.project_id, auth.uid()) is distinct from 'pm' then
+      if old_i = qa_i then
+        raise exception 'Only QA or the project manager can pass a task out of %.',
+          (coalesce(v_stages, array['To do', 'In progress', 'Done']))[qa_i + 1]
+          using errcode = 'insufficient_privilege';
+      end if;
+      raise exception 'Only QA or the project manager can mark a task done while this project has QA.'
         using errcode = 'insufficient_privilege';
     end if;
   end if;
