@@ -56,6 +56,11 @@ export type Membership = {
   hasWork: boolean
   /** An invitation is waiting for an answer. Filled in by the rail, which counts them. */
   invited?: boolean
+  /**
+   * Every live project the person is on is a stakeholder role, and there is at
+   * least one: they only read and give feedback, so their rail is slimmer.
+   */
+  allStakeholder?: boolean
 }
 
 /** Undefined while either list is still loading. */
@@ -64,12 +69,29 @@ export function membershipOf(
   projects: GeneralProjectSummary[] | null,
 ): Membership | undefined {
   if (spaces === null || projects === null) return undefined
+  const mine = projects.filter((p) => p.my_level && !p.archived_at)
   return {
     inClass: inAnyClass(spaces),
     hasWork:
       spaces.some((s) => s.kind === 'work' && s.my_level && !s.archived_at) ||
-      projects.some((p) => p.my_level && !p.archived_at),
+      mine.length > 0,
+    allStakeholder: mine.length > 0 && mine.every((p) => p.my_role === 'stakeholder'),
   }
+}
+
+/**
+ * Who gets the slim stakeholder rail and Home: members whose only work is as a
+ * stakeholder, with no class, no teaching switch and no project-manager
+ * switch. Students and the admin keep their own rails.
+ */
+export function isStakeholderOnly(p: AccessProfile, membership: Membership | undefined): boolean {
+  return Boolean(
+    membership?.allStakeholder &&
+      !membership.inClass &&
+      isMember(p) &&
+      !canTeach(p) &&
+      !canManageProjects(p),
+  )
 }
 
 /**

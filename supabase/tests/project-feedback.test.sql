@@ -606,4 +606,87 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
+-- ------------------------------------------------------------------ the stakeholder's projects
+
+-- my_stakeholder_projects feeds the stakeholder Home: only the caller's own live
+-- work projects where they are a stakeholder. Its own fixture, so what the
+-- earlier cases archived or posted does not matter.
+do $$
+declare
+  v_pm uuid := (select v from fx where k = 'pm');
+  v_s  uuid := (select v from fx where k = 's');
+  v_m  uuid := (select v from fx where k = 'm');
+  v_o  uuid := (select v from fx where k = 'o');
+  v_a uuid; v_b uuid; v_c uuid; v_d uuid; v_e uuid;
+  v_f1 uuid; v_f2 uuid;
+  r record;
+begin
+  perform pg_temp.act_as(v_pm);
+  v_a := (public.create_general_project('Zz SP live', '')).id;
+  v_b := (public.create_general_project('Zz SP archived', '')).id;
+  v_c := (public.create_general_project('Zz SP member', '')).id;
+  v_d := (public.create_general_project('Zz SP not mine', '')).id;
+  v_e := (public.create_general_project('Zz SP empty', '')).id;
+
+  perform pg_temp.act_as_service();
+  insert into public.general_members (project_id, user_id, role)
+  values (v_a, v_s, 'stakeholder'), (v_b, v_s, 'stakeholder'), (v_c, v_s, 'member'),
+         (v_e, v_s, 'stakeholder'), (v_d, v_m, 'stakeholder');
+  -- v_a: two tasks of four done is 50, one reached and two open milestones
+  -- (the nearest one past today is the next one), one archived task not counted.
+  insert into public.general_tasks (project_id, title, status, created_by)
+  values (v_a, 'Zz t1', 'done', v_pm), (v_a, 'Zz t2', 'done', v_pm),
+         (v_a, 'Zz t3', 'todo', v_pm), (v_a, 'Zz t4', 'in_progress', v_pm);
+  insert into public.general_tasks (project_id, title, status, created_by, archived_at)
+  values (v_a, 'Zz gone', 'todo', v_pm, now());
+  insert into public.general_milestones (project_id, name, due_on, reached_at)
+  values (v_a, 'Zz reached', current_date - 5, now()),
+         (v_a, 'Zz overdue', current_date - 2, null),
+         (v_a, 'Zz later', current_date + 20, null),
+         (v_a, 'Zz next', current_date + 3, null);
+  insert into public.general_tasks (project_id, title, status, created_by)
+  values (v_b, 'Zz t', 'done', v_pm);
+  update public.general_projects set archived_at = now() where id = v_b;
+
+  perform pg_temp.act_as(v_s);
+  v_f1 := public.create_general_feedback(v_a, 'input', 'Zz sp one', 'x');
+  v_f2 := public.create_general_feedback(v_a, 'concern', 'Zz sp two', 'x');
+  perform pg_temp.act_as(v_pm);
+  perform public.set_general_feedback_status(v_f2, 'resolved');
+
+  perform pg_temp.act_as(v_s);
+  perform pg_temp.must_be('S sees their live stakeholder projects and nothing else',
+    (select count(*) from public.my_stakeholder_projects()
+      where name like 'Zz SP%') = 2
+    and exists (select 1 from public.my_stakeholder_projects() where project_id = v_a)
+    and exists (select 1 from public.my_stakeholder_projects() where project_id = v_e));
+  perform pg_temp.must_be('...not the archived one, one they are a member of, or another''s',
+    not exists (select 1 from public.my_stakeholder_projects()
+                 where project_id in (v_b, v_c, v_d)));
+  select * into r from public.my_stakeholder_projects() where project_id = v_a;
+  perform pg_temp.must_be('...with name, progress over live tasks only, and the open feedback count',
+    r.name = 'Zz SP live' and r.progress_pct = 50 and r.open_feedback = 1);
+  perform pg_temp.must_be('...and the earliest unreached milestone due today or later',
+    r.next_milestone_name = 'Zz next' and r.next_milestone_due = current_date + 3);
+  select * into r from public.my_stakeholder_projects() where project_id = v_e;
+  perform pg_temp.must_be('a project with no tasks, milestones or feedback reads 0, null and 0',
+    r.progress_pct = 0 and r.next_milestone_name is null and r.next_milestone_due is null
+    and r.open_feedback = 0);
+
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_be('M, a stakeholder on another project only, sees only that one',
+    (select count(*) from public.my_stakeholder_projects() where name like 'Zz SP%') = 1
+    and exists (select 1 from public.my_stakeholder_projects() where project_id = v_d));
+  perform pg_temp.act_as(v_o);
+  perform pg_temp.must_be('O, on none, sees none',
+    not exists (select 1 from public.my_stakeholder_projects()));
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_be('the PM, who runs them, sees none: it is only the caller''s stakeholder roles',
+    not exists (select 1 from public.my_stakeholder_projects()));
+
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('with no signed-in caller it returns nothing',
+    not exists (select 1 from public.my_stakeholder_projects()));
+end $$;
+
 rollback;

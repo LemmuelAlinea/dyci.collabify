@@ -8,6 +8,7 @@ import type {
   GeneralFeedback,
   GeneralFeedbackFile,
   GeneralFeedbackReply,
+  StakeholderProject,
 } from '../general/feedback'
 
 /* A work project's Feedback tab. Reads go straight to the tables (row-level
@@ -129,4 +130,14 @@ export async function feedbackFileUrl(path: string) {
   const { data, error } = await supabase.storage.from(FEEDBACK_BUCKET).createSignedUrl(path, 3600)
   if (error) throw error
   return data.signedUrl
+}
+
+/** The caller's live projects where they are a stakeholder, for their Home. */
+export async function listMyStakeholderProjects() {
+  const { data, error } = await supabase.rpc('my_stakeholder_projects')
+  if (error) throw error
+  return ((data ?? []) as StakeholderProject[]).map((p) => ({
+    ...p,
+    progress_pct: Number(p.progress_pct),
+  }))
 }

@@ -162,6 +162,30 @@ describe('membershipOf', () => {
     expect(membershipOf([space('work')], [])?.hasWork).toBe(true)
     expect(membershipOf([], [project('member')])?.hasWork).toBe(true)
     expect(membershipOf([space('work', '2026-01-01')], [project('member', '2026-01-01')])?.hasWork).toBe(false)
-    expect(membershipOf([space('education')], [])).toEqual({ inClass: true, hasWork: false })
+    expect(membershipOf([space('education')], [])).toEqual({
+      inClass: true,
+      hasWork: false,
+      allStakeholder: false,
+    })
+  })
+
+  describe('allStakeholder', () => {
+    const role = (my_role: 'stakeholder' | 'member' | null, archived_at: string | null = null) =>
+      ({ my_level: my_role ? 'member' : null, my_role, archived_at }) as unknown as GeneralProjectSummary
+
+    it('holds when every live project the person is on is a stakeholder role', () => {
+      expect(membershipOf([], [role('stakeholder'), role('stakeholder')])?.allStakeholder).toBe(true)
+    })
+
+    it('breaks on one project in another role', () => {
+      expect(membershipOf([], [role('stakeholder'), role('member')])?.allStakeholder).toBe(false)
+    })
+
+    it('needs at least one project, and ignores archived ones and projects reached through a space', () => {
+      expect(membershipOf([], [])?.allStakeholder).toBe(false)
+      expect(membershipOf([], [role('stakeholder'), role('member', '2026-01-01')])?.allStakeholder).toBe(true)
+      expect(membershipOf([], [role('stakeholder', '2026-01-01')])?.allStakeholder).toBe(false)
+      expect(membershipOf([], [role('stakeholder'), role(null)])?.allStakeholder).toBe(true)
+    })
   })
 })

@@ -3769,3 +3769,53 @@ Both start with "zz test".
 **Final review fixes** (after the phase-2 review): team-lead task powers reach the UI (task dialog edit, assign while unheld, unassign, board stage moves, Backlog reorder); "Who can do what" splits giving grants from asking for access and captions the rows not built yet; access-request notifications on work projects go to the pm and the coordinators who can answer them (`notify_general_access_request`, now owned by `project-roles.sql`, applied live with `anon-lockdown.sql`); `docs/07-backup.md` has a `project-visibility.sql` paragraph and CLAUDE.md the four-file re-run rule.
 
 **Next.** Phase 3, stakeholders: read-only enforcement, the Feedback tab and its notifications, the slim sidebar and the stakeholder Home, per the spec's Rollout.
+
+
+## Company roles, phase 3: stakeholders (2026-10-24)
+
+- **Spec:** `docs/superpowers/specs/2026-10-23-company-roles-design.md` (Stakeholders, Feedback, Seeing roles). **Plan:** `docs/superpowers/plans/2026-10-24-company-roles-phase-3-stakeholders.md`. Phase 3 is complete and live (commits `26e9abc` to the slim-sidebar commit that follows `64b1b25`); phase 4 (QA) is next.
+
+**What.** A stakeholder is a company person who watches a project and gives feedback, without changing it.
+
+- **Read-only.** A stakeholder reads what a member reads and writes nothing. Every write a plain member could make (tasks, files, drafts, repo changes, comments, shares, meetings, the project's plan, storage) is behind `general_can_write`. A refusal says "Stakeholders can view this project but not change it."; one only a policy stops shows the usual row-level security error. The pm and coordinators can set and invite the role; QA stays refused until phase 4.
+- **Not in the talk.** Stakeholders are not in the project's Discussion or chat (they neither read nor write either), are not seated in its space, and are left out of the Share recipient list. The project hides the Discussion and Shared tabs and the My draft panel from them, and every write control is off.
+- **Feedback.** Every work project has a Feedback tab. A post has a kind (input, concern, approval request), a title, a body, up to 10 files, replies and a status (open, acknowledged, resolved). The pm, coordinators and stakeholders post and reply; only the pm and coordinators change a status; everyone on the project reads. An archived project's feedback is read-only, and a class board's hidden Files project has none. A post outlives its author's account ("Former member"). Notifications (all behind the Project updates preference, all opening `?tab=feedback`): a new post reaches the pm and coordinators, a reply or a status change reaches the post's author.
+- **Slim sidebar and Home.** A member whose live projects are all stakeholder roles, with no class, no teaching switch and no Project manager switch, gets Home, Projects, Inbox and Calendar above Account, and a Home of one card per project: progress, the next milestone, and the open feedback count linking to `?tab=feedback`. Students and the admin keep their own rails. The rule is `isStakeholderOnly` in `lib/access.ts`.
+
+**Code.**
+
+| File | What it does |
+|---|---|
+| `supabase/project-stakeholders.sql` | `general_can_write` and the gates at every member write chokepoint, the stakeholder refusal message, no discussion or chat for stakeholders, no space seat for them (and one when they leave the role), the pm and coordinators setting and inviting the role. Test: `supabase/tests/project-stakeholders.test.sql` (150 checks). |
+| `supabase/project-feedback.sql` | The feedback enums and tables (realtime, no direct writes), the private `feedback-files` bucket and its policies, `create_general_feedback`, `reply_general_feedback`, `set_general_feedback_status`, the three notification types and triggers, the sweep's `storage_orphans` with feedback files, and `my_stakeholder_projects()` for the Home. Test: `supabase/tests/project-feedback.test.sql` (88 checks). |
+| `supabase/project-visibility.sql`, `supabase/tests/project-roles.test.sql`, `scripts/schema-drift.mjs` | Small follow-ons: the visibility backfill skips stakeholders; the role test and the drift script know the new files. |
+| `lib/general/permissions.ts`, `components/general/useGeneralProject.ts` | `readOnly` for a stakeholder, the role's rules and its Who-can-do-what row; the project's tabs and panels follow it. |
+| `components/general/*` (Tasks, Files, Draft, Members, Invite, Share, Shared, Discussion, repo rows, Summary) and `pages/general/GeneralProject.tsx`, `ProjectArchive.tsx` | Write controls off for a read-only role; Discussion, Shared and My draft hidden for stakeholders; the stakeholder copy. |
+| `lib/general/feedback.ts`, `lib/api/feedback.ts` | Feedback types, labels and rules (`canPostFeedback`, `canSetFeedbackStatus`); the reads, the RPC calls, file upload by path, and `listMyStakeholderProjects`. |
+| `components/general/FeedbackTab.tsx`, `FeedbackComposer.tsx`, `FeedbackThreadView.tsx`, `FeedbackParts.tsx` | The tab: list with a status filter, composer with files, the thread, replies, the status control. Refreshes live. |
+| `components/app/NotificationBell.tsx`, `lib/types.ts` | The three feedback notifications open `?tab=feedback`. |
+| `lib/access.ts`, `components/app/nav.ts`, `pages/Home.tsx`, `pages/app/StakeholderHome.tsx` | `Membership.allStakeholder`, `isStakeholderOnly`, the slim rail (`STAKEHOLDER_MAIN`, reusing Home, Inbox, Calendar and Projects), and the Home cards. `navFor` and `membershipOf` have tests. |
+
+**Checked.**
+- Vitest 1124 pass; `npm run build` clean; `eslint src` shows only the old warning in `RoleBadge.tsx`. On the live database `project-stakeholders.test.sql` (150), `project-feedback.test.sql` (88, including `my_stakeholder_projects` for the caller's own live stakeholder projects only), `anon-lockdown.test.sql` and `rls-coverage.test.sql` pass. `scripts/schema-drift.mjs` shows no new suspects (13 old ones, all redefinitions by the company-roles files).
+- `project-feedback.sql` and `anon-lockdown.sql` were applied live; `my_stakeholder_projects()` is granted to signed-in accounts only.
+- `StakeholderHome` was checked in a temporary mocked harness (deleted) at 1280 px (three columns), an 806 px pane (two) and 375 px (one), in light and dark, with the loading, empty and error states and a long name and milestone, and no sideways scroll. The slim rail and the rule are covered by unit tests. Nothing was checked live as a stakeholder: no stakeholder account exists, and the browser pane is signed in as a member with no projects.
+
+**Still to check by you.**
+1. Make a test account a stakeholder on a work project (its pm or a coordinator, on the Members tab; the account must be a member with both switches off and in no class or other project). Sign in as it and walk it: the sidebar is Home, Projects, Inbox, Calendar, then Account.
+2. Home shows a card for that project: progress, next milestone (or "No milestone set"), and an open-feedback link that lands on the Feedback tab.
+3. In the project: everything is read-only (no add task, no upload, no edit controls), there is no Discussion or Shared tab and no My draft, and Members shows the Stakeholder badge. Share does not list the stakeholder as a recipient.
+4. Feedback as the stakeholder: post one of each kind (one with a file), open it, reply, and see that there is no status control. Then as the pm or a coordinator: the post arrives as a notification that opens the Feedback tab, change its status (the stakeholder is told), and reply.
+5. Give the same account a second project as a member (or turn on a switch): the full rail and normal Home come back.
+6. Archive the project: its Feedback turns read-only and its card leaves the stakeholder's Home.
+
+**Deferred** (from the ledger):
+- A stakeholder's trashed draft files wait for the 30-day purge (they are left out of Trash and Empty Trash), and a refusal only a policy makes shows the generic row-level security error, not the stakeholder message.
+- A stakeholder re-added to a project's chat gets a fresh `conversation_members` row, so their read state resets.
+- Deleting an account that is still on a work project fails, because the member-left event holds a foreign key to the profile being deleted. It pre-dates this phase.
+- `useLive` cannot filter by project, so any project's feedback event refetches an open Feedback tab; the feedback notifications open `?tab=feedback`, not the post.
+- No debounce on the Feedback tab's realtime refresh (a post with several files bursts), orphan uploads are left to the sweep by design, safe file names are ASCII only, and `window.open` after an await may be popup-blocked on Safari.
+- Commit `64b1b25` carries the trailer "Claude Sonnet 5.5"; it was pushed, so the history was not rewritten.
+- New in this task: `allStakeholder` looks at projects only, so a stakeholder who also sits in a work space as a member still gets the slim rail. `my_stakeholder_projects()` returns the space's name even to someone who is not in the space, because the project names it.
+
+**Next.** Phase 4, QA: the QA role (stored but refused today), what it can do on a project, and its place in the rail, per the spec's Rollout. After it, a pass over the roles' copy and the "Coming later" captions in Who can do what.

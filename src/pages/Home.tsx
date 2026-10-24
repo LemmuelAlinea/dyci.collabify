@@ -4,13 +4,14 @@ import { WorkOverview } from '../components/general/WorkOverview'
 import { useAuth } from '../context/AuthContext'
 import { useGeneralNavigation } from '../context/generalNavigation'
 import { WaitingHome } from '../components/app/WaitingHome'
-import { canManageProjects, canTeach, isMember, membershipOf } from '../lib/access'
+import { canManageProjects, canTeach, isMember, isStakeholderOnly, membershipOf } from '../lib/access'
 
 // Lazy, same as every other role page: a student opening /home never fetches
 // the admin console, and the reverse.
 const StudentHome = lazy(() => import('./app/StudentHome'))
 const ProfessorHome = lazy(() => import('./app/ProfessorHome'))
 const AdminHome = lazy(() => import('./app/AdminHome'))
+const StakeholderHome = lazy(() => import('./app/StakeholderHome'))
 
 type View = 'classes' | 'work'
 const VIEW_KEY = 'collabify:home-view'
@@ -49,6 +50,8 @@ export default function Home() {
     Boolean(membership) &&
     !membership?.inClass &&
     !membership?.hasWork
+  // A member whose only work is as a stakeholder: their projects as cards.
+  const stakeholderOnly = isStakeholderOnly(profile, membership)
 
   function choose(next: View) {
     setView(next)
@@ -68,6 +71,8 @@ export default function Home() {
   }
 
   if (waiting) return <WaitingHome />
+
+  if (stakeholderOnly) return <StakeholderHome />
 
   if (studentWithWork) {
     return view === 'work' ? (

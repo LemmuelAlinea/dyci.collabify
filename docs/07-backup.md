@@ -398,7 +398,10 @@ bucket (25 MB, uploads by the PM, coordinators and stakeholders under
 `<project>/<folder>/…`, read by members), the RPCs `create_general_feedback`,
 `reply_general_feedback` and `set_general_feedback_status` (work projects only; an
 archived project's feedback is read-only), and the `feedback_posted`, `feedback_reply` and
-`feedback_status` notification types, added in their own transaction. It is also the final
+`feedback_status` notification types, added in their own transaction. It also holds
+`my_stakeholder_projects()`, the stakeholder Home's one read (the caller's own live work
+projects where they are a stakeholder, with progress, next milestone and open feedback).
+It is also the final
 owner of `storage_orphans` (`storage-sweep.sql`), which it redefines with `feedback-files`
 and `general_feedback_files.path` in the used set; `storage-sweep.sql` runs earlier, before
 that table exists. Re-run it (then `anon-lockdown.sql`) after re-running

@@ -1,5 +1,5 @@
 import type { IconName } from '../ui/Icon'
-import { canManageProjects, canTeach } from '../../lib/access'
+import { canManageProjects, canTeach, isStakeholderOnly } from '../../lib/access'
 import type { AccessProfile, Membership } from '../../lib/access'
 import type { Role } from '../../lib/types'
 import { paths } from '../../lib/paths'
@@ -54,14 +54,15 @@ export type NavGroup = {
  * Classes, Teaching or Resources, and an account that cannot make a space of
  * its own sees Spaces only once somebody has invited it into one.
  */
+const HOME: NavItem = { label: 'Home', icon: 'board', to: paths.home, end: true }
+const INBOX: NavItem = { label: 'Inbox', icon: 'mail', to: paths.inbox, badge: 'inbox' }
+const CALENDAR: NavItem = { label: 'Calendar', icon: 'calendar', to: paths.calendar }
+const PROJECTS: NavItem = { label: 'Projects', icon: 'kanban', to: paths.projects }
+
 const OVERVIEW: NavGroup = {
   title: 'Overview',
   collapsible: true,
-  items: [
-    { label: 'Home', icon: 'board', to: paths.home, end: true },
-    { label: 'Inbox', icon: 'mail', to: paths.inbox, badge: 'inbox' },
-    { label: 'Calendar', icon: 'calendar', to: paths.calendar },
-  ],
+  items: [HOME, INBOX, CALENDAR],
 }
 
 /**
@@ -74,7 +75,7 @@ function workGroup(groups: boolean): NavGroup {
     collapsible: true,
     items: [
       { label: 'My tasks', icon: 'check', to: paths.tasks },
-      { label: 'Projects', icon: 'kanban', to: paths.projects },
+      PROJECTS,
       ...(groups ? [{ label: 'Groups', icon: 'users' as IconName, to: paths.groups }] : []),
       { label: 'Meetings', icon: 'video', to: paths.meetings },
     ],
@@ -223,10 +224,17 @@ const ADMIN: NavGroup = {
  */
 const ADMIN_INVITED: NavGroup = {
   title: 'Main',
-  items: [
-    { label: 'Home', icon: 'board', to: paths.home, end: true },
-    { label: 'Inbox', icon: 'mail', to: paths.inbox, badge: 'inbox' },
-  ],
+  items: [HOME, INBOX],
+}
+
+/**
+ * A member who is only a stakeholder: they read projects and give feedback.
+ * Home lists their projects, so the rail is those four pages above Account —
+ * no places card, no tasks, no Meetings, no Archive.
+ */
+const STAKEHOLDER_MAIN: NavGroup = {
+  title: 'Main',
+  items: [HOME, PROJECTS, INBOX, CALENDAR],
 }
 
 /**
@@ -236,7 +244,7 @@ const ADMIN_INVITED: NavGroup = {
  */
 const MAIN_WAITING: NavGroup = {
   title: 'Main',
-  items: [{ label: 'Home', icon: 'board', to: paths.home, end: true }],
+  items: [HOME],
 }
 
 /**
@@ -260,6 +268,9 @@ const MAIN_WAITING: NavGroup = {
  * Account. Once they belong to something they get the same rail as faculty
  * who do not teach, with Admin above Account. `membership` still loading
  * counts as belonging to nothing, so Overview never flashes in and out.
+ *
+ * A member who is only a stakeholder (no class, neither switch) gets Home,
+ * Projects, Inbox and Calendar above Account, and nothing else.
  *
  * A member with neither switch, once loaded as in nothing, gets only Home and
  * Inbox above Account: Home explains the wait, Inbox is where an invitation
@@ -304,6 +315,8 @@ export function navFor(
       ACCOUNT_WITH_ARCHIVE,
     ]
   }
+  // Only a stakeholder on live projects, with no class and neither switch.
+  if (isStakeholderOnly(profile, membership)) return [STAKEHOLDER_MAIN, ACCOUNT]
   const manager = canManageProjects(profile)
   // A member with no switches, in no class and with no work, has nothing to
   // open. `membership` still loading is not "nothing" here: unlike an admin,

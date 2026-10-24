@@ -93,3 +93,15 @@ export type FeedbackThread = {
   replies: GeneralFeedbackReply[]
   files: GeneralFeedbackFile[]
 }
+
+/** One row of `my_stakeholder_projects()`: a card on the stakeholder Home. */
+export type StakeholderProject = {
+  project_id: string
+  name: string
+  space_name: string | null
+  progress_pct: number
+  next_milestone_name: string | null
+  /** A calendar day, `YYYY-MM-DD`. */
+  next_milestone_due: string | null
+  open_feedback: number
+}

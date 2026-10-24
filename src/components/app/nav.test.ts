@@ -204,4 +204,28 @@ describe('navFor', () => {
     expect(titles(groups)).toEqual(['Spaces', 'Overview', 'Main', 'Quick access', 'Account'])
     expect(spaces(groups)?.hideWhenEmpty).toBe(true)
   })
+
+  describe('the stakeholder rail', () => {
+    const slim = { inClass: false, hasWork: true, allStakeholder: true }
+
+    it('gives a member who is only a stakeholder Home, Projects, Inbox and Calendar above Account', () => {
+      const groups = navFor(nonTeacher, true, slim)
+      expect(labels(groups)).toEqual(['Home', 'Projects', 'Inbox', 'Calendar', 'Settings', 'Trash'])
+      expect(tos(groups)).toEqual(['/home', '/projects', '/inbox', '/calendar', '/settings', '/trash'])
+      expect(places(groups)).toBeUndefined()
+    })
+
+    it('keeps the normal rails for teaching faculty, project managers, students and the admin', () => {
+      expect(labels(navFor(teacher, true, slim))).toContain('Submissions')
+      const manager = account('member', 'active', false, true)
+      expect(labels(navFor(manager, true, slim))).toContain('My tasks')
+      expect(labels(navFor(student, true, slim))).toContain('Your record')
+      expect(labels(navFor(admin, true, slim))).toContain('Accounts')
+    })
+
+    it('keeps the normal rail for a stakeholder who also sits in a class, or is not only one', () => {
+      expect(labels(navFor(nonTeacher, true, { ...slim, inClass: true }))).toContain('My tasks')
+      expect(labels(navFor(nonTeacher, true, { inClass: false, hasWork: true }))).toContain('My tasks')
+    })
+  })
 })

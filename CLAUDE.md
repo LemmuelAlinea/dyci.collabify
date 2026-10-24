@@ -5,9 +5,10 @@ Project management for BSIT programs in the Philippines. Roles: `student`, `memb
 creating work spaces is the `can_manage_projects` switch (members and admins). Admins have
 it off by default: they create work spaces only once an admin turns it on for them. Every
 planned phase has shipped and is live at dyci-collabify.vercel.app from `main`, and company
-roles phases 1 (members and the two switches) and 2 (project roles) are live. Phase 3,
-stakeholders, is next (`docs/superpowers/specs/2026-10-23-company-roles-design.md`, then
-phase 4, QA). Other open work is the
+roles phases 1 (members and the two switches), 2 (project roles) and 3 (stakeholders:
+read-only projects, the Feedback tab, the slim sidebar and the stakeholder Home) are live.
+Phase 4, QA, is next (`docs/superpowers/specs/2026-10-23-company-roles-design.md`). Other
+open work is the
 **Deferred** notes in `handoff.md` plus whatever the user asks for next. Read the end of
 `handoff.md` for the latest state.
 
@@ -98,6 +99,11 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
 - Member writes in a work project gate on `general_can_write(project)` (a member (not
   rejected) who isn't a stakeholder); reads keep `is_general_member`. A new member-write path uses
   `general_can_write`.
+- A member whose live projects are all stakeholder roles, with no class, no teaching
+  switch and no Project manager switch, gets the slim rail (Home, Projects, Inbox,
+  Calendar, Account) and `StakeholderHome` (cards from `my_stakeholder_projects()`, which
+  `project-feedback.sql` owns). The rule is `isStakeholderOnly` in `lib/access.ts`, from
+  `membershipOf(...).allStakeholder`; students and the admin keep their own rails.
 
 ## Security invariants
 

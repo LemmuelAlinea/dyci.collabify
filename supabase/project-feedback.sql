@@ -43,6 +43,10 @@
 -- anon-lockdown.sql) after re-running storage-sweep.sql; storage-sweep.sql alone
 -- only stops sweeping feedback-files, it never removes an attached one.
 --
+-- my_stakeholder_projects() feeds the stakeholder Home: the caller's own live
+-- work projects where they are a stakeholder, with progress, the next milestone
+-- and the open feedback count.
+--
 -- Idempotent. Safe to re-run.
 
 begin;
@@ -519,6 +523,60 @@ language sql stable security definer set search_path = public as $$
    limit p_limit;
 $$;
 
+-- ---------------------------------------------------------------- the stakeholder's projects
+
+/**
+ * The caller's live work projects where they are a stakeholder: what the
+ * stakeholder Home draws a card from. Only the caller's own roles
+ * (auth.uid()), never a class board's hidden Files project, never an archived
+ * project. Progress is done tasks over live (unarchived) tasks, 0 with none.
+ * The next milestone is the earliest unreached one due today or later.
+ */
+create or replace function public.my_stakeholder_projects()
+returns table (
+  project_id           uuid,
+  name                 text,
+  space_name           text,
+  progress_pct         numeric,
+  next_milestone_name  text,
+  next_milestone_due   date,
+  open_feedback        int
+)
+language sql stable security definer set search_path = public as $$
+  select p.id,
+         p.name,
+         s.name,
+         case when t.total = 0 then 0::numeric
+              else round(t.done::numeric / t.total * 100, 1) end,
+         nm.name,
+         nm.due_on,
+         (select count(*)::int from public.general_feedback f
+           where f.project_id = p.id and f.status = 'open')
+    from public.general_members m
+    join public.general_projects p on p.id = m.project_id
+    left join public.general_spaces s on s.id = p.space_id
+    join public.profiles pr on pr.id = m.user_id and pr.status = 'active'
+    cross join lateral (
+      select count(*)::int as total,
+             count(*) filter (where x.status = 'done')::int as done
+        from public.general_tasks x
+       where x.project_id = p.id and x.archived_at is null
+    ) t
+    left join lateral (
+      select g.name, g.due_on
+        from public.general_milestones g
+       where g.project_id = p.id and g.reached_at is null and g.due_on >= current_date
+       order by g.due_on, g.created_at
+       limit 1
+    ) nm on true
+   where auth.uid() is not null
+     and m.user_id = auth.uid()
+     and m.role = 'stakeholder'
+     and p.archived_at is null
+     and p.class_board_id is null
+   order by p.name, p.id;
+$$;
+
 -- ---------------------------------------------------------------- grants
 
 revoke all on function public.storage_orphans(int, interval) from public, anon, authenticated;
@@ -539,5 +597,8 @@ revoke all on function public.set_general_feedback_status(uuid, public.general_f
 grant execute on function public.create_general_feedback(uuid, public.general_feedback_kind, text, text, text[]) to authenticated;
 grant execute on function public.reply_general_feedback(uuid, text, text[]) to authenticated;
 grant execute on function public.set_general_feedback_status(uuid, public.general_feedback_status) to authenticated;
+
+revoke all on function public.my_stakeholder_projects() from public, anon;
+grant execute on function public.my_stakeholder_projects() to authenticated;
 
 commit;
