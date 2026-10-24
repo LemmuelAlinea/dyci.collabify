@@ -108,6 +108,11 @@ export function waitedFor(enteredAt: string | null | undefined, now: number): st
   return `Waiting ${days} ${days === 1 ? 'day' : 'days'}`
 }
 
+/** Whether the person is QA on any live project, so Home has a queue to ask after. */
+export function holdsQa(projects: readonly { my_role: ProjectRole | null; archived_at: string | null }[] | null | undefined): boolean {
+  return (projects ?? []).some((p) => p.my_role === 'qa' && !p.archived_at)
+}
+
 /** One row of my_qa_queue(): a work project where the caller is QA. */
 export type QaQueueRow = {
   project_id: string

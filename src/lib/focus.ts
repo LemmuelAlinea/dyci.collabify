@@ -24,6 +24,18 @@ function focusableIn(root: HTMLElement) {
 }
 
 /**
+ * The overlays that are open, outermost first. A dialog opened from inside
+ * another (Send back from the task dialog) must be the only one that answers
+ * Tab and Escape, or the one behind it pulls focus back and closes with it.
+ */
+const openOverlays: HTMLElement[] = []
+
+/** Whether this element is the innermost open overlay. */
+export function isTopOverlay(el: HTMLElement | null) {
+  return el !== null && openOverlays[openOverlays.length - 1] === el
+}
+
+/**
  * Hold keyboard focus inside an open overlay, and give it back when it closes.
  *
  * Without this, Tab walks straight out of a dialog and into the page behind it.
@@ -48,6 +60,7 @@ export function useFocusTrap(
     if (!root) return
 
     restoreTo.current = document.activeElement as HTMLElement | null
+    openOverlays.push(root)
 
     if (autoFocus) {
       // The first real control, not the panel itself: a screen reader announces
@@ -58,7 +71,7 @@ export function useFocusTrap(
     }
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return
+      if (e.key !== 'Tab' || !isTopOverlay(root)) return
       const items = focusableIn(root)
       if (items.length === 0) {
         e.preventDefault()
@@ -88,6 +101,8 @@ export function useFocusTrap(
     document.addEventListener('keydown', onKey, true)
     return () => {
       document.removeEventListener('keydown', onKey, true)
+      const at = openOverlays.lastIndexOf(root)
+      if (at >= 0) openOverlays.splice(at, 1)
       const back = restoreTo.current
       // Only if it is still on the page — the trigger is often unmounted by the
       // very action that closed the overlay.

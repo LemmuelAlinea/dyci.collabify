@@ -58,6 +58,12 @@ function destination(n: AppNotification, role: Role | null, teaches: boolean): s
     case 'feedback_reply':
     case 'feedback_status':
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=feedback` : paths.home
+    case 'task_sent_back':
+      // QA sent a task back: open the task, where the note is the newest comment.
+      if (n.general_project_id) {
+        return `${paths.project(n.general_project_id)}${n.general_task_id ? `?task=${n.general_task_id}` : ''}`
+      }
+      return paths.home
     case 'draft_waiting':
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=files&view=draft` : paths.home
     case 'meeting_scheduled':

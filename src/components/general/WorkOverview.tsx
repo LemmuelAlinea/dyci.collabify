@@ -20,7 +20,7 @@ import { listMyQaQueue } from '../../lib/api/qa'
 import { comingUp, dueCounts, firstComing, myTasks, recentlyVisited } from '../../lib/general/dashboard'
 import { plural } from '../../lib/plural'
 import { paths } from '../../lib/paths'
-import { qaTile } from '../../lib/work/qa'
+import { holdsQa, qaTile } from '../../lib/work/qa'
 import type { QaQueueRow } from '../../lib/work/qa'
 
 function greeting() {
@@ -82,14 +82,20 @@ export function WorkOverview({
 
   // The projects where this person is QA, with what waits in each. A failed
   // read only hides the tile, like the visits above.
+  // Asked only when they hold the QA role somewhere, so nobody else makes the call.
+  const isQa = holdsQa(myProjects)
   const [qaRows, setQaRows] = useState<QaQueueRow[]>([])
   const loadQa = useCallback(async () => {
+    if (!isQa) {
+      setQaRows([])
+      return
+    }
     try {
       setQaRows(await listMyQaQueue())
     } catch {
       setQaRows([])
     }
-  }, [])
+  }, [isQa])
   useEffect(() => {
     void loadQa()
   }, [loadQa])

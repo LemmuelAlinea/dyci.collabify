@@ -3836,7 +3836,7 @@ Both start with "zz test".
 - **The gate.** While a work project has active QA (somebody active holds the qa role), only QA and the project manager move a task out of the QA stage forward, and only they mark one done or put it in the last stage from an earlier one, by stage or by status. Everybody else, coordinators included, is refused ("Only QA or the project manager can mark a task done while this project has QA."), and the app hides those moves. With no QA member the gate is off.
 - **Pass and Send back.** QA and the project manager see tasks waiting in the QA stage in the Work tab's QA queue (longest waiting first, with the Bug badge, holders and how long each has waited) and in the task dialog. Pass moves the task to the last stage. Send back asks for a note (1 to 2000 characters), moves it to the stage before QA, posts the note as a comment and tells the holders (`task_sent_back`, which opens the task). Both are in the task's history ("passed it", "sent it back: note"). Everyone on the project reads the queue; the section shows once the project has QA, and always for QA and the project manager.
 - **Bug tasks.** QA creates tasks of kind `bug` only, never changes a kind and holds no tasks (becoming QA lets go of the ones held). The Bug badge shows on the board, list, Backlog, Sprints, the queue and the task dialog.
-- **Home.** A person who is QA on a live work project gets a fifth tile, "Waiting for QA", the sum of what waits in their projects, linking to the one with the most at `?tab=work&work=qa`.
+- **Home.** A person who is QA on a live work project gets an extra tile, "Waiting for QA" (second in the band, which then lays out five columns), the sum of what waits in their projects, linking to the one with the most at `?tab=work&work=qa`. Home asks `my_qa_queue()` only for somebody who holds QA on a live project.
 - **Roles.** The project manager sets and invites QA; a coordinator switches people among Member, QA and Stakeholder. QA is no longer refused.
 
 **Code.**
@@ -3847,11 +3847,12 @@ Both start with "zz test".
 | `lib/work/qa.ts`, `lib/work/nav.ts` | `qaStageIndex`, `inQa`, `qaBlocks` and `carryQaStage` (mirrors of the SQL); `queueOrder` (oldest first, no entry time last), `waitedFor`, `qaTile`; the `qa` Work section and `workSectionsFor`. |
 | `components/work/QaQueue.tsx`, `QaActions.tsx`, `lib/api/qa.ts` | The queue, Pass and the Send back dialog, and the three RPC calls. A refusal shows as a toast. |
 | `components/general/TaskDialog.tsx`, `WorkTab.tsx`, `work/WorkNav.tsx`, `WorkOverview.tsx`, `dashboard/DashboardSummary.tsx` | Pass and Send back in the dialog; the QA section; the Home tile (the band lays out five tiles in five columns). |
+| `lib/focus.ts`, `components/ui/Modal.tsx` | A dialog opened from inside another (Send back from the task dialog) is the only one that answers Tab and Escape, and the page stays locked until the last dialog closes. Before this, Escape closed both. |
 | `components/general/BugBadge.tsx`, `work/BacklogView.tsx`, `SprintsView.tsx` | The Bug badge on Backlog and Sprints rows; on the dialog banner it takes the banner's ink with a danger dot instead of a solid red chip. |
-| `lib/general/history.ts`, `lib/general/types.ts`, `lib/types.ts`, `components/app/NotificationBell.tsx` | The two history lines (and report timeline lines), the event and notification types. The bell sends `task_sent_back` to the task through its default route. |
+| `lib/general/history.ts`, `lib/general/types.ts`, `lib/types.ts`, `components/app/NotificationBell.tsx` | The two history lines (and report timeline lines), the event and notification types. The bell has an explicit `task_sent_back` case that opens the task. |
 
 **Checked.**
-- Vitest 1167 pass; `npm run build` clean; `eslint src` shows only the old warning in `RoleBadge.tsx`. `project-qa.test.sql` passes (116) against the live database.
+- Vitest 1169 pass; `npm run build` clean; `eslint src` shows only the old warning in `RoleBadge.tsx`. `project-qa.test.sql` passes (116) against the live database.
 - The queue, Pass, the Send back dialog, the banner chip and the five-tile Home band were checked in a temporary mocked harness (deleted) at desktop and 375 px, in light and dark, with the empty state, a read-only viewer and a long title; no sideways scroll. The harness blocks network requests, so nothing there wrote to the live database. There is no QA account on the live site yet.
 
 **Still to check by you.**
@@ -3867,6 +3868,6 @@ Both start with "zz test".
 - A send back may also send a `general_comment_posted` notification to a holder with comment notifications on, besides `task_sent_back` (a duplicate ping).
 - `qa_entered_at` was not backfilled, so a task already in QA before it existed shows "Waiting since before the queue kept time" and sorts last until it moves.
 - With QA on, holders cannot mark their own tasks done (intended); there is no per-project switch for it beyond having no QA member.
-- `NotificationBell.destination` is not exported, so the `task_sent_back` route has no unit test.
+- `NotificationBell.destination` is not exported, so the `task_sent_back` route has no unit test, and `QaQueue` and `QaActions` rendering (and the dialog stack in `focus.ts` and `Modal.tsx`) have none either: vitest runs in node, so they were checked in a harness only.
 
 **Next.** Company roles are complete. Nothing is queued: open work is the Deferred lists in this file, then whatever you ask for next.

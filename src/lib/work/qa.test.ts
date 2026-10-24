@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { carryQaStage, inQa, qaBlocks, qaStageIndex, qaTile, queueOrder, waitedFor } from './qa'
+import { carryQaStage, inQa, qaBlocks, qaStageIndex, holdsQa, qaTile, queueOrder, waitedFor } from './qa'
 
 const SYSTEM = ['Planning', 'Development', 'Testing', 'Revision', 'Completed']
 
@@ -195,5 +195,20 @@ describe('qaTile', () => {
   it('has no busiest project when nothing waits', () => {
     expect(qaTile([row('a', 0)])).toEqual({ total: 0, busiest: null })
     expect(qaTile([])).toEqual({ total: 0, busiest: null })
+  })
+})
+
+describe('holdsQa', () => {
+  const p = (my_role: 'qa' | 'member' | 'pm' | null, archived_at: string | null = null) => ({ my_role, archived_at })
+
+  it('is true for QA on a live project', () => {
+    expect(holdsQa([p('member'), p('qa')])).toBe(true)
+  })
+
+  it('is false for other roles, an archived project, or nothing loaded', () => {
+    expect(holdsQa([p('member'), p('pm'), p(null)])).toBe(false)
+    expect(holdsQa([p('qa', '2026-10-01T00:00:00Z')])).toBe(false)
+    expect(holdsQa([])).toBe(false)
+    expect(holdsQa(null)).toBe(false)
   })
 })

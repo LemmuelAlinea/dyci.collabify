@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
-import { useFocusTrap } from '../../lib/focus'
+import { isTopOverlay, useFocusTrap } from '../../lib/focus'
 import { DUR } from '../../lib/motion'
 
 type Props = {
@@ -61,6 +61,9 @@ const TONES = {
   },
 }
 
+/** How many dialogs are on screen, so the page unlocks when the last one goes. */
+let scrollLocks = 0
+
 export function Modal({
   open,
   onClose,
@@ -113,7 +116,8 @@ export function Modal({
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeRef.current()
+      // Only the innermost dialog answers: Escape in Send back must not close the task behind it.
+      if (e.key === 'Escape' && isTopOverlay(panel.current)) closeRef.current()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -124,9 +128,13 @@ export function Modal({
   // behind it should not be scrollable while it is still visibly there.
   useEffect(() => {
     if (!render) return
+    scrollLocks += 1
     document.body.style.overflow = 'hidden'
     document.documentElement.classList.add('has-modal')
     return () => {
+      // A dialog closing over another must leave the page locked.
+      scrollLocks -= 1
+      if (scrollLocks > 0) return
       document.body.style.overflow = ''
       document.documentElement.classList.remove('has-modal')
     }
