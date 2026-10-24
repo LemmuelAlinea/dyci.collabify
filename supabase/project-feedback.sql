@@ -529,7 +529,8 @@ $$;
  * The caller's live work projects where they are a stakeholder: what the
  * stakeholder Home draws a card from. Only the caller's own roles
  * (auth.uid()), never a class board's hidden Files project, never an archived
- * project. Progress is done tasks over live (unarchived) tasks, 0 with none.
+ * project. Progress is exactly general_project_overview's: weighted when the
+ * project has points on, done over live (unarchived) tasks otherwise, 0 with none.
  * The next milestone is the earliest unreached one due today or later.
  */
 create or replace function public.my_stakeholder_projects()
@@ -547,6 +548,7 @@ language sql stable security definer set search_path = public as $$
          p.name,
          s.name,
          case when t.total = 0 then 0::numeric
+              when p.points_enabled then round(t.done_weight / nullif(t.total_weight, 0) * 100, 1)
               else round(t.done::numeric / t.total * 100, 1) end,
          nm.name,
          nm.due_on,
@@ -558,7 +560,9 @@ language sql stable security definer set search_path = public as $$
     join public.profiles pr on pr.id = m.user_id and pr.status = 'active'
     cross join lateral (
       select count(*)::int as total,
-             count(*) filter (where x.status = 'done')::int as done
+             count(*) filter (where x.status = 'done')::int as done,
+             sum(x.weight) as total_weight,
+             coalesce(sum(x.weight) filter (where x.status = 'done'), 0) as done_weight
         from public.general_tasks x
        where x.project_id = p.id and x.archived_at is null
     ) t

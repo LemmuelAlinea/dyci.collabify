@@ -3773,7 +3773,7 @@ Both start with "zz test".
 
 ## Company roles, phase 3: stakeholders (2026-10-24)
 
-- **Spec:** `docs/superpowers/specs/2026-10-23-company-roles-design.md` (Stakeholders, Feedback, Seeing roles). **Plan:** `docs/superpowers/plans/2026-10-24-company-roles-phase-3-stakeholders.md`. Phase 3 is complete and live (commits `26e9abc` to the slim-sidebar commit that follows `64b1b25`); phase 4 (QA) is next.
+- **Spec:** `docs/superpowers/specs/2026-10-23-company-roles-design.md` (Stakeholders, Feedback, Seeing roles). **Plan:** `docs/superpowers/plans/2026-10-24-company-roles-phase-3-stakeholders.md`. Phase 3 is complete and live (commits `26e9abc` through `33238e5`, "Give stakeholders a slim sidebar and a Home of their projects", and the fix commit after it, "Match the stakeholder cards' progress to the project's own"); phase 4 (QA) is next.
 
 **What.** A stakeholder is a company person who watches a project and gives feedback, without changing it.
 
@@ -3787,7 +3787,7 @@ Both start with "zz test".
 | File | What it does |
 |---|---|
 | `supabase/project-stakeholders.sql` | `general_can_write` and the gates at every member write chokepoint, the stakeholder refusal message, no discussion or chat for stakeholders, no space seat for them (and one when they leave the role), the pm and coordinators setting and inviting the role. Test: `supabase/tests/project-stakeholders.test.sql` (150 checks). |
-| `supabase/project-feedback.sql` | The feedback enums and tables (realtime, no direct writes), the private `feedback-files` bucket and its policies, `create_general_feedback`, `reply_general_feedback`, `set_general_feedback_status`, the three notification types and triggers, the sweep's `storage_orphans` with feedback files, and `my_stakeholder_projects()` for the Home. Test: `supabase/tests/project-feedback.test.sql` (88 checks). |
+| `supabase/project-feedback.sql` | The feedback enums and tables (realtime, no direct writes), the private `feedback-files` bucket and its policies, `create_general_feedback`, `reply_general_feedback`, `set_general_feedback_status`, the three notification types and triggers, the sweep's `storage_orphans` with feedback files, and `my_stakeholder_projects()` for the Home (progress is `general_project_overview`'s, weighted when points are on). Test: `supabase/tests/project-feedback.test.sql` (90 checks). |
 | `supabase/project-visibility.sql`, `supabase/tests/project-roles.test.sql`, `scripts/schema-drift.mjs` | Small follow-ons: the visibility backfill skips stakeholders; the role test and the drift script know the new files. |
 | `lib/general/permissions.ts`, `components/general/useGeneralProject.ts` | `readOnly` for a stakeholder, the role's rules and its Who-can-do-what row; the project's tabs and panels follow it. |
 | `components/general/*` (Tasks, Files, Draft, Members, Invite, Share, Shared, Discussion, repo rows, Summary) and `pages/general/GeneralProject.tsx`, `ProjectArchive.tsx` | Write controls off for a read-only role; Discussion, Shared and My draft hidden for stakeholders; the stakeholder copy. |
@@ -3797,7 +3797,7 @@ Both start with "zz test".
 | `lib/access.ts`, `components/app/nav.ts`, `pages/Home.tsx`, `pages/app/StakeholderHome.tsx` | `Membership.allStakeholder`, `isStakeholderOnly`, the slim rail (`STAKEHOLDER_MAIN`, reusing Home, Inbox, Calendar and Projects), and the Home cards. `navFor` and `membershipOf` have tests. |
 
 **Checked.**
-- Vitest 1124 pass; `npm run build` clean; `eslint src` shows only the old warning in `RoleBadge.tsx`. On the live database `project-stakeholders.test.sql` (150), `project-feedback.test.sql` (88, including `my_stakeholder_projects` for the caller's own live stakeholder projects only), `anon-lockdown.test.sql` and `rls-coverage.test.sql` pass. `scripts/schema-drift.mjs` shows no new suspects (13 old ones, all redefinitions by the company-roles files).
+- Vitest 1124 pass; `npm run build` clean; `eslint src` shows only the old warning in `RoleBadge.tsx`. On the live database `project-stakeholders.test.sql` (150), `project-feedback.test.sql` (90, including `my_stakeholder_projects` for the caller's own live stakeholder projects only), `anon-lockdown.test.sql` and `rls-coverage.test.sql` pass. `scripts/schema-drift.mjs` shows no new suspects (13 old ones, all redefinitions by the company-roles files).
 - `project-feedback.sql` and `anon-lockdown.sql` were applied live; `my_stakeholder_projects()` is granted to signed-in accounts only.
 - `StakeholderHome` was checked in a temporary mocked harness (deleted) at 1280 px (three columns), an 806 px pane (two) and 375 px (one), in light and dark, with the loading, empty and error states and a long name and milestone, and no sideways scroll. The slim rail and the rule are covered by unit tests. Nothing was checked live as a stakeholder: no stakeholder account exists, and the browser pane is signed in as a member with no projects.
 

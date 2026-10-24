@@ -617,7 +617,7 @@ declare
   v_s  uuid := (select v from fx where k = 's');
   v_m  uuid := (select v from fx where k = 'm');
   v_o  uuid := (select v from fx where k = 'o');
-  v_a uuid; v_b uuid; v_c uuid; v_d uuid; v_e uuid;
+  v_a uuid; v_b uuid; v_c uuid; v_d uuid; v_e uuid; v_g uuid;
   v_f1 uuid; v_f2 uuid;
   r record;
 begin
@@ -627,11 +627,16 @@ begin
   v_c := (public.create_general_project('Zz SP member', '')).id;
   v_d := (public.create_general_project('Zz SP not mine', '')).id;
   v_e := (public.create_general_project('Zz SP empty', '')).id;
+  v_g := (public.create_general_project('Zz SP points', '')).id;
 
   perform pg_temp.act_as_service();
   insert into public.general_members (project_id, user_id, role)
   values (v_a, v_s, 'stakeholder'), (v_b, v_s, 'stakeholder'), (v_c, v_s, 'member'),
-         (v_e, v_s, 'stakeholder'), (v_d, v_m, 'stakeholder');
+         (v_e, v_s, 'stakeholder'), (v_d, v_m, 'stakeholder'), (v_g, v_s, 'stakeholder');
+  -- v_g counts points: done weight 3 of total 4 is 75, where plain counting says 50.
+  update public.general_projects set points_enabled = true where id = v_g;
+  insert into public.general_tasks (project_id, title, status, weight, created_by)
+  values (v_g, 'Zz big', 'done', 3, v_pm), (v_g, 'Zz small', 'todo', 1, v_pm);
   -- v_a: two tasks of four done is 50, one reached and two open milestones
   -- (the nearest one past today is the next one), one archived task not counted.
   insert into public.general_tasks (project_id, title, status, created_by)
@@ -657,7 +662,7 @@ begin
   perform pg_temp.act_as(v_s);
   perform pg_temp.must_be('S sees their live stakeholder projects and nothing else',
     (select count(*) from public.my_stakeholder_projects()
-      where name like 'Zz SP%') = 2
+      where name like 'Zz SP%') = 3
     and exists (select 1 from public.my_stakeholder_projects() where project_id = v_a)
     and exists (select 1 from public.my_stakeholder_projects() where project_id = v_e));
   perform pg_temp.must_be('...not the archived one, one they are a member of, or another''s',
@@ -668,6 +673,13 @@ begin
     r.name = 'Zz SP live' and r.progress_pct = 50 and r.open_feedback = 1);
   perform pg_temp.must_be('...and the earliest unreached milestone due today or later',
     r.next_milestone_name = 'Zz next' and r.next_milestone_due = current_date + 3);
+  select * into r from public.my_stakeholder_projects() where project_id = v_g;
+  perform pg_temp.must_be('a points project reads weighted progress, as general_project_overview does',
+    r.progress_pct = 75
+    and r.progress_pct = (select o.progress_pct from public.general_project_overview o where o.id = v_g));
+  perform pg_temp.must_be('...and the plain project reads the same as its overview',
+    (select m.progress_pct from public.my_stakeholder_projects() m where m.project_id = v_a)
+      = (select o.progress_pct from public.general_project_overview o where o.id = v_a));
   select * into r from public.my_stakeholder_projects() where project_id = v_e;
   perform pg_temp.must_be('a project with no tasks, milestones or feedback reads 0, null and 0',
     r.progress_pct = 0 and r.next_milestone_name is null and r.next_milestone_due is null
