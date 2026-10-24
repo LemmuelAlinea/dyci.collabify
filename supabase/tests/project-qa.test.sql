@@ -7,8 +7,9 @@
 -- creates bug tasks only, never changes a kind and holds no tasks. The pm sets
 -- and invites the qa role, a coordinator switches people among member, qa and
 -- stakeholder; becoming QA lets go of every task held in the project. With QA
--- on a project, only QA or the pm moves a task out of the QA stage forward (a
--- status-only "done" included); QA passes or sends back without holding it;
+-- on a project, crossing the QA stage (a status-only "done" included) goes only
+-- by the pm, or by QA from the QA stage itself; moves among the stages after
+-- QA, and back, stay free; QA passes or sends back without holding it;
 -- send back needs a note, posts it as a comment and tells the holders;
 -- qa_entered_at follows arrivals; my_qa_queue counts what waits. Every
 -- refusal is paired with a case that is allowed. A class-board Files project
@@ -688,8 +689,8 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
--- Nobody but QA or the pm skips QA on the way to done: from an earlier stage,
--- by status or stage, or by adding a task as done. Without QA they may.
+-- Nobody but the pm skips QA on the way to done: from an earlier stage, by
+-- status or stage, or by adding a task as done. Without QA they may.
 do $$
 declare
   v_p2 uuid := (select v from fx where k = 'p2');
@@ -729,22 +730,22 @@ begin
   perform pg_temp.act_as(v_m);
   perform pg_temp.must_refuse_with('M cannot mark a Development task done (status only)',
     format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_t1),
-    'Only QA or the project manager can mark a task done while this project has QA.');
+    'Only QA or the project manager can move a task past Testing.');
   perform pg_temp.must_refuse_with('...nor send it in progress to the last stage',
     format($q$update public.general_tasks set status = 'in_progress', stage = 3 where id = %L$q$, v_t1),
-    'Only QA or the project manager can mark a task done while this project has QA.');
+    'Only QA or the project manager can move a task past Testing.');
   perform pg_temp.must_refuse_with('...nor move a Planning task to the last stage',
     format($q$update public.general_tasks set stage = 3 where id = %L$q$, v_t2),
-    'Only QA or the project manager can mark a task done while this project has QA.');
+    'Only QA or the project manager can move a task past Testing.');
   perform pg_temp.must_refuse_with('...nor take a To do task to Done on the default stages',
     format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_t3),
-    'Only QA or the project manager can mark a task done while this project has QA.');
+    'Only QA or the project manager can move a task past In progress.');
   perform pg_temp.must_refuse_with('...nor add a task as done',
     format($q$insert into public.general_tasks (project_id, title, status) values (%L, 'Zz M done', 'done')$q$, v_p4),
-    'Only QA or the project manager can mark a task done while this project has QA.');
+    'Only QA or the project manager can move a task past Testing.');
   perform pg_temp.must_refuse_with('...nor add one on the last stage',
     format($q$insert into public.general_tasks (project_id, title, stage) values (%L, 'Zz M last', 3)$q$, v_p4),
-    'Only QA or the project manager can mark a task done while this project has QA.');
+    'Only QA or the project manager can move a task past Testing.');
   perform pg_temp.must_allow('...but moves the Development task into Testing',
     format($q$update public.general_tasks set stage = 2 where id = %L$q$, v_t1));
   update public.general_tasks set stage = 1 where id = v_t1;
@@ -752,7 +753,7 @@ begin
   perform pg_temp.act_as(v_q);
   perform pg_temp.must_refuse_with('QA cannot mark a Development task done either',
     format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_t1),
-    'Only whoever holds this task');
+    'Only QA or the project manager can move a task past Testing.');
 
   perform pg_temp.act_as(v_pm);
   perform pg_temp.must_allow('the pm marks the Development task done',
@@ -778,6 +779,114 @@ begin
   perform pg_temp.must_refuse_with('nobody moves an archived task to another middle stage',
     format($q$update public.general_tasks set stage = 2 where id = %L$q$, v_ta),
     'This task is archived.');
+  perform pg_temp.act_as_service();
+end $$;
+
+-- Crossing the QA stage, on the System development stages: Planning 0,
+-- Development 1, Testing 2 (QA), Revision 3, Completed 4. Crossing is a move
+-- from Testing or before it to Revision or Completed, or an insert after
+-- Testing; moves among the stages after QA, and back, are not.
+do $$
+declare
+  v_pm uuid := (select v from fx where k = 'pm');
+  v_m  uuid := (select v from fx where k = 'm');
+  v_q  uuid := (select v from fx where k = 'q');
+  v_p6 uuid;
+  v_team uuid;
+  v_dev uuid;
+  v_test uuid;
+  v_rev uuid;
+  v_rev2 uuid;
+  v_lead uuid;
+begin
+  perform pg_temp.act_as(v_pm);
+  v_p6 := (public.create_general_project('Zz QA system project', '')).id;
+  update public.general_projects
+     set stages = array['Planning', 'Development', 'Testing', 'Revision', 'Completed']
+   where id = v_p6;
+
+  perform pg_temp.act_as_service();
+  insert into public.general_members (project_id, user_id, role)
+  values (v_p6, v_m, 'member'), (v_p6, v_q, 'qa');
+  -- QA leads a team M is on.
+  insert into public.general_teams (project_id, name) values (v_p6, 'Zz QA team') returning id into v_team;
+  insert into public.general_team_members (team_id, project_id, user_id)
+  values (v_team, v_p6, v_m), (v_team, v_p6, v_q);
+  update public.general_teams set leader_id = v_q where id = v_team;
+
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_tasks (project_id, title, status, stage)
+  values (v_p6, 'Zz sys dev', 'in_progress', 1) returning id into v_dev;
+  insert into public.general_tasks (project_id, title, status, stage)
+  values (v_p6, 'Zz sys test', 'in_progress', 2) returning id into v_test;
+  insert into public.general_tasks (project_id, title, status, stage)
+  values (v_p6, 'Zz sys revision', 'in_progress', 3) returning id into v_rev;
+  insert into public.general_tasks (project_id, title, status, stage)
+  values (v_p6, 'Zz sys revision 2', 'in_progress', 3) returning id into v_rev2;
+  insert into public.general_tasks (project_id, title, status, stage)
+  values (v_p6, 'Zz sys lead', 'in_progress', 1) returning id into v_lead;
+  insert into public.general_task_assignees (task_id, project_id, user_id)
+  values (v_dev, v_p6, v_m), (v_test, v_p6, v_m), (v_rev, v_p6, v_m), (v_rev2, v_p6, v_m),
+         (v_lead, v_p6, v_m);
+
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_refuse_with('holder M cannot move a task from Testing to Revision',
+    format($q$update public.general_tasks set stage = 3 where id = %L$q$, v_test),
+    'Only QA or the project manager can pass a task out of Testing.');
+  perform pg_temp.must_refuse_with('...nor from Development to Revision',
+    format($q$update public.general_tasks set stage = 3 where id = %L$q$, v_dev),
+    'Only QA or the project manager can move a task past Testing.');
+  perform pg_temp.must_refuse_with('...nor add a task at Revision',
+    format($q$insert into public.general_tasks (project_id, title, status, stage)
+              values (%L, 'Zz M at revision', 'in_progress', 3)$q$, v_p6),
+    'Only QA or the project manager can move a task past Testing.');
+  perform pg_temp.must_allow('...but moves a task from Revision to Completed',
+    format($q$update public.general_tasks set stage = 4 where id = %L$q$, v_rev));
+  perform pg_temp.must_be('...where it is done',
+    (select status = 'done' from public.general_tasks where id = v_rev));
+  perform pg_temp.must_allow('...marks a Revision task done by status alone',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_rev2));
+  perform pg_temp.must_allow('...moves a done task back to Revision',
+    format($q$update public.general_tasks set stage = 3 where id = %L$q$, v_rev2));
+  perform pg_temp.must_allow('...and from Revision back to Testing',
+    format($q$update public.general_tasks set stage = 2 where id = %L$q$, v_rev2));
+  perform pg_temp.must_allow('...and adds a task at Testing',
+    format($q$insert into public.general_tasks (project_id, title, status, stage)
+              values (%L, 'Zz M at testing', 'in_progress', 2)$q$, v_p6));
+
+  perform pg_temp.act_as(v_q);
+  perform pg_temp.must_allow('QA moves a task from Testing to Revision',
+    format($q$update public.general_tasks set stage = 3 where id = %L$q$, v_test));
+  perform pg_temp.must_be('...where it sits, in progress',
+    (select status = 'in_progress' and stage = 3 from public.general_tasks where id = v_test));
+  perform pg_temp.must_refuse_with('QA who leads the holder cannot move Development to Completed',
+    format($q$update public.general_tasks set stage = 4 where id = %L$q$, v_lead),
+    'Only QA or the project manager can move a task past Testing.');
+  perform pg_temp.must_refuse_with('...nor Development to Revision',
+    format($q$update public.general_tasks set stage = 3 where id = %L$q$, v_lead),
+    'Only QA or the project manager can move a task past Testing.');
+  perform pg_temp.must_refuse_with('...nor add a bug at Revision',
+    format($q$insert into public.general_tasks (project_id, title, kind, status, stage)
+              values (%L, 'Zz QA bug at revision', 'bug', 'in_progress', 3)$q$, v_p6),
+    'Only QA or the project manager can move a task past Testing.');
+  perform pg_temp.must_allow('...but moves it from Development into Testing',
+    format($q$update public.general_tasks set stage = 2 where id = %L$q$, v_lead));
+  perform pg_temp.must_allow('...and then on to Completed',
+    format($q$update public.general_tasks set stage = 4 where id = %L$q$, v_lead));
+
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('the pm moves Development to Completed',
+    format($q$update public.general_tasks set stage = 4 where id = %L$q$, v_dev));
+  perform pg_temp.must_allow('...Completed back to Planning',
+    format($q$update public.general_tasks set stage = 0 where id = %L$q$, v_dev));
+  perform pg_temp.must_allow('...Planning to Revision',
+    format($q$update public.general_tasks set stage = 3 where id = %L$q$, v_dev));
+  perform pg_temp.must_allow('...and adds a task at Revision',
+    format($q$insert into public.general_tasks (project_id, title, status, stage)
+              values (%L, 'Zz pm at revision', 'in_progress', 3)$q$, v_p6));
+  perform pg_temp.must_allow('...and one as done',
+    format($q$insert into public.general_tasks (project_id, title, status)
+              values (%L, 'Zz pm sys done', 'done')$q$, v_p6));
   perform pg_temp.act_as_service();
 end $$;
 

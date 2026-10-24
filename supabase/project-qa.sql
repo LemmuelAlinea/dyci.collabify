@@ -37,16 +37,18 @@
 --
 -- The gate (sync_general_task_stage), on a work project where somebody active
 -- is QA, on the stage a task ends up on after alignment (a status-only "done"
--- lands on the last stage):
---   - leaving the QA stage forward goes only by QA or the pm ("Only QA or the
---     project manager can pass a task out of {stage}.");
---   - nor does anybody else get a task to the last stage another way, from an
---     earlier stage or by adding it there ("Only QA or the project manager can
---     mark a task done while this project has QA.");
---   - anyone who may move the task moves it back;
---   - QA, who holds nothing, moves a task from the QA stage to the last stage
---     or the stage before QA, and changes nothing else with it.
--- Without QA the QA stage is an ordinary stage.
+-- lands on the last stage), blocks crossing the QA stage:
+--   - an update from the QA stage to a stage after it goes only by QA or the
+--     pm ("Only QA or the project manager can pass a task out of {stage}.");
+--   - an update from a stage before QA to one after it, or an insert after it,
+--     goes only by the pm ("Only QA or the project manager can move a task
+--     past {stage}."), QA included, even QA who leads a team;
+--   - moves among the stages after QA (Revision to Completed) and moves back
+--     are not crossings: anyone who may move the task makes them;
+--   - QA, who holds nothing, moves a task from the QA stage to any stage after
+--     it or to the stage before QA, and changes nothing else with it.
+-- Without QA the QA stage is an ordinary stage. (This replaced an earlier rule
+-- that refused any move into the last stage, Revision to Completed included.)
 --
 -- qa_entered_at is kept by the general_tasks_zz_qa_entered trigger alone (set
 -- on arrival at the QA stage, kept while there, null elsewhere); a written
@@ -70,10 +72,12 @@
 -- anon-lockdown.sql. It is the final owner of general_task_overview
 -- (task-stages.sql), guard_general_task, guard_general_task_child,
 -- set_general_member_role, invite_to_general_project and
--- sync_general_task_stage (project-stakeholders.sql), and of the
--- general_task_events_kind CHECK (general-tasks.sql). Re-run it (then
--- anon-lockdown.sql) after re-running task-stages.sql, project-team-leads.sql
--- or project-stakeholders.sql (and so after anything that requires those).
+-- sync_general_task_stage (project-stakeholders.sql), of general_project_overview
+-- (project-roles.sql) and of the general_task_events_kind CHECK
+-- (general-tasks.sql). Re-run it (then anon-lockdown.sql) after re-running
+-- task-stages.sql, project-roles.sql (which rebuilds the overview without
+-- has_qa), project-team-leads.sql or project-stakeholders.sql (and so after
+-- anything that requires those).
 --
 -- Idempotent. Safe to re-run.
 
@@ -303,8 +307,8 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
-  -- QA holds no tasks, yet moves one out of the QA stage to the last stage or
-  -- back to the stage before it (sync_general_task_stage has already aligned
+  -- QA holds no tasks, yet moves one out of the QA stage to any stage after it
+  -- or back to the stage before it (sync_general_task_stage has already aligned
   -- status and stage and applied the QA gate). Nothing else may change with it.
   if (new.status, new.stage) is distinct from (old.status, old.stage) then
     v_qa_move := public.general_qa_may_move(old.project_id, old.status, old.stage,
@@ -461,8 +465,8 @@ declare
   target public.general_members%rowtype;
 begin
   -- Every role but pm is set here; the pm changes only by a hand over. QA is
-  -- on since phase 4 (project-qa.sql): the pm sets it, and a coordinator may
-  -- too, on a member or a stakeholder (the coordinator rules below).
+  -- on since phase 4 (project-qa.sql): the pm sets it, and a coordinator acts
+  -- on a member, QA or stakeholder (the coordinator rules below).
   if p_role = 'pm' then
     raise exception 'Use hand over to change the project manager.'
       using errcode = 'check_violation';
@@ -692,7 +696,7 @@ $$;
 
 /**
  * The caller, active QA on the task's work project, moves it from the QA stage
- * to the last stage (a pass) or to the stage before QA (back): the moves QA
+ * to any stage after it (a pass) or to the stage before QA (back): the moves QA
  * makes on tasks they never hold. Old and new are effective stages.
  */
 create or replace function public.general_qa_may_move(
@@ -706,7 +710,8 @@ create or replace function public.general_qa_may_move(
      and public.general_role_of(p_project, auth.uid()) is not distinct from 'qa'
      and coalesce((
        select public.general_task_stage_at(p_old_status, p_old_stage, s.n) = s.qa_i
-          and public.general_task_stage_at(p_new_status, p_new_stage, s.n) in (s.n - 1, s.qa_i - 1)
+          and (public.general_task_stage_at(p_new_status, p_new_stage, s.n) > s.qa_i
+               or public.general_task_stage_at(p_new_status, p_new_stage, s.n) = s.qa_i - 1)
          from (select public.stage_count(gp.stages) as n,
                       public.general_qa_stage_pick(gp.stages, gp.qa_stage) as qa_i
                  from public.general_projects gp
@@ -722,9 +727,9 @@ $$;
 --     ends up, not what was sent: a status-only "done" lands on the last stage;
 --   - QA's moves out of the QA stage (general_qa_may_move) let past the holder
 --     rule, since QA holds no tasks;
---   - the QA gate: on a work project with active QA, a task leaving the QA
---     stage forward, or reaching the last stage from anywhere else (an insert
---     included), goes only by QA or the pm.
+--   - the QA gate: on a work project with active QA, crossing the QA stage
+--     (an update from it or before it to a stage after it, or an insert after
+--     it) goes only by the pm, or by QA from the QA stage itself.
 create or replace function public.sync_general_task_stage()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
@@ -779,26 +784,26 @@ begin
   end if;
 
   -- The QA gate, on effective stages. Without active QA the stage is ordinary.
-  -- Besides QA and the pm, nobody moves a task out of the QA stage forward,
-  -- nor gets it to the last stage any other way: from an earlier stage, or by
-  -- adding it there. QA's own moves start on the QA stage (general_qa_may_move).
+  -- A crossing takes a task past the QA stage: an update from the QA stage or
+  -- before it to a stage after it, or an insert after it (a status-only "done"
+  -- included). The pm crosses freely; QA only from the QA stage itself, a team
+  -- QA leads included. Moves among the stages after QA, and moves back, are
+  -- not crossings and keep the holder rule above.
   if auth.uid() is not null and n is not null and v_board is null then
     qa_i := public.general_qa_stage_pick(v_stages, v_qa_stage);
     new_i := public.general_task_stage_at(r.status::public.general_task_status, r.stage, n);
     if tg_op = 'UPDATE' then
       old_i := public.general_task_stage_at(old.status, old.stage, n);
     end if;
-    if ((old_i = qa_i and new_i > qa_i)
-        or (new_i = n - 1 and old_i is distinct from n - 1))
+    if new_i > qa_i
+       and (tg_op = 'INSERT' or old_i <= qa_i)
        and public.general_project_has_qa(new.project_id)
-       and public.general_role_of(new.project_id, auth.uid()) is distinct from 'qa'
-       and public.general_role_of(new.project_id, auth.uid()) is distinct from 'pm' then
-      if old_i = qa_i then
-        raise exception 'Only QA or the project manager can pass a task out of %.',
-          (coalesce(v_stages, array['To do', 'In progress', 'Done']))[qa_i + 1]
-          using errcode = 'insufficient_privilege';
-      end if;
-      raise exception 'Only QA or the project manager can mark a task done while this project has QA.'
+       and public.general_role_of(new.project_id, auth.uid()) is distinct from 'pm'
+       and not (public.general_role_of(new.project_id, auth.uid()) is not distinct from 'qa'
+                and old_i is not distinct from qa_i) then
+      raise exception 'Only QA or the project manager can % %.',
+        case when old_i is not distinct from qa_i then 'pass a task out of' else 'move a task past' end,
+        (coalesce(v_stages, array['To do', 'In progress', 'Done']))[qa_i + 1]
         using errcode = 'insufficient_privilege';
     end if;
   end if;
