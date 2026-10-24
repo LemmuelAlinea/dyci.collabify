@@ -391,7 +391,9 @@ again.
 `project-feedback.sql` runs after `project-stakeholders.sql`. It adds the Feedback tab's
 data: the `general_feedback_kind` and `general_feedback_status` enums, the
 `general_feedback`, `general_feedback_replies` and `general_feedback_files` tables (every
-project member reads them; nobody writes them directly), the private `feedback-files`
+project member reads them; nobody writes them directly; all three are in
+`supabase_realtime`; a deleted account leaves its posts and replies with no author), the
+private `feedback-files`
 bucket (25 MB, uploads by the PM, coordinators and stakeholders under
 `<project>/<folder>/…`, read by members), the RPCs `create_general_feedback`,
 `reply_general_feedback` and `set_general_feedback_status` (work projects only; an

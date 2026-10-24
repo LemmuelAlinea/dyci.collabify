@@ -21,7 +21,11 @@
 -- <project>/<folder>/<uuid>-<safe-name>. The folder is the post's id for a
 -- reply and a fresh client uuid for a new post, which has no id yet, so the
 -- RPCs check only the project prefix, the bucket and that the caller uploaded
--- the object. Only someone who may post uploads there; members read.
+-- the object. Only someone who may post uploads there; members read. The RPCs
+-- take the paths (p_paths text[]); a file's name and size come from the path
+-- and from Storage, not from the client.
+--
+-- A post or reply outlives its author's account: author_id goes null.
 --
 -- Notifications, all behind notification_prefs.project_updates:
 --   feedback_posted   a new post, to the pm and coordinators but its author
@@ -70,12 +74,13 @@ end $$;
 
 -- ---------------------------------------------------------------- tables
 
--- A post goes with its author's account (author_id is required), and its
--- replies and files go with it.
+-- A post or reply outlives its author's account (author_id goes null), like
+-- every other general_* author column, so nobody else's replies vanish with it.
+-- Deleting a post takes its replies and files.
 create table if not exists public.general_feedback (
   id                uuid primary key default gen_random_uuid(),
   project_id        uuid not null references public.general_projects (id) on delete cascade,
-  author_id         uuid not null references public.profiles (id) on delete cascade,
+  author_id         uuid references public.profiles (id) on delete set null,
   kind              public.general_feedback_kind not null,
   title             text not null,
   body              text not null,
@@ -94,11 +99,21 @@ create table if not exists public.general_feedback_replies (
   id          uuid primary key default gen_random_uuid(),
   feedback_id uuid not null references public.general_feedback (id) on delete cascade,
   project_id  uuid not null references public.general_projects (id) on delete cascade,
-  author_id   uuid not null references public.profiles (id) on delete cascade,
+  author_id   uuid references public.profiles (id) on delete set null,
   body        text not null,
   created_at  timestamptz not null default now(),
   constraint general_feedback_replies_body check (char_length(body) between 1 and 4000)
 );
+
+-- The first live copy had author_id not null, on delete cascade.
+alter table public.general_feedback alter column author_id drop not null;
+alter table public.general_feedback drop constraint if exists general_feedback_author_id_fkey;
+alter table public.general_feedback add constraint general_feedback_author_id_fkey
+  foreign key (author_id) references public.profiles (id) on delete set null;
+alter table public.general_feedback_replies alter column author_id drop not null;
+alter table public.general_feedback_replies drop constraint if exists general_feedback_replies_author_id_fkey;
+alter table public.general_feedback_replies add constraint general_feedback_replies_author_id_fkey
+  foreign key (author_id) references public.profiles (id) on delete set null;
 
 create index if not exists general_feedback_replies_feedback_idx
   on public.general_feedback_replies (feedback_id, created_at);
@@ -142,6 +157,19 @@ revoke all on public.general_feedback_files from public, anon, authenticated;
 grant select on public.general_feedback to authenticated;
 grant select on public.general_feedback_replies to authenticated;
 grant select on public.general_feedback_files to authenticated;
+
+-- Live updates for the tab; row-level security still decides who hears what.
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['general_feedback', 'general_feedback_replies', 'general_feedback_files'] loop
+    begin
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    exception when duplicate_object then null;
+    end;
+  end loop;
+end $$;
 
 -- ---------------------------------------------------------------- storage
 
@@ -229,26 +257,34 @@ begin
 end;
 $$;
 
+-- The first live copy took the files as jsonb; only the text[] versions stay.
+drop function if exists public.create_general_feedback(uuid, public.general_feedback_kind, text, text, jsonb);
+drop function if exists public.reply_general_feedback(uuid, text, jsonb);
+drop function if exists public.general_feedback_attach(uuid, uuid, uuid, jsonb);
+
 /**
  * Records files the caller has just uploaded to feedback-files under the
- * project's folder, as send_general_discussion_files does.
- *   p_files: [{ "path": "...", "name": "plan.pdf", "size": 1234 }, ...]
+ * project's folder, as send_general_discussion_files does. Each path is
+ * <project>/<folder>/<uuid>-<safe-name>: the name shown is what follows the
+ * uuid, and the size is what Storage recorded, not what the client says.
  */
-create or replace function public.general_feedback_attach(p_project uuid, p_feedback uuid, p_reply uuid, p_files jsonb)
+create or replace function public.general_feedback_attach(p_project uuid, p_feedback uuid, p_reply uuid, p_paths text[])
 returns void language plpgsql security definer set search_path = public as $$
 declare
-  f jsonb;
   v_path text;
 begin
-  if p_files is null or jsonb_typeof(p_files) = 'null' then
+  if p_paths is null or cardinality(p_paths) = 0 then
     return;
   end if;
-  if jsonb_typeof(p_files) <> 'array' or jsonb_array_length(p_files) > 10 then
+  if cardinality(p_paths) > 10 then
     raise exception 'Attach up to 10 files at a time.' using errcode = 'check_violation';
   end if;
+  if (select count(x) <> count(distinct x) from unnest(p_paths) x) then
+    raise exception 'That file is attached twice. Remove the copy and try again.'
+      using errcode = 'unique_violation';
+  end if;
 
-  for f in select * from jsonb_array_elements(p_files) loop
-    v_path := f ->> 'path';
+  foreach v_path in array p_paths loop
     if v_path is null
        or coalesce(array_length(storage.foldername(v_path), 1), 0) <> 2
        or v_path not like p_project || '/%'
@@ -264,10 +300,13 @@ begin
   end loop;
 
   insert into public.general_feedback_files (feedback_id, reply_id, project_id, path, name, size_bytes)
-  select p_feedback, p_reply, p_project, x ->> 'path',
-         left(coalesce(nullif(btrim(x ->> 'name'), ''), 'file'), 255),
-         least(greatest(coalesce((x ->> 'size')::bigint, 0), 0), 26214400)
-    from jsonb_array_elements(p_files) x;
+  select p_feedback, p_reply, p_project, o.name,
+         left(coalesce(nullif(btrim(regexp_replace(regexp_replace(o.name, '^.*/', ''),
+                                                   '^[0-9a-fA-F-]{36}-', '')), ''), 'file'), 255),
+         least(case when o.metadata ->> 'size' ~ '^[0-9]{1,18}$'
+                    then (o.metadata ->> 'size')::bigint else 0 end, 26214400)
+    from unnest(p_paths) x
+    join storage.objects o on o.bucket_id = 'feedback-files' and o.name = x;
 end;
 $$;
 
@@ -277,7 +316,7 @@ create or replace function public.create_general_feedback(
   p_kind public.general_feedback_kind,
   p_title text,
   p_body text,
-  p_files jsonb default '[]'::jsonb
+  p_paths text[] default '{}'
 ) returns uuid language plpgsql security definer set search_path = public as $$
 declare
   v_title text := btrim(coalesce(p_title, ''));
@@ -303,7 +342,7 @@ begin
   values (p_project, auth.uid(), p_kind, v_title, v_body)
   returning id into v_id;
 
-  perform public.general_feedback_attach(p_project, v_id, null, p_files);
+  perform public.general_feedback_attach(p_project, v_id, null, p_paths);
   return v_id;
 end;
 $$;
@@ -312,7 +351,7 @@ $$;
 create or replace function public.reply_general_feedback(
   p_feedback uuid,
   p_body text,
-  p_files jsonb default '[]'::jsonb
+  p_paths text[] default '{}'
 ) returns uuid language plpgsql security definer set search_path = public as $$
 declare
   v_project uuid;
@@ -336,7 +375,7 @@ begin
   values (p_feedback, v_project, auth.uid(), v_body)
   returning id into v_id;
 
-  perform public.general_feedback_attach(v_project, p_feedback, v_id, p_files);
+  perform public.general_feedback_attach(v_project, p_feedback, v_id, p_paths);
   return v_id;
 end;
 $$;
@@ -415,11 +454,8 @@ returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into public.notifications (user_id, type, general_project_id, title, preview)
   select new.author_id, 'feedback_status', new.project_id,
-         new.title || ' is now ' || case new.status
-                                      when 'open' then 'Open'
-                                      when 'acknowledged' then 'Acknowledged'
-                                      when 'resolved' then 'Resolved'
-                                    end,
+         -- The enum's labels read as the status in a sentence.
+         new.title || ' is now ' || new.status::text,
          gp.name
     from public.general_projects gp
     join public.notification_prefs np on np.user_id = new.author_id
@@ -487,7 +523,7 @@ $$;
 
 revoke all on function public.storage_orphans(int, interval) from public, anon, authenticated;
 revoke all on function public.general_feedback_check(uuid, boolean) from public, anon, authenticated;
-revoke all on function public.general_feedback_attach(uuid, uuid, uuid, jsonb) from public, anon, authenticated;
+revoke all on function public.general_feedback_attach(uuid, uuid, uuid, text[]) from public, anon, authenticated;
 revoke all on function public.notify_general_feedback_posted() from public, anon, authenticated;
 revoke all on function public.notify_general_feedback_reply() from public, anon, authenticated;
 revoke all on function public.notify_general_feedback_status() from public, anon, authenticated;
@@ -497,11 +533,11 @@ revoke all on function public.feedback_file_readable(text) from public, anon;
 grant execute on function public.feedback_file_path_ok(text) to authenticated;
 grant execute on function public.feedback_file_readable(text) to authenticated;
 
-revoke all on function public.create_general_feedback(uuid, public.general_feedback_kind, text, text, jsonb) from public, anon;
-revoke all on function public.reply_general_feedback(uuid, text, jsonb) from public, anon;
+revoke all on function public.create_general_feedback(uuid, public.general_feedback_kind, text, text, text[]) from public, anon;
+revoke all on function public.reply_general_feedback(uuid, text, text[]) from public, anon;
 revoke all on function public.set_general_feedback_status(uuid, public.general_feedback_status) from public, anon;
-grant execute on function public.create_general_feedback(uuid, public.general_feedback_kind, text, text, jsonb) to authenticated;
-grant execute on function public.reply_general_feedback(uuid, text, jsonb) to authenticated;
+grant execute on function public.create_general_feedback(uuid, public.general_feedback_kind, text, text, text[]) to authenticated;
+grant execute on function public.reply_general_feedback(uuid, text, text[]) to authenticated;
 grant execute on function public.set_general_feedback_status(uuid, public.general_feedback_status) to authenticated;
 
 commit;

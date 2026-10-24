@@ -300,9 +300,9 @@ begin
   perform pg_temp.must_be('...and tells S',
     pg_temp.got(v_s, 'feedback_status', v_p) = 1);
   perform pg_temp.act_as_service();
-  perform pg_temp.must_be('...as "Zz concern is now Acknowledged"',
+  perform pg_temp.must_be('...as "Zz concern is now acknowledged"',
     exists (select 1 from public.notifications
-             where user_id = v_s and type = 'feedback_status' and title = 'Zz concern is now Acknowledged'));
+             where user_id = v_s and type = 'feedback_status' and title = 'Zz concern is now acknowledged'));
 
   perform pg_temp.act_as(v_c);
   perform pg_temp.must_allow('C sets the same status again',
@@ -367,8 +367,8 @@ declare
 begin
   perform pg_temp.act_as(v_s);
   perform pg_temp.must_allow('S uploads to feedback-files',
-    format($q$insert into storage.objects (bucket_id, name, owner_id) values ('feedback-files', %L, %L)$q$,
-           v_ok, v_s));
+    format($q$insert into storage.objects (bucket_id, name, owner_id, metadata)
+              values ('feedback-files', %L, %L, '{"size": 1234}')$q$, v_ok, v_s));
   perform pg_temp.must_allow('...and under another project they are a stakeholder on',
     format($q$insert into storage.objects (bucket_id, name, owner_id) values ('feedback-files', %L, %L)$q$,
            v_other, v_s));
@@ -392,36 +392,45 @@ begin
   perform pg_temp.act_as(v_s);
   perform pg_temp.must_refuse_with('S attaches a file the pm uploaded',
     format($q$select public.create_general_feedback(%L, 'input', 'Zz pm file', 'x',
-                jsonb_build_array(jsonb_build_object('path', %L, 'name', 'pm.pdf', 'size', 10)))$q$, v_p, v_pms),
+                array[%L])$q$, v_p, v_pms),
     'A file did not upload');
   perform pg_temp.must_refuse_with('S attaches their file from another project',
     format($q$select public.create_general_feedback(%L, 'input', 'Zz other file', 'x',
-                jsonb_build_array(jsonb_build_object('path', %L, 'name', 'other.pdf', 'size', 10)))$q$, v_p, v_other),
+                array[%L])$q$, v_p, v_other),
     'A file did not upload');
   perform pg_temp.must_refuse_with('S attaches a file that was never uploaded',
     format($q$select public.create_general_feedback(%L, 'input', 'Zz no file', 'x',
-                jsonb_build_array(jsonb_build_object('path', %L, 'name', 'ghost.pdf', 'size', 10)))$q$,
+                array[%L])$q$,
            v_p, v_p || '/' || v_k || '/ghost.pdf'),
     'A file did not upload');
+  perform pg_temp.must_refuse_with('S attaches one file twice in one post',
+    format($q$select public.create_general_feedback(%L, 'input', 'Zz twice', 'x', array[%L, %L])$q$,
+           v_p, v_ok, v_ok),
+    'That file is attached twice. Remove the copy and try again.');
+  perform pg_temp.must_refuse_with('S sends a missing path among the files',
+    format($q$select public.create_general_feedback(%L, 'input', 'Zz null', 'x', array[%L, null])$q$,
+           v_p, v_ok),
+    'A file did not upload');
   perform pg_temp.must_be('...none of which left a post',
-    not exists (select 1 from public.general_feedback where title in ('Zz pm file', 'Zz other file', 'Zz no file')));
+    not exists (select 1 from public.general_feedback where title in ('Zz pm file', 'Zz other file', 'Zz no file', 'Zz twice', 'Zz null')));
 
   v_new := public.create_general_feedback(v_p, 'input', 'Zz with file', 'See the plan.',
-             jsonb_build_array(jsonb_build_object('path', v_ok, 'name', 'plan.pdf', 'size', 1234)));
-  perform pg_temp.must_be('S posts with their own file',
+             array[v_ok]);
+  perform pg_temp.must_be('S posts with their own file, named from its path, sized by Storage',
     exists (select 1 from public.general_feedback_files
              where feedback_id = v_new and reply_id is null and project_id = v_p
                and path = v_ok and name = 'plan.pdf' and size_bytes = 1234));
   perform pg_temp.must_refuse_with('...and cannot attach it twice',
     format($q$select public.create_general_feedback(%L, 'input', 'Zz again', 'x',
-                jsonb_build_array(jsonb_build_object('path', %L, 'name', 'plan.pdf', 'size', 10)))$q$, v_p, v_ok),
+                array[%L])$q$, v_p, v_ok),
     'already');
 
   v_r := public.reply_general_feedback(v_f, 'With a file.',
-           jsonb_build_array(jsonb_build_object('path', v_rep, 'name', 'reply.pdf', 'size', 99)));
+           array[v_rep]);
   perform pg_temp.must_be('S replies with a file, its row carrying the reply',
     exists (select 1 from public.general_feedback_files
-             where feedback_id = v_f and reply_id = v_r and path = v_rep));
+             where feedback_id = v_f and reply_id = v_r and path = v_rep
+               and name = 'reply.pdf' and size_bytes = 0));
 
   perform pg_temp.act_as(v_m);
   perform pg_temp.must_be('M reads the post''s files',
@@ -470,6 +479,54 @@ begin
   perform pg_temp.act_as_service();
 end $$;
 
+-- ------------------------------------------------------------------ a deleted author
+
+-- A post and its replies outlive the author's account; only author_id goes.
+do $$
+declare
+  v_a  uuid := gen_random_uuid();
+  v_c  uuid := (select v from fx where k = 'c');
+  v_p  uuid := (select v from fx where k = 'p');
+  v_f  uuid;
+  v_ra uuid;
+  v_rc uuid;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+  values (v_a, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'zz-fb-a@example.test', '', now(), now());
+  insert into public.profiles (id, email, first_name, last_name, role, status)
+  values (v_a, 'zz-fb-a@example.test', 'Zz', 'Fba', 'member', 'active')
+  on conflict (id) do update set status = excluded.status;
+  insert into public.general_members (project_id, user_id, role) values (v_p, v_a, 'stakeholder');
+
+  perform pg_temp.act_as(v_a);
+  v_f := public.create_general_feedback(v_p, 'input', 'Zz orphan', 'Written by A.');
+  v_ra := public.reply_general_feedback(v_f, 'A adds a note.');
+  perform pg_temp.act_as(v_c);
+  v_rc := public.reply_general_feedback(v_f, 'C answers A.');
+
+  -- A leaves first: deleting an account still on a project trips the project
+  -- log's leave event (an older, separate issue), and this test is about feedback.
+  perform pg_temp.act_as_service();
+  delete from public.general_members where project_id = v_p and user_id = v_a;
+  delete from auth.users where id = v_a;
+  perform pg_temp.must_be('A''s account is gone',
+    not exists (select 1 from public.profiles where id = v_a));
+  perform pg_temp.must_be('...their post stays, with no author',
+    exists (select 1 from public.general_feedback where id = v_f and author_id is null));
+  perform pg_temp.must_be('...C''s reply stays as it was',
+    exists (select 1 from public.general_feedback_replies where id = v_rc and author_id = v_c));
+  perform pg_temp.must_be('...and A''s reply stays, with no author',
+    exists (select 1 from public.general_feedback_replies where id = v_ra and author_id is null));
+
+  perform pg_temp.act_as(v_c);
+  perform pg_temp.must_allow('C still replies to it',
+    format($q$select public.reply_general_feedback(%L, 'Still here.')$q$, v_f));
+  perform pg_temp.must_allow('...and changes its status',
+    format($q$select public.set_general_feedback_status(%L, 'resolved')$q$, v_f));
+  perform pg_temp.act_as_service();
+end $$;
+
 -- ------------------------------------------------------------------ archived
 
 do $$
@@ -499,18 +556,38 @@ end $$;
 
 -- ------------------------------------------------------------------ class board
 
--- A class board's hidden Files project has no Feedback.
+-- A class board's hidden Files project has no Feedback. Its own class, so the
+-- test does not depend on live data.
 do $$
 declare
-  v_class uuid; v_prof uuid; v_a uuid; v_b uuid;
-  v_set uuid; v_group uuid; v_proj uuid; v_board uuid;
+  v_prof uuid := gen_random_uuid();
+  v_a    uuid := gen_random_uuid();
+  v_b    uuid := gen_random_uuid();
+  v_res uuid; v_class uuid; v_set uuid; v_group uuid; v_proj uuid; v_board uuid;
   gp uuid;
 begin
-  select c.id, c.professor_id into v_class, v_prof from public.classes c
-   where (select count(*) from public.class_members m where m.class_id = c.id and m.status = 'active') >= 2
-   order by c.created_at limit 1;
-  select student_id into v_a from public.class_members where class_id = v_class and status = 'active' order by student_id limit 1;
-  select student_id into v_b from public.class_members where class_id = v_class and status = 'active' and student_id <> v_a order by student_id limit 1;
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+  select u.id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+         u.id::text || '@test.invalid', '', now(), now()
+    from (values (v_prof), (v_a), (v_b)) as u(id);
+  insert into public.profiles (id, email, first_name, last_name, role, status, can_teach)
+  values (v_prof, v_prof::text || '@test.invalid', 'Zz', 'Fbprof', 'member',  'active', true),
+         (v_a,    v_a::text    || '@test.invalid', 'Zz', 'Fbana',  'student', 'active', false),
+         (v_b,    v_b::text    || '@test.invalid', 'Zz', 'Fbben',  'student', 'active', false)
+  on conflict (id) do update set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach;
+
+  insert into public.teaching_resources (professor_id, kind, title, file_path, file_name)
+  values (v_prof, 'syllabus', 'Zz FB syllabus', 'x/fb.pdf', 'fb.pdf')
+  returning id into v_res;
+  insert into public.syllabus_weeks (resource_id, week_no, title)
+  select v_res, n, 'Week ' || n from generate_series(1, 4) as n;
+  insert into public.classes (professor_id, name, initial, code, section, year_level,
+                              semester, school_year, syllabus_id, term_start, term_end)
+  values (v_prof, 'Zz FB class', 'ZZFB', 'ZZ-FB-' || left(v_prof::text, 8), 'BSIT 9Z', '3rd', '1st',
+          '2026-2027', v_res, current_date - 7, current_date + 60)
+  returning id into v_class;
+  insert into public.class_members (class_id, student_id, status)
+  values (v_class, v_a, 'active'), (v_class, v_b, 'active');
 
   insert into public.group_sets (class_id, name, mode) values (v_class, 'zz-feedback', 'manual') returning id into v_set;
   insert into public.groups (set_id, name) values (v_set, 'Zz FB group') returning id into v_group;
