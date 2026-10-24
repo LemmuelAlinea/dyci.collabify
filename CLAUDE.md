@@ -77,15 +77,22 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `sync_general_member_level` trigger (pm → owner, coordinator → manager, else member)
   so older checks keep working. Write `role`, never `level`, on a work project. A class
   board's hidden Files project keeps the old level model.
-- On the frontend, read `myRole`, `can`, `canGrant` from `useGeneralProject` and the
-  helpers in `lib/general/permissions.ts` (`rolePermissions`, `canAs`, `canGive`), which
-  mirror `general_has` and `general_can_grant` in SQL.
-- The phase-2 SQL lives in four files that build on each other: `general-reports.sql`
-  (event kinds), then `project-roles.sql`, `project-visibility.sql` and
-  `project-team-leads.sql`, in that order. Re-running one of the last three means
-  re-running the ones after it too, then `anon-lockdown.sql`. Always start a
-  redefinition from the live `pg_get_functiondef`; `docs/07-backup.md` lists what each
-  owns.
+- On the frontend, read `myRole`, `can`, `canGrant`, `leadsUser` from `useGeneralProject`
+  and the helpers in `lib/general/permissions.ts` (`rolePermissions`, `canAs`, `canGive`,
+  and the team-lead task rules `canEditTask`, `canUnassign`, `assignableTo`,
+  `canStepRank`), which mirror `general_has`, `general_can_grant` and the task guards in
+  SQL.
+- The phase-2-era SQL is four files that run last, in this order: `company-accounts.sql`,
+  `project-roles.sql`, `project-visibility.sql`, `project-team-leads.sql`. Between them
+  they are the final owners of functions, triggers and policies first written in many
+  earlier files (`general.sql`, `general-spaces.sql`, `general-tasks.sql`,
+  `general-notify.sql`, `general-reports.sql`, `general-project-archive-rbac.sql`,
+  `access.sql` and more). Re-running ANY file one of them supersedes means re-running
+  all four in that order, then `anon-lockdown.sql`; re-running one of the four means
+  re-running the ones after it, then `anon-lockdown.sql`. Re-running
+  `general-project-archive-rbac.sql` alone reopens every work project to its whole
+  space. `docs/07-backup.md` lists what each of the four owns. Always start a
+  redefinition from the live `pg_get_functiondef`.
 
 ## Security invariants
 

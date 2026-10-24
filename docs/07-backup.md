@@ -247,7 +247,9 @@ and is also the final owner of `invite_to_general_project`
 (now with a role; it drops the two-argument copy), `respond_general_invitation`,
 `remove_general_member`, `leave_general_project`, `log_general_member_change`, the
 `general_project_events` kinds check, `notify_general_membership` and the
-`general_members_notify_level` trigger. It owns the grant rules too:
+`general_members_notify_level` trigger, and `notify_general_access_request` (an access
+request on a work project reaches the project manager and the coordinators who can answer
+it, not only level `owner`). It owns the grant rules too:
 `general_can_grant` (a coordinator gives every permission it holds),
 `grant_general_permission` and `answer_general_access_request` (grants go to members
 only). It drops `general.sql`'s `set_general_member_level`, and adds
@@ -257,8 +259,9 @@ only). It drops `general.sql`'s `set_general_member_level`, and adds
 `my_role` and `has_pm` at the end) and `list_general_project_members` (with `role`), so
 re-run it after `general-project-space.sql` or `one-workplace.sql`. Re-run `project-roles.sql` (then
 `anon-lockdown.sql`) after re-running any of `access.sql`, `company-accounts.sql`,
-`general.sql`, `general-reports.sql`, `notification-coverage.sql` or `class-files.sql`:
-`general.sql` puts back a `general_has` that hands a coordinator `edit_project`, an
+`general.sql`, `general-notify.sql`, `general-reports.sql`, `notification-coverage.sql` or
+`class-files.sql`: `general-notify.sql` puts back an access-request notice that only
+level `owner` gets; `general.sql` puts back a `general_has` that hands a coordinator `edit_project`, an
 owner-only `general_can_grant`, the level-only `set_general_member_level` and a second,
 two-argument `invite_to_general_project` that makes old calls ambiguous; `access.sql` puts back a student trigger that ignores a change of
 role; `company-accounts.sql` and `access.sql` put back a `guard_student_level` that
@@ -266,6 +269,34 @@ refuses student coordinators and a `join_general_project` that refuses students;
 `general-reports.sql`, `notification-coverage.sql` and `class-files.sql` put back a log,
 a notification and a trigger that ignore a change of role. Its migration
 only touches rows whose role does not match their level, so re-running it changes nothing.
+`project-visibility.sql` and `project-team-leads.sql` redefine some of what it defines, so
+re-run those two after it, in that order.
+
+`project-visibility.sql` runs after `project-roles.sql`. It narrows who reads a work
+project to its members and the Owners of its space (a plain space member no longer sees
+projects they are not on), seats anyone who joins a work project in its space (the
+`general_members_space` trigger over `add_general_member_to_space`), and keeps work-space
+invites for Owners only (`general_space_manages_invites`). It is the final owner of
+`can_read_general_project` (from `general-project-archive-rbac.sql`, and before that
+`general-spaces.sql`), `general_report_is_lead` (from `general-reports.sql`, now space
+Owners only), the space invite and join-code functions and policies from
+`general-spaces.sql` (`invite_to_general_space`, `respond_general_space_invitation`,
+`set_general_space_join_code`, `withdraw_general_space_invitation`,
+`list_general_space_invitations`, `set_general_space_level`, and the
+`general_space_invitations_select` and `general_space_join_codes_select` policies),
+`join_general_space` (from `company-accounts.sql`, and `access.sql` before it; space join
+codes no longer admit anyone) and `guard_general_project` (from `archive-page.sql`, with
+older copies in `general.sql` and `general-project-archive-rbac.sql`; it freezes a
+project's `space_id` and `class_board_id`). Re-run it (then `project-team-leads.sql`, then
+`anon-lockdown.sql`) after re-running any of `general.sql`, `general-spaces.sql`,
+`general-project-archive-rbac.sql`, `general-reports.sql`, `access.sql`,
+`company-accounts.sql`, `archive-page.sql` or `project-roles.sql`. Re-running
+`general-project-archive-rbac.sql` alone is the dangerous one: its
+`can_read_general_project` reopens every work project to everybody in its space, and
+nothing fails to tell you. `general-spaces.sql` alone gives space Managers invite power in
+work spaces again and lets join codes admit people; `general-reports.sql` alone lets space
+Managers read everyone's report rows; `company-accounts.sql` or `access.sql` alone lets a
+space join code admit people again.
 
 `project-team-leads.sql` runs after `project-visibility.sql`. It adds
 `general_teams.leader_id`, `general_leads_user`, `set_general_team_leader`, the

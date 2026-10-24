@@ -3717,7 +3717,7 @@ Both start with "zz test".
 - **Who sets what.** The pm sets any role and hands over (the old pm becomes a coordinator). Coordinators add and remove people and switch them among the member roles, never touching a coordinator or the pm. Coordinators also give grants and answer access requests, for every permission they hold (all but Edit project details); grants go to members only.
 - **No project manager.** If the pm is deactivated or loses Project manager, the project keeps working. Its coordinators and space owners see a notice on Overview, and a space owner (or the admin, from **Work projects**) assigns a new pm from people with Project manager on.
 - **Visibility.** A space member sees only the projects they are on; space owners see every project, read-only. Joining a project adds you to its space. Space join codes are retired, and the only space invite is **Add a co-owner** (Project manager on).
-- **Team leaders.** A project team can have a leader, who may edit, assign and reorder tasks held by people on their team. Tasks and Backlog have a team filter (filed under or held by the team).
+- **Team leaders.** A project team can have a leader. For a task somebody they lead holds, the leader edits it (details and stage, from the task dialog and the board's stage control), takes people they lead off it, and moves it up or down in Backlog (sprint moves and points still need Manage all tasks). On a task nobody holds, the task dialog offers them **Assign someone you lead…**; a second holder is still refused. Tasks and Backlog have a team filter (filed under or held by the team); reordering stays off while a team is picked, and a leader's filter opens on their own team.
 - **Seeing roles.** PM, Coordinator, Lead, QA and Stakeholder badges in Members, task holders, comments, the discussion and project chat. A "Who can do what" table on the Members tab. Role changes, hand overs and leader changes show in the report's activity log.
 - **`set_general_member_level` is dropped.** Tests use `set_general_member_role`.
 
@@ -3725,11 +3725,11 @@ Both start with "zz test".
 
 | File | What it does |
 |---|---|
-| `supabase/project-roles.sql` | Role enum and columns, level sync, migration, one-PM index, role-aware `general_has` and `general_can_grant`, role RPCs (`set_general_member_role`, `hand_over_general_project`, `assign_general_project_pm`), invitations with a role, grants for members only, `search_project_managers`, the admin-only `admin_work_projects` view, the role activity log and notifications, and `general_project_overview` with `my_role` / `has_pm`. Test: `supabase/tests/project-roles.test.sql`. |
+| `supabase/project-roles.sql` | Role enum and columns, level sync, migration, one-PM index, role-aware `general_has` and `general_can_grant`, role RPCs (`set_general_member_role`, `hand_over_general_project`, `assign_general_project_pm`), invitations with a role, grants for members only, `search_project_managers`, the admin-only `admin_work_projects` view, the role activity log and notifications (access requests reach the pm and the coordinators who can answer them), and `general_project_overview` with `my_role` / `has_pm`. Test: `supabase/tests/project-roles.test.sql`. |
 | `supabase/project-visibility.sql` | Narrowed `can_read_general_project`, joining a project adds you to its space, co-owner-only space invites, retired space codes. Test: `project-visibility.test.sql`. |
 | `supabase/project-team-leads.sql` | `general_teams.leader_id`, `set_general_team_leader`, the leader guards and the lead branches in the task rules; `team_leader` events carry `team_name`. Test: `project-team-leads.test.sql`. |
 | `supabase/general-reports.sql` | The events kinds check lists the three new kinds. |
-| `lib/general/permissions.ts`, `lib/general/roleLookup.ts` | `ProjectRole`, `ROLE_LABEL`, `rolePermissions`, `canAs`, `canGive`, `assignableRoles`, `canRemoveRole`, `ROLE_MATRIX`; `effectiveRole` and `roleLookup` for badges. |
+| `lib/general/permissions.ts`, `lib/general/roleLookup.ts` | `ProjectRole`, `ROLE_LABEL`, `rolePermissions`, `canAs`, `canGive`, `assignableRoles`, `canRemoveRole`, `ROLE_MATRIX` (rows not built yet carry a "Coming later" caption); the team-lead task rules `canEditTask`, `canUnassign`, `assignableTo`, `canStepRank` (used by `TaskDialog`, `TasksTab` and `workSource`'s `canStepItem`); `effectiveRole` and `roleLookup` for badges. |
 | `components/general/useGeneralProject.ts` | `myRole`, role-based `can`, `canGrant`, `leadsUser`, `roleOf`, `isLead`. |
 | `components/general/MembersTab.tsx`, `InvitePanel.tsx`, `HandOverDialog.tsx`, `RoleGuide.tsx`, `RoleBadge.tsx`, `RequestsPanel.tsx` | The Members tab on roles: role select, invite with a role, hand over, Who can do what, badges, Permissions and requests for the pm or a coordinator. |
 | `components/general/StructurePanel.tsx`, `components/work/*`, `components/messages/useProjectRoles.ts` | Leader picker, team filter, badges in tasks and chat. |
@@ -3750,20 +3750,22 @@ Both start with "zz test".
 4. The no-PM notice. It needs a project whose pm is deactivated or has Project manager off. As its space owner, use Assign a project manager.
 5. As the admin, open `/admin/projects` (Work projects in the rail) and check the list and the Assign picker.
 6. As Cloud, on a work space's Members page: the new copy, no join-code section, and Add a co-owner listing only people with Project manager on.
+7. As a coordinator on a work project: open Permissions on a member (Edit project details is greyed out, the other five can be given), and answer an access request from the Members tab. The request's notification should reach the coordinator too.
+8. As a team leader who does not manage tasks: open a task a teammate holds and edit it, move its stage on the board, take the teammate off it, assign a teammate to a task nobody holds, and move a teammate's task up or down in Backlog with the Team filter on All teams.
 
 **Deferred** (from the ledger):
-- A comment in `project-roles.sql` overstated "role wins" for a same-role, different-level update (fixed in this task).
 - `general_role_of` checks `status = 'active'` while `is_general_member` checks `<> 'rejected'` (no pending accounts live).
 - `project-roles.test.sql` repeats the migration statements word for word.
-- The old MembersTab offered Owner and errored until the role select replaced it (resolved by Task 6).
 - `list_general_space_teams.project_count` counts projects the caller is not on (count only).
 - Space teams visibility and space member removal still use owner-or-manager (0 work-space Managers live).
 - A lead can take an unheld task tagged to another team by assigning their own member (the same as that member claiming it).
 - `manage_structure` through a member grant also lets that member pick leaders (1 grant live).
 - Leads cannot add a second holder to a task that is already held (claim lock).
-- `ROLE_MATRIX` has no distinct mark for "bug tasks only" or "gives vs can get"; the action text carries it.
 - `canRemove` in MembersTab has no component test (vitest runs in node).
 - The leader UI's class-board guard fails open if its `general_projects` read errors; checked rows hidden by the team filter come back checked when it is cleared.
 - New in this task: request counts on cards and dashboards (`WorkProjectCard`, `WorkOverview`, `SpaceHome`, `dashboard.ts`) still show only for `my_level = 'owner'`, so a coordinator sees requests on the Members tab but not on cards. `request_general_access` still checks level, not role, so QA or a stakeholder could ask (both roles are refused today). A few grant and request errors on work projects still say "Owner".
+- From the final review: removing someone from a space leaves their project memberships in it (the spec is silent). A pm whose Project manager switch is off keeps full powers on archived projects until a new pm is assigned. Request counts on cards stay owner-only and `request_general_access` checks level (as above).
+
+**Final review fixes** (after the phase-2 review): team-lead task powers reach the UI (task dialog edit, assign while unheld, unassign, board stage moves, Backlog reorder); "Who can do what" splits giving grants from asking for access and captions the rows not built yet; access-request notifications on work projects go to the pm and the coordinators who can answer them (`notify_general_access_request`, now owned by `project-roles.sql`, applied live with `anon-lockdown.sql`); `docs/07-backup.md` has a `project-visibility.sql` paragraph and CLAUDE.md the four-file re-run rule.
 
 **Next.** Phase 3, stakeholders: read-only enforcement, the Feedback tab and its notifications, the slim sidebar and the stakeholder Home, per the spec's Rollout.
