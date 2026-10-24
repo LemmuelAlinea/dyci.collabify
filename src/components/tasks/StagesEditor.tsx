@@ -169,7 +169,7 @@ export function StagesEditor({
             QA stage
           </label>
           <p className="mb-1.5 text-[12px] text-muted">
-            When a project has QA, only QA and the project manager can move a task out of this stage.
+            When a project has QA, only QA and the project manager can move a task past this stage.
           </p>
           <Select
             id={qaId}

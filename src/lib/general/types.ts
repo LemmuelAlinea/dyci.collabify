@@ -129,7 +129,7 @@ export type GeneralProjectSummary = GeneralProject & {
   my_role: ProjectRole | null
   /** Whether an active project manager holds the project. False while it waits for one. */
   has_pm: boolean
-  /** Whether somebody active holds QA, so only QA and the project manager can mark work done. */
+  /** Whether somebody active holds QA, so only QA and the project manager move work past the QA stage. */
   has_qa: boolean
   member_count: number
   task_count: number

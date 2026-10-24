@@ -62,7 +62,7 @@ export type MyTaskItem = {
   next?: { label: string; icon: IconName; run: () => void }
   /** Any stage, for the List's dropdown. */
   onStage?: (to: TaskStatus) => Promise<void>
-  /** Done is not offered: the task's project has QA, and QA passes its tasks. */
+  /** Done is not offered: getting there crosses the project's QA stage, and QA passes its tasks. */
   noDone?: boolean
 }
 

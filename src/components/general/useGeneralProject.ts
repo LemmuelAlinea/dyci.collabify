@@ -99,8 +99,8 @@ export type GeneralProjectState = {
   nameOf: (userId: string) => string
   /**
    * Whether the QA gate refuses moving a task from one stage index to another
-   * for the viewer: in a project with QA, only QA and the project manager pass
-   * a task out of the QA stage or mark one done. See lib/work/qa.ts.
+   * for the viewer: in a project with QA, only the project manager, or QA from
+   * the QA stage itself, moves a task past the QA stage. See lib/work/qa.ts.
    */
   qaBlocks: (from: number, to: number) => boolean
 }

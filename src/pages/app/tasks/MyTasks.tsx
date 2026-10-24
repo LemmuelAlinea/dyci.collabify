@@ -20,7 +20,7 @@ import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useGeneralDashboard } from '../../../hooks/useGeneralDashboard'
-import { listMyArchivedTasks, updateTask } from '../../../lib/api/general'
+import { listMyArchivedTasks, listProjectStages, updateTask } from '../../../lib/api/general'
 import { listMyArchivedClassTasks, myTasks as myClassTasks, setTaskStatus } from '../../../lib/api/tasks'
 import type { MyTask } from '../../../lib/api/tasks'
 import { membershipOf, showsClassScope } from '../../../lib/access'
@@ -32,7 +32,8 @@ import { readScope, writeScope } from '../../../lib/scope'
 import { formatMinutes, taskShare, taskStatusLabel } from '../../../lib/types'
 import { useNow } from '../../../hooks/useNow'
 import type { GeneralTask } from '../../../lib/general/types'
-import { qaGated } from '../../../lib/work/qa'
+import { qaBlocks, qaGated } from '../../../lib/work/qa'
+import { stageIndex, stagesOf } from '../../../lib/stages'
 import type { TaskStatus } from '../../../lib/types'
 
 const NEXT: Record<TaskStatus, { to: TaskStatus; label: string; icon: 'check' | 'refresh' }> = {
@@ -210,13 +211,36 @@ export default function MyTasks() {
   } = useGeneralDashboard(profile?.id, projectIds)
   const clock = useNow()
   const now = dashData?.at ?? clock
-  // A project with QA keeps "done" for QA and the project manager (the database refuses it otherwise).
+  // The stages of each project whose QA gate applies to the reader, so "done"
+  // is held back only from a task that would cross the QA stage to get there.
+  const gatedKey = mineProjects
+    .filter((p) => qaGated({ hasQa: p.has_qa, role: p.my_role }))
+    .map((p) => p.id)
+    .join(',')
+  const [gatedStages, setGatedStages] = useState<Map<string, { stages: string[] | null; qa_stage: string | null }>>(
+    () => new Map(),
+  )
+  const loadGatedStages = useCallback(async () => {
+    const rows = await listProjectStages(gatedKey ? gatedKey.split(',') : []).catch(() => [])
+    setGatedStages(new Map(rows.map((r) => [r.id, r])))
+  }, [gatedKey])
+  useEffect(() => {
+    void loadGatedStages()
+  }, [loadGatedStages])
+  // A project with QA keeps crossing the QA stage for QA and the project
+  // manager (the database refuses it otherwise). Until the stages arrive, done
+  // stays back on every gated project.
   const noDone = useCallback(
-    (id: string) => {
-      const p = mineProjects.find((x) => x.id === id)
-      return p ? qaGated({ hasQa: p.has_qa, role: p.my_role }) : false
+    (t: GeneralTask) => {
+      const p = mineProjects.find((x) => x.id === t.project_id)
+      if (!p) return false
+      const gate = { hasQa: p.has_qa, role: p.my_role }
+      const s = gatedStages.get(p.id)
+      if (!s) return qaGated(gate)
+      const n = stagesOf(s.stages).length
+      return qaBlocks(gate, s.stages, s.qa_stage, stageIndex(t.status, t.stage, n), n - 1)
     },
-    [mineProjects],
+    [mineProjects, gatedStages],
   )
   const projectName = useCallback(
     (id: string) => mineProjects.find((p) => p.id === id)?.name ?? 'A project',
@@ -350,7 +374,7 @@ export default function MyTasks() {
         minutes: t.logged_minutes,
         onOpen: () => showWorkTask(t),
         onStage: (to) => moveWorkTask(t, to),
-        noDone: noDone(t.project_id),
+        noDone: noDone(t),
       }),
     ),
   ]

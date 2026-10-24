@@ -129,6 +129,14 @@ export async function getGeneralProject(projectId: string) {
   }
 }
 
+/** Several projects' stages and QA stage, for pages that judge the QA gate across projects. */
+export async function listProjectStages(projectIds: string[]) {
+  if (projectIds.length === 0) return []
+  const { data, error } = await supabase.from('general_projects').select('id, stages, qa_stage').in('id', projectIds)
+  if (error) throw error
+  return (data ?? []) as { id: string; stages: string[] | null; qa_stage: string | null }[]
+}
+
 /**
  * The preset's content goes down with the project so the database applies it in
  * one transaction. A project is never half set up, and a preset that fails

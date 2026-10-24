@@ -91,33 +91,49 @@ describe('qaBlocks', () => {
   const block = (gate: Parameters<typeof qaBlocks>[0], from: number, to: number) =>
     qaBlocks(gate, SYSTEM, null, from, to)
 
-  it('refuses leaving the QA stage forward', () => {
-    expect(block(on, 2, 3)).toBe(true)
+  const qa = { hasQa: true, role: 'qa' as const }
+
+  it('refuses a holder passing a task out of Testing', () => {
+    expect(block(on, 2, 3)).toBe(true) // Testing to Revision
     expect(block(on, 2, 4)).toBe(true)
   })
 
-  it('refuses reaching the last stage from anywhere else', () => {
+  it('refuses a holder skipping Testing', () => {
+    expect(block(on, 1, 3)).toBe(true) // Development to Revision
     expect(block(on, 0, 4)).toBe(true)
     expect(block(on, 1, 4)).toBe(true)
-    expect(block(on, 3, 4)).toBe(true)
   })
 
-  it('lets everything else through', () => {
+  it('lets a holder move among the stages after Testing, and back', () => {
+    expect(block(on, 3, 4)).toBe(false) // Revision to Completed
+    expect(block(on, 4, 3)).toBe(false)
+    expect(block(on, 3, 2)).toBe(false)
+    expect(block(on, 4, 0)).toBe(false) // reopen
+    expect(block(on, 4, 4)).toBe(false)
+  })
+
+  it('lets everything up to Testing through', () => {
     expect(block(on, 0, 1)).toBe(false)
     expect(block(on, 1, 2)).toBe(false) // into QA
     expect(block(on, 2, 1)).toBe(false) // back out of QA
-    expect(block(on, 4, 0)).toBe(false) // reopen
-    expect(block(on, 4, 4)).toBe(false)
+  })
+
+  it('lets QA cross from Testing only', () => {
+    expect(block(qa, 2, 3)).toBe(false) // Testing to Revision
+    expect(block(qa, 2, 4)).toBe(false)
+    expect(block(qa, 1, 4)).toBe(true) // a QA team lead, Development to Completed
+    expect(block(qa, 1, 3)).toBe(true)
+    expect(block(qa, 1, 2)).toBe(false)
+  })
+
+  it('never applies to the project manager', () => {
+    expect(block({ hasQa: true, role: 'pm' }, 1, 4)).toBe(false)
+    expect(block({ hasQa: true, role: 'pm' }, 0, 3)).toBe(false)
   })
 
   it('does not apply without active QA', () => {
     expect(block({ hasQa: false, role: 'member' }, 2, 4)).toBe(false)
     expect(block({ hasQa: false, role: 'coordinator' }, 1, 4)).toBe(false)
-  })
-
-  it('never applies to QA or the project manager', () => {
-    expect(block({ hasQa: true, role: 'qa' }, 2, 4)).toBe(false)
-    expect(block({ hasQa: true, role: 'pm' }, 1, 4)).toBe(false)
   })
 
   it('applies to a coordinator', () => {
@@ -127,8 +143,17 @@ describe('qaBlocks', () => {
   it('reads the QA stage the project names, and the default three', () => {
     expect(qaBlocks(on, SYSTEM, 'Revision', 3, 4)).toBe(true)
     expect(qaBlocks(on, SYSTEM, 'Revision', 2, 3)).toBe(false)
-    expect(qaBlocks(on, null, null, 1, 2)).toBe(true)
+    expect(qaBlocks(on, SYSTEM, 'Revision', 2, 4)).toBe(true)
+    expect(qaBlocks(on, null, null, 1, 2)).toBe(true) // In progress to Done
+    expect(qaBlocks(on, null, null, 0, 2)).toBe(true) // To do to Done
     expect(qaBlocks(on, null, null, 0, 1)).toBe(false)
+  })
+
+  it('keeps a status-only done from before QA refused on four stages', () => {
+    const four = ['Planning', 'Development', 'Testing', 'Done']
+    expect(qaBlocks(on, four, null, 1, 3)).toBe(true)
+    expect(qaBlocks(on, four, null, 2, 3)).toBe(true)
+    expect(qaBlocks(qa, four, null, 2, 3)).toBe(false)
   })
 })
 

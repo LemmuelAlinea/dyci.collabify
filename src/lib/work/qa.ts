@@ -65,10 +65,11 @@ export function qaGated(gate: { hasQa: boolean; role: ProjectRole | null }): boo
 
 /**
  * Whether the QA gate refuses this move for the viewer. In a project with
- * active QA, only QA and the project manager move a task out of the QA stage
- * forward, or into the last stage from anywhere else. Mirrors the gate in
- * sync_general_task_stage (supabase/project-qa.sql); the database decides, this
- * only keeps the app from offering what it refuses.
+ * active QA, crossing the QA stage (from it or before it to a stage after it)
+ * goes only by the project manager, or by QA from the QA stage itself. Moves
+ * among the stages after QA, and moves back, are not crossings. Mirrors the
+ * gate in sync_general_task_stage (supabase/project-qa.sql); the database
+ * decides, this only keeps the app from offering what it refuses.
  */
 export function qaBlocks(
   gate: { hasQa: boolean; role: ProjectRole | null },
@@ -77,10 +78,10 @@ export function qaBlocks(
   from: number,
   to: number,
 ): boolean {
-  if (!qaGated(gate)) return false
-  const last = stagesOf(stages).length - 1
+  if (!gate.hasQa || gate.role === 'pm') return false
   const qa = qaStageIndex(stages, qaStage)
-  return (from === qa && to > qa) || (to === last && from !== last)
+  const crosses = from <= qa && to > qa
+  return crosses && !(gate.role === 'qa' && from === qa)
 }
 
 /**
