@@ -434,12 +434,36 @@ hold tasks. Pick someone else."), `set_general_member_role` and
 `invite_to_general_project` (all four from `project-stakeholders.sql`; the pm sets and
 invites qa, a coordinator switches people among member, qa and stakeholder and invites as
 any of the three, and becoming QA takes the person off every task they held in the
-project). Re-run it (then `anon-lockdown.sql`) after re-running `task-stages.sql` or
-`project-stakeholders.sql`, and so after any file whose re-run calls for either of them:
+project). It also holds the QA gate and its upkeep: the `task_sent_back` notification
+type (added in the enum's transaction), the `general_task_events_kind` CHECK (first in
+`general-tasks.sql`, widened with `qa_passed` and `qa_sent_back`), `general_qa_stage_pick`
+(the QA stage rule on a stage list), `general_task_stage_at` (a task's effective stage,
+as `stageIndex` in `src/lib/stages.ts`), `general_qa_may_move` (active QA moving a task
+from the QA stage to the last stage or the one before QA), the
+`general_tasks_zz_qa_entered` trigger (`keep_general_task_qa_entered`, the one keeper of
+`qa_entered_at`: set on arrival at the QA stage, kept while there, null elsewhere; named
+to fire after every other BEFORE trigger on the table), the RPCs `qa_pass_general_task`
+and `qa_send_back_general_task` (with `general_qa_task_waiting`, "This task isn't waiting
+for QA."; send back needs a note, "Add a note saying what to fix.", posts it as a task
+comment and sends holders `task_sent_back` behind `notification_prefs.task_assignments`),
+and `my_qa_queue()` (QA's Home count per live work project). It is the final owner of
+`sync_general_task_stage` (`project-stakeholders.sql`, before that `project-team-leads.sql`
+and `task-stages.sql`): on a work project with active QA, a task leaving the QA stage
+forward, judged on the stage it ends up on after alignment, goes only by QA or the PM
+("Only QA or the project manager can pass a task out of {stage}."), and QA's own moves
+pass the holder rule. `guard_general_task` lets those QA moves through when nothing else
+changes, and reads a bug-only QA's role off `general_members` (a pending account too).
+Re-run it (then `anon-lockdown.sql`) after re-running `task-stages.sql`,
+`project-team-leads.sql` or `project-stakeholders.sql`, and so after any file whose re-run
+calls for one of them (`general-tasks.sql`, `general-schedule-guard.sql`,
+`general-archive-rbac.sql` and the rest of the `project-stakeholders.sql` list):
 `task-stages.sql` alone drops the view and recreates it without `kind` and
-`qa_entered_at`, which the app reads; `project-stakeholders.sql` alone lets QA create
-plain tasks and hold tasks, and refuses the qa role again with "QA roles are not
-available yet."
+`qa_entered_at`, which the app reads, and puts back a stage sync with no QA gate (a
+holder marks a task done straight out of QA); `project-team-leads.sql` or
+`project-stakeholders.sql` alone also drops the gate; `project-stakeholders.sql` alone
+lets QA create plain tasks and hold tasks, and refuses the qa role again with "QA roles
+are not available yet." Re-running `general-tasks.sql` leaves the widened CHECK alone (it
+creates the table only if missing).
 
 `anon-lockdown.sql` runs last and takes EXECUTE on every public function away
 from the signed-out role, keeping signed-in access as it was. Re-run it after

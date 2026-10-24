@@ -6,7 +6,11 @@
 -- "Testing" or next-to-last fallback). Tasks get a kind, task or bug. QA
 -- creates bug tasks only, never changes a kind and holds no tasks. The pm sets
 -- and invites the qa role, a coordinator switches people among member, qa and
--- stakeholder; becoming QA lets go of every task held in the project. Every
+-- stakeholder; becoming QA lets go of every task held in the project. With QA
+-- on a project, only QA or the pm moves a task out of the QA stage forward (a
+-- status-only "done" included); QA passes or sends back without holding it;
+-- send back needs a note, posts it as a comment and tells the holders;
+-- qa_entered_at follows arrivals; my_qa_queue counts what waits. Every
 -- refusal is paired with a case that is allowed. A class-board Files project
 -- is unaffected.
 --
@@ -377,6 +381,310 @@ begin
   perform pg_temp.must_be('Y joins by the code', public.join_general_project(v_code) = v_p);
   perform pg_temp.must_be('...as the QA the invitation made them',
     (select role = 'qa' from public.general_members where project_id = v_p and user_id = v_y));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- ------------------------------------------------------------------ the gate
+
+-- A fresh project, Planning / Development / Testing / Done (QA stage 2), with
+-- coordinator C, member M, QA Q, and a pending account PQ holding the qa role.
+do $$
+declare
+  v_pm  uuid := (select v from fx where k = 'pm');
+  v_c   uuid := (select v from fx where k = 'c');
+  v_m   uuid := (select v from fx where k = 'm');
+  v_q   uuid := (select v from fx where k = 'q');
+  v_pq  uuid := gen_random_uuid();
+  v_p3  uuid;
+  v_t   uuid;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+  values (v_pq, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'zz-qa-pq@example.test', '', now(), now());
+  insert into public.profiles (id, email, first_name, last_name, role, status)
+  values (v_pq, 'zz-qa-pq@example.test', 'Zz', 'Qapq', 'member', 'pending')
+  on conflict (id) do update set role = excluded.role, status = excluded.status;
+
+  perform pg_temp.act_as(v_pm);
+  v_p3 := (public.create_general_project('Zz QA gate project', '')).id;
+  update public.general_projects set stages = array['Planning', 'Development', 'Testing', 'Done']
+   where id = v_p3;
+
+  perform pg_temp.act_as_service();
+  insert into public.general_members (project_id, user_id, role)
+  values (v_p3, v_c, 'coordinator'), (v_p3, v_m, 'member'), (v_p3, v_q, 'qa'), (v_p3, v_pq, 'qa');
+  -- M has comment notifications off and task ones on.
+  insert into public.notification_prefs (user_id, comments_mentions, task_assignments)
+  values (v_m, false, true)
+  on conflict (user_id) do update set comments_mentions = false, task_assignments = true;
+
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_tasks (project_id, title) values (v_p3, 'Zz gate task') returning id into v_t;
+  insert into public.general_task_assignees (task_id, project_id, user_id) values (v_t, v_p3, v_m);
+
+  perform pg_temp.act_as_service();
+  insert into fx values ('p3', v_p3), ('t', v_t), ('pq', v_pq);
+end $$;
+
+-- A pending QA account still creates bug tasks only.
+do $$
+declare
+  v_p3 uuid := (select v from fx where k = 'p3');
+  v_pq uuid := (select v from fx where k = 'pq');
+begin
+  perform pg_temp.act_as(v_pq);
+  perform pg_temp.must_refuse_with('a pending QA account cannot create a task',
+    format($q$insert into public.general_tasks (project_id, title) values (%L, 'Zz PQ task')$q$, v_p3),
+    'QA creates bug tasks only.');
+  perform pg_temp.must_allow('...but creates a bug',
+    format($q$insert into public.general_tasks (project_id, title, kind)
+              values (%L, 'Zz PQ bug', 'bug')$q$, v_p3));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- Entering and leaving the QA stage.
+do $$
+declare
+  v_p3 uuid := (select v from fx where k = 'p3');
+  v_pm uuid := (select v from fx where k = 'pm');
+  v_m  uuid := (select v from fx where k = 'm');
+  v_t  uuid := (select v from fx where k = 't');
+  v_t2 uuid;
+  v_e1 timestamptz;
+begin
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_tasks (project_id, title, status, stage)
+  values (v_p3, 'Zz born in QA', 'in_progress', 2) returning id into v_t2;
+  perform pg_temp.must_be('a task created at the QA stage has qa_entered_at',
+    (select qa_entered_at is not null from public.general_tasks where id = v_t2));
+  perform public.archive_general_task(v_t2, true);
+
+  perform pg_temp.act_as(v_m);
+  update public.general_tasks set stage = 1 where id = v_t;
+  perform pg_temp.must_be('a task at Development has no qa_entered_at',
+    (select qa_entered_at is null from public.general_tasks where id = v_t));
+  update public.general_tasks set stage = 2 where id = v_t;
+  select qa_entered_at into v_e1 from public.general_tasks where id = v_t;
+  perform pg_temp.must_be('moving a task into QA sets qa_entered_at', v_e1 is not null);
+
+  update public.general_tasks set qa_entered_at = '2000-01-01' where id = v_t;
+  perform pg_temp.must_be('the holder cannot set qa_entered_at by hand',
+    (select qa_entered_at = v_e1 from public.general_tasks where id = v_t));
+  update public.general_tasks set title = 'Zz gate task' where id = v_t;
+  perform pg_temp.must_be('an edit that stays in QA keeps qa_entered_at',
+    (select qa_entered_at = v_e1 from public.general_tasks where id = v_t));
+
+  perform pg_temp.must_refuse_with('M cannot mark the task done from Testing (status only)',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_t),
+    'Only QA or the project manager can pass a task out of Testing.');
+  perform pg_temp.must_refuse_with('...nor move it to Done by stage',
+    format($q$update public.general_tasks set stage = 3 where id = %L$q$, v_t),
+    'Only QA or the project manager can pass a task out of Testing.');
+  perform pg_temp.must_be('...and it stays in Testing',
+    (select status = 'in_progress' and stage = 2 from public.general_tasks where id = v_t));
+
+  perform pg_temp.must_allow('M moves it back a stage',
+    format($q$update public.general_tasks set stage = 1 where id = %L$q$, v_t));
+  perform pg_temp.must_be('leaving QA clears qa_entered_at',
+    (select qa_entered_at is null from public.general_tasks where id = v_t));
+  update public.general_tasks set stage = 2 where id = v_t;
+  perform pg_temp.must_be('re-entering QA resets qa_entered_at',
+    (select qa_entered_at > v_e1 from public.general_tasks where id = v_t));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- Pass.
+do $$
+declare
+  v_p3 uuid := (select v from fx where k = 'p3');
+  v_pm uuid := (select v from fx where k = 'pm');
+  v_c  uuid := (select v from fx where k = 'c');
+  v_m  uuid := (select v from fx where k = 'm');
+  v_q  uuid := (select v from fx where k = 'q');
+  v_t  uuid := (select v from fx where k = 't');
+begin
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_refuse_with('a member cannot pass the task',
+    format($q$select public.qa_pass_general_task(%L)$q$, v_t),
+    'This task isn''t waiting for QA.');
+
+  perform pg_temp.act_as(v_q);
+  perform pg_temp.must_allow('QA passes the task',
+    format($q$select public.qa_pass_general_task(%L)$q$, v_t));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...which is done, on the last stage, out of QA',
+    (select status = 'done' and stage = 3 and qa_entered_at is null and completed_at is not null
+       from public.general_tasks where id = v_t));
+  perform pg_temp.must_be('...with a qa_passed event by QA',
+    exists (select 1 from public.general_task_events
+             where task_id = v_t and kind = 'qa_passed' and actor_id = v_q));
+
+  perform pg_temp.act_as(v_q);
+  perform pg_temp.must_refuse_with('QA cannot pass a task that is not in QA',
+    format($q$select public.qa_pass_general_task(%L)$q$, v_t),
+    'This task isn''t waiting for QA.');
+
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_allow('M reopens it into Testing',
+    format($q$update public.general_tasks set stage = 2 where id = %L$q$, v_t));
+
+  perform pg_temp.act_as(v_q);
+  perform pg_temp.must_refuse_with('QA cannot move it to the first stage',
+    format($q$update public.general_tasks set stage = 0 where id = %L$q$, v_t),
+    'Only whoever holds this task');
+  perform pg_temp.must_refuse_with('...nor edit it while passing it',
+    format($q$update public.general_tasks set stage = 3, title = 'Zz QA edit' where id = %L$q$, v_t),
+    'Only whoever holds this task');
+  perform pg_temp.must_allow('QA sets the last stage directly',
+    format($q$update public.general_tasks set stage = 3 where id = %L$q$, v_t));
+  perform pg_temp.must_be('...and it is done',
+    (select status = 'done' from public.general_tasks where id = v_t));
+
+  perform pg_temp.act_as(v_m);
+  update public.general_tasks set stage = 2 where id = v_t;
+  perform pg_temp.act_as(v_q);
+  perform pg_temp.must_allow('QA moves it back to the stage before QA',
+    format($q$update public.general_tasks set stage = 1 where id = %L$q$, v_t));
+
+  perform pg_temp.act_as(v_m);
+  update public.general_tasks set stage = 2 where id = v_t;
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('the pm passes the task',
+    format($q$select public.qa_pass_general_task(%L)$q$, v_t));
+
+  perform pg_temp.act_as(v_m);
+  update public.general_tasks set stage = 2 where id = v_t;
+  perform pg_temp.act_as(v_c);
+  perform pg_temp.must_refuse_with('a coordinator cannot move it out forward',
+    format($q$update public.general_tasks set stage = 3 where id = %L$q$, v_t),
+    'Only QA or the project manager can pass a task out of Testing.');
+  perform pg_temp.must_refuse_with('...nor mark it done',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_t),
+    'Only QA or the project manager can pass a task out of Testing.');
+  perform pg_temp.must_refuse_with('...nor pass it',
+    format($q$select public.qa_pass_general_task(%L)$q$, v_t),
+    'This task isn''t waiting for QA.');
+  perform pg_temp.must_allow('...but moves it back',
+    format($q$update public.general_tasks set stage = 1 where id = %L$q$, v_t));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- Send back.
+do $$
+declare
+  v_p2 uuid := (select v from fx where k = 'p2');
+  v_p3 uuid := (select v from fx where k = 'p3');
+  v_pm uuid := (select v from fx where k = 'pm');
+  v_m  uuid := (select v from fx where k = 'm');
+  v_q  uuid := (select v from fx where k = 'q');
+  v_t  uuid := (select v from fx where k = 't');
+  v_t4 uuid;
+begin
+  perform pg_temp.act_as(v_m);
+  update public.general_tasks set stage = 2 where id = v_t;
+
+  perform pg_temp.must_refuse_with('a member cannot send the task back',
+    format($q$select public.qa_send_back_general_task(%L, 'Fix it')$q$, v_t),
+    'This task isn''t waiting for QA.');
+
+  perform pg_temp.act_as(v_q);
+  perform pg_temp.must_refuse_with('QA cannot send back with a blank note',
+    format($q$select public.qa_send_back_general_task(%L, '   ')$q$, v_t),
+    'Add a note saying what to fix.');
+  perform pg_temp.must_refuse_with('...nor with no note',
+    format($q$select public.qa_send_back_general_task(%L, null)$q$, v_t),
+    'Add a note saying what to fix.');
+  perform pg_temp.must_refuse_with('...nor with a note over 2000 characters',
+    format($q$select public.qa_send_back_general_task(%L, %L)$q$, v_t, repeat('x', 2001)),
+    'Add a note saying what to fix.');
+  perform pg_temp.must_be('...and the task did not move',
+    (select status = 'in_progress' and stage = 2 from public.general_tasks where id = v_t));
+
+  perform pg_temp.must_allow('QA sends it back with a note',
+    format($q$select public.qa_send_back_general_task(%L, '  The login form accepts a blank password.  ')$q$, v_t));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...to the stage before QA',
+    (select status = 'in_progress' and stage = 1 and qa_entered_at is null
+       from public.general_tasks where id = v_t));
+  perform pg_temp.must_be('...with the note as QA''s comment',
+    exists (select 1 from public.general_task_comments
+             where task_id = v_t and author_id = v_q
+               and body = 'The login form accepts a blank password.'));
+  perform pg_temp.must_be('...a qa_sent_back event with the note',
+    exists (select 1 from public.general_task_events
+             where task_id = v_t and kind = 'qa_sent_back' and actor_id = v_q
+               and detail->>'note' = 'The login form accepts a blank password.'));
+  perform pg_temp.must_be('...and holder M gets task_sent_back with comments muted',
+    exists (select 1 from public.notifications
+             where user_id = v_m and type::text = 'task_sent_back'
+               and general_task_id = v_t and general_project_id = v_p3
+               and title = 'Zz gate task was sent back'
+               and preview = 'The login form accepts a blank password.'));
+  perform pg_temp.must_be('...but no comment notification',
+    not exists (select 1 from public.notifications
+                 where user_id = v_m and type::text = 'general_comment_posted'
+                   and general_task_id = v_t));
+  perform pg_temp.must_be('QA, who sent it, gets nothing',
+    not exists (select 1 from public.notifications
+                 where user_id = v_q and type::text = 'task_sent_back'));
+
+  -- With the default stages the QA stage is In progress, so back means To do.
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_tasks (project_id, title, status) values (v_p2, 'Zz default QA', 'in_progress')
+  returning id into v_t4;
+  perform pg_temp.must_allow('the pm sends back on a project without QA',
+    format($q$select public.qa_send_back_general_task(%L, 'Start over')$q$, v_t4));
+  perform pg_temp.must_be('...to To do',
+    (select status = 'todo' and stage = 0 from public.general_tasks where id = v_t4));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- The queue summary.
+do $$
+declare
+  v_p3 uuid := (select v from fx where k = 'p3');
+  v_m  uuid := (select v from fx where k = 'm');
+  v_q  uuid := (select v from fx where k = 'q');
+  v_t  uuid := (select v from fx where k = 't');
+begin
+  perform pg_temp.act_as(v_m);
+  update public.general_tasks set stage = 2 where id = v_t;
+
+  perform pg_temp.act_as(v_q);
+  perform pg_temp.must_be('my_qa_queue gives QA the project with one task waiting',
+    exists (select 1 from public.my_qa_queue()
+             where project_id = v_p3 and name = 'Zz QA gate project' and qa_stage_name = 'Testing'
+               and waiting = 1 and oldest_entered_at is not null));
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_be('...and a member nothing',
+    not exists (select 1 from public.my_qa_queue()));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...nor the signed-out role',
+    not has_function_privilege('anon', 'public.my_qa_queue()', 'execute'));
+end $$;
+
+-- Without QA, the QA stage is an ordinary stage; an archived project passes nothing.
+do $$
+declare
+  v_p3 uuid := (select v from fx where k = 'p3');
+  v_pm uuid := (select v from fx where k = 'pm');
+  v_m  uuid := (select v from fx where k = 'm');
+  v_q  uuid := (select v from fx where k = 'q');
+  v_t  uuid := (select v from fx where k = 't');
+begin
+  perform pg_temp.act_as_service();
+  delete from public.general_members where project_id = v_p3 and role = 'qa';
+
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_allow('with no QA, M marks the task done from Testing',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_t));
+
+  update public.general_tasks set stage = 2 where id = v_t;
+  perform pg_temp.act_as(v_pm);
+  perform public.archive_general_project(v_p3, true);
+  perform pg_temp.must_refuse_with('nobody passes a task on an archived project',
+    format($q$select public.qa_pass_general_task(%L)$q$, v_t),
+    'This task isn''t waiting for QA.');
   perform pg_temp.act_as_service();
 end $$;
 
