@@ -250,6 +250,11 @@ Notes:
 - **When the project has at least one QA person:** only QA (and the PM) can move
   a task out of the QA stage forward to the last stage. Anyone who can move the
   task may still move it back.
+  - As built (controller ruling, phase 4 final review): the gate blocks
+    *crossing* the QA stage. Nobody but the PM, or QA from the QA stage itself,
+    moves a task from the QA stage or before it to a stage after it, or adds a
+    task after it. Moves among the stages after QA (Revision to Completed) stay
+    free under the holder rules.
 - **Pass** moves the task to the last stage (Done). **Send back** moves it to
   the stage before QA and requires a note, which is posted as a task comment
   and notifies the holders.

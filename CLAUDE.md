@@ -105,13 +105,16 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `project-feedback.sql` owns). The rule is `isStakeholderOnly` in `lib/access.ts`, from
   `membershipOf(...).allStakeholder`; students and the admin keep their own rails.
 - QA (`general_members.role = 'qa'`, `project-qa.sql`): in a project with active QA
-  (`general_project_has_qa`, `has_qa` on the overview) only QA and the pm move a task into
-  the last stage or out of the QA stage forward, and a holder cannot mark one done. The QA
+  (`general_project_has_qa`, `has_qa` on the overview) nobody crosses the QA stage (an
+  update from it or before it to a stage after it, a status-only done included, or an
+  insert after it) but the pm, or QA from the QA stage itself (not QA as a team lead from
+  before it). Moves among the stages after QA, and back, keep the holder rules. The QA
   stage is `general_projects.qa_stage` (a middle stage), else Testing, else the one before
   the last; `lib/work/qa.ts` mirrors it (`qaStageIndex`, `inQa`, `qaBlocks`) and the app
   hides what the database refuses. QA passes with `qa_pass_general_task` or sends back with
   `qa_send_back_general_task` (a note, posted as a comment; holders get `task_sent_back`);
-  the Work tab's QA queue and the task dialog call them. QA creates bug tasks only
+  the Work tab's QA queue and the task dialog call them, and both show only while
+  `has_qa` is true. QA creates bug tasks only
   (`kind = 'bug'`, never changes a kind) and cannot hold tasks. Home's "Waiting for QA" tile
   reads `my_qa_queue()`.
 

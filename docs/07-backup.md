@@ -440,7 +440,7 @@ type (added in the enum's transaction), the `general_task_events_kind` CHECK (fi
 `general-tasks.sql`, widened with `qa_passed` and `qa_sent_back`), `general_qa_stage_pick`
 (the QA stage rule on a stage list), `general_task_stage_at` (a task's effective stage,
 as `stageIndex` in `src/lib/stages.ts`), `general_qa_may_move` (active QA moving a task
-from the QA stage to the last stage or the one before QA), the
+from the QA stage to any stage after it or to the one before QA), the
 `general_tasks_zz_qa_entered` trigger (`keep_general_task_qa_entered`, the one keeper of
 `qa_entered_at`: set on arrival at the QA stage, kept while there, null elsewhere; named
 to fire after every other BEFORE trigger on the table), the RPCs `qa_pass_general_task`
@@ -449,16 +449,19 @@ for QA."; send back needs a note, "Add a note saying what to fix.", posts it as 
 comment and sends holders `task_sent_back` behind `notification_prefs.task_assignments`),
 and `my_qa_queue()` (QA's Home count per live work project). It is the final owner of
 `sync_general_task_stage` (`project-stakeholders.sql`, before that `project-team-leads.sql`
-and `task-stages.sql`): on a work project with active QA, a task leaving the QA stage
-forward, judged on the stage it ends up on after alignment, goes only by QA or the PM
-("Only QA or the project manager can pass a task out of {stage}."), nobody else gets a
-task to the last stage from an earlier stage or adds one there ("Only QA or the project
-manager can mark a task done while this project has QA."), and QA's own moves pass the
-holder rule. `guard_general_task` lets those QA moves through when nothing else changes,
+and `task-stages.sql`): on a work project with active QA, judged on the stage a task ends
+up on after alignment, crossing the QA stage (an update from it or before it to a stage
+after it, or an insert after it) goes only by the PM, or by QA from the QA stage itself
+("Only QA or the project manager can pass a task out of {stage}." from the QA stage,
+"Only QA or the project manager can move a task past {stage}." from before it or on
+insert; a QA who leads a team is refused too). Moves among the stages after QA (Revision
+to Completed) and moves back are not crossings and keep the holder rule, and QA's own
+moves pass the holder rule. This replaced an earlier rule that refused any move into the
+last stage. `guard_general_task` lets those QA moves through when nothing else changes,
 freezes an archived task's stage with its status, and reads a bug-only QA's role off
 `general_members` (a pending account too).
 Re-run it (then `anon-lockdown.sql`) after re-running `task-stages.sql`,
-`project-team-leads.sql` or `project-stakeholders.sql`, and so after any file whose re-run
+`project-roles.sql`, `project-team-leads.sql` or `project-stakeholders.sql`, and so after any file whose re-run
 calls for one of them (`general-tasks.sql`, `general-schedule-guard.sql`,
 `general-archive-rbac.sql` and the rest of the `project-stakeholders.sql` list):
 `task-stages.sql` alone drops the view and recreates it without `kind` and

@@ -3833,8 +3833,8 @@ Both start with "zz test".
 **What.** QA is the project role that tests finished work before it counts as done.
 
 - **The QA stage.** The project manager names it in the project's details (`general_projects.qa_stage`, a middle stage). Left unset it is a stage called Testing, else the one before the last. A stage list change that drops it clears it.
-- **The gate.** While a work project has active QA (somebody active holds the qa role), only QA and the project manager move a task out of the QA stage forward, and only they mark one done or put it in the last stage from an earlier one, by stage or by status. Everybody else, coordinators included, is refused ("Only QA or the project manager can mark a task done while this project has QA."), and the app hides those moves. With no QA member the gate is off.
-- **Pass and Send back.** QA and the project manager see tasks waiting in the QA stage in the Work tab's QA queue (longest waiting first, with the Bug badge, holders and how long each has waited) and in the task dialog. Pass moves the task to the last stage. Send back asks for a note (1 to 2000 characters), moves it to the stage before QA, posts the note as a comment and tells the holders (`task_sent_back`, which opens the task). Both are in the task's history ("passed it", "sent it back: note"). Everyone on the project reads the queue; the section shows once the project has QA, and always for QA and the project manager.
+- **The gate.** While a work project has active QA (somebody active holds the qa role), nobody but the project manager, or QA from the QA stage itself, crosses the QA stage: moves a task from the QA stage or before it to a stage after it, by stage or by status ("done" included), or adds a task after it. From the QA stage the refusal is "Only QA or the project manager can pass a task out of {stage}."; from before it, or on insert, "Only QA or the project manager can move a task past {stage}." QA who leads a team cannot cross from before the QA stage either. Moves among the stages after QA (Revision to Completed on the System development stages) and moves back stay free under the holder rules. The app hides the moves the gate refuses. With no QA member the gate is off. This crossing rule replaced the first ruling, which refused any move into the last stage (Revision to Completed included).
+- **Pass and Send back.** QA and the project manager see tasks waiting in the QA stage in the Work tab's QA queue (longest waiting first, with the Bug badge, holders and how long each has waited) and in the task dialog. Pass moves the task to the last stage. Send back asks for a note (1 to 2000 characters), moves it to the stage before QA, posts the note as a comment and tells the holders (`task_sent_back`, which opens the task). Both are in the task's history ("passed it", "sent it back: note"). Everyone on the project reads the queue. The section, the dialog banner and Pass and Send back show only once the project has active QA, for the project manager too.
 - **Bug tasks.** QA creates tasks of kind `bug` only, never changes a kind and holds no tasks (becoming QA lets go of the ones held). The Bug badge shows on the board, list, Backlog, Sprints, the queue and the task dialog.
 - **Home.** A person who is QA on a live work project gets an extra tile, "Waiting for QA" (second in the band, which then lays out five columns), the sum of what waits in their projects, linking to the one with the most at `?tab=work&work=qa`. Home asks `my_qa_queue()` only for somebody who holds QA on a live project.
 - **Roles.** The project manager sets and invites QA; a coordinator switches people among Member, QA and Stakeholder. QA is no longer refused.
@@ -3843,7 +3843,7 @@ Both start with "zz test".
 
 | File | What it does |
 |---|---|
-| `supabase/project-qa.sql` | Task `kind` and `qa_entered_at`, `qa_stage` and its helpers, `general_project_has_qa`, the QA write rules (bug tasks only, no holding), the gate in `sync_general_task_stage`, `qa_pass_general_task`, `qa_send_back_general_task`, `my_qa_queue()`, the `qa_passed` and `qa_sent_back` event kinds, the `task_sent_back` notification, and `has_qa` on `general_project_overview`. Test: `supabase/tests/project-qa.test.sql` (116 checks). |
+| `supabase/project-qa.sql` | Task `kind` and `qa_entered_at`, `qa_stage` and its helpers, `general_project_has_qa`, the QA write rules (bug tasks only, no holding), the gate in `sync_general_task_stage`, `qa_pass_general_task`, `qa_send_back_general_task`, `my_qa_queue()`, the `qa_passed` and `qa_sent_back` event kinds, the `task_sent_back` notification, and `has_qa` on `general_project_overview`. Test: `supabase/tests/project-qa.test.sql` (137 checks after the final review fixes). |
 | `lib/work/qa.ts`, `lib/work/nav.ts` | `qaStageIndex`, `inQa`, `qaBlocks` and `carryQaStage` (mirrors of the SQL); `queueOrder` (oldest first, no entry time last), `waitedFor`, `qaTile`; the `qa` Work section and `workSectionsFor`. |
 | `components/work/QaQueue.tsx`, `QaActions.tsx`, `lib/api/qa.ts` | The queue, Pass and the Send back dialog, and the three RPC calls. A refusal shows as a toast. |
 | `components/general/TaskDialog.tsx`, `WorkTab.tsx`, `work/WorkNav.tsx`, `WorkOverview.tsx`, `dashboard/DashboardSummary.tsx` | Pass and Send back in the dialog; the QA section; the Home tile (the band lays out five tiles in five columns). |
@@ -3857,17 +3857,18 @@ Both start with "zz test".
 
 **Still to check by you.**
 1. Make a test account QA on Capstone 2 (it has a Testing stage): the pm sets the role on the Members tab. The account must be a member.
-2. As a holder, move a task to Testing, then try Mark done or the Completed stage: it is refused (and not offered in the stage picker).
+2. As a holder, move a task to Testing, then try Mark done or the Done stage: it is refused (and not offered in the stage picker).
 3. As QA: open the QA queue in Work, Pass one task (it lands in the last stage; History says "passed it"), and Send back another with a note. The holder gets a notification that opens the task, and the note is a comment.
 4. As QA, raise a bug task (Bug badge) and check QA cannot take any task. Home shows the Waiting for QA tile and links to the queue.
 
 **Deferred** (from the ledger):
-- Tests: no check yet for the project manager switching themselves to QA, for the `general_qa_stage_pick` flag-off case, or that a move to the QA stage clears grants. Some comments in `project-qa.sql` and `docs/07-backup.md` still say the app does not read `kind` (it does now).
+- Tests: no check yet for the project manager switching themselves to QA, for the `general_qa_stage_pick` flag-off case, or that a move to the QA stage clears grants.
+- The phone drawer in `AppShell` handles Escape and the page's overflow on its own: it ignores the dialog stack in `lib/focus.ts` and the scroll lock counter in `Modal.tsx` (older than phase 4).
 - A coordinator can lift the gate by switching the only QA member to another role (role-management power, accepted).
 - QA can move a task back without a note with a plain move; Send back is the noted path.
 - A send back may also send a `general_comment_posted` notification to a holder with comment notifications on, besides `task_sent_back` (a duplicate ping).
 - `qa_entered_at` was not backfilled, so a task already in QA before it existed shows "Waiting since before the queue kept time" and sorts last until it moves.
-- With QA on, holders cannot mark their own tasks done (intended); there is no per-project switch for it beyond having no QA member.
+- With QA on, holders cannot take their own tasks past the QA stage (intended); from a stage after it they finish them. There is no per-project switch for it beyond having no QA member.
 - `NotificationBell.destination` is not exported, so the `task_sent_back` route has no unit test, and `QaQueue` and `QaActions` rendering (and the dialog stack in `focus.ts` and `Modal.tsx`) have none either: vitest runs in node, so they were checked in a harness only.
 
 **Next.** Company roles are complete. Nothing is queued: open work is the Deferred lists in this file, then whatever you ask for next.
