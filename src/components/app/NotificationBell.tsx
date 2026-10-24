@@ -54,6 +54,10 @@ function destination(n: AppNotification, role: Role | null, teaches: boolean): s
       if (n.general_project_id) return `${paths.project(n.general_project_id)}?tab=shared`
       // A class project's group.
       return n.project_id ? `${paths.classProject(n.project_id)}?tab=shared` : paths.home
+    case 'feedback_posted':
+    case 'feedback_reply':
+    case 'feedback_status':
+      return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=feedback` : paths.home
     case 'draft_waiting':
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=files&view=draft` : paths.home
     case 'meeting_scheduled':

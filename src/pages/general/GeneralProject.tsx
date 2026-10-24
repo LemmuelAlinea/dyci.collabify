@@ -5,6 +5,7 @@ import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { MembersTab } from '../../components/general/MembersTab'
 import { OverviewTab } from '../../components/general/OverviewTab'
 import { DiscussionTab } from '../../components/general/DiscussionTab'
+import { FeedbackTab } from '../../components/general/FeedbackTab'
 import { FilesTab } from '../../components/general/FilesTab'
 import { SharedTab } from '../../components/general/SharedTab'
 import { WorkTab } from '../../components/general/WorkTab'
@@ -45,6 +46,7 @@ export default function GeneralProject() {
     const changed = new URLSearchParams(params)
     if (next === 'overview') changed.delete('tab')
     else changed.set('tab', next)
+    changed.delete('feedback')
     // Work's own place (section, layout, open task) means nothing on another tab.
     if (next !== 'work') {
       changed.delete('task')
@@ -104,7 +106,9 @@ export default function GeneralProject() {
 
   // A Stakeholder is not in discussions, and has nothing shared with them.
   const stakeholder = state.myRole === 'stakeholder'
-  if (stakeholder && (tab === 'discussion' || tab === 'shared')) {
+  // Feedback is for work projects; a class board's Files project has none.
+  const feedbackOn = !p.class_board_id
+  if ((stakeholder && (tab === 'discussion' || tab === 'shared')) || (!feedbackOn && tab === 'feedback')) {
     const changed = new URLSearchParams(params)
     changed.delete('tab')
     return <Navigate to={{ search: changed.toString() }} replace />
@@ -176,7 +180,7 @@ export default function GeneralProject() {
       )}
 
       {stakeholder && (
-        <Alert tone="info">You're a stakeholder here. You can view everything and post in Feedback.</Alert>
+        <Alert tone="info">You're a stakeholder here. You can view the project's work and files, and post in Feedback.</Alert>
       )}
 
       <SinceLastVisit projectId={p.id} />
@@ -185,6 +189,7 @@ export default function GeneralProject() {
         tabs={[
           { id: 'overview', label: 'Overview', icon: 'file' },
           ...(stakeholder ? [] : [{ id: 'discussion' as const, label: 'Discussion', icon: 'message' as const }]),
+          ...(feedbackOn ? [{ id: 'feedback' as const, label: 'Feedback', icon: 'edit' as const }] : []),
           { id: 'work', label: 'Work', icon: 'kanban', count: state.tasks.length },
           { id: 'files', label: 'Files', icon: 'folder' },
           ...(stakeholder ? [] : [{ id: 'shared' as const, label: 'Shared with me', icon: 'users' as const }]),
@@ -201,6 +206,7 @@ export default function GeneralProject() {
 
       {tab === 'overview' && <OverviewTab state={state} />}
       {tab === 'discussion' && <DiscussionTab state={state} />}
+      {tab === 'feedback' && <FeedbackTab state={state} />}
       {tab === 'work' && <WorkTab state={state} />}
       {tab === 'files' && <FilesTab state={state} />}
       {tab === 'shared' && <SharedTab state={state} />}

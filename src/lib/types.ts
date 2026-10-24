@@ -210,6 +210,9 @@ export type AppNotification = {
     | 'peer_round_opened'
     | 'peer_round_reminder'
     | 'grades_released'
+    | 'feedback_posted'
+    | 'feedback_reply'
+    | 'feedback_status'
   class_id: string | null
   announcement_id: string | null
   project_id: string | null

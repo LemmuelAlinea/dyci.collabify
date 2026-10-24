@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type BadgeTone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger'
+export type BadgeTone = 'neutral' | 'pending' | 'accent' | 'success' | 'warning' | 'danger'
 
 /**
  * A count or a status, said once.
@@ -17,6 +17,7 @@ export type BadgeTone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger'
  */
 const TONES: Record<BadgeTone, string> = {
   neutral: 'surface-sunken text-muted',
+  pending: 'bg-pending-soft text-pending-ink',
   accent: 'bg-amber-400 text-navy-900',
   success: 'bg-success-500/15 text-success-700 dark:text-success-300',
   warning: 'bg-warning-400/18 text-warning-700 dark:text-warning-300',

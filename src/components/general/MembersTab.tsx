@@ -103,7 +103,7 @@ function MemberList({ state }: { state: GeneralProjectState }) {
           <p className="mt-0.5 text-[12px] text-muted">
             The project manager runs the project. Coordinators handle members, tasks, files and
             meetings. Members do the work, plus anything the project manager or a coordinator
-            grants them. Stakeholders can view everything and post in Feedback.
+            grants them. Stakeholders can view the project's work and files and post in Feedback.
           </p>
         </div>
         <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted ring-1 ring-[var(--line)]">
