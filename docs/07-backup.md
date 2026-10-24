@@ -347,14 +347,41 @@ of `general_project_files_write` (`general-files.sql`), `general_files_write`
 and `general_files_remove` (`general-archive-rbac.sql`). It drops
 `general-drafts.sql`'s `general_drafts_own` and splits it into `general_drafts_select`
 (members) and `general_drafts_insert` / `_update` / `_delete` (`general_can_write`).
+
+It also keeps stakeholders out of the discussion and the project chat, and out of the
+space when they join, and turns the role on. It is the final owner of the discussion read
+policies `general_discussion_folders_read`, `general_discussions_read`,
+`general_discussion_messages_read` (`general-discussions.sql`),
+`general_discussion_polls_read`, `general_discussion_poll_options_read`,
+`general_discussion_poll_votes_read` and `general_discussion_files_read`
+(`discussion-polls-voice.sql`), all now on `general_can_write`; of
+`discussion_voice_readable` and `discussion_voice_path_ok` (`discussion-polls-voice.sql`;
+they guard discussion recordings and files in storage), `general_discussion_check` (every
+discussion RPC passes it) and `notify_discussion_started` (`general-discussions.sql`); of
+`sync_general_conversation_member` and the `general_members_conversation` trigger, now
+`after insert or update of role or delete` (`general-notify.sql`; joining as a stakeholder
+adds no chat row, becoming one removes it, leaving the role puts it back); of
+`add_general_member_to_space` (`project-visibility.sql`; a stakeholder is not seated in
+the space, and space membership someone already has stays); and of
+`set_general_member_role` and `invite_to_general_project` (`project-roles.sql`; the PM
+sets or invites as stakeholder, a coordinator switches people between member and
+stakeholder and invites as either, QA stays refused). A cleanup statement takes current
+stakeholders out of project chats.
+
 Re-run it (then `anon-lockdown.sql`) after re-running any of `general.sql`,
-`general-tasks.sql`, `general-schedule-guard.sql`, `general-repo.sql`, `general-files.sql`,
-`general-drafts.sql`, `general-archive-rbac.sql`, `general-draft-commit.sql`, `meetings.sql`,
-`general-shares.sql`, `trash.sql`, `task-archive.sql`, `archive-page.sql`, `task-stages.sql`,
-`work-planning.sql` or `project-team-leads.sql`
+`general-tasks.sql`, `general-notify.sql`, `general-schedule-guard.sql`, `general-repo.sql`,
+`general-files.sql`, `general-drafts.sql`, `general-archive-rbac.sql`,
+`general-draft-commit.sql`, `meetings.sql`, `general-shares.sql`, `general-discussions.sql`,
+`discussion-polls-voice.sql`, `trash.sql`, `task-archive.sql`, `archive-page.sql`,
+`task-stages.sql`, `work-planning.sql`, `project-roles.sql`, `project-visibility.sql` or
+`project-team-leads.sql`
 (and so after any of the four files before it). Each of those alone hands a stakeholder
-back a member's writes, and nothing fails to tell you; `general-drafts.sql` alone also
-recreates `general_drafts_own`, which sits beside the split policies and reopens drafts.
+back a member's writes, or the discussion, the chat or the role refusal, and nothing fails
+to tell you; `general-drafts.sql` alone also
+recreates `general_drafts_own`, which sits beside the split policies and reopens drafts;
+`general-notify.sql` alone puts every stakeholder back in the project chat (its backfill),
+which the cleanup statement undoes; `project-roles.sql` alone refuses the stakeholder role
+again.
 
 `anon-lockdown.sql` runs last and takes EXECUTE on every public function away
 from the signed-out role, keeping signed-in access as it was. Re-run it after

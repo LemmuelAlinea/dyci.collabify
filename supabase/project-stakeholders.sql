@@ -22,11 +22,17 @@
 -- Class-board Files projects keep the old model: every row there is a member
 -- by role, so general_can_write equals is_general_member on them.
 --
+-- Stakeholders are not in the discussion or the project chat: they neither
+-- read nor write either (the one read path that changes). Joining as a
+-- stakeholder seats nobody in the project's space. The pm and coordinators can
+-- now set and invite the stakeholder role; QA stays refused until phase 4.
+--
 -- Unchanged on purpose: leave_general_project (a stakeholder can leave),
--- join_general_project (always joins as a member), every read path, the
--- discussion and project chat (they are a later task), and space report
--- templates. A meeting a stakeholder scheduled while still a member is theirs
--- to see but no longer to change or cancel.
+-- respond_general_invitation and join_general_project (they give a pending
+-- invitation's role, so stakeholder too), every other read path, space
+-- membership someone already has, and space report templates. A meeting a
+-- stakeholder scheduled while still a member is theirs to see but no longer
+-- to change or cancel.
 --
 -- Runs after project-team-leads.sql and everything else in docs/07-backup.md,
 -- and redefines from their latest (live) copies:
@@ -54,9 +60,22 @@
 -- (general-files.sql), general_files_write and general_files_remove
 -- (general-archive-rbac.sql). Also meeting_can_manage, update_meeting and
 -- cancel_meeting (meetings.sql) and guard_general_repo_change
--- (general-repo.sql). Re-run it after re-running any of those files, or
--- general-schedule-guard.sql (an older guard_general_task), then
--- anon-lockdown.sql.
+-- (general-repo.sql). Then, for discussions, chat, spaces and the role:
+-- the policies general_discussion_folders_read, general_discussions_read,
+-- general_discussion_messages_read (general-discussions.sql),
+-- general_discussion_polls_read, general_discussion_poll_options_read,
+-- general_discussion_poll_votes_read, general_discussion_files_read and the
+-- functions discussion_voice_readable, discussion_voice_path_ok
+-- (discussion-polls-voice.sql), general_discussion_check,
+-- notify_discussion_started (general-discussions.sql),
+-- sync_general_conversation_member and the general_members_conversation
+-- trigger (general-notify.sql), add_general_member_to_space
+-- (project-visibility.sql), set_general_member_role and
+-- invite_to_general_project (project-roles.sql). Re-run it after re-running
+-- any of those files, or general-schedule-guard.sql (an older
+-- guard_general_task), then anon-lockdown.sql. general-notify.sql alone also
+-- puts every stakeholder back in the project chat; the cleanup below takes
+-- them out again.
 --
 -- Idempotent. Safe to re-run.
 
@@ -2003,6 +2022,367 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
   update public.meetings set cancelled_at = coalesce(cancelled_at, now()) where id = p_meeting;
+end;
+$$;
+
+-- ---------------------------------------------------------------- discussions
+
+-- Stakeholders are not in the discussion: they neither read nor write it.
+-- Every read policy and both write funnels take general_can_write where they
+-- took is_general_member (general-discussions.sql, discussion-polls-voice.sql).
+
+drop policy if exists general_discussion_folders_read on public.general_discussion_folders;
+create policy general_discussion_folders_read on public.general_discussion_folders
+  for select using (public.general_can_write(project_id));
+
+-- A trashed discussion is seen only by whoever trashed it, in their Trash.
+drop policy if exists general_discussions_read on public.general_discussions;
+create policy general_discussions_read on public.general_discussions
+  for select using (
+    public.general_can_write(project_id)
+    and (trashed_at is null or trashed_by = auth.uid())
+  );
+
+drop policy if exists general_discussion_messages_read on public.general_discussion_messages;
+create policy general_discussion_messages_read on public.general_discussion_messages
+  for select using (public.general_can_write(project_id));
+
+drop policy if exists general_discussion_polls_read on public.general_discussion_polls;
+create policy general_discussion_polls_read on public.general_discussion_polls
+  for select using (public.general_can_write(project_id));
+
+drop policy if exists general_discussion_poll_options_read on public.general_discussion_poll_options;
+create policy general_discussion_poll_options_read on public.general_discussion_poll_options
+  for select using (public.general_can_write(project_id));
+
+drop policy if exists general_discussion_poll_votes_read on public.general_discussion_poll_votes;
+create policy general_discussion_poll_votes_read on public.general_discussion_poll_votes
+  for select using (public.general_can_write(project_id));
+
+drop policy if exists general_discussion_files_read on public.general_discussion_files;
+create policy general_discussion_files_read on public.general_discussion_files
+  for select using (public.general_can_write(project_id));
+
+-- Recordings and files sent in a discussion (storage policies discussion_voice_read
+-- and discussion_files_read read through this).
+create or replace function public.discussion_voice_readable(p_name text)
+returns boolean language plpgsql stable security definer set search_path = public as $$
+declare
+  parts text[] := storage.foldername(p_name);
+begin
+  if coalesce(array_length(parts, 1), 0) < 1 or parts[1] !~ '^[0-9a-f-]{36}$' then
+    return false;
+  end if;
+  return public.general_can_write(parts[1]::uuid);
+end;
+$$;
+
+/** The project and discussion a voice path names, when it names live ones the caller is on. */
+create or replace function public.discussion_voice_path_ok(p_name text)
+returns boolean language plpgsql stable security definer set search_path = public as $$
+declare
+  parts text[] := storage.foldername(p_name);
+begin
+  if coalesce(array_length(parts, 1), 0) <> 2
+     or parts[1] !~ '^[0-9a-f-]{36}$' or parts[2] !~ '^[0-9a-f-]{36}$' then
+    return false;
+  end if;
+  return public.general_viewer_active()
+     and public.general_can_write(parts[1]::uuid)
+     and exists (select 1 from public.general_discussions d
+                  where d.id = parts[2]::uuid and d.project_id = parts[1]::uuid
+                    and d.ended_at is null and d.trashed_at is null);
+end;
+$$;
+
+-- Every discussion RPC (start, send, edit, polls, folders, trash) passes here.
+-- A stakeholder is told they are not on it, as for the discussion they are.
+create or replace function public.general_discussion_check(p_project uuid)
+returns void language plpgsql stable security definer set search_path = public as $$
+declare
+  board uuid;
+begin
+  if not public.general_viewer_active() or not public.general_can_write(p_project) then
+    raise exception 'You are not on this project' using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_is_archived(p_project) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+  select class_board_id into board from public.general_projects where id = p_project;
+  if board is not null and public.class_board_frozen(board) then
+    raise exception 'This project is handed in or closed, so its discussions cannot change.'
+      using errcode = 'check_violation';
+  end if;
+end;
+$$;
+
+-- A new discussion notifies everyone in it, so not the stakeholders.
+create or replace function public.notify_discussion_started()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  label    text;
+  board    public.project_boards%rowtype;
+  cls_proj public.projects%rowtype;
+begin
+  select name into label from public.general_projects where id = new.project_id;
+  if label is null then return new; end if;
+  select b.* into board from public.project_boards b
+    join public.general_projects gp on gp.class_board_id = b.id
+   where gp.id = new.project_id;
+  if board.id is not null then
+    select * into cls_proj from public.projects where id = board.project_id;
+    label := cls_proj.title;
+  end if;
+
+  insert into public.notifications (user_id, type, general_project_id, class_id, project_id, title, preview)
+  select m.user_id, 'discussion_started',
+         case when board.id is null then new.project_id end,
+         cls_proj.class_id, cls_proj.id, new.topic,
+         public.display_name(new.started_by) || ' started a discussion in ' || label
+    from public.general_members m
+    join public.notification_prefs np on np.user_id = m.user_id
+   where m.project_id = new.project_id
+     and m.user_id is distinct from new.started_by
+     and m.role <> 'stakeholder'
+     and np.project_updates;
+  return new;
+end;
+$$;
+
+-- ---------------------------------------------------------------- project chat
+
+-- Stakeholders are not in the project chat. Joining as one adds no chat row;
+-- becoming one removes it; leaving the role puts it back; leaving the project
+-- removes it, as before (general-notify.sql).
+create or replace function public.sync_general_conversation_member()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.role = 'stakeholder' then
+      return new;
+    end if;
+    insert into public.conversation_members (conversation_id, user_id)
+    select c.id, new.user_id
+      from public.conversations c
+     where c.kind = 'project' and c.general_project_id = new.project_id
+    on conflict do nothing;
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if new.role is not distinct from old.role then
+      return new;
+    end if;
+    if new.role = 'stakeholder' then
+      delete from public.conversation_members cm
+       using public.conversations c
+       where c.id = cm.conversation_id
+         and c.kind = 'project'
+         and c.general_project_id = new.project_id
+         and cm.user_id = new.user_id;
+    elsif old.role = 'stakeholder' then
+      insert into public.conversation_members (conversation_id, user_id)
+      select c.id, new.user_id
+        from public.conversations c
+       where c.kind = 'project' and c.general_project_id = new.project_id
+      on conflict do nothing;
+    end if;
+    return new;
+  end if;
+
+  delete from public.conversation_members cm
+   using public.conversations c
+   where c.id = cm.conversation_id
+     and c.kind = 'project'
+     and c.general_project_id = old.project_id
+     and cm.user_id = old.user_id;
+  return old;
+end;
+$$;
+
+drop trigger if exists general_members_conversation on public.general_members;
+create trigger general_members_conversation after insert or update of role or delete on public.general_members
+  for each row execute function public.sync_general_conversation_member();
+
+-- Stakeholders already in a project chat (general-notify.sql's backfill puts
+-- every member back in when it is re-run).
+delete from public.conversation_members cm
+ using public.conversations c, public.general_members m
+ where c.id = cm.conversation_id
+   and c.kind = 'project'
+   and m.project_id = c.general_project_id
+   and m.user_id = cm.user_id
+   and m.role = 'stakeholder';
+
+-- ---------------------------------------------------------------- spaces
+
+-- Joining a work project adds you to its space as a plain member, unless you
+-- join as a stakeholder: space membership would let them schedule space
+-- meetings and add shared templates, and they need only the project. Someone
+-- already in the space keeps their level, and becoming a stakeholder later
+-- leaves space membership as it is.
+create or replace function public.add_general_member_to_space()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.role = 'stakeholder' then
+    return null;
+  end if;
+  insert into public.general_space_members (space_id, user_id, level)
+  select p.space_id, new.user_id, 'member'
+    from public.general_projects p
+    join public.general_spaces s on s.id = p.space_id
+   where p.id = new.project_id
+     and p.class_board_id is null
+     and s.kind = 'work'
+  on conflict do nothing;
+  return null;
+end;
+$$;
+
+-- ---------------------------------------------------------------- the role, on
+
+-- project-roles.sql's set_general_member_role, as live, with stakeholder
+-- allowed: the pm sets it on anyone but themself, a coordinator switches
+-- people between member and stakeholder. QA stays refused until phase 4.
+-- Leaving member deletes grants and withdraws requests (below), and
+-- general_members_leader_clear clears a team they led (project-team-leads.sql).
+create or replace function public.set_general_member_role(
+  p_project uuid,
+  p_user    uuid,
+  p_role    public.general_role
+) returns void language plpgsql security definer set search_path = public as $$
+declare
+  me     public.general_role;
+  target public.general_members%rowtype;
+begin
+  if p_role = 'qa' then
+    raise exception 'QA and stakeholder roles are not available yet.'
+      using errcode = 'check_violation';
+  end if;
+  if p_role = 'pm' then
+    raise exception 'Use hand over to change the project manager.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- Class-board Files projects hold no pm or coordinator, so they stop here too.
+  me := public.general_role_of(p_project, auth.uid());
+  if me is null or me not in ('pm', 'coordinator') then
+    raise exception 'Only the project manager or a coordinator changes roles.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_is_archived(p_project) then
+    raise exception 'This project is archived. The project manager can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- The pm's row, then the target's: the hand over locks in the same order.
+  perform 1 from public.general_members
+   where project_id = p_project and role = 'pm' for update;
+  select * into target from public.general_members
+   where project_id = p_project and user_id = p_user for update;
+  if target.user_id is null then
+    raise exception 'They are not on this project' using errcode = 'no_data_found';
+  end if;
+  -- Asked again under the lock: a hand over may have moved the caller since.
+  me := public.general_role_of(p_project, auth.uid());
+  if me is null or me not in ('pm', 'coordinator') then
+    raise exception 'Only the project manager or a coordinator changes roles.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if me = 'coordinator' then
+    if target.role not in ('member', 'qa', 'stakeholder') then
+      raise exception 'Only the project manager can change a coordinator or the project manager.'
+        using errcode = 'insufficient_privilege';
+    end if;
+    if p_role = 'coordinator' then
+      raise exception 'Only the project manager can make someone a coordinator.'
+        using errcode = 'insufficient_privilege';
+    end if;
+  elsif target.role = 'pm' then
+    raise exception 'Use hand over to change the project manager.'
+      using errcode = 'check_violation';
+  end if;
+
+  if target.role = p_role then
+    return;
+  end if;
+
+  update public.general_members set role = p_role
+   where project_id = p_project and user_id = p_user;
+
+  -- Grants are extras for members only, so anyone moved off member loses
+  -- theirs and any open requests for more.
+  if p_role <> 'member' then
+    delete from public.general_grants where project_id = p_project and user_id = p_user;
+    update public.general_access_requests
+       set status = 'withdrawn', answered_at = now()
+     where project_id = p_project and user_id = p_user and status = 'open';
+  end if;
+end;
+$$;
+
+-- project-roles.sql's invite_to_general_project, as live, with stakeholder
+-- allowed: the pm invites as member, coordinator or stakeholder, a coordinator
+-- as member or stakeholder. Accepting, or joining by code with the invitation
+-- pending, gives the invitation's role (respond_general_invitation,
+-- join_general_project).
+create or replace function public.invite_to_general_project(
+  p_project uuid,
+  p_user    uuid,
+  p_role    public.general_role default 'member'
+) returns public.general_invitations language plpgsql security definer set search_path = public as $$
+declare
+  inv public.general_invitations%rowtype;
+  i_am_pm boolean := public.general_role_of(p_project, auth.uid()) is not distinct from 'pm';
+begin
+  if not public.general_can(p_project, 'manage_members') then
+    raise exception 'You need permission to invite people to this project'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_role = 'qa' then
+    raise exception 'QA and stakeholder roles are not available yet.'
+      using errcode = 'check_violation';
+  end if;
+  if p_role = 'pm' then
+    raise exception 'Use hand over to change the project manager.'
+      using errcode = 'check_violation';
+  end if;
+  if p_role = 'coordinator' and not i_am_pm then
+    raise exception 'Only the project manager can invite a coordinator.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
+    raise exception 'That account cannot be invited' using errcode = 'check_violation';
+  end if;
+  if exists (select 1 from public.general_members where project_id = p_project and user_id = p_user) then
+    raise exception 'They are already on this project' using errcode = 'unique_violation';
+  end if;
+
+  select * into inv from public.general_invitations
+   where project_id = p_project and invitee = p_user and status = 'pending';
+  if inv.id is not null then
+    -- Already invited, and inviting again is not an error. The pm may change
+    -- the role it carries; anyone else gets it back as it stands.
+    if i_am_pm and inv.role is distinct from p_role then
+      update public.general_invitations set role = p_role where id = inv.id
+      returning * into inv;
+    end if;
+    return inv;
+  end if;
+
+  perform public.rate_limit('general_invite', 100, interval '1 hour',
+    'You have sent a lot of invitations in the last hour. Try again later.');
+
+  insert into public.general_invitations (project_id, invitee, invited_by, role)
+  values (p_project, p_user, auth.uid(), p_role)
+  returning * into inv;
+  return inv;
 end;
 $$;
 

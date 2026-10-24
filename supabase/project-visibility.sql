@@ -116,6 +116,8 @@ create trigger general_members_space
   for each row execute function public.add_general_member_to_space();
 
 -- Backfill: project members who are not in their project's space yet.
+-- Stakeholders are left out, as project-stakeholders.sql's copy of the trigger
+-- leaves them out.
 insert into public.general_space_members (space_id, user_id, level)
 select distinct p.space_id, m.user_id, 'member'::public.general_level
   from public.general_members m
@@ -123,6 +125,7 @@ select distinct p.space_id, m.user_id, 'member'::public.general_level
   join public.general_spaces s on s.id = p.space_id
  where p.class_board_id is null
    and s.kind = 'work'
+   and m.role <> 'stakeholder'
 on conflict do nothing;
 
 -- ---------------------------------------------------------------- invites

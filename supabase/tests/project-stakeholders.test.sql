@@ -9,8 +9,10 @@
 -- allowed, so a refusal never passes for the wrong reason. A class-board
 -- Files project keeps every write its members had.
 --
--- The stakeholder fixture is a service-role update of general_members.role:
--- the role RPCs refuse 'stakeholder' until phase 3, task 2.
+-- The first stakeholder fixture is a service-role update of
+-- general_members.role. The last sections set the role through
+-- set_general_member_role and the invitation RPCs, and check that a
+-- stakeholder is out of the discussion, the project chat and the space.
 
 begin;
 
@@ -512,6 +514,266 @@ begin
   perform pg_temp.must_allow('S leaves the project',
     format($q$select public.leave_general_project(%L)$q$, v_p));
   perform pg_temp.must_be('...and is off it', not public.is_general_member(v_p));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- ------------------------------------------------------------------ the role, discussions and chat
+
+-- From here the role is set through set_general_member_role and the invitation
+-- RPCs, not by hand. Coordinators C and C2, and X, Y and Z to invite.
+do $$
+declare
+  v_p  uuid := (select v from fx where k = 'p');
+  v_c  uuid := gen_random_uuid();
+  v_c2 uuid := gen_random_uuid();
+  v_x  uuid := gen_random_uuid();
+  v_y  uuid := gen_random_uuid();
+  v_z  uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          created_at, updated_at)
+  select v.id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+         v.em, '', now(), now()
+    from (values
+      (v_c,  'zz-sh-c@example.test'),
+      (v_c2, 'zz-sh-c2@example.test'),
+      (v_x,  'zz-sh-x@example.test'),
+      (v_y,  'zz-sh-y@example.test'),
+      (v_z,  'zz-sh-z@example.test')
+    ) as v(id, em);
+  insert into public.profiles
+    (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+  values
+    (v_c,  'zz-sh-c@example.test',  'Zz', 'Shc',  'member', 'active', false, false),
+    (v_c2, 'zz-sh-c2@example.test', 'Zz', 'Shctwo', 'member', 'active', false, false),
+    (v_x,  'zz-sh-x@example.test',  'Zz', 'Shx',  'member', 'active', false, false),
+    (v_y,  'zz-sh-y@example.test',  'Zz', 'Shy',  'member', 'active', false, false),
+    (v_z,  'zz-sh-z@example.test',  'Zz', 'Shz',  'member', 'active', false, false)
+  on conflict (id) do update set role = excluded.role, status = excluded.status;
+  insert into public.general_members (project_id, user_id, role)
+  values (v_p, v_c, 'coordinator'), (v_p, v_c2, 'coordinator');
+  insert into fx values ('c', v_c), ('c2', v_c2), ('x', v_x), ('y', v_y), ('z', v_z);
+end $$;
+
+create or replace function pg_temp.in_chat(p_project uuid, p_user uuid) returns boolean
+language sql as $$
+  select exists (select 1 from public.conversation_members cm
+                   join public.conversations c on c.id = cm.conversation_id
+                  where c.kind = 'project' and c.general_project_id = p_project
+                    and cm.user_id = p_user);
+$$;
+
+create or replace function pg_temp.in_space(p_project uuid, p_user uuid) returns boolean
+language sql as $$
+  select exists (select 1 from public.general_space_members sm
+                   join public.general_projects gp on gp.space_id = sm.space_id
+                  where gp.id = p_project and sm.user_id = p_user);
+$$;
+
+-- The PM moves M to stakeholder and back.
+do $$
+declare
+  v_p    uuid := (select v from fx where k = 'p');
+  v_pm   uuid := (select v from fx where k = 'pm');
+  v_m    uuid := (select v from fx where k = 'm');
+  v_q    uuid := (select v from fx where k = 'q');
+  v_team uuid := (select v from fx where k = 'team');
+  v_d    uuid;
+  v_d2   uuid;
+  v_poll uuid;
+  v_opt  uuid;
+begin
+  perform pg_temp.act_as(v_pm);
+  v_d := public.start_general_discussion(v_p, null, 'Zz SH discussion');
+  perform public.send_general_discussion_message(v_d, 'Zz first word');
+  perform public.set_general_team_leader(v_team, v_m);
+  perform public.grant_general_permission(v_p, v_m, 'manage_tasks');
+
+  perform pg_temp.must_be('before: M is in the project chat', pg_temp.in_chat(v_p, v_m));
+  perform pg_temp.must_be('...leads the team',
+    (select leader_id = v_m from public.general_teams where id = v_team));
+  perform pg_temp.must_be('...holds a grant',
+    exists (select 1 from public.general_grants where project_id = v_p and user_id = v_m));
+  perform pg_temp.must_be('...and has an open access request',
+    exists (select 1 from public.general_access_requests
+             where project_id = v_p and user_id = v_m and status = 'open'));
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_be('...and reads the discussion',
+    (select count(*) from public.general_discussions where project_id = v_p) = 1);
+
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('the pm makes M a stakeholder',
+    format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_p, v_m));
+  perform pg_temp.must_be('M is a stakeholder',
+    (select role = 'stakeholder' from public.general_members where project_id = v_p and user_id = v_m));
+  perform pg_temp.must_be('M is out of the project chat', not pg_temp.in_chat(v_p, v_m));
+  perform pg_temp.must_be('M no longer leads the team',
+    (select leader_id is null from public.general_teams where id = v_team));
+  perform pg_temp.must_be('M''s grants are gone',
+    not exists (select 1 from public.general_grants where project_id = v_p and user_id = v_m));
+  perform pg_temp.must_be('M''s access request is withdrawn',
+    not exists (select 1 from public.general_access_requests
+                 where project_id = v_p and user_id = v_m and status = 'open'));
+  perform pg_temp.must_be('M stays in the space', pg_temp.in_space(v_p, v_m));
+
+  -- One discussion runs at a time: the PM stops the first and starts another,
+  -- with a poll, while M is a stakeholder.
+  perform public.stop_general_discussion(v_d);
+  v_d2 := public.start_general_discussion(v_p, null, 'Zz SH second');
+  perform public.send_general_discussion_message(v_d2, 'Zz second word');
+  perform public.create_general_discussion_poll(v_d2, 'Zz which?', array['One', 'Two']);
+  select id into v_poll from public.general_discussion_polls where discussion_id = v_d2;
+  select id into v_opt from public.general_discussion_poll_options where poll_id = v_poll order by position limit 1;
+  perform pg_temp.act_as_service();  -- notifications are read as their owner otherwise
+  perform pg_temp.must_be('a new discussion notifies the qa',
+    exists (select 1 from public.notifications
+             where user_id = v_q and type = 'discussion_started' and title = 'Zz SH second'));
+  perform pg_temp.must_be('...but not the stakeholder',
+    not exists (select 1 from public.notifications
+                 where user_id = v_m and type = 'discussion_started' and title = 'Zz SH second'));
+
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_be('stakeholder M reads no discussions',
+    (select count(*) from public.general_discussions where project_id = v_p) = 0);
+  perform pg_temp.must_be('...no discussion messages',
+    (select count(*) from public.general_discussion_messages where project_id = v_p) = 0);
+  perform pg_temp.must_be('...no polls, options or votes',
+    (select count(*) from public.general_discussion_polls where project_id = v_p) = 0
+    and (select count(*) from public.general_discussion_poll_options where project_id = v_p) = 0);
+  perform pg_temp.must_be('...and no discussion recordings or files',
+    not public.discussion_voice_readable(v_p || '/' || v_d2 || '/x.webm'));
+  perform pg_temp.must_be('...and no project chat',
+    not exists (select 1 from public.conversations where kind = 'project' and general_project_id = v_p));
+  perform pg_temp.must_refuse_with('stakeholder M posts in the discussion',
+    format($q$select public.send_general_discussion_message(%L, 'Zz no')$q$, v_d2),
+    'not on this project');
+  perform pg_temp.must_refuse_with('...starts a discussion',
+    format($q$select public.start_general_discussion(%L, null, 'Zz no')$q$, v_p),
+    'not on this project');
+  perform pg_temp.must_refuse_with('...votes in a poll',
+    format($q$select public.cast_general_discussion_poll_vote(%L, true)$q$, v_opt),
+    'not on this project');
+  perform pg_temp.must_refuse_with('...uploads a recording',
+    format($q$insert into storage.objects (bucket_id, name, owner_id)
+              values ('discussion-voice', %L, %L)$q$, v_p || '/' || v_d2 || '/m.webm', v_m),
+    'row-level security');
+
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_allow('the pm makes M a member again',
+    format($q$select public.set_general_member_role(%L, %L, 'member')$q$, v_p, v_m));
+  perform pg_temp.must_be('M is back in the project chat', pg_temp.in_chat(v_p, v_m));
+  perform pg_temp.act_as(v_m);
+  perform pg_temp.must_be('member M reads the discussions again',
+    (select count(*) from public.general_discussions where project_id = v_p) = 2);
+  perform pg_temp.must_be('...their messages and polls',
+    (select count(*) from public.general_discussion_messages where project_id = v_p) >= 1
+    and (select count(*) from public.general_discussion_polls where project_id = v_p) = 1);
+  perform pg_temp.must_be('...the recordings',
+    public.discussion_voice_readable(v_p || '/' || v_d2 || '/x.webm'));
+  perform pg_temp.must_allow('member M posts in the discussion',
+    format($q$select public.send_general_discussion_message(%L, 'Zz yes')$q$, v_d2));
+  perform pg_temp.must_allow('...votes in the poll',
+    format($q$select public.cast_general_discussion_poll_vote(%L, true)$q$, v_opt));
+  perform pg_temp.must_allow('...uploads a recording',
+    format($q$insert into storage.objects (bucket_id, name, owner_id)
+              values ('discussion-voice', %L, %L)$q$, v_p || '/' || v_d2 || '/m.webm', v_m));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- Who sets the role.
+do $$
+declare
+  v_p  uuid := (select v from fx where k = 'p');
+  v_pm uuid := (select v from fx where k = 'pm');
+  v_m  uuid := (select v from fx where k = 'm');
+  v_c  uuid := (select v from fx where k = 'c');
+  v_c2 uuid := (select v from fx where k = 'c2');
+begin
+  perform pg_temp.act_as(v_c);
+  perform pg_temp.must_allow('a coordinator makes a member a stakeholder',
+    format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_p, v_m));
+  perform pg_temp.must_be('...who is out of the chat', not pg_temp.in_chat(v_p, v_m));
+  perform pg_temp.must_allow('...and back to member',
+    format($q$select public.set_general_member_role(%L, %L, 'member')$q$, v_p, v_m));
+  perform pg_temp.must_be('...who is back in the chat', pg_temp.in_chat(v_p, v_m));
+  perform pg_temp.must_refuse_with('a coordinator cannot make a coordinator a stakeholder',
+    format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_p, v_c2),
+    'Only the project manager can change a coordinator or the project manager.');
+  perform pg_temp.must_refuse_with('...nor the pm',
+    format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_p, v_pm),
+    'Only the project manager can change a coordinator or the project manager.');
+  perform pg_temp.must_refuse_with('...nor set qa',
+    format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_p, v_m),
+    'QA and stakeholder roles are not available yet.');
+
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('the pm cannot make themself a stakeholder',
+    format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_p, v_pm),
+    'Use hand over to change the project manager.');
+  perform pg_temp.must_refuse_with('the pm still cannot set qa',
+    format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_p, v_m),
+    'QA and stakeholder roles are not available yet.');
+  perform pg_temp.must_allow('the pm makes a coordinator a stakeholder',
+    format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_p, v_c2));
+  perform pg_temp.must_be('...who is out of the chat', not pg_temp.in_chat(v_p, v_c2));
+  perform pg_temp.act_as_service();
+end $$;
+
+-- Invitations and join codes.
+do $$
+declare
+  v_p    uuid := (select v from fx where k = 'p');
+  v_pm   uuid := (select v from fx where k = 'pm');
+  v_c    uuid := (select v from fx where k = 'c');
+  v_x    uuid := (select v from fx where k = 'x');
+  v_y    uuid := (select v from fx where k = 'y');
+  v_z    uuid := (select v from fx where k = 'z');
+  v_inv  public.general_invitations;
+  v_code text;
+begin
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('the pm cannot invite as qa',
+    format($q$select public.invite_to_general_project(%L, %L, 'qa')$q$, v_p, v_x),
+    'QA and stakeholder roles are not available yet.');
+  v_inv := public.invite_to_general_project(v_p, v_x, 'stakeholder');
+  perform pg_temp.must_be('the pm invites X as a stakeholder', v_inv.role = 'stakeholder');
+  v_inv := public.invite_to_general_project(v_p, v_y, 'member');
+
+  perform pg_temp.act_as(v_x);
+  perform pg_temp.must_allow('X accepts',
+    format($q$select public.respond_general_invitation(%L, true)$q$,
+           (select id from public.general_invitations where project_id = v_p and invitee = v_x)));
+  perform pg_temp.must_be('X is a stakeholder',
+    (select role = 'stakeholder' from public.general_members where project_id = v_p and user_id = v_x));
+  perform pg_temp.must_be('...not in the project chat', not pg_temp.in_chat(v_p, v_x));
+  perform pg_temp.must_be('...and not in the space', not pg_temp.in_space(v_p, v_x));
+  perform pg_temp.must_be('...but reads the project',
+    exists (select 1 from public.general_projects where id = v_p));
+
+  perform pg_temp.act_as(v_y);
+  perform public.respond_general_invitation(
+    (select id from public.general_invitations where project_id = v_p and invitee = v_y), true);
+  perform pg_temp.must_be('Y, invited as a member, is in the chat', pg_temp.in_chat(v_p, v_y));
+  perform pg_temp.must_be('...and in the space', pg_temp.in_space(v_p, v_y));
+
+  perform pg_temp.act_as(v_c);
+  perform pg_temp.must_refuse_with('a coordinator cannot invite as coordinator',
+    format($q$select public.invite_to_general_project(%L, %L, 'coordinator')$q$, v_p, v_z),
+    'Only the project manager can invite a coordinator.');
+  perform pg_temp.must_refuse_with('...nor as qa',
+    format($q$select public.invite_to_general_project(%L, %L, 'qa')$q$, v_p, v_z),
+    'QA and stakeholder roles are not available yet.');
+  v_inv := public.invite_to_general_project(v_p, v_z, 'stakeholder');
+  perform pg_temp.must_be('a coordinator invites Z as a stakeholder', v_inv.role = 'stakeholder');
+
+  perform pg_temp.act_as(v_pm);
+  v_code := public.set_general_join_code(v_p, true);
+  perform pg_temp.act_as(v_z);
+  perform pg_temp.must_be('Z joins by the code', public.join_general_project(v_code) = v_p);
+  perform pg_temp.must_be('...as the stakeholder the invitation made them',
+    (select role = 'stakeholder' from public.general_members where project_id = v_p and user_id = v_z));
+  perform pg_temp.must_be('...out of the chat and the space',
+    not pg_temp.in_chat(v_p, v_z) and not pg_temp.in_space(v_p, v_z));
   perform pg_temp.act_as_service();
 end $$;
 

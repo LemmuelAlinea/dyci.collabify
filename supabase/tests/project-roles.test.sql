@@ -700,9 +700,7 @@ begin
   perform pg_temp.must_refuse_with('the pm cannot set qa',
     format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_r, v_mem2),
     'QA and stakeholder roles are not available yet.');
-  perform pg_temp.must_refuse_with('...nor stakeholder',
-    format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_r, v_mem2),
-    'QA and stakeholder roles are not available yet.');
+  -- Stakeholder is on since phase 3: project-stakeholders.test.sql covers it.
   perform pg_temp.act_as(v_coord);
   perform pg_temp.must_refuse_with('a coordinator cannot set qa',
     format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_r, v_mem2),
