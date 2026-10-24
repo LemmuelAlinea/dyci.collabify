@@ -3852,7 +3852,7 @@ Both start with "zz test".
 | `lib/general/history.ts`, `lib/general/types.ts`, `lib/types.ts`, `components/app/NotificationBell.tsx` | The two history lines (and report timeline lines), the event and notification types. The bell has an explicit `task_sent_back` case that opens the task. |
 
 **Checked.**
-- Vitest 1169 pass; `npm run build` clean; `eslint src` shows only the old warning in `RoleBadge.tsx`. `project-qa.test.sql` passes (116) against the live database.
+- Vitest 1171 pass; `npm run build` clean; `eslint src` shows only the old warning in `RoleBadge.tsx`. `project-qa.test.sql` passes (137) against the live database.
 - The queue, Pass, the Send back dialog, the banner chip and the five-tile Home band were checked in a temporary mocked harness (deleted) at desktop and 375 px, in light and dark, with the empty state, a read-only viewer and a long title; no sideways scroll. The harness blocks network requests, so nothing there wrote to the live database. There is no QA account on the live site yet.
 
 **Still to check by you.**
