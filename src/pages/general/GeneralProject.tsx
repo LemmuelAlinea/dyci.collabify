@@ -106,8 +106,9 @@ export default function GeneralProject() {
 
   // A Stakeholder is not in discussions, and has nothing shared with them.
   const stakeholder = state.myRole === 'stakeholder'
-  // Feedback is for work projects; a class board's Files project has none.
-  const feedbackOn = !p.class_board_id
+  // Feedback is for work projects; a class board's Files project has none. Only
+  // the project's members read it, so a space owner who isn't on it sees no tab.
+  const feedbackOn = !p.class_board_id && Boolean(state.me)
   if ((stakeholder && (tab === 'discussion' || tab === 'shared')) || (!feedbackOn && tab === 'feedback')) {
     const changed = new URLSearchParams(params)
     changed.delete('tab')
