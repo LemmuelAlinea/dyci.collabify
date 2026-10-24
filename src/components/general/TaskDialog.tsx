@@ -130,6 +130,7 @@ function TaskBody({
     viewer,
     task,
     state.members.filter((m) => m.profile?.status !== 'rejected').map((m) => m.user_id),
+    state.roleOf,
   )
   const canAttach = !readOnly && (holds || state.can('edit_files'))
   // Archiving: whoever added the task, at any point, or someone who manages tasks.

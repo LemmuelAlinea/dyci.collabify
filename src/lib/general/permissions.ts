@@ -276,11 +276,17 @@ export function canUnassign(v: TaskViewer, userId: string): boolean {
  * they lead, but only while nobody holds the task: the database refuses a
  * second holder from anyone who does not manage tasks. The viewer themselves
  * is left out for a leader, who takes the task with "Take this task" instead.
+ * Nobody assigns a stakeholder, who holds no tasks.
  * Mirrors the general_task_assignees_insert policy and guard_general_task_child.
  */
-export function assignableTo(v: TaskViewer, task: TaskHolders, candidates: readonly string[]): string[] {
+export function assignableTo(
+  v: TaskViewer,
+  task: TaskHolders,
+  candidates: readonly string[],
+  roleOf: (userId: string) => ProjectRole | null,
+): string[] {
   if (v.archived) return []
-  const free = candidates.filter((id) => !task.assignee_ids.includes(id))
+  const free = candidates.filter((id) => !task.assignee_ids.includes(id) && roleOf(id) !== 'stakeholder')
   if (v.manageTasks) return free
   if (task.assignee_ids.length > 0) return []
   return free.filter((id) => id !== v.viewerId && v.leadsUser(id))

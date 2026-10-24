@@ -361,27 +361,35 @@ describe('task powers', () => {
 
   describe('assignableTo', () => {
     const people = ['me', 'mate', 'mate2', 'other']
+    const member = (): ProjectRole => 'member'
 
     it('offers a manager everyone not already on the task', () => {
-      expect(assignableTo(viewer({ manageTasks: true }), task(['other']), people)).toEqual(['me', 'mate', 'mate2'])
+      expect(assignableTo(viewer({ manageTasks: true }), task(['other']), people, member)).toEqual(['me', 'mate', 'mate2'])
     })
 
     it('offers a leader only the people they lead, and not themselves, while nobody holds it', () => {
       const lead = viewer({ leadsUser: leads(['me', 'mate', 'mate2']) })
-      expect(assignableTo(lead, task([]), people)).toEqual(['mate', 'mate2'])
+      expect(assignableTo(lead, task([]), people, member)).toEqual(['mate', 'mate2'])
     })
 
     it('offers a leader nobody once the task is held, since a second holder is refused', () => {
       const lead = viewer({ leadsUser: leads(['mate', 'mate2']) })
-      expect(assignableTo(lead, task(['mate']), people)).toEqual([])
+      expect(assignableTo(lead, task(['mate']), people, member)).toEqual([])
     })
 
     it('offers a plain member nobody', () => {
-      expect(assignableTo(viewer(), task([]), people)).toEqual([])
+      expect(assignableTo(viewer(), task([]), people, member)).toEqual([])
     })
 
     it('offers nobody on an archived project', () => {
-      expect(assignableTo(viewer({ manageTasks: true, archived: true }), task([]), people)).toEqual([])
+      expect(assignableTo(viewer({ manageTasks: true, archived: true }), task([]), people, member)).toEqual([])
+    })
+
+    it('never offers a stakeholder, to a manager or a leader', () => {
+      const roleOf = (id: string): ProjectRole => (id === 'mate2' ? 'stakeholder' : 'member')
+      expect(assignableTo(viewer({ manageTasks: true }), task([]), people, roleOf)).toEqual(['me', 'mate', 'other'])
+      const lead = viewer({ leadsUser: leads(['mate', 'mate2']) })
+      expect(assignableTo(lead, task([]), people, roleOf)).toEqual(['mate'])
     })
   })
 

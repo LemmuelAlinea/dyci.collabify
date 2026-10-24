@@ -207,7 +207,8 @@ export function TasksFromNotes({
         tasks.map((t, i) => ({
           ...t,
           files: t.files ?? [],
-          assignee: mayAssign ? t.assignee : '',
+          // A stakeholder holds no tasks, so a draft that names one goes unassigned.
+          assignee: mayAssign && state.roleOf(t.assignee) !== 'stakeholder' ? t.assignee : '',
           keep: true,
           sprintKey: shaped.links[i].sprint,
           milestoneKey: shaped.links[i].milestone,
@@ -340,7 +341,9 @@ export function TasksFromNotes({
   }
 
   const keeping = (rows ?? []).filter((r) => r.keep).length
-  const people = state.members.map((m) => ({ value: m.user_id, label: state.nameOf(m.user_id) }))
+  const people = state.members
+    .filter((m) => state.roleOf(m.user_id) !== 'stakeholder')
+    .map((m) => ({ value: m.user_id, label: state.nameOf(m.user_id) }))
   const teams = state.teams.map((t) => ({ value: t.name, label: t.name }))
   const sprintOptions = [
     ...scope.sprints.filter((s) => s.state !== 'completed').map((s) => ({ value: s.id, label: s.name })),
