@@ -23,7 +23,7 @@ is idempotent. A database that vanished entirely can be rebuilt by running those
 files in this order:
 
 ```bash
-node scripts/db.mjs supabase/schema.sql supabase/classes.sql supabase/groups.sql supabase/projects.sql supabase/tasks.sql supabase/task-points.sql supabase/task-detail.sql supabase/task-claim-limit.sql supabase/task-unclaim.sql supabase/task-status-owner.sql supabase/solo-auto-claim.sql supabase/deadline-lock.sql supabase/submissions.sql supabase/reassignments.sql supabase/results.sql supabase/syllabus.sql supabase/syllabus-assessments.sql supabase/polls.sql supabase/messages.sql supabase/dashboard.sql supabase/realtime.sql supabase/recover-work.sql supabase/removed-visible.sql supabase/class-restore.sql supabase/approvals.sql supabase/accounts.sql supabase/audit.sql supabase/admin-rename.sql supabase/calendar.sql supabase/analytics.sql supabase/analytics-insight.sql supabase/reports.sql supabase/student-reports.sql supabase/admin-program.sql supabase/program-notices.sql supabase/program-registry.sql supabase/safety.sql supabase/live.sql supabase/notifications.sql supabase/rate-limit.sql supabase/class-notices.sql supabase/project-series.sql supabase/indexes.sql supabase/consent.sql supabase/privacy-requests.sql supabase/term-shifts.sql supabase/hardening.sql supabase/workplaces.sql supabase/general.sql supabase/general-tasks.sql supabase/general-notify.sql supabase/presets.sql supabase/general-repo.sql supabase/general-files.sql supabase/general-drafts.sql supabase/general-history.sql supabase/general-schedule.sql supabase/general-schedule-guard.sql supabase/general-spaces.sql supabase/general-space-teams.sql supabase/general-project-archive.sql supabase/general-archive-rbac.sql supabase/general-folders.sql supabase/general-draft-restore.sql supabase/general-project-archive-rbac.sql supabase/general-reports.sql supabase/general-project-space.sql supabase/access.sql supabase/one-workplace.sql supabase/cleanup.sql supabase/admin-invitable.sql supabase/notification-coverage.sql supabase/inbox.sql supabase/class-files.sql supabase/general-draft-commit.sql supabase/teaching-guards.sql supabase/meetings.sql supabase/general-shares.sql supabase/general-discussions.sql supabase/discussion-polls-voice.sql supabase/storage-sweep.sql supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql supabase/work-milestones.sql supabase/class-milestones.sql supabase/sprint-milestones.sql supabase/analytics-trends.sql supabase/peer-evaluation.sql supabase/scoring.sql supabase/class-notes.sql supabase/report-notes.sql supabase/report-deliverables.sql supabase/report-events.sql supabase/task-stages.sql supabase/company-accounts.sql supabase/project-roles.sql supabase/project-visibility.sql supabase/project-team-leads.sql
+node scripts/db.mjs supabase/schema.sql supabase/classes.sql supabase/groups.sql supabase/projects.sql supabase/tasks.sql supabase/task-points.sql supabase/task-detail.sql supabase/task-claim-limit.sql supabase/task-unclaim.sql supabase/task-status-owner.sql supabase/solo-auto-claim.sql supabase/deadline-lock.sql supabase/submissions.sql supabase/reassignments.sql supabase/results.sql supabase/syllabus.sql supabase/syllabus-assessments.sql supabase/polls.sql supabase/messages.sql supabase/dashboard.sql supabase/realtime.sql supabase/recover-work.sql supabase/removed-visible.sql supabase/class-restore.sql supabase/approvals.sql supabase/accounts.sql supabase/audit.sql supabase/admin-rename.sql supabase/calendar.sql supabase/analytics.sql supabase/analytics-insight.sql supabase/reports.sql supabase/student-reports.sql supabase/admin-program.sql supabase/program-notices.sql supabase/program-registry.sql supabase/safety.sql supabase/live.sql supabase/notifications.sql supabase/rate-limit.sql supabase/class-notices.sql supabase/project-series.sql supabase/indexes.sql supabase/consent.sql supabase/privacy-requests.sql supabase/term-shifts.sql supabase/hardening.sql supabase/workplaces.sql supabase/general.sql supabase/general-tasks.sql supabase/general-notify.sql supabase/presets.sql supabase/general-repo.sql supabase/general-files.sql supabase/general-drafts.sql supabase/general-history.sql supabase/general-schedule.sql supabase/general-schedule-guard.sql supabase/general-spaces.sql supabase/general-space-teams.sql supabase/general-project-archive.sql supabase/general-archive-rbac.sql supabase/general-folders.sql supabase/general-draft-restore.sql supabase/general-project-archive-rbac.sql supabase/general-reports.sql supabase/general-project-space.sql supabase/access.sql supabase/one-workplace.sql supabase/cleanup.sql supabase/admin-invitable.sql supabase/notification-coverage.sql supabase/inbox.sql supabase/class-files.sql supabase/general-draft-commit.sql supabase/teaching-guards.sql supabase/meetings.sql supabase/general-shares.sql supabase/general-discussions.sql supabase/discussion-polls-voice.sql supabase/storage-sweep.sql supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql supabase/work-milestones.sql supabase/class-milestones.sql supabase/sprint-milestones.sql supabase/analytics-trends.sql supabase/peer-evaluation.sql supabase/scoring.sql supabase/class-notes.sql supabase/report-notes.sql supabase/report-deliverables.sql supabase/report-events.sql supabase/task-stages.sql supabase/company-accounts.sql supabase/project-roles.sql supabase/project-visibility.sql supabase/project-team-leads.sql supabase/project-stakeholders.sql
 ```
 
 After re-running any of `classes.sql`, `general-tasks.sql`, `general-schedule-guard.sql`,
@@ -50,7 +50,7 @@ recreates the view `class-planning.sql` extends. So after
 onward:
 
 ```bash
-node scripts/db.mjs supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql supabase/work-milestones.sql supabase/class-milestones.sql supabase/sprint-milestones.sql supabase/analytics-trends.sql supabase/peer-evaluation.sql supabase/scoring.sql supabase/class-notes.sql supabase/report-notes.sql supabase/report-deliverables.sql supabase/report-events.sql supabase/task-stages.sql supabase/company-accounts.sql supabase/project-roles.sql supabase/project-visibility.sql supabase/project-team-leads.sql
+node scripts/db.mjs supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql supabase/work-milestones.sql supabase/class-milestones.sql supabase/sprint-milestones.sql supabase/analytics-trends.sql supabase/peer-evaluation.sql supabase/scoring.sql supabase/class-notes.sql supabase/report-notes.sql supabase/report-deliverables.sql supabase/report-events.sql supabase/task-stages.sql supabase/company-accounts.sql supabase/project-roles.sql supabase/project-visibility.sql supabase/project-team-leads.sql supabase/project-stakeholders.sql
 ```
 
 On 7 October 2026 the live definitions of all ten functions matched
@@ -270,7 +270,7 @@ refuses student coordinators and a `join_general_project` that refuses students;
 a notification and a trigger that ignore a change of role. Its migration
 only touches rows whose role does not match their level, so re-running it changes nothing.
 `project-visibility.sql` and `project-team-leads.sql` redefine some of what it defines, so
-re-run those two after it, in that order.
+re-run those two after it, in that order, then `project-stakeholders.sql`.
 
 `project-visibility.sql` runs after `project-roles.sql`. It narrows who reads a work
 project to its members and the Owners of its space (a plain space member no longer sees
@@ -287,8 +287,8 @@ Owners only), the space invite and join-code functions and policies from
 `join_general_space` (from `company-accounts.sql`, and `access.sql` before it; space join
 codes no longer admit anyone) and `guard_general_project` (from `archive-page.sql`, with
 older copies in `general.sql` and `general-project-archive-rbac.sql`; it freezes a
-project's `space_id` and `class_board_id`). Re-run it (then `project-team-leads.sql`, then
-`anon-lockdown.sql`) after re-running any of `general.sql`, `general-spaces.sql`,
+project's `space_id` and `class_board_id`). Re-run it (then `project-team-leads.sql` and
+`project-stakeholders.sql`, then `anon-lockdown.sql`) after re-running any of `general.sql`, `general-spaces.sql`,
 `general-project-archive-rbac.sql`, `general-reports.sql`, `access.sql`,
 `company-accounts.sql`, `archive-page.sql` or `project-roles.sql`. Re-running
 `general-project-archive-rbac.sql` alone is the dangerous one: its
@@ -306,8 +306,9 @@ leader triggers (`general_teams_leader_guard`, `general_teams_leader_event`,
 guards name the project manager; a class board's still name an Owner). It is the final
 owner of `guard_general_task`, `sync_general_task_stage`, `guard_general_task_plan`,
 `guard_general_structure`, the `general_task_assignees_insert` and
-`general_task_assignees_delete` policies and the `general_project_events` kinds check.
-Re-run it (then `anon-lockdown.sql`) after re-running any of `general.sql`,
+`general_task_assignees_delete` policies and the `general_project_events` kinds check
+(`project-stakeholders.sql` now redefines the three task triggers and the two assignee
+policies after it). Re-run it (then `project-stakeholders.sql`, then `anon-lockdown.sql`) after re-running any of `general.sql`,
 `general-tasks.sql`, `general-archive-rbac.sql`, `task-archive.sql`, `task-stages.sql`,
 `work-planning.sql` or `project-roles.sql`: they put back a task guard, stage sync and
 planning guard that ignore team leaders, assignee policies without the lead branch, and a
@@ -315,6 +316,40 @@ structure guard that stops a leader leaving an archived project. `general-report
 and `project-roles.sql` list every kind (`member_role`, `pm_handover`, `team_leader`
 included) in their own copies of the kinds check, so a fresh table takes them and
 re-running `project-roles.sql` alone does not fail once those events exist.
+
+`project-stakeholders.sql` runs after `project-team-leads.sql`. It adds
+`general_can_write(project)` (an active member who, on a work project, is not a
+stakeholder) and puts it at every member write; reads keep `is_general_member`. A
+stakeholder's refused write says "Stakeholders can view this project but not change it."
+where a trigger or function raises it. It is the final owner of `guard_general_task`,
+`sync_general_task_stage`, `guard_general_task_plan` (from `project-team-leads.sql`),
+`guard_general_task_child` (`general-tasks.sql`), `archive_general_task`
+(`task-archive.sql`), `general_archive_guard` (`general-archive-rbac.sql`),
+`archive_general_task_file` and `guard_general_draft_file` (`trash.sql`),
+`archive_trash_block`, `list_my_trash` and `empty_my_trash` (`archive-page.sql`),
+`my_general_draft`, `submit_general_draft`, `submit_general_draft_file`,
+`submit_general_draft_folder` and `general_review_reviewers` (`general-drafts.sql`),
+`commit_general_draft_path` (`general-draft-commit.sql`), `share_general_draft_path` and
+`copy_general_share_to_draft` (`general-shares.sql`), `answer_general_repo_change`
+(`general-repo.sql`), `request_general_access` (`general.sql`; QA and stakeholders ask for
+nothing), `create_meeting` and `meeting_audiences` (`meetings.sql`); of the policies
+`general_tasks_insert` / `_update` / `_delete`, `general_task_comments_insert` / `_update` /
+`_delete`, `general_task_files_insert` / `_delete`, `general_task_logs_insert` / `_delete`
+(`general-tasks.sql`, `general-archive-rbac.sql`), `general_task_assignees_insert` /
+`_delete` (`project-team-leads.sql`), `general_repo_changes_insert` / `_update` and
+`general_repo_comments_insert` / `_delete` (`general-repo.sql`); and on `storage.objects`
+of `general_project_files_write` (`general-files.sql`), `general_files_write`
+(`general-archive-rbac.sql`) and `general_files_remove` (`storage-sweep.sql`). It drops
+`general-drafts.sql`'s `general_drafts_own` and splits it into `general_drafts_select`
+(members) and `general_drafts_insert` / `_update` / `_delete` (`general_can_write`).
+Re-run it (then `anon-lockdown.sql`) after re-running any of `general.sql`,
+`general-tasks.sql`, `general-repo.sql`, `general-files.sql`, `general-drafts.sql`,
+`general-archive-rbac.sql`, `general-project-archive-rbac.sql`, `general-draft-commit.sql`,
+`meetings.sql`, `general-shares.sql`, `storage-sweep.sql`, `trash.sql`, `task-archive.sql`,
+`archive-page.sql`, `task-stages.sql`, `work-planning.sql` or `project-team-leads.sql`
+(and so after any of the four files before it). Each of those alone hands a stakeholder
+back a member's writes, and nothing fails to tell you; `general-drafts.sql` alone also
+recreates `general_drafts_own`, which sits beside the split policies and reopens drafts.
 
 `anon-lockdown.sql` runs last and takes EXECUTE on every public function away
 from the signed-out role, keeping signed-in access as it was. Re-run it after
