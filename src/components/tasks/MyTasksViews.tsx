@@ -2,6 +2,8 @@ import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import { formatDue, isOverdue } from '../../lib/general/dates'
 import { StageBadge, StageSelect } from './StageSelect'
+import { DEFAULT_STAGES } from '../../lib/stages'
+import { QA_PASSES } from '../../lib/work/qa'
 import { TASK_STATUSES, formatMinutes } from '../../lib/types'
 import type { TaskStatus } from '../../lib/types'
 import type { MyTasksView } from '../../lib/myTasksView'
@@ -60,6 +62,8 @@ export type MyTaskItem = {
   next?: { label: string; icon: IconName; run: () => void }
   /** Any stage, for the List's dropdown. */
   onStage?: (to: TaskStatus) => Promise<void>
+  /** Done is not offered: the task's project has QA, and QA passes its tasks. */
+  noDone?: boolean
 }
 
 const COLUMN_TONE: Record<TaskStatus, string> = {
@@ -189,7 +193,13 @@ export function MyTaskBoard({
 
 function Stage({ item }: { item: MyTaskItem }) {
   return item.onStage ? (
-    <StageSelect status={item.status} title={item.title} onChange={item.onStage} />
+    <StageSelect
+      status={item.status}
+      title={item.title}
+      onChange={item.onStage}
+      blocked={item.noDone ? (to) => to === DEFAULT_STAGES.length - 1 : undefined}
+      blockedReason={QA_PASSES}
+    />
   ) : (
     <StageBadge status={item.status} />
   )

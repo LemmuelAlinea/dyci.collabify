@@ -427,7 +427,8 @@ named "Testing", else the one before the last; null for somebody off the project
 is not a middle stage is refused with "The QA stage must be one of the middle stages.",
 and a stage list change that leaves the old one out clears it. It is the final owner of
 `general_task_overview` (`task-stages.sql`; `kind` and `qa_entered_at` appended after
-`stage`), `guard_general_task` (QA inserts bug tasks only, "QA creates bug tasks only.";
+`stage`), `general_project_overview` (`project-roles.sql`; `has_qa`, from
+`general_project_has_qa`, appended after `has_pm`), `guard_general_task` (QA inserts bug tasks only, "QA creates bug tasks only.";
 a kind changes only with `manage_tasks`; an archived task's kind is frozen),
 `guard_general_task_child` (a qa assignee is refused next to a stakeholder one, "QA can't
 hold tasks. Pick someone else."), `set_general_member_role` and
@@ -463,7 +464,8 @@ calls for one of them (`general-tasks.sql`, `general-schedule-guard.sql`,
 `task-stages.sql` alone drops the view and recreates it without `kind` and
 `qa_entered_at`, which the app reads, and puts back a stage sync with no QA gate (a
 holder marks a task done straight out of QA); `project-team-leads.sql` or
-`project-stakeholders.sql` alone also drops the gate; `project-stakeholders.sql` alone
+`project-stakeholders.sql` alone also drops the gate; `project-roles.sql` alone recreates
+`general_project_overview` without `has_qa`, which the task pages read; `project-stakeholders.sql` alone
 lets QA create plain tasks and hold tasks, and refuses the qa role again with "QA roles
 are not available yet." Re-running `general-tasks.sql` leaves the widened CHECK alone (it
 creates the table only if missing).

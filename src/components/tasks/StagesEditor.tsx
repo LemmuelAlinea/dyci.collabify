@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Icon } from '../ui/Icon'
+import { Select } from '../ui/Select'
 import {
   MAX_STAGES,
   MAX_STAGE_LENGTH,
@@ -9,6 +10,7 @@ import {
   presetOf,
   statusForStage,
 } from '../../lib/stages'
+import { carryQaStage } from '../../lib/work/qa'
 
 const TONE = {
   todo: 'bg-pending-soft text-pending-ink',
@@ -22,16 +24,30 @@ const MEANING = { todo: 'Not started', in_progress: 'In progress', done: 'Done' 
  * The columns a project's work moves through: pick a preset, or name your own.
  * The first stage means not started and the last means done, so reports and
  * grading read the same whatever the names are.
+ *
+ * A work project also picks its QA stage, the middle stage QA passes tasks out
+ * of: pass `qaStage` and `onQaStageChange` to show the picker. The selection
+ * follows a renamed stage and resets when its stage is removed.
  */
 export function StagesEditor({
   value,
-  onChange,
+  onChange: onStages,
   disabled = false,
+  qaStage,
+  onQaStageChange,
 }: {
   value: readonly string[]
   onChange: (next: string[]) => void
   disabled?: boolean
+  /** The QA stage by name; null for the default. Left out, there is no picker. */
+  qaStage?: string | null
+  onQaStageChange?: (name: string | null) => void
 }) {
+  const qaId = useId()
+  const onChange = (next: string[]) => {
+    onStages(next)
+    if (onQaStageChange) onQaStageChange(carryQaStage(value, next, qaStage ?? null))
+  }
   // Custom can be picked while the names still match a preset, to start
   // renaming from it.
   const [customPicked, setCustomPicked] = useState(false)
@@ -146,6 +162,27 @@ export function StagesEditor({
           The first stage is not started, the last is done, and the rest count as in progress.
         </p>
       </div>
+
+      {onQaStageChange && (
+        <div>
+          <label htmlFor={qaId} className="text-[13px] font-medium text-ink">
+            QA stage
+          </label>
+          <p className="mb-1.5 text-[12px] text-muted">
+            When a project has QA, only QA and the project manager can move a task out of this stage.
+          </p>
+          <Select
+            id={qaId}
+            value={qaStage ?? ''}
+            disabled={disabled}
+            onChange={(e) => onQaStageChange(e.target.value || null)}
+            options={[
+              { value: '', label: 'Default (Testing, or the stage before the last)' },
+              ...list.slice(1, -1).filter((n) => n.trim()).map((n) => ({ value: n, label: n })),
+            ]}
+          />
+        </div>
+      )}
 
       {problem && <p className="text-[12px] text-danger-600 dark:text-danger-400">{problem}</p>}
     </div>

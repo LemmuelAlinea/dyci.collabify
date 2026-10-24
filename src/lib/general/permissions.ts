@@ -15,9 +15,9 @@
  */
 
 /**
- * A person's role in a work project. Stakeholder is usable from phase 3 (it
- * reads and holds no permission); QA becomes usable in phase 4. Neither holds
- * a permission by role.
+ * A person's role in a work project. Stakeholder (phase 3) and QA (phase 4)
+ * hold no permission by role: a stakeholder reads, and QA passes tasks and
+ * raises bug tasks.
  */
 export type ProjectRole = 'pm' | 'coordinator' | 'member' | 'qa' | 'stakeholder'
 
@@ -167,27 +167,26 @@ export function canAs(
 
 /**
  * The roles an actor may move a target to. The project manager switches anyone
- * but the project manager between Coordinator, Member and Stakeholder; a
- * Coordinator moves a Member or Stakeholder between those two. QA is still
- * refused by the database until phase 4. Making somebody project manager is a
- * hand over, never a role change.
+ * but the project manager between Coordinator, Member, QA and Stakeholder; a
+ * Coordinator moves a Member, QA or Stakeholder among those three. Making
+ * somebody project manager is a hand over, never a role change.
  */
 export function assignableRoles(actor: ProjectRole, target: ProjectRole): ProjectRole[] {
-  if (actor === 'pm' && target !== 'pm') return ['coordinator', 'member', 'stakeholder']
-  if (actor === 'coordinator' && (target === 'member' || target === 'stakeholder')) {
-    return ['member', 'stakeholder']
+  if (actor === 'pm' && target !== 'pm') return ['coordinator', 'member', 'qa', 'stakeholder']
+  if (actor === 'coordinator' && (target === 'member' || target === 'qa' || target === 'stakeholder')) {
+    return ['member', 'qa', 'stakeholder']
   }
   return []
 }
 
 /**
  * The roles an actor may invite someone as: the project manager any but
- * project manager, a Coordinator a Member or Stakeholder. Mirrors
+ * project manager, a Coordinator a Member, QA or Stakeholder. Mirrors
  * invite_to_general_project.
  */
 export function inviteRoles(actor: ProjectRole): ProjectRole[] {
-  if (actor === 'pm') return ['member', 'coordinator', 'stakeholder']
-  if (actor === 'coordinator') return ['member', 'stakeholder']
+  if (actor === 'pm') return ['member', 'coordinator', 'qa', 'stakeholder']
+  if (actor === 'coordinator') return ['member', 'qa', 'stakeholder']
   return []
 }
 
@@ -276,7 +275,7 @@ export function canUnassign(v: TaskViewer, userId: string): boolean {
  * they lead, but only while nobody holds the task: the database refuses a
  * second holder from anyone who does not manage tasks. The viewer themselves
  * is left out for a leader, who takes the task with "Take this task" instead.
- * Nobody assigns a stakeholder, who holds no tasks.
+ * Nobody assigns a stakeholder or QA, who hold no tasks.
  * Mirrors the general_task_assignees_insert policy and guard_general_task_child.
  */
 export function assignableTo(
@@ -286,7 +285,7 @@ export function assignableTo(
   roleOf: (userId: string) => ProjectRole | null,
 ): string[] {
   if (v.archived) return []
-  const free = candidates.filter((id) => !task.assignee_ids.includes(id) && roleOf(id) !== 'stakeholder')
+  const free = candidates.filter((id) => !task.assignee_ids.includes(id) && roleOf(id) !== 'stakeholder' && roleOf(id) !== 'qa')
   if (v.manageTasks) return free
   if (task.assignee_ids.length > 0) return []
   return free.filter((id) => id !== v.viewerId && v.leadsUser(id))
@@ -319,7 +318,7 @@ export type RoleMark = 'yes' | 'team' | 'grant' | 'own' | 'read'
  * What each role can do, in plain words, for the "What each role can do" table.
  * `lead` is the Team lead tag, which sits on top of whatever role the person
  * has. A missing key means no. This is the spec's table row for row, QA and
- * Stakeholder included, so it reads right once those roles are usable.
+ * Stakeholder included.
  * `later` is a caption for a row (or part of one) that is not built yet.
  */
 export const ROLE_MATRIX: {
@@ -332,7 +331,7 @@ export const ROLE_MATRIX: {
     roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'yes', stakeholder: 'read' },
   },
   { action: 'Edit project details and stages, archive and delete', roles: { pm: 'yes' } },
-  { action: 'Mark the QA stage', roles: { pm: 'yes' }, later: 'Coming later' },
+  { action: 'Mark the QA stage', roles: { pm: 'yes' } },
   {
     action: 'Invite and remove people, and set roles (not project manager)',
     roles: { pm: 'yes', coordinator: 'yes' },
@@ -346,13 +345,11 @@ export const ROLE_MATRIX: {
   {
     action: 'Create tasks and edit your own (QA: bug tasks only)',
     roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'own' },
-    later: 'Bug tasks: coming later',
   },
   { action: 'Plan sprints and milestones', roles: { pm: 'yes', coordinator: 'yes', member: 'grant' } },
   {
     action: 'Move a task out of the QA stage (QA, when the project has QA)',
     roles: { pm: 'yes', qa: 'yes' },
-    later: 'Coming later',
   },
   {
     action: 'Files tab: folders, move, rename and delete any file',

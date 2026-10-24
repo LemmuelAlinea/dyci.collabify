@@ -32,6 +32,7 @@ import { readScope, writeScope } from '../../../lib/scope'
 import { formatMinutes, taskShare, taskStatusLabel } from '../../../lib/types'
 import { useNow } from '../../../hooks/useNow'
 import type { GeneralTask } from '../../../lib/general/types'
+import { qaGated } from '../../../lib/work/qa'
 import type { TaskStatus } from '../../../lib/types'
 
 const NEXT: Record<TaskStatus, { to: TaskStatus; label: string; icon: 'check' | 'refresh' }> = {
@@ -209,6 +210,14 @@ export default function MyTasks() {
   } = useGeneralDashboard(profile?.id, projectIds)
   const clock = useNow()
   const now = dashData?.at ?? clock
+  // A project with QA keeps "done" for QA and the project manager (the database refuses it otherwise).
+  const noDone = useCallback(
+    (id: string) => {
+      const p = mineProjects.find((x) => x.id === id)
+      return p ? qaGated({ hasQa: p.has_qa, role: p.my_role }) : false
+    },
+    [mineProjects],
+  )
   const projectName = useCallback(
     (id: string) => mineProjects.find((p) => p.id === id)?.name ?? 'A project',
     [mineProjects],
@@ -341,6 +350,7 @@ export default function MyTasks() {
         minutes: t.logged_minutes,
         onOpen: () => showWorkTask(t),
         onStage: (to) => moveWorkTask(t, to),
+        noDone: noDone(t.project_id),
       }),
     ),
   ]

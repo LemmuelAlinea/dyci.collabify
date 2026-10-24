@@ -33,6 +33,9 @@ export function StageBadge({
  * A task's stage as a dropdown, for whoever may move it. The chevron sits
  * before the name so a column of these lines up on its left edge. It offers
  * the project's own stages, and answers with the status that stage means.
+ * `blocked` names the stages this person may not move the task to (a project
+ * with QA keeps them for QA); they are left out, apart from the current one,
+ * and `blockedReason` says why on hover.
  */
 export function StageSelect({
   status,
@@ -40,16 +43,21 @@ export function StageSelect({
   stages = DEFAULT_STAGES,
   title,
   onChange,
+  blocked,
+  blockedReason,
 }: {
   status: TaskStatus
   stage?: number | null
   stages?: readonly string[]
   /** The task's title, so a screen reader knows which task this moves. */
   title: string
+  blocked?: (to: number) => boolean
+  blockedReason?: string
   onChange: (to: TaskStatus, stage: number) => Promise<void> | void
 }) {
   const [busy, setBusy] = useState(false)
   const current = stageIndex(status, stage, stages.length)
+  const offered = stages.map((name, i) => ({ name, i })).filter(({ i }) => i === current || !blocked?.(i))
   return (
     <span
       className={`relative inline-flex items-center rounded-lg ring-1 ring-transparent transition-shadow focus-within:ring-navy-400 hover:ring-[var(--line-strong)] ${TONE[status]}`}
@@ -59,6 +67,7 @@ export function StageSelect({
         value={current}
         disabled={busy}
         aria-label={`Stage of ${title}`}
+        title={offered.length < stages.length ? blockedReason : undefined}
         onChange={async (e) => {
           const to = Number(e.target.value)
           setBusy(true)
@@ -70,7 +79,7 @@ export function StageSelect({
         }}
         className="cursor-pointer appearance-none rounded-lg bg-transparent py-0.5 pr-2 pl-6 font-mono text-[12px] text-inherit outline-none disabled:cursor-wait disabled:opacity-60"
       >
-        {stages.map((name, i) => (
+        {offered.map(({ name, i }) => (
           <option key={`${i}-${name}`} value={i}>
             {name}
           </option>

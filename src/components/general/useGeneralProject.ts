@@ -22,6 +22,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { can as canDo, canAs } from '../../lib/general/permissions'
 import type { GeneralPermission, ProjectRole } from '../../lib/general/permissions'
 import { effectiveRole, roleLookup } from '../../lib/general/roleLookup'
+import { qaBlocks } from '../../lib/work/qa'
 import type {
   GeneralAccessRequest,
   GeneralField,
@@ -96,6 +97,12 @@ export type GeneralProjectState = {
   /** Who may commit to Main and who decides it, from the server. */
   commitRights: CommitRights
   nameOf: (userId: string) => string
+  /**
+   * Whether the QA gate refuses moving a task from one stage index to another
+   * for the viewer: in a project with QA, only QA and the project manager pass
+   * a task out of the QA stage or mark one done. See lib/work/qa.ts.
+   */
+  qaBlocks: (from: number, to: number) => boolean
 }
 
 /**
@@ -274,6 +281,8 @@ export function useGeneralProject(
       isLead,
       commitRights,
       nameOf: (userId: string) => names.get(userId) ?? 'A former member',
+      qaBlocks: (from: number, to: number) =>
+        qaBlocks({ hasQa: Boolean(project?.has_qa), role: myRole }, project?.stages, project?.qa_stage, from, to),
     }
   }, [project, members, grants, requests, teams, teamMembers, positions, holders, fields, values, tasks, sprints, milestones, loading, error, reload, viewerId, commitRights])
 }

@@ -37,6 +37,7 @@ export function generalWorkItems(state: GeneralProjectState): WorkItem[] {
     holders: t.assignee_ids.map((id) => state.nameOf(id)),
     holderIds: t.assignee_ids,
     teamId: t.team_id,
+    kind: t.kind,
     created_at: t.created_at,
   }))
 }
@@ -86,9 +87,16 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     setRank: (id, rank) => then(setTaskRank(home, id, rank)),
     addToBacklog: (title) =>
       then(
-        createTask({ projectId: home.projectId, title, description: '', dueAt: null, startsAt: null, teamId: null }).then(
-          () => undefined,
-        ),
+        createTask({
+          projectId: home.projectId,
+          title,
+          description: '',
+          dueAt: null,
+          startsAt: null,
+          teamId: null,
+          // QA creates bug tasks only.
+          kind: state.myRole === 'qa' ? 'bug' : undefined,
+        }).then(() => undefined),
       ),
   }
 }

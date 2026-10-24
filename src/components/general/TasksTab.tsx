@@ -20,10 +20,11 @@ import { canEditTask } from '../../lib/general/permissions'
 import { projectProgress } from '../../lib/general/progress'
 import { STAGE_TONE, nextStep, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
-import type { GeneralTask } from '../../lib/general/types'
+import type { GeneralTask, TaskKind } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
 import { reachedIn } from '../../lib/work/milestones'
+import { QA_PASSES } from '../../lib/work/qa'
 import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
 import type { TaskLayout } from '../../lib/work/nav'
 import { applyScope, scopeOptions, scopeSprintId, scopeTargetSprint } from '../../lib/work/scope'
@@ -33,6 +34,7 @@ import { milestoneMarks, sprintBands } from '../../lib/work/timeline'
 import { ScopePicker } from '../work/ScopePicker'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { TimelineView } from '../work/TimelineView'
+import { BugBadge } from './BugBadge'
 import { PersonBadge } from './RoleBadge'
 import { useTeamFilter } from '../work/useTeamFilter'
 import type { GeneralProjectState } from './useGeneralProject'
@@ -62,6 +64,8 @@ export function TasksTab({
   const [assignee, setAssignee] = useState('')
   // A stage index as text, or '' for every stage.
   const [status, setStatus] = useState('')
+  // '' for every kind, else 'task' or 'bug'.
+  const [kind, setKind] = useState<'' | TaskKind>('')
   const [creating, setCreating] = useState(false)
   const [fromNotes, setFromNotes] = useState(false)
   const showTask = onOpenTask
@@ -83,12 +87,15 @@ export function TasksTab({
             : t.assignee_ids.includes(assignee),
       )
       .filter((t) => (status ? stageIndex(t.status, t.stage, stageCount) === Number(status) : true))
+      .filter((t) => (kind ? (t.kind ?? 'task') === kind : true))
       .filter((t) => (q ? `${t.title} ${t.description}`.toLowerCase().includes(q) : true))
-  }, [scoped, query, team, teamLinks, assignee, status, projectStages])
+  }, [scoped, query, team, teamLinks, assignee, status, kind, projectStages])
 
   if (!project) return null
   const progress = projectProgress(scoped)
   const unassigned = scoped.filter((t) => t.assignee_ids.length === 0 && t.status !== 'done').length
+  // QA raises bugs and passes tasks; it does not draft task lists from notes.
+  const mayDraft = state.myRole !== 'qa'
 
   const assigneeOptions = [
     ...(state.viewerId ? [{ value: state.viewerId, label: 'Me' }] : []),
@@ -133,12 +140,13 @@ export function TasksTab({
           <div>
             <FilterPopover
               label="Filter tasks"
-              active={[query.trim(), team, assignee, status].filter(Boolean).length}
+              active={[query.trim(), team, assignee, status, kind].filter(Boolean).length}
               summary={[
                 query.trim() && `“${query.trim()}”`,
                 team && state.teams.find((t) => t.id === team)?.name,
                 assignee && assigneeOptions.find((o) => o.value === assignee)?.label,
                 status && stages[Number(status)],
+                kind && (kind === 'bug' ? 'Bugs' : 'Tasks'),
               ]
                 .filter(Boolean)
                 .join(' · ')}
@@ -147,6 +155,7 @@ export function TasksTab({
                 setTeam('')
                 setAssignee('')
                 setStatus('')
+                setKind('')
               }}
             >
               <FilterField label="Search">
@@ -181,6 +190,18 @@ export function TasksTab({
                   className="!h-10 !text-[13px]"
                 />
               </FilterField>
+              <FilterField label="Type">
+                <Select
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value as '' | TaskKind)}
+                  placeholder="All"
+                  options={[
+                    { value: 'task', label: 'Tasks' },
+                    { value: 'bug', label: 'Bugs' },
+                  ]}
+                  className="!h-10 !text-[13px]"
+                />
+              </FilterField>
             </FilterPopover>
           </div>
         </>
@@ -207,10 +228,12 @@ export function TasksTab({
         </p>
         {!state.readOnly && (
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setFromNotes(true)}>
-              <Icon name="spark" size={15} />
-              From notes
-            </Button>
+            {mayDraft && (
+              <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setFromNotes(true)}>
+                <Icon name="spark" size={15} />
+                From notes
+              </Button>
+            )}
             <Button size="sm" className="!rounded-lg" onClick={() => setCreating(true)}>
               <Icon name="plus" size={15} />
               Add task
@@ -230,10 +253,12 @@ export function TasksTab({
                 <Button className="!rounded-xl" onClick={() => setCreating(true)}>
                   Add the first task
                 </Button>
-                <Button variant="outline" className="!rounded-xl" onClick={() => setFromNotes(true)}>
-                  <Icon name="spark" size={15} />
-                  Draft from notes
-                </Button>
+                {mayDraft && (
+                  <Button variant="outline" className="!rounded-xl" onClick={() => setFromNotes(true)}>
+                    <Icon name="spark" size={15} />
+                    Draft from notes
+                  </Button>
+                )}
               </div>
             ) : undefined
           }
@@ -326,7 +351,7 @@ export function TasksTab({
         sprintId={state.can('manage_tasks') ? scopeTargetSprint(scope, state.sprints) : null}
         onCreated={showTask}
       />
-      <TasksFromNotes open={fromNotes} onClose={() => setFromNotes(false)} state={state} />
+      {mayDraft && <TasksFromNotes open={fromNotes} onClose={() => setFromNotes(false)} state={state} />}
     </div>
   )
 }
@@ -384,7 +409,9 @@ function TaskCard({
   const teamName = state.teams.find((t) => t.id === task.team_id)?.name
   const overdue = isOverdue(task.due_at, task.status)
   const yours = Boolean(state.viewerId && task.assignee_ids.includes(state.viewerId))
-  const next = nextStep(stageIndex(task.status, task.stage, stages.length), stages)
+  const from = stageIndex(task.status, task.stage, stages.length)
+  const next = nextStep(from, stages)
+  const gated = state.qaBlocks(from, next.stage)
 
   return (
     <article
@@ -405,6 +432,7 @@ function TaskCard({
           {task.title}
         </h4>
         <div className="flex shrink-0 items-center gap-1">
+          <BugBadge kind={task.kind} />
           {teamName && (
             <span className="max-w-[8rem] truncate rounded-md bg-navy-50 px-1.5 py-0.5 text-[12px] text-navy-700 dark:bg-navy-500/18 dark:text-navy-100">
               {teamName}
@@ -450,7 +478,9 @@ function TaskCard({
       </div>
 
       <div className="relative z-10 mt-3 flex items-center justify-between gap-2 border-t border-line pt-2.5">
-        {canMove ? (
+        {canMove && gated ? (
+          <span className="px-2 text-[12px] text-faint">{QA_PASSES}</span>
+        ) : canMove ? (
           <button
             type="button"
             onClick={() => onMove(next.status, next.stage)}
@@ -521,6 +551,7 @@ function TaskTable({
                     {t.title}
                   </button>
                   <span className="mt-0.5 flex items-center gap-3 text-[12px] text-faint">
+                    <BugBadge kind={t.kind} />
                     {teamName && <span>{teamName}</span>}
                     {t.file_count > 0 && (
                       <span className="flex items-center gap-1">
@@ -552,6 +583,8 @@ function TaskTable({
                       stage={t.stage}
                       stages={stages}
                       title={t.title}
+                      blocked={(to) => state.qaBlocks(stageIndex(t.status, t.stage, stages.length), to)}
+                      blockedReason={QA_PASSES}
                       onChange={(to, stage) => onMove(t, to, stage)}
                     />
                   ) : (
@@ -599,9 +632,13 @@ function NewTaskDialog({
   const [due, setDue] = useState('')
   const [starts, setStarts] = useState('')
   const [team, setTeam] = useState('')
+  const [pickedKind, setPickedKind] = useState<TaskKind>('task')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const project = state.project
+  // QA creates bug tasks only, so the type is fixed for them.
+  const isQa = state.myRole === 'qa'
+  const kind: TaskKind = isQa ? 'bug' : pickedKind
 
   async function create() {
     if (!project) return
@@ -621,6 +658,7 @@ function NewTaskDialog({
         startsAt,
         teamId: team || null,
         sprintId,
+        kind,
       })
       show('Task added')
       setTitle('')
@@ -628,6 +666,7 @@ function NewTaskDialog({
       setDue('')
       setStarts('')
       setTeam('')
+      setPickedKind('task')
       onClose()
       await state.reload()
       onCreated(id)
@@ -663,6 +702,20 @@ function NewTaskDialog({
           )}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Type" hint={isQa ? 'QA creates bug tasks only.' : undefined}>
+            {(id) => (
+              <Select
+                id={id}
+                value={kind}
+                disabled={isQa}
+                onChange={(e) => setPickedKind(e.target.value as TaskKind)}
+                options={[
+                  { value: 'task', label: 'Task' },
+                  { value: 'bug', label: 'Bug' },
+                ]}
+              />
+            )}
+          </Field>
           <Field label="Starts" optional>
             {(id) => (
               <Input id={id} type="datetime-local" value={starts} onChange={(e) => setStarts(e.target.value)} />

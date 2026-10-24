@@ -9,7 +9,7 @@ type Props = {
   open: boolean
   onClose: () => void
   title: string
-  description?: string
+  description?: ReactNode
   children: ReactNode
   footer?: ReactNode
   /** `full` takes the whole window, top bar included: a file somebody is working in. */

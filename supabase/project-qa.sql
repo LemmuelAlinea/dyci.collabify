@@ -595,6 +595,62 @@ begin
 end;
 $$;
 
+-- ---------------------------------------------------------------- project overview
+
+/**
+ * general_project_overview gains has_qa at the end, so the task pages can hide
+ * every way to move a task to the last stage from people the gate refuses.
+ * Redefined from project-roles.sql, the last file to own it; re-run this file
+ * after re-running that one.
+ */
+create or replace view public.general_project_overview
+with (security_invoker = true) as
+select p.id,
+       p.name,
+       p.description,
+       p.starts_on,
+       p.ends_on,
+       p.status,
+       p.points_enabled,
+       (select jc.code from public.general_join_codes jc where jc.project_id = p.id) as join_code,
+       coalesce((select jc.open from public.general_join_codes jc where jc.project_id = p.id), false)
+         as join_open,
+       p.created_by,
+       p.archived_at,
+       p.created_at,
+       p.updated_at,
+       m.level as my_level,
+       (select count(*) from public.general_members x where x.project_id = p.id)::int as member_count,
+       coalesce(t.task_count, 0) as task_count,
+       coalesce(t.done_count, 0) as done_count,
+       case
+         when coalesce(t.task_count, 0) = 0 then 0::numeric
+         when p.points_enabled then round(t.done_weight / nullif(t.total_weight, 0) * 100, 1)
+         else round(t.done_count::numeric / t.task_count * 100, 1)
+       end as progress_pct,
+       (select count(*) from public.general_access_requests r
+         where r.project_id = p.id and r.status = 'open')::int as open_request_count,
+       p.preset,
+       p.has_code,
+       p.space_id,
+       s.name as space_name,
+       m.role as my_role,
+       public.general_project_has_pm(p.id) as has_pm,
+       public.general_project_has_qa(p.id) as has_qa
+  from public.general_projects p
+  left join public.general_members m on m.project_id = p.id and m.user_id = auth.uid()
+  left join public.general_spaces s on s.id = p.space_id
+  left join lateral (
+    select count(*)::int as task_count,
+           count(*) filter (where x.status = 'done')::int as done_count,
+           sum(x.weight) as total_weight,
+           coalesce(sum(x.weight) filter (where x.status = 'done'), 0) as done_weight
+      from public.general_tasks x
+     where x.project_id = p.id and x.archived_at is null
+  ) t on true;
+
+grant select on public.general_project_overview to authenticated;
+
 -- ---------------------------------------------------------------- grants
 
 revoke all on function public.general_qa_stage_index(uuid) from public, anon;

@@ -32,6 +32,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue, toLocalInput } from '../../lib/general/dates'
 import { describeEvent } from '../../lib/general/history'
 import { stageIndex, stageName, stagesOf, statusForStage } from '../../lib/stages'
+import { QA_PASSES } from '../../lib/work/qa'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import { attachFromRepo, attachSummary, repoTree } from '../../lib/general/attachFromRepo'
 import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent } from '../../lib/general/types'
@@ -41,6 +42,7 @@ import { assignableTo, canEditTask, canUnassign } from '../../lib/general/permis
 import type { TaskViewer } from '../../lib/general/permissions'
 import { ProjectFilePicker } from './ProjectFilePicker'
 import { RequestAccessButton } from './RequestAccessButton'
+import { BugBadge } from './BugBadge'
 import { PersonBadge } from './RoleBadge'
 import type { GeneralProjectState } from './useGeneralProject'
 import { Linkify } from '../ui/Linkify'
@@ -60,7 +62,14 @@ export function TaskDialog({
       open={Boolean(task)}
       onClose={onClose}
       title={task?.title ?? 'Task'}
-      description={task ? stageName(state.project?.stages, task) : undefined}
+      description={
+        task ? (
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <BugBadge kind={task.kind} onBanner />
+            {stageName(state.project?.stages, task)}
+          </span>
+        ) : undefined
+      }
       size="xl"
       headerTone="banner"
     >
@@ -248,7 +257,7 @@ function TaskBody({
               />
             </div>
           )}
-          {!readOnly && !canManage && task.assignee_ids.length === 0 && me && (
+          {!readOnly && !canManage && task.assignee_ids.length === 0 && me && state.myRole !== 'qa' && (
             <Button
               size="sm"
               className="mt-2"
@@ -435,6 +444,9 @@ function TaskDetails({
 
   if (!task || !state.project) return null
 
+  const current = stageIndex(task.status, task.stage, stages.length)
+  const gatedStages = stages.some((_, i) => i !== current && state.qaBlocks(current, i))
+
   if (!canEdit) {
     const teamName = state.teams.find((t) => t.id === task.team_id)?.name
     return (
@@ -513,13 +525,16 @@ function TaskDetails({
         {(id) => <Input id={id} maxLength={LIMIT.taskTitle} value={title} onChange={(e) => setTitle(e.target.value)} />}
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Stage">
+        <Field label="Stage" hint={gatedStages ? <span className="text-[12px] text-faint">{QA_PASSES}</span> : undefined}>
           {(id) => (
             <Select
               id={id}
               value={String(stage)}
               onChange={(e) => setStage(Number(e.target.value))}
-              options={stages.map((name, i) => ({ value: String(i), label: name }))}
+              options={stages
+                .map((name, i) => ({ value: String(i), label: name }))
+                // The stage the task is on stays; the ones the QA gate refuses are not offered.
+                .filter((_, i) => i === current || !state.qaBlocks(current, i))}
             />
           )}
         </Field>

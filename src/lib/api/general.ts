@@ -35,6 +35,7 @@ import type {
   GeneralSpaceTeamMember,
   GeneralStatus,
   GeneralTask,
+  TaskKind,
   GeneralTaskEvent,
   GeneralTeam,
   GeneralTeamMember,
@@ -116,13 +117,14 @@ export async function getGeneralProject(projectId: string) {
   // The overview predates stages, so they come from the table beside it.
   const [{ data, error }, stages] = await Promise.all([
     supabase.from('general_project_overview').select('*').eq('id', projectId).maybeSingle(),
-    supabase.from('general_projects').select('stages, class_board_id').eq('id', projectId).maybeSingle(),
+    supabase.from('general_projects').select('stages, qa_stage, class_board_id').eq('id', projectId).maybeSingle(),
   ])
   if (error) throw error
   if (!data) return null
   return {
     ...(data as GeneralProjectSummary),
     stages: (stages.data?.stages as string[] | null) ?? null,
+    qa_stage: (stages.data?.qa_stage as string | null) ?? null,
     class_board_id: (stages.data?.class_board_id as string | null) ?? null,
   }
 }
@@ -243,6 +245,8 @@ export type ProjectPatch = Partial<{
   status: GeneralStatus
   /** Null puts the project back on To do, In progress and Done. */
   stages: string[] | null
+  /** The stage QA passes tasks out of, by name. Null means the default. */
+  qa_stage: string | null
 }>
 
 export async function updateGeneralProject(projectId: string, patch: ProjectPatch) {
@@ -878,6 +882,8 @@ export async function createTask(input: {
   startsAt: string | null
   teamId: string | null
   sprintId?: string | null
+  /** 'bug' for a task QA raised; left out, a plain task. */
+  kind?: TaskKind
 }) {
   const { data, error } = await supabase
     .from('general_tasks')
@@ -889,6 +895,7 @@ export async function createTask(input: {
       starts_at: input.startsAt,
       team_id: input.teamId,
       sprint_id: input.sprintId ?? null,
+      ...(input.kind ? { kind: input.kind } : {}),
     })
     .select('id')
     .single()

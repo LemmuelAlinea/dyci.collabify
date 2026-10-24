@@ -37,6 +37,8 @@ export type WorkItem = {
   holderIds?: string[]
   /** The team it is filed under, where the space has teams (work projects). */
   teamId?: string | null
+  /** A bug is a task QA raised. Work projects only; absent means a plain task. */
+  kind?: 'task' | 'bug'
   created_at: string
 }
 

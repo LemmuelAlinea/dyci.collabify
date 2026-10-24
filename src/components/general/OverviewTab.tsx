@@ -100,6 +100,7 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
   const [endsOn, setEndsOn] = useState('')
   const [description, setDescription] = useState('')
   const [stages, setStages] = useState<string[]>([])
+  const [qaStage, setQaStage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -114,6 +115,7 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
     setEndsOn(p.ends_on ?? '')
     setDescription(p.description)
     setStages([...stagesOf(p.stages)])
+    setQaStage(p.qa_stage ?? null)
   }, [updatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!p) return null
@@ -134,6 +136,7 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
         ends_on: endsOn || null,
         description,
         stages: stagesToSave(stages),
+        qa_stage: qaStage?.trim() || null,
       })
       show('Project saved')
       await state.reload()
@@ -183,7 +186,13 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
       <div className="space-y-2">
         <p className="text-[13px] font-medium text-ink">Progress stages</p>
         <p className="text-[12px] text-muted">The columns this project's tasks move through.</p>
-        <StagesEditor value={stages} onChange={setStages} disabled={busy} />
+        <StagesEditor
+          value={stages}
+          onChange={setStages}
+          disabled={busy}
+          qaStage={qaStage}
+          onQaStageChange={setQaStage}
+        />
       </div>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onDone} disabled={busy}>

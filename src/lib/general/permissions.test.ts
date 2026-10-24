@@ -200,10 +200,12 @@ describe('canRemoveRole', () => {
 })
 
 describe('assignableRoles', () => {
-  it('lets the project manager switch anyone else between Coordinator, Member and Stakeholder', () => {
-    expect(assignableRoles('pm', 'member')).toEqual(['coordinator', 'member', 'stakeholder'])
-    expect(assignableRoles('pm', 'coordinator')).toEqual(['coordinator', 'member', 'stakeholder'])
-    expect(assignableRoles('pm', 'stakeholder')).toEqual(['coordinator', 'member', 'stakeholder'])
+  it('lets the project manager switch anyone else between Coordinator, Member, QA and Stakeholder', () => {
+    const all = ['coordinator', 'member', 'qa', 'stakeholder']
+    expect(assignableRoles('pm', 'member')).toEqual(all)
+    expect(assignableRoles('pm', 'coordinator')).toEqual(all)
+    expect(assignableRoles('pm', 'qa')).toEqual(all)
+    expect(assignableRoles('pm', 'stakeholder')).toEqual(all)
   })
 
   it('gives nobody a role change for the project manager', () => {
@@ -211,9 +213,11 @@ describe('assignableRoles', () => {
     expect(assignableRoles('coordinator', 'pm')).toEqual([])
   })
 
-  it('lets a Coordinator move a Member or Stakeholder between those two, and nobody else', () => {
-    expect(assignableRoles('coordinator', 'member')).toEqual(['member', 'stakeholder'])
-    expect(assignableRoles('coordinator', 'stakeholder')).toEqual(['member', 'stakeholder'])
+  it('lets a Coordinator move a Member, QA or Stakeholder among those three, and nobody else', () => {
+    const three = ['member', 'qa', 'stakeholder']
+    expect(assignableRoles('coordinator', 'member')).toEqual(three)
+    expect(assignableRoles('coordinator', 'qa')).toEqual(three)
+    expect(assignableRoles('coordinator', 'stakeholder')).toEqual(three)
     expect(assignableRoles('coordinator', 'coordinator')).toEqual([])
   })
 
@@ -234,12 +238,12 @@ describe('shareRecipients', () => {
 })
 
 describe('inviteRoles', () => {
-  it('lets the project manager invite a Member, Coordinator or Stakeholder', () => {
-    expect(inviteRoles('pm')).toEqual(['member', 'coordinator', 'stakeholder'])
+  it('lets the project manager invite a Member, Coordinator, QA or Stakeholder', () => {
+    expect(inviteRoles('pm')).toEqual(['member', 'coordinator', 'qa', 'stakeholder'])
   })
 
-  it('lets a Coordinator invite a Member or Stakeholder', () => {
-    expect(inviteRoles('coordinator')).toEqual(['member', 'stakeholder'])
+  it('lets a Coordinator invite a Member, QA or Stakeholder', () => {
+    expect(inviteRoles('coordinator')).toEqual(['member', 'qa', 'stakeholder'])
   })
 
   it('gives everybody else nothing', () => {
@@ -293,13 +297,8 @@ describe('ROLE_MATRIX grants and requests', () => {
     expect(ask?.roles).toEqual({ lead: 'yes', member: 'yes' })
   })
 
-  it('marks the rows not built yet as coming later, and Feedback is built', () => {
-    const later = ROLE_MATRIX.filter((r) => r.later).map((r) => r.action)
-    expect(later).toEqual([
-      'Mark the QA stage',
-      'Create tasks and edit your own (QA: bug tasks only)',
-      'Move a task out of the QA stage (QA, when the project has QA)',
-    ])
+  it('has no row left marked as coming later, and Feedback is built', () => {
+    expect(ROLE_MATRIX.filter((r) => r.later)).toEqual([])
     const feedback = ROLE_MATRIX.filter((r) => r.action.includes('Feedback'))
     expect(feedback).toHaveLength(3)
     expect(feedback.every((r) => r.later === undefined)).toBe(true)
@@ -387,6 +386,13 @@ describe('task powers', () => {
 
     it('never offers a stakeholder, to a manager or a leader', () => {
       const roleOf = (id: string): ProjectRole => (id === 'mate2' ? 'stakeholder' : 'member')
+      expect(assignableTo(viewer({ manageTasks: true }), task([]), people, roleOf)).toEqual(['me', 'mate', 'other'])
+      const lead = viewer({ leadsUser: leads(['mate', 'mate2']) })
+      expect(assignableTo(lead, task([]), people, roleOf)).toEqual(['mate'])
+    })
+
+    it('never offers QA, who holds no tasks', () => {
+      const roleOf = (id: string): ProjectRole => (id === 'mate2' ? 'qa' : 'member')
       expect(assignableTo(viewer({ manageTasks: true }), task([]), people, roleOf)).toEqual(['me', 'mate', 'other'])
       const lead = viewer({ leadsUser: leads(['mate', 'mate2']) })
       expect(assignableTo(lead, task([]), people, roleOf)).toEqual(['mate'])

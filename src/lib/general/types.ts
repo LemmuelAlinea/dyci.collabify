@@ -28,6 +28,8 @@ export type GeneralProject = {
   id: string
   /** Progress stages, read by getGeneralProject only; see lib/stages.ts. */
   stages?: string[] | null
+  /** The stage QA passes tasks out of, by name; null means the default. Read by getGeneralProject only. */
+  qa_stage?: string | null
   name: string
   description: string
   starts_on: string | null
@@ -127,6 +129,8 @@ export type GeneralProjectSummary = GeneralProject & {
   my_role: ProjectRole | null
   /** Whether an active project manager holds the project. False while it waits for one. */
   has_pm: boolean
+  /** Whether somebody active holds QA, so only QA and the project manager can mark work done. */
+  has_qa: boolean
   member_count: number
   task_count: number
   done_count: number
@@ -268,6 +272,9 @@ export type GeneralFieldValue = {
 }
 
 /** general_task_overview. */
+/** A bug is a task QA raised; everything else is a plain task. */
+export type TaskKind = 'task' | 'bug'
+
 export type GeneralTask = {
   id: string
   project_id: string
@@ -297,6 +304,10 @@ export type GeneralTask = {
   milestone_id: string | null
   /** Its column in the project's progress stages; see lib/stages.ts. */
   stage?: number | null
+  /** A bug is a task QA raised. Absent before supabase/project-qa.sql runs. */
+  kind?: TaskKind
+  /** When it reached the QA stage; null elsewhere. */
+  qa_entered_at?: string | null
 }
 
 export type GeneralComment = {
