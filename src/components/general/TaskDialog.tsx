@@ -122,8 +122,8 @@ function TaskBody({
   const holds = Boolean(me && task.assignee_ids.includes(me))
   const canManage = state.can('manage_tasks')
   const createdByMe = task.created_by === me
-  const archived = state.readOnly
-  const viewer: TaskViewer = { viewerId: me, manageTasks: canManage, archived, leadsUser: state.leadsUser }
+  const readOnly = state.readOnly
+  const viewer: TaskViewer = { viewerId: me, manageTasks: canManage, archived: readOnly, leadsUser: state.leadsUser }
   // A team leader edits, assigns and unassigns for the people they lead.
   const canEdit = canEditTask(viewer, task)
   const assignable = assignableTo(
@@ -131,9 +131,9 @@ function TaskBody({
     task,
     state.members.filter((m) => m.profile?.status !== 'rejected').map((m) => m.user_id),
   )
-  const canAttach = !archived && (holds || state.can('edit_files'))
+  const canAttach = !readOnly && (holds || state.can('edit_files'))
   // Archiving: whoever added the task, at any point, or someone who manages tasks.
-  const canDelete = !archived && (canManage || createdByMe)
+  const canDelete = !readOnly && (canManage || createdByMe)
 
   /**
    * One write at a time. A second press would match a row the first already
@@ -177,7 +177,7 @@ function TaskBody({
                     {c.author_id && <PersonBadge userId={c.author_id} roles={state} />}
                     <span className="font-normal text-faint">{formatDue(c.created_at)}</span>
                   </p>
-                  {(c.author_id === me || canManage) && !archived && (
+                  {(c.author_id === me || canManage) && !readOnly && (
                     <button
                       type="button"
                       aria-label="Remove comment"
@@ -194,7 +194,7 @@ function TaskBody({
             ))}
             {loaded && comments.length === 0 && <p className="text-[13px] text-faint">No comments yet.</p>}
           </ul>
-          {!archived && (
+          {!readOnly && (
             <CommentForm
               onSend={(body) =>
                 act(() => addComment(task.id, task.project_id, body), '', 'Could not post that comment.')
@@ -232,7 +232,7 @@ function TaskBody({
             ))}
             {task.assignee_ids.length === 0 && <li className="text-[13px] text-faint">Nobody holds this yet.</li>}
           </ul>
-          {(canManage ? !archived : assignable.length > 0) && (
+          {(canManage ? !readOnly : assignable.length > 0) && (
             <div className="mt-2 max-w-[16rem]">
               <Select
                 aria-label="Assign someone"
@@ -247,7 +247,7 @@ function TaskBody({
               />
             </div>
           )}
-          {!archived && !canManage && task.assignee_ids.length === 0 && me && (
+          {!readOnly && !canManage && task.assignee_ids.length === 0 && me && (
             <Button
               size="sm"
               className="mt-2"
@@ -262,7 +262,7 @@ function TaskBody({
         <section>
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-[14px]">Files</h3>
-            {!canAttach && !archived && <RequestAccessButton state={state} permission="edit_files" />}
+            {!canAttach && !readOnly && <RequestAccessButton state={state} permission="edit_files" />}
           </div>
           <ul className="mt-2 space-y-1.5">
             {files.map((f) => (
@@ -279,7 +279,7 @@ function TaskBody({
                 >
                   {f.file_name}
                 </button>
-                {!archived && (f.uploaded_by === me || state.can('edit_files')) && (
+                {!readOnly && (f.uploaded_by === me || state.can('edit_files')) && (
                   <ActionMenu
                     label={`Actions for ${f.file_name}`}
                     disabled={busy}
@@ -341,7 +341,7 @@ function TaskBody({
                   {state.nameOf(l.user_id)}
                   {l.note ? ` · ${l.note}` : ''}
                 </span>
-                {l.user_id === me && !archived && (
+                {l.user_id === me && !readOnly && (
                   <button
                     type="button"
                     aria-label="Remove time entry"
@@ -356,7 +356,7 @@ function TaskBody({
             ))}
             {loaded && logs.length === 0 && <li className="text-[13px] text-faint">No time logged yet.</li>}
           </ul>
-          {holds && !archived && (
+          {holds && !readOnly && (
             <LogForm
               onLog={(minutes, note) =>
                 act(() => addLog(task.id, task.project_id, minutes, note), 'Time logged', 'Could not log that time.')

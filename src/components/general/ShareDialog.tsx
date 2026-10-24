@@ -6,6 +6,7 @@ import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
 import { shareDraftPath } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
+import { shareRecipients } from '../../lib/general/permissions'
 import { fullName } from '../../lib/types'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -31,8 +32,7 @@ export function ShareDialog({
   const [picked, setPicked] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const items = state.members
-    .filter((m) => m.user_id !== state.viewerId && m.profile?.status !== 'rejected')
+  const items = shareRecipients(state.members, state.viewerId, state.roleOf)
     .map((m) => ({ id: m.user_id, label: m.profile ? fullName(m.profile) : 'A member' }))
   const everyone = items.length > 0 && picked.length === items.length
 

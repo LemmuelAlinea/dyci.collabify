@@ -21,8 +21,9 @@ import {
   permissionLabel,
   requestable,
   rolePermissions,
+  shareRecipients,
 } from './permissions'
-import type { TaskViewer } from './permissions'
+import type { ProjectRole, TaskViewer } from './permissions'
 
 /**
  * These mirror `general_can()` in supabase/general.sql. When the two disagree a
@@ -220,6 +221,15 @@ describe('assignableRoles', () => {
     expect(assignableRoles('member', 'member')).toEqual([])
     expect(assignableRoles('qa', 'member')).toEqual([])
     expect(assignableRoles('stakeholder', 'member')).toEqual([])
+  })
+})
+
+describe('shareRecipients', () => {
+  const m = (user_id: string, status = 'active') => ({ user_id, profile: { status } })
+  const roles: Record<string, ProjectRole> = { me: 'member', a: 'member', s: 'stakeholder', r: 'member', c: 'coordinator' }
+  it('leaves out the sharer, rejected people and Stakeholders', () => {
+    const out = shareRecipients([m('me'), m('a'), m('s'), m('r', 'rejected'), m('c')], 'me', (id) => roles[id] ?? null)
+    expect(out.map((x) => x.user_id)).toEqual(['a', 'c'])
   })
 })
 

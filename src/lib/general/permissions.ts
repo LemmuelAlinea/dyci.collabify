@@ -192,6 +192,22 @@ export function inviteRoles(actor: ProjectRole): ProjectRole[] {
 }
 
 /**
+ * Who a file can be shared with: every member but the sharer, anyone rejected,
+ * and Stakeholders, whom the database refuses ("Stakeholders can't receive
+ * shared files").
+ */
+export function shareRecipients<M extends { user_id: string; profile?: { status?: string } | null }>(
+  members: readonly M[],
+  viewerId: string | undefined,
+  roleOf: (userId: string) => ProjectRole | null,
+): M[] {
+  return members.filter(
+    (m) =>
+      m.user_id !== viewerId && m.profile?.status !== 'rejected' && roleOf(m.user_id) !== 'stakeholder',
+  )
+}
+
+/**
  * Whether an actor may offer to remove a target. Nobody removes the project
  * manager, and only the project manager removes a Coordinator, whatever else
  * the actor holds or was granted. Mirrors remove_general_member.

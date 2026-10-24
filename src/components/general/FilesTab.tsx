@@ -77,7 +77,8 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
   const [params, setParams] = useSearchParams()
-  // A Stakeholder reads Main and has no draft: the server refuses them one.
+  // Only my_general_draft refuses a Stakeholder (they may keep an earlier draft),
+  // so the UI shows Main only and never asks for one.
   const noDraft = state.myRole === 'stakeholder'
   const rawView = params.get('view') as View | null
   const view: View =
