@@ -730,17 +730,11 @@ begin
   perform pg_temp.must_refuse_with('...nor the pm',
     format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_p, v_pm),
     'Only the project manager can change a coordinator or the project manager.');
-  perform pg_temp.must_refuse_with('...nor set qa',
-    format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_p, v_m),
-    'QA roles are not available yet.');
 
   perform pg_temp.act_as(v_pm);
   perform pg_temp.must_refuse_with('the pm cannot make themself a stakeholder',
     format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_p, v_pm),
     'Use hand over to change the project manager.');
-  perform pg_temp.must_refuse_with('the pm still cannot set qa',
-    format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_p, v_m),
-    'QA roles are not available yet.');
   perform pg_temp.must_allow('the pm makes a coordinator a stakeholder',
     format($q$select public.set_general_member_role(%L, %L, 'stakeholder')$q$, v_p, v_c2));
   perform pg_temp.must_be('...who is out of the chat', not pg_temp.in_chat(v_p, v_c2));
@@ -871,9 +865,6 @@ declare
   v_code text;
 begin
   perform pg_temp.act_as(v_pm);
-  perform pg_temp.must_refuse_with('the pm cannot invite as qa',
-    format($q$select public.invite_to_general_project(%L, %L, 'qa')$q$, v_p, v_x),
-    'QA roles are not available yet.');
   v_inv := public.invite_to_general_project(v_p, v_x, 'stakeholder');
   perform pg_temp.must_be('the pm invites X as a stakeholder', v_inv.role = 'stakeholder');
   v_inv := public.invite_to_general_project(v_p, v_y, 'member');
@@ -905,9 +896,6 @@ begin
   perform pg_temp.must_refuse_with('a coordinator cannot invite as coordinator',
     format($q$select public.invite_to_general_project(%L, %L, 'coordinator')$q$, v_p, v_z),
     'Only the project manager can invite a coordinator.');
-  perform pg_temp.must_refuse_with('...nor as qa',
-    format($q$select public.invite_to_general_project(%L, %L, 'qa')$q$, v_p, v_z),
-    'QA roles are not available yet.');
   v_inv := public.invite_to_general_project(v_p, v_z, 'stakeholder');
   perform pg_temp.must_be('a coordinator invites Z as a stakeholder', v_inv.role = 'stakeholder');
 

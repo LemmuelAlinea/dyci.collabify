@@ -23,7 +23,7 @@ is idempotent. A database that vanished entirely can be rebuilt by running those
 files in this order:
 
 ```bash
-node scripts/db.mjs supabase/schema.sql supabase/classes.sql supabase/groups.sql supabase/projects.sql supabase/tasks.sql supabase/task-points.sql supabase/task-detail.sql supabase/task-claim-limit.sql supabase/task-unclaim.sql supabase/task-status-owner.sql supabase/solo-auto-claim.sql supabase/deadline-lock.sql supabase/submissions.sql supabase/reassignments.sql supabase/results.sql supabase/syllabus.sql supabase/syllabus-assessments.sql supabase/polls.sql supabase/messages.sql supabase/dashboard.sql supabase/realtime.sql supabase/recover-work.sql supabase/removed-visible.sql supabase/class-restore.sql supabase/approvals.sql supabase/accounts.sql supabase/audit.sql supabase/admin-rename.sql supabase/calendar.sql supabase/analytics.sql supabase/analytics-insight.sql supabase/reports.sql supabase/student-reports.sql supabase/admin-program.sql supabase/program-notices.sql supabase/program-registry.sql supabase/safety.sql supabase/live.sql supabase/notifications.sql supabase/rate-limit.sql supabase/class-notices.sql supabase/project-series.sql supabase/indexes.sql supabase/consent.sql supabase/privacy-requests.sql supabase/term-shifts.sql supabase/hardening.sql supabase/workplaces.sql supabase/general.sql supabase/general-tasks.sql supabase/general-notify.sql supabase/presets.sql supabase/general-repo.sql supabase/general-files.sql supabase/general-drafts.sql supabase/general-history.sql supabase/general-schedule.sql supabase/general-schedule-guard.sql supabase/general-spaces.sql supabase/general-space-teams.sql supabase/general-project-archive.sql supabase/general-archive-rbac.sql supabase/general-folders.sql supabase/general-draft-restore.sql supabase/general-project-archive-rbac.sql supabase/general-reports.sql supabase/general-project-space.sql supabase/access.sql supabase/one-workplace.sql supabase/cleanup.sql supabase/admin-invitable.sql supabase/notification-coverage.sql supabase/inbox.sql supabase/class-files.sql supabase/general-draft-commit.sql supabase/teaching-guards.sql supabase/meetings.sql supabase/general-shares.sql supabase/general-discussions.sql supabase/discussion-polls-voice.sql supabase/storage-sweep.sql supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql supabase/work-milestones.sql supabase/class-milestones.sql supabase/sprint-milestones.sql supabase/analytics-trends.sql supabase/peer-evaluation.sql supabase/scoring.sql supabase/class-notes.sql supabase/report-notes.sql supabase/report-deliverables.sql supabase/report-events.sql supabase/task-stages.sql supabase/company-accounts.sql supabase/project-roles.sql supabase/project-visibility.sql supabase/project-team-leads.sql supabase/project-stakeholders.sql supabase/project-feedback.sql
+node scripts/db.mjs supabase/schema.sql supabase/classes.sql supabase/groups.sql supabase/projects.sql supabase/tasks.sql supabase/task-points.sql supabase/task-detail.sql supabase/task-claim-limit.sql supabase/task-unclaim.sql supabase/task-status-owner.sql supabase/solo-auto-claim.sql supabase/deadline-lock.sql supabase/submissions.sql supabase/reassignments.sql supabase/results.sql supabase/syllabus.sql supabase/syllabus-assessments.sql supabase/polls.sql supabase/messages.sql supabase/dashboard.sql supabase/realtime.sql supabase/recover-work.sql supabase/removed-visible.sql supabase/class-restore.sql supabase/approvals.sql supabase/accounts.sql supabase/audit.sql supabase/admin-rename.sql supabase/calendar.sql supabase/analytics.sql supabase/analytics-insight.sql supabase/reports.sql supabase/student-reports.sql supabase/admin-program.sql supabase/program-notices.sql supabase/program-registry.sql supabase/safety.sql supabase/live.sql supabase/notifications.sql supabase/rate-limit.sql supabase/class-notices.sql supabase/project-series.sql supabase/indexes.sql supabase/consent.sql supabase/privacy-requests.sql supabase/term-shifts.sql supabase/hardening.sql supabase/workplaces.sql supabase/general.sql supabase/general-tasks.sql supabase/general-notify.sql supabase/presets.sql supabase/general-repo.sql supabase/general-files.sql supabase/general-drafts.sql supabase/general-history.sql supabase/general-schedule.sql supabase/general-schedule-guard.sql supabase/general-spaces.sql supabase/general-space-teams.sql supabase/general-project-archive.sql supabase/general-archive-rbac.sql supabase/general-folders.sql supabase/general-draft-restore.sql supabase/general-project-archive-rbac.sql supabase/general-reports.sql supabase/general-project-space.sql supabase/access.sql supabase/one-workplace.sql supabase/cleanup.sql supabase/admin-invitable.sql supabase/notification-coverage.sql supabase/inbox.sql supabase/class-files.sql supabase/general-draft-commit.sql supabase/teaching-guards.sql supabase/meetings.sql supabase/general-shares.sql supabase/general-discussions.sql supabase/discussion-polls-voice.sql supabase/storage-sweep.sql supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql supabase/work-milestones.sql supabase/class-milestones.sql supabase/sprint-milestones.sql supabase/analytics-trends.sql supabase/peer-evaluation.sql supabase/scoring.sql supabase/class-notes.sql supabase/report-notes.sql supabase/report-deliverables.sql supabase/report-events.sql supabase/task-stages.sql supabase/company-accounts.sql supabase/project-roles.sql supabase/project-visibility.sql supabase/project-team-leads.sql supabase/project-stakeholders.sql supabase/project-feedback.sql supabase/project-qa.sql
 ```
 
 After re-running any of `classes.sql`, `general-tasks.sql`, `general-schedule-guard.sql`,
@@ -50,7 +50,7 @@ recreates the view `class-planning.sql` extends. So after
 onward:
 
 ```bash
-node scripts/db.mjs supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql supabase/work-milestones.sql supabase/class-milestones.sql supabase/sprint-milestones.sql supabase/analytics-trends.sql supabase/peer-evaluation.sql supabase/scoring.sql supabase/class-notes.sql supabase/report-notes.sql supabase/report-deliverables.sql supabase/report-events.sql supabase/task-stages.sql supabase/company-accounts.sql supabase/project-roles.sql supabase/project-visibility.sql supabase/project-team-leads.sql supabase/project-stakeholders.sql supabase/project-feedback.sql
+node scripts/db.mjs supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql supabase/work-milestones.sql supabase/class-milestones.sql supabase/sprint-milestones.sql supabase/analytics-trends.sql supabase/peer-evaluation.sql supabase/scoring.sql supabase/class-notes.sql supabase/report-notes.sql supabase/report-deliverables.sql supabase/report-events.sql supabase/task-stages.sql supabase/company-accounts.sql supabase/project-roles.sql supabase/project-visibility.sql supabase/project-team-leads.sql supabase/project-stakeholders.sql supabase/project-feedback.sql supabase/project-qa.sql
 ```
 
 On 7 October 2026 the live definitions of all ten functions matched
@@ -68,7 +68,7 @@ Re-run `work-planning.sql` after re-running any of `general-tasks.sql`, `general
 
 Re-run `class-planning.sql` after `class-schedule.sql`. Both recreate `task_detail_overview`; `t.*` keeps every column either way.
 
-Re-run `task-stages.sql` last after any of those. It is the final owner of both `task_detail_overview` (recreated so `t.*` includes `stage`) and `general_task_overview` (with `stage` appended after `milestone_id`).
+Re-run `task-stages.sql` after any of those. It is the final owner of `task_detail_overview` (recreated so `t.*` includes `stage`) and appends `stage` to `general_task_overview` after `milestone_id`; `project-qa.sql` then appends `kind` and `qa_entered_at` and owns the view last, so re-run it after `task-stages.sql`.
 
 `class-schedule.sql` redefines `guard_task_edit` (`task-archive.sql`),
 `update_professor_task` (`tasks.sql`) and `apply_shift_to_deadlines`
@@ -372,14 +372,15 @@ stakeholder role, by a role change, a hand over or a PM assignment); and of
 `set_general_member_role` and `invite_to_general_project` (`project-roles.sql`; the PM
 sets or invites as stakeholder, a coordinator switches people between member and
 stakeholder and invites as either, QA stays refused with "QA roles are not available
-yet."; becoming a stakeholder takes the person off every task they held in the project,
+yet." — `project-qa.sql` now redefines these two, `guard_general_task` and
+`guard_general_task_child` after it and turns QA on; becoming a stakeholder takes the person off every task they held in the project,
 and `guard_general_task_child` refuses a stakeholder assignee with "Stakeholders can't hold
 tasks. Pick someone else."). It is also the final owner of `send_general_deadline_reminders`
 (`general-archive-rbac.sql`, first in `general-notify.sql`) and `send_draft_reminders`
 (`work-automation.sql`), which skip stakeholders. A cleanup statement takes current
 stakeholders out of project chats.
 
-Re-run it (then `anon-lockdown.sql`) after re-running any of `general.sql`,
+Re-run it (then `project-feedback.sql`, `project-qa.sql` and `anon-lockdown.sql`) after re-running any of `general.sql`,
 `general-tasks.sql`, `general-notify.sql`, `general-schedule-guard.sql`, `general-repo.sql`,
 `general-files.sql`, `general-drafts.sql`, `general-archive-rbac.sql`,
 `general-draft-commit.sql`, `meetings.sql`, `general-shares.sql`, `general-discussions.sql`,
@@ -414,6 +415,31 @@ and `general_feedback_files.path` in the used set; `storage-sweep.sql` runs earl
 that table exists. Re-run it (then `anon-lockdown.sql`) after re-running
 `storage-sweep.sql`, which alone takes `feedback-files` out of the sweep (attached files
 stay; unattached uploads are never cleared).
+
+`project-qa.sql` runs after `project-feedback.sql`. It adds the `general_task_kind` enum
+(`task`, `bug`; created in its own transaction), `general_tasks.kind` (default `task`) and
+`general_tasks.qa_entered_at`, `general_projects.qa_stage` (the QA stage by name; null
+means the default), `general_qa_stage_match` (a name's 0-based index among a list's
+middle stages), `general_qa_stage_index(project)` (the QA stage: `qa_stage`, else a stage
+named "Testing", else the one before the last; null for somebody off the project),
+`general_project_has_qa(project)` (somebody active holds the qa role), and the
+`general_projects_qa_stage` trigger (`general_projects_qa_stage_check`): a `qa_stage` that
+is not a middle stage is refused with "The QA stage must be one of the middle stages.",
+and a stage list change that leaves the old one out clears it. It is the final owner of
+`general_task_overview` (`task-stages.sql`; `kind` and `qa_entered_at` appended after
+`stage`), `guard_general_task` (QA inserts bug tasks only, "QA creates bug tasks only.";
+a kind changes only with `manage_tasks`; an archived task's kind is frozen),
+`guard_general_task_child` (a qa assignee is refused next to a stakeholder one, "QA can't
+hold tasks. Pick someone else."), `set_general_member_role` and
+`invite_to_general_project` (all four from `project-stakeholders.sql`; the pm sets and
+invites qa, a coordinator switches people among member, qa and stakeholder and invites as
+any of the three, and becoming QA takes the person off every task they held in the
+project). Re-run it (then `anon-lockdown.sql`) after re-running `task-stages.sql` or
+`project-stakeholders.sql`, and so after any file whose re-run calls for either of them:
+`task-stages.sql` alone drops the view and recreates it without `kind` and
+`qa_entered_at`, which the app reads; `project-stakeholders.sql` alone lets QA create
+plain tasks and hold tasks, and refuses the qa role again with "QA roles are not
+available yet."
 
 `anon-lockdown.sql` runs last and takes EXECUTE on every public function away
 from the signed-out role, keeping signed-in access as it was. Re-run it after

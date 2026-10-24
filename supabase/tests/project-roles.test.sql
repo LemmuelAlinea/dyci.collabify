@@ -672,7 +672,7 @@ begin
     'Only the project manager can change a coordinator');
 
   -- A role-only change (same level) is still a change: the event and the
-  -- notification key on the role. qa is written directly; the RPCs refuse it.
+  -- notification key on the role. qa is written directly here.
   perform pg_temp.act_as_service();
   update public.general_members set role = 'qa' where project_id = v_r and user_id = v_mem2;
   perform pg_temp.act_as(v_coord);
@@ -697,18 +697,12 @@ begin
   perform pg_temp.must_refuse_with('...nor step down by setting their own role',
     format($q$select public.set_general_member_role(%L, %L, 'coordinator')$q$, v_r, v_pm),
     'Use hand over to change the project manager.');
-  perform pg_temp.must_refuse_with('the pm cannot set qa',
-    format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_r, v_mem2),
-    'QA roles are not available yet.');
-  -- Stakeholder is on since phase 3: project-stakeholders.test.sql covers it.
-  perform pg_temp.act_as(v_coord);
-  perform pg_temp.must_refuse_with('a coordinator cannot set qa',
-    format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_r, v_mem2),
-    'QA roles are not available yet.');
+  -- Stakeholder is on since phase 3 (project-stakeholders.test.sql) and QA
+  -- since phase 4 (project-qa.test.sql).
   perform pg_temp.act_as(v_stranger);
-  perform pg_temp.must_refuse_with('nor can somebody off the project',
+  perform pg_temp.must_refuse_with('somebody off the project cannot set qa',
     format($q$select public.set_general_member_role(%L, %L, 'qa')$q$, v_r, v_mem2),
-    'QA roles are not available yet.');
+    'Only the project manager or a coordinator');
 
   -- Who may set roles at all.
   perform pg_temp.must_refuse_with('somebody off the project cannot set roles',
@@ -793,9 +787,7 @@ begin
   perform pg_temp.must_refuse_with('nobody is invited as pm',
     format($q$select public.invite_to_general_project(%L, %L, 'pm')$q$, v_r, v_inv3),
     'Use hand over to change the project manager.');
-  perform pg_temp.must_refuse_with('...nor as qa',
-    format($q$select public.invite_to_general_project(%L, %L, 'qa')$q$, v_r, v_inv3),
-    'QA roles are not available yet.');
+  -- Inviting as qa is on since phase 4: project-qa.test.sql covers it.
   perform pg_temp.must_refuse_with('inviting someone already on the project is refused',
     format($q$select public.invite_to_general_project(%L, %L, 'member')$q$, v_r, v_mem2),
     'already on this project');
