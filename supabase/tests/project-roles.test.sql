@@ -1053,6 +1053,28 @@ begin
   insert into public.general_access_requests (project_id, user_id, permission, reason)
   values (v_g, v_plain, 'edit_project', 'Zz') returning id into v_req_ep;
 
+  -- A request reaches whoever can answer it: the pm and every coordinator, but
+  -- an Edit project details request only the pm. Members are not told.
+  perform pg_temp.must_be('a coordinator is told about a request they can answer',
+    exists (select 1 from public.notifications
+             where user_id = v_coord and general_project_id = v_g
+               and type = 'general_access_requested' and preview like '%Manage all tasks%'));
+  perform pg_temp.must_be('...so is the second coordinator',
+    exists (select 1 from public.notifications
+             where user_id = v_inv1 and general_project_id = v_g
+               and type = 'general_access_requested' and preview like '%Manage all tasks%'));
+  perform pg_temp.must_be('...and the pm, about both requests',
+    (select count(*) = 2 from public.notifications
+      where user_id = v_pm and general_project_id = v_g and type = 'general_access_requested'));
+  perform pg_temp.must_be('a coordinator is not told about an edit_project request',
+    not exists (select 1 from public.notifications
+                 where user_id in (v_coord, v_inv1) and general_project_id = v_g
+                   and type = 'general_access_requested' and preview like '%Edit project details%'));
+  perform pg_temp.must_be('members, the asker included, are not told',
+    not exists (select 1 from public.notifications
+                 where user_id in (v_plain, v_inv2, v_inv3) and general_project_id = v_g
+                   and type = 'general_access_requested'));
+
   perform pg_temp.act_as(v_coord);
   perform pg_temp.must_be('general_can_grant: a coordinator gives edit_files',
     public.general_can_grant(v_g, 'edit_files'));

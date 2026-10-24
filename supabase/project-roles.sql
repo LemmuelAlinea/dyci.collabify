@@ -24,10 +24,12 @@
 -- remove_general_member, leave_general_project, grant_general_permission and
 -- answer_general_access_request (general.sql); log_general_member_change and
 -- the general_project_events kinds (general-reports.sql);
--- notify_general_membership (class-files.sql) and the
--- general_members_notify_level trigger (notification-coverage.sql). It drops
--- general.sql's set_general_member_level. Re-run it after re-running any of
--- access.sql, company-accounts.sql, general.sql, general-reports.sql,
+-- notify_general_membership (class-files.sql), the
+-- general_members_notify_level trigger (notification-coverage.sql) and
+-- notify_general_access_request (general-notify.sql; requests now reach the
+-- pm and coordinators). It drops general.sql's set_general_member_level.
+-- Re-run it after re-running any of access.sql, company-accounts.sql,
+-- general.sql, general-notify.sql, general-reports.sql,
 -- notification-coverage.sql or class-files.sql, then anon-lockdown.sql. It also
 -- redefines general_project_overview (general-project-space.sql) and
 -- list_general_project_members (one-workplace.sql) with the role columns added.
@@ -494,6 +496,75 @@ drop trigger if exists general_members_notify_level on public.general_members;
 create trigger general_members_notify_level after update of level, role on public.general_members
   for each row when (old.level is distinct from new.level or old.role is distinct from new.role)
   execute function public.notify_general_membership();
+
+/**
+ * general-notify.sql's copy, as live. One change: a work project's access
+ * request goes to whoever can answer it (general_can_grant): the project
+ * manager, and every coordinator unless it asks for Edit project details,
+ * which only the project manager gives. Before, only level 'owner'. A class board's
+ * Files project still tells its group's leader. The trigger itself stays as
+ * general-notify.sql made it.
+ */
+create or replace function public.notify_general_access_request()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  board record;
+begin
+  -- A class board's hidden Files project has no Owner and no page of its own:
+  -- its requests go to the group's leader and open the class project.
+  select b.project_id, pr.class_id, g.leader_id, pr.title
+    into board
+    from public.general_projects gp
+    join public.project_boards b on b.id = gp.class_board_id
+    join public.projects pr on pr.id = b.project_id
+    left join public.groups g on g.id = b.group_id
+   where gp.id = new.project_id;
+
+  if tg_op = 'INSERT' then
+    if board.project_id is not null then
+      insert into public.notifications (user_id, type, project_id, class_id, title, preview)
+      select board.leader_id, 'general_access_requested'::public.notification_type,
+             board.project_id, board.class_id, board.title,
+             public.display_name(new.user_id) || ' asked for: ' || public.general_permission_label(new.permission)
+       where board.leader_id is not null and board.leader_id <> new.user_id;
+      return new;
+    end if;
+    insert into public.notifications (user_id, type, general_project_id, title, preview)
+    select o.user_id,
+           'general_access_requested'::public.notification_type,
+           p.id,
+           p.name,
+           coalesce(nullif(btrim(r.first_name || ' ' || r.last_name), ''), 'Somebody')
+             || ' asked for: ' || public.general_permission_label(new.permission)
+      from public.general_members o
+      join public.general_projects p on p.id = o.project_id
+      join public.profiles r on r.id = new.user_id
+     where o.project_id = new.project_id
+       and o.user_id <> new.user_id
+       -- Whoever can answer it: a coordinator does not give Edit project details.
+       and (o.role = 'pm' or (o.role = 'coordinator' and new.permission <> 'edit_project'));
+  elsif old.status = 'open' and new.status in ('approved', 'declined') then
+    if board.project_id is not null then
+      insert into public.notifications (user_id, type, project_id, class_id, title, preview)
+      values (new.user_id, 'general_access_answered'::public.notification_type,
+              board.project_id, board.class_id, board.title,
+              case when new.status = 'approved' then 'Approved: ' else 'Declined: ' end
+                || public.general_permission_label(new.permission));
+      return new;
+    end if;
+    insert into public.notifications (user_id, type, general_project_id, title, preview)
+    select new.user_id,
+           'general_access_answered'::public.notification_type,
+           p.id,
+           p.name,
+           case when new.status = 'approved' then 'Approved: ' else 'Declined: ' end
+             || public.general_permission_label(new.permission)
+      from public.general_projects p
+     where p.id = new.project_id;
+  end if;
+  return new;
+end;
+$$;
 
 -- ---------------------------------------------------------------- set a role
 
