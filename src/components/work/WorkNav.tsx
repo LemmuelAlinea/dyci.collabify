@@ -1,6 +1,5 @@
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
-import { WORK_SECTIONS } from '../../lib/work/nav'
 import type { WorkSection } from '../../lib/work/nav'
 
 const LOOK: Record<WorkSection, { label: string; icon: IconName }> = {
@@ -9,6 +8,7 @@ const LOOK: Record<WorkSection, { label: string; icon: IconName }> = {
   sprints: { label: 'Sprints', icon: 'target' },
   tasks: { label: 'Tasks', icon: 'check' },
   milestones: { label: 'Milestones', icon: 'pin' },
+  qa: { label: 'QA queue', icon: 'shield' },
 }
 
 /**
@@ -17,11 +17,19 @@ const LOOK: Record<WorkSection, { label: string; icon: IconName }> = {
  * switch, and it scrolls sideways on a phone instead of wrapping onto a second
  * line.
  */
-export function WorkNav({ active, onChange }: { active: WorkSection; onChange: (s: WorkSection) => void }) {
+export function WorkNav({
+  sections,
+  active,
+  onChange,
+}: {
+  sections: readonly WorkSection[]
+  active: WorkSection
+  onChange: (s: WorkSection) => void
+}) {
   return (
     <nav aria-label="Work sections" className="-mx-1 overflow-x-auto px-1 pb-1">
       <div className="inline-flex gap-1 rounded-xl border border-line surface p-1 shadow-card">
-        {WORK_SECTIONS.map((id) => {
+        {sections.map((id) => {
           const on = active === id
           return (
             <button

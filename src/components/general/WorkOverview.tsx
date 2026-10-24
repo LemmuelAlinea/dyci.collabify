@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BentoGrid, BentoTile } from '../dashboard/Bento'
 import { DashboardSummary } from '../dashboard/DashboardSummary'
 import { Reveal } from '../motion/Reveal'
@@ -13,11 +13,15 @@ import { Icon, Spinner } from '../ui/Icon'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useGeneralDashboard } from '../../hooks/useGeneralDashboard'
+import { useLive } from '../../hooks/useLive'
 import { canManageProjects, canTeach } from '../../lib/access'
 import { listMyProjectVisits } from '../../lib/api/general'
+import { listMyQaQueue } from '../../lib/api/qa'
 import { comingUp, dueCounts, firstComing, myTasks, recentlyVisited } from '../../lib/general/dashboard'
 import { plural } from '../../lib/plural'
 import { paths } from '../../lib/paths'
+import { qaTile } from '../../lib/work/qa'
+import type { QaQueueRow } from '../../lib/work/qa'
 
 function greeting() {
   const h = new Date().getHours()
@@ -76,6 +80,21 @@ export function WorkOverview({
     }
   }, [profile?.id])
 
+  // The projects where this person is QA, with what waits in each. A failed
+  // read only hides the tile, like the visits above.
+  const [qaRows, setQaRows] = useState<QaQueueRow[]>([])
+  const loadQa = useCallback(async () => {
+    try {
+      setQaRows(await listMyQaQueue())
+    } catch {
+      setQaRows([])
+    }
+  }, [])
+  useEffect(() => {
+    void loadQa()
+  }, [loadQa])
+  useLive(loadQa, ['general_tasks', 'general_members'])
+
   useEffect(() => {
     if (standalone) document.title = 'Dashboard · Collabify'
   }, [standalone])
@@ -102,6 +121,7 @@ export function WorkOverview({
   if (!canStart && (!loaded || !hasSomething)) return null
 
   const { overdue, thisWeek } = dueCounts(mine, now)
+  const qa = qaTile(qaRows)
   // The same one sentence the class dashboard above opens with, about work.
   const line = !loaded
     ? 'Loading your spaces and projects.'
@@ -160,6 +180,18 @@ export function WorkOverview({
               icon: 'bell',
               tone: waiting > 0 ? 'warn' : 'plain',
             },
+            // Only for somebody who is QA on a live work project.
+            ...(qaRows.length > 0
+              ? [
+                  {
+                    label: 'Waiting for QA',
+                    value: qa.total,
+                    to: qa.busiest ? `${paths.project(qa.busiest.project_id)}?tab=work&work=qa` : undefined,
+                    icon: 'shield' as const,
+                    tone: qa.total > 0 ? ('warn' as const) : ('plain' as const),
+                  },
+                ]
+              : []),
             {
               label: overdue === 1 ? 'Task overdue' : 'Tasks overdue',
               value: overdue,

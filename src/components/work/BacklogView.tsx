@@ -8,6 +8,7 @@ import { Icon } from '../ui/Icon'
 import { Input } from '../ui/Field'
 import { Select } from '../ui/Select'
 import { useToast } from '../ui/Toast'
+import { BugBadge } from '../general/BugBadge'
 import { SprintDialog } from './SprintDialog'
 import { useTeamFilter } from './useTeamFilter'
 import { authErrorMessage } from '../../lib/authError'
@@ -341,15 +342,18 @@ function ItemRow({
         />
       )}
       <div className="min-w-0 flex-1 basis-48">
-        <button
-          type="button"
-          onClick={onOpen}
-          className={`block max-w-full truncate text-left text-[14px] font-medium hover:underline ${
-            item.status === 'done' ? 'text-muted line-through' : 'text-ink'
-          }`}
-        >
-          {item.title}
-        </button>
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onOpen}
+            className={`min-w-0 truncate text-left text-[14px] font-medium hover:underline ${
+              item.status === 'done' ? 'text-muted line-through' : 'text-ink'
+            }`}
+          >
+            {item.title}
+          </button>
+          <BugBadge kind={item.kind} />
+        </div>
         <p className="mt-0.5 flex flex-wrap gap-x-3 text-[12px] text-faint">
           <span className={item.holders.length ? '' : 'text-warning-700 dark:text-warning-300'}>
             {item.holders.length ? item.holders.join(', ') : 'Nobody yet'}

@@ -5,11 +5,11 @@ Project management for BSIT programs in the Philippines. Roles: `student`, `memb
 creating work spaces is the `can_manage_projects` switch (members and admins). Admins have
 it off by default: they create work spaces only once an admin turns it on for them. Every
 planned phase has shipped and is live at dyci-collabify.vercel.app from `main`, and company
-roles phases 1 (members and the two switches), 2 (project roles) and 3 (stakeholders:
-read-only projects, the Feedback tab, the slim sidebar and the stakeholder Home) are live.
-Phase 4, QA, is next (`docs/superpowers/specs/2026-10-23-company-roles-design.md`). Other
-open work is the
-**Deferred** notes in `handoff.md` plus whatever the user asks for next. Read the end of
+roles are complete: phases 1 (members and the two switches), 2 (project roles), 3
+(stakeholders: read-only projects, the Feedback tab, the slim sidebar and the stakeholder
+Home) and 4 (QA: the gate, Pass and Send back, bug tasks, the queue) are live, so
+`docs/superpowers/specs/2026-10-23-company-roles-design.md` is fully shipped. Open work is
+the **Deferred** notes in `handoff.md` plus whatever the user asks for next. Read the end of
 `handoff.md` for the latest state.
 
 ## Commands
@@ -104,6 +104,16 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   Calendar, Account) and `StakeholderHome` (cards from `my_stakeholder_projects()`, which
   `project-feedback.sql` owns). The rule is `isStakeholderOnly` in `lib/access.ts`, from
   `membershipOf(...).allStakeholder`; students and the admin keep their own rails.
+- QA (`general_members.role = 'qa'`, `project-qa.sql`): in a project with active QA
+  (`general_project_has_qa`, `has_qa` on the overview) only QA and the pm move a task into
+  the last stage or out of the QA stage forward, and a holder cannot mark one done. The QA
+  stage is `general_projects.qa_stage` (a middle stage), else Testing, else the one before
+  the last; `lib/work/qa.ts` mirrors it (`qaStageIndex`, `inQa`, `qaBlocks`) and the app
+  hides what the database refuses. QA passes with `qa_pass_general_task` or sends back with
+  `qa_send_back_general_task` (a note, posted as a comment; holders get `task_sent_back`);
+  the Work tab's QA queue and the task dialog call them. QA creates bug tasks only
+  (`kind = 'bug'`, never changes a kind) and cannot hold tasks. Home's "Waiting for QA" tile
+  reads `my_qa_queue()`.
 
 ## Security invariants
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { carryQaStage, inQa, qaBlocks, qaStageIndex } from './qa'
+import { carryQaStage, inQa, qaBlocks, qaStageIndex, qaTile, queueOrder, waitedFor } from './qa'
 
 const SYSTEM = ['Planning', 'Development', 'Testing', 'Revision', 'Completed']
 
@@ -129,5 +129,71 @@ describe('qaBlocks', () => {
     expect(qaBlocks(on, SYSTEM, 'Revision', 2, 3)).toBe(false)
     expect(qaBlocks(on, null, null, 1, 2)).toBe(true)
     expect(qaBlocks(on, null, null, 0, 1)).toBe(false)
+  })
+})
+
+describe('queueOrder', () => {
+  const t = (id: string, at: string | null) => ({ id, qa_entered_at: at })
+
+  it('puts the longest-waiting task first', () => {
+    const out = queueOrder([t('b', '2026-10-02T00:00:00Z'), t('a', '2026-10-01T00:00:00Z'), t('c', '2026-10-03T00:00:00Z')])
+    expect(out.map((x) => x.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('puts tasks with no entry time last, in the order given', () => {
+    const out = queueOrder([t('n1', null), t('b', '2026-10-02T00:00:00Z'), t('n2', null), t('a', '2026-10-01T00:00:00Z')])
+    expect(out.map((x) => x.id)).toEqual(['a', 'b', 'n1', 'n2'])
+  })
+
+  it('treats a missing field like null and leaves the input alone', () => {
+    const input: { id: string; qa_entered_at?: string | null }[] = [{ id: 'x' }, t('a', '2026-10-01T00:00:00Z')]
+    expect(queueOrder(input).map((x) => x.id)).toEqual(['a', 'x'])
+    expect(input.map((x) => x.id)).toEqual(['x', 'a'])
+  })
+})
+
+describe('waitedFor', () => {
+  const now = new Date('2026-10-10T12:00:00Z').getTime()
+
+  it('says how long a task has been in QA', () => {
+    expect(waitedFor('2026-10-10T11:50:00Z', now)).toBe('Waiting under an hour')
+    expect(waitedFor('2026-10-10T09:00:00Z', now)).toBe('Waiting 3 hours')
+    expect(waitedFor('2026-10-10T11:00:00Z', now)).toBe('Waiting 1 hour')
+    expect(waitedFor('2026-10-07T12:00:00Z', now)).toBe('Waiting 3 days')
+    expect(waitedFor('2026-10-09T10:00:00Z', now)).toBe('Waiting 1 day')
+  })
+
+  it('does not guess when the time is unknown', () => {
+    expect(waitedFor(null, now)).toBe('Waiting since before the queue kept time')
+    expect(waitedFor(undefined, now)).toBe('Waiting since before the queue kept time')
+  })
+
+  it('never goes negative when the clocks disagree', () => {
+    expect(waitedFor('2026-10-10T12:05:00Z', now)).toBe('Waiting under an hour')
+  })
+})
+
+describe('qaTile', () => {
+  const row = (project_id: string, waiting: number) => ({
+    project_id,
+    name: project_id,
+    qa_stage_name: 'Testing',
+    waiting,
+    oldest_entered_at: null,
+  })
+
+  it('adds up what waits and picks the project with the most', () => {
+    const { total, busiest } = qaTile([row('a', 2), row('b', 5), row('c', 1)])
+    expect(total).toBe(8)
+    expect(busiest?.project_id).toBe('b')
+  })
+
+  it('takes the first of a tie', () => {
+    expect(qaTile([row('a', 3), row('b', 3)]).busiest?.project_id).toBe('a')
+  })
+
+  it('has no busiest project when nothing waits', () => {
+    expect(qaTile([row('a', 0)])).toEqual({ total: 0, busiest: null })
+    expect(qaTile([])).toEqual({ total: 0, busiest: null })
   })
 })

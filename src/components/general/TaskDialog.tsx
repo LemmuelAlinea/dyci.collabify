@@ -32,7 +32,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue, toLocalInput } from '../../lib/general/dates'
 import { describeEvent } from '../../lib/general/history'
 import { stageIndex, stageName, stagesOf, statusForStage } from '../../lib/stages'
-import { QA_PASSES } from '../../lib/work/qa'
+import { QA_PASSES, inQa } from '../../lib/work/qa'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import { attachFromRepo, attachSummary, repoTree } from '../../lib/general/attachFromRepo'
 import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent } from '../../lib/general/types'
@@ -40,6 +40,7 @@ import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
 import { assignableTo, canEditTask, canUnassign } from '../../lib/general/permissions'
 import type { TaskViewer } from '../../lib/general/permissions'
+import { QaActions } from '../work/QaActions'
 import { ProjectFilePicker } from './ProjectFilePicker'
 import { RequestAccessButton } from './RequestAccessButton'
 import { BugBadge } from './BugBadge'
@@ -141,6 +142,11 @@ function TaskBody({
     state.members.filter((m) => m.profile?.status !== 'rejected').map((m) => m.user_id),
     state.roleOf,
   )
+  // QA and the project manager pass or send back a task that is waiting in QA.
+  const waitingForQa =
+    !readOnly &&
+    (state.myRole === 'qa' || state.myRole === 'pm') &&
+    inQa(task, stagesOf(state.project.stages), state.project.qa_stage)
   const canAttach = !readOnly && (holds || state.can('edit_files'))
   // Archiving: whoever added the task, at any point, or someone who manages tasks.
   const canDelete = !readOnly && (canManage || createdByMe)
@@ -174,6 +180,12 @@ function TaskBody({
         </div>
       )}
       <div className="space-y-6">
+        {waitingForQa && (
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line surface-sunken px-4 py-3">
+            <p className="text-[13px] text-ink">This task is waiting for QA.</p>
+            <QaActions taskId={task.id} title={task.title} onDone={() => Promise.all([state.reload(), load()]).then(() => {})} />
+          </section>
+        )}
         <TaskDetails state={state} taskId={task.id} canEdit={canEdit} onSaved={load} />
 
         <section>

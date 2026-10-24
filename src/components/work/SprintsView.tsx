@@ -4,6 +4,7 @@ import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
 import { Icon } from '../ui/Icon'
+import { BugBadge } from '../general/BugBadge'
 import { Burndown } from './Burndown'
 import { FinishSprintDialog } from './FinishSprintDialog'
 import { useNow } from '../../hooks/useNow'
@@ -92,14 +93,15 @@ export function SprintsView({ source, onPlan }: { source: WorkSource; onPlan: ()
                         </h4>
                         <ul className="mt-2 space-y-1">
                           {column.map((i) => (
-                            <li key={i.id}>
+                            <li key={i.id} className="flex min-w-0 items-center gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => source.openTask(i.id)}
-                                className={`block w-full truncate text-left text-[13px] hover:underline ${i.status === 'done' ? 'text-muted line-through' : 'text-ink'}`}
+                                className={`min-w-0 truncate text-left text-[13px] hover:underline ${i.status === 'done' ? 'text-muted line-through' : 'text-ink'}`}
                               >
                                 {i.title}
                               </button>
+                              <BugBadge kind={i.kind} />
                             </li>
                           ))}
                           {column.length === 0 && <li className="text-[12px] text-faint">Nothing here</li>}
@@ -146,10 +148,11 @@ export function SprintsView({ source, onPlan }: { source: WorkSource; onPlan: ()
                     {s.goal && <p className="mt-2 text-[13px] text-muted">{s.goal}</p>}
                     <ul className="mt-2 space-y-1">
                       {doneItems.map((i) => (
-                        <li key={i.id}>
+                        <li key={i.id} className="flex items-center gap-1.5">
                           <button type="button" onClick={() => source.openTask(i.id)} className="text-left text-[13px] text-ink hover:underline">
                             {i.title}
                           </button>
+                          <BugBadge kind={i.kind} />
                         </li>
                       ))}
                       {doneItems.length === 0 && <li className="text-[12px] text-faint">Nothing was finished in it.</li>}

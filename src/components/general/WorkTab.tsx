@@ -2,10 +2,11 @@
 import { useSearchParams } from 'react-router-dom'
 import { BacklogView } from '../work/BacklogView'
 import { MilestonesView } from '../work/MilestonesView'
+import { QaQueue } from '../work/QaQueue'
 import { SprintsView } from '../work/SprintsView'
 import { WorkNav } from '../work/WorkNav'
 import { readScope } from '../../lib/work/scope'
-import { taskLayout, withWork, workSection } from '../../lib/work/nav'
+import { taskLayout, withWork, workSection, workSectionsFor } from '../../lib/work/nav'
 import { TaskDialog } from './TaskDialog'
 import { TasksTab } from './TasksTab'
 import { WorkSummary } from './WorkSummary'
@@ -19,7 +20,10 @@ import { generalMilestoneSource, generalWorkSource } from './workSource'
  */
 export function WorkTab({ state }: { state: GeneralProjectState }) {
   const [params, setParams] = useSearchParams()
-  const section = workSection(params, 'tasks')
+  const sections = workSectionsFor({ hasQa: Boolean(state.project?.has_qa), role: state.myRole })
+  const asked = workSection(params, 'tasks')
+  // A link to the queue of a project that has no QA lands on Tasks.
+  const section = sections.includes(asked) ? asked : 'tasks'
   const layout = taskLayout(params)
 
   const showTask = (id: string | null) => {
@@ -37,7 +41,7 @@ export function WorkTab({ state }: { state: GeneralProjectState }) {
 
   return (
     <div className="space-y-5">
-      <WorkNav active={section} onChange={(s) => setParams(withWork(params, { section: s }))} />
+      <WorkNav sections={sections} active={section} onChange={(s) => setParams(withWork(params, { section: s }))} />
       {section === 'summary' ? (
         <WorkSummary
           state={state}
@@ -48,6 +52,8 @@ export function WorkTab({ state }: { state: GeneralProjectState }) {
         <BacklogView source={source} />
       ) : section === 'sprints' ? (
         <SprintsView source={source} onPlan={() => setParams(withWork(params, { section: 'backlog' }))} />
+      ) : section === 'qa' ? (
+        <QaQueue state={state} onOpenTask={showTask} />
       ) : section === 'milestones' ? (
         <MilestonesView source={generalMilestoneSource(state, showTask)} />
       ) : (

@@ -1,11 +1,15 @@
 import { Spinner } from '../ui/Icon'
 import { WorkNav } from '../work/WorkNav'
+import { workSectionsFor } from '../../lib/work/nav'
 import { EmptyState } from '../ui/EmptyState'
 import { ProfessorTasksView } from './ProfessorTasksView'
 import { StudentTasksView } from './StudentTasksView'
 import type { ProjectTasks } from './useProjectTasks'
 import { isReleased } from '../../lib/types'
 import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
+
+/** A class project's Work has no QA. */
+const CLASS_SECTIONS = workSectionsFor({ hasQa: false, role: null })
 
 /**
  * Work inside one project: Summary and Tasks. A student sees their own board; a professor sees
@@ -63,7 +67,7 @@ export function ProjectTasksTab({
 
   return (
     <div className="space-y-5">
-      <WorkNav active={t.section} onChange={t.setSection} />
+      <WorkNav sections={CLASS_SECTIONS} active={t.section} onChange={t.setSection} />
       {t.isProfessor ? (
         <ProfessorTasksView project={project} role={role} viewerId={viewerId} t={t} />
       ) : (

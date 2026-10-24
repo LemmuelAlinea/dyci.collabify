@@ -26,9 +26,9 @@ function stageName(status: GeneralTaskStatus | undefined) {
 }
 
 /** A title in a log line, short enough to read at a glance. */
-function shorten(text: string) {
+function shorten(text: string, max = 60) {
   const t = text.trim()
-  return t.length > 60 ? `${t.slice(0, 57)}…` : t
+  return t.length > max ? `${t.slice(0, max - 3)}…` : t
 }
 
 /** One line of a task's history, as a sentence. */
@@ -80,6 +80,12 @@ export function describeEvent(event: GeneralTaskEvent, nameOf: (id: string) => s
       return subject === event.actor_id
         ? `${actor} released this task`
         : `${actor} took ${subject ? nameOf(subject) : 'somebody'} off it`
+    case 'qa_passed':
+      return `${actor} passed it`
+    case 'qa_sent_back': {
+      const note = event.detail.note?.trim()
+      return note ? `${actor} sent it back: ${shorten(note, 120)}` : `${actor} sent it back`
+    }
   }
 }
 
@@ -134,6 +140,10 @@ export function describeActivity(e: ActivityEvent) {
       return e.subject_name && e.subject_name === e.actor_name
         ? `${actor} released ${task}`
         : `${actor} took ${subject} off ${task}`
+    case 'qa_passed':
+      return `${actor} passed ${task}`
+    case 'qa_sent_back':
+      return `${actor} sent ${task} back`
     case 'comment':
       return `${actor} commented on ${task}`
     case 'time_logged': {
@@ -197,7 +207,7 @@ export function describeActivity(e: ActivityEvent) {
 
 /** The kinds a report's activity filter offers, grouped the way the chips show them. */
 export const ACTIVITY_KINDS: { label: string; kinds: string[] }[] = [
-  { label: 'Tasks', kinds: ['created', 'updated', 'assigned', 'unassigned', 'task_archived', 'task_restored'] },
+  { label: 'Tasks', kinds: ['created', 'updated', 'assigned', 'unassigned', 'qa_passed', 'qa_sent_back', 'task_archived', 'task_restored'] },
   { label: 'Comments', kinds: ['comment'] },
   { label: 'Time', kinds: ['time_logged'] },
   { label: 'Files', kinds: ['file_added', 'file_archived'] },

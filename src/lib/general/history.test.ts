@@ -225,6 +225,35 @@ function activity(over: Partial<ActivityEvent>): ActivityEvent {
   }
 }
 
+describe('describeEvent on QA', () => {
+  it('says QA passed it', () => {
+    expect(describeEvent(event({ kind: 'qa_passed' }), nameOf)).toBe('Ana Reyes passed it')
+  })
+
+  it('says QA sent it back, with the note', () => {
+    expect(
+      describeEvent(event({ kind: 'qa_sent_back', detail: { note: 'The form loses its data on refresh.' } }), nameOf),
+    ).toBe('Ana Reyes sent it back: The form loses its data on refresh.')
+  })
+
+  it('still reads when the note is missing', () => {
+    expect(describeEvent(event({ kind: 'qa_sent_back' }), nameOf)).toBe('Ana Reyes sent it back')
+  })
+
+  it('keeps a long note to one line', () => {
+    const line = describeEvent(event({ kind: 'qa_sent_back', detail: { note: 'x'.repeat(500) } }), nameOf)
+    expect(line.length).toBeLessThan(160)
+    expect(line.endsWith('…')).toBe(true)
+  })
+})
+
+describe('describeActivity on QA', () => {
+  it('names the task QA passed or sent back', () => {
+    expect(describeActivity(activity({ kind: 'qa_passed', task_title: 'Login' }))).toBe('Ben Cruz passed "Login"')
+    expect(describeActivity(activity({ kind: 'qa_sent_back', task_title: 'Login' }))).toBe('Ben Cruz sent "Login" back')
+  })
+})
+
 describe('describeActivity on project roles', () => {
   it('says what role somebody now has, in the role labels', () => {
     expect(describeActivity(activity({ detail: { from: 'member', to: 'coordinator' } }))).toBe(

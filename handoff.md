@@ -3824,3 +3824,49 @@ Both start with "zz test".
 - New in this task: `allStakeholder` looks at projects only, so a stakeholder who also sits in a work space as a member still gets the slim rail. `my_stakeholder_projects()` returns the space's name even to someone who is not in the space, because the project names it.
 
 **Next.** Phase 4, QA: the QA role (stored but refused today), what it can do on a project, and its place in the rail, per the spec's Rollout. After it, a pass over the roles' copy and the "Coming later" captions in Who can do what.
+
+
+## Company roles, phase 4: QA (2026-10-25)
+
+- **Spec:** `docs/superpowers/specs/2026-10-23-company-roles-design.md` (QA). **Plan:** `docs/superpowers/plans/2026-10-24-company-roles-phase-4-qa.md`. Phase 4 is complete and live (commits `4f30a03`, `8a13928`, `4bebeae`, `b77d184` and the QA queue commit after them). It was the last phase of company roles: the spec is fully shipped.
+
+**What.** QA is the project role that tests finished work before it counts as done.
+
+- **The QA stage.** The project manager names it in the project's details (`general_projects.qa_stage`, a middle stage). Left unset it is a stage called Testing, else the one before the last. A stage list change that drops it clears it.
+- **The gate.** While a work project has active QA (somebody active holds the qa role), only QA and the project manager move a task out of the QA stage forward, and only they mark one done or put it in the last stage from an earlier one, by stage or by status. Everybody else, coordinators included, is refused ("Only QA or the project manager can mark a task done while this project has QA."), and the app hides those moves. With no QA member the gate is off.
+- **Pass and Send back.** QA and the project manager see tasks waiting in the QA stage in the Work tab's QA queue (longest waiting first, with the Bug badge, holders and how long each has waited) and in the task dialog. Pass moves the task to the last stage. Send back asks for a note (1 to 2000 characters), moves it to the stage before QA, posts the note as a comment and tells the holders (`task_sent_back`, which opens the task). Both are in the task's history ("passed it", "sent it back: note"). Everyone on the project reads the queue; the section shows once the project has QA, and always for QA and the project manager.
+- **Bug tasks.** QA creates tasks of kind `bug` only, never changes a kind and holds no tasks (becoming QA lets go of the ones held). The Bug badge shows on the board, list, Backlog, Sprints, the queue and the task dialog.
+- **Home.** A person who is QA on a live work project gets a fifth tile, "Waiting for QA", the sum of what waits in their projects, linking to the one with the most at `?tab=work&work=qa`.
+- **Roles.** The project manager sets and invites QA; a coordinator switches people among Member, QA and Stakeholder. QA is no longer refused.
+
+**Code.**
+
+| File | What it does |
+|---|---|
+| `supabase/project-qa.sql` | Task `kind` and `qa_entered_at`, `qa_stage` and its helpers, `general_project_has_qa`, the QA write rules (bug tasks only, no holding), the gate in `sync_general_task_stage`, `qa_pass_general_task`, `qa_send_back_general_task`, `my_qa_queue()`, the `qa_passed` and `qa_sent_back` event kinds, the `task_sent_back` notification, and `has_qa` on `general_project_overview`. Test: `supabase/tests/project-qa.test.sql` (116 checks). |
+| `lib/work/qa.ts`, `lib/work/nav.ts` | `qaStageIndex`, `inQa`, `qaBlocks` and `carryQaStage` (mirrors of the SQL); `queueOrder` (oldest first, no entry time last), `waitedFor`, `qaTile`; the `qa` Work section and `workSectionsFor`. |
+| `components/work/QaQueue.tsx`, `QaActions.tsx`, `lib/api/qa.ts` | The queue, Pass and the Send back dialog, and the three RPC calls. A refusal shows as a toast. |
+| `components/general/TaskDialog.tsx`, `WorkTab.tsx`, `work/WorkNav.tsx`, `WorkOverview.tsx`, `dashboard/DashboardSummary.tsx` | Pass and Send back in the dialog; the QA section; the Home tile (the band lays out five tiles in five columns). |
+| `components/general/BugBadge.tsx`, `work/BacklogView.tsx`, `SprintsView.tsx` | The Bug badge on Backlog and Sprints rows; on the dialog banner it takes the banner's ink with a danger dot instead of a solid red chip. |
+| `lib/general/history.ts`, `lib/general/types.ts`, `lib/types.ts`, `components/app/NotificationBell.tsx` | The two history lines (and report timeline lines), the event and notification types. The bell sends `task_sent_back` to the task through its default route. |
+
+**Checked.**
+- Vitest 1167 pass; `npm run build` clean; `eslint src` shows only the old warning in `RoleBadge.tsx`. `project-qa.test.sql` passes (116) against the live database.
+- The queue, Pass, the Send back dialog, the banner chip and the five-tile Home band were checked in a temporary mocked harness (deleted) at desktop and 375 px, in light and dark, with the empty state, a read-only viewer and a long title; no sideways scroll. The harness blocks network requests, so nothing there wrote to the live database. There is no QA account on the live site yet.
+
+**Still to check by you.**
+1. Make a test account QA on Capstone 2 (it has a Testing stage): the pm sets the role on the Members tab. The account must be a member.
+2. As a holder, move a task to Testing, then try Mark done or the Completed stage: it is refused (and not offered in the stage picker).
+3. As QA: open the QA queue in Work, Pass one task (it lands in the last stage; History says "passed it"), and Send back another with a note. The holder gets a notification that opens the task, and the note is a comment.
+4. As QA, raise a bug task (Bug badge) and check QA cannot take any task. Home shows the Waiting for QA tile and links to the queue.
+
+**Deferred** (from the ledger):
+- Tests: no check yet for the project manager switching themselves to QA, for the `general_qa_stage_pick` flag-off case, or that a move to the QA stage clears grants. Some comments in `project-qa.sql` and `docs/07-backup.md` still say the app does not read `kind` (it does now).
+- A coordinator can lift the gate by switching the only QA member to another role (role-management power, accepted).
+- QA can move a task back without a note with a plain move; Send back is the noted path.
+- A send back may also send a `general_comment_posted` notification to a holder with comment notifications on, besides `task_sent_back` (a duplicate ping).
+- `qa_entered_at` was not backfilled, so a task already in QA before it existed shows "Waiting since before the queue kept time" and sorts last until it moves.
+- With QA on, holders cannot mark their own tasks done (intended); there is no per-project switch for it beyond having no QA member.
+- `NotificationBell.destination` is not exported, so the `task_sent_back` route has no unit test.
+
+**Next.** Company roles are complete. Nothing is queued: open work is the Deferred lists in this file, then whatever you ask for next.

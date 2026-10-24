@@ -100,7 +100,7 @@ export function DashboardSummary({
   /** One sentence of what is true right now, built by the page from its own data. */
   line: string
   urgent?: boolean
-  /** The Home dashboards' four counts. Every other page shows the band alone. */
+  /** The Home dashboards' four counts (five for somebody who is QA somewhere). Every other page shows the band alone. */
   tiles?: Tile[]
 }) {
   return (
@@ -174,7 +174,9 @@ export function DashboardSummary({
       </div>
 
       {tiles && tiles.length > 0 && (
-        <div className="relative mt-5 grid w-full grid-cols-4 gap-1.5 sm:mt-7 sm:gap-3">
+        <div
+          className={`relative mt-5 grid w-full gap-1.5 sm:mt-7 sm:gap-3 ${tiles.length === 5 ? 'grid-cols-5' : 'grid-cols-4'}`}
+        >
           {tiles.map((t) => {
             const body = (
               <>

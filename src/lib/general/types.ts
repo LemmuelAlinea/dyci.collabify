@@ -352,7 +352,7 @@ export type GeneralTaskEvent = {
   task_id: string
   project_id: string
   actor_id: string | null
-  kind: 'created' | 'updated' | 'assigned' | 'unassigned'
+  kind: 'created' | 'updated' | 'assigned' | 'unassigned' | 'qa_passed' | 'qa_sent_back'
   /**
    * What the change was. The short fields carry what they changed from, so the
    * history answers "what did it used to say" rather than only "this moved".
@@ -372,6 +372,8 @@ export type GeneralTaskEvent = {
     starts_to?: string | null
     weight_from?: number
     weight_to?: number
+    /** What QA asked to have fixed, on a qa_sent_back event. */
+    note?: string
   }
   created_at: string
 }

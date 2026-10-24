@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { taskLayout, withWork, workSection } from './nav'
+import { taskLayout, withWork, workSection, workSectionsFor, WORK_SECTIONS } from './nav'
 
 const p = (q: string) => new URLSearchParams(q)
 
@@ -37,6 +37,37 @@ describe('workSection', () => {
     expect(workSection(p('work=backlog'), 'tasks')).toBe('backlog')
     expect(workSection(p('work=sprints'), 'tasks')).toBe('sprints')
     expect(workSection(p('work=milestones'), 'tasks')).toBe('milestones')
+  })
+
+  it('reads the QA queue', () => {
+    expect(WORK_SECTIONS).toContain('qa')
+    expect(workSection(p('tab=work&work=qa'), 'tasks')).toBe('qa')
+  })
+})
+
+describe('workSectionsFor', () => {
+  it('leaves the QA queue out of a project without QA', () => {
+    expect(workSectionsFor({ hasQa: false, role: 'member' })).not.toContain('qa')
+    expect(workSectionsFor({ hasQa: false, role: 'coordinator' })).not.toContain('qa')
+  })
+
+  it('lists the QA queue once the project has QA', () => {
+    expect(workSectionsFor({ hasQa: true, role: 'member' })).toContain('qa')
+    expect(workSectionsFor({ hasQa: true, role: null })).toContain('qa')
+  })
+
+  it('lists it for QA and the project manager even before the project has QA', () => {
+    expect(workSectionsFor({ hasQa: false, role: 'qa' })).toContain('qa')
+    expect(workSectionsFor({ hasQa: false, role: 'pm' })).toContain('qa')
+  })
+
+  it('keeps the other sections in order, with the queue last', () => {
+    expect(workSectionsFor({ hasQa: true, role: 'qa' })).toEqual([
+      'summary', 'backlog', 'sprints', 'tasks', 'milestones', 'qa',
+    ])
+    expect(workSectionsFor({ hasQa: false, role: 'member' })).toEqual([
+      'summary', 'backlog', 'sprints', 'tasks', 'milestones',
+    ])
   })
 })
 

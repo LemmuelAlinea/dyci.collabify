@@ -1,3 +1,5 @@
+import type { ProjectRole } from '../general/permissions'
+
 /**
  * Where you are inside a project's Work tab, kept in the address so a link,
  * a reload or the back button lands on the same section and layout.
@@ -6,10 +8,20 @@
  * their own keys because `view` is already taken by the Files tab
  * (`?tab=files&view=draft`).
  */
-export type WorkSection = 'summary' | 'backlog' | 'sprints' | 'tasks' | 'milestones'
+export type WorkSection = 'summary' | 'backlog' | 'sprints' | 'tasks' | 'milestones' | 'qa'
 export type TaskLayout = 'board' | 'list' | 'timeline' | 'calendar'
 
-export const WORK_SECTIONS: readonly WorkSection[] = ['summary', 'backlog', 'sprints', 'tasks', 'milestones']
+export const WORK_SECTIONS: readonly WorkSection[] = ['summary', 'backlog', 'sprints', 'tasks', 'milestones', 'qa']
+
+/**
+ * The sections this viewer is offered. The QA queue shows once the project has
+ * active QA, and for QA and the project manager even before it does, so they
+ * can see where it will appear.
+ */
+export function workSectionsFor(gate: { hasQa: boolean; role: ProjectRole | null }): readonly WorkSection[] {
+  const queue = gate.hasQa || gate.role === 'qa' || gate.role === 'pm'
+  return queue ? WORK_SECTIONS : WORK_SECTIONS.filter((s) => s !== 'qa')
+}
 export const TASK_LAYOUTS: readonly TaskLayout[] = ['board', 'list', 'timeline', 'calendar']
 
 /** The tab names Work replaced. Links written before it still arrive with them. */

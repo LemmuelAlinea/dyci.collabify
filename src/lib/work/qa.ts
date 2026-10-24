@@ -82,3 +82,48 @@ export function qaBlocks(
   const qa = qaStageIndex(stages, qaStage)
   return (from === qa && to > qa) || (to === last && from !== last)
 }
+
+/**
+ * The QA queue's order: the task that has waited longest first. A task with no
+ * entry time (it was already in QA before qa_entered_at existed) goes last, in
+ * the order it came. Returns a new array.
+ */
+export function queueOrder<T extends { qa_entered_at?: string | null }>(tasks: readonly T[]): T[] {
+  const at = (t: T) => (t.qa_entered_at ? new Date(t.qa_entered_at).getTime() : null)
+  return [...tasks].sort((a, b) => {
+    const x = at(a)
+    const y = at(b)
+    if (x === null || y === null) return x === y ? 0 : x === null ? 1 : -1
+    return x - y
+  })
+}
+
+/** How long a task has sat in QA, as a line under its title. */
+export function waitedFor(enteredAt: string | null | undefined, now: number): string {
+  if (!enteredAt) return 'Waiting since before the queue kept time'
+  const hours = Math.floor(Math.max(0, now - new Date(enteredAt).getTime()) / 3_600_000)
+  if (hours < 1) return 'Waiting under an hour'
+  if (hours < 24) return `Waiting ${hours} ${hours === 1 ? 'hour' : 'hours'}`
+  const days = Math.floor(hours / 24)
+  return `Waiting ${days} ${days === 1 ? 'day' : 'days'}`
+}
+
+/** One row of my_qa_queue(): a work project where the caller is QA. */
+export type QaQueueRow = {
+  project_id: string
+  name: string
+  qa_stage_name: string
+  waiting: number
+  oldest_entered_at: string | null
+}
+
+/**
+ * Home's "Waiting for QA" figures: everything waiting across the caller's
+ * projects, and the project with the most waiting (the first of them when
+ * tied), which the tile links to. Null when nothing is waiting anywhere.
+ */
+export function qaTile(rows: readonly QaQueueRow[]): { total: number; busiest: QaQueueRow | null } {
+  const total = rows.reduce((n, r) => n + r.waiting, 0)
+  const busiest = rows.reduce<QaQueueRow | null>((best, r) => (r.waiting > (best?.waiting ?? 0) ? r : best), null)
+  return { total, busiest }
+}
