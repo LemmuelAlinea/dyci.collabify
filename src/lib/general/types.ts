@@ -210,6 +210,9 @@ export type GeneralPosition = {
 
 export type GeneralPositionHolder = { position_id: string; project_id: string; user_id: string }
 
+/** A skill tag a work project member lists (general_member_skills). */
+export type GeneralMemberSkill = { project_id: string; user_id: string; tag: string; created_at: string }
+
 export type GeneralGrant = {
   project_id: string
   user_id: string

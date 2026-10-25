@@ -32,6 +32,7 @@ import { InvitePanel } from './InvitePanel'
 import { RequestsPanel } from './RequestsPanel'
 import { RoleBadge } from './RoleBadge'
 import { RoleGuide } from './RoleGuide'
+import { SkillTags } from './SkillTags'
 import { StructurePanel } from './StructurePanel'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -94,6 +95,8 @@ function MemberList({ state }: { state: GeneralProjectState }) {
       .filter(Boolean) as string[]
 
   const me = state.me
+  // Skill tags are for work projects; a class board's Files project has none.
+  const work = !project.class_board_id
 
   return (
     <section className="overflow-hidden rounded-panel border border-line surface">
@@ -162,6 +165,8 @@ function MemberList({ state }: { state: GeneralProjectState }) {
                   </button>
                 )}
               </div>
+
+              {work && <SkillTags state={state} member={m} />}
             </li>
           )
         })}

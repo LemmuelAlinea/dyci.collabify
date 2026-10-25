@@ -9,6 +9,7 @@ import {
   listFields,
   listGeneralMembers,
   listGrants,
+  listMemberSkills,
   listPositionHolders,
   listPositions,
   listTasks,
@@ -29,6 +30,7 @@ import type {
   GeneralFieldValue,
   GeneralGrant,
   GeneralMember,
+  GeneralMemberSkill,
   GeneralPosition,
   GeneralPositionHolder,
   GeneralProjectSummary,
@@ -50,6 +52,8 @@ export type GeneralProjectState = {
   teamMembers: GeneralTeamMember[]
   positions: GeneralPosition[]
   holders: GeneralPositionHolder[]
+  /** Work project members' skill tags, oldest first. */
+  skills: GeneralMemberSkill[]
   fields: GeneralField[]
   values: GeneralFieldValue[]
   tasks: GeneralTask[]
@@ -97,6 +101,8 @@ export type GeneralProjectState = {
   /** Who may commit to Main and who decides it, from the server. */
   commitRights: CommitRights
   nameOf: (userId: string) => string
+  /** A member's skill tags in this project, oldest first. */
+  skillsOf: (userId: string) => string[]
   /**
    * Whether the QA gate refuses moving a task from one stage index to another
    * for the viewer: in a project with QA, only the project manager, or QA from
@@ -124,6 +130,7 @@ export function useGeneralProject(
   const [teamMembers, setTeamMembers] = useState<GeneralTeamMember[]>([])
   const [positions, setPositions] = useState<GeneralPosition[]>([])
   const [holders, setHolders] = useState<GeneralPositionHolder[]>([])
+  const [skills, setSkills] = useState<GeneralMemberSkill[]>([])
   const [fields, setFields] = useState<GeneralField[]>([])
   const [values, setValues] = useState<GeneralFieldValue[]>([])
   const [tasks, setTasks] = useState<GeneralTask[]>([])
@@ -150,6 +157,7 @@ export function useGeneralProject(
         setTeamMembers([])
         setPositions([])
         setHolders([])
+        setSkills([])
         setFields([])
         setValues([])
         setTasks([])
@@ -159,7 +167,7 @@ export function useGeneralProject(
         setError(null)
         return
       }
-      const [m, g, r, t, tm, p, h, f, tk, sp, ms, cr] = await Promise.all([
+      const [m, g, r, t, tm, p, h, sk, f, tk, sp, ms, cr] = await Promise.all([
         listGeneralMembers(projectId),
         listGrants(projectId),
         listAccessRequests(projectId),
@@ -167,6 +175,7 @@ export function useGeneralProject(
         listTeamMembers(projectId),
         listPositions(projectId),
         listPositionHolders(projectId),
+        listMemberSkills(projectId),
         listFields(projectId),
         listTasks(projectId),
         listSprints({ kind: 'work', projectId }),
@@ -180,6 +189,7 @@ export function useGeneralProject(
       setTeamMembers(tm)
       setPositions(p)
       setHolders(h)
+      setSkills(sk)
       setFields(f)
       setTasks(tk)
       setSprints(sp)
@@ -210,6 +220,7 @@ export function useGeneralProject(
     'general_team_members',
     'general_positions',
     'general_position_holders',
+    'general_member_skills',
     'general_fields',
     'general_field_values',
     'general_tasks',
@@ -240,6 +251,8 @@ export function useGeneralProject(
       members.map((m) => [m.user_id, m.profile ? fullName(m.profile) : 'A member']),
     )
     const { roleOf, isLead } = roleLookup(members, teams)
+    const tagsBy = new Map<string, string[]>()
+    for (const s of skills) tagsBy.set(s.user_id, [...(tagsBy.get(s.user_id) ?? []), s.tag])
     return {
       project,
       members,
@@ -249,6 +262,7 @@ export function useGeneralProject(
       teamMembers,
       positions,
       holders,
+      skills,
       fields,
       values,
       tasks,
@@ -281,8 +295,9 @@ export function useGeneralProject(
       isLead,
       commitRights,
       nameOf: (userId: string) => names.get(userId) ?? 'A former member',
+      skillsOf: (userId: string) => tagsBy.get(userId) ?? [],
       qaBlocks: (from: number, to: number) =>
         qaBlocks({ hasQa: Boolean(project?.has_qa), role: myRole }, project?.stages, project?.qa_stage, from, to),
     }
-  }, [project, members, grants, requests, teams, teamMembers, positions, holders, fields, values, tasks, sprints, milestones, loading, error, reload, viewerId, commitRights])
+  }, [project, members, grants, requests, teams, teamMembers, positions, holders, skills, fields, values, tasks, sprints, milestones, loading, error, reload, viewerId, commitRights])
 }

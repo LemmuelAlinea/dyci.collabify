@@ -27,6 +27,7 @@ import type {
   GeneralGrant,
   GeneralLog,
   GeneralMember,
+  GeneralMemberSkill,
   GeneralPosition,
   GeneralPositionHolder,
   GeneralProject,
@@ -745,6 +746,41 @@ export async function removePositionHolder(positionId: string, userId: string) {
     .select('position_id')
   if (error) throw error
   changed(data, NO_STRUCTURE)
+}
+
+/* ---------------------------------------------------------------- skills */
+
+const NO_SKILL =
+  'That skill was not removed. It may already be gone, the project may be archived, or you may no longer have permission to change it. Reload to see where things stand.'
+
+export async function listMemberSkills(projectId: string) {
+  const { data, error } = await supabase
+    .from('general_member_skills')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at')
+  if (error) throw error
+  return (data ?? []) as GeneralMemberSkill[]
+}
+
+/** `tag` must already be normalized (lib/general/skills.ts); the database refuses one that isn't. */
+export async function addMemberSkill(projectId: string, userId: string, tag: string) {
+  const { error } = await supabase
+    .from('general_member_skills')
+    .insert({ project_id: projectId, user_id: userId, tag })
+  if (error) throw error
+}
+
+export async function removeMemberSkill(projectId: string, userId: string, tag: string) {
+  const { data, error } = await supabase
+    .from('general_member_skills')
+    .delete()
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+    .eq('tag', tag)
+    .select('tag')
+  if (error) throw error
+  changed(data, NO_SKILL)
 }
 
 /* ---------------------------------------------------------------- fields */
