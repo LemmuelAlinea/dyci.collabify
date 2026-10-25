@@ -105,6 +105,7 @@ export type MySpaceInvitation = {
   inviter_last_name: string | null
   inviter_avatar_url: string | null
   created_at: string
+  invited_level: GeneralLevel
 }
 
 /** list_general_space_invitations. */
@@ -116,6 +117,7 @@ export type SpaceInvitation = {
   invitee_avatar_url: string | null
   invited_by: string | null
   created_at: string
+  invited_level: GeneralLevel
 }
 
 /** general_project_overview: one row per project the viewer is on. */

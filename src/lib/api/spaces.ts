@@ -2,9 +2,8 @@
 /**
  * Every call a space makes.
  *
- * A space holds projects. Everyone in it reads every project inside; writing
- * still goes through project membership, so nothing here grants edit rights to
- * anything — see can_read_general_project in supabase/general-spaces.sql.
+ * Space members see their own projects; space Owners can read every project.
+ * Project membership still controls writes — see project-visibility.sql.
  *
  * Membership, levels, invitations, join codes, archiving and deletion go through RPCs:
  * general_spaces has no write policy at all, so there is no path that could set
@@ -119,6 +118,14 @@ export async function searchFaculty(query: string) {
 
 export async function inviteToSpace(spaceId: string, userId: string) {
   const { error } = await supabase.rpc('invite_to_general_space', {
+    p_space: spaceId,
+    p_user: userId,
+  })
+  if (error) throw error
+}
+
+export async function inviteSpaceMember(spaceId: string, userId: string): Promise<void> {
+  const { error } = await supabase.rpc('invite_general_space_member', {
     p_space: spaceId,
     p_user: userId,
   })

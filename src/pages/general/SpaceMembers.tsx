@@ -15,6 +15,7 @@ import { useLive } from '../../hooks/useLive'
 import { forgetSpace } from '../../hooks/useSpaces'
 import { searchProjectManagers } from '../../lib/api/general'
 import {
+  inviteSpaceMember,
   listSpaceInvitations,
   listSpaceMembers,
   removeSpaceMember,
@@ -28,8 +29,7 @@ import type { SpaceInvitation, SpacePerson } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
 
 /**
- * Who is in a space, and its one door: an Owner adds a co-owner, who must have
- * Project manager turned on. Everybody else comes in through a project.
+ * Owners invite members or co-owners, who need Project manager turned on.
  *
  * The levels here decide only what somebody may do to the space itself —
  * rename it, add co-owners, archive it (Settings). A space Owner who is not on
@@ -52,6 +52,7 @@ export default function SpaceMembers() {
   const [invites, setInvites] = useState<SpaceInvitation[]>([])
   const [pageError, setPageError] = useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [memberInviteOpen, setMemberInviteOpen] = useState(false)
   const [removing, setRemoving] = useState<SpacePerson | null>(null)
   const [leaving, setLeaving] = useState(false)
 
@@ -59,7 +60,7 @@ export default function SpaceMembers() {
   const canInvite = !archived && (space?.my_level === 'owner' || space?.my_level === 'manager')
   const isOwner = space?.my_level === 'owner'
   const canManageLevels = isOwner && !archived
-  // A work space's only invite. A class's space keeps its own (FacultyPanel).
+  // A class's space keeps its own invites (FacultyPanel).
   const canAddCoOwner = isOwner && !archived && space?.kind === 'work'
   // Owners only in a work space; a class's space lets its Managers see them too.
   const seesInvites =
@@ -150,6 +151,12 @@ export default function SpaceMembers() {
         </p>
         <div className="flex flex-wrap gap-2">
           {canAddCoOwner && (
+            <Button size="sm" onClick={() => setMemberInviteOpen(true)}>
+              <Icon name="plus" size={15} />
+              Invite a member
+            </Button>
+          )}
+          {canAddCoOwner && (
             <Button size="sm" onClick={() => setInviteOpen(true)}>
               <Icon name="plus" size={15} />
               Add a co-owner
@@ -191,6 +198,11 @@ export default function SpaceMembers() {
                   <span className="min-w-[10rem] flex-1 text-[14px]">
                     {i.invitee_first_name} {i.invitee_last_name}
                   </span>
+                  {space?.kind === 'work' && (
+                    <span className="text-[13px] text-muted">
+                      {i.invited_level === 'member' ? 'Member' : 'Co-owner (Owner)'}
+                    </span>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -218,7 +230,7 @@ export default function SpaceMembers() {
             Loading members…
           </div>
         ) : members.length === 0 ? (
-          <EmptyState icon="users" title="Nobody here yet" body="People join a space through its projects." />
+          <EmptyState icon="users" title="Nobody here yet" body="Invite people to this space or to one of its projects." />
         ) : (
           <section className="overflow-hidden rounded-panel border border-line">
             <header className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-5">
@@ -267,6 +279,16 @@ export default function SpaceMembers() {
           </Button>
         </section>
       </div>
+
+      <InviteToSpaceDialog
+        open={memberInviteOpen}
+        onClose={() => setMemberInviteOpen(false)}
+        spaceId={spaceId ?? ''}
+        onDone={load}
+        invite={inviteSpaceMember}
+        title="Invite a member"
+        description="They join this space as a Member. Joining a space does not grant project access; invite them to projects separately."
+      />
 
       <InviteToSpaceDialog
         open={inviteOpen}

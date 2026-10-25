@@ -15,6 +15,7 @@ export function InviteToSpaceDialog({
   spaceId,
   onDone,
   search = searchPeople,
+  invite = inviteToSpace,
   title = 'Invite to this space',
   description = 'They will be able to see every project in it.',
   noMatch = 'Nobody by that name.',
@@ -24,6 +25,7 @@ export function InviteToSpaceDialog({
   spaceId: string
   onDone: () => Promise<void>
   search?: (query: string) => Promise<PersonHit[]>
+  invite?: (spaceId: string, userId: string) => Promise<void>
   title?: string
   description?: string
   /** What an empty search says. */
@@ -47,10 +49,10 @@ export function InviteToSpaceDialog({
     return () => clearTimeout(t)
   }, [query, open, search])
 
-  async function invite(person: PersonHit) {
+  async function invitePerson(person: PersonHit) {
     setBusy(person.person_id)
     try {
-      await inviteToSpace(spaceId, person.person_id)
+      await invite(spaceId, person.person_id)
       show(`${person.first_name} was invited`)
       await onDone()
       onClose()
@@ -95,7 +97,7 @@ export function InviteToSpaceDialog({
               <span className="flex-1 truncate text-[14px]">
                 {h.first_name} {h.last_name}
               </span>
-              <Button size="sm" loading={busy === h.person_id} onClick={() => void invite(h)}>
+              <Button size="sm" loading={busy === h.person_id} onClick={() => void invitePerson(h)}>
                 Invite
               </Button>
             </li>

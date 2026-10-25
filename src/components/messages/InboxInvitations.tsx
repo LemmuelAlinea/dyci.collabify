@@ -20,6 +20,7 @@ type Invite = {
   kind: 'Project' | 'Space' | 'Class'
   name: string
   description: string
+  access?: string
   inviter: { first_name: string; last_name: string; avatar_url: string | null } | null
   createdAt: string
   answer: (accept: boolean) => Promise<void>
@@ -62,6 +63,9 @@ export function InboxInvitations({ onAnswered }: { onAnswered?: () => void }) {
         kind: inv.space_kind === 'education' ? 'Class' : 'Space',
         name: inv.space_name,
         description: inv.space_description,
+        access: inv.space_kind === 'education'
+          ? undefined
+          : inv.invited_level === 'member' ? 'Member' : 'Co-owner (Owner)',
         inviter: inv.inviter_id
           ? {
               first_name: inv.inviter_first_name ?? '',
@@ -152,6 +156,7 @@ export function InboxInvitations({ onAnswered }: { onAnswered?: () => void }) {
                       >
                         {invite.kind}
                       </span>
+                      {invite.access && <span className="text-[12px] text-muted">{invite.access}</span>}
                     </p>
                     <p className="mt-0.5 text-[12px] text-muted">
                       {invite.inviter
@@ -161,6 +166,11 @@ export function InboxInvitations({ onAnswered }: { onAnswered?: () => void }) {
                         : 'You were invited'}
                       {invite.description ? ` · ${invite.description.slice(0, 90)}` : ''}
                     </p>
+                    {invite.kind === 'Space' && invite.access === 'Member' && (
+                      <p className="mt-0.5 text-[12px] text-muted">
+                        Joining a space does not grant project access.
+                      </p>
+                    )}
                   </div>
                   <div className="flex shrink-0 gap-2">
                     <Button
