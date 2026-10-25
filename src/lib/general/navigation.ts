@@ -14,6 +14,15 @@ export function generalTab(params: URLSearchParams): GeneralTabId {
   return TABS.has(value) ? value : 'overview'
 }
 
+export function milestoneParams(params: URLSearchParams, id: string): URLSearchParams {
+  const next = new URLSearchParams(params)
+  next.set('tab', 'work')
+  next.set('work', 'milestones')
+  next.set('milestone', id)
+  next.delete('task')
+  return next
+}
+
 export function spaceRouteId(pathname: string): string | null {
   const id = /^\/spaces\/([^/]+)/.exec(pathname)?.[1] ?? null
   return id === 'archive' ? null : id

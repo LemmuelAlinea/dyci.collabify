@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { chooseLandingSpace, generalTab, projectRouteId, spaceRouteId } from './navigation'
+import { chooseLandingSpace, generalTab, milestoneParams, projectRouteId, spaceRouteId } from './navigation'
+import { workSection } from '../work/nav'
 import type { GeneralSpaceSummary } from './types'
 
 const space = (
@@ -38,6 +39,22 @@ describe('general navigation', () => {
     expect(generalTab(new URLSearchParams('tab=tasks'))).toBe('work')
     expect(generalTab(new URLSearchParams('tab=progress'))).toBe('work')
     expect(generalTab(new URLSearchParams('tab=work'))).toBe('work')
+  })
+
+  it('links to a milestone without changing the source query', () => {
+    const params = new URLSearchParams('tab=project-progress&scope=a&task=t1')
+    const next = milestoneParams(params, 'm1')
+    expect(Object.fromEntries(next)).toEqual({ tab: 'work', scope: 'a', work: 'milestones', milestone: 'm1' })
+    expect(generalTab(next)).toBe('work')
+    expect(workSection(next, 'tasks')).toBe('milestones')
+    expect(params.toString()).toBe('tab=project-progress&scope=a&task=t1')
+  })
+
+  it('preserves legacy Work destinations', () => {
+    const progress = new URLSearchParams('tab=progress')
+    expect(generalTab(progress)).toBe('work')
+    expect(workSection(progress, 'tasks')).toBe('summary')
+    expect(generalTab(new URLSearchParams('tab=members&task=t1'))).toBe('work')
   })
 
   it('extracts only Space and project routes', () => {

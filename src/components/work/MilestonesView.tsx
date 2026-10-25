@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useReducedMotion } from 'motion/react'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
@@ -28,7 +28,7 @@ import type { Milestone, MilestoneSource } from '../../lib/work/types'
  * of its tagged tasks that are done; a professor sees that per group. Adding
  * a sprint tags every task in it, and any that join later.
  */
-export function MilestonesView({ source }: { source: MilestoneSource }) {
+export function MilestonesView({ source, selectedId }: { source: MilestoneSource; selectedId?: string | null }) {
   const now = useNow()
   const { show } = useToast()
   const [createKey, setCreateKey] = useState(0)
@@ -51,12 +51,17 @@ export function MilestonesView({ source }: { source: MilestoneSource }) {
     return () => window.clearTimeout(t)
   }, [flash])
 
-  function showCard(id: string) {
+  const showCard = useCallback((id: string) => {
     document
       .getElementById(`milestone-${id}`)
       ?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' })
     setFlash(id)
-  }
+  }, [still])
+
+  const selectedExists = source.milestones.some((m) => m.id === selectedId)
+  useEffect(() => {
+    if (selectedId && selectedExists) showCard(selectedId)
+  }, [selectedId, selectedExists, showCard])
 
   async function run(action: () => Promise<unknown>, failure: string) {
     try {

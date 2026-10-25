@@ -6,7 +6,7 @@ import { QaQueue } from '../work/QaQueue'
 import { SprintsView } from '../work/SprintsView'
 import { WorkNav } from '../work/WorkNav'
 import { readScope } from '../../lib/work/scope'
-import { taskLayout, withWork, workSection, workSectionsFor } from '../../lib/work/nav'
+import { taskLayout, withWork, workSection, workSectionsFor, type WorkSection } from '../../lib/work/nav'
 import { TaskDialog } from './TaskDialog'
 import { TasksTab } from './TasksTab'
 import { WorkSummary } from './WorkSummary'
@@ -26,6 +26,12 @@ export function WorkTab({ state }: { state: GeneralProjectState }) {
   const section = sections.includes(asked) ? asked : 'tasks'
   const layout = taskLayout(params)
 
+  const changeSection = (section: WorkSection) => {
+    const next = withWork(params, { section })
+    next.delete('milestone')
+    setParams(next)
+  }
+
   const showTask = (id: string | null) => {
     const next = new URLSearchParams(params)
     if (id) {
@@ -41,21 +47,21 @@ export function WorkTab({ state }: { state: GeneralProjectState }) {
 
   return (
     <div className="space-y-5">
-      <WorkNav sections={sections} active={section} onChange={(s) => setParams(withWork(params, { section: s }))} />
+      <WorkNav sections={sections} active={section} onChange={changeSection} />
       {section === 'summary' ? (
         <WorkSummary
           state={state}
           onOpenTask={showTask}
-          onSection={(s) => setParams(withWork(params, { section: s }))}
+          onSection={changeSection}
         />
       ) : section === 'backlog' ? (
         <BacklogView source={source} />
       ) : section === 'sprints' ? (
-        <SprintsView source={source} onPlan={() => setParams(withWork(params, { section: 'backlog' }))} />
+        <SprintsView source={source} onPlan={() => changeSection('backlog')} />
       ) : section === 'qa' ? (
         <QaQueue state={state} onOpenTask={showTask} />
       ) : section === 'milestones' ? (
-        <MilestonesView source={generalMilestoneSource(state, showTask)} />
+        <MilestonesView source={generalMilestoneSource(state, showTask)} selectedId={params.get('milestone')} />
       ) : (
         <TasksTab
           state={state}
