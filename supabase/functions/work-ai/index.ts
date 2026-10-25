@@ -7,6 +7,8 @@
 //   summarize-file   one file in Main -> its key points
 //   formula          a description of a sum -> an Excel formula
 //   ask              a question -> an answer from the project's files
+//   assign           open tasks, or drafted ones -> a position or skill per
+//                    task, then the least loaded person who holds it
 //
 // Same rules as the education functions: the key stays server-side, every read
 // goes through the caller's JWT so RLS decides what they may see, and nothing
@@ -22,6 +24,8 @@ import { extractText, getDocumentProxy } from 'npm:unpdf'
 import { strFromU8, unzipSync } from 'npm:fflate'
 import { encodeBase64 } from 'jsr:@std/encoding/base64'
 import { cors, corsMode, denied } from '../_shared/cors.ts'
+import { pickAssignees } from '../_shared/assignPick.ts'
+import type { AssignCandidate, AssignMatch, AssignTaskIn } from '../_shared/assignPick.ts'
 
 const MODEL = 'claude-opus-5'
 const BUCKET = 'general-files'
@@ -651,6 +655,133 @@ ${VOICE}`,
   }
 }
 
+type AssignContext = {
+  positions?: { id: string; name: string; team_id: string | null; team: string | null }[]
+  candidates?: { user_id: string; name: string; load: number; teams: string[]; positions: string[]; tags: string[] }[]
+  tasks?: { id: string; title: string; description: string; team_id: string | null }[]
+  left?: number
+}
+
+async function assignAction(ctx: Ctx) {
+  // The permission check: only the pm and coordinators, on a live work project.
+  const { data, error } = await ctx.caller.rpc('general_assign_context', { p_project: ctx.projectId })
+  if (error) throw new Refused(error.message, 403)
+  const context = (data ?? {}) as AssignContext
+  const positions = context.positions ?? []
+  const candidates: AssignCandidate[] = (context.candidates ?? []).map((c) => ({
+    userId: c.user_id,
+    name: c.name ?? '',
+    load: Number(c.load) || 0,
+    teams: c.teams ?? [],
+    positions: c.positions ?? [],
+    tags: c.tags ?? [],
+  }))
+
+  const { data: teamRows } = await ctx.caller.from('general_teams').select('id, name').eq('project_id', ctx.projectId)
+  const teams = (teamRows ?? []) as { id: string; name: string }[]
+  const teamName = new Map(teams.map((t) => [t.id, t.name]))
+  const teamId = (name: unknown) => {
+    const want = String(name ?? '').trim().toLowerCase()
+    return (want && teams.find((t) => t.name.trim().toLowerCase() === want)?.id) || null
+  }
+
+  let tasks: AssignTaskIn[]
+  let left = 0
+  if (ctx.body.mode === 'drafts') {
+    // Drafts from Tasks from notes, not saved yet. Each needs its own key.
+    const seen = new Set<string>()
+    tasks = ((Array.isArray(ctx.body.drafts) ? ctx.body.drafts : []) as Json[])
+      .slice(0, 60)
+      .map((d) => ({
+        key: String(d.key ?? '').trim(),
+        title: String(d.title ?? '').trim().slice(0, 200),
+        description: String(d.description ?? '').slice(0, 2000),
+        teamId: teamId(d.team),
+      }))
+      .filter((t) => t.key && t.title && !seen.has(t.key) && seen.add(t.key))
+    if (tasks.length === 0) return { picks: [], left: 0 }
+  } else {
+    tasks = (context.tasks ?? []).map((t) => ({
+      key: t.id,
+      title: t.title ?? '',
+      description: t.description ?? '',
+      teamId: t.team_id,
+    }))
+    left = Number(context.left) || 0
+    if (tasks.length === 0) return { picks: [], left, empty: 'no_tasks' }
+  }
+
+  // One spelling per tag, whatever case people typed it in.
+  const tags = [...new Map(candidates.flatMap((c) => c.tags).map((t) => [t.trim().toLowerCase(), t.trim()])).values()]
+    .filter(Boolean)
+  if (positions.length === 0 && tags.length === 0) return { picks: [], left, empty: 'no_structure' }
+
+  // The model sees kinds of work, never names or loads: p1… for positions, t1… for tasks.
+  const positionOf = new Map(positions.map((p, i) => [`p${i + 1}`, p.id]))
+  const keyOf = new Map(tasks.map((t, i) => [`t${i + 1}`, t.key]))
+  const holders = (id: string) => candidates.filter((c) => c.positions.includes(id)).length
+  const out = await ask(
+    ctx.anthropic,
+    `You match each task in a project to the kind of person who should do it.
+- Choose for each task the position that does this kind of work, using the
+  position names as this project uses them. They may be any field: software,
+  research, events, anything.
+- Prefer a position. Use a skill tag only when no position fits, or to choose
+  between positions that fit equally.
+- A task tied to a team prefers positions in that team.
+- Answer only with a position id or a tag from the lists. Answer none rather
+  than stretch a match.
+- task: the task's id as labelled (t1, t2…). kind: position, tag or none.
+  match: the position id (p1, p2…) or the tag exactly as listed, empty for
+  none.
+- reason: at most about twelve words on why this kind of work fits, e.g.
+  "Screen design is frontend work".
+${VOICE}`,
+    [
+      positions.length
+        ? `Positions (id: name, team, holders):\n${positions
+            .map((p, i) => `p${i + 1}: ${p.name}, ${p.team ? `team ${p.team}` : 'no team'}, ${holders(p.id)} holding it`)
+            .join('\n')}`
+        : 'Positions: none',
+      tags.length ? `Skill tags: ${tags.join(', ')}` : 'Skill tags: none',
+      '',
+      'Tasks:',
+      ...tasks.map((t, i) => {
+        const team = t.teamId ? teamName.get(t.teamId) : ''
+        const description = t.description.trim().slice(0, 600)
+        return [`t${i + 1}: ${t.title}`, team ? `  Team: ${team}` : '', description ? `  ${description}` : '']
+          .filter(Boolean)
+          .join('\n')
+      }),
+    ].join('\n'),
+    obj({
+      matches: {
+        type: 'array',
+        items: obj({ task: str, kind: { type: 'string', enum: ['position', 'tag', 'none'] }, match: str, reason: str }),
+      },
+    }),
+    'low',
+    6000,
+  )
+
+  const matches: AssignMatch[] = ((out.matches as Json[]) ?? []).flatMap((m) => {
+    const key = keyOf.get(String(m.task ?? '').trim().toLowerCase())
+    if (!key) return []
+    const kind = m.kind === 'position' || m.kind === 'tag' ? m.kind : 'none'
+    const match = String(m.match ?? '').trim()
+    return [{
+      key,
+      kind,
+      // An unknown label stays empty, which picks nobody: "No position fits".
+      match: kind === 'position' ? positionOf.get(match.toLowerCase()) ?? '' : match,
+      reason: String(m.reason ?? '').trim().slice(0, 120),
+    }]
+  })
+  const titleOf = new Map(tasks.map((t) => [t.key, t.title]))
+  const picks = pickAssignees(tasks, matches, candidates, positions).map((p) => ({ ...p, title: titleOf.get(p.key) ?? '' }))
+  return { picks, left }
+}
+
 const ACTIONS: Record<string, { run: (ctx: Ctx) => Promise<unknown>; hour: number; day: number }> = {
   tasks: { run: tasksAction, hour: 12, day: 50 },
   describe: { run: describeAction, hour: 30, day: 150 },
@@ -658,6 +789,7 @@ const ACTIONS: Record<string, { run: (ctx: Ctx) => Promise<unknown>; hour: numbe
   'summarize-file': { run: summarizeFileAction, hour: 20, day: 80 },
   formula: { run: formulaAction, hour: 30, day: 150 },
   ask: { run: askAction, hour: 15, day: 60 },
+  assign: { run: assignAction, hour: 12, day: 50 },
 }
 
 console.log(`[cors] ${corsMode()}`)
