@@ -85,4 +85,3 @@ describe('Progress team and member details', () => {
     })
   })
 })
-
