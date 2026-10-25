@@ -6,6 +6,7 @@ import { Icon, Spinner } from '../ui/Icon'
 import { ProjectsBoard } from './ProjectsBoard'
 import { ProjectWizard } from './ProjectWizard'
 import { DirectoryHero } from '../app/DirectoryHero'
+import { JoinProjectDialog } from '../general/JoinProjectDialog'
 import { useAuth } from '../../context/AuthContext'
 import { useProjectsData } from '../../hooks/useProjectsData'
 import { listProfessorClasses, listStudentClasses } from '../../lib/api/classes'
@@ -26,6 +27,7 @@ export function ClassProjectsView({ scope }: { scope?: ReactNode }) {
   const [classes, setClasses] = useState<ClassSummary[] | null>(null)
   const [classError, setClassError] = useState<string | null>(null)
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [joinOpen, setJoinOpen] = useState(false)
 
   const { projects, loading, error, reload } = useProjectsData(classes)
 
@@ -65,6 +67,12 @@ export function ClassProjectsView({ scope }: { scope?: ReactNode }) {
           title="Every brief, deadline"
           accent="and board."
           description="See the work your classes have set, the syllabus weeks behind it and how far your own board has moved."
+          action={
+            <Button variant="onNavy" size="sm" onClick={() => setJoinOpen(true)}>
+              <Icon name="lock" size={15} />
+              Join with code
+            </Button>
+          }
         />
       )}
 
@@ -140,6 +148,7 @@ export function ClassProjectsView({ scope }: { scope?: ReactNode }) {
           onSaved={reload}
         />
       )}
+      {!professor && <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} />}
     </div>
   )
 }

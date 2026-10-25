@@ -94,20 +94,14 @@ export function WorkProjectsView({ scope }: { scope?: ReactNode }) {
         accent="projects."
         description="Every workspace project you joined, across all spaces, in one place."
         action={
-          canStart ? (
-            <Button variant="onNavy" size="sm" onClick={() => setJoinOpen(true)}>
-              <Icon name="lock" size={15} />
-              Join with code
-            </Button>
-          ) : undefined
+          <Button variant="onNavy" size="sm" onClick={() => setJoinOpen(true)}>
+            <Icon name="lock" size={15} />
+            Join with code
+          </Button>
         }
       />
 
-      {/* Also on the space dashboard, but a project code does not need a space
-          and somebody who has none can only reach this page. */}
-      {canStart && (
-        <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} onJoined={load} />
-      )}
+      <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} onJoined={load} />
 
       {error && <Alert tone="error">{error}</Alert>}
 
@@ -129,7 +123,7 @@ export function WorkProjectsView({ scope }: { scope?: ReactNode }) {
           body={
             canStart
               ? 'Projects appear here after you create one or accept an invitation.'
-              : 'Projects appear here after a project manager invites you to one.'
+              : 'Projects appear here after you join with a code or accept an invitation.'
           }
         />
       ) : (
