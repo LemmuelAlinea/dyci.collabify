@@ -365,11 +365,12 @@ begin
     public.general_has(v_project, 'edit_project') is false);
 
   perform pg_temp.act_as((select v from fx where k = 'plain'));
-  perform pg_temp.must_be('a member with no grants holds none', pg_temp.perms(v_project) = '');
+  perform pg_temp.must_be('a member can commit to Main without a grant',
+    pg_temp.perms(v_project) = 'commit_main');
 
   perform pg_temp.act_as((select v from fx where k = 'granted'));
-  perform pg_temp.must_be('a member granted edit_files holds only that',
-    pg_temp.perms(v_project) = 'edit_files');
+  perform pg_temp.must_be('a member granted edit_files also holds Commit to Main',
+    pg_temp.perms(v_project) = 'commit_main,edit_files');
 
   perform pg_temp.act_as((select v from fx where k = 'pm'));
   perform pg_temp.must_be('a pm holds all six',

@@ -72,8 +72,11 @@ describe('requestable', () => {
       'edit_project',
       'manage_members',
       'manage_structure',
-      'commit_main',
     ])
+  })
+
+  it('still lets a class-board Member request Commit to Main', () => {
+    expect(requestable('member', [], [], true)).toContain('commit_main')
   })
 
   it('offers a project manager or Coordinator nothing, because they hold it all', () => {
@@ -128,8 +131,8 @@ describe('rolePermissions', () => {
     ])
   })
 
-  it('gives a Member, QA and Stakeholder none', () => {
-    expect(rolePermissions('member')).toEqual([])
+  it('lets a work-project Member commit while QA and Stakeholder hold none', () => {
+    expect(rolePermissions('member')).toEqual(['commit_main'])
     expect(rolePermissions('qa')).toEqual([])
     expect(rolePermissions('stakeholder')).toEqual([])
   })
@@ -138,6 +141,7 @@ describe('rolePermissions', () => {
 describe('canAs', () => {
   it('lets a Member do what they were granted and nothing else', () => {
     expect(canAs('member', ['edit_files'], 'edit_files')).toBe(true)
+    expect(canAs('member', [], 'commit_main')).toBe(true)
     expect(canAs('member', [], 'manage_tasks')).toBe(false)
   })
 

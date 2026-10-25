@@ -583,8 +583,9 @@ function StartFiles({ state, onDone }: { state: GeneralProjectState; onDone: () 
       <h2 className="mt-3">No files yet</h2>
       <p className="mx-auto mt-1.5 max-w-[34rem] text-[13px] text-muted">
         Papers, spreadsheets, permits and code all live here, in folders, with every version kept.
-        Anybody on the project can change a file in their own draft and submit it for the group to
-        approve.
+        {state.project?.class_board_id
+          ? 'Anyone on the project can change a file in their own draft and submit it for review.'
+          : 'Work project members can save to Main or keep changes in their own draft for review.'}
       </p>
       {may ? (
         <Button

@@ -103,8 +103,11 @@ function OwnerRequestRow({ request, state }: { request: GeneralAccessRequest; st
 function MyRequests({ state }: { state: GeneralProjectState }) {
   const { show } = useToast()
   const mine = state.requests.filter((r) => r.user_id === state.viewerId)
+  const myExtras = state.myGrants.filter((p) => state.project?.class_board_id || p !== 'commit_main')
   const askable =
-    state.me && !state.archived ? requestable(state.myRole, state.myGrants, state.myOpenRequests) : []
+    state.me && !state.archived
+      ? requestable(state.myRole, state.myGrants, state.myOpenRequests, Boolean(state.project?.class_board_id))
+      : []
 
   async function withdraw(r: GeneralAccessRequest) {
     try {
@@ -122,8 +125,8 @@ function MyRequests({ state }: { state: GeneralProjectState }) {
     <section className="rounded-panel border border-line surface p-4 sm:p-5">
       <h2>Your access</h2>
       <p className="mt-0.5 text-[12px] text-muted">
-        {state.myGrants.length > 0
-          ? `Beyond Member, you can: ${state.myGrants.map(permissionLabel).join(', ')}.`
+        {myExtras.length > 0
+          ? `Beyond Member, you can: ${myExtras.map(permissionLabel).join(', ')}.`
           : 'You have what every Member has. Ask the project manager or a coordinator for more.'}
       </p>
 

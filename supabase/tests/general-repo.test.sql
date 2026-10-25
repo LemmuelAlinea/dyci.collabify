@@ -65,20 +65,30 @@ begin
   insert into public.general_members (project_id, user_id, level)
   values (proj.id, dev_id, 'member'), (proj.id, member_id, 'member');
   insert into public.general_grants (project_id, user_id, permission, granted_by)
-  values (proj.id, dev_id, 'edit_files', owner_id), (proj.id, dev_id, 'commit_main', owner_id);
+  values (proj.id, dev_id, 'edit_files', owner_id);
 
   ------------------------------------------------------------------ starting
+  perform pg_temp.act_as(outsider);
+  begin
+    perform public.create_general_repo(proj.id, 'Not mine');
+    perform pg_temp.ok('an outsider cannot start a project repository', false);
+  exception when insufficient_privilege then
+    perform pg_temp.ok('an outsider cannot start a project repository', true);
+  end;
+
   perform pg_temp.act_as(member_id);
   begin
-    perform public.create_general_repo(proj.id, 'Mine');
-    perform pg_temp.ok('a Member without Commit to Main cannot start a repository', false);
+    repo := public.create_general_repo(proj.id, 'Capstone', 'The system itself');
+    perform pg_temp.ok('a Member without a grant can start the project files', repo.id is not null);
   exception when insufficient_privilege then
-    perform pg_temp.ok('a Member without Commit to Main cannot start a repository', true);
+    perform pg_temp.ok('a Member without a grant can start the project files', false);
   end;
 
   perform pg_temp.act_as(dev_id);
-  repo := public.create_general_repo(proj.id, 'Capstone', 'The system itself');
-  perform pg_temp.ok('a grant of Commit to Main starts a repository', repo.id is not null);
+  if repo.id is null then
+    repo := public.create_general_repo(proj.id, 'Capstone', 'The system itself');
+  end if;
+  perform pg_temp.ok('the Member role permits Main commits', public.general_can(proj.id, 'commit_main'));
   perform pg_temp.ok('a new repository has no commits', repo.commit_count = 0);
 
   begin
@@ -186,13 +196,8 @@ begin
 
   ------------------------------------------------------------------ permissions
   perform pg_temp.act_as(member_id);
-  begin
-    perform public.commit_general_files(repo.id, 'Sneaky', 4,
-      pg_temp.files('src/app.ts', 'changed', 'mine'));
-    perform pg_temp.ok('a Member cannot commit straight to the repository', false);
-  exception when insufficient_privilege then
-    perform pg_temp.ok('a Member cannot commit straight to the repository', true);
-  end;
+  perform pg_temp.ok('a work-project Member holds Commit to Main without a grant',
+    public.general_can(proj.id, 'commit_main'));
 
   ------------------------------------------------------------------ history is a record
   perform pg_temp.act_as(owner_id);
@@ -215,7 +220,7 @@ begin
   values (repo.id, proj.id, member_id, 'Add the login screen', 'First pass.', 4,
           pg_temp.files('src/login.ts', 'added', 'export const login = true'))
   returning * into chg;
-  perform pg_temp.ok('a Member who cannot commit can still open a change', chg.id is not null);
+  perform pg_temp.ok('a Member can still submit a change for review', chg.id is not null);
 
   begin
     insert into public.general_repo_changes (repo_id, project_id, author_id, title, base_seq, files)
@@ -274,14 +279,9 @@ begin
     perform pg_temp.ok('authors who can commit cannot merge their own assigned change', true);
   end;
 
-  -- Merging lands on Main, so the reviewer needs Commit to Main (commit-main.test.sql
-  -- shows one without it declining instead).
-  perform pg_temp.act_as_service();
-  insert into public.general_grants (project_id, user_id, permission, granted_by)
-  values (proj.id, member_id, 'commit_main', owner_id);
   perform pg_temp.act_as(member_id);
   chg := public.answer_general_repo_change(chg.id, true, 'Reviewed.');
-  perform pg_temp.ok('the assigned reviewer with Commit to Main merges without edit_files', chg.status = 'applied');
+  perform pg_temp.ok('the assigned Member merges without a grant', chg.status = 'applied');
 
   select count(*) into n from public.general_commits
    where repo_id = repo.id and seq = 6 and change_id = chg.id;
@@ -379,6 +379,8 @@ begin
 
   -- A control: an active Owner still can.
   perform pg_temp.act_as(owner_id);
+  perform pg_temp.ok('a deactivated Member is not offered as a reviewer',
+    not ((public.general_commit_rights(proj.id) -> 'committers') ? dev_id::text));
   cmt := public.commit_general_files(repo.id, 'From a live Owner', 6,
     pg_temp.files('src/app.ts', 'changed', 'still working'));
   perform pg_temp.ok('an active Owner still commits after that refusal', cmt.seq = 7);
@@ -389,6 +391,11 @@ begin
 
   select open_change_count into n from public.general_repo_overview where id = repo.id;
   perform pg_temp.ok('the overview counts the one change still open', n = 1);
+
+  perform pg_temp.act_as(member_id);
+  cmt := public.commit_general_files(repo.id, 'From a Member', 7,
+    pg_temp.files('src/member.ts', 'added', 'member wrote this'));
+  perform pg_temp.ok('a Member commits directly to Main without a grant', cmt.seq = 8);
 
   perform pg_temp.act_as(outsider);
   select count(*) into n from public.general_repo_overview where id = repo.id;

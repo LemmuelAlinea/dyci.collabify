@@ -99,6 +99,9 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
 - Member writes in a work project gate on `general_can_write(project)` (a member (not
   rejected) who isn't a stakeholder); reads keep `is_general_member`. A new member-write path uses
   `general_can_write`.
+- Work project Members can start Files and commit to Main without a grant;
+  `project-files-access.sql` gives the role `commit_main` and keeps class-board
+  Files projects on their existing grant and group-leader rules.
 - A member whose live projects are all stakeholder roles, with no class, no teaching
   switch and no Project manager switch, gets the slim rail (Home, Projects, Inbox,
   Calendar, Account) and `StakeholderHome` (cards from `my_stakeholder_projects()`, which

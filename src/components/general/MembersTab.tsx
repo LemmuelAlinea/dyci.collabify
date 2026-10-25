@@ -116,7 +116,9 @@ function MemberList({ state }: { state: GeneralProjectState }) {
 
       <ul className="divide-y divide-[var(--line)]">
         {state.members.map((m) => {
-          const grants = state.grants.filter((g) => g.user_id === m.user_id).map((g) => g.permission)
+          const grants = state.grants
+            .filter((g) => g.user_id === m.user_id && (!work || g.permission !== 'commit_main'))
+            .map((g) => g.permission)
           const positions = positionsOf(m.user_id)
           const choices = roleChoices(m)
           const lead = leads.has(m.user_id)
@@ -243,6 +245,7 @@ function PermissionsDialog({
   const [busy, setBusy] = useState<string | null>(null)
   const project = state.project
   const held = member ? state.grants.filter((g) => g.user_id === member.user_id).map((g) => g.permission) : []
+  const permissions = PERMISSIONS.filter((p) => project?.class_board_id || p.value !== 'commit_main')
 
   async function toggle(permission: (typeof PERMISSIONS)[number]['value'], on: boolean) {
     if (!project || !member) return
@@ -268,7 +271,7 @@ function PermissionsDialog({
       footer={<Button onClick={onClose}>Done</Button>}
     >
       <ul className="space-y-2">
-        {PERMISSIONS.map((p) => {
+        {permissions.map((p) => {
           const on = held.includes(p.value)
           // A class board's Owner gives everything; on a work project a
           // Coordinator gives only what it holds (general_can_grant).

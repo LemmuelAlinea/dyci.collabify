@@ -91,20 +91,16 @@ begin
   perform pg_temp.act_as(member);
   perform public.my_general_draft(repo.id);
   perform public.save_general_draft_file(repo.id, 'mine.md', 'added', 'text', 'M');
-  begin
-    perform public.commit_general_draft_path(repo.id, 'mine.md', false, '');
-    perform pg_temp.ok('a Member without edit_files cannot commit', false);
-  exception when insufficient_privilege then
-    perform pg_temp.ok('a Member without edit_files cannot commit', true);
-  end;
+  c := public.commit_general_draft_path(repo.id, 'mine.md', false, '');
+  perform pg_temp.ok('a work-project Member commits their draft without a grant', c.seq = 4);
   select count(*) into n from public.general_draft_files f
     join public.general_drafts d on d.id = f.draft_id
    where d.user_id = member and f.path = 'mine.md';
-  perform pg_temp.ok('...and their draft keeps the file', n = 1);
+  perform pg_temp.ok('...and their draft removes the committed file', n = 0);
 
   perform pg_temp.act_as(owner_id);
   perform public.save_general_draft_file(repo.id, 'late.md', 'added', 'text', 'L');
-  perform public.commit_general_files(repo.id, 'Someone else', 3, jsonb_build_array(
+  perform public.commit_general_files(repo.id, 'Someone else', 4, jsonb_build_array(
     jsonb_build_object('path', 'other.md', 'action', 'added', 'kind', 'text', 'content', 'O')));
   begin
     perform public.commit_general_draft_path(repo.id, 'late.md', false, '');

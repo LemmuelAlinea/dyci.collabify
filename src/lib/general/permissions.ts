@@ -3,9 +3,8 @@
  *
  * Two layers. A member's **role** gives a fixed set of permissions, and the
  * project manager or a Coordinator can **grant** one member a single
- * permission on top of it (`canGive`).
- * Roles are the easy part to understand; grants are how a Treasurer gets file
- * editing without becoming a Coordinator.
+ * permission on top of it (`canGive`). Work-project Members can commit to Main
+ * by role; other grants cover actions such as editing files on any task.
  *
  * Work projects use roles (`rolePermissions`, `canAs`), which mirror
  * `general_has()` in supabase/project-roles.sql. Spaces and class spaces still
@@ -100,9 +99,10 @@ export function requestable(
   role: ProjectRole | null,
   grants: readonly GeneralPermission[],
   open: readonly GeneralPermission[],
+  classBoard = false,
 ): GeneralPermission[] {
   if (role !== 'member') return []
-  return ALL.filter((p) => !grants.includes(p) && !open.includes(p))
+  return ALL.filter((p) => (classBoard || !rolePermissions(role).includes(p)) && !grants.includes(p) && !open.includes(p))
 }
 
 /** A project always keeps at least one Owner. */
@@ -145,11 +145,12 @@ export const ROLE_BADGE: Record<ProjectRole, string | null> = {
 
 /**
  * The project manager holds all six, a Coordinator all but edit_project, and
- * everybody else only what they are granted.
+ * a Member can commit to Main. QA and Stakeholder hold none.
  */
 export function rolePermissions(role: ProjectRole): GeneralPermission[] {
   if (role === 'pm') return [...ALL]
   if (role === 'coordinator') return ALL.filter((p) => p !== 'edit_project')
+  if (role === 'member') return ['commit_main']
   return []
 }
 
@@ -357,7 +358,7 @@ export const ROLE_MATRIX: {
   },
   {
     action: 'Commit to Main',
-    roles: { pm: 'yes', coordinator: 'yes', lead: 'grant', member: 'grant' },
+    roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes' },
   },
   {
     action: 'Keep your own drafts and submit changes for review',

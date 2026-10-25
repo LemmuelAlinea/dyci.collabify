@@ -45,7 +45,7 @@ export function RequestAccessButton({
       </span>
     )
   }
-  if (!requestable(state.myRole, state.myGrants, state.myOpenRequests).includes(permission)) return null
+  if (!requestable(state.myRole, state.myGrants, state.myOpenRequests, Boolean(state.project.class_board_id)).includes(permission)) return null
 
   async function send() {
     if (!state.project) return

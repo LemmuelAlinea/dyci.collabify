@@ -1,5 +1,5 @@
--- Commit to Main: its own permission, granted by an Owner in a work project and
--- by the group's leader on a class board. Rolls back; nothing here survives.
+-- Work project Members commit to Main by role; class-board students use the
+-- existing group-leader and grant rules. Rolls back; nothing here survives.
 --
 --   node scripts/db.mjs supabase/tests/commit-main.test.sql
 
@@ -88,14 +88,25 @@ begin
   values (proj.id, dev_id, 'edit_files', owner_id);
 
   perform pg_temp.act_as(dev_id);
-  perform pg_temp.ok('editing files no longer lets a Member commit to Main', not pg_temp.commits(repo.id, 'dev without'));
+  perform pg_temp.ok('a work-project Member commits to Main without a grant', pg_temp.commits(repo.id, 'dev without'));
   begin
     insert into public.general_commits (repo_id, project_id, seq, message, author_id)
     values (repo.id, proj.id, 99, 'sneaky', dev_id);
     refused := false;
   exception when others then refused := true;
   end;
-  perform pg_temp.ok('a direct commit insert is refused without Commit to Main', refused);
+  perform pg_temp.ok('a direct commit insert is still refused', refused);
+  update public.general_repos set name = name where id = repo.id returning id into chg;
+  perform pg_temp.ok('a direct repository update is refused', chg is null);
+  begin
+    insert into public.general_blobs
+      (commit_id, repo_id, project_id, seq, path, action, kind, content)
+    select c.id, repo.id, proj.id, c.seq, 'direct.md', 'added', 'text', 'bypassed'
+      from public.general_commits c where c.repo_id = repo.id order by c.seq desc limit 1;
+    refused := false;
+  exception when others then refused := true;
+  end;
+  perform pg_temp.ok('a direct blob insert is refused', refused);
 
   begin
     perform public.grant_general_permission(proj.id, ask_id, 'commit_main');
@@ -104,16 +115,15 @@ begin
   end;
   perform pg_temp.ok('a Member cannot grant Commit to Main', refused);
 
-  perform pg_temp.act_as(owner_id);
-  perform public.grant_general_permission(proj.id, dev_id, 'commit_main');
   perform pg_temp.act_as(dev_id);
-  perform pg_temp.ok('an Owner grants Commit to Main and the Member commits', pg_temp.commits(repo.id, 'dev granted'));
   perform pg_temp.ok('the screen is told so', (public.general_commit_rights(proj.id) ->> 'commit')::boolean
     and not (public.general_commit_rights(proj.id) ->> 'grant')::boolean);
+  perform pg_temp.ok('Members are listed as Main committers',
+    (public.general_commit_rights(proj.id) -> 'committers') ? ask_id::text);
 
-  -- A change from someone who cannot commit, merged by someone who can.
+  -- A Member may still submit a change for review, and another Member can merge it.
   perform pg_temp.act_as(ask_id);
-  perform pg_temp.ok('a Member without it cannot commit', not pg_temp.commits(repo.id, 'ask without'));
+  perform pg_temp.ok('another Member commits without a grant', pg_temp.commits(repo.id, 'ask without'));
   perform set_config('collabify.general_repo_op', 'off', true);
   insert into public.general_repo_changes (repo_id, project_id, author_id, title, base_seq, files, reviewer_ids)
   values (repo.id, proj.id, ask_id, 'Ask''s change', (select commit_count from public.general_repos where id = repo.id),
@@ -124,40 +134,13 @@ begin
   perform pg_temp.ok('a reviewer who can commit merges it onto Main',
     exists (select 1 from public.general_commits where change_id = chg));
 
-  -- Asking for it.
-  perform pg_temp.act_as(ask_id);
-  req := public.request_general_access(proj.id, 'commit_main', 'I finish the docs');
-  perform pg_temp.svc();
-  perform pg_temp.ok('the Owner is told of the request',
-    exists (select 1 from public.notifications where user_id = owner_id and type = 'general_access_requested'
-             and general_project_id = proj.id and preview like '%asked for: Commit to Main'));
+  -- A redundant grant can be removed without removing the role permission.
   perform pg_temp.act_as(owner_id);
-  perform public.answer_general_access_request(req.id, true, '');
-  perform pg_temp.act_as(ask_id);
-  perform pg_temp.ok('an approved request lets them commit', pg_temp.commits(repo.id, 'ask approved'));
-
-  perform pg_temp.act_as(owner_id);
+  perform public.grant_general_permission(proj.id, ask_id, 'commit_main');
   perform public.revoke_general_permission(proj.id, ask_id, 'commit_main');
   perform pg_temp.act_as(ask_id);
-  perform pg_temp.ok('taking it back stops them', not pg_temp.commits(repo.id, 'ask revoked'));
-
-  -- A named reviewer without it may decline, not merge.
-  perform pg_temp.act_as(dev_id);
-  perform set_config('collabify.general_repo_op', 'off', true);
-  insert into public.general_repo_changes (repo_id, project_id, author_id, title, base_seq, files, reviewer_ids)
-  values (repo.id, proj.id, dev_id, 'Dev''s change', (select commit_count from public.general_repos where id = repo.id),
-          pg_temp.files('notes/dev2.md', 'added', 'from dev'), array[ask_id])
-  returning id into chg;
-  perform pg_temp.act_as(ask_id);
-  begin
-    perform public.answer_general_repo_change(chg, true, '');
-    refused := false;
-  exception when insufficient_privilege then refused := true;
-  end;
-  perform pg_temp.ok('a named reviewer without Commit to Main cannot merge', refused);
-  perform public.answer_general_repo_change(chg, false, 'Not yet');
-  perform pg_temp.ok('...but can decline',
-    (select status::text from public.general_repo_changes where id = chg) = 'declined');
+  perform pg_temp.ok('revoking a redundant grant keeps the role permission',
+    public.general_can(proj.id, 'commit_main'));
 
   ------------------------------------------------------------------ class board
   perform pg_temp.svc();
