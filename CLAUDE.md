@@ -117,6 +117,10 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `has_qa` is true. QA creates bug tasks only
   (`kind = 'bug'`, never changes a kind) and cannot hold tasks. Home's "Waiting for QA" tile
   reads `my_qa_queue()`.
+- Assign by position uses `general_member_skills` and `general_assign_context` from
+  `member-skills.sql` (after the seven-file chain). The edge function matches a
+  position or skill; `supabase/functions/_shared/assignPick.ts` picks the member.
+  The Tasks review and Tasks from notes save through the existing task APIs.
 
 ## Security invariants
 

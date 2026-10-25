@@ -12,9 +12,10 @@ import { attachSharedFiles } from '../../lib/general/sharedFiles'
 import { GENERAL_FILE_LIMIT, assignTask, createTask, uploadTaskFile } from '../../lib/api/general'
 import { createMilestone, tagTasks } from '../../lib/api/milestones'
 import { createSprint, setSprintMilestone } from '../../lib/api/sprints'
-import { draftWorkTasks } from '../../lib/api/workAi'
+import { draftAssignees, draftWorkTasks } from '../../lib/api/workAi'
 import type { DraftSharedFile, DraftedWorkTask } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
+import { isAssignCandidate, notesWhy } from '../../lib/work/assignDraft'
 import { formatDue } from '../../lib/general/dates'
 import { NOTES_FILE_ACCEPT, NOTES_FILE_MAX, NotesFileError, readNotesFile } from '../../lib/general/notesFile'
 import {
@@ -33,7 +34,7 @@ import type { Milestone, Sprint } from '../../lib/work/types'
 import type { GeneralProjectState } from './useGeneralProject'
 
 /** A drafted task, plus the sprint and milestone it joins (keys from lib/work/notesPlan). */
-export type NoteTaskRow = DraftedWorkTask & { keep: boolean; sprintKey: string; milestoneKey: string }
+export type NoteTaskRow = DraftedWorkTask & { keep: boolean; sprintKey: string; milestoneKey: string; why?: string }
 /** The sprints and milestones the draft would create. */
 export type NotePlan = { sprints: PlanSprint[]; milestones: PlanMilestone[] }
 type Row = NoteTaskRow
@@ -203,17 +204,24 @@ export function TasksFromNotes({
         { sprints: scope.sprints, milestones: scope.milestones },
         { sprints: scope.maySprint, createMilestones: scope.mayCreateMilestones, tag: scope.mayTag },
       )
-      setRows(
-        tasks.map((t, i) => ({
+      const suggest = !onSave && mayAssign && !state.project?.class_board_id
+      const named = tasks.map((t) => {
+        const member = state.members.find((m) => m.user_id === t.assignee)
+        if (!suggest || !member) return null
+        const blocked: 'qa' | 'stakeholder' | 'inactive' | null = member.role === 'qa' || member.role === 'stakeholder'
+          ? member.role
+          : isAssignCandidate(member) ? null : 'inactive'
+        return { name: state.nameOf(member.user_id), blocked }
+      })
+      const drafted: Row[] = tasks.map((t, i) => ({
           ...t,
           files: t.files ?? [],
-          // A stakeholder holds no tasks, so a draft that names one goes unassigned.
-          assignee: mayAssign && state.roleOf(t.assignee) !== 'stakeholder' ? t.assignee : '',
+          assignee: mayAssign && (suggest ? named[i]?.blocked === null : state.roleOf(t.assignee) !== 'stakeholder') ? t.assignee : '',
+          ...(suggest ? { why: notesWhy(named[i], null) } : {}),
           keep: true,
           sprintKey: shaped.links[i].sprint,
           milestoneKey: shaped.links[i].milestone,
-        })),
-      )
+        }))
       setSprints(shaped.sprints)
       setMilestones(shaped.milestones)
       const said: string[] = []
@@ -226,6 +234,27 @@ export function TasksFromNotes({
         )
       }
       if (((res.milestones?.length ?? 0) > 0 && !scope.mayTag) || shaped.skippedMilestones > 0) said.push(scope.noMilestones)
+      if (suggest) {
+        const missing = drafted.flatMap((r, i) => r.assignee ? [] : [{ key: String(i), title: r.title, description: r.description, team: r.team }])
+        if (missing.length > 0) {
+          try {
+            const suggested = await draftAssignees(projectId, { mode: 'drafts', drafts: missing })
+            if (suggested.result === 'ok' && suggested.empty !== 'no_structure') {
+              for (const pick of suggested.picks) {
+                const i = Number(pick.key)
+                if (!Number.isInteger(i) || !drafted[i] || drafted[i].assignee) continue
+                drafted[i].assignee = pick.userId ?? ''
+                drafted[i].why = notesWhy(named[i], pick)
+              }
+            } else if (suggested.result === 'failed') {
+              said.push("Couldn't suggest people this time.")
+            }
+          } catch {
+            said.push("Couldn't suggest people this time.")
+          }
+        }
+      }
+      setRows(drafted)
       setPlanNotes(said)
       setNote(res.note)
       setShared(res.shared ?? [])
@@ -342,7 +371,7 @@ export function TasksFromNotes({
 
   const keeping = (rows ?? []).filter((r) => r.keep).length
   const people = state.members
-    .filter((m) => state.roleOf(m.user_id) !== 'stakeholder')
+    .filter((m) => onSave ? state.roleOf(m.user_id) !== 'stakeholder' : isAssignCandidate(m))
     .map((m) => ({ value: m.user_id, label: state.nameOf(m.user_id) }))
   const teams = state.teams.map((t) => ({ value: t.name, label: t.name }))
   const sprintOptions = [
@@ -680,6 +709,7 @@ export function TasksFromNotes({
                               className="!h-10 !text-[13px]"
                             />
                           )}
+                          {r.why && <p className="text-[12px] text-muted sm:col-span-3">{r.why}</p>}
                           {teams.length > 0 && (
                             <Select
                               value={r.team}
@@ -714,7 +744,7 @@ export function TasksFromNotes({
   )
 }
 
-function KeepBox({ checked, label, onToggle }: { checked: boolean; label: string; onToggle: () => void }) {
+export function KeepBox({ checked, label, onToggle }: { checked: boolean; label: string; onToggle: () => void }) {
   return (
     <button
       type="button"

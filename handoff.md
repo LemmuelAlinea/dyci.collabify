@@ -3872,3 +3872,10 @@ Both start with "zz test".
 - `NotificationBell.destination` is not exported, so the `task_sent_back` route has no unit test, and `QaQueue` and `QaActions` rendering (and the dialog stack in `focus.ts` and `Modal.tsx`) have none either: vitest runs in node, so they were checked in a harness only.
 
 **Next.** Company roles are complete. Nothing is queued: open work is the Deferred lists in this file, then whatever you ask for next.
+
+## Assign by position (2026-10-25)
+
+- Plan: `docs/superpowers/plans/2026-10-25-assign-by-position.md`. Tasks 1–4 were committed before this handoff. Task 5 adds the Tasks review dialog; Task 6 suggests people for unnamed or ineligible named rows in Tasks from notes. The class path is unchanged.
+- `supabase/member-skills.sql` owns tags and `general_assign_context`. `supabase/functions/work-ai/index.ts` has the `assign` action, deployed on 2026-10-25; `_shared/assignPick.ts` chooses an eligible holder by team, load and tag match. `src/components/general/SkillTags.tsx`, `AssignByPosition.tsx` and `TasksFromNotes.tsx` are the UI entry points.
+- Checks: build and typecheck pass; Vitest 1213/1213; `member-skills.test.sql` passes. Full SQL sweep: 85/87 suites clean. `accounts.test.sql` fails its old “professor does not get the roster” assertion; `class-files.test.sql` prints two FAIL notices while exiting 0. Neither suite touches the new assign objects. `schema-drift.mjs` reports 13 existing review hints.
+- Deferred: signed-in browser walk and live model response need the owner to sign in and run the plan's checks. The in-app browser control tool was unavailable in this session. The two unrelated SQL suite failures need separate follow-up.
