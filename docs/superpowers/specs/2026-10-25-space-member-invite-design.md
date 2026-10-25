@@ -1,6 +1,6 @@
 # Invite regular members from a work space
 
-Status: proposed, awaiting owner approval.
+Status: owner confirmed space-member-only access and requested completion, 2026-10-25.
 
 ## Intent
 
@@ -9,9 +9,9 @@ The work space's Members tab currently offers only **Add a co-owner**. It search
 ## Proposed behavior
 
 - Show **Invite a member** beside **Add a co-owner** to the Owner of an active work space. Keep both actions unavailable on archived spaces and keep education spaces on their class invitation flow.
-- Reuse the existing name search and invitation dialog. Search admitted Collabify accounts, not only Project managers. Keep the existing invitation acceptance, decline and withdrawal flow.
+- Reuse the existing name search and invitation dialog. Search existing Collabify accounts, not only Project managers. Keep the existing invitation acceptance, decline and withdrawal flow.
 - An accepted regular invitation seats the person as a space **Member**. It does not assign a project role or reveal projects they are not on. They may later be invited to a project through its existing flow.
-- A regular invitation cannot demote someone already in the space. The existing co-owner invitation continues to raise an eligible person to Owner. Pending invitations show which access level was offered.
+- A regular invitation cannot demote someone already in the space. The existing co-owner invitation continues to raise an eligible person to Owner. The Owner's pending list and the invitee's Inbox show which access level was offered.
 - The server, not just the button, enforces an active space, an Owner inviter, an eligible account, no duplicate pending invitation, and the regular Member versus co-owner distinction. Preserve current class invitations and co-owner rules.
 
 ## Approaches
@@ -19,6 +19,8 @@ The work space's Members tab currently offers only **Add a co-owner**. It search
 1. **Extend the existing invitation record with the offered access level (recommended).** Keep the current co-owner RPC and dialog behavior; add a regular-member invite path and make acceptance apply the stored level. Existing pending invitations retain their co-owner meaning. This keeps one invitation list and response flow but requires a small SQL migration.
 2. **Add someone directly to the space.** Fewer changes, but the person would join without accepting an invitation, contrary to the existing invitation experience.
 3. **Invite through a project.** The existing project invite already adds space membership, but also grants project access and does not solve a space-only invitation.
+
+Implementation call: use approach 1. The owner's space-member-only answer replaces the earlier company-roles decision that allowed only co-owner invitations at space level.
 
 ## Verification
 
