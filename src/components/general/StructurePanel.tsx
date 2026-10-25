@@ -53,6 +53,8 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
   if (!project) return null
   // A class board's Files project keeps the old model: its teams have no leader.
   const leaders = !project.class_board_id
+  const selectedPositionTeam = state.teams.find((team) => team.id === positionTeam)
+  const selectedTeamPeople = state.teamMembers.filter((member) => member.team_id === positionTeam)
 
   /** Answers whether it went through, so a caller only clears what was taken. */
   async function run(action: () => Promise<void>, done: string, failed: string) {
@@ -77,10 +79,13 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
       .filter((id) => state.roleOf(id) !== 'stakeholder')
       .map((id) => ({ value: id, label: state.nameOf(id) }))
 
-  const memberOptions = (taken: string[]) =>
-    state.members
+  const memberOptions = (taken: string[], teamId?: string | null) => {
+    const inTeam = new Set(state.teamMembers.filter((member) => member.team_id === teamId).map((member) => member.user_id))
+    return state.members
       .filter((m) => !taken.includes(m.user_id))
-      .map((m) => ({ value: m.user_id, label: state.nameOf(m.user_id) }))
+      .sort((a, b) => Number(inTeam.has(b.user_id)) - Number(inTeam.has(a.user_id)))
+      .map((m) => ({ value: m.user_id, label: `${inTeam.has(m.user_id) ? 'In team · ' : ''}${state.nameOf(m.user_id)}` }))
+  }
 
   return (
     <section className="rounded-panel border border-line surface p-4 sm:p-5">
@@ -310,9 +315,9 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
                     void run(() => removePositionHolder(position.id, userId), 'Position updated', 'Could not change that position.')
                   }
                 />
-                {editable && memberOptions(holding).length > 0 && (
+                {editable && memberOptions(holding, position.team_id).length > 0 && (
                   <AddPerson
-                    options={memberOptions(holding)}
+                    options={memberOptions(holding, position.team_id)}
                     onAdd={(userId) =>
                       void run(
                         () => addPositionHolder(position.id, project.id, userId),
@@ -358,6 +363,22 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
             <Button type="submit" size="sm" variant="outline" className="!h-10">
               Add position
             </Button>
+            {selectedPositionTeam && (
+              <div className="sm:col-span-3">
+                <p className="text-[12px] font-medium text-muted">Members of {selectedPositionTeam.name}</p>
+                {selectedTeamPeople.length > 0 ? (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {selectedTeamPeople.map((member) => (
+                      <span key={member.user_id} className="rounded-full bg-navy-100 px-2.5 py-1 text-[12px] text-navy-800 dark:bg-navy-900/40 dark:text-navy-200">
+                        {state.nameOf(member.user_id)}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[12px] text-faint">No members on this team yet.</p>
+                )}
+              </div>
+            )}
           </form>
         )}
       </div>
