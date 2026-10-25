@@ -4,6 +4,7 @@ import { useFocusMode } from '../../lib/focusMode'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { MembersTab } from '../../components/general/MembersTab'
 import { OverviewTab } from '../../components/general/OverviewTab'
+import { ProgressTab } from '../../components/general/ProgressTab'
 import { DiscussionTab } from '../../components/general/DiscussionTab'
 import { FeedbackTab } from '../../components/general/FeedbackTab'
 import { FilesTab } from '../../components/general/FilesTab'
@@ -52,6 +53,7 @@ export default function GeneralProject() {
       changed.delete('task')
       changed.delete('work')
       changed.delete('layout')
+      changed.delete('milestone')
     }
     setParams(changed)
   }
@@ -109,7 +111,7 @@ export default function GeneralProject() {
   // Feedback is for work projects; a class board's Files project has none. Only
   // the project's members read it, so a space owner who isn't on it sees no tab.
   const feedbackOn = !p.class_board_id && Boolean(state.me)
-  if ((stakeholder && (tab === 'discussion' || tab === 'shared')) || (!feedbackOn && tab === 'feedback')) {
+  if ((stakeholder && (tab === 'discussion' || tab === 'shared')) || (!feedbackOn && tab === 'feedback') || (p.class_board_id && tab === 'project-progress')) {
     const changed = new URLSearchParams(params)
     changed.delete('tab')
     return <Navigate to={{ search: changed.toString() }} replace />
@@ -189,6 +191,7 @@ export default function GeneralProject() {
       <Tabs<GeneralTabId>
         tabs={[
           { id: 'overview', label: 'Overview', icon: 'file' },
+          ...(!p.class_board_id ? [{ id: 'project-progress' as const, label: 'Progress', icon: 'chart' as const }] : []),
           ...(stakeholder ? [] : [{ id: 'discussion' as const, label: 'Discussion', icon: 'message' as const }]),
           ...(feedbackOn ? [{ id: 'feedback' as const, label: 'Feedback', icon: 'edit' as const }] : []),
           { id: 'work', label: 'Work', icon: 'kanban', count: state.tasks.length },
@@ -206,6 +209,7 @@ export default function GeneralProject() {
       />
 
       {tab === 'overview' && <OverviewTab state={state} />}
+      {tab === 'project-progress' && <ProgressTab state={state} />}
       {tab === 'discussion' && <DiscussionTab state={state} />}
       {tab === 'feedback' && <FeedbackTab state={state} />}
       {tab === 'work' && <WorkTab state={state} />}

@@ -25,6 +25,11 @@ const space = (
 })
 
 describe('general navigation', () => {
+  it('opens project Progress and keeps task links in Work', () => {
+    expect(generalTab(new URLSearchParams('tab=project-progress'))).toBe('project-progress')
+    expect(generalTab(new URLSearchParams('tab=project-progress&task=t1'))).toBe('work')
+  })
+
   it('reads every supported tab and falls back to overview', () => {
     expect(generalTab(new URLSearchParams())).toBe('overview')
     expect(generalTab(new URLSearchParams('tab=files'))).toBe('files')

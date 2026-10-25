@@ -1,8 +1,8 @@
 import type { GeneralSpaceSummary } from './types'
 
-export type GeneralTabId = 'overview' | 'discussion' | 'feedback' | 'work' | 'files' | 'shared' | 'members'
+export type GeneralTabId = 'overview' | 'project-progress' | 'discussion' | 'feedback' | 'work' | 'files' | 'shared' | 'members'
 
-const TABS = new Set<GeneralTabId>(['overview', 'discussion', 'feedback', 'work', 'files', 'shared', 'members'])
+const TABS = new Set<GeneralTabId>(['overview', 'project-progress', 'discussion', 'feedback', 'work', 'files', 'shared', 'members'])
 
 /** Work replaced two tabs; links written before it still name them. */
 const LEGACY: Record<string, GeneralTabId> = { tasks: 'work', progress: 'work' }
