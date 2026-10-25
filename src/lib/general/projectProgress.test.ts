@@ -75,3 +75,17 @@ describe('weekly completions', () => {
   })
 })
 
+
+it('changes the selected-team weekly series with the basis and keeps all-member assignments independent', () => {
+  const tasks = [task('inside', { status: 'todo' }), task('outside', { team_id: 'Y', assignee_ids: ['A'] })]
+  const own = teamTasks(tasks, 'X', ['A'], 'team_tasks')
+  const held = teamTasks(tasks, 'X', ['A'], 'member_tasks')
+  const now = new Date('2026-10-25T12:00:00+08:00')
+  expect(weeklyCompletions(tasks, own, now).at(-1)?.selected).toBe(0)
+  expect(weeklyCompletions(tasks, held, now).at(-1)?.selected).toBe(1)
+  expect(memberTasks(teamTasks(tasks, 'X', ['A'], 'member_tasks'), 'A')).toEqual(tasks)
+  expect(memberTasks(teamTasks(tasks, 'Y', ['A'], 'member_tasks'), 'A')).toEqual(tasks)
+  expect(memberTasks(tasks, 'A')).toEqual(tasks)
+  expect(memberTasks(tasks, 'qa')).toEqual([])
+  expect(memberTasks(tasks, 'stakeholder')).toEqual([])
+})
