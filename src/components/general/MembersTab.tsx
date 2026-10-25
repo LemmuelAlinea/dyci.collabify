@@ -36,6 +36,14 @@ import { SkillTags } from './SkillTags'
 import { StructurePanel } from './StructurePanel'
 import type { GeneralProjectState } from './useGeneralProject'
 
+const ROLE_ORDER: Record<ProjectRole, number> = {
+  pm: 0,
+  coordinator: 1,
+  stakeholder: 2,
+  qa: 3,
+  member: 5,
+}
+
 export function MembersTab({ state }: { state: GeneralProjectState }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start">
@@ -97,6 +105,17 @@ function MemberList({ state }: { state: GeneralProjectState }) {
   const me = state.me
   // Skill tags are for work projects; a class board's Files project has none.
   const work = !project.class_board_id
+  const rank = (m: GeneralMember) =>
+    m.role === 'member' && leads.has(m.user_id) ? 4 : ROLE_ORDER[m.role]
+  const members = work
+    ? [...state.members].sort(
+        (a, b) =>
+          rank(a) - rank(b) ||
+          state.nameOf(a.user_id).localeCompare(state.nameOf(b.user_id), undefined, {
+            sensitivity: 'base',
+          }),
+      )
+    : state.members
 
   return (
     <section className="overflow-hidden rounded-panel border border-line surface">
@@ -115,7 +134,7 @@ function MemberList({ state }: { state: GeneralProjectState }) {
       </header>
 
       <ul className="divide-y divide-[var(--line)]">
-        {state.members.map((m) => {
+        {members.map((m) => {
           const grants = state.grants
             .filter((g) => g.user_id === m.user_id && (!work || g.permission !== 'commit_main'))
             .map((g) => g.permission)
