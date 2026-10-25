@@ -104,6 +104,11 @@ returns trigger language plpgsql security definer set search_path = public as $$
 declare
   v_role text;
 begin
+  -- BEFORE triggers run ahead of the RLS check: somebody who can't write here
+  -- learns nothing about the project's people, and row-level security refuses.
+  if auth.uid() is not null and not public.general_can_write(new.project_id) then
+    return new;
+  end if;
   -- Locks the person's membership row, so two inserts at once can't both be
   -- the 12th.
   select m.role::text into v_role

@@ -90,6 +90,8 @@ declare
   v_s    uuid := gen_random_uuid();  -- stakeholder
   v_d    uuid := gen_random_uuid();  -- member, deactivated account
   v_pend uuid := gen_random_uuid();  -- member, pending account
+  v_ms   uuid := gen_random_uuid();  -- member, granted manage_structure
+  v_out  uuid := gen_random_uuid();  -- not on the project
   v_p    uuid;
   v_p2   uuid;
 begin
@@ -107,7 +109,9 @@ begin
       (v_q,    'zz-sk-q@example.test'),
       (v_s,    'zz-sk-s@example.test'),
       (v_d,    'zz-sk-d@example.test'),
-      (v_pend, 'zz-sk-pend@example.test')
+      (v_pend, 'zz-sk-pend@example.test'),
+      (v_ms,   'zz-sk-ms@example.test'),
+      (v_out,  'zz-sk-out@example.test')
     ) as v(id, em);
 
   insert into public.profiles
@@ -122,7 +126,9 @@ begin
     (v_q,    'zz-sk-q@example.test',    'Zz', 'Skq',    'member', 'active',   false, false),
     (v_s,    'zz-sk-s@example.test',    'Zz', 'Sks',    'member', 'active',   false, false),
     (v_d,    'zz-sk-d@example.test',    'Zz', 'Skd',    'member', 'active',   false, false),
-    (v_pend, 'zz-sk-pend@example.test', 'Zz', 'Skpend', 'member', 'pending',  false, false)
+    (v_pend, 'zz-sk-pend@example.test', 'Zz', 'Skpend', 'member', 'pending',  false, false),
+    (v_ms,   'zz-sk-ms@example.test',   'Zz', 'Skms',   'member', 'active',   false, false),
+    (v_out,  'zz-sk-out@example.test',  'Zz', 'Skout',  'member', 'active',   false, false)
   on conflict (id) do update
     set role = excluded.role, status = excluded.status,
         can_manage_projects = excluded.can_manage_projects;
@@ -135,15 +141,16 @@ begin
   insert into public.general_members (project_id, user_id, role)
   values (v_p, v_c, 'coordinator'), (v_p, v_m, 'member'), (v_p, v_m2, 'member'),
          (v_p, v_m3, 'member'), (v_p, v_m4, 'member'), (v_p, v_q, 'qa'),
-         (v_p, v_s, 'stakeholder'), (v_p, v_d, 'member'), (v_p, v_pend, 'member'),
+         (v_p, v_s, 'stakeholder'), (v_p, v_d, 'member'), (v_p, v_pend, 'member'), (v_p, v_ms, 'member'),
          (v_p2, v_m, 'member');
   insert into public.general_grants (project_id, user_id, permission, granted_by)
-  values (v_p, v_m2, 'manage_tasks', v_pm);
+  values (v_p, v_m2, 'manage_tasks', v_pm), (v_p, v_ms, 'manage_structure', v_pm);
 
   create temp table fx (k text primary key, v uuid) on commit drop;
   grant select, insert on fx to authenticated;
   insert into fx values ('pm', v_pm), ('c', v_c), ('m', v_m), ('m2', v_m2), ('m3', v_m3),
                         ('m4', v_m4), ('q', v_q), ('s', v_s), ('d', v_d), ('pend', v_pend),
+                        ('ms', v_ms), ('out', v_out),
                         ('p', v_p), ('p2', v_p2);
 end $$;
 
@@ -158,6 +165,7 @@ declare
   v_m2 uuid := (select v from fx where k = 'm2');
   v_m3 uuid := (select v from fx where k = 'm3');
   v_m4 uuid := (select v from fx where k = 'm4');
+  v_ms uuid := (select v from fx where k = 'ms');
   n    int;
 begin
   perform pg_temp.act_as(v_m);
@@ -191,6 +199,16 @@ begin
     format($q$delete from public.general_member_skills
                where project_id = %L and user_id = %L and tag = 'Copywriting'$q$, v_p, v_m4));
   insert into public.general_member_skills (project_id, user_id, tag) values (v_p, v_m4, 'Copywriting');
+  perform pg_temp.act_as(v_ms);
+  perform pg_temp.must_be('member MS holds manage_structure, not manage_tasks',
+    public.general_has(v_p, 'manage_structure') and not public.general_has(v_p, 'manage_tasks'));
+  perform pg_temp.must_allow('a member granted manage_structure adds a tag for member M4',
+    format($q$insert into public.general_member_skills (project_id, user_id, tag)
+              values (%L, %L, 'Branding')$q$, v_p, v_m4));
+  perform pg_temp.must_allow('...and removes it',
+    format($q$delete from public.general_member_skills
+               where project_id = %L and user_id = %L and tag = 'Branding'$q$, v_p, v_m4));
+  perform pg_temp.must_be('...so M4 is back to one tag', pg_temp.tags_of(v_p, v_m4) = 1);
 
   perform pg_temp.act_as(v_m);
   delete from public.general_member_skills where project_id = v_p and user_id = v_m3;
@@ -213,6 +231,7 @@ declare
   v_q  uuid := (select v from fx where k = 'q');
   v_s  uuid := (select v from fx where k = 's');
   v_m  uuid := (select v from fx where k = 'm');
+  v_out uuid := (select v from fx where k = 'out');
 begin
   perform pg_temp.act_as(v_pm);
   perform pg_temp.must_refuse_with('the pm cannot give QA a tag',
@@ -233,12 +252,25 @@ begin
               values (%L, %L, 'Testing')$q$, v_p, v_q),
     'QA and stakeholders don''t take tasks, so they have no skills.');
   perform pg_temp.act_as(v_s);
-  perform pg_temp.must_refuse_with('a stakeholder cannot add their own tag',
+  perform pg_temp.must_refuse_with('a stakeholder cannot add their own tag (row-level security)',
     format($q$insert into public.general_member_skills (project_id, user_id, tag)
               values (%L, %L, 'Budget')$q$, v_p, v_s),
-    'QA and stakeholders don''t take tasks, so they have no skills.');
+    'row-level security');
   perform pg_temp.must_be('...but reads the project''s tags',
     exists (select 1 from public.general_member_skills where project_id = v_p and user_id = v_m));
+
+  -- Somebody off the project learns nothing about who is QA here.
+  perform pg_temp.act_as(v_out);
+  perform pg_temp.must_refuse_with('an outsider adding a tag for P''s QA gets row-level security, not the QA message',
+    format($q$insert into public.general_member_skills (project_id, user_id, tag)
+              values (%L, %L, 'Testing')$q$, v_p, v_q),
+    'row-level security');
+  perform pg_temp.must_refuse_with('...and the same for P''s member M',
+    format($q$insert into public.general_member_skills (project_id, user_id, tag)
+              values (%L, %L, 'Testing')$q$, v_p, v_m),
+    'row-level security');
+  perform pg_temp.must_be('...and reads none of P''s tags',
+    not exists (select 1 from public.general_member_skills where project_id = v_p));
   perform pg_temp.act_as_service();
 end $$;
 
@@ -248,6 +280,7 @@ do $$
 declare
   v_p  uuid := (select v from fx where k = 'p');
   v_m  uuid := (select v from fx where k = 'm');
+  v_out uuid := (select v from fx where k = 'out');
   i    int;
 begin
   perform pg_temp.act_as(v_m);
@@ -261,6 +294,12 @@ begin
     format($q$insert into public.general_member_skills (project_id, user_id, tag)
               values (%L, %L, 'Skill 12')$q$, v_p, v_m),
     'Up to 12 skills each.');
+  perform pg_temp.act_as(v_out);
+  perform pg_temp.must_refuse_with('...an outsider trying a 13th gets row-level security, not the count',
+    format($q$insert into public.general_member_skills (project_id, user_id, tag)
+              values (%L, %L, 'Skill 12')$q$, v_p, v_m),
+    'row-level security');
+  perform pg_temp.act_as(v_m);
   delete from public.general_member_skills where project_id = v_p and user_id = v_m and tag like 'Skill %';
 
   perform pg_temp.must_refuse_with('"figma" after "Figma" is the same tag',
@@ -323,6 +362,7 @@ declare
   v_m    uuid := (select v from fx where k = 'm');
   v_m2   uuid := (select v from fx where k = 'm2');
   v_m4   uuid := (select v from fx where k = 'm4');
+  v_ms   uuid := (select v from fx where k = 'ms');
   v_d    uuid := (select v from fx where k = 'd');
   v_team uuid;
   v_pos  uuid;
@@ -367,9 +407,9 @@ begin
   perform pg_temp.must_be('the candidates are the pm, the coordinator and the active members',
     (select array_agg((c->>'user_id')::uuid order by c->>'user_id')
        from jsonb_array_elements(v_ctx->'candidates') c)
-    = (select array_agg(u order by u::text) from unnest(array[v_pm, v_c, v_m, v_m2, v_m4]) u));
+    = (select array_agg(u order by u::text) from unnest(array[v_pm, v_c, v_m, v_m2, v_m4, v_ms]) u));
   perform pg_temp.must_be('...so not QA, the stakeholder, a deactivated or a pending member',
-    jsonb_array_length(v_ctx->'candidates') = 5);
+    jsonb_array_length(v_ctx->'candidates') = 6);
 
   select c into v_cm from jsonb_array_elements(v_ctx->'candidates') c where c->>'user_id' = v_m::text;
   perform pg_temp.must_be('M''s load counts only the open, unarchived task', (v_cm->>'load')::int = 1);
@@ -400,7 +440,7 @@ begin
 
   perform pg_temp.act_as(v_c);
   perform pg_temp.must_be('a coordinator reads the context too',
-    jsonb_array_length(public.general_assign_context(v_p)->'candidates') = 5);
+    jsonb_array_length(public.general_assign_context(v_p)->'candidates') = 6);
   perform pg_temp.act_as(v_m2);
   perform pg_temp.must_be('...and so does a member granted manage_tasks',
     jsonb_array_length(public.general_assign_context(v_p)->'tasks') = 2);
