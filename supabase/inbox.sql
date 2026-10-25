@@ -3,7 +3,7 @@
 --
 --   node scripts/db.mjs supabase/inbox.sql
 --
--- Adds `space_kind` to list_my_general_space_invitations (general-spaces.sql,
+-- Adds `space_kind` and `invited_level` to list_my_general_space_invitations (general-spaces.sql,
 -- which now carries the same shape). Runs after notification-coverage.sql,
 -- before anon-lockdown.sql. Idempotent. Safe to re-run.
 
@@ -27,7 +27,8 @@ returns table (
   inviter_first_name text,
   inviter_last_name  text,
   inviter_avatar_url text,
-  created_at         timestamptz
+  created_at         timestamptz,
+  invited_level      public.general_level
 )
 language plpgsql security definer set search_path = public as $$
 #variable_conflict use_column
@@ -38,7 +39,7 @@ begin
 
   return query
     select i.id, i.space_id, s.name, s.description, s.kind::text,
-           i.invited_by, pr.first_name, pr.last_name, pr.avatar_url, i.created_at
+           i.invited_by, pr.first_name, pr.last_name, pr.avatar_url, i.created_at, i.invited_level
       from public.general_space_invitations i
       join public.general_spaces s on s.id = i.space_id
       left join public.profiles pr on pr.id = i.invited_by

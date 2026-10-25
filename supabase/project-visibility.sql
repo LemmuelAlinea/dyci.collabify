@@ -16,9 +16,9 @@
 --
 -- People enter a space through its projects: joining a work project adds you to
 -- its space as a plain member. Leaving a project never takes you out of the
--- space. Work-space invites are for co-owners with Project manager turned on
--- (a class's space keeps its co-teacher invite), and space join codes no
--- longer admit anyone.
+-- space. Owners can also invite plain space Members or co-owners with Project
+-- manager turned on. Class spaces keep co-teacher invites; space join codes
+-- no longer admit anyone.
 --
 -- Class-board Files projects (`class_board_id` set, in the "Class project
 -- files" space) keep their old access entirely: members and that space's
@@ -45,6 +45,9 @@
 -- Idempotent. Safe to re-run.
 
 begin;
+
+alter table public.general_space_invitations
+  add column if not exists invited_level public.general_level not null default 'owner';
 
 -- ---------------------------------------------------------------- reading
 
@@ -145,7 +148,7 @@ as $$
   end;
 $$;
 
--- The only work-space invite: an Owner invites someone with Project manager
+-- Co-owner invite: an Owner invites someone with Project manager
 -- turned on to co-own the space.
 create or replace function public.invite_to_general_space(p_space uuid, p_user uuid)
 returns public.general_space_invitations
@@ -203,10 +206,48 @@ begin
 end;
 $$;
 
--- Accepting a work space's invite makes you an Owner. Project manager must
--- still be on when you accept; someone who joined the space through a project
--- meanwhile is raised to Owner. A class's space is unchanged: faculty join at
--- Manager (guard_class_space_member).
+-- A regular invite grants no project membership. The existing student-invite
+-- trigger and pending-invitation unique index also apply to this insert.
+create or replace function public.invite_general_space_member(p_space uuid, p_user uuid)
+returns public.general_space_invitations
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  inv public.general_space_invitations%rowtype;
+begin
+  if not public.is_general_space_owner(p_space) then
+    raise exception 'Only an Owner of this space can invite members. Ask an Owner to send it.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if public.is_education_space(p_space) then
+    raise exception 'This invitation is for a work space. Use the class invitation instead.'
+      using errcode = 'check_violation';
+  end if;
+  if public.general_space_is_archived(p_space) then
+    raise exception 'This space is archived. An Owner can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
+    raise exception 'That account cannot be invited' using errcode = 'no_data_found';
+  end if;
+  if exists (select 1 from public.general_space_members
+              where space_id = p_space and user_id = p_user) then
+    raise exception 'They are already in this space' using errcode = 'unique_violation';
+  end if;
+
+  perform public.rate_limit('general_space_invite', 60, interval '1 hour',
+    'You have sent a lot of invitations in the last hour. Try again later.');
+  insert into public.general_space_invitations (space_id, invitee, invited_by, invited_level)
+  values (p_space, p_user, auth.uid(), 'member')
+  returning * into inv;
+  return inv;
+end;
+$$;
+
+-- Work invitations apply their offered level without demoting an existing
+-- seat. Class invitations still use guard_class_space_member's Manager level.
 create or replace function public.respond_general_space_invitation(p_invitation uuid, p_accept boolean)
 returns public.general_space_invitations
 language plpgsql
@@ -236,6 +277,7 @@ begin
       using errcode = 'check_violation';
   end if;
   if p_accept and not public.is_education_space(inv.space_id)
+     and inv.invited_level = 'owner'
      and not public.is_project_manager(auth.uid()) then
     raise exception 'Only people with Project manager turned on can co-own a space. Ask an admin to turn it on, then accept again.'
       using errcode = 'check_violation';
@@ -254,9 +296,9 @@ begin
     on conflict do nothing;
   elsif p_accept then
     insert into public.general_space_members (space_id, user_id, level)
-    values (inv.space_id, auth.uid(), 'owner')
+    values (inv.space_id, auth.uid(), inv.invited_level)
     on conflict (space_id, user_id) do update set level = 'owner'
-      where general_space_members.level <> 'owner';
+      where excluded.level = 'owner' and general_space_members.level <> 'owner';
   end if;
   return inv;
 end;
@@ -342,10 +384,11 @@ begin
 end;
 $$;
 
+drop function if exists public.list_general_space_invitations(uuid);
 create or replace function public.list_general_space_invitations(p_space uuid)
 returns table (invitation_id uuid, invitee_id uuid, invitee_first_name text,
                invitee_last_name text, invitee_avatar_url text, invited_by uuid,
-               created_at timestamptz)
+               created_at timestamptz, invited_level public.general_level)
 language plpgsql
 security definer
 set search_path = public
@@ -359,7 +402,7 @@ begin
 
   return query
     select i.id, i.invitee, pr.first_name, pr.last_name, pr.avatar_url,
-           i.invited_by, i.created_at
+           i.invited_by, i.created_at, i.invited_level
       from public.general_space_invitations i
       join public.profiles pr on pr.id = i.invitee
      where i.space_id = p_space and i.status = 'pending'
@@ -497,5 +540,10 @@ update public.general_space_join_codes set open = false, updated_at = now() wher
 revoke execute on function public.add_general_member_to_space() from public, anon, authenticated;
 revoke all on function public.guard_general_project() from public, anon;
 grant execute on function public.general_space_manages_invites(uuid) to authenticated;
+
+revoke all on function public.invite_general_space_member(uuid, uuid) from public, anon;
+grant execute on function public.invite_general_space_member(uuid, uuid) to authenticated;
+revoke all on function public.list_general_space_invitations(uuid) from public, anon;
+grant execute on function public.list_general_space_invitations(uuid) to authenticated;
 
 commit;

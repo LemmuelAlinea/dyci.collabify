@@ -301,6 +301,20 @@ work spaces again and lets join codes admit people; `general-reports.sql` alone 
 Managers read everyone's report rows; `company-accounts.sql` or `access.sql` alone lets a
 space join code admit people again.
 
+`project-visibility.sql` also owns `invite_general_space_member`: Owners can offer
+space Member access without any project membership. `invited_level` defaults to
+`owner` so existing pending co-owner invitations keep their meaning. The two pending
+invitation lists append that level; `inbox.sql` owns the invitee list. Their changed
+return types require dropping/recreating the functions with authenticated grants.
+For this upgrade, run the following chain (never `general-spaces.sql` alone):
+
+```bash
+node scripts/db.mjs supabase/project-visibility.sql supabase/inbox.sql supabase/project-team-leads.sql supabase/project-stakeholders.sql supabase/project-feedback.sql supabase/project-qa.sql supabase/anon-lockdown.sql
+```
+
+A full restore already creates `invited_level` in `general-spaces.sql` before
+`inbox.sql`; keep `anon-lockdown.sql` last after all function redefinitions.
+
 `project-team-leads.sql` runs after `project-visibility.sql`. It adds
 `general_teams.leader_id`, `general_leads_user`, `set_general_team_leader`, the
 leader triggers (`general_teams_leader_guard`, `general_teams_leader_event`,

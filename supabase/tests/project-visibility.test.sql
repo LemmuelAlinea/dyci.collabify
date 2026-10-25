@@ -6,7 +6,7 @@
 -- A work project is read by its members, and by the Owners of its space
 -- (read-only). A plain space member who is not on the project sees nothing of
 -- it. Joining a project adds you to its space; leaving it does not take you
--- out. Space invites are for co-owners with Project manager turned on, and
+-- out. Space invites offer Member or co-owner access, and
 -- space join codes no longer admit anyone. Class-board Files projects keep
 -- their old access. Every refusal is paired with a case that is allowed, so a
 -- refusal never passes for the wrong reason.
@@ -387,7 +387,17 @@ begin
   perform pg_temp.must_allow('the Owner invites someone with Project manager',
     format('select public.invite_to_general_space(%L, %L)', v_space, v_cowner));
 
+  perform pg_temp.must_be('legacy co-owner invitations default to Owner',
+    (select invited_level = 'owner' from public.general_space_invitations
+      where space_id = v_space and invitee = v_cowner and status = 'pending'));
+
+  perform pg_temp.must_be('the Owner lists co-owner access',
+    (select invited_level = 'owner' from public.list_general_space_invitations(v_space)
+      where invitee_id = v_cowner));
   perform pg_temp.act_as(v_cowner);
+  perform pg_temp.must_be('the co-owner invitee lists Owner access',
+    (select invited_level = 'owner' from public.list_my_general_space_invitations()
+      where space_id = v_space));
   perform pg_temp.must_allow('...who accepts',
     format('select public.respond_general_space_invitation(%L, true)',
       (select id from public.general_space_invitations
@@ -585,6 +595,115 @@ begin
   perform pg_temp.must_be('...and the joiner never got in',
     not exists (select 1 from public.general_space_members
                  where space_id = v_space and user_id = v_nopm));
+end $$;
+
+
+-- Regular invitations grant space membership only, and never lower a seat.
+do $$
+declare
+  v_space uuid := (select v from fx where k = 'space');
+  v_owner uuid := (select v from fx where k = 'owner');
+  v_nopm uuid := (select v from fx where k = 'nopm');
+  v_plain uuid := (select v from fx where k = 'plain');
+  v_member uuid := (select v from fx where k = 'member');
+  v_project uuid := (select v from fx where k = 'project');
+  v_class uuid;
+  v_inv uuid;
+begin
+  perform pg_temp.act_as(v_plain);
+  perform pg_temp.must_refuse_with('a non-Owner cannot invite a regular member',
+    format('select public.invite_general_space_member(%L, %L)', v_space, v_nopm), 'Only an Owner');
+  perform pg_temp.act_as((select v from fx where k = 'manager'));
+  perform pg_temp.must_refuse_with('a Manager cannot invite a regular member',
+    format('select public.invite_general_space_member(%L, %L)', v_space, v_nopm), 'Only an Owner');
+  perform pg_temp.act_as(v_owner);
+  perform pg_temp.must_refuse_with('a seated Member cannot receive a regular invite',
+    format('select public.invite_general_space_member(%L, %L)', v_space, v_plain), 'already in this space');
+  perform pg_temp.must_refuse_with('a seated Owner cannot receive a regular invite',
+    format('select public.invite_general_space_member(%L, %L)', v_space, v_owner), 'already in this space');
+  perform pg_temp.must_refuse_with('a missing account cannot be invited',
+    format('select public.invite_general_space_member(%L, %L)', v_space, gen_random_uuid()), 'cannot be invited');
+  perform public.archive_general_space(v_space, true);
+  perform pg_temp.must_refuse_with('an archived space cannot invite a regular member',
+    format('select public.invite_general_space_member(%L, %L)', v_space, v_nopm), 'archived');
+  perform public.archive_general_space(v_space, false);
+  v_inv := (public.invite_general_space_member(v_space, v_nopm)).id;
+  perform pg_temp.must_be('the Owner sees the offered Member level',
+    (select invited_level = 'member' from public.list_general_space_invitations(v_space)
+      where invitation_id = v_inv));
+  perform pg_temp.must_refuse_with('a duplicate pending regular invite is refused',
+    format('select public.invite_general_space_member(%L, %L)', v_space, v_nopm), 'duplicate key');
+  perform public.archive_general_space(v_space, true);
+  perform pg_temp.act_as(v_nopm);
+  perform pg_temp.must_refuse_with('a regular invite cannot be accepted while archived',
+    format('select public.respond_general_space_invitation(%L, true)', v_inv), 'archived');
+  perform pg_temp.act_as(v_owner);
+  perform public.archive_general_space(v_space, false);
+  perform pg_temp.act_as(v_nopm);
+  perform pg_temp.must_be('the invitee sees the offered Member level',
+    (select invited_level = 'member' from public.list_my_general_space_invitations()
+      where invitation_id = v_inv));
+  perform public.respond_general_space_invitation(v_inv, true);
+  perform pg_temp.must_be('regular acceptance does not reveal an unrelated project',
+    pg_temp.seen('general_projects', v_project) = 0);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a non-PM accepts as Member without a project role',
+    (select level = 'member' from public.general_space_members
+      where space_id = v_space and user_id = v_nopm)
+    and not exists (select 1 from public.general_members where user_id = v_nopm));
+
+  delete from public.general_space_members where space_id = v_space and user_id = v_nopm;
+  perform pg_temp.act_as(v_owner);
+  v_inv := (public.invite_general_space_member(v_space, v_nopm)).id;
+  perform pg_temp.act_as_service();
+  insert into public.general_space_members (space_id, user_id, level) values (v_space, v_nopm, 'owner');
+  perform pg_temp.act_as(v_nopm);
+  perform public.respond_general_space_invitation(v_inv, true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('accepting a pending Member invitation never demotes an Owner',
+    (select level = 'owner' from public.general_space_members where space_id = v_space and user_id = v_nopm));
+
+  delete from public.general_space_members where space_id = v_space and user_id = v_member;
+  perform pg_temp.act_as(v_owner);
+  v_inv := (public.invite_general_space_member(v_space, v_member)).id;
+  perform pg_temp.act_as(v_member);
+  perform public.respond_general_space_invitation(v_inv, true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('regular acceptance preserves an existing project role',
+    (select role = 'member' from public.general_members where project_id = v_project and user_id = v_member));
+
+  delete from public.general_space_members
+   where space_id = v_space and user_id = (select v from fx where k = 'student');
+  update public.profiles set can_manage_projects = false where id = v_owner;
+  perform pg_temp.act_as(v_owner);
+  perform pg_temp.must_refuse_with('regular invitations retain the student-inviter restriction',
+    format('select public.invite_general_space_member(%L, %L)', v_space,
+      (select v from fx where k = 'student')), 'Only project managers and teachers');
+  perform pg_temp.act_as_service();
+  update public.profiles set can_manage_projects = true where id = v_owner;
+  perform pg_temp.act_as(v_owner);
+  v_inv := (public.invite_general_space_member(v_space, (select v from fx where k = 'student'))).id;
+  perform pg_temp.act_as((select v from fx where k = 'student'));
+  perform public.respond_general_space_invitation(v_inv, true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('an eligible Owner can still invite a student as Member',
+    (select level = 'member' from public.general_space_members
+      where space_id = v_space and user_id = (select v from fx where k = 'student')));
+
+  update public.profiles set can_teach = true where id = v_owner;
+  insert into public.classes (professor_id, name, initial, code, section, year_level, semester, school_year)
+  values (v_owner, 'Zz PV class', 'ZZPV', 'ZZPV-CLASS', 'BSIT 1A', '1st', '1st', '2026-2027')
+  returning space_id into v_class;
+  perform pg_temp.act_as(v_owner);
+  perform pg_temp.must_refuse_with('a class Owner cannot use the regular invitation RPC',
+    format('select public.invite_general_space_member(%L, %L)', v_class, v_nopm), 'work space');
+  v_inv := (public.invite_to_general_space(v_class, v_member)).id;
+  perform pg_temp.act_as(v_member);
+  perform public.respond_general_space_invitation(v_inv, true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('class invitations still seat a co-teacher at Manager',
+    (select level = 'manager' from public.general_space_members
+      where space_id = v_class and user_id = v_member));
 end $$;
 
 rollback;

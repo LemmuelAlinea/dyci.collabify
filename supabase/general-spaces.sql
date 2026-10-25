@@ -60,6 +60,9 @@ create table if not exists public.general_space_invitations (
   answered_at timestamptz
 );
 
+alter table public.general_space_invitations
+  add column if not exists invited_level public.general_level not null default 'owner';
+
 create unique index if not exists general_space_invitations_one_pending
   on public.general_space_invitations (space_id, invitee) where status = 'pending';
 create index if not exists general_space_invitations_invitee_idx
@@ -920,7 +923,8 @@ returns table (
   inviter_first_name text,
   inviter_last_name  text,
   inviter_avatar_url text,
-  created_at         timestamptz
+  created_at         timestamptz,
+  invited_level      public.general_level
 )
 language plpgsql security definer set search_path = public as $$
 #variable_conflict use_column
@@ -931,7 +935,7 @@ begin
 
   return query
     select i.id, i.space_id, s.name, s.description, s.kind::text,
-           i.invited_by, pr.first_name, pr.last_name, pr.avatar_url, i.created_at
+           i.invited_by, pr.first_name, pr.last_name, pr.avatar_url, i.created_at, i.invited_level
       from public.general_space_invitations i
       join public.general_spaces s on s.id = i.space_id
       left join public.profiles pr on pr.id = i.invited_by
@@ -941,6 +945,7 @@ end;
 $$;
 
 /** Who a space has invited. Never their email. */
+drop function if exists public.list_general_space_invitations(uuid);
 create or replace function public.list_general_space_invitations(p_space uuid)
 returns table (
   invitation_id      uuid,
@@ -949,7 +954,8 @@ returns table (
   invitee_last_name  text,
   invitee_avatar_url text,
   invited_by         uuid,
-  created_at         timestamptz
+  created_at         timestamptz,
+  invited_level      public.general_level
 )
 language plpgsql security definer set search_path = public as $$
 #variable_conflict use_column
@@ -961,7 +967,7 @@ begin
 
   return query
     select i.id, i.invitee, pr.first_name, pr.last_name, pr.avatar_url,
-           i.invited_by, i.created_at
+           i.invited_by, i.created_at, i.invited_level
       from public.general_space_invitations i
       join public.profiles pr on pr.id = i.invitee
      where i.space_id = p_space and i.status = 'pending'
