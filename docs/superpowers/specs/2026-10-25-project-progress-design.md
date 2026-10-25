@@ -1,6 +1,6 @@
 # Project progress — design
 
-Status: awaiting owner approval, 2026-10-25.
+Status: approved by the owner, 2026-10-25.
 
 ## Intent
 
