@@ -879,6 +879,58 @@ $$;
 
 grant execute on function public.set_account_role(uuid, public.user_role) to authenticated;
 
+/** An admin CSV overwrite keeps the Auth account, password and setup state. */
+create or replace function public.overwrite_bulk_account(
+  p_email text, p_first_name text, p_middle_name text,
+  p_last_name text, p_role public.user_role
+)
+returns public.profiles language plpgsql security definer set search_path = public as $$
+declare
+  target public.profiles%rowtype;
+begin
+  if not exists (
+    select 1 from public.profiles
+     where id = auth.uid() and role = 'admin' and status = 'active'
+  ) then
+    raise exception 'Only an active admin can overwrite an account'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if nullif(btrim(p_first_name), '') is null
+     or nullif(btrim(p_last_name), '') is null
+     or greatest(length(p_first_name), length(coalesce(p_middle_name, '')),
+                 length(p_last_name)) > 80 then
+    raise exception 'Enter valid names of at most 80 characters'
+      using errcode = 'check_violation';
+  end if;
+  if p_email is null or lower(btrim(p_email)) !~ '^[a-z0-9._%+-]+@dyci\.edu\.ph$' then
+    raise exception 'Use a valid @dyci.edu.ph email'
+      using errcode = 'check_violation';
+  end if;
+
+  select * into strict target from public.profiles
+   where lower(email) = lower(btrim(p_email)) for update;
+  perform public.set_account_role(target.id, p_role);
+  update public.profiles
+     set first_name = btrim(p_first_name),
+         middle_name = nullif(btrim(p_middle_name), ''),
+         last_name = btrim(p_last_name)
+   where id = target.id
+  returning * into target;
+  return target;
+exception
+  when no_data_found then
+    raise exception 'Account no longer exists. Upload the CSV again.'
+      using errcode = 'no_data_found';
+  when too_many_rows then
+    raise exception 'More than one account uses this email. Resolve it before importing.'
+      using errcode = 'unique_violation';
+end;
+$$;
+
+grant execute on function public.overwrite_bulk_account(
+  text, text, text, text, public.user_role
+) to authenticated;
+
 /** Accounts cannot activate an import before its owner finishes setup. */
 create or replace function public.set_account_active(p_user uuid, p_active boolean)
 returns public.profiles language plpgsql security definer set search_path = public as $$

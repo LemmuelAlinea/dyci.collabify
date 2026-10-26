@@ -12,7 +12,7 @@ export const BULK_CHUNK_SIZE = 20
 export type BulkResult = {
   row: number
   email: string
-  status: 'created' | 'skipped' | 'failed'
+  status: 'created' | 'updated' | 'skipped' | 'failed'
   reason?: string
 }
 

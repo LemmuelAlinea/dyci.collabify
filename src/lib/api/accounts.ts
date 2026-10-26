@@ -47,7 +47,7 @@ export async function setAccountActive(userId: string, active: boolean) {
 }
 
 export async function registerBulkUsers(
-  users: (BulkUser & { row: number })[],
+  users: (BulkUser & { row: number; overwrite?: boolean })[],
   defaultPassword: string,
 ): Promise<BulkResult[]> {
   const answer = await invokeFunction<{ results?: BulkResult[]; message?: string }>(

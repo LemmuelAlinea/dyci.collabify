@@ -52,8 +52,10 @@ Deno.serve(async (req) => {
   if (!Array.isArray(body.users) || body.users.length < 1 || body.users.length > BULK_CHUNK_SIZE) {
     return json(headers, { message: 'Send 1 to 20 users at a time.' }, 400)
   }
-  const passwordError = bulkPasswordError(body.defaultPassword)
-  if (passwordError) return json(headers, { message: passwordError }, 400)
+  if (body.users.some((item) => !item || typeof item !== 'object' || item.overwrite !== true)) {
+    const passwordError = bulkPasswordError(body.defaultPassword)
+    if (passwordError) return json(headers, { message: passwordError }, 400)
+  }
   const password = body.defaultPassword as string
 
   const results: BulkResult[] = []
@@ -73,6 +75,20 @@ Deno.serve(async (req) => {
       continue
     }
     seen.add(email)
+
+    if (item.overwrite === true) {
+      const { error } = await caller.rpc('overwrite_bulk_account', {
+        p_email: email,
+        p_first_name: normalized.user.first_name,
+        p_middle_name: normalized.user.middle_name,
+        p_last_name: normalized.user.last_name,
+        p_role: normalized.user.role,
+      })
+      results.push(error
+        ? { row, email, status: 'failed', reason: error.message }
+        : { row, email, status: 'updated' })
+      continue
+    }
 
     const { error } = await admin.auth.admin.createUser({
       email,

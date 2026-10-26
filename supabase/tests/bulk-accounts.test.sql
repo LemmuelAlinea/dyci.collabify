@@ -61,6 +61,36 @@ begin
   exception when check_violation then
     raise notice 'PASS admin cannot activate unfinished import';
   end;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', ordinary, 'role', 'authenticated')::text, true);
+  begin
+    perform public.overwrite_bulk_account(
+      'bulk-test@dyci.edu.ph', 'Changed', null, 'Name', 'student');
+    raise exception 'FAIL non-admin overwrote an account';
+  exception when insufficient_privilege then
+    raise notice 'PASS non-admin cannot overwrite an account';
+  end;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', program_admin, 'role', 'authenticated')::text, true);
+  perform public.overwrite_bulk_account(
+    'BULK-TEST@DYCI.EDU.PH', ' Updated ', null, ' Person ', 'student');
+  perform set_config('role', 'none', true);
+  perform set_config('request.jwt.claims', '', true);
+  if not exists (
+    select 1 from public.profiles
+     where id = imported and email = 'bulk-test@dyci.edu.ph'
+       and first_name = 'Updated' and middle_name is null
+       and last_name = 'Person' and role = 'student'
+       and status = 'pending' and bulk_setup_required
+       and not can_teach and not can_manage_projects
+  ) or not exists (
+    select 1 from auth.users
+     where id = imported and email = 'bulk-test@dyci.edu.ph'
+       and encrypted_password = ''
+  ) then raise exception 'FAIL overwrite changed account identity or setup state'; end if;
+  raise notice 'PASS overwrite updates the profile without replacing Auth account or password';
 end $$;
 
 rollback;
