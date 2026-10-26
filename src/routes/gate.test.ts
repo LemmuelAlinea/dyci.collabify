@@ -30,6 +30,13 @@ describe('gate', () => {
     expect(gate(true, p('member', 'pending'), { open: true })).toBe('ok')
   })
 
+  it('keeps an imported account in first-time setup even on open routes', () => {
+    const imported = { ...p('student', 'pending'), bulk_setup_required: true }
+    expect(gate(true, imported)).toBe('/setup-account')
+    expect(gate(true, imported, { open: true })).toBe('/setup-account')
+    expect(gate(true, imported, { allow: ['student'] })).toBe('/setup-account')
+  })
+
   it('sends a role-less active account to pending, unless the route is open', () => {
     expect(gate(true, p(null, 'active'))).toBe('/pending')
     expect(gate(true, p(null, 'active'), { open: true })).toBe('ok')

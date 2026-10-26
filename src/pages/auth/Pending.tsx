@@ -4,12 +4,15 @@ import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { homeFor } from '../../lib/access'
+import { paths } from '../../lib/paths'
 
 export default function Pending() {
   const { ready, session, profile, signOut, refreshProfile } = useAuth()
 
   if (ready && !session) return <Navigate to="/login" replace />
   if (ready && !profile) return <Navigate to="/onboarding" replace />
+  if (ready && profile?.bulk_setup_required && profile.status === 'pending')
+    return <Navigate to={paths.setupAccount} replace />
   if (ready && profile && profile.status === 'active' && profile.role)
     return <Navigate to={homeFor(profile)} replace />
 

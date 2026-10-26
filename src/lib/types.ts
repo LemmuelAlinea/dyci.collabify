@@ -26,6 +26,8 @@ export type Profile = {
   can_teach: boolean
   /** Set by the admin. Members and admins with this on can run projects. */
   can_manage_projects: boolean
+  /** Admin-provisioned account waiting for consent and a new password. */
+  bulk_setup_required: boolean
   avatar_url: string | null
   theme: ThemeMode
   created_at: string
@@ -1585,6 +1587,7 @@ export type Account = {
   /** The admin's switches. Only a member can teach; a member or an admin can manage projects. */
   can_teach: boolean
   can_manage_projects: boolean
+  bulk_setup_required: boolean
   /** Active work projects they run, which keeps Project manager on. */
   managed_project_count: number
 }

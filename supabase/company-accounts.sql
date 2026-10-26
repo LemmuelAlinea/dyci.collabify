@@ -20,6 +20,7 @@
 -- am_i_admitted, guard_general_creator, guard_student_invite, search_faculty,
 -- guard_student_level, join_general_project, join_general_space,
 -- guard_class_space_member, guard_class_space_side, set_account_role,
+-- set_account_active,
 -- set_faculty_teaching and the account_overview and professor_accounts views.
 -- It drops is_faculty and decide_faculty. Re-run it after re-running any of
 -- those files, then anon-lockdown.sql.
@@ -40,6 +41,9 @@ begin;
 alter table public.profiles
   add column if not exists can_manage_projects boolean not null default false;
 
+alter table public.profiles
+  add column if not exists bulk_setup_required boolean not null default false;
+
 comment on column public.profiles.can_manage_projects is
   'Project manager: may create work spaces and work projects. Members and admins '
   'only, and only the admin sets it (profiles_guard_privileged).';
@@ -56,7 +60,8 @@ begin
   if (new.role is distinct from old.role
       or new.status is distinct from old.status
       or new.can_teach is distinct from old.can_teach
-      or new.can_manage_projects is distinct from old.can_manage_projects)
+      or new.can_manage_projects is distinct from old.can_manage_projects
+      or new.bulk_setup_required is distinct from old.bulk_setup_required)
      and not public.is_admin() then
     -- Pinned back rather than raised: a client that tries this is not owed an
     -- error message describing the rule it just failed to break.
@@ -64,6 +69,7 @@ begin
     new.status := old.status;
     new.can_teach := old.can_teach;
     new.can_manage_projects := old.can_manage_projects;
+    new.bulk_setup_required := old.bulk_setup_required;
   end if;
   return new;
 end;
@@ -98,6 +104,7 @@ begin
   new.status := 'active';
   new.can_teach := false;
   new.can_manage_projects := false;
+  new.bulk_setup_required := false;
   return new;
 end;
 $$;
@@ -142,7 +149,8 @@ begin
   resolved_role := meta_role::public.user_role;
 
   insert into public.profiles
-    (id, email, first_name, middle_name, last_name, role, status, avatar_url)
+    (id, email, first_name, middle_name, last_name, role, status, avatar_url,
+     bulk_setup_required)
   values (
     new.id,
     coalesce(new.email, ''),
@@ -150,8 +158,10 @@ begin
     nullif(new.raw_user_meta_data ->> 'middle_name', ''),
     coalesce(new.raw_user_meta_data ->> 'last_name', ''),
     resolved_role,
-    'active',
-    nullif(new.raw_user_meta_data ->> 'avatar_url', '')
+    (case when new.raw_app_meta_data ->> 'bulk_registration' = 'true'
+          then 'pending' else 'active' end)::public.account_status,
+    nullif(new.raw_user_meta_data ->> 'avatar_url', ''),
+    coalesce(new.raw_app_meta_data ->> 'bulk_registration' = 'true', false)
   )
   on conflict (id) do nothing;
 
@@ -869,6 +879,40 @@ $$;
 
 grant execute on function public.set_account_role(uuid, public.user_role) to authenticated;
 
+/** Accounts cannot activate an import before its owner finishes setup. */
+create or replace function public.set_account_active(p_user uuid, p_active boolean)
+returns public.profiles language plpgsql security definer set search_path = public as $$
+declare
+  target public.profiles%rowtype;
+begin
+  if not public.is_admin()
+     and (case when session_user = 'authenticator'
+               then coalesce(auth.role(), '') <> 'service_role'
+               else auth.uid() is not null end) then
+    raise exception 'Only the program admin changes account status'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  select * into target from public.profiles where id = p_user for update;
+  if target.id is null then raise exception 'That account no longer exists'; end if;
+  if target.role = 'admin' or target.id = auth.uid() then
+    raise exception 'This account is not changed from Accounts'
+      using errcode = 'check_violation';
+  end if;
+  if p_active and target.bulk_setup_required then
+    raise exception 'This account must finish first-time setup before activation'
+      using errcode = 'check_violation';
+  end if;
+
+  update public.profiles
+     set status = case when p_active then 'active' else 'rejected' end::public.account_status,
+         decided_by = auth.uid(), decided_at = now()
+   where id = p_user
+  returning * into target;
+  return target;
+end;
+$$;
+
 create or replace function public.set_faculty_teaching(p_user uuid, p_can_teach boolean)
 returns public.profiles language plpgsql security definer set search_path = public as $$
 declare
@@ -975,6 +1019,7 @@ select p.id,
          where m.student_id = p.id and m.status = 'active')::int as enrolment_count,
        p.can_teach,
        p.can_manage_projects,
+       p.bulk_setup_required,
        public.managed_project_count(p.id) as managed_project_count
   from public.profiles p
   left join public.profiles d on d.id = p.decided_by;

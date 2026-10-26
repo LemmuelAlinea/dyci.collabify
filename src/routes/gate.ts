@@ -1,8 +1,9 @@
 import type { Role } from '../lib/types'
+import { paths } from '../lib/paths'
 
-export type GateProfile = { role: Role | null; status: 'active' | 'pending' | 'rejected' }
+export type GateProfile = { role: Role | null; status: 'active' | 'pending' | 'rejected'; bulk_setup_required?: boolean }
 
-export type GateResult = 'ok' | '/login' | '/onboarding' | '/pending' | '/home'
+export type GateResult = 'ok' | '/login' | '/onboarding' | '/pending' | '/home' | '/setup-account'
 
 /**
  * The one decision every signed-in route makes, pulled out so it can be
@@ -21,6 +22,7 @@ export function gate(
   if (!hasSession) return '/login'
   if (!profile) return '/onboarding'
   if (profile.status === 'rejected') return '/pending'
+  if (profile.bulk_setup_required && profile.status === 'pending') return paths.setupAccount
   if (open) return 'ok'
   if (profile.status !== 'active' || !profile.role) return '/pending'
   if (allow && !allow.includes(profile.role)) return '/home'

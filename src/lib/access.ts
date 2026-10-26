@@ -6,12 +6,13 @@
  */
 import type { GeneralProjectSummary, GeneralSpaceSummary } from './general/types'
 import type { Profile, Role } from './types'
+import { paths } from './paths'
 
 export type AccessProfile =
   | Pick<Profile, 'role' | 'status' | 'can_teach' | 'can_manage_projects'>
   | null
   | undefined
-export type HomeProfile = Pick<Profile, 'role' | 'status'> | null | undefined
+export type HomeProfile = Pick<Profile, 'role' | 'status'> & Partial<Pick<Profile, 'bulk_setup_required'>> | null | undefined
 
 export function isMemberRole(role: Role | null | undefined): boolean {
   return role === 'member'
@@ -110,6 +111,7 @@ export function showsClassScope(p: AccessProfile, membership: Membership | undef
 /** Where an admitted account lands. */
 export function homeFor(profile: HomeProfile): string {
   if (!profile) return '/onboarding'
+  if (profile.bulk_setup_required && profile.status === 'pending') return paths.setupAccount
   if (profile.status !== 'active' || !profile.role) return '/pending'
   return '/home'
 }

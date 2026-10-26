@@ -26,6 +26,7 @@ import { setCanTeach } from '../../../lib/api/admin'
 import { authErrorMessage } from '../../../lib/authError'
 import { ACCOUNT_STATUS_LABEL, fullName, ROLE_LABEL } from '../../../lib/types'
 import type { Account, AccountStatus } from '../../../lib/types'
+import { BulkRegisterDialog } from './BulkRegisterDialog'
 
 const STATUS_TONE: Record<AccountStatus, string> = {
   active: 'bg-success-500/15 text-success-700 dark:text-success-300',
@@ -85,6 +86,7 @@ export default function Accounts() {
   const [busy, setBusy] = useState<string | null>(null)
   const [changing, setChanging] = useState<{ account: Account; to: 'student' | 'member' } | null>(null)
   const [deactivating, setDeactivating] = useState<Account | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -154,6 +156,7 @@ export default function Accounts() {
             <h2 className="mt-1">People and access</h2>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <Button size="sm" onClick={() => setBulkOpen(true)}>Bulk register</Button>
             <FilterPopover
               active={[query, role].filter(Boolean).length}
               summary={[query && `“${query}”`, role && ROLE_FILTERS.find((r) => r.value === role)?.label]
@@ -223,7 +226,7 @@ export default function Accounts() {
                 <span
                   className={`shrink-0 rounded-md px-2 py-0.5 font-mono text-[12px] ${STATUS_TONE[a.status]}`}
                 >
-                  {ACCOUNT_STATUS_LABEL[a.status]}
+                  {a.bulk_setup_required && a.status === 'pending' ? 'Awaiting setup' : ACCOUNT_STATUS_LABEL[a.status]}
                 </span>
 
                 {a.role === 'member' || isAdmin ? (
@@ -272,22 +275,24 @@ export default function Accounts() {
                     >
                       {a.role === 'student' ? 'Make member' : 'Make student'}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={working}
-                      onClick={() =>
-                        a.status === 'active'
-                          ? setDeactivating(a)
-                          : void run(
-                              a.id,
-                              () => setAccountActive(a.id, true),
-                              `${fullName(a)} can sign in again`,
-                            )
-                      }
-                    >
-                      {a.status === 'active' ? 'Deactivate' : 'Reactivate'}
-                    </Button>
+                    {!(a.bulk_setup_required && a.status === 'pending') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={working}
+                        onClick={() =>
+                          a.status === 'active'
+                            ? setDeactivating(a)
+                            : void run(
+                                a.id,
+                                () => setAccountActive(a.id, true),
+                                `${fullName(a)} can sign in again`,
+                              )
+                        }
+                      >
+                        {a.status === 'active' ? 'Deactivate' : 'Reactivate'}
+                      </Button>
+                    )}
                   </span>
                 )}
               </li>
@@ -355,6 +360,7 @@ export default function Accounts() {
           </>
         }
       />
+      <BulkRegisterDialog open={bulkOpen} onClose={() => setBulkOpen(false)} onImported={load} />
     </div>
   )
 }

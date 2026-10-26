@@ -1,5 +1,7 @@
 import { supabase } from '../supabase'
+import { invokeFunction } from './functions'
 import type { Account } from '../types'
+import type { BulkResult, BulkUser } from '../../../supabase/functions/_shared/bulkAccounts'
 
 /**
  * Every account, for the admin. RLS decides the audience — `profiles_select_own`
@@ -42,4 +44,23 @@ export async function setAccountActive(userId: string, active: boolean) {
     p_active: active,
   })
   if (error) throw error
+}
+
+export async function registerBulkUsers(
+  users: (BulkUser & { row: number })[],
+  defaultPassword: string,
+): Promise<BulkResult[]> {
+  const answer = await invokeFunction<{ results?: BulkResult[]; message?: string }>(
+    'bulk-register-users', { users, defaultPassword },
+  )
+  if (!Array.isArray(answer.results)) throw new Error(answer.message ?? 'Could not import these users.')
+  if (answer.results.length !== users.length) throw new Error('Import response was incomplete. Upload the CSV again to check these rows.')
+  return answer.results
+}
+
+export async function completeBulkRegistration(newPassword: string): Promise<void> {
+  const answer = await invokeFunction<{ result?: string; message?: string }>(
+    'complete-bulk-registration', { newPassword },
+  )
+  if (answer.result !== 'complete') throw new Error(answer.message ?? 'Could not finish account setup.')
 }

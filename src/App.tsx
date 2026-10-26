@@ -18,6 +18,7 @@ import ResetPassword from './pages/auth/ResetPassword'
 import CheckEmail from './pages/auth/CheckEmail'
 import AuthCallback from './pages/auth/AuthCallback'
 import Onboarding from './pages/auth/Onboarding'
+import SetupAccount from './pages/auth/SetupAccount'
 import Pending from './pages/auth/Pending'
 import JoinClassLink from './pages/auth/JoinClassLink'
 
@@ -114,6 +115,7 @@ export default function App() {
           <Route path="/check-email" element={<CheckEmail />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/onboarding" element={<Onboarding />} />
+          <Route path={paths.setupAccount} element={<SetupAccount />} />
           <Route path="/pending" element={<Pending />} />
           <Route path="/join/:code" element={<JoinClassLink />} />
 

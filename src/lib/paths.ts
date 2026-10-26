@@ -8,6 +8,7 @@
  */
 export const paths = {
   home: '/home',
+  setupAccount: '/setup-account',
   tasks: '/tasks',
   calendar: '/calendar',
   meetings: '/meetings',
