@@ -1,5 +1,4 @@
 // src/components/general/WorkTab.tsx
-import { useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { BacklogView } from '../work/BacklogView'
 import { MilestonesView } from '../work/MilestonesView'
@@ -19,10 +18,6 @@ export function WorkTab({ state, area }: { state: GeneralProjectState; area: 'ov
   const [params, setParams] = useSearchParams()
   const section = workSection(params, area === 'overview' ? 'summary' : area === 'plan' ? 'milestones' : 'tasks')
   const layout = taskLayout(params)
-
-  useEffect(() => {
-    if (area === 'plan' && section === 'sprints') document.getElementById('project-sprint-activity')?.scrollIntoView()
-  }, [area, section])
 
   const changeSection = (section: WorkSection) => {
     const next = withWork(params, { section })
@@ -62,11 +57,11 @@ export function WorkTab({ state, area }: { state: GeneralProjectState; area: 'ov
             variant="panel"
           />
           {section === 'backlog' || section === 'sprints' ? <div className="space-y-8">
-            <section id="project-backlog" aria-label="Backlog and upcoming sprints" className="scroll-mt-24">
-              <BacklogView source={source} />
-            </section>
-            <section id="project-sprint-activity" aria-label="Active and finished sprints" className="scroll-mt-24 border-t border-line pt-6">
+            <section id="project-sprint-activity" aria-label="Active and finished sprints" className="scroll-mt-24">
               <SprintsView source={source} onPlan={() => document.getElementById('project-backlog')?.scrollIntoView()} />
+            </section>
+            <section id="project-backlog" aria-label="Backlog and upcoming sprints" className="scroll-mt-24 border-t border-line pt-6">
+              <BacklogView source={source} />
             </section>
           </div> : <MilestonesView source={generalMilestoneSource(state, showTask)} selectedId={params.get('milestone')} />}
         </div>

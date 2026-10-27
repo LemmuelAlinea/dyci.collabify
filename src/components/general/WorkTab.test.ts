@@ -42,6 +42,9 @@ describe('Plan tabs', () => {
       expect(tabs[1].getAttribute('aria-selected')).toBe('true')
       expect(container.textContent).toContain('Planned sprints and backlog')
       expect(container.textContent).toContain('Active and finished sprints')
+      expect(container.textContent!.indexOf('Active and finished sprints')).toBeLessThan(
+        container.textContent!.indexOf('Planned sprints and backlog'),
+      )
       expect(container.textContent).not.toContain('Milestone content')
       await act(async () => tabs[0].click())
       expect(tabs[0].getAttribute('aria-selected')).toBe('true')
