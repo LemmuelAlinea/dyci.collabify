@@ -25,41 +25,60 @@ const space = (
 })
 
 describe('general navigation', () => {
-  it('opens project Progress and keeps task links in Work', () => {
-    expect(generalTab(new URLSearchParams('tab=project-progress'))).toBe('project-progress')
-    expect(generalTab(new URLSearchParams('tab=project-progress&task=t1'))).toBe('work')
+  it('opens project progress in Overview and task links in Tasks', () => {
+    expect(generalTab(new URLSearchParams('tab=project-progress'))).toBe('overview')
+    expect(generalTab(new URLSearchParams('tab=project-progress&task=t1'))).toBe('tasks')
   })
 
-  it('reads every supported tab and falls back to overview', () => {
+  it('reads the six project sections and falls back to Overview', () => {
     expect(generalTab(new URLSearchParams())).toBe('overview')
-    expect(generalTab(new URLSearchParams('tab=files'))).toBe('files')
+    for (const tab of ['overview', 'plan', 'tasks', 'conversations', 'files', 'people']) {
+      expect(generalTab(new URLSearchParams(`tab=${tab}`))).toBe(tab)
+    }
     expect(generalTab(new URLSearchParams('tab=unknown'))).toBe('overview')
   })
 
-  it('lets a task deep link override tab', () => {
-    expect(generalTab(new URLSearchParams('tab=members&task=abc'))).toBe('work')
+  it('keeps task dialogs on their current new section, but sends old links to Tasks', () => {
+    expect(generalTab(new URLSearchParams('tab=overview&task=abc'))).toBe('overview')
+    expect(generalTab(new URLSearchParams('tab=plan&task=abc'))).toBe('plan')
+    expect(generalTab(new URLSearchParams('tab=members&task=abc'))).toBe('tasks')
   })
 
-  it('sends the old Tasks and Progress tabs to Work', () => {
-    expect(generalTab(new URLSearchParams('tab=tasks'))).toBe('work')
-    expect(generalTab(new URLSearchParams('tab=progress'))).toBe('work')
-    expect(generalTab(new URLSearchParams('tab=work'))).toBe('work')
+  it('maps every old tab and Work section to its new home', () => {
+    const destinations = {
+      'tab=work': 'tasks',
+      'tab=work&work=summary': 'overview',
+      'tab=work&work=backlog': 'plan',
+      'tab=work&work=milestones': 'plan',
+      'tab=work&work=sprints': 'tasks',
+      'tab=work&work=qa': 'tasks',
+      'tab=tasks': 'tasks',
+      'tab=progress': 'overview',
+      'tab=discussion': 'conversations',
+      'tab=feedback': 'conversations',
+      'tab=shared': 'files',
+      'tab=members': 'people',
+    }
+    for (const [query, tab] of Object.entries(destinations)) {
+      expect(generalTab(new URLSearchParams(query))).toBe(tab)
+    }
   })
 
   it('links to a milestone without changing the source query', () => {
     const params = new URLSearchParams('tab=project-progress&scope=a&task=t1')
     const next = milestoneParams(params, 'm1')
-    expect(Object.fromEntries(next)).toEqual({ tab: 'work', scope: 'a', work: 'milestones', milestone: 'm1' })
-    expect(generalTab(next)).toBe('work')
+    expect(Object.fromEntries(next)).toEqual({ tab: 'plan', scope: 'a', work: 'milestones', milestone: 'm1' })
+    expect(generalTab(next)).toBe('plan')
     expect(workSection(next, 'tasks')).toBe('milestones')
     expect(params.toString()).toBe('tab=project-progress&scope=a&task=t1')
   })
 
   it('preserves legacy Work destinations', () => {
     const progress = new URLSearchParams('tab=progress')
-    expect(generalTab(progress)).toBe('work')
+    expect(generalTab(progress)).toBe('overview')
     expect(workSection(progress, 'tasks')).toBe('summary')
-    expect(generalTab(new URLSearchParams('tab=members&task=t1'))).toBe('work')
+    expect(generalTab(new URLSearchParams('tab=members&task=t1'))).toBe('tasks')
+    expect(generalTab(new URLSearchParams('tab=work&work=summary&task=t1'))).toBe('overview')
   })
 
   it('extracts only Space and project routes', () => {

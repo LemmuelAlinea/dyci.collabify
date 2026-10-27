@@ -1,34 +1,34 @@
 // src/components/general/WorkTab.tsx
+import { useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { BacklogView } from '../work/BacklogView'
 import { MilestonesView } from '../work/MilestonesView'
 import { QaQueue } from '../work/QaQueue'
 import { SprintsView } from '../work/SprintsView'
-import { WorkNav } from '../work/WorkNav'
+import { Tabs } from '../ui/Tabs'
 import { readScope } from '../../lib/work/scope'
-import { taskLayout, withWork, workSection, workSectionsFor, type WorkSection } from '../../lib/work/nav'
+import { taskLayout, withWork, workSection, type WorkSection } from '../../lib/work/nav'
 import { TaskDialog } from './TaskDialog'
 import { TasksTab } from './TasksTab'
 import { WorkSummary } from './WorkSummary'
 import type { GeneralProjectState } from './useGeneralProject'
 import { generalMilestoneSource, generalWorkSource } from './workSource'
 
-/**
- * A work project's Work tab: Summary, Backlog, Sprints, Milestones and
- * Tasks. The open task is one dialog for every section, so a
- * task opened from Summary's late list opens in place.
- */
-export function WorkTab({ state }: { state: GeneralProjectState }) {
+/** Project work sections share one task dialog, including links from Summary. */
+export function WorkTab({ state, area }: { state: GeneralProjectState; area: 'overview' | 'plan' | 'tasks' }) {
   const [params, setParams] = useSearchParams()
-  const sections = workSectionsFor(Boolean(state.project?.has_qa))
-  const asked = workSection(params, 'tasks')
-  // A link to the queue of a project that has no QA lands on Tasks.
-  const section = sections.includes(asked) ? asked : 'tasks'
+  const section = workSection(params, area === 'overview' ? 'summary' : area === 'plan' ? 'milestones' : 'tasks')
   const layout = taskLayout(params)
+
+  useEffect(() => {
+    if (area === 'plan' && section === 'backlog') document.getElementById('project-backlog')?.scrollIntoView()
+  }, [area, section])
 
   const changeSection = (section: WorkSection) => {
     const next = withWork(params, { section })
+    next.set('tab', section === 'summary' ? 'overview' : section === 'backlog' || section === 'milestones' ? 'plan' : 'tasks')
     next.delete('milestone')
+    next.delete('task')
     setParams(next)
   }
 
@@ -47,30 +47,44 @@ export function WorkTab({ state }: { state: GeneralProjectState }) {
 
   return (
     <div className="space-y-5">
-      <WorkNav sections={sections} active={section} onChange={changeSection} />
-      {section === 'summary' ? (
+      {area === 'overview' ? (
         <WorkSummary
           state={state}
           onOpenTask={showTask}
           onSection={changeSection}
         />
-      ) : section === 'backlog' ? (
-        <BacklogView source={source} />
-      ) : section === 'sprints' ? (
-        <SprintsView source={source} onPlan={() => changeSection('backlog')} />
-      ) : section === 'qa' ? (
-        <QaQueue state={state} onOpenTask={showTask} />
-      ) : section === 'milestones' ? (
-        <MilestonesView source={generalMilestoneSource(state, showTask)} selectedId={params.get('milestone')} />
+      ) : area === 'plan' ? (
+        <div className="space-y-8">
+          <section aria-label="Milestones">
+            <MilestonesView source={generalMilestoneSource(state, showTask)} selectedId={params.get('milestone')} />
+          </section>
+          <section id="project-backlog" aria-label="Backlog and upcoming sprints" className="scroll-mt-24 border-t border-line pt-6">
+            <BacklogView source={source} />
+          </section>
+        </div>
       ) : (
-        <TasksTab
-          state={state}
-          layout={layout}
-          onLayout={(l) => setParams(withWork(params, { layout: l }), { replace: true })}
-          scope={scope}
-          onScope={(s) => setParams(withWork(params, { scope: s }), { replace: true })}
-          onOpenTask={showTask}
-        />
+        <div className="space-y-6">
+          <Tabs<WorkSection>
+            tabs={[
+              { id: 'tasks', label: 'Tasks', icon: 'check' },
+              { id: 'sprints', label: 'Sprint activity', icon: 'target' },
+              ...(state.project?.has_qa ? [{ id: 'qa' as const, label: 'QA queue', icon: 'shield' as const }] : []),
+            ]}
+            active={section === 'sprints' || (section === 'qa' && state.project?.has_qa) ? section : 'tasks'}
+            onChange={changeSection}
+            variant="panel"
+          />
+          {section === 'sprints' ? <SprintsView source={source} onPlan={() => changeSection('backlog')} /> :
+            section === 'qa' && state.project?.has_qa ? <QaQueue state={state} onOpenTask={showTask} /> :
+            <TasksTab
+              state={state}
+              layout={layout}
+              onLayout={(l) => setParams(withWork(params, { layout: l }), { replace: true })}
+              scope={scope}
+              onScope={(s) => setParams(withWork(params, { scope: s }), { replace: true })}
+              onOpenTask={showTask}
+            />}
+        </div>
       )}
       <TaskDialog state={state} taskId={params.get('task')} onClose={() => showTask(null)} />
     </div>

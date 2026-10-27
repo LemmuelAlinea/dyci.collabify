@@ -48,6 +48,7 @@ import type { OpenFile } from './FileEditor'
 import { FolderBar } from './FolderBar'
 import { NewItemDialog } from './NewItemDialog'
 import { RenameFolderDialog } from './RenameFolderDialog'
+import { SharedTab } from './SharedTab'
 import { RepoChangeRow } from './RepoChangeRow'
 import { RequestAccessButton } from './RequestAccessButton'
 import { CommitAccessButton } from './CommitAccessButton'
@@ -80,9 +81,10 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   // Only my_general_draft refuses a Stakeholder (they may keep an earlier draft),
   // so the UI hides My draft.
   const noDraft = state.myRole === 'stakeholder'
+  const legacyShared = params.get('tab') === 'shared'
   const rawView = params.get('view') as View | null
   const view: View =
-    rawView && VIEWS.includes(rawView) && !(noDraft && rawView === 'draft') ? rawView : 'main'
+    rawView && VIEWS.includes(rawView) && !(noDraft && rawView === 'draft') ? rawView : legacyShared && !noDraft ? 'draft' : 'main'
   const folder = view === 'main' || view === 'draft' ? params.get('path') ?? '' : ''
   const [renaming, setRenaming] = useState<string | null>(null)
   const [open, setOpen] = useState<OpenFile | null>(null)
@@ -92,6 +94,12 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   useEffect(() => {
     setQuery('')
   }, [view])
+
+  useEffect(() => {
+    if (loaded && view === 'draft' && legacyShared) {
+      document.getElementById('project-shared-files')?.scrollIntoView()
+    }
+  }, [loaded, view, legacyShared])
 
   const load = useCallback(async () => {
     if (!projectId) return
@@ -139,10 +147,13 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   function go(nextView: View, nextPath = '') {
     if (nextView !== view) setQuery('')
     const changed = new URLSearchParams(params)
+    changed.set('tab', 'files')
     if (nextView === 'main') changed.delete('view')
     else changed.set('view', nextView)
     if (nextPath) changed.set('path', nextPath)
     else changed.delete('path')
+    changed.delete('share')
+    changed.delete('spath')
     setParams(changed)
   }
 
@@ -247,8 +258,8 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
 
       <Tabs<View>
         tabs={[
-          { id: 'main', label: 'Main', icon: 'folder', count: tree.filter((f) => !isKeep(f.path)).length },
-          ...(noDraft ? [] : [{ id: 'draft' as const, label: 'My draft', icon: 'edit' as const, count: draftCount }]),
+          { id: 'main', label: 'Project files', icon: 'folder', count: tree.filter((f) => !isKeep(f.path)).length },
+          ...(noDraft ? [] : [{ id: 'draft' as const, label: 'My workspace', icon: 'edit' as const, count: draftCount }]),
           { id: 'changes', label: 'For review', icon: 'refresh', count: openChanges.length },
           { id: 'history', label: 'History', icon: 'clock', count: commits.length },
         ]}
@@ -289,8 +300,12 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           }}
         />
       )}
-      {view === 'draft' && !noDraft && (
-        <DraftPanel
+      {view === 'draft' && !noDraft && (<div className="space-y-8">
+        <nav aria-label="My workspace sections" className="flex flex-wrap gap-2 text-[13px]">
+          <button type="button" onClick={() => document.getElementById('project-my-draft')?.scrollIntoView()} className="rounded-lg border border-line px-3 py-2 hover:bg-[var(--surface-sunken)]">My draft</button>
+          <button type="button" onClick={() => document.getElementById('project-shared-files')?.scrollIntoView()} className="rounded-lg border border-line px-3 py-2 hover:bg-[var(--surface-sunken)]">Shared with me</button>
+        </nav>
+        <section id="project-my-draft" aria-label="My draft" className="scroll-mt-24"><DraftPanel
           draft={draft}
           files={draftFiles}
           conflicts={conflicts}
@@ -303,8 +318,9 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           onRename={setRenaming}
           onOpen={setOpen}
           onDone={load}
-        />
-      )}
+        /></section>
+        <section id="project-shared-files" aria-label="Shared files" className="scroll-mt-24 border-t border-line pt-6"><SharedTab state={state} /></section>
+      </div>)}
       {view === 'changes' && (
         <ChangesView
           repo={repo}

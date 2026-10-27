@@ -1,22 +1,34 @@
 import type { GeneralSpaceSummary } from './types'
+import { workSection } from '../work/nav'
 
-export type GeneralTabId = 'overview' | 'project-progress' | 'discussion' | 'feedback' | 'work' | 'files' | 'shared' | 'members'
+export type GeneralTabId = 'overview' | 'plan' | 'tasks' | 'conversations' | 'files' | 'people'
 
-const TABS = new Set<GeneralTabId>(['overview', 'project-progress', 'discussion', 'feedback', 'work', 'files', 'shared', 'members'])
+const TABS = new Set<GeneralTabId>(['overview', 'plan', 'tasks', 'conversations', 'files', 'people'])
 
-/** Work replaced two tabs; links written before it still name them. */
-const LEGACY: Record<string, GeneralTabId> = { tasks: 'work', progress: 'work' }
+const LEGACY: Record<string, GeneralTabId> = {
+  'project-progress': 'overview',
+  discussion: 'conversations',
+  feedback: 'conversations',
+  shared: 'files',
+  members: 'people',
+}
 
 export function generalTab(params: URLSearchParams): GeneralTabId {
-  if (params.has('task')) return 'work'
   const raw = params.get('tab') ?? ''
+  if (params.has('task') && (raw === 'overview' || raw === 'plan' || raw === 'tasks')) return raw
+  if (raw === 'tasks') return 'tasks'
+  if (raw === 'work' || raw === 'progress' || (!raw && params.has('work'))) {
+    const section = workSection(params, 'tasks')
+    return section === 'summary' ? 'overview' : section === 'backlog' || section === 'milestones' ? 'plan' : 'tasks'
+  }
+  if (params.has('task')) return 'tasks'
   const value = (LEGACY[raw] ?? raw) as GeneralTabId
   return TABS.has(value) ? value : 'overview'
 }
 
 export function milestoneParams(params: URLSearchParams, id: string): URLSearchParams {
   const next = new URLSearchParams(params)
-  next.set('tab', 'work')
+  next.set('tab', 'plan')
   next.set('work', 'milestones')
   next.set('milestone', id)
   next.delete('task')

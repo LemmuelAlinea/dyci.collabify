@@ -8,7 +8,6 @@ import { ProgressTab } from '../../components/general/ProgressTab'
 import { DiscussionTab } from '../../components/general/DiscussionTab'
 import { FeedbackTab } from '../../components/general/FeedbackTab'
 import { FilesTab } from '../../components/general/FilesTab'
-import { SharedTab } from '../../components/general/SharedTab'
 import { WorkTab } from '../../components/general/WorkTab'
 import { SinceLastVisit } from '../../components/general/SinceLastVisit'
 import { SaveTemplateButton } from '../../components/general/SaveTemplateButton'
@@ -48,13 +47,15 @@ export default function GeneralProject() {
     if (next === 'overview') changed.delete('tab')
     else changed.set('tab', next)
     changed.delete('feedback')
-    // Work's own place (section, layout, open task) means nothing on another tab.
-    if (next !== 'work') {
-      changed.delete('task')
-      changed.delete('work')
-      changed.delete('layout')
-      changed.delete('milestone')
-    }
+    changed.delete('conversation')
+    changed.delete('task')
+    changed.delete('work')
+    changed.delete('layout')
+    changed.delete('milestone')
+    changed.delete('view')
+    changed.delete('path')
+    changed.delete('share')
+    changed.delete('spath')
     setParams(changed)
   }
 
@@ -108,14 +109,16 @@ export default function GeneralProject() {
 
   // A Stakeholder is not in discussions, and has nothing shared with them.
   const stakeholder = state.myRole === 'stakeholder'
+  const discussionOn = !stakeholder
   // Feedback is for work projects; a class board's Files project has none. Only
   // the project's members read it, so a space owner who isn't on it sees no tab.
   const feedbackOn = !p.class_board_id && Boolean(state.me)
-  if ((stakeholder && (tab === 'discussion' || tab === 'shared')) || (!feedbackOn && tab === 'feedback') || (p.class_board_id && tab === 'project-progress')) {
+  if ((tab === 'conversations' && !discussionOn && !feedbackOn) || (!feedbackOn && params.get('tab') === 'feedback') || (stakeholder && params.get('tab') === 'discussion')) {
     const changed = new URLSearchParams(params)
     changed.delete('tab')
     return <Navigate to={{ search: changed.toString() }} replace />
   }
+  const feedbackSelected = !discussionOn || (feedbackOn && (params.get('conversation') === 'feedback' || params.get('tab') === 'feedback'))
 
   const openForOwner = state.canGrant ? state.requests.filter((r) => r.status === 'open').length : 0
 
@@ -183,7 +186,7 @@ export default function GeneralProject() {
       )}
 
       {stakeholder && (
-        <Alert tone="info">You're a stakeholder here. You can view the project's work and files, and post in Feedback.</Alert>
+        <Alert tone="info">You're a stakeholder here. You can view the project's work and files, and post feedback.</Alert>
       )}
 
       <SinceLastVisit projectId={p.id} />
@@ -191,31 +194,48 @@ export default function GeneralProject() {
       <Tabs<GeneralTabId>
         tabs={[
           { id: 'overview', label: 'Overview', icon: 'file' },
-          ...(!p.class_board_id ? [{ id: 'project-progress' as const, label: 'Progress', icon: 'chart' as const }] : []),
-          ...(stakeholder ? [] : [{ id: 'discussion' as const, label: 'Discussion', icon: 'message' as const }]),
-          ...(feedbackOn ? [{ id: 'feedback' as const, label: 'Feedback', icon: 'edit' as const }] : []),
-          { id: 'work', label: 'Work', icon: 'kanban', count: state.tasks.length },
+          { id: 'plan', label: 'Plan', icon: 'target' },
+          { id: 'tasks', label: 'Tasks', icon: 'kanban' },
+          ...(discussionOn || feedbackOn ? [{ id: 'conversations' as const, label: 'Conversations', icon: 'message' as const }] : []),
           { id: 'files', label: 'Files', icon: 'folder' },
-          ...(stakeholder ? [] : [{ id: 'shared' as const, label: 'Shared with me', icon: 'users' as const }]),
           {
-            id: 'members',
-            label: 'Members',
+            id: 'people',
+            label: 'People',
             icon: 'users',
-            count: openForOwner > 0 ? openForOwner : state.members.length,
+            ...(openForOwner > 0 ? { count: openForOwner } : {}),
           },
         ]}
         active={tab}
         onChange={changeTab}
       />
 
-      {tab === 'overview' && <OverviewTab state={state} />}
-      {tab === 'project-progress' && <ProgressTab state={state} />}
-      {tab === 'discussion' && <DiscussionTab state={state} />}
-      {tab === 'feedback' && <FeedbackTab state={state} />}
-      {tab === 'work' && <WorkTab state={state} />}
+      {tab === 'overview' && <div className="space-y-6">
+        <WorkTab state={state} area="overview" />
+        <OverviewTab state={state} />
+        {!p.class_board_id && <details open={params.get('tab') === 'project-progress' ? true : undefined} className="rounded-panel border border-line surface p-4 sm:p-5">
+          <summary className="cursor-pointer text-[14px] font-semibold">Detailed progress</summary>
+          <div className="mt-5"><ProgressTab state={state} /></div>
+        </details>}
+      </div>}
+      {tab === 'plan' && <WorkTab state={state} area="plan" />}
+      {tab === 'tasks' && <WorkTab state={state} area="tasks" />}
+      {tab === 'conversations' && <div className="space-y-5">
+        {discussionOn && feedbackOn && <Tabs<'discussion' | 'feedback'>
+          tabs={[{ id: 'discussion', label: 'Discussion', icon: 'message' }, { id: 'feedback', label: 'Feedback', icon: 'edit' }]}
+          active={feedbackSelected ? 'feedback' : 'discussion'}
+          onChange={(mode) => {
+            const next = new URLSearchParams(params)
+            next.set('tab', 'conversations')
+            next.set('conversation', mode)
+            next.delete('feedback')
+            setParams(next)
+          }}
+          variant="panel"
+        />}
+        {feedbackSelected ? <FeedbackTab state={state} /> : <DiscussionTab state={state} />}
+      </div>}
       {tab === 'files' && <FilesTab state={state} />}
-      {tab === 'shared' && <SharedTab state={state} />}
-      {tab === 'members' && <MembersTab state={state} />}
+      {tab === 'people' && <MembersTab state={state} />}
 
       <ConfirmDialog
         open={archiving}
