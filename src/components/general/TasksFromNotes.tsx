@@ -70,8 +70,8 @@ function startsAt(r: Row) {
  * in them out, as draft tasks to keep, edit or drop. When the text lays out
  * sprints or milestones, those are drafted too and the tasks put in them; a
  * task with no sprint goes to the backlog. Nothing is saved until the person
- * says so. Owners and dates are only what the text names; people are put on a
- * task only by someone who may assign them.
+ * says so. Missing dates are suggested for review; people are put on a task
+ * only by someone who may assign them.
  *
  * A work project saves them as its own tasks, sprints and milestones. A class
  * project passes `onSave` and `plan` (and `mayAssign`, since any student may
@@ -494,9 +494,9 @@ export function TasksFromNotes({
                 />
               )}
               <p className="text-[12px] text-faint">
-                Owners and dates come only from what the text says. Sprints and milestones are drafted
-                only when the text names them; any other task goes to the backlog. Nothing is added
-                until you choose.
+                Dates in the notes are kept. Missing start and due dates are estimated from the work and project schedule.
+                Review them before adding tasks. Sprints and milestones are drafted only when the text names them;
+                any other task goes to the backlog. Nothing is added until you choose.
               </p>
             </>
           )
@@ -510,6 +510,7 @@ export function TasksFromNotes({
                 {note}
               </p>
             )}
+            <p className="text-[12px] text-faint">Review start and due dates before adding these tasks.</p>
             {planNotes.map((n) => (
               <p key={n} className="text-[12px] text-faint">
                 {n}

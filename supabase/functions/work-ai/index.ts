@@ -26,6 +26,7 @@ import { encodeBase64 } from 'jsr:@std/encoding/base64'
 import { cors, corsMode, denied } from '../_shared/cors.ts'
 import { pickAssignees } from '../_shared/assignPick.ts'
 import type { AssignCandidate, AssignMatch, AssignTaskIn } from '../_shared/assignPick.ts'
+import { completeNotesDates, validDay } from '../_shared/notesSchedule.ts'
 
 const MODEL = 'claude-opus-5'
 const BUCKET = 'general-files'
@@ -287,6 +288,7 @@ async function tasksAction(ctx: Ctx) {
   }))
   const teamNames = ((teams ?? []) as { name: string }[]).map((t) => t.name)
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
+  const anchor = project?.starts_on && project.starts_on > today ? project.starts_on : today
 
   const out = await ask(
     ctx.anthropic,
@@ -299,25 +301,31 @@ discussion, not background, not things already done.
 - assignee: the id of the member the text names for it, matched by name, else
   empty. Never guess from roles alone.
 - team: one of the team names given if the text puts it there, else empty.
-- due: YYYY-MM-DD if the text gives or clearly implies a date (resolve "Friday"
-  against today), else empty. Never invent one. When the text gives a start
-  and an end date, due is the end.
-- start: YYYY-MM-DD if the text gives the day the work starts, else empty.
+- start and due: YYYY-MM-DD for every task. Keep dates the text gives or
+  clearly implies exactly (resolve relative days against today). When it gives
+  a start and an end, due is the end. For missing dates, estimate a realistic
+  work window from task size, dependencies, task order and any sprint or project
+  deadline. Start undated work no earlier than the schedule start supplied
+  below. Give substantial work more time than simple handoffs. Overlap tasks
+  that independent people can do in parallel; leave room for review and fixes.
+  Use weekdays for estimated dates. Do not move a stated date to a weekday.
 - At most 60 items, in the order the text gives them. A task list or plan
   document is all action items: take every task it lists.
 - sprints: only when the text clearly lays out sprints or iterations by name
   ("Sprint 1", "Iteration 2", a sprint plan) and says which tasks belong to
   each. name as the text gives it (at most 80 characters, e.g. "Sprint 1 -
   Planning & System Design"), goal (the sprint goal in one sentence if the
-  text gives one, else empty), starts_on and ends_on (YYYY-MM-DD, empty if not
-  given). Never invent sprints from a plain task list, from dates alone, or
-  from a passing "next sprint". Otherwise an empty list.
+  text gives one, else empty), starts_on and ends_on (YYYY-MM-DD). Keep stated
+  dates; map relative weeks such as "Weeks 1–2" from the schedule start and
+  estimate dates when missing. Never invent sprints from a plain task list,
+  from dates alone, or from a passing "next sprint". Otherwise an empty list.
 - sprint: on each task, the exact name of the sprint it belongs to from your
   sprints list, else empty (it stays in the backlog).
 - milestones: only when the text names milestones, deliverables or checkpoints
-  with a date ("Milestone: prototype ready by Nov 6"). name (at most 80
+  ("Milestone: prototype ready by Nov 6"). name (at most 80
   characters), description (one sentence of what the text says about it,
-  else empty; never made up), due (YYYY-MM-DD), sprints (the exact names of
+  else empty; never made up), due (YYYY-MM-DD, inferred from its related sprint
+  or tasks if unstated), sprints (the exact names of
   the sprints from your sprints list the text says count toward it, such as
   "milestone: end of Sprint 2"; else an empty list). Never
   turn ordinary tasks or the end of a sprint into a milestone. Otherwise an
@@ -337,6 +345,7 @@ ${VOICE}`,
     withFiles(
       [
         `Today: ${today}`,
+        `Schedule start for undated work: ${anchor}`,
         `Project: ${project?.name ?? ''}${project?.starts_on ? `, runs ${project.starts_on} to ${project.ends_on ?? 'open'}` : ''}`,
         `Members (id: name):\n${people.map((p) => `${p.id}: ${p.name}`).join('\n')}`,
         teamNames.length ? `Teams: ${teamNames.join(', ')}` : 'Teams: none',
@@ -370,7 +379,7 @@ ${VOICE}`,
     16000,
   )
 
-  const day = (x: unknown) => (/^\d{4}-\d{2}-\d{2}$/.test(String(x)) ? String(x) : '')
+  const day = validDay
   // Names the model gave twice, or empty, are dropped; tasks find theirs by name, any case.
   const named = <T extends { name: string }>(list: T[]) => {
     const seen = new Set<string>()
@@ -403,9 +412,7 @@ ${VOICE}`,
       due: day(m.due),
       sprints: [...new Set(((m.sprints as unknown[]) ?? []).map((x) => pick(sprints, x)).filter(Boolean))],
     })),
-  )
-    .filter((m) => m.due)
-    .slice(0, 20)
+  ).slice(0, 20)
 
   const ids = new Set(people.map((p) => p.id))
   // The model is asked for "f1", but takes liberties: "F1", "file f1", the
@@ -437,7 +444,10 @@ ${VOICE}`,
         files: [...new Set(((t.files as unknown[]) ?? []).map(sharedId).filter((x): x is string => Boolean(x)))],
       }
     })
-  return { tasks, sprints, milestones, note: String(out.note ?? '').slice(0, 300), shared: shared.files }
+  const dated = completeNotesDates(tasks, sprints, milestones, {
+    today, projectStart: project?.starts_on, projectEnd: project?.ends_on,
+  })
+  return { ...dated, note: String(out.note ?? '').slice(0, 300), shared: shared.files }
 }
 
 /** Old and new text per path, for describing a change. */
