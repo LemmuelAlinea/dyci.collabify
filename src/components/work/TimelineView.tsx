@@ -77,8 +77,8 @@ const anchorOf = (task: TimelineTask) => new Date((task.starts_at ?? task.due_at
 // eslint-disable-next-line react-refresh/only-export-components -- a constant callers pass as `span`, kept beside the component it feeds
 export const NO_SPAN = { starts_on: null, ends_on: null } as const
 
-/** One line of the chart: a name cell on the left and its track on the right, the same height. */
-type Line = { key: string; height: string; name: ReactNode; track: ReactNode; tone?: 'head' | 'group' }
+/** One line of labels and its track, all the same height. */
+type Line = { key: string; height: string; name: ReactNode; owner?: ReactNode; track: ReactNode; tone?: 'head' | 'group' }
 
 /**
  * Tasks laid out across time, as a grid of months, weeks or the days of one
@@ -152,6 +152,7 @@ export function TimelineView({
   }
 
   const rows = groupRows(tasks, groups, looseLabel)
+  const showOwners = tasks.some((task) => task.owner_names !== undefined)
   const width = chart.columns.length * COLUMN_WIDTH[scale]
   const today = nowMarker(chart, now)
   const placedBands = bands.flatMap((band) => {
@@ -203,6 +204,7 @@ export function TimelineView({
       height: 'h-10',
       tone: 'head',
       name: <span className="eyebrow">Task</span>,
+      owner: showOwners ? <span className="eyebrow">Owner</span> : null,
       track: chart.columns.map((c, i) => (
         <span
           key={c.start}
@@ -264,6 +266,8 @@ export function TimelineView({
     for (const task of row.tasks) {
       const place = placeTask(task, chart)
       const overdue = isOverdue(task.due_at, task.status) ? 'ring-2 ring-danger-500 dark:ring-danger-400' : ''
+      const owners = task.owner_names ?? []
+      const ownerLabel = owners.length ? owners.join(', ') : 'Unassigned'
       lines.push({
         key: task.id,
         height: 'h-9',
@@ -281,6 +285,16 @@ export function TimelineView({
             {task.title}
           </span>
         ),
+        owner: showOwners ? (
+          <span title={ownerLabel} className={`block w-full truncate text-[12px] ${owners.length ? 'text-ink' : 'text-faint'}`}>
+            {owners.length > 1 ? (
+              <>
+                <span aria-hidden="true">{owners[0]} +{owners.length - 1}</span>
+                <span className="sr-only">{ownerLabel}</span>
+              </>
+            ) : ownerLabel}
+          </span>
+        ) : null,
         track:
           place.shape === 'bar' ? (
             <span
@@ -310,7 +324,7 @@ export function TimelineView({
                 onClick={() => setMonth(monthKey(anchorOf(task)))}
                 title={`${taskLabel(task)}. Show its month.`}
                 className={`sticky flex items-center gap-1 px-2 text-[11px] text-faint hover:text-ink ${
-                  place.side === 'before' ? 'left-[calc(var(--name-w)+0.25rem)]' : 'right-1 ml-auto'
+                  place.side === 'before' ? 'left-[calc(var(--name-w)+var(--owner-w)+0.25rem)]' : 'right-1 ml-auto'
                 }`}
               >
                 {place.side === 'before' && <Icon name="chevronLeft" size={12} />}
@@ -320,7 +334,7 @@ export function TimelineView({
             </div>
           ) : (
             <div className="flex h-full items-center">
-              <span className="sticky left-[calc(var(--name-w)+0.5rem)] px-2 text-[11px] text-faint">No date yet</span>
+              <span className="sticky left-[calc(var(--name-w)+var(--owner-w)+0.5rem)] px-2 text-[11px] text-faint">No date yet</span>
             </div>
           ),
       })
@@ -394,18 +408,23 @@ export function TimelineView({
 
       <div
         ref={scroller}
-        className="overflow-x-auto rounded-panel border border-line surface [--name-w:9.5rem] sm:[--name-w:15rem]"
+        className={`overflow-x-auto rounded-panel border border-line surface [--name-w:9.5rem] sm:[--name-w:15rem] ${
+          showOwners ? '[--owner-w:8rem] sm:[--owner-w:10rem]' : '[--owner-w:0rem]'
+        }`}
       >
         <div className="flex min-w-full">
-          <div data-names className="sticky left-0 z-20 w-[var(--name-w)] shrink-0 border-r border-line surface">
+          <div data-names className="sticky left-0 z-20 w-[calc(var(--name-w)+var(--owner-w))] shrink-0 border-r border-line surface">
             {lines.map((l) => (
               <div
                 key={l.key}
-                className={`flex items-center border-b border-line px-3 ${l.height} ${
+                className={`flex border-b border-line ${l.height} ${
                   l.tone === 'group' ? 'surface-sunken' : ''
                 }`}
               >
-                {l.name}
+                <div className="flex min-w-0 w-[var(--name-w)] shrink-0 items-center px-3">{l.name}</div>
+                {showOwners && (
+                  <div className="flex min-w-0 w-[var(--owner-w)] shrink-0 items-center border-l border-line px-3">{l.owner}</div>
+                )}
               </div>
             ))}
           </div>

@@ -337,6 +337,7 @@ export function TasksTab({
             starts_at: t.starts_at,
             due_at: t.due_at,
             group_id: t.team_id,
+            owner_names: t.assignee_ids.map(state.nameOf),
           }))}
           groups={state.teams}
           span={project}

@@ -22,6 +22,7 @@ export type TimelineTask = {
   starts_at: string | null
   due_at: string | null
   group_id: string | null
+  owner_names?: string[]
 }
 
 export type TimelineRow = { group: string | null; groupName: string; tasks: TimelineTask[] }
