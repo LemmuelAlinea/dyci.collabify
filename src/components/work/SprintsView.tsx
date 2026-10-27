@@ -1,5 +1,6 @@
 // src/components/work/SprintsView.tsx
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
@@ -23,7 +24,7 @@ const COLUMN_TONE = {
 } as const
 
 /** Running the sprint, then looking back at the finished ones. */
-export function SprintsView({ source, onPlan }: { source: WorkSource; onPlan: () => void }) {
+export function SprintsView({ source, onPlan, archiveHref }: { source: WorkSource; onPlan: () => void; archiveHref?: string }) {
   const now = useNow()
   const { show } = useToast()
   const [finishing, setFinishing] = useState(false)
@@ -186,15 +187,24 @@ export function SprintsView({ source, onPlan }: { source: WorkSource; onPlan: ()
       )}
 
       <section className="space-y-3">
-        <h3>Finished sprints</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3>Finished sprints</h3>
+          {archiveHref && archived.length > 0 && (
+            <Link to={archiveHref} className="text-[13px] text-muted hover:text-ink hover:underline">
+              Project archive ({archived.length})
+            </Link>
+          )}
+        </div>
         {finished.length === 0 ? (
           <p className="text-[13px] text-muted">
-            {archived.length ? 'All finished sprints are archived.' : 'None yet. A sprint lands here once it is finished.'}
+            {archived.length
+              ? archiveHref ? 'All finished sprints are in the project archive.' : 'All finished sprints are archived.'
+              : 'None yet. A sprint lands here once it is finished.'}
           </p>
         ) : history(finished, false)}
       </section>
 
-      {archived.length > 0 && (
+      {!archiveHref && archived.length > 0 && (
         <details className="border-t border-line pt-5">
           <summary className="cursor-pointer font-semibold text-ink">Archived sprints ({archived.length})</summary>
           <div className="mt-3">{history(archived, true)}</div>

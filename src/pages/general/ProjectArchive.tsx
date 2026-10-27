@@ -33,8 +33,10 @@ import {
   restoreArchivedTasks,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
-import { formatDue } from '../../lib/general/dates'
+import { archiveSprint } from '../../lib/api/sprints'
+import { dateRange, formatDue } from '../../lib/general/dates'
 import { buildTree, isKeep } from '../../lib/general/files'
+import { finishedSprints } from '../../lib/work/sprints'
 import type { TreeNode } from '../../lib/general/files'
 import { stageName } from '../../lib/stages'
 import type { ArchivedDraftFile, ArchivedGeneralFile, GeneralDraftFile, GeneralTask, RemovedGeneralRepoPath } from '../../lib/general/types'
@@ -101,12 +103,17 @@ export default function ProjectArchive() {
   }, [load])
 
   const empty = useMemo(
-    () => tasks?.length === 0 && files?.length === 0 && draftFiles?.length === 0 && repoPaths?.length === 0,
-    [draftFiles, files, repoPaths, tasks],
+    () => tasks?.length === 0 && files?.length === 0 && draftFiles?.length === 0 && repoPaths?.length === 0
+      && !state.sprints.some((s) => s.archived),
+    [draftFiles, files, repoPaths, state.sprints, tasks],
   )
   const loading = state.loading || tasks === null || files === null || draftFiles === null || repoPaths === null
   const canActInArchive = !state.readOnly
   const q = query.trim().toLowerCase()
+  const sprints = finishedSprints(state.sprints, true)
+  const archivedSprints = q
+    ? sprints.filter((sprint) => `${sprint.name} ${sprint.goal}`.toLowerCase().includes(q))
+    : sprints
   const archivedTasks = q
     ? tasks?.filter((task) => `${task.title} ${task.status}`.toLowerCase().includes(q)) ?? []
     : tasks ?? []
@@ -148,7 +155,7 @@ export default function ProjectArchive() {
       <DirectoryHero
         title="Project"
         accent="archive."
-        description="Archived tasks, draft files, folders and removed paths stay recoverable until you choose to delete them."
+        description="Archived sprints, tasks, draft files, folders and removed paths stay recoverable."
       />
 
       {(error || state.error) && <Alert tone="error">{error ?? state.error}</Alert>}
@@ -162,7 +169,7 @@ export default function ProjectArchive() {
         <EmptyState
           icon="archive"
           title="Nothing archived"
-          body="Archived tasks, task files, draft files, folders and removed file paths will appear here."
+          body="Archived sprints, tasks, task files, draft files, folders and removed file paths will appear here."
         />
       ) : (
         <div className="space-y-5">
@@ -173,6 +180,40 @@ export default function ProjectArchive() {
             placeholder="Search archive"
             className="max-w-md"
           />
+
+          <ArchiveSection title="Archived sprints" count={archivedSprints.length}>
+            {archivedSprints.length === 0 ? (
+              <p className="px-4 py-5 text-[13px] text-faint">No archived sprints.</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {archivedSprints.map((sprint) => (
+                  <li key={sprint.id} className="flex flex-wrap items-center gap-3 px-4 py-3.5 sm:px-5">
+                    <div className="min-w-[14rem] flex-1">
+                      <p className="font-medium text-ink">{sprint.name}</p>
+                      <p className="mt-0.5 text-[12px] text-muted">{dateRange(sprint.starts_on, sprint.ends_on)}</p>
+                      {sprint.goal && <p className="mt-1 text-[13px] text-muted">{sprint.goal}</p>}
+                    </div>
+                    {state.can('manage_tasks') && (
+                      <ActionMenu
+                        label={`Actions for ${sprint.name}`}
+                        disabled={busy === sprint.id}
+                        items={[{
+                          label: 'Restore',
+                          icon: 'refresh',
+                          onSelect: () => void run(
+                            sprint.id,
+                            () => archiveSprint({ kind: 'work', projectId }, sprint.id, false),
+                            'Sprint restored',
+                            'Could not restore that sprint.',
+                          ),
+                        }]}
+                      />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </ArchiveSection>
 
           <ArchiveSection
             title="Archived tasks"

@@ -6,6 +6,7 @@ import { QaQueue } from '../work/QaQueue'
 import { SprintsView } from '../work/SprintsView'
 import { Tabs } from '../ui/Tabs'
 import { readScope } from '../../lib/work/scope'
+import { paths } from '../../lib/paths'
 import { taskLayout, withWork, workSection, type WorkSection } from '../../lib/work/nav'
 import { TaskDialog } from './TaskDialog'
 import { TasksTab } from './TasksTab'
@@ -58,7 +59,8 @@ export function WorkTab({ state, area }: { state: GeneralProjectState; area: 'ov
           />
           {section === 'backlog' || section === 'sprints' ? <div className="space-y-8">
             <section id="project-sprint-activity" aria-label="Active and finished sprints" className="scroll-mt-24">
-              <SprintsView source={source} onPlan={() => document.getElementById('project-backlog')?.scrollIntoView()} />
+              <SprintsView source={source} onPlan={() => document.getElementById('project-backlog')?.scrollIntoView()}
+                archiveHref={state.project ? paths.projectArchive(state.project.id) : undefined} />
             </section>
             <section id="project-backlog" aria-label="Backlog and upcoming sprints" className="scroll-mt-24 border-t border-line pt-6">
               <BacklogView source={source} />
