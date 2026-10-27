@@ -76,6 +76,8 @@ describe('project sections', () => {
     for (const [query, label, content] of [
       ['tab=project-progress', 'Overview', 'Project details'],
       ['tab=work&work=backlog', 'Plan', 'plan work'],
+      ['tab=work&work=sprints', 'Plan', 'plan work'],
+      ['tab=tasks&work=sprints', 'Plan', 'plan work'],
       ['tab=work&work=qa', 'Tasks', 'tasks work'],
       ['tab=feedback', 'Conversations', 'Feedback content'],
       ['tab=shared', 'Files', 'Files content'],

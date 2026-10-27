@@ -21,12 +21,12 @@ export function WorkTab({ state, area }: { state: GeneralProjectState; area: 'ov
   const layout = taskLayout(params)
 
   useEffect(() => {
-    if (area === 'plan' && section === 'backlog') document.getElementById('project-backlog')?.scrollIntoView()
+    if (area === 'plan' && section === 'sprints') document.getElementById('project-sprint-activity')?.scrollIntoView()
   }, [area, section])
 
   const changeSection = (section: WorkSection) => {
     const next = withWork(params, { section })
-    next.set('tab', section === 'summary' ? 'overview' : section === 'backlog' || section === 'milestones' ? 'plan' : 'tasks')
+    next.set('tab', section === 'summary' ? 'overview' : section === 'backlog' || section === 'milestones' || section === 'sprints' ? 'plan' : 'tasks')
     next.delete('milestone')
     next.delete('task')
     setParams(next)
@@ -55,27 +55,33 @@ export function WorkTab({ state, area }: { state: GeneralProjectState; area: 'ov
         />
       ) : area === 'plan' ? (
         <div className="space-y-8">
-          <section aria-label="Milestones">
-            <MilestonesView source={generalMilestoneSource(state, showTask)} selectedId={params.get('milestone')} />
-          </section>
-          <section id="project-backlog" aria-label="Backlog and upcoming sprints" className="scroll-mt-24 border-t border-line pt-6">
-            <BacklogView source={source} />
-          </section>
-        </div>
-      ) : (
-        <div className="space-y-6">
           <Tabs<WorkSection>
-            tabs={[
-              { id: 'tasks', label: 'Tasks', icon: 'check' },
-              { id: 'sprints', label: 'Sprint activity', icon: 'target' },
-              ...(state.project?.has_qa ? [{ id: 'qa' as const, label: 'QA queue', icon: 'shield' as const }] : []),
-            ]}
-            active={section === 'sprints' || (section === 'qa' && state.project?.has_qa) ? section : 'tasks'}
+            tabs={[{ id: 'milestones', label: 'Milestones', icon: 'target' }, { id: 'backlog', label: 'Sprints', icon: 'calendar' }]}
+            active={section === 'backlog' || section === 'sprints' ? 'backlog' : 'milestones'}
             onChange={changeSection}
             variant="panel"
           />
-          {section === 'sprints' ? <SprintsView source={source} onPlan={() => changeSection('backlog')} /> :
-            section === 'qa' && state.project?.has_qa ? <QaQueue state={state} onOpenTask={showTask} /> :
+          {section === 'backlog' || section === 'sprints' ? <div className="space-y-8">
+            <section id="project-backlog" aria-label="Backlog and upcoming sprints" className="scroll-mt-24">
+              <BacklogView source={source} />
+            </section>
+            <section id="project-sprint-activity" aria-label="Active and finished sprints" className="scroll-mt-24 border-t border-line pt-6">
+              <SprintsView source={source} onPlan={() => document.getElementById('project-backlog')?.scrollIntoView()} />
+            </section>
+          </div> : <MilestonesView source={generalMilestoneSource(state, showTask)} selectedId={params.get('milestone')} />}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {state.project?.has_qa && <Tabs<WorkSection>
+            tabs={[
+              { id: 'tasks', label: 'Tasks', icon: 'check' },
+              { id: 'qa', label: 'QA queue', icon: 'shield' },
+            ]}
+            active={section === 'qa' ? 'qa' : 'tasks'}
+            onChange={changeSection}
+            variant="panel"
+          />}
+          {section === 'qa' && state.project?.has_qa ? <QaQueue state={state} onOpenTask={showTask} /> :
             <TasksTab
               state={state}
               layout={layout}

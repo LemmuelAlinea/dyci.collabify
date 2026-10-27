@@ -15,11 +15,12 @@ const LEGACY: Record<string, GeneralTabId> = {
 
 export function generalTab(params: URLSearchParams): GeneralTabId {
   const raw = params.get('tab') ?? ''
+  if (raw === 'tasks' && params.get('work') === 'sprints') return 'plan'
   if (params.has('task') && (raw === 'overview' || raw === 'plan' || raw === 'tasks')) return raw
   if (raw === 'tasks') return 'tasks'
   if (raw === 'work' || raw === 'progress' || (!raw && params.has('work'))) {
     const section = workSection(params, 'tasks')
-    return section === 'summary' ? 'overview' : section === 'backlog' || section === 'milestones' ? 'plan' : 'tasks'
+    return section === 'summary' ? 'overview' : section === 'backlog' || section === 'milestones' || section === 'sprints' ? 'plan' : 'tasks'
   }
   if (params.has('task')) return 'tasks'
   const value = (LEGACY[raw] ?? raw) as GeneralTabId
