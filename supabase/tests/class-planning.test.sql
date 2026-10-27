@@ -165,6 +165,14 @@ begin
     (select sprint_id from public.project_tasks where id = t_done) = s1);
   perform pg_temp.must_be('the board sprint is finished',
     (select state from public.board_sprints where id = s1) = 'completed');
+  update public.board_sprints set archived = true where id = s1;
+  perform pg_temp.must_be('a group member can archive a finished sprint without changing its state',
+    (select archived and state = 'completed' from public.board_sprints where id = s1));
+  update public.board_sprints set archived = false where id = s1;
+  perform pg_temp.must_be('a group member can restore an archived sprint',
+    (select not archived from public.board_sprints where id = s1));
+  perform pg_temp.must_refuse('a planned board sprint cannot be archived',
+    format('update public.board_sprints set archived = true where id = %L', s2));
   perform pg_temp.must_refuse('a class task cannot move into a finished sprint',
     format('update public.project_tasks set sprint_id = %L where id = %L', s1, t_todo));
   perform pg_temp.must_refuse('a class task cannot be added straight into a finished sprint',

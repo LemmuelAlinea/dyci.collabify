@@ -10,6 +10,7 @@ export type Sprint = {
   starts_on: string
   ends_on: string
   state: SprintState
+  archived: boolean
   started_at: string | null
   completed_at: string | null
   created_at: string
@@ -77,6 +78,7 @@ export type WorkSource = {
   deleteSprint: (id: string) => Promise<void>
   startSprint: (id: string) => Promise<void>
   finishSprint: (id: string, carryTo: string | null) => Promise<void>
+  archiveSprint: (id: string, archived: boolean) => Promise<void>
   moveToSprint: (taskIds: string[], sprintId: string | null) => Promise<void>
   setRank: (taskId: string, rank: number) => Promise<void>
   addToBacklog: (title: string) => Promise<void>

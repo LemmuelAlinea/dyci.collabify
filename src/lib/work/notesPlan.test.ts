@@ -23,6 +23,7 @@ const sprint = (id: string, name: string, state: Sprint['state'] = 'planned'): S
   starts_on: '2026-10-01',
   ends_on: '2026-10-14',
   state,
+  archived: false,
   started_at: null,
   completed_at: null,
   created_at: '2026-10-01T00:00:00Z',

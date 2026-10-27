@@ -38,9 +38,9 @@ export function plannedSprints(sprints: readonly Sprint[]) {
     .sort((a, b) => a.starts_on.localeCompare(b.starts_on) || a.created_at.localeCompare(b.created_at))
 }
 
-export function finishedSprints(sprints: readonly Sprint[]) {
+export function finishedSprints(sprints: readonly Sprint[], archived = false) {
   return sprints
-    .filter((s) => s.state === 'completed')
+    .filter((s) => s.state === 'completed' && s.archived === archived)
     .sort((a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? ''))
 }
 

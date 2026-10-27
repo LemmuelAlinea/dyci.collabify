@@ -4,6 +4,7 @@ import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
 import { Icon } from '../ui/Icon'
+import { useToast } from '../ui/Toast'
 import { BugBadge } from '../general/BugBadge'
 import { Burndown } from './Burndown'
 import { FinishSprintDialog } from './FinishSprintDialog'
@@ -11,8 +12,9 @@ import { useNow } from '../../hooks/useNow'
 import { dateRange } from '../../lib/general/dates'
 import { TASK_STATUSES } from '../../lib/general/progress'
 import { sprintItems } from '../../lib/work/backlog'
+import { authErrorMessage } from '../../lib/authError'
 import { daysLeft, daysLeftLabel, finishedSprints, runningSprint, sprintCounts } from '../../lib/work/sprints'
-import type { WorkSource } from '../../lib/work/types'
+import type { Sprint, WorkSource } from '../../lib/work/types'
 
 const COLUMN_TONE = {
   todo: 'text-pending-ink',
@@ -23,9 +25,65 @@ const COLUMN_TONE = {
 /** Running the sprint, then looking back at the finished ones. */
 export function SprintsView({ source, onPlan }: { source: WorkSource; onPlan: () => void }) {
   const now = useNow()
+  const { show } = useToast()
   const [finishing, setFinishing] = useState(false)
+  const [changing, setChanging] = useState<string | null>(null)
   const running = runningSprint(source.sprints)
   const finished = finishedSprints(source.sprints)
+  const archived = finishedSprints(source.sprints, true)
+
+  async function setArchived(id: string, archive: boolean) {
+    setChanging(id)
+    try {
+      await source.archiveSprint(id, archive)
+      show(archive ? 'Sprint archived' : 'Sprint restored')
+    } catch (err) {
+      show(authErrorMessage(err, archive ? 'Could not archive the sprint.' : 'Could not restore the sprint.'), 'error')
+    } finally {
+      setChanging(null)
+    }
+  }
+
+  const history = (rows: Sprint[], isArchived: boolean) => (
+    <ul className="space-y-2">
+      {rows.map((s) => {
+        const { done, total } = sprintCounts(source.items, s.id)
+        const doneItems = sprintItems(source.items, s.id).filter((i) => i.status === 'done')
+        return (
+          <li key={s.id} className="surface rounded-xl border border-line px-4 py-3">
+            <div className="flex flex-wrap items-start gap-3">
+              <details className="min-w-0 flex-1 basis-64">
+                <summary className="flex cursor-pointer flex-wrap items-baseline justify-between gap-2">
+                  <span className="font-medium text-ink">{s.name}</span>
+                  <span className="font-mono text-[12px] text-faint">
+                    {dateRange(s.starts_on, s.ends_on)} · {done} of {total} done
+                  </span>
+                </summary>
+                {s.goal && <p className="mt-2 text-[13px] text-muted">{s.goal}</p>}
+                <ul className="mt-2 space-y-1">
+                  {doneItems.map((i) => (
+                    <li key={i.id} className="flex items-center gap-1.5">
+                      <button type="button" onClick={() => source.openTask(i.id)} className="text-left text-[13px] text-ink hover:underline">
+                        {i.title}
+                      </button>
+                      <BugBadge kind={i.kind} />
+                    </li>
+                  ))}
+                  {doneItems.length === 0 && <li className="text-[12px] text-faint">Nothing was finished in it.</li>}
+                </ul>
+              </details>
+              {source.canPlan && (
+                <Button size="sm" variant="ghost" className="!rounded-lg" loading={changing === s.id}
+                  onClick={() => void setArchived(s.id, !isArchived)}>
+                  {isArchived ? 'Restore' : 'Archive'}
+                </Button>
+              )}
+            </div>
+          </li>
+        )
+      })}
+    </ul>
+  )
 
   return (
     <div className="space-y-6">
@@ -130,40 +188,18 @@ export function SprintsView({ source, onPlan }: { source: WorkSource; onPlan: ()
       <section className="space-y-3">
         <h3>Finished sprints</h3>
         {finished.length === 0 ? (
-          <p className="text-[13px] text-muted">None yet. A sprint lands here once it is finished.</p>
-        ) : (
-          <ul className="space-y-2">
-            {finished.map((s) => {
-              const { done, total } = sprintCounts(source.items, s.id)
-              const doneItems = sprintItems(source.items, s.id).filter((i) => i.status === 'done')
-              return (
-                <li key={s.id} className="surface rounded-xl border border-line px-4 py-3">
-                  <details>
-                    <summary className="flex cursor-pointer flex-wrap items-baseline justify-between gap-2">
-                      <span className="font-medium text-ink">{s.name}</span>
-                      <span className="font-mono text-[12px] text-faint">
-                        {dateRange(s.starts_on, s.ends_on)} · {done} of {total} done
-                      </span>
-                    </summary>
-                    {s.goal && <p className="mt-2 text-[13px] text-muted">{s.goal}</p>}
-                    <ul className="mt-2 space-y-1">
-                      {doneItems.map((i) => (
-                        <li key={i.id} className="flex items-center gap-1.5">
-                          <button type="button" onClick={() => source.openTask(i.id)} className="text-left text-[13px] text-ink hover:underline">
-                            {i.title}
-                          </button>
-                          <BugBadge kind={i.kind} />
-                        </li>
-                      ))}
-                      {doneItems.length === 0 && <li className="text-[12px] text-faint">Nothing was finished in it.</li>}
-                    </ul>
-                  </details>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+          <p className="text-[13px] text-muted">
+            {archived.length ? 'All finished sprints are archived.' : 'None yet. A sprint lands here once it is finished.'}
+          </p>
+        ) : history(finished, false)}
       </section>
+
+      {archived.length > 0 && (
+        <details className="border-t border-line pt-5">
+          <summary className="cursor-pointer font-semibold text-ink">Archived sprints ({archived.length})</summary>
+          <div className="mt-3">{history(archived, true)}</div>
+        </details>
+      )}
 
       {running && finishing && (
         <FinishSprintDialog open onClose={() => setFinishing(false)} sprint={running} source={source} />

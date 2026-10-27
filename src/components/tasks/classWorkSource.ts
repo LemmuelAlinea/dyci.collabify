@@ -1,5 +1,6 @@
 // src/components/tasks/classWorkSource.ts
 import {
+  archiveSprint,
   createSprint,
   deleteSprint,
   finishSprint,
@@ -68,6 +69,7 @@ export function classWorkSource(t: ProjectTasks, viewerId: string | undefined): 
     deleteSprint: (id) => then(deleteSprint(home, id)),
     startSprint: (id) => then(startSprint(home, id)),
     finishSprint: (id, carryTo) => then(finishSprint(home, id, carryTo)),
+    archiveSprint: (id, archived) => then(archiveSprint(home, id, archived)),
     moveToSprint: (ids, sprintId) => then(moveTasksToSprint(home, ids, sprintId)),
     setRank: (id, rank) => then(setTaskRank(home, id, rank)),
     addToBacklog: async (title) => {

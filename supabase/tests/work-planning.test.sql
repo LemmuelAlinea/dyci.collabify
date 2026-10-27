@@ -162,6 +162,14 @@ begin
     (select sprint_id from public.general_tasks where id = t_done) = s1);
   perform pg_temp.must_be('the sprint is finished and stamped',
     (select state = 'completed' and completed_at is not null from public.general_sprints where id = s1));
+  update public.general_sprints set archived = true where id = s1;
+  perform pg_temp.must_be('a planner can archive a finished sprint without changing its state',
+    (select archived and state = 'completed' from public.general_sprints where id = s1));
+  update public.general_sprints set archived = false where id = s1;
+  perform pg_temp.must_be('a planner can restore an archived sprint',
+    (select not archived from public.general_sprints where id = s1));
+  perform pg_temp.must_refuse('a planned sprint cannot be archived',
+    format('update public.general_sprints set archived = true where id = %L', s2));
   perform pg_temp.must_refuse('a finished sprint cannot change',
     format($q$update public.general_sprints set name = 'Renamed' where id = %L$q$, s1));
   perform pg_temp.must_refuse('a task cannot move into a finished sprint',
@@ -170,6 +178,10 @@ begin
     format($q$insert into public.general_tasks (project_id, title, sprint_id) values (%L, 'Late', %L)$q$, p, s1));
 
   perform pg_temp.act_as(b);
+  update public.general_sprints set archived = true where id = s1;
+  get diagnostics n = row_count;
+  perform pg_temp.must_be('a member cannot archive a finished sprint',
+    n = 0 and (select not archived from public.general_sprints where id = s1));
   update public.general_tasks set status = 'in_progress' where id = t_done;
   perform pg_temp.must_be('a done task reopened by its holder goes back to the backlog',
     (select sprint_id is null and status = 'in_progress' from public.general_tasks where id = t_done));

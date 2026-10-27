@@ -22,6 +22,7 @@ const sprint = (over: Partial<Sprint> = {}): Sprint => ({
   ends_on: '2026-10-18',
   milestone_id: null,
   state: 'planned',
+  archived: false,
   started_at: null,
   completed_at: null,
   created_at: '2026-10-01T00:00:00Z',
@@ -79,6 +80,11 @@ describe('picking sprints', () => {
   })
   it('lists finished sprints newest first', () => {
     expect(finishedSprints(list).map((s) => s.id)).toEqual(['f2', 'f1'])
+  })
+  it('leaves archived sprints out of the finished list', () => {
+    const archived = sprint({ id: 'old', state: 'completed', archived: true })
+    expect(finishedSprints([...list, archived]).map((s) => s.id)).toEqual(['f2', 'f1'])
+    expect(finishedSprints([...list, archived], true).map((s) => s.id)).toEqual(['old'])
   })
 })
 

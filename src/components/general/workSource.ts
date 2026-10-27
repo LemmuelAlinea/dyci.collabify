@@ -8,6 +8,7 @@ import {
 } from '../../lib/api/milestones'
 import type { MilestoneHome } from '../../lib/api/milestones'
 import {
+  archiveSprint,
   createSprint,
   deleteSprint,
   finishSprint,
@@ -83,6 +84,7 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     deleteSprint: (id) => then(deleteSprint(home, id)),
     startSprint: (id) => then(startSprint(home, id)),
     finishSprint: (id, carryTo) => then(finishSprint(home, id, carryTo)),
+    archiveSprint: (id, archived) => then(archiveSprint(home, id, archived)),
     moveToSprint: (ids, sprintId) => then(moveTasksToSprint(home, ids, sprintId)),
     setRank: (id, rank) => then(setTaskRank(home, id, rank)),
     addToBacklog: (title) =>

@@ -12,7 +12,7 @@ export type SprintHome = { kind: 'work'; projectId: string } | { kind: 'class'; 
 const SPRINTS = { work: 'general_sprints', class: 'board_sprints' } as const
 const TASKS = { work: 'general_tasks', class: 'project_tasks' } as const
 const FINISH = { work: 'complete_general_sprint', class: 'complete_board_sprint' } as const
-const COLUMNS = 'id, name, goal, starts_on, ends_on, state, started_at, completed_at, created_at, milestone_id'
+const COLUMNS = 'id, name, goal, starts_on, ends_on, state, archived, started_at, completed_at, created_at, milestone_id'
 
 function owner(home: SprintHome) {
   return home.kind === 'work'
@@ -83,6 +83,12 @@ export async function startSprint(home: SprintHome, sprintId: string) {
 export async function finishSprint(home: SprintHome, sprintId: string, carryTo: string | null) {
   const { error } = await supabase.rpc(FINISH[home.kind], { p_sprint: sprintId, p_carry_to: carryTo })
   if (error) throw error
+}
+
+export async function archiveSprint(home: SprintHome, sprintId: string, archived: boolean) {
+  const { data, error } = await supabase.from(SPRINTS[home.kind]).update({ archived }).eq('id', sprintId).select('id')
+  if (error) throw error
+  touched(data, 'That finished sprint could not change. Reload the page and try again.')
 }
 
 export async function moveTasksToSprint(home: SprintHome, taskIds: string[], sprintId: string | null) {
