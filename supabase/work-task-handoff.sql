@@ -1445,7 +1445,7 @@ begin
       join public.general_members m on m.project_id=p_project and m.user_id=g.leader_id
       join public.profiles pr on pr.id=m.user_id
       where g.id=destination and g.project_id=p_project and pr.status='active' and m.role<>'stakeholder'
-      for share of g;
+      for share of g, tm, m, pr nowait;
     if not found then
       raise exception 'Choose a team with an active lead on this project.' using errcode='check_violation';
     end if;
