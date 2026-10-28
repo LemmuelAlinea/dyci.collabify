@@ -165,6 +165,9 @@ begin
   perform pg_temp.act_as(ids[3]);
   files_project := public.ensure_class_board_repo(board);
   insert into public.general_tasks(project_id,title,routing_state) values(files_project,'Zz class planning','planning') returning id into class_task;
+  insert into public.general_task_assignees(project_id,task_id,user_id) values(files_project,class_task,ids[3]);
+  perform pg_temp.check('class-board member still claims a task',exists(
+    select 1 from public.general_task_assignees where task_id=class_task and user_id=ids[3]));
   perform pg_temp.service();
   insert into public.notifications(user_id,type,general_project_id,general_task_id,title)
     values(ids[4],'general_task_assigned',files_project,class_task,'Zz class task notification');
@@ -340,4 +343,84 @@ begin
   perform pg_temp.service();
 end $$;
 
+do $$
+declare
+  u uuid[] := array[gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),gen_random_uuid()];
+  roles text[] := array['pm','coordinator','member','member','member','qa','stakeholder'];
+  p uuid; team uuid; other_team uuid; task uuid; plan uuid; k int;
+begin
+  for k in 1..7 loop
+    insert into auth.users(id,instance_id,aud,role,email,encrypted_password,created_at,updated_at)
+      values(u[k],'00000000-0000-0000-0000-000000000000','authenticated','authenticated','zz-create-'||k||'@example.test','',now(),now());
+    insert into public.profiles(id,email,first_name,last_name,role,status,can_manage_projects)
+      values(u[k],'zz-create-'||k||'@example.test','Creation',k::text,'member','active',k=1)
+      on conflict(id) do update set role='member',status='active',can_manage_projects=excluded.can_manage_projects;
+  end loop;
+  perform pg_temp.act_as(u[1]);
+  p := (public.create_general_project('Zz creation rules','')).id;
+  perform pg_temp.service();
+  for k in 2..7 loop
+    insert into public.general_members(project_id,user_id,role) values(p,u[k],roles[k]::public.general_role);
+  end loop;
+  insert into public.general_teams(project_id,name) values(p,'Zz creation team') returning id into team;
+  insert into public.general_team_members(project_id,team_id,user_id) values(p,team,u[3]),(p,team,u[4]);
+  update public.general_teams set leader_id=u[3] where id=team;
+  insert into public.general_teams(project_id,name) values(p,'Zz other led team') returning id into other_team;
+  insert into public.general_team_members(project_id,team_id,user_id) values(p,other_team,u[3]),(p,other_team,u[5]);
+  update public.general_teams set leader_id=u[3] where id=other_team;
+  for k in 1..2 loop
+    perform pg_temp.act_as(u[k]);
+    insert into public.general_tasks(project_id,title,routing_state) values(p,'Zz planner task','planning') returning id into plan;
+    perform pg_temp.check('planner creates regular task '||k,plan is not null);
+    perform pg_temp.refuse('planner cannot assign private task '||k,format(
+      'insert into public.general_task_assignees(project_id,task_id,user_id) values(%L,%L,%L)',p,plan,u[4]));
+  end loop;
+  for k in 3..7 loop
+    perform pg_temp.act_as(u[k]);
+    perform pg_temp.refuse('non-planner cannot create regular task '||k,format(
+      'insert into public.general_tasks(project_id,title) values(%L,%L)',p,'Zz forbidden regular'));
+  end loop;
+  perform pg_temp.service();
+  insert into public.general_grants(project_id,user_id,permission,granted_by) values(p,u[5],'manage_tasks',u[1]);
+  perform pg_temp.act_as(u[5]);
+  perform pg_temp.refuse('grant cannot permit regular creation',format(
+    'insert into public.general_tasks(project_id,title) values(%L,%L)',p,'Zz granted regular'));
+  perform pg_temp.act_as(u[6]);
+  insert into public.general_tasks(project_id,title,kind,routing_state) values(p,'Zz QA bug','bug','planning');
+  perform pg_temp.check('QA creates private bug',exists(select 1 from public.general_tasks where project_id=p and kind='bug'));
+  perform pg_temp.act_as(u[1]);
+  insert into public.general_tasks(project_id,title,team_id) values(p,'Zz released assignment',team) returning id into task;
+  perform pg_temp.act_as(u[3]);
+  insert into public.general_task_assignees(project_id,task_id,user_id) values(p,task,u[4]);
+  insert into public.general_task_assignees(project_id,task_id,user_id) values(p,task,u[3]);
+  perform pg_temp.check('lead adds another receiving-team holder',(select count(*)=2 from public.general_task_assignees where task_id=task));
+  perform pg_temp.refuse('lead cannot assign outside receiving team',format(
+    'insert into public.general_task_assignees(project_id,task_id,user_id) values(%L,%L,%L)',p,task,u[5]));
+  perform pg_temp.service();
+  delete from public.general_task_assignees where task_id=task;
+  update public.general_teams set leader_id=u[4] where id=team;
+  perform pg_temp.act_as(u[3]);
+  perform pg_temp.refuse('stale lead cannot assign',format(
+    'insert into public.general_task_assignees(project_id,task_id,user_id) values(%L,%L,%L)',p,task,u[4]));
+  perform pg_temp.service();
+  update public.general_teams set leader_id=u[3] where id=team;
+  delete from public.general_team_members where team_id=team and user_id=u[4];
+  perform pg_temp.act_as(u[3]);
+  perform pg_temp.refuse('stale receiving membership cannot assign',format(
+    'insert into public.general_task_assignees(project_id,task_id,user_id) values(%L,%L,%L)',p,task,u[4]));
+  perform pg_temp.service();
+  insert into public.general_team_members(project_id,team_id,user_id) values(p,team,u[4]);
+  delete from public.general_team_members where team_id=team and user_id=u[3];
+  perform pg_temp.act_as(u[3]);
+  perform pg_temp.refuse('lead losing receiving membership cannot assign',format(
+    'insert into public.general_task_assignees(project_id,task_id,user_id) values(%L,%L,%L)',p,task,u[4]));
+  perform pg_temp.service();
+  insert into public.general_team_members(project_id,team_id,user_id) values(p,team,u[3]);
+  update public.general_teams set leader_id=u[3] where id=team;
+  update public.profiles set status='pending' where id=u[4];
+  perform pg_temp.act_as(u[3]);
+  perform pg_temp.refuse('inactive receiving member cannot hold work',format(
+    'insert into public.general_task_assignees(project_id,task_id,user_id) values(%L,%L,%L)',p,task,u[4]));
+  perform pg_temp.service();
+end $$;
 rollback;

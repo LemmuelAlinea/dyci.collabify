@@ -31,11 +31,23 @@ function shorten(text: string, max = 60) {
   return t.length > max ? `${t.slice(0, max - 3)}…` : t
 }
 
+const HANDOFF_WORDS = {
+  sent_to_coordinator: 'sent %s to a coordinator',
+  sent_to_team: 'sent %s to a team',
+  returned: 'returned %s to planning',
+  rerouted: 'rerouted %s to another team',
+} as const
+
 /** One line of a task's history, as a sentence. */
 export function describeEvent(event: GeneralTaskEvent, nameOf: (id: string) => string) {
   const actor = event.actor_id ? nameOf(event.actor_id) : 'Somebody'
   const subject = event.detail.user_id
   switch (event.kind) {
+    case 'sent_to_coordinator':
+    case 'sent_to_team':
+    case 'returned':
+    case 'rerouted':
+      return `${actor} ${HANDOFF_WORDS[event.kind].replace('%s', 'it')}${event.detail.reason ? `: ${event.detail.reason}` : ''}`
     case 'created':
       return `${actor} created this task`
     case 'updated': {
@@ -123,6 +135,11 @@ export function describeActivity(e: ActivityEvent) {
   const task = e.task_title ? `"${shorten(e.task_title)}"` : 'a task'
   const d = e.detail
   switch (e.kind) {
+    case 'sent_to_coordinator':
+    case 'sent_to_team':
+    case 'returned':
+    case 'rerouted':
+      return `${actor} ${HANDOFF_WORDS[e.kind].replace('%s', task)}${str(d.reason) ? `: ${str(d.reason)}` : ''}`
     case 'created':
       return `${actor} created ${task}`
     case 'updated': {

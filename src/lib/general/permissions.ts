@@ -1,3 +1,5 @@
+import type { GeneralTask, TaskKind } from './types'
+
 /**
  * Who may do what inside a General workplace project.
  *
@@ -230,6 +232,15 @@ export function canGive(role: ProjectRole | null, permission: GeneralPermission)
 
 /* ------------------------------------------------------------ task powers */
 
+export function canCreateWorkTask(role: ProjectRole | null, kind: TaskKind): boolean {
+  return role === 'pm' || role === 'coordinator' || (role === 'qa' && kind === 'bug')
+}
+
+export function canAssignIncoming(viewerTeamIds: readonly string[], task: GeneralTask): boolean {
+  return task.routing_state === 'released' && task.team_id !== null && viewerTeamIds.includes(task.team_id)
+    && task.assignee_ids.length === 0 && !task.archived_at && task.status !== 'done'
+}
+
 /**
  * The viewer, as the task rules read them. `leadsUser` says whether the viewer
  * leads a team this person is on (useGeneralProject's `leadsUser`).
@@ -340,12 +351,12 @@ export const ROLE_MATRIX: {
   { action: 'Hand over project manager', roles: { pm: 'yes' } },
   { action: 'Create and manage teams, and pick team leads', roles: { pm: 'yes', coordinator: 'yes' } },
   {
-    action: 'Create, assign and edit any task',
+    action: 'Assign and edit tasks',
     roles: { pm: 'yes', coordinator: 'yes', lead: 'team', member: 'grant' },
   },
   {
-    action: 'Create tasks and edit your own (QA: bug tasks only)',
-    roles: { pm: 'yes', coordinator: 'yes', lead: 'yes', member: 'yes', qa: 'own' },
+    action: 'Create tasks (QA: bug tasks only)',
+    roles: { pm: 'yes', coordinator: 'yes', qa: 'own' },
   },
   { action: 'Plan sprints and milestones', roles: { pm: 'yes', coordinator: 'yes', member: 'grant' } },
   {

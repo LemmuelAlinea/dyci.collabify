@@ -9,6 +9,8 @@ import {
   assignableTo,
   can,
   canAs,
+  canCreateWorkTask,
+  canAssignIncoming,
   canEditTask,
   canGive,
   canRemoveRole,
@@ -24,6 +26,28 @@ import {
   shareRecipients,
 } from './permissions'
 import type { ProjectRole, TaskViewer } from './permissions'
+import type { GeneralTask } from './types'
+
+describe('work task handoff buttons', () => {
+  it('reserves regular creation for planners and allows QA bugs', () => {
+    for (const role of ['pm', 'coordinator', 'member', 'qa', 'stakeholder', null] as const) {
+      expect(canCreateWorkTask(role, 'task')).toBe(role === 'pm' || role === 'coordinator')
+      expect(canCreateWorkTask(role, 'bug')).toBe(role === 'pm' || role === 'coordinator' || role === 'qa')
+    }
+  })
+
+  it('offers Incoming assignment only for released unassigned work in a led team', () => {
+    const task = { routing_state: 'released', team_id: 'a', assignee_ids: [], archived_at: null, status: 'todo' } as unknown as GeneralTask
+    expect(canAssignIncoming(['a'], task)).toBe(true)
+    expect(canAssignIncoming(['b'], task)).toBe(false)
+    expect(canAssignIncoming(['a'], { ...task, routing_state: 'planning' })).toBe(false)
+    expect(canAssignIncoming(['a'], { ...task, routing_state: 'coordinator_review' })).toBe(false)
+    expect(canAssignIncoming(['a'], { ...task, assignee_ids: ['person'] })).toBe(false)
+    expect(canAssignIncoming(['a'], { ...task, archived_at: 'now' })).toBe(false)
+    expect(canAssignIncoming(['a'], { ...task, status: 'done' })).toBe(false)
+    expect(canAssignIncoming(['a'], { ...task, team_id: null })).toBe(false)
+  })
+})
 
 /**
  * These mirror `general_can()` in supabase/general.sql. When the two disagree a

@@ -158,8 +158,8 @@ begin
   perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz held by U') returning id into v_tu;
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz held by V') returning id into v_tv;
-  insert into public.general_tasks (project_id, title) values (v_p, 'Zz unheld') returning id into v_free;
-  insert into public.general_tasks (project_id, title) values (v_p, 'Zz unheld two') returning id into v_free2;
+  insert into public.general_tasks (project_id, title, team_id) values (v_p, 'Zz unheld', v_a) returning id into v_free;
+  insert into public.general_tasks (project_id, title, team_id) values (v_p, 'Zz unheld two', v_a) returning id into v_free2;
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz held by U and V') returning id into v_tuv;
   insert into public.general_task_assignees (task_id, project_id, user_id) values
     (v_tu, v_p, v_u), (v_tv, v_p, v_v), (v_tuv, v_p, v_u), (v_tuv, v_p, v_v);
@@ -312,12 +312,12 @@ begin
   perform pg_temp.must_refuse_with('L assigns V to an unheld task: refused',
     format($q$insert into public.general_task_assignees (task_id, project_id, user_id)
               values (%L, %L, %L)$q$, v_free2, v_p, v_v),
-    'row-level security');
+    'receiving team lead');
   perform pg_temp.act_as(v_u);
   perform pg_temp.must_refuse_with('...and U, who leads nobody, cannot assign L either',
     format($q$insert into public.general_task_assignees (task_id, project_id, user_id)
               values (%L, %L, %L)$q$, v_free2, v_p, v_lead),
-    'row-level security');
+    'receiving team lead');
 
   perform pg_temp.act_as(v_lead);
   delete from public.general_task_assignees where task_id = v_tv and user_id = v_v;

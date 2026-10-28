@@ -279,11 +279,15 @@ export type GeneralFieldValue = {
 /** general_task_overview. */
 /** A bug is a task QA raised; everything else is a plain task. */
 export type TaskKind = 'task' | 'bug'
+export type TaskRoutingState = 'planning' | 'coordinator_review' | 'released'
 
 export type GeneralTask = {
   id: string
   project_id: string
   team_id: string | null
+  routing_state?: TaskRoutingState
+  reviewer_id?: string | null
+  sent_at?: string | null
   title: string
   description: string
   status: GeneralTaskStatus
@@ -358,6 +362,7 @@ export type GeneralTaskEvent = {
   project_id: string
   actor_id: string | null
   kind: 'created' | 'updated' | 'assigned' | 'unassigned' | 'qa_passed' | 'qa_sent_back'
+    | 'sent_to_coordinator' | 'returned' | 'sent_to_team' | 'rerouted'
   /**
    * What the change was. The short fields carry what they changed from, so the
    * history answers "what did it used to say" rather than only "this moved".
@@ -379,6 +384,7 @@ export type GeneralTaskEvent = {
     weight_to?: number
     /** What QA asked to have fixed, on a qa_sent_back event. */
     note?: string
+    reason?: string
   }
   created_at: string
 }

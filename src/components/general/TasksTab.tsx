@@ -17,7 +17,7 @@ import { useToast } from '../ui/Toast'
 import { createTask, updateTask } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue } from '../../lib/general/dates'
-import { canEditTask } from '../../lib/general/permissions'
+import { canCreateWorkTask, canEditTask } from '../../lib/general/permissions'
 import { projectProgress } from '../../lib/general/progress'
 import { STAGE_TONE, nextStep, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
@@ -97,7 +97,8 @@ export function TasksTab({
   const progress = projectProgress(scoped)
   const unassigned = scoped.filter((t) => t.assignee_ids.length === 0 && t.status !== 'done').length
   // QA raises bugs and passes tasks; it does not draft task lists from notes.
-  const mayDraft = state.myRole !== 'qa'
+  const mayDraft = project.class_board_id ? state.myRole !== 'qa' : canCreateWorkTask(state.myRole, 'task')
+  const mayCreate = project.class_board_id || canCreateWorkTask(state.myRole, state.myRole === 'qa' ? 'bug' : 'task')
   // The pm and coordinators have the AI draft holders on a work project.
   const mayAssignByPosition =
     !state.readOnly && state.can('manage_tasks') && !state.project?.class_board_id && state.myRole !== 'qa'
@@ -245,10 +246,12 @@ export function TasksTab({
                 From notes
               </Button>
             )}
-            <Button size="sm" className="!rounded-lg" onClick={() => setCreating(true)}>
-              <Icon name="plus" size={15} />
-              Add task
-            </Button>
+            {mayCreate && (
+              <Button size="sm" className="!rounded-lg" onClick={() => setCreating(true)}>
+                <Icon name="plus" size={15} />
+                Add task
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -257,9 +260,11 @@ export function TasksTab({
         <EmptyState
           icon="check"
           title="No tasks yet"
-          body="Break the project into pieces somebody can pick up. Anyone on the project can add one."
+          body={project.class_board_id
+            ? 'Break the project into pieces somebody can pick up. Anyone on the project can add one.'
+            : 'The project manager or a coordinator plans tasks, then sends them to a team.'}
           action={
-            !state.readOnly ? (
+            !state.readOnly && mayCreate ? (
               <div className="flex flex-wrap justify-center gap-2">
                 <Button className="!rounded-xl" onClick={() => setCreating(true)}>
                   Add the first task
@@ -357,7 +362,7 @@ export function TasksTab({
       )}
 
       <NewTaskDialog
-        open={creating}
+        open={creating && Boolean(mayCreate) && !state.readOnly}
         onClose={() => setCreating(false)}
         state={state}
         sprintId={state.can('manage_tasks') ? scopeTargetSprint(scope, state.sprints) : null}
@@ -655,6 +660,7 @@ function NewTaskDialog({
 
   async function create() {
     if (!project) return
+    if (state.readOnly || (!project.class_board_id && !canCreateWorkTask(state.myRole, kind))) return
     setError(null)
     if (!title.trim()) return setError('A task needs a title.')
     const startsAt = fromLocalInput(starts)

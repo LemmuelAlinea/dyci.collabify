@@ -233,12 +233,15 @@ begin
     format($q$update public.general_tasks set title = 'Zz QA bug, renamed' where id = %L$q$, v_tq));
 
   perform pg_temp.act_as(v_m);
-  perform pg_temp.must_allow('a member creates a bug',
+  perform pg_temp.must_refuse_with('a member cannot create a bug',
     format($q$insert into public.general_tasks (project_id, title, kind)
-              values (%L, 'Zz M bug', 'bug')$q$, v_p));
+              values (%L, 'Zz M bug', 'bug')$q$, v_p), 'Only the project manager or a coordinator creates tasks');
+  perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz M task') returning id into v_tm;
   perform pg_temp.must_be('a task is a task by default',
     (select kind = 'task' from public.general_tasks where id = v_tm));
+  insert into public.general_task_assignees(task_id,project_id,user_id) values(v_tm,v_p,v_m);
+  perform pg_temp.act_as(v_m);
   perform pg_temp.must_refuse_with('a member cannot change a task''s kind',
     format($q$update public.general_tasks set kind = 'bug' where id = %L$q$, v_tm),
     'changes a task''s kind');

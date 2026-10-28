@@ -929,6 +929,9 @@ export async function createTask(input: {
   /** 'bug' for a task QA raised; left out, a plain task. */
   kind?: TaskKind
 }) {
+  const { data: project, error: projectError } = await supabase
+    .from('general_projects').select('class_board_id').eq('id', input.projectId).single()
+  if (projectError) throw projectError
   const { data, error } = await supabase
     .from('general_tasks')
     .insert({
@@ -939,6 +942,7 @@ export async function createTask(input: {
       starts_at: input.startsAt,
       team_id: input.teamId,
       sprint_id: input.sprintId ?? null,
+      ...(project.class_board_id === null ? { routing_state: 'planning' } : {}),
       ...(input.kind ? { kind: input.kind } : {}),
     })
     .select('id')

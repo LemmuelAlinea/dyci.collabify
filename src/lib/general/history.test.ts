@@ -20,6 +20,17 @@ function event(over: Partial<GeneralTaskEvent>): GeneralTaskEvent {
 }
 
 describe('describeEvent', () => {
+  it('names handoffs and keeps their reason', () => {
+    for (const [kind, words] of [
+      ['sent_to_coordinator', 'sent it to a coordinator'],
+      ['sent_to_team', 'sent it to a team'],
+      ['returned', 'returned it to planning'],
+      ['rerouted', 'rerouted it to another team'],
+    ] as const) {
+      expect(describeEvent(event({ kind, detail: { reason: 'Capacity changed' } }), nameOf)).toBe(`Ana Reyes ${words}: Capacity changed`)
+      expect(describeActivity({ kind, actor_name: 'Ana Reyes', subject_name: null, task_title: 'Report', detail: { reason: 'Capacity changed' } })).toBe(`Ana Reyes ${words.replace('it', '"Report"')}: Capacity changed`)
+    }
+  })
   it('names who created the task', () => {
     expect(describeEvent(event({}), nameOf)).toBe('Ana Reyes created this task')
   })

@@ -9,13 +9,14 @@ import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { listDiscussionFolders, listDiscussions } from '../../lib/api/discussions'
 import { attachSharedFiles } from '../../lib/general/sharedFiles'
-import { GENERAL_FILE_LIMIT, assignTask, createTask, uploadTaskFile } from '../../lib/api/general'
+import { GENERAL_FILE_LIMIT, createTask, uploadTaskFile } from '../../lib/api/general'
+import { canCreateWorkTask } from '../../lib/general/permissions'
 import { createMilestone, tagTasks } from '../../lib/api/milestones'
 import { createSprint, setSprintMilestone } from '../../lib/api/sprints'
-import { draftAssignees, draftWorkTasks } from '../../lib/api/workAi'
+import { draftWorkTasks } from '../../lib/api/workAi'
 import type { DraftSharedFile, DraftedWorkTask } from '../../lib/api/workAi'
 import { authErrorMessage } from '../../lib/authError'
-import { isAssignCandidate, notesWhy } from '../../lib/work/assignDraft'
+import { isAssignCandidate } from '../../lib/work/assignDraft'
 import { formatDue } from '../../lib/general/dates'
 import { NOTES_FILE_ACCEPT, NOTES_FILE_MAX, NotesFileError, readNotesFile } from '../../lib/general/notesFile'
 import {
@@ -112,7 +113,7 @@ export function TasksFromNotes({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const projectId = state.project?.id
-  const mayAssign = mayAssignOverride ?? state.can('manage_tasks')
+  const mayAssign = onSave ? (mayAssignOverride ?? state.can('manage_tasks')) : false
   const workPlans = Boolean(state.project) && !state.readOnly && state.can('manage_tasks')
   const scope: NotesPlanScope = planOverride ?? {
     sprints: state.sprints,
@@ -204,20 +205,10 @@ export function TasksFromNotes({
         { sprints: scope.sprints, milestones: scope.milestones },
         { sprints: scope.maySprint, createMilestones: scope.mayCreateMilestones, tag: scope.mayTag },
       )
-      const suggest = !onSave && mayAssign && !state.project?.class_board_id
-      const named = tasks.map((t) => {
-        const member = state.members.find((m) => m.user_id === t.assignee)
-        if (!suggest || !member) return null
-        const blocked: 'qa' | 'stakeholder' | 'inactive' | null = member.role === 'qa' || member.role === 'stakeholder'
-          ? member.role
-          : isAssignCandidate(member) ? null : 'inactive'
-        return { name: state.nameOf(member.user_id), blocked }
-      })
       const drafted: Row[] = tasks.map((t, i) => ({
           ...t,
           files: t.files ?? [],
-          assignee: mayAssign && (suggest ? named[i]?.blocked === null : state.roleOf(t.assignee) !== 'stakeholder') ? t.assignee : '',
-          ...(suggest ? { why: notesWhy(named[i], null) } : {}),
+          assignee: mayAssign && state.roleOf(t.assignee) !== 'stakeholder' ? t.assignee : '',
           keep: true,
           sprintKey: shaped.links[i].sprint,
           milestoneKey: shaped.links[i].milestone,
@@ -234,26 +225,6 @@ export function TasksFromNotes({
         )
       }
       if (((res.milestones?.length ?? 0) > 0 && !scope.mayTag) || shaped.skippedMilestones > 0) said.push(scope.noMilestones)
-      if (suggest) {
-        const missing = drafted.flatMap((r, i) => r.assignee ? [] : [{ key: String(i), title: r.title, description: r.description, team: r.team }])
-        if (missing.length > 0) {
-          try {
-            const suggested = await draftAssignees(projectId, { mode: 'drafts', drafts: missing })
-            if (suggested.result === 'ok' && suggested.empty !== 'no_structure') {
-              for (const pick of suggested.picks) {
-                const i = Number(pick.key)
-                if (!Number.isInteger(i) || !drafted[i] || drafted[i].assignee) continue
-                drafted[i].assignee = pick.userId ?? ''
-                drafted[i].why = notesWhy(named[i], pick)
-              }
-            } else if (suggested.result === 'failed') {
-              said.push("Couldn't suggest people this time.")
-            }
-          } catch {
-            said.push("Couldn't suggest people this time.")
-          }
-        }
-      }
       setRows(drafted)
       setPlanNotes(said)
       setNote(res.note)
@@ -267,6 +238,7 @@ export function TasksFromNotes({
 
   async function save() {
     if (!projectId) return
+    if (!onSave && (state.readOnly || !canCreateWorkTask(state.myRole, 'task'))) return
     const keep = (rows ?? []).filter((r) => r.keep && r.title.trim())
     if (keep.length === 0) return
     const problem = planProblem(sprints, milestones)
@@ -285,7 +257,6 @@ export function TasksFromNotes({
       return
     }
     const home = { kind: 'work', projectId } as const
-    let unassigned = 0
     let missed = 0
     let untagged = 0
     try {
@@ -306,13 +277,6 @@ export function TasksFromNotes({
           sprintId: resolveKey(r.sprintKey, created),
         })
         tagged.push({ taskId, milestoneId: resolveKey(milestoneOf(r), created) })
-        if (r.assignee) {
-          try {
-            await assignTask(taskId, projectId, r.assignee)
-          } catch {
-            unassigned++
-          }
-        }
         missed += await attachSharedFiles(r.files, shared, GENERAL_FILE_LIMIT, (file) =>
           uploadTaskFile(projectId, taskId, file),
         )
@@ -326,7 +290,6 @@ export function TasksFromNotes({
       }
       show(
         addedMessage(keep.length, sprints.filter((s) => s.keep).length, milestones.filter((m) => m.keep).length) +
-          (unassigned > 0 ? `. ${unassigned} could not be given to the person named.` : '') +
           (missed > 0 ? `. ${missed} ${missed === 1 ? 'file' : 'files'} could not be added to ${missed === 1 ? 'its task' : 'their tasks'}.` : '') +
           (untagged > 0 ? `. ${untagged} could not be put on their milestone; tag them from Milestones.` : ''),
       )
@@ -625,7 +588,9 @@ export function TasksFromNotes({
 
             {!mayAssign && (
               <p className="text-[12px] text-faint">
-                Putting people on tasks needs the Manage tasks permission, so these are added with nobody on them.
+                {onSave
+                  ? 'Putting people on tasks needs the Manage tasks permission, so these are added with nobody on them.'
+                  : 'These tasks stay in planning with nobody assigned until they are sent to a team.'}
               </p>
             )}
             <section aria-label="Tasks to add" className="space-y-2">

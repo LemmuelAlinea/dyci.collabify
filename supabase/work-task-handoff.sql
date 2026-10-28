@@ -1212,6 +1212,12 @@ begin
       raise exception 'QA creates bug tasks only.'
         using errcode = 'insufficient_privilege';
     end if;
+    if exists(select 1 from public.general_projects where id=new.project_id and class_board_id is null)
+       and not coalesce(public.general_role_of(new.project_id,auth.uid()) in ('pm','coordinator')
+         or (public.general_role_of(new.project_id,auth.uid())='qa' and new.kind='bug'),false) then
+      raise exception 'Only the project manager or a coordinator creates tasks. QA can report bugs.'
+        using errcode='insufficient_privilege';
+    end if;
     new.created_by := auth.uid();
     if new.weight <> 1 and not public.general_can(new.project_id, 'manage_tasks') then
       raise exception 'Only someone who manages tasks sets points'
@@ -1565,4 +1571,128 @@ begin
 end $$;
 revoke all on function public.work_task_return_receipts(uuid) from public,anon;
 grant execute on function public.work_task_return_receipts(uuid) to authenticated;
+create or replace function public.guard_general_task_child()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  p uuid;
+  -- Leaving an archived project cascades into general_task_assignees; that
+  -- delete should go through even though the membership row that drove it is
+  -- already gone by the time this trigger fires.
+  v_member_gone boolean := false;
+  v_role public.general_role;
+  t public.general_tasks%rowtype;
+  actor_role public.general_role;
+begin
+  if tg_op = 'DELETE' then
+    p := old.project_id;
+  else
+    p := new.project_id;
+  end if;
+  if auth.uid() is null then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+
+  if tg_op = 'DELETE' and tg_table_name = 'general_task_assignees' then
+    v_member_gone := not exists (
+      select 1 from public.general_members
+       where project_id = old.project_id and user_id = old.user_id
+    );
+  end if;
+
+  if not v_member_gone then
+    if not public.is_general_member(p) then
+      raise exception 'You are not on this project' using errcode = 'insufficient_privilege';
+    end if;
+    if not public.general_can_write(p) then
+      raise exception 'Stakeholders can view this project but not change it.'
+        using errcode = 'insufficient_privilege';
+    end if;
+    if public.general_is_archived(p) then
+      raise exception 'This project is archived. An Owner can restore it to make changes.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  if tg_op = 'INSERT' then
+    case tg_table_name
+      when 'general_task_assignees' then
+        -- Nobody hands a stakeholder or QA a task, whichever policy branch
+        -- let the row in: a self-claim, a task manager or a team leader.
+        select role into v_role from public.general_members
+         where project_id = new.project_id and user_id = new.user_id;
+        if v_role = 'stakeholder' then
+          raise exception 'Stakeholders can''t hold tasks. Pick someone else.'
+            using errcode = 'insufficient_privilege';
+        end if;
+        if v_role = 'qa' then
+          raise exception 'QA can''t hold tasks. Pick someone else.'
+            using errcode = 'insufficient_privilege';
+        end if;
+        new.assigned_by := auth.uid();
+        -- Serializes claims and routing against the same task row.
+        select * into t from public.general_tasks where id=new.task_id for update;
+        if exists(select 1 from public.general_projects where id=p and class_board_id is null) then
+          if t.id is null or t.project_id<>p or t.routing_state<>'released'
+             or t.archived_at is not null or t.trashed_at is not null then
+            raise exception 'Send live work to a team before assigning it.' using errcode='check_violation';
+          end if;
+          select m.role into actor_role from public.general_members m
+            join public.profiles pr on pr.id=m.user_id
+            where m.project_id=p and m.user_id=auth.uid() and pr.status='active'
+            for share of m,pr nowait;
+          if not found then
+            raise exception 'Your project membership changed. Reload and try again.' using errcode='insufficient_privilege';
+          end if;
+          perform 1 from public.general_members m join public.profiles pr on pr.id=m.user_id
+            where m.project_id=p and m.user_id=new.user_id and pr.status='active'
+              and m.role not in ('qa','stakeholder') for share of m,pr nowait;
+          if not found then
+            raise exception 'Choose an active project member who can hold tasks.' using errcode='check_violation';
+          end if;
+          if actor_role not in ('pm','coordinator') then
+            perform 1 from public.general_teams g
+              join public.general_team_members lead on lead.project_id=p and lead.team_id=g.id and lead.user_id=auth.uid()
+              join public.general_team_members recipient on recipient.project_id=p and recipient.team_id=g.id and recipient.user_id=new.user_id
+              where g.project_id=p and g.id=t.team_id and g.leader_id=auth.uid()
+              for share of g,lead,recipient nowait;
+            if not found or actor_role='stakeholder' then
+              raise exception 'Only the receiving team lead assigns its members. Reload and try again.' using errcode='insufficient_privilege';
+            end if;
+          end if;
+        elsif not public.general_can(new.project_id, 'manage_tasks')
+           and public.general_task_held(new.task_id) then
+          raise exception 'Somebody already holds this task' using errcode='check_violation';
+        end if;
+      when 'general_task_comments'  then new.author_id := auth.uid();
+      when 'general_task_files'     then new.uploaded_by := auth.uid();
+      when 'general_task_logs'      then new.user_id := auth.uid();
+      else null;
+    end case;
+  elsif tg_op = 'UPDATE' and tg_table_name = 'general_task_comments' then
+    new.author_id := old.author_id;
+    new.task_id := old.task_id;
+    new.project_id := old.project_id;
+    new.created_at := old.created_at;
+    new.edited_at := now();
+  end if;
+
+  return case when tg_op = 'DELETE' then old else new end;
+end;
+$$;
+
+drop policy if exists general_tasks_insert on public.general_tasks;
+create policy general_tasks_insert on public.general_tasks for insert to authenticated
+  with check (public.general_can_write(project_id) and (
+    exists(select 1 from public.general_projects p where p.id=project_id and p.class_board_id is not null)
+    or public.general_role_of(project_id,auth.uid()) in ('pm','coordinator')
+    or (public.general_role_of(project_id,auth.uid())='qa' and kind='bug')));
+
+drop policy if exists general_task_assignees_insert on public.general_task_assignees;
+create policy general_task_assignees_insert on public.general_task_assignees for insert to authenticated
+  with check (public.general_can_write(project_id) and (
+    exists(select 1 from public.general_projects p where p.id=project_id and p.class_board_id is null)
+    or (public.general_can(project_id,'manage_tasks') and exists(select 1 from public.profiles p where p.id=user_id and p.status<>'rejected'))
+    or (user_id=auth.uid() and not public.general_task_held(task_id))
+    or (public.general_leads_user(project_id,auth.uid(),user_id) and exists(select 1 from public.profiles p where p.id=user_id and p.status<>'rejected'))));
+
 commit;
