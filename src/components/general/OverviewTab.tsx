@@ -13,6 +13,7 @@ import { clearFieldValue, deleteField, setFieldValue, updateField, updateGeneral
 import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
 import { checkFieldValue, formatFieldValue, isEmptyValue } from '../../lib/general/fields'
+import type { FieldValue } from '../../lib/general/fields'
 import { PROJECT_STATUSES, projectStatusLabel } from '../../lib/general/types'
 import type { GeneralField, GeneralStatus } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
@@ -52,7 +53,7 @@ export function OverviewTab({ state }: { state: GeneralProjectState }) {
               <div key={field.id} className="min-w-0">
                 <dt className="truncate text-[12px] text-faint">{field.name}</dt>
                 <dd className="mt-0.5 truncate text-ink">
-                  {stored ? formatFieldValue(field.type, stored.value, state.nameOf) : 'Not set'}
+                  <StoredFieldValue field={field} value={stored?.value} nameOf={state.nameOf} />
                 </dd>
               </div>
             )
@@ -101,6 +102,30 @@ function EditButton({ label, onClick }: { label: string; onClick: () => void }) 
       Edit
     </Button>
   )
+}
+
+function StoredFieldValue({
+  field,
+  value,
+  nameOf,
+}: {
+  field: GeneralField
+  value: FieldValue | undefined
+  nameOf: (id: string) => string
+}) {
+  if (value === undefined) return 'Not set'
+  const text = formatFieldValue(field.type, value, nameOf)
+  const link = field.type === 'link' ? checkFieldValue('link', value, { options: [], memberIds: [] }) : null
+  return link?.ok && typeof link.value === 'string' ? (
+    <a
+      href={link.value}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="break-all text-navy-600 underline decoration-navy-600/35 underline-offset-2 hover:decoration-current dark:text-navy-200 dark:decoration-navy-200/35"
+    >
+      {text}
+    </a>
+  ) : text
 }
 
 function DetailsView({ state }: { state: GeneralProjectState }) {
@@ -467,7 +492,7 @@ function FieldRow({
       <li className="py-3 first:pt-0 last:pb-0">
         <p className="text-[12px] text-faint">{field.name}</p>
         <p className={`mt-0.5 text-[14px] whitespace-pre-wrap ${stored ? 'text-ink' : 'text-muted'}`}>
-          {stored ? formatFieldValue(field.type, stored.value, state.nameOf) : 'Not set'}
+          <StoredFieldValue field={field} value={stored?.value} nameOf={state.nameOf} />
         </p>
       </li>
     )
