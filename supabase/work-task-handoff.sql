@@ -54,6 +54,11 @@ returns boolean language sql stable security definer set search_path = public as
     and (p_archived_at is null or (coalesce(p_include_archived, false) and not public.general_task_hidden(p_task)));
 $$;
 
+-- Notifications describe released work even when the caller can read its private plan.
+drop policy if exists notifications_task_routing_read on public.notifications;
+create policy notifications_task_routing_read on public.notifications as restrictive for select
+  using (general_task_id is null or public.general_task_released(general_task_id));
+
 -- Restrictive policies compose with existing archive/trash and membership rules.
 drop policy if exists general_tasks_routing_read on public.general_tasks;
 create policy general_tasks_routing_read on public.general_tasks as restrictive for select

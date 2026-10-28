@@ -515,7 +515,7 @@ keep their group-leader and grant rules. Re-run it after `general.sql`,
 
 `work-task-handoff.sql` runs after `project-requests.sql` and all earlier task owners,
 then `anon-lockdown.sql`. It adds routing metadata with a safe `released` default,
-retains all existing task assignments, and owns the restrictive task/child read policies,
+retains all existing task assignments, and owns the restrictive task/child/notification read policies,
 `general_task_readable`, `general_task_child_readable`, `general_task_released`,
 `general_task_hidden`, `general_report_task_ok`, `general_user_sees_task`, the task
 project/held/archived/assignee/file-hidden helpers, `general_assign_context`,

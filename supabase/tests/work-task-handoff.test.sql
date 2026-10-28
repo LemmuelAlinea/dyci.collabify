@@ -70,11 +70,20 @@ begin
   insert into public.general_task_logs(project_id,task_id,user_id,minutes,note) values(p,plan,ids[3],12,'Zz private log');
   -- Old notification rows must disappear too if a released task returns to planning.
   insert into public.notifications(user_id,type,general_project_id,general_task_id,title)
-    values(ids[3],'general_task_assigned',p,plan,'Zz private old notification');
+    select recipient,'general_task_assigned',p,task,'Zz private old notification'
+      from unnest(ids) recipient cross join unnest(array[plan,review,bug,released]) task;
+  insert into public.notifications(user_id,type,general_project_id,title)
+    select recipient,'general_task_assigned',p,'Zz project notification' from unnest(ids) recipient;
   insert into public.general_project_visits(user_id,project_id,since,seen_at)
     select unnest(ids),p,now()-interval '1 day',now();
   for k in 1..7 loop
     perform pg_temp.act_as(ids[k]);
+    perform pg_temp.check('planning/review notifications hidden for every role '||k,
+      not exists(select 1 from public.notifications where general_task_id in(plan,review,bug)));
+    perform pg_temp.check('released task notifications remain visible for role '||k,
+      exists(select 1 from public.notifications where general_task_id=released));
+    perform pg_temp.check('project notifications remain visible for role '||k,
+      exists(select 1 from public.notifications where general_project_id=p and general_task_id is null));
     perform pg_temp.check('released task readable for role '||k, exists(select 1 from public.general_tasks where id=released));
     perform pg_temp.check('planning visibility for role '||k,
       exists(select 1 from public.general_tasks where id=plan) = (k<=2));
@@ -155,7 +164,12 @@ begin
   perform pg_temp.act_as(ids[3]);
   files_project := public.ensure_class_board_repo(board);
   insert into public.general_tasks(project_id,title,routing_state) values(files_project,'Zz class planning','planning') returning id into class_task;
+  perform pg_temp.service();
+  insert into public.notifications(user_id,type,general_project_id,general_task_id,title)
+    values(ids[4],'general_task_assigned',files_project,class_task,'Zz class task notification');
   perform pg_temp.act_as(ids[4]);
+  perform pg_temp.check('class-board task notifications remain unchanged',exists(
+    select 1 from public.notifications where general_task_id=class_task));
   perform pg_temp.check('class-board task reads remain unchanged',exists(select 1 from public.general_task_overview where id=class_task));
   perform pg_temp.check('class-board counts remain unchanged',(select task_count=1 from public.general_project_overview where id=files_project));
   perform pg_temp.service();
