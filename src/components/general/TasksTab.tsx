@@ -76,6 +76,9 @@ export function TasksTab({
   const project = state.project
   const stages = stagesOf(project?.stages)
   const scoped = useMemo(() => applyScope(state.tasks.filter(t => state.project?.class_board_id || (t.routing_state ?? 'released') === 'released'), scope, state.sprints), [state.tasks, state.project?.class_board_id, scope, state.sprints])
+  const ownUnsentBugs = state.myRole === 'qa' && !project?.class_board_id && state.viewerId
+    ? state.tasks.filter(t => t.created_by === state.viewerId && t.kind === 'bug' && t.routing_state && t.routing_state !== 'released')
+    : []
   const projectStages = state.project?.stages
   const teamLinks = state.teamMembers
   const shown = useMemo(() => {
@@ -139,6 +142,16 @@ export function TasksTab({
   return (
     <div className="space-y-4">
       <TaskRoutingPanel key={project.id} state={state} onOpenTask={onOpenTask} />
+      {ownUnsentBugs.length > 0 && <section aria-label="Your unsent bugs" className="surface space-y-3 rounded-xl border border-line p-4 sm:p-5">
+        <h3 className="text-[14px] font-semibold text-ink">Your unsent bugs</h3>
+        <p className="text-[13px] text-muted">Planners review these bugs before sending them to a team.</p>
+        <ul className="divide-y divide-line">
+          {ownUnsentBugs.map(task => <li key={task.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+            <button type="button" className="text-left text-[14px] font-medium break-words text-ink hover:underline" onClick={() => showTask(task.id)}>{task.title}</button>
+            <span className="text-[12px] text-muted">{task.routing_state === 'coordinator_review' ? 'Coordinator review' : 'Planning'}</span>
+          </li>)}
+        </ul>
+      </section>}
       {!project.class_board_id && <h3 className="text-[14px] font-semibold text-ink">Released work</h3>}
       {state.tasks.length > 0 && (
         <>
