@@ -174,10 +174,14 @@ begin
   perform pg_temp.ok('the refused update left the start and the team untouched',
                      v_starts = ts and v_team = team);
 
-  -- Control: the same person, the same exemption, but starts_at untouched.
-  update public.general_tasks set team_id = null where id = t;
-  perform pg_temp.ok('...while clearing the team alone still goes through',
-                     (select team_id from public.general_tasks where id = t) is null);
+  -- Released teams now change only through the handoff RPC.
+  begin
+    update public.general_tasks set team_id = null where id = t;
+    raise exception 'FAIL clearing a released team must use the handoff action';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('clearing a released team directly is refused',
+                       (select team_id from public.general_tasks where id = t) = team);
+  end;
 end $$;
 
 rollback;

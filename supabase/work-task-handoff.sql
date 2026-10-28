@@ -1,5 +1,8 @@
--- Final routing read owner; run after project-requests.sql, then anon-lockdown.sql.
+-- Final task routing owner; run after project-requests.sql, then anon-lockdown.sql.
 -- Default remains released until the planner and lead UI is activated.
+begin;
+alter type public.notification_type add value if not exists 'work_task_handoff';
+commit;
 begin;
 alter table public.general_tasks
   add column if not exists routing_state text not null default 'released',
@@ -54,10 +57,14 @@ returns boolean language sql stable security definer set search_path = public as
     and (p_archived_at is null or (coalesce(p_include_archived, false) and not public.general_task_hidden(p_task)));
 $$;
 
--- Notifications describe released work even when the caller can read its private plan.
+-- Generic task notifications stay released-only; handoff bells reach their next actor.
 drop policy if exists notifications_task_routing_read on public.notifications;
 create policy notifications_task_routing_read on public.notifications as restrictive for select
-  using (general_task_id is null or public.general_task_released(general_task_id));
+  using (general_task_id is null or public.general_task_released(general_task_id)
+    or (type = 'work_task_handoff' and exists (
+      select 1 from public.general_tasks t where t.id = general_task_id
+        and ((t.routing_state = 'coordinator_review' and t.reviewer_id = auth.uid())
+          or (t.routing_state = 'planning' and public.general_role_of(t.project_id,auth.uid()) = 'pm')))));
 
 -- Restrictive policies compose with existing archive/trash and membership rules.
 drop policy if exists general_tasks_routing_read on public.general_tasks;
@@ -1158,4 +1165,404 @@ begin
 end;
 $$;
 
+create or replace function public.guard_general_task()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_project uuid := case when tg_op = 'INSERT' then new.project_id else old.project_id end;
+  -- QA passing a task or moving it back a stage, and changing nothing else.
+  v_qa_move boolean := false;
+begin
+  if auth.uid() is null then
+    if tg_op = 'INSERT' then
+      new.completed_at := case when new.status = 'done' then now() end;
+    end if;
+    return new;
+  end if;
+
+  if not public.is_general_member(v_project) then
+    raise exception 'You are not on this project' using errcode = 'insufficient_privilege';
+  end if;
+  if not public.general_can_write(v_project) then
+    raise exception 'Stakeholders can view this project but not change it.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if exists(select 1 from public.general_projects where id=v_project and class_board_id is null)
+     and coalesce(current_setting('collabify.work_task_handoff',true),'off')<>'on' then
+    if (tg_op='UPDATE' and ((new.routing_state,new.reviewer_id,new.sent_at) is distinct from (old.routing_state,old.reviewer_id,old.sent_at)
+        or (old.routing_state='released' and new.team_id is distinct from old.team_id
+          and not (pg_trigger_depth()>1 and new.team_id is null
+            and not exists(select 1 from public.general_teams where id=old.team_id)))))
+       or (tg_op='INSERT' and (new.reviewer_id is not null or new.sent_at is not null or new.routing_state='coordinator_review')) then
+      raise exception 'Use the handoff actions to route work.' using errcode='insufficient_privilege';
+    end if;
+  end if;
+  if tg_op = 'INSERT' then
+    if public.general_is_archived(new.project_id) then
+      raise exception '%', public.general_archived_message(new.project_id)
+        using errcode = 'check_violation';
+    end if;
+    -- QA reports bugs; everything else is somebody else's to create. The role
+    -- is read off the membership row, not general_role_of, which sees active
+    -- accounts only and would let a pending QA account past.
+    if new.kind is distinct from 'bug'
+       and exists (select 1 from public.general_members m
+                    where m.project_id = new.project_id and m.user_id = auth.uid()
+                      and m.role = 'qa') then
+      raise exception 'QA creates bug tasks only.'
+        using errcode = 'insufficient_privilege';
+    end if;
+    new.created_by := auth.uid();
+    if new.weight <> 1 and not public.general_can(new.project_id, 'manage_tasks') then
+      raise exception 'Only someone who manages tasks sets points'
+        using errcode = 'insufficient_privilege';
+    end if;
+    new.completed_at := case when new.status = 'done' then now() end;
+    return new;
+  end if;
+
+  -- UPDATE
+  new.project_id := old.project_id;
+  new.created_by := old.created_by;
+  new.created_at := old.created_at;
+
+  if (new.archived_at is distinct from old.archived_at or new.archived_by is distinct from old.archived_by)
+     and coalesce(current_setting('collabify.general_archive_op', true), 'off') <> 'on' then
+    raise exception 'Archive and restore through the archive buttons.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if public.general_is_archived(old.project_id) then
+    raise exception '%', public.general_archived_message(old.project_id)
+      using errcode = 'check_violation';
+  end if;
+
+  -- A team delete still cascades team_id to null on an archived task.
+  if old.archived_at is not null
+     and coalesce(current_setting('collabify.general_archive_op', true), 'off') <> 'on'
+     and not (
+       new.team_id is null
+       and new.title is not distinct from old.title
+       and new.description is not distinct from old.description
+       and new.status is not distinct from old.status
+       and new.stage is not distinct from old.stage
+       and new.due_at is not distinct from old.due_at
+       and new.starts_at is not distinct from old.starts_at
+       and new.weight is not distinct from old.weight
+       and new.kind is not distinct from old.kind
+     ) then
+    raise exception 'This task is archived. Restore it from the project archive to change it.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- Task or bug is the task manager's call, holder or not. QA never holds
+  -- manage_tasks (general_has gives the qa role nothing), so QA never changes it.
+  if new.kind is distinct from old.kind
+     and not public.general_can(old.project_id, 'manage_tasks') then
+    raise exception 'Only someone who manages tasks changes a task''s kind.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  -- QA holds no tasks, yet moves one out of the QA stage to any stage after it
+  -- or back to the stage before it (sync_general_task_stage has already aligned
+  -- status and stage and applied the QA gate). Nothing else may change with it.
+  if (new.status, new.stage) is distinct from (old.status, old.stage) then
+    v_qa_move := public.general_qa_may_move(old.project_id, old.status, old.stage,
+                                            new.status, new.stage)
+      and (to_jsonb(new) - array['status', 'stage', 'completed_at', 'updated_at', 'qa_entered_at'])
+        = (to_jsonb(old) - array['status', 'stage', 'completed_at', 'updated_at', 'qa_entered_at']);
+  end if;
+
+  -- archive_general_task decides who may archive; while it holds the flag, the
+  -- holder rule below would wrongly stop a creator archiving a task somebody took.
+  if not public.general_can(old.project_id, 'manage_tasks')
+     and coalesce(current_setting('collabify.work_task_handoff',true),'off')<>'on'
+     and coalesce(current_setting('collabify.general_archive_op', true), 'off') <> 'on' then
+    if not (
+      v_qa_move
+      or public.is_general_task_assignee(old.id)
+      or (old.created_by = auth.uid() and not public.general_task_held(old.id))
+      -- A team leader, for a task somebody on their team holds.
+      or exists (
+        select 1 from public.general_task_assignees a
+         where a.task_id = old.id
+           and public.general_leads_user(old.project_id, auth.uid(), a.user_id)
+      )
+      or (
+        -- A team delete cascades into an UPDATE (team_id set null) that runs
+        -- under the deleting caller's own auth.uid(), even though referential
+        -- actions bypass RLS — BEFORE triggers still fire. Someone who
+        -- manages structure but not tasks still needs that cascade to reach
+        -- this row, as long as nothing besides team_id actually changed.
+        new.team_id is null
+        and new.title is not distinct from old.title
+        and new.description is not distinct from old.description
+        and new.status is not distinct from old.status
+        and new.due_at is not distinct from old.due_at
+        and new.starts_at is not distinct from old.starts_at
+        and new.weight is not distinct from old.weight
+        and new.kind is not distinct from old.kind
+        and public.general_can(old.project_id, 'manage_structure')
+      )
+    ) then
+      raise exception 'Only whoever holds this task, or someone who manages tasks, can change it'
+        using errcode = 'insufficient_privilege';
+    end if;
+    if new.weight is distinct from old.weight then
+      raise exception 'Only someone who manages tasks changes points'
+        using errcode = 'insufficient_privilege';
+    end if;
+  end if;
+
+  if new.status = 'done' and old.status <> 'done' then
+    new.completed_at := now();
+  elsif new.status <> 'done' then
+    new.completed_at := null;
+  else
+    new.completed_at := old.completed_at;
+  end if;
+  return new;
+end;
+$$;
+-- Work-task tokens must advance even for two writes in the same transaction.
+create or replace function public.touch_general_task_updated_at()
+returns trigger language plpgsql set search_path=public as $$
+begin
+  new.updated_at := greatest(clock_timestamp(),old.updated_at + interval '1 microsecond');
+  return new;
+end $$;
+revoke all on function public.touch_general_task_updated_at() from public,anon,authenticated;
+drop trigger if exists general_tasks_touch on public.general_tasks;
+create trigger general_tasks_touch before update on public.general_tasks
+  for each row execute function public.touch_general_task_updated_at();
+-- Route changes are explicit, atomic handoffs; regular task edits keep their existing guards.
+alter table public.general_task_events drop constraint if exists general_task_events_kind;
+alter table public.general_task_events add constraint general_task_events_kind check
+  (kind in ('created','updated','assigned','unassigned','qa_passed','qa_sent_back',
+            'sent_to_coordinator','returned','sent_to_team','rerouted'));
+
+
+create or replace function public.send_work_tasks_to_coordinator(p_project uuid, p_rows jsonb, p_coordinator uuid)
+returns int language plpgsql security definer set search_path = public as $$
+declare
+  t public.general_tasks%rowtype;
+  n int := 0;
+  prior_flag text := coalesce(current_setting('collabify.work_task_handoff',true),'off');
+begin
+  if public.general_role_of(p_project,auth.uid()) is distinct from 'pm' then
+    raise exception 'Only the project manager sends work for review.' using errcode='insufficient_privilege';
+  end if;
+  perform 1 from public.general_projects where id=p_project and class_board_id is null
+    and archived_at is null and trashed_at is null for share;
+  if not found or public.general_is_archived(p_project) then
+    raise exception 'This project cannot receive handoffs. Restore it first.' using errcode='check_violation';
+  end if;
+  if public.general_role_of(p_project,p_coordinator) is distinct from 'coordinator' then
+    raise exception 'Choose an active coordinator on this project.' using errcode='check_violation';
+  end if;
+  if p_rows is null or jsonb_typeof(p_rows)<>'array' then
+    raise exception 'Select tasks to send.' using errcode='invalid_parameter_value';
+  end if;
+  if jsonb_array_length(p_rows)=0 or exists (
+    select 1 from jsonb_to_recordset(p_rows) r(id uuid,updated_at timestamptz)
+    group by r.id having r.id is null or count(*)>1) then
+    raise exception 'Select each task once.' using errcode='invalid_parameter_value';
+  end if;
+  for t in select gt.* from public.general_tasks gt
+    join jsonb_to_recordset(p_rows) r(id uuid,updated_at timestamptz) on r.id=gt.id
+    order by gt.id for update of gt
+  loop
+    n := n+1;
+    if t.project_id<>p_project or t.archived_at is not null or t.trashed_at is not null
+       or t.routing_state<>'planning' or public.general_task_held(t.id) then
+      raise exception 'Select unassigned planning tasks in this project.' using errcode='check_violation';
+    end if;
+    if t.updated_at is distinct from (select r.updated_at from jsonb_to_recordset(p_rows) r(id uuid,updated_at timestamptz) where r.id=t.id) then
+      raise exception 'A task changed. Reload the tasks and try again.' using errcode='serialization_failure';
+    end if;
+  end loop;
+  if n<>jsonb_array_length(p_rows) then
+    raise exception 'A task changed. Reload the tasks and try again.' using errcode='serialization_failure';
+  end if;
+  perform set_config('collabify.work_task_handoff','on',true);
+  for t in select gt.* from public.general_tasks gt
+    join jsonb_to_recordset(p_rows) r(id uuid) on r.id=gt.id order by gt.id
+  loop
+    update public.general_tasks set routing_state='coordinator_review',reviewer_id=p_coordinator,sent_at=clock_timestamp() where id=t.id;
+    insert into public.general_task_events(task_id,project_id,actor_id,kind,detail)
+      values(t.id,p_project,auth.uid(),'sent_to_coordinator',jsonb_build_object('actor_id',auth.uid(),
+        'old_team_id',t.team_id,'new_team_id',t.team_id,'reviewer_id',p_coordinator,'reason',null,'former_holder_ids','[]'::jsonb));
+    insert into public.notifications(user_id,type,general_project_id,general_task_id,title,preview)
+      select p_coordinator,'work_task_handoff'::public.notification_type,p_project,t.id,'Review '||t.title,'Tasks are ready for your review.'
+      from public.notification_prefs np where np.user_id=p_coordinator and np.task_assignments and p_coordinator<>auth.uid();
+  end loop;
+  perform set_config('collabify.work_task_handoff',prior_flag,true);
+  return n;
+end $$;
+
+create or replace function public.send_work_tasks_to_teams(p_project uuid, p_rows jsonb, p_reason text default null)
+returns int language plpgsql security definer set search_path = public as $$
+declare
+  t public.general_tasks%rowtype;
+  gp public.general_projects%rowtype;
+  destination uuid;
+  lead_id uuid;
+  holders uuid[];
+  n int := 0;
+  reason text := nullif(btrim(p_reason),'');
+  prior_flag text := coalesce(current_setting('collabify.work_task_handoff',true),'off');
+begin
+  if coalesce(public.general_role_of(p_project,auth.uid()) not in ('pm','coordinator'),true) then
+    raise exception 'Only the project manager or a coordinator sends work to teams.' using errcode='insufficient_privilege';
+  end if;
+  select * into gp from public.general_projects where id=p_project and class_board_id is null
+    and archived_at is null and trashed_at is null for share;
+  if not found or public.general_is_archived(p_project) then
+    raise exception 'This project cannot receive handoffs. Restore it first.' using errcode='check_violation';
+  end if;
+  if p_rows is null or jsonb_typeof(p_rows)<>'array' then
+    raise exception 'Select tasks to send.' using errcode='invalid_parameter_value';
+  end if;
+  if jsonb_array_length(p_rows)=0 or exists (
+    select 1 from jsonb_to_recordset(p_rows) r(id uuid,team_id uuid,updated_at timestamptz)
+    group by r.id having r.id is null or count(*)>1) then
+    raise exception 'Select each task once.' using errcode='invalid_parameter_value';
+  end if;
+  for t in select gt.* from public.general_tasks gt
+    join jsonb_to_recordset(p_rows) r(id uuid,team_id uuid,updated_at timestamptz) on r.id=gt.id
+    order by gt.id for update of gt
+  loop
+    n := n+1;
+    if t.project_id<>p_project or t.archived_at is not null or t.trashed_at is not null then
+      raise exception 'Select live tasks in this project.' using errcode='check_violation';
+    end if;
+    if t.updated_at is distinct from (select r.updated_at from jsonb_to_recordset(p_rows) r(id uuid,updated_at timestamptz) where r.id=t.id) then
+      raise exception 'A task changed. Reload the tasks and try again.' using errcode='serialization_failure';
+    end if;
+    select r.team_id into destination from jsonb_to_recordset(p_rows) r(id uuid,team_id uuid) where r.id=t.id;
+    select g.leader_id into lead_id from public.general_teams g
+      join public.general_team_members tm on tm.team_id=g.id and tm.user_id=g.leader_id and tm.project_id=p_project
+      join public.general_members m on m.project_id=p_project and m.user_id=g.leader_id
+      join public.profiles pr on pr.id=m.user_id
+      where g.id=destination and g.project_id=p_project and pr.status='active' and m.role<>'stakeholder'
+      for share of g;
+    if not found then
+      raise exception 'Choose a team with an active lead on this project.' using errcode='check_violation';
+    end if;
+    if t.routing_state='released' then
+      if reason is null then
+        raise exception 'Give a reason for rerouting released work.' using errcode='check_violation';
+      end if;
+      if public.general_task_stage_at(t.status,t.stage,public.stage_count(gp.stages)) >= public.general_qa_stage_pick(gp.stages,gp.qa_stage) then
+        raise exception 'Reopen work in QA or Done before rerouting it.' using errcode='check_violation';
+      end if;
+    elsif public.general_task_held(t.id) then
+      raise exception 'Remove planning task holders before sending it.' using errcode='check_violation';
+    end if;
+  end loop;
+  if n<>jsonb_array_length(p_rows) then
+    raise exception 'A task changed. Reload the tasks and try again.' using errcode='serialization_failure';
+  end if;
+  perform set_config('collabify.work_task_handoff','on',true);
+  for t in select gt.* from public.general_tasks gt
+    join jsonb_to_recordset(p_rows) r(id uuid) on r.id=gt.id order by gt.id
+  loop
+    select r.team_id into destination from jsonb_to_recordset(p_rows) r(id uuid,team_id uuid) where r.id=t.id;
+    select coalesce(array_agg(a.user_id order by a.user_id),'{}'::uuid[]) into holders from public.general_task_assignees a where a.task_id=t.id;
+    delete from public.general_task_assignees where task_id=t.id;
+    update public.general_tasks set routing_state='released',team_id=destination,reviewer_id=null,sent_at=clock_timestamp() where id=t.id;
+    insert into public.general_task_events(task_id,project_id,actor_id,kind,detail)
+      values(t.id,p_project,auth.uid(),case when t.routing_state='released' then 'rerouted' else 'sent_to_team' end,
+        jsonb_build_object('actor_id',auth.uid(),'old_team_id',t.team_id,'new_team_id',destination,
+          'reviewer_id',t.reviewer_id,'reason',reason,'former_holder_ids',to_jsonb(holders)));
+    insert into public.notifications(user_id,type,general_project_id,general_task_id,title,preview)
+      select distinct m.user_id,'work_task_handoff'::public.notification_type,p_project,t.id,
+        case when t.routing_state='released' then 'Rerouted: ' else 'Incoming: ' end||t.title,
+        coalesce(left(reason,140),'Your team has incoming work.')
+      from public.general_teams g
+      join public.general_team_members tm on tm.team_id=g.id and tm.project_id=p_project
+      join public.general_members m on m.project_id=p_project and m.user_id=tm.user_id
+      join public.profiles pr on pr.id=m.user_id
+      join public.notification_prefs np on np.user_id=m.user_id and np.task_assignments
+      where g.project_id=p_project and pr.status='active' and m.user_id<>auth.uid()
+        and ((t.routing_state='released' and g.id in(t.team_id,destination))
+          or (g.id=destination and g.leader_id=m.user_id));
+  end loop;
+  perform set_config('collabify.work_task_handoff',prior_flag,true);
+  return n;
+end $$;
+
+create or replace function public.return_work_task(p_task uuid,p_reason text)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  t public.general_tasks%rowtype;
+  recipient uuid;
+  reason text := nullif(btrim(p_reason),'');
+  prior_flag text := coalesce(current_setting('collabify.work_task_handoff',true),'off');
+begin
+  if auth.uid() is null or reason is null then
+    raise exception 'Give a reason for returning this task.' using errcode='check_violation';
+  end if;
+  select * into t from public.general_tasks where id=p_task;
+  if not found or t.archived_at is not null or t.trashed_at is not null then
+    raise exception 'Choose a live task to return.' using errcode='check_violation';
+  end if;
+  perform 1 from public.general_projects where id=t.project_id and class_board_id is null
+    and archived_at is null and trashed_at is null for share;
+  if not found or public.general_is_archived(t.project_id) then
+    raise exception 'This project cannot receive handoffs. Restore it first.' using errcode='check_violation';
+  end if;
+  select * into t from public.general_tasks where id=p_task for update;
+  if not found or t.archived_at is not null or t.trashed_at is not null then
+    raise exception 'Choose a live task to return.' using errcode='check_violation';
+  end if;
+  if t.routing_state='released' and exists (
+    select 1 from public.general_projects gp where gp.id=t.project_id
+      and public.general_task_stage_at(t.status,t.stage,public.stage_count(gp.stages)) >= public.general_qa_stage_pick(gp.stages,gp.qa_stage)) then
+    raise exception 'Reopen work in QA or Done before returning it.' using errcode='check_violation';
+  end if;
+  if not coalesce((
+    (t.routing_state='coordinator_review' and t.reviewer_id=auth.uid()
+      and public.general_role_of(t.project_id,auth.uid())='coordinator')
+    or (t.routing_state='released' and not public.general_task_held(t.id)
+      and exists(select 1 from public.general_teams g
+        join public.general_team_members tm on tm.team_id=g.id and tm.user_id=g.leader_id
+        where g.id=t.team_id and g.project_id=t.project_id and g.leader_id=auth.uid())
+      and public.general_role_of(t.project_id,auth.uid()) in ('pm','coordinator','member','qa'))
+  ),false) then
+    raise exception 'Only its reviewer or receiving lead can return unassigned work.' using errcode='insufficient_privilege';
+  end if;
+  select user_id into recipient from public.general_members m
+    join public.profiles pr on pr.id=m.user_id where m.project_id=t.project_id and m.role='pm' and pr.status='active';
+  perform set_config('collabify.work_task_handoff','on',true);
+  update public.general_tasks set routing_state='planning',reviewer_id=null,sent_at=null where id=t.id;
+  insert into public.general_task_events(task_id,project_id,actor_id,kind,detail)
+    values(t.id,t.project_id,auth.uid(),'returned',jsonb_build_object('actor_id',auth.uid(),
+      'old_team_id',t.team_id,'new_team_id',t.team_id,'reviewer_id',t.reviewer_id,'reason',reason,'former_holder_ids','[]'::jsonb,
+      'return_source',case when t.routing_state='released' then 'team' else 'coordinator' end));
+  insert into public.notifications(user_id,type,general_project_id,general_task_id,title,preview)
+    select recipient,'work_task_handoff'::public.notification_type,t.project_id,t.id,'Returned: '||t.title,left(reason,140)
+    from public.notification_prefs np where np.user_id=recipient and np.task_assignments and recipient<>auth.uid();
+  perform set_config('collabify.work_task_handoff',prior_flag,true);
+end $$;
+revoke all on function public.send_work_tasks_to_coordinator(uuid,jsonb,uuid),public.send_work_tasks_to_teams(uuid,jsonb,text),public.return_work_task(uuid,text) from public,anon;
+grant execute on function public.send_work_tasks_to_coordinator(uuid,jsonb,uuid),public.send_work_tasks_to_teams(uuid,jsonb,text),public.return_work_task(uuid,text) to authenticated;
+
+-- A return receipt remains available without reopening the private task or its history.
+create or replace function public.work_task_return_receipts(p_project uuid)
+returns table(task_id uuid,returned_at timestamptz,reason text)
+language plpgsql stable security definer set search_path=public as $$
+begin
+  if auth.uid() is null or public.general_role_of(p_project,auth.uid()) is null
+     or not public.can_read_general_project(p_project) then
+    raise exception 'You are not on this project.' using errcode='insufficient_privilege';
+  end if;
+  return query select e.task_id,e.created_at,e.detail->>'reason'
+    from public.general_task_events e
+    where e.project_id=p_project and e.actor_id=auth.uid() and e.kind='returned'
+      and e.detail->>'return_source'='team'
+    order by e.created_at desc,e.id;
+end $$;
+revoke all on function public.work_task_return_receipts(uuid) from public,anon;
+grant execute on function public.work_task_return_receipts(uuid) to authenticated;
 commit;
