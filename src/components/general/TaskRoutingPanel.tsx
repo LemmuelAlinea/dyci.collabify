@@ -1,3 +1,4 @@
+import { AssignByPosition } from './AssignByPosition'
 import { useState } from 'react'
 import { sendTasksToCoordinator, sendTasksToTeams, returnWorkTask } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
@@ -14,6 +15,7 @@ type Queue = 'planning' | 'coordinator_review' | 'released'
 const LABEL = { planning: 'Planning', coordinator_review: 'Coordinator review', released: 'Reroute released work' }
 
 export function TaskRoutingPanel({ state, onOpenTask }: { state: GeneralProjectState; onOpenTask?: (id: string) => void }) {
+  const [byPosition, setByPosition] = useState(false)
   const [queue, setQueue] = useState<Queue>('planning')
   const [selected, setSelected] = useState<Record<string, GeneralTask>>({})
   const [teams, setTeams] = useState<Record<string, string>>({})
@@ -56,6 +58,8 @@ export function TaskRoutingPanel({ state, onOpenTask }: { state: GeneralProjectS
       {(Object.keys(LABEL) as Queue[]).map(q => <Button key={q} size="sm" variant={queue === q ? 'primary' : 'outline'} disabled={busy} aria-pressed={queue === q} onClick={() => { setQueue(q); setSelected({}); setTeams({}); setError(null) }}>{LABEL[q]}</Button>)}
     </div>
     <p className="text-[13px] text-muted">Planning and review stay private to planners. Choosing a team does not send work.</p>
+    {queue !== 'released' && <Button size="sm" variant="outline" disabled={!editable} onClick={() => setByPosition(true)}>Assign by position</Button>}
+    {byPosition && <AssignByPosition state={state} open onClose={() => setByPosition(false)} />}
     {error && <Alert tone="error">{error} <Button size="sm" variant="outline" disabled={busy} onClick={() => void refresh()}>Reload tasks</Button></Alert>}
     {rows.length === 0 ? <p className="py-4 text-[13px] text-faint">No tasks in this queue.</p> : <div className="divide-y divide-line">
       {rows.map(t => {

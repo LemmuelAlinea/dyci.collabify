@@ -15,6 +15,7 @@ function call<T>(action: string, projectId: string, body: Record<string, unknown
 export type DraftedWorkTask = {
   title: string
   description: string
+  named?: string
   assignee: string
   team: string
   due: string
@@ -77,25 +78,21 @@ export const draftFormula = (
   input: { description: string; headers: string[]; sample: string[][]; cell?: string },
 ) => call<{ formula: string; explanation: string }>('formula', projectId, input)
 
-/** A drafted task to suggest a holder for. `team` is a team name or ''. */
-export type AssignDraftIn = { key: string; title: string; description: string; team: string }
 export type AssignPickOut = {
   key: string
   title: string
+  teamId?: string | null
   userId: string | null
   kind: 'position' | 'tag' | 'none'
   label: string
   reason: string
 }
 
-/**
- * A holder per task, by position or skill tag: the project's open unassigned
- * tasks, or drafts not saved yet. Nothing is assigned until the caller saves.
- */
-export const draftAssignees = (
-  projectId: string,
-  source: { mode: 'tasks' } | { mode: 'drafts'; drafts: AssignDraftIn[] },
-) => call<{ picks: AssignPickOut[]; left: number; empty?: 'no_structure' | 'no_tasks' }>('assign', projectId, source)
+export const draftTeamRoutes = (projectId: string) =>
+  call<{ picks: AssignPickOut[]; left: number; empty?: 'no_structure' | 'no_tasks' }>('assign', projectId, { mode: 'route' })
+
+export const draftLeadAssignees = (projectId: string) =>
+  call<{ picks: AssignPickOut[]; left: number; empty?: 'no_structure' | 'no_tasks' }>('assign', projectId, { mode: 'lead' })
 
 export const askFiles =(projectId: string, question: string) =>
   call<{ answer: string; found: boolean; sources: string[]; skipped: number }>('ask', projectId, { question })

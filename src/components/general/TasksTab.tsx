@@ -7,7 +7,6 @@ import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { TaskRoutingPanel } from './TaskRoutingPanel'
 import { TasksFromNotes } from './TasksFromNotes'
-import { AssignByPosition } from './AssignByPosition'
 import { EmptyState } from '../ui/EmptyState'
 import { Field, Input } from '../ui/Field'
 import { FilterField, FilterPopover, FilterSearch } from '../ui/FilterPopover'
@@ -70,7 +69,6 @@ export function TasksTab({
   const [kind, setKind] = useState<'' | TaskKind>('')
   const [creating, setCreating] = useState(false)
   const [fromNotes, setFromNotes] = useState(false)
-  const [byPosition, setByPosition] = useState(false)
   const showTask = onOpenTask
 
   const project = state.project
@@ -103,10 +101,6 @@ export function TasksTab({
   // QA raises bugs and passes tasks; it does not draft task lists from notes.
   const mayDraft = project.class_board_id ? state.myRole !== 'qa' : canCreateWorkTask(state.myRole, 'task')
   const mayCreate = project.class_board_id || canCreateWorkTask(state.myRole, state.myRole === 'qa' ? 'bug' : 'task')
-  // The pm and coordinators have the AI draft holders on a work project.
-  const mayAssignByPosition =
-    !state.readOnly && state.can('manage_tasks') && !state.project?.class_board_id && state.myRole !== 'qa'
-
   const assigneeOptions = [
     ...(state.viewerId ? [{ value: state.viewerId, label: 'Me' }] : []),
     { value: 'nobody', label: 'Nobody yet' },
@@ -250,12 +244,6 @@ export function TasksTab({
         </p>
         {!state.readOnly && (
           <div className="flex flex-wrap gap-2">
-            {mayAssignByPosition && (
-              <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setByPosition(true)}>
-                <Icon name="spark" size={15} />
-                Assign by position
-              </Button>
-            )}
             {mayDraft && (
               <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setFromNotes(true)}>
                 <Icon name="spark" size={15} />
@@ -385,7 +373,6 @@ export function TasksTab({
         onCreated={showTask}
       />
       {mayDraft && <TasksFromNotes open={fromNotes} onClose={() => setFromNotes(false)} state={state} />}
-      {mayAssignByPosition && <AssignByPosition open={byPosition} onClose={() => setByPosition(false)} state={state} />}
     </div>
   )
 }

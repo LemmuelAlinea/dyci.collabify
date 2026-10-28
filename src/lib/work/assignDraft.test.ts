@@ -1,3 +1,4 @@
+import { pickTeamRoutes, pickLeadAssignees, maskMemberNames } from '../../../supabase/functions/_shared/assignPick'
 import { describe, expect, it } from 'vitest'
 import { isAssignCandidate, notesWhy, planAssignSave, reasonText, rowsFromPicks, skippedMessage } from './assignDraft'
 import type { AssignRow } from './assignDraft'
@@ -154,4 +155,37 @@ describe('notesWhy', () => {
     expect(notesWhy(null, pick)).toBe('Designer · Screen work')
     expect(notesWhy(null, null)).toBe('')
   })
+})
+
+
+describe('scoped position picks', () => {
+  const tasks = [{ key: 'a', title: 'UI', description: '', teamId: 'b' }, { key: 'b', title: 'UI', description: '', teamId: 'b' }]
+  const matches = tasks.map(t => ({ key: t.key, kind: 'position' as const, match: 'p', reason: 'UI' }))
+  const candidates = [
+    { userId: 'a', name: 'Ana', load: 0, teams: ['a'], positions: ['p'], tags: ['UI'] },
+    { userId: 'b', name: 'Ben', load: 1, teams: ['b'], positions: ['p'], tags: ['UI'] },
+    { userId: 'c', name: 'Cam', load: 1, teams: ['b'], positions: ['p'], tags: ['UI'] },
+  ]
+  const teams = [{ id: 'a', name: 'Alpha', load: 0 }, { id: 'b', name: 'Beta', load: 4 }]
+  it('routes to the position team before candidate counts', () => {
+    expect(pickTeamRoutes(tasks, matches, candidates, [{ id: 'p', name: 'UI', team_id: 'a' }], teams)[0].teamId).toBe('a')
+  })
+  it('ranks matching member count, released load, name, then id', () => {
+    const positions = [{ id: 'p', name: 'UI' }]
+    expect(pickTeamRoutes(tasks, matches, candidates, positions, teams)[0].teamId).toBe('b')
+    expect(pickTeamRoutes(tasks, matches, candidates.slice(0, 2), positions, teams)[0].teamId).toBe('a')
+    expect(pickTeamRoutes(tasks, matches, candidates.slice(0, 2), positions, teams.map(t => ({ ...t, load: 0 })))[0].teamId).toBe('a')
+  })
+  it('leaves an unknown match blank', () => {
+    expect(pickTeamRoutes(tasks, [], candidates, [], teams)[0].teamId).toBeNull()
+  })
+  it('balances only within the receiving team and never falls back outside it', () => {
+    expect(pickLeadAssignees(tasks, matches, candidates, [{ id: 'p', name: 'UI' }]).map(p => p.userId)).toEqual(['b', 'c'])
+    expect(pickLeadAssignees(tasks, matches, candidates.slice(0, 1), [{ id: 'p', name: 'UI' }])[0].userId).toBeNull()
+  })
+})
+
+
+it('keeps member names and emails out of work AI text', () => {
+  expect(maskMemberNames('Ana Smith and Ana: ana@example.test; Ben Jones.', ['Ana Smith', 'Ben Jones'])).toBe('person1 and person1: [email]; person2.')
 })

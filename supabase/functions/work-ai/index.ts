@@ -7,8 +7,7 @@
 //   summarize-file   one file in Main -> its key points
 //   formula          a description of a sum -> an Excel formula
 //   ask              a question -> an answer from the project's files
-//   assign           open tasks, or drafted ones -> a position or skill per
-//                    task, then the least loaded person who holds it
+//   assign           planning -> teams; incoming -> receiving-team members
 //
 // Same rules as the education functions: the key stays server-side, every read
 // goes through the caller's JWT so RLS decides what they may see, and nothing
@@ -24,7 +23,7 @@ import { extractText, getDocumentProxy } from 'npm:unpdf'
 import { strFromU8, unzipSync } from 'npm:fflate'
 import { encodeBase64 } from 'jsr:@std/encoding/base64'
 import { cors, corsMode, denied } from '../_shared/cors.ts'
-import { pickAssignees } from '../_shared/assignPick.ts'
+import { pickTeamRoutes, pickLeadAssignees, maskMemberNames } from '../_shared/assignPick.ts'
 import type { AssignCandidate, AssignMatch, AssignTaskIn } from '../_shared/assignPick.ts'
 import { completeNotesDates, validDay } from '../_shared/notesSchedule.ts'
 
@@ -251,8 +250,12 @@ async function mainFiles(ctx: Ctx) {
 }
 
 async function tasksAction(ctx: Ctx) {
-  // Anyone on a project may add tasks, so anyone may draft them. Putting
-  // somebody else on one is still checked when the task is saved.
+  const { data: projectKind } = await ctx.caller.from('general_projects').select('class_board_id').eq('id', ctx.projectId).maybeSingle()
+  const work = !projectKind?.class_board_id
+  if (work) {
+    const { error } = await ctx.caller.rpc('general_route_context', { p_project: ctx.projectId })
+    if (error) throw new Refused(error.message, 403)
+  }
   let source = String(ctx.body.text ?? '').trim()
   const discussionId = String(ctx.body.discussion_id ?? '')
   let shared: Awaited<ReturnType<typeof sharedFileBlocks>> = { files: [], blocks: [], short: new Map() }
@@ -273,7 +276,7 @@ async function tasksAction(ctx: Ctx) {
   // An uploaded file arrives as text the browser read from it; its name helps the note.
   const fileName = String(ctx.body.file_name ?? '').slice(0, 200)
 
-  const [{ data: project }, { data: members }, { data: teams }] = await Promise.all([
+  const [{ data: project }, { data: members, error: membersError }, { data: teams }] = await Promise.all([
     ctx.caller.from('general_projects').select('name, starts_on, ends_on').eq('id', ctx.projectId).maybeSingle(),
     ctx.caller
       .from('general_members')
@@ -281,11 +284,14 @@ async function tasksAction(ctx: Ctx) {
       .eq('project_id', ctx.projectId),
     ctx.caller.from('general_teams').select('name').eq('project_id', ctx.projectId),
   ])
+  if (work && membersError) throw new Refused('Could not read project context. Try again.')
   type M = { user_id: string; profile: { first_name: string; last_name: string } | null }
   const people = ((members ?? []) as unknown as M[]).map((m) => ({
     id: m.user_id,
     name: m.profile ? `${m.profile.first_name} ${m.profile.last_name}`.trim() : 'Member',
   }))
+  if (work && ((members ?? []) as unknown as M[]).some(m => !m.profile)) throw new Refused('Could not read project members. Reload and try again.')
+  const promptText = (text: string) => work ? maskMemberNames(text, people.map(p => p.name)) : text
   const teamNames = ((teams ?? []) as { name: string }[]).map((t) => t.name)
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
   const anchor = project?.starts_on && project.starts_on > today ? project.starts_on : today
@@ -298,8 +304,7 @@ discussion, not background, not things already done.
 - title: what to do, starting with a verb, at most about ten words.
 - description: one or two sentences with the detail the text gives. Empty if
   there is none.
-- assignee: the id of the member the text names for it, matched by name, else
-  empty. Never guess from roles alone.
+- assignee: ${work ? 'the person label (person1, person2...) explicitly named in the text, else empty. Never assign a person' : 'the id of the member the text names for it, matched by name, else empty. Never guess from roles alone' }.
 - team: one of the team names given if the text puts it there, else empty.
 - start and due: YYYY-MM-DD for every task. Keep dates the text gives or
   clearly implies exactly (resolve relative days against today). When it gives
@@ -343,17 +348,17 @@ discussion, not background, not things already done.
 - note: one short sentence on what you read, or what was unclear.
 ${VOICE}`,
     withFiles(
-      [
+      promptText([
         `Today: ${today}`,
         `Schedule start for undated work: ${anchor}`,
         `Project: ${project?.name ?? ''}${project?.starts_on ? `, runs ${project.starts_on} to ${project.ends_on ?? 'open'}` : ''}`,
-        `Members (id: name):\n${people.map((p) => `${p.id}: ${p.name}`).join('\n')}`,
+        work ? '' : `Members (id: name):\n${people.map((p) => `${p.id}: ${p.name}`).join('\n')}`,
         teamNames.length ? `Teams: ${teamNames.join(', ')}` : 'Teams: none',
         '',
-        fileName ? `Text (read from the uploaded file "${fileName}"):` : 'Text:',
+        !work && fileName ? `Text (read from the uploaded file "${fileName}"):` : 'Text:',
         cap(source, 60000),
-      ].join('\n'),
-      shared.blocks,
+      ].join('\n')),
+      work ? [] : shared.blocks,
     ),
     obj({
       tasks: {
@@ -434,7 +439,8 @@ ${VOICE}`,
       return {
         title: String(t.title).slice(0, 200),
         description: String(t.description ?? '').slice(0, 2000),
-        assignee: ids.has(String(t.assignee)) ? String(t.assignee) : '',
+        assignee: work ? '' : ids.has(String(t.assignee)) ? String(t.assignee) : '',
+        named: work ? people.find((_, i) => String(t.assignee) === `person${i + 1}`)?.name ?? '' : '',
         team: teamNames.includes(String(t.team)) ? String(t.team) : '',
         due,
         // A start after the due day is refused by the table; drop it rather than the task.
@@ -447,7 +453,7 @@ ${VOICE}`,
   const dated = completeNotesDates(tasks, sprints, milestones, {
     today, projectStart: project?.starts_on, projectEnd: project?.ends_on,
   })
-  return { ...dated, note: String(out.note ?? '').slice(0, 300), shared: shared.files }
+  return { ...dated, note: String(out.note ?? '').slice(0, 300) + (work && shared.files.length ? ' Shared attachments were not sent to AI; review them alongside the notes.' : ''), shared: shared.files }
 }
 
 /** Old and new text per path, for describing a change. */
@@ -666,6 +672,7 @@ ${VOICE}`,
 }
 
 type AssignContext = {
+  teams?: { id: string; name: string; load: number }[]
   positions?: { id: string; name: string; team_id: string | null; team: string | null }[]
   candidates?: { user_id: string; name: string; load: number; teams: string[]; positions: string[]; tags: string[] }[]
   tasks?: { id: string; title: string; description: string; team_id: string | null }[]
@@ -673,8 +680,9 @@ type AssignContext = {
 }
 
 async function assignAction(ctx: Ctx) {
-  // The permission check: only the pm and coordinators, on a live work project.
-  const { data, error } = await ctx.caller.rpc('general_assign_context', { p_project: ctx.projectId })
+  const mode = ctx.body.mode
+  if (mode !== 'route' && mode !== 'lead') throw new Refused('Choose planning routes or incoming assignments.', 403)
+  const { data, error } = await ctx.caller.rpc(mode === 'route' ? 'general_route_context' : 'general_lead_assign_context', { p_project: ctx.projectId })
   if (error) throw new Refused(error.message, 403)
   const context = (data ?? {}) as AssignContext
   const positions = context.positions ?? []
@@ -687,39 +695,11 @@ async function assignAction(ctx: Ctx) {
     tags: c.tags ?? [],
   }))
 
-  const { data: teamRows } = await ctx.caller.from('general_teams').select('id, name').eq('project_id', ctx.projectId)
-  const teams = (teamRows ?? []) as { id: string; name: string }[]
-  const teamName = new Map(teams.map((t) => [t.id, t.name]))
-  const teamId = (name: unknown) => {
-    const want = String(name ?? '').trim().toLowerCase()
-    return (want && teams.find((t) => t.name.trim().toLowerCase() === want)?.id) || null
-  }
-
-  let tasks: AssignTaskIn[]
-  let left = 0
-  if (ctx.body.mode === 'drafts') {
-    // Drafts from Tasks from notes, not saved yet. Each needs its own key.
-    const seen = new Set<string>()
-    tasks = ((Array.isArray(ctx.body.drafts) ? ctx.body.drafts : []) as Json[])
-      .slice(0, 60)
-      .map((d) => ({
-        key: String(d.key ?? '').trim(),
-        title: String(d.title ?? '').trim().slice(0, 200),
-        description: String(d.description ?? '').slice(0, 2000),
-        teamId: teamId(d.team),
-      }))
-      .filter((t) => t.key && t.title && !seen.has(t.key) && seen.add(t.key))
-    if (tasks.length === 0) return { picks: [], left: 0 }
-  } else {
-    tasks = (context.tasks ?? []).map((t) => ({
-      key: t.id,
-      title: t.title ?? '',
-      description: t.description ?? '',
-      teamId: t.team_id,
-    }))
-    left = Number(context.left) || 0
-    if (tasks.length === 0) return { picks: [], left, empty: 'no_tasks' }
-  }
+  const teams = context.teams ?? []
+  const teamName = new Map(teams.map(t => [t.id, t.name]))
+  const tasks: AssignTaskIn[] = (context.tasks ?? []).map(t => ({ key: t.id, title: t.title ?? '', description: t.description ?? '', teamId: t.team_id }))
+  const left = Number(context.left) || 0
+  if (!tasks.length) return { picks: [], left, empty: 'no_tasks' }
 
   // One spelling per tag, whatever case people typed it in.
   const tags = [...new Map(candidates.flatMap((c) => c.tags).map((t) => [t.trim().toLowerCase(), t.trim()])).values()]
@@ -729,6 +709,10 @@ async function assignAction(ctx: Ctx) {
   // The model sees kinds of work, never names or loads: p1… for positions, t1… for tasks.
   const positionOf = new Map(positions.map((p, i) => [`p${i + 1}`, p.id]))
   const keyOf = new Map(tasks.map((t, i) => [`t${i + 1}`, t.key]))
+  const { data: memberRows, error: memberError } = await ctx.caller.from('general_members').select('profile:profiles(first_name,last_name)').eq('project_id', ctx.projectId)
+  if (memberError) throw new Refused('Could not read project context. Try again.')
+  if (((memberRows ?? []) as unknown as { profile: unknown }[]).some(m => !m.profile)) throw new Refused('Could not read project members. Reload and try again.')
+  const names = ((memberRows ?? []) as unknown as { profile: { first_name: string; last_name: string } | null }[]).flatMap(m => m.profile ? [(m.profile.first_name + ' ' + m.profile.last_name).trim()] : [])
   const holders = (id: string) => candidates.filter((c) => c.positions.includes(id)).length
   const out = await ask(
     ctx.anthropic,
@@ -747,7 +731,7 @@ async function assignAction(ctx: Ctx) {
 - reason: at most about twelve words on why this kind of work fits, e.g.
   "Screen design is frontend work".
 ${VOICE}`,
-    [
+    maskMemberNames([
       positions.length
         ? `Positions (id: name, team, holders):\n${positions
             .map((p, i) => `p${i + 1}: ${p.name}, ${p.team ? `team ${p.team}` : 'no team'}, ${holders(p.id)} holding it`)
@@ -763,7 +747,7 @@ ${VOICE}`,
           .filter(Boolean)
           .join('\n')
       }),
-    ].join('\n'),
+    ].join('\n'), names),
     obj({
       matches: {
         type: 'array',
@@ -788,7 +772,7 @@ ${VOICE}`,
     }]
   })
   const titleOf = new Map(tasks.map((t) => [t.key, t.title]))
-  const picks = pickAssignees(tasks, matches, candidates, positions).map((p) => ({ ...p, title: titleOf.get(p.key) ?? '' }))
+  const picks = (mode === 'route' ? pickTeamRoutes(tasks, matches, candidates, positions, teams) : pickLeadAssignees(tasks, matches, candidates, positions)).map((p) => ({ ...p, title: titleOf.get(p.key) ?? '' }))
   return { picks, left }
 }
 

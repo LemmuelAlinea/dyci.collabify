@@ -209,6 +209,7 @@ export function TasksFromNotes({
           ...t,
           files: t.files ?? [],
           assignee: mayAssign && state.roleOf(t.assignee) !== 'stakeholder' ? t.assignee : '',
+          why: !onSave && t.named ? `Named ${t.named} in the notes. The receiving lead assigns members.` : undefined,
           keep: true,
           sprintKey: shaped.links[i].sprint,
           milestoneKey: shaped.links[i].milestone,
@@ -589,7 +590,7 @@ export function TasksFromNotes({
             {!mayAssign && (
               <p className="text-[12px] text-faint">
                 {onSave
-                  ? 'Putting people on tasks needs the Manage tasks permission, so these are added with nobody on them.'
+                  ? 'These stay in planning. Send them to a team when ready; its lead assigns members.'
                   : 'These tasks stay in planning with nobody assigned until they are sent to a team.'}
               </p>
             )}

@@ -390,7 +390,24 @@ begin
   perform pg_temp.check('QA creates private bug',exists(select 1 from public.general_tasks where project_id=p and kind='bug'));
   perform pg_temp.act_as(u[1]);
   insert into public.general_tasks(project_id,title,team_id) values(p,'Zz released assignment',team) returning id into task;
+  for k in 1..2 loop
+    perform pg_temp.act_as(u[k]);
+    perform pg_temp.check('planner context includes private tasks '||k,
+      jsonb_array_length(public.general_route_context(p)->'tasks')=3);
+    perform pg_temp.check('planner context excludes released tasks '||k,
+      not (public.general_route_context(p)->'tasks' @> jsonb_build_array(jsonb_build_object('id',task))));
+  end loop;
+  for k in 4..7 loop
+    perform pg_temp.act_as(u[k]);
+    perform pg_temp.refuse('non-planner routing context refused '||k,format('select public.general_route_context(%L)',p));
+    perform pg_temp.refuse('non-lead assignment context refused '||k,format('select public.general_lead_assign_context(%L)',p));
+  end loop;
   perform pg_temp.act_as(u[3]);
+  perform pg_temp.check('lead context includes only incoming task',
+    jsonb_array_length(public.general_lead_assign_context(p)->'tasks')=1
+    and public.general_lead_assign_context(p)->'tasks' @> jsonb_build_array(jsonb_build_object('id',task)));
+  perform pg_temp.check('lead context includes candidates from both led teams',
+    jsonb_array_length(public.general_lead_assign_context(p)->'candidates')=3);
   insert into public.general_task_assignees(project_id,task_id,user_id) values(p,task,u[4]);
   insert into public.general_task_assignees(project_id,task_id,user_id) values(p,task,u[3]);
   perform pg_temp.check('lead adds another receiving-team holder',(select count(*)=2 from public.general_task_assignees where task_id=task));
@@ -419,6 +436,8 @@ begin
   update public.general_teams set leader_id=u[3] where id=team;
   update public.profiles set status='pending' where id=u[4];
   perform pg_temp.act_as(u[3]);
+  perform pg_temp.check('inactive candidates excluded',
+    not (public.general_lead_assign_context(p)->'candidates' @> jsonb_build_array(jsonb_build_object('user_id',u[4]))));
   perform pg_temp.refuse('inactive receiving member cannot hold work',format(
     'insert into public.general_task_assignees(project_id,task_id,user_id) values(%L,%L,%L)',p,task,u[4]));
   perform pg_temp.service();

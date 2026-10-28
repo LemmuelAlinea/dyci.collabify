@@ -363,6 +363,140 @@ begin
 end;
 $$;
 
+CREATE OR REPLACE FUNCTION public.general_handoff_assign_context(p_project uuid, p_lead boolean)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+as $$
+declare
+  v_n      int;
+  v_has_qa boolean;
+  v_qa     int;
+  v_total  int;
+  v_cands  jsonb;
+  v_pos    jsonb;
+  v_tasks  jsonb;
+begin
+  select public.stage_count(gp.stages) into v_n
+    from public.general_projects gp
+   where gp.id = p_project and gp.class_board_id is null;
+  if v_n is null or not exists(select 1 from public.general_members m join public.profiles pr on pr.id=m.user_id
+    where m.project_id=p_project and m.user_id=auth.uid() and pr.status='active'
+      and ((not p_lead and m.role in ('pm','coordinator')) or (p_lead and m.role in ('pm','coordinator','member')
+        and exists(select 1 from public.general_teams g join public.general_team_members tm on tm.team_id=g.id and tm.user_id=m.user_id
+          where g.project_id=p_project and g.leader_id=m.user_id)))) then
+    raise exception 'Only active planners or receiving team leads can use this assignment context.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_is_archived(p_project) then
+    raise exception 'This project is archived. An Owner can restore it to make changes.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  v_has_qa := coalesce(public.general_project_has_qa(p_project), false);
+  v_qa := public.general_qa_stage_index(p_project);
+
+  with cands as (
+    select m.user_id,
+           btrim(coalesce(pr.first_name, '') || ' ' || coalesce(pr.last_name, '')) as name
+      from public.general_members m
+      join public.profiles pr on pr.id = m.user_id
+     where m.project_id = p_project
+       and m.role in ('pm', 'coordinator', 'member')
+       and pr.status = 'active'
+       and (not p_lead or exists(select 1 from public.general_team_members tm join public.general_teams g on g.id=tm.team_id
+         where tm.project_id=p_project and tm.user_id=m.user_id and g.leader_id=auth.uid()
+           and exists(select 1 from public.general_team_members lm where lm.team_id=g.id and lm.user_id=auth.uid())))
+  )
+  select
+    coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'user_id', c.user_id,
+               'name', case when p_lead then c.name else '' end,
+               'load', (select count(*)
+                          from public.general_task_assignees a
+                          join public.general_tasks t on t.id = a.task_id
+                         where a.project_id = p_project and a.user_id = c.user_id
+                           and t.status <> 'done' and t.archived_at is null and public.general_task_released(t.id)),
+               'teams', coalesce((select jsonb_agg(tm.team_id order by tm.team_id)
+                                    from public.general_team_members tm
+                                   where tm.project_id = p_project and tm.user_id = c.user_id),
+                                 '[]'::jsonb),
+               'positions', coalesce((select jsonb_agg(h.position_id order by h.position_id)
+                                        from public.general_position_holders h
+                                       where h.project_id = p_project and h.user_id = c.user_id),
+                                     '[]'::jsonb),
+               'tags', coalesce((select jsonb_agg(s.tag order by lower(s.tag))
+                                   from public.general_member_skills s
+                                  where s.project_id = p_project and s.user_id = c.user_id),
+                                '[]'::jsonb)
+             ) order by c.name, c.user_id)
+        from cands c
+    ), '[]'::jsonb),
+    coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', p.id, 'name', p.name, 'team_id', p.team_id, 'team', tm.name
+             ) order by p.sort, p.name, p.id)
+        from public.general_positions p
+        left join public.general_teams tm on tm.id = p.team_id
+       where p.project_id = p_project
+         and (not p_lead or exists (select 1 from public.general_position_holders h
+                       join cands c on c.user_id = h.user_id
+                      where h.position_id = p.id and h.project_id = p_project))
+    ), '[]'::jsonb)
+    into v_cands, v_pos;
+
+  with eligible as (
+    select t.id, t.title, t.description, t.team_id, t.created_at
+      from public.general_tasks t
+     where t.project_id = p_project
+       and ((not p_lead and t.routing_state in ('planning','coordinator_review'))
+         or (p_lead and t.routing_state='released' and exists(select 1 from public.general_teams g
+           join public.general_team_members tm on tm.team_id=g.id and tm.user_id=auth.uid()
+           where g.id=t.team_id and g.project_id=p_project and g.leader_id=auth.uid())))
+       and t.status <> 'done'
+       and t.archived_at is null
+       and not exists (select 1 from public.general_task_assignees a where a.task_id = t.id)
+       and (not v_has_qa
+            or public.general_task_stage_at(t.status, t.stage, v_n) < v_qa)
+  ),
+  firsts as (
+    select * from eligible order by created_at, id limit 60
+  )
+  select
+    (select count(*) from eligible),
+    coalesce((select jsonb_agg(jsonb_build_object(
+                       'id', f.id, 'title', f.title,
+                       'description', coalesce(f.description, ''), 'team_id', f.team_id
+                     ) order by f.created_at, f.id)
+                from firsts f), '[]'::jsonb)
+    into v_total, v_tasks;
+
+  return jsonb_build_object(
+    'teams', coalesce((select jsonb_agg(jsonb_build_object('id',g.id,'name',g.name,'load',
+      (select count(*) from public.general_tasks t where t.team_id=g.id and t.routing_state='released' and t.status<>'done' and t.archived_at is null)))
+      from public.general_teams g where g.project_id=p_project and (not p_lead or g.leader_id=auth.uid())), '[]'::jsonb),
+    'positions', v_pos,
+    'candidates', v_cands,
+    'tasks', v_tasks,
+    'left', greatest(v_total - 60, 0)
+  );
+end;
+$$;
+
+create or replace function public.general_route_context(p_project uuid)
+returns jsonb language sql stable security definer set search_path=public as $$
+  select public.general_handoff_assign_context(p_project,false);
+$$;
+create or replace function public.general_lead_assign_context(p_project uuid)
+returns jsonb language sql stable security definer set search_path=public as $$
+  select public.general_handoff_assign_context(p_project,true);
+$$;
+revoke all on function public.general_handoff_assign_context(uuid,boolean) from public,anon,authenticated;
+revoke all on function public.general_route_context(uuid),public.general_lead_assign_context(uuid) from public,anon;
+grant execute on function public.general_route_context(uuid),public.general_lead_assign_context(uuid) to authenticated;
+
 CREATE OR REPLACE FUNCTION public.my_qa_queue()
  RETURNS TABLE(project_id uuid, name text, qa_stage_name text, waiting integer, oldest_entered_at timestamp with time zone)
  LANGUAGE sql
