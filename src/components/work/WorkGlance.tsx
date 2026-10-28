@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Burndown } from './Burndown'
 import { ProgressBar, StatusPill } from './MilestoneBits'
 import { Icon } from '../ui/Icon'
@@ -23,6 +24,7 @@ type GlanceProps = {
   canPlan: boolean
   onOpenTask: (id: string) => void
   onSection: (s: WorkSection) => void
+  aside?: ReactNode
 }
 
 /**
@@ -30,11 +32,18 @@ type GlanceProps = {
  * the viewer now. The same cards in either space; each one links to the
  * section where that work is done.
  */
-export function WorkGlance({ items, sprints, milestones, mine, canPlan, onOpenTask, onSection }: GlanceProps) {
+export function WorkGlance({ items, sprints, milestones, mine, canPlan, onOpenTask, onSection, aside }: GlanceProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <SprintCard items={items} sprints={sprints} canPlan={canPlan} onSection={onSection} />
-      <MilestoneCard items={items} milestones={milestones} onSection={onSection} />
+      {aside ? (
+        <div className="grid gap-4 lg:grid-rows-[auto_1fr]">
+          <MilestoneCard items={items} milestones={milestones} onSection={onSection} />
+          {aside}
+        </div>
+      ) : (
+        <MilestoneCard items={items} milestones={milestones} onSection={onSection} />
+      )}
       <div className="lg:col-span-2">
         <NeedsYouCard items={items} mine={mine} onOpenTask={onOpenTask} />
       </div>

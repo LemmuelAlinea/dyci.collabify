@@ -10,6 +10,8 @@ import type { GeneralTask } from '../../lib/general/types'
 import type { WorkSection } from '../../lib/work/nav'
 import { formatMinutes } from '../../lib/types'
 import { ForecastPanel } from './ForecastPanel'
+import { NoPmNotice } from './NoPmNotice'
+import { OverviewTab } from './OverviewTab'
 import { PressurePanel } from './PressurePanel'
 import { generalWorkItems } from './workSource'
 import type { GeneralProjectState } from './useGeneralProject'
@@ -38,6 +40,7 @@ export function WorkSummary({
 
   return (
     <div className="space-y-6">
+      <NoPmNotice state={state} />
       <WorkGlance
         items={generalWorkItems(state)}
         sprints={state.sprints}
@@ -46,6 +49,7 @@ export function WorkSummary({
         canPlan={!state.readOnly && state.can('manage_tasks')}
         onOpenTask={onOpenTask}
         onSection={onSection}
+        aside={<OverviewTab state={state} />}
       />
 
       <section className="rounded-panel border border-line surface p-4 sm:p-5">

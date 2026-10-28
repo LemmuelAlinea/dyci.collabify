@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { EmptyState } from '../ui/EmptyState'
 import { Field, Input } from '../ui/Field'
 import { Icon } from '../ui/Icon'
+import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { clearFieldValue, deleteField, setFieldValue, updateField, updateGeneralProject } from '../../lib/api/general'
@@ -19,41 +20,77 @@ import { checkStages, stagesOf, stagesToSave } from '../../lib/stages'
 import { StagesEditor } from '../tasks/StagesEditor'
 import { FieldDialog } from './FieldDialog'
 import { FieldInput } from './FieldInput'
-import { NoPmNotice } from './NoPmNotice'
 import { RequestAccessButton } from './RequestAccessButton'
 import type { GeneralProjectState } from './useGeneralProject'
 
-/**
- * Details and Fields read as plain text for everyone. Whoever may edit the
- * project opens one section at a time with its Edit button, and saving or
- * cancelling puts it back.
- */
 export function OverviewTab({ state }: { state: GeneralProjectState }) {
+  const [showInfo, setShowInfo] = useState(false)
+  const p = state.project
+  if (!p) return null
+
+  return (
+    <>
+      <section className="card h-full p-4 shadow-card sm:p-5">
+        <header className="mb-4 flex items-center justify-between gap-3">
+          <h2>Project info</h2>
+          <button
+            type="button"
+            onClick={() => setShowInfo(true)}
+            className="shrink-0 text-[12px] font-medium text-navy-600 hover:underline dark:text-navy-200"
+          >
+            {state.can('edit_project') ? 'View all / Edit' : 'View all'}
+          </button>
+        </header>
+        <dl className="grid grid-cols-2 gap-3 text-[13px]">
+          <div className="col-span-2">
+            <dt className="text-[12px] text-faint">About</dt>
+            <dd className="mt-0.5 line-clamp-2 text-ink">{p.description || 'No description yet.'}</dd>
+          </div>
+          {state.fields.slice(0, 2).map((field) => {
+            const stored = state.values.find((value) => value.field_id === field.id)
+            return (
+              <div key={field.id} className="min-w-0">
+                <dt className="truncate text-[12px] text-faint">{field.name}</dt>
+                <dd className="mt-0.5 truncate text-ink">
+                  {stored ? formatFieldValue(field.type, stored.value, state.nameOf) : 'Not set'}
+                </dd>
+              </div>
+            )
+          })}
+        </dl>
+      </section>
+      <Modal open={showInfo} onClose={() => setShowInfo(false)} title="Project info" placement="right">
+        <div className="space-y-6">
+          <DetailsPanel state={state} />
+          <FieldsPanel state={state} />
+        </div>
+      </Modal>
+    </>
+  )
+}
+
+/** Full details stay together in the panel; editing never expands the overview. */
+function DetailsPanel({ state }: { state: GeneralProjectState }) {
   const editable = state.can('edit_project')
   const [editing, setEditing] = useState(false)
   // Losing the permission mid-edit (an Owner takes it back) closes the form.
   const open = editable && editing
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">
-      <NoPmNotice state={state} />
-      <section className="rounded-panel border border-line surface p-4 sm:p-5">
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2>Details</h2>
-            <p className="mt-0.5 text-[12px] text-muted">What every project has.</p>
-          </div>
-          {!editable ? (
-            <RequestAccessButton state={state} permission="edit_project" />
-          ) : (
-            !open && <EditButton label="Edit details" onClick={() => setEditing(true)} />
-          )}
-        </header>
-        {open ? <DetailsForm state={state} onDone={() => setEditing(false)} /> : <DetailsView state={state} />}
-      </section>
-
-      <FieldsPanel state={state} />
-    </div>
+    <section className="border-b border-line pb-6">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2>Details</h2>
+          <p className="mt-0.5 text-[12px] text-muted">What every project has.</p>
+        </div>
+        {!editable ? (
+          <RequestAccessButton state={state} permission="edit_project" />
+        ) : (
+          !open && <EditButton label="Edit details" onClick={() => setEditing(true)} />
+        )}
+      </header>
+      {open ? <DetailsForm state={state} onDone={() => setEditing(false)} /> : <DetailsView state={state} />}
+    </section>
   )
 }
 
@@ -154,7 +191,7 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
       <Field label="Name">
         {(id) => <Input id={id} maxLength={LIMIT.generalName} value={name} onChange={(e) => setName(e.target.value)} />}
       </Field>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4">
         <Field label="Status">
           {(id) => (
             <Select
@@ -299,7 +336,7 @@ function FieldsPanel({ state }: { state: GeneralProjectState }) {
   }
 
   return (
-    <section className="rounded-panel border border-line surface p-4 sm:p-5">
+    <section>
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2>Fields</h2>

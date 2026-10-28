@@ -14,6 +14,7 @@ type Props = {
   footer?: ReactNode
   /** `full` takes the whole window, top bar included: a file somebody is working in. */
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
+  placement?: 'center' | 'right'
   bodyClassName?: string
   /** Buttons that sit beside Close, such as a full-screen toggle. */
   headerActions?: ReactNode
@@ -72,12 +73,14 @@ export function Modal({
   children,
   footer,
   size = 'md',
+  placement = 'center',
   focusField = false,
   bodyClassName = '',
   headerTone = 'default',
   headerActions,
 }: Props) {
   const full = size === 'full'
+  const right = placement === 'right'
   const tone = TONES[headerTone]
   const panel = useRef<HTMLDivElement>(null)
 
@@ -182,10 +185,12 @@ export function Modal({
        * published by TopNav; the `0px` fallback is what the auth screens and
        * the landing page get, where there is no bar to sit under.
        */
-      className={`depth-ground fixed inset-0 z-[60] flex justify-center ${
-        full
-          ? 'items-stretch p-0'
-          : 'items-end p-0 pt-[var(--app-bar,0px)] sm:items-center sm:p-6 sm:pt-[calc(var(--app-bar,0px)+1.5rem)]'
+      className={`depth-ground fixed inset-0 z-[60] flex ${
+        right
+          ? 'justify-end items-stretch p-0 pt-[var(--app-bar,0px)]'
+          : full
+          ? 'justify-center items-stretch p-0'
+          : 'justify-center items-end p-0 pt-[var(--app-bar,0px)] sm:items-center sm:p-6 sm:pt-[calc(var(--app-bar,0px)+1.5rem)]'
       }`}
     >
       {/* Clickable, but not a tab stop: the header already has a real Close
@@ -205,7 +210,9 @@ export function Modal({
         tabIndex={-1}
         data-state={open ? 'open' : 'closed'}
         className={`motion-dialog surface relative flex w-full flex-col overflow-hidden dialog-panel outline-none ${
-          full
+          right
+            ? 'h-full max-w-[480px] border-l border-line'
+            : full
             ? 'h-dvh max-h-dvh'
             : `max-h-[calc(92dvh-var(--app-bar,0px))] rounded-t-panel sm:max-h-[calc(100dvh-var(--app-bar,0px)-3rem)] sm:rounded-panel ${WIDTHS[size]}`
         }`}
