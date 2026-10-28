@@ -11,7 +11,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { isAssignCandidate, reasonText, skippedMessage } from '../../lib/work/assignDraft'
 import type { GeneralProjectState } from './useGeneralProject'
 
-type Row = AssignPickOut & { keep: boolean; people: string[] }
+type Row = AssignPickOut & { keep: boolean; people: string[]; teamEdited?: boolean }
 export function AssignByPosition({ state, open, onClose, mode = 'route' }: { state: GeneralProjectState; open: boolean; onClose: () => void; mode?: 'route' | 'lead' }) {
   const { show } = useToast()
   const [rows, setRows] = useState<Row[]>([])
@@ -55,7 +55,7 @@ export function AssignByPosition({ state, open, onClose, mode = 'route' }: { sta
         if (!task || task.archived_at || task.status === 'done' || task.assignee_ids.length ||
           (mode === 'route' ? !['planning', 'coordinator_review'].includes(task.routing_state ?? '') : task.routing_state !== 'released')) { skipped++; continue }
         if (mode === 'route') {
-          if (row.teamId && row.teamId !== task.team_id) await updateTask(task.id, { team_id: row.teamId })
+          if ((row.teamId || row.teamEdited) && row.teamId !== task.team_id) await updateTask(task.id, { team_id: row.teamId ?? null })
         } else {
           for (const userId of row.people) await assignTask(task.id, projectId, userId)
         }
@@ -68,7 +68,7 @@ export function AssignByPosition({ state, open, onClose, mode = 'route' }: { sta
       setError(authErrorMessage(err, 'Some choices could not be saved. Reload tasks and review again.'))
     } finally { setSaving(false) }
   }
-  const changes = rows.some(r => r.keep && (mode === 'route' ? r.teamId : r.people.length))
+  const changes = rows.some(r => r.keep && (mode === 'route' ? r.teamId || r.teamEdited : r.people.length))
   return <Modal open={open} onClose={() => { if (!saving) onClose() }} title="Assign by position" size="lg"
     description={mode === 'route' ? 'Review destination teams for planning work. Saving does not send tasks.' : 'Review members of each receiving team. Nothing is assigned until you save.'}
     footer={<><Button variant="ghost" disabled={saving} onClick={onClose}>Cancel</Button><Button disabled={state.readOnly || busy || !changes} loading={saving} onClick={() => void save()}>{mode === 'route' ? 'Save team choices' : 'Save assignments'}</Button></>}>
@@ -81,7 +81,7 @@ export function AssignByPosition({ state, open, onClose, mode = 'route' }: { sta
         const candidates = state.members.filter(m => isAssignCandidate(m) && m.profile?.status === 'active' && state.teamMembers.some(tm => tm.team_id === task?.team_id && tm.user_id === m.user_id))
         return <li key={row.key} className="space-y-2 rounded-xl border border-line p-3">
           <div className="flex items-center gap-3"><KeepBox checked={row.keep} label={'Keep ' + row.title} onToggle={() => { if (!saving) patch(row.key, { keep: !row.keep }) }} /><span className="text-[14px] text-ink">{row.title}</span></div>
-          {mode === 'route' ? <Select aria-label={'Team for ' + row.title} disabled={saving} value={row.teamId ?? ''} placeholder="Choose a team" options={state.teams.map(t => ({ value: t.id, label: t.name }))} onChange={e => patch(row.key, { teamId: e.target.value || null })} /> : <Select aria-label={'Member for ' + row.title} disabled={saving} value={row.people[0] ?? ''} placeholder="Choose a member" options={candidates.map(m => ({ value: m.user_id, label: state.nameOf(m.user_id) }))} onChange={e => patch(row.key, { people: e.target.value ? [e.target.value] : [] })} />}
+          {mode === 'route' ? <Select aria-label={'Team for ' + row.title} disabled={saving} value={row.teamId ?? ''} placeholder="Choose a team" options={state.teams.map(t => ({ value: t.id, label: t.name }))} onChange={e => patch(row.key, { teamId: e.target.value || null, teamEdited: true })} /> : <Select aria-label={'Member for ' + row.title} disabled={saving} value={row.people[0] ?? ''} placeholder="Choose a member" options={candidates.map(m => ({ value: m.user_id, label: state.nameOf(m.user_id) }))} onChange={e => patch(row.key, { people: e.target.value ? [e.target.value] : [] })} />}
           <p className="text-[12px] text-muted">{reasonText(row)}</p>
         </li>
       })}</ul>

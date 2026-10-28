@@ -112,7 +112,7 @@ export function pickTeamRoutes(tasks: AssignTaskIn[], matches: AssignMatch[], ca
 /** Labels preserve named-note context without sending project identities to AI. */
 export function maskMemberNames(text: string, names: string[]): string {
   let masked = text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
-  const labels = names.flatMap((name, i) => [name, ...name.split(/\s+/)].filter(n => n.length > 1).map(name => ({ name, label: 'person' + (i + 1) })))
+  const labels = names.flatMap((name, i) => [name, ...name.split(/\s+/)].filter(n => n.trim().length > 0).map(name => ({ name, label: 'person' + (i + 1) })))
     .sort((a, b) => b.name.length - a.name.length)
   for (const { name, label } of labels) {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, c => '\\' + c)

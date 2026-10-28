@@ -189,3 +189,9 @@ describe('scoped position picks', () => {
 it('keeps member names and emails out of work AI text', () => {
   expect(maskMemberNames('Ana Smith and Ana: ana@example.test; Ben Jones.', ['Ana Smith', 'Ben Jones'])).toBe('person1 and person1: [email]; person2.')
 })
+
+
+it('masks standalone one-character member names without changing longer words', () => {
+  expect(maskMemberNames('李 will review; 王 will test; 李 王 approves. 王国 stays.', ['李 王'])).toBe('person1 will review; person1 will test; person1 approves. 王国 stays.')
+  expect(maskMemberNames('J reviews Java.', ['J'])).toBe('person1 reviews Java.')
+})

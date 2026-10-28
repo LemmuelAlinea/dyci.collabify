@@ -54,3 +54,28 @@ it('does not apply a reviewed route after its task has been released', async () 
   await act(async () => [...document.querySelectorAll('button')].find(b => b.textContent === 'Save team choices')!.click())
   expect(api.updateTask).not.toHaveBeenCalled(); expect(api.assignTask).not.toHaveBeenCalled()
 })
+
+
+it('saves an explicitly cleared destination as null even when it is the only change', async () => {
+  api.draftTeamRoutes.mockResolvedValue({ result: 'ok', picks: [pick], left: 0 })
+  api.listTasks.mockResolvedValue([task])
+  await render('route')
+  await act(async () => {
+    const select = document.querySelector('select')!
+    select.value = ''
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  const save = [...document.querySelectorAll('button')].find(b => b.textContent === 'Save team choices')!
+  expect(save.disabled).toBe(false)
+  expect(api.updateTask).not.toHaveBeenCalled()
+  await act(async () => save.click())
+  expect(api.updateTask).toHaveBeenCalledExactlyOnceWith('t', { team_id: null })
+  expect(api.assignTask).not.toHaveBeenCalled()
+})
+
+it('does not treat an unmatched AI suggestion as an explicit team clearing', async () => {
+  api.draftTeamRoutes.mockResolvedValue({ result: 'ok', picks: [{ ...pick, teamId: null, kind: 'none' }], left: 0 })
+  await render('route')
+  expect([...document.querySelectorAll('button')].find(b => b.textContent === 'Save team choices')!.disabled).toBe(true)
+  expect(api.updateTask).not.toHaveBeenCalled()
+})
