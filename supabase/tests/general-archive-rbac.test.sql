@@ -91,10 +91,10 @@ begin
   insert into public.general_members (project_id, user_id, level)
   values (proj.id, manager_id, 'manager'), (proj.id, alice, 'member'), (proj.id, bob, 'member'),
          (proj.id, carol, 'member'), (proj.id, dave, 'member');
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Alice task', alice) returning id into t_alice;
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Bob task', bob) returning id into t_bob;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Alice task', alice) returning id into t_alice;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Bob task', bob) returning id into t_bob;
 
   perform pg_temp.act_as(alice);
   perform public.archive_general_task(t_alice, true);
@@ -192,14 +192,14 @@ begin
   perform pg_temp.act_as_service();
   insert into public.general_grants (project_id, user_id, permission, granted_by)
   values (proj.id, carol, 'manage_tasks', owner_uid), (proj.id, dave, 'edit_files', owner_uid), (proj.id, dave, 'commit_main', owner_uid);
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Bob second', bob) returning id into t_bob2;
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Alice second', alice) returning id into t_alice2;
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Alice third', alice) returning id into t_alice3;
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Alice fourth', alice) returning id into t_alice4;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Bob second', bob) returning id into t_bob2;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Alice second', alice) returning id into t_alice2;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Alice third', alice) returning id into t_alice3;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Alice fourth', alice) returning id into t_alice4;
   insert into public.general_task_files (task_id, project_id, uploaded_by, file_path, file_name, size_bytes)
   values (t_alice2, proj.id, alice, proj.id || '/' || t_alice2 || '/1-a.pdf', 'a.pdf', 10)
   returning id into f_alice;
@@ -502,8 +502,8 @@ begin
     exists (select 1 from public.notifications
              where user_id = bob and general_task_id = t_alice2 and type = 'general_deadline_soon'));
 
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Owner hid this', alice) returning id into t_owner;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Owner hid this', alice) returning id into t_owner;
   insert into public.general_task_files (task_id, project_id, uploaded_by, file_path, file_name, size_bytes)
   values (t_owner, proj.id, alice, proj.id || '/' || t_owner || '/1-c.pdf', 'c.pdf', 10)
   returning id into f_hidden;
@@ -530,12 +530,12 @@ begin
 
   ------------------------------------------------------------------ archived tasks are read-only
   perform pg_temp.act_as_service();
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Archived held', owner_uid) returning id into t_arch;
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Archived unheld', owner_uid) returning id into t_arch2;
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Active', owner_uid) returning id into t_act;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Archived held', owner_uid) returning id into t_arch;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Archived unheld', owner_uid) returning id into t_arch2;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Active', owner_uid) returning id into t_act;
   insert into public.general_task_assignees (task_id, project_id, user_id, assigned_by)
   values (t_arch, proj.id, alice, owner_uid), (t_arch, proj.id, carol, owner_uid),
          (t_arch, proj.id, owner_uid, owner_uid);
@@ -604,7 +604,16 @@ begin
   foreach who in array array[alice, carol, owner_uid] loop
     who_name := case who when alice then 'a member' when carol then 'a manage_tasks grantee' else 'the Owner' end;
     perform pg_temp.act_as(who);
+    if who <> owner_uid then
+      perform pg_temp.attempt(format(
+        'insert into public.general_task_assignees (task_id, project_id, user_id) values (%L, %L, %L)',
+        t_act, proj.id, who));
+      perform pg_temp.ok(who_name || ' cannot self-claim active work',
+        not exists (select 1 from public.general_task_assignees where task_id = t_act and user_id = who));
+    end if;
+    perform pg_temp.act_as(owner_uid);
     insert into public.general_task_assignees (task_id, project_id, user_id) values (t_act, proj.id, who);
+    perform pg_temp.act_as(who);
     insert into public.general_task_comments (task_id, project_id, author_id, body)
     values (t_act, proj.id, who, 'fine');
     insert into public.general_task_logs (task_id, project_id, user_id, minutes) values (t_act, proj.id, who, 5);
@@ -614,7 +623,7 @@ begin
     values ('general-files', proj.id || '/' || t_act || '/' || who || '-y.pdf');
     update public.general_tasks set title = 'Active by ' || who_name where id = t_act;
     perform pg_temp.act_as_service();
-    perform pg_temp.ok(who_name || ' claims, comments, logs, uploads and edits an active task',
+    perform pg_temp.ok(who_name || ' holds, comments, logs, uploads and edits an active task',
       exists (select 1 from public.general_task_assignees where task_id = t_act and user_id = who)
       and exists (select 1 from public.general_task_comments where task_id = t_act and author_id = who)
       and exists (select 1 from public.general_task_logs where task_id = t_act and user_id = who)
@@ -624,17 +633,23 @@ begin
       and (select title from public.general_tasks where id = t_act) = 'Active by ' || who_name);
   end loop;
   perform pg_temp.act_as(carol);
+  perform pg_temp.attempt(format(
+    'insert into public.general_task_assignees (task_id, project_id, user_id) values (%L, %L, %L)',
+    t_act, proj.id, bob));
+  perform pg_temp.ok('a manage_tasks grant does not authorize assignment',
+    not exists (select 1 from public.general_task_assignees where task_id = t_act and user_id = bob));
+  perform pg_temp.act_as(owner_uid);
   insert into public.general_task_assignees (task_id, project_id, user_id) values (t_act, proj.id, bob);
   perform pg_temp.act_as(owner_uid);
   insert into public.general_task_assignees (task_id, project_id, user_id) values (t_act, proj.id, dave);
   perform pg_temp.act_as_service();
-  perform pg_temp.ok('a manage_tasks grantee and the Owner still assign an active task',
+  perform pg_temp.ok('the PM assigns active work after refusing an ordinary grantee',
     (select count(*) from public.general_task_assignees where task_id = t_act and user_id in (bob, dave)) = 2);
 
   ------------------------------------------------------------------ old notifications on a hidden task
   perform pg_temp.act_as_service();
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Secret plan', manager_id) returning id into t_note;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Secret plan', manager_id) returning id into t_note;
   insert into public.general_task_assignees (task_id, project_id, user_id, assigned_by)
   values (t_note, proj.id, alice, manager_id);
   perform pg_temp.act_as(alice);
@@ -654,8 +669,8 @@ begin
 
   ------------------------------------------------------------------ deletes on an archived task
   perform pg_temp.act_as_service();
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Archived with history', owner_uid) returning id into t_arch3;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Archived with history', owner_uid) returning id into t_arch3;
   insert into public.general_task_assignees (task_id, project_id, user_id, assigned_by)
   values (t_arch3, proj.id, manager_id, owner_uid);
   insert into public.general_task_comments (task_id, project_id, author_id, body)

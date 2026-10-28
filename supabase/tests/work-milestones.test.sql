@@ -4,6 +4,8 @@
 --   node scripts/db.mjs supabase/tests/work-milestones.test.sql
 begin;
 
+-- Released rows below are trusted historical fixtures for the original work-flow checks.
+
 create or replace function pg_temp.act_as(p_user uuid) returns void
 language plpgsql as $$
 begin
@@ -99,8 +101,9 @@ begin
     not exists (select 1 from public.general_milestones where id = m1));
 
   -- tagging
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (routing_state, created_by, project_id, title) values ('released', b, p, 'Member task') returning id into t_b;
   perform pg_temp.act_as(b);
-  insert into public.general_tasks (project_id, title) values (p, 'Member task') returning id into t_b;
   perform pg_temp.must_refuse('a member cannot tag a task',
     format('update public.general_tasks set milestone_id = %L where id = %L', m1, t_b));
   perform pg_temp.must_refuse('a member cannot add a task already tagged',
@@ -108,6 +111,9 @@ begin
 
   perform pg_temp.act_as(a);
   insert into public.general_tasks (project_id, title, milestone_id) values (p, 'Tagged', m1) returning id into t_a;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_a;
+  perform pg_temp.act_as(a);
   update public.general_tasks set milestone_id = m1 where id = t_b;
   perform pg_temp.must_be('a manager can tag tasks',
     (select count(*) from public.general_tasks where milestone_id = m1) = 2);
@@ -157,6 +163,9 @@ begin
   insert into public.general_teams (project_id, name) values (p, 'Zz Crew') returning id into v_team;
   insert into public.general_tasks (project_id, team_id, title, milestone_id)
   values (p, v_team, 'Archived team task', m1) returning id into t_arch;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_arch;
+  perform pg_temp.act_as(a);
   perform public.archive_general_task(t_arch, true);
   delete from public.general_milestones where id = m1;
   get diagnostics n = row_count;
@@ -172,9 +181,10 @@ begin
   insert into public.general_team_members (team_id, project_id, user_id) values (v_team, p, b);
   insert into public.general_milestones (project_id, name, due_on)
   values (p, 'Member archive', current_date + 4) returning id into m_own;
-  perform pg_temp.act_as(b);
-  insert into public.general_tasks (project_id, team_id, title) values (p, v_team, 'Member team task')
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (routing_state, created_by, project_id, team_id, title) values ('released', b, p, v_team, 'Member team task')
   returning id into t_own;
+  perform pg_temp.act_as(b);
   perform pg_temp.act_as(a);
   update public.general_tasks set milestone_id = m_own where id = t_own;
   perform pg_temp.act_as(b);
@@ -195,11 +205,20 @@ begin
   insert into public.general_teams (project_id, name) values (p3, 'Zz Crew 3') returning id into v_team3;
   insert into public.general_tasks (project_id, title, milestone_id) values (p3, 'Live tagged', m3)
   returning id into t3a;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t3a;
+  perform pg_temp.act_as(a);
   insert into public.general_tasks (project_id, team_id, title, milestone_id)
   values (p3, v_team3, 'Archived team task', m3) returning id into t3b;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t3b;
+  perform pg_temp.act_as(a);
   perform public.archive_general_task(t3b, true);
   insert into public.general_tasks (project_id, title, milestone_id) values (p3, 'Also tagged', m3)
   returning id into t3c;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t3c;
+  perform pg_temp.act_as(a);
   perform public.archive_general_project(p3, true);
   perform public.delete_general_project(p3);
   perform pg_temp.act_as_service();
@@ -216,8 +235,14 @@ begin
   insert into public.general_teams (project_id, name) values (p4, 'Zz Crew 4') returning id into v_team4;
   insert into public.general_tasks (project_id, title, milestone_id) values (p4, 'Live tagged', m4)
   returning id into t4a;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t4a;
+  perform pg_temp.act_as(a);
   insert into public.general_tasks (project_id, team_id, title, milestone_id)
   values (p4, v_team4, 'Archived team task', m4) returning id into t4b;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t4b;
+  perform pg_temp.act_as(a);
   perform public.archive_general_task(t4b, true);
   perform public.archive_general_project(p4, true);
   perform public.trash_archived_item('project', p4);

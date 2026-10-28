@@ -164,7 +164,6 @@ begin
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('a student cannot archive by writing the archive columns directly',
     (select archived_at is null and archived_by is null from public.project_tasks where id = theirs));
-  perform pg_temp.act_as(s1);
 
   perform pg_temp.act_as_service();
   cap_before := public.board_member_cap(board);
@@ -249,8 +248,10 @@ begin
     perform public.respond_general_invitation(v_inv, true);
   end loop;
 
+  -- Released historical fixture; current authenticated creation stays private.
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (routing_state, created_by, project_id, title) values ('released', maker, v_project, 'Maker''s task') returning id into t;
   perform pg_temp.act_as(maker);
-  insert into public.general_tasks (project_id, title) values (v_project, 'Maker''s task') returning id into t;
   perform pg_temp.act_as(owner);
   insert into public.general_task_assignees (task_id, project_id, user_id) values (t, v_project, other);
 

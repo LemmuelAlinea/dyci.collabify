@@ -5,6 +5,8 @@
 
 begin;
 
+-- Released rows below are trusted historical fixtures for the original work-flow checks.
+
 -- ------------------------------------------------------------------ helpers
 
 create or replace function pg_temp.act_as(p_user uuid) returns void
@@ -167,6 +169,7 @@ declare
   t1 uuid;
   t2 uuid;
   t3 uuid;
+  receiving_team uuid;
 begin
   perform pg_temp.act_as(b);
   select id into req from public.request_general_access(p, 'edit_files', 'Uploading the posters');
@@ -184,17 +187,31 @@ begin
 
   perform pg_temp.act_as(a);
   insert into public.general_tasks (project_id, title) values (p, 'Judge sheets') returning id into t1;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t1;
+  perform pg_temp.act_as(a);
   insert into public.general_task_assignees (task_id, project_id, user_id) values (t1, p, b);
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('being assigned by somebody else notifies you',
     exists (select 1 from public.notifications
              where user_id = b and type = 'general_task_assigned' and general_task_id = t1));
 
+  perform pg_temp.act_as(a);
+  insert into public.general_teams (project_id, name)
+  values (p, 'Receiving team') returning id into receiving_team;
+  insert into public.general_team_members (team_id, project_id, user_id)
+  values (receiving_team, p, b);
+  update public.general_teams set leader_id = b where id = receiving_team;
   perform pg_temp.act_as(b);
-  insert into public.general_tasks (project_id, title) values (p, 'Extension cords') returning id into t2;
+  perform pg_temp.must_refuse('a lead cannot create a regular task',
+    format($q$insert into public.general_tasks (project_id, title) values (%L, 'Unsent')$q$, p));
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (routing_state, created_by, project_id, title) values ('released', b, p, 'Extension cords') returning id into t2;
+  update public.general_tasks set team_id = receiving_team where id = t2;
+  perform pg_temp.act_as(b);
   insert into public.general_task_assignees (task_id, project_id, user_id) values (t2, p, b);
   perform pg_temp.act_as_service();
-  perform pg_temp.must_be('claiming a task yourself does not notify you',
+  perform pg_temp.must_be('a receiving lead assigning themselves does not notify them',
     not exists (select 1 from public.notifications where user_id = b and general_task_id = t2));
 
   perform pg_temp.act_as(a);
@@ -213,6 +230,7 @@ begin
   perform pg_temp.act_as(a);
   insert into public.general_tasks (project_id, title) values (p, 'Sound check') returning id into t3;
   perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t3;
 
   perform pg_temp.act_as(b);
   insert into public.general_task_comments (task_id, project_id, body) values (t3, p, 'Borrowed a mic from AV');

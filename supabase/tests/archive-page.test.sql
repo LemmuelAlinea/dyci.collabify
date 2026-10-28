@@ -115,8 +115,9 @@ begin
   on conflict do nothing;
   insert into public.general_members (project_id, user_id, level) values (wp.id, s1, 'member')
   on conflict do nothing;
-  perform pg_temp.act_as(s1);
-  insert into public.general_tasks (project_id, title, created_by) values (wp.id, 'Work task', s1)
+  -- Released historical fixture; current authenticated creation stays private.
+  perform pg_temp.svc();
+  insert into public.general_tasks (routing_state, project_id, title, created_by) values ('released', wp.id, 'Work task', s1)
   returning id into wt;
 
   perform pg_temp.svc();

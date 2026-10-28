@@ -4,6 +4,8 @@
 --   node scripts/db.mjs supabase/tests/work-planning.test.sql
 begin;
 
+-- Released rows below are trusted historical fixtures for the original work-flow checks.
+
 create or replace function pg_temp.act_as(p_user uuid) returns void
 language plpgsql as $$
 begin
@@ -104,9 +106,10 @@ begin
     not exists (select 1 from public.general_sprints where id = s1));
 
   ------------------------------------------------------------ tasks and rank
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (routing_state, created_by, project_id, title) values ('released', b, p, 'Member task') returning id into t_member;
   perform pg_temp.act_as(b);
-  insert into public.general_tasks (project_id, title) values (p, 'Member task') returning id into t_member;
-  perform pg_temp.must_be('a member can add a task, and it lands in the backlog',
+  perform pg_temp.must_be('an existing member-created task remains in the backlog',
     (select sprint_id from public.general_tasks where id = t_member) is null);
   perform pg_temp.must_refuse('a member cannot put a task in a sprint',
     format('update public.general_tasks set sprint_id = %L where id = %L', s1, t_member));
@@ -116,13 +119,22 @@ begin
     format('update public.general_tasks set rank = -1 where id = %L', t_member));
 
   select rank into r1 from public.general_tasks where id = t_member;
-  insert into public.general_tasks (project_id, title, rank) values (p, 'Jumper', -1e9) returning id into t_rank;
-  perform pg_temp.must_be('a member cannot jump the backlog by sending a rank',
+  perform pg_temp.must_refuse('a member cannot jump the backlog by inserting a ranked task',
+    format($q$insert into public.general_tasks (project_id, title, rank) values (%L, 'Jumper', -1e9)$q$, p));
+  perform pg_temp.act_as(a);
+  insert into public.general_tasks (project_id, title) values (p, 'Jumper') returning id into t_rank;
+  perform pg_temp.must_be('a planner-created task follows the existing backlog rank',
     (select rank from public.general_tasks where id = t_rank) > r1);
 
   perform pg_temp.act_as(a);
   insert into public.general_tasks (project_id, title) values (p, 'Open task') returning id into t_open;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_open;
+  perform pg_temp.act_as(a);
   insert into public.general_tasks (project_id, title) values (p, 'Done task') returning id into t_done;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_done;
+  perform pg_temp.act_as(a);
   select rank into r1 from public.general_tasks where id = t_open;
   select rank into r2 from public.general_tasks where id = t_done;
   perform pg_temp.must_be('a later task ranks below an earlier one', r2 > r1);
@@ -137,6 +149,9 @@ begin
   insert into public.general_task_assignees (task_id, project_id, user_id) values (t_done, p, b);
   -- Archived while unfinished, so finishing leaves it in the sprint.
   insert into public.general_tasks (project_id, title, sprint_id) values (p, 'Parked', s1) returning id into t_parked;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_parked;
+  perform pg_temp.act_as(a);
   perform public.archive_general_task(t_parked, true);
 
   ------------------------------------------------------------ running
@@ -197,6 +212,9 @@ begin
   insert into public.general_sprints (project_id, name, starts_on, ends_on)
   values (p, 'Short-lived', current_date + 30, current_date + 40) returning id into s_gone;
   insert into public.general_tasks (project_id, title, sprint_id) values (p, 'In it', s_gone) returning id into t_gone;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_gone;
+  perform pg_temp.act_as(a);
   delete from public.general_sprints where id = s_gone;
   perform pg_temp.must_be('deleting a planned sprint puts its tasks back in the backlog',
     (select sprint_id from public.general_tasks where id = t_gone) is null);
@@ -211,8 +229,14 @@ begin
   values (p, 'Archive sprint', current_date + 50, current_date + 60) returning id into s_arch;
   insert into public.general_tasks (project_id, team_id, title, sprint_id)
   values (p, v_team, 'Team task', s_arch) returning id into t_arch;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_arch;
+  perform pg_temp.act_as(a);
   insert into public.general_tasks (project_id, title, sprint_id)
   values (p, 'Round trip', s_arch) returning id into t_rt;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_rt;
+  perform pg_temp.act_as(a);
   perform public.archive_general_task(t_rt, true);
   perform public.archive_general_task(t_rt, false);
   perform pg_temp.must_be('an archived then restored task keeps its sprint',
@@ -238,6 +262,9 @@ begin
   values (p, 'Granted sprint', current_date + 70, current_date + 80) returning id into s_g;
   insert into public.general_tasks (project_id, team_id, title, sprint_id)
   values (p, v_team, 'Owner team task', s_g) returning id into t_g;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_g;
+  perform pg_temp.act_as(a);
   perform public.archive_general_task(t_g, true);
   perform pg_temp.act_as(b);
   perform pg_temp.must_be('the granted member cannot see the Owner''s archived task',
@@ -254,6 +281,9 @@ begin
 
   ------------------------------------------------------------ the overview
   insert into public.general_tasks (project_id, title, sprint_id) values (p, 'Visible', s2) returning id into t_new;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_new;
+  perform pg_temp.act_as(a);
   perform pg_temp.must_be('the task overview carries sprint and rank',
     (select sprint_id = s2 and rank is not null from public.general_task_overview where id = t_new));
 

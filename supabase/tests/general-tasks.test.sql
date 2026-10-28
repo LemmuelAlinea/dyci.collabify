@@ -4,6 +4,8 @@
 
 begin;
 
+-- Released rows below are trusted historical fixtures for the original work-flow checks.
+
 -- ------------------------------------------------------------------ helpers
 
 create or replace function pg_temp.act_as(p_user uuid) returns void
@@ -107,6 +109,9 @@ declare
 begin
   perform pg_temp.act_as(a);
   insert into public.general_tasks (project_id, title) values (p, 'Book the gym') returning id into t_a;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_a;
+  perform pg_temp.act_as(a);
 
   perform pg_temp.act_as(d);
   perform pg_temp.must_be('a non-member cannot read tasks',
@@ -115,19 +120,30 @@ begin
   perform pg_temp.must_be('...while a member can',
     exists (select 1 from public.general_tasks where id = t_a));
 
+  perform pg_temp.must_refuse('a member cannot create a regular task',
+    format($q$insert into public.general_tasks (project_id, title) values (%L, 'Member task')$q$, p));
+  perform pg_temp.act_as_service();
+  update public.general_members set role = 'coordinator' where project_id = p and user_id = b;
+  perform pg_temp.act_as(b);
   insert into public.general_tasks (project_id, title, created_by)
   values (p, 'Print certificates', a) returning id into t_b;
   perform pg_temp.must_be('a task is always created by the caller, whatever was sent',
-    (select created_by = b from public.general_tasks where id = t_b));
+    (select created_by = b and routing_state = 'planning' from public.general_tasks where id = t_b));
+  perform pg_temp.act_as_service();
+  update public.general_members set role = 'member' where project_id = p and user_id = b;
+  update public.general_tasks set routing_state = 'released' where id = t_b;
+  perform pg_temp.act_as(b);
 
   perform pg_temp.must_refuse('a Member cannot set points when creating a task',
     format($q$insert into public.general_tasks (project_id, title, weight) values (%L, 'Stage', 5)$q$, p));
   perform pg_temp.act_as(a);
   insert into public.general_tasks (project_id, title, weight) values (p, 'Stage design', 5)
   returning id into t_w;
-  perform pg_temp.must_be('...while an Owner can', t_w is not null);
+  perform pg_temp.must_be('...while an Owner can',
+    (select weight = 5 and routing_state = 'planning' from public.general_tasks where id = t_w));
 
   perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_w;
   insert into fx values ('t_a', t_a), ('t_b', t_b), ('t_w', t_w);
 end $$;
 
@@ -142,8 +158,11 @@ declare
   t_b uuid := (select v from fx where k = 't_b');
 begin
   perform pg_temp.act_as(c);
-  perform pg_temp.must_allow('a member claims a task nobody holds',
+  perform pg_temp.must_refuse('a member cannot self-claim a task nobody holds',
     format('insert into public.general_task_assignees (task_id, project_id, user_id) values (%L, %L, %L)', t_b, p, c));
+
+  perform pg_temp.act_as(a);
+  insert into public.general_task_assignees (task_id, project_id, user_id) values (t_b, p, c);
 
   perform pg_temp.act_as(b);
   perform pg_temp.must_refuse('a second member cannot claim a held task',
@@ -297,6 +316,9 @@ begin
   insert into public.general_teams (project_id, name) values (p, 'Zz Ushers') returning id into v_team;
   insert into public.general_tasks (project_id, team_id, title) values (p, v_team, 'Greet guests')
     returning id into t_team;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = t_team;
+  perform pg_temp.act_as(a);
   insert into public.general_task_assignees (task_id, project_id, user_id) values (t_team, p, b);
   perform pg_temp.must_allow('an Owner grants manage_structure only',
     format('select public.grant_general_permission(%L, %L, %L)', p, c, 'manage_structure'));
@@ -369,8 +391,9 @@ declare
   t_b uuid := (select v from fx where k = 't_b');
   t_c uuid;
 begin
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (routing_state, created_by, project_id, title) values ('released', c, p, 'Fold programs') returning id into t_c;
   perform pg_temp.act_as(c);
-  insert into public.general_tasks (project_id, title) values (p, 'Fold programs') returning id into t_c;
 
   perform pg_temp.act_as(a);
   perform pg_temp.must_allow('an Owner removes the member',
