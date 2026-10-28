@@ -57,6 +57,12 @@ declare
   education_id uuid;
   request_id uuid;
   converted_id uuid;
+  ready_id uuid;
+  failed_id uuid;
+  open_id uuid;
+  closed_id uuid;
+  project_id uuid;
+  team_id uuid;
   message_id uuid;
   n int;
 begin
@@ -172,6 +178,70 @@ begin
   perform pg_temp.must_refuse_with('request tables refuse direct writes',
     format('update public.general_project_requests set title = %L where id = %L', 'Override', request_id),
     'permission denied for table');
+
+  -- Conversion copies the agreed brief and seeds the chosen Space team.
+  select id into team_id from public.create_general_space_team(
+    space_id, 'Delivery', '', array[owner_id, manager_id]);
+  ready_id := public.create_general_project_request(
+    space_id, 'New portal', 'Agreed scope', 'Customers track orders', current_date + 21);
+  failed_id := public.create_general_project_request(
+    space_id, 'Failed conversion', 'Keep this brief', 'No partial project', null);
+  open_id := public.create_general_project_request(
+    space_id, 'Open request', 'Not agreed', 'Pending', null);
+  closed_id := public.create_general_project_request(
+    space_id, 'Closed request', 'Stopped', 'None', null);
+  perform public.set_general_project_request_status(ready_id, 'ready');
+  perform public.set_general_project_request_status(failed_id, 'ready');
+  perform public.set_general_project_request_status(closed_id, 'closed');
+
+  perform pg_temp.act_as(peer_id);
+  perform pg_temp.must_refuse_with('ordinary member cannot convert',
+    format('select public.create_general_project_from_request(%L)', ready_id),
+    'Only a Project manager');
+  perform pg_temp.act_as(outsider_id);
+  perform pg_temp.must_refuse_with('different Space cannot convert',
+    format('select public.create_general_project_from_request(%L)', ready_id),
+    'Only a Project manager');
+  perform pg_temp.act_as(no_switch_id);
+  perform pg_temp.must_refuse_with('manager without Project manager switch cannot convert',
+    format('select public.create_general_project_from_request(%L)', ready_id),
+    'Only a Project manager');
+
+  perform pg_temp.act_as(owner_id);
+  perform pg_temp.must_refuse_with('open request cannot convert',
+    format('select public.create_general_project_from_request(%L)', open_id),
+    'ready');
+  perform pg_temp.must_refuse_with('closed request cannot convert',
+    format('select public.create_general_project_from_request(%L)', closed_id),
+    'ready');
+  select count(*) into n from public.general_projects p where p.space_id = space_id;
+  perform pg_temp.must_refuse_with('failed project creation rolls back conversion',
+    format('select public.create_general_project_from_request(%L, null, %L::jsonb, null)',
+      failed_id, jsonb_build_object('tasks', to_jsonb(array_fill('x'::text, array[101])))::text),
+    'too large');
+  perform pg_temp.must_be('failed conversion remains ready and creates no project',
+    (select status = 'ready' and converted_project_id is null
+       from public.general_project_requests where id = failed_id)
+    and (select count(*) = n from public.general_projects p where p.space_id = space_id));
+
+  project_id := public.create_general_project_from_request(
+    ready_id, 'research', '{}'::jsonb, team_id);
+  perform pg_temp.must_be('conversion copies agreed brief, date, Space and preset',
+    (select p.name = 'New portal' and p.description = 'Agreed scope'
+            and p.ends_on = current_date + 21 and p.starts_on is null
+            and p.space_id = space_id and p.preset = 'research'
+       from public.general_projects p where p.id = project_id));
+  perform pg_temp.must_be('conversion links the request once',
+    (select status = 'converted' and converted_project_id = project_id
+       from public.general_project_requests where id = ready_id));
+  perform pg_temp.must_be('conversion seeds the selected Space team',
+    (select count(*) = 1 from public.general_teams t
+      where t.project_id = project_id and t.space_team_id = team_id));
+  perform pg_temp.must_refuse_with('second conversion refuses',
+    format('select public.create_general_project_from_request(%L)', ready_id),
+    'ready');
+  perform pg_temp.must_be('second conversion creates no duplicate project',
+    (select count(*) = n + 1 from public.general_projects p where p.space_id = space_id));
 
   converted_id := public.create_general_project_request(
     space_id, 'Converted fixture', 'Approved brief', 'Deliver a portal', null);

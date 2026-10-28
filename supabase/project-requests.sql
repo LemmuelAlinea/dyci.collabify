@@ -193,6 +193,50 @@ begin
 end;
 $$;
 
+-- The row lock makes two conversions of one request serialize. A failure in
+-- project creation rolls back the new project and leaves the request ready.
+create or replace function public.create_general_project_from_request(
+  p_request uuid,
+  p_preset text default null,
+  p_content jsonb default null,
+  p_space_team uuid default null
+) returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  v_request public.general_project_requests%rowtype;
+  v_project uuid;
+begin
+  select * into v_request
+    from public.general_project_requests where id = p_request for update;
+  if not found or not public.general_viewer_active()
+     or not public.general_project_request_reader(p_request)
+     or not exists (
+       select 1 from public.general_space_members m
+       join public.profiles p on p.id = m.user_id
+        where m.space_id = v_request.space_id and m.user_id = auth.uid()
+          and m.level in ('owner', 'manager')
+          and p.can_manage_projects and p.status = 'active'
+     ) then
+    raise exception 'Only a Project manager in this Space can create a project from this request.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if v_request.status <> 'ready' or v_request.converted_project_id is not null then
+    raise exception 'Only a ready request can become a project.'
+      using errcode = 'check_violation';
+  end if;
+
+  select p.id into v_project
+    from public.create_general_project(
+      v_request.title, v_request.brief, null::date, v_request.target_date,
+      p_preset, p_content, v_request.space_id, p_space_team
+    ) p;
+
+  update public.general_project_requests
+     set status = 'converted', converted_project_id = v_project
+   where id = p_request;
+  return v_project;
+end;
+$$;
+
 revoke all on function public.general_project_request_reader(uuid) from public, anon;
 revoke all on function public.create_general_project_request(uuid, text, text, text, date)
   from public, anon;
@@ -200,6 +244,8 @@ revoke all on function public.edit_general_project_request(uuid, text, text, tex
   from public, anon;
 revoke all on function public.post_general_project_request_message(uuid, text) from public, anon;
 revoke all on function public.set_general_project_request_status(uuid, text) from public, anon;
+revoke all on function public.create_general_project_from_request(uuid, text, jsonb, uuid)
+  from public, anon;
 grant execute on function public.general_project_request_reader(uuid) to authenticated;
 grant execute on function public.create_general_project_request(uuid, text, text, text, date)
   to authenticated;
@@ -207,5 +253,7 @@ grant execute on function public.edit_general_project_request(uuid, text, text, 
   to authenticated;
 grant execute on function public.post_general_project_request_message(uuid, text) to authenticated;
 grant execute on function public.set_general_project_request_status(uuid, text) to authenticated;
+grant execute on function public.create_general_project_from_request(uuid, text, jsonb, uuid)
+  to authenticated;
 
 commit;
