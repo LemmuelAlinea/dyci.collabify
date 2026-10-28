@@ -176,6 +176,7 @@ create trigger general_projects_qa_stage
 -- ---------------------------------------------------------------- task overview
 
 -- As task-stages.sql, with kind and qa_entered_at appended.
+drop view if exists public.general_task_overview;
 create or replace view public.general_task_overview
 with (security_invoker = true) as
 select t.id,

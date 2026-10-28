@@ -33,7 +33,7 @@ do $$
 declare
   v_task uuid; v_student uuid; v_board uuid; v_project uuid; v_other uuid;
   v_gproj uuid; v_owner uuid; v_member uuid; v_gtask uuid;
-  s text; g int;
+  s text; g int; changed int;
   refused boolean;
 begin
   -- ------------------------------------------------------------ the list rule
@@ -156,13 +156,16 @@ begin
   perform pg_temp.act_as_service();
   select m.user_id into v_member
     from public.general_members m
-   where m.project_id = v_gproj and m.level = 'member'
+   where m.project_id = v_gproj and m.role = 'member'
+     and not exists (select 1 from public.general_team_members tm join public.general_teams t on t.id = tm.team_id where tm.project_id = v_gproj and t.leader_id = m.user_id)
    limit 1;
   if v_member is not null then
     perform pg_temp.act_as(v_member);
     refused := false;
     begin
       update public.general_tasks set stage = 2 where id = v_gtask;
+      get diagnostics changed = row_count;
+      refused := changed = 0;
     exception when others then refused := true;
     end;
     perform pg_temp.must_be('a member who holds nothing cannot move a stage', refused);

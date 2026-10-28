@@ -1096,6 +1096,7 @@ $$;
  * Redefined from general-project-space.sql, the last file to own it; re-run
  * this file after re-running that one.
  */
+drop view if exists public.general_project_overview;
 create or replace view public.general_project_overview
 with (security_invoker = true) as
 select p.id,

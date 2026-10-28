@@ -190,8 +190,8 @@ begin
 
   insert into public.general_members (project_id, user_id) values
     (v_project, v_member), (v_project, v_manager);
-  insert into public.general_tasks (project_id, title, created_by)
-  values (v_project, 'Zz PV task', v_pm);
+  insert into public.general_tasks (project_id, title, created_by, routing_state)
+  values (v_project, 'Zz PV task', v_pm, 'released');
   insert into public.general_sprints (project_id, name, starts_on, ends_on)
   values (v_project, 'Zz PV sprint', current_date, current_date + 7);
   insert into public.general_milestones (project_id, name, due_on)
@@ -308,12 +308,17 @@ begin
   get diagnostics n = row_count;
   perform pg_temp.must_be('...and cannot rename P (no row changes)', n = 0);
 
-  -- The pair: a member adds a task, the PM renames P.
+  -- Members cannot create work; the PM creates a private plan and renames P.
   perform pg_temp.act_as(v_member);
-  perform pg_temp.must_allow('a project member adds a task to P',
+  perform pg_temp.must_refuse_with('a project member cannot add a task to P',
     format($q$insert into public.general_tasks (project_id, title, created_by)
-              values (%L, 'Zz PV member task', %L)$q$, v_project, v_member));
+              values (%L, 'Zz PV member task', %L)$q$, v_project, v_member),
+    'Only the project manager or a coordinator creates tasks');
   perform pg_temp.act_as((select v from fx where k = 'pm'));
+  insert into public.general_tasks (project_id, title) values (v_project, 'Zz PV plan');
+  perform pg_temp.must_be('the project manager creates a private plan',
+    exists (select 1 from public.general_tasks where project_id = v_project
+      and title = 'Zz PV plan' and routing_state = 'planning'));
   update public.general_projects set name = 'Zz PV renamed' where id = v_project;
   get diagnostics n = row_count;
   perform pg_temp.must_be('...and the project manager renames P', n = 1);

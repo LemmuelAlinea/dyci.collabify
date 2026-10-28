@@ -222,15 +222,17 @@ declare
   n int;
 begin
   perform pg_temp.act_as(v_admin);
-  select count(*) into n from public.account_overview;
-  perform pg_temp.must_be('the admin reads every account', n >= 20);
+  perform pg_temp.must_be('the admin reads the unrelated fixture account',
+    exists (select 1 from public.account_overview where id = (select v from fx where k = 'free')));
 
   perform pg_temp.must_be('a professor row carries a class count and nothing inside it',
     (select class_count >= 1 from public.account_overview where id = v_prof));
 
   perform pg_temp.act_as(v_prof);
-  select count(*) into n from public.account_overview;
-  perform pg_temp.must_be('a professor does not get the roster through it', n < 20);
+  perform pg_temp.must_be('a teacher reads their own account',
+    exists (select 1 from public.account_overview where id = v_prof));
+  perform pg_temp.must_be('a teacher cannot read an unrelated account through the overview',
+    not exists (select 1 from public.account_overview where id = (select v from fx where k = 'free')));
   perform pg_temp.act_as_service();
 end $$;
 

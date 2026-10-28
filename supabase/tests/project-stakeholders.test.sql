@@ -168,20 +168,23 @@ begin
   insert into public.general_team_members (team_id, project_id, user_id)
   values (v_team, v_p, v_m), (v_team, v_p, v_s);
 
-  perform pg_temp.act_as(v_m);
-  insert into public.general_tasks (project_id, title) values (v_p, 'Zz M task') returning id into v_t1;
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (project_id, title, created_by, routing_state) values (v_p, 'Zz M task', v_m, 'released') returning id into v_t1;
   insert into public.general_task_assignees (task_id, project_id, user_id) values (v_t1, v_p, v_m);
-  insert into public.general_tasks (project_id, title) values (v_p, 'Zz M spare') returning id into v_t3;
+  insert into public.general_tasks (project_id, title, created_by, routing_state) values (v_p, 'Zz M spare', v_m, 'released') returning id into v_t3;
+  perform pg_temp.act_as(v_m);
   insert into public.general_task_comments (task_id, project_id, body) values (v_t1, v_p, 'M was here');
 
   perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz S holds') returning id into v_t5;
 
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id in (v_t2, v_t5);
+  insert into public.general_tasks (project_id, title, created_by, routing_state) values (v_p, 'Zz S task', v_s, 'released') returning id into v_ts;
+  insert into public.general_task_assignees (task_id, project_id, user_id) values (v_t5, v_p, v_s);
   perform pg_temp.act_as(v_s);
-  insert into public.general_tasks (project_id, title) values (v_p, 'Zz S task') returning id into v_ts;
   perform public.save_general_draft_file(v_repo, 's.md', 'added', 'text', 'S wrote this');
   -- S holds a task, with a file on it, and has a draft file in Trash.
-  insert into public.general_task_assignees (task_id, project_id, user_id) values (v_t5, v_p, v_s);
   insert into storage.objects (bucket_id, name, owner_id)
   values ('general-files', v_p || '/' || v_t5 || '/s.txt', v_s::text);
   insert into public.general_task_files (task_id, project_id, file_path, file_name)
@@ -275,13 +278,14 @@ begin
     exists (select 1 from public.general_tasks where id = v_ts));
 
   perform pg_temp.act_as(v_m);
-  perform pg_temp.must_allow('M adds a task',
-    format($q$insert into public.general_tasks (project_id, title) values (%L, 'Zz yes')$q$, v_p));
+  perform pg_temp.must_refuse_with('M cannot add a task',
+    format($q$insert into public.general_tasks (project_id, title) values (%L, 'Zz yes')$q$, v_p),
+    'Only the project manager or a coordinator creates tasks');
   perform pg_temp.must_allow('M renames their own task',
     format($q$update public.general_tasks set title = 'Zz M task 2' where id = %L$q$, v_t1));
-  perform pg_temp.must_allow('M takes the unheld task',
+  perform pg_temp.must_refuse_with('M cannot take the unheld task',
     format($q$insert into public.general_task_assignees (task_id, project_id, user_id)
-              values (%L, %L, %L)$q$, v_t2, v_p, v_m));
+              values (%L, %L, %L)$q$, v_t2, v_p, v_m), 'Only the receiving team lead');
   perform pg_temp.must_allow('M comments on a task',
     format($q$insert into public.general_task_comments (task_id, project_id, body)
               values (%L, %L, 'Zz yes')$q$, v_t1, v_p));
@@ -290,7 +294,9 @@ begin
               values (%L, %L, %L, 30)$q$, v_t1, v_p, v_m));
   perform pg_temp.must_allow('M archives a task they added',
     format($q$select public.archive_general_task(%L, true)$q$, v_t3));
-  insert into public.general_tasks (project_id, title) values (v_p, 'Zz M gone') returning id into v_t4;
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (project_id, title, created_by, routing_state) values (v_p, 'Zz M gone', v_m, 'released') returning id into v_t4;
+  perform pg_temp.act_as(v_m);
   delete from public.general_tasks where id = v_t4;
   perform pg_temp.must_be('M deleting their own unheld task removes it',
     not exists (select 1 from public.general_tasks where id = v_t4));
@@ -779,6 +785,9 @@ begin
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz H archived') returning id into v_tb;
   insert into public.general_tasks (project_id, title) values (v_p2, 'Zz H elsewhere') returning id into v_tc;
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz unheld') returning id into v_td;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id in (v_ta, v_tb, v_tc, v_td);
+  perform pg_temp.act_as(v_pm);
   insert into public.general_task_assignees (task_id, project_id, user_id)
   values (v_ta, v_p, v_h), (v_tb, v_p, v_h), (v_tc, v_p2, v_h);
   perform public.archive_general_task(v_tb, true);

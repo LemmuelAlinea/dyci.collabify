@@ -140,7 +140,8 @@ begin
     exists (select 1 from public.notifications where user_id = v_a and type = 'review_requested'
              and project_id = v_proj and general_project_id is null));
   perform pg_temp.ok('...and not the professor, who is not on it',
-    not exists (select 1 from public.notifications where user_id = v_prof and type = 'review_requested'));
+    not exists (select 1 from public.notifications where user_id = v_prof and type = 'review_requested'
+                     and project_id = v_proj));
 
   ------------------------------------------------------------------ leaving
   delete from public.group_members where group_id = v_group and student_id = v_b;
@@ -148,6 +149,16 @@ begin
     not exists (select 1 from public.general_members where project_id = gp and user_id = v_b));
   perform pg_temp.ok('...without a removal notice',
     not exists (select 1 from public.notifications where user_id = v_b and type = 'membership_changed'));
+
+  -- Exercise a known commit before its project cascade removes it.
+  begin
+    delete from public.general_commits where repo_id = v_repo and seq = 1;
+    perform pg_temp.ok('a standalone commit deletion is refused', false);
+  exception when insufficient_privilege then
+    perform pg_temp.ok('a standalone commit deletion is refused', true);
+  end;
+  perform pg_temp.ok('the standalone commit remains',
+    exists (select 1 from public.general_commits where repo_id = v_repo and seq = 1));
 
   ------------------------------------------------------------------ deleting
   perform pg_temp.act_as(v_prof);
@@ -158,12 +169,7 @@ begin
   perform pg_temp.ok('...and takes the hidden Files project and its history with it',
     not exists (select 1 from public.general_projects where id = gp)
     and not exists (select 1 from public.general_commits where project_id = gp));
-  begin
-    delete from public.general_commits where repo_id in (select id from public.general_repos limit 1);
-    perform pg_temp.ok('a commit on its own still cannot be deleted', not exists (select 1 from public.general_commits));
-  exception when insufficient_privilege then
-    perform pg_temp.ok('a commit on its own still cannot be deleted', true);
-  end;
+
 end;
 $$;
 

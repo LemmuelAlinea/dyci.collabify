@@ -226,6 +226,8 @@ begin
     format($q$insert into public.general_tasks (project_id, title, kind)
               values (%L, 'Zz QA bug', 'bug')$q$, v_p));
   v_tq := (select id from public.general_tasks where project_id = v_p and title = 'Zz QA bug');
+  perform pg_temp.must_be('QA reads their own private bug',
+    (select routing_state = 'planning' from public.general_tasks where id = v_tq));
   perform pg_temp.must_refuse_with('QA cannot change the kind of their own bug',
     format($q$update public.general_tasks set kind = 'task' where id = %L$q$, v_tq),
     'changes a task''s kind');
@@ -238,6 +240,9 @@ begin
               values (%L, 'Zz M bug', 'bug')$q$, v_p), 'Only the project manager or a coordinator creates tasks');
   perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz M task') returning id into v_tm;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_tm;
+  perform pg_temp.act_as(v_pm);
   perform pg_temp.must_be('a task is a task by default',
     (select kind = 'task' from public.general_tasks where id = v_tm));
   insert into public.general_task_assignees(task_id,project_id,user_id) values(v_tm,v_p,v_m);
@@ -276,7 +281,13 @@ declare
 begin
   perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz to hold') returning id into v_t;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_t;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz to hold 2') returning id into v_t2;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_t2;
+  perform pg_temp.act_as(v_pm);
 
   perform pg_temp.act_as(v_q);
   perform pg_temp.must_refuse_with('QA cannot claim a task',
@@ -321,8 +332,17 @@ begin
   insert into public.general_members (project_id, user_id, role) values (v_p2, v_m2, 'member');
   perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz M2 holds') returning id into v_ta;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_ta;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz M2 archived') returning id into v_tb;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_tb;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p2, 'Zz M2 elsewhere') returning id into v_tc;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_tc;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_task_assignees (task_id, project_id, user_id)
   values (v_ta, v_p, v_m2), (v_tb, v_p, v_m2), (v_tc, v_p2, v_m2);
   perform public.archive_general_task(v_tb, true);
@@ -424,13 +444,16 @@ begin
 
   perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p3, 'Zz gate task') returning id into v_t;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_t;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_task_assignees (task_id, project_id, user_id) values (v_t, v_p3, v_m);
 
   perform pg_temp.act_as_service();
   insert into fx values ('p3', v_p3), ('t', v_t), ('pq', v_pq);
 end $$;
 
--- A pending QA account still creates bug tasks only.
+-- A pending QA account cannot create bugs; active QA can.
 do $$
 declare
   v_p3 uuid := (select v from fx where k = 'p3');
@@ -440,7 +463,14 @@ begin
   perform pg_temp.must_refuse_with('a pending QA account cannot create a task',
     format($q$insert into public.general_tasks (project_id, title) values (%L, 'Zz PQ task')$q$, v_p3),
     'QA creates bug tasks only.');
-  perform pg_temp.must_allow('...but creates a bug',
+  perform pg_temp.must_refuse_with('...nor a bug while pending',
+    format($q$insert into public.general_tasks (project_id, title, kind)
+              values (%L, 'Zz PQ bug', 'bug')$q$, v_p3),
+    'Only the project manager or a coordinator creates tasks');
+  perform pg_temp.act_as_service();
+  update public.profiles set status = 'active' where id = v_pq;
+  perform pg_temp.act_as(v_pq);
+  perform pg_temp.must_allow('active QA creates a bug',
     format($q$insert into public.general_tasks (project_id, title, kind)
               values (%L, 'Zz PQ bug', 'bug')$q$, v_p3));
   perform pg_temp.act_as_service();
@@ -459,6 +489,9 @@ begin
   perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title, status, stage)
   values (v_p3, 'Zz born in QA', 'in_progress', 2) returning id into v_t2;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_t2;
+  perform pg_temp.act_as(v_pm);
   perform pg_temp.must_be('a task created at the QA stage has qa_entered_at',
     (select qa_entered_at is not null from public.general_tasks where id = v_t2));
   perform public.archive_general_task(v_t2, true);
@@ -636,6 +669,9 @@ begin
   perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title, status) values (v_p2, 'Zz default QA', 'in_progress')
   returning id into v_t4;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_t4;
+  perform pg_temp.act_as(v_pm);
   perform pg_temp.must_allow('the pm sends back on a project without QA',
     format($q$select public.qa_send_back_general_task(%L, 'Start over')$q$, v_t4));
   perform pg_temp.must_be('...to To do',
@@ -722,11 +758,23 @@ begin
   perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title, status, stage)
   values (v_p4, 'Zz skip dev', 'in_progress', 1) returning id into v_t1;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_t1;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p4, 'Zz skip planning')
   returning id into v_t2;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_t2;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p5, 'Zz skip default')
   returning id into v_t3;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_t3;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title) values (v_p2, 'Zz no QA') returning id into v_t4;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_t4;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_task_assignees (task_id, project_id, user_id)
   values (v_t1, v_p4, v_m), (v_t2, v_p4, v_m), (v_t3, v_p5, v_m), (v_t4, v_p2, v_m2);
 
@@ -771,13 +819,17 @@ begin
   perform pg_temp.act_as(v_m2);
   perform pg_temp.must_allow('without QA, M2 takes a To do task to Done',
     format($q$update public.general_tasks set status = 'done' where id = %L$q$, v_t4));
-  perform pg_temp.must_allow('...and adds a task as done',
-    format($q$insert into public.general_tasks (project_id, title, status) values (%L, 'Zz M2 done', 'done')$q$, v_p2));
+  perform pg_temp.must_refuse_with('a member cannot create work even without QA',
+    format($q$insert into public.general_tasks (project_id, title, status) values (%L, 'Zz M2 done', 'done')$q$, v_p2),
+    'Only the project manager or a coordinator creates tasks');
 
   -- An archived task's stage is frozen like its status, for everyone.
   perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title, status, stage)
   values (v_p4, 'Zz archived dev', 'in_progress', 1) returning id into v_ta;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_ta;
+  perform pg_temp.act_as(v_pm);
   perform public.archive_general_task(v_ta, true);
   perform pg_temp.must_refuse_with('nobody moves an archived task to another middle stage',
     format($q$update public.general_tasks set stage = 2 where id = %L$q$, v_ta),
@@ -820,14 +872,29 @@ begin
   perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title, status, stage)
   values (v_p6, 'Zz sys dev', 'in_progress', 1) returning id into v_dev;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_dev;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title, status, stage)
   values (v_p6, 'Zz sys test', 'in_progress', 2) returning id into v_test;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_test;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title, status, stage)
   values (v_p6, 'Zz sys revision', 'in_progress', 3) returning id into v_rev;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_rev;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title, status, stage)
   values (v_p6, 'Zz sys revision 2', 'in_progress', 3) returning id into v_rev2;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_rev2;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_tasks (project_id, title, status, stage)
   values (v_p6, 'Zz sys lead', 'in_progress', 1) returning id into v_lead;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = v_lead;
+  perform pg_temp.act_as(v_pm);
   insert into public.general_task_assignees (task_id, project_id, user_id)
   values (v_dev, v_p6, v_m), (v_test, v_p6, v_m), (v_rev, v_p6, v_m), (v_rev2, v_p6, v_m),
          (v_lead, v_p6, v_m);
@@ -853,9 +920,10 @@ begin
     format($q$update public.general_tasks set stage = 3 where id = %L$q$, v_rev2));
   perform pg_temp.must_allow('...and from Revision back to Testing',
     format($q$update public.general_tasks set stage = 2 where id = %L$q$, v_rev2));
-  perform pg_temp.must_allow('...and adds a task at Testing',
+  perform pg_temp.must_refuse_with('a member cannot create work at Testing',
     format($q$insert into public.general_tasks (project_id, title, status, stage)
-              values (%L, 'Zz M at testing', 'in_progress', 2)$q$, v_p6));
+              values (%L, 'Zz M at testing', 'in_progress', 2)$q$, v_p6),
+    'Only the project manager or a coordinator creates tasks');
 
   perform pg_temp.act_as(v_q);
   perform pg_temp.must_allow('QA moves a task from Testing to Revision',
