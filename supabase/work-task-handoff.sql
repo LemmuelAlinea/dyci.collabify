@@ -1601,7 +1601,7 @@ begin
       if reason is null then
         raise exception 'Give a reason for rerouting released work.' using errcode='check_violation';
       end if;
-      if public.general_task_stage_at(t.status,t.stage,public.stage_count(gp.stages)) >= public.general_qa_stage_pick(gp.stages,gp.qa_stage) then
+      if (t.status='done' or (public.general_project_has_qa(t.project_id) and public.general_task_stage_at(t.status,t.stage,public.stage_count(gp.stages)) >= public.general_qa_stage_pick(gp.stages,gp.qa_stage))) then
         raise exception 'Reopen work in QA or Done before rerouting it.' using errcode='check_violation';
       end if;
     elsif public.general_task_held(t.id) then
@@ -1666,7 +1666,7 @@ begin
   end if;
   if t.routing_state='released' and exists (
     select 1 from public.general_projects gp where gp.id=t.project_id
-      and public.general_task_stage_at(t.status,t.stage,public.stage_count(gp.stages)) >= public.general_qa_stage_pick(gp.stages,gp.qa_stage)) then
+      and (t.status='done' or (public.general_project_has_qa(t.project_id) and public.general_task_stage_at(t.status,t.stage,public.stage_count(gp.stages)) >= public.general_qa_stage_pick(gp.stages,gp.qa_stage)))) then
     raise exception 'Reopen work in QA or Done before returning it.' using errcode='check_violation';
   end if;
   if not coalesce((

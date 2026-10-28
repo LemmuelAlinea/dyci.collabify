@@ -54,7 +54,7 @@ export function LeadInbox({ state }: { state: GeneralProjectState }) {
         <div className="min-w-0"><button type="button" className="text-left text-[14px] font-medium break-words text-ink hover:underline" onClick={() => setTaskId(t.id)}>{t.title}</button>
           <p className="text-[12px] text-muted">{teams.find(team => team.id === t.team_id)?.name}</p></div>
         <div className="flex flex-wrap gap-2"><Button size="sm" disabled={state.readOnly || busy} onClick={() => setTaskId(t.id)}>Assign members</Button>
-          <Button size="sm" variant="outline" disabled={state.readOnly || busy || stageIndex(t.status, t.stage, stagesOf(state.project?.stages).length) >= qaStageIndex(state.project?.stages, state.project?.qa_stage)} onClick={() => { setReturning(t.id); setReason('') }}>Return to planning</Button></div>
+          <Button size="sm" variant="outline" disabled={state.readOnly || busy || t.status === 'done' || (state.project?.has_qa && stageIndex(t.status, t.stage, stagesOf(state.project?.stages).length) >= qaStageIndex(state.project?.stages, state.project?.qa_stage))} onClick={() => { setReturning(t.id); setReason('') }}>Return to planning</Button></div>
       </li>)}
     </ul>}
     {receipts.length > 0 && <div className="space-y-2 border-t border-line pt-4"><h4 className="text-[14px] text-ink">Your returns</h4><ul className="space-y-2">

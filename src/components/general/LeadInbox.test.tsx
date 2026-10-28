@@ -42,3 +42,15 @@ it('scopes Incoming to released unassigned work for the led team and keeps own r
     expect(api.listWorkTaskReturnReceipts).toHaveBeenCalledWith('p')
   } finally { await act(async () => root.unmount()); container.remove() }
 })
+
+it.each([false, true])('returns default in-progress incoming work only without active QA (%s)', async has_qa => {
+  const state = { project: { id: 'p', class_board_id: null, has_qa }, viewerId: 'lead', myRole: 'member', readOnly: false,
+    teams: [{ id: 'a', name: 'Team A', leader_id: 'lead' }],
+    tasks: [{ id: 'a', title: 'Incoming', team_id: 'a', assignee_ids: [], routing_state: 'released', status: 'in_progress', stage: 1 }], reload: vi.fn(),
+  } as unknown as GeneralProjectState
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<LeadInbox state={state} />))
+    expect([...container.querySelectorAll('button')].find(b => b.textContent === 'Return to planning')!.disabled).toBe(has_qa)
+  } finally { await act(async () => root.unmount()); container.remove() }
+})

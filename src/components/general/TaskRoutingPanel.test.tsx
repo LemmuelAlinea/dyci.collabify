@@ -71,3 +71,9 @@ it('requires a destination even when a saved team is cleared', async () => {
   await render(state({ tasks: [{ ...task, team_id: 'design' }] })); await selectRows(); await change('Team for Design', '')
   expect([...document.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent === 'Send to team')!.disabled).toBe(true)
 })
+
+it.each([false, true])('reroutes default in-progress work only without active QA (%s)', async has_qa => {
+  await render(state({ project: { id: 'project', class_board_id: null, has_qa }, tasks: [{ ...task, routing_state: 'released', status: 'in_progress', stage: 1 }] }))
+  await click('Reroute released work')
+  expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(has_qa)
+})

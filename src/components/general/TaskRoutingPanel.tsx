@@ -63,7 +63,7 @@ export function TaskRoutingPanel({ state, onOpenTask }: { state: GeneralProjectS
     {error && <Alert tone="error">{error} <Button size="sm" variant="outline" disabled={busy} onClick={() => void refresh()}>Reload tasks</Button></Alert>}
     {rows.length === 0 ? <p className="py-4 text-[13px] text-faint">No tasks in this queue.</p> : <div className="divide-y divide-line">
       {rows.map(t => {
-        const blocked = queue === 'released' && stageIndex(t.status, t.stage, stagesOf(project.stages).length) >= qaStageIndex(project.stages, project.qa_stage)
+        const blocked = queue === 'released' && (t.status === 'done' || (project.has_qa && stageIndex(t.status, t.stage, stagesOf(project.stages).length) >= qaStageIndex(project.stages, project.qa_stage)))
         return <div key={t.id} className="grid items-center gap-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(180px,240px)_auto]">
           <div className="flex min-w-0 items-start gap-3">
             <input type="checkbox" aria-label={`Select ${t.title}`} checked={Boolean(selected[t.id])} disabled={!editable || blocked} onChange={e => setSelected(previous => { const next = { ...previous }; if (e.target.checked) next[t.id] = t; else delete next[t.id]; return next })} className="mt-1 size-4 shrink-0" />
