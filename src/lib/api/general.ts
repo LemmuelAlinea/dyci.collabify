@@ -1813,3 +1813,11 @@ export async function deleteTemplate(id: string) {
   const { error } = await supabase.from('general_project_templates').delete().eq('id', id)
   if (error) throw error
 }
+
+export type WorkTaskReturnReceipt = { task_id: string; returned_at: string; reason: string }
+
+export async function listWorkTaskReturnReceipts(projectId: string): Promise<WorkTaskReturnReceipt[]> {
+  const { data, error } = await supabase.rpc('work_task_return_receipts', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as WorkTaskReturnReceipt[]
+}

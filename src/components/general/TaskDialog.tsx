@@ -134,13 +134,16 @@ function TaskBody({
   const createdByMe = task.created_by === me
   const readOnly = state.readOnly
   const viewer: TaskViewer = { viewerId: me, manageTasks: canManage, archived: readOnly, leadsUser: state.leadsUser }
+  const work = !state.project.class_board_id
+  const assignmentViewer: TaskViewer = { ...viewer, manageTasks: work ? state.myRole === 'pm' || state.myRole === 'coordinator' : canManage,
+    ...(work ? { workAssignment: { ledTeamIds: state.teams.filter(t => t.leader_id === me).map(t => t.id), members: state.teamMembers } } : {}) }
   // A team leader edits, assigns and unassigns for the people they lead.
   const canEdit = canEditTask(viewer, task)
   const unsent = !state.project.class_board_id && (task.routing_state ?? 'released') !== 'released'
   const assignable = unsent ? [] : assignableTo(
-    viewer,
+    assignmentViewer,
     task,
-    state.members.filter((m) => m.profile?.status !== 'rejected').map((m) => m.user_id),
+    state.members.filter((m) => work ? m.profile?.status === 'active' : m.profile?.status !== 'rejected').map((m) => m.user_id),
     state.roleOf,
   )
   // QA and the project manager pass or send back a task that is waiting in QA,
@@ -263,7 +266,7 @@ function TaskBody({
             ))}
             {task.assignee_ids.length === 0 && <li className="text-[13px] text-faint">Nobody holds this yet.</li>}
           </ul>
-          {!unsent && (canManage ? !readOnly : assignable.length > 0) && (
+          {!unsent && assignable.length > 0 && (
             <div className="mt-2 max-w-[16rem]">
               <Select
                 aria-label="Assign someone"
@@ -272,13 +275,13 @@ function TaskBody({
                   const userId = e.target.value
                   if (userId) void act(() => assignTask(task.id, task.project_id, userId), 'Assigned', 'Could not assign that.')
                 }}
-                placeholder={canManage ? 'Assign someone…' : 'Assign someone you lead…'}
+                placeholder={assignmentViewer.manageTasks ? 'Assign someone...' : work ? 'Assign a receiving-team member...' : 'Assign someone you lead...'}
                 options={assignable.map((id) => ({ value: id, label: state.nameOf(id) }))}
                 className="!h-9 !text-[13px]"
               />
             </div>
           )}
-          {!unsent && !readOnly && !canManage && task.assignee_ids.length === 0 && me && state.myRole !== 'qa' && (
+          {!work && !unsent && !readOnly && !canManage && task.assignee_ids.length === 0 && me && state.myRole !== 'qa' && (
             <Button
               size="sm"
               className="mt-2"
@@ -508,7 +511,7 @@ function TaskDetails({
         </p>
         {!state.readOnly && (
           <p className="flex flex-wrap items-center gap-2 text-[12px] text-muted">
-            Take this task or ask to manage tasks to change it.
+            {state.project.class_board_id ? 'Take this task or ask to manage tasks to change it.' : 'Ask a planner or your team lead to assign this work.'}
             <RequestAccessButton state={state} permission="manage_tasks" />
           </p>
         )}

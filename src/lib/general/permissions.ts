@@ -250,10 +250,11 @@ export type TaskViewer = {
   manageTasks: boolean
   archived: boolean
   leadsUser: (userId: string) => boolean
+  workAssignment?: { ledTeamIds: readonly string[]; members: readonly { team_id: string; user_id: string }[] }
 }
 
 /** A task's holders and creator, which is all the task rules read. */
-export type TaskHolders = { assignee_ids: readonly string[]; created_by: string | null }
+export type TaskHolders = { assignee_ids: readonly string[]; created_by: string | null; routing_state?: string; team_id?: string | null; archived_at?: string | null }
 
 /**
  * Whether the viewer may change a task's details and stage: someone who
@@ -281,15 +282,8 @@ export function canUnassign(v: TaskViewer, userId: string): boolean {
   return v.manageTasks || userId === v.viewerId || v.leadsUser(userId)
 }
 
-/**
- * Whom the viewer may assign to the task, from `candidates`. Someone who
- * manages tasks assigns anyone not already on it. A team leader assigns people
- * they lead, but only while nobody holds the task: the database refuses a
- * second holder from anyone who does not manage tasks. The viewer themselves
- * is left out for a leader, who takes the task with "Take this task" instead.
- * Nobody assigns a stakeholder or QA, who hold no tasks.
- * Mirrors the general_task_assignees_insert policy and guard_general_task_child.
- */
+/** Work leads assign only active candidates from the exact receiving team.
+ * Class-board assignments retain their existing claim lock. */
 export function assignableTo(
   v: TaskViewer,
   task: TaskHolders,
@@ -298,6 +292,13 @@ export function assignableTo(
 ): string[] {
   if (v.archived) return []
   const free = candidates.filter((id) => !task.assignee_ids.includes(id) && roleOf(id) !== 'stakeholder' && roleOf(id) !== 'qa')
+  if (v.workAssignment) {
+    if ((task.routing_state ?? 'released') !== 'released' || task.archived_at) return []
+    if (v.manageTasks) return free
+    const { ledTeamIds, members } = v.workAssignment
+    if (!task.team_id || !ledTeamIds.includes(task.team_id) || !members.some(m => m.team_id === task.team_id && m.user_id === v.viewerId)) return []
+    return free.filter(id => members.some(m => m.team_id === task.team_id && m.user_id === id))
+  }
   if (v.manageTasks) return free
   if (task.assignee_ids.length > 0) return []
   return free.filter((id) => id !== v.viewerId && v.leadsUser(id))

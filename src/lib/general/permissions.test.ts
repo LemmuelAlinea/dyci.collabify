@@ -439,3 +439,22 @@ describe('task powers', () => {
     })
   })
 })
+
+describe('work receiving-team assignments', () => {
+  const viewer: TaskViewer = { viewerId: 'lead', manageTasks: false, archived: false, leadsUser: () => true,
+    workAssignment: { ledTeamIds: ['a', 'b'], members: [
+      { team_id: 'a', user_id: 'lead' }, { team_id: 'a', user_id: 'a1' }, { team_id: 'a', user_id: 'a2' },
+      { team_id: 'b', user_id: 'lead' }, { team_id: 'b', user_id: 'b1' },
+    ] } }
+  const task = { assignee_ids: ['a1'], created_by: 'pm', routing_state: 'released', team_id: 'a' }
+  const people = ['lead', 'a1', 'a2', 'b1', 'outsider', 'qa', 'stakeholder']
+  const roleOf = (id: string): ProjectRole => id === 'qa' || id === 'stakeholder' ? id : 'member'
+  it('allows another holder only from the exact receiving team, including the lead', () => {
+    expect(assignableTo(viewer, task, people, roleOf)).toEqual(['lead', 'a2'])
+  })
+  it('refuses unsent work, stale leadership and leads outside their own team roster', () => {
+    expect(assignableTo(viewer, { ...task, routing_state: 'planning' }, people, roleOf)).toEqual([])
+    expect(assignableTo({ ...viewer, workAssignment: { ...viewer.workAssignment!, ledTeamIds: ['b'] } }, task, people, roleOf)).toEqual([])
+    expect(assignableTo({ ...viewer, workAssignment: { ...viewer.workAssignment!, members: [{ team_id: 'a', user_id: 'a2' }] } }, task, people, roleOf)).toEqual([])
+  })
+})

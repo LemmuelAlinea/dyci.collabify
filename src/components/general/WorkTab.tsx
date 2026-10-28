@@ -9,6 +9,7 @@ import { readScope } from '../../lib/work/scope'
 import { paths } from '../../lib/paths'
 import { taskLayout, withWork, workSection, type WorkSection } from '../../lib/work/nav'
 import { TaskDialog } from './TaskDialog'
+import { LeadInbox } from './LeadInbox'
 import { TasksTab } from './TasksTab'
 import { WorkSummary } from './WorkSummary'
 import type { GeneralProjectState } from './useGeneralProject'
@@ -79,6 +80,8 @@ export function WorkTab({ state, area }: { state: GeneralProjectState; area: 'ov
             variant="panel"
           />}
           {section === 'qa' && state.project?.has_qa ? <QaQueue state={state} onOpenTask={showTask} /> :
+            <>
+            <LeadInbox key={`${state.project?.id}-${state.viewerId}`} state={state} />
             <TasksTab
               state={state}
               layout={layout}
@@ -86,7 +89,7 @@ export function WorkTab({ state, area }: { state: GeneralProjectState; area: 'ov
               scope={scope}
               onScope={(s) => setParams(withWork(params, { scope: s }), { replace: true })}
               onOpenTask={showTask}
-            />}
+            /></>}
         </div>
       )}
       <TaskDialog state={state} taskId={params.get('task')} onClose={() => showTask(null)} />
