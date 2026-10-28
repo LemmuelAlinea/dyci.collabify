@@ -224,6 +224,7 @@ begin
        from public.general_project_requests where id = failed_id)
     and (select count(*) = n from public.general_projects p where p.space_id = space_id));
 
+  perform public.post_general_project_request_message(ready_id, 'Private agreement');
   project_id := public.create_general_project_from_request(
     ready_id, 'research', '{}'::jsonb, team_id);
   perform pg_temp.must_be('conversion copies agreed brief, date, Space and preset',
@@ -242,6 +243,21 @@ begin
     'ready');
   perform pg_temp.must_be('second conversion creates no duplicate project',
     (select count(*) = n + 1 from public.general_projects p where p.space_id = space_id));
+
+  perform pg_temp.service();
+  insert into public.general_members (project_id, user_id, role)
+  values (project_id, peer_id, 'member');
+  perform pg_temp.act_as(peer_id);
+  perform pg_temp.must_be('project member can read the converted project but not its source discussion',
+    (select count(*) = 1 from public.general_projects where id = project_id)
+    and (select count(*) = 0 from public.general_project_requests where converted_project_id = project_id)
+    and (select count(*) = 0 from public.general_project_request_messages m where m.request_id = ready_id));
+  perform pg_temp.act_as(manager_id);
+  perform pg_temp.must_be('Space manager keeps source access after conversion',
+    (select count(*) = 1 from public.general_project_requests where converted_project_id = project_id));
+  perform pg_temp.must_be('Space manager keeps message access after conversion',
+    (select count(*) = 1 from public.general_project_request_messages m where m.request_id = ready_id));
+  perform pg_temp.act_as(owner_id);
 
   converted_id := public.create_general_project_request(
     space_id, 'Converted fixture', 'Approved brief', 'Deliver a portal', null);

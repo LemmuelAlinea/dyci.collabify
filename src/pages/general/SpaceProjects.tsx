@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { WorkProjectCard } from '../../components/general/WorkProjectCard'
 import { NewProjectDialog } from '../../components/general/NewProjectDialog'
 import { SpaceProjectRequests } from '../../components/general/SpaceProjectRequests'
@@ -22,14 +23,17 @@ export default function SpaceProjects() {
   const { profile } = useAuth()
   const { currentSpace: space, projects, error, reload } = useGeneralNavigation()
   const { all, canStart, openNewProject } = useSpaceOutlet()
+  const [searchParams] = useSearchParams()
+  const requestId = searchParams.get('request')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<GeneralStatus | ''>('')
-  const [view, setView] = useState<'projects' | 'requests'>('projects')
+  const [view, setView] = useState<'projects' | 'requests'>(requestId ? 'requests' : 'projects')
   const [request, setRequest] = useState<ProjectRequest | null>(null)
 
   useEffect(() => {
     document.title = space ? `Projects · ${space.name} · Collabify` : 'Projects · Collabify'
   }, [space])
+  useEffect(() => { if (requestId) setView('requests') }, [requestId])
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -56,7 +60,7 @@ export default function SpaceProjects() {
         </Alert>
       )}
 
-      {view === 'requests' && space && <SpaceProjectRequests spaceId={space.id} onCreateProject={setRequest} />}
+      {view === 'requests' && space && <SpaceProjectRequests spaceId={space.id} requestId={requestId} onCreateProject={setRequest} />}
       {view === 'projects' && (all.length === 0 ? (
         <EmptyState
           icon="kanban"

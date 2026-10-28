@@ -29,6 +29,12 @@ export async function listProjectRequests(spaceId: string): Promise<ProjectReque
   return (data ?? []) as ProjectRequest[]
 }
 
+export async function requestForProject(projectId: string): Promise<ProjectRequest | null> {
+  const { data, error } = await supabase.from('general_project_requests').select('*').eq('converted_project_id', projectId).maybeSingle()
+  if (error) throw error
+  return data as ProjectRequest | null
+}
+
 export async function listProjectRequestMessages(requestId: string): Promise<ProjectRequestMessage[]> {
   const { data, error } = await supabase.from('general_project_request_messages').select('*').eq('request_id', requestId).order('created_at')
   if (error) throw error

@@ -19,7 +19,7 @@ import {
 } from '../../lib/api/projectRequests'
 import type { ProjectRequest, ProjectRequestMessage } from '../../lib/api/projectRequests'
 
-export function SpaceProjectRequests({ spaceId, onCreateProject }: { spaceId: string; onCreateProject: (request: ProjectRequest) => void }) {
+export function SpaceProjectRequests({ spaceId, requestId, onCreateProject }: { spaceId: string; requestId?: string | null; onCreateProject: (request: ProjectRequest) => void }) {
   const { user, profile } = useAuth()
   const { currentSpace } = useGeneralNavigation()
   const [requestState, setRequestState] = useState<{ spaceId: string; rows: ProjectRequest[] } | null>(null)
@@ -37,10 +37,11 @@ export function SpaceProjectRequests({ spaceId, onCreateProject }: { spaceId: st
   const spaceRef = useRef(spaceId)
   const requests = requestState?.spaceId === spaceId ? requestState.rows : null
   const people = peopleState?.spaceId === spaceId ? peopleState.rows : []
-  const selectedId = selection?.spaceId === spaceId ? selection.id : null
+  const selectedId = selection?.spaceId === spaceId ? selection.id : requests?.find((r) => r.id === requestId)?.id ?? null
   const editing = editorState?.spaceId === spaceId ? editorState.request : null
   const selectedRef = useRef(selectedId)
   useLayoutEffect(() => { spaceRef.current = spaceId; selectedRef.current = selectedId }, [spaceId, selectedId])
+  useEffect(() => { setSelection(null) }, [spaceId, requestId])
   const messages = messageState?.requestId === selectedId ? messageState.rows : []
   const draft = draftState?.requestId === selectedId ? draftState.value : ''
   const manager = Boolean(currentSpace?.id === spaceId && !currentSpace.archived_at && ['owner', 'manager'].includes(currentSpace.my_level ?? '') && canManageProjects(profile))

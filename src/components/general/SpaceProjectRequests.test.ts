@@ -21,14 +21,34 @@ vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'aut
 vi.mock('../../context/generalNavigation', () => ({ useGeneralNavigation: () => ({ currentSpace: { id: 'space', name: 'Design', my_level: 'manager', kind: 'work' }, projects: [], error: null, reload: vi.fn() }) }))
 vi.mock('../../pages/general/spaceOutlet', () => ({ useSpaceOutlet: () => ({ all: [], canStart: true, openNewProject: vi.fn() }) }))
 const navigate = vi.fn()
-vi.mock('react-router-dom', async (importOriginal) => ({ ...await importOriginal<typeof import('react-router-dom')>(), useNavigate: () => navigate }))
+vi.mock('react-router-dom', async (importOriginal) => ({ ...await importOriginal<typeof import('react-router-dom')>(), useNavigate: () => navigate, useSearchParams: () => [new URLSearchParams(window.location.search)] }))
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 
 const request = { id: 'request', space_id: 'space', author_id: 'author', title: 'Customer portal', brief: 'Let customers see orders', desired_outcome: 'Fewer support tickets', target_date: '2026-12-01', status: 'open' as const, converted_project_id: null, created_at: '2026-10-28T00:00:00Z', updated_at: '2026-10-28T00:00:00Z' }
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done }); return { promise, resolve } }
 
-afterEach(() => { vi.clearAllMocks(); document.body.innerHTML = '' })
+afterEach(() => { vi.clearAllMocks(); document.body.innerHTML = ''; window.history.replaceState({}, '', '/') })
+
+it('opens a linked request only when it is in the authorized list', async () => {
+  window.history.replaceState({}, '', '/spaces/space/projects?request=request')
+  vi.mocked(listProjectRequests).mockResolvedValue([request])
+  vi.mocked(listProjectRequestMessages).mockResolvedValue([])
+  vi.mocked(listSpaceMembers).mockResolvedValue([])
+  const host = document.createElement('div'); document.body.append(host); const root = createRoot(host)
+  await act(async () => root.render(createElement(SpaceProjects)))
+  expect(document.body.textContent).toContain('Fewer support tickets')
+  expect(listProjectRequestMessages).toHaveBeenCalledWith('request')
+  await act(async () => root.unmount())
+
+  vi.mocked(listProjectRequests).mockResolvedValue([])
+  vi.mocked(listProjectRequestMessages).mockClear()
+  const otherHost = document.createElement('div'); document.body.append(otherHost); const otherRoot = createRoot(otherHost)
+  await act(async () => otherRoot.render(createElement(SpaceProjects)))
+  expect(document.body.textContent).not.toContain('Fewer support tickets')
+  expect(listProjectRequestMessages).not.toHaveBeenCalled()
+  await act(async () => otherRoot.unmount())
+})
 
 it('keeps Requests reachable when the Space has no projects', async () => {
   vi.mocked(listProjectRequests).mockResolvedValue([])

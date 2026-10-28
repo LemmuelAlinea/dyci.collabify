@@ -1,5 +1,6 @@
 // src/components/general/OverviewTab.tsx
 import { useEffect, useId, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -22,12 +23,28 @@ import { StagesEditor } from '../tasks/StagesEditor'
 import { FieldDialog } from './FieldDialog'
 import { FieldInput } from './FieldInput'
 import { RequestAccessButton } from './RequestAccessButton'
+import { requestForProject } from '../../lib/api/projectRequests'
+import type { ProjectRequest } from '../../lib/api/projectRequests'
+import { paths } from '../../lib/paths'
 import type { GeneralProjectState } from './useGeneralProject'
 
 export function OverviewTab({ state }: { state: GeneralProjectState }) {
   const [showInfo, setShowInfo] = useState(false)
   const p = state.project
+  const projectId = p?.id
+  const classBoardId = p?.class_board_id
+  const viewerId = state.viewerId
+  const [source, setSource] = useState<{ projectId: string; viewerId: string | undefined; request: ProjectRequest | null } | null>(null)
+  useEffect(() => {
+    if (!projectId || classBoardId) return
+    let active = true
+    void requestForProject(projectId)
+      .then((request) => { if (active) setSource({ projectId, viewerId, request }) })
+      .catch(() => { if (active) setSource({ projectId, viewerId, request: null }) })
+    return () => { active = false }
+  }, [projectId, classBoardId, viewerId])
   if (!p) return null
+  const sourceRequest = !classBoardId && source?.projectId === p.id && source.viewerId === viewerId ? source.request : null
 
   return (
     <>
@@ -47,6 +64,10 @@ export function OverviewTab({ state }: { state: GeneralProjectState }) {
             <dt className="text-[12px] text-faint">About</dt>
             <dd className="mt-0.5 line-clamp-2 text-ink">{p.description || 'No description yet.'}</dd>
           </div>
+          {sourceRequest && <div className="col-span-2">
+            <dt className="text-[12px] text-faint">Origin</dt>
+            <dd className="mt-0.5"><Link className="text-navy-600 hover:underline dark:text-navy-200" to={`${paths.spaceProjects(sourceRequest.space_id)}?request=${encodeURIComponent(sourceRequest.id)}`}>Source request</Link></dd>
+          </div>}
           {state.fields.slice(0, 2).map((field) => {
             const stored = state.values.find((value) => value.field_id === field.id)
             return (
