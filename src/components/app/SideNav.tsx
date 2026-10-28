@@ -416,7 +416,11 @@ function MoreRow({
         {({ isActive }) => (
           <>
             {isActive && <ActiveBar />}
-            <Icon name={icon} size={icon === 'arrowRight' ? 16 : 18} className="shrink-0" />
+            <Icon
+              name={icon}
+              size={icon === 'arrowRight' ? 16 : 18}
+              className={`shrink-0 ${icon === 'arrowRight' ? '' : isActive ? 'text-nav-active' : 'text-nav-icon'}`}
+            />
           </>
         )}
       </NavLink>
