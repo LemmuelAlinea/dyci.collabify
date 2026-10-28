@@ -50,6 +50,7 @@ const PATHS = {
   board: 'M3 3h18v18H3zM9 3v18M15 3v18',
   kanban: 'M6 5v10M12 5v14M18 5v7M3 3h18v18H3z',
   folder: 'M3 7a2 2 0 012-2h4l2 3h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z',
+  book: 'M12 5c-2-1.5-5-2-9-1v15c4-1 7-.5 9 1 2-1.5 5-2 9-1V4c-4-1-7-.5-9 1zM12 5v15',
   calendar: 'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4',
   clock: 'M12 22a10 10 0 100-20 10 10 0 000 20zM12 6v6l4 2',
   chart: 'M3 21h18M7 21V11M12 21V4M17 21v-7',

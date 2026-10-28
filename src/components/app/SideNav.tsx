@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FocusEvent, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink, matchPath, useLocation } from 'react-router-dom'
@@ -116,9 +116,8 @@ export function SideNav({
    * back out.
    */
   function places({ picker = [], withClasses, hideWhenEmpty }: NavGroup): PlaceList[] {
-    // Uncapped on the full rail: the card shows the active one, wherever it
-    // sorts. The icon rail lists rows, so it keeps the usual three.
-    const cap = collapsed ? undefined : Infinity
+    // The collapsed rail only needs to know whether each kind has any rows.
+    const cap = collapsed ? 1 : Infinity
     const lists: PlaceList[] = picker.map((kind) =>
       kind === 'classes'
         ? { kind, rows: classRows(spaces, cap), more: { to: paths.classes, label: 'All classes' } }
@@ -193,24 +192,18 @@ export function SideNav({
             if (group.picker) {
               const lists = places(group)
               if (lists.length === 0) return null
-              // The icon rail has no room for the card: each kind's letters,
-              // then its All link, as before.
               if (collapsed) {
                 return (
                   <ul key={group.title} className="space-y-0.5">
                     {lists.map((list) => (
-                      <Fragment key={list.kind}>
-                        {list.rows.map((row) => (
-                          <LiveRowLink
-                            key={row.id}
-                            row={row}
-                            collapsed
-                            onNavigate={onNavigate}
-                            hintHandlers={hintHandlers}
-                          />
-                        ))}
-                        <MoreRow more={list.more} onNavigate={onNavigate} hintHandlers={hintHandlers} />
-                      </Fragment>
+                      <MoreRow
+                        key={list.kind}
+                        more={{ to: list.more.to, label: list.kind === 'classes' ? 'Classes' : 'Spaces' }}
+                        icon={list.kind === 'classes' ? 'book' : 'folder'}
+                        end={false}
+                        onNavigate={onNavigate}
+                        hintHandlers={hintHandlers}
+                      />
                     ))}
                   </ul>
                 )
@@ -396,29 +389,36 @@ function MoreLink({ more, onNavigate }: { more: { to: string; label: string }; o
   )
 }
 
-/** The link to every class, space or project, as a row — collapsed rail only. */
+/** A destination in the collapsed rail. */
 function MoreRow({
   more,
+  icon = 'arrowRight',
+  end = true,
   onNavigate,
   hintHandlers,
 }: {
   more: { to: string; label: string }
+  icon?: 'arrowRight' | 'book' | 'folder'
+  end?: boolean
   onNavigate?: () => void
   hintHandlers: (text: string) => Record<string, unknown>
 }) {
   return (
     <li>
-      {/* `end`, so the list page lights this row while a project or space
-          below it lights its own. */}
       <NavLink
         to={more.to}
-        end
+        end={end}
         onClick={onNavigate}
         aria-label={more.label}
         {...hintHandlers(more.label)}
         className={({ isActive }) => `${ROW} h-9 justify-center ${isActive ? ACTIVE : 'text-faint hover:bg-[var(--surface-sunken)] hover:text-ink'}`}
       >
-        <Icon name="arrowRight" size={16} className="shrink-0" />
+        {({ isActive }) => (
+          <>
+            {isActive && <ActiveBar />}
+            <Icon name={icon} size={icon === 'arrowRight' ? 16 : 18} className="shrink-0" />
+          </>
+        )}
       </NavLink>
     </li>
   )
