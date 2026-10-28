@@ -635,22 +635,22 @@ begin
          (v_e, v_s, 'stakeholder'), (v_d, v_m, 'stakeholder'), (v_g, v_s, 'stakeholder');
   -- v_g counts points: done weight 3 of total 4 is 75, where plain counting says 50.
   update public.general_projects set points_enabled = true where id = v_g;
-  insert into public.general_tasks (project_id, title, status, weight, created_by)
-  values (v_g, 'Zz big', 'done', 3, v_pm), (v_g, 'Zz small', 'todo', 1, v_pm);
+  insert into public.general_tasks (routing_state, project_id, title, status, weight, created_by)
+  values ('released', v_g, 'Zz big', 'done', 3, v_pm), ('released', v_g, 'Zz small', 'todo', 1, v_pm);
   -- v_a: two tasks of four done is 50, one reached and two open milestones
   -- (the nearest one past today is the next one), one archived task not counted.
-  insert into public.general_tasks (project_id, title, status, created_by)
-  values (v_a, 'Zz t1', 'done', v_pm), (v_a, 'Zz t2', 'done', v_pm),
-         (v_a, 'Zz t3', 'todo', v_pm), (v_a, 'Zz t4', 'in_progress', v_pm);
-  insert into public.general_tasks (project_id, title, status, created_by, archived_at)
-  values (v_a, 'Zz gone', 'todo', v_pm, now());
+  insert into public.general_tasks (routing_state, project_id, title, status, created_by)
+  values ('released', v_a, 'Zz t1', 'done', v_pm), ('released', v_a, 'Zz t2', 'done', v_pm),
+         ('released', v_a, 'Zz t3', 'todo', v_pm), ('released', v_a, 'Zz t4', 'in_progress', v_pm);
+  insert into public.general_tasks (routing_state, project_id, title, status, created_by, archived_at)
+  values ('released', v_a, 'Zz gone', 'todo', v_pm, now());
   insert into public.general_milestones (project_id, name, due_on, reached_at)
   values (v_a, 'Zz reached', current_date - 5, now()),
          (v_a, 'Zz overdue', current_date - 2, null),
          (v_a, 'Zz later', current_date + 20, null),
          (v_a, 'Zz next', current_date + 3, null);
-  insert into public.general_tasks (project_id, title, status, created_by)
-  values (v_b, 'Zz t', 'done', v_pm);
+  insert into public.general_tasks (routing_state, project_id, title, status, created_by)
+  values ('released', v_b, 'Zz t', 'done', v_pm);
   update public.general_projects set archived_at = now() where id = v_b;
 
   perform pg_temp.act_as(v_s);

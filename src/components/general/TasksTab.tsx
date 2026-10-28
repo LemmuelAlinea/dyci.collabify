@@ -73,7 +73,8 @@ export function TasksTab({
 
   const project = state.project
   const stages = stagesOf(project?.stages)
-  const scoped = useMemo(() => applyScope(state.tasks.filter(t => state.project?.class_board_id || (t.routing_state ?? 'released') === 'released'), scope, state.sprints), [state.tasks, state.project?.class_board_id, scope, state.sprints])
+  const released = useMemo(() => state.tasks.filter(t => project?.class_board_id || (t.routing_state ?? 'released') === 'released'), [state.tasks, project?.class_board_id])
+  const scoped = useMemo(() => applyScope(released, scope, state.sprints), [released, scope, state.sprints])
   const ownUnsentBugs = state.myRole === 'qa' && !project?.class_board_id && state.viewerId
     ? state.tasks.filter(t => t.created_by === state.viewerId && t.kind === 'bug' && t.routing_state && t.routing_state !== 'released')
     : []
@@ -147,7 +148,7 @@ export function TasksTab({
         </ul>
       </section>}
       {!project.class_board_id && <h3 className="text-[14px] font-semibold text-ink">Released work</h3>}
-      {state.tasks.length > 0 && (
+      {released.length > 0 && (
         <>
           {state.sprints.length > 0 && (
             <ScopePicker value={scope} options={scopeOptions(state.sprints)} onChange={onScope} />
@@ -359,7 +360,7 @@ export function TasksTab({
           events={[
             ...taskCalendarEvents(shown, (t) => state.teams.find((x) => x.id === t.team_id)?.name ?? ''),
             ...sprintCalendarEvents(state.sprints),
-            ...milestoneCalendarEvents(state.milestones, reachedIn(state.tasks)),
+            ...milestoneCalendarEvents(state.milestones, reachedIn(released)),
           ]}
           onOpen={showTask}
         />

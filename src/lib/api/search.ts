@@ -89,6 +89,7 @@ async function workTasks(like: string): Promise<SearchHit[]> {
   const { data, error } = await supabase
     .from('general_tasks')
     .select('id, title, project_id, general_projects(name, class_board_id, archived_at, trashed_at)')
+    .eq('routing_state', 'released')
     .ilike('title', like)
     .is('archived_at', null)
     .is('trashed_at', null)
@@ -189,7 +190,8 @@ async function taskFiles(like: string): Promise<SearchHit[]> {
       .limit(LIMIT),
     supabase
       .from('general_task_files')
-      .select('id, file_name, task_id, project_id, general_tasks(title, archived_at, trashed_at, general_projects(name, archived_at, trashed_at))')
+      .select('id, file_name, task_id, project_id, general_tasks!inner(title, archived_at, trashed_at, general_projects(name, archived_at, trashed_at))')
+      .eq('general_tasks.routing_state', 'released')
       .ilike('file_name', like)
       .is('archived_at', null)
       .is('trashed_at', null)

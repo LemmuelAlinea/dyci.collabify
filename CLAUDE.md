@@ -120,10 +120,27 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `has_qa` is true. QA creates bug tasks only
   (`kind = 'bug'`, never changes a kind) and cannot hold tasks. Home's "Waiting for QA" tile
   reads `my_qa_queue()`.
-- Assign by position uses `general_member_skills` and `general_assign_context` from
-  `member-skills.sql` (after the seven-file chain). The edge function matches a
-  position or skill; `supabase/functions/_shared/assignPick.ts` picks the member.
-  The Tasks review and Tasks from notes save through the existing task APIs.
+- Project skill tags live in `general_member_skills`, from `member-skills.sql`
+  (after the seven-file chain). The Edge Function matches positions and skills;
+  `supabase/functions/_shared/assignPick.ts` selects teams or receiving-team people.
+  Suggestions stay drafts until the Tasks review confirms them. From notes creates
+  planning tasks and never releases or assigns them.
+- `work-task-handoff.sql` is the final task owner, after `project-requests.sql`
+  and the complete company-role/member-skills chain, then `anon-lockdown.sql`.
+  Existing tasks remain released; every authenticated new work task starts in
+  private planning, including direct inserts claiming `released`. PM/coordinators
+  create regular tasks; QA creates private bugs and can read their own unsent bugs.
+  Class-board tasks keep their existing behavior. Send/review/return/reroute use
+  the atomic handoff RPCs, never direct routing edits. Teams need an active lead
+  to receive work; leads assign only receiving-team members. Reroutes require a
+  reason and confirmation, clear old holders, and preserve task work/history.
+  QA/Done work must reopen first. The task history names every transition.
+  Summaries, counts, search, calendars, notifications and related task tables
+  honor the release boundary. Planner queues retain private task rows; do not
+  count those rows as released progress. Assign by position uses
+  `general_route_context` for planning teams and `general_lead_assign_context`
+  for incoming team members; old unrestricted Edge Function modes are refused.
+  Deploy the reviewed frontend, SQL and `work-ai` together after the owner role walk.
 
 ## Security invariants
 

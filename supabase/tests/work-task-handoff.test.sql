@@ -18,8 +18,8 @@ end $$;
 select pg_temp.check('routing migration exists', exists (
   select 1 from information_schema.columns where table_schema = 'public'
     and table_name = 'general_tasks' and column_name = 'routing_state'));
-select pg_temp.check('migration preserves existing task visibility', not exists (
-  select 1 from public.general_tasks where routing_state <> 'released'));
+select pg_temp.check('routing state is required', not exists (
+  select 1 from public.general_tasks where routing_state is null));
 
 do $$
 declare
@@ -39,10 +39,16 @@ begin
   perform pg_temp.act_as(ids[1]);
   p := (public.create_general_project('Zz routing privacy','')).id;
   select space_id into space from public.general_projects where id=p;
-  insert into public.general_tasks(project_id,title) values(p,'Zz released') returning id into released;
-  perform pg_temp.check('new-task default stays released until activation',
-    (select routing_state='released' from public.general_tasks where id=released));
+  insert into public.general_tasks(project_id,title) values(p,'Zz direct API plan') returning id into released;
+  perform pg_temp.check('direct API work insert defaults to private planning',
+    (select routing_state='planning' from public.general_tasks where id=released));
+  delete from public.general_tasks where id=released;
+  insert into public.general_tasks(project_id,title,routing_state) values(p,'Zz attempted direct release','released') returning id into released;
+  perform pg_temp.check('direct API cannot bypass handoff with released payload',
+    (select routing_state='planning' from public.general_tasks where id=released));
+  delete from public.general_tasks where id=released;
   perform pg_temp.service();
+  insert into public.general_tasks(project_id,title,routing_state,created_by) values(p,'Zz released','released',ids[1]) returning id into released;
   for k in 2..7 loop
     insert into public.general_members(project_id,user_id,role) values(p,ids[k],roles[k]::public.general_role);
   end loop;
@@ -165,6 +171,8 @@ begin
   perform pg_temp.act_as(ids[3]);
   files_project := public.ensure_class_board_repo(board);
   insert into public.general_tasks(project_id,title,routing_state) values(files_project,'Zz class planning','planning') returning id into class_task;
+  perform pg_temp.check('class-board inserts stay released',
+    (select routing_state='released' from public.general_tasks where id=class_task));
   insert into public.general_task_assignees(project_id,task_id,user_id) values(files_project,class_task,ids[3]);
   perform pg_temp.check('class-board member still claims a task',exists(
     select 1 from public.general_task_assignees where task_id=class_task and user_id=ids[3]));
@@ -390,6 +398,8 @@ begin
   perform pg_temp.check('QA creates private bug',exists(select 1 from public.general_tasks where project_id=p and kind='bug'));
   perform pg_temp.act_as(u[1]);
   insert into public.general_tasks(project_id,title,team_id) values(p,'Zz released assignment',team) returning id into task;
+  perform public.send_work_tasks_to_teams(p,jsonb_build_array(jsonb_build_object('id',task,'team_id',team,
+    'updated_at',(select updated_at from public.general_tasks where id=task))));
   for k in 1..2 loop
     perform pg_temp.act_as(u[k]);
     perform pg_temp.check('planner context includes private tasks '||k,

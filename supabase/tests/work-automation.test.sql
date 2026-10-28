@@ -84,10 +84,10 @@ begin
    where user_id = v_a and project_id = v_proj;
 
   -- Meanwhile B finishes a task, gives A one, and comments on it.
-  insert into public.general_tasks (project_id, title, created_by, status, completed_at)
-  values (v_proj, 'zz finished by b', v_b, 'done', now()) returning id into v_done;
-  insert into public.general_tasks (project_id, title, created_by)
-  values (v_proj, 'zz for a', v_b) returning id into v_mine;
+  insert into public.general_tasks (routing_state, project_id, title, created_by, status, completed_at)
+  values ('released', v_proj, 'zz finished by b', v_b, 'done', now()) returning id into v_done;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', v_proj, 'zz for a', v_b) returning id into v_mine;
   insert into public.general_task_assignees (task_id, project_id, user_id, assigned_by)
   values (v_mine, v_proj, v_a, v_b);
   insert into public.general_task_comments (task_id, project_id, author_id, body)

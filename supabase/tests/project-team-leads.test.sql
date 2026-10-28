@@ -161,6 +161,10 @@ begin
   insert into public.general_tasks (project_id, title, team_id) values (v_p, 'Zz unheld', v_a) returning id into v_free;
   insert into public.general_tasks (project_id, title, team_id) values (v_p, 'Zz unheld two', v_a) returning id into v_free2;
   insert into public.general_tasks (project_id, title) values (v_p, 'Zz held by U and V') returning id into v_tuv;
+  -- Preserve the existing released-work fixture; creation defaults are tested separately.
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state='released' where id in(v_tu,v_tv,v_free,v_free2,v_tuv);
+  perform pg_temp.act_as(v_pm);
   insert into public.general_task_assignees (task_id, project_id, user_id) values
     (v_tu, v_p, v_u), (v_tv, v_p, v_v), (v_tuv, v_p, v_u), (v_tuv, v_p, v_v);
   perform pg_temp.act_as_service();

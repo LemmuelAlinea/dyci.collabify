@@ -20,13 +20,13 @@ import {
 } from '../../lib/api/sprints'
 import type { SprintHome } from '../../lib/api/sprints'
 import { createTask } from '../../lib/api/general'
-import { canStepRank } from '../../lib/general/permissions'
+import { canCreateWorkTask, canStepRank } from '../../lib/general/permissions'
 import type { MilestoneSource, WorkItem, WorkSource } from '../../lib/work/types'
 import type { GeneralProjectState } from './useGeneralProject'
 
 /** A work project's tasks as the shared Work views read them. */
 export function generalWorkItems(state: GeneralProjectState): WorkItem[] {
-  return state.tasks.map((t) => ({
+  return state.tasks.filter(t => state.project?.class_board_id || (t.routing_state ?? 'released') === 'released').map((t) => ({
     id: t.id,
     title: t.title,
     status: t.status,
@@ -64,7 +64,7 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     canPlan,
     // A team leader reorders the tasks people they lead hold; sprint moves stay with planners.
     canStepItem: (item) => live && canStepRank(canPlan, item.holderIds, state.leadsUser),
-    canAdd: live,
+    canAdd: live && (Boolean(project?.class_board_id) || canCreateWorkTask(state.myRole, state.myRole === 'qa' ? 'bug' : 'task')),
     readOnlyReason: state.archived
       ? 'This project is archived, so nothing in it can change.'
       : state.readOnly
@@ -72,8 +72,8 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
         : canPlan
           ? ''
           : state.teams.some((t) => t.leader_id === state.viewerId)
-            ? 'Owners and Managers plan the sprints. You can follow the plan, add tasks to the backlog, and reorder the tasks the people you lead hold.'
-            : 'Owners and Managers plan the sprints. You can follow the plan and add tasks to the backlog.',
+            ? 'Planners manage sprints. You can follow the released work and reorder the tasks the people you lead hold.'
+            : 'Planners manage sprints. You can follow the released work.',
     teams:
       project && state.teams.length > 0
         ? { projectId: project.id, viewerId: state.viewerId, teams: state.teams, members: state.teamMembers }

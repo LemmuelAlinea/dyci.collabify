@@ -1,5 +1,5 @@
 -- Final task routing owner; run after project-requests.sql, then anon-lockdown.sql.
--- Default remains released until the planner and lead UI is activated.
+-- Backfill existing tasks as released; new work starts in private planning.
 begin;
 alter type public.notification_type add value if not exists 'work_task_handoff';
 commit;
@@ -8,6 +8,7 @@ alter table public.general_tasks
   add column if not exists routing_state text not null default 'released',
   add column if not exists reviewer_id uuid references public.profiles(id) on delete set null,
   add column if not exists sent_at timestamptz;
+alter table public.general_tasks alter column routing_state set default 'planning';
 alter table public.general_tasks drop constraint if exists general_tasks_routing_state;
 alter table public.general_tasks add constraint general_tasks_routing_state
   check (routing_state in ('planning', 'coordinator_review', 'released'));
@@ -1306,6 +1307,13 @@ declare
   -- QA passing a task or moving it back a stage, and changing nothing else.
   v_qa_move boolean := false;
 begin
+  if tg_op = 'INSERT' then
+    if exists(select 1 from public.general_projects where id=new.project_id and class_board_id is not null) then
+      new.routing_state := 'released';
+    elsif auth.uid() is not null then
+      new.routing_state := 'planning';
+    end if;
+  end if;
   if auth.uid() is null then
     if tg_op = 'INSERT' then
       new.completed_at := case when new.status = 'done' then now() end;

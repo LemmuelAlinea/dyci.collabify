@@ -15,10 +15,11 @@ import { ProgressBar } from '../work/MilestoneBits'
 import { MilestoneChart } from '../work/MilestoneChart'
 import type { GeneralProjectState } from './useGeneralProject'
 
-export function ProgressTab({ state }: { state: GeneralProjectState }) {
+export function ProgressTab({ state: sourceState }: { state: GeneralProjectState }) {
   const [params, setParams] = useSearchParams()
   const now = useNow()
   const [basis, setBasis] = useState<TeamBasis>('team_tasks')
+  const state = { ...sourceState, tasks: sourceState.tasks.filter(t => sourceState.project?.class_board_id || (t.routing_state ?? 'released') === 'released') }
   const options = [
     ...state.teams.map(team => ({ value: `team:${team.id}`, label: `Team: ${team.name}`, tasks: teamTasks(state.tasks, team.id, state.teamMembers.filter(tm => tm.team_id === team.id).map(tm => tm.user_id), basis) })),
     ...state.members.map(member => ({ value: `member:${member.user_id}`, label: `Member: ${member.profile ? fullName(member.profile) : 'Unknown member'}`, tasks: memberTasks(state.tasks, member.user_id) })),

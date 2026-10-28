@@ -398,6 +398,10 @@ begin
   values (v_p, 'Zz free in progress', 'in_progress', 1) returning id into v_prog;
   insert into public.general_tasks (project_id, title, kind) values (v_p, 'Zz free bug', 'bug')
   returning id into v_bug;
+  -- Existing released fixtures carry workload; unassigned tasks remain private plans.
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state='released' where id in(v_open,v_done,v_arch);
+  perform pg_temp.act_as(v_pm);
   insert into public.general_task_assignees (task_id, project_id, user_id)
   values (v_open, v_p, v_m), (v_done, v_p, v_m), (v_arch, v_p, v_m);
   perform public.archive_general_task(v_arch, true);
@@ -442,8 +446,8 @@ begin
   perform pg_temp.must_be('a coordinator reads the context too',
     jsonb_array_length(public.general_assign_context(v_p)->'candidates') = 6);
   perform pg_temp.act_as(v_m2);
-  perform pg_temp.must_be('...and so does a member granted manage_tasks',
-    jsonb_array_length(public.general_assign_context(v_p)->'tasks') = 2);
+  perform pg_temp.must_be('a member granted manage_tasks cannot read private planning tasks',
+    jsonb_array_length(public.general_assign_context(v_p)->'tasks') = 0);
 
   perform pg_temp.act_as(v_m);
   perform pg_temp.must_refuse_with('a plain member cannot read the context',
@@ -475,6 +479,9 @@ begin
   insert into public.general_tasks (project_id, title, created_at)
   values (v_p2, 'Zz busy newest', now()) returning id into v_new;
   -- One assigned and one done do not count.
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state='released' where project_id=v_p2 and title='Zz busy 1';
+  perform pg_temp.act_as(v_pm);
   insert into public.general_task_assignees (task_id, project_id, user_id)
   select id, v_p2, v_m from public.general_tasks where project_id = v_p2 and title = 'Zz busy 1';
   insert into public.general_tasks (project_id, title, status) values (v_p2, 'Zz busy done', 'done');

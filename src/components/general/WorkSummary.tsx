@@ -24,7 +24,7 @@ const DAY = 86_400_000
  * the old Progress tab; the timeline went to Tasks › Timeline.
  */
 export function WorkSummary({
-  state,
+  state: sourceState,
   onOpenTask,
   onSection,
 }: {
@@ -32,8 +32,9 @@ export function WorkSummary({
   onOpenTask: (id: string) => void
   onSection: (s: WorkSection) => void
 }) {
-  const project = state.project
+  const project = sourceState.project
   if (!project) return null
+  const state = { ...sourceState, tasks: sourceState.tasks.filter(t => project.class_board_id || (t.routing_state ?? 'released') === 'released') }
   const progress = projectProgress(state.tasks)
   const me = state.viewerId
   const mine = new Set(me ? state.tasks.filter((t) => t.assignee_ids.includes(me)).map((t) => t.id) : [])

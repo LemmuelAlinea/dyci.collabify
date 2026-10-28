@@ -81,13 +81,13 @@ begin
          (proj.space_id, member_id, 'member'), (proj.space_id, pmgr_id, 'member')
   on conflict do nothing;
 
-  insert into public.general_tasks (project_id, title, created_by, status, completed_at, due_at)
-  values (proj.id, 'Member task', member_id, 'done', now() - interval '1 day', now() - interval '2 days')
+  insert into public.general_tasks (routing_state, project_id, title, created_by, status, completed_at, due_at)
+  values ('released', proj.id, 'Member task', member_id, 'done', now() - interval '1 day', now() - interval '2 days')
   returning id into t_mine;
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Owner task', owner_id) returning id into t_owner;
-  insert into public.general_tasks (project_id, title, created_by)
-  values (proj.id, 'Archived task', owner_id) returning id into t_arch;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Owner task', owner_id) returning id into t_owner;
+  insert into public.general_tasks (routing_state, project_id, title, created_by)
+  values ('released', proj.id, 'Archived task', owner_id) returning id into t_arch;
   insert into public.general_task_assignees (task_id, project_id, user_id)
   values (t_mine, proj.id, member_id), (t_owner, proj.id, owner_id);
   insert into public.general_task_logs (task_id, project_id, user_id, minutes, note, logged_on)

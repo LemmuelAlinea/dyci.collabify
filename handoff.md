@@ -3893,3 +3893,34 @@ Both start with "zz test".
 - `overwrite_bulk_account` updates the existing profile's names and student/member role in one transaction through `set_account_role`. Auth identity, password, status, and setup state stay intact; member-to-student changes still clear the two access switches, and ownership guards still apply. The Edge Function accepts overwrite only from an active admin and validates the row again.
 - Applied `company-accounts.sql`, then `anon-lockdown.sql`; deployed `bulk-register-users`. The bulk, company-accounts, and anon-lockdown SQL rollback suites pass, as do 1,236 Vitest tests, ESLint, and build. The owner-signed-in localhost preview showed both previously imported users by name and email, with separate overwrite checkboxes; selection and confirmation counts changed correctly. No account was overwritten during this check.
 - Next: verify the frontend deployment from `main`, then have the owner retry the same CSV and decide which accounts to overwrite.
+
+## Work project task handoffs: activation (2026-10-28)
+
+- Task 7 activates the approved work-project handoff plan locally. Existing tasks
+  and holders remain released. New authenticated work tasks start in planning,
+  including API payloads that claim released. Class-board behavior stays unchanged.
+- PM/coordinators create and review private plans; QA can report and read their own
+  unsent bugs. Teams receive work only through the atomic Send to team action.
+  Leads assign incoming work within their team. Return and reroute require reasons;
+  reroutes clear old holders, retain work history and require reopening QA/Done first.
+- Home, Space overview, My tasks, calendars, search, project/QA summaries,
+  sprint/milestone progress, forecasts, pressure panels, task children, files and
+  notifications honor released work. Planner queues retain private rows. History
+  says “sent it to a coordinator”, “sent it to a team”, “returned it to planning”
+  and “rerouted it to another team”, with reasons and destination metadata.
+- SQL order: the complete company-role chain, `member-skills.sql`,
+  `project-files-access.sql`, `sprint-archive.sql`, `project-requests.sql`,
+  `work-task-handoff.sql`, then `anon-lockdown.sql`. The final task file owns the
+  insert/assignment/handoff guards and restrictive reads. Reapply its suffix after
+  earlier owners. `docs/07-backup.md` has the full restore commands.
+- No push, merge, frontend deployment or `work-ai` deployment in this task. The
+  controller owns independent review and integration. Owner browser role walk
+  remains required for PM, coordinator, lead, member, QA and stakeholder on desktop,
+  tablet and phone. The owner signs in themselves. Deploy the complete reviewed
+  frontend/SQL/Edge Function together after verification.
+- Checked locally: 1,290 Vitest tests, build, changed-file ESLint, 280 handoff SQL
+  assertions and final anon-lockdown pass. Two migration reruns preserve all 111
+  existing tasks and their holders. All 90 SQL suites ran: 75 clean, 15 failures
+  reproduced against the pre-activation task chain. The initial eight baseline
+  failures remain; seven more older suites conflict with the creation/assignment
+  rules from Tasks 3–6. These need separate reconciliation before Plan Exit.

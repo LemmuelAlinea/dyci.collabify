@@ -514,8 +514,12 @@ keep their group-leader and grant rules. Re-run it after `general.sql`,
 `general-repo.sql` or `project-roles.sql`, then `anon-lockdown.sql`.
 
 `work-task-handoff.sql` runs after `project-requests.sql` and all earlier task owners,
-then `anon-lockdown.sql`. It adds routing metadata with a safe `released` default,
-retains all existing task assignments, and owns the restrictive task/child/notification read policies,
+then `anon-lockdown.sql`. Adding routing metadata backfills existing tasks as
+`released` without changing their holders. The final column default is `planning`;
+the insert guard forces authenticated work inserts into planning even if an old
+client sends `released`, and keeps class-board inserts released. Trusted service
+imports may explicitly preserve released history. Re-running does not rewrite
+existing routing states or assignments. It owns the restrictive task/child/notification read policies,
 `general_task_readable`, `general_task_child_readable`, `general_task_released`,
 `general_task_hidden`, `general_report_task_ok`, `general_user_sees_task`, the task
 project/held/archived/assignee/file-hidden helpers, `general_assign_context`,
@@ -526,8 +530,21 @@ and both task and project overview views. Re-run it after any earlier file that
 redefines those objects, including the company-role chain and `member-skills.sql`.
 The shared task/report/storage/notification helpers protect their existing callers;
 project, report, catch-up and QA summaries count released work only for every role.
-Class-board reads retain their existing behavior. Client summary reducers are updated
-with the final handoff UI activation; planners can still read private task rows.
+Class-board reads retain their existing behavior. Home, Space overview, My tasks,
+Calendar, search, project progress, forecasts, sprint/milestone progress and QA queues
+read released work only. Private plans remain readable in planner queues and by
+their QA bug creator. Generic task notifications require released work; handoff
+notifications reach only the selected next actor.
+
+The final rerun tail is `company-accounts.sql`, `project-roles.sql`,
+`project-visibility.sql`, `project-team-leads.sql`, `project-stakeholders.sql`,
+`project-feedback.sql`, `project-qa.sql`, `member-skills.sql`,
+`project-files-access.sql`, `sprint-archive.sql`, `project-requests.sql`,
+`work-task-handoff.sql`, then `anon-lockdown.sql`. Re-run the applicable suffix
+after any superseded owner. Activate the complete reviewed frontend and `work-ai`
+function together; the function accepts only reviewed `route` or `lead` assignment
+modes. Do not deploy earlier tasks independently. Task activity names coordinator
+review, team send, return to planning and reroute, with the reason and destinations.
 
 `anon-lockdown.sql` runs last and takes EXECUTE on every public function away
 from the signed-out role, keeping signed-in access as it was. Re-run it after

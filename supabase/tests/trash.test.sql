@@ -115,6 +115,9 @@ begin
 
   ------------------------------------------------------------------ task files
   insert into public.general_tasks (project_id, title) values (proj.id, 'Trash task') returning id into t_id;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state='released' where id=t_id;
+  perform pg_temp.act_as(owner_id);
   insert into public.general_task_files (task_id, project_id, file_path, file_name, mime_type, size_bytes)
   values (t_id, proj.id, proj.id || '/' || t_id || '/a.pdf', 'a.pdf', 'application/pdf', 10)
   returning id into file_a;

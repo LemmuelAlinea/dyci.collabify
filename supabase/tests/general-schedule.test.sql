@@ -151,6 +151,12 @@ begin
   values (proj.id, team, 'Owned by someone else', owner_id, ts, ts + interval '10 days')
   returning id into t;
 
+  -- This cascade test starts from existing released work.
+  perform set_config('role', 'none', true);
+  perform set_config('request.jwt.claims', '', true);
+  update public.general_tasks set routing_state='released' where id=t;
+  perform pg_temp.act_as(owner_id);
+
   select id into inv from public.invite_to_general_project(proj.id, structurer_id);
   perform pg_temp.act_as(structurer_id);
   perform public.respond_general_invitation(inv, true);
