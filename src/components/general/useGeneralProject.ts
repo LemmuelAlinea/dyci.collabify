@@ -225,6 +225,7 @@ export function useGeneralProject(
     'general_field_values',
     'general_tasks',
     'general_task_assignees',
+    'general_task_events',
     'general_sprints',
     'general_milestones',
     // A class board's Commit to Main follows its group's leader.

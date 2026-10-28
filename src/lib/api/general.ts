@@ -877,6 +877,23 @@ export async function listTasks(projectId: string) {
   return (data ?? []) as GeneralTask[]
 }
 
+export async function sendTasksToCoordinator(projectId: string, rows: { id: string; updated_at: string }[], coordinatorId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('send_work_tasks_to_coordinator', { p_project: projectId, p_rows: rows, p_coordinator: coordinatorId })
+  if (error) throw error
+  return data as number
+}
+
+export async function sendTasksToTeams(projectId: string, rows: { id: string; team_id: string; updated_at: string }[], reason?: string): Promise<number> {
+  const { data, error } = await supabase.rpc('send_work_tasks_to_teams', { p_project: projectId, p_rows: rows, p_reason: reason?.trim() || null })
+  if (error) throw error
+  return data as number
+}
+
+export async function returnWorkTask(taskId: string, reason: string): Promise<void> {
+  const { error } = await supabase.rpc('return_work_task', { p_task: taskId, p_reason: reason.trim() })
+  if (error) throw error
+}
+
 /** Every open task across a space's live projects, for its dashboard. */
 export async function listSpaceOpenTasks(projectIds: string[]) {
   if (projectIds.length === 0) return []

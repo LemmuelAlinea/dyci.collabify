@@ -136,7 +136,8 @@ function TaskBody({
   const viewer: TaskViewer = { viewerId: me, manageTasks: canManage, archived: readOnly, leadsUser: state.leadsUser }
   // A team leader edits, assigns and unassigns for the people they lead.
   const canEdit = canEditTask(viewer, task)
-  const assignable = assignableTo(
+  const unsent = !state.project.class_board_id && (task.routing_state ?? 'released') !== 'released'
+  const assignable = unsent ? [] : assignableTo(
     viewer,
     task,
     state.members.filter((m) => m.profile?.status !== 'rejected').map((m) => m.user_id),
@@ -173,6 +174,12 @@ function TaskBody({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      {!state.project.class_board_id && <div className="surface-sunken space-y-1 rounded-xl p-3 text-[13px] lg:col-span-2">
+        <p className="font-medium text-ink">{task.routing_state === 'planning' ? 'Planning' : task.routing_state === 'coordinator_review' ? 'Coordinator review' : 'Released to team'}</p>
+        {task.reviewer_id && <p className="text-muted">Reviewer: {state.nameOf(task.reviewer_id)}</p>}
+        {events.filter(e => e.kind === 'returned').slice(0, 1).map(e => <p key={e.id} className="text-muted">Return reason: {e.detail.reason}</p>)}
+      </div>}
+
       {canDelete && (
         <div className="flex justify-end lg:col-span-2">
           <Button variant="outline" size="sm" onClick={() => setDeleting(true)}>
@@ -256,7 +263,7 @@ function TaskBody({
             ))}
             {task.assignee_ids.length === 0 && <li className="text-[13px] text-faint">Nobody holds this yet.</li>}
           </ul>
-          {(canManage ? !readOnly : assignable.length > 0) && (
+          {!unsent && (canManage ? !readOnly : assignable.length > 0) && (
             <div className="mt-2 max-w-[16rem]">
               <Select
                 aria-label="Assign someone"
@@ -271,7 +278,7 @@ function TaskBody({
               />
             </div>
           )}
-          {!readOnly && !canManage && task.assignee_ids.length === 0 && me && state.myRole !== 'qa' && (
+          {!unsent && !readOnly && !canManage && task.assignee_ids.length === 0 && me && state.myRole !== 'qa' && (
             <Button
               size="sm"
               className="mt-2"
@@ -395,6 +402,11 @@ function TaskBody({
             {events.map((e) => (
               <li key={e.id} className="text-[12px] text-muted">
                 {describeEvent(e, state.nameOf)}
+                {(['sent_to_coordinator', 'sent_to_team', 'rerouted', 'returned'].includes(e.kind)) && (() => {
+                  const detail = e.detail as typeof e.detail & { old_team_id?: string | null; new_team_id?: string | null; former_holder_ids?: string[]; reviewer_id?: string | null }
+                  const teamName = (id: string | null | undefined) => state.teams.find(t => t.id === id)?.name ?? (id ? 'Former team' : 'No team')
+                  return <span className="mt-1 block text-[12px] text-faint">{teamName(detail.old_team_id)} to {teamName(detail.new_team_id)}{detail.reviewer_id ? ` · Reviewer: ${state.nameOf(detail.reviewer_id)}` : ''}{detail.former_holder_ids?.length ? ` · Former holders: ${detail.former_holder_ids.map(state.nameOf).join(', ')}` : ''}</span>
+                })()}
                 <span className="ml-1.5 text-faint">{formatDue(e.created_at)}</span>
               </li>
             ))}
@@ -560,11 +572,12 @@ function TaskDetails({
         <Field label="Due" optional>
           {(id) => <Input id={id} type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />}
         </Field>
-        <Field label="Team" optional>
+        <Field label="Team" optional hint={!state.project?.class_board_id && (task.routing_state ?? 'released') === 'released' ? 'Use Reroute released work in Tasks to change teams.' : undefined}>
           {(id) => (
             <Select
               id={id}
               value={team}
+              disabled={!state.project?.class_board_id && (task.routing_state ?? 'released') === 'released'}
               onChange={(e) => setTeam(e.target.value)}
               placeholder="Whole project"
               options={state.teams.map((t) => ({ value: t.id, label: t.name }))}

@@ -6,7 +6,7 @@ export default defineConfig({
     // arithmetic over rows. Nothing touches the DOM, and adding a fake one
     // would only slow the run and invite tests that lean on it.
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
     coverage: { include: ['src/lib/**/*.ts'], exclude: ['src/lib/**/*.test.ts'] },
   },
 })

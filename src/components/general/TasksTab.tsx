@@ -5,6 +5,7 @@ import { StageBadge, StageSelect } from '../tasks/StageSelect'
 import { TaskViewSwitch } from '../tasks/TaskViewSwitch'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
+import { TaskRoutingPanel } from './TaskRoutingPanel'
 import { TasksFromNotes } from './TasksFromNotes'
 import { AssignByPosition } from './AssignByPosition'
 import { EmptyState } from '../ui/EmptyState'
@@ -74,7 +75,7 @@ export function TasksTab({
 
   const project = state.project
   const stages = stagesOf(project?.stages)
-  const scoped = useMemo(() => applyScope(state.tasks, scope, state.sprints), [state.tasks, scope, state.sprints])
+  const scoped = useMemo(() => applyScope(state.tasks.filter(t => state.project?.class_board_id || (t.routing_state ?? 'released') === 'released'), scope, state.sprints), [state.tasks, state.project?.class_board_id, scope, state.sprints])
   const projectStages = state.project?.stages
   const teamLinks = state.teamMembers
   const shown = useMemo(() => {
@@ -137,6 +138,8 @@ export function TasksTab({
 
   return (
     <div className="space-y-4">
+      <TaskRoutingPanel key={project.id} state={state} onOpenTask={onOpenTask} />
+      {!project.class_board_id && <h3 className="text-[14px] font-semibold text-ink">Released work</h3>}
       {state.tasks.length > 0 && (
         <>
           {state.sprints.length > 0 && (
@@ -282,10 +285,10 @@ export function TasksTab({
       ) : scoped.length === 0 ? (
         <EmptyState
           icon="target"
-          title="No tasks here"
+          title={project.class_board_id ? 'No tasks here' : 'No released tasks here'}
           body={
             scope === 'backlog'
-              ? 'Every task is in a sprint.'
+              ? 'Every released task is in a sprint.'
               : state.sprints.find((s) => s.id === scopeSprintId(scope, state.sprints))?.state === 'completed'
                 ? 'Nothing was recorded in this sprint.'
                 : 'This sprint has no tasks yet. Move some in from Backlog.'
