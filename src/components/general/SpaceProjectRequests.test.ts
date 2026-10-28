@@ -26,6 +26,7 @@ vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 
 const request = { id: 'request', space_id: 'space', author_id: 'author', title: 'Customer portal', brief: 'Let customers see orders', desired_outcome: 'Fewer support tickets', target_date: '2026-12-01', status: 'open' as const, converted_project_id: null, created_at: '2026-10-28T00:00:00Z', updated_at: '2026-10-28T00:00:00Z' }
+function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done }); return { promise, resolve } }
 
 afterEach(() => { vi.clearAllMocks(); document.body.innerHTML = '' })
 
@@ -53,6 +54,54 @@ it('opens a request discussion and posts a message', async () => {
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(body, 'Can we include exports?'); body.dispatchEvent(new Event('input', { bubbles: true })) })
   await act(async () => [...document.querySelectorAll('button')].find((b) => b.textContent === 'Send message')!.click())
   expect(postProjectRequestMessage).toHaveBeenCalledWith('request', 'Can we include exports?')
+  await act(async () => root.unmount())
+})
+
+it('keeps messages and drafts attached to their request when switching during a send', async () => {
+  const second = { ...request, id: 'second', title: 'Mobile app' }
+  const firstMessages = [{ id: 'first-message', request_id: request.id, author_id: 'author', body: 'First discussion', created_at: request.created_at }]
+  const secondMessages = [{ ...firstMessages[0], id: 'second-message', request_id: second.id, body: 'Second discussion' }]
+  const pendingSend = deferred<string>()
+  vi.mocked(listProjectRequests).mockResolvedValue([request, second])
+  vi.mocked(listSpaceMembers).mockResolvedValue([])
+  vi.mocked(listProjectRequestMessages).mockImplementation(async (id) => id === request.id ? firstMessages : secondMessages)
+  vi.mocked(postProjectRequestMessage).mockReturnValue(pendingSend.promise)
+  const host = document.createElement('div'); document.body.append(host); const root = createRoot(host)
+  await act(async () => root.render(createElement(SpaceProjectRequests, { spaceId: 'space', onCreateProject: vi.fn() })))
+  await act(async () => [...document.querySelectorAll('button')].find((b) => b.textContent?.includes('Customer portal'))!.click())
+  expect(document.body.textContent).toContain('First discussion')
+  await act(async () => { const body = document.querySelector('textarea')!; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(body, 'Draft for first'); body.dispatchEvent(new Event('input', { bubbles: true })) })
+  await act(async () => [...document.querySelectorAll('button')].find((b) => b.textContent === 'Send message')!.click())
+  await act(async () => [...document.querySelectorAll('button')].find((b) => b.textContent?.includes('Mobile app'))!.click())
+  expect(document.body.textContent).toContain('Second discussion')
+  expect(document.body.textContent).not.toContain('First discussion')
+  expect((document.querySelector('textarea') as HTMLTextAreaElement).value).toBe('')
+  await act(async () => { const body = document.querySelector('textarea')!; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(body, 'Draft for second'); body.dispatchEvent(new Event('input', { bubbles: true })) })
+  await act(async () => pendingSend.resolve('sent'))
+  expect((document.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Draft for second')
+  expect(document.body.textContent).toContain('Second discussion')
+  expect(document.body.textContent).not.toContain('First discussion')
+  await act(async () => root.unmount())
+})
+
+it('hides the previous Space and ignores its late refresh', async () => {
+  const other = { ...request, id: 'other', space_id: 'other-space', title: 'Other Space request' }
+  const oldRefresh = deferred<typeof request[]>()
+  const newLoad = deferred<typeof request[]>()
+  vi.mocked(listProjectRequests).mockResolvedValueOnce([request]).mockReturnValueOnce(oldRefresh.promise).mockReturnValueOnce(newLoad.promise)
+  vi.mocked(listSpaceMembers).mockResolvedValue([])
+  const host = document.createElement('div'); document.body.append(host); const root = createRoot(host)
+  const props = { onCreateProject: vi.fn() }
+  await act(async () => root.render(createElement(SpaceProjectRequests, { ...props, spaceId: 'space' })))
+  expect(document.body.textContent).toContain('Customer portal')
+  await act(async () => [...document.querySelectorAll('button')].find((b) => b.textContent === 'Refresh')!.click())
+  await act(async () => root.render(createElement(SpaceProjectRequests, { ...props, spaceId: 'other-space' })))
+  expect(document.body.textContent).not.toContain('Customer portal')
+  await act(async () => newLoad.resolve([other]))
+  expect(document.body.textContent).toContain('Other Space request')
+  await act(async () => oldRefresh.resolve([request]))
+  expect(document.body.textContent).toContain('Other Space request')
+  expect(document.body.textContent).not.toContain('Customer portal')
   await act(async () => root.unmount())
 })
 
