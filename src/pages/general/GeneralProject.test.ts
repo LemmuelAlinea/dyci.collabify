@@ -14,8 +14,6 @@ vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ show: () => {} 
 vi.mock('../../components/app/DirectoryHero', () => ({ DirectoryHero: () => 'Project heading' }))
 vi.mock('../../components/general/SinceLastVisit', () => ({ SinceLastVisit: () => null }))
 vi.mock('../../components/general/SaveTemplateButton', () => ({ SaveTemplateButton: () => null }))
-vi.mock('../../components/general/OverviewTab', () => ({ OverviewTab: () => 'Project details' }))
-vi.mock('../../components/general/ProgressTab', () => ({ ProgressTab: () => 'Progress charts' }))
 vi.mock('../../components/general/WorkTab', () => ({ WorkTab: ({ area }: { area: string }) => `${area} work` }))
 vi.mock('../../components/general/DiscussionTab', () => ({ DiscussionTab: () => 'Discussion content' }))
 vi.mock('../../components/general/FeedbackTab', () => ({ FeedbackTab: () => 'Feedback content' }))
@@ -58,7 +56,7 @@ describe('project sections', () => {
   it('opens all six sections and their content', async () => {
     await renderAt('', async container => {
       const expected = [
-        ['Overview', 'Project details'], ['Plan', 'plan work'], ['Tasks', 'tasks work'],
+        ['Overview', 'overview work'], ['Plan', 'plan work'], ['Tasks', 'tasks work'],
         ['Conversations', 'Discussion content'], ['Files', 'Files content'], ['People', 'People content'],
       ]
       expect(container.querySelectorAll('[role="tablist"]')[0].querySelectorAll('[role="tab"]')).toHaveLength(6)
@@ -74,7 +72,7 @@ describe('project sections', () => {
 
   it('keeps old section links working', async () => {
     for (const [query, label, content] of [
-      ['tab=project-progress', 'Overview', 'Project details'],
+      ['tab=project-progress', 'Overview', 'overview work'],
       ['tab=work&work=backlog', 'Plan', 'plan work'],
       ['tab=work&work=sprints', 'Plan', 'plan work'],
       ['tab=tasks&work=sprints', 'Plan', 'plan work'],
@@ -86,7 +84,7 @@ describe('project sections', () => {
       await renderAt(query, container => {
         expect(selected(container)).toBe(label)
         expect(container.textContent).toContain(content)
-        if (query === 'tab=project-progress') expect(container.querySelector('details')?.open).toBe(true)
+        if (query === 'tab=project-progress') expect(container.textContent).not.toContain('Detailed progress')
       })
     }
   })

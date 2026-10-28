@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { useFocusMode } from '../../lib/focusMode'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { MembersTab } from '../../components/general/MembersTab'
-import { ProgressTab } from '../../components/general/ProgressTab'
 import { DiscussionTab } from '../../components/general/DiscussionTab'
 import { FeedbackTab } from '../../components/general/FeedbackTab'
 import { FilesTab } from '../../components/general/FilesTab'
@@ -208,13 +207,7 @@ export default function GeneralProject() {
         onChange={changeTab}
       />
 
-      {tab === 'overview' && <div className="space-y-6">
-        <WorkTab state={state} area="overview" />
-        {!p.class_board_id && <details open={params.get('tab') === 'project-progress' ? true : undefined} className="rounded-panel border border-line surface p-4 sm:p-5">
-          <summary className="cursor-pointer text-[14px] font-semibold">Detailed progress</summary>
-          <div className="mt-5"><ProgressTab state={state} /></div>
-        </details>}
-      </div>}
+      {tab === 'overview' && <WorkTab state={state} area="overview" />}
       {tab === 'plan' && <WorkTab state={state} area="plan" />}
       {tab === 'tasks' && <WorkTab state={state} area="tasks" />}
       {tab === 'conversations' && <div className="space-y-5">
