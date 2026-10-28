@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { WorkProjectCard } from '../../components/general/WorkProjectCard'
+import { NewProjectDialog } from '../../components/general/NewProjectDialog'
+import { SpaceProjectRequests } from '../../components/general/SpaceProjectRequests'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { FilterField, FilterPopover, FilterSearch } from '../../components/ui/FilterPopover'
 import { Spinner } from '../../components/ui/Icon'
 import { Select } from '../../components/ui/Select'
+import { Tabs } from '../../components/ui/Tabs'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { canManageProjects } from '../../lib/access'
 import { PROJECT_STATUSES, projectStatusLabel } from '../../lib/general/types'
 import type { GeneralStatus } from '../../lib/general/types'
+import type { ProjectRequest } from '../../lib/api/projectRequests'
 import { useSpaceOutlet } from './spaceOutlet'
 
 /** A space's Projects tab: every live project in it, searchable by name and status. */
@@ -20,6 +24,8 @@ export default function SpaceProjects() {
   const { all, canStart, openNewProject } = useSpaceOutlet()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<GeneralStatus | ''>('')
+  const [view, setView] = useState<'projects' | 'requests'>('projects')
+  const [request, setRequest] = useState<ProjectRequest | null>(null)
 
   useEffect(() => {
     document.title = space ? `Projects · ${space.name} · Collabify` : 'Projects · Collabify'
@@ -43,13 +49,15 @@ export default function SpaceProjects() {
 
   return (
     <div className="space-y-4">
+      <Tabs tabs={[{ id: 'projects', label: 'Projects' }, { id: 'requests', label: 'Requests' }]} active={view} onChange={setView} />
       {error && (
         <Alert tone="error" onRetry={() => void reload()}>
           {error}
         </Alert>
       )}
 
-      {all.length === 0 ? (
+      {view === 'requests' && space && <SpaceProjectRequests spaceId={space.id} onCreateProject={setRequest} />}
+      {view === 'projects' && (all.length === 0 ? (
         <EmptyState
           icon="kanban"
           title="No projects yet"
@@ -111,7 +119,8 @@ export default function SpaceProjects() {
             </div>
           )}
         </>
-      )}
+      ))}
+      {space && <NewProjectDialog open={request !== null} onClose={() => setRequest(null)} spaceId={space.id} request={request} />}
     </div>
   )
 }

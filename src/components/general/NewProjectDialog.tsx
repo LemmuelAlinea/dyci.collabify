@@ -21,6 +21,8 @@ import { presetById, presetPayload } from '../../lib/general/presets'
 import type { PresetAudience } from '../../lib/general/presets'
 import { PresetPicker } from './PresetPicker'
 import type { GeneralSpaceTeam } from '../../lib/general/types'
+import { createProjectFromRequest } from '../../lib/api/projectRequests'
+import type { ProjectRequest } from '../../lib/api/projectRequests'
 
 type TeamMode = 'none' | 'existing' | 'new'
 
@@ -34,11 +36,13 @@ export function NewProjectDialog({
   open,
   onClose,
   spaceId,
+  request,
 }: {
   open: boolean
   onClose: () => void
   /** The space it goes into. Left out, the database uses your own. */
   spaceId?: string | null
+  request?: ProjectRequest | null
 }) {
   const navigate = useNavigate()
   const [name, setName] = useState('')
@@ -55,6 +59,14 @@ export function NewProjectDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [templates, setTemplates] = useState<GeneralTemplate[]>([])
+
+  useEffect(() => {
+    if (!open || !request) return
+    setName(request.title)
+    setDescription(request.brief)
+    setStartsOn('')
+    setEndsOn(request.target_date ?? '')
+  }, [open, request])
 
   useEffect(() => {
     if (!open) return
@@ -111,22 +123,16 @@ export function NewProjectDialog({
         })
         chosenTeamId = team.id
       }
-      const project = await createGeneralProject({
-        name,
-        description,
-        startsOn: startsOn || null,
-        endsOn: endsOn || null,
+      const options = {
         preset: template ? template.source_preset : chosen && chosen.id !== 'blank' ? chosen.id : null,
-        content: template
-          ? template.payload
-          : chosen && chosen.id !== 'blank'
-            ? presetPayload(chosen)
-            : null,
-        spaceId,
+        content: template ? template.payload : chosen && chosen.id !== 'blank' ? presetPayload(chosen) : null,
         spaceTeamId: chosenTeamId,
-      })
+      }
+      const projectId = request
+        ? await createProjectFromRequest(request.id, options)
+        : (await createGeneralProject({ name, description, startsOn: startsOn || null, endsOn: endsOn || null, spaceId, ...options })).id
       onClose()
-      navigate(paths.project(project.id))
+      navigate(paths.project(projectId))
     } catch (err) {
       setError(authErrorMessage(err, 'Could not create the project.'))
     } finally {
@@ -138,8 +144,8 @@ export function NewProjectDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="New project"
-      description="You become its Owner. You can change all of this later."
+      title={request ? 'Create project from request' : 'New project'}
+      description={request ? 'The agreed brief carries into the project. You can edit it after creation.' : 'You become its Owner. You can change all of this later.'}
       focusField
       footer={
         <>
@@ -163,6 +169,7 @@ export function NewProjectDialog({
               placeholder="Intramurals 2026"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              readOnly={Boolean(request)}
             />
           )}
         </Field>
@@ -175,18 +182,19 @@ export function NewProjectDialog({
               placeholder="The goal, who it is for, and what done looks like."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              readOnly={Boolean(request)}
             />
           )}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Starts" optional>
+          {!request && <Field label="Starts" optional>
             {(id) => (
               <Input id={id} type="date" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} />
             )}
-          </Field>
+          </Field>}
           <Field label="Ends" optional>
             {(id) => (
-              <Input id={id} type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)} />
+              <Input id={id} type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)} readOnly={Boolean(request)} />
             )}
           </Field>
         </div>
