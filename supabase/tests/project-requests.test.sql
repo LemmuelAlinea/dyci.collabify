@@ -26,14 +26,17 @@ begin
 end;
 $$;
 
-create or replace function pg_temp.must_refuse(p_label text, p_sql text) returns void
+create or replace function pg_temp.must_refuse_with(p_label text, p_sql text, p_expected text) returns void
 language plpgsql as $$
 begin
   begin
     execute p_sql;
   exception when others then
-    raise notice 'PASS  %  (refused: %)', p_label, left(sqlerrm, 70);
-    return;
+    if position(p_expected in sqlerrm) > 0 then
+      raise notice 'PASS  %  (refused: %)', p_label, left(sqlerrm, 70);
+      return;
+    end if;
+    raise exception 'FAIL  % — wrong refusal: %', p_label, sqlerrm;
   end;
   raise exception 'FAIL  % — it went through', p_label;
 end;
@@ -121,59 +124,66 @@ begin
     (select status = 'ready' from public.general_project_requests where id = request_id));
 
   perform pg_temp.act_as(author_id);
-  perform pg_temp.must_refuse('author cannot edit a ready brief',
+  perform pg_temp.must_refuse_with('author cannot edit a ready brief',
     format('select public.edit_general_project_request(%L, %L, %L, %L, null)',
-      request_id, 'Changed', 'No', 'No'));
+      request_id, 'Changed', 'No', 'No'), 'no longer open for edits');
   perform public.post_general_project_request_message(request_id, 'The brief is agreed.');
 
   perform pg_temp.act_as(peer_id);
   perform pg_temp.must_be('ordinary Space peer cannot read request or messages',
     (select count(*) = 0 from public.general_project_requests where id = request_id)
     and (select count(*) = 0 from public.general_project_request_messages m where m.request_id = request_id));
-  perform pg_temp.must_refuse('ordinary Space peer cannot comment',
-    format('select public.post_general_project_request_message(%L, %L)', request_id, 'No access'));
-  perform pg_temp.must_refuse('ordinary Space peer cannot mark ready',
-    format('select public.set_general_project_request_status(%L, %L)', request_id, 'ready'));
+  perform pg_temp.must_refuse_with('ordinary Space peer cannot comment',
+    format('select public.post_general_project_request_message(%L, %L)', request_id, 'No access'),
+    'cannot join this request discussion');
+  perform pg_temp.must_refuse_with('ordinary Space peer cannot mark ready',
+    format('select public.set_general_project_request_status(%L, %L)', request_id, 'ready'),
+    'Only a Project manager');
 
   perform pg_temp.act_as(outsider_id);
   perform pg_temp.must_be('another Space cannot read request',
     (select count(*) = 0 from public.general_project_requests where id = request_id));
-  perform pg_temp.must_refuse('another Space cannot comment',
-    format('select public.post_general_project_request_message(%L, %L)', request_id, 'No access'));
+  perform pg_temp.must_refuse_with('another Space cannot comment',
+    format('select public.post_general_project_request_message(%L, %L)', request_id, 'No access'),
+    'cannot join this request discussion');
 
   perform pg_temp.act_as(no_switch_id);
   perform pg_temp.must_be('manager without Project manager switch can read',
     (select count(*) = 1 from public.general_project_requests where id = request_id));
-  perform pg_temp.must_refuse('manager without Project manager switch cannot change status',
-    format('select public.set_general_project_request_status(%L, %L)', request_id, 'closed'));
+  perform pg_temp.must_refuse_with('manager without Project manager switch cannot change status',
+    format('select public.set_general_project_request_status(%L, %L)', request_id, 'closed'),
+    'Only a Project manager');
 
   perform pg_temp.act_as(inactive_id);
-  perform pg_temp.must_refuse('inactive member cannot create',
+  perform pg_temp.must_refuse_with('inactive member cannot create',
     format('select public.create_general_project_request(%L, %L, %L, %L, null)',
-      space_id, 'New request', 'Brief', 'Outcome'));
+      space_id, 'New request', 'Brief', 'Outcome'), 'active account');
 
   perform pg_temp.act_as(owner_id);
-  perform pg_temp.must_refuse('education Space refuses project requests',
+  perform pg_temp.must_refuse_with('education Space refuses project requests',
     format('select public.create_general_project_request(%L, %L, %L, %L, null)',
-      education_id, 'New request', 'Brief', 'Outcome'));
-  perform pg_temp.must_refuse('invalid title refuses',
+      education_id, 'New request', 'Brief', 'Outcome'), 'only for work Spaces');
+  perform pg_temp.must_refuse_with('invalid title refuses',
     format('select public.create_general_project_request(%L, %L, %L, %L, null)',
-      space_id, '', 'Brief', 'Outcome'));
-  perform pg_temp.must_refuse('oversize message refuses',
-    format('select public.post_general_project_request_message(%L, %L)', request_id, repeat('a', 5001)));
-  perform pg_temp.must_refuse('request tables refuse direct writes',
-    format('update public.general_project_requests set title = %L where id = %L', 'Override', request_id));
+      space_id, '', 'Brief', 'Outcome'), 'length limits');
+  perform pg_temp.must_refuse_with('oversize message refuses',
+    format('select public.post_general_project_request_message(%L, %L)', request_id, repeat('a', 5001)),
+    '1 to 5,000 characters');
+  perform pg_temp.must_refuse_with('request tables refuse direct writes',
+    format('update public.general_project_requests set title = %L where id = %L', 'Override', request_id),
+    'permission denied for table');
 
   converted_id := public.create_general_project_request(
     space_id, 'Converted fixture', 'Approved brief', 'Deliver a portal', null);
   perform pg_temp.service();
   update public.general_project_requests set status = 'converted' where id = converted_id;
   perform pg_temp.act_as(owner_id);
-  perform pg_temp.must_refuse('converted request refuses edits',
+  perform pg_temp.must_refuse_with('converted request refuses edits',
     format('select public.edit_general_project_request(%L, %L, %L, %L, null)',
-      converted_id, 'Changed', 'Changed', 'Changed'));
-  perform pg_temp.must_refuse('converted request refuses comments',
-    format('select public.post_general_project_request_message(%L, %L)', converted_id, 'Too late'));
+      converted_id, 'Changed', 'Changed', 'Changed'), 'no longer open for edits');
+  perform pg_temp.must_refuse_with('converted request refuses comments',
+    format('select public.post_general_project_request_message(%L, %L)', converted_id, 'Too late'),
+    'discussion is closed');
 
   perform pg_temp.service();
   delete from public.general_space_members m where m.space_id = space_id and m.user_id = author_id;
@@ -185,8 +195,9 @@ begin
 
   perform pg_temp.act_as(manager_id);
   perform public.set_general_project_request_status(request_id, 'closed');
-  perform pg_temp.must_refuse('closed request refuses comments',
-    format('select public.post_general_project_request_message(%L, %L)', request_id, 'Too late'));
+  perform pg_temp.must_refuse_with('closed request refuses comments',
+    format('select public.post_general_project_request_message(%L, %L)', request_id, 'Too late'),
+    'discussion is closed');
 end;
 $$;
 
