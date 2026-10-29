@@ -34,10 +34,9 @@ import type { GeneralProjectState } from './useGeneralProject'
 export function InvitePanel({ state }: { state: GeneralProjectState }) {
   const allowed = state.can('manage_members')
   return (
-    <section className="rounded-panel border border-line surface p-4 sm:p-5">
+    <section>
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2>Bring people in</h2>
           <p className="mt-0.5 text-[12px] text-muted">Invite someone, or share a join code.</p>
         </div>
         {!allowed && <RequestAccessButton state={state} permission="manage_members" />}

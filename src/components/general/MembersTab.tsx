@@ -49,17 +49,31 @@ const ROLE_ORDER: Record<ProjectRole, number> = {
 }
 
 export function MembersTab({ state }: { state: GeneralProjectState }) {
+  const [requestsOpen, setRequestsOpen] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const canSeeRequests = (state.canGrant && !state.archived) || state.myRole === 'member'
+
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start">
-      <div className="space-y-6">
-        <MemberList state={state} />
-        <RoleGuide />
-        <StructurePanel state={state} />
+    <div className="space-y-6">
+      <div className="flex flex-wrap justify-end gap-2">
+        {canSeeRequests && (
+          <Button type="button" variant="outline" onClick={() => setRequestsOpen(true)}>
+            Access requests
+          </Button>
+        )}
+        <Button type="button" onClick={() => setInviteOpen(true)}>
+          Invite people
+        </Button>
       </div>
-      <div className="space-y-6">
+      <MemberList state={state} />
+      <RoleGuide />
+      <StructurePanel state={state} />
+      <Modal open={requestsOpen} onClose={() => setRequestsOpen(false)} title={state.canGrant && !state.archived ? 'Access requests' : 'Your access'} size="md">
         <RequestsPanel state={state} />
+      </Modal>
+      <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title="Bring people in" size="md" focusField>
         <InvitePanel state={state} />
-      </div>
+      </Modal>
     </div>
   )
 }

@@ -20,8 +20,7 @@ const STATUS_LABEL: Record<GeneralAccessRequest['status'], string> = {
 /**
  * The project manager or a Coordinator answers here (a Coordinator sees only
  * the requests it can give, by RLS); everybody else sees what they asked for
- * and can ask for more. Requests are the one thing on this tab that waits on a
- * person, so the panel sits at the top of its column.
+ * and can ask for more.
  */
 export function RequestsPanel({ state }: { state: GeneralProjectState }) {
   if (state.canGrant && !state.archived) return <OwnerRequests state={state} />
@@ -31,8 +30,7 @@ export function RequestsPanel({ state }: { state: GeneralProjectState }) {
 function OwnerRequests({ state }: { state: GeneralProjectState }) {
   const open = state.requests.filter((r) => r.status === 'open')
   return (
-    <section className="rounded-panel border border-line surface p-4 sm:p-5">
-      <h2>Access requests</h2>
+    <section>
       <p className="mt-0.5 text-[12px] text-muted">Members asking for a permission their role does not include.</p>
       {open.length === 0 ? (
         <p className="mt-4 rounded-xl border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
@@ -122,8 +120,7 @@ function MyRequests({ state }: { state: GeneralProjectState }) {
   if (state.myRole !== 'member') return null
 
   return (
-    <section className="rounded-panel border border-line surface p-4 sm:p-5">
-      <h2>Your access</h2>
+    <section>
       <p className="mt-0.5 text-[12px] text-muted">
         {myExtras.length > 0
           ? `Beyond Member, you can: ${myExtras.map(permissionLabel).join(', ')}.`
