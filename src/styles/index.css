@@ -398,7 +398,6 @@
     font-feature-settings: 'ss01', 'cv05';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    overflow-y: scroll;
   }
 
   h1,
@@ -814,15 +813,29 @@
       linear-gradient(135deg, var(--banner-edge), var(--banner-end)) border-box;
   }
 
-  /* Keep the page scrollbar at the right edge on every route. */
+  /* Keep room for the page scrollbar on every route. */
   html {
     scrollbar-gutter: stable;
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    width: 14px;
+  }
+  html::-webkit-scrollbar-track,
+  body::-webkit-scrollbar-track {
+    background: var(--surface-sunken);
+  }
+  html::-webkit-scrollbar-thumb,
+  body::-webkit-scrollbar-thumb {
+    background: var(--ink-faint);
+    border: 2px solid var(--surface-sunken);
+    border-radius: 999px;
   }
   /* Firefox has no ::-webkit-scrollbar; give it the same colours. */
   @supports not selector(::-webkit-scrollbar) {
     html {
-      scrollbar-width: thin;
-      scrollbar-color: var(--line-strong) transparent;
+      scrollbar-width: auto;
+      scrollbar-color: var(--ink-faint) var(--surface-sunken);
     }
   }
 
