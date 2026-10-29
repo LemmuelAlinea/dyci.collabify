@@ -230,6 +230,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Close"
+            title="Close"
             className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition-[background-color,color,scale] duration-(--dur-press) active:scale-[0.97] ${tone.close}`}
           >
             <Icon name="x" size={18} />

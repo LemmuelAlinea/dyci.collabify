@@ -238,9 +238,9 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
         size="lg"
         headerActions={editable && openTeam && (
           <>
-            <button type="button" aria-label={`Rename ${openTeam.name}`} onClick={() => setRenaming({ kind: 'team', id: openTeam.id, name: openTeam.name })} className="grid h-9 w-9 place-items-center rounded-full text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"><Icon name="edit" size={16} /></button>
-            <button type="button" aria-label={`Archive ${openTeam.name}`} onClick={() => setArchiving({ id: openTeam.id, name: openTeam.name })} className="grid h-9 w-9 place-items-center rounded-full text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"><Icon name="archive" size={16} /></button>
-            <button type="button" aria-label={`Remove ${openTeam.name}`} onClick={() => setRemoving({ kind: 'team', id: openTeam.id, name: openTeam.name })} className="grid h-9 w-9 place-items-center rounded-full text-faint hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"><Icon name="trash" size={16} /></button>
+            <button type="button" aria-label={`Rename ${openTeam.name}`} title="Rename team" onClick={() => setRenaming({ kind: 'team', id: openTeam.id, name: openTeam.name })} className="grid h-9 w-9 place-items-center rounded-full text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"><Icon name="edit" size={16} /></button>
+            <button type="button" aria-label={`Archive ${openTeam.name}`} title="Archive team" onClick={() => setArchiving({ id: openTeam.id, name: openTeam.name })} className="grid h-9 w-9 place-items-center rounded-full text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"><Icon name="archive" size={16} /></button>
+            <button type="button" aria-label={`Remove ${openTeam.name}`} title="Remove team" onClick={() => setRemoving({ kind: 'team', id: openTeam.id, name: openTeam.name })} className="grid h-9 w-9 place-items-center rounded-full text-faint hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"><Icon name="trash" size={16} /></button>
           </>
         )}
       >
