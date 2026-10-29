@@ -30,13 +30,15 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
   const project = state.project
   if (!project || project.class_board_id || (state.myRole !== 'pm' && state.myRole !== 'coordinator')) return null
   const rows = state.tasks.filter(t => (t.routing_state ?? 'released') === queue)
+  const canReview = state.myRole === 'coordinator' || !state.members.some(m => m.role === 'coordinator' && m.profile?.status === 'active')
+  const canUseRow = (t: GeneralTask) => queue !== 'coordinator_review' || (state.myRole === 'coordinator' ? t.reviewer_id === state.viewerId : canReview)
   const isBlocked = (t: GeneralTask) => queue === 'released' && (t.status === 'done' || (project.has_qa && stageIndex(t.status, t.stage, stagesOf(project.stages).length) >= qaStageIndex(project.stages, project.qa_stage)))
-  const selectableRows = rows.filter(t => !isBlocked(t))
+  const selectableRows = rows.filter(t => !isBlocked(t) && canUseRow(t))
   const selectedCount = selectableRows.filter(t => selected[t.id]).length
   const picks = Object.values(selected)
   const ready = picks.length > 0 && picks.every(t => teams[t.id] ?? t.team_id)
   const destinations = state.teams.filter(t => t.leader_id).map(t => ({ value: t.id, label: t.name }))
-  const editable = !state.readOnly && !busy && !reloadRequired
+  const editable = !state.readOnly && !busy && !reloadRequired && (queue !== 'coordinator_review' || canReview)
 
   async function act(action: () => Promise<unknown>, sentToTeam = false) {
     if (!editable) return
@@ -76,7 +78,7 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
       {(Object.keys(LABEL) as Queue[]).map(q => <Button key={q} size="sm" variant={queue === q ? 'primary' : 'outline'} disabled={busy} aria-pressed={queue === q} onClick={() => { setQueue(q); setSelected({}); setTeams({}); if (!reloadRequired) setError(null) }}>{LABEL[q]}</Button>)}
     </div>
     <p className="text-[13px] text-muted">Planning and review stay private to planners. Choosing a team does not send work.</p>
-    {queue !== 'released' && <Button size="sm" variant="outline" disabled={!editable} onClick={() => setByPosition(true)}>Assign by position</Button>}
+    {queue !== 'released' && <Button size="sm" variant="outline" disabled={!editable || (queue === 'coordinator_review' && !selectableRows.length)} onClick={() => setByPosition(true)}>Assign by position</Button>}
     {byPosition && <AssignByPosition state={state} open onClose={() => setByPosition(false)} />}
     {sent && <Alert tone="success" onClose={() => setSent(null)}>Tasks sent to team. {sent === 'ready' && onViewBoard && <Button size="sm" variant="outline" onClick={onViewBoard}>View on board</Button>}</Alert>}
     {error && <Alert tone="error">{error} <Button size="sm" variant="outline" disabled={busy} onClick={() => void refresh()}>Reload tasks</Button></Alert>}
@@ -89,15 +91,15 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
         const blocked = isBlocked(t)
         return <div key={t.id} className="grid items-center gap-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(180px,240px)_auto]">
           <div className="flex min-w-0 items-start gap-3">
-            <input type="checkbox" aria-label={`Select ${t.title}`} checked={Boolean(selected[t.id])} disabled={!editable || blocked} onChange={e => setSelected(previous => { const next = { ...previous }; if (e.target.checked) next[t.id] = t; else delete next[t.id]; return next })} className="mt-1 size-4 shrink-0" />
+            <input type="checkbox" aria-label={`Select ${t.title}`} checked={Boolean(selected[t.id])} disabled={!editable || blocked || !canUseRow(t)} onChange={e => setSelected(previous => { const next = { ...previous }; if (e.target.checked) next[t.id] = t; else delete next[t.id]; return next })} className="mt-1 size-4 shrink-0" />
             <div className="min-w-0 space-y-1">
               <button type="button" onClick={() => onOpenTask?.(t.id)} className="text-left text-[14px] font-medium break-words text-ink hover:underline">{t.title}</button>
               {t.reviewer_id && <p className="text-[12px] text-muted">{t.reviewer_id === state.viewerId ? 'Assigned to you' : `Reviewer: ${state.nameOf(t.reviewer_id)}`}</p>}
               {blocked && <p className="text-[12px] text-muted">Reopen work in QA or Done before rerouting.</p>}
             </div>
           </div>
-          <Select aria-label={`Team for ${t.title}`} value={teams[t.id] ?? t.team_id ?? ''} disabled={!editable || blocked} placeholder="Choose a team with a lead" options={destinations} onChange={e => setTeams(previous => ({ ...previous, [t.id]: e.target.value }))} className="!h-10 !text-[13px]" />
-          {queue === 'coordinator_review' && t.reviewer_id === state.viewerId && <Button size="sm" variant="outline" disabled={!editable} onClick={() => { setReason(''); setReturning(t.id) }}>Return to planning</Button>}
+          <Select aria-label={`Team for ${t.title}`} value={teams[t.id] ?? t.team_id ?? ''} disabled={!editable || blocked || !canUseRow(t)} placeholder="Choose a team with a lead" options={destinations} onChange={e => setTeams(previous => ({ ...previous, [t.id]: e.target.value }))} className="!h-10 !text-[13px]" />
+          {queue === 'coordinator_review' && canReview && (t.reviewer_id === state.viewerId || state.myRole === 'pm') && <Button size="sm" variant="outline" disabled={!editable} onClick={() => { setReason(''); setReturning(t.id) }}>Return to planning</Button>}
         </div>
       })}
     </div>}

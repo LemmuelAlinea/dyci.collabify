@@ -56,6 +56,24 @@ it('sends planning tasks to one coordinator', async () => {
   expect(document.body.textContent).not.toContain('View on board')
   expect(sendTasksToCoordinator).toHaveBeenCalledExactlyOnceWith('project', [{ id: 'one', updated_at: 'stamp-one' }, { id: 'two', updated_at: 'stamp-two' }], 'reviewer')
 })
+it('lets the PM view coordinator review without using its controls', async () => {
+  await render(state({ tasks: [{ ...task, routing_state: 'coordinator_review', reviewer_id: 'reviewer', team_id: 'design' }] }))
+  await click('Coordinator review')
+  expect(document.body.textContent).toContain('Reviewer: reviewer')
+  expect(rowCheckbox().disabled).toBe(true)
+  expect(document.querySelector<HTMLSelectElement>('[aria-label="Team for Design"]')!.disabled).toBe(true)
+  expect([...document.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent === 'Assign by position')!.disabled).toBe(true)
+  expect([...document.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent === 'Send to team')!.disabled).toBe(true)
+  expect(document.body.textContent).not.toContain('Return to planning')
+})
+it('lets the PM review when the project has no active coordinator', async () => {
+  await render(state({ members: [{ user_id: 'reviewer', role: 'coordinator', profile: { status: 'pending' } }], tasks: [{ ...task, routing_state: 'coordinator_review', reviewer_id: 'reviewer', team_id: 'design' }] }))
+  await click('Coordinator review')
+  expect(rowCheckbox().disabled).toBe(false)
+  expect(document.body.textContent).toContain('Return to planning')
+  await selectRows(); await click('Send to team')
+  expect(sendTasksToTeams).toHaveBeenCalledExactlyOnceWith('project', [{ id: 'one', team_id: 'design', updated_at: 'stamp-one' }], undefined)
+})
 it('shows assigned review and requires a return reason', async () => {
   await render(state({ myRole: 'coordinator', viewerId: 'reviewer', tasks: [{ ...task, routing_state: 'coordinator_review', reviewer_id: 'reviewer' }] }))
   await click('Coordinator review'); expect(document.body.textContent).toContain('Assigned to you'); await click('Return to planning')
@@ -89,6 +107,8 @@ it('keeps archived routing read-only and blocks QA and Done rerouting', async ()
 it('only offers a return for the assigned reviewer', async () => {
   await render(state({ myRole: 'coordinator', viewerId: 'other', tasks: [{ ...task, routing_state: 'coordinator_review', reviewer_id: 'reviewer' }] }))
   await click('Coordinator review'); expect(document.body.textContent).toContain('Reviewer: reviewer'); expect(document.body.textContent).not.toContain('Return to planning')
+  expect(rowCheckbox().disabled).toBe(true)
+  expect([...document.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent === 'Assign by position')!.disabled).toBe(true)
 })
 it('requires a destination even when a saved team is cleared', async () => {
   await render(state({ tasks: [{ ...task, team_id: 'design' }] })); await selectRows(); await change('Team for Design', '')

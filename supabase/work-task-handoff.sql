@@ -460,6 +460,11 @@ begin
          or (p_lead and t.routing_state='released' and exists(select 1 from public.general_teams g
            join public.general_team_members tm on tm.team_id=g.id and tm.user_id=auth.uid()
            where g.id=t.team_id and g.project_id=p_project and g.archived_at is null and g.leader_id=auth.uid())))
+       and (p_lead or t.routing_state<>'coordinator_review'
+         or (public.general_role_of(p_project,auth.uid())='coordinator' and t.reviewer_id=auth.uid())
+         or (public.general_role_of(p_project,auth.uid())='pm' and not exists(
+           select 1 from public.general_members m join public.profiles pr on pr.id=m.user_id
+           where m.project_id=p_project and m.role='coordinator' and pr.status='active')))
        and t.status <> 'done'
        and t.archived_at is null
        and not exists (select 1 from public.general_task_assignees a where a.task_id = t.id)
@@ -1588,6 +1593,13 @@ begin
     if t.project_id<>p_project or t.archived_at is not null or t.trashed_at is not null then
       raise exception 'Select live tasks in this project.' using errcode='check_violation';
     end if;
+    if t.routing_state='coordinator_review' and not (
+      (public.general_role_of(p_project,auth.uid())='coordinator' and t.reviewer_id=auth.uid())
+      or (public.general_role_of(p_project,auth.uid())='pm' and not exists(
+        select 1 from public.general_members m join public.profiles pr on pr.id=m.user_id
+        where m.project_id=p_project and m.role='coordinator' and pr.status='active'))) then
+      raise exception 'Only the assigned coordinator reviews this work.' using errcode='insufficient_privilege';
+    end if;
     if t.updated_at is distinct from (select r.updated_at from jsonb_to_recordset(p_rows) r(id uuid,updated_at timestamptz) where r.id=t.id) then
       raise exception 'A task changed. Reload the tasks and try again.' using errcode='serialization_failure';
     end if;
@@ -1674,8 +1686,11 @@ begin
     raise exception 'Reopen work in QA or Done before returning it.' using errcode='check_violation';
   end if;
   if not coalesce((
-    (t.routing_state='coordinator_review' and t.reviewer_id=auth.uid()
-      and public.general_role_of(t.project_id,auth.uid())='coordinator')
+    (t.routing_state='coordinator_review' and (
+      (t.reviewer_id=auth.uid() and public.general_role_of(t.project_id,auth.uid())='coordinator')
+      or (public.general_role_of(t.project_id,auth.uid())='pm' and not exists(
+        select 1 from public.general_members m join public.profiles pr on pr.id=m.user_id
+        where m.project_id=t.project_id and m.role='coordinator' and pr.status='active'))))
     or (t.routing_state='released' and not public.general_task_held(t.id)
       and exists(select 1 from public.general_teams g
         join public.general_team_members tm on tm.team_id=g.id and tm.user_id=g.leader_id
