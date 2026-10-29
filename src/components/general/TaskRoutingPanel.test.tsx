@@ -104,3 +104,28 @@ it('keeps the send receipt but withholds board navigation until a failed refresh
   expect(document.body.textContent).toContain('View on board')
   expect(sendTasksToTeams).toHaveBeenCalledOnce()
 })
+
+it('keeps stale team rows locked after dismissing the receipt until reload succeeds', async () => {
+  const s = state({ tasks: [{ ...task, team_id: 'design' }], reload: vi.fn().mockRejectedValueOnce(new Error('Offline')).mockResolvedValue(undefined) })
+  await render(s); await selectRows(); await click('Send to team')
+  await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Close this notice"]')!.click())
+  expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(true)
+  await click('Coordinator review'); await click('Planning')
+  expect(document.body.textContent).toContain('Reload tasks')
+  await click('Reload tasks')
+  expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(false)
+})
+
+it.each(['review', 'return'])('locks stale rows after %s succeeds and refresh fails', async action => {
+  const s = state({ ...(action === 'return' ? { myRole: 'coordinator', viewerId: 'reviewer', tasks: [{ ...task, routing_state: 'coordinator_review', reviewer_id: 'reviewer' }] } : {}), reload: vi.fn().mockRejectedValueOnce(new Error('Offline')).mockResolvedValue(undefined) })
+  await render(s)
+  if (action === 'review') { await selectRows(); await change('Coordinator', 'reviewer'); await click('Send for review') }
+  else {
+    await click('Coordinator review'); await click('Return to planning')
+    await act(async () => { const el = document.querySelector('textarea')!; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(el, 'Needs detail'); el.dispatchEvent(new Event('input', { bubbles: true })) })
+    await click('Confirm return')
+  }
+  expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(true)
+  await click('Reload tasks')
+  expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(false)
+})
