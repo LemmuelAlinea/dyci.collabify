@@ -22,11 +22,15 @@ it('scopes Incoming to released unassigned work for the led team and keeps own r
   const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
   try {
     await act(async () => root.render(<LeadInbox state={state} />))
-    expect(container.textContent).toContain('Team A incoming')
-    expect(container.textContent).not.toMatch(/Private plan|Team B incoming|Already held|Add task/)
-    await act(async () => [...container.querySelectorAll('button')].find(b => b.textContent === 'Team A incoming')!.click())
-    expect(container.textContent).toContain('Dialog a')
-    await act(async () => [...container.querySelectorAll('button')].find(b => b.textContent === 'Return to planning')!.click())
+    expect(container.textContent).toContain('Incoming tasks (1)')
+    expect(document.body.textContent).not.toContain('Team A incoming')
+    await act(async () => container.querySelector('button')!.click())
+    const dialog = document.querySelector('[role="dialog"][aria-label="Incoming tasks"]')!
+    expect(dialog.textContent).toContain('Team A incoming')
+    expect(dialog.textContent).not.toMatch(/Private plan|Team B incoming|Already held|Add task/)
+    await act(async () => [...dialog.querySelectorAll('button')].find(b => b.textContent === 'Team A incoming')!.click())
+    expect(document.body.textContent).toContain('Dialog a')
+    await act(async () => [...dialog.querySelectorAll('button')].find(b => b.textContent === 'Return to planning')!.click())
     const confirm = [...document.querySelectorAll('button')].find(b => b.textContent === 'Confirm return')!
     expect(confirm.disabled).toBe(true)
     const reason = document.querySelector('textarea')!
@@ -37,8 +41,8 @@ it('scopes Incoming to released unassigned work for the led team and keeps own r
     await act(async () => confirm.click())
     expect(api.returnWorkTask).toHaveBeenCalledExactlyOnceWith('a', 'No capacity')
     await act(async () => root.render(<LeadInbox state={{ ...state }} />))
-    expect(container.textContent).not.toContain('Team A incoming')
-    expect(container.textContent).toContain('No capacity')
+    expect(dialog.textContent).not.toContain('Team A incoming')
+    expect(dialog.textContent).toContain('No capacity')
     expect(api.listWorkTaskReturnReceipts).toHaveBeenCalledWith('p')
   } finally { await act(async () => root.unmount()); container.remove() }
 })
@@ -51,6 +55,7 @@ it.each([false, true])('returns default in-progress incoming work only without a
   const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
   try {
     await act(async () => root.render(<LeadInbox state={state} />))
-    expect([...container.querySelectorAll('button')].find(b => b.textContent === 'Return to planning')!.disabled).toBe(has_qa)
+    await act(async () => container.querySelector('button')!.click())
+    expect([...document.querySelectorAll<HTMLButtonElement>('[role="dialog"][aria-label="Incoming tasks"] button')].find(b => b.textContent === 'Return to planning')!.disabled).toBe(has_qa)
   } finally { await act(async () => root.unmount()); container.remove() }
 })

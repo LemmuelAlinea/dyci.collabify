@@ -14,6 +14,7 @@ import { TaskDialog } from './TaskDialog'
 import type { GeneralProjectState } from './useGeneralProject'
 
 export function LeadInbox({ state }: { state: GeneralProjectState }) {
+  const [open, setOpen] = useState(false)
   const [byPosition, setByPosition] = useState(false)
   const [taskId, setTaskId] = useState<string | null>(null)
   const [returning, setReturning] = useState<string | null>(null)
@@ -45,25 +46,29 @@ export function LeadInbox({ state }: { state: GeneralProjectState }) {
     } catch (err) { setError(authErrorMessage(err, 'Could not return this task. Reload the tasks and try again.')) }
     finally { setBusy(false) }
   }
-  return <section aria-label="Team incoming" className="surface space-y-4 rounded-xl border border-line p-4 sm:p-5">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-[16px] text-ink">Incoming</h3>{state.myRole !== 'qa' && <Button size="sm" variant="outline" disabled={state.readOnly || !incoming.length} onClick={() => setByPosition(true)}>Assign by position</Button>}</div>
-    <p className="text-[13px] text-muted">Assign work sent to your teams, or return it with a reason.</p>
-    {error && <Alert tone="error">{error}</Alert>}
-    {incoming.length === 0 ? <p className="text-[13px] text-faint">No incoming tasks.</p> : <ul className="divide-y divide-line">
-      {incoming.map(t => <li key={t.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0"><button type="button" className="text-left text-[14px] font-medium break-words text-ink hover:underline" onClick={() => setTaskId(t.id)}>{t.title}</button>
-          <p className="text-[12px] text-muted">{teams.find(team => team.id === t.team_id)?.name}</p></div>
-        <div className="flex flex-wrap gap-2"><Button size="sm" disabled={state.readOnly || busy} onClick={() => setTaskId(t.id)}>Assign members</Button>
-          <Button size="sm" variant="outline" disabled={state.readOnly || busy || t.status === 'done' || (state.project?.has_qa && stageIndex(t.status, t.stage, stagesOf(state.project?.stages).length) >= qaStageIndex(state.project?.stages, state.project?.qa_stage))} onClick={() => { setReturning(t.id); setReason('') }}>Return to planning</Button></div>
-      </li>)}
-    </ul>}
-    {receipts.length > 0 && <div className="space-y-2 border-t border-line pt-4"><h4 className="text-[14px] text-ink">Your returns</h4><ul className="space-y-2">
-      {receipts.map((receipt, i) => <li key={`${receipt.task_id}-${receipt.returned_at}-${i}`} className="text-[13px] text-muted"><p className="break-words">Returned task · {formatDue(receipt.returned_at)}</p><p className="whitespace-pre-wrap break-words">{receipt.reason}</p></li>)}
-    </ul></div>}
+  return <>
+    <div className="flex justify-end"><Button size="sm" variant="outline" onClick={() => setOpen(true)}>Incoming tasks{incoming.length > 0 ? ` (${incoming.length})` : ''}</Button></div>
+    <Modal open={open} onClose={() => setOpen(false)} title="Incoming tasks" size="lg">
+      <section aria-label="Team incoming" className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-[13px] text-muted">Assign work sent to your teams, or return it with a reason.</p>{state.myRole !== 'qa' && <Button size="sm" variant="outline" disabled={state.readOnly || !incoming.length} onClick={() => setByPosition(true)}>Assign by position</Button>}</div>
+        {error && <Alert tone="error">{error}</Alert>}
+        {incoming.length === 0 ? <p className="text-[13px] text-faint">No incoming tasks.</p> : <ul className="divide-y divide-line">
+          {incoming.map(t => <li key={t.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0"><button type="button" className="text-left text-[14px] font-medium break-words text-ink hover:underline" onClick={() => setTaskId(t.id)}>{t.title}</button>
+              <p className="text-[12px] text-muted">{teams.find(team => team.id === t.team_id)?.name}</p></div>
+            <div className="flex flex-wrap gap-2"><Button size="sm" disabled={state.readOnly || busy} onClick={() => setTaskId(t.id)}>Assign members</Button>
+              <Button size="sm" variant="outline" disabled={state.readOnly || busy || t.status === 'done' || (state.project?.has_qa && stageIndex(t.status, t.stage, stagesOf(state.project?.stages).length) >= qaStageIndex(state.project?.stages, state.project?.qa_stage))} onClick={() => { setReturning(t.id); setReason('') }}>Return to planning</Button></div>
+          </li>)}
+        </ul>}
+        {receipts.length > 0 && <div className="space-y-2 border-t border-line pt-4"><h4 className="text-[14px] text-ink">Your returns</h4><ul className="space-y-2">
+          {receipts.map((receipt, i) => <li key={`${receipt.task_id}-${receipt.returned_at}-${i}`} className="text-[13px] text-muted"><p className="break-words">Returned task · {formatDue(receipt.returned_at)}</p><p className="whitespace-pre-wrap break-words">{receipt.reason}</p></li>)}
+        </ul></div>}
+      </section>
+    </Modal>
     {byPosition && <AssignByPosition state={state} open onClose={() => setByPosition(false)} mode="lead" />}
     <TaskDialog state={state} taskId={taskId} onClose={() => setTaskId(null)} />
     <Modal open={Boolean(returning)} title="Return to planning" onClose={() => { if (!busy) setReturning(null) }} footer={<Button disabled={state.readOnly || busy || !reason.trim()} onClick={() => void sendBack()}>Confirm return</Button>}>
       <div className="space-y-3">{error && <Alert tone="error">{error}</Alert>}<label className="block space-y-2 text-[13px] text-ink"><span>Reason</span><Textarea aria-label="Return reason" maxLength={4000} value={reason} disabled={busy} onChange={e => setReason(e.target.value)} /></label></div>
     </Modal>
-  </section>
+  </>
 }
