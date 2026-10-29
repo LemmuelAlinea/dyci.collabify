@@ -43,9 +43,12 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
   const [teamName, setTeamName] = useState('')
   const [teamPeople, setTeamPeople] = useState<string[]>([])
   const [teamLeader, setTeamLeaderChoice] = useState('')
+  const [creatingTeam, setCreatingTeam] = useState(false)
+  const [openTeamId, setOpenTeamId] = useState<string | null>(null)
   const [changingLeader, setChangingLeader] = useState<ChangingLeader>(null)
   const [positionName, setPositionName] = useState('')
-  const [positionTeam, setPositionTeam] = useState('')
+  const [positionScope, setPositionScope] = useState<string | null>(null)
+  const [creatingPosition, setCreatingPosition] = useState(false)
   const [renaming, setRenaming] = useState<Renaming>(null)
   const [removing, setRemoving] = useState<Removing>(null)
   const [busy, setBusy] = useState(false)
@@ -54,8 +57,10 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
   if (!project) return null
   // A class board's Files project keeps the old model: its teams have no leader.
   const leaders = !project.class_board_id
-  const selectedPositionTeam = state.teams.find((team) => team.id === positionTeam)
-  const selectedTeamPeople = state.teamMembers.filter((member) => member.team_id === positionTeam)
+  const openTeam = state.teams.find((team) => team.id === openTeamId)
+  const openTeamPeople = state.teamMembers.filter((member) => member.team_id === openTeamId).map((member) => member.user_id)
+  const openPositions = state.positions.filter((position) => position.team_id === (openTeam?.id ?? null))
+  const projectPositions = state.positions.filter((position) => position.team_id === null)
 
   /** Answers whether it went through, so a caller only clears what was taken. */
   async function run(action: () => Promise<void>, done: string, failed: string) {
@@ -93,296 +98,236 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2>Teams and positions</h2>
-          <p className="mt-0.5 text-[12px] text-muted">
-            {leaders
-              ? "Name them whatever this project calls them. A team's leader can run the tasks its people hold; positions grant nothing."
-              : 'Name them whatever this project calls them. They describe people; they grant nothing.'}
-          </p>
+          <p className="mt-0.5 text-[12px] text-muted">Group people into teams and name their positions.</p>
         </div>
         {!editable && <RequestAccessButton state={state} permission="manage_structure" />}
       </header>
 
-      {/* Teams */}
-      <div className="mt-5">
-        <p className="text-[12px] font-medium text-muted">Teams</p>
-        {state.teams.length === 0 && (
-          <p className="mt-2 text-[13px] text-faint">No teams. Everybody works as one group.</p>
-        )}
-        <ul className="mt-2 space-y-2.5">
-          {state.teams.map((team) => {
-            const inTeam = state.teamMembers.filter((tm) => tm.team_id === team.id).map((tm) => tm.user_id)
-            return (
-              <li key={team.id} className="rounded-xl border border-line p-3">
-                <div className="flex items-center gap-2">
-                  <p className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">{team.name}</p>
-                  {editable && (
-                    <>
-                      <button
-                        type="button"
-                        aria-label={`Rename ${team.name}`}
-                        onClick={() => setRenaming({ kind: 'team', id: team.id, name: team.name })}
-                        className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"
-                      >
-                        <Icon name="edit" size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${team.name}`}
-                        onClick={() => setRemoving({ kind: 'team', id: team.id, name: team.name })}
-                        className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
-                      >
-                        <Icon name="trash" size={15} />
-                      </button>
-                    </>
-                  )}
-                </div>
-                {leaders && (
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
-                  <p className="text-muted">
-                    {team.leader_id ? (
-                      <>
-                        Lead: <span className="font-medium text-ink">{state.nameOf(team.leader_id)}</span>
-                      </>
-                    ) : (
-                      'No lead yet'
-                    )}
-                  </p>
-                  {editable && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setChangingLeader({ id: team.id, name: team.name, members: inTeam, current: team.leader_id })
-                      }
-                      className="font-medium text-navy-700 underline-offset-2 hover:underline dark:text-navy-200"
-                    >
-                      Change leader
-                    </button>
-                  )}
-                </div>
-                )}
-                <PeopleChips
-                  ids={inTeam}
-                  state={state}
-                  editable={editable}
-                  onRemove={(userId) =>
-                    void run(() => removeTeamMember(team.id, userId), 'Taken off the team', 'Could not change the team.')
-                  }
-                />
-                {editable && memberOptions(inTeam).length > 0 && (
-                  <AddPerson
-                    options={memberOptions(inTeam)}
-                    onAdd={(userId) =>
-                      void run(() => addTeamMember(team.id, project.id, userId), 'Added to the team', 'Could not change the team.')
-                    }
-                  />
-                )}
-              </li>
-            )
-          })}
-        </ul>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
+        <p className="text-[12px] font-medium text-muted">Teams · {state.teams.length}</p>
         {editable && (
-          <form
-            className="mt-3 space-y-3 rounded-xl border border-dashed border-line p-3"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (!teamName.trim()) return
-              const people = teamPeople
-              const leader = leaders && people.includes(teamLeader) ? teamLeader : ''
-              const clear = () => {
-                setTeamName('')
-                setTeamPeople([])
-                setTeamLeaderChoice('')
-              }
-              void run(
-                async () => {
-                  const id = await createTeam(project.id, teamName)
-                  try {
-                    for (const userId of people) await addTeamMember(id, project.id, userId)
-                    if (leader) await setTeamLeader(id, leader)
-                  } catch (err) {
-                    // The team exists now; leaving the form full would add it twice.
-                    clear()
-                    await state.reload()
-                    throw err
-                  }
-                },
-                'Team added',
-                'The team was added, but its people or leader could not be set. Open the team to finish.',
-              ).then((ok) => ok && clear())
-            }}
-          >
-            <div className="flex gap-2">
-              <Input
-                aria-label="New team name"
-                placeholder="Logistics, Program, Finance"
-                maxLength={LIMIT.generalShortName}
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                className="!h-10"
-              />
-              <Button type="submit" size="sm" variant="outline" className="!h-10 shrink-0">
-                Add team
-              </Button>
-            </div>
-            <div>
-              <p className="text-[12px] font-medium text-muted">People</p>
-              {teamPeople.length > 0 && (
-                <PeopleChips
-                  ids={teamPeople}
-                  state={state}
-                  editable
-                  onRemove={(userId) => {
-                    setTeamPeople((prev) => prev.filter((id) => id !== userId))
-                    if (teamLeader === userId) setTeamLeaderChoice('')
-                  }}
-                />
-              )}
-              {memberOptions(teamPeople).length > 0 && (
-                <AddPerson
-                  options={memberOptions(teamPeople)}
-                  onAdd={(userId) => setTeamPeople((prev) => [...prev, userId])}
-                />
-              )}
-            </div>
-            {leaders && (
-            <div className="max-w-[16rem]">
-              <label htmlFor="new-team-leader" className="text-[12px] font-medium text-muted">
-                Leader
-              </label>
-              <div className="mt-1">
-                <Select
-                  id="new-team-leader"
-                  value={teamPeople.includes(teamLeader) ? teamLeader : ''}
-                  onChange={(e) => setTeamLeaderChoice(e.target.value)}
-                  placeholder="No leader"
-                  options={leaderOptions(teamPeople)}
-                  className="!h-10 !text-[13px]"
-                />
-              </div>
-              {teamPeople.length === 0 && (
-                <p className="mt-1 text-[12px] text-faint">Add people first. The leader is one of them.</p>
-              )}
-            </div>
-            )}
-          </form>
+          <Button type="button" size="sm" onClick={() => setCreatingTeam(true)}>
+            <Icon name="plus" size={16} /> Create team
+          </Button>
         )}
       </div>
+      {state.teams.length === 0 && (
+        <p className="mt-4 rounded-xl border border-dashed border-line px-4 py-6 text-[13px] text-muted">
+          {editable ? 'No teams yet. Create one to group people and positions.' : 'No teams yet. Everybody works as one group.'}
+        </p>
+      )}
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+        {state.teams.map((team) => {
+          const people = state.teamMembers.filter((member) => member.team_id === team.id)
+          const positions = state.positions.filter((position) => position.team_id === team.id)
+          return (
+            <li key={team.id}>
+              <button
+                type="button"
+                onClick={() => setOpenTeamId(team.id)}
+                className="group h-full w-full rounded-xl border border-line surface-sunken p-4 text-left transition-colors hover:border-line-strong hover:bg-[var(--surface-raised)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-500"
+              >
+                <span className="flex items-start justify-between gap-3">
+                  <span className="min-w-0 truncate text-[15px] font-semibold text-ink">{team.name}</span>
+                  <Icon name="chevronRight" size={17} className="mt-0.5 shrink-0 text-faint group-hover:text-ink" />
+                </span>
+                {leaders && <span className="mt-2 block text-[12px] text-muted">{team.leader_id ? `Lead: ${state.nameOf(team.leader_id)}` : 'No lead yet'}</span>}
+                <span className="mt-3 flex gap-3 border-t border-line pt-3 text-[12px] text-muted">
+                  <span>{people.length} {people.length === 1 ? 'person' : 'people'}</span>
+                  <span>{positions.length} {positions.length === 1 ? 'position' : 'positions'}</span>
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+      {(projectPositions.length > 0 || editable) && (
+        <button
+          type="button"
+          onClick={() => setOpenTeamId('')}
+          className="mt-5 flex w-full items-center justify-between gap-3 border-t border-line pt-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-500"
+        >
+          <span>
+            <span className="block text-[13px] font-medium text-ink">Project-wide positions</span>
+            <span className="mt-0.5 block text-[12px] text-muted">{projectPositions.length} {projectPositions.length === 1 ? 'position' : 'positions'} across all teams</span>
+          </span>
+          <Icon name="chevronRight" size={17} className="shrink-0 text-faint" />
+        </button>
+      )}
 
-      {/* Positions */}
-      <div className="mt-6 border-t border-line pt-5">
-        <p className="text-[12px] font-medium text-muted">Positions</p>
-        {state.positions.length === 0 && (
-          <p className="mt-2 text-[13px] text-faint">No positions yet, like Adviser, Chairperson or Treasurer.</p>
+      <Modal
+        open={creatingTeam}
+        onClose={busy ? () => {} : () => setCreatingTeam(false)}
+        title="Create team"
+        description={leaders ? 'Name the team, then choose its people and leader.' : 'Name the team and choose its people.'}
+        size="md"
+        focusField
+        footer={
+          <>
+            <Button type="button" variant="ghost" onClick={() => setCreatingTeam(false)} disabled={busy}>Cancel</Button>
+            <Button type="submit" form="create-team-form" loading={busy} disabled={!teamName.trim()}>Create team</Button>
+          </>
+        }
+      >
+        <form
+          id="create-team-form"
+          className="space-y-5"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (!teamName.trim()) return
+            const people = teamPeople
+            const leader = leaders && people.includes(teamLeader) ? teamLeader : ''
+            const clear = () => {
+              setTeamName('')
+              setTeamPeople([])
+              setTeamLeaderChoice('')
+            }
+            void run(
+              async () => {
+                const id = await createTeam(project.id, teamName)
+                try {
+                  for (const userId of people) await addTeamMember(id, project.id, userId)
+                  if (leader) await setTeamLeader(id, leader)
+                } catch (err) {
+                  clear()
+                  setCreatingTeam(false)
+                  setOpenTeamId(id)
+                  await state.reload()
+                  throw err
+                }
+              },
+              'Team added',
+              'The team was added, but its people or leader could not be set. Open the team to finish.',
+            ).then((ok) => {
+              if (ok) {
+                clear()
+                setCreatingTeam(false)
+              }
+            })
+          }}
+        >
+          <Field label="Team name">
+            {(id) => <Input id={id} placeholder="Logistics, Program, Finance" maxLength={LIMIT.generalShortName} value={teamName} onChange={(event) => setTeamName(event.target.value)} />}
+          </Field>
+          <div>
+            <p className="text-[12px] font-medium text-muted">People</p>
+            {teamPeople.length > 0 && (
+              <PeopleChips ids={teamPeople} state={state} editable onRemove={(userId) => {
+                setTeamPeople((prev) => prev.filter((id) => id !== userId))
+                if (teamLeader === userId) setTeamLeaderChoice('')
+              }} />
+            )}
+            {memberOptions(teamPeople).length > 0 && (
+              <AddPerson options={memberOptions(teamPeople)} onAdd={(userId) => setTeamPeople((prev) => [...prev, userId])} />
+            )}
+          </div>
+          {leaders && (
+            <Field label="Leader">
+              {(id) => <Select id={id} value={teamPeople.includes(teamLeader) ? teamLeader : ''} onChange={(event) => setTeamLeaderChoice(event.target.value)} placeholder="No leader" options={leaderOptions(teamPeople)} />}
+            </Field>
+          )}
+        </form>
+      </Modal>
+
+      <Modal
+        open={openTeamId !== null}
+        onClose={() => setOpenTeamId(null)}
+        title={openTeam?.name ?? 'Whole project'}
+        description={openTeam ? `${openTeamPeople.length} ${openTeamPeople.length === 1 ? 'person' : 'people'} · ${openPositions.length} ${openPositions.length === 1 ? 'position' : 'positions'}` : 'Positions that cover the whole project'}
+        size="lg"
+        headerActions={editable && openTeam && (
+          <>
+            <button type="button" aria-label={`Rename ${openTeam.name}`} onClick={() => setRenaming({ kind: 'team', id: openTeam.id, name: openTeam.name })} className="grid h-9 w-9 place-items-center rounded-full text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"><Icon name="edit" size={16} /></button>
+            <button type="button" aria-label={`Remove ${openTeam.name}`} onClick={() => setRemoving({ kind: 'team', id: openTeam.id, name: openTeam.name })} className="grid h-9 w-9 place-items-center rounded-full text-faint hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"><Icon name="trash" size={16} /></button>
+          </>
         )}
-        <ul className="mt-2 space-y-2.5">
-          {state.positions.map((position) => {
-            const holding = state.holders.filter((h) => h.position_id === position.id).map((h) => h.user_id)
-            const team = state.teams.find((t) => t.id === position.team_id)
-            return (
-              <li key={position.id} className="rounded-xl border border-line p-3">
-                <div className="flex items-center gap-2">
-                  <p className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">
-                    {position.name}
-                    <span className="ml-2 text-[12px] font-normal text-faint">
-                      {team ? team.name : 'Whole project'}
-                    </span>
-                  </p>
-                  {editable && (
-                    <>
-                      <button
-                        type="button"
-                        aria-label={`Rename ${position.name}`}
-                        onClick={() => setRenaming({ kind: 'position', id: position.id, name: position.name })}
-                        className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"
-                      >
-                        <Icon name="edit" size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${position.name}`}
-                        onClick={() => setRemoving({ kind: 'position', id: position.id, name: position.name })}
-                        className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
-                      >
-                        <Icon name="trash" size={15} />
-                      </button>
-                    </>
-                  )}
+      >
+        {openTeam && (
+          <div className="space-y-5 border-b border-line pb-6">
+            {leaders && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-[12px] font-medium text-muted">Team leader</p>
+                  <p className="mt-1 text-[14px] text-ink">{openTeam.leader_id ? state.nameOf(openTeam.leader_id) : 'No lead yet'}</p>
                 </div>
-                <PeopleChips
-                  ids={holding}
-                  state={state}
-                  editable={editable}
-                  onRemove={(userId) =>
-                    void run(() => removePositionHolder(position.id, userId), 'Position updated', 'Could not change that position.')
-                  }
-                />
-                {editable && memberOptions(holding, position.team_id).length > 0 && (
-                  <AddPerson
-                    options={memberOptions(holding, position.team_id)}
-                    onAdd={(userId) =>
-                      void run(
-                        () => addPositionHolder(position.id, project.id, userId),
-                        'Position updated',
-                        'Could not change that position.',
-                      )
-                    }
-                  />
-                )}
-              </li>
-            )
-          })}
-        </ul>
-        {editable && (
-          <form
-            className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_12rem_auto]"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (!positionName.trim()) return
-              void run(
-                () => createPosition(project.id, positionName, positionTeam || null, state.positions.length),
-                'Position added',
-                'Could not add that position.',
-              ).then((ok) => ok && setPositionName(''))
-            }}
-          >
-            <Input
-              aria-label="New position name"
-              placeholder="Adviser, Treasurer, Team lead"
-              maxLength={LIMIT.generalShortName}
-              value={positionName}
-              onChange={(e) => setPositionName(e.target.value)}
-              className="!h-10"
-            />
-            <Select
-              aria-label="Position covers"
-              value={positionTeam}
-              onChange={(e) => setPositionTeam(e.target.value)}
-              placeholder="Whole project"
-              options={state.teams.map((t) => ({ value: t.id, label: t.name }))}
-              className="!h-10 !text-[13px]"
-            />
-            <Button type="submit" size="sm" variant="outline" className="!h-10">
-              Add position
-            </Button>
-            {selectedPositionTeam && (
-              <div className="sm:col-span-3">
-                <p className="text-[12px] font-medium text-muted">Members of {selectedPositionTeam.name}</p>
-                {selectedTeamPeople.length > 0 ? (
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {selectedTeamPeople.map((member) => (
-                      <span key={member.user_id} className="rounded-full bg-navy-100 px-2.5 py-1 text-[12px] text-navy-800 dark:bg-navy-900/40 dark:text-navy-200">
-                        {state.nameOf(member.user_id)}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-1 text-[12px] text-faint">No members on this team yet.</p>
-                )}
+                {editable && <Button type="button" size="sm" variant="outline" onClick={() => setChangingLeader({ id: openTeam.id, name: openTeam.name, members: openTeamPeople, current: openTeam.leader_id })}>Change leader</Button>}
               </div>
             )}
-          </form>
+            <div>
+              <p className="text-[12px] font-medium text-muted">People · {openTeamPeople.length}</p>
+              <PeopleChips ids={openTeamPeople} state={state} editable={editable} onRemove={(userId) => void run(() => removeTeamMember(openTeam.id, userId), 'Taken off the team', 'Could not change the team.')} />
+              {editable && memberOptions(openTeamPeople).length > 0 && (
+                <AddPerson options={memberOptions(openTeamPeople)} onAdd={(userId) => void run(() => addTeamMember(openTeam.id, project.id, userId), 'Added to the team', 'Could not change the team.')} />
+              )}
+            </div>
+          </div>
         )}
-      </div>
+        <div className={openTeam ? 'pt-6' : ''}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-[15px] font-semibold text-ink">Positions</h3>
+              <p className="mt-1 text-[12px] text-muted">Positions describe people; they do not grant access.</p>
+            </div>
+            {editable && <Button type="button" size="sm" variant="outline" onClick={() => { setPositionScope(openTeam?.id ?? null); setCreatingPosition(true) }}><Icon name="plus" size={15} /> Create position</Button>}
+          </div>
+          {openPositions.length === 0 ? (
+            <p className="mt-4 rounded-xl border border-dashed border-line px-4 py-5 text-[13px] text-muted">No positions yet.</p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {openPositions.map((position) => {
+                const holding = state.holders.filter((holder) => holder.position_id === position.id).map((holder) => holder.user_id)
+                return (
+                  <li key={position.id} className="rounded-xl border border-line p-4">
+                    <div className="flex items-center gap-2">
+                      <p className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">{position.name}</p>
+                      {editable && (
+                        <>
+                          <button type="button" aria-label={`Rename ${position.name}`} onClick={() => setRenaming({ kind: 'position', id: position.id, name: position.name })} className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"><Icon name="edit" size={15} /></button>
+                          <button type="button" aria-label={`Remove ${position.name}`} onClick={() => setRemoving({ kind: 'position', id: position.id, name: position.name })} className="grid h-8 w-8 place-items-center rounded-lg text-faint hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"><Icon name="trash" size={15} /></button>
+                        </>
+                      )}
+                    </div>
+                    <PeopleChips ids={holding} state={state} editable={editable} onRemove={(userId) => void run(() => removePositionHolder(position.id, userId), 'Position updated', 'Could not change that position.')} />
+                    {editable && memberOptions(holding, position.team_id).length > 0 && (
+                      <AddPerson options={memberOptions(holding, position.team_id)} onAdd={(userId) => void run(() => addPositionHolder(position.id, project.id, userId), 'Position updated', 'Could not change that position.')} />
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        open={creatingPosition}
+        onClose={busy ? () => {} : () => setCreatingPosition(false)}
+        title="Create position"
+        description={positionScope ? `In ${state.teams.find((team) => team.id === positionScope)?.name ?? 'team'}` : 'Across the whole project'}
+        size="sm"
+        focusField
+        footer={
+          <>
+            <Button type="button" variant="ghost" onClick={() => setCreatingPosition(false)} disabled={busy}>Cancel</Button>
+            <Button type="submit" form="create-position-form" loading={busy} disabled={!positionName.trim()}>Create position</Button>
+          </>
+        }
+      >
+        <form id="create-position-form" onSubmit={(event) => {
+          event.preventDefault()
+          if (!positionName.trim()) return
+          void run(() => createPosition(project.id, positionName, positionScope, state.positions.length), 'Position added', 'Could not add that position.').then((ok) => {
+            if (ok) {
+              setPositionName('')
+              setCreatingPosition(false)
+            }
+          })
+        }}>
+          <Field label="Position name">
+            {(id) => <Input id={id} placeholder="Adviser, Treasurer, Team lead" maxLength={LIMIT.generalShortName} value={positionName} onChange={(event) => setPositionName(event.target.value)} />}
+          </Field>
+        </form>
+      </Modal>
 
       <LeaderDialog
         changing={changingLeader}
@@ -411,6 +356,7 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
         onConfirm={async () => {
           if (!removing) return
           await (removing.kind === 'team' ? deleteTeam(removing.id) : deletePosition(removing.id))
+          if (removing.kind === 'team') setOpenTeamId(null)
           show(removing.kind === 'team' ? 'Team removed' : 'Position removed')
           await state.reload()
         }}
