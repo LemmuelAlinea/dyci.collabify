@@ -3924,3 +3924,11 @@ Both start with "zz test".
   reproduced against the pre-activation task chain. The initial eight baseline
   failures remain; seven more older suites conflict with the creation/assignment
   rules from Tasks 3–6. These need separate reconciliation before Plan Exit.
+
+## Work project handoffs: rollout (2026-10-29)
+
+- The approved Space request and task handoff plans are implemented, reviewed, and on `main` through `61f5749`. The live database has the final `project-requests.sql`, `work-task-handoff.sql`, and `anon-lockdown.sql` chain. The deployed `work-ai` function is version 15 and accepts planner route and team lead assignment modes. The Vercel bundle includes the matching frontend.
+- All 90 SQL suites pass (3,511 assertions); 1,301 Vitest tests, build, lint, and the GitHub `check` workflow pass. The handoff SQL suite passed again after the browser walk. The primary checkout's unrelated uncommitted files were preserved during the fast-forward.
+- Owner browser checks on the 5174 preview passed for PM planning/direct send, coordinator review/return/team send, lead Incoming/manual assignment, member My tasks, QA bug creation/queue, and stakeholder read-only access. A sent task outside the running sprint is discoverable through View on board, which switches to All tasks. Desktop, tablet, and phone Tasks layouts showed no page overflow.
+- The owner temporarily changed Lemmuel's role to QA and restored Coordinator afterward. Browser test tasks remain in Barangay website. During the QA check, “Define website goals, scope, and success criteria” was passed to Done; reopen it if this was only a test.
+- Final owner sign-in smoke check on the live Vercel domain is pending. The 5174 preview already exercised the deployed Edge Function: lead Assign by position opened without the old planner-only error and assigned a Research Team member.
