@@ -14,13 +14,14 @@ import type { GeneralProjectState } from './useGeneralProject'
 type Queue = 'planning' | 'coordinator_review' | 'released'
 const LABEL = { planning: 'Planning', coordinator_review: 'Coordinator review', released: 'Reroute released work' }
 
-export function TaskRoutingPanel({ state, onOpenTask }: { state: GeneralProjectState; onOpenTask?: (id: string) => void }) {
+export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: GeneralProjectState; onOpenTask?: (id: string) => void; onViewBoard?: () => void }) {
   const [byPosition, setByPosition] = useState(false)
   const [queue, setQueue] = useState<Queue>('planning')
   const [selected, setSelected] = useState<Record<string, GeneralTask>>({})
   const [teams, setTeams] = useState<Record<string, string>>({})
   const [coordinator, setCoordinator] = useState('')
   const [busy, setBusy] = useState(false)
+  const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [returning, setReturning] = useState<string | null>(null)
   const [rerouting, setRerouting] = useState(false)
@@ -33,12 +34,13 @@ export function TaskRoutingPanel({ state, onOpenTask }: { state: GeneralProjectS
   const destinations = state.teams.filter(t => t.leader_id).map(t => ({ value: t.id, label: t.name }))
   const editable = !state.readOnly && !busy
 
-  async function act(action: () => Promise<unknown>) {
+  async function act(action: () => Promise<unknown>, sentToTeam = false) {
     if (!editable) return
-    setBusy(true); setError(null)
+    setBusy(true); setError(null); setSent(false)
     try {
       await action()
       await state.reload()
+      setSent(sentToTeam)
       setSelected({}); setTeams({}); setReturning(null); setRerouting(false); setReason('')
     } catch (err) {
       setError(authErrorMessage(err, 'Could not hand off these tasks. Reload the tasks and try again.'))
@@ -50,7 +52,7 @@ export function TaskRoutingPanel({ state, onOpenTask }: { state: GeneralProjectS
   }
   function send() {
     if (!ready) return
-    return act(() => sendTasksToTeams(project!.id, picks.map(t => ({ id: t.id, team_id: teams[t.id] ?? t.team_id!, updated_at: t.updated_at })), rerouting ? reason.trim() : undefined))
+    return act(() => sendTasksToTeams(project!.id, picks.map(t => ({ id: t.id, team_id: teams[t.id] ?? t.team_id!, updated_at: t.updated_at })), rerouting ? reason.trim() : undefined), true)
   }
 
   return <section aria-label="Task handoff" className="surface space-y-4 rounded-xl border border-line p-4 sm:p-5">
@@ -60,6 +62,7 @@ export function TaskRoutingPanel({ state, onOpenTask }: { state: GeneralProjectS
     <p className="text-[13px] text-muted">Planning and review stay private to planners. Choosing a team does not send work.</p>
     {queue !== 'released' && <Button size="sm" variant="outline" disabled={!editable} onClick={() => setByPosition(true)}>Assign by position</Button>}
     {byPosition && <AssignByPosition state={state} open onClose={() => setByPosition(false)} />}
+    {sent && <Alert tone="success" onClose={() => setSent(false)}>Tasks sent to team. {onViewBoard && <Button size="sm" variant="outline" onClick={onViewBoard}>View on board</Button>}</Alert>}
     {error && <Alert tone="error">{error} <Button size="sm" variant="outline" disabled={busy} onClick={() => void refresh()}>Reload tasks</Button></Alert>}
     {rows.length === 0 ? <p className="py-4 text-[13px] text-faint">No tasks in this queue.</p> : <div className="divide-y divide-line">
       {rows.map(t => {

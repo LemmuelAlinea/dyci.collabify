@@ -136,7 +136,11 @@ export function TasksTab({
 
   return (
     <div className="space-y-4">
-      <TaskRoutingPanel key={project.id} state={state} onOpenTask={onOpenTask} />
+      <TaskRoutingPanel key={project.id} state={state} onOpenTask={onOpenTask} onViewBoard={() => {
+        onScope('all')
+        setQuery(''); setTeam(''); setAssignee(''); setStatus(''); setKind('')
+        onLayout('board')
+      }} />
       {ownUnsentBugs.length > 0 && <section aria-label="Your unsent bugs" className="surface space-y-3 rounded-xl border border-line p-4 sm:p-5">
         <h3 className="text-[14px] font-semibold text-ink">Your unsent bugs</h3>
         <p className="text-[13px] text-muted">Planners review these bugs before sending them to a team.</p>

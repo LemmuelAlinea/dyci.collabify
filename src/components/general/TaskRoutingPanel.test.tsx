@@ -17,7 +17,7 @@ function state(overrides = {}) {
     teams: [{ id: 'design', name: 'Design team', leader_id: 'lead' }, { id: 'dev', name: 'Dev team', leader_id: 'lead' }],
     members: [{ user_id: 'reviewer', role: 'coordinator', profile: { status: 'active' } }], nameOf: (id: string) => id, reload: vi.fn(), ...overrides } as unknown as GeneralProjectState
 }
-async function render(s: GeneralProjectState) { const host = document.createElement('div'); document.body.append(host); root = createRoot(host); await act(async () => root.render(<TaskRoutingPanel state={s} />)) }
+async function render(s: GeneralProjectState, onViewBoard?: () => void) { const host = document.createElement('div'); document.body.append(host); root = createRoot(host); await act(async () => root.render(<TaskRoutingPanel state={s} onViewBoard={onViewBoard} />)) }
 async function click(text: string) { await act(async () => [...document.querySelectorAll('button')].find(b => b.textContent === text)!.click()) }
 async function change(label: string, value: string) { await act(async () => { const el = document.querySelector(`[aria-label="${label}"]`) as HTMLSelectElement; el.value = value; el.dispatchEvent(new Event('change', { bubbles: true })) }) }
 async function selectRows() { await act(async () => document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(el => el.click())) }
@@ -31,6 +31,7 @@ it('keeps team choices in planning and sends mixed teams in one timestamped batc
 })
 it('sends planning tasks to one coordinator', async () => {
   await render(state()); await selectRows(); await change('Coordinator', 'reviewer'); await click('Send for review')
+  expect(document.body.textContent).not.toContain('View on board')
   expect(sendTasksToCoordinator).toHaveBeenCalledExactlyOnceWith('project', [{ id: 'one', updated_at: 'stamp-one' }, { id: 'two', updated_at: 'stamp-two' }], 'reviewer')
 })
 it('shows assigned review and requires a return reason', async () => {
@@ -38,12 +39,12 @@ it('shows assigned review and requires a return reason', async () => {
   await click('Coordinator review'); expect(document.body.textContent).toContain('Assigned to you'); await click('Return to planning')
   expect(returnWorkTask).not.toHaveBeenCalled(); expect([...document.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent === 'Confirm return')!.disabled).toBe(true)
   await act(async () => { const el = document.querySelector('textarea')!; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(el, 'Needs detail'); el.dispatchEvent(new Event('input', { bubbles: true })) })
-  await click('Confirm return'); expect(returnWorkTask).toHaveBeenCalledWith('one', 'Needs detail')
+  await click('Confirm return'); expect(document.body.textContent).not.toContain('View on board'); expect(returnWorkTask).toHaveBeenCalledWith('one', 'Needs detail')
 })
 it('retains tasks and selection after a stale refusal and offers reload', async () => {
   const s = state(); vi.mocked(sendTasksToTeams).mockRejectedValue({ code: '40001', message: 'A task changed. Reload the tasks and try again.' })
   await render(s); await selectRows(); await change('Team for Design', 'design'); await change('Team for Build', 'dev'); await click('Send to team')
-  expect(document.body.textContent).toContain('Reload the tasks'); expect(s.reload).not.toHaveBeenCalled(); expect(s.tasks[0].routing_state).toBe('planning')
+  expect(document.body.textContent).toContain('Reload the tasks'); expect(document.body.textContent).not.toContain('View on board'); expect(s.reload).not.toHaveBeenCalled(); expect(s.tasks[0].routing_state).toBe('planning')
   expect([...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].every(el => el.checked)).toBe(true)
 })
 it('requires confirmation and a reason before clearing released holders', async () => {
@@ -76,4 +77,15 @@ it.each([false, true])('reroutes default in-progress work only without active QA
   await render(state({ project: { id: 'project', class_board_id: null, has_qa }, tasks: [{ ...task, routing_state: 'released', status: 'in_progress', stage: 1 }] }))
   await click('Reroute released work')
   expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(has_qa)
+})
+
+it('offers a persistent board action only after a team send completes', async () => {
+  const onViewBoard = vi.fn()
+  await render(state({ tasks: [{ ...task, team_id: 'design' }] }), onViewBoard)
+  expect(document.body.textContent).not.toContain('View on board')
+  await selectRows(); await click('Send to team')
+  expect(document.querySelector('[role="status"]')?.textContent).toContain('Tasks sent to team.')
+  expect(onViewBoard).not.toHaveBeenCalled()
+  await click('Coordinator review'); await click('View on board')
+  expect(onViewBoard).toHaveBeenCalledOnce()
 })
