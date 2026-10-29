@@ -1,8 +1,9 @@
 // src/components/general/StructurePanel.tsx
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Field, Input } from '../ui/Field'
+import { FilterSearch } from '../ui/FilterPopover'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
@@ -468,19 +469,59 @@ function AddPerson({
   options: { value: string; label: string }[]
   onAdd: (userId: string) => void
 }) {
+  const details = useRef<HTMLDetailsElement>(null)
+  const [query, setQuery] = useState('')
+  const shown = options.filter((option) => option.label.toLowerCase().includes(query.trim().toLowerCase()))
+
   return (
-    <div className="mt-2 max-w-[16rem]">
-      <Select
-        aria-label="Add a person"
-        value=""
-        onChange={(e) => {
-          if (e.target.value) onAdd(e.target.value)
-        }}
-        placeholder="Add a person…"
-        options={options}
-        className="!h-9 !text-[13px]"
-      />
-    </div>
+    <details
+      ref={details}
+      className="relative mt-2 max-w-[16rem]"
+      onToggle={(event) => {
+        if (event.currentTarget.open) event.currentTarget.querySelector('input')?.focus()
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' && event.target instanceof HTMLInputElement) event.preventDefault()
+        if (event.key === 'Escape') {
+          details.current?.removeAttribute('open')
+          details.current?.querySelector('summary')?.focus()
+        }
+      }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node)) details.current?.removeAttribute('open')
+      }}
+    >
+      <summary className="flex h-9 cursor-pointer list-none items-center justify-between rounded-xl border border-[var(--control-line)] surface px-3 text-[13px] text-ink [&::-webkit-details-marker]:hidden">
+        Add a person… <Icon name="chevronDown" size={16} className="text-faint" />
+      </summary>
+      <div className="surface absolute z-30 mt-1 w-full rounded-xl border border-line p-2 shadow-lift">
+        <label>
+          <span className="sr-only">Search people to add</span>
+          <FilterSearch value={query} onChange={setQuery} placeholder="Search people" />
+        </label>
+        {shown.length === 0 ? (
+          <p className="px-2 py-3 text-[12px] text-muted">Nobody matches.</p>
+        ) : (
+          <ul className="mt-2 max-h-56 overflow-y-auto">
+            {shown.map((option) => (
+              <li key={option.value}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAdd(option.value)
+                    setQuery('')
+                    details.current?.removeAttribute('open')
+                  }}
+                  className="w-full rounded-lg px-2 py-2 text-left text-[13px] text-ink hover:bg-[var(--surface-sunken)] focus-visible:bg-[var(--surface-sunken)]"
+                >
+                  {option.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </details>
   )
 }
 

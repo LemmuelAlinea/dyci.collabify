@@ -1,5 +1,5 @@
 // src/components/general/MembersTab.tsx
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Avatar } from '../app/Avatar'
 import { Button } from '../ui/Button'
@@ -10,11 +10,13 @@ import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import { ScrollTenList } from '../ui/ScrollTenList'
 import { useToast } from '../ui/Toast'
+import { useAuth } from '../../context/AuthContext'
 import {
   grantPermission,
   leaveProject,
   removeMember,
   revokePermission,
+  searchPeople,
   setMemberRole,
 } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
@@ -64,12 +66,14 @@ export function MembersTab({ state }: { state: GeneralProjectState }) {
 
 function MemberList({ state }: { state: GeneralProjectState }) {
   const { show } = useToast()
+  const { profile: viewer } = useAuth()
   const navigate = useNavigate()
   const [permissionsFor, setPermissionsFor] = useState<GeneralMember | null>(null)
   const [removing, setRemoving] = useState<GeneralMember | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [handingOver, setHandingOver] = useState(false)
   const [query, setQuery] = useState('')
+  const [emailResult, setEmailResult] = useState<{ query: string; id: string | null } | null>(null)
   const project = state.project
 
   // The database refuses what canRemoveRole refuses.
@@ -119,8 +123,26 @@ function MemberList({ state }: { state: GeneralProjectState }) {
       )
     : state.members
   const q = query.trim().toLowerCase()
+  const emailQuery = q.includes('@')
+  useEffect(() => {
+    if (!emailQuery || q.length < 3) return
+    const timer = setTimeout(() => {
+      searchPeople(q)
+        .then((hits) => setEmailResult({ query: q, id: hits.find((hit) => hit.email?.toLowerCase() === q)?.person_id ?? null }))
+        .catch((err) => {
+          setEmailResult({ query: q, id: null })
+          show(authErrorMessage(err, 'Could not search email right now.'), 'error')
+        })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [emailQuery, q, show])
+  const emailId = viewer?.email.toLowerCase() === q
+    ? state.viewerId
+    : emailResult?.query === q ? emailResult.id : null
   const shown = work && q
-    ? members.filter((m) => state.nameOf(m.user_id).toLowerCase().includes(q))
+    ? members.filter((m) => emailQuery
+      ? m.user_id === emailId
+      : state.nameOf(m.user_id).toLowerCase().includes(q))
     : members
 
   if (!project) return null
@@ -144,15 +166,17 @@ function MemberList({ state }: { state: GeneralProjectState }) {
       {work && (
         <div className="border-b border-line px-4 py-3 sm:px-5">
           <label className="block max-w-sm">
-            <span className="sr-only">Search members by name</span>
-            <FilterSearch value={query} onChange={setQuery} placeholder="Search members by name" />
+            <span className="sr-only">Search members by name or exact email</span>
+            <FilterSearch value={query} onChange={setQuery} placeholder="Name or exact email" />
           </label>
         </div>
       )}
 
       {shown.length === 0 ? (
         <p className="px-4 py-5 text-[13px] text-muted sm:px-5">
-          {q ? 'No members match that name.' : 'No members yet.'}
+          {emailQuery && q.length >= 3 && emailResult?.query !== q && viewer?.email.toLowerCase() !== q
+            ? 'Checking email…'
+            : q ? 'No members match.' : 'No members yet.'}
         </p>
       ) : (
         <ScrollTenList
