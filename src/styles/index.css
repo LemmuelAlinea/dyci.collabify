@@ -822,14 +822,14 @@
     display: none;
   }
   body {
-    padding-right: 14px;
+    padding-right: 8px;
   }
   .page-scrollbar {
     display: none;
     position: fixed;
     inset: 0 0 0 auto;
     z-index: 40;
-    width: 14px;
+    width: 8px;
     height: 100dvh;
     background: var(--surface-sunken);
     touch-action: none;
@@ -837,7 +837,7 @@
   .page-scrollbar-thumb {
     width: 100%;
     background: var(--ink-faint);
-    border: 2px solid var(--surface-sunken);
+    border: 1px solid var(--surface-sunken);
     border-radius: 999px;
   }
   body:has(.landing-page) {
