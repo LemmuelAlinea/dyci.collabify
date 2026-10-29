@@ -825,19 +825,23 @@
     padding-right: 8px;
   }
   .page-scrollbar {
+    --scrollbar-track: var(--surface);
     display: none;
     position: fixed;
     inset: 0 0 0 auto;
     z-index: 40;
     width: 8px;
     height: 100dvh;
-    background: var(--surface-sunken);
+    background: var(--scrollbar-track);
     touch-action: none;
+  }
+  .dark .page-scrollbar {
+    --scrollbar-track: var(--u-page, #0a0e24);
   }
   .page-scrollbar-thumb {
     width: 100%;
     background: var(--ink-faint);
-    border: 1px solid var(--surface-sunken);
+    border: 1px solid var(--scrollbar-track);
     border-radius: 999px;
   }
   body:has(.landing-page) {
