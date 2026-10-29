@@ -29,7 +29,8 @@ function readView(): View {
  *
  * Which page that means is still decided by role, same as before; only the
  * URL stopped saying so. Everyone else gets their role dashboard with "Your
- * work" stacked under it. Faculty who teach, and students who have work too,
+ * work" stacked under it. Members who cannot teach see the work dashboard
+ * alone when they have work or can manage projects. Faculty who teach, and students who have work too,
  * run two full dashboards, so they see one at a time and trade with the swap
  * button at the top right of its banner; the last one they chose is
  * remembered on this device.
@@ -80,6 +81,10 @@ export default function Home() {
     ) : (
       <StudentHome onSwitch={() => choose('work')} />
     )
+  }
+
+  if (isMember(profile) && !canTeach(profile) && (membership?.hasWork || canManageProjects(profile))) {
+    return <WorkOverview standalone />
   }
 
   return (

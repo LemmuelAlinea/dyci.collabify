@@ -41,9 +41,8 @@ function greeting() {
  * setting's, and they get worse quietly. Progress across the classes is last,
  * because it is a reading rather than a task.
  *
- * Faculty the admin has not let teach get only the greeting banner: their home is
- * work, which `WorkOverview` stacks underneath, even when a class has invited
- * them in — that class is on their Spaces page.
+ * Faculty the admin has not let teach get only the greeting banner when they
+ * have a class but no work. Their class is on the Spaces page.
  */
 export default function ProfessorHome({ onSwitch }: { onSwitch?: () => void } = {}) {
   const { profile } = useAuth()

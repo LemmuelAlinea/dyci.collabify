@@ -45,9 +45,8 @@ function greeting() {
  * invitations. Project managers always keep the New space / Join with code
  * doors open, including while this is loading.
  *
- * `standalone` is a teacher's other dashboard rather than a section: it greets
- * instead of titling, and `onSwitch` puts the way back to the class dashboard
- * on its banner.
+ * `standalone` is a full work dashboard: it greets instead of titling, and
+ * `onSwitch` puts the way back to the class dashboard on its banner.
  */
 export function WorkOverview({
   standalone = false,
