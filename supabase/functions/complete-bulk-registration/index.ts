@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { cors, denied } from '../_shared/cors.ts'
-import { bulkPasswordError } from '../_shared/bulkAccounts.ts'
+import { bulkSetupChoice } from '../_shared/bulkAccounts.ts'
 
 function json(headers: Record<string, string>, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -40,10 +40,10 @@ Deno.serve(async (req) => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid body')
     body = value as Record<string, unknown>
   } catch {
-    return json(headers, { message: 'Enter a new password.' }, 400)
+    return json(headers, { message: 'Choose whether to change your password now or later.' }, 400)
   }
-  const passwordError = bulkPasswordError(body.newPassword, false)
-  if (passwordError) return json(headers, { message: passwordError }, 400)
+  const choice = bulkSetupChoice(body)
+  if (choice.error) return json(headers, { message: choice.error }, 400)
 
   const today = new Date().toISOString().slice(0, 10)
   const { data: versions, error: versionError } = await admin.from('legal_versions')
@@ -62,13 +62,15 @@ Deno.serve(async (req) => {
     return json(headers, { message: 'Accept the current terms and privacy policy first.' }, 409)
   }
 
-  const { error: passwordUpdateError } = await admin.auth.admin.updateUserById(user.id, {
-    password: body.newPassword as string,
-  })
-  if (passwordUpdateError) return json(headers, { message: 'Could not update the password. Try again.' }, 500)
+  if (choice.password) {
+    const { error: passwordUpdateError } = await admin.auth.admin.updateUserById(user.id, {
+      password: choice.password,
+    })
+    if (passwordUpdateError) return json(headers, { message: 'Could not update the password. Try again.' }, 500)
+  }
   const { error: activationError } = await admin.from('profiles')
     .update({ status: 'active', bulk_setup_required: false })
     .eq('id', user.id).eq('bulk_setup_required', true)
-  if (activationError) return json(headers, { message: 'Password updated. Finish setup again to activate your account.' }, 500)
+  if (activationError) return json(headers, { message: 'Could not activate your account. Finish setup again.' }, 500)
   return json(headers, { result: 'complete' })
 })

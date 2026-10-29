@@ -58,9 +58,11 @@ export async function registerBulkUsers(
   return answer.results
 }
 
-export async function completeBulkRegistration(newPassword: string): Promise<void> {
+export async function completeBulkRegistration(
+  choice: { newPassword: string } | { deferPasswordChange: true },
+): Promise<void> {
   const answer = await invokeFunction<{ result?: string; message?: string }>(
-    'complete-bulk-registration', { newPassword },
+    'complete-bulk-registration', choice,
   )
   if (answer.result !== 'complete') throw new Error(answer.message ?? 'Could not finish account setup.')
 }

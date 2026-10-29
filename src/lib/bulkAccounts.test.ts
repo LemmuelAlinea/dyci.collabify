@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bulkPasswordError, isActiveBulkAdmin, normalizeBulkUser } from '../../supabase/functions/_shared/bulkAccounts'
+import { bulkPasswordError, bulkSetupChoice, isActiveBulkAdmin, normalizeBulkUser } from '../../supabase/functions/_shared/bulkAccounts'
 import { parseBulkCsv } from './bulkAccounts'
 
 const header = 'first_name,middle_name,last_name,email,role\n'
@@ -44,6 +44,13 @@ describe('server-side bulk validation', () => {
   it('requires a strong shared password', () => {
     expect(bulkPasswordError('short')).toContain('12 to 128')
     expect(bulkPasswordError('twelve chars')).toBeNull()
+  })
+
+  it('only defers the first password change when explicitly requested', () => {
+    expect(bulkSetupChoice({})).toEqual({ error: 'Enter a password.' })
+    expect(bulkSetupChoice({ deferPasswordChange: true })).toEqual({})
+    expect(bulkSetupChoice({ deferPasswordChange: true, newPassword: 'new-password' }).error).toBeTruthy()
+    expect(bulkSetupChoice({ newPassword: 'new-password' })).toEqual({ password: 'new-password' })
   })
 
   it('refuses everyone except an active admin', () => {

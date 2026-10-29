@@ -31,6 +31,16 @@ export function bulkPasswordError(password: unknown, temporary = true): string |
   return null
 }
 
+export function bulkSetupChoice(body: Record<string, unknown>): { password?: string; error?: string } {
+  if (body.deferPasswordChange === true) {
+    return 'newPassword' in body
+      ? { error: 'Choose whether to change your password now or later.' }
+      : {}
+  }
+  const error = bulkPasswordError(body.newPassword, false)
+  return error ? { error } : { password: body.newPassword as string }
+}
+
 export function normalizeBulkUser(value: unknown): { user?: BulkUser; error?: string } {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { error: 'This row is not a user.' }

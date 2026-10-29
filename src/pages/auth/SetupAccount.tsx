@@ -32,25 +32,24 @@ export default function SetupAccount() {
     return <Navigate to={homeFor(profile)} replace />
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault()
+  async function finish(changePassword: boolean) {
     setError(null)
     if (!allConsented(consent)) {
       setShowConsentErrors(true)
       return
     }
-    if (password.length < 8 || password.length > 128) {
+    if (changePassword && (password.length < 8 || password.length > 128)) {
       setError('Use 8 to 128 characters for the new password.')
       return
     }
-    if (password !== confirm) {
+    if (changePassword && password !== confirm) {
       setError('Those two passwords do not match.')
       return
     }
     setBusy(true)
     try {
       await recordAllConsent('onboarding')
-      await completeBulkRegistration(password)
+      await completeBulkRegistration(changePassword ? { newPassword: password } : { deferPasswordChange: true })
       setPassword('')
       setConfirm('')
       await refreshProfile()
@@ -62,22 +61,29 @@ export default function SetupAccount() {
     }
   }
 
+  function submit(event: FormEvent) {
+    event.preventDefault()
+    void finish(true)
+  }
+
   return (
     <AuthLayout
       title="Finish your account"
-      subtitle="Accept the terms and privacy policy, then replace your temporary password."
+      subtitle="Accept the terms and privacy policy, then change your temporary password now or later in Settings."
     >
-      <form onSubmit={(event) => void submit(event)} className="space-y-4">
+      <form onSubmit={submit} className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
         <p className="text-[13px] text-muted">Signed in as {profile?.email}</p>
         <ConsentChecks value={consent} onChange={setConsent} showErrors={showConsentErrors} disabled={busy} />
         <Field label="New password">
-          {(id) => <PasswordInput id={id} required minLength={8} maxLength={128} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />}
+          {(id) => <PasswordInput id={id} minLength={8} maxLength={128} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />}
         </Field>
         <Field label="Confirm new password">
-          {(id) => <PasswordInput id={id} required minLength={8} maxLength={128} autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} />}
+          {(id) => <PasswordInput id={id} minLength={8} maxLength={128} autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} />}
         </Field>
-        <Button type="submit" size="lg" full loading={busy}>Finish setup</Button>
+        <Button type="submit" size="lg" full loading={busy}>Change password and continue</Button>
+        <Button type="button" variant="outline" full disabled={busy} onClick={() => void finish(false)}>Change password later</Button>
+        <p className="text-[12px] text-muted">Your temporary password will keep working until you change it in Settings → Security.</p>
         <Button type="button" variant="ghost" full disabled={busy} onClick={() => void signOut()}>Sign out</Button>
       </form>
     </AuthLayout>
