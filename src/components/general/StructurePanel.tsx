@@ -9,6 +9,7 @@ import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import {
+  archiveTeam,
   addPositionHolder,
   addTeamMember,
   createPosition,
@@ -51,6 +52,7 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
   const [creatingPosition, setCreatingPosition] = useState(false)
   const [renaming, setRenaming] = useState<Renaming>(null)
   const [removing, setRemoving] = useState<Removing>(null)
+  const [archiving, setArchiving] = useState<{ id: string; name: string } | null>(null)
   const [busy, setBusy] = useState(false)
 
   const project = state.project
@@ -237,6 +239,7 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
         headerActions={editable && openTeam && (
           <>
             <button type="button" aria-label={`Rename ${openTeam.name}`} onClick={() => setRenaming({ kind: 'team', id: openTeam.id, name: openTeam.name })} className="grid h-9 w-9 place-items-center rounded-full text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"><Icon name="edit" size={16} /></button>
+            <button type="button" aria-label={`Archive ${openTeam.name}`} onClick={() => setArchiving({ id: openTeam.id, name: openTeam.name })} className="grid h-9 w-9 place-items-center rounded-full text-faint hover:bg-[var(--surface-sunken)] hover:text-ink"><Icon name="archive" size={16} /></button>
             <button type="button" aria-label={`Remove ${openTeam.name}`} onClick={() => setRemoving({ kind: 'team', id: openTeam.id, name: openTeam.name })} className="grid h-9 w-9 place-items-center rounded-full text-faint hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"><Icon name="trash" size={16} /></button>
           </>
         )}
@@ -348,6 +351,20 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
           show('Renamed')
           await state.reload()
         }}
+      />
+      <ConfirmDialog
+        open={Boolean(archiving)}
+        onClose={() => setArchiving(null)}
+        onConfirm={async () => {
+          if (!archiving) return
+          await archiveTeam(archiving.id, true)
+          setOpenTeamId(null)
+          show('Team archived')
+          await state.reload()
+        }}
+        title={`Archive ${archiving?.name ?? ''}?`}
+        body="The team, its people and positions will move to this project's archive. Move or complete its open tasks first."
+        confirmLabel="Archive"
       />
       <ConfirmDialog
         open={Boolean(removing)}

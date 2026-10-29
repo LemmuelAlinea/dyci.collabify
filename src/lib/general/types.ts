@@ -170,6 +170,7 @@ export type GeneralTeam = {
   project_id: string
   name: string
   created_at: string
+  archived_at: string | null
   /** Always somebody on the team. Null while it has no lead. */
   leader_id: string | null
 }

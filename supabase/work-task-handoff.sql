@@ -386,7 +386,7 @@ begin
     where m.project_id=p_project and m.user_id=auth.uid() and pr.status='active'
       and ((not p_lead and m.role in ('pm','coordinator')) or (p_lead and m.role in ('pm','coordinator','member')
         and exists(select 1 from public.general_teams g join public.general_team_members tm on tm.team_id=g.id and tm.user_id=m.user_id
-          where g.project_id=p_project and g.leader_id=m.user_id)))) then
+          where g.project_id=p_project and g.archived_at is null and g.leader_id=m.user_id)))) then
     raise exception 'Only active planners or receiving team leads can use this assignment context.'
       using errcode = 'insufficient_privilege';
   end if;
@@ -407,7 +407,7 @@ begin
        and m.role in ('pm', 'coordinator', 'member')
        and pr.status = 'active'
        and (not p_lead or exists(select 1 from public.general_team_members tm join public.general_teams g on g.id=tm.team_id
-         where tm.project_id=p_project and tm.user_id=m.user_id and g.leader_id=auth.uid()
+         where tm.project_id=p_project and tm.user_id=m.user_id and g.archived_at is null and g.leader_id=auth.uid()
            and exists(select 1 from public.general_team_members lm where lm.team_id=g.id and lm.user_id=auth.uid())))
   )
   select
@@ -422,11 +422,15 @@ begin
                            and t.status <> 'done' and t.archived_at is null and public.general_task_released(t.id)),
                'teams', coalesce((select jsonb_agg(tm.team_id order by tm.team_id)
                                     from public.general_team_members tm
-                                   where tm.project_id = p_project and tm.user_id = c.user_id),
+                                   where tm.project_id = p_project and tm.user_id = c.user_id
+                                     and exists (select 1 from public.general_teams g where g.id=tm.team_id and g.archived_at is null)),
                                  '[]'::jsonb),
                'positions', coalesce((select jsonb_agg(h.position_id order by h.position_id)
                                         from public.general_position_holders h
-                                       where h.project_id = p_project and h.user_id = c.user_id),
+                                       where h.project_id = p_project and h.user_id = c.user_id
+                                         and exists (select 1 from public.general_positions p
+                                           left join public.general_teams g on g.id=p.team_id
+                                           where p.id=h.position_id and (p.team_id is null or g.archived_at is null))),
                                      '[]'::jsonb),
                'tags', coalesce((select jsonb_agg(s.tag order by lower(s.tag))
                                    from public.general_member_skills s
@@ -441,7 +445,7 @@ begin
              ) order by p.sort, p.name, p.id)
         from public.general_positions p
         left join public.general_teams tm on tm.id = p.team_id
-       where p.project_id = p_project
+       where p.project_id = p_project and (p.team_id is null or tm.archived_at is null)
          and (not p_lead or exists (select 1 from public.general_position_holders h
                        join cands c on c.user_id = h.user_id
                       where h.position_id = p.id and h.project_id = p_project))
@@ -455,7 +459,7 @@ begin
        and ((not p_lead and t.routing_state in ('planning','coordinator_review'))
          or (p_lead and t.routing_state='released' and exists(select 1 from public.general_teams g
            join public.general_team_members tm on tm.team_id=g.id and tm.user_id=auth.uid()
-           where g.id=t.team_id and g.project_id=p_project and g.leader_id=auth.uid())))
+           where g.id=t.team_id and g.project_id=p_project and g.archived_at is null and g.leader_id=auth.uid())))
        and t.status <> 'done'
        and t.archived_at is null
        and not exists (select 1 from public.general_task_assignees a where a.task_id = t.id)
@@ -477,7 +481,7 @@ begin
   return jsonb_build_object(
     'teams', coalesce((select jsonb_agg(jsonb_build_object('id',g.id,'name',g.name,'load',
       (select count(*) from public.general_tasks t where t.team_id=g.id and t.routing_state='released' and t.status<>'done' and t.archived_at is null)))
-      from public.general_teams g where g.project_id=p_project and (not p_lead or g.leader_id=auth.uid())), '[]'::jsonb),
+      from public.general_teams g where g.project_id=p_project and g.archived_at is null and (not p_lead or g.leader_id=auth.uid())), '[]'::jsonb),
     'positions', v_pos,
     'candidates', v_cands,
     'tasks', v_tasks,
@@ -1592,7 +1596,7 @@ begin
       join public.general_team_members tm on tm.team_id=g.id and tm.user_id=g.leader_id and tm.project_id=p_project
       join public.general_members m on m.project_id=p_project and m.user_id=g.leader_id
       join public.profiles pr on pr.id=m.user_id
-      where g.id=destination and g.project_id=p_project and pr.status='active' and m.role<>'stakeholder'
+      where g.id=destination and g.project_id=p_project and g.archived_at is null and pr.status='active' and m.role<>'stakeholder'
       for share of g, tm, m, pr nowait;
     if not found then
       raise exception 'Choose a team with an active lead on this project.' using errcode='check_violation';
@@ -1675,7 +1679,7 @@ begin
     or (t.routing_state='released' and not public.general_task_held(t.id)
       and exists(select 1 from public.general_teams g
         join public.general_team_members tm on tm.team_id=g.id and tm.user_id=g.leader_id
-        where g.id=t.team_id and g.project_id=t.project_id and g.leader_id=auth.uid())
+        where g.id=t.team_id and g.project_id=t.project_id and g.archived_at is null and g.leader_id=auth.uid())
       and public.general_role_of(t.project_id,auth.uid()) in ('pm','coordinator','member','qa'))
   ),false) then
     raise exception 'Only its reviewer or receiving lead can return unassigned work.' using errcode='insufficient_privilege';
@@ -1795,7 +1799,7 @@ begin
             perform 1 from public.general_teams g
               join public.general_team_members lead on lead.project_id=p and lead.team_id=g.id and lead.user_id=auth.uid()
               join public.general_team_members recipient on recipient.project_id=p and recipient.team_id=g.id and recipient.user_id=new.user_id
-              where g.project_id=p and g.id=t.team_id and g.leader_id=auth.uid()
+              where g.project_id=p and g.id=t.team_id and g.archived_at is null and g.leader_id=auth.uid()
               for share of g,lead,recipient nowait;
             if not found or actor_role='stakeholder' then
               raise exception 'Only the receiving team lead assigns its members. Reload and try again.' using errcode='insufficient_privilege';

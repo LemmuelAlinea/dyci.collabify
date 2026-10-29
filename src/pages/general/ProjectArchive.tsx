@@ -14,6 +14,7 @@ import { useGeneralNavigation } from '../../context/generalNavigation'
 import { paths } from '../../lib/paths'
 import {
   archiveTask,
+  archiveTeam,
   archiveTaskFile,
   archiveDraftPath,
   deleteArchivedDraftFiles,
@@ -27,6 +28,7 @@ import {
   listArchivedDraftFiles,
   listArchivedTaskFiles,
   listArchivedTasks,
+  listArchivedTeams,
   listRemovedRepoPaths,
   restoreArchivedDraftFiles,
   restoreArchivedTaskFiles,
@@ -39,7 +41,7 @@ import { buildTree, isKeep } from '../../lib/general/files'
 import { finishedSprints } from '../../lib/work/sprints'
 import type { TreeNode } from '../../lib/general/files'
 import { stageName } from '../../lib/stages'
-import type { ArchivedDraftFile, ArchivedGeneralFile, GeneralDraftFile, GeneralTask, RemovedGeneralRepoPath } from '../../lib/general/types'
+import type { ArchivedDraftFile, ArchivedGeneralFile, GeneralDraftFile, GeneralTask, GeneralTeam, RemovedGeneralRepoPath } from '../../lib/general/types'
 import { formatBytes } from '../../lib/formatBytes'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 
@@ -50,6 +52,7 @@ export default function ProjectArchive() {
   const { reportProjectSpace } = useGeneralNavigation()
   const state = useGeneralProject(projectId, profile?.id)
   const [tasks, setTasks] = useState<GeneralTask[] | null>(null)
+  const [teams, setTeams] = useState<GeneralTeam[] | null>(null)
   const [files, setFiles] = useState<ArchivedGeneralFile[] | null>(null)
   const [draftFiles, setDraftFiles] = useState<ArchivedDraftFile[] | null>(null)
   const [repoPaths, setRepoPaths] = useState<RemovedGeneralRepoPath[] | null>(null)
@@ -69,13 +72,15 @@ export default function ProjectArchive() {
     try {
       const repo = await getRepo(projectId)
       setRepoId(repo?.id ?? null)
-      const [archivedTasks, archivedFiles, archivedDraftFiles, removedPaths] = await Promise.all([
+      const [archivedTasks, archivedTeams, archivedFiles, archivedDraftFiles, removedPaths] = await Promise.all([
         listArchivedTasks(projectId),
+        listArchivedTeams(projectId),
         listArchivedTaskFiles(projectId),
         repo ? listArchivedDraftFiles(repo.id) : Promise.resolve([]),
         listRemovedRepoPaths(projectId),
       ])
       setTasks(archivedTasks)
+      setTeams(archivedTeams)
       setFiles(archivedFiles)
       setDraftFiles(archivedDraftFiles)
       setRepoPaths(removedPaths.filter((p) => !isKeep(p.path)))
@@ -83,6 +88,7 @@ export default function ProjectArchive() {
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load the project archive.'))
       setTasks([])
+      setTeams([])
       setFiles([])
       setDraftFiles([])
       setRepoPaths([])
@@ -103,11 +109,11 @@ export default function ProjectArchive() {
   }, [load])
 
   const empty = useMemo(
-    () => tasks?.length === 0 && files?.length === 0 && draftFiles?.length === 0 && repoPaths?.length === 0
+    () => tasks?.length === 0 && teams?.length === 0 && files?.length === 0 && draftFiles?.length === 0 && repoPaths?.length === 0
       && !state.sprints.some((s) => s.archived),
-    [draftFiles, files, repoPaths, state.sprints, tasks],
+    [draftFiles, files, repoPaths, state.sprints, tasks, teams],
   )
-  const loading = state.loading || tasks === null || files === null || draftFiles === null || repoPaths === null
+  const loading = state.loading || tasks === null || teams === null || files === null || draftFiles === null || repoPaths === null
   const canActInArchive = !state.readOnly
   const q = query.trim().toLowerCase()
   const sprints = finishedSprints(state.sprints, true)
@@ -117,6 +123,7 @@ export default function ProjectArchive() {
   const archivedTasks = q
     ? tasks?.filter((task) => `${task.title} ${task.status}`.toLowerCase().includes(q)) ?? []
     : tasks ?? []
+  const archivedTeams = q ? teams?.filter((team) => team.name.toLowerCase().includes(q)) ?? [] : teams ?? []
   const archivedFiles = q
     ? files?.filter((file) => `${file.file_name} ${file.task_title}`.toLowerCase().includes(q)) ?? []
     : files ?? []
@@ -155,7 +162,7 @@ export default function ProjectArchive() {
       <DirectoryHero
         title="Project"
         accent="archive."
-        description="Archived sprints, tasks, draft files, folders and removed paths stay recoverable."
+        description="Archived teams, sprints, tasks, draft files, folders and removed paths stay recoverable."
       />
 
       {(error || state.error) && <Alert tone="error">{error ?? state.error}</Alert>}
@@ -169,7 +176,7 @@ export default function ProjectArchive() {
         <EmptyState
           icon="archive"
           title="Nothing archived"
-          body="Archived sprints, tasks, task files, draft files, folders and removed file paths will appear here."
+          body="Archived teams, sprints, tasks, task files, draft files, folders and removed file paths will appear here."
         />
       ) : (
         <div className="space-y-5">
@@ -180,6 +187,29 @@ export default function ProjectArchive() {
             placeholder="Search archive"
             className="max-w-md"
           />
+
+          <ArchiveSection title="Archived teams" count={archivedTeams.length}>
+            {archivedTeams.length === 0 ? (
+              <p className="px-4 py-5 text-[13px] text-faint">No archived teams.</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {archivedTeams.map((team) => (
+                  <li key={team.id} className="flex items-center gap-3 px-4 py-3.5 sm:px-5">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-ink">{team.name}</p>
+                      <p className="mt-0.5 text-[12px] text-muted">Archived {team.archived_at ? formatDue(team.archived_at) : ''}</p>
+                    </div>
+                    {state.can('manage_structure') && canActInArchive && (
+                      <ActionMenu label={`Actions for ${team.name}`} disabled={busy === team.id} items={[{
+                        label: 'Restore', icon: 'refresh',
+                        onSelect: () => void run(team.id, () => archiveTeam(team.id, false), 'Team restored', 'Could not restore that team.'),
+                      }]} />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </ArchiveSection>
 
           <ArchiveSection title="Archived sprints" count={archivedSprints.length}>
             {archivedSprints.length === 0 ? (

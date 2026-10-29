@@ -618,9 +618,25 @@ export async function listTeams(projectId: string) {
     .from('general_teams')
     .select('*')
     .eq('project_id', projectId)
+    .is('archived_at', null)
     .order('name')
   if (error) throw error
   return (data ?? []) as GeneralTeam[]
+}
+
+export async function listArchivedTeams(projectId: string) {
+  const { data, error } = await supabase.from('general_teams').select('*')
+    .eq('project_id', projectId).not('archived_at', 'is', null).order('archived_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as GeneralTeam[]
+}
+
+export async function archiveTeam(teamId: string, archived: boolean) {
+  const { data, error } = await supabase.from('general_teams')
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq('id', teamId).select('id')
+  if (error) throw error
+  changed(data, NO_STRUCTURE)
 }
 
 /** Answers the new team's id, so people and a leader can be put on it. */
