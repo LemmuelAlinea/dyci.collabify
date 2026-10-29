@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
       continue
     }
 
-    const { error } = await admin.auth.admin.createUser({
+    const { data, error } = await admin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
@@ -103,7 +103,18 @@ Deno.serve(async (req) => {
       app_metadata: { bulk_registration: true },
     })
     if (!error) {
-      results.push({ row, email, status: 'created' })
+      if (!data.user) {
+        results.push({ row, email, status: 'failed', reason: 'Could not verify this account. Contact an admin before sharing its password.' })
+        continue
+      }
+      const { error: setupError } = await admin.from('profiles')
+        .update({ status: 'pending', bulk_setup_required: true })
+        .eq('id', data.user.id)
+        .select('id')
+        .single()
+      results.push(setupError
+        ? { row, email, status: 'failed', reason: 'Account created, but setup could not be required. Contact an admin before sharing its password.' }
+        : { row, email, status: 'created' })
     } else if (error.code === 'email_exists' || error.code === 'user_already_exists' ||
                /already.*(registered|exists)|email.*(already|exists)/i.test(error.message)) {
       results.push({ row, email, status: 'skipped', reason: 'Account already exists.' })
