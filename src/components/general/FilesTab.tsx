@@ -300,11 +300,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           }}
         />
       )}
-      {view === 'draft' && !noDraft && (<div className="space-y-8">
-        <nav aria-label="My workspace sections" className="flex flex-wrap gap-2 text-[13px]">
-          <button type="button" onClick={() => document.getElementById('project-my-draft')?.scrollIntoView()} className="rounded-lg border border-line px-3 py-2 hover:bg-[var(--surface-sunken)]">My draft</button>
-          <button type="button" onClick={() => document.getElementById('project-shared-files')?.scrollIntoView()} className="rounded-lg border border-line px-3 py-2 hover:bg-[var(--surface-sunken)]">Shared with me</button>
-        </nav>
+      {view === 'draft' && !noDraft && (
         <div className="grid gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
           <section id="project-my-draft" aria-label="My draft" className="min-w-0 scroll-mt-24"><DraftPanel
             draft={draft}
@@ -322,7 +318,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
           /></section>
           <section id="project-shared-files" aria-label="Shared files" className="min-w-0 scroll-mt-24 border-t border-line pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"><SharedTab state={state} /></section>
         </div>
-      </div>)}
+      )}
       {view === 'changes' && (
         <ChangesView
           repo={repo}
