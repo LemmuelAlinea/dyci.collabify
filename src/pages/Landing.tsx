@@ -173,46 +173,14 @@ function Nav() {
   )
 }
 
-/** The hairline that fills as the page moves. */
-function ScrollRail() {
-  const [p, setP] = useState(0)
-
-  useEffect(() => {
-    const onScroll = () => {
-      const max = document.documentElement.scrollHeight - window.innerHeight
-      setP(max > 0 ? Math.min(1, window.scrollY / max) : 0)
-    }
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll)
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
-    }
-  }, [])
-
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none fixed top-1/2 right-4 z-40 hidden h-40 w-px -translate-y-1/2 bg-navy-900/15 lg:block"
-    >
-      <div
-        className="w-px bg-amber-400 transition-[height] duration-150 ease-out"
-        style={{ height: `${p * 100}%` }}
-      />
-    </div>
-  )
-}
-
 export default function Landing() {
   useEffect(() => {
     document.title = "Collabify — every project at Dr. Yanga's Colleges"
   }, [])
 
   return (
-    <div className="min-h-screen bg-white antialiased">
+    <div className="landing-page min-h-screen bg-white antialiased">
       <Nav />
-      <ScrollRail />
 
       <main>
         <Hero />

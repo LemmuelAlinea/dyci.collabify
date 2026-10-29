@@ -840,6 +840,12 @@
     border: 2px solid var(--surface-sunken);
     border-radius: 999px;
   }
+  body:has(.landing-page) {
+    padding-right: 0;
+  }
+  body:has(.landing-page) .page-scrollbar {
+    display: none !important;
+  }
   html.has-modal .page-scrollbar {
     display: none !important;
   }
