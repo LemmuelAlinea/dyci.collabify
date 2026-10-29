@@ -47,7 +47,7 @@ export function LeadInbox({ state }: { state: GeneralProjectState }) {
     finally { setBusy(false) }
   }
   return <>
-    <div className="flex justify-end"><Button size="sm" variant="outline" onClick={() => setOpen(true)}>Incoming tasks{incoming.length > 0 ? ` (${incoming.length})` : ''}</Button></div>
+    <div className="flex justify-end"><Button size="sm" variant="outline" onClick={() => setOpen(true)}>Incoming tasks{incoming.length > 0 ? ` (${incoming.length})` : ''}{incoming.length > 0 && <span aria-hidden="true" className="ml-1 size-3.5 rounded-full bg-badge shadow-[0_0_10px_2px_var(--badge)]" />}</Button></div>
     <Modal open={open} onClose={() => setOpen(false)} title="Incoming tasks" size="lg">
       <section aria-label="Team incoming" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-[13px] text-muted">Assign work sent to your teams, or return it with a reason.</p>{state.myRole !== 'qa' && <Button size="sm" variant="outline" disabled={state.readOnly || !incoming.length} onClick={() => setByPosition(true)}>Assign by position</Button>}</div>

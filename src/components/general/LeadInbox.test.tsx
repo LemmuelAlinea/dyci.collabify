@@ -23,6 +23,7 @@ it('scopes Incoming to released unassigned work for the led team and keeps own r
   try {
     await act(async () => root.render(<LeadInbox state={state} />))
     expect(container.textContent).toContain('Incoming tasks (1)')
+    expect(container.querySelector('button [aria-hidden="true"]')).not.toBeNull()
     expect(document.body.textContent).not.toContain('Team A incoming')
     await act(async () => container.querySelector('button')!.click())
     const dialog = document.querySelector('[role="dialog"][aria-label="Incoming tasks"]')!
@@ -43,6 +44,7 @@ it('scopes Incoming to released unassigned work for the led team and keeps own r
     await act(async () => root.render(<LeadInbox state={{ ...state }} />))
     expect(dialog.textContent).not.toContain('Team A incoming')
     expect(dialog.textContent).toContain('No capacity')
+    expect(container.querySelector('button [aria-hidden="true"]')).toBeNull()
     expect(api.listWorkTaskReturnReceipts).toHaveBeenCalledWith('p')
   } finally { await act(async () => root.unmount()); container.remove() }
 })
