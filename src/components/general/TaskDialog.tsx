@@ -139,6 +139,10 @@ function TaskBody({
     ...(work ? { workAssignment: { ledTeamIds: state.teams.filter(t => t.leader_id === me).map(t => t.id), members: state.teamMembers } } : {}) }
   // A team leader edits, assigns and unassigns for the people they lead.
   const canEdit = canEditTask(viewer, task)
+  const canEditSchedule = !readOnly && (work
+    ? state.myRole === 'pm' || state.myRole === 'coordinator' || (state.teams.some(team => team.id === task.team_id && team.leader_id === me)
+      && state.teamMembers.some(member => member.team_id === task.team_id && member.user_id === me))
+    : canEdit)
   const unsent = !state.project.class_board_id && (task.routing_state ?? 'released') !== 'released'
   const assignable = unsent ? [] : assignableTo(
     assignmentViewer,
@@ -198,7 +202,7 @@ function TaskBody({
             <QaActions taskId={task.id} title={task.title} onDone={() => Promise.all([state.reload(), load()]).then(() => {})} />
           </section>
         )}
-        <TaskDetails state={state} taskId={task.id} canEdit={canEdit} onSaved={load} />
+        <TaskDetails state={state} taskId={task.id} canEdit={canEdit} canEditSchedule={canEditSchedule} onSaved={load} />
 
         <section>
           <h3 className="text-[14px]">Comments</h3>
@@ -440,11 +444,13 @@ function TaskDetails({
   state,
   taskId,
   canEdit,
+  canEditSchedule,
   onSaved,
 }: {
   state: GeneralProjectState
   taskId: string
   canEdit: boolean
+  canEditSchedule: boolean
   onSaved: () => Promise<void>
 }) {
   const { show } = useToast()
@@ -476,7 +482,7 @@ function TaskDetails({
   const current = stageIndex(task.status, task.stage, stages.length)
   const gatedStages = stages.some((_, i) => i !== current && state.qaBlocks(current, i))
 
-  if (!canEdit) {
+  if (!canEdit && !canEditSchedule) {
     const teamName = state.teams.find((t) => t.id === task.team_id)?.name
     return (
       <section className="space-y-3 text-[14px]">
@@ -522,21 +528,16 @@ function TaskDetails({
   async function save() {
     if (!task) return
     setError(null)
-    if (!title.trim()) return setError('A task needs a title.')
+    if (canEdit && !title.trim()) return setError('A task needs a title.')
     const startsAt = fromLocalInput(starts)
     const dueAt = fromLocalInput(due)
-    if (startsAt && dueAt && startsAt > dueAt)
+    if (canEditSchedule && startsAt && dueAt && startsAt > dueAt)
       return setError('A task cannot start after it is due. Move one of the two dates.')
     setBusy(true)
     try {
       await updateTask(task.id, {
-        title: title.trim(),
-        description,
-        status: statusForStage(stage, stages.length) as GeneralTaskStatus,
-        stage,
-        due_at: dueAt,
-        starts_at: startsAt,
-        team_id: team || null,
+        ...(canEdit ? { title: title.trim(), status: statusForStage(stage, stages.length) as GeneralTaskStatus, stage, team_id: team || null } : {}),
+        ...(canEditSchedule ? { description, due_at: dueAt, starts_at: startsAt } : {}),
       })
       show('Task saved')
       await Promise.all([state.reload(), onSaved()])
@@ -551,13 +552,14 @@ function TaskDetails({
     <section className="space-y-4">
       {error && <Alert tone="error">{error}</Alert>}
       <Field label="Title">
-        {(id) => <Input id={id} maxLength={LIMIT.taskTitle} value={title} onChange={(e) => setTitle(e.target.value)} />}
+        {(id) => <Input id={id} maxLength={LIMIT.taskTitle} value={title} disabled={!canEdit} onChange={(e) => setTitle(e.target.value)} />}
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Stage" hint={gatedStages ? <span className="text-[12px] text-faint">{QA_PASSES}</span> : undefined}>
           {(id) => (
             <Select
               id={id}
+              disabled={!canEdit}
               value={String(stage)}
               onChange={(e) => setStage(Number(e.target.value))}
               options={stages
@@ -569,18 +571,18 @@ function TaskDetails({
         </Field>
         <Field label="Starts" optional>
           {(id) => (
-            <Input id={id} type="datetime-local" value={starts} onChange={(e) => setStarts(e.target.value)} />
+            <Input id={id} type="datetime-local" value={starts} disabled={!canEditSchedule} onChange={(e) => setStarts(e.target.value)} />
           )}
         </Field>
         <Field label="Due" optional>
-          {(id) => <Input id={id} type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />}
+          {(id) => <Input id={id} type="datetime-local" value={due} disabled={!canEditSchedule} onChange={(e) => setDue(e.target.value)} />}
         </Field>
         <Field label="Team" optional hint={!state.project?.class_board_id && (task.routing_state ?? 'released') === 'released' ? 'Use Reroute released work in Tasks to change teams.' : undefined}>
           {(id) => (
             <Select
               id={id}
               value={team}
-              disabled={!state.project?.class_board_id && (task.routing_state ?? 'released') === 'released'}
+              disabled={!canEdit || (!state.project?.class_board_id && (task.routing_state ?? 'released') === 'released')}
               onChange={(e) => setTeam(e.target.value)}
               placeholder="Whole project"
               options={state.teams.map((t) => ({ value: t.id, label: t.name }))}
@@ -595,6 +597,7 @@ function TaskDetails({
             rows={4}
             maxLength={LIMIT.generalDescription}
             value={description}
+            disabled={!canEditSchedule}
             onChange={(e) => setDescription(e.target.value)}
           />
         )}

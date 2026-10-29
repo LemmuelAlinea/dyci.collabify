@@ -1315,6 +1315,7 @@ declare
   v_project uuid := case when tg_op = 'INSERT' then new.project_id else old.project_id end;
   -- QA passing a task or moving it back a stage, and changing nothing else.
   v_qa_move boolean := false;
+  v_leads_team boolean := false;
 begin
   if tg_op = 'INSERT' then
     if exists(select 1 from public.general_projects where id=new.project_id and class_board_id is not null) then
@@ -1383,6 +1384,17 @@ begin
   new.created_by := old.created_by;
   new.created_at := old.created_at;
 
+  if exists(select 1 from public.general_projects where id=old.project_id and class_board_id is null) then
+    v_leads_team := exists(select 1 from public.general_teams g
+      join public.general_team_members tm on tm.team_id=g.id and tm.project_id=old.project_id and tm.user_id=auth.uid()
+      where g.id=old.team_id and g.project_id=old.project_id and g.leader_id=auth.uid() and g.archived_at is null);
+    if (new.description,new.starts_at,new.due_at) is distinct from (old.description,old.starts_at,old.due_at)
+       and not (coalesce(public.general_role_of(old.project_id,auth.uid()) in ('pm','coordinator'),false) or v_leads_team) then
+      raise exception 'Only the project manager, a coordinator, or this team''s lead changes the description and dates.'
+        using errcode='insufficient_privilege';
+    end if;
+  end if;
+
   if (new.archived_at is distinct from old.archived_at or new.archived_by is distinct from old.archived_by)
      and coalesce(current_setting('collabify.general_archive_op', true), 'off') <> 'on' then
     raise exception 'Archive and restore through the archive buttons.'
@@ -1439,6 +1451,9 @@ begin
       v_qa_move
       or public.is_general_task_assignee(old.id)
       or (old.created_by = auth.uid() and not public.general_task_held(old.id))
+      or (v_leads_team and old.routing_state='released'
+        and (to_jsonb(new) - array['description','starts_at','due_at','updated_at'])
+          = (to_jsonb(old) - array['description','starts_at','due_at','updated_at']))
       -- A team leader, for a task somebody on their team holds.
       or exists (
         select 1 from public.general_task_assignees a
