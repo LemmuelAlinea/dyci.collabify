@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { completeNotesDates } from '../../../supabase/functions/_shared/notesSchedule'
+import { completeNotesDates, matchSprintName } from '../../../supabase/functions/_shared/notesSchedule'
+
+it('links short sprint references from the task assignment PDF to titled sprints', () => {
+  const sprints = [
+    { name: 'Sprint 1 - Requirements and project kickoff' },
+    { name: 'Sprint 2 - Requirements sign-off and designs' },
+    { name: 'Sprint 8 - Launch and handover' },
+  ]
+  expect(matchSprintName(sprints, 'Sprint 1')).toBe(sprints[0].name)
+  expect(matchSprintName(sprints, 'sprint 2')).toBe(sprints[1].name)
+  expect(matchSprintName(sprints, sprints[2].name)).toBe(sprints[2].name)
+  expect(matchSprintName(sprints, 'Sprint 10')).toBe('')
+  expect(matchSprintName(sprints, 'Sprint 1 and Sprint 2')).toBe('')
+  expect(matchSprintName([...sprints, { name: 'Sprint 1 - Another plan' }], 'Sprint 1')).toBe('')
+})
 
 const task = (title: string, extra: { start?: string; due?: string; sprint?: string; milestone?: string } = {}) => ({
   title, start: '', due: '', sprint: '', milestone: '', ...extra,

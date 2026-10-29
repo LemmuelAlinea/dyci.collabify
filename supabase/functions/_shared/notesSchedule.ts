@@ -2,6 +2,21 @@ type TaskDate = { start: string; due: string; sprint: string; milestone?: string
 type SprintDate = { name: string; starts_on: string; ends_on: string }
 type MilestoneDate = { name: string; due: string; sprints: string[] }
 
+export function matchSprintName(sprints: { name: string }[], reference: unknown): string {
+  const name = String(reference ?? '').trim().replace(/\s+/g, ' ')
+  if (!name) return ''
+  const exact = sprints.find((s) => s.name.toLowerCase() === name.toLowerCase())
+  if (exact) return exact.name
+  const numbered = /^(sprint|iteration)\s*#?\s*(\d+)(?:\s*[-:|–—(].*)?$/i
+  const wanted = numbered.exec(name)
+  if (!wanted) return ''
+  const matches = sprints.filter((s) => {
+    const found = numbered.exec(s.name.trim())
+    return found && found[1].toLowerCase() === wanted[1].toLowerCase() && Number(found[2]) === Number(wanted[2])
+  })
+  return matches.length === 1 ? matches[0].name : ''
+}
+
 export function validDay(value: unknown): string {
   const day = String(value ?? '')
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return ''

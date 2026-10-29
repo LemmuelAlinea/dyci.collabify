@@ -25,7 +25,7 @@ import { encodeBase64 } from 'jsr:@std/encoding/base64'
 import { cors, corsMode, denied } from '../_shared/cors.ts'
 import { pickTeamRoutes, pickLeadAssignees, maskMemberNames } from '../_shared/assignPick.ts'
 import type { AssignCandidate, AssignMatch, AssignTaskIn } from '../_shared/assignPick.ts'
-import { completeNotesDates, validDay } from '../_shared/notesSchedule.ts'
+import { completeNotesDates, matchSprintName, validDay } from '../_shared/notesSchedule.ts'
 
 const MODEL = 'claude-opus-5'
 const BUCKET = 'general-files'
@@ -324,8 +324,10 @@ discussion, not background, not things already done.
   dates; map relative weeks such as "Weeks 1–2" from the schedule start and
   estimate dates when missing. Never invent sprints from a plain task list,
   from dates alone, or from a passing "next sprint". Otherwise an empty list.
-- sprint: on each task, the exact name of the sprint it belongs to from your
-  sprints list, else empty (it stays in the backlog).
+- sprint: on each task, the sprint it belongs to from your sprints list.
+  A task marked "Sprint: Sprint 1" belongs to "Sprint 1 - ..." even when the
+  plan uses a longer name. Return the full name or its numbered label. Leave
+  empty only when the task has no sprint.
 - milestones: only when the text names milestones, deliverables or checkpoints
   ("Milestone: prototype ready by Nov 6"). name (at most 80
   characters), description (one sentence of what the text says about it,
@@ -415,7 +417,7 @@ ${VOICE}`,
       name: String(m.name ?? '').trim().slice(0, 80),
       description: String(m.description ?? '').trim().slice(0, 1000),
       due: day(m.due),
-      sprints: [...new Set(((m.sprints as unknown[]) ?? []).map((x) => pick(sprints, x)).filter(Boolean))],
+      sprints: [...new Set(((m.sprints as unknown[]) ?? []).map((x) => matchSprintName(sprints, x)).filter(Boolean))],
     })),
   ).slice(0, 20)
 
@@ -445,7 +447,7 @@ ${VOICE}`,
         due,
         // A start after the due day is refused by the table; drop it rather than the task.
         start: start && due && start > due ? '' : start,
-        sprint: pick(sprints, t.sprint),
+        sprint: matchSprintName(sprints, t.sprint),
         milestone: pick(milestones, t.milestone),
         files: [...new Set(((t.files as unknown[]) ?? []).map(sharedId).filter((x): x is string => Boolean(x)))],
       }
