@@ -182,6 +182,7 @@ function MemberList({ state }: { state: GeneralProjectState }) {
         <ScrollTenList
           ids={work ? shown.map((m) => m.user_id) : []}
           label="Project members"
+          visibleRows={5}
           className="divide-y divide-[var(--line)]"
         >
         {shown.map((m) => {
