@@ -5,6 +5,7 @@ import { Avatar } from '../app/Avatar'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { Select } from '../ui/Select'
+import { ScrollTenList } from '../ui/ScrollTenList'
 import { useToast } from '../ui/Toast'
 import { FilterSearch } from '../ui/FilterPopover'
 import { useLive } from '../../hooks/useLive'
@@ -112,7 +113,11 @@ function Search({ state }: { state: GeneralProjectState }) {
       )}
       {searching && <p className="text-[12px] text-faint">Searching…</p>}
       {hits.length > 0 && (
-        <ul className="divide-y divide-[var(--line)] rounded-xl border border-line">
+        <ScrollTenList
+          ids={state.project?.class_board_id ? [] : hits.map((hit) => hit.person_id)}
+          label="People matching your search"
+          className="divide-y divide-[var(--line)] rounded-xl border border-line"
+        >
           {hits.map((hit) => {
             const onIt = memberIds.has(hit.person_id)
             return (
@@ -142,7 +147,7 @@ function Search({ state }: { state: GeneralProjectState }) {
               </li>
             )
           })}
-        </ul>
+        </ScrollTenList>
       )}
       {picked && canChooseRole && hits.some((h) => h.person_id === picked.person_id) && (
         <div className="flex flex-wrap items-end gap-2 rounded-xl border border-line surface-sunken p-3">
@@ -220,7 +225,11 @@ function Pending({ state }: { state: GeneralProjectState }) {
   return (
     <div className="mt-5">
       <p className="text-[12px] font-medium text-muted">Waiting for an answer</p>
-      <ul className="mt-2 divide-y divide-[var(--line)]">
+      <ScrollTenList
+        ids={state.project?.class_board_id ? [] : invites.map((inv) => inv.id)}
+        label="Pending invitations"
+        className="mt-2 divide-y divide-[var(--line)]"
+      >
         {invites.map((inv) => (
           <li key={inv.id} className="flex items-center gap-3 py-2">
             <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
@@ -235,7 +244,7 @@ function Pending({ state }: { state: GeneralProjectState }) {
             </button>
           </li>
         ))}
-      </ul>
+      </ScrollTenList>
     </div>
   )
 }

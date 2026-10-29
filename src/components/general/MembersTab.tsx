@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom'
 import { Avatar } from '../app/Avatar'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { FilterSearch } from '../ui/FilterPopover'
 import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
+import { ScrollTenList } from '../ui/ScrollTenList'
 import { useToast } from '../ui/Toast'
 import {
   grantPermission,
@@ -67,8 +69,8 @@ function MemberList({ state }: { state: GeneralProjectState }) {
   const [removing, setRemoving] = useState<GeneralMember | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [handingOver, setHandingOver] = useState(false)
+  const [query, setQuery] = useState('')
   const project = state.project
-  if (!project) return null
 
   // The database refuses what canRemoveRole refuses.
   const canRemove = (m: GeneralMember) =>
@@ -104,7 +106,7 @@ function MemberList({ state }: { state: GeneralProjectState }) {
 
   const me = state.me
   // Skill tags are for work projects; a class board's Files project has none.
-  const work = !project.class_board_id
+  const work = Boolean(project && !project.class_board_id)
   const rank = (m: GeneralMember) =>
     m.role === 'member' && leads.has(m.user_id) ? 4 : ROLE_ORDER[m.role]
   const members = work
@@ -116,6 +118,12 @@ function MemberList({ state }: { state: GeneralProjectState }) {
           }),
       )
     : state.members
+  const q = query.trim().toLowerCase()
+  const shown = work && q
+    ? members.filter((m) => state.nameOf(m.user_id).toLowerCase().includes(q))
+    : members
+
+  if (!project) return null
 
   return (
     <section className="overflow-hidden rounded-panel border border-line surface">
@@ -133,8 +141,26 @@ function MemberList({ state }: { state: GeneralProjectState }) {
         </span>
       </header>
 
-      <ul className="divide-y divide-[var(--line)]">
-        {members.map((m) => {
+      {work && (
+        <div className="border-b border-line px-4 py-3 sm:px-5">
+          <label className="block max-w-sm">
+            <span className="sr-only">Search members by name</span>
+            <FilterSearch value={query} onChange={setQuery} placeholder="Search members by name" />
+          </label>
+        </div>
+      )}
+
+      {shown.length === 0 ? (
+        <p className="px-4 py-5 text-[13px] text-muted sm:px-5">
+          {q ? 'No members match that name.' : 'No members yet.'}
+        </p>
+      ) : (
+        <ScrollTenList
+          ids={work ? shown.map((m) => m.user_id) : []}
+          label="Project members"
+          className="divide-y divide-[var(--line)]"
+        >
+        {shown.map((m) => {
           const grants = state.grants
             .filter((g) => g.user_id === m.user_id && (!work || g.permission !== 'commit_main'))
             .map((g) => g.permission)
@@ -191,7 +217,8 @@ function MemberList({ state }: { state: GeneralProjectState }) {
             </li>
           )
         })}
-      </ul>
+        </ScrollTenList>
+      )}
 
       {me && (
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 sm:px-5">
