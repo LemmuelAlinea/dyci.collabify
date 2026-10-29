@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthProvider'
 import { ThemeProvider } from './context/ThemeProvider'
 import { ToastProvider } from './components/ui/ToastProvider'
 import { UpdateNotice } from './components/app/UpdateNotice'
+import { PageScrollbar } from './components/app/PageScrollbar'
 import { installStaleBuildReload } from './lib/staleBuild'
 import './styles/index.css'
 
@@ -18,6 +19,7 @@ createRoot(document.getElementById('root')!).render(
         <AuthProvider>
           <ToastProvider>
             <App />
+            <PageScrollbar />
             <UpdateNotice />
           </ToastProvider>
         </AuthProvider>

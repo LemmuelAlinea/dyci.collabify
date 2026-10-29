@@ -813,30 +813,35 @@
       linear-gradient(135deg, var(--banner-edge), var(--banner-end)) border-box;
   }
 
-  /* Keep room for the page scrollbar on every route. */
-  html {
-    scrollbar-gutter: stable;
+  html,
+  body {
+    scrollbar-width: none;
   }
   html::-webkit-scrollbar,
   body::-webkit-scrollbar {
+    display: none;
+  }
+  body {
+    padding-right: 14px;
+  }
+  .page-scrollbar {
+    display: none;
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 40;
     width: 14px;
-  }
-  html::-webkit-scrollbar-track,
-  body::-webkit-scrollbar-track {
+    height: 100dvh;
     background: var(--surface-sunken);
+    touch-action: none;
   }
-  html::-webkit-scrollbar-thumb,
-  body::-webkit-scrollbar-thumb {
+  .page-scrollbar-thumb {
+    width: 100%;
     background: var(--ink-faint);
     border: 2px solid var(--surface-sunken);
     border-radius: 999px;
   }
-  /* Firefox has no ::-webkit-scrollbar; give it the same colours. */
-  @supports not selector(::-webkit-scrollbar) {
-    html {
-      scrollbar-width: auto;
-      scrollbar-color: var(--ink-faint) var(--surface-sunken);
-    }
+  html.has-modal .page-scrollbar {
+    display: none !important;
   }
 
   /**
@@ -1137,6 +1142,12 @@
   html,
   body {
     background: #ffffff !important;
+  }
+  body {
+    padding-right: 0;
+  }
+  .page-scrollbar {
+    display: none !important;
   }
 
   /* The rail, the header and everything that is a control rather than content. */
