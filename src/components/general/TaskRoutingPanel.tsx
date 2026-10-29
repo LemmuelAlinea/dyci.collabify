@@ -30,6 +30,9 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
   const project = state.project
   if (!project || project.class_board_id || (state.myRole !== 'pm' && state.myRole !== 'coordinator')) return null
   const rows = state.tasks.filter(t => (t.routing_state ?? 'released') === queue)
+  const isBlocked = (t: GeneralTask) => queue === 'released' && (t.status === 'done' || (project.has_qa && stageIndex(t.status, t.stage, stagesOf(project.stages).length) >= qaStageIndex(project.stages, project.qa_stage)))
+  const selectableRows = rows.filter(t => !isBlocked(t))
+  const selectedCount = selectableRows.filter(t => selected[t.id]).length
   const picks = Object.values(selected)
   const ready = picks.length > 0 && picks.every(t => teams[t.id] ?? t.team_id)
   const destinations = state.teams.filter(t => t.leader_id).map(t => ({ value: t.id, label: t.name }))
@@ -78,8 +81,12 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
     {sent && <Alert tone="success" onClose={() => setSent(null)}>Tasks sent to team. {sent === 'ready' && onViewBoard && <Button size="sm" variant="outline" onClick={onViewBoard}>View on board</Button>}</Alert>}
     {error && <Alert tone="error">{error} <Button size="sm" variant="outline" disabled={busy} onClick={() => void refresh()}>Reload tasks</Button></Alert>}
     {rows.length === 0 ? <p className="py-4 text-[13px] text-faint">No tasks in this queue.</p> : <div className="divide-y divide-line">
+      <label className="flex items-center gap-3 py-3 text-[13px] text-muted">
+        <input type="checkbox" aria-label="Select all tasks" checked={selectableRows.length > 0 && selectedCount === selectableRows.length} ref={el => { if (el) el.indeterminate = selectedCount > 0 && selectedCount < selectableRows.length }} disabled={!editable || selectableRows.length === 0} onChange={e => setSelected(previous => { const next = { ...previous }; selectableRows.forEach(t => { if (e.target.checked) next[t.id] = t; else delete next[t.id] }); return next })} className="size-4 shrink-0" />
+        Select all tasks
+      </label>
       {rows.map(t => {
-        const blocked = queue === 'released' && (t.status === 'done' || (project.has_qa && stageIndex(t.status, t.stage, stagesOf(project.stages).length) >= qaStageIndex(project.stages, project.qa_stage)))
+        const blocked = isBlocked(t)
         return <div key={t.id} className="grid items-center gap-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(180px,240px)_auto]">
           <div className="flex min-w-0 items-start gap-3">
             <input type="checkbox" aria-label={`Select ${t.title}`} checked={Boolean(selected[t.id])} disabled={!editable || blocked} onChange={e => setSelected(previous => { const next = { ...previous }; if (e.target.checked) next[t.id] = t; else delete next[t.id]; return next })} className="mt-1 size-4 shrink-0" />

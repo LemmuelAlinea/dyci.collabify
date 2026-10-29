@@ -20,8 +20,30 @@ function state(overrides = {}) {
 async function render(s: GeneralProjectState, onViewBoard?: () => void) { const host = document.createElement('div'); document.body.append(host); root = createRoot(host); await act(async () => root.render(<TaskRoutingPanel state={s} onViewBoard={onViewBoard} />)) }
 async function click(text: string) { await act(async () => [...document.querySelectorAll('button')].find(b => b.textContent === text)!.click()) }
 async function change(label: string, value: string) { await act(async () => { const el = document.querySelector(`[aria-label="${label}"]`) as HTMLSelectElement; el.value = value; el.dispatchEvent(new Event('change', { bubbles: true })) }) }
-async function selectRows() { await act(async () => document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(el => el.click())) }
+async function selectRows() { await act(async () => document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:not([aria-label="Select all tasks"])').forEach(el => el.click())) }
+const rowCheckbox = () => document.querySelector<HTMLInputElement>('input[type="checkbox"]:not([aria-label="Select all tasks"])')!
 afterEach(async () => { if (root) await act(async () => root.unmount()); document.body.innerHTML = ''; vi.resetAllMocks() })
+it('selects and clears every editable task in the current queue', async () => {
+  await render(state())
+  const all = document.querySelector<HTMLInputElement>('[aria-label="Select all tasks"]')!
+  const rows = [...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:not([aria-label="Select all tasks"])')]
+  await act(async () => all.click())
+  expect(rows.every(row => row.checked)).toBe(true)
+  await act(async () => rows[0].click())
+  expect(all.indeterminate).toBe(true)
+  await act(async () => all.click())
+  expect(rows.every(row => row.checked)).toBe(true)
+  await act(async () => all.click())
+  expect(rows.every(row => !row.checked)).toBe(true)
+})
+it('skips blocked released tasks when selecting all', async () => {
+  await render(state({ project: { id: 'project', class_board_id: null, has_qa: true }, tasks: [{ ...task, routing_state: 'released', team_id: 'design' }, { ...task, id: 'done', title: 'Done task', routing_state: 'released', status: 'done', team_id: 'design' }] }))
+  await click('Reroute released work')
+  await act(async () => document.querySelector<HTMLInputElement>('[aria-label="Select all tasks"]')!.click())
+  expect(document.querySelector<HTMLInputElement>('[aria-label="Select Design"]')!.checked).toBe(true)
+  expect(document.querySelector<HTMLInputElement>('[aria-label="Select Done task"]')!.checked).toBe(false)
+  expect(document.body.textContent).toContain('1 selected')
+})
 it('keeps team choices in planning and sends mixed teams in one timestamped batch', async () => {
   const s = state(); await render(s); await selectRows(); await change('Team for Design', 'design'); await change('Team for Build', 'dev')
   expect(sendTasksToTeams).not.toHaveBeenCalled(); expect(s.tasks[0].routing_state).toBe('planning')
@@ -61,7 +83,7 @@ it('hides planning controls from members and class projects', async () => {
 it('keeps archived routing read-only and blocks QA and Done rerouting', async () => {
   await render(state({ readOnly: true })); expect([...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].every(el => el.disabled)).toBe(true)
   await act(async () => root.render(<TaskRoutingPanel state={state({ tasks: [{ ...task, routing_state: 'released', status: 'done', stage: 2 }] })} />))
-  await click('Reroute released work'); expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(true)
+  await click('Reroute released work'); expect(rowCheckbox().disabled).toBe(true)
   expect(document.body.textContent).toContain('Reopen work in QA or Done')
 })
 it('only offers a return for the assigned reviewer', async () => {
@@ -76,7 +98,7 @@ it('requires a destination even when a saved team is cleared', async () => {
 it.each([false, true])('reroutes default in-progress work only without active QA (%s)', async has_qa => {
   await render(state({ project: { id: 'project', class_board_id: null, has_qa }, tasks: [{ ...task, routing_state: 'released', status: 'in_progress', stage: 1 }] }))
   await click('Reroute released work')
-  expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(has_qa)
+  expect(rowCheckbox().disabled).toBe(has_qa)
 })
 
 it('offers a persistent board action only after a team send completes', async () => {
@@ -96,7 +118,7 @@ it('keeps the send receipt but withholds board navigation until a failed refresh
   expect(document.body.textContent).toContain('Tasks sent to team.')
   expect(document.body.textContent).toContain('Could not reload tasks.')
   expect(document.body.textContent).not.toContain('View on board')
-  expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked).toBe(false)
+  expect(rowCheckbox().checked).toBe(false)
   expect(s.reload).toHaveBeenCalledWith({ throwOnError: true })
   await click('Reload tasks')
   expect(document.body.textContent).not.toContain('View on board')
@@ -109,11 +131,11 @@ it('keeps stale team rows locked after dismissing the receipt until reload succe
   const s = state({ tasks: [{ ...task, team_id: 'design' }], reload: vi.fn().mockRejectedValueOnce(new Error('Offline')).mockResolvedValue(undefined) })
   await render(s); await selectRows(); await click('Send to team')
   await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Close this notice"]')!.click())
-  expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(true)
+  expect(rowCheckbox().disabled).toBe(true)
   await click('Coordinator review'); await click('Planning')
   expect(document.body.textContent).toContain('Reload tasks')
   await click('Reload tasks')
-  expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(false)
+  expect(rowCheckbox().disabled).toBe(false)
 })
 
 it.each(['review', 'return'])('locks stale rows after %s succeeds and refresh fails', async action => {
@@ -125,7 +147,7 @@ it.each(['review', 'return'])('locks stale rows after %s succeeds and refresh fa
     await act(async () => { const el = document.querySelector('textarea')!; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(el, 'Needs detail'); el.dispatchEvent(new Event('input', { bubbles: true })) })
     await click('Confirm return')
   }
-  expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(true)
+  expect(rowCheckbox().disabled).toBe(true)
   await click('Reload tasks')
-  expect(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(false)
+  expect(rowCheckbox().disabled).toBe(false)
 })
