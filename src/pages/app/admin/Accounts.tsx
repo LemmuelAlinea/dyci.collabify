@@ -155,22 +155,18 @@ export default function Accounts() {
             <p className="text-[12px] font-medium text-faint">Account directory</p>
             <h2 className="mt-1">People and access</h2>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
             <Button size="sm" onClick={() => setBulkOpen(true)}>Bulk register</Button>
+            <label className="w-full sm:w-64">
+              <span className="sr-only">Search accounts by name or email</span>
+              <FilterSearch value={query} onChange={setQuery} placeholder="Search name or email" />
+            </label>
             <FilterPopover
-              active={[query, role].filter(Boolean).length}
-              summary={[query && `“${query}”`, role && ROLE_FILTERS.find((r) => r.value === role)?.label]
-                .filter(Boolean)
-                .join(' · ')}
-              onClear={() => {
-                setQuery('')
-                setRole('')
-              }}
+              active={role ? 1 : 0}
+              summary={ROLE_FILTERS.find((r) => r.value === role)?.label}
+              onClear={() => setRole('')}
               label="Filter accounts"
             >
-              <FilterField label="Search">
-                <FilterSearch value={query} onChange={setQuery} placeholder="Find by name or email" />
-              </FilterField>
               <FilterField label="Role">
                 <Select
                   value={role}
@@ -194,7 +190,7 @@ export default function Accounts() {
           </p>
 
           {shown.length === 0 ? (
-            <EmptyState icon="users" title="Nobody matches" body="Try a different name or role." />
+            <EmptyState icon="users" title="Nobody matches" body="Try a different name, email or role." />
           ) : (
             <ul className="space-y-2">
           {shown.map((a) => {
