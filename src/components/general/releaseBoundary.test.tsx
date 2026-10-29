@@ -44,7 +44,7 @@ it('keeps unsent tasks out of sprint, milestone and glance progress', () => {
 })
 
 it('keeps private tasks out of the Tasks calendar and progress', () => {
-  const html = renderToStaticMarkup(<TasksTab state={state} layout="calendar" scope="all" onLayout={() => {}} onScope={() => {}} onOpenTask={() => {}} />)
+  const html = renderToStaticMarkup(<TasksTab state={state} layout="calendar" scope="all" onLayout={() => {}} onScope={() => {}} onViewBoard={() => {}} onOpenTask={() => {}} />)
   expect(html).not.toContain('Private')
   expect(html).toContain('0 of 1')
 })

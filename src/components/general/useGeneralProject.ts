@@ -65,7 +65,7 @@ export type GeneralProjectState = {
   /** Loaded, and there is no project this viewer can see. */
   missing: boolean
   error: string | null
-  reload: () => Promise<void>
+  reload: (options?: { throwOnError?: boolean }) => Promise<void>
   viewerId: string | undefined
   me: GeneralMember | null
   myGrants: GeneralPermission[]
@@ -140,7 +140,7 @@ export function useGeneralProject(
   const [error, setError] = useState<string | null>(null)
   const [commitRights, setCommitRights] = useState<CommitRights>(NO_RIGHTS)
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (options?: { throwOnError?: boolean }) => {
     if (!projectId) {
       setLoading(false)
       return
@@ -199,6 +199,7 @@ export function useGeneralProject(
       setError(null)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not load this project.'))
+      if (options?.throwOnError) throw err
     } finally {
       setLoading(false)
     }

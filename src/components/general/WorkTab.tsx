@@ -86,6 +86,7 @@ export function WorkTab({ state, area }: { state: GeneralProjectState; area: 'ov
               state={state}
               layout={layout}
               onLayout={(l) => setParams(withWork(params, { layout: l }), { replace: true })}
+              onViewBoard={() => setParams(withWork(params, { scope: 'all', layout: 'board' }), { replace: true })}
               scope={scope}
               onScope={(s) => setParams(withWork(params, { scope: s }), { replace: true })}
               onOpenTask={showTask}

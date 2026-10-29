@@ -21,7 +21,7 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
   const [teams, setTeams] = useState<Record<string, string>>({})
   const [coordinator, setCoordinator] = useState('')
   const [busy, setBusy] = useState(false)
-  const [sent, setSent] = useState(false)
+  const [sent, setSent] = useState<'ready' | 'stale' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [returning, setReturning] = useState<string | null>(null)
   const [rerouting, setRerouting] = useState(false)
@@ -32,23 +32,32 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
   const picks = Object.values(selected)
   const ready = picks.length > 0 && picks.every(t => teams[t.id] ?? t.team_id)
   const destinations = state.teams.filter(t => t.leader_id).map(t => ({ value: t.id, label: t.name }))
-  const editable = !state.readOnly && !busy
+  const editable = !state.readOnly && !busy && sent !== 'stale'
 
   async function act(action: () => Promise<unknown>, sentToTeam = false) {
     if (!editable) return
-    setBusy(true); setError(null); setSent(false)
+    setBusy(true); setError(null); setSent(null)
+    let handedOff = false
     try {
       await action()
-      await state.reload()
-      setSent(sentToTeam)
+      handedOff = true
       setSelected({}); setTeams({}); setReturning(null); setRerouting(false); setReason('')
+      await state.reload({ throwOnError: true })
+      setSent(sentToTeam ? 'ready' : null)
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not hand off these tasks. Reload the tasks and try again.'))
+      if (handedOff && sentToTeam) setSent('stale')
+      else setError(authErrorMessage(err, handedOff ? 'The handoff was saved, but could not reload tasks. Reload tasks to continue.' : 'Could not hand off these tasks. Reload the tasks and try again.'))
     } finally { setBusy(false) }
   }
   async function refresh() {
-    await state.reload()
-    setSelected({}); setTeams({}); setReturning(null); setRerouting(false); setReason(''); setError(null)
+    setBusy(true)
+    try {
+      await state.reload({ throwOnError: true })
+      if (sent === 'stale') setSent('ready')
+      setSelected({}); setTeams({}); setReturning(null); setRerouting(false); setReason(''); setError(null)
+    } catch (err) {
+      if (!sent) setError(authErrorMessage(err, 'Could not reload tasks. Try again.'))
+    } finally { setBusy(false) }
   }
   function send() {
     if (!ready) return
@@ -62,7 +71,7 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
     <p className="text-[13px] text-muted">Planning and review stay private to planners. Choosing a team does not send work.</p>
     {queue !== 'released' && <Button size="sm" variant="outline" disabled={!editable} onClick={() => setByPosition(true)}>Assign by position</Button>}
     {byPosition && <AssignByPosition state={state} open onClose={() => setByPosition(false)} />}
-    {sent && <Alert tone="success" onClose={() => setSent(false)}>Tasks sent to team. {onViewBoard && <Button size="sm" variant="outline" onClick={onViewBoard}>View on board</Button>}</Alert>}
+    {sent && <Alert tone="success" onClose={() => setSent(null)}>Tasks sent to team. {sent === 'ready' && onViewBoard && <Button size="sm" variant="outline" onClick={onViewBoard}>View on board</Button>}{sent === 'stale' && <> Could not reload tasks. Reload to view the board. <Button size="sm" variant="outline" disabled={busy} onClick={() => void refresh()}>Reload tasks</Button></>}</Alert>}
     {error && <Alert tone="error">{error} <Button size="sm" variant="outline" disabled={busy} onClick={() => void refresh()}>Reload tasks</Button></Alert>}
     {rows.length === 0 ? <p className="py-4 text-[13px] text-faint">No tasks in this queue.</p> : <div className="divide-y divide-line">
       {rows.map(t => {

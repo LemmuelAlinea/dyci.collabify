@@ -51,12 +51,14 @@ export function TasksTab({
   scope,
   onScope,
   onOpenTask,
+  onViewBoard,
 }: {
   state: GeneralProjectState
   layout: TaskLayout
   onLayout: (l: TaskLayout) => void
   scope: TaskScope
   onScope: (s: TaskScope) => void
+  onViewBoard: () => void
   onOpenTask: (id: string | null) => void
 }) {
   const { show } = useToast()
@@ -137,9 +139,8 @@ export function TasksTab({
   return (
     <div className="space-y-4">
       <TaskRoutingPanel key={project.id} state={state} onOpenTask={onOpenTask} onViewBoard={() => {
-        onScope('all')
         setQuery(''); setTeam(''); setAssignee(''); setStatus(''); setKind('')
-        onLayout('board')
+        onViewBoard()
       }} />
       {ownUnsentBugs.length > 0 && <section aria-label="Your unsent bugs" className="surface space-y-3 rounded-xl border border-line p-4 sm:p-5">
         <h3 className="text-[14px] font-semibold text-ink">Your unsent bugs</h3>
