@@ -35,6 +35,7 @@ it('keeps only the QA creators own unsent bugs reachable without planner actions
     expect(container.textContent).not.toContain('Regular private task')
     expect(planning?.querySelector('select, input')).toBeNull()
     expect(planning?.textContent).not.toMatch(/Send to team|Send for review|Return to planning/)
+    expect(container.textContent).not.toContain('Plan & route work')
     await act(async () => [...planning!.querySelectorAll('button')].find(button => button.textContent === 'Own planning bug')!.click())
     expect(open).toHaveBeenCalledExactlyOnceWith('own')
     await act(async () => root.render(<TasksTab state={{ ...state, myRole: 'member' }} layout="board" onLayout={vi.fn()} onViewBoard={vi.fn()} scope="all" onScope={vi.fn()} onOpenTask={open} />))
@@ -54,13 +55,16 @@ it('reveals a sent backlog task on the board only when the notice action is chos
     const location = useLocation()
     return <><output aria-label="Current URL">{location.search}</output><WorkTab state={state} area="tasks" /></>
   }
-  async function click(text: string) { await act(async () => [...container.querySelectorAll('button')].find(b => b.textContent === text || b.getAttribute('aria-label')?.startsWith(text))!.click()) }
+  async function click(text: string) { await act(async () => [...document.querySelectorAll('button')].find(b => b.textContent === text || b.getAttribute('aria-label')?.startsWith(text))!.click()) }
   try {
     await act(async () => root.render(<MemoryRouter initialEntries={["/?tab=tasks&scope=running&layout=list&keep=yes"]}><Harness /></MemoryRouter>))
+    expect(document.querySelector('[aria-label="Task handoff"]')).toBeNull()
     await click('Filter tasks' )
     const selects = container.querySelector('[role="dialog"]')!.querySelectorAll('select')
     await act(async () => { ['other', 'nobody', '1', 'bug'].forEach((value, i) => { selects[i].value = value; selects[i].dispatchEvent(new Event('change', { bubbles: true })) }); const input = container.querySelector('input[type="search"]')!; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'missing'); input.dispatchEvent(new Event('input', { bubbles: true })) })
-    await act(async () => container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click())
+    await click('Plan & route work')
+    expect(document.querySelector('[role="dialog"][aria-label="Plan & route work"]')).not.toBeNull()
+    await act(async () => document.querySelector<HTMLInputElement>('[aria-label="Select Sent task"]')!.click())
     await click('Send to team')
     expect(container.querySelector('output')!.textContent).toContain('scope=running')
     expect(container.querySelector('output')!.textContent).toContain('layout=list')

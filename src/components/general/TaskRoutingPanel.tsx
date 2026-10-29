@@ -68,7 +68,7 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
     return act(() => sendTasksToTeams(project!.id, picks.map(t => ({ id: t.id, team_id: teams[t.id] ?? t.team_id!, updated_at: t.updated_at })), rerouting ? reason.trim() : undefined), true)
   }
 
-  return <section aria-label="Task handoff" className="surface space-y-4 rounded-xl border border-line p-4 sm:p-5">
+  return <section aria-label="Task handoff" className="space-y-4">
     <div className="flex flex-wrap gap-2" aria-label="Routing queues">
       {(Object.keys(LABEL) as Queue[]).map(q => <Button key={q} size="sm" variant={queue === q ? 'primary' : 'outline'} disabled={busy} aria-pressed={queue === q} onClick={() => { setQueue(q); setSelected({}); setTeams({}); if (!reloadRequired) setError(null) }}>{LABEL[q]}</Button>)}
     </div>

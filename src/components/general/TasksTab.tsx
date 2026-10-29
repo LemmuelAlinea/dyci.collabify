@@ -71,6 +71,7 @@ export function TasksTab({
   const [kind, setKind] = useState<'' | TaskKind>('')
   const [creating, setCreating] = useState(false)
   const [fromNotes, setFromNotes] = useState(false)
+  const [routingOpen, setRoutingOpen] = useState(false)
   const showTask = onOpenTask
 
   const project = state.project
@@ -138,10 +139,18 @@ export function TasksTab({
 
   return (
     <div className="space-y-4">
-      <TaskRoutingPanel key={project.id} state={state} onOpenTask={onOpenTask} onViewBoard={() => {
-        setQuery(''); setTeam(''); setAssignee(''); setStatus(''); setKind('')
-        onViewBoard()
-      }} />
+      {!project.class_board_id && (state.myRole === 'pm' || state.myRole === 'coordinator') && <>
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={() => setRoutingOpen(true)}>Plan & route work</Button>
+        </div>
+        <Modal open={routingOpen} onClose={() => setRoutingOpen(false)} title="Plan & route work" size="xl">
+          <TaskRoutingPanel key={project.id} state={state} onOpenTask={onOpenTask} onViewBoard={() => {
+            setRoutingOpen(false)
+            setQuery(''); setTeam(''); setAssignee(''); setStatus(''); setKind('')
+            onViewBoard()
+          }} />
+        </Modal>
+      </>}
       {ownUnsentBugs.length > 0 && <section aria-label="Your unsent bugs" className="surface space-y-3 rounded-xl border border-line p-4 sm:p-5">
         <h3 className="text-[14px] font-semibold text-ink">Your unsent bugs</h3>
         <p className="text-[13px] text-muted">Planners review these bugs before sending them to a team.</p>
