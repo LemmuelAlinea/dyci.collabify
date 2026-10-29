@@ -152,11 +152,6 @@ function MemberList({ state }: { state: GeneralProjectState }) {
       <header className="flex items-center justify-between gap-3 border-b border-line surface-sunken px-4 py-3.5 sm:px-5">
         <div>
           <h2>Members</h2>
-          <p className="mt-0.5 text-[12px] text-muted">
-            The project manager runs the project. Coordinators handle members, tasks, files and
-            meetings. Members do the work, plus anything the project manager or a coordinator
-            grants them. Stakeholders can view the project's work and files and post in Feedback.
-          </p>
         </div>
         <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted ring-1 ring-[var(--line)]">
           {state.members.length}
