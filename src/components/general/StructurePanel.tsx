@@ -88,9 +88,8 @@ export function StructurePanel({ state }: { state: GeneralProjectState }) {
   const memberOptions = (taken: string[], teamId?: string | null) => {
     const inTeam = new Set(state.teamMembers.filter((member) => member.team_id === teamId).map((member) => member.user_id))
     return state.members
-      .filter((m) => !taken.includes(m.user_id))
-      .sort((a, b) => Number(inTeam.has(b.user_id)) - Number(inTeam.has(a.user_id)))
-      .map((m) => ({ value: m.user_id, label: `${inTeam.has(m.user_id) ? 'In team · ' : ''}${state.nameOf(m.user_id)}` }))
+      .filter((m) => !taken.includes(m.user_id) && (!teamId || inTeam.has(m.user_id)))
+      .map((m) => ({ value: m.user_id, label: state.nameOf(m.user_id) }))
   }
 
   return (

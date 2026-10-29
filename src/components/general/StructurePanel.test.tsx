@@ -40,3 +40,31 @@ it('opens team details and creates positions in that team', async () => {
     host.remove()
   }
 })
+
+it('offers only team members for a team position', async () => {
+  const state = {
+    project: { id: 'project', class_board_id: null },
+    can: () => true,
+    teams: [{ id: 'team', name: 'Design', leader_id: null }],
+    teamMembers: [{ team_id: 'team', user_id: 'inside' }],
+    positions: [{ id: 'position', team_id: 'team', name: 'Designer' }],
+    holders: [],
+    members: [{ user_id: 'inside' }, { user_id: 'outside' }],
+    nameOf: (id: string) => id,
+    roleOf: () => 'member',
+  } as unknown as GeneralProjectState
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  try {
+    await act(async () => root.render(<StructurePanel state={state} />))
+    await act(async () => [...host.querySelectorAll('button')].find((button) => button.textContent?.includes('Design'))!.click())
+    const team = document.querySelector('[role="dialog"][aria-label="Design"]')!
+    const position = [...team.querySelectorAll('li')].find((item) => item.querySelector('p')?.textContent === 'Designer')!
+    expect(position.textContent).toContain('inside')
+    expect(position.textContent).not.toContain('outside')
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+  }
+})
