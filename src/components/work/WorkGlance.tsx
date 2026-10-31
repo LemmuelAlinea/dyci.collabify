@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Burndown } from './Burndown'
+import { SprintTimeline } from './SprintTimeline'
 import { ProgressBar, StatusPill } from './MilestoneBits'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
@@ -35,7 +35,7 @@ type GlanceProps = {
 export function WorkGlance({ items, sprints, milestones, mine, canPlan, onOpenTask, onSection, aside }: GlanceProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <SprintCard items={items} sprints={sprints} canPlan={canPlan} onSection={onSection} />
+      <SprintCard items={items} sprints={sprints} milestones={milestones} canPlan={canPlan} onSection={onSection} />
       {aside ? (
         <div className="grid gap-4 lg:grid-rows-[auto_1fr]">
           <MilestoneCard items={items} milestones={milestones} onSection={onSection} />
@@ -86,7 +86,7 @@ function Counted({ done, total, noun, pct }: { done: number; total: number; noun
   )
 }
 
-function SprintCard({ items, sprints, canPlan, onSection }: Pick<GlanceProps, 'items' | 'sprints' | 'canPlan' | 'onSection'>) {
+function SprintCard({ items, sprints, milestones, canPlan, onSection }: Pick<GlanceProps, 'items' | 'sprints' | 'milestones' | 'canPlan' | 'onSection'>) {
   const now = useNow()
   const sprint = runningSprint(sprints)
 
@@ -117,7 +117,7 @@ function SprintCard({ items, sprints, canPlan, onSection }: Pick<GlanceProps, 'i
         <Counted done={done} total={total} noun="tasks" pct={pct} />
       </div>
       <div className="mt-4">
-        <Burndown sprint={sprint} items={items} />
+        <SprintTimeline sprint={sprint} milestones={milestones} items={items} />
       </div>
     </section>
   )

@@ -3,7 +3,7 @@
  * YYYY-MM-DD strings read as local midnight, the way a project's dates are,
  * so a sprint ending "the 18th" ends on the 18th wherever the reader is.
  */
-import type { Sprint, SprintInput, WorkItem } from './types'
+import type { Milestone, Sprint, SprintInput, WorkItem } from './types'
 
 export const SPRINT_DAYS = 14
 
@@ -78,25 +78,43 @@ export function sprintCounts(items: readonly WorkItem[], sprintId: string) {
   return { done: mine.filter((i) => i.status === 'done').length, total: mine.length }
 }
 
-export type BurnPoint = { day: string; left: number }
+export type TimelineState = 'done' | 'today' | 'late' | 'upcoming'
+/** `marker` is the Today point, added when no checkpoint falls on today. */
+export type TimelinePoint = { day: string; label: string; state: TimelineState; marker?: boolean }
 
 /**
- * Tasks still open at the end of each sprint day, from the first day up to
- * today (or the last day). Counted over the sprint's tasks as they stand now,
- * so a task added mid-sprint counts from day one; done is read from done_at.
+ * The checkpoints a running sprint passes: its first day, the milestones due
+ * inside it, and its last day, with Today placed among them. A milestone is
+ * done once reached and late once its day passes without that.
  */
-export function burndown(sprint: Sprint, items: readonly WorkItem[], now = Date.now()): BurnPoint[] {
-  const mine = items.filter((i) => i.sprint_id === sprint.id)
+export function sprintTimeline<M extends Pick<Milestone, 'id' | 'name' | 'due_on'>>(
+  sprint: Pick<Sprint, 'starts_on' | 'ends_on'>,
+  milestones: readonly M[],
+  reached: (m: M) => boolean,
+  now = Date.now(),
+): TimelinePoint[] {
   const today = toDay(now)
-  const last = sprint.ends_on < today ? sprint.ends_on : today
-  const out: BurnPoint[] = []
-  // Guarded rather than open-ended: a bad date must not hang the page.
-  for (let day = sprint.starts_on, i = 0; day <= last && i < 400; day = addDays(day, 1), i++) {
-    const endOfDay = parse(addDays(day, 1)).getTime()
-    const left = mine.filter(
-      (t) => !(t.status === 'done' && t.done_at && new Date(t.done_at).getTime() < endOfDay),
-    ).length
-    out.push({ day, left })
+  const ahead = (day: string): TimelineState => (day === today ? 'today' : 'upcoming')
+  const points: TimelinePoint[] = [
+    { day: sprint.starts_on, label: 'Kickoff', state: sprint.starts_on <= today ? 'done' : 'upcoming' },
+    ...milestones
+      .filter((m) => m.due_on > sprint.starts_on && m.due_on <= sprint.ends_on)
+      .sort((a, b) => a.due_on.localeCompare(b.due_on))
+      .map((m) => ({
+        day: m.due_on,
+        label: m.name,
+        state: reached(m) ? ('done' as const) : m.due_on < today ? ('late' as const) : ahead(m.due_on),
+      })),
+    { day: sprint.ends_on, label: 'Sprint ends', state: sprint.ends_on < today ? 'done' : ahead(sprint.ends_on) },
+  ]
+  if (today > sprint.starts_on && today < sprint.ends_on && !points.some((p) => p.day === today)) {
+    const at = points.findIndex((p) => p.day > today)
+    points.splice(at, 0, { day: today, label: 'Today', state: 'today', marker: true })
   }
-  return out
+  return points
+}
+
+/** The next checkpoint still to come, today included; null once the sprint is over. */
+export function nextCheckpoint(points: readonly TimelinePoint[]) {
+  return points.find((p) => !p.marker && (p.state === 'today' || p.state === 'upcoming')) ?? null
 }

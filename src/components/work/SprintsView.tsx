@@ -7,7 +7,7 @@ import { EmptyState } from '../ui/EmptyState'
 import { Icon } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
 import { BugBadge } from '../general/BugBadge'
-import { Burndown } from './Burndown'
+import { SprintTimeline } from './SprintTimeline'
 import { FinishSprintDialog } from './FinishSprintDialog'
 import { useNow } from '../../hooks/useNow'
 import { dateRange } from '../../lib/general/dates'
@@ -15,7 +15,7 @@ import { TASK_STATUSES } from '../../lib/general/progress'
 import { sprintItems } from '../../lib/work/backlog'
 import { authErrorMessage } from '../../lib/authError'
 import { daysLeft, daysLeftLabel, finishedSprints, runningSprint, sprintCounts } from '../../lib/work/sprints'
-import type { Sprint, WorkSource } from '../../lib/work/types'
+import type { Milestone, Sprint, WorkSource } from '../../lib/work/types'
 
 const COLUMN_TONE = {
   todo: 'text-pending-ink',
@@ -24,7 +24,7 @@ const COLUMN_TONE = {
 } as const
 
 /** Running the sprint, then looking back at the finished ones. */
-export function SprintsView({ source, onPlan, archiveHref }: { source: WorkSource; onPlan: () => void; archiveHref?: string }) {
+export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { source: WorkSource; milestones?: readonly Milestone[]; onPlan: () => void; archiveHref?: string }) {
   const now = useNow()
   const { show } = useToast()
   const [finishing, setFinishing] = useState(false)
@@ -138,8 +138,8 @@ export function SprintsView({ source, onPlan, archiveHref }: { source: WorkSourc
 
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
                 <div>
-                  <h3 className="mb-2 text-[14px]">Burndown</h3>
-                  <Burndown sprint={running} items={source.items} />
+                  <h3 className="mb-3 text-[14px]">Sprint timeline</h3>
+                  <SprintTimeline sprint={running} milestones={milestones} items={source.items} />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                   {TASK_STATUSES.map((s) => {

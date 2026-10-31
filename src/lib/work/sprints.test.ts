@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
   addDays,
-  burndown,
   dayDiff,
   daysLeft,
   daysLeftLabel,
   finishedSprints,
+  nextCheckpoint,
   nextSprintDraft,
   plannedSprints,
   runningSprint,
   sprintCounts,
   sprintLength,
+  sprintTimeline,
 } from './sprints'
 import type { Sprint, WorkItem } from './types'
 
@@ -130,24 +131,31 @@ describe('sprintCounts', () => {
   })
 })
 
-describe('burndown', () => {
-  const items = [
-    item({ id: 'a', status: 'done', done_at: new Date(noon('2026-10-06')).toISOString() }),
-    item({ id: 'b', status: 'done', done_at: new Date(noon('2026-10-07')).toISOString() }),
-    item({ id: 'c' }),
-    item({ id: 'x', sprint_id: 'other' }),
+describe('sprintTimeline', () => {
+  const s = { starts_on: '2026-10-05', ends_on: '2026-10-18' }
+  const ms = [
+    { id: 'm2', name: 'Approvals', due_on: '2026-10-12' },
+    { id: 'm1', name: 'Requirements', due_on: '2026-10-08' },
+    { id: 'out', name: 'Later', due_on: '2026-10-25' },
   ]
-  it('counts what is still open at the end of each day so far', () => {
-    expect(burndown(sprint({ state: 'active' }), items, noon('2026-10-07'))).toEqual([
-      { day: '2026-10-05', left: 3 },
-      { day: '2026-10-06', left: 2 },
-      { day: '2026-10-07', left: 1 },
+  const run = (reached: string[], day: string) => sprintTimeline(s, ms, (m) => reached.includes(m.id), noon(day))
+  const states = (reached: string[], day: string) => run(reached, day).map((p) => `${p.label}:${p.state}`)
+
+  it('places today among kickoff, the milestones inside the sprint and its end', () => {
+    expect(states([], '2026-10-07')).toEqual([
+      'Kickoff:done', 'Today:today', 'Requirements:upcoming', 'Approvals:upcoming', 'Sprint ends:upcoming',
     ])
+    expect(nextCheckpoint(run([], '2026-10-07'))?.label).toBe('Requirements')
   })
-  it('is empty before the sprint starts', () => {
-    expect(burndown(sprint(), items, noon('2026-10-01'))).toEqual([])
+  it('lets a checkpoint due today stand in for the Today marker', () => {
+    expect(states([], '2026-10-08')).toEqual(['Kickoff:done', 'Requirements:today', 'Approvals:upcoming', 'Sprint ends:upcoming'])
+    expect(nextCheckpoint(run([], '2026-10-08'))?.label).toBe('Requirements')
   })
-  it('stops at the sprint\'s last day', () => {
-    expect(burndown(sprint({ ends_on: '2026-10-06' }), items, noon('2026-10-20'))).toHaveLength(2)
+  it('marks a passed milestone late until it is reached', () => {
+    expect(states([], '2026-10-10')[1]).toBe('Requirements:late')
+    expect(states(['m1'], '2026-10-10')[1]).toBe('Requirements:done')
+  })
+  it('has no next checkpoint once the sprint is over', () => {
+    expect(nextCheckpoint(run(['m1', 'm2'], '2026-10-20'))).toBeNull()
   })
 })

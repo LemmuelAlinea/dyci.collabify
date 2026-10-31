@@ -126,7 +126,7 @@ export function StudentTasksView({
               return t.section === 'backlog' ? (
                 <BacklogView source={source} />
               ) : (
-                <SprintsView source={source} onPlan={() => t.setSection('backlog')} />
+                <SprintsView source={source} milestones={t.milestones} onPlan={() => t.setSection('backlog')} />
               )
             })()
           ) : t.section === 'milestones' ? (
