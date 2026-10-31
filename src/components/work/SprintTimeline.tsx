@@ -18,24 +18,24 @@ const STATE_LABEL: Record<TimelineState, string> = {
 }
 
 function Node({ state }: { state: TimelineState }) {
-  const base = 'relative z-10 grid h-9 w-9 place-items-center rounded-full'
+  const base = 'relative z-10 grid h-7 w-7 place-items-center rounded-full'
   if (state === 'done') {
     return (
       <span className={`${base} bg-success-500 text-success-50`}>
-        <Icon name="check" size={18} strokeWidth={3} />
+        <Icon name="check" size={14} strokeWidth={3} />
       </span>
     )
   }
   if (state === 'today') {
     return (
       <span className={`${base} bg-warning-500`}>
-        <span className="surface h-3 w-3 rounded-full" />
+        <span className="surface h-2.5 w-2.5 rounded-full" />
       </span>
     )
   }
   return (
     <span
-      className={`${base} surface-sunken border-[3px] ${state === 'late' ? 'border-danger-500' : 'border-[var(--line-strong)]'}`}
+      className={`${base} surface-sunken border-2 ${state === 'late' ? 'border-danger-500' : 'border-[var(--line-strong)]'}`}
     />
   )
 }
@@ -69,7 +69,7 @@ export function SprintTimeline({
         style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}
         aria-label={`Sprint timeline: ${points.map((p) => `${p.label}, ${shortDay(p.day)}, ${STATE_LABEL[p.state]}`).join('; ')}`}
       >
-        <span aria-hidden className="absolute top-[15px] h-1.5 rounded-full bg-[var(--line-strong)]" style={{ left: inset, right: inset }}>
+        <span aria-hidden className="absolute top-[12px] h-1 rounded-full bg-[var(--line-strong)]" style={{ left: inset, right: inset }}>
           <span className="block h-full rounded-full bg-progress" style={{ width: `${fill * 100}%` }} />
         </span>
         {points.map((p, i) => (

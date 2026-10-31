@@ -9,6 +9,7 @@ import { liveTasks, memberTasks, statusCounts, teamTasks, weeklyCompletions } fr
 import type { TeamBasis } from '../../lib/general/projectProgress'
 import { fullName } from '../../lib/types'
 import { milestoneProgress, milestoneStatus, sortMilestones } from '../../lib/work/milestones'
+import { runningSprint } from '../../lib/work/sprints'
 import { CompletionLineChart } from '../charts/CompletionLineChart'
 import { DonutChart } from '../charts/DonutChart'
 import { ProgressBar } from '../work/MilestoneBits'
@@ -76,7 +77,7 @@ export function ProgressTab({ state: sourceState }: { state: GeneralProjectState
     <div className="min-w-0 space-y-6">
       <section className="space-y-3">
         <h2>Milestones</h2>
-        {milestones.length ? <MilestoneChart milestones={milestones} isReached={m => milestoneStatus(m, milestoneProgress(tasks, m.id), now) === 'reached'} onPick={id => setParams(milestoneParams(params, id))} /> : (
+        {milestones.length ? <MilestoneChart milestones={milestones} isReached={m => milestoneStatus(m, milestoneProgress(tasks, m.id), now) === 'reached'} runningId={runningSprint(state.sprints)?.milestone_id} onPick={id => setParams(milestoneParams(params, id))} /> : (
           <p className="card p-6 text-[13px] text-muted">No milestones yet. <Link className="font-medium text-ink underline" to={{ search: workParams.toString() }}>View Work milestones</Link></p>
         )}
       </section>

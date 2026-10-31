@@ -14,7 +14,7 @@ import { TagTasksDialog } from './TagTasksDialog'
 import { useNow } from '../../hooks/useNow'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDay } from '../../lib/general/dates'
-import { addDays, toDay } from '../../lib/work/sprints'
+import { addDays, runningSprint, toDay } from '../../lib/work/sprints'
 import {
   dueInLabel,
   milestoneProgress,
@@ -100,6 +100,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
       <MilestoneChart
         milestones={list}
         isReached={(m) => milestoneStatus(m, milestoneProgress(source.items, m.id), now) === 'reached'}
+        runningId={runningSprint(source.sprints)?.milestone_id}
         onPick={showCard}
       />
 
