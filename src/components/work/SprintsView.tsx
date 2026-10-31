@@ -150,7 +150,8 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                           {s.label}
                           <span className="font-mono text-[12px] font-normal text-faint">{column.length}</span>
                         </h4>
-                        <ul className="mt-2 space-y-1">
+                        {/* Seven rows tall, then the column scrolls. */}
+                        <ul className="mt-2 max-h-[10.4rem] space-y-1 overflow-y-auto overscroll-contain pr-1">
                           {column.map((i) => (
                             <li key={i.id} className="flex min-w-0 items-center gap-1.5">
                               <button
