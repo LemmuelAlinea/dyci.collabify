@@ -3932,3 +3932,14 @@ Both start with "zz test".
 - Owner browser checks on the 5174 preview passed for PM planning/direct send, coordinator review/return/team send, lead Incoming/manual assignment, member My tasks, QA bug creation/queue, and stakeholder read-only access. A sent task outside the running sprint is discoverable through View on board, which switches to All tasks. Desktop, tablet, and phone Tasks layouts showed no page overflow.
 - The owner temporarily changed Lemmuel's role to QA and restored Coordinator afterward. Browser test tasks remain in Barangay website. During the QA check, “Define website goals, scope, and success criteria” was passed to Done; reopen it if this was only a test.
 - Final owner sign-in smoke check on the live Vercel domain passed: Planning, Released work and Assign by position appear for the coordinator. The 5174 preview exercised the deployed Edge Function: lead Assign by position opened without the old planner-only error and assigned a Research Team member.
+
+## Microsoft sign-in: on hold (2026-11-01)
+
+- Deferred: replacing Google sign-in with Microsoft is built and parked on branch
+  `microsoft-sign-in` (`cb2505c`; its `handoff.md` section and
+  `docs/03-microsoft-oauth.md` have the full rollout order). It waits until the owner
+  can register Collabify in the school's Azure (Entra) portal. Google stays live on `main`.
+- Supabase already has the Azure provider on, with the client ID set to `Collabify` (the
+  app name, not the GUID). Nothing on `main` calls it. When the school app exists, paste
+  its Application (client) ID and secret Value, then merge the branch, re-run
+  `consent.sql` (privacy `2026-11-01`), push, and turn the Google provider off.
