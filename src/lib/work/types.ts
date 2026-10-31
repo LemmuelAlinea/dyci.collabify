@@ -79,6 +79,8 @@ export type WorkSource = {
   startSprint: (id: string) => Promise<void>
   finishSprint: (id: string, carryTo: string | null) => Promise<void>
   archiveSprint: (id: string, archived: boolean) => Promise<void>
+  /** Run a finished sprint again. Set only for a work project's project manager and coordinators. */
+  reopenSprint?: (id: string) => Promise<void>
   moveToSprint: (taskIds: string[], sprintId: string | null) => Promise<void>
   setRank: (taskId: string, rank: number) => Promise<void>
   addToBacklog: (title: string) => Promise<void>

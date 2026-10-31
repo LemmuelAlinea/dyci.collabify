@@ -13,6 +13,7 @@ import {
   deleteSprint,
   finishSprint,
   moveTasksToSprint,
+  reopenSprint,
   setSprintMilestone,
   setTaskRank,
   startSprint,
@@ -85,6 +86,10 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     startSprint: (id) => then(startSprint(home, id)),
     finishSprint: (id, carryTo) => then(finishSprint(home, id, carryTo)),
     archiveSprint: (id, archived) => then(archiveSprint(home, id, archived)),
+    reopenSprint:
+      live && (state.myRole === 'pm' || state.myRole === 'coordinator')
+        ? (id) => then(reopenSprint(id))
+        : undefined,
     moveToSprint: (ids, sprintId) => then(moveTasksToSprint(home, ids, sprintId)),
     setRank: (id, rank) => then(setTaskRank(home, id, rank)),
     addToBacklog: (title) =>

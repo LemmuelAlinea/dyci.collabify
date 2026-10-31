@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { EmptyState } from '../ui/EmptyState'
 import { Icon } from '../ui/Icon'
 import { useToast } from '../ui/Toast'
@@ -29,6 +30,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
   const { show } = useToast()
   const [finishing, setFinishing] = useState(false)
   const [changing, setChanging] = useState<string | null>(null)
+  const [reopening, setReopening] = useState<Sprint | null>(null)
   const running = runningSprint(source.sprints)
   const finished = finishedSprints(source.sprints)
   const archived = finishedSprints(source.sprints, true)
@@ -73,6 +75,12 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                   {doneItems.length === 0 && <li className="text-[12px] text-faint">Nothing was finished in it.</li>}
                 </ul>
               </details>
+              {!isArchived && source.reopenSprint && (
+                <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setReopening(s)}>
+                  <Icon name="refresh" size={14} />
+                  Reopen
+                </Button>
+              )}
               {source.canPlan && (
                 <Button size="sm" variant="ghost" className="!rounded-lg" loading={changing === s.id}
                   onClick={() => void setArchived(s.id, !isArchived)}>
@@ -210,6 +218,32 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
           <summary className="cursor-pointer font-semibold text-ink">Archived sprints ({archived.length})</summary>
           <div className="mt-3">{history(archived, true)}</div>
         </details>
+      )}
+
+      {reopening && source.reopenSprint && (
+        <ConfirmDialog
+          open
+          tone="primary"
+          title={`Reopen ${reopening.name}?`}
+          confirmLabel="Reopen sprint"
+          onClose={() => setReopening(null)}
+          onConfirm={async () => {
+            await source.reopenSprint?.(reopening.id)
+            show(`${reopening.name} is running again`)
+          }}
+          body={
+            <div className="space-y-2">
+              <p>It becomes the running sprint again.</p>
+              {running && (
+                <p>
+                  <strong className="text-ink">{running.name}</strong> stops running and goes back to Backlog as a planned
+                  sprint. Its tasks stay in it.
+                </p>
+              )}
+              <p>Unfinished tasks that moved out of {reopening.name} when it finished stay where they are.</p>
+            </div>
+          }
+        />
       )}
 
       {running && finishing && (

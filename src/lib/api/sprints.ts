@@ -85,6 +85,15 @@ export async function finishSprint(home: SprintHome, sprintId: string, carryTo: 
   if (error) throw error
 }
 
+/**
+ * Run a finished work-project sprint again; the running one goes back to
+ * planned. Project manager and coordinators only: supabase/sprint-reopen.sql.
+ */
+export async function reopenSprint(sprintId: string) {
+  const { error } = await supabase.rpc('reopen_general_sprint', { p_sprint: sprintId })
+  if (error) throw error
+}
+
 export async function archiveSprint(home: SprintHome, sprintId: string, archived: boolean) {
   const { data, error } = await supabase.from(SPRINTS[home.kind]).update({ archived }).eq('id', sprintId).select('id')
   if (error) throw error

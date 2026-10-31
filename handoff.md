@@ -3954,3 +3954,18 @@ Both start with "zz test".
   then turn the Google provider off.
 - 17 accounts used Google; 8 have no password. They get back in with Microsoft on the same
   email (needs the `xms_edov` claim for linking) or Forgot password.
+
+## Sprint timeline, milestone highlight, reopen sprint (2026-11-01)
+
+- The running sprint card (Plan → Sprints, Overview) shows a sprint timeline instead of
+  the burndown: Kickoff, milestones due inside the sprint, Today, Sprint ends
+  (`components/work/SprintTimeline.tsx`, `sprintTimeline`/`nextCheckpoint` in
+  `lib/work/sprints.ts`). Its task columns show seven rows and scroll.
+- The milestone timeline highlights the milestone the running sprint counts toward
+  (`MilestoneChart` `runningId`).
+- Finished sprints have **Reopen** for the project manager and coordinators of a work
+  project. `reopen_general_sprint` (`supabase/sprint-reopen.sql`) moves the running
+  sprint back to planned (started time cleared) and runs the finished one again,
+  unarchived. Tasks carried out at finish stay where they went. The guard allows those
+  two backward moves only while the function sets `collabify.sprint_reopen`.
+- Deploy order: run `sprint-reopen.sql` on the database, then push the frontend.
