@@ -104,7 +104,7 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
-  perform set_config('collabify.sprint_reopen', coalesce(was, 'off'), true);
+  perform set_config('collabify.sprint_reopen', coalesce(nullif(was, ''), 'off'), true);
 end;
 $$;
 

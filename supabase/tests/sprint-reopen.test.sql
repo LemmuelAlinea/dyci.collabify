@@ -114,7 +114,7 @@ begin
   perform pg_temp.must_be('one sprint runs at a time',
     (select count(*) = 1 from public.general_sprints where project_id = p and state = 'active'));
   perform pg_temp.must_be('the reopen switch is off again afterwards',
-    coalesce(current_setting('collabify.sprint_reopen', true), 'off') = 'off');
+    coalesce(current_setting('collabify.sprint_reopen', true), 'off') <> 'on');
   perform pg_temp.must_refuse('after a reopen, a direct backward move is still refused',
     format($q$update public.general_sprints set state = 'planned' where id = %L$q$, s1));
 

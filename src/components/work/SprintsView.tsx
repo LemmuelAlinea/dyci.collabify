@@ -228,7 +228,11 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
           confirmLabel="Reopen sprint"
           onClose={() => setReopening(null)}
           onConfirm={async () => {
-            await source.reopenSprint?.(reopening.id)
+            try {
+              await source.reopenSprint?.(reopening.id)
+            } catch (err) {
+              throw new Error(authErrorMessage(err, 'Could not reopen the sprint.'))
+            }
             show(`${reopening.name} is running again`)
           }}
           body={
