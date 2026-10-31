@@ -3933,13 +3933,24 @@ Both start with "zz test".
 - The owner temporarily changed Lemmuel's role to QA and restored Coordinator afterward. Browser test tasks remain in Barangay website. During the QA check, “Define website goals, scope, and success criteria” was passed to Done; reopen it if this was only a test.
 - Final owner sign-in smoke check on the live Vercel domain passed: Planning, Released work and Assign by position appear for the coordinator. The 5174 preview exercised the deployed Edge Function: lead Assign by position opened without the old planner-only error and assigned a Research Team member.
 
-## Microsoft sign-in: on hold (2026-11-01)
+## Microsoft sign-in replaces Google (2026-11-01)
 
-- Deferred: replacing Google sign-in with Microsoft is built and parked on branch
-  `microsoft-sign-in` (`cb2505c`; its `handoff.md` section and
-  `docs/03-microsoft-oauth.md` have the full rollout order). It waits until the owner
-  can register Collabify in the school's Azure (Entra) portal. Google stays live on `main`.
-- Supabase already has the Azure provider on, with the client ID set to `Collabify` (the
-  app name, not the GUID). Nothing on `main` calls it. When the school app exists, paste
-  its Application (client) ID and secret Value, then merge the branch, re-run
-  `consent.sql` (privacy `2026-11-01`), push, and turn the Google provider off.
+- "Continue with Google" is gone from Login and Register. "Continue with Microsoft" calls
+  `signInWithMicrosoft` in `AuthProvider` (`provider: 'azure'`, `scopes: 'email'`).
+  `components/ui/MicrosoftButton.tsx` and `MicrosoftMark` replace the Google ones.
+  Landing, Hero, auth error copy and comments now say Microsoft. Onboarding is unchanged:
+  Microsoft gives no role or picture, so first-time OAuth accounts still finish there.
+- Privacy policy is version `2026-11-01` (Microsoft replaces Google as a recipient; a
+  Google row stays for the old Google pictures still on 6 profiles). `consent.sql` publishes
+  it as material, so everyone is asked to agree again on next sign-in.
+- Setup guide: `docs/03-microsoft-oauth.md` (replaces `03-google-oauth.md`).
+- Shipped to `main` on 2026-11-01 before the Azure app exists, because the professor
+  requires Microsoft-only sign-in. The owner cannot register Collabify in the school's
+  Azure (Entra) portal yet, so the button reaches Microsoft and fails there. Supabase has
+  the Azure provider on with client ID `Collabify` (the app name, not the GUID). Google
+  stays on in Supabase so old sessions keep working; no button calls it.
+- Deferred: once the school app exists, paste its Application (client) ID and secret
+  Value into Supabase (doc steps 3.2–3.5), check the authorize redirect shows a GUID,
+  then turn the Google provider off.
+- 17 accounts used Google; 8 have no password. They get back in with Microsoft on the same
+  email (needs the `xms_edov` claim for linking) or Forgot password.

@@ -17,10 +17,10 @@ import { homeFor } from '../../lib/access'
 import { paths } from '../../lib/paths'
 
 /**
- * Google sign-in carries no role, so first-time OAuth users finish their
+ * Microsoft sign-in carries no role, so first-time OAuth users finish their
  * profile here.
  *
- * It is also the only place a Google account's consent can be collected. The
+ * It is also the only place a Microsoft account's consent can be collected. The
  * signup trigger writes consent from the metadata the register form sends, and
  * an OAuth account carries none of it — `handle_new_user` returns early for an
  * account with no role, so nothing is recorded on that path. Every OAuth

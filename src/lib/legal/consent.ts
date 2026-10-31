@@ -52,7 +52,7 @@ export const CONSENT_ITEMS: readonly ConsentItem[] = [
  *
  * Sent as one object because both paths hand it to the database whole:
  * `handle_new_user()` reads it out of the new user's metadata on the email
- * path, and `record_consent()` takes it directly on the Google path. Keeping
+ * path, and `record_consent()` takes it directly on the Microsoft path. Keeping
  * the shape identical means the two paths cannot drift into recording
  * different things.
  */

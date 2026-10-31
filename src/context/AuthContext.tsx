@@ -19,7 +19,7 @@ export type AuthValue = {
   configured: boolean
   signUpWithEmail: (input: SignUpInput) => Promise<{ needsConfirmation: boolean }>
   signInWithEmail: (email: string, password: string) => Promise<void>
-  signInWithGoogle: () => Promise<void>
+  signInWithMicrosoft: () => Promise<void>
   signOut: () => Promise<void>
   sendPasswordReset: (email: string) => Promise<void>
   updatePassword: (password: string) => Promise<void>

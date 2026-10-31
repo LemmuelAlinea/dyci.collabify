@@ -25,8 +25,8 @@ export const PRIVACY: LegalDoc = {
   title: `Privacy policy`,
   kicker: `How your information is handled`,
   summary: `What Collabify holds about you, who can see it, how long it is kept, and what you can ask for.`,
-  version: `2026-10-13`,
-  effective: `2026-10-13`,
+  version: `2026-11-01`,
+  effective: `2026-11-01`,
   sections: [
     {
       id: 'who-is-responsible',
@@ -73,7 +73,7 @@ export const PRIVACY: LegalDoc = {
         { kind: 'p', text: `Three kinds of thing, and only the third usually surprises people.` },
         {
           kind: 'p',
-          text: `**What you give it.** Your first, middle and last name, your email address, whether you are a student or a professor, a profile photo if you upload one, and your light or dark theme preference. Your password is handled by the sign-in service and Collabify never sees or stores it. If you sign in with Google, Google gives Collabify your email address, your name and your profile picture, and nothing else.`,
+          text: `**What you give it.** Your first, middle and last name, your email address, whether you are a student or a professor, a profile photo if you upload one, and your light or dark theme preference. Your password is handled by the sign-in service and Collabify never sees or stores it. If you sign in with Microsoft, Microsoft gives Collabify your email address and your name, and nothing else.`,
         },
         {
           kind: 'p',
@@ -177,8 +177,12 @@ export const PRIVACY: LegalDoc = {
             [`Vercel — serves the pages`, `Request logs: IP address, browser, referring page`],
             [`Brevo — sends the email`, `The address of every recipient, and the link in the message`],
             [
-              `Google — only if you sign in with Google`,
-              `The sign-in request. Google returns your address, name and picture`,
+              `Microsoft — only if you sign in with Microsoft`,
+              `The sign-in request. Microsoft returns your address and name`,
+            ],
+            [
+              `Google — only if your account still shows the picture Google gave when Google sign-in was offered`,
+              `A request for that picture each time it is shown`,
             ],
             [
               `Anthropic — the assistant that reads a syllabus and drafts tasks`,
@@ -393,7 +397,7 @@ export const PRIVACY: LegalDoc = {
       blocks: [
         {
           kind: 'p',
-          text: `Each version carries a date. This is version 2026-10-13, effective 13 October 2026. Your agreement is recorded against the version you were shown, and you can see which one that was on [the request page](/privacy/request).`,
+          text: `Each version carries a date. This is version 2026-11-01, effective 1 November 2026. Your agreement is recorded against the version you were shown, and you can see which one that was on [the request page](/privacy/request).`,
         },
         {
           kind: 'p',

@@ -8,7 +8,7 @@ import { supabase } from '../supabase'
  * writes its consent inside `handle_new_user()` in the database, because at the
  * moment the box is ticked there is no session and no row-level-security
  * identity to insert with — see `supabase/consent.sql`. This module covers the
- * other two: the Google path, where the box is ticked at onboarding with a
+ * other two: the Microsoft path, where the box is ticked at onboarding with a
  * session in hand, and re-consent when a material version lands.
  */
 

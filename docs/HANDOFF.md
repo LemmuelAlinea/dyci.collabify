@@ -260,7 +260,7 @@ letting somebody find out by trying.
 | `/` | Landing page. Three.js hero, sections explaining the product |
 | `/login` `/register` | Registration picks the workplace first, then role if Education |
 | `/forgot-password` `/reset-password` `/check-email` | Password recovery |
-| `/auth/callback` `/onboarding` | Google sign-in lands here; onboarding asks the workplace question |
+| `/auth/callback` `/onboarding` | Microsoft sign-in lands here; onboarding asks the workplace question |
 | `/pending` | A professor awaiting admin approval |
 | `/education/enter` | A General account choosing student or professor, once |
 | `/privacy` `/terms` `/cookies` | Legal documents, versioned, consent recorded |
