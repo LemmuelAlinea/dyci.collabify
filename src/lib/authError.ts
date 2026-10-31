@@ -49,7 +49,7 @@ function statusOf(err: unknown): number | undefined {
 const KNOWN: [RegExp, string][] = [
   [
     /error sending (confirmation|recovery|magic link|invite) email/i,
-    "We couldn't send that email. The mail service isn't accepting sends right now — try again shortly, or use Continue with Google.",
+    "We couldn't send that email. The mail service isn't accepting sends right now — try again shortly, or use Continue with Microsoft.",
   ],
   [
     /email rate limit exceeded|over_email_send_rate_limit/i,
@@ -128,7 +128,7 @@ export function authErrorMessage(err: unknown, fallback = 'Something went wrong.
   // that is the only outbound dependency in the signup and reset flows.
   const status = statusOf(err)
   if (status && status >= 500) {
-    return "The server couldn't finish that request. If you were signing up or resetting a password, the email service is the usual cause — try again shortly, or use Continue with Google."
+    return "The server couldn't finish that request. If you were signing up or resetting a password, the email service is the usual cause — try again shortly, or use Continue with Microsoft."
   }
   if (status === 0) return 'Could not reach the server. Check your connection and try again.'
 

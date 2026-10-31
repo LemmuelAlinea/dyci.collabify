@@ -7,7 +7,7 @@ above it are done.
 |---|------|-------|-----|
 | 1 | Create the Supabase project and run the schema | [01-supabase-setup.md](01-supabase-setup.md) | You + Claude |
 | 2 | Point Supabase's emails at Brevo | [02-brevo-email.md](02-brevo-email.md) | You |
-| 3 | Turn on "Continue with Google" | [03-google-oauth.md](03-google-oauth.md) | You |
+| 3 | Turn on "Continue with Microsoft" | [03-microsoft-oauth.md](03-microsoft-oauth.md) | You |
 | 4 | Push to GitHub and deploy on Vercel | [04-deploy-vercel.md](04-deploy-vercel.md) | You + Claude |
 | 5 | Make yourself the admin | [05-admin.md](05-admin.md) | Claude |
 | 6 | Let the app read syllabi with AI *(optional)* | [06-ai-setup.md](06-ai-setup.md) | You |
@@ -30,7 +30,7 @@ Open http://localhost:5173.
 
 - Landing page — responsive, animated, light and dark
 - Register (student / professor) with email confirmation
-- Sign in with email or Google
+- Sign in with email or Microsoft
 - Forgot password → emailed reset link → set a new password
 - Professor accounts held for admin approval
 - Role-based app shell for student, professor, and admin

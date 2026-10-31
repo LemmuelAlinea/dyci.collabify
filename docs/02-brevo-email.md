@@ -81,4 +81,4 @@ the account email is the single most common reason this fails.
 | Brevo log says "blocked" | Sender not verified | Finish 2.2 |
 | Lands in spam | Unverified domain | Add the domain and its DKIM/SPF records in 2.2 |
 
-Next: [03-google-oauth.md](03-google-oauth.md)
+Next: [03-microsoft-oauth.md](03-microsoft-oauth.md)

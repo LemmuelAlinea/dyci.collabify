@@ -184,13 +184,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearFailures('signIn', email)
   }, [])
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithMicrosoft = useCallback(async () => {
     requireConfigured()
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider: 'azure',
       options: {
         redirectTo: redirectTo('/auth/callback'),
-        queryParams: { access_type: 'offline', prompt: 'consent' },
+        // Azure returns no email unless asked for it.
+        scopes: 'email',
       },
     })
     if (error) throw error
@@ -250,7 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /**
        * Consent first, before the profile exists.
        *
-       * This is the only place a Google account's consent can be recorded:
+       * This is the only place a Microsoft account's consent can be recorded:
        * `handle_new_user` returns early for an account with no role, so the
        * signup trigger never writes one for them, and onboarding is the single
        * screen every OAuth account passes through.
@@ -324,7 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       configured: isSupabaseConfigured,
       signUpWithEmail,
       signInWithEmail,
-      signInWithGoogle,
+      signInWithMicrosoft,
       signOut,
       sendPasswordReset,
       updatePassword,
@@ -340,7 +341,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       signUpWithEmail,
       signInWithEmail,
-      signInWithGoogle,
+      signInWithMicrosoft,
       signOut,
       sendPasswordReset,
       updatePassword,

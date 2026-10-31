@@ -13,7 +13,7 @@ import { Icon } from '../ui/Icon'
  * one and refuse the other, and afterwards nobody can say which they meant.
  *
  * Used by two screens with different surroundings: `Register`, where the boxes
- * sit in the signup form, and `Onboarding`, which is the only screen a Google
+ * sit in the signup form, and `Onboarding`, which is the only screen a Microsoft
  * account passes through and therefore the only place its consent can be
  * collected at all.
  *

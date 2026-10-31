@@ -302,7 +302,9 @@ values
   ('privacy', '2026-09-08', '2026-09-08', true),
   ('terms',   '2026-09-08', '2026-09-08', true),
   ('privacy', '2026-10-13', '2026-10-13', true),
-  ('terms',   '2026-10-13', '2026-10-13', true)
+  ('terms',   '2026-10-13', '2026-10-13', true),
+  -- Microsoft sign-in replaces Google: a new recipient.
+  ('privacy', '2026-11-01', '2026-11-01', true)
 on conflict (document, version) do nothing;
 
 commit;

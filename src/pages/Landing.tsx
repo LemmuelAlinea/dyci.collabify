@@ -262,7 +262,7 @@ export default function Landing() {
 
                     <ol className="relative mt-6 space-y-5">
                       {[
-                        ['01', 'Create your account', 'Use Google, or sign up with your email.'],
+                        ['01', 'Create your account', 'Use Microsoft, or sign up with your email.'],
                         ['02', 'Pick where you are working', 'Class coursework, or everything else.'],
                         [
                           '03',

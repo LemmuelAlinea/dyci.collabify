@@ -49,7 +49,7 @@ others are secrets.
 Click **Deploy** and wait about a minute. Vercel gives you a URL like
 `https://collabify-xyz.vercel.app`.
 
-## 4.4 Tell Supabase and Google about the new domain
+## 4.4 Tell Supabase about the new domain
 
 Sign-in will fail on the live site until you do this.
 
@@ -59,10 +59,8 @@ Sign-in will fail on the live site until you do this.
 - **Redirect URLs**: add `https://collabify-xyz.vercel.app/**` (keep the localhost entry
   so local development still works)
 
-**Google Cloud** → **APIs & Services** → **Credentials** → your `Collabify Web` client
-
-- **Authorised JavaScript origins**: add `https://collabify-xyz.vercel.app`
-- The redirect URI stays the Supabase callback — do not change it.
+Microsoft needs nothing here: its redirect URI is the Supabase callback, which does not
+change with the site's domain.
 
 ## 4.5 From here on
 
@@ -75,7 +73,7 @@ Run through all of these on the Vercel URL, not localhost:
 - [ ] Landing page loads, animations run, theme toggle works
 - [ ] Register a student → confirmation email arrives → link signs you in
 - [ ] Sign out, then sign in again with the same password
-- [ ] Continue with Google → profile step → dashboard
+- [ ] Continue with Microsoft → profile step → dashboard
 - [ ] Forgot password → email arrives → new password works
 - [ ] Settings: change your name, reload, the change is still there
 - [ ] Settings: switch to Dark, reload, still dark
@@ -94,7 +92,7 @@ reasoning lives here.
 | `X-Frame-Options: DENY` | With `frame-ancestors 'none'` in the CSP. Two headers because older browsers read only the first. |
 | `Referrer-Policy` | `strict-origin-when-cross-origin`. Vercel logs referrers, so this limits what is in them. |
 | `Permissions-Policy` | Denies camera, microphone, geolocation, payment and USB. None are used. |
-| `Cross-Origin-Opener-Policy: same-origin` | Safe **because Google sign-in is a full-page redirect**, not a popup. If `signInWithOAuth` is ever switched to `skipBrowserRedirect` with a popup, this header breaks the handshake. |
+| `Cross-Origin-Opener-Policy: same-origin` | Safe **because Microsoft sign-in is a full-page redirect**, not a popup. If `signInWithOAuth` is ever switched to `skipBrowserRedirect` with a popup, this header breaks the handshake. |
 
 `Cross-Origin-Embedder-Policy` is **not** set. It would require CORP on every
 cross-origin resource, which breaks the landing page's 3D model for no gain here.

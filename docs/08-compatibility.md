@@ -113,7 +113,7 @@ professor. Print one report to PDF and confirm the header repeats on page two.
 
 ### Other systems
 
-Supabase (PostgREST, Storage, Auth), Google OAuth for sign-in, and the
+Supabase (PostgREST, Storage, Auth), Microsoft (Azure) OAuth for sign-in, and the
 Anthropic API for task drafting. Email through Brevo is configured but off —
 see the residual risks in the final report.
 

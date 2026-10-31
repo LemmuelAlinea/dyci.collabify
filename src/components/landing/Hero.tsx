@@ -214,7 +214,7 @@ export function Hero() {
 
             <Rise delay={0.26}>
               <p className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[10.5px] tracking-[0.14em] text-amber-50/40 uppercase">
-                <span>Google sign-in</span>
+                <span>Microsoft sign-in</span>
                 <span aria-hidden>·</span>
                 <span>Shaped by each group</span>
                 <span aria-hidden>·</span>

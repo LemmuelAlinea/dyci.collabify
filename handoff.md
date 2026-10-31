@@ -3932,3 +3932,21 @@ Both start with "zz test".
 - Owner browser checks on the 5174 preview passed for PM planning/direct send, coordinator review/return/team send, lead Incoming/manual assignment, member My tasks, QA bug creation/queue, and stakeholder read-only access. A sent task outside the running sprint is discoverable through View on board, which switches to All tasks. Desktop, tablet, and phone Tasks layouts showed no page overflow.
 - The owner temporarily changed Lemmuel's role to QA and restored Coordinator afterward. Browser test tasks remain in Barangay website. During the QA check, “Define website goals, scope, and success criteria” was passed to Done; reopen it if this was only a test.
 - Final owner sign-in smoke check on the live Vercel domain passed: Planning, Released work and Assign by position appear for the coordinator. The 5174 preview exercised the deployed Edge Function: lead Assign by position opened without the old planner-only error and assigned a Research Team member.
+
+## Microsoft sign-in replaces Google (2026-11-01)
+
+- "Continue with Google" is gone from Login and Register. "Continue with Microsoft" calls
+  `signInWithMicrosoft` in `AuthProvider` (`provider: 'azure'`, `scopes: 'email'`).
+  `components/ui/MicrosoftButton.tsx` and `MicrosoftMark` replace the Google ones.
+  Landing, Hero, auth error copy and comments now say Microsoft. Onboarding is unchanged:
+  Microsoft gives no role or picture, so first-time OAuth accounts still finish there.
+- Privacy policy is version `2026-11-01` (Microsoft replaces Google as a recipient; a
+  Google row stays for the old Google pictures still on 6 profiles). `consent.sql` publishes
+  it as material, so everyone is asked to agree again on next sign-in.
+- Setup guide: `docs/03-microsoft-oauth.md` (replaces `03-google-oauth.md`).
+- Not live yet. Order: register the Entra app and enable Azure in Supabase (doc steps
+  3.2–3.5), then insert the `2026-11-01` privacy row (re-run `consent.sql`), then push
+  `main`, then turn the Google provider off. Before Azure is on, the button returns
+  "provider is not enabled".
+- 17 accounts used Google; 8 have no password. They get back in with Microsoft on the same
+  email (needs the `xms_edov` claim for linking) or Forgot password.

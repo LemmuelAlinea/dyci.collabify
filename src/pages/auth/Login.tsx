@@ -5,20 +5,20 @@ import { AuthLayout, OrDivider } from '../../components/AuthLayout'
 import { Button } from '../../components/ui/Button'
 import { Field, Input, PasswordInput } from '../../components/ui/Field'
 import { Alert } from '../../components/ui/Alert'
-import { GoogleButton } from '../../components/ui/GoogleButton'
+import { MicrosoftButton } from '../../components/ui/MicrosoftButton'
 import { useAuth } from '../../context/AuthContext'
 import { authErrorMessage } from '../../lib/authError'
 import { useCooldown } from '../../components/auth/useCooldown'
 import { attemptsLeft } from '../../lib/rateLimit'
 
 export default function Login() {
-  const { signInWithEmail, signInWithGoogle, configured } = useAuth()
+  const { signInWithEmail, signInWithMicrosoft, configured } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [googleBusy, setGoogleBusy] = useState(false)
+  const [microsoftBusy, setMicrosoftBusy] = useState(false)
   const cooldown = useCooldown('signIn', email)
   const left = attemptsLeft('signIn', email)
 
@@ -37,14 +37,14 @@ export default function Login() {
     }
   }
 
-  async function onGoogle() {
+  async function onMicrosoft() {
     setError(null)
-    setGoogleBusy(true)
+    setMicrosoftBusy(true)
     try {
-      await signInWithGoogle()
+      await signInWithMicrosoft()
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not reach Google.'))
-      setGoogleBusy(false)
+      setError(authErrorMessage(err, 'Could not reach Microsoft.'))
+      setMicrosoftBusy(false)
     }
   }
 
@@ -137,7 +137,7 @@ export default function Login() {
       </form>
 
       <OrDivider />
-      <GoogleButton onClick={onGoogle} loading={googleBusy} />
+      <MicrosoftButton onClick={onMicrosoft} loading={microsoftBusy} />
     </AuthLayout>
   )
 }

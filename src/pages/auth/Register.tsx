@@ -5,7 +5,7 @@ import { AuthLayout, OrDivider } from '../../components/AuthLayout'
 import { Button } from '../../components/ui/Button'
 import { Field, Input, PasswordInput } from '../../components/ui/Field'
 import { Alert } from '../../components/ui/Alert'
-import { GoogleButton } from '../../components/ui/GoogleButton'
+import { MicrosoftButton } from '../../components/ui/MicrosoftButton'
 import { RoleChoice } from '../../components/ui/RoleChoice'
 import type { Choice } from '../../components/ui/RoleChoice'
 import { ConsentChecks } from '../../components/legal/ConsentChecks'
@@ -17,7 +17,7 @@ import { useCooldown } from '../../components/auth/useCooldown'
 import { LIMIT } from '../../lib/limits'
 
 export default function Register() {
-  const { signUpWithEmail, signInWithGoogle, configured } = useAuth()
+  const { signUpWithEmail, signInWithMicrosoft, configured } = useAuth()
   const navigate = useNavigate()
 
   const [role, setRole] = useState<Choice>('student')
@@ -28,7 +28,7 @@ export default function Register() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [googleBusy, setGoogleBusy] = useState(false)
+  const [microsoftBusy, setMicrosoftBusy] = useState(false)
   const [consent, setConsent] = useState<ConsentState>(emptyConsent)
   const [showConsentErrors, setShowConsentErrors] = useState(false)
   const cooldown = useCooldown('signUp', email)
@@ -88,14 +88,14 @@ export default function Register() {
     }
   }
 
-  async function onGoogle() {
+  async function onMicrosoft() {
     setError(null)
-    setGoogleBusy(true)
+    setMicrosoftBusy(true)
     try {
-      await signInWithGoogle()
+      await signInWithMicrosoft()
     } catch (err) {
-      setError(authErrorMessage(err, 'Could not reach Google.'))
-      setGoogleBusy(false)
+      setError(authErrorMessage(err, 'Could not reach Microsoft.'))
+      setMicrosoftBusy(false)
     }
   }
 
@@ -240,7 +240,7 @@ export default function Register() {
       </form>
 
       <OrDivider compact />
-      <GoogleButton onClick={onGoogle} loading={googleBusy} label="Sign up with Google" />
+      <MicrosoftButton onClick={onMicrosoft} loading={microsoftBusy} label="Sign up with Microsoft" />
     </AuthLayout>
   )
 }
