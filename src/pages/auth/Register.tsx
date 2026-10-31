@@ -182,7 +182,7 @@ export default function Register() {
               required
               autoComplete="email"
               maxLength={LIMIT.email}
-              placeholder="you@school.edu.ph"
+              placeholder="email@dyci.edu.ph"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />

@@ -69,7 +69,7 @@ export default function ForgotPassword() {
                 icon="mail"
                 required
                 autoComplete="email"
-                placeholder="you@school.edu.ph"
+                placeholder="email@dyci.edu.ph"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
