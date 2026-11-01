@@ -46,6 +46,38 @@ export type GeneralProject = {
   space_id: string
   /** Set on a class board's Files project, read by getGeneralProject only. Its teams have no leader. */
   class_board_id?: string | null
+  /** The project's accent color; null keeps the default look. Read by getGeneralProject only. */
+  color?: ProjectColor | null
+  /** The project's icon; null keeps the default. Read by getGeneralProject only. */
+  icon?: ProjectIcon | null
+  /** The tab the project opens on. Read by getGeneralProject only. */
+  default_view?: ProjectView
+  /** Private: members and the space's Owners. Workspace: also every member of the space, read-only. */
+  visibility?: ProjectVisibility
+}
+
+export type ProjectColor = 'navy' | 'amber' | 'green' | 'teal' | 'violet' | 'rose' | 'orange' | 'slate'
+
+/** Each name is an IconName; PROJECT_ICONS in projectLook.ts is checked against it. */
+export type ProjectIcon =
+  | 'monitor' | 'board' | 'kanban' | 'folder' | 'book' | 'calendar' | 'clock' | 'chart' | 'shield' | 'palette'
+  | 'spark' | 'target' | 'file' | 'message' | 'users' | 'video' | 'bell' | 'mail' | 'pin' | 'crown'
+
+export type ProjectView = 'overview' | 'plan' | 'tasks'
+
+export type ProjectVisibility = 'private' | 'workspace'
+
+/** general_join_requests: a space member asking to join a Workspace project. */
+export type JoinRequest = {
+  id: string
+  project_id: string
+  user_id: string
+  status: 'open' | 'approved' | 'declined' | 'withdrawn'
+  /** The role they joined with; set once approved. */
+  role: ProjectRole | null
+  created_at: string
+  answered_by: string | null
+  answered_at: string | null
 }
 
 /**

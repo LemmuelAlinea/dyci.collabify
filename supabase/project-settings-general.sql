@@ -323,4 +323,10 @@ create trigger general_members_close_join_request
   after insert on public.general_members
   for each row execute function public.close_general_join_request();
 
+-- ---------------------------------------------------------------- realtime
+
+do $$ begin
+  alter publication supabase_realtime add table public.general_join_requests;
+exception when duplicate_object then null; end $$;
+
 commit;

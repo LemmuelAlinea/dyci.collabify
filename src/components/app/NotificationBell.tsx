@@ -64,6 +64,11 @@ function destination(n: AppNotification, role: Role | null, teaches: boolean): s
         return `${paths.project(n.general_project_id)}${n.general_task_id ? `?task=${n.general_task_id}` : ''}`
       }
       return paths.home
+    case 'join_requested':
+      // Someone asked to join: the project manager or a coordinator answers it in Settings.
+      return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=settings&section=members` : paths.home
+    case 'join_answered':
+      return n.general_project_id ? paths.project(n.general_project_id) : paths.home
     case 'sprint_automation':
       // A sprint started, finished or was created on its own: open the Sprints view.
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=plan&work=sprints` : paths.home

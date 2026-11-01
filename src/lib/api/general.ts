@@ -9,6 +9,7 @@
  * turns that silence into a message.
  */
 import { supabase } from '../supabase'
+import { isMissingColumn, isMissingRelation } from './missingRelation'
 import { pathsNotRemoved, rowDeleteError } from '../general/storage'
 import type { PresetPayload } from '../general/presets'
 import type { FieldType, FieldValue } from '../general/fields'
@@ -40,6 +41,11 @@ import type {
   GeneralTaskEvent,
   GeneralTeam,
   GeneralTeamMember,
+  JoinRequest,
+  ProjectColor,
+  ProjectIcon,
+  ProjectView,
+  ProjectVisibility,
   MyInvitation,
   PersonHit,
   DraftConflict,
@@ -116,17 +122,25 @@ export async function listSpaceProjects(spaceId: string) {
 
 export async function getGeneralProject(projectId: string) {
   // The overview predates stages, so they come from the table beside it.
-  const [{ data, error }, stages] = await Promise.all([
+  const [{ data, error }, stages, look] = await Promise.all([
     supabase.from('general_project_overview').select('*').eq('id', projectId).maybeSingle(),
     supabase.from('general_projects').select('stages, qa_stage, class_board_id').eq('id', projectId).maybeSingle(),
+    // Its own query, so the stages still load before project-settings-general.sql adds these columns.
+    supabase.from('general_projects').select('color, icon, default_view, visibility').eq('id', projectId).maybeSingle(),
   ])
   if (error) throw error
   if (!data) return null
+  // Until project-settings-general.sql is live the read fails; use the defaults. Remove this fallback then.
+  const fields = look.error ? null : look.data
   return {
     ...(data as GeneralProjectSummary),
     stages: (stages.data?.stages as string[] | null) ?? null,
     qa_stage: (stages.data?.qa_stage as string | null) ?? null,
     class_board_id: (stages.data?.class_board_id as string | null) ?? null,
+    color: (fields?.color as ProjectColor | null) ?? null,
+    icon: (fields?.icon as ProjectIcon | null) ?? null,
+    default_view: (fields?.default_view as ProjectView | undefined) ?? 'overview',
+    visibility: (fields?.visibility as ProjectVisibility | undefined) ?? 'private',
   }
 }
 
@@ -136,6 +150,55 @@ export async function listProjectStages(projectIds: string[]) {
   const { data, error } = await supabase.from('general_projects').select('id, stages, qa_stage').in('id', projectIds)
   if (error) throw error
   return (data ?? []) as { id: string; stages: string[] | null; qa_stage: string | null }[]
+}
+
+/** Several projects' color and icon, for lists that draw each project's look. */
+export async function listProjectLooks(projectIds: string[]) {
+  if (projectIds.length === 0) return []
+  const { data, error } = await supabase.from('general_projects').select('id, color, icon').in('id', projectIds)
+  if (error) {
+    // Until project-settings-general.sql is live there is no look to draw; remove this once it is.
+    if (isMissingColumn(error)) return []
+    throw error
+  }
+  return (data ?? []) as { id: string; color: ProjectColor | null; icon: ProjectIcon | null }[]
+}
+
+/** A project's join requests, newest first: the requester's own, or all of them for its manager and coordinators. */
+export async function listJoinRequests(projectId: string) {
+  const { data, error } = await supabase
+    .from('general_join_requests')
+    .select('id, project_id, user_id, status, role, created_at, answered_by, answered_at')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+  if (error) {
+    // Until project-settings-general.sql is live the table is not there; remove this once it is.
+    if (isMissingRelation(error, 'general_join_requests')) return []
+    throw error
+  }
+  return (data ?? []) as JoinRequest[]
+}
+
+/** Asks to join a Workspace project. Asking again while a request is open returns that request's id. */
+export async function requestToJoin(projectId: string) {
+  const { data, error } = await supabase.rpc('request_join_general_project', { p_project: projectId })
+  if (error) throw error
+  return data as string
+}
+
+export async function withdrawJoinRequest(requestId: string) {
+  const { error } = await supabase.rpc('withdraw_join_request', { p_request: requestId })
+  if (error) throw error
+}
+
+/** The project manager or a coordinator answers; approving adds the requester with the role. */
+export async function answerJoinRequest(requestId: string, approve: boolean, role: ProjectRole = 'member') {
+  const { error } = await supabase.rpc('answer_join_request', {
+    p_request: requestId,
+    p_approve: approve,
+    p_role: role,
+  })
+  if (error) throw error
 }
 
 /**
@@ -256,6 +319,10 @@ export type ProjectPatch = Partial<{
   stages: string[] | null
   /** The stage QA passes tasks out of, by name. Null means the default. */
   qa_stage: string | null
+  color: ProjectColor | null
+  icon: ProjectIcon | null
+  default_view: ProjectView
+  visibility: ProjectVisibility
 }>
 
 export async function updateGeneralProject(projectId: string, patch: ProjectPatch) {

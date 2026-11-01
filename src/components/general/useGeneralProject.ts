@@ -9,6 +9,7 @@ import {
   listFields,
   listGeneralMembers,
   listGrants,
+  listJoinRequests,
   listMemberSkills,
   listPositionHolders,
   listPositions,
@@ -19,6 +20,7 @@ import {
 import type { CommitRights } from '../../lib/api/general'
 import { listMilestones } from '../../lib/api/milestones'
 import { getSprintSettings, isMissingSprintSettingsTable, listSprints } from '../../lib/api/sprints'
+import { isMissingRelation } from '../../lib/api/missingRelation'
 import { authErrorMessage } from '../../lib/authError'
 import { can as canDo, canAs } from '../../lib/general/permissions'
 import type { GeneralPermission, ProjectRole } from '../../lib/general/permissions'
@@ -37,6 +39,7 @@ import type {
   GeneralTask,
   GeneralTeam,
   GeneralTeamMember,
+  JoinRequest,
 } from '../../lib/general/types'
 import { fullName } from '../../lib/types'
 import { DEFAULT_SPRINT_SETTINGS, type SprintSettings } from '../../lib/work/sprintSettings'
@@ -53,6 +56,8 @@ export type GeneralProjectState = {
   teamMembers: GeneralTeamMember[]
   positions: GeneralPosition[]
   holders: GeneralPositionHolder[]
+  /** Requests to join this project, newest first: the viewer's own, or all of them for its manager and coordinators. */
+  joinRequests: JoinRequest[]
   /** Work project members' skill tags, oldest first. */
   skills: GeneralMemberSkill[]
   fields: GeneralField[]
@@ -132,6 +137,7 @@ export function useGeneralProject(
   const [teamMembers, setTeamMembers] = useState<GeneralTeamMember[]>([])
   const [positions, setPositions] = useState<GeneralPosition[]>([])
   const [holders, setHolders] = useState<GeneralPositionHolder[]>([])
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([])
   const [skills, setSkills] = useState<GeneralMemberSkill[]>([])
   const [fields, setFields] = useState<GeneralField[]>([])
   const [values, setValues] = useState<GeneralFieldValue[]>([])
@@ -160,6 +166,7 @@ export function useGeneralProject(
         setTeamMembers([])
         setPositions([])
         setHolders([])
+        setJoinRequests([])
         setSkills([])
         setFields([])
         setValues([])
@@ -171,7 +178,7 @@ export function useGeneralProject(
         setError(null)
         return
       }
-      const [m, g, r, t, tm, p, h, sk, f, tk, sp, ms, cr, ss] = await Promise.all([
+      const [m, g, r, t, tm, p, h, sk, f, tk, sp, ms, cr, ss, jr] = await Promise.all([
         listGeneralMembers(projectId),
         listGrants(projectId),
         listAccessRequests(projectId),
@@ -190,6 +197,11 @@ export function useGeneralProject(
           if (isMissingSprintSettingsTable(err)) return DEFAULT_SPRINT_SETTINGS
           throw err
         }),
+        // A project still loads when the join requests table is not there yet; remove once project-settings-general.sql is live.
+        listJoinRequests(projectId).catch((err) => {
+          if (isMissingRelation(err, 'general_join_requests')) return [] as JoinRequest[]
+          throw err
+        }),
       ])
       setMembers(m)
       setGrants(g)
@@ -200,6 +212,7 @@ export function useGeneralProject(
       setTeamMembers(tm.filter((member) => activeTeams.has(member.team_id)))
       setPositions(activePositions)
       setHolders(h.filter((holder) => activePositions.some((position) => position.id === holder.position_id)))
+      setJoinRequests(jr)
       setSkills(sk)
       setFields(f)
       setTasks(tk)
@@ -241,6 +254,7 @@ export function useGeneralProject(
     'general_task_events',
     'general_sprints',
     'general_sprint_settings',
+    'general_join_requests',
     'general_milestones',
     // A class board's Commit to Main follows its group's leader.
     'groups',
@@ -277,6 +291,7 @@ export function useGeneralProject(
       teamMembers,
       positions,
       holders,
+      joinRequests,
       skills,
       fields,
       values,
@@ -315,5 +330,5 @@ export function useGeneralProject(
       qaBlocks: (from: number, to: number) =>
         qaBlocks({ hasQa: Boolean(project?.has_qa), role: myRole }, project?.stages, project?.qa_stage, from, to),
     }
-  }, [project, members, grants, requests, teams, teamMembers, positions, holders, skills, fields, values, tasks, sprints, sprintSettings, milestones, loading, error, reload, viewerId, commitRights])
+  }, [project, members, grants, requests, teams, teamMembers, positions, holders, joinRequests, skills, fields, values, tasks, sprints, sprintSettings, milestones, loading, error, reload, viewerId, commitRights])
 }

@@ -217,6 +217,8 @@ export type AppNotification = {
     | 'feedback_status'
     | 'task_sent_back'
     | 'sprint_automation'
+    | 'join_requested'
+    | 'join_answered'
   class_id: string | null
   announcement_id: string | null
   project_id: string | null
