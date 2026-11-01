@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
-import { act, createElement } from 'react'
+import { Fragment, act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import GeneralProject from './GeneralProject'
 
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -34,13 +34,24 @@ const state = {
 }
 vi.mock('../../components/general/useGeneralProject', () => ({ useGeneralProject: () => state }))
 
+/** Shows the address's query, so a test can read what a click wrote to it. */
+function SearchProbe() {
+  return createElement('output', { 'data-search': useLocation().search })
+}
+const search = (container: HTMLDivElement) => container.querySelector('output')!.getAttribute('data-search')
+const tabButton = (container: HTMLDivElement, label: string) =>
+  [...container.querySelectorAll<HTMLButtonElement>('[role="tablist"] [role="tab"]')].find(node => node.textContent === label)!
+
 async function renderAt(query: string, check: (container: HTMLDivElement) => Promise<void> | void) {
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
   try {
     await act(async () => root.render(createElement(MemoryRouter, { initialEntries: [`/projects/project?${query}`] },
-      createElement(Routes, null, createElement(Route, { path: '/projects/:projectId', element: createElement(GeneralProject) })))))
+      createElement(Routes, null, createElement(Route, {
+        path: '/projects/:projectId',
+        element: createElement(Fragment, null, createElement(GeneralProject), createElement(SearchProbe)),
+      })))))
     await check(container)
   } finally {
     await act(async () => root.unmount())
@@ -97,6 +108,49 @@ describe('project sections', () => {
       await act(async () => feedback.click())
       expect(container.textContent).toContain('Feedback content')
       expect(container.textContent).not.toContain('Discussion content')
+    })
+  })
+
+  describe('default view', () => {
+    const project = state.project as { default_view?: string }
+    afterEach(() => {
+      delete project.default_view
+    })
+
+    it('opens the default view when the address names no tab', async () => {
+      project.default_view = 'plan'
+      await renderAt('', container => {
+        expect(selected(container)).toBe('Plan')
+        expect(container.textContent).toContain('plan work')
+      })
+      project.default_view = 'tasks'
+      await renderAt('', container => {
+        expect(selected(container)).toBe('Tasks')
+      })
+    })
+
+    it('lets a named tab, a task link or a Work link win over it', async () => {
+      project.default_view = 'plan'
+      await renderAt('tab=files', container => expect(selected(container)).toBe('Files'))
+      await renderAt('task=t1', container => expect(selected(container)).toBe('Tasks'))
+      await renderAt('work=summary', container => expect(selected(container)).toBe('Overview'))
+    })
+
+    it('names Overview in the address when the default view is not Overview', async () => {
+      project.default_view = 'plan'
+      await renderAt('', async container => {
+        await act(async () => tabButton(container, 'Overview').click())
+        expect(search(container)).toBe('?tab=overview')
+        expect(selected(container)).toBe('Overview')
+      })
+    })
+
+    it('leaves the address bare for Overview when that is the default view', async () => {
+      await renderAt('tab=plan', async container => {
+        await act(async () => tabButton(container, 'Overview').click())
+        expect(search(container)).toBe('')
+        expect(selected(container)).toBe('Overview')
+      })
     })
   })
 })

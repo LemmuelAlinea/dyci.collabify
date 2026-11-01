@@ -49,7 +49,7 @@ export function DirectoryHero({
             {mark ? (
               <>
                 {mark}
-                <span>
+                <span className="min-w-0 break-words">
                   {title} <span className={accentClass}>{accent}</span>
                 </span>
               </>

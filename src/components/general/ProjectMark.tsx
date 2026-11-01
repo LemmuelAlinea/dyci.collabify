@@ -21,10 +21,11 @@ const SIZE: Record<Size, { box: string; plain: string; icon: number }> = {
 }
 
 /**
- * A work project's mark: its color as the ground and its icon on it. With only a
- * color it draws the project's first letter on that color; with only an icon, the
- * icon on the plain ground; with neither, the letter (or `fallbackIcon`, which a
- * card passes for the kind of project) on the plain ground.
+ * A work project's mark: its color as the ground and its icon on it. The ground
+ * is the color's swatch, else the size's plain ground. The glyph is the icon,
+ * else `fallbackIcon` (a card passes its project kind's icon), else the project's
+ * first letter. So a color alone draws the fallback icon or letter on the swatch,
+ * an icon alone draws it on the plain ground, and neither draws today's tile.
  *
  * `active` is the rail's current page: a plain tile takes the current-page
  * colors, and a colored one keeps its color.

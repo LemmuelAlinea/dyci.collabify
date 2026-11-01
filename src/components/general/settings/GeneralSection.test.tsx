@@ -12,6 +12,8 @@ vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 
 const toast = vi.hoisted(() => vi.fn())
+const looksChanged = vi.hoisted(() => vi.fn())
+vi.mock('../../../hooks/useProjectLooks', () => ({ notifyLooksChanged: looksChanged }))
 vi.mock('../../ui/Toast', () => ({ useToast: () => ({ show: toast }) }))
 vi.mock('../../../lib/api/general', () => ({
   archiveGeneralProject: vi.fn(async () => {}),
@@ -152,6 +154,8 @@ it('saves the look, the default view and who can see the project', async () => {
   })
   expect(reload).toHaveBeenCalled()
   expect(toast).toHaveBeenCalledWith('Look and access saved')
+  // Lists that are already showing this project (the rail) fetch its look again.
+  expect(looksChanged).toHaveBeenCalled()
 })
 
 it('starts from what the project already has and can clear a color', async () => {

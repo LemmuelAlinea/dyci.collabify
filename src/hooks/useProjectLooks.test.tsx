@@ -3,7 +3,7 @@ import * as React from 'react'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { useProjectLooks } from './useProjectLooks'
+import { notifyLooksChanged, useProjectLooks } from './useProjectLooks'
 import { listProjectLooks } from '../lib/api/general'
 
 vi.stubGlobal('React', React)
@@ -53,6 +53,18 @@ it('fetches again when the ids change', async () => {
   await show(['a'])
   await show(['a', 'b'])
   expect(listProjectLooks).toHaveBeenCalledTimes(2)
+})
+
+it('asks again, with the same ids, when a look is saved', async () => {
+  await show(['a', 'b'])
+  expect(seen().a).toEqual({ color: 'teal', icon: 'monitor' })
+  vi.mocked(listProjectLooks).mockResolvedValueOnce([
+    { id: 'a', color: 'rose', icon: 'bell' },
+    { id: 'b', color: null, icon: null },
+  ])
+  await act(async () => notifyLooksChanged())
+  expect(listProjectLooks).toHaveBeenCalledTimes(2)
+  expect(seen().a).toEqual({ color: 'rose', icon: 'bell' })
 })
 
 it('makes no request for an empty list', async () => {

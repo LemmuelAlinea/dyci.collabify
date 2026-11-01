@@ -21,17 +21,17 @@ export const PROJECT_VIEWS: readonly { value: ProjectView; label: string }[] = [
 /**
  * The classes for each color. Written out in full, not built from the name, so
  * Tailwind finds every one. `tile` is the ground with its glyph, `accent` the
- * word a color sets on a dark banner, `dot` the swatch in the picker.
+ * word a color sets on a dark banner.
  */
-export const SWATCH_CLASS: Record<ProjectColor, { tile: string; accent: string; dot: string }> = {
-  navy: { tile: 'bg-swatch-navy text-swatch-navy-ink', accent: 'text-swatch-navy-accent', dot: 'bg-swatch-navy' },
-  amber: { tile: 'bg-swatch-amber text-swatch-amber-ink', accent: 'text-swatch-amber-accent', dot: 'bg-swatch-amber' },
-  green: { tile: 'bg-swatch-green text-swatch-green-ink', accent: 'text-swatch-green-accent', dot: 'bg-swatch-green' },
-  teal: { tile: 'bg-swatch-teal text-swatch-teal-ink', accent: 'text-swatch-teal-accent', dot: 'bg-swatch-teal' },
-  violet: { tile: 'bg-swatch-violet text-swatch-violet-ink', accent: 'text-swatch-violet-accent', dot: 'bg-swatch-violet' },
-  rose: { tile: 'bg-swatch-rose text-swatch-rose-ink', accent: 'text-swatch-rose-accent', dot: 'bg-swatch-rose' },
-  orange: { tile: 'bg-swatch-orange text-swatch-orange-ink', accent: 'text-swatch-orange-accent', dot: 'bg-swatch-orange' },
-  slate: { tile: 'bg-swatch-slate text-swatch-slate-ink', accent: 'text-swatch-slate-accent', dot: 'bg-swatch-slate' },
+export const SWATCH_CLASS: Record<ProjectColor, { tile: string; accent: string }> = {
+  navy: { tile: 'bg-swatch-navy text-swatch-navy-ink', accent: 'text-swatch-navy-accent' },
+  amber: { tile: 'bg-swatch-amber text-swatch-amber-ink', accent: 'text-swatch-amber-accent' },
+  green: { tile: 'bg-swatch-green text-swatch-green-ink', accent: 'text-swatch-green-accent' },
+  teal: { tile: 'bg-swatch-teal text-swatch-teal-ink', accent: 'text-swatch-teal-accent' },
+  violet: { tile: 'bg-swatch-violet text-swatch-violet-ink', accent: 'text-swatch-violet-accent' },
+  rose: { tile: 'bg-swatch-rose text-swatch-rose-ink', accent: 'text-swatch-rose-accent' },
+  orange: { tile: 'bg-swatch-orange text-swatch-orange-ink', accent: 'text-swatch-orange-accent' },
+  slate: { tile: 'bg-swatch-slate text-swatch-slate-ink', accent: 'text-swatch-slate-accent' },
 }
 
 /** The word for a color or icon in a picker. */

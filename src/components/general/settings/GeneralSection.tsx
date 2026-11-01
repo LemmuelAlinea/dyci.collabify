@@ -16,6 +16,7 @@ import {
   updateField,
   updateGeneralProject,
 } from '../../../lib/api/general'
+import { notifyLooksChanged } from '../../../hooks/useProjectLooks'
 import { authErrorMessage } from '../../../lib/authError'
 import { checkFieldValue, isEmptyValue } from '../../../lib/general/fields'
 import { PROJECT_COLORS, PROJECT_ICONS, PROJECT_VIEWS, SWATCH_CLASS, projectLookLabel } from '../../../lib/general/projectLook'
@@ -108,6 +109,7 @@ function LookPanel({ state }: { state: GeneralProjectState }) {
       await updateGeneralProject(p.id, look)
       show('Look and access saved')
       await state.reload()
+      notifyLooksChanged()
       setDraft({})
     } catch (err) {
       setError(authErrorMessage(err, 'Could not save the look and access.'))
