@@ -7,7 +7,7 @@ const CONTROL =
   'focus:border-navy-400 focus:ring-4 focus:ring-navy-500/12 ' +
   'disabled:opacity-60'
 
-export type Option = { value: string; label: string }
+export type Option = { value: string; label: string; disabled?: boolean }
 
 type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   options: Option[]
@@ -23,7 +23,7 @@ export function Select({ options, placeholder, className = '', ...rest }: Select
       >
         {placeholder && <option value="">{placeholder}</option>}
         {options.map((o) => (
-          <option key={o.value} value={o.value}>
+          <option key={o.value} value={o.value} disabled={o.disabled}>
             {o.label}
           </option>
         ))}

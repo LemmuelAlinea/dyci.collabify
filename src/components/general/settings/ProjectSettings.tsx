@@ -7,6 +7,7 @@ import type { SettingsSection } from '../../../lib/general/navigation'
 import type { GeneralProjectState } from '../useGeneralProject'
 import { GeneralSection } from './GeneralSection'
 import { MembersSection } from './MembersSection'
+import { SprintsSection } from './SprintsSection'
 import { TasksSection } from './TasksSection'
 
 const SECTIONS: { id: SettingsSection; label: string; icon: IconName }[] = [
@@ -67,7 +68,7 @@ export function ProjectSettings({ state }: { state: GeneralProjectState }) {
         ) : active === 'tasks' ? (
           <TasksSection state={state} />
         ) : (
-          <p className="text-[14px] text-muted">This section is being moved here.</p>
+          <SprintsSection state={state} />
         )}
       </div>
     </div>

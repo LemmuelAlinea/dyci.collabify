@@ -10,6 +10,7 @@ vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 vi.mock('./MembersSection', () => ({ MembersSection: () => 'Members content' }))
 vi.mock('./GeneralSection', () => ({ GeneralSection: () => 'General content' }))
 vi.mock('./TasksSection', () => ({ TasksSection: () => 'Tasks content' }))
+vi.mock('./SprintsSection', () => ({ SprintsSection: () => 'Sprints content' }))
 
 function Where() {
   const location = useLocation()
@@ -72,7 +73,7 @@ it('puts the chosen section in the URL', async () => {
   await renderAt('tab=settings', async (container) => {
     await act(async () => item(container, 'Sprints').click())
     expect(container.querySelector('output')?.textContent).toBe('?tab=settings&section=sprints')
-    expect(container.textContent).toContain('This section is being moved here.')
+    expect(container.textContent).toContain('Sprints content')
     expect(item(container, 'Sprints').getAttribute('aria-current')).toBe('page')
     await act(async () => item(container, 'Members & permissions').click())
     expect(container.textContent).toContain('Members content')
