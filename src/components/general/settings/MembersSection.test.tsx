@@ -25,6 +25,7 @@ it('keeps requests and invitations inside their action dialogs', async () => {
     can: () => true,
     isOwner: false,
     requests: [],
+    joinRequests: [],
     members: [],
     teams: [],
     holders: [],

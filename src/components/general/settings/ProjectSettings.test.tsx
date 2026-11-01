@@ -89,14 +89,20 @@ const requests = [{ status: 'open' }, { status: 'open' }, { status: 'approved' }
 it('counts the open access requests on Members & permissions for someone who can grant', async () => {
   await renderAt('tab=settings', async (container) => {
     expect(item(container, 'Members & permissions2').querySelector('span')?.textContent).toBe('2')
-  }, { canGrant: true, requests })
+  }, { canGrant: true, requests, joinRequests: [] })
+})
+
+it('adds the open join requests to that count', async () => {
+  await renderAt('tab=settings', async (container) => {
+    expect(item(container, 'Members & permissions3').querySelector('span')?.textContent).toBe('3')
+  }, { canGrant: true, requests, joinRequests: [{ status: 'open' }, { status: 'declined' }] as GeneralProjectState['joinRequests'] })
 })
 
 it('shows no count when nobody can grant or none are open', async () => {
   await renderAt('tab=settings', async (container) => {
     expect(item(container, 'Members & permissions')).toBeTruthy()
-  }, { canGrant: false, requests })
+  }, { canGrant: false, requests, joinRequests: [] })
   await renderAt('tab=settings', async (container) => {
     expect(item(container, 'Members & permissions')).toBeTruthy()
-  }, { canGrant: true, requests: [{ status: 'approved' }] as GeneralProjectState['requests'] })
+  }, { canGrant: true, requests: [{ status: 'approved' }] as GeneralProjectState['requests'], joinRequests: [] })
 })

@@ -5,6 +5,7 @@ import { Modal } from '../../ui/Modal'
 import { MemberList } from '../MembersTab'
 import { InvitePanel } from '../InvitePanel'
 import { RequestsPanel } from '../RequestsPanel'
+import { JoinRequestsPanel } from './JoinRequestsPanel'
 import { RoleGuide } from '../RoleGuide'
 import { StructurePanel } from '../StructurePanel'
 import type { GeneralProjectState } from '../useGeneralProject'
@@ -26,6 +27,7 @@ export function MembersSection({ state }: { state: GeneralProjectState }) {
           Invite people
         </Button>
       </div>
+      <JoinRequestsPanel state={state} />
       <MemberList state={state} />
       <RoleGuide />
       <StructurePanel state={state} />

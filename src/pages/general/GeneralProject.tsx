@@ -5,6 +5,7 @@ import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { DiscussionTab } from '../../components/general/DiscussionTab'
 import { FeedbackTab } from '../../components/general/FeedbackTab'
 import { FilesTab } from '../../components/general/FilesTab'
+import { JoinRequestButton } from '../../components/general/JoinRequestButton'
 import { WorkTab } from '../../components/general/WorkTab'
 import { ProjectSettings } from '../../components/general/settings/ProjectSettings'
 import { SinceLastVisit } from '../../components/general/SinceLastVisit'
@@ -118,6 +119,14 @@ export default function GeneralProject() {
   }
   const feedbackSelected = !discussionOn || (feedbackOn && (params.get('conversation') === 'feedback' || params.get('tab') === 'feedback'))
 
+  // A Workspace project is readable by its whole space. Somebody who is not on it can ask to join;
+  // a space Owner reads every project and does not need to.
+  const viewingFromSpace =
+    p.visibility === 'workspace' &&
+    !state.myRole &&
+    !state.archived &&
+    !(currentSpace?.id === p.space_id && currentSpace.my_level === 'owner')
+
   const openForOwner = state.canGrant ? state.requests.filter((r) => r.status === 'open').length : 0
 
   return (
@@ -168,6 +177,15 @@ export default function GeneralProject() {
               to make changes again.
             </>
           )}
+        </Alert>
+      )}
+
+      {viewingFromSpace && (
+        <Alert tone="info">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <span>You're viewing this project as a member of its space.</span>
+            <JoinRequestButton state={state} />
+          </div>
         </Alert>
       )}
 
