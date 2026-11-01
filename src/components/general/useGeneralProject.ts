@@ -5,6 +5,7 @@ import {
   getCommitRights,
   getGeneralProject,
   listAccessRequests,
+  listDependencies,
   listFieldValues,
   listFields,
   listGeneralMembers,
@@ -26,6 +27,7 @@ import { can as canDo, canAs } from '../../lib/general/permissions'
 import type { GeneralPermission, ProjectRole } from '../../lib/general/permissions'
 import { effectiveRole, roleLookup } from '../../lib/general/roleLookup'
 import { qaBlocks } from '../../lib/work/qa'
+import type { TaskDependency } from '../../lib/general/taskRules'
 import type {
   GeneralAccessRequest,
   GeneralField,
@@ -63,6 +65,8 @@ export type GeneralProjectState = {
   fields: GeneralField[]
   values: GeneralFieldValue[]
   tasks: GeneralTask[]
+  /** Which task waits for which, across the project. */
+  dependencies: TaskDependency[]
   /** Oldest start first. */
   sprints: Sprint[]
   sprintSettings: SprintSettings
@@ -143,6 +147,7 @@ export function useGeneralProject(
   const [fields, setFields] = useState<GeneralField[]>([])
   const [values, setValues] = useState<GeneralFieldValue[]>([])
   const [tasks, setTasks] = useState<GeneralTask[]>([])
+  const [dependencies, setDependencies] = useState<TaskDependency[]>([])
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [sprintSettings, setSprintSettings] = useState<SprintSettings>(DEFAULT_SPRINT_SETTINGS)
   const [milestones, setMilestones] = useState<Milestone[]>([])
@@ -172,6 +177,7 @@ export function useGeneralProject(
         setFields([])
         setValues([])
         setTasks([])
+        setDependencies([])
         setSprints([])
         setSprintSettings(DEFAULT_SPRINT_SETTINGS)
         setMilestones([])
@@ -179,7 +185,7 @@ export function useGeneralProject(
         setError(null)
         return
       }
-      const [m, g, r, t, tm, p, h, sk, f, tk, sp, ms, cr, ss, jr] = await Promise.all([
+      const [m, g, r, t, tm, p, h, sk, f, tk, dp, sp, ms, cr, ss, jr] = await Promise.all([
         listGeneralMembers(projectId),
         listGrants(projectId),
         listAccessRequests(projectId),
@@ -190,6 +196,7 @@ export function useGeneralProject(
         listMemberSkills(projectId),
         listFields(projectId),
         listTasks(projectId),
+        listDependencies(projectId),
         listSprints({ kind: 'work', projectId }),
         listMilestones({ kind: 'work', projectId }),
         getCommitRights(projectId).catch(() => NO_RIGHTS),
@@ -217,6 +224,7 @@ export function useGeneralProject(
       setSkills(sk)
       setFields(f)
       setTasks(tk)
+      setDependencies(dp)
       setSprints(sp)
       setSprintSettings(ss)
       setMilestones(ms)
@@ -252,6 +260,7 @@ export function useGeneralProject(
     'general_field_values',
     'general_tasks',
     'general_task_assignees',
+    'general_task_dependencies',
     'general_task_events',
     'general_sprints',
     'general_sprint_settings',
@@ -299,6 +308,7 @@ export function useGeneralProject(
       fields,
       values,
       tasks,
+      dependencies,
       sprints,
       sprintSettings,
       milestones,
@@ -333,5 +343,5 @@ export function useGeneralProject(
       qaBlocks: (from: number, to: number) =>
         qaBlocks({ hasQa: Boolean(project?.has_qa), role: myRole }, project?.stages, project?.qa_stage, from, to),
     }
-  }, [project, members, grants, requests, teams, teamMembers, positions, holders, joinRequests, skills, fields, values, tasks, sprints, sprintSettings, milestones, loading, error, reload, viewerId, commitRights])
+  }, [project, members, grants, requests, teams, teamMembers, positions, holders, joinRequests, skills, fields, values, tasks, dependencies, sprints, sprintSettings, milestones, loading, error, reload, viewerId, commitRights])
 }

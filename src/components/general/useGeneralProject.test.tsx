@@ -3,7 +3,7 @@ import * as React from 'react'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { expect, it, vi } from 'vitest'
-import { getGeneralProject, listGeneralMembers } from '../../lib/api/general'
+import { getGeneralProject, listDependencies, listGeneralMembers } from '../../lib/api/general'
 import { useGeneralProject, type GeneralProjectState } from './useGeneralProject'
 
 vi.stubGlobal('React', React)
@@ -14,7 +14,7 @@ vi.mock('../../lib/api/general', () => {
   return {
     getGeneralProject: vi.fn(), listGeneralMembers: vi.fn(none), listJoinRequests: vi.fn(none),
     listGrants: none, listAccessRequests: none, listTeams: none, listTeamMembers: none, listPositions: none,
-    listPositionHolders: none, listMemberSkills: none, listFields: none, listTasks: none, listFieldValues: none,
+    listPositionHolders: none, listMemberSkills: none, listFields: none, listTasks: none, listDependencies: vi.fn(none), listFieldValues: none,
     getCommitRights: async () => ({ commit: false, grant: false, board: false, committers: [] }),
   }
 })
@@ -54,5 +54,18 @@ it('is read-only for somebody with no role on a work project, but not on a class
     await act(async () => { await state!.reload() })
     expect(state!.myRole).toBeNull()
     expect(state!.readOnly).toBe(false)
+  } finally { await act(async () => root.unmount()) }
+})
+
+it('loads the project\'s dependencies into state', async () => {
+  vi.mocked(getGeneralProject).mockResolvedValue({ id: 'project', archived_at: null, class_board_id: null } as never)
+  vi.mocked(listDependencies).mockResolvedValue([{ task_id: 'a', depends_on_id: 'b' }])
+  let state: GeneralProjectState
+  function Harness() { state = useGeneralProject('project', 'viewer'); return null }
+  const root = createRoot(document.createElement('div'))
+  try {
+    await act(async () => root.render(<Harness />))
+    expect(listDependencies).toHaveBeenCalledWith('project')
+    expect(state!.dependencies).toEqual([{ task_id: 'a', depends_on_id: 'b' }])
   } finally { await act(async () => root.unmount()) }
 })

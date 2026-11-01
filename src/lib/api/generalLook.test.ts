@@ -21,12 +21,15 @@ vi.mock('../supabase', () => ({
 
 const OVERVIEW = 'general_project_overview:*'
 const STAGES = 'general_projects:stages, qa_stage, class_board_id'
+const RULES =
+  'general_projects:default_priority, default_stage, allow_subtasks, allow_dependencies, allow_multiple_assignees, require_assignee, require_subtasks_done'
 const LOOK = 'general_projects:color, icon, default_view, visibility'
 
 beforeEach(() => {
   results.clear()
   results.set(OVERVIEW, { data: { id: 'p1', name: 'P' }, error: null })
   results.set(STAGES, { data: { stages: ['A', 'B'], qa_stage: null, class_board_id: null }, error: null })
+  results.set(RULES, { data: null, error: { code: '42703', message: 'column general_projects.default_priority does not exist' } })
 })
 
 describe('getGeneralProject', () => {

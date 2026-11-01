@@ -7,6 +7,7 @@ import type { AccountStatus, Profile, Role } from '../types'
 import type { FieldType, FieldValue } from './fields'
 import type { GeneralLevel, GeneralPermission, ProjectRole } from './permissions'
 import type { GeneralTaskStatus } from './progress'
+import type { TaskRules } from './taskRules'
 
 export type GeneralStatus = 'planning' | 'in_progress' | 'on_hold' | 'done' | 'cancelled'
 
@@ -54,6 +55,8 @@ export type GeneralProject = {
   default_view?: ProjectView
   /** Private: members and the space's Owners. Workspace: also every member of the space, read-only. */
   visibility?: ProjectVisibility
+  /** The project's task rules. Read by getGeneralProject only. */
+  taskRules?: TaskRules
 }
 
 export type ProjectColor = 'navy' | 'amber' | 'green' | 'teal' | 'violet' | 'rose' | 'orange' | 'slate'
@@ -309,7 +312,18 @@ export type GeneralFieldValue = {
   updated_at: string
 }
 
-/** general_task_overview. */
+/** How urgent a task is. */
+export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent'
+
+/** Ordered Urgent, High, Normal, Low, which is also the sort order. */
+export const PRIORITIES: readonly { value: TaskPriority; label: string }[] = [
+  { value: 'urgent', label: 'Urgent' },
+  { value: 'high', label: 'High' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'low', label: 'Low' },
+]
+
+/** general_task_overview, with priority and parent_id read beside it from general_tasks. */
 /** A bug is a task QA raised; everything else is a plain task. */
 export type TaskKind = 'task' | 'bug'
 export type TaskRoutingState = 'planning' | 'coordinator_review' | 'released'
@@ -350,6 +364,10 @@ export type GeneralTask = {
   kind?: TaskKind
   /** When it reached the QA stage; null elsewhere. */
   qa_entered_at?: string | null
+  /** Added by listTasks and the other task lists; Normal before project-task-rules.sql is live. */
+  priority: TaskPriority
+  /** The task this is a subtask of; null for a top-level task. */
+  parent_id: string | null
 }
 
 export type GeneralComment = {

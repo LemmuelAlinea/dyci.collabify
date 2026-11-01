@@ -16,6 +16,8 @@ import type { PresetPayload } from '../general/presets'
 import type { FieldType, FieldValue } from '../general/fields'
 import type { GeneralPermission, ProjectRole } from '../general/permissions'
 import type { GeneralTaskStatus } from '../general/progress'
+import { DEFAULT_TASK_RULES } from '../general/taskRules'
+import type { TaskDependency, TaskRules } from '../general/taskRules'
 import type {
   AdminWorkProject,
   ArchivedDraftFile,
@@ -39,6 +41,7 @@ import type {
   GeneralStatus,
   GeneralTask,
   TaskKind,
+  TaskPriority,
   GeneralTaskEvent,
   GeneralTeam,
   GeneralTeamMember,
@@ -121,19 +124,49 @@ export async function listSpaceProjects(spaceId: string) {
   return (data ?? []) as GeneralProjectSummary[]
 }
 
+const TASK_RULE_COLUMNS =
+  'default_priority, default_stage, allow_subtasks, allow_dependencies, allow_multiple_assignees, require_assignee, require_subtasks_done'
+
+type TaskRuleRow = {
+  default_priority: TaskPriority
+  default_stage: number
+  allow_subtasks: boolean
+  allow_dependencies: boolean
+  allow_multiple_assignees: boolean
+  require_assignee: boolean
+  require_subtasks_done: boolean
+}
+
+function taskRulesOf(row: TaskRuleRow): TaskRules {
+  return {
+    defaultPriority: row.default_priority,
+    defaultStage: row.default_stage,
+    allowSubtasks: row.allow_subtasks,
+    allowDependencies: row.allow_dependencies,
+    allowMultipleAssignees: row.allow_multiple_assignees,
+    requireAssignee: row.require_assignee,
+    requireSubtasksDone: row.require_subtasks_done,
+  }
+}
+
 export async function getGeneralProject(projectId: string) {
   // The overview predates stages, so they come from the table beside it.
-  const [{ data, error }, stages, look] = await Promise.all([
+  const [{ data, error }, stages, look, rules] = await Promise.all([
     supabase.from('general_project_overview').select('*').eq('id', projectId).maybeSingle(),
     supabase.from('general_projects').select('stages, qa_stage, class_board_id').eq('id', projectId).maybeSingle(),
     // Its own query, so the stages still load before project-settings-general.sql adds these columns.
     supabase.from('general_projects').select('color, icon, default_view, visibility').eq('id', projectId).maybeSingle(),
+    // Its own query, so the look still loads before project-task-rules.sql adds these columns.
+    supabase.from('general_projects').select(TASK_RULE_COLUMNS).eq('id', projectId).maybeSingle(),
   ])
   if (error) throw error
   if (!data) return null
   // Until project-settings-general.sql is live the columns are missing; use the defaults then. Remove this fallback once it is.
   if (look.error && !isMissingColumn(look.error)) throw look.error
   const fields = look.error ? null : look.data
+  // Until project-task-rules.sql is live the rule columns are missing; use the defaults then. Remove this fallback once it is.
+  if (rules.error && !isMissingColumn(rules.error)) throw rules.error
+  const ruleRow = rules.error ? null : (rules.data as TaskRuleRow | null)
   return {
     ...(data as GeneralProjectSummary),
     stages: (stages.data?.stages as string[] | null) ?? null,
@@ -143,6 +176,7 @@ export async function getGeneralProject(projectId: string) {
     icon: (fields?.icon as ProjectIcon | null) ?? null,
     default_view: (fields?.default_view as ProjectView | undefined) ?? 'overview',
     visibility: (fields?.visibility as ProjectVisibility | undefined) ?? 'private',
+    taskRules: ruleRow ? taskRulesOf(ruleRow) : DEFAULT_TASK_RULES,
   }
 }
 
@@ -325,6 +359,14 @@ export type ProjectPatch = Partial<{
   icon: ProjectIcon | null
   default_view: ProjectView
   visibility: ProjectVisibility
+  /** The task rules, as general_projects columns (project manager only). */
+  default_priority: TaskPriority
+  default_stage: number
+  allow_subtasks: boolean
+  allow_dependencies: boolean
+  allow_multiple_assignees: boolean
+  require_assignee: boolean
+  require_subtasks_done: boolean
 }>
 
 export async function updateGeneralProject(projectId: string, patch: ProjectPatch) {
@@ -951,6 +993,37 @@ export async function clearFieldValue(fieldId: string) {
 
 /* ---------------------------------------------------------------- tasks */
 
+/** How many task ids one side read names, so its URL stays short. */
+const EXTRAS_CHUNK = 100
+
+/**
+ * Adds priority and parent_id to rows from general_task_overview, which
+ * doesn't carry them. One extra query per EXTRAS_CHUNK tasks, never one per task.
+ */
+async function withTaskExtras(rows: unknown[] | null): Promise<GeneralTask[]> {
+  const tasks = (rows ?? []) as GeneralTask[]
+  if (tasks.length === 0) return tasks
+  const chunks: string[][] = []
+  for (let i = 0; i < tasks.length; i += EXTRAS_CHUNK) chunks.push(tasks.slice(i, i + EXTRAS_CHUNK).map((t) => t.id))
+  const extras = new Map<string, { priority: TaskPriority; parent_id: string | null }>()
+  const results = await Promise.all(
+    chunks.map((ids) => supabase.from('general_tasks').select('id, priority, parent_id').in('id', ids)),
+  )
+  for (const { data, error } of results) {
+    // Until project-task-rules.sql is live there is no priority or parent to read; remove this fallback once it is.
+    if (error) {
+      if (isMissingColumn(error)) break
+      throw error
+    }
+    for (const row of (data ?? []) as { id: string; priority: TaskPriority; parent_id: string | null }[]) extras.set(row.id, row)
+  }
+  return tasks.map((t) => ({
+    ...t,
+    priority: extras.get(t.id)?.priority ?? 'normal',
+    parent_id: extras.get(t.id)?.parent_id ?? null,
+  }))
+}
+
 export async function listTasks(projectId: string) {
   const { data, error } = await supabase
     .from('general_task_overview')
@@ -959,7 +1032,7 @@ export async function listTasks(projectId: string) {
     .is('archived_at', null)
     .order('created_at')
   if (error) throw error
-  return (data ?? []) as GeneralTask[]
+  return withTaskExtras(data)
 }
 
 export async function sendTasksToCoordinator(projectId: string, rows: { id: string; updated_at: string }[], coordinatorId: string): Promise<number> {
@@ -990,7 +1063,7 @@ export async function listSpaceOpenTasks(projectIds: string[]) {
     .is('archived_at', null)
     .neq('status', 'done')
   if (error) throw error
-  return (data ?? []) as GeneralTask[]
+  return withTaskExtras(data)
 }
 
 export async function listArchivedTasks(projectId: string) {
@@ -1001,7 +1074,7 @@ export async function listArchivedTasks(projectId: string) {
     .not('archived_at', 'is', null)
     .order('archived_at', { ascending: false })
   if (error) throw error
-  return (data ?? []) as GeneralTask[]
+  return withTaskExtras(data)
 }
 
 /**
@@ -1019,7 +1092,7 @@ export async function listMyArchivedTasks(userId: string, projectIds: string[]) 
     .not('archived_at', 'is', null)
     .order('archived_at', { ascending: false })
   if (error) throw error
-  return (data ?? []) as GeneralTask[]
+  return withTaskExtras(data)
 }
 
 export async function createTask(input: {
@@ -1053,6 +1126,43 @@ export async function createTask(input: {
     .single()
   if (error) throw error
   return (data as { id: string }).id
+}
+
+/** Adds a subtask under a parent task. Returns the new task's id. */
+export async function createSubtask(parentId: string, title: string, description = '', dueAt: string | null = null) {
+  const { data, error } = await supabase.rpc('create_general_subtask', {
+    p_parent: parentId,
+    p_title: title.trim(),
+    p_description: description,
+    p_due_at: dueAt,
+  })
+  if (error) throw error
+  return data as string
+}
+
+/** Makes a task wait for another one. */
+export async function addDependency(taskId: string, dependsOnId: string) {
+  const { error } = await supabase.rpc('add_general_task_dependency', { p_task: taskId, p_depends_on: dependsOnId })
+  if (error) throw error
+}
+
+export async function removeDependency(taskId: string, dependsOnId: string) {
+  const { error } = await supabase.rpc('remove_general_task_dependency', { p_task: taskId, p_depends_on: dependsOnId })
+  if (error) throw error
+}
+
+/** Every dependency link in a project; the database returns only the ones whose two tasks the viewer can read. */
+export async function listDependencies(projectId: string): Promise<TaskDependency[]> {
+  const { data, error } = await supabase
+    .from('general_task_dependencies')
+    .select('task_id, depends_on_id')
+    .eq('project_id', projectId)
+  if (error) {
+    // Until project-task-rules.sql is live the table is not there; remove this once it is.
+    if (isMissingRelation(error, 'general_task_dependencies')) return []
+    throw error
+  }
+  return (data ?? []) as TaskDependency[]
 }
 
 export type TaskPatch = Partial<{
