@@ -79,9 +79,10 @@ export type GeneralProjectState = {
   myOpenRequests: GeneralPermission[]
   archived: boolean
   /**
-   * Nothing here can change for this viewer: the project is archived, or they
-   * are a Stakeholder, who reads everything and writes nowhere but Feedback.
-   * Gate write controls on this, not on `archived`.
+   * Nothing here can change for this viewer: the project is archived, they
+   * are a Stakeholder, who reads everything and writes nowhere but Feedback, or
+   * they hold no role on a work project (a Workspace viewer or a space Owner
+   * reading it from the space). Gate write controls on this, not on `archived`.
    */
   readOnly: boolean
   /**
@@ -269,7 +270,9 @@ export function useGeneralProject(
     const archived = Boolean(project?.archived_at)
     const legacy = Boolean(me && me.role === 'member' && me.level !== 'member')
     const myRole: ProjectRole | null = me ? effectiveRole(me) : null
-    const readOnly = archived || myRole === 'stakeholder'
+    // Somebody with no role on a work project reads it through its space and writes nowhere.
+    const outsider = Boolean(project && !project.class_board_id && !myRole)
+    const readOnly = archived || myRole === 'stakeholder' || outsider
     const myTeams = new Set(teams.filter((t) => t.leader_id === viewerId).map((t) => t.id))
     const led = new Set(
       myTeams.size > 0 && myRole !== 'stakeholder'

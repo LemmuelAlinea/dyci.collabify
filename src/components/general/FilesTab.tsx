@@ -591,6 +591,17 @@ function StartFiles({ state, onDone }: { state: GeneralProjectState; onDone: () 
   const [busy, setBusy] = useState(false)
   const may = state.can('commit_main') && !state.readOnly
 
+  // A work project's files are for its members: somebody reading it from the space sees none of them.
+  if (!state.myRole && state.project && !state.project.class_board_id) {
+    return (
+      <div className="rounded-panel border border-dashed border-line px-4 py-10 text-center">
+        <Icon name="folder" size={28} className="mx-auto text-faint" />
+        <h2 className="mt-3">Files are for project members</h2>
+        <p className="mx-auto mt-1.5 max-w-[34rem] text-[13px] text-muted">Join the project to see its files.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-panel border border-dashed border-line px-4 py-10 text-center">
       <Icon name="folder" size={28} className="mx-auto text-faint" />

@@ -4059,7 +4059,11 @@ check confirmed the live database has no `visibility`, `color`, `icon` or
   values swapped for `term_shifted` in the copy): `project-settings-general` 42 pass,
   `project-roles` 161, `project-stakeholders` 158, `work-task-handoff` 304,
   `sprint-settings` 66, none failing. `project-visibility.test.sql` fails on its first
-  assertion on live data (a stakeholder outside their space), which predates this work.
+  assertion on live data (a work-project member outside its space), which predates this work.
+- **Final fix wave:** a viewer with no role on a work project is read-only (no comment
+  form, Files New, access requests or Conversations; Files says "Join the project to see its
+  files."), and an approval is refused once the project turns Private or the requester
+  leaves the space, whose open requests then close as withdrawn (suite now 49 pass).
 - **Deploy order:** owner approval and role walk first, then
   `node scripts/db.mjs supabase/project-settings-general.sql supabase/anon-lockdown.sql`,
   then a read-only check of the columns, the table and the enum values, then re-run the

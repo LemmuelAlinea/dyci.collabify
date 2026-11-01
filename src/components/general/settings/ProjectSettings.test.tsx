@@ -95,7 +95,13 @@ it('counts the open access requests on Members & permissions for someone who can
 it('adds the open join requests to that count', async () => {
   await renderAt('tab=settings', async (container) => {
     expect(item(container, 'Members & permissions3').querySelector('span')?.textContent).toBe('3')
-  }, { canGrant: true, requests, joinRequests: [{ status: 'open' }, { status: 'declined' }] as GeneralProjectState['joinRequests'] })
+  }, { canGrant: true, myRole: 'pm', requests, joinRequests: [{ status: 'open' }, { status: 'declined' }] as GeneralProjectState['joinRequests'] })
+})
+
+it('leaves the join requests out of that count when the project is archived', async () => {
+  await renderAt('tab=settings', async (container) => {
+    expect(item(container, 'Members & permissions2').querySelector('span')?.textContent).toBe('2')
+  }, { canGrant: true, myRole: 'pm', archived: true, requests, joinRequests: [{ status: 'open' }] as GeneralProjectState['joinRequests'] })
 })
 
 it('shows no count when nobody can grant or none are open', async () => {

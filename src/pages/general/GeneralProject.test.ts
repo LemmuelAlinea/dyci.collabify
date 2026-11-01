@@ -2,7 +2,7 @@
 import { Fragment, act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import GeneralProject from './GeneralProject'
 
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -30,7 +30,8 @@ const state = {
     space_id: 'space', archived_at: null, class_board_id: null,
   },
   myRole: 'manager', me: { user_id: 'viewer' }, canGrant: false,
-  requests: [], members: [], tasks: [], isOwner: false, archived: false,
+  requests: [], joinRequests: [] as unknown[], members: [], tasks: [], isOwner: false, archived: false,
+  viewerId: 'viewer', readOnly: false,
 }
 vi.mock('../../components/general/useGeneralProject', () => ({ useGeneralProject: () => state }))
 
@@ -108,6 +109,39 @@ describe('project sections', () => {
       await act(async () => feedback.click())
       expect(container.textContent).toContain('Feedback content')
       expect(container.textContent).not.toContain('Discussion content')
+    })
+  })
+
+  describe('a Workspace viewer with no role', () => {
+    const shape = state as unknown as Record<string, unknown> & { project: Record<string, unknown> }
+    beforeEach(() => {
+      Object.assign(shape, { myRole: null, me: null, readOnly: true })
+      shape.project.visibility = 'workspace'
+      shape.project.my_role = null
+    })
+    afterEach(() => {
+      Object.assign(shape, { myRole: 'manager', me: { user_id: 'viewer' }, readOnly: false })
+      delete shape.project.visibility
+      shape.project.my_role = 'manager'
+    })
+
+    it('hides Conversations and keeps the Ask to join banner', async () => {
+      await renderAt('', container => {
+        const labels = [...container.querySelectorAll('[role="tablist"]')[0].querySelectorAll('[role="tab"]')].map(node => node.textContent)
+        expect(labels).toEqual(['Overview', 'Plan', 'Tasks', 'Files', 'Settings'])
+        expect(container.textContent).toContain("You're viewing this project as a member of its space.")
+        expect([...container.querySelectorAll('button')].some(button => button.textContent?.trim() === 'Ask to join')).toBe(true)
+        expect(container.textContent).toContain('overview work')
+      })
+    })
+
+    it('sends a Conversations or Discussion link back to the project', async () => {
+      for (const query of ['tab=conversations', 'tab=discussion']) {
+        await renderAt(query, container => {
+          expect(search(container)).toBe('')
+          expect(container.textContent).not.toContain('Discussion content')
+        })
+      }
     })
   })
 

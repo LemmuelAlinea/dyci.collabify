@@ -22,16 +22,21 @@
 -- the invite rules: the project manager gives coordinator, member, qa or
 -- stakeholder; a coordinator gives member, qa or stakeholder. A person who
 -- joins another way (an invitation, a join code) has their open request closed
--- as approved by general_members_close_join_request. The requester reads their
+-- as approved by general_members_close_join_request. An approval is refused once
+-- the project is no longer Workspace or the requester has left its space, and
+-- their open requests close as withdrawn then: general_projects_close_join_requests
+-- when the project turns Private, general_space_members_close_join_requests when
+-- the requester leaves the space. The requester reads their
 -- own requests, the project manager and coordinators read all of the project's;
 -- nobody writes the table directly. join_requested goes to the project manager
 -- and active coordinators; join_answered goes to the requester.
 --
 -- Redefines can_read_general_project (last written by project-visibility.sql).
 -- Run after work-task-handoff.sql, then anon-lockdown.sql. Re-running
--- project-visibility.sql, or any file before it that redefines
--- can_read_general_project, means re-running this file after the rest of the
--- chain.
+-- project-visibility.sql, general-spaces.sql or general-project-archive-rbac.sql
+-- (each writes can_read_general_project) or work-task-handoff.sql means
+-- re-running this file afterwards, then anon-lockdown.sql; otherwise Workspace
+-- reads are silently lost.
 --
 -- Idempotent. Safe to re-run.
 
@@ -229,7 +234,9 @@ grant execute on function public.withdraw_join_request(uuid) to authenticated;
 /**
  * The project manager or a coordinator approves or declines an open request.
  * Approving adds the requester with p_role, under the invite rules (no pm; only
- * the project manager gives coordinator). Either answer notifies the requester.
+ * the project manager gives coordinator), and only while the project is still
+ * Workspace and the requester is still in its space. Declining is always open.
+ * Either answer notifies the requester.
  */
 create or replace function public.answer_join_request(p_request uuid, p_approve boolean,
                                                       p_role public.general_role default 'member')
@@ -269,6 +276,17 @@ begin
     values (r.user_id, 'join_answered'::public.notification_type, r.project_id,
             'Your request to join ' || v_name || ' was declined', null);
     return;
+  end if;
+
+  -- A request outlives what made it valid: the project can turn Private, or the
+  -- requester leave the space. general_space_members is read for the requester,
+  -- not the caller, so is_general_space_member (auth.uid()) does not fit here.
+  if not exists (select 1 from public.general_projects p
+                  where p.id = r.project_id and p.visibility = 'workspace'
+                    and exists (select 1 from public.general_space_members s
+                                 where s.space_id = p.space_id and s.user_id = r.user_id)) then
+    raise exception 'That request can''t be approved any more. The project is private or they left the space.'
+      using errcode = 'check_violation';
   end if;
 
   if p_role is null then
@@ -322,6 +340,46 @@ drop trigger if exists general_members_close_join_request on public.general_memb
 create trigger general_members_close_join_request
   after insert on public.general_members
   for each row execute function public.close_general_join_request();
+
+/** A project that turns Private takes no more requests: its open ones close as withdrawn. */
+create or replace function public.close_general_join_requests_private()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  update public.general_join_requests
+     set status = 'withdrawn', answered_by = auth.uid(), answered_at = now()
+   where project_id = new.id and status = 'open';
+  return null;
+end;
+$$;
+
+revoke all on function public.close_general_join_requests_private() from public, anon, authenticated;
+
+drop trigger if exists general_projects_close_join_requests on public.general_projects;
+create trigger general_projects_close_join_requests
+  after update of visibility on public.general_projects
+  for each row
+  when (new.visibility = 'private' and old.visibility is distinct from 'private')
+  execute function public.close_general_join_requests_private();
+
+/** Somebody who leaves a space has their open requests on its projects closed as withdrawn. */
+create or replace function public.close_general_join_requests_left_space()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  update public.general_join_requests j
+     set status = 'withdrawn', answered_by = auth.uid(), answered_at = now()
+    from public.general_projects p
+   where p.id = j.project_id and p.space_id = old.space_id
+     and j.user_id = old.user_id and j.status = 'open';
+  return null;
+end;
+$$;
+
+revoke all on function public.close_general_join_requests_left_space() from public, anon, authenticated;
+
+drop trigger if exists general_space_members_close_join_requests on public.general_space_members;
+create trigger general_space_members_close_join_requests
+  after delete on public.general_space_members
+  for each row execute function public.close_general_join_requests_left_space();
 
 -- ---------------------------------------------------------------- realtime
 

@@ -154,6 +154,12 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   Members & permissions, within the invite role rules (no pm, only the project manager
   gives coordinator). The project color, icon and default view are set in Settings →
   General and read through `ProjectMark` and `lib/general/projectLook.ts`.
+  `supabase/project-settings-general.sql` runs after `work-task-handoff.sql` and before
+  `anon-lockdown.sql`. Re-running `project-visibility.sql`, `general-spaces.sql`,
+  `general-project-archive-rbac.sql` or `work-task-handoff.sql` means re-running it
+  afterwards; otherwise Workspace reads are silently lost. A viewer with no role on a work
+  project is `readOnly` in `useGeneralProject` and gets no Conversations tab; an approval
+  is refused once the project turns Private or the requester leaves the space.
 
 ## Security invariants
 

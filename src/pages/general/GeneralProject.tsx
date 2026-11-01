@@ -8,6 +8,7 @@ import { FilesTab } from '../../components/general/FilesTab'
 import { JoinRequestButton } from '../../components/general/JoinRequestButton'
 import { WorkTab } from '../../components/general/WorkTab'
 import { ProjectSettings } from '../../components/general/settings/ProjectSettings'
+import { openSettingsRequests } from '../../components/general/settings/openRequests'
 import { SinceLastVisit } from '../../components/general/SinceLastVisit'
 import { SaveTemplateButton } from '../../components/general/SaveTemplateButton'
 import { ProjectMark } from '../../components/general/ProjectMark'
@@ -106,13 +107,14 @@ export default function GeneralProject() {
     )
   }
 
-  // A Stakeholder is not in discussions, and has nothing shared with them.
+  // A Stakeholder is not in discussions, and has nothing shared with them. Nor is somebody
+  // who reads the project from its space with no role on it: discussions are for members.
   const stakeholder = state.myRole === 'stakeholder'
-  const discussionOn = !stakeholder
+  const discussionOn = !stakeholder && Boolean(state.myRole)
   // Feedback is for work projects; a class board's Files project has none. Only
   // the project's members read it, so a space owner who isn't on it sees no tab.
   const feedbackOn = !p.class_board_id && Boolean(state.me)
-  if ((tab === 'conversations' && !discussionOn && !feedbackOn) || (!feedbackOn && params.get('tab') === 'feedback') || (stakeholder && params.get('tab') === 'discussion')) {
+  if ((tab === 'conversations' && !discussionOn && !feedbackOn) || (!feedbackOn && params.get('tab') === 'feedback') || (!discussionOn && params.get('tab') === 'discussion')) {
     const changed = new URLSearchParams(params)
     changed.delete('tab')
     return <Navigate to={{ search: changed.toString() }} replace />
@@ -127,7 +129,7 @@ export default function GeneralProject() {
     !state.archived &&
     !(currentSpace?.id === p.space_id && currentSpace.my_level === 'owner')
 
-  const openForOwner = state.canGrant ? state.requests.filter((r) => r.status === 'open').length : 0
+  const openForOwner = openSettingsRequests(state)
 
   return (
     <div className="w-full space-y-6">

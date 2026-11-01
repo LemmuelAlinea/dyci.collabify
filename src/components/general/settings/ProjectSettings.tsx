@@ -8,6 +8,7 @@ import type { SettingsSection } from '../../../lib/general/navigation'
 import type { GeneralProjectState } from '../useGeneralProject'
 import { GeneralSection } from './GeneralSection'
 import { MembersSection } from './MembersSection'
+import { openSettingsRequests } from './openRequests'
 import { SprintsSection } from './SprintsSection'
 import { TasksSection } from './TasksSection'
 
@@ -22,9 +23,7 @@ export function ProjectSettings({ state }: { state: GeneralProjectState }) {
   const [params, setParams] = useSearchParams()
   const active = settingsSection(params)
   const nav = useRef<HTMLElement>(null)
-  const openRequests = state.canGrant
-    ? state.requests.filter((r) => r.status === 'open').length + state.joinRequests.filter((r) => r.status === 'open').length
-    : 0
+  const openRequests = openSettingsRequests(state)
 
   // On a phone the menu scrolls sideways: keep the open section in view.
   useEffect(() => {

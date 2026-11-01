@@ -66,6 +66,13 @@ it('approves with the chosen role', async () => {
   expect(reload).toHaveBeenCalled()
 })
 
+it('says they joined when the name is not known', async () => {
+  await show(makeState({ joinRequests: [{ ...open, user_id: 'u9' }] }))
+  expect(host.textContent).toContain('Someone in your space')
+  await act(async () => button('Approve')!.click())
+  expect(toast).toHaveBeenCalledWith('They joined as Member')
+})
+
 it('approves as Member by default', async () => {
   await show(makeState())
   await act(async () => button('Approve')!.click())

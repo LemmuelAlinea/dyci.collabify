@@ -70,8 +70,10 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     canAdd: live && (Boolean(project?.class_board_id) || canCreateWorkTask(state.myRole, state.myRole === 'qa' ? 'bug' : 'task')),
     readOnlyReason: state.archived
       ? 'This project is archived, so nothing in it can change.'
-      : state.readOnly
+      : state.myRole === 'stakeholder'
         ? 'Stakeholders can follow the plan but not change it.'
+      : state.readOnly
+        ? 'You are viewing this project from its space. Join it to change the plan.'
         : canPlan
           ? ''
           : state.teams.some((t) => t.leader_id === state.viewerId)
@@ -132,8 +134,10 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
     canMarkReached: can,
     readOnlyReason: state.archived
       ? 'This project is archived, so nothing in it can change.'
-      : state.readOnly
+      : state.myRole === 'stakeholder'
         ? 'Stakeholders can follow the plan but not change it.'
+      : state.readOnly
+        ? 'You are viewing this project from its space. Join it to change the plan.'
         : can
           ? ''
           : 'Owners and Managers run the milestones. You can follow how close each one is.',

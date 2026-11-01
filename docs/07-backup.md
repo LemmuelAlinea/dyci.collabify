@@ -651,8 +651,18 @@ means re-running `sprint-settings.sql` after it, then `anon-lockdown.sql`. Suite
 `default_view`, `visibility`), `can_read_general_project` (it supersedes the copy in
 `project-visibility.sql` and adds the Workspace branch), the `general_join_requests`
 table, its three RPCs (`request_join_general_project`, `withdraw_join_request`,
-`answer_join_request`), the `general_members_close_join_request` trigger and the
-`join_requested` and `join_answered` values of `notification_type`. Re-running
-`project-visibility.sql`, or any earlier owner of `can_read_general_project`, means
-re-running `project-settings-general.sql` after it, then `anon-lockdown.sql`. Suite:
+`answer_join_request`), the `general_join_requests_select` policy, the helper functions
+`notify_join_requested` (tells the project manager and active coordinators) and
+`close_general_join_request` (behind the `general_members_close_join_request` trigger, which
+closes an open request as approved when the person joins another way), the two close
+triggers `general_projects_close_join_requests` (`close_general_join_requests_private`: a
+project that turns Private closes its open requests as withdrawn) and
+`general_space_members_close_join_requests` (`close_general_join_requests_left_space`: a
+person who leaves a space has their open requests on its projects closed as withdrawn), and
+the `join_requested` and `join_answered` values of `notification_type`.
+`answer_join_request` refuses an approval unless the project is still Workspace and the
+requester still has a `general_space_members` row for its space; declining is always
+allowed. Re-running `project-visibility.sql`, `general-spaces.sql`,
+`general-project-archive-rbac.sql` or `work-task-handoff.sql` means re-running
+`project-settings-general.sql` after it, then `anon-lockdown.sql`. Suite:
 `supabase/tests/project-settings-general.test.sql`.

@@ -13,7 +13,7 @@ const show = vi.hoisted(() => vi.fn())
 vi.mock('../ui/Toast', () => ({ useToast: () => ({ show }) }))
 vi.mock('../../hooks/useLive', () => ({ useLive: vi.fn() }))
 vi.mock('./RoleBadge', () => ({ PersonBadge: () => null }))
-vi.mock('./RequestAccessButton', () => ({ RequestAccessButton: () => null }))
+vi.mock('./RequestAccessButton', () => ({ RequestAccessButton: () => 'Request access' }))
 vi.mock('../../lib/api/general', async importOriginal => ({ ...await importOriginal<object>(), listComments: async () => [], listFiles: async () => [], listLogs: async () => [], listTaskEvents: async () => [], updateTask: vi.fn() }))
 
 it('locks dates and description for a holder but lets the receiving lead edit them before assignment', async () => {
@@ -57,5 +57,20 @@ it('offers only active receiving-team members and keeps adding holders available
     expect(document.body.textContent).not.toContain('Take this task')
     await act(async () => root.render(<TaskDialog state={{ ...state, teams: [] }} taskId="task" onClose={vi.fn()} />))
     expect(document.querySelector('[aria-label="Assign someone"]')).toBeNull()
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('shows a Workspace viewer with no role no comment form or access request', async () => {
+  const task = { id: 'task', title: 'Released', project_id: 'p', created_by: 'pm', team_id: null, routing_state: 'released', assignee_ids: [], status: 'todo', stage: 0, description: '', starts_at: null, due_at: null, archived_at: null }
+  const base = { project: { id: 'p', class_board_id: null, stages: ['Todo', 'Done'] }, teams: [], teamMembers: [], members: [], tasks: [task],
+    can: () => false, leadsUser: () => false, nameOf: (id: string) => id, roleOf: () => null, qaBlocks: () => false, reload: vi.fn().mockResolvedValue(undefined) }
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={{ ...base, viewerId: 'member', myRole: 'member', readOnly: false } as unknown as GeneralProjectState} taskId="task" onClose={vi.fn()} />))
+    expect(document.querySelector('[aria-label="Write a comment"]')).not.toBeNull()
+    expect(document.body.textContent).toContain('Request access')
+    await act(async () => root.render(<TaskDialog state={{ ...base, viewerId: 'viewer', myRole: null, readOnly: true } as unknown as GeneralProjectState} taskId="task" onClose={vi.fn()} />))
+    expect(document.querySelector('[aria-label="Write a comment"]')).toBeNull()
+    expect(document.body.textContent).not.toContain('Request access')
   } finally { await act(async () => root.unmount()); container.remove() }
 })

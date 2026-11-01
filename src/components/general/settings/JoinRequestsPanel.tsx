@@ -48,14 +48,15 @@ export function JoinRequestsPanel({ state }: { state: GeneralProjectState }) {
       <p className="mt-0.5 text-[12px] text-muted">People in your space who want to be on this project.</p>
       <ul className="mt-3 space-y-3">
         {open.map((r) => (
-          <JoinRequestRow key={r.id} request={r} name={names.get(r.user_id) ?? 'Someone in your space'} state={state} />
+          <JoinRequestRow key={r.id} request={r} name={names.get(r.user_id)} state={state} />
         ))}
       </ul>
     </section>
   )
 }
 
-function JoinRequestRow({ request, name, state }: { request: JoinRequest; name: string; state: GeneralProjectState }) {
+function JoinRequestRow({ request, name: known, state }: { request: JoinRequest; name: string | undefined; state: GeneralProjectState }) {
+  const name = known ?? 'Someone in your space'
   const { show } = useToast()
   const roles = inviteRoles(state.myRole as ProjectRole)
   const [role, setRole] = useState<ProjectRole>('member')
@@ -66,7 +67,7 @@ function JoinRequestRow({ request, name, state }: { request: JoinRequest; name: 
     try {
       if (approve) {
         await answerJoinRequest(request.id, true, role)
-        show(`${name} joined as ${ROLE_LABEL[role]}`)
+        show(`${known ?? 'They'} joined as ${ROLE_LABEL[role]}`)
       } else {
         await answerJoinRequest(request.id, false)
         show('Request declined')

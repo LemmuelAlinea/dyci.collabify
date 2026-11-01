@@ -54,6 +54,7 @@ declare
   v_viewer  uuid := gen_random_uuid();  -- plain space member, not on P
   v_second  uuid := gen_random_uuid();  -- another plain space member
   v_third   uuid := gen_random_uuid();  -- a third, who joins by invitation
+  v_fourth  uuid := gen_random_uuid();  -- a fourth, whose requests go stale
   v_outside uuid := gen_random_uuid();  -- member of another space only
   v_space   uuid;
   v_other   uuid;
@@ -62,6 +63,9 @@ declare
   r1        uuid;
   r2        uuid;
   r3        uuid;
+  r4        uuid;
+  t_rel     uuid;  -- the released task
+  t_plan    uuid;  -- the private planning task
   v_inv     uuid;
   n         int;
 begin
@@ -75,6 +79,7 @@ begin
       (v_viewer,  'zz-psg-viewer@example.test'),
       (v_second,  'zz-psg-second@example.test'),
       (v_third,   'zz-psg-third@example.test'),
+      (v_fourth,  'zz-psg-fourth@example.test'),
       (v_outside, 'zz-psg-outside@example.test')
     ) as v(id, em);
 
@@ -86,6 +91,7 @@ begin
     (v_viewer,  'zz-psg-viewer@example.test',  'Zz', 'Psgviewer',  'member', 'active', false, false),
     (v_second,  'zz-psg-second@example.test',  'Zz', 'Psgsecond',  'member', 'active', false, false),
     (v_third,   'zz-psg-third@example.test',   'Zz', 'Psgthird',   'member', 'active', false, false),
+    (v_fourth,  'zz-psg-fourth@example.test',  'Zz', 'Psgfourth',  'member', 'active', false, false),
     (v_outside, 'zz-psg-outside@example.test', 'Zz', 'Psgoutside', 'member', 'active', false, true)
   on conflict (id) do update
     set role = excluded.role, status = excluded.status,
@@ -100,7 +106,8 @@ begin
 
   perform pg_temp.act_as_service();
   insert into public.general_space_members (space_id, user_id, level) values
-    (v_space, v_viewer, 'member'), (v_space, v_second, 'member'), (v_space, v_third, 'member');
+    (v_space, v_viewer, 'member'), (v_space, v_second, 'member'), (v_space, v_third, 'member'),
+    (v_space, v_fourth, 'member');
   insert into public.general_members (project_id, user_id, role) values (p, v_coord, 'coordinator');
   insert into public.general_tasks (project_id, title, created_by, routing_state)
   values (p, 'Zz PSG released task', v_pm, 'released');
@@ -112,6 +119,10 @@ begin
     (select count(*) filter (where routing_state = 'released') = 1
         and count(*) filter (where routing_state = 'planning') = 1
        from public.general_tasks where project_id = p));
+  select id into t_rel from public.general_tasks where project_id = p and routing_state = 'released';
+  select id into t_plan from public.general_tasks where project_id = p and routing_state = 'planning';
+  insert into public.general_task_comments (task_id, project_id, author_id, body) values
+    (t_rel, p, v_pm, 'Zz PSG released comment'), (t_plan, p, v_pm, 'Zz PSG planning comment');
 
   ------------------------------------------------------------ look and defaults
   perform pg_temp.must_be('new projects are private with the overview as default view',
@@ -175,6 +186,9 @@ begin
     (select count(*) from public.general_tasks where project_id = p) = 1
     and not exists (select 1 from public.general_tasks
                      where project_id = p and routing_state <> 'released'));
+  perform pg_temp.must_be('a workspace viewer cannot read comments on a private planning task',
+    not exists (select 1 from public.general_task_comments where task_id = t_plan)
+    and exists (select 1 from public.general_task_comments where task_id = t_rel));
   perform pg_temp.must_be('...and the private project next to it stays hidden',
     not coalesce(public.can_read_general_project(p2), false));
 
@@ -312,6 +326,46 @@ begin
   perform public.respond_general_invitation(v_inv, true);
   perform pg_temp.must_be('joining by invitation closes the open request',
     (select status = 'approved' and role = 'qa' from public.general_join_requests where id = r3));
+
+  ------------------------------------------------------------ stale requests
+  perform pg_temp.act_as(v_fourth);
+  r4 := public.request_join_general_project(p);
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set visibility = 'private' where id = p;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('turning a project private closes its open requests',
+    (select status = 'withdrawn' and role is null and answered_by = v_pm and answered_at is not null
+       from public.general_join_requests where id = r4)
+    and not exists (select 1 from public.general_join_requests where project_id = p and status = 'open'));
+  -- Reopen it by hand, as if it had slipped past the close.
+  update public.general_join_requests set status = 'open', answered_by = null, answered_at = null where id = r4;
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('approving after the project turns private is refused',
+    format($q$select public.answer_join_request(%L, true, 'member')$q$, r4),
+    'can''t be approved any more');
+  perform public.answer_join_request(r4, false);
+  perform pg_temp.must_be('...while declining it still works',
+    (select status = 'declined' from public.general_join_requests where id = r4)
+    and not exists (select 1 from public.general_members where project_id = p and user_id = v_fourth));
+
+  update public.general_projects set visibility = 'workspace' where id = p;
+  perform pg_temp.act_as(v_fourth);
+  r4 := public.request_join_general_project(p);
+  perform pg_temp.act_as_service();
+  delete from public.general_space_members where space_id = v_space and user_id = v_fourth;
+  perform pg_temp.must_be('leaving the space closes the person''s open requests',
+    (select status = 'withdrawn' and answered_at is not null from public.general_join_requests where id = r4)
+    and not exists (select 1 from public.general_join_requests where user_id = v_fourth and status = 'open'));
+  update public.general_join_requests set status = 'open', answered_by = null, answered_at = null where id = r4;
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('approving someone who left the space is refused',
+    format($q$select public.answer_join_request(%L, true, 'member')$q$, r4),
+    'can''t be approved any more');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...so they are not added back to the project or the space',
+    not exists (select 1 from public.general_members where project_id = p and user_id = v_fourth)
+    and not exists (select 1 from public.general_space_members where space_id = v_space and user_id = v_fourth)
+    and (select status = 'open' from public.general_join_requests where id = r4));
 
   ------------------------------------------------------------ archived
   perform pg_temp.act_as(v_pm);
