@@ -29,7 +29,7 @@ beforeEach(() => {
   results.clear()
   results.set(OVERVIEW, { data: { id: 'p1', name: 'P' }, error: null })
   results.set(STAGES, { data: { stages: ['A', 'B'], qa_stage: null, class_board_id: null }, error: null })
-  results.set(RULES, { data: null, error: { code: '42703', message: 'column general_projects.default_priority does not exist' } })
+  results.set(RULES, { data: { default_priority: 'normal', default_stage: 0, allow_subtasks: true, allow_dependencies: true, allow_multiple_assignees: true, require_assignee: false, require_subtasks_done: true }, error: null })
 })
 
 describe('getGeneralProject', () => {

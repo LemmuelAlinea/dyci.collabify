@@ -156,7 +156,6 @@ export async function getGeneralProject(projectId: string) {
     supabase.from('general_projects').select('stages, qa_stage, class_board_id').eq('id', projectId).maybeSingle(),
     // Its own query, so the stages still load before project-settings-general.sql adds these columns.
     supabase.from('general_projects').select('color, icon, default_view, visibility').eq('id', projectId).maybeSingle(),
-    // Its own query, so the look still loads before project-task-rules.sql adds these columns.
     supabase.from('general_projects').select(TASK_RULE_COLUMNS).eq('id', projectId).maybeSingle(),
   ])
   if (error) throw error
@@ -164,9 +163,8 @@ export async function getGeneralProject(projectId: string) {
   // Until project-settings-general.sql is live the columns are missing; use the defaults then. Remove this fallback once it is.
   if (look.error && !isMissingColumn(look.error)) throw look.error
   const fields = look.error ? null : look.data
-  // Until project-task-rules.sql is live the rule columns are missing; use the defaults then. Remove this fallback once it is.
-  if (rules.error && !isMissingColumn(rules.error)) throw rules.error
-  const ruleRow = rules.error ? null : (rules.data as TaskRuleRow | null)
+  if (rules.error) throw rules.error
+  const ruleRow = rules.data as TaskRuleRow | null
   return {
     ...(data as GeneralProjectSummary),
     stages: (stages.data?.stages as string[] | null) ?? null,
@@ -1010,11 +1008,7 @@ async function withTaskExtras(rows: unknown[] | null): Promise<GeneralTask[]> {
     chunks.map((ids) => supabase.from('general_tasks').select('id, priority, parent_id').in('id', ids)),
   )
   for (const { data, error } of results) {
-    // Until project-task-rules.sql is live there is no priority or parent to read; remove this fallback once it is.
-    if (error) {
-      if (isMissingColumn(error)) break
-      throw error
-    }
+    if (error) throw error
     for (const row of (data ?? []) as { id: string; priority: TaskPriority; parent_id: string | null }[]) extras.set(row.id, row)
   }
   return tasks.map((t) => ({
@@ -1157,11 +1151,7 @@ export async function listDependencies(projectId: string): Promise<TaskDependenc
     .from('general_task_dependencies')
     .select('task_id, depends_on_id')
     .eq('project_id', projectId)
-  if (error) {
-    // Until project-task-rules.sql is live the table is not there; remove this once it is.
-    if (isMissingRelation(error, 'general_task_dependencies')) return []
-    throw error
-  }
+  if (error) throw error
   return (data ?? []) as TaskDependency[]
 }
 

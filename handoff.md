@@ -4073,8 +4073,8 @@ check confirmed the live database has no `visibility`, `color`, `icon` or
 ## Task priority, subtasks, dependencies and rules (2026-11-01)
 
 Phase 2 group 2 from the Project Settings PDF (section C, Task Management). Spec:
-`docs/superpowers/specs/2026-11-01-project-settings-tasks-design.md`. Built on local `main`,
-**not live and not pushed**.
+`docs/superpowers/specs/2026-11-01-project-settings-tasks-design.md`. Built on `main`.
+The SQL was applied live on 2026-11-02.
 
 - **Database** (`supabase/project-task-rules.sql`, suite `supabase/tests/project-task-rules.test.sql`):
   seven `general_projects` rule columns (`default_priority`, `default_stage`,
@@ -4090,13 +4090,10 @@ Phase 2 group 2 from the Project Settings PDF (section C, Task Management). Spec
   `lib/api/general.ts` and `useGeneralProject`; Settings → Tasks has the "Task rules" panel; the
   task window shows priority, subtasks and dependencies; task cards and filters show priority,
   subtask counts ("2/3 done") and the waiting marker; Tasks and My tasks sort and filter by priority.
-- **Interim fallbacks.** Until the SQL is live, `isMissingColumn` (the project rules load and the
-  task extras load in `lib/api/general.ts`) falls back to defaults, and `isMissingRelation` returns
-  no dependencies when `general_task_dependencies` is missing. Remove both once the SQL is live.
-- **Deploy order:** owner approval and role walk first, then
-  `node scripts/db.mjs supabase/project-task-rules.sql supabase/anon-lockdown.sql`, then a
-  read-only check of the columns, the table, the functions and the triggers, then re-run the
-  suites, then push `main`.
+- **Deployment:** `project-task-rules.sql` and `anon-lockdown.sql` were applied in that order.
+  A read-only check found all seven project rule columns, two task columns, the dependency
+  table, three RPCs and five triggers. All 11 relevant live-schema SQL suites passed.
+  The temporary Group 2 missing-schema fallbacks were removed from `lib/api/general.ts`.
 - **Final review fixes:** direct writes cannot attach a subtask to a Done or archived parent or
   make one on a class board; an open subtask cannot be restored or reopened under a Done parent;
   rerouting a parent with a subtask in QA or Done is refused. The dependency picker now lets the
@@ -4110,7 +4107,7 @@ Phase 2 group 2 from the Project Settings PDF (section C, Task Management). Spec
   `project-settings-general` 49, `sprint-settings` 66, `rls-coverage` 4, none failing. Build,
   the full vitest run (1542 tests), eslint on the changed files and `scripts/contrast.mjs` are green.
   Re-running the rules migration twice inside the rolled-back suite also passes all 110 checks.
-  The live database has none of the columns, the table or the functions yet.
 - **Known notes:** a direct API batch that names a subtask logs an extra history event. The
   project-team-leads suite has one failure that predates this work.
-- **Next:** the next group from the Project Settings PDF is Members & Permissions.
+- **Next:** the owner checks task settings, priority, subtask creation and dependencies in the
+  browser; the next group from the Project Settings PDF is Members & Permissions.

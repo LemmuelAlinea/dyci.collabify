@@ -11,7 +11,6 @@ import {
   removeDependency,
   updateGeneralProject,
 } from './general'
-import { DEFAULT_TASK_RULES } from '../general/taskRules'
 
 type Result = { data: unknown; error: unknown }
 const results = new Map<string, Result>()
@@ -100,11 +99,10 @@ describe('getGeneralProject task rules', () => {
     })
   })
 
-  it('uses the defaults while the columns are missing', async () => {
-    results.set(RULES, { data: null, error: { code: '42703', message: 'column general_projects.default_priority does not exist' } })
-    const p = await getGeneralProject('p1')
-    expect(p?.taskRules).toEqual(DEFAULT_TASK_RULES)
-    expect(p?.name).toBe('P')
+  it('reports missing rule columns', async () => {
+    const missing = { code: '42703', message: 'column general_projects.default_priority does not exist' }
+    results.set(RULES, { data: null, error: missing })
+    await expect(getGeneralProject('p1')).rejects.toBe(missing)
   })
 
   it('rejects on any other rules error', async () => {
@@ -165,13 +163,10 @@ describe('task priority and parent side read', () => {
     expect(tasks[1]).toMatchObject({ id: 't2', priority: 'normal', parent_id: null })
   })
 
-  it('defaults to normal and no parent while the columns are missing', async () => {
+  it('reports missing task columns', async () => {
     results.set(TASKS, { data: rows, error: null })
     results.set(EXTRAS, { data: null, error: missingColumn })
-    expect(await listTasks('p1')).toMatchObject([
-      { id: 't1', priority: 'normal', parent_id: null },
-      { id: 't2', priority: 'normal', parent_id: null },
-    ])
+    await expect(listTasks('p1')).rejects.toBe(missingColumn)
   })
 
   it('rethrows any other side read error', async () => {
@@ -206,12 +201,13 @@ describe('dependencies and subtasks', () => {
     expect(calls.find((c) => c.key === DEPS)?.filters).toContainEqual(['eq', ['project_id', 'p1']])
   })
 
-  it('returns [] only for a missing table', async () => {
+  it('reports a missing dependency table', async () => {
+    const missing = { code: 'PGRST205', message: "Could not find the table 'public.general_task_dependencies' in the schema cache" }
     results.set(DEPS, {
       data: null,
-      error: { code: 'PGRST205', message: "Could not find the table 'public.general_task_dependencies' in the schema cache" },
+      error: missing,
     })
-    expect(await listDependencies('p1')).toEqual([])
+    await expect(listDependencies('p1')).rejects.toBe(missing)
     const other = { code: '42501', message: 'permission denied for table general_task_dependencies' }
     results.set(DEPS, { data: null, error: other })
     await expect(listDependencies('p1')).rejects.toBe(other)
