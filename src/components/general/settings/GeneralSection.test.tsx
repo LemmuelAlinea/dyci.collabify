@@ -2,11 +2,11 @@
 import * as React from 'react'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { GeneralSection } from './GeneralSection'
 import type { GeneralProjectState } from '../useGeneralProject'
-import { archiveGeneralProject, updateGeneralProject } from '../../../lib/api/general'
+import { archiveGeneralProject, deleteGeneralProject, updateGeneralProject } from '../../../lib/api/general'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -17,6 +17,8 @@ vi.mock('../../../hooks/useProjectLooks', () => ({ notifyLooksChanged: looksChan
 vi.mock('../../ui/Toast', () => ({ useToast: () => ({ show: toast }) }))
 vi.mock('../../../lib/api/general', () => ({
   archiveGeneralProject: vi.fn(async () => {}),
+  deleteGeneralProject: vi.fn(async () => {}),
+  handOverProject: vi.fn(async () => {}),
   updateGeneralProject: vi.fn(async () => {}),
   clearFieldValue: vi.fn(),
   deleteField: vi.fn(),
@@ -54,7 +56,16 @@ afterEach(async () => {
 })
 
 const show = (state: GeneralProjectState) =>
-  act(async () => root.render(<MemoryRouter><GeneralSection state={state} /></MemoryRouter>))
+  act(async () =>
+    root.render(
+      <MemoryRouter initialEntries={['/p']}>
+        <Routes>
+          <Route path="/p" element={<GeneralSection state={state} />} />
+          <Route path="/spaces/:id/projects" element={<p>Space projects list</p>} />
+        </Routes>
+      </MemoryRouter>,
+    ),
+  )
 const button = (scope: ParentNode, text: string) =>
   [...scope.querySelectorAll('button')].find((b) => b.textContent?.trim() === text || b.getAttribute('aria-label') === text)
 const type = async (input: HTMLInputElement, value: string) =>
@@ -213,4 +224,67 @@ it('puts a failed save in the panel and keeps the picks', async () => {
   expect(host.querySelector('[role="alert"]')).not.toBeNull()
   expect(radio('color', 'orange').checked).toBe(true)
   expect(reload).not.toHaveBeenCalled()
+})
+
+const archivedState = () =>
+  makeState({ archived: true, readOnly: true }, { archived_at: '2026-10-01', space_id: 's1' })
+
+it('titles the zone Danger zone and offers transfer ownership to the project manager only', async () => {
+  await show(makeState())
+  expect(host.textContent).toContain('Danger zone')
+  expect(button(host, 'Transfer ownership')).toBeDefined()
+  await act(async () => root.unmount())
+  root = createRoot(host)
+  await show(makeState({ isOwner: false, myRole: 'coordinator' }))
+  expect(button(host, 'Transfer ownership')).toBeUndefined()
+  expect(host.textContent).not.toContain('Danger zone')
+})
+
+it('opens the hand-over dialog from transfer ownership', async () => {
+  await show(makeState())
+  expect(document.querySelector('[role="dialog"]')).toBeNull()
+  await act(async () => button(host, 'Transfer ownership')!.click())
+  const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+  expect(dialog.textContent).toContain('Hand over project')
+})
+
+it('hides delete while the project is active', async () => {
+  await show(makeState())
+  expect(button(host, 'Delete project')).toBeUndefined()
+})
+
+it('keeps delete disabled until the exact project name is typed, then deletes and leaves', async () => {
+  await show(archivedState())
+  await act(async () => button(host, 'Delete project')!.click())
+  const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+  expect(dialog.textContent).toContain(
+    'Delete Alpha? This removes its tasks, files, sprints and milestones for good. Type the project name to confirm.',
+  )
+  const confirm = button(dialog, 'Delete project') as HTMLButtonElement
+  expect(confirm.disabled).toBe(true)
+  const input = dialog.querySelector<HTMLInputElement>('input')!
+  for (const wrong of ['alpha', 'Alpha ', 'Alph']) {
+    await type(input, wrong)
+    expect(confirm.disabled).toBe(true)
+  }
+  await act(async () => confirm.click())
+  expect(deleteGeneralProject).not.toHaveBeenCalled()
+  await type(input, 'Alpha')
+  expect(confirm.disabled).toBe(false)
+  await act(async () => confirm.click())
+  expect(deleteGeneralProject).toHaveBeenCalledWith('p1')
+  expect(toast).toHaveBeenCalledWith('Project deleted')
+  expect(host.textContent).toContain('Space projects list')
+})
+
+it('keeps a failed delete inside the dialog', async () => {
+  vi.mocked(deleteGeneralProject).mockRejectedValueOnce(new Error('network down'))
+  await show(archivedState())
+  await act(async () => button(host, 'Delete project')!.click())
+  const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+  await type(dialog.querySelector<HTMLInputElement>('input')!, 'Alpha')
+  await act(async () => button(dialog, 'Delete project')!.click())
+  expect(dialog.querySelector('[role="alert"]')).not.toBeNull()
+  expect(host.textContent).not.toContain('Space projects list')
+  expect(toast).not.toHaveBeenCalledWith('Project deleted')
 })

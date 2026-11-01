@@ -1,23 +1,28 @@
 // src/components/general/settings/GeneralSection.tsx
 import { useEffect, useId, useState } from 'react'
+import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Alert } from '../../ui/Alert'
 import { Button } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { EmptyState } from '../../ui/EmptyState'
 import { Field, Input } from '../../ui/Field'
 import { Icon } from '../../ui/Icon'
+import { Modal } from '../../ui/Modal'
 import { Select, Textarea } from '../../ui/Select'
 import { useToast } from '../../ui/Toast'
 import {
   archiveGeneralProject,
   clearFieldValue,
   deleteField,
+  deleteGeneralProject,
   setFieldValue,
   updateField,
   updateGeneralProject,
 } from '../../../lib/api/general'
 import { notifyLooksChanged } from '../../../hooks/useProjectLooks'
 import { authErrorMessage } from '../../../lib/authError'
+import { paths } from '../../../lib/paths'
 import { checkFieldValue, isEmptyValue } from '../../../lib/general/fields'
 import { PROJECT_COLORS, PROJECT_ICONS, PROJECT_VIEWS, SWATCH_CLASS, projectLookLabel } from '../../../lib/general/projectLook'
 import { PROJECT_STATUSES } from '../../../lib/general/types'
@@ -32,6 +37,7 @@ import type {
 import { LIMIT } from '../../../lib/limits'
 import { FieldDialog } from '../FieldDialog'
 import { FieldInput } from '../FieldInput'
+import { HandOverDialog } from '../HandOverDialog'
 import { DetailsView, FieldReadRow } from '../ProjectInfo'
 import { RequestAccessButton } from '../RequestAccessButton'
 import type { GeneralProjectState } from '../useGeneralProject'
@@ -386,12 +392,15 @@ const ARCHIVE_NOTE =
   'Nothing in it can change until the project manager restores it, and its join code closes. Everyone on it can still read it.'
 
 /**
- * Archiving closes a work project to everyone, so it sits apart at the bottom
- * and is the project manager's alone.
+ * The project manager's own controls: archive or restore, hand the project
+ * over, and (once archived) delete it for good. They sit apart at the bottom
+ * and are the project manager's alone.
  */
 function ArchiveZone({ state }: { state: GeneralProjectState }) {
   const { show } = useToast()
   const [archiving, setArchiving] = useState(false)
+  const [handingOver, setHandingOver] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const p = state.project
   if (!p || !state.isOwner) return null
 
@@ -407,25 +416,53 @@ function ArchiveZone({ state }: { state: GeneralProjectState }) {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-danger-600/30 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-      <div>
-        <h2>{state.archived ? 'Restore project' : 'Archive project'}</h2>
-        <p className="mt-0.5 text-[12px] text-muted">
-          {state.archived
+    <section className="divide-y divide-danger-600/20 rounded-xl border border-danger-600/30">
+      <header className="p-4 sm:px-5">
+        <h2>Danger zone</h2>
+        <p className="mt-0.5 text-[12px] text-muted">Only the project manager can do these.</p>
+      </header>
+
+      <DangerRow
+        title={state.archived ? 'Restore project' : 'Archive project'}
+        body={
+          state.archived
             ? 'This project is archived, so nothing in it can change. Restoring it opens it up again.'
-            : ARCHIVE_NOTE}
-        </p>
-      </div>
-      {state.archived ? (
-        <Button variant="outline" onClick={() => void restore()} className="shrink-0">
-          Restore project
+            : ARCHIVE_NOTE
+        }
+      >
+        {state.archived ? (
+          <Button variant="outline" onClick={() => void restore()} className="shrink-0">
+            Restore project
+          </Button>
+        ) : (
+          <Button variant="destroy" onClick={() => setArchiving(true)} className="shrink-0">
+            <Icon name="archive" size={14} />
+            Archive project
+          </Button>
+        )}
+      </DangerRow>
+
+      <DangerRow
+        title="Transfer ownership"
+        body="Hand the project to another project manager. You become a coordinator."
+      >
+        <Button variant="outline" onClick={() => setHandingOver(true)} className="shrink-0">
+          Transfer ownership
         </Button>
-      ) : (
-        <Button variant="destroy" onClick={() => setArchiving(true)} className="shrink-0">
-          <Icon name="archive" size={14} />
-          Archive project
-        </Button>
+      </DangerRow>
+
+      {state.archived && (
+        <DangerRow
+          title="Delete project"
+          body="Removes its tasks, files, sprints and milestones for good. This cannot be undone."
+        >
+          <Button variant="destroy" onClick={() => setDeleting(true)} className="shrink-0">
+            <Icon name="trash" size={14} />
+            Delete project
+          </Button>
+        </DangerRow>
       )}
+
       <ConfirmDialog
         open={archiving}
         onClose={() => setArchiving(false)}
@@ -439,7 +476,111 @@ function ArchiveZone({ state }: { state: GeneralProjectState }) {
         confirmLabel="Archive project"
         tone="primary"
       />
+      <HandOverDialog open={handingOver} onClose={() => setHandingOver(false)} state={state} />
+      <DeleteDialog
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        projectId={p.id}
+        name={p.name}
+        spaceId={p.space_id}
+      />
     </section>
+  )
+}
+
+function DangerRow({ title, body, children }: { title: string; body: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div>
+        <h3 className="text-[14px] font-medium text-ink">{title}</h3>
+        <p className="mt-0.5 text-[12px] text-muted">{body}</p>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+/** Deleting cannot be undone, so it waits for the exact project name, case and spaces included. */
+function DeleteDialog({
+  open,
+  onClose,
+  projectId,
+  name,
+  spaceId,
+}: {
+  open: boolean
+  onClose: () => void
+  projectId: string
+  name: string
+  spaceId: string
+}) {
+  const { show } = useToast()
+  const navigate = useNavigate()
+  const [typed, setTyped] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) {
+      setTyped('')
+      setError(null)
+    }
+  }, [open])
+
+  async function remove() {
+    setBusy(true)
+    setError(null)
+    try {
+      await deleteGeneralProject(projectId)
+      show('Project deleted')
+      navigate(paths.spaceProjects(spaceId))
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not delete the project.'))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={busy ? () => {} : onClose}
+      title="Delete project"
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => void remove()}
+            loading={busy}
+            disabled={typed !== name}
+            className="!rounded-xl"
+          >
+            Delete project
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {error && <Alert tone="error">{error}</Alert>}
+        <p className="text-[14px] leading-relaxed text-muted">
+          {`Delete ${name}? This removes its tasks, files, sprints and milestones for good. Type the project name to confirm.`}
+        </p>
+        <Field label="Project name">
+          {(id) => (
+            <Input
+              id={id}
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          )}
+        </Field>
+      </div>
+    </Modal>
   )
 }
 
