@@ -14,7 +14,8 @@ const LEGACY: Record<string, GeneralTabId> = {
   people: 'settings',
 }
 
-export function generalTab(params: URLSearchParams): GeneralTabId {
+/** `defaultTab` is the project's own default view: used only when the address names no tab and implies none. */
+export function generalTab(params: URLSearchParams, defaultTab: GeneralTabId = 'overview'): GeneralTabId {
   const raw = params.get('tab') ?? ''
   if (raw === 'tasks' && params.get('work') === 'sprints') return 'plan'
   if (params.has('task') && (raw === 'overview' || raw === 'plan' || raw === 'tasks')) return raw
@@ -24,6 +25,7 @@ export function generalTab(params: URLSearchParams): GeneralTabId {
     return section === 'summary' ? 'overview' : section === 'backlog' || section === 'milestones' || section === 'sprints' ? 'plan' : 'tasks'
   }
   if (params.has('task')) return 'tasks'
+  if (!raw) return defaultTab
   const value = (LEGACY[raw] ?? raw) as GeneralTabId
   return TABS.has(value) ? value : 'overview'
 }

@@ -18,8 +18,16 @@ import {
 } from '../../../lib/api/general'
 import { authErrorMessage } from '../../../lib/authError'
 import { checkFieldValue, isEmptyValue } from '../../../lib/general/fields'
+import { PROJECT_COLORS, PROJECT_ICONS, PROJECT_VIEWS, SWATCH_CLASS, projectLookLabel } from '../../../lib/general/projectLook'
 import { PROJECT_STATUSES } from '../../../lib/general/types'
-import type { GeneralField, GeneralStatus } from '../../../lib/general/types'
+import type {
+  GeneralField,
+  GeneralStatus,
+  ProjectColor,
+  ProjectIcon,
+  ProjectView,
+  ProjectVisibility,
+} from '../../../lib/general/types'
 import { LIMIT } from '../../../lib/limits'
 import { FieldDialog } from '../FieldDialog'
 import { FieldInput } from '../FieldInput'
@@ -32,8 +40,213 @@ export function GeneralSection({ state }: { state: GeneralProjectState }) {
     <div className="space-y-6">
       <DetailsPanel state={state} />
       <FieldsPanel state={state} />
+      <LookPanel state={state} />
       <ArchiveZone state={state} />
     </div>
+  )
+}
+
+const VISIBILITY: { value: ProjectVisibility; label: string; help: string }[] = [
+  { value: 'private', label: 'Private', help: 'Only members and space owners can open it.' },
+  { value: 'workspace', label: 'Workspace', help: 'Everyone in the space can view it and ask to join.' },
+]
+
+/** What a project's Look and access panel edits. */
+type Look = {
+  color: ProjectColor | null
+  icon: ProjectIcon | null
+  default_view: ProjectView
+  visibility: ProjectVisibility
+}
+
+/**
+ * One choice in the color and icon pickers. The radio inside is visually
+ * hidden; the tile shows whether it is picked, focused or disabled.
+ */
+const PICK =
+  'relative grid h-11 min-w-11 cursor-pointer place-items-center rounded-xl border border-[var(--control-line)] text-muted transition-colors ' +
+  'hover:border-[var(--line-strong)] has-[:checked]:border-navy-500 has-[:checked]:ring-2 has-[:checked]:ring-navy-500/30 ' +
+  'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--ring)] ' +
+  'has-[:disabled]:cursor-default has-[:disabled]:opacity-60 has-[:disabled]:hover:border-[var(--control-line)]'
+
+/**
+ * Color, icon, default view and who can see the project. Anybody on it can read
+ * how it is set; the controls are live only for somebody who can edit the
+ * project, and one button saves all four.
+ */
+function LookPanel({ state }: { state: GeneralProjectState }) {
+  const { show } = useToast()
+  const group = useId()
+  const p = state.project
+  const editable = state.can('edit_project') && !state.readOnly
+  // Only what somebody has changed; the rest reads from the project, so a save
+  // or a reload elsewhere shows through.
+  const [draft, setDraft] = useState<Partial<Look>>({})
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  if (!p) return null
+
+  const stored: Look = {
+    color: p.color ?? null,
+    icon: p.icon ?? null,
+    default_view: p.default_view ?? 'overview',
+    visibility: p.visibility ?? 'private',
+  }
+  const look: Look = { ...stored, ...draft }
+  // A write that changes nothing is refused as a permission error, so Save waits for a change.
+  const dirty = (Object.keys(draft) as (keyof Look)[]).some((k) => draft[k] !== stored[k])
+  const set = <K extends keyof Look>(key: K, value: Look[K]) => {
+    setDraft((d) => ({ ...d, [key]: value }))
+    setError(null)
+  }
+
+  async function save() {
+    if (!p) return
+    setBusy(true)
+    setError(null)
+    try {
+      await updateGeneralProject(p.id, look)
+      show('Look and access saved')
+      await state.reload()
+      setDraft({})
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not save the look and access.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card p-4 shadow-card sm:p-5">
+      <header className="mb-4">
+        <h2>Look and access</h2>
+        <p className="mt-0.5 text-[12px] text-muted">
+          How the project appears in lists, where it opens, and who can find it.
+        </p>
+      </header>
+
+      <div className="space-y-6">
+        {error && <Alert tone="error">{error}</Alert>}
+
+        <fieldset className="min-w-0 space-y-2">
+          <legend className="text-[13px] font-medium text-ink">Color</legend>
+          <div className="flex flex-wrap gap-2">
+            <label className={`${PICK} px-2`} title="No color">
+              <input
+                type="radio"
+                name={`${group}-color`}
+                value=""
+                aria-label="No color"
+                checked={look.color === null}
+                disabled={!editable}
+                onChange={() => set('color', null)}
+                className="sr-only"
+              />
+              <span aria-hidden className="text-[12px]">None</span>
+            </label>
+            {PROJECT_COLORS.map((c) => (
+              <label key={c} className={PICK} title={projectLookLabel(c)}>
+                <input
+                  type="radio"
+                  name={`${group}-color`}
+                  value={c}
+                  aria-label={projectLookLabel(c)}
+                  checked={look.color === c}
+                  disabled={!editable}
+                  onChange={() => set('color', c)}
+                  className="sr-only"
+                />
+                <span aria-hidden className={`grid h-7 w-7 place-items-center rounded-lg ${SWATCH_CLASS[c].tile}`}>
+                  {look.color === c && <Icon name="check" size={14} />}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="min-w-0 space-y-2">
+          <legend className="text-[13px] font-medium text-ink">Icon</legend>
+          {/* Columns fill the width at 44px minimum, so a phone gets a grid of tappable tiles, not a scrolling row. */}
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(44px,1fr))] gap-2">
+            <label className={PICK} title="No icon">
+              <input
+                type="radio"
+                name={`${group}-icon`}
+                value=""
+                aria-label="No icon"
+                checked={look.icon === null}
+                disabled={!editable}
+                onChange={() => set('icon', null)}
+                className="sr-only"
+              />
+              <span aria-hidden className="text-[12px]">None</span>
+            </label>
+            {PROJECT_ICONS.map((name) => (
+              <label key={name} className={PICK} title={projectLookLabel(name)}>
+                <input
+                  type="radio"
+                  name={`${group}-icon`}
+                  value={name}
+                  aria-label={projectLookLabel(name)}
+                  checked={look.icon === name}
+                  disabled={!editable}
+                  onChange={() => set('icon', name)}
+                  className="sr-only"
+                />
+                <span aria-hidden className={look.icon === name ? 'text-ink' : undefined}>
+                  <Icon name={name} size={20} />
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="max-w-sm">
+          <Field label="Default view">
+            {(id) => (
+              <Select
+                id={id}
+                value={look.default_view}
+                disabled={!editable}
+                onChange={(e) => set('default_view', e.target.value as ProjectView)}
+                options={PROJECT_VIEWS.map((v) => ({ value: v.value, label: v.label }))}
+              />
+            )}
+          </Field>
+        </div>
+
+        <fieldset className="min-w-0 space-y-2">
+          <legend className="text-[13px] font-medium text-ink">Visibility</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {VISIBILITY.map((v) => (
+              <label key={v.value} className="relative block cursor-pointer has-[:disabled]:cursor-default">
+                <input
+                  type="radio"
+                  name={`${group}-visibility`}
+                  value={v.value}
+                  checked={look.visibility === v.value}
+                  disabled={!editable}
+                  onChange={() => set('visibility', v.value)}
+                  className="peer sr-only"
+                />
+                <span className="block h-full rounded-xl border border-[var(--control-line)] p-4 transition-colors hover:border-[var(--line-strong)] peer-checked:border-navy-500 peer-checked:ring-2 peer-checked:ring-navy-500/30 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--ring)] peer-disabled:opacity-60 peer-disabled:hover:border-[var(--control-line)]">
+                  <span className="block text-[14px] font-medium text-ink">{v.label}</span>
+                  <span className="mt-1 block text-[12px] leading-relaxed text-muted">{v.help}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      </div>
+
+      {editable && (
+        <div className="mt-5 flex justify-end border-t border-line pt-4">
+          <Button onClick={() => void save()} loading={busy} disabled={!dirty}>
+            Save look and access
+          </Button>
+        </div>
+      )}
+    </section>
   )
 }
 

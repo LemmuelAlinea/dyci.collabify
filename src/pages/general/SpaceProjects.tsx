@@ -12,6 +12,7 @@ import { Select } from '../../components/ui/Select'
 import { Tabs } from '../../components/ui/Tabs'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
+import { useProjectLooks } from '../../hooks/useProjectLooks'
 import { canManageProjects } from '../../lib/access'
 import { PROJECT_STATUSES, projectStatusLabel } from '../../lib/general/types'
 import type { GeneralStatus } from '../../lib/general/types'
@@ -34,6 +35,8 @@ export default function SpaceProjects() {
     document.title = space ? `Projects · ${space.name} · Collabify` : 'Projects · Collabify'
   }, [space])
   useEffect(() => { if (requestId) setView('requests') }, [requestId])
+
+  const looks = useProjectLooks(all.map((p) => p.id))
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -118,7 +121,7 @@ export default function SpaceProjects() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {shown.map((p, index) => (
-                <WorkProjectCard key={p.id} project={p} index={index} />
+                <WorkProjectCard key={p.id} project={p} index={index} look={looks[p.id]} />
               ))}
             </div>
           )}

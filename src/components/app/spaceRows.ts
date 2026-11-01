@@ -1,4 +1,4 @@
-import type { GeneralSpaceSummary } from '../../lib/general/types'
+import type { GeneralSpaceSummary, ProjectColor, ProjectIcon } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
 
 export type LiveRow = {
@@ -8,6 +8,8 @@ export type LiveRow = {
   tone?: 'education' | 'work'
   /** A second line under the name on the places card: a class's section, a space's projects. */
   detail?: string
+  /** A work project's color and icon, when it has set them; a class project keeps its letter. */
+  look?: { color: ProjectColor | null; icon: ProjectIcon | null }
 }
 
 /** Three rows per section: the rest are one click away behind the All link under them. */

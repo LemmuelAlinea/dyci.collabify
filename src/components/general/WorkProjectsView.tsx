@@ -11,6 +11,7 @@ import { Icon, Spinner } from '../ui/Icon'
 import { Select } from '../ui/Select'
 import { useAuth } from '../../context/AuthContext'
 import { useLive } from '../../hooks/useLive'
+import { useProjectLooks } from '../../hooks/useProjectLooks'
 import { canManageProjects } from '../../lib/access'
 import { listMyGeneralProjects } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
@@ -51,6 +52,8 @@ export function WorkProjectsView({ scope }: { scope?: ReactNode }) {
   useLive(load, ['general_projects', 'general_members', 'general_tasks'])
 
   const live = useMemo(() => (projects ?? []).filter((p) => p.my_level && !p.archived_at), [projects])
+  // One request for the whole list, not the filtered part of it, so a filter does not refetch.
+  const looks = useProjectLooks(live.map((p) => p.id))
 
   // Built from the projects themselves rather than from the reader's spaces:
   // this page also lists projects they joined by code, whose space is not
@@ -185,7 +188,7 @@ export function WorkProjectsView({ scope }: { scope?: ReactNode }) {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {shown.map((project, index) => (
-                <WorkProjectCard key={project.id} project={project} index={index} showSpace />
+                <WorkProjectCard key={project.id} project={project} index={index} showSpace look={looks[project.id]} />
               ))}
             </div>
           )}

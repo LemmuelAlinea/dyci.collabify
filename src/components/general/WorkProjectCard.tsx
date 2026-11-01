@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
+import { ProjectMark } from './ProjectMark'
+import type { ProjectLook } from '../../hooks/useProjectLooks'
 import { dateRange } from '../../lib/general/dates'
 import { ROLE_LABEL } from '../../lib/general/permissions'
 import { presetById } from '../../lib/general/presets'
@@ -27,10 +29,13 @@ export function WorkProjectCard({
   project: p,
   index,
   showSpace = false,
+  look,
 }: {
   project: GeneralProjectSummary
   index: number
   showSpace?: boolean
+  /** The project's color and icon, which the overview rows do not carry; the list fetches them once. */
+  look?: ProjectLook
 }) {
   const pct = Math.min(100, Number(p.progress_pct))
   const kind = presetById(p.preset)
@@ -62,9 +67,7 @@ export function WorkProjectCard({
         </div>
 
         <div className="mt-5 flex items-start gap-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-icon-tile font-display text-[14px] font-bold text-icon-glyph ring-1 ring-white/10">
-            {shape ? <Icon name={shape.icon} size={20} /> : p.name.trim().charAt(0).toUpperCase() || 'P'}
-          </span>
+          <ProjectMark color={look?.color} icon={look?.icon} fallbackIcon={shape?.icon} name={p.name} size="lg" />
           <div className="min-w-0 flex-1">
             <h3 className="line-clamp-2 text-[17px] leading-snug text-ink transition-colors group-hover:text-navy-600 dark:group-hover:text-amber-300">
               {p.name}

@@ -250,6 +250,33 @@
   --color-toast-info: var(--toast-info);
   --color-toast-info-ink: var(--toast-info-ink);
   --color-toast-info-line: var(--toast-info-line);
+  /* A project's color: the tile ground, the icon or letter on it, and the
+     word it colors on a dark banner. Fixed on purpose, not the status ramps,
+     which a person can recolor to mean done or late. */
+  --color-swatch-navy: var(--swatch-navy);
+  --color-swatch-navy-ink: var(--swatch-navy-ink);
+  --color-swatch-navy-accent: var(--swatch-navy-accent);
+  --color-swatch-amber: var(--swatch-amber);
+  --color-swatch-amber-ink: var(--swatch-amber-ink);
+  --color-swatch-amber-accent: var(--swatch-amber-accent);
+  --color-swatch-green: var(--swatch-green);
+  --color-swatch-green-ink: var(--swatch-green-ink);
+  --color-swatch-green-accent: var(--swatch-green-accent);
+  --color-swatch-teal: var(--swatch-teal);
+  --color-swatch-teal-ink: var(--swatch-teal-ink);
+  --color-swatch-teal-accent: var(--swatch-teal-accent);
+  --color-swatch-violet: var(--swatch-violet);
+  --color-swatch-violet-ink: var(--swatch-violet-ink);
+  --color-swatch-violet-accent: var(--swatch-violet-accent);
+  --color-swatch-rose: var(--swatch-rose);
+  --color-swatch-rose-ink: var(--swatch-rose-ink);
+  --color-swatch-rose-accent: var(--swatch-rose-accent);
+  --color-swatch-orange: var(--swatch-orange);
+  --color-swatch-orange-ink: var(--swatch-orange-ink);
+  --color-swatch-orange-accent: var(--swatch-orange-accent);
+  --color-swatch-slate: var(--swatch-slate);
+  --color-swatch-slate-ink: var(--swatch-slate-ink);
+  --color-swatch-slate-accent: var(--swatch-slate-accent);
 }
 
 /* Semantic surface tokens. Every component reads these, never raw ramp stops,
@@ -340,6 +367,32 @@
     --toast-info: var(--color-navy-50);
     --toast-info-ink: var(--color-navy-900);
     --toast-info-line: var(--color-navy-200);
+    /* A project's color (Look and access). Ground, the glyph on it, and the
+       banner accent word; fixed hues, not the recolorable status ramps. */
+    --swatch-navy: #d6dbf0;
+    --swatch-navy-ink: #26327a;
+    --swatch-navy-accent: #8493cf;
+    --swatch-amber: #fdebbf;
+    --swatch-amber-ink: #7d5507;
+    --swatch-amber-accent: #f7c74a;
+    --swatch-green: #d4f1df;
+    --swatch-green-ink: #14633a;
+    --swatch-green-accent: #5fd68f;
+    --swatch-teal: #cdf1ec;
+    --swatch-teal-ink: #0f5f5a;
+    --swatch-teal-accent: #2dd4bf;
+    --swatch-violet: #e4dcfa;
+    --swatch-violet-ink: #4c2a9a;
+    --swatch-violet-accent: #a78bfa;
+    --swatch-rose: #fcdde4;
+    --swatch-rose-ink: #9f1d3c;
+    --swatch-rose-accent: #fb7185;
+    --swatch-orange: #fde1cc;
+    --swatch-orange-ink: #9a3f0a;
+    --swatch-orange-accent: #fb923c;
+    --swatch-slate: #dfe4ee;
+    --swatch-slate-ink: #3a4560;
+    --swatch-slate-accent: #a9b4cc;
   }
 
   .dark {
@@ -381,6 +434,24 @@
     --toast-info: var(--color-navy-800);
     --toast-info-ink: var(--color-navy-50);
     --toast-info-line: color-mix(in oklab, var(--color-navy-400) 40%, transparent);
+    /* The same hues, deep grounds with light glyphs. The accent word reads on
+       the dark banner in both themes, so it stays as set in :root. */
+    --swatch-navy: #1e2864;
+    --swatch-navy-ink: #aeb8e1;
+    --swatch-amber: #513604;
+    --swatch-amber-ink: #fbd982;
+    --swatch-green: #0f4a2b;
+    --swatch-green-ink: #8ae6ac;
+    --swatch-teal: #0b4a47;
+    --swatch-teal-ink: #7ee6dc;
+    --swatch-violet: #3b2478;
+    --swatch-violet-ink: #cfc2fa;
+    --swatch-rose: #6b1a2e;
+    --swatch-rose-ink: #fbb5c3;
+    --swatch-orange: #6e2d08;
+    --swatch-orange-ink: #fdba8c;
+    --swatch-slate: #2c3550;
+    --swatch-slate-ink: #c5cde0;
   }
 
   * {

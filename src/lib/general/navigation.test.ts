@@ -68,6 +68,25 @@ describe('general navigation', () => {
     }
   })
 
+  it('opens the project default view when the address names no tab', () => {
+    expect(generalTab(new URLSearchParams(''), 'plan')).toBe('plan')
+    expect(generalTab(new URLSearchParams(''), 'tasks')).toBe('tasks')
+    expect(generalTab(new URLSearchParams(''))).toBe('overview')
+  })
+
+  it('lets a named tab win over the default view', () => {
+    expect(generalTab(new URLSearchParams('tab=tasks'), 'plan')).toBe('tasks')
+    expect(generalTab(new URLSearchParams('tab=overview'), 'plan')).toBe('overview')
+    expect(generalTab(new URLSearchParams('tab=settings'), 'tasks')).toBe('settings')
+    expect(generalTab(new URLSearchParams('tab=unknown'), 'plan')).toBe('overview')
+  })
+
+  it('keeps a task or Work link on the tab it implies, not the default view', () => {
+    expect(generalTab(new URLSearchParams('task=t1'), 'plan')).toBe('tasks')
+    expect(generalTab(new URLSearchParams('work=summary'), 'plan')).toBe('overview')
+    expect(generalTab(new URLSearchParams('work=milestones'), 'tasks')).toBe('plan')
+  })
+
   it('reads the Settings section and sends old People links to Members', () => {
     expect(settingsSection(new URLSearchParams('tab=members'))).toBe('members')
     expect(settingsSection(new URLSearchParams('tab=people'))).toBe('members')

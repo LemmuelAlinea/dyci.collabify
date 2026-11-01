@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import { TileEmpty } from '../dashboard/Bento'
+import { ProjectMark } from './ProjectMark'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
+import { useProjectLooks } from '../../hooks/useProjectLooks'
 import { formatDue, isOverdue } from '../../lib/general/dates'
 import { dayLabel } from '../../lib/general/dashboard'
 import type { ComingDay } from '../../lib/general/dashboard'
@@ -241,11 +243,14 @@ export function RecentPanel({
   projects: GeneralProjectSummary[]
   flat?: boolean
 }) {
+  const looks = useProjectLooks(projects.map((p) => p.id))
   if (projects.length === 0) return <Quiet flat={flat}>No projects in this space yet.</Quiet>
   return (
     <ul className={listClass(flat)}>
       {projects.map((p) => {
         const pct = Math.min(100, Number(p.progress_pct))
+        const look = looks[p.id]
+        const name = <span className="truncate text-[14px] font-medium text-ink">{p.name}</span>
         return (
           <li key={p.id}>
             <Link
@@ -257,7 +262,14 @@ export function RecentPanel({
               }
             >
               <span className="flex items-baseline justify-between gap-3">
-                <span className="truncate text-[14px] font-medium text-ink">{p.name}</span>
+                {look && (look.color || look.icon) ? (
+                  <span className="flex min-w-0 items-center gap-2">
+                    <ProjectMark color={look.color} icon={look.icon} name={p.name} size="sm" />
+                    {name}
+                  </span>
+                ) : (
+                  name
+                )}
                 <span className="shrink-0 font-mono text-[12px] text-faint">{pct}%</span>
               </span>
               <span className="mt-2 block h-1.5 overflow-hidden rounded-full surface-sunken">

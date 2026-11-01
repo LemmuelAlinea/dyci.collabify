@@ -157,5 +157,28 @@ for (const [label, fgTok, bgTok, need, scopes] of [
   }
 }
 
+// A project's color (Look and access): the letter or icon on its tile in both
+// themes, and the accent word on the default banner. The accent is set once, in
+// `:root`, because the default banner is dark in both themes.
+console.log('\nproject colours')
+for (const name of ['navy', 'amber', 'green', 'teal', 'violet', 'rose', 'orange', 'slate']) {
+  for (const [label, fgTok, bgTok, need, scope] of [
+    [`${name} tile (light)`, `--swatch-${name}-ink`, `--swatch-${name}`, 4.5, light],
+    [`${name} tile (dark)`, `--swatch-${name}-ink`, `--swatch-${name}`, 4.5, dark],
+    [`${name} accent word on the banner`, `--swatch-${name}-accent`, '--banner', 3, light],
+  ]) {
+    const fg = rgb(scope[fgTok], scope)
+    const bg = rgb(scope[bgTok], scope)
+    if (!fg || !bg) {
+      console.log(`  ?     ${label} — token missing`)
+      failures++
+      continue
+    }
+    const r = ratio(over(fg, bg), bg)
+    if (r < need) failures++
+    console.log(`  ${r >= need ? 'pass' : 'FAIL'}  ${r.toFixed(2)}:1  (needs ${need})  ${label}`)
+  }
+}
+
 console.log(`\n${failures} failing pair${failures === 1 ? '' : 's'}.`)
 process.exit(failures > 0 ? 1 : 0)

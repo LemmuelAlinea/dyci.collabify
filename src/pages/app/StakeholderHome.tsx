@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ProjectMark } from '../../components/general/ProjectMark'
 import { Reveal } from '../../components/motion/Reveal'
 import { Alert } from '../../components/ui/Alert'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Icon, Spinner } from '../../components/ui/Icon'
 import { ProgressBar } from '../../components/work/MilestoneBits'
+import { useProjectLooks } from '../../hooks/useProjectLooks'
+import type { ProjectLook } from '../../hooks/useProjectLooks'
 import { listMyStakeholderProjects } from '../../lib/api/feedback'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDay } from '../../lib/general/dates'
@@ -19,6 +22,7 @@ import { paths } from '../../lib/paths'
 export default function StakeholderHome() {
   const [projects, setProjects] = useState<StakeholderProject[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const looks = useProjectLooks((projects ?? []).map((p) => p.project_id))
 
   const load = useCallback(async () => {
     try {
@@ -35,16 +39,19 @@ export default function StakeholderHome() {
     void load()
   }, [load])
 
-  return <StakeholderHomeView projects={projects} error={error} onRetry={() => void load()} />
+  return <StakeholderHomeView projects={projects} looks={looks} error={error} onRetry={() => void load()} />
 }
 
 export function StakeholderHomeView({
   projects,
+  looks = {},
   error,
   onRetry,
 }: {
   /** Null while loading. */
   projects: StakeholderProject[] | null
+  /** Each project's color and icon, by project id. */
+  looks?: Record<string, ProjectLook>
   error?: string | null
   onRetry?: () => void
 }) {
@@ -110,7 +117,7 @@ export function StakeholderHomeView({
           <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {projects.map((p, i) => (
               <Reveal as="li" key={p.project_id} delay={i * 0.04} once>
-                <ProjectCard project={p} />
+                <ProjectCard project={p} look={looks[p.project_id]} />
               </Reveal>
             ))}
           </ul>
@@ -120,13 +127,16 @@ export function StakeholderHomeView({
   )
 }
 
-function ProjectCard({ project: p }: { project: StakeholderProject }) {
+function ProjectCard({ project: p, look }: { project: StakeholderProject; look?: ProjectLook }) {
   const pct = Math.max(0, Math.min(100, Math.round(p.progress_pct)))
   const feedback =
     p.open_feedback === 0 ? 'No open feedback' : `${p.open_feedback} open feedback`
   return (
     <article className="card flex h-full flex-col p-5">
-      <h2 className="text-[17px] leading-snug">
+      <h2 className={`text-[17px] leading-snug ${look && (look.color || look.icon) ? 'flex items-center gap-2.5' : ''}`}>
+        {look && (look.color || look.icon) && (
+          <ProjectMark color={look.color} icon={look.icon} name={p.name} size="sm" />
+        )}
         <Link
           to={paths.project(p.project_id)}
           className="text-ink hover:underline focus-visible:underline"

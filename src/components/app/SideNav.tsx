@@ -7,9 +7,11 @@ import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useAdmission } from '../../hooks/useAdmission'
 import { useUnreadTotal } from '../../hooks/useConversations'
 import { usePendingInvitations } from '../../hooks/usePendingInvitations'
+import { useProjectLooks } from '../../hooks/useProjectLooks'
 import { membershipOf } from '../../lib/access'
 import { paths } from '../../lib/paths'
 import { Logo, LogoMark } from '../brand/Logo'
+import { ProjectMark } from '../general/ProjectMark'
 import { Icon } from '../ui/Icon'
 import { navFor } from './nav'
 import type { NavGroup, NavItem } from './nav'
@@ -65,6 +67,18 @@ export function SideNav({
     })
   }
 
+  const liveProjects = (navigation.myProjects ?? []).filter(
+    (project) => project.my_level && !project.archived_at,
+  )
+  // One request for the rows the rail can show, not one per row: the work
+  // projects that most recently changed, which is what Quick access lists.
+  const looks = useProjectLooks(
+    [...liveProjects]
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .slice(0, PROJECT_CAP)
+      .map((project) => project.id),
+  )
+
   const unread = useUnreadTotal(profile?.id, 'all')
   const pendingProjects = usePendingInvitations(profile?.id).invitations?.length ?? 0
   // Unread messages plus invitations waiting: everything the Inbox holds for them.
@@ -105,9 +119,6 @@ export function SideNav({
   }
 
   const spaces = navigation.spaces ?? []
-  const liveProjects = (navigation.myProjects ?? []).filter(
-    (project) => project.my_level && !project.archived_at,
-  )
 
   /**
    * The places card's lists, one per kind the rail offers. With
@@ -140,6 +151,7 @@ export function SideNav({
           name: project.name,
           to: paths.project(project.id),
           tone: 'work' as const,
+          look: looks[project.id],
           updated_at: project.updated_at,
         })),
         ...(navigation.classProjects ?? []).map((project) => ({
@@ -344,18 +356,22 @@ function LiveRowLink({
         {({ isActive }) => (
           <>
             {isActive && <ActiveBar />}
-            <span
-              aria-hidden
-              className={`grid h-5 w-5 shrink-0 place-items-center rounded font-mono text-[10px] font-bold ${
-                isActive
-                  ? 'bg-nav-active text-nav-active-ink'
-                  : row.tone === 'education'
-                    ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
-                    : 'border border-line text-muted'
-              }`}
-            >
-              {row.name.trim().charAt(0).toUpperCase()}
-            </span>
+            {row.look && (row.look.color || row.look.icon) ? (
+              <ProjectMark color={row.look.color} icon={row.look.icon} name={row.name} size="sm" active={isActive} />
+            ) : (
+              <span
+                aria-hidden
+                className={`grid h-5 w-5 shrink-0 place-items-center rounded font-mono text-[10px] font-bold ${
+                  isActive
+                    ? 'bg-nav-active text-nav-active-ink'
+                    : row.tone === 'education'
+                      ? 'bg-amber-400/18 text-amber-700 dark:text-amber-300'
+                      : 'border border-line text-muted'
+                }`}
+              >
+                {row.name.trim().charAt(0).toUpperCase()}
+              </span>
+            )}
             {!collapsed && <span className="flex-1 truncate">{row.name}</span>}
           </>
         )}

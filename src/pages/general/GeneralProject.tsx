@@ -9,6 +9,7 @@ import { WorkTab } from '../../components/general/WorkTab'
 import { ProjectSettings } from '../../components/general/settings/ProjectSettings'
 import { SinceLastVisit } from '../../components/general/SinceLastVisit'
 import { SaveTemplateButton } from '../../components/general/SaveTemplateButton'
+import { ProjectMark } from '../../components/general/ProjectMark'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 import { Alert } from '../../components/ui/Alert'
 import { IconAction } from '../../components/ui/IconAction'
@@ -21,6 +22,7 @@ import { useGeneralNavigation } from '../../context/generalNavigation'
 import { dateRange } from '../../lib/general/dates'
 import { generalTab } from '../../lib/general/navigation'
 import type { GeneralTabId } from '../../lib/general/navigation'
+import { SWATCH_CLASS } from '../../lib/general/projectLook'
 import { ROLE_LABEL } from '../../lib/general/permissions'
 import { projectStatusLabel } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
@@ -32,11 +34,14 @@ export default function GeneralProject() {
   const { currentSpace, reportProjectSpace } = useGeneralNavigation()
   const state = useGeneralProject(projectId, profile?.id)
   const [params, setParams] = useSearchParams()
-  const tab = generalTab(params)
+  // The project's default view opens when the address names no tab; it is unknown until the project loads.
+  const defaultView = state.project?.default_view ?? 'overview'
+  const tab = generalTab(params, defaultView)
 
   function changeTab(next: GeneralTabId) {
     const changed = new URLSearchParams(params)
-    if (next === 'overview') changed.delete('tab')
+    // With a default view other than Overview, Overview must be named or the bare address would open the default.
+    if (next === 'overview' && defaultView === 'overview') changed.delete('tab')
     else changed.set('tab', next)
     changed.delete('feedback')
     changed.delete('conversation')
@@ -131,7 +136,9 @@ export default function GeneralProject() {
       <div className={focused ? 'hidden' : undefined}>
       <DirectoryHero
         title={p.name}
+        mark={p.color || p.icon ? <ProjectMark color={p.color} icon={p.icon} name={p.name} size="lg" /> : undefined}
         accent={p.archived_at ? 'archived.' : 'project.'}
+        accentClass={p.color ? SWATCH_CLASS[p.color].accent : undefined}
         description={`${projectStatusLabel(p.status)} · Your role: ${p.my_role ? ROLE_LABEL[p.my_role] : 'watching from the space'} · ${dateRange(p.starts_on, p.ends_on)} · ${p.member_count} ${p.member_count === 1 ? 'member' : 'members'} · ${Number(p.progress_pct)}% done`}
         action={
           <div className="flex flex-wrap gap-1.5">

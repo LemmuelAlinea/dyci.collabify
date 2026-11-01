@@ -10,6 +10,8 @@ export function DirectoryHero({
   description,
   action,
   corner,
+  mark,
+  accentClass = 'text-banner-accent',
 }: {
   title: string
   accent: string
@@ -17,6 +19,10 @@ export function DirectoryHero({
   action?: ReactNode
   /** A small control pinned to the top right, such as a view switch. */
   corner?: ReactNode
+  /** Sits before the title, such as a project's mark. */
+  mark?: ReactNode
+  /** The accent word's color, when the page sets its own instead of the person's banner accent. */
+  accentClass?: string
 }) {
   return (
     <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-4 py-5 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-9">
@@ -39,8 +45,19 @@ export function DirectoryHero({
 
       <div className="relative grid gap-5 sm:gap-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div className={`max-w-[720px] ${corner ? 'pr-10' : ''}`}>
-          <h1 className="font-display text-banner-ink">
-            {title} <span className="text-banner-accent">{accent}</span>
+          <h1 className={`font-display text-banner-ink ${mark ? 'flex items-center gap-3' : ''}`}>
+            {mark ? (
+              <>
+                {mark}
+                <span>
+                  {title} <span className={accentClass}>{accent}</span>
+                </span>
+              </>
+            ) : (
+              <>
+                {title} <span className={accentClass}>{accent}</span>
+              </>
+            )}
           </h1>
           <p className="mt-3 max-w-[62ch] text-[14px] leading-relaxed text-banner-ink/60">
             {description}

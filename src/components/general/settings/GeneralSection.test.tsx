@@ -10,10 +10,9 @@ import { archiveGeneralProject, updateGeneralProject } from '../../../lib/api/ge
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
-vi.mock('../../ui/Toast', () => {
-  const show = vi.fn()
-  return { useToast: () => ({ show }) }
-})
+
+const toast = vi.hoisted(() => vi.fn())
+vi.mock('../../ui/Toast', () => ({ useToast: () => ({ show: toast }) }))
 vi.mock('../../../lib/api/general', () => ({
   archiveGeneralProject: vi.fn(async () => {}),
   updateGeneralProject: vi.fn(async () => {}),
@@ -65,14 +64,14 @@ const type = async (input: HTMLInputElement, value: string) =>
 it('reads the details and offers no inputs to somebody who cannot edit', async () => {
   await show(makeState({ can: () => false, isOwner: false, myRole: 'member' }))
   expect(host.textContent).toContain('Agreed brief')
-  expect(host.querySelector('input, textarea, select')).toBeNull()
+  expect(host.querySelector('input:not(:disabled), textarea:not(:disabled), select:not(:disabled)')).toBeNull()
   expect(button(host, 'Edit details')).toBeUndefined()
   expect(button(host, 'Archive project')).toBeUndefined()
 })
 
 it('reads only, even with the permission, while the project is read-only', async () => {
   await show(makeState({ readOnly: true, archived: true }))
-  expect(host.querySelector('input, textarea, select')).toBeNull()
+  expect(host.querySelector('input:not(:disabled), textarea:not(:disabled), select:not(:disabled)')).toBeNull()
   expect(button(host, 'Edit details')).toBeUndefined()
 })
 
@@ -122,4 +121,92 @@ it('shows the archive area to the project manager only', async () => {
   expect(button(host, 'Edit details')).toBeDefined()
   expect(button(host, 'Archive project')).toBeUndefined()
   expect(button(host, 'Restore project')).toBeUndefined()
+})
+
+const radio = (group: string, value: string) =>
+  host.querySelector<HTMLInputElement>(`input[type="radio"][name$="${group}"][value="${value}"]`)!
+const pick = (group: string, value: string) => act(async () => radio(group, value).click())
+const defaultView = () => {
+  const label = [...host.querySelectorAll('label')].find((l) => l.textContent?.trim() === 'Default view')!
+  return document.getElementById(label.htmlFor) as HTMLSelectElement
+}
+const choose = (select: HTMLSelectElement, value: string) =>
+  act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(select, value)
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+
+it('saves the look, the default view and who can see the project', async () => {
+  await show(makeState())
+  expect(host.textContent).toContain('Look and access')
+  expect(radio('color', '').checked).toBe(true)
+  expect(radio('icon', '').checked).toBe(true)
+  expect(radio('visibility', 'private').checked).toBe(true)
+  await pick('color', 'teal')
+  await pick('icon', 'monitor')
+  await choose(defaultView(), 'plan')
+  await pick('visibility', 'workspace')
+  await act(async () => button(host, 'Save look and access')!.click())
+  expect(updateGeneralProject).toHaveBeenCalledWith('p1', {
+    color: 'teal', icon: 'monitor', default_view: 'plan', visibility: 'workspace',
+  })
+  expect(reload).toHaveBeenCalled()
+  expect(toast).toHaveBeenCalledWith('Look and access saved')
+})
+
+it('starts from what the project already has and can clear a color', async () => {
+  await show(makeState({}, { color: 'rose', icon: 'bell', default_view: 'tasks', visibility: 'workspace' }))
+  expect(radio('color', 'rose').checked).toBe(true)
+  expect(radio('icon', 'bell').checked).toBe(true)
+  expect(defaultView().value).toBe('tasks')
+  expect(radio('visibility', 'workspace').checked).toBe(true)
+  await pick('color', '')
+  await act(async () => button(host, 'Save look and access')!.click())
+  expect(updateGeneralProject).toHaveBeenCalledWith('p1', {
+    color: null, icon: 'bell', default_view: 'tasks', visibility: 'workspace',
+  })
+})
+
+it('describes both visibility choices', async () => {
+  await show(makeState())
+  expect(host.textContent).toContain('Only members and space owners can open it.')
+  expect(host.textContent).toContain('Everyone in the space can view it and ask to join.')
+})
+
+it('names every control in the look panel', async () => {
+  await show(makeState())
+  const panel = [...host.querySelectorAll('section')].find((s) => s.textContent?.includes('Look and access'))!
+  for (const control of panel.querySelectorAll('input, select')) {
+    const labelled =
+      control.getAttribute('aria-label') ||
+      control.closest('label')?.textContent?.trim() ||
+      host.querySelector(`label[for="${control.id}"]`)?.textContent?.trim()
+    expect(labelled, control.outerHTML).toBeTruthy()
+  }
+})
+
+it('shows a member the look controls disabled, with nothing to save', async () => {
+  await show(makeState({ can: () => false, isOwner: false, myRole: 'member' }, { color: 'navy', visibility: 'workspace' }))
+  const panel = [...host.querySelectorAll('section')].find((s) => s.textContent?.includes('Look and access'))!
+  const controls = [...panel.querySelectorAll('input, select')]
+  expect(controls.length).toBeGreaterThan(0)
+  expect(controls.every((c) => (c as HTMLInputElement).disabled)).toBe(true)
+  expect(radio('color', 'navy').checked).toBe(true)
+  expect(button(host, 'Save look and access')).toBeUndefined()
+})
+
+it('shows the look controls disabled while the project is read-only', async () => {
+  await show(makeState({ readOnly: true, archived: true }))
+  expect(radio('color', 'teal').disabled).toBe(true)
+  expect(button(host, 'Save look and access')).toBeUndefined()
+})
+
+it('puts a failed save in the panel and keeps the picks', async () => {
+  vi.mocked(updateGeneralProject).mockRejectedValueOnce(new Error('network down'))
+  await show(makeState())
+  await pick('color', 'orange')
+  await act(async () => button(host, 'Save look and access')!.click())
+  expect(host.querySelector('[role="alert"]')).not.toBeNull()
+  expect(radio('color', 'orange').checked).toBe(true)
+  expect(reload).not.toHaveBeenCalled()
 })
