@@ -1,5 +1,5 @@
 -- supabase/tests/project-task-rules.test.sql
--- A work project's task rules, task priority and subtasks.
+-- A work project's task rules, task priority, subtasks and dependencies.
 -- Rolls back; nothing survives.
 --
 --   node scripts/db.mjs supabase/tests/project-task-rules.test.sql
@@ -47,6 +47,19 @@ begin
 end;
 $$;
 
+/**
+ * Runs a statement, then checks the deferred subtask-state constraint at once
+ * (it otherwise waits for a commit this suite never makes).
+ */
+create or replace function pg_temp.checked(p_sql text) returns void
+language plpgsql as $$
+begin
+  execute p_sql;
+  set constraints public.general_tasks_subtask_state immediate;
+  set constraints public.general_tasks_subtask_state deferred;
+end;
+$$;
+
 /** A released task, written by the service role as the handoff would leave it. */
 create or replace function pg_temp.released_task(p_project uuid, p_title text, p_by uuid,
                                                  p_parent uuid default null)
@@ -70,6 +83,8 @@ declare
   v_coord uuid := gen_random_uuid();  -- coordinator on P and Q
   v_teach uuid := gen_random_uuid();  -- teaches the class whose board has Files
   v_stu   uuid := gen_random_uuid();  -- the student whose board it is
+  v_stake uuid := gen_random_uuid();  -- stakeholder on P
+  v_view  uuid := gen_random_uuid();  -- in the space, not on P (a workspace viewer)
   v_space uuid;
   p       uuid;  -- the project under test
   p2      uuid;  -- another project in the same space
@@ -88,6 +103,14 @@ declare
   other   uuid;
   v_upd   timestamptz;
   n       int;
+  w1      uuid;
+  w2      uuid;
+  w3      uuid;
+  w4      uuid;
+  pp      uuid;
+  sub2    uuid;
+  v_sprint uuid;
+  v_mile  uuid;
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           created_at, updated_at)
@@ -100,7 +123,9 @@ begin
       (v_qa,   'zz-ptr-qa@example.test'),
       (v_coord, 'zz-ptr-coord@example.test'),
       (v_teach, 'zz-ptr-teach@example.test'),
-      (v_stu,   'zz-ptr-stu@example.test')
+      (v_stu,   'zz-ptr-stu@example.test'),
+      (v_stake, 'zz-ptr-stake@example.test'),
+      (v_view,  'zz-ptr-view@example.test')
     ) as v(id, em);
 
   insert into public.profiles
@@ -112,7 +137,9 @@ begin
     (v_qa,   'zz-ptr-qa@example.test',   'Zz', 'Ptrqa',   'member', 'active', false, false),
     (v_coord, 'zz-ptr-coord@example.test', 'Zz', 'Ptrcoord', 'member', 'active', false, false),
     (v_teach, 'zz-ptr-teach@example.test', 'Zz', 'Ptrteach', 'member', 'active', true, false),
-    (v_stu,   'zz-ptr-stu@example.test',   'Zz', 'Ptrstu',   'student', 'active', false, false)
+    (v_stu,   'zz-ptr-stu@example.test',   'Zz', 'Ptrstu',   'student', 'active', false, false),
+    (v_stake, 'zz-ptr-stake@example.test', 'Zz', 'Ptrstake', 'member', 'active', false, false),
+    (v_view,  'zz-ptr-view@example.test',  'Zz', 'Ptrview',  'member', 'active', false, false)
   on conflict (id) do update
     set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach,
         can_manage_projects = excluded.can_manage_projects;
@@ -126,9 +153,10 @@ begin
   perform pg_temp.act_as_service();
   insert into public.general_space_members (space_id, user_id, level) values
     (v_space, v_dev, 'member'), (v_space, v_dev2, 'member'), (v_space, v_qa, 'member'),
-    (v_space, v_coord, 'member');
+    (v_space, v_coord, 'member'), (v_space, v_stake, 'member'), (v_space, v_view, 'member');
   insert into public.general_members (project_id, user_id, role) values
     (p, v_dev, 'member'), (p, v_dev2, 'member'), (p, v_coord, 'coordinator'),
+    (p, v_stake, 'stakeholder'),
     (q, v_dev, 'member'), (q, v_qa, 'qa'), (q, v_coord, 'coordinator');
   insert into public.general_teams (project_id, name) values (p, 'Zz PTR team') returning id into team;
   insert into public.general_team_members (project_id, team_id, user_id) values
@@ -420,6 +448,266 @@ begin
   insert into public.general_task_assignees (project_id, task_id, user_id) values (p, t2, v_dev2);
   perform pg_temp.must_be('...and a task with no holder takes one',
     (select count(*) from public.general_task_assignees where task_id = t2 and user_id = v_dev2) = 1);
+
+  ------------------------------------------------------------ dependencies
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set allow_multiple_assignees = true where id = p;
+  perform pg_temp.act_as_service();
+  w1 := pg_temp.released_task(p, 'Zz PTR waits', v_pm);
+  w2 := pg_temp.released_task(p, 'Zz PTR blocker', v_pm);
+  w3 := pg_temp.released_task(p, 'Zz PTR third', v_pm);
+  w4 := pg_temp.released_task(p, 'Zz PTR spare', v_pm);
+  other := pg_temp.released_task(p2, 'Zz PTR other project task', v_pm);
+  update public.general_tasks set team_id = team where id in (w1, w2, w3, w4);
+  perform pg_temp.act_as(v_pm);
+  perform public.add_general_task_dependency(w1, w2);
+  perform public.add_general_task_dependency(w1, w2);  -- a second add is harmless
+  perform pg_temp.must_be('a dependency links two tasks in one project',
+    (select count(*) = 1 and bool_and(created_by = v_pm and project_id = p)
+       from public.general_task_dependencies where task_id = w1 and depends_on_id = w2));
+  perform pg_temp.must_refuse_with('a dependency across projects is refused',
+    format('select public.add_general_task_dependency(%L, %L)', w1, other), 'same project');
+  perform pg_temp.must_refuse_with('...and a task cannot wait for itself',
+    format('select public.add_general_task_dependency(%L, %L)', w1, w1), 'wait for itself');
+  perform pg_temp.must_refuse_with('a dependency loop is refused',
+    format('select public.add_general_task_dependency(%L, %L)', w2, w1), 'wait on each other');
+  perform public.add_general_task_dependency(w2, w3);
+  perform pg_temp.must_refuse_with('...through three tasks too',
+    format('select public.add_general_task_dependency(%L, %L)', w3, w1), 'wait on each other');
+
+  update public.general_tasks set stage = 1 where id = w1;
+  perform pg_temp.must_be('a waiting task can start',
+    (select status = 'in_progress' from public.general_tasks where id = w1));
+  perform pg_temp.must_refuse_with('a waiting task can start but cannot be done',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, w1),
+    'Waiting for Zz PTR blocker. Finish it first.');
+  perform pg_temp.must_refuse_with('...by the last stage either',
+    format($q$update public.general_tasks set stage = 2 where id = %L$q$, w1),
+    'Waiting for Zz PTR blocker. Finish it first.');
+  perform public.remove_general_task_dependency(w1, w2);
+  update public.general_tasks set status = 'done' where id = w1;
+  perform pg_temp.must_be('removing the dependency lets it finish',
+    (select status = 'done' from public.general_tasks where id = w1)
+    and not exists (select 1 from public.general_task_dependencies where task_id = w1));
+
+  update public.general_projects set allow_dependencies = false where id = p;
+  perform pg_temp.must_refuse_with('dependencies off refuses new links but keeps existing ones',
+    format('select public.add_general_task_dependency(%L, %L)', w4, w3), 'Dependencies are turned off');
+  perform pg_temp.must_refuse_with('...and the existing link still holds its task back',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, w2),
+    'Waiting for Zz PTR third. Finish it first.');
+  update public.general_tasks set status = 'done' where id = w3;
+  update public.general_tasks set status = 'done' where id = w2;
+  perform pg_temp.must_be('...until its blocker is done',
+    (select status = 'done' from public.general_tasks where id = w2)
+    and exists (select 1 from public.general_task_dependencies where task_id = w2 and depends_on_id = w3));
+  update public.general_projects set allow_dependencies = true where id = p;
+
+  -- Who may link: planners, the lead of the task's team, the task's holders.
+  perform pg_temp.act_as(v_dev2);
+  perform pg_temp.must_refuse_with('a member who cannot edit the task cannot link it',
+    format('select public.add_general_task_dependency(%L, %L)', w4, w3), 'can link it');
+  perform pg_temp.must_refuse_with('...or unlink one',
+    format('select public.remove_general_task_dependency(%L, %L)', w2, w3), 'can link it');
+  perform pg_temp.act_as(v_stake);
+  perform pg_temp.must_refuse_with('...and neither can a stakeholder',
+    format('select public.add_general_task_dependency(%L, %L)', w4, w3), 'Stakeholders can view');
+  perform pg_temp.act_as(v_dev);
+  perform public.add_general_task_dependency(w4, w3);
+  perform pg_temp.must_be('...while the lead of the task''s team can',
+    exists (select 1 from public.general_task_dependencies where task_id = w4 and depends_on_id = w3));
+  perform pg_temp.act_as_service();
+  insert into public.general_task_assignees (project_id, task_id, user_id) values (p, w4, v_dev2);
+  perform pg_temp.act_as(v_dev2);
+  perform public.remove_general_task_dependency(w4, w3);
+  perform public.add_general_task_dependency(w4, w2);
+  perform pg_temp.must_be('...and so can whoever holds it',
+    (select array_agg(depends_on_id) = array[w2] from public.general_task_dependencies where task_id = w4));
+
+  -- Private planning tasks keep their links private.
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_tasks (project_id, title) values (p, 'Zz PTR private one')
+  returning id into w1;
+  insert into public.general_tasks (project_id, title) values (p, 'Zz PTR private two')
+  returning id into w3;
+  perform public.add_general_task_dependency(w1, w3);
+  perform public.add_general_task_dependency(w4, w3);
+  update public.general_projects set visibility = 'workspace' where id = p;
+  perform pg_temp.act_as(v_view);
+  perform pg_temp.must_be('fixture: a workspace viewer reads the released link',
+    exists (select 1 from public.general_task_dependencies where task_id = w4 and depends_on_id = w2));
+  perform pg_temp.must_be('a viewer cannot see dependencies of private planning tasks',
+    not exists (select 1 from public.general_task_dependencies where depends_on_id = w3));
+  perform pg_temp.act_as(v_dev2);
+  perform pg_temp.must_be('...nor can a member',
+    not exists (select 1 from public.general_task_dependencies where depends_on_id = w3));
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_be('...while the project manager can',
+    (select count(*) = 2 from public.general_task_dependencies where depends_on_id = w3));
+  perform pg_temp.act_as(v_dev2);
+  perform pg_temp.must_refuse_with('...and a blocker the member cannot see is not named',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, w4),
+    'Waiting for a task you can''t see yet.');
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set visibility = 'private' where id = p;
+
+  -- QA passing a waiting task is the same move to done.
+  perform pg_temp.act_as_service();
+  insert into public.general_members (project_id, user_id, role) values (q, v_qa, 'qa');
+  t := pg_temp.released_task(q, 'Zz PTR QA waits', v_pm);
+  t2 := pg_temp.released_task(q, 'Zz PTR QA blocker', v_pm);
+  perform pg_temp.act_as(v_pm);
+  perform public.add_general_task_dependency(t, t2);
+  perform pg_temp.act_as(v_qa);
+  perform pg_temp.must_refuse_with('qa pass of a waiting task is refused',
+    format('select public.qa_pass_general_task(%L)', t), 'Waiting for Zz PTR QA blocker.');
+  perform pg_temp.act_as(v_pm);
+  perform public.remove_general_task_dependency(t, t2);
+  perform pg_temp.act_as(v_qa);
+  perform public.qa_pass_general_task(t);
+  perform pg_temp.must_be('...and passes once the link is gone',
+    (select status = 'done' from public.general_tasks where id = t));
+
+  ------------------------------------------------------------ adding subtasks
+  perform pg_temp.act_as_service();
+  insert into public.general_sprints (project_id, name, starts_on, ends_on)
+  values (p, 'Zz PTR sprint', current_date, current_date + 14) returning id into v_sprint;
+  insert into public.general_milestones (project_id, name, due_on)
+  values (p, 'Zz PTR milestone', current_date + 30) returning id into v_mile;
+  par := pg_temp.released_task(p, 'Zz PTR held parent', v_pm);
+  update public.general_tasks set team_id = team, sprint_id = v_sprint, milestone_id = v_mile
+   where id = par;
+  insert into public.general_task_assignees (project_id, task_id, user_id) values (p, par, v_dev2);
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set default_priority = 'high' where id = p;
+  perform pg_temp.act_as(v_dev2);
+  sub := public.create_general_subtask(par, '  Zz PTR holder''s subtask  ', 'Steps');
+  perform pg_temp.must_be('a holder can add a subtask to a released task and it is released',
+    (select parent_id = par and routing_state = 'released' and created_by = v_dev2
+            and title = 'Zz PTR holder''s subtask' and description = 'Steps' and priority = 'high'
+       from public.general_tasks where id = sub));
+  perform pg_temp.must_be('...its history names who added it',
+    exists (select 1 from public.general_task_events
+             where task_id = sub and kind = 'created' and actor_id = v_dev2));
+  perform pg_temp.must_be('...and the caller''s session is as it was',
+    auth.uid() = v_dev2
+    and coalesce(nullif(current_setting('collabify.subtask_op', true), ''), 'off') = 'off');
+  perform pg_temp.must_refuse_with('...an insert that fails',
+    format($q$select public.create_general_subtask(%L, 'Zz PTR too long', repeat('x', 20001))$q$, par),
+    'general_tasks_description_len');
+  perform pg_temp.must_be('...leaves the caller''s session as it was too',
+    auth.uid() = v_dev2
+    and coalesce(nullif(current_setting('collabify.subtask_op', true), ''), 'off') = 'off');
+  perform pg_temp.must_be('a subtask takes the parent''s team, sprint and milestone',
+    (select team_id = team and sprint_id = v_sprint and milestone_id = v_mile
+       from public.general_tasks where id = sub));
+  perform pg_temp.act_as(v_dev);
+  t := public.create_general_subtask(par, 'Zz PTR lead''s subtask', '', now() + interval '3 days');
+  perform pg_temp.must_be('...and so can the lead of the parent''s team',
+    (select parent_id = par and due_at is not null from public.general_tasks where id = t));
+
+  perform pg_temp.act_as_service();
+  t2 := pg_temp.released_task(p, 'Zz PTR unheld parent', v_pm);
+  update public.general_tasks set team_id = team where id = t2;
+  perform pg_temp.act_as(v_dev2);
+  perform pg_temp.must_refuse_with('a member who neither holds nor leads cannot add a subtask',
+    format($q$select public.create_general_subtask(%L, 'Zz PTR nope')$q$, t2), 'can add a subtask');
+  perform pg_temp.act_as(v_stake);
+  perform pg_temp.must_refuse_with('a stakeholder or workspace viewer cannot add a subtask',
+    format($q$select public.create_general_subtask(%L, 'Zz PTR nope')$q$, par), 'Stakeholders can view');
+  perform pg_temp.act_as_service();
+  update public.general_projects set visibility = 'workspace' where id = p;
+  perform pg_temp.act_as(v_view);
+  perform pg_temp.must_refuse_with('...the workspace viewer',
+    format($q$select public.create_general_subtask(%L, 'Zz PTR nope')$q$, par), 'not on this project');
+  perform pg_temp.act_as_service();
+  update public.general_projects set visibility = 'private' where id = p;
+
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_tasks (project_id, title) values (p, 'Zz PTR planning parent two')
+  returning id into pp;
+  sub2 := public.create_general_subtask(pp, 'Zz PTR planned subtask');
+  perform pg_temp.must_be('a subtask follows its parent''s release state',
+    (select parent_id = pp and routing_state = 'planning' and created_by = v_pm
+       from public.general_tasks where id = sub2));
+  perform pg_temp.must_refuse_with('a subtask cannot get subtasks of its own',
+    format($q$select public.create_general_subtask(%L, 'Zz PTR grandchild')$q$, sub2),
+    'can''t have its own subtasks');
+  perform pg_temp.must_refuse_with('...a subtask needs a title',
+    format($q$select public.create_general_subtask(%L, '   ')$q$, pp), 'Give the subtask a title.');
+  update public.general_tasks set status = 'done' where id = t2;
+  perform pg_temp.must_refuse_with('a done parent takes no new subtasks',
+    format($q$select public.create_general_subtask(%L, 'Zz PTR late')$q$, t2),
+    'Reopen the task before adding a subtask.');
+  update public.general_projects set allow_subtasks = false where id = p;
+  perform pg_temp.must_refuse_with('...and subtasks off refuses new ones',
+    format($q$select public.create_general_subtask(%L, 'Zz PTR off')$q$, pp),
+    'Subtasks are turned off for this project.');
+  update public.general_projects set allow_subtasks = true, default_priority = 'normal' where id = p;
+
+  ------------------------------------------------------------ subtasks move with their parent
+  perform pg_temp.act_as(v_pm);
+  select updated_at into v_upd from public.general_tasks where id = pp;
+  perform pg_temp.checked(format('select public.send_work_tasks_to_teams(%L, %L::jsonb)', p,
+    jsonb_build_array(jsonb_build_object('id', pp, 'team_id', team, 'updated_at', v_upd))));
+  perform pg_temp.must_be('sending a parent releases its subtasks',
+    (select routing_state = 'released' from public.general_tasks where id = pp)
+    and (select routing_state = 'released' and team_id = team from public.general_tasks where id = sub2));
+  perform pg_temp.must_be('...and the subtask''s history says so',
+    exists (select 1 from public.general_task_events where task_id = sub2 and kind = 'sent_to_team'));
+  perform pg_temp.act_as(v_dev);
+  insert into public.general_task_assignees (project_id, task_id, user_id) values (p, sub2, v_dev2);
+  perform pg_temp.checked(format($q$select public.return_work_task(%L, 'Zz PTR not ready')$q$, pp));
+  perform pg_temp.must_be('...the lead no longer sees the subtask',
+    not exists (select 1 from public.general_tasks where id = sub2));
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_be('returning a parent takes its subtasks back to planning',
+    (select routing_state = 'planning' from public.general_tasks where id = pp)
+    and (select routing_state = 'planning' from public.general_tasks where id = sub2)
+    and not exists (select 1 from public.general_task_assignees where task_id = sub2));
+  perform pg_temp.act_as(v_pm);
+  select updated_at into v_upd from public.general_tasks where id = sub2;
+  perform pg_temp.must_refuse_with('a subtask is not sent without its parent',
+    format('select pg_temp.checked(%L)',
+      format('select public.send_work_tasks_to_teams(%L, %L::jsonb)', p,
+        jsonb_build_array(jsonb_build_object('id', sub2, 'team_id', team, 'updated_at', v_upd)))),
+    'subtasks move with it');
+  perform pg_temp.checked(format('select public.send_work_tasks_to_teams(%L, %L::jsonb)', p,
+    (select jsonb_agg(jsonb_build_object('id', x.id, 'team_id', team, 'updated_at', x.updated_at))
+       from public.general_tasks x where x.id in (pp, sub2))));
+  perform pg_temp.must_be('...while a parent and its subtask go out together',
+    (select count(*) = 2 and bool_and(routing_state = 'released')
+       from public.general_tasks where id in (pp, sub2)));
+
+  ------------------------------------------------------------ require an assignee, both ways
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set require_assignee = true where id = p;
+  perform pg_temp.act_as_service();
+  t := pg_temp.released_task(p, 'Zz PTR held, then let go', v_pm);
+  update public.general_tasks set team_id = team where id = t;
+  insert into public.general_task_assignees (project_id, task_id, user_id) values (p, t, v_dev2);
+  perform pg_temp.act_as(v_pm);
+  update public.general_tasks set stage = 2 where id = t;
+  delete from public.general_task_assignees where task_id = t;
+  update public.general_tasks set stage = 1 where id = t;
+  perform pg_temp.must_be('an unheld task can move back a stage',
+    (select stage = 1 and status = 'in_progress' from public.general_tasks where id = t));
+  update public.general_tasks set stage = 0 where id = t;
+  perform pg_temp.must_be('an unheld task can move back to the first stage',
+    (select stage = 0 and status = 'todo' from public.general_tasks where id = t));
+  perform pg_temp.must_refuse_with('...and still cannot move forward again',
+    format($q$update public.general_tasks set status = 'in_progress' where id = %L$q$, t),
+    'Give this task a holder before moving it on.');
+  insert into public.general_tasks (project_id, title) values (p, 'Zz PTR planned past the start')
+  returning id into t2;
+  update public.general_tasks set stage = 1 where id = t2;
+  select updated_at into v_upd from public.general_tasks where id = t2;
+  perform public.send_work_tasks_to_teams(p,
+    jsonb_build_array(jsonb_build_object('id', t2, 'team_id', team, 'updated_at', v_upd)));
+  perform pg_temp.must_be('releasing an unheld task past the first stage puts it in the first stage',
+    (select stage = 0 and status = 'todo' and routing_state = 'released' and qa_entered_at is null
+       from public.general_tasks where id = t2));
+  update public.general_projects set require_assignee = false where id = p;
 
   ------------------------------------------------------------ class boards
   perform pg_temp.act_as_service();
