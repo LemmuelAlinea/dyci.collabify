@@ -1,5 +1,5 @@
 // src/pages/general/GeneralProject.tsx
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useFocusMode } from '../../lib/focusMode'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { DiscussionTab } from '../../components/general/DiscussionTab'
@@ -12,16 +12,12 @@ import { SaveTemplateButton } from '../../components/general/SaveTemplateButton'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
 import { Alert } from '../../components/ui/Alert'
 import { IconAction } from '../../components/ui/IconAction'
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { DirectoryHero } from '../../components/app/DirectoryHero'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Icon, Spinner } from '../../components/ui/Icon'
 import { Tabs } from '../../components/ui/Tabs'
-import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
-import { archiveGeneralProject } from '../../lib/api/general'
-import { authErrorMessage } from '../../lib/authError'
 import { dateRange } from '../../lib/general/dates'
 import { generalTab } from '../../lib/general/navigation'
 import type { GeneralTabId } from '../../lib/general/navigation'
@@ -33,12 +29,10 @@ export default function GeneralProject() {
   const { projectId } = useParams()
   const focused = useFocusMode()
   const { profile } = useAuth()
-  const { show } = useToast()
   const { currentSpace, reportProjectSpace } = useGeneralNavigation()
   const state = useGeneralProject(projectId, profile?.id)
   const [params, setParams] = useSearchParams()
   const tab = generalTab(params)
-  const [archiving, setArchiving] = useState(false)
 
   function changeTab(next: GeneralTabId) {
     const changed = new URLSearchParams(params)
@@ -121,17 +115,6 @@ export default function GeneralProject() {
 
   const openForOwner = state.canGrant ? state.requests.filter((r) => r.status === 'open').length : 0
 
-  async function restore() {
-    if (!p) return
-    try {
-      await archiveGeneralProject(p.id, false)
-      show('Project restored')
-      await state.reload()
-    } catch (err) {
-      show(authErrorMessage(err, 'Could not restore the project.'), 'error')
-    }
-  }
-
   return (
     <div className="w-full space-y-6">
       <Link
@@ -159,9 +142,6 @@ export default function GeneralProject() {
               <IconAction icon="chart" label="Report" to={`${paths.spaceReports(p.space_id)}?s=project&p=${p.id}`} />
             )}
             <SaveTemplateButton state={state} />
-            {state.isOwner && !state.archived && (
-              <IconAction icon="archive" label="Archive project" variant="destroy" onClick={() => setArchiving(true)} />
-            )}
           </div>
         }
       />
@@ -175,9 +155,9 @@ export default function GeneralProject() {
           {state.isOwner && (
             <>
               {' '}
-              <button type="button" onClick={() => void restore()} className="font-medium underline">
-                Restore it
-              </button>{' '}
+              <Link to={{ search: '?tab=settings&section=general' }} className="font-medium underline">
+                Restore it in Settings
+              </Link>{' '}
               to make changes again.
             </>
           )}
@@ -228,20 +208,6 @@ export default function GeneralProject() {
       </div>}
       {tab === 'files' && <FilesTab state={state} />}
       {tab === 'settings' && <ProjectSettings state={state} />}
-
-      <ConfirmDialog
-        open={archiving}
-        onClose={() => setArchiving(false)}
-        onConfirm={async () => {
-          await archiveGeneralProject(p.id, true)
-          show('Project archived')
-          await state.reload()
-        }}
-        title={`Archive ${p.name}?`}
-        body="Nothing in it can change until an Owner restores it, and its join code closes. Everyone on it can still read it."
-        confirmLabel="Archive project"
-        tone="primary"
-      />
     </div>
   )
 }

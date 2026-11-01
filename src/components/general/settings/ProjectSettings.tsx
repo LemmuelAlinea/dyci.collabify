@@ -5,7 +5,9 @@ import type { IconName } from '../../ui/Icon'
 import { settingsSection } from '../../../lib/general/navigation'
 import type { SettingsSection } from '../../../lib/general/navigation'
 import type { GeneralProjectState } from '../useGeneralProject'
+import { GeneralSection } from './GeneralSection'
 import { MembersSection } from './MembersSection'
+import { TasksSection } from './TasksSection'
 
 const SECTIONS: { id: SettingsSection; label: string; icon: IconName }[] = [
   { id: 'general', label: 'General', icon: 'settings' },
@@ -60,6 +62,10 @@ export function ProjectSettings({ state }: { state: GeneralProjectState }) {
       <div className="min-w-0 flex-1">
         {active === 'members' ? (
           <MembersSection state={state} />
+        ) : active === 'general' ? (
+          <GeneralSection state={state} />
+        ) : active === 'tasks' ? (
+          <TasksSection state={state} />
         ) : (
           <p className="text-[14px] text-muted">This section is being moved here.</p>
         )}

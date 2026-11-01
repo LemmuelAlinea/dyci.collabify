@@ -8,6 +8,8 @@ import type { GeneralProjectState } from '../useGeneralProject'
 
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 vi.mock('./MembersSection', () => ({ MembersSection: () => 'Members content' }))
+vi.mock('./GeneralSection', () => ({ GeneralSection: () => 'General content' }))
+vi.mock('./TasksSection', () => ({ TasksSection: () => 'Tasks content' }))
 
 function Where() {
   const location = useLocation()
@@ -45,7 +47,7 @@ it('lists the four sections and opens General by default', async () => {
       'General', 'Sprints', 'Tasks', 'Members & permissions',
     ])
     expect(item(container, 'General').getAttribute('aria-current')).toBe('page')
-    expect(container.textContent).toContain('This section is being moved here.')
+    expect(container.textContent).toContain('General content')
     expect(container.textContent).not.toContain('Members content')
   })
 })
@@ -59,10 +61,18 @@ it('opens Members from an old People link', async () => {
   }
 })
 
+it('opens Tasks from its link', async () => {
+  await renderAt('tab=settings&section=tasks', async (container) => {
+    expect(item(container, 'Tasks').getAttribute('aria-current')).toBe('page')
+    expect(container.textContent).toContain('Tasks content')
+  })
+})
+
 it('puts the chosen section in the URL', async () => {
   await renderAt('tab=settings', async (container) => {
     await act(async () => item(container, 'Sprints').click())
     expect(container.querySelector('output')?.textContent).toBe('?tab=settings&section=sprints')
+    expect(container.textContent).toContain('This section is being moved here.')
     expect(item(container, 'Sprints').getAttribute('aria-current')).toBe('page')
     await act(async () => item(container, 'Members & permissions').click())
     expect(container.textContent).toContain('Members content')
