@@ -167,8 +167,10 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   triggers, `general_tasks_0_defaults` and `general_tasks_b_rules`, ordered around
   `general_tasks_a_stage`; none of the existing task guards is redefined. Subtasks are one
   level deep, follow their parent's release state and team, and are created through
-  `create_general_subtask`. A dependency blocks Done. The default stage never goes past an
-  active QA stage or reaches the last stage. Suite: `supabase/tests/project-task-rules.test.sql`.
+  `create_general_subtask`. A Done parent cannot gain or reopen an open subtask, and a parent
+  with a subtask in QA or Done cannot be returned or rerouted. A dependency blocks Done.
+  The default stage never goes past an active QA stage or reaches the last stage.
+  Suite: `supabase/tests/project-task-rules.test.sql`.
 
 ## Security invariants
 

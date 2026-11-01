@@ -110,6 +110,7 @@ declare
   w4      uuid;
   pp      uuid;
   sub2    uuid;
+  done_par uuid;
   v_sprint uuid;
   v_mile  uuid;
 begin
@@ -385,6 +386,19 @@ begin
   update public.general_tasks set status = 'done' where id = par;
   perform pg_temp.must_be('...and is done once its subtasks are',
     (select status = 'done' and stage = 2 from public.general_tasks where id = par));
+  perform pg_temp.must_refuse_with('reopening a subtask under a done parent is refused',
+    format($q$update public.general_tasks set status = 'todo' where id = %L$q$, sub),
+    'Reopen the parent task before opening its subtask.');
+
+  perform pg_temp.act_as_service();
+  par := pg_temp.released_task(p, 'Zz PTR parent with archived subtask', v_pm);
+  sub := pg_temp.released_task(p, 'Zz PTR archived subtask', v_pm, par);
+  perform pg_temp.act_as(v_pm);
+  perform public.archive_general_task(sub, true);
+  update public.general_tasks set status = 'done' where id = par;
+  perform pg_temp.must_refuse_with('restoring an open subtask under a done parent is refused',
+    format('select public.archive_general_task(%L, false)', sub),
+    'Reopen the parent task before opening its subtask.');
 
   -- QA passing a parent is the same move to done.
   perform pg_temp.act_as_service();
@@ -643,6 +657,19 @@ begin
   perform pg_temp.must_refuse_with('a done parent takes no new subtasks',
     format($q$select public.create_general_subtask(%L, 'Zz PTR late')$q$, t2),
     'Reopen the task before adding a subtask.');
+  insert into public.general_tasks (project_id, title) values (p, 'Zz PTR done planning parent')
+  returning id into done_par;
+  update public.general_tasks set status = 'done' where id = done_par;
+  perform pg_temp.must_refuse_with('a direct insert cannot add a subtask to a done parent',
+    format($q$insert into public.general_tasks (project_id, title, parent_id)
+      values (%L, 'Zz PTR late direct', %L)$q$, p, done_par),
+    'Reopen the task before adding a subtask.');
+  update public.general_tasks set status = 'todo' where id = done_par;
+  perform public.archive_general_task(done_par, true);
+  perform pg_temp.must_refuse_with('a direct insert cannot add a subtask to an archived parent',
+    format($q$insert into public.general_tasks (project_id, title, parent_id)
+      values (%L, 'Zz PTR archived direct', %L)$q$, p, done_par),
+    'Restore the task before adding a subtask.');
   update public.general_projects set allow_subtasks = false where id = p;
   perform pg_temp.must_refuse_with('...and subtasks off refuses new ones',
     format($q$select public.create_general_subtask(%L, 'Zz PTR off')$q$, pp),
@@ -730,6 +757,15 @@ begin
     and exists (select 1 from public.general_task_events
                  where task_id = '00000000-0000-4000-8000-00000000a002' and kind = 'rerouted'));
 
+  update public.general_tasks set status = 'done' where id = '00000000-0000-4000-8000-00000000b001';
+  perform pg_temp.must_refuse_with('rerouting a parent with a done subtask is refused',
+    format('select public.send_work_tasks_to_teams(%L, %L::jsonb, %L)', p,
+      (select jsonb_agg(jsonb_build_object('id', x.id, 'team_id', team2, 'updated_at', x.updated_at))
+         from public.general_tasks x where x.id = '00000000-0000-4000-8000-00000000b002'),
+      'Zz PTR moving teams'),
+    'Reopen its finished subtasks first.');
+  update public.general_tasks set status = 'todo' where id = '00000000-0000-4000-8000-00000000b001';
+
   -- Deleting the team clears it from the parent and the subtask alike.
   perform pg_temp.checked(format('delete from public.general_teams where id = %L', team2));
   perform pg_temp.must_be('deleting a team clears it from a parent and its subtask',
@@ -814,6 +850,10 @@ begin
   perform pg_temp.must_be('...a class-board task ignores the project''s default stage',
     (select status = 'todo' and coalesce(stage, 0) = 0 from public.general_tasks where id = t));
   update public.general_tasks set status = 'done' where id = t;
+  perform pg_temp.must_refuse_with('class-board tasks cannot become subtasks',
+    format($q$insert into public.general_tasks (project_id, title, parent_id)
+      values (%L, 'Zz PTR class child', %L)$q$, cb, t),
+    'Subtasks are for work projects.');
   perform pg_temp.must_be('class boards are unaffected',
     (select priority = 'normal' and status = 'done' from public.general_tasks where id = t)
     and not exists (select 1 from information_schema.columns

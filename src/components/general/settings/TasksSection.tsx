@@ -139,10 +139,10 @@ function TaskRulesPanel({ state }: { state: GeneralProjectState }) {
   // Reset when the saved rules or the project change underneath, not on every
   // realtime reload while somebody is choosing.
   const savedKey = JSON.stringify(saved)
-  const updatedAt = p?.updated_at
+  const projectId = p?.id
   useEffect(() => {
     setRules(saved)
-  }, [savedKey, updatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [savedKey, projectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!p) return null
 
@@ -150,7 +150,7 @@ function TaskRulesPanel({ state }: { state: GeneralProjectState }) {
   const lastStart = lastStartIndex(p)
   const shownStage = Math.min(Math.max(rules.defaultStage, 0), lastStart)
   const stageOptions = stages.slice(0, lastStart + 1).map((name, i) => ({ value: String(i), label: name }))
-  const qaMoved = p.has_qa && rules.defaultStage > lastStart
+  const qaMoved = p.has_qa && qaStageIndex(p.stages, p.qa_stage) < stages.length - 2 && rules.defaultStage > lastStart
   const set = <K extends keyof TaskRules>(key: K, value: TaskRules[K]) => setRules((r) => ({ ...r, [key]: value }))
   const off = !editable || busy
 

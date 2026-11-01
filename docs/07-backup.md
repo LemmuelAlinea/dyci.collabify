@@ -683,13 +683,15 @@ allowed. Re-running `project-visibility.sql`, `general-spaces.sql`,
   are), its grants (select only) and its `supabase_realtime` entry, with replica identity full;
 - the triggers `general_tasks_0_defaults` (`apply_general_task_defaults`: priority and the
   default stage), `general_tasks_b_rules` (`check_general_task_rules`: parent, holder,
-  completion and dependency rules), `general_task_assignees_single`
+  completion and dependency rules, including reopening an open subtask under a Done parent), `general_task_assignees_single`
   (`guard_general_task_single_holder`), `general_tasks_c_follow_parent`
-  (`follow_general_task_parent`: subtasks follow the parent's state, team and holders) and
+  (`follow_general_task_parent`: subtasks follow the parent's state, team and holders; a parent
+  with a subtask in QA or Done cannot be returned or rerouted) and
   the deferred constraint trigger `general_tasks_subtask_state`
   (`check_general_subtask_state`);
 - the RPCs `create_general_subtask`, `add_general_task_dependency` and
-  `remove_general_task_dependency`;
+  `remove_general_task_dependency` (adding a dependency holds a row lock on the waiting
+  task so a concurrent Done update cannot miss the new blocker);
 - the helper functions `general_default_stage`, `general_task_link_readable`,
   `general_task_links_editable` and `general_task_links_check`.
 

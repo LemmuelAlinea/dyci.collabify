@@ -45,7 +45,7 @@
 --     reroute), its subtasks take the same state, reviewer and send time;
 --     released ones join the parent's team. Ones going back to planning or
 --     moving to a new team lose their holders, as the parent does. A parent
---     isn't returned to planning while a live subtask is in QA or Done. Each
+--     isn't returned or rerouted while a live subtask is in QA or Done. Each
 --     move is in the subtask's history.
 --   general_tasks_b_rules also keeps a released subtask in its parent's team,
 --     so a send batch naming another team for it can't split them.
@@ -76,7 +76,7 @@
 -- then given the caller as its actor.
 --
 -- Class boards (class_board_id is not null) keep their behaviour: their tasks
--- take Normal and ignore the switches. project_tasks is not touched.
+-- take Normal, cannot become subtasks and ignore the switches. project_tasks is not touched.
 --
 -- Run after project-settings-general.sql, then anon-lockdown.sql.
 --
@@ -258,7 +258,8 @@ create trigger general_tasks_0_defaults
 -- ---------------------------------------------------------------- rules
 
 /**
- * Subtasks are one level deep, in their parent's project. On a work project:
+ * Subtasks are one level deep, in their parent's project, and cannot be added
+ * to a finished or archived parent. On a work project:
  * only the project manager, a coordinator, a function that sets
  * collabify.subtask_op, or the service role links or unlinks a subtask; a
  * subtask shares its parent's release state; no new subtasks while the switch
@@ -299,6 +300,9 @@ begin
      and (tg_op = 'INSERT'
           or new.parent_id is distinct from old.parent_id
           or new.project_id is distinct from old.project_id) then
+    if gp.class_board_id is not null then
+      raise exception 'Subtasks are for work projects.' using errcode = 'check_violation';
+    end if;
     if new.parent_id = new.id then
       raise exception 'A task can''t be its own subtask.' using errcode = 'check_violation';
     end if;
@@ -307,6 +311,12 @@ begin
     if par.id is null or par.project_id <> new.project_id then
       raise exception 'A subtask must be in the same project as its parent.'
         using errcode = 'check_violation';
+    end if;
+    if par.archived_at is not null or par.trashed_at is not null then
+      raise exception 'Restore the task before adding a subtask.' using errcode = 'check_violation';
+    end if;
+    if par.status = 'done' then
+      raise exception 'Reopen the task before adding a subtask.' using errcode = 'check_violation';
     end if;
     if gp.class_board_id is null and not gp.allow_subtasks
        and (tg_op = 'INSERT' or new.parent_id is distinct from old.parent_id) then
@@ -332,6 +342,15 @@ begin
 
   if gp.id is null or gp.class_board_id is not null then
     return new;
+  end if;
+
+  if tg_op = 'UPDATE' and gp.require_subtasks_done and new.parent_id is not null
+     and new.status <> 'done' and new.archived_at is null and new.trashed_at is null then
+    if (old.status = 'done' or old.archived_at is not null or old.trashed_at is not null)
+       and exists (select 1 from public.general_tasks p where p.id = new.parent_id and p.status = 'done') then
+      raise exception 'Reopen the parent task before opening its subtask.'
+        using errcode = 'check_violation';
+    end if;
   end if;
 
   -- A released subtask is in its parent's team, whatever a send batch names
@@ -399,7 +418,7 @@ $$;
 
 drop trigger if exists general_tasks_b_rules on public.general_tasks;
 create trigger general_tasks_b_rules
-  before insert or update of parent_id, project_id, status, stage, routing_state, team_id
+  before insert or update of parent_id, project_id, status, stage, routing_state, team_id, archived_at, trashed_at
   on public.general_tasks
   for each row execute function public.check_general_task_rules();
 
@@ -438,7 +457,7 @@ create trigger general_task_assignees_single
  * the subtask update as part of that handoff (an archived subtask included).
  * Subtasks taking a new team lose their holders, as the rerouted parent does
  * (not when the parent's team is cleared by a team delete). A parent doesn't
- * go back to planning while a live subtask is in QA or Done.
+ * go back to planning or move to another team while a live subtask is in QA or Done.
  */
 create or replace function public.follow_general_task_parent()
 returns trigger
@@ -462,7 +481,10 @@ begin
     return null;
   end if;
 
-  if old.routing_state = 'released' and new.routing_state = 'planning'
+  if old.routing_state = 'released'
+     and (new.routing_state = 'planning'
+          or (new.routing_state = 'released' and new.team_id is not null
+              and new.team_id is distinct from old.team_id))
      and exists (
        select 1 from public.general_tasks x
          join public.general_projects gp on gp.id = x.project_id
@@ -652,7 +674,8 @@ begin
     raise exception 'Restore the task before changing what it waits for.'
       using errcode = 'check_violation';
   end if;
-  select * into a from public.general_tasks where id = p_task;
+  -- Serialize adding a blocker with a concurrent move to Done.
+  select * into a from public.general_tasks where id = p_task for share;
   if a.parent_id = p_depends_on then
     raise exception 'A subtask can''t wait for its own parent.' using errcode = 'check_violation';
   end if;

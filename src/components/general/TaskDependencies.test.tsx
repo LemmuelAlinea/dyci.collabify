@@ -80,6 +80,15 @@ it('leaves out a task that already waits for this one', async () => {
   expect(picks()).toContain('Task mom')
 })
 
+it('tells the viewer to narrow a picker with more than eight matches', async () => {
+  await render(stateWith({
+    tasks: [task, ...Array.from({ length: 9 }, (_, i) => t(`choice-${i}`))],
+    dependencies: [],
+  }))
+  expect(picks()).toHaveLength(8)
+  expect(document.body.textContent).toContain('Type to narrow')
+})
+
 it('removes a dependency', async () => {
   await render(stateWith())
   await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Stop waiting for Task blocker"]')!.click())
@@ -91,6 +100,25 @@ it('hides the add and remove controls for a viewer without edit rights', async (
   expect(document.body.textContent).toContain('Task blocker')
   expect(searchBox()).toBeNull()
   expect(document.querySelector('[aria-label="Stop waiting for Task blocker"]')).toBeNull()
+})
+
+it('lets the receiving team lead link an unassigned released task', async () => {
+  const loose = t('loose')
+  await render(stateWith({
+    viewerId: 'lead', myRole: 'member', can: () => false,
+    tasks: [loose, t('other')], dependencies: [],
+  }), loose)
+  expect(searchBox()).not.toBeNull()
+})
+
+it('hides link controls after the receiving team is archived', async () => {
+  const loose = t('loose')
+  await render(stateWith({
+    viewerId: 'lead', myRole: 'member', can: () => false,
+    teams: [{ id: 'a', leader_id: 'lead', archived_at: '2026-11-01' }],
+    tasks: [loose, t('other')], dependencies: [],
+  }), loose)
+  expect(searchBox()).toBeNull()
 })
 
 it('hides the add control when dependencies are off, but still lists links', async () => {

@@ -149,6 +149,20 @@ it('shows the nearest allowed stage when the saved one is the last', async () =>
   expect(host.textContent).not.toContain('because of the QA stage')
 })
 
+it('does not blame QA when the last stage alone limits the starting stage', async () => {
+  await show(makeState({}, { has_qa: true, taskRules: { ...DEFAULT_TASK_RULES, defaultStage: 2 } }))
+  expect(host.textContent).not.toContain('because of the QA stage')
+})
+
+it('keeps unsaved rule choices through unrelated project updates and resets for a new project', async () => {
+  await show(makeState())
+  await choose(select('Default priority')!, 'urgent')
+  await show(makeState({}, { updated_at: 't2' }))
+  expect(select('Default priority')!.value).toBe('urgent')
+  await show(makeState({}, { id: 'p2', updated_at: 't2' }))
+  expect(select('Default priority')!.value).toBe('normal')
+})
+
 it('saves the task rules as snake_case columns in one call', async () => {
   await show(makeState())
   await choose(select('Default priority')!, 'urgent')

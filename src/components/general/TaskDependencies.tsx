@@ -1,7 +1,6 @@
 // src/components/general/TaskDependencies.tsx
 import { useState } from 'react'
 import { addDependency, removeDependency } from '../../lib/api/general'
-import { canEditTask } from '../../lib/general/permissions'
 import { DEFAULT_TASK_RULES, blockersOf } from '../../lib/general/taskRules'
 import type { GeneralTask } from '../../lib/general/types'
 import { stageName } from '../../lib/stages'
@@ -15,19 +14,17 @@ const PICKER_LIMIT = 8
 /**
  * Whether the viewer may change what this task waits for, as
  * general_task_links_editable allows: the project manager or a coordinator,
- * the team's lead once released, or a holder. It also needs edit rights.
+ * the team's active lead once released, or a holder.
  */
 function mayLink(state: GeneralProjectState, task: GeneralTask): boolean {
   const me = state.viewerId
   const role = state.myRole
-  if (!me || state.readOnly || state.project?.class_board_id || !role || role === 'stakeholder') return false
-  const viewer = { viewerId: me, manageTasks: state.can('manage_tasks'), archived: state.readOnly, leadsUser: state.leadsUser }
-  if (!canEditTask(viewer, task)) return false
+  if (!me || state.readOnly || state.project?.class_board_id || !role || role === 'stakeholder' || task.archived_at) return false
   if (role === 'pm' || role === 'coordinator') return true
   if (task.assignee_ids.includes(me)) return true
   return (
     (task.routing_state ?? 'released') === 'released' &&
-    state.teams.some((t) => t.id === task.team_id && t.leader_id === me) &&
+    state.teams.some((t) => t.id === task.team_id && t.leader_id === me && !t.archived_at) &&
     state.teamMembers.some((m) => m.team_id === task.team_id && m.user_id === me)
   )
 }
@@ -77,12 +74,12 @@ export function TaskDependencies({
   const excluded = new Set<string>([task.id, ...blockers.map((b) => b.id), ...waitingOnTask(state, task.id)])
   if (task.parent_id) excluded.add(task.parent_id)
   const needle = query.trim().toLowerCase()
-  const candidates = picking
+  const matches = picking
     ? state.tasks
         .filter((t) => !excluded.has(t.id) && t.parent_id !== task.id && !t.archived_at)
         .filter((t) => !needle || t.title.toLowerCase().includes(needle))
-        .slice(0, PICKER_LIMIT)
     : []
+  const candidates = matches.slice(0, PICKER_LIMIT)
 
   return (
     <section>
@@ -149,6 +146,7 @@ export function TaskDependencies({
             ))}
             {!candidates.length && <li className="px-3 text-[13px] text-faint">No tasks to add.</li>}
           </ul>
+          {matches.length > PICKER_LIMIT && <p className="text-[12px] text-muted">Showing 8 of {matches.length} tasks. Type to narrow.</p>}
         </div>
       )}
     </section>

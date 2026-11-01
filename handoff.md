@@ -4073,8 +4073,8 @@ check confirmed the live database has no `visibility`, `color`, `icon` or
 ## Task priority, subtasks, dependencies and rules (2026-11-01)
 
 Phase 2 group 2 from the Project Settings PDF (section C, Task Management). Spec:
-`docs/superpowers/specs/2026-11-01-project-settings-tasks-design.md`. Built on local `main`
-(commits `f3fa93d` to `726859f`), **not live and not pushed**.
+`docs/superpowers/specs/2026-11-01-project-settings-tasks-design.md`. Built on local `main`,
+**not live and not pushed**.
 
 - **Database** (`supabase/project-task-rules.sql`, suite `supabase/tests/project-task-rules.test.sql`):
   seven `general_projects` rule columns (`default_priority`, `default_stage`,
@@ -4097,11 +4097,19 @@ Phase 2 group 2 from the Project Settings PDF (section C, Task Management). Spec
   `node scripts/db.mjs supabase/project-task-rules.sql supabase/anon-lockdown.sql`, then a
   read-only check of the columns, the table, the functions and the triggers, then re-run the
   suites, then push `main`.
+- **Final review fixes:** direct writes cannot attach a subtask to a Done or archived parent or
+  make one on a class board; an open subtask cannot be restored or reopened under a Done parent;
+  rerouting a parent with a subtask in QA or Done is refused. The dependency picker now lets the
+  active lead link an unassigned released task, warns when more than eight matches are available,
+  and Settings keeps unsaved rule choices through unrelated project updates. The schema-drift
+  script's order now matches the restore command in `docs/07-backup.md`. Adding a dependency
+  holds a row lock on the waiting task so a concurrent Done update sees the blocker.
 - **Dry runs** (this file spliced into each suite, rolled back; no enum swaps needed):
-  `project-task-rules` 104 pass, `general-tasks` 49, `task-stages` 20, `project-qa` 139,
+  `project-task-rules` 110 pass, `general-tasks` 49, `task-stages` 20, `project-qa` 139,
   `work-task-handoff` 304, `task-archive` 20, `project-roles` 161,
   `project-settings-general` 49, `sprint-settings` 66, `rls-coverage` 4, none failing. Build,
-  the full vitest run (1537 tests), eslint on the changed files and `scripts/contrast.mjs` are green.
+  the full vitest run (1542 tests), eslint on the changed files and `scripts/contrast.mjs` are green.
+  Re-running the rules migration twice inside the rolled-back suite also passes all 110 checks.
   The live database has none of the columns, the table or the functions yet.
 - **Known notes:** a direct API batch that names a subtask logs an extra history event. The
   project-team-leads suite has one failure that predates this work.

@@ -23,13 +23,22 @@
 import { readFileSync } from 'node:fs'
 
 // The order docs/07-backup.md rebuilds in. Keep the two in step.
-const ORDER = `schema classes groups tasks task-points task-detail task-claim-limit
-task-unclaim task-status-owner solo-auto-claim deadline-lock submissions
-reassignments results syllabus syllabus-assessments polls messages dashboard
-realtime recover-work removed-visible class-restore approvals accounts audit
-admin-rename calendar analytics analytics-insight reports student-reports
-admin-program program-notices program-registry safety live notifications rate-limit class-notices
-consent privacy-requests term-shifts hardening workplaces general general-tasks general-notify presets general-repo general-files general-drafts general-history general-schedule general-schedule-guard general-spaces general-space-teams general-project-archive general-archive-rbac general-folders general-draft-restore general-project-archive-rbac general-reports general-project-space access one-workplace cleanup admin-invitable notification-coverage inbox class-files general-draft-commit teaching-guards meetings storage-sweep trash appearance analytics-trends peer-evaluation scoring class-notes report-notes report-deliverables report-events task-stages company-accounts project-roles project-visibility project-team-leads project-stakeholders project-feedback project-qa member-skills project-files-access sprint-archive project-requests project-team-archive work-task-handoff anon-lockdown`.split(/\s+/)
+const ORDER = `schema classes groups projects tasks task-points task-detail task-claim-limit
+task-unclaim task-status-owner solo-auto-claim deadline-lock submissions reassignments results syllabus
+syllabus-assessments polls messages dashboard realtime recover-work removed-visible class-restore
+approvals accounts audit admin-rename calendar analytics analytics-insight reports
+student-reports admin-program program-notices program-registry safety live notifications rate-limit
+class-notices project-series indexes consent privacy-requests term-shifts hardening workplaces
+general general-tasks general-notify presets general-repo general-files general-drafts general-history
+general-schedule general-schedule-guard general-spaces general-space-teams general-project-archive general-archive-rbac general-folders general-draft-restore
+general-project-archive-rbac general-reports general-project-space access one-workplace cleanup admin-invitable notification-coverage
+inbox class-files general-draft-commit teaching-guards meetings general-shares general-discussions discussion-polls-voice
+storage-sweep trash appearance automation work-automation task-archive archive-page join-codes
+anon-lockdown section-faculty announcement-links group-leader discussion-edit-delete class-schedule work-planning class-planning
+work-milestones class-milestones sprint-milestones analytics-trends peer-evaluation scoring class-notes report-notes
+report-deliverables report-events task-stages company-accounts project-roles project-visibility project-team-leads project-stakeholders
+project-feedback project-qa member-skills project-files-access sprint-archive sprint-reopen sprint-settings project-requests
+project-team-archive work-task-handoff project-settings-general project-task-rules anon-lockdown`.split(/\s+/)
 
 const seen = new Map()
 for (const name of ORDER) {
