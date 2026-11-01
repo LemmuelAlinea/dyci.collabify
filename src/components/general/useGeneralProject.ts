@@ -18,7 +18,7 @@ import {
 } from '../../lib/api/general'
 import type { CommitRights } from '../../lib/api/general'
 import { listMilestones } from '../../lib/api/milestones'
-import { listSprints } from '../../lib/api/sprints'
+import { getSprintSettings, listSprints } from '../../lib/api/sprints'
 import { authErrorMessage } from '../../lib/authError'
 import { can as canDo, canAs } from '../../lib/general/permissions'
 import type { GeneralPermission, ProjectRole } from '../../lib/general/permissions'
@@ -39,6 +39,7 @@ import type {
   GeneralTeamMember,
 } from '../../lib/general/types'
 import { fullName } from '../../lib/types'
+import { DEFAULT_SPRINT_SETTINGS, type SprintSettings } from '../../lib/work/sprintSettings'
 import type { Milestone, Sprint } from '../../lib/work/types'
 
 const NO_RIGHTS: CommitRights = { commit: false, grant: false, board: false, committers: [] }
@@ -59,6 +60,7 @@ export type GeneralProjectState = {
   tasks: GeneralTask[]
   /** Oldest start first. */
   sprints: Sprint[]
+  sprintSettings: SprintSettings
   /** Soonest due first. */
   milestones: Milestone[]
   loading: boolean
@@ -135,6 +137,7 @@ export function useGeneralProject(
   const [values, setValues] = useState<GeneralFieldValue[]>([])
   const [tasks, setTasks] = useState<GeneralTask[]>([])
   const [sprints, setSprints] = useState<Sprint[]>([])
+  const [sprintSettings, setSprintSettings] = useState<SprintSettings>(DEFAULT_SPRINT_SETTINGS)
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -162,12 +165,13 @@ export function useGeneralProject(
         setValues([])
         setTasks([])
         setSprints([])
+        setSprintSettings(DEFAULT_SPRINT_SETTINGS)
         setMilestones([])
         setCommitRights(NO_RIGHTS)
         setError(null)
         return
       }
-      const [m, g, r, t, tm, p, h, sk, f, tk, sp, ms, cr] = await Promise.all([
+      const [m, g, r, t, tm, p, h, sk, f, tk, sp, ms, cr, ss] = await Promise.all([
         listGeneralMembers(projectId),
         listGrants(projectId),
         listAccessRequests(projectId),
@@ -181,6 +185,8 @@ export function useGeneralProject(
         listSprints({ kind: 'work', projectId }),
         listMilestones({ kind: 'work', projectId }),
         getCommitRights(projectId).catch(() => NO_RIGHTS),
+        // A project still loads when the settings table is not there yet.
+        getSprintSettings(projectId).catch(() => DEFAULT_SPRINT_SETTINGS),
       ])
       setMembers(m)
       setGrants(g)
@@ -195,6 +201,7 @@ export function useGeneralProject(
       setFields(f)
       setTasks(tk)
       setSprints(sp)
+      setSprintSettings(ss)
       setMilestones(ms)
       setCommitRights(cr)
       setValues(await listFieldValues(f.map((x) => x.id)))
@@ -230,6 +237,7 @@ export function useGeneralProject(
     'general_task_assignees',
     'general_task_events',
     'general_sprints',
+    'general_sprint_settings',
     'general_milestones',
     // A class board's Commit to Main follows its group's leader.
     'groups',
@@ -271,6 +279,7 @@ export function useGeneralProject(
       values,
       tasks,
       sprints,
+      sprintSettings,
       milestones,
       loading,
       missing: !loading && !project && !error,
@@ -303,5 +312,5 @@ export function useGeneralProject(
       qaBlocks: (from: number, to: number) =>
         qaBlocks({ hasQa: Boolean(project?.has_qa), role: myRole }, project?.stages, project?.qa_stage, from, to),
     }
-  }, [project, members, grants, requests, teams, teamMembers, positions, holders, skills, fields, values, tasks, sprints, milestones, loading, error, reload, viewerId, commitRights])
+  }, [project, members, grants, requests, teams, teamMembers, positions, holders, skills, fields, values, tasks, sprints, sprintSettings, milestones, loading, error, reload, viewerId, commitRights])
 }

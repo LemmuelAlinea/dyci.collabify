@@ -3,6 +3,7 @@
  * YYYY-MM-DD strings read as local midnight, the way a project's dates are,
  * so a sprint ending "the 18th" ends on the 18th wherever the reader is.
  */
+import { startWeekdayOf, type SprintSettings } from './sprintSettings'
 import type { Milestone, Sprint, SprintInput, WorkItem } from './types'
 
 export const SPRINT_DAYS = 14
@@ -60,16 +61,25 @@ export function daysLeftLabel(n: number) {
   return `Ended ${1 - n} days ago`
 }
 
-/** The next sprint: named in sequence, starting the day after the latest one ends, or today. */
-export function nextSprintDraft(sprints: readonly Sprint[], now = Date.now()): SprintInput {
+/**
+ * The next sprint: named in sequence, starting the day after the latest one ends, or today.
+ * With a project's settings it runs that many days and starts on the first set weekday
+ * from there; without them (a class board) it runs 14 days from that day.
+ */
+export function nextSprintDraft(sprints: readonly Sprint[], now = Date.now(), settings?: SprintSettings): SprintInput {
   const today = toDay(now)
   const latest = sprints.reduce<string | null>((max, s) => (max && max > s.ends_on ? max : s.ends_on), null)
-  const startsOn = latest && addDays(latest, 1) > today ? addDays(latest, 1) : today
+  let startsOn = latest && addDays(latest, 1) > today ? addDays(latest, 1) : today
+  if (settings) {
+    const weekday = startWeekdayOf(settings, sprints)
+    const [y, m, d] = startsOn.split('-').map(Number)
+    startsOn = addDays(startsOn, (weekday - new Date(y, m - 1, d).getDay() + 7) % 7)
+  }
   return {
     name: `Sprint ${sprints.length + 1}`,
     goal: '',
     startsOn,
-    endsOn: addDays(startsOn, SPRINT_DAYS - 1),
+    endsOn: addDays(startsOn, (settings?.lengthDays ?? SPRINT_DAYS) - 1),
   }
 }
 

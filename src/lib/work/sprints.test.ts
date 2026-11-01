@@ -13,6 +13,7 @@ import {
   sprintLength,
   sprintTimeline,
 } from './sprints'
+import { DEFAULT_SPRINT_SETTINGS } from './sprintSettings'
 import type { Sprint, WorkItem } from './types'
 
 const sprint = (over: Partial<Sprint> = {}): Sprint => ({
@@ -121,6 +122,36 @@ describe('nextSprintDraft', () => {
   })
   it('never starts in the past', () => {
     expect(nextSprintDraft([sprint({ ends_on: '2026-01-10' })], noon('2026-10-06')).startsOn).toBe('2026-10-06')
+  })
+  it('keeps 14 days without settings', () => {
+    const draft = nextSprintDraft([sprint({ ends_on: '2026-11-11' })], noon('2026-10-06'))
+    expect(draft.startsOn).toBe('2026-11-12')
+    expect(draft.endsOn).toBe('2026-11-25')
+  })
+  describe('with settings', () => {
+    const weekly = { ...DEFAULT_SPRINT_SETTINGS, lengthDays: 7, startWeekday: 4 }
+    it('uses the set length and starts on the set weekday', () => {
+      // The 12th is a Thursday, the day after a Wednesday ends.
+      const draft = nextSprintDraft([sprint({ ends_on: '2026-11-11' })], noon('2026-10-06'), weekly)
+      expect(draft.startsOn).toBe('2026-11-12')
+      expect(draft.endsOn).toBe('2026-11-18')
+    })
+    it('moves forward to the next set weekday', () => {
+      const draft = nextSprintDraft([sprint({ ends_on: '2026-11-12' })], noon('2026-10-06'), weekly)
+      expect(draft.startsOn).toBe('2026-11-19')
+      expect(draft.endsOn).toBe('2026-11-25')
+    })
+    it('aligns today when nothing is ahead', () => {
+      // 2026-10-06 is a Tuesday; the next Thursday is the 8th.
+      expect(nextSprintDraft([], noon('2026-10-06'), weekly).startsOn).toBe('2026-10-08')
+    })
+    it('follows the first sprint day when none is saved', () => {
+      const settings = { ...DEFAULT_SPRINT_SETTINGS, lengthDays: 10 }
+      // The sprint helper starts on Monday 2026-10-05, so the next one starts on a Monday.
+      const draft = nextSprintDraft([sprint({ ends_on: '2026-11-12' })], noon('2026-10-06'), settings)
+      expect(draft.startsOn).toBe('2026-11-16')
+      expect(draft.endsOn).toBe('2026-11-25')
+    })
   })
 })
 

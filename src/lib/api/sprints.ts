@@ -5,6 +5,7 @@
  * and supabase/class-planning.sql. These calls only say what to do.
  */
 import { supabase } from '../supabase'
+import { DEFAULT_SPRINT_SETTINGS, type SprintCarry, type SprintSettings } from '../work/sprintSettings'
 import type { Sprint, SprintInput } from '../work/types'
 
 export type SprintHome = { kind: 'work'; projectId: string } | { kind: 'class'; boardId: string }
@@ -111,4 +112,58 @@ export async function setTaskRank(home: SprintHome, taskId: string, rank: number
   const { data, error } = await supabase.from(TASKS[home.kind]).update({ rank }).eq('id', taskId).select('id')
   if (error) throw error
   touched(data, 'That task could not move. Reload the page and try again.')
+}
+
+type SettingsRow = {
+  auto_finish: boolean
+  auto_start: boolean
+  carry: SprintCarry
+  length_days: number
+  start_weekday: number | null
+  run_at: string
+}
+
+/** The project's saved sprint settings, or the defaults when it has none. */
+export async function getSprintSettings(projectId: string): Promise<SprintSettings> {
+  const { data, error } = await supabase
+    .from('general_sprint_settings')
+    .select('auto_finish, auto_start, carry, length_days, start_weekday, run_at')
+    .eq('project_id', projectId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return DEFAULT_SPRINT_SETTINGS
+  const row = data as SettingsRow
+  return {
+    autoFinish: row.auto_finish,
+    autoStart: row.auto_start,
+    carry: row.carry,
+    lengthDays: row.length_days,
+    startWeekday: row.start_weekday,
+    // Postgres returns 09:00:00.
+    runAt: row.run_at.slice(0, 5),
+  }
+}
+
+/** Project manager and coordinators only; the database owns the rest of the row. */
+export async function saveSprintSettings(projectId: string, s: SprintSettings) {
+  const { data, error } = await supabase
+    .from('general_sprint_settings')
+    .upsert(
+      {
+        project_id: projectId,
+        auto_finish: s.autoFinish,
+        auto_start: s.autoStart,
+        carry: s.carry,
+        length_days: s.lengthDays,
+        start_weekday: s.startWeekday,
+        run_at: s.runAt,
+      },
+      { onConflict: 'project_id' },
+    )
+    .select('project_id')
+  if (error) throw error
+  touched(
+    data,
+    'Those sprint settings did not save. You may not be allowed to change them, or the project is archived. Reload to see where things stand.',
+  )
 }
