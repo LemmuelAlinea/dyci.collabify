@@ -19,7 +19,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue } from '../../lib/general/dates'
 import { canCreateWorkTask, canEditTask } from '../../lib/general/permissions'
 import { EMPTY_PRIORITY_VIEW, filterByPriority, priorityActive, prioritySummary, sortByPriority } from '../../lib/general/taskFilters'
-import { taskMarks } from '../../lib/general/taskRules'
+import { taskMarkIndex } from '../../lib/general/taskRules'
 import type { TaskMarkData } from '../../lib/general/taskRules'
 import { projectProgress } from '../../lib/general/progress'
 import { STAGE_TONE, nextStep, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
@@ -87,6 +87,9 @@ export function TasksTab({
   const stages = stagesOf(project?.stages)
   const released = useMemo(() => state.tasks.filter(t => project?.class_board_id || (t.routing_state ?? 'released') === 'released'), [state.tasks, project?.class_board_id])
   const scoped = useMemo(() => applyScope(released, scope, state.sprints), [released, scope, state.sprints])
+  // Subtask counts and blockers for every card, from lookups built once per change.
+  const dependencies = state.dependencies
+  const marksFor = useMemo(() => taskMarkIndex(released, dependencies ?? []), [released, dependencies])
   const ownUnsentBugs = state.myRole === 'qa' && !project?.class_board_id && state.viewerId
     ? state.tasks.filter(t => t.created_by === state.viewerId && t.kind === 'bug' && t.routing_state && t.routing_state !== 'released')
     : []
@@ -114,7 +117,7 @@ export function TasksTab({
   const progress = projectProgress(scoped)
   // Subtasks and waiting are a work project's; a class board's tasks have neither.
   const marksOf = (t: GeneralTask): TaskMarkData | null =>
-    project.class_board_id ? null : taskMarks(t, released, state.dependencies ?? [])
+    project.class_board_id ? null : marksFor(t)
   const unassigned = scoped.filter((t) => t.assignee_ids.length === 0 && t.status !== 'done').length
   // QA raises bugs and passes tasks; it does not draft task lists from notes.
   const mayDraft = project.class_board_id ? state.myRole !== 'qa' : canCreateWorkTask(state.myRole, 'task')
@@ -508,7 +511,7 @@ function TaskCard({
         <div className="pointer-events-none mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-faint">
           {marks.partOf && <span className="max-w-full truncate">{marks.partOf}</span>}
           <SubtaskCount progress={marks.subtasks} />
-          <WaitingMarker blockers={marks.blockers} />
+          <WaitingMarker blockers={marks.blockers} onOpen={onOpen} />
         </div>
       )}
 
@@ -623,7 +626,7 @@ function TaskTable({
                     <PriorityBadge priority={t.priority} />
                     {marks?.partOf && <span className="max-w-[200px] truncate">{marks.partOf}</span>}
                     <SubtaskCount progress={marks?.subtasks ?? null} />
-                    <WaitingMarker blockers={marks?.blockers ?? []} />
+                    <WaitingMarker blockers={marks?.blockers ?? []} onOpen={() => onOpen(t.id)} />
                     {teamName && <span>{teamName}</span>}
                     {t.file_count > 0 && (
                       <span className="flex items-center gap-1">

@@ -23,13 +23,14 @@ afterEach(async () => {
 })
 
 it.each([
-  ['urgent', 'Urgent', 'danger'],
-  ['high', 'High', 'warning'],
-  ['low', 'Low', 'pending'],
-] as const)('shows a %s badge in its status ramp', async (priority, label, ramp) => {
+  ['urgent', 'Urgent', ['bg-danger-500/15', 'text-danger-700', 'dark:text-danger-300']],
+  ['high', 'High', ['bg-warning-400/18', 'text-warning-700', 'dark:text-warning-300']],
+  ['low', 'Low', ['bg-pending-soft', 'text-pending-ink']],
+] as const)('shows a %s badge in its status ramp', async (priority, label, tokens) => {
   const el = await render(priority)
   expect(el.textContent).toBe(label)
-  expect(el.innerHTML).toContain(ramp)
+  const classes = el.firstElementChild!.className.split(' ')
+  for (const token of tokens) expect(classes).toContain(token)
 })
 
 it.each(['normal', undefined] as const)('shows nothing for %s', async (priority) => {

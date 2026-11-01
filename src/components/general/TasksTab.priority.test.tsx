@@ -27,15 +27,19 @@ function stateWith(tasks: unknown[], over: Record<string, unknown> = {}, classBo
   } as unknown as GeneralProjectState
 }
 
+const onOpenTask = vi.fn()
 let container: HTMLDivElement
 let root: ReturnType<typeof createRoot>
 async function render(state: GeneralProjectState, layout: 'board' | 'list' = 'board') {
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
-  await act(async () => root.render(<TasksTab state={state} layout={layout} onLayout={vi.fn()} onViewBoard={vi.fn()} scope="all" onScope={vi.fn()} onOpenTask={vi.fn()} />))
+  await act(async () => root.render(<TasksTab state={state} layout={layout} onLayout={vi.fn()} onViewBoard={vi.fn()} scope="all" onScope={vi.fn()} onOpenTask={onOpenTask} />))
 }
-beforeEach(() => localStorage.clear())
+beforeEach(() => {
+  localStorage.clear()
+  onOpenTask.mockClear()
+})
 afterEach(async () => {
   await act(async () => root.unmount())
   container.remove()
@@ -77,6 +81,24 @@ it('marks a task that waits on an open blocker, with a tooltip naming it', async
   expect(marker.textContent).toContain('Waiting')
   expect(marker.getAttribute('title')).toBe('Waiting for Design the form')
   expect(cardOf('free').querySelector('[title^="Waiting for"]')).toBeNull()
+})
+
+it('makes the waiting marker reachable, named for every blocker, and a way into the task', async () => {
+  const tasks = [task('x'), task('one', { title: 'Design login' }), task('two', { title: 'API spec' })]
+  const dependencies = [{ task_id: 'x', depends_on_id: 'one' }, { task_id: 'x', depends_on_id: 'two' }]
+  await render(stateWith(tasks, { dependencies }))
+  const marker = cardOf('x').querySelector<HTMLElement>('[title^="Waiting for"]')!
+  // Accessible by name and by keyboard, not only by a hover tooltip.
+  expect(marker.getAttribute('aria-label')).toBe('Waiting for: Design login, API spec')
+  expect(marker.tagName).toBe('BUTTON')
+  expect(marker.tabIndex).toBe(0)
+  // Positioned above the card's full-card button (absolute, z-0), or it never receives the pointer.
+  const overlay = cardOf('x').querySelector('[aria-label="Open Task x"]')!
+  expect(overlay.className).toContain('absolute')
+  expect(overlay.className).toContain('z-0')
+  expect(marker.className.split(' ')).toEqual(expect.arrayContaining(['relative', 'z-10']))
+  await click(marker)
+  expect(onOpenTask).toHaveBeenCalledExactlyOnceWith('x')
 })
 
 it('shows the same marks in the list layout', async () => {

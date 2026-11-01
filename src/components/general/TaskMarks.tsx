@@ -13,16 +13,24 @@ export function SubtaskCount({ progress }: { progress: { done: number; total: nu
   )
 }
 
-/** A small marker on a task that waits for open work; its tooltip names what. */
-export function WaitingMarker({ blockers }: { blockers: GeneralTask[] }) {
+/**
+ * A small marker on a task that waits for open work. It is a button, so a
+ * keyboard or touch user reaches it; its name lists the blockers, and pressing
+ * it opens the task, where they are listed. `relative z-10` lifts it over a
+ * card's full-card button, which would otherwise take the pointer.
+ */
+export function WaitingMarker({ blockers, onOpen }: { blockers: GeneralTask[]; onOpen?: () => void }) {
   if (blockers.length === 0) return null
   const names = blockers.map((b) => b.title).join(', ')
   return (
-    <span
+    <button
+      type="button"
+      onClick={onOpen}
       title={`Waiting for ${names}`}
-      className="pointer-events-auto inline-flex shrink-0 items-center rounded-md bg-warning-400/18 px-1.5 py-0.5 text-[11px] font-medium text-warning-700 dark:text-warning-300"
+      aria-label={`Waiting for: ${names}`}
+      className="pointer-events-auto relative z-10 inline-flex shrink-0 items-center rounded-md bg-warning-400/18 px-1.5 py-0.5 text-[11px] font-medium text-warning-700 dark:text-warning-300"
     >
       Waiting
-    </span>
+    </button>
   )
 }

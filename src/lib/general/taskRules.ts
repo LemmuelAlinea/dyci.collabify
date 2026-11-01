@@ -77,13 +77,38 @@ export type TaskMarkData = {
   blockers: GeneralTask[]
 }
 
-/** `tasks` is what the viewer can see, so a subtask still being planned is not counted. */
-export function taskMarks(task: GeneralTask, tasks: GeneralTask[], deps: TaskDependency[]): TaskMarkData {
-  const progress = subtaskProgress(tasks, task.id)
-  const parent = task.parent_id ? tasks.find((t) => t.id === task.parent_id) : undefined
-  return {
-    subtasks: progress.total > 0 ? progress : null,
-    partOf: task.parent_id ? (parent ? `Part of ${parent.title}` : 'Subtask') : null,
-    blockers: task.status === 'done' ? [] : blockersOf(deps, tasks, task.id),
+/**
+ * The marks for each task, from lookups built once. `tasks` is what the viewer
+ * can see, so a subtask still being planned is not counted. Same answers as
+ * subtaskProgress and blockersOf, without a pass over every task per card.
+ */
+export function taskMarkIndex(tasks: GeneralTask[], deps: TaskDependency[]): (task: GeneralTask) => TaskMarkData {
+  const byId = new Map(tasks.map((t) => [t.id, t]))
+  const progress = new Map<string, { done: number; total: number }>()
+  for (const t of tasks) {
+    if (!t.parent_id) continue
+    const p = progress.get(t.parent_id) ?? { done: 0, total: 0 }
+    p.total += 1
+    if (t.status === 'done') p.done += 1
+    progress.set(t.parent_id, p)
+  }
+  const waitsFor = new Map<string, string[]>()
+  for (const d of deps) waitsFor.set(d.task_id, [...(waitsFor.get(d.task_id) ?? []), d.depends_on_id])
+
+  return (task) => {
+    const parent = task.parent_id ? byId.get(task.parent_id) : undefined
+    const blockers: GeneralTask[] = []
+    if (task.status !== 'done') {
+      for (const id of waitsFor.get(task.id) ?? []) {
+        const blocker = byId.get(id)
+        // A blocker missing from the list (archived, say) does not block, as in the database.
+        if (blocker && blocker.status !== 'done') blockers.push(blocker)
+      }
+    }
+    return {
+      subtasks: progress.get(task.id) ?? null,
+      partOf: task.parent_id ? (parent ? `Part of ${parent.title}` : 'Subtask') : null,
+      blockers,
+    }
   }
 }
