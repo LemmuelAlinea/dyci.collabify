@@ -63,6 +63,27 @@ export function blockersOf(deps: TaskDependency[], tasks: GeneralTask[], id: str
 const RANK = new Map<TaskPriority, number>(PRIORITIES.map((p, i) => [p.value, i]))
 
 /** Sort order: urgent first, low last. A task without a priority counts as normal. */
-export function comparePriority(a: Pick<GeneralTask, 'priority'>, b: Pick<GeneralTask, 'priority'>): number {
+export function comparePriority(a: { priority?: TaskPriority }, b: { priority?: TaskPriority }): number {
   return (RANK.get(a.priority ?? 'normal') ?? 0) - (RANK.get(b.priority ?? 'normal') ?? 0)
+}
+
+/** What a work task's card says about its subtasks and what it waits for. */
+export type TaskMarkData = {
+  /** The subtasks done and in all; null on a task without any. */
+  subtasks: { done: number; total: number } | null
+  /** "Part of {parent}", or "Subtask" while the parent is not in the list; null on a top-level task. */
+  partOf: string | null
+  /** Open tasks this one waits for. */
+  blockers: GeneralTask[]
+}
+
+/** `tasks` is what the viewer can see, so a subtask still being planned is not counted. */
+export function taskMarks(task: GeneralTask, tasks: GeneralTask[], deps: TaskDependency[]): TaskMarkData {
+  const progress = subtaskProgress(tasks, task.id)
+  const parent = task.parent_id ? tasks.find((t) => t.id === task.parent_id) : undefined
+  return {
+    subtasks: progress.total > 0 ? progress : null,
+    partOf: task.parent_id ? (parent ? `Part of ${parent.title}` : 'Subtask') : null,
+    blockers: task.status === 'done' ? [] : blockersOf(deps, tasks, task.id),
+  }
 }

@@ -7,6 +7,8 @@ import { DirectoryHero } from '../../../components/app/DirectoryHero'
 import { ArchivedTasksModal } from '../../../components/general/ArchivedTasksModal'
 import type { ArchivedTaskItem } from '../../../components/general/ArchivedTasksModal'
 import { MyTasksPanel } from '../../../components/general/DashboardPanels'
+import { PriorityFilter } from '../../../components/general/PriorityFilter'
+import { usePriorityView } from '../../../components/general/usePriorityView'
 import { TaskDialog } from '../../../components/general/TaskDialog'
 import { useGeneralProject } from '../../../components/general/useGeneralProject'
 import { TaskDetailModal } from '../../../components/tasks/detail/TaskDetailModal'
@@ -15,6 +17,7 @@ import type { MyTaskItem } from '../../../components/tasks/MyTasksViews'
 import { Alert } from '../../../components/ui/Alert'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { EmptyState } from '../../../components/ui/EmptyState'
+import { FilterPopover } from '../../../components/ui/FilterPopover'
 import { ScopeFilter } from '../../../components/ui/ScopeFilter'
 import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
@@ -26,6 +29,13 @@ import type { MyTask } from '../../../lib/api/tasks'
 import { membershipOf, showsClassScope } from '../../../lib/access'
 import { authErrorMessage } from '../../../lib/authError'
 import { myTasks as myOpenWorkTasks } from '../../../lib/general/dashboard'
+import {
+  EMPTY_PRIORITY_VIEW,
+  filterByPriority,
+  priorityActive,
+  prioritySummary,
+  sortByPriority,
+} from '../../../lib/general/taskFilters'
 import { paths } from '../../../lib/paths'
 import { readMyTasksView, writeMyTasksView } from '../../../lib/myTasksView'
 import { readScope, writeScope } from '../../../lib/scope'
@@ -157,6 +167,8 @@ export default function MyTasks() {
   const filtered = isStudent && showsClassScope(profile, membershipOf(general.spaces, general.myProjects))
   const scope = filtered ? readScope(params) : isStudent ? 'all' : 'work'
   const view = readMyTasksView(params)
+  // Which priorities to show and whether to sort by priority; remembered on this device.
+  const [priorityView, setPriorityView] = usePriorityView('my-tasks')
 
   // Class boards only ever assign work to students — a professor or admin
   // reading this page has none, so their load is a no-op rather than a
@@ -285,6 +297,18 @@ export default function MyTasks() {
     [profile, dashData],
   )
 
+  // "Part of {parent}" for a subtask. The parent's title comes from the open tasks already
+  // loaded for every project; a parent that is not among them (done, say) reads as "Subtask".
+  const openTitles = useMemo(() => new Map((dashData?.tasks ?? []).map((t) => [t.id, t.title])), [dashData])
+  const partOf = useCallback(
+    (t: GeneralTask) => {
+      if (!t.parent_id) return null
+      const title = openTitles.get(t.parent_id)
+      return title ? `Part of ${title}` : 'Subtask'
+    },
+    [openTitles],
+  )
+
   function showTask(id: string | null) {
     const next = new URLSearchParams(params)
     if (id) next.set('task', id)
@@ -307,8 +331,17 @@ export default function MyTasks() {
   }
 
   // Scoped down to what the All · Classes · Work filter should show.
-  const classFiltered = useMemo(() => (scope === 'work' ? [] : (classTasks ?? [])), [scope, classTasks])
-  const workFiltered = scope === 'classes' ? [] : workTasks
+  const classInScope = useMemo(() => (scope === 'work' ? [] : (classTasks ?? [])), [scope, classTasks])
+  const workInScope = useMemo(() => (scope === 'classes' ? [] : workTasks), [scope, workTasks])
+  // The Priority filter reads a class task, which has none, as normal.
+  const classFiltered = useMemo(
+    () => filterByPriority(classInScope, priorityView.priorities),
+    [classInScope, priorityView.priorities],
+  )
+  const workFiltered = useMemo(() => {
+    const kept = filterByPriority(workInScope, priorityView.priorities)
+    return priorityView.sort === 'priority' ? sortByPriority(kept) : kept
+  }, [workInScope, priorityView])
 
   const grouped = useMemo(() => {
     const map = new Map<BucketId, MyTask[]>()
@@ -372,6 +405,8 @@ export default function MyTasks() {
         files: t.file_count,
         comments: t.comment_count,
         minutes: t.logged_minutes,
+        priority: t.priority,
+        partOf: partOf(t) ?? undefined,
         onOpen: () => showWorkTask(t),
         onStage: (to) => moveWorkTask(t, to),
         noDone: noDone(t),
@@ -387,6 +422,8 @@ export default function MyTasks() {
     myProjects !== null &&
     (dashData !== null || dashError !== null)
   const totalShown = classFiltered.length + workFiltered.length
+  // The filter, not the lists, emptied the page.
+  const emptiedByFilter = priorityView.priorities.length > 0 && totalShown === 0 && classInScope.length + workInScope.length > 0
   const activeBoard = (classTasks ?? []).find((t) => t.id === openTask)
   const loadError = error ?? navError ?? dashError
 
@@ -430,10 +467,23 @@ export default function MyTasks() {
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <MyTasksViewSwitch
-            value={view}
-            onChange={(next) => setParams(writeMyTasksView(params, next), { replace: true })}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <MyTasksViewSwitch
+              value={view}
+              onChange={(next) => setParams(writeMyTasksView(params, next), { replace: true })}
+            />
+            {/* Only work tasks carry a priority; a saved choice keeps its button so it can be cleared. */}
+            {loaded && (workTasks.length > 0 || priorityActive(priorityView) > 0) && (
+              <FilterPopover
+                label="Filter tasks"
+                active={priorityActive(priorityView)}
+                summary={prioritySummary(priorityView).join(' · ')}
+                onClear={() => setPriorityView(EMPTY_PRIORITY_VIEW)}
+              >
+                <PriorityFilter value={priorityView} onChange={setPriorityView} />
+              </FilterPopover>
+            )}
+          </div>
           {filtered && (
             <ScopeFilter
               value={scope}
@@ -456,18 +506,20 @@ export default function MyTasks() {
             <Spinner size={16} />
             Loading your tasks…
           </div>
+        ) : emptiedByFilter ? (
+          <EmptyState icon="search" title="Nothing matches" body="No task has that priority. Clear the filter and try again." />
         ) : totalShown === 0 ? (
           <EmptyState icon="check" art="tasks" title={emptyCopy.title} body={emptyCopy.body} />
         ) : view === 'board' ? (
           <>
-            <MyTaskBoard items={items} showDone={classFiltered.length > 0} now={now} />
+            <MyTaskBoard items={items} showDone={classFiltered.length > 0} now={now} sort={priorityView.sort} />
             <p className="text-[12px] text-faint">
               Only the people on a task can move it. Work tasks leave this page once they are done.
             </p>
           </>
         ) : view === 'list' ? (
           <>
-            <MyTaskList items={items} now={now} />
+            <MyTaskList items={items} now={now} sort={priorityView.sort} />
             <p className="text-[12px] text-faint">
               Only the people on a task can move it. Work tasks leave this page once they are done.
             </p>
@@ -646,6 +698,7 @@ export default function MyTasks() {
                       limit={workFiltered.length}
                       empty="No open work tasks are assigned to you."
                       onOpen={showWorkTask}
+                      partOf={partOf}
                     />
                   </div>
                 </section>

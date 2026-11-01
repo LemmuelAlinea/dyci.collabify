@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { TileEmpty } from '../dashboard/Bento'
+import { PriorityBadge } from './PriorityBadge'
 import { ProjectMark } from './ProjectMark'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
@@ -40,6 +42,7 @@ function Row({
   title,
   context,
   aside,
+  badge,
   late = false,
   flat = false,
 }: {
@@ -50,6 +53,8 @@ function Row({
   title: string
   context: string
   aside?: string
+  /** A mark beside the title, such as a priority. */
+  badge?: ReactNode
   late?: boolean
   flat?: boolean
 }) {
@@ -68,7 +73,14 @@ function Row({
         <Icon name={icon} size={15} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[14px] font-medium text-ink">{title}</span>
+        {badge ? (
+          <span className="flex items-center gap-2">
+            <span className="min-w-0 truncate text-[14px] font-medium text-ink">{title}</span>
+            {badge}
+          </span>
+        ) : (
+          <span className="block truncate text-[14px] font-medium text-ink">{title}</span>
+        )}
         <span className="block truncate text-[12px] text-muted">{context}</span>
       </span>
       {aside && (
@@ -151,6 +163,7 @@ export function MyTasksPanel({
   limit = 6,
   empty = 'No open tasks are assigned to you in this space.',
   onOpen,
+  partOf,
   flat = false,
 }: {
   tasks: GeneralTask[]
@@ -161,6 +174,8 @@ export function MyTasksPanel({
   empty?: string
   /** Open a task where the list is rather than on its project page. */
   onOpen?: (task: GeneralTask) => void
+  /** "Part of {parent}" for a subtask, else null. Left out where the parents are not known. */
+  partOf?: (task: GeneralTask) => string | null
   flat?: boolean
 }) {
   if (tasks.length === 0) return <Quiet flat={flat}>{empty}</Quiet>
@@ -169,6 +184,7 @@ export function MyTasksPanel({
       {tasks.slice(0, limit).map((t) => {
         const late = isOverdue(t.due_at, t.status, now)
         const stage = TASK_STATUSES.find((s) => s.value === t.status)?.label ?? ''
+        const parent = partOf?.(t)
         return (
           <Row
             key={t.id}
@@ -176,8 +192,9 @@ export function MyTasksPanel({
             onClick={onOpen ? () => onOpen(t) : undefined}
             icon="check"
             title={t.title}
-            context={`${projectName(t.project_id)} · ${stage}`}
+            context={`${projectName(t.project_id)} · ${stage}${parent ? ` · ${parent}` : ''}`}
             aside={late ? 'Overdue' : t.due_at ? formatDue(t.due_at) : 'No due date'}
+            badge={t.priority && t.priority !== 'normal' ? <PriorityBadge priority={t.priority} /> : undefined}
             late={late}
             flat={flat}
           />

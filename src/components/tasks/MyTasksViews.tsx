@@ -1,6 +1,10 @@
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import { formatDue, isOverdue } from '../../lib/general/dates'
+import type { PrioritySort } from '../../lib/general/taskFilters'
+import { comparePriority } from '../../lib/general/taskRules'
+import type { TaskPriority } from '../../lib/general/types'
+import { PriorityBadge } from '../general/PriorityBadge'
 import { StageBadge, StageSelect } from './StageSelect'
 import { DEFAULT_STAGES } from '../../lib/stages'
 import { QA_PASSES } from '../../lib/work/qa'
@@ -56,6 +60,10 @@ export type MyTaskItem = {
   files: number
   comments: number
   minutes: number
+  /** Work tasks only; a class task has none. */
+  priority?: TaskPriority
+  /** "Part of {parent}", or "Subtask" when the parent is not among the open tasks. */
+  partOf?: string
   /** Opens the task over this page. */
   onOpen: () => void
   /** The next stage, for tasks this page can move. */
@@ -73,6 +81,13 @@ const COLUMN_TONE: Record<TaskStatus, string> = {
 }
 
 const byDue = (a: MyTaskItem, b: MyTaskItem) => (a.due_at ?? '9999').localeCompare(b.due_at ?? '9999')
+
+/** Soonest due first; with Priority chosen, urgent first and soonest due within each. */
+const orderOf = (sort: PrioritySort) =>
+  sort === 'priority' ? (a: MyTaskItem, b: MyTaskItem) => comparePriority(a, b) || byDue(a, b) : byDue
+
+/** Where a task sits, with its parent when it is a subtask. */
+const whereOf = (t: MyTaskItem) => (t.partOf ? `${t.where} · ${t.partOf}` : t.where)
 
 function Title({ item, className }: { item: MyTaskItem; className: string }) {
   const tone = item.status === 'done' ? 'text-muted line-through' : 'text-ink'
@@ -138,16 +153,18 @@ export function MyTaskBoard({
   items,
   showDone,
   now,
+  sort = '',
 }: {
   items: MyTaskItem[]
   showDone: boolean
   now: number
+  sort?: PrioritySort
 }) {
   const stages = TASK_STATUSES.filter((s) => showDone || s.value !== 'done')
   return (
     <div className={`grid gap-4 ${stages.length === 3 ? 'lg:grid-cols-3' : 'md:grid-cols-2'}`}>
       {stages.map((s) => {
-        const column = items.filter((t) => t.status === s.value).sort(byDue)
+        const column = items.filter((t) => t.status === s.value).sort(orderOf(sort))
         return (
           <section key={s.value} className="min-w-0 space-y-3">
             <header className="flex items-baseline justify-between gap-2 border-b border-line pb-2">
@@ -168,9 +185,12 @@ export function MyTaskBoard({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <Title item={t} className="block min-w-0 text-[14px] leading-snug font-medium" />
-                      <KindTag kind={t.kind} />
+                      <span className="flex shrink-0 items-center gap-1">
+                        <PriorityBadge priority={t.priority} />
+                        <KindTag kind={t.kind} />
+                      </span>
                     </div>
-                    <p className="mt-1 truncate text-[12px] text-muted">{t.where}</p>
+                    <p className="mt-1 truncate text-[12px] text-muted">{whereOf(t)}</p>
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                       <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-faint">
                         <span className={`font-mono ${late ? 'text-danger-600 dark:text-danger-400' : ''}`}>
@@ -206,8 +226,8 @@ function Stage({ item }: { item: MyTaskItem }) {
 }
 
 /** Every task in one table, soonest due first. */
-export function MyTaskList({ items, now }: { items: MyTaskItem[]; now: number }) {
-  const rows = [...items].sort(byDue)
+export function MyTaskList({ items, now, sort = '' }: { items: MyTaskItem[]; now: number; sort?: PrioritySort }) {
+  const rows = [...items].sort(orderOf(sort))
   return (
     <>
       {/* Phones get a row per task; the table's columns would scroll out of sight. */}
@@ -217,13 +237,14 @@ export function MyTaskList({ items, now }: { items: MyTaskItem[]; now: number })
           return (
             <li key={t.key} className="px-4 py-3.5">
               <Title item={t} className="block w-full truncate text-[14px] font-medium" />
-              <p className="mt-0.5 truncate text-[12px] text-muted">{t.where}</p>
+              <p className="mt-0.5 truncate text-[12px] text-muted">{whereOf(t)}</p>
               <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-2 text-[12px] text-faint">
                 <Stage item={t} />
                 <span className={`font-mono ${late ? 'text-danger-600 dark:text-danger-400' : ''}`}>
                   {t.due_at ? formatDue(t.due_at) : 'No due date'}
                 </span>
                 <KindTag kind={t.kind} />
+                <PriorityBadge priority={t.priority} />
                 <Counts item={t} />
               </div>
             </li>
@@ -253,6 +274,8 @@ export function MyTaskList({ items, now }: { items: MyTaskItem[]; now: number })
                     <Title item={t} className="block max-w-[340px] truncate text-[14px] font-medium" />
                     <span className="mt-0.5 flex items-center gap-3 text-[12px] text-faint">
                       <KindTag kind={t.kind} />
+                      <PriorityBadge priority={t.priority} />
+                      {t.partOf && <span className="max-w-[200px] truncate">{t.partOf}</span>}
                       <Counts item={t} />
                     </span>
                   </td>

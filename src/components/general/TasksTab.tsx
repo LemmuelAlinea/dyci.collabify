@@ -18,6 +18,9 @@ import { createTask, updateTask } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue } from '../../lib/general/dates'
 import { canCreateWorkTask, canEditTask } from '../../lib/general/permissions'
+import { EMPTY_PRIORITY_VIEW, filterByPriority, priorityActive, prioritySummary, sortByPriority } from '../../lib/general/taskFilters'
+import { taskMarks } from '../../lib/general/taskRules'
+import type { TaskMarkData } from '../../lib/general/taskRules'
 import { projectProgress } from '../../lib/general/progress'
 import { STAGE_TONE, nextStep, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
@@ -36,6 +39,10 @@ import { ScopePicker } from '../work/ScopePicker'
 import { TaskCalendar } from '../work/TaskCalendar'
 import { TimelineView } from '../work/TimelineView'
 import { BugBadge } from './BugBadge'
+import { PriorityBadge } from './PriorityBadge'
+import { PriorityFilter } from './PriorityFilter'
+import { SubtaskCount, WaitingMarker } from './TaskMarks'
+import { usePriorityView } from './usePriorityView'
 import { PersonBadge } from './RoleBadge'
 import { useTeamFilter } from '../work/useTeamFilter'
 import type { GeneralProjectState } from './useGeneralProject'
@@ -69,6 +76,8 @@ export function TasksTab({
   const [status, setStatus] = useState('')
   // '' for every kind, else 'task' or 'bug'.
   const [kind, setKind] = useState<'' | TaskKind>('')
+  // Which priorities to show, and whether to sort by priority; remembered per project.
+  const [priorityView, setPriorityView] = usePriorityView(state.project?.id)
   const [creating, setCreating] = useState(false)
   const [fromNotes, setFromNotes] = useState(false)
   const [routingOpen, setRoutingOpen] = useState(false)
@@ -86,7 +95,7 @@ export function TasksTab({
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     const stageCount = stagesOf(projectStages).length
-    return filterByTeam(scoped, teamSelection(teamLinks, team), (t) => ({ teamId: t.team_id, holders: t.assignee_ids }))
+    const matching = filterByTeam(scoped, teamSelection(teamLinks, team), (t) => ({ teamId: t.team_id, holders: t.assignee_ids }))
       .filter((t) =>
         assignee === ''
           ? true
@@ -97,10 +106,15 @@ export function TasksTab({
       .filter((t) => (status ? stageIndex(t.status, t.stage, stageCount) === Number(status) : true))
       .filter((t) => (kind ? (t.kind ?? 'task') === kind : true))
       .filter((t) => (q ? `${t.title} ${t.description}`.toLowerCase().includes(q) : true))
-  }, [scoped, query, team, teamLinks, assignee, status, kind, projectStages])
+    const byPriority = filterByPriority(matching, priorityView.priorities)
+    return priorityView.sort === 'priority' ? sortByPriority(byPriority) : byPriority
+  }, [scoped, query, team, teamLinks, assignee, status, kind, projectStages, priorityView])
 
   if (!project) return null
   const progress = projectProgress(scoped)
+  // Subtasks and waiting are a work project's; a class board's tasks have neither.
+  const marksOf = (t: GeneralTask): TaskMarkData | null =>
+    project.class_board_id ? null : taskMarks(t, released, state.dependencies ?? [])
   const unassigned = scoped.filter((t) => t.assignee_ids.length === 0 && t.status !== 'done').length
   // QA raises bugs and passes tasks; it does not draft task lists from notes.
   const mayDraft = project.class_board_id ? state.myRole !== 'qa' : canCreateWorkTask(state.myRole, 'task')
@@ -146,7 +160,7 @@ export function TasksTab({
         <Modal open={routingOpen} onClose={() => setRoutingOpen(false)} title="Plan & route work" size="xl">
           <TaskRoutingPanel key={project.id} state={state} onOpenTask={onOpenTask} onViewBoard={() => {
             setRoutingOpen(false)
-            setQuery(''); setTeam(''); setAssignee(''); setStatus(''); setKind('')
+            setQuery(''); setTeam(''); setAssignee(''); setStatus(''); setKind(''); setPriorityView(EMPTY_PRIORITY_VIEW)
             onViewBoard()
           }} />
         </Modal>
@@ -171,13 +185,14 @@ export function TasksTab({
           <div>
             <FilterPopover
               label="Filter tasks"
-              active={[query.trim(), team, assignee, status, kind].filter(Boolean).length}
+              active={[query.trim(), team, assignee, status, kind].filter(Boolean).length + priorityActive(priorityView)}
               summary={[
                 query.trim() && `“${query.trim()}”`,
                 team && state.teams.find((t) => t.id === team)?.name,
                 assignee && assigneeOptions.find((o) => o.value === assignee)?.label,
                 status && stages[Number(status)],
                 kind && (kind === 'bug' ? 'Bugs' : 'Tasks'),
+                ...prioritySummary(priorityView),
               ]
                 .filter(Boolean)
                 .join(' · ')}
@@ -187,6 +202,7 @@ export function TasksTab({
                 setAssignee('')
                 setStatus('')
                 setKind('')
+                setPriorityView(EMPTY_PRIORITY_VIEW)
               }}
             >
               <FilterField label="Search">
@@ -233,6 +249,7 @@ export function TasksTab({
                   className="!h-10 !text-[13px]"
                 />
               </FilterField>
+              {!project.class_board_id && <PriorityFilter value={priorityView} onChange={setPriorityView} />}
             </FilterPopover>
           </div>
         </>
@@ -341,6 +358,7 @@ export function TasksTab({
                       state={state}
                       canMove={mayMove(t)}
                       stages={stages}
+                      marks={marksOf(t)}
                       onMove={(to, stage) => void move(t, to, stage)}
                       onOpen={() => showTask(t.id)}
                     />
@@ -351,7 +369,7 @@ export function TasksTab({
           })}
         </div>
       ) : layout === 'list' ? (
-        <TaskTable tasks={shown} state={state} stages={stages} onOpen={showTask} mayMove={mayMove} onMove={move} />
+        <TaskTable tasks={shown} state={state} stages={stages} marksOf={marksOf} onOpen={showTask} mayMove={mayMove} onMove={move} />
       ) : layout === 'timeline' ? (
         <TimelineView
           tasks={shown.map((t) => ({
@@ -432,6 +450,7 @@ function TaskCard({
   state,
   canMove,
   stages,
+  marks,
   onMove,
   onOpen,
 }: {
@@ -439,6 +458,7 @@ function TaskCard({
   state: GeneralProjectState
   canMove: boolean
   stages: readonly string[]
+  marks: TaskMarkData | null
   onMove: (to: GeneralTaskStatus, stage: number) => void
   onOpen: () => void
 }) {
@@ -469,6 +489,7 @@ function TaskCard({
         </h4>
         <div className="flex shrink-0 items-center gap-1">
           <BugBadge kind={task.kind} />
+          <PriorityBadge priority={task.priority} />
           {teamName && (
             <span className="max-w-[8rem] truncate rounded-md bg-navy-50 px-1.5 py-0.5 text-[12px] text-navy-700 dark:bg-navy-500/18 dark:text-navy-100">
               {teamName}
@@ -481,6 +502,14 @@ function TaskCard({
         <p className="pointer-events-none mt-1.5 line-clamp-3 text-[13px] leading-relaxed text-muted">
           {task.description}
         </p>
+      )}
+
+      {marks && (marks.partOf || marks.subtasks || marks.blockers.length > 0) && (
+        <div className="pointer-events-none mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-faint">
+          {marks.partOf && <span className="max-w-full truncate">{marks.partOf}</span>}
+          <SubtaskCount progress={marks.subtasks} />
+          <WaitingMarker blockers={marks.blockers} />
+        </div>
       )}
 
       <div className="pointer-events-none mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -547,6 +576,7 @@ function TaskTable({
   tasks,
   state,
   stages,
+  marksOf,
   onOpen,
   mayMove,
   onMove,
@@ -554,6 +584,7 @@ function TaskTable({
   tasks: GeneralTask[]
   state: GeneralProjectState
   stages: readonly string[]
+  marksOf: (t: GeneralTask) => TaskMarkData | null
   onOpen: (id: string) => void
   mayMove: (t: GeneralTask) => boolean
   onMove: (t: GeneralTask, to: GeneralTaskStatus, stage: number) => Promise<void>
@@ -574,6 +605,7 @@ function TaskTable({
           {tasks.map((t) => {
             const overdue = isOverdue(t.due_at, t.status)
             const teamName = state.teams.find((x) => x.id === t.team_id)?.name
+            const marks = marksOf(t)
             return (
               <tr key={t.id} className="border-b border-line transition-colors last:border-0 hover:bg-[var(--surface-sunken)]">
                 <td className="py-2.5 pr-3 pl-4">
@@ -588,6 +620,10 @@ function TaskTable({
                   </button>
                   <span className="mt-0.5 flex items-center gap-3 text-[12px] text-faint">
                     <BugBadge kind={t.kind} />
+                    <PriorityBadge priority={t.priority} />
+                    {marks?.partOf && <span className="max-w-[200px] truncate">{marks.partOf}</span>}
+                    <SubtaskCount progress={marks?.subtasks ?? null} />
+                    <WaitingMarker blockers={marks?.blockers ?? []} />
                     {teamName && <span>{teamName}</span>}
                     {t.file_count > 0 && (
                       <span className="flex items-center gap-1">
