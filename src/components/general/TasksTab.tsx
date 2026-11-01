@@ -14,10 +14,10 @@ import { Icon } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
-import { createTask, updateTask } from '../../lib/api/general'
+import { createMemberTask, createTask, updateTask } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue } from '../../lib/general/dates'
-import { canCreateWorkTask, canEditTask } from '../../lib/general/permissions'
+import { DEFAULT_MEMBER_RULES, canCreateWorkTask, canCreateWorkTaskWith, canEditTask } from '../../lib/general/permissions'
 import { EMPTY_PRIORITY_VIEW, filterByPriority, priorityActive, prioritySummary, sortByPriority } from '../../lib/general/taskFilters'
 import { taskMarkIndex } from '../../lib/general/taskRules'
 import type { TaskMarkData } from '../../lib/general/taskRules'
@@ -121,7 +121,7 @@ export function TasksTab({
   const unassigned = scoped.filter((t) => t.assignee_ids.length === 0 && t.status !== 'done').length
   // QA raises bugs and passes tasks; it does not draft task lists from notes.
   const mayDraft = project.class_board_id ? state.myRole !== 'qa' : canCreateWorkTask(state.myRole, 'task')
-  const mayCreate = project.class_board_id || canCreateWorkTask(state.myRole, state.myRole === 'qa' ? 'bug' : 'task')
+  const mayCreate = project.class_board_id || canCreateWorkTaskWith(state.myRole, state.myRole === 'qa' ? 'bug' : 'task', project.memberRules ?? DEFAULT_MEMBER_RULES)
   const assigneeOptions = [
     ...(state.viewerId ? [{ value: state.viewerId, label: 'Me' }] : []),
     { value: 'nobody', label: 'Nobody yet' },
@@ -714,10 +714,12 @@ function NewTaskDialog({
   // QA creates bug tasks only, so the type is fixed for them.
   const isQa = state.myRole === 'qa'
   const kind: TaskKind = isQa ? 'bug' : pickedKind
+  // A work project's Member sends a plain task to the planners; it starts in planning and they cannot read it back.
+  const isMember = !project?.class_board_id && state.myRole === 'member'
 
   async function create() {
     if (!project) return
-    if (state.readOnly || (!project.class_board_id && !canCreateWorkTask(state.myRole, kind))) return
+    if (state.readOnly || (!project.class_board_id && !canCreateWorkTaskWith(state.myRole, kind, project.memberRules ?? DEFAULT_MEMBER_RULES))) return
     setError(null)
     if (!title.trim()) return setError('A task needs a title.')
     const startsAt = fromLocalInput(starts)
@@ -726,6 +728,17 @@ function NewTaskDialog({
       return setError('A task cannot start after it is due. Move one of the two dates.')
     setBusy(true)
     try {
+      if (isMember) {
+        await createMemberTask(project.id, title, description, dueAt, team || undefined)
+        show('Sent to planners for review')
+        setTitle('')
+        setDescription('')
+        setDue('')
+        setTeam('')
+        onClose()
+        await state.reload()
+        return
+      }
       const id = await createTask({
         projectId: project.id,
         title,
@@ -778,25 +791,29 @@ function NewTaskDialog({
           )}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Type" hint={isQa ? 'QA creates bug tasks only.' : undefined}>
-            {(id) => (
-              <Select
-                id={id}
-                value={kind}
-                disabled={isQa}
-                onChange={(e) => setPickedKind(e.target.value as TaskKind)}
-                options={[
-                  { value: 'task', label: 'Task' },
-                  { value: 'bug', label: 'Bug' },
-                ]}
-              />
-            )}
-          </Field>
-          <Field label="Starts" optional>
-            {(id) => (
-              <Input id={id} type="datetime-local" value={starts} onChange={(e) => setStarts(e.target.value)} />
-            )}
-          </Field>
+          {!isMember && (
+            <>
+              <Field label="Type" hint={isQa ? 'QA creates bug tasks only.' : undefined}>
+                {(id) => (
+                  <Select
+                    id={id}
+                    value={kind}
+                    disabled={isQa}
+                    onChange={(e) => setPickedKind(e.target.value as TaskKind)}
+                    options={[
+                      { value: 'task', label: 'Task' },
+                      { value: 'bug', label: 'Bug' },
+                    ]}
+                  />
+                )}
+              </Field>
+              <Field label="Starts" optional>
+                {(id) => (
+                  <Input id={id} type="datetime-local" value={starts} onChange={(e) => setStarts(e.target.value)} />
+                )}
+              </Field>
+            </>
+          )}
           <Field label="Due" optional>
             {(id) => <Input id={id} type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />}
           </Field>

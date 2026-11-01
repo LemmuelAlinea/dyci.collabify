@@ -5,7 +5,7 @@
  */
 import type { AccountStatus, Profile, Role } from '../types'
 import type { FieldType, FieldValue } from './fields'
-import type { GeneralLevel, GeneralPermission, ProjectRole } from './permissions'
+import type { GeneralLevel, GeneralPermission, MemberRules, ProjectRole } from './permissions'
 import type { GeneralTaskStatus } from './progress'
 import type { TaskRules } from './taskRules'
 
@@ -57,6 +57,8 @@ export type GeneralProject = {
   visibility?: ProjectVisibility
   /** The project's task rules. Read by getGeneralProject only. */
   taskRules?: TaskRules
+  /** Whether Members manage milestones and create tasks here. Read by getGeneralProject only. */
+  memberRules?: MemberRules
 }
 
 export type ProjectColor = 'navy' | 'amber' | 'green' | 'teal' | 'violet' | 'rose' | 'orange' | 'slate'

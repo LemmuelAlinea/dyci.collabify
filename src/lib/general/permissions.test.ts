@@ -10,6 +10,9 @@ import {
   can,
   canAs,
   canCreateWorkTask,
+  canCreateWorkTaskWith,
+  canManageMilestones,
+  roleMark,
   canAssignIncoming,
   canEditTask,
   canGive,
@@ -467,5 +470,46 @@ describe('work receiving-team assignments', () => {
     expect(assignableTo(viewer, { ...task, routing_state: 'planning' }, people, roleOf)).toEqual([])
     expect(assignableTo({ ...viewer, workAssignment: { ...viewer.workAssignment!, ledTeamIds: ['b'] } }, task, people, roleOf)).toEqual([])
     expect(assignableTo({ ...viewer, workAssignment: { ...viewer.workAssignment!, members: [{ team_id: 'a', user_id: 'a2' }] } }, task, people, roleOf)).toEqual([])
+  })
+})
+
+describe('member options', () => {
+  const off = { manageMilestones: false, createTasks: false }
+  const on = { manageMilestones: true, createTasks: true }
+  const roles = ['pm', 'coordinator', 'member', 'qa', 'stakeholder', null] as const
+
+  it('leaves milestones to whoever manages tasks while the switch is off', () => {
+    for (const role of roles) {
+      expect(canManageMilestones(role, true, off)).toBe(true)
+      expect(canManageMilestones(role, false, off)).toBe(false)
+    }
+  })
+
+  it('gives milestones to a Member, and nobody else, when the switch is on', () => {
+    for (const role of roles) {
+      expect(canManageMilestones(role, false, { ...off, manageMilestones: true })).toBe(role === 'member')
+    }
+    expect(canManageMilestones('member', false, { ...off, createTasks: true })).toBe(false)
+  })
+
+  it('lets a Member create a regular task only while the task switch is on', () => {
+    for (const role of roles) {
+      expect(canCreateWorkTaskWith(role, 'task', off)).toBe(canCreateWorkTask(role, 'task'))
+      expect(canCreateWorkTaskWith(role, 'bug', off)).toBe(canCreateWorkTask(role, 'bug'))
+      expect(canCreateWorkTaskWith(role, 'task', on)).toBe(role === 'pm' || role === 'coordinator' || role === 'member')
+      expect(canCreateWorkTaskWith(role, 'bug', on)).toBe(role === 'pm' || role === 'coordinator' || role === 'qa')
+    }
+  })
+
+  it('marks the Member cell of the matching row as set by the project manager', () => {
+    const planning = ROLE_MATRIX.find((r) => r.action === 'Plan sprints and milestones')!
+    const creating = ROLE_MATRIX.find((r) => r.action === 'Create tasks (QA: bug tasks only)')!
+    expect(roleMark(planning, 'member', off)).toEqual({ mark: 'grant' })
+    expect(roleMark(creating, 'member', off)).toEqual({ mark: undefined })
+    expect(roleMark(creating, 'member', { ...off, manageMilestones: true })).toEqual({ mark: undefined })
+    expect(roleMark(creating, 'member', on)).toEqual({ mark: 'yes', note: 'set by the project manager' })
+    expect(roleMark(planning, 'member', on)).toMatchObject({ mark: 'yes', note: expect.stringContaining('set by the project manager') })
+    expect(roleMark(planning, 'qa', on)).toEqual({ mark: undefined })
+    expect(roleMark(creating, 'pm', on)).toEqual({ mark: 'yes' })
   })
 })

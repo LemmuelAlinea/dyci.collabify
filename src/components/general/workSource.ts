@@ -20,8 +20,8 @@ import {
   updateSprint,
 } from '../../lib/api/sprints'
 import type { SprintHome } from '../../lib/api/sprints'
-import { createTask } from '../../lib/api/general'
-import { canCreateWorkTask, canStepRank } from '../../lib/general/permissions'
+import { createMemberTask, createTask } from '../../lib/api/general'
+import { DEFAULT_MEMBER_RULES, canCreateWorkTaskWith, canManageMilestones, canStepRank } from '../../lib/general/permissions'
 import type { MilestoneSource, WorkItem, WorkSource } from '../../lib/work/types'
 import type { GeneralProjectState } from './useGeneralProject'
 
@@ -50,6 +50,9 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
   const home: SprintHome = { kind: 'work', projectId: project?.id ?? '' }
   const live = Boolean(project) && !state.readOnly
   const canPlan = live && state.can('manage_tasks')
+  const memberRules = project?.memberRules ?? DEFAULT_MEMBER_RULES
+  // A work project's Member adds through createMemberTask; a class board's members keep createTask.
+  const viaMember = !project?.class_board_id && state.myRole === 'member'
   // Reload even when the action fails: a partial write still changed rows.
   const then = async <T,>(action: Promise<T>) => {
     try {
@@ -67,7 +70,7 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     sprintSettings: state.sprintSettings,
     // A team leader reorders the tasks people they lead hold; sprint moves stay with planners.
     canStepItem: (item) => live && canStepRank(canPlan, item.holderIds, state.leadsUser),
-    canAdd: live && (Boolean(project?.class_board_id) || canCreateWorkTask(state.myRole, state.myRole === 'qa' ? 'bug' : 'task')),
+    canAdd: live && (Boolean(project?.class_board_id) || canCreateWorkTaskWith(state.myRole, state.myRole === 'qa' ? 'bug' : 'task', memberRules)),
     readOnlyReason: state.archived
       ? 'This project is archived, so nothing in it can change.'
       : state.myRole === 'stakeholder'
@@ -96,18 +99,22 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
         : undefined,
     moveToSprint: (ids, sprintId) => then(moveTasksToSprint(home, ids, sprintId)),
     setRank: (id, rank) => then(setTaskRank(home, id, rank)),
+    addedMessage: viaMember ? 'Sent to planners for review' : undefined,
     addToBacklog: (title) =>
       then(
-        createTask({
-          projectId: home.projectId,
-          title,
-          description: '',
-          dueAt: null,
-          startsAt: null,
-          teamId: null,
-          // QA creates bug tasks only.
-          kind: state.myRole === 'qa' ? 'bug' : undefined,
-        }).then(() => undefined),
+        // A Member's task starts in planning for a planner to send; they cannot read it back.
+        viaMember
+          ? createMemberTask(home.projectId, title).then(() => undefined)
+          : createTask({
+              projectId: home.projectId,
+              title,
+              description: '',
+              dueAt: null,
+              startsAt: null,
+              teamId: null,
+              // QA creates bug tasks only.
+              kind: state.myRole === 'qa' ? 'bug' : undefined,
+            }).then(() => undefined),
       ),
   }
 }
@@ -115,7 +122,10 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
 export function generalMilestoneSource(state: GeneralProjectState, openTask: (id: string) => void): MilestoneSource {
   const project = state.project
   const home: MilestoneHome = { kind: 'work', projectId: project?.id ?? '' }
-  const can = Boolean(project) && !state.readOnly && state.can('manage_tasks')
+  const live = Boolean(project) && !state.readOnly
+  const can = live && state.can('manage_tasks')
+  // Members may run milestones while the project lets them; tagging and sprint links stay with manage_tasks.
+  const manage = live && canManageMilestones(state.myRole, can, project?.memberRules)
   // Reload even when the action fails: a partial write still changed rows.
   const then = async <T,>(action: Promise<T>) => {
     try {
@@ -128,10 +138,10 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
     milestones: state.milestones,
     items: generalWorkItems(state),
     groups: [],
-    canManage: can,
+    canManage: manage,
     canTag: can,
     sprints: state.sprints,
-    canMarkReached: can,
+    canMarkReached: manage,
     readOnlyReason: state.archived
       ? 'This project is archived, so nothing in it can change.'
       : state.myRole === 'stakeholder'
@@ -140,7 +150,9 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
         ? 'You are viewing this project from its space. Join it to change the plan.'
         : can
           ? ''
-          : 'Owners and Managers run the milestones. You can follow how close each one is.',
+          : manage
+            ? 'You can add, edit and mark milestones reached. Tagging tasks and linking sprints needs Manage tasks.'
+            : 'Owners and Managers run the milestones. You can follow how close each one is.',
     openTask,
     createMilestone: (input) => then(createMilestone(home, input)),
     updateMilestone: (id, input) => then(updateMilestone(home, id, input)),

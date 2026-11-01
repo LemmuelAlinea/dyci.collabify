@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   addDependency,
+  createMemberTask,
   createSubtask,
   getGeneralProject,
   listArchivedTasks,
@@ -56,6 +57,7 @@ const STAGES = 'general_projects:stages, qa_stage, class_board_id'
 const LOOK = 'general_projects:color, icon, default_view, visibility'
 const RULES =
   'general_projects:default_priority, default_stage, allow_subtasks, allow_dependencies, allow_multiple_assignees, require_assignee, require_subtasks_done'
+const MEMBER_RULES = 'general_projects:members_manage_milestones, members_create_tasks'
 const TASKS = 'general_task_overview:*'
 const EXTRAS = 'general_tasks:id, priority, parent_id'
 const DEPS = 'general_task_dependencies:task_id, depends_on_id'
@@ -72,6 +74,7 @@ describe('getGeneralProject task rules', () => {
     results.set(OVERVIEW, { data: { id: 'p1', name: 'P' }, error: null })
     results.set(STAGES, { data: { stages: null, qa_stage: null, class_board_id: null }, error: null })
     results.set(LOOK, { data: { color: null, icon: null, default_view: 'overview', visibility: 'private' }, error: null })
+    results.set(MEMBER_RULES, { data: { members_manage_milestones: false, members_create_tasks: false }, error: null })
   })
 
   it('returns the rules from the project row', async () => {
@@ -112,7 +115,66 @@ describe('getGeneralProject task rules', () => {
   })
 })
 
+describe('getGeneralProject member options', () => {
+  beforeEach(() => {
+    results.set(OVERVIEW, { data: { id: 'p1', name: 'P' }, error: null })
+    results.set(STAGES, { data: { stages: null, qa_stage: null, class_board_id: null }, error: null })
+    results.set(LOOK, { data: { color: null, icon: null, default_view: 'overview', visibility: 'private' }, error: null })
+    results.set(RULES, { data: null, error: null })
+  })
+
+  it('returns both switches from the project row', async () => {
+    results.set(MEMBER_RULES, { data: { members_manage_milestones: true, members_create_tasks: false }, error: null })
+    const p = await getGeneralProject('p1')
+    expect(p?.memberRules).toEqual({ manageMilestones: true, createTasks: false })
+  })
+
+  it('turns both off while the columns are missing', async () => {
+    results.set(MEMBER_RULES, { data: null, error: missingColumn })
+    const p = await getGeneralProject('p1')
+    expect(p?.memberRules).toEqual({ manageMilestones: false, createTasks: false })
+  })
+
+  it('rejects on any other error instead of reporting the switches off', async () => {
+    const denied = { code: '42501', message: 'permission denied for table general_projects' }
+    results.set(MEMBER_RULES, { data: null, error: denied })
+    await expect(getGeneralProject('p1')).rejects.toBe(denied)
+  })
+})
+
+describe('createMemberTask', () => {
+  it('calls the member task function and returns the new id', async () => {
+    results.set('rpc:create_general_member_task', { data: 'task-9', error: null })
+    const id = await createMemberTask('p1', '  Draft the survey ', 'Notes', '2026-11-05T00:00:00Z', 't1')
+    expect(id).toBe('task-9')
+    expect(rpcCalls).toEqual([
+      {
+        name: 'create_general_member_task',
+        args: { p_project: 'p1', p_title: 'Draft the survey', p_description: 'Notes', p_due_at: '2026-11-05T00:00:00Z', p_team: 't1' },
+      },
+    ])
+  })
+
+  it('defaults the description, due date and team', async () => {
+    results.set('rpc:create_general_member_task', { data: 'task-9', error: null })
+    await createMemberTask('p1', 'Plan')
+    expect(rpcCalls[0].args).toEqual({ p_project: 'p1', p_title: 'Plan', p_description: '', p_due_at: null, p_team: null })
+  })
+
+  it('throws what the database refuses with', async () => {
+    const refused = { message: "This project doesn't let members create tasks." }
+    results.set('rpc:create_general_member_task', { data: null, error: refused })
+    await expect(createMemberTask('p1', 'Plan')).rejects.toBe(refused)
+  })
+})
+
 describe('updateGeneralProject', () => {
+  it('passes the member option columns through', async () => {
+    results.set('general_projects:update', { data: [{ id: 'p1' }], error: null })
+    await updateGeneralProject('p1', { members_manage_milestones: true, members_create_tasks: false })
+    expect(updates).toEqual([{ members_manage_milestones: true, members_create_tasks: false }])
+  })
+
   it('passes the snake_case rule columns through', async () => {
     results.set('general_projects:update', { data: [{ id: 'p1' }], error: null })
     await updateGeneralProject('p1', { default_priority: 'urgent', default_stage: 1, allow_subtasks: false, require_assignee: true })

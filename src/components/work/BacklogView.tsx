@@ -85,6 +85,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
     setAdding(true)
     await run(async () => {
       await source.addToBacklog(title.trim())
+      if (source.addedMessage) show(source.addedMessage)
       setTitle('')
     }, 'Could not add that task.')
     setAdding(false)

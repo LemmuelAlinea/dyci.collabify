@@ -92,6 +92,8 @@ export type WorkSource = {
   moveToSprint: (taskIds: string[], sprintId: string | null) => Promise<void>
   setRank: (taskId: string, rank: number) => Promise<void>
   addToBacklog: (title: string) => Promise<void>
+  /** Shown after a task is added, when the new task does not appear in the list (a Member's goes to the planners). */
+  addedMessage?: string
 }
 
 export type Milestone = {

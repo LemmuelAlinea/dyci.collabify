@@ -16,6 +16,7 @@ import type { PresetPayload } from '../general/presets'
 import type { FieldType, FieldValue } from '../general/fields'
 import type { GeneralPermission, ProjectRole } from '../general/permissions'
 import type { GeneralTaskStatus } from '../general/progress'
+import { DEFAULT_MEMBER_RULES } from '../general/permissions'
 import { DEFAULT_TASK_RULES } from '../general/taskRules'
 import type { TaskDependency, TaskRules } from '../general/taskRules'
 import type {
@@ -151,12 +152,14 @@ function taskRulesOf(row: TaskRuleRow): TaskRules {
 
 export async function getGeneralProject(projectId: string) {
   // The overview predates stages, so they come from the table beside it.
-  const [{ data, error }, stages, look, rules] = await Promise.all([
+  const [{ data, error }, stages, look, rules, memberOptions] = await Promise.all([
     supabase.from('general_project_overview').select('*').eq('id', projectId).maybeSingle(),
     supabase.from('general_projects').select('stages, qa_stage, class_board_id').eq('id', projectId).maybeSingle(),
     // Its own query, so the stages still load before project-settings-general.sql adds these columns.
     supabase.from('general_projects').select('color, icon, default_view, visibility').eq('id', projectId).maybeSingle(),
     supabase.from('general_projects').select(TASK_RULE_COLUMNS).eq('id', projectId).maybeSingle(),
+    // Its own query, so the project still loads before project-member-rules.sql adds these columns.
+    supabase.from('general_projects').select('members_manage_milestones, members_create_tasks').eq('id', projectId).maybeSingle(),
   ])
   if (error) throw error
   if (!data) return null
@@ -165,6 +168,11 @@ export async function getGeneralProject(projectId: string) {
   const fields = look.error ? null : look.data
   if (rules.error) throw rules.error
   const ruleRow = rules.data as TaskRuleRow | null
+  // Until project-member-rules.sql is live the columns are missing, so both switches read off. Remove this fallback once it is.
+  if (memberOptions.error && !isMissingColumn(memberOptions.error)) throw memberOptions.error
+  const memberRow = memberOptions.error
+    ? null
+    : (memberOptions.data as { members_manage_milestones: boolean; members_create_tasks: boolean } | null)
   return {
     ...(data as GeneralProjectSummary),
     stages: (stages.data?.stages as string[] | null) ?? null,
@@ -175,6 +183,9 @@ export async function getGeneralProject(projectId: string) {
     default_view: (fields?.default_view as ProjectView | undefined) ?? 'overview',
     visibility: (fields?.visibility as ProjectVisibility | undefined) ?? 'private',
     taskRules: ruleRow ? taskRulesOf(ruleRow) : DEFAULT_TASK_RULES,
+    memberRules: memberRow
+      ? { manageMilestones: memberRow.members_manage_milestones, createTasks: memberRow.members_create_tasks }
+      : DEFAULT_MEMBER_RULES,
   }
 }
 
@@ -365,6 +376,9 @@ export type ProjectPatch = Partial<{
   allow_multiple_assignees: boolean
   require_assignee: boolean
   require_subtasks_done: boolean
+  /** The member options (project manager only). */
+  members_manage_milestones: boolean
+  members_create_tasks: boolean
 }>
 
 export async function updateGeneralProject(projectId: string, patch: ProjectPatch) {
@@ -1120,6 +1134,29 @@ export async function createTask(input: {
     .single()
   if (error) throw error
   return (data as { id: string }).id
+}
+
+/**
+ * Adds a task as a Member, where the project lets Members create tasks. It
+ * starts in planning for a planner to send, so the Member cannot read it back.
+ * Returns the new task's id.
+ */
+export async function createMemberTask(
+  projectId: string,
+  title: string,
+  description = '',
+  dueAt: string | null = null,
+  teamId?: string | null,
+) {
+  const { data, error } = await supabase.rpc('create_general_member_task', {
+    p_project: projectId,
+    p_title: title.trim(),
+    p_description: description,
+    p_due_at: dueAt,
+    p_team: teamId ?? null,
+  })
+  if (error) throw error
+  return data as string
 }
 
 /** Adds a subtask under a parent task. Returns the new task's id. */

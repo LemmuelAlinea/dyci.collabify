@@ -236,6 +236,39 @@ export function canCreateWorkTask(role: ProjectRole | null, kind: TaskKind): boo
   return role === 'pm' || role === 'coordinator' || (role === 'qa' && kind === 'bug')
 }
 
+/**
+ * A work project's member options, which the project manager switches on in
+ * Settings, Members. Both are off by default. They mirror
+ * general_projects.members_manage_milestones and members_create_tasks
+ * (supabase/project-member-rules.sql).
+ */
+export type MemberRules = { manageMilestones: boolean; createTasks: boolean }
+
+export const DEFAULT_MEMBER_RULES: MemberRules = { manageMilestones: false, createTasks: false }
+
+/**
+ * Whether the viewer may create, edit, delete and mark milestones reached:
+ * anyone who manages tasks, or a Member while the project lets Members manage
+ * milestones. Tagging tasks and linking sprints stay with `manageTasks`.
+ * Mirrors general_can_manage_milestones; callers add the read-only checks.
+ */
+export function canManageMilestones(
+  role: ProjectRole | null,
+  manageTasks: boolean,
+  rules: MemberRules = DEFAULT_MEMBER_RULES,
+): boolean {
+  return manageTasks || (role === 'member' && rules.manageMilestones)
+}
+
+/**
+ * canCreateWorkTask, plus a Member's regular tasks while the project lets
+ * Members create tasks. Those go through createMemberTask and start in
+ * planning. Members never raise bug tasks.
+ */
+export function canCreateWorkTaskWith(role: ProjectRole | null, kind: TaskKind, rules: MemberRules = DEFAULT_MEMBER_RULES): boolean {
+  return canCreateWorkTask(role, kind) || (role === 'member' && kind === 'task' && rules.createTasks)
+}
+
 export function canAssignIncoming(viewerTeamIds: readonly string[], task: GeneralTask): boolean {
   return task.routing_state === 'released' && task.team_id !== null && viewerTeamIds.includes(task.team_id)
     && task.assignee_ids.length === 0 && !task.archived_at && task.status !== 'done'
@@ -338,6 +371,8 @@ export const ROLE_MATRIX: {
   action: string
   roles: Partial<Record<ProjectRole | 'lead', RoleMark>>
   later?: string
+  /** The member option that gives the Member column this row, and what to say about it. */
+  memberRule?: { key: keyof MemberRules; note: string }
 }[] = [
   {
     action: 'See the project, tasks, sprints, milestones, files and meetings',
@@ -358,8 +393,13 @@ export const ROLE_MATRIX: {
   {
     action: 'Create tasks (QA: bug tasks only)',
     roles: { pm: 'yes', coordinator: 'yes', qa: 'own' },
+    memberRule: { key: 'createTasks', note: 'set by the project manager' },
   },
-  { action: 'Plan sprints and milestones', roles: { pm: 'yes', coordinator: 'yes', member: 'grant' } },
+  {
+    action: 'Plan sprints and milestones',
+    roles: { pm: 'yes', coordinator: 'yes', member: 'grant' },
+    memberRule: { key: 'manageMilestones', note: 'milestones only, set by the project manager' },
+  },
   { action: 'Start, finish and reopen sprints', roles: { pm: 'yes', coordinator: 'yes' } },
   {
     action: 'Move a task out of the QA stage (QA, when the project has QA)',
@@ -400,3 +440,18 @@ export const ROLE_MATRIX: {
   { action: 'Give grants and answer access requests', roles: { pm: 'yes', coordinator: 'yes' } },
   { action: 'Ask for more access', roles: { lead: 'yes', member: 'yes' } },
 ]
+
+/**
+ * One cell of the "What each role can do" table: the mark, and a caption when
+ * a member option of this project gave it. Without rules, the table as written.
+ */
+export function roleMark(
+  row: (typeof ROLE_MATRIX)[number],
+  column: ProjectRole | 'lead',
+  rules: MemberRules = DEFAULT_MEMBER_RULES,
+): { mark: RoleMark | undefined; note?: string } {
+  if (column === 'member' && row.memberRule && rules[row.memberRule.key]) {
+    return { mark: 'yes', note: row.memberRule.note }
+  }
+  return { mark: row.roles[column] }
+}

@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { Icon } from '../ui/Icon'
-import { ROLE_LABEL, ROLE_MATRIX } from '../../lib/general/permissions'
-import type { ProjectRole, RoleMark } from '../../lib/general/permissions'
+import { DEFAULT_MEMBER_RULES, ROLE_LABEL, ROLE_MATRIX, roleMark } from '../../lib/general/permissions'
+import type { MemberRules, ProjectRole, RoleMark } from '../../lib/general/permissions'
 
 const COLUMNS: { key: ProjectRole | 'lead'; label: string }[] = [
   { key: 'pm', label: ROLE_LABEL.pm },
@@ -23,9 +23,10 @@ const MARK_WORDS: Record<RoleMark, string> = {
 /**
  * "Who can do what", straight from ROLE_MATRIX. Closed until somebody wants
  * it, and the table scrolls sideways inside itself on a phone so the page
- * never does.
+ * never does. With a project's member options, the Member column shows what
+ * the project manager switched on.
  */
-export function RoleGuide() {
+export function RoleGuide({ memberRules = DEFAULT_MEMBER_RULES }: { memberRules?: MemberRules }) {
   const [open, setOpen] = useState(false)
   const panelId = useId()
 
@@ -80,10 +81,11 @@ export function RoleGuide() {
                     )}
                   </th>
                   {COLUMNS.map((c) => {
-                    const mark = row.roles[c.key]
+                    const { mark, note } = roleMark(row, c.key, memberRules)
                     return (
                       <td key={c.key} className={`whitespace-nowrap px-3 py-2.5 ${mark === 'yes' ? 'text-ink' : 'text-muted'}`}>
                         {mark ? MARK_WORDS[mark] : ''}
+                        {note && <span className="mt-0.5 block text-[11px] text-faint">{note}</span>}
                       </td>
                     )
                   })}

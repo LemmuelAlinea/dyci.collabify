@@ -24,11 +24,13 @@ const STAGES = 'general_projects:stages, qa_stage, class_board_id'
 const RULES =
   'general_projects:default_priority, default_stage, allow_subtasks, allow_dependencies, allow_multiple_assignees, require_assignee, require_subtasks_done'
 const LOOK = 'general_projects:color, icon, default_view, visibility'
+const MEMBER_RULES = 'general_projects:members_manage_milestones, members_create_tasks'
 
 beforeEach(() => {
   results.clear()
   results.set(OVERVIEW, { data: { id: 'p1', name: 'P' }, error: null })
   results.set(STAGES, { data: { stages: ['A', 'B'], qa_stage: null, class_board_id: null }, error: null })
+  results.set(MEMBER_RULES, { data: { members_manage_milestones: false, members_create_tasks: false }, error: null })
   results.set(RULES, { data: { default_priority: 'normal', default_stage: 0, allow_subtasks: true, allow_dependencies: true, allow_multiple_assignees: true, require_assignee: false, require_subtasks_done: true }, error: null })
 })
 
