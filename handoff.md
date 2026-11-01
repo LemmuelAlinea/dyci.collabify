@@ -4017,3 +4017,51 @@ rolled-back dry run, and a read-only check confirmed the live database has no
 - **Deferred:** per-team sprints, where team leads may start and finish their team's
   sprints (the hook is `general_can_run_sprint`); the "soon" sprint organization options
   in Settings → Sprints.
+
+## Project look, visibility and join requests (2026-11-01)
+
+**Not live.** Built and committed on local `main`; nothing is pushed and
+`supabase/project-settings-general.sql` has not been run on the database. A read-only
+check confirmed the live database has no `visibility`, `color`, `icon` or
+`default_view` column on `general_projects`, no `general_join_requests` table and no
+`join_requested` or `join_answered` notification value. Design:
+`docs/superpowers/specs/2026-11-01-project-settings-general-design.md` (phase 2, group 1).
+
+- **SQL** (`supabase/project-settings-general.sql`): the four `general_projects`
+  columns `color`, `icon`, `default_view` and `visibility` (private or workspace);
+  `can_read_general_project` redefined with the Workspace branch (it supersedes
+  `project-visibility.sql`'s copy); `general_join_requests` with
+  `request_join_general_project`, `withdraw_join_request` and `answer_join_request`;
+  the `general_members_close_join_request` trigger that closes a pending request when the
+  person joins; realtime on the table; notification types `join_requested` (to the
+  project manager and coordinators) and `join_answered` (to the requester). Suite:
+  `supabase/tests/project-settings-general.test.sql`.
+- **Settings → General** (`components/general/settings/GeneralSection.tsx`): the "Look
+  and access" panel (color, icon, default view, visibility) and the Danger zone (transfer
+  ownership through the Hand over dialog, delete after archiving, confirmed by typing the
+  project name; a delete still leaves the project when file cleanup fails).
+- **Look everywhere:** `ProjectMark` and `lib/general/projectLook.ts` draw the project
+  color and icon on cards, the banner, the sidebar and the stakeholder Home;
+  `hooks/useProjectLooks.ts` loads them. The default view opens first when the project is
+  opened without a tab (`lib/general/navigation.ts`, `GeneralProject.tsx`).
+- **Ask to join:** `JoinRequestButton` on a Workspace project a space member is not on;
+  `JoinRequestsPanel` in Settings → Members & permissions answers requests within the invite
+  role rules. `NotificationBell` handles the two new types.
+- **Interim fallbacks.** Until the SQL is live, `isMissingColumn` and `isMissingRelation`
+  (`lib/api/missingRelation.ts`) let `getGeneralProject`, the look list and the join request
+  loads (`lib/api/general.ts`, `useGeneralProject.ts`) fall back to defaults and empty
+  lists; every other error still shows the load error. Remove both once the SQL is live.
+- **Backup doc** `docs/07-backup.md` lists `project-settings-general.sql` after
+  `work-task-handoff.sql` in both restore commands and the rerun tail. Re-running
+  `project-visibility.sql`, or any earlier owner of `can_read_general_project`, means
+  re-running this file after it, then `anon-lockdown.sql`.
+- **Dry runs** (this file spliced into each suite, rolled back; the two new notification
+  values swapped for `term_shifted` in the copy): `project-settings-general` 42 pass,
+  `project-roles` 161, `project-stakeholders` 158, `work-task-handoff` 304,
+  `sprint-settings` 66, none failing. `project-visibility.test.sql` fails on its first
+  assertion on live data (a stakeholder outside their space), which predates this work.
+- **Deploy order:** owner approval and role walk first, then
+  `node scripts/db.mjs supabase/project-settings-general.sql supabase/anon-lockdown.sql`,
+  then a read-only check of the columns, the table and the enum values, then re-run the
+  suites, then push `main`.
+- **Next:** the next group from the Project Settings PDF is Task Management.

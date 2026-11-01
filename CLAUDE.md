@@ -146,6 +146,14 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `supabase/sprint-settings.sql`). Members with the `manage_tasks` grant still create
   sprints and plan tasks into them. The Settings tab (`components/general/settings/`)
   replaced People: `?tab=people` and `?tab=members` open Settings → Members.
+- Workspace visibility (`general_projects.visibility = 'workspace'`,
+  `supabase/project-settings-general.sql`): every member of the space reads the project
+  like a non-member space Owner does, through `can_read_general_project`; writes still
+  need membership. A space member who is not on it sees "Ask to join"
+  (`general_join_requests`); the project manager and coordinators answer in Settings →
+  Members & permissions, within the invite role rules (no pm, only the project manager
+  gives coordinator). The project color, icon and default view are set in Settings →
+  General and read through `ProjectMark` and `lib/general/projectLook.ts`.
 
 ## Security invariants
 
