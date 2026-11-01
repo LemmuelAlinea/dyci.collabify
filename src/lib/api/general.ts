@@ -11,6 +11,7 @@
 import { supabase } from '../supabase'
 import { isMissingColumn, isMissingRelation } from './missingRelation'
 import { pathsNotRemoved, rowDeleteError } from '../general/storage'
+import { ProjectDeletedError } from '../general/projectDeleted'
 import type { PresetPayload } from '../general/presets'
 import type { FieldType, FieldValue } from '../general/fields'
 import type { GeneralPermission, ProjectRole } from '../general/permissions'
@@ -359,7 +360,7 @@ export async function deleteGeneralProject(projectId: string) {
   for (let i = 0; i < names.length; i += 100) {
     const { error: removeError } = await supabase.storage.from(BUCKET).remove(names.slice(i, i + 100))
     if (removeError) {
-      throw new Error(
+      throw new ProjectDeletedError(
         'The project is deleted. Some of its uploaded files could not be cleared from storage, but nobody can open them.',
       )
     }

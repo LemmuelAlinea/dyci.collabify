@@ -22,6 +22,7 @@ import {
 } from '../../../lib/api/general'
 import { notifyLooksChanged } from '../../../hooks/useProjectLooks'
 import { authErrorMessage } from '../../../lib/authError'
+import { ProjectDeletedError } from '../../../lib/general/projectDeleted'
 import { paths } from '../../../lib/paths'
 import { checkFieldValue, isEmptyValue } from '../../../lib/general/fields'
 import { PROJECT_COLORS, PROJECT_ICONS, PROJECT_VIEWS, SWATCH_CLASS, projectLookLabel } from '../../../lib/general/projectLook'
@@ -48,7 +49,7 @@ export function GeneralSection({ state }: { state: GeneralProjectState }) {
       <DetailsPanel state={state} />
       <FieldsPanel state={state} />
       <LookPanel state={state} />
-      <ArchiveZone state={state} />
+      <DangerZone state={state} />
     </div>
   )
 }
@@ -396,7 +397,7 @@ const ARCHIVE_NOTE =
  * over, and (once archived) delete it for good. They sit apart at the bottom
  * and are the project manager's alone.
  */
-function ArchiveZone({ state }: { state: GeneralProjectState }) {
+function DangerZone({ state }: { state: GeneralProjectState }) {
   const { show } = useToast()
   const [archiving, setArchiving] = useState(false)
   const [handingOver, setHandingOver] = useState(false)
@@ -444,7 +445,7 @@ function ArchiveZone({ state }: { state: GeneralProjectState }) {
 
       <DangerRow
         title="Transfer ownership"
-        body="Hand the project to another project manager. You become a coordinator."
+        body="Hand the project to a member who has Project manager turned on. You become a coordinator."
       >
         <Button variant="outline" onClick={() => setHandingOver(true)} className="shrink-0">
           Transfer ownership
@@ -516,6 +517,7 @@ function DeleteDialog({
 }) {
   const { show } = useToast()
   const navigate = useNavigate()
+  const formId = useId()
   const [typed, setTyped] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -535,6 +537,13 @@ function DeleteDialog({
       show('Project deleted')
       navigate(paths.spaceProjects(spaceId))
     } catch (err) {
+      if (err instanceof ProjectDeletedError) {
+        // The project is gone and only its stored files linger: leave its pages.
+        show(err.message, 'error')
+        onClose()
+        navigate(paths.spaceProjects(spaceId))
+        return
+      }
       setError(authErrorMessage(err, 'Could not delete the project.'))
       setBusy(false)
     }
@@ -552,8 +561,9 @@ function DeleteDialog({
             Cancel
           </Button>
           <Button
+            type="submit"
+            form={formId}
             variant="danger"
-            onClick={() => void remove()}
             loading={busy}
             disabled={typed !== name}
             className="!rounded-xl"
@@ -563,7 +573,14 @@ function DeleteDialog({
         </>
       }
     >
-      <div className="space-y-4">
+      <form
+        id={formId}
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (typed === name && !busy) void remove()
+        }}
+      >
         {error && <Alert tone="error">{error}</Alert>}
         <p className="text-[14px] leading-relaxed text-muted">
           {`Delete ${name}? This removes its tasks, files, sprints and milestones for good. Type the project name to confirm.`}
@@ -579,7 +596,7 @@ function DeleteDialog({
             />
           )}
         </Field>
-      </div>
+      </form>
     </Modal>
   )
 }

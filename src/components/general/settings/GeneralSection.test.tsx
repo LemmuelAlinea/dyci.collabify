@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { GeneralSection } from './GeneralSection'
 import type { GeneralProjectState } from '../useGeneralProject'
+import { ProjectDeletedError } from '../../../lib/general/projectDeleted'
 import { archiveGeneralProject, deleteGeneralProject, updateGeneralProject } from '../../../lib/api/general'
 
 vi.stubGlobal('React', React)
@@ -287,4 +288,47 @@ it('keeps a failed delete inside the dialog', async () => {
   expect(dialog.querySelector('[role="alert"]')).not.toBeNull()
   expect(host.textContent).not.toContain('Space projects list')
   expect(toast).not.toHaveBeenCalledWith('Project deleted')
+})
+
+it('leaves a deleted project even when its file cleanup fails', async () => {
+  const message = 'The project is deleted. Some of its uploaded files could not be cleared from storage, but nobody can open them.'
+  vi.mocked(deleteGeneralProject).mockRejectedValueOnce(new ProjectDeletedError(message))
+  await show(archivedState())
+  await act(async () => button(host, 'Delete project')!.click())
+  const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+  await type(dialog.querySelector<HTMLInputElement>('input')!, 'Alpha')
+  await act(async () => button(dialog, 'Delete project')!.click())
+  expect(toast).toHaveBeenCalledWith(message, 'error')
+  expect(host.textContent).toContain('Space projects list')
+  expect(document.querySelector('[role="dialog"]')).toBeNull()
+})
+
+it('deletes on Enter in the name box only once the name matches', async () => {
+  await show(archivedState())
+  await act(async () => button(host, 'Delete project')!.click())
+  const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+  const input = dialog.querySelector<HTMLInputElement>('input')!
+  const form = dialog.querySelector('form')!
+  await type(input, 'Alph')
+  await act(async () => form.requestSubmit())
+  expect(deleteGeneralProject).not.toHaveBeenCalled()
+  await type(input, 'Alpha')
+  await act(async () => form.requestSubmit())
+  expect(deleteGeneralProject).toHaveBeenCalledWith('p1')
+})
+
+it('reopens the delete dialog empty, with no earlier error', async () => {
+  vi.mocked(deleteGeneralProject).mockRejectedValueOnce(new Error('network down'))
+  await show(archivedState())
+  await act(async () => button(host, 'Delete project')!.click())
+  let dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+  await type(dialog.querySelector<HTMLInputElement>('input')!, 'Alpha')
+  await act(async () => button(dialog, 'Delete project')!.click())
+  expect(dialog.querySelector('[role="alert"]')).not.toBeNull()
+  await act(async () => button(dialog, 'Cancel')!.click())
+  await act(async () => button(host, 'Delete project')!.click())
+  dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+  expect(dialog.querySelector<HTMLInputElement>('input')!.value).toBe('')
+  expect(dialog.querySelector('[role="alert"]')).toBeNull()
+  expect((button(dialog, 'Delete project') as HTMLButtonElement).disabled).toBe(true)
 })
