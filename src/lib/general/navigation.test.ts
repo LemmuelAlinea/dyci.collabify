@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chooseLandingSpace, generalTab, milestoneParams, projectRouteId, spaceRouteId } from './navigation'
+import { chooseLandingSpace, generalTab, milestoneParams, projectRouteId, settingsSection, spaceRouteId } from './navigation'
 import { workSection } from '../work/nav'
 import type { GeneralSpaceSummary } from './types'
 
@@ -32,9 +32,10 @@ describe('general navigation', () => {
 
   it('reads the six project sections and falls back to Overview', () => {
     expect(generalTab(new URLSearchParams())).toBe('overview')
-    for (const tab of ['overview', 'plan', 'tasks', 'conversations', 'files', 'people']) {
+    for (const tab of ['overview', 'plan', 'tasks', 'conversations', 'files', 'settings']) {
       expect(generalTab(new URLSearchParams(`tab=${tab}`))).toBe(tab)
     }
+    expect(generalTab(new URLSearchParams('tab=people'))).toBe('settings')
     expect(generalTab(new URLSearchParams('tab=unknown'))).toBe('overview')
   })
 
@@ -59,11 +60,22 @@ describe('general navigation', () => {
       'tab=discussion': 'conversations',
       'tab=feedback': 'conversations',
       'tab=shared': 'files',
-      'tab=members': 'people',
+      'tab=members': 'settings',
+      'tab=people': 'settings',
     }
     for (const [query, tab] of Object.entries(destinations)) {
       expect(generalTab(new URLSearchParams(query))).toBe(tab)
     }
+  })
+
+  it('reads the Settings section and sends old People links to Members', () => {
+    expect(settingsSection(new URLSearchParams('tab=members'))).toBe('members')
+    expect(settingsSection(new URLSearchParams('tab=people'))).toBe('members')
+    expect(settingsSection(new URLSearchParams('tab=settings'))).toBe('general')
+    expect(settingsSection(new URLSearchParams('tab=settings&section=sprints'))).toBe('sprints')
+    expect(settingsSection(new URLSearchParams('tab=settings&section=tasks'))).toBe('tasks')
+    expect(settingsSection(new URLSearchParams('tab=settings&section=members'))).toBe('members')
+    expect(settingsSection(new URLSearchParams('tab=settings&section=nope'))).toBe('general')
   })
 
   it('links to a milestone without changing the source query', () => {

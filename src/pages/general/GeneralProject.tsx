@@ -2,11 +2,11 @@
 import { useEffect, useState } from 'react'
 import { useFocusMode } from '../../lib/focusMode'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
-import { MembersTab } from '../../components/general/MembersTab'
 import { DiscussionTab } from '../../components/general/DiscussionTab'
 import { FeedbackTab } from '../../components/general/FeedbackTab'
 import { FilesTab } from '../../components/general/FilesTab'
 import { WorkTab } from '../../components/general/WorkTab'
+import { ProjectSettings } from '../../components/general/settings/ProjectSettings'
 import { SinceLastVisit } from '../../components/general/SinceLastVisit'
 import { SaveTemplateButton } from '../../components/general/SaveTemplateButton'
 import { useGeneralProject } from '../../components/general/useGeneralProject'
@@ -54,6 +54,7 @@ export default function GeneralProject() {
     changed.delete('path')
     changed.delete('share')
     changed.delete('spath')
+    changed.delete('section')
     setParams(changed)
   }
 
@@ -197,9 +198,9 @@ export default function GeneralProject() {
           ...(discussionOn || feedbackOn ? [{ id: 'conversations' as const, label: 'Conversations', icon: 'message' as const }] : []),
           { id: 'files', label: 'Files', icon: 'folder' },
           {
-            id: 'people',
-            label: 'People',
-            icon: 'users',
+            id: 'settings',
+            label: 'Settings',
+            icon: 'settings',
             ...(openForOwner > 0 ? { count: openForOwner } : {}),
           },
         ]}
@@ -226,7 +227,7 @@ export default function GeneralProject() {
         {feedbackSelected ? <FeedbackTab state={state} /> : <DiscussionTab state={state} />}
       </div>}
       {tab === 'files' && <FilesTab state={state} />}
-      {tab === 'people' && <MembersTab state={state} />}
+      {tab === 'settings' && <ProjectSettings state={state} />}
 
       <ConfirmDialog
         open={archiving}

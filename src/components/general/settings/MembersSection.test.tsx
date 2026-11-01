@@ -4,17 +4,17 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { expect, it, vi } from 'vitest'
-import { MembersTab } from './MembersTab'
-import type { GeneralProjectState } from './useGeneralProject'
+import { MembersSection } from './MembersSection'
+import type { GeneralProjectState } from '../useGeneralProject'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
-vi.mock('../ui/Toast', () => {
+vi.mock('../../ui/Toast', () => {
   const show = vi.fn()
   return { useToast: () => ({ show }) }
 })
-vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ profile: null }) }))
-vi.mock('../../hooks/useLive', () => ({ useLive: () => {} }))
+vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ profile: null }) }))
+vi.mock('../../../hooks/useLive', () => ({ useLive: () => {} }))
 
 it('keeps requests and invitations inside their action dialogs', async () => {
   const state = {
@@ -34,7 +34,7 @@ it('keeps requests and invitations inside their action dialogs', async () => {
   document.body.append(host)
   const root = createRoot(host)
   try {
-    await act(async () => root.render(<MemoryRouter><MembersTab state={state} /></MemoryRouter>))
+    await act(async () => root.render(<MemoryRouter><MembersSection state={state} /></MemoryRouter>))
     expect(host.textContent).not.toContain('Nothing waiting on you.')
     await act(async () => [...host.querySelectorAll('button')].find((button) => button.textContent === 'Access requests')!.click())
     expect(document.querySelector('[role="dialog"][aria-label="Access requests"]')?.textContent).toContain('Nothing waiting on you.')

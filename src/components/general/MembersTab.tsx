@@ -32,12 +32,8 @@ import {
 import type { ProjectRole } from '../../lib/general/permissions'
 import type { GeneralMember } from '../../lib/general/types'
 import { HandOverDialog } from './HandOverDialog'
-import { InvitePanel } from './InvitePanel'
-import { RequestsPanel } from './RequestsPanel'
 import { RoleBadge } from './RoleBadge'
-import { RoleGuide } from './RoleGuide'
 import { SkillTags } from './SkillTags'
-import { StructurePanel } from './StructurePanel'
 import type { GeneralProjectState } from './useGeneralProject'
 
 const ROLE_ORDER: Record<ProjectRole, number> = {
@@ -48,37 +44,7 @@ const ROLE_ORDER: Record<ProjectRole, number> = {
   member: 5,
 }
 
-export function MembersTab({ state }: { state: GeneralProjectState }) {
-  const [requestsOpen, setRequestsOpen] = useState(false)
-  const [inviteOpen, setInviteOpen] = useState(false)
-  const canSeeRequests = (state.canGrant && !state.archived) || state.myRole === 'member'
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap justify-end gap-2">
-        {canSeeRequests && (
-          <Button type="button" variant="outline" onClick={() => setRequestsOpen(true)}>
-            Access requests
-          </Button>
-        )}
-        <Button type="button" onClick={() => setInviteOpen(true)}>
-          Invite people
-        </Button>
-      </div>
-      <MemberList state={state} />
-      <RoleGuide />
-      <StructurePanel state={state} />
-      <Modal open={requestsOpen} onClose={() => setRequestsOpen(false)} title={state.canGrant && !state.archived ? 'Access requests' : 'Your access'} size="md">
-        <RequestsPanel state={state} />
-      </Modal>
-      <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title="Bring people in" size="md" focusField>
-        <InvitePanel state={state} />
-      </Modal>
-    </div>
-  )
-}
-
-function MemberList({ state }: { state: GeneralProjectState }) {
+export function MemberList({ state }: { state: GeneralProjectState }) {
   const { show } = useToast()
   const { profile: viewer } = useAuth()
   const navigate = useNavigate()

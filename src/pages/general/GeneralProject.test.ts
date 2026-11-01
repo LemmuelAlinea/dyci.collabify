@@ -18,7 +18,7 @@ vi.mock('../../components/general/WorkTab', () => ({ WorkTab: ({ area }: { area:
 vi.mock('../../components/general/DiscussionTab', () => ({ DiscussionTab: () => 'Discussion content' }))
 vi.mock('../../components/general/FeedbackTab', () => ({ FeedbackTab: () => 'Feedback content' }))
 vi.mock('../../components/general/FilesTab', () => ({ FilesTab: () => 'Files content' }))
-vi.mock('../../components/general/MembersTab', () => ({ MembersTab: () => 'People content' }))
+vi.mock('../../components/general/settings/ProjectSettings', () => ({ ProjectSettings: () => 'Settings content' }))
 
 const state = {
   loading: false,
@@ -57,7 +57,7 @@ describe('project sections', () => {
     await renderAt('', async container => {
       const expected = [
         ['Overview', 'overview work'], ['Plan', 'plan work'], ['Tasks', 'tasks work'],
-        ['Conversations', 'Discussion content'], ['Files', 'Files content'], ['People', 'People content'],
+        ['Conversations', 'Discussion content'], ['Files', 'Files content'], ['Settings', 'Settings content'],
       ]
       expect(container.querySelectorAll('[role="tablist"]')[0].querySelectorAll('[role="tab"]')).toHaveLength(6)
       for (const [label, content] of expected) {
@@ -79,7 +79,8 @@ describe('project sections', () => {
       ['tab=work&work=qa', 'Tasks', 'tasks work'],
       ['tab=feedback', 'Conversations', 'Feedback content'],
       ['tab=shared', 'Files', 'Files content'],
-      ['tab=members', 'People', 'People content'],
+      ['tab=members', 'Settings', 'Settings content'],
+      ['tab=people', 'Settings', 'Settings content'],
     ]) {
       await renderAt(query, container => {
         expect(selected(container)).toBe(label)

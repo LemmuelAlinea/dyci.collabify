@@ -1,16 +1,17 @@
 import type { GeneralSpaceSummary } from './types'
 import { workSection } from '../work/nav'
 
-export type GeneralTabId = 'overview' | 'plan' | 'tasks' | 'conversations' | 'files' | 'people'
+export type GeneralTabId = 'overview' | 'plan' | 'tasks' | 'conversations' | 'files' | 'settings'
 
-const TABS = new Set<GeneralTabId>(['overview', 'plan', 'tasks', 'conversations', 'files', 'people'])
+const TABS = new Set<GeneralTabId>(['overview', 'plan', 'tasks', 'conversations', 'files', 'settings'])
 
 const LEGACY: Record<string, GeneralTabId> = {
   'project-progress': 'overview',
   discussion: 'conversations',
   feedback: 'conversations',
   shared: 'files',
-  members: 'people',
+  members: 'settings',
+  people: 'settings',
 }
 
 export function generalTab(params: URLSearchParams): GeneralTabId {
@@ -25,6 +26,18 @@ export function generalTab(params: URLSearchParams): GeneralTabId {
   if (params.has('task')) return 'tasks'
   const value = (LEGACY[raw] ?? raw) as GeneralTabId
   return TABS.has(value) ? value : 'overview'
+}
+
+export type SettingsSection = 'general' | 'sprints' | 'tasks' | 'members'
+
+const SETTINGS_SECTIONS = new Set<SettingsSection>(['general', 'sprints', 'tasks', 'members'])
+
+/** The section open inside Settings. Old People links (?tab=people, ?tab=members) open Members. */
+export function settingsSection(params: URLSearchParams): SettingsSection {
+  const raw = params.get('section') ?? ''
+  if (SETTINGS_SECTIONS.has(raw as SettingsSection)) return raw as SettingsSection
+  const tab = params.get('tab')
+  return tab === 'people' || tab === 'members' ? 'members' : 'general'
 }
 
 export function milestoneParams(params: URLSearchParams, id: string): URLSearchParams {
