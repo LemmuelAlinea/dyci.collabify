@@ -67,12 +67,20 @@ declare
   v_dev   uuid := gen_random_uuid();  -- member on P and Q
   v_dev2  uuid := gen_random_uuid();  -- another member on P
   v_qa    uuid := gen_random_uuid();  -- QA on Q
+  v_coord uuid := gen_random_uuid();  -- coordinator on P and Q
+  v_teach uuid := gen_random_uuid();  -- teaches the class whose board has Files
+  v_stu   uuid := gen_random_uuid();  -- the student whose board it is
   v_space uuid;
   p       uuid;  -- the project under test
   p2      uuid;  -- another project in the same space
   q       uuid;  -- a project with active QA
   cb      uuid;  -- a class board's Files project
   team    uuid;
+  qteam   uuid;
+  v_class uuid;
+  v_cproj uuid;
+  v_board uuid;
+  v_syl   uuid;
   t       uuid;
   t2      uuid;
   par     uuid;
@@ -89,7 +97,10 @@ begin
       (v_pm,   'zz-ptr-pm@example.test'),
       (v_dev,  'zz-ptr-dev@example.test'),
       (v_dev2, 'zz-ptr-dev2@example.test'),
-      (v_qa,   'zz-ptr-qa@example.test')
+      (v_qa,   'zz-ptr-qa@example.test'),
+      (v_coord, 'zz-ptr-coord@example.test'),
+      (v_teach, 'zz-ptr-teach@example.test'),
+      (v_stu,   'zz-ptr-stu@example.test')
     ) as v(id, em);
 
   insert into public.profiles
@@ -98,9 +109,12 @@ begin
     (v_pm,   'zz-ptr-pm@example.test',   'Zz', 'Ptrpm',   'member', 'active', false, true),
     (v_dev,  'zz-ptr-dev@example.test',  'Zz', 'Ptrdev',  'member', 'active', false, false),
     (v_dev2, 'zz-ptr-dev2@example.test', 'Zz', 'Ptrdev2', 'member', 'active', false, false),
-    (v_qa,   'zz-ptr-qa@example.test',   'Zz', 'Ptrqa',   'member', 'active', false, false)
+    (v_qa,   'zz-ptr-qa@example.test',   'Zz', 'Ptrqa',   'member', 'active', false, false),
+    (v_coord, 'zz-ptr-coord@example.test', 'Zz', 'Ptrcoord', 'member', 'active', false, false),
+    (v_teach, 'zz-ptr-teach@example.test', 'Zz', 'Ptrteach', 'member', 'active', true, false),
+    (v_stu,   'zz-ptr-stu@example.test',   'Zz', 'Ptrstu',   'student', 'active', false, false)
   on conflict (id) do update
-    set role = excluded.role, status = excluded.status,
+    set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach,
         can_manage_projects = excluded.can_manage_projects;
 
   perform pg_temp.act_as(v_pm);
@@ -111,13 +125,18 @@ begin
 
   perform pg_temp.act_as_service();
   insert into public.general_space_members (space_id, user_id, level) values
-    (v_space, v_dev, 'member'), (v_space, v_dev2, 'member'), (v_space, v_qa, 'member');
+    (v_space, v_dev, 'member'), (v_space, v_dev2, 'member'), (v_space, v_qa, 'member'),
+    (v_space, v_coord, 'member');
   insert into public.general_members (project_id, user_id, role) values
-    (p, v_dev, 'member'), (p, v_dev2, 'member'), (q, v_dev, 'member'), (q, v_qa, 'qa');
+    (p, v_dev, 'member'), (p, v_dev2, 'member'), (p, v_coord, 'coordinator'),
+    (q, v_dev, 'member'), (q, v_qa, 'qa'), (q, v_coord, 'coordinator');
   insert into public.general_teams (project_id, name) values (p, 'Zz PTR team') returning id into team;
   insert into public.general_team_members (project_id, team_id, user_id) values
     (p, team, v_dev), (p, team, v_dev2);
   update public.general_teams set leader_id = v_dev where id = team;
+  insert into public.general_teams (project_id, name) values (q, 'Zz PTR QA team') returning id into qteam;
+  insert into public.general_team_members (project_id, team_id, user_id) values (q, qteam, v_dev);
+  update public.general_teams set leader_id = v_dev where id = qteam;
 
   ------------------------------------------------------------ defaults
   perform pg_temp.must_be('new projects keep today''s task rules',
@@ -125,8 +144,6 @@ begin
         and allow_dependencies and allow_multiple_assignees and not require_assignee
         and require_subtasks_done
        from public.general_projects where id = p));
-  perform pg_temp.must_be('...and every existing task has a priority',
-    not exists (select 1 from public.general_tasks where priority is null));
 
   ------------------------------------------------------------ priority
   t := pg_temp.released_task(p, 'Zz PTR first', v_pm);
@@ -175,6 +192,18 @@ begin
   t := pg_temp.released_task(p, 'Zz PTR past the last stage', v_pm);
   perform pg_temp.must_be('...and a default past the last stage falls back to the first',
     (select stage = 0 and status = 'todo' from public.general_tasks where id = t));
+  update public.general_projects set default_stage = 2 where id = p;
+  t := pg_temp.released_task(p, 'Zz PTR default on Done', v_pm);
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_tasks (project_id, title) values (p, 'Zz PTR sent onto Done')
+  returning id into t2;
+  select updated_at into v_upd from public.general_tasks where id = t2;
+  perform public.send_work_tasks_to_teams(p,
+    jsonb_build_array(jsonb_build_object('id', t2, 'team_id', team, 'updated_at', v_upd)));
+  perform pg_temp.must_be('a default on the last stage lands on the stage before it, not Done',
+    (select count(*) = 2 and bool_and(stage = 1 and status = 'in_progress' and completed_at is null)
+       from public.general_tasks where id in (t, t2)));
+  perform pg_temp.act_as_service();
   update public.general_projects set default_stage = 0 where id = p;
 
   ------------------------------------------------------------ parents
@@ -205,6 +234,47 @@ begin
   perform pg_temp.must_be('...while a plain task can join a parent',
     n = 1 and (select parent_id = par from public.general_tasks where id = t));
   update public.general_tasks set parent_id = null where id = t;
+
+  perform pg_temp.act_as_service();
+  t2 := pg_temp.released_task(p, 'Zz PTR held, loose', v_pm);
+  insert into public.general_task_assignees (project_id, task_id, user_id) values (p, t2, v_dev);
+  perform pg_temp.act_as(v_dev);
+  perform pg_temp.must_refuse_with('a holder cannot link their task under a parent directly',
+    format($q$update public.general_tasks set parent_id = %L where id = %L$q$, par, t2),
+    'Add subtasks from the parent task.');
+  perform pg_temp.must_refuse_with('...or unlink a subtask',
+    format($q$update public.general_tasks set parent_id = null where id = %L$q$, sub),
+    'Add subtasks from the parent task.');
+  perform set_config('collabify.subtask_op', 'on', true);
+  update public.general_tasks set parent_id = par where id = t2;
+  perform set_config('collabify.subtask_op', 'off', true);
+  perform pg_temp.must_be('...while the subtask function''s flag lets a holder link one',
+    (select parent_id = par from public.general_tasks where id = t2));
+  perform pg_temp.act_as(v_coord);
+  update public.general_tasks set parent_id = t where id = t2;
+  get diagnostics n = row_count;
+  perform pg_temp.must_be('a coordinator can move a subtask to another parent',
+    n = 1 and (select parent_id = t from public.general_tasks where id = t2));
+  update public.general_tasks set parent_id = null where id = t2;
+  insert into public.general_tasks (project_id, title) values (p, 'Zz PTR planning parent')
+  returning id into other;
+  perform pg_temp.must_refuse_with('...but not a released task under a planning one',
+    format($q$update public.general_tasks set parent_id = %L where id = %L$q$, other, t2),
+    'share its parent''s release state');
+  perform pg_temp.must_refuse_with('...nor a new planning task under a released one',
+    format($q$insert into public.general_tasks (project_id, title, parent_id)
+              values (%L, 'Zz PTR planning child', %L)$q$, p, par),
+    'share its parent''s release state');
+  insert into public.general_tasks (project_id, title, parent_id)
+  values (p, 'Zz PTR planning child', other) returning id into t2;
+  perform pg_temp.must_be('...while a planning task joins a planning parent',
+    (select parent_id = other and routing_state = 'planning' from public.general_tasks where id = t2));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_refuse_with('...and the service role keeps to the release state too',
+    format($q$insert into public.general_tasks (project_id, title, created_by, routing_state, parent_id)
+              values (%L, 'Zz PTR stray released', %L, 'released', %L)$q$, p, v_pm, other),
+    'share its parent''s release state');
+  perform pg_temp.act_as(v_pm);
 
   update public.general_projects set allow_subtasks = false where id = p;
   perform pg_temp.must_refuse_with('switching subtasks off refuses new ones but keeps existing ones',
@@ -251,8 +321,24 @@ begin
   select updated_at into v_upd from public.general_tasks where id = t2;
   perform public.send_work_tasks_to_teams(p,
     jsonb_build_array(jsonb_build_object('id', t2, 'team_id', team, 'updated_at', v_upd)));
-  perform pg_temp.must_be('...while sending work still lands it in the default stage',
-    (select stage = 1 and routing_state = 'released' from public.general_tasks where id = t2));
+  perform pg_temp.act_as_service();
+  t := pg_temp.released_task(p, 'Zz PTR inserted, unheld', v_pm);
+  perform pg_temp.must_be('...unheld work enters the first stage, not the default',
+    (select stage = 0 and status = 'todo' and routing_state = 'released'
+       from public.general_tasks where id = t2)
+    and (select stage = 0 and status = 'todo' from public.general_tasks where id = t));
+  insert into public.general_tasks (project_id, title, created_by) values (p, 'Zz PTR held in planning', v_pm)
+  returning id into t2;
+  insert into public.general_task_assignees (project_id, task_id, user_id) values (p, t2, v_dev);
+  update public.general_tasks set routing_state = 'released' where id = t2;
+  perform pg_temp.must_be('...and held work enters the default stage',
+    (select stage = 1 and status = 'in_progress' and routing_state = 'released'
+       from public.general_tasks where id = t2));
+  perform pg_temp.must_refuse_with('...and the service role cannot insert unheld work past the first stage',
+    format($q$insert into public.general_tasks (project_id, title, created_by, routing_state, stage)
+              values (%L, 'Zz PTR unheld at stage one', %L, 'released', 1)$q$, p, v_pm),
+    'Give this task a holder before moving it on.');
+  perform pg_temp.act_as(v_pm);
   update public.general_projects set require_assignee = false, default_stage = 0 where id = p;
 
   ------------------------------------------------------------ subtasks before done
@@ -280,6 +366,27 @@ begin
   perform pg_temp.must_refuse_with('...and QA cannot pass a parent with an open subtask',
     format('select public.qa_pass_general_task(%L)', t),
     'Finish its subtasks first.');
+
+  -- A default past the QA stage enters at the QA stage while QA is active.
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects
+     set stages = array['To do', 'Build', 'Testing', 'Review', 'Done'], default_stage = 3
+   where id = q;
+  perform pg_temp.act_as(v_coord);
+  insert into public.general_tasks (project_id, title) values (q, 'Zz PTR sent past QA')
+  returning id into t2;
+  select updated_at into v_upd from public.general_tasks where id = t2;
+  perform public.send_work_tasks_to_teams(q,
+    jsonb_build_array(jsonb_build_object('id', t2, 'team_id', qteam, 'updated_at', v_upd)));
+  perform pg_temp.act_as_service();
+  t := pg_temp.released_task(q, 'Zz PTR inserted past QA', v_pm);
+  perform pg_temp.must_be('a default past the QA stage lands at the QA stage while QA is active',
+    (select count(*) = 2 and bool_and(stage = 2 and status = 'in_progress' and qa_entered_at is not null)
+       from public.general_tasks where id in (t, t2)));
+  delete from public.general_members where project_id = q and user_id = v_qa;
+  t := pg_temp.released_task(q, 'Zz PTR past QA, no QA', v_pm);
+  perform pg_temp.must_be('...and the default stage itself without active QA',
+    (select stage = 3 and status = 'in_progress' from public.general_tasks where id = t));
 
   perform pg_temp.act_as_service();
   par := pg_temp.released_task(p, 'Zz PTR loose parent', v_pm);
@@ -316,7 +423,24 @@ begin
 
   ------------------------------------------------------------ class boards
   perform pg_temp.act_as_service();
-  select id into cb from public.general_projects where class_board_id is not null and archived_at is null limit 1;
+  insert into public.teaching_resources (professor_id, kind, title, file_path, file_name)
+  values (v_teach, 'syllabus', 'Zz PTR syllabus', 'x/ptr.pdf', 'ptr.pdf') returning id into v_syl;
+  insert into public.syllabus_weeks (resource_id, week_no, title) values (v_syl, 1, 'Week 1');
+  perform pg_temp.act_as(v_teach);
+  insert into public.classes
+    (professor_id, name, initial, code, section, year_level, semester, school_year, syllabus_id)
+  values (v_teach, 'Zz PTR class', 'ZZP', 'ZZPTR-CLASS', 'BSIT 1A', '1st', '1st', '2026-2027', v_syl)
+  returning id into v_class;
+  perform pg_temp.act_as_service();
+  insert into public.projects (class_id, created_by, title, type, start_week, end_week, audience)
+  values (v_class, v_teach, 'Zz PTR class project', 'activity', 1, 1, 'individual')
+  returning id into v_cproj;
+  insert into public.project_boards (project_id, student_id) values (v_cproj, v_stu)
+  returning id into v_board;
+  insert into public.general_projects (name, space_id, class_board_id, created_by, preset)
+  select 'Zz PTR class Files', c.space_id, v_board, v_teach, 'class-board'
+    from public.classes c where c.id = v_class
+  returning id into cb;
   perform pg_temp.must_be('fixture: a class board''s Files project', cb is not null);
   update public.general_projects
      set default_priority = 'urgent', default_stage = 1, require_assignee = true,

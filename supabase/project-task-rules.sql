@@ -23,14 +23,21 @@
 --     general_tasks_guard keeps every signed-in insert in private planning), or
 --     an update that releases it (the handoff RPCs) while it is in the first
 --     stage. A release update doesn't name status or stage, so
---     general_tasks_a_stage and general_tasks_zz_qa_entered don't run for it;
---     this trigger sets the matching status and qa_entered_at itself. A
---     default_stage past the last stage falls back to the first.
+--     general_tasks_a_stage (and its QA gate) and general_tasks_zz_qa_entered
+--     don't run for it; this trigger sets the matching status and
+--     qa_entered_at itself, and general_default_stage keeps the stage it uses
+--     at or before the QA stage while the project has active QA, and before
+--     the last stage always, so no task enters the work past QA or as Done. A
+--     default_stage past the last stage falls back to the first. When the
+--     project requires a holder and the task has none, it stays in the first
+--     stage.
 --   general_tasks_b_rules  after general_tasks_a_stage, so it sees the status
 --     synced from the stage (the last stage is Done, the first To do). Parent
---     rules everywhere; on work projects the subtask switch, the holder rule and
---     the completion rule. Every path to Done passes it: a status-only update,
---     a stage move and qa_pass_general_task.
+--     rules everywhere; on work projects who may link a subtask (the project
+--     manager, a coordinator, a function that sets collabify.subtask_op, or
+--     the service role), the parent's release state, the subtask switch, the
+--     holder rule and the completion rule. Every path to Done passes it: a
+--     status-only update, a stage move and qa_pass_general_task.
 --   general_task_assignees_single  one holder per task when the project turns
 --     allow_multiple_assignees off. Tasks that already have several keep them.
 --
@@ -76,12 +83,16 @@ create index if not exists general_tasks_parent
 -- ---------------------------------------------------------------- defaults
 
 /**
- * The project's default stage, 0-based, for a stage list of p_n stages. One
- * past the last stage falls back to the first.
+ * The stage, 0-based, a task enters the work in, for a stage list of p_n
+ * stages: the project's default, the first when that is past the last stage,
+ * never the last stage itself (Done), and never past p_qa, the QA stage of a
+ * project with active QA (null without).
  */
-create or replace function public.general_default_stage(p_default int, p_n int)
+create or replace function public.general_default_stage(p_default int, p_n int, p_qa int)
 returns int language sql immutable set search_path = public as $$
-  select case when p_default between 0 and p_n - 1 then p_default else 0 end
+  select greatest(0, least(case when p_default between 0 and p_n - 1 then p_default else 0 end,
+                           p_n - 2,
+                           coalesce(p_qa, p_n)))
 $$;
 
 /** Fills a new task's priority and starts work in the project's default stage. */
@@ -108,8 +119,13 @@ begin
     return new;
   end if;
   n := public.stage_count(gp.stages);
-  d := public.general_default_stage(gp.default_stage, n);
-  if d = 0 then
+  d := public.general_default_stage(gp.default_stage, n,
+         case when public.general_project_has_qa(gp.id)
+              then public.general_qa_stage_pick(gp.stages, gp.qa_stage) end);
+  -- A required holder comes first: unheld work waits in the first stage.
+  if d = 0
+     or (gp.require_assignee
+         and not exists (select 1 from public.general_task_assignees a where a.task_id = new.id)) then
     return new;
   end if;
 
@@ -124,7 +140,7 @@ begin
         and (new.status, new.stage) is not distinct from (old.status, old.stage)
         and public.general_task_stage_at(old.status, old.stage, n) = 0 then
     new.stage := d;
-    new.status := (case when d = n - 1 then 'done' else 'in_progress' end)::public.general_task_status;
+    new.status := 'in_progress';  -- d is never the first or the last stage
     if d = public.general_qa_stage_pick(gp.stages, gp.qa_stage) then
       new.qa_entered_at := clock_timestamp();
     end if;
@@ -142,7 +158,10 @@ create trigger general_tasks_0_defaults
 
 /**
  * Subtasks are one level deep, in their parent's project. On a work project:
- * no new subtasks while the switch is off, no released task leaves the first
+ * only the project manager, a coordinator, a function that sets
+ * collabify.subtask_op, or the service role links or unlinks a subtask; a
+ * subtask shares its parent's release state; no new subtasks while the switch
+ * is off, no released task leaves the first
  * stage without a holder when one is required, and no parent reaches Done
  * (by status or the last stage) while a subtask is open. Archived and trashed
  * subtasks don't hold a parent back.
@@ -162,6 +181,15 @@ declare
   moved   boolean;
 begin
   select * into gp from public.general_projects where id = new.project_id;
+
+  if gp.class_board_id is null and auth.uid() is not null
+     and (case when tg_op = 'INSERT' then new.parent_id is not null
+               else new.parent_id is distinct from old.parent_id end)
+     and coalesce(current_setting('collabify.subtask_op', true), 'off') <> 'on'
+     and not coalesce(public.general_role_of(new.project_id, auth.uid()) in ('pm', 'coordinator'),
+                      false) then
+    raise exception 'Add subtasks from the parent task.' using errcode = 'insufficient_privilege';
+  end if;
 
   if new.parent_id is not null
      and (tg_op = 'INSERT'
@@ -188,6 +216,14 @@ begin
       raise exception 'This task has subtasks, so it can''t become one.'
         using errcode = 'check_violation';
     end if;
+    -- general_tasks_guard, after this, keeps a signed-in insert in planning.
+    if gp.class_board_id is null
+       and par.routing_state is distinct from
+           (case when tg_op = 'INSERT' and auth.uid() is not null then 'planning'
+                 else new.routing_state end) then
+      raise exception 'A subtask must share its parent''s release state.'
+        using errcode = 'check_violation';
+    end if;
   end if;
 
   if gp.id is null or gp.class_board_id is not null then
@@ -197,14 +233,14 @@ begin
   n := public.stage_count(gp.stages);
   idx := public.general_task_stage_at(new.status, new.stage, n);
 
-  -- Planning tasks stay unheld; entering the work in the default stage is
-  -- the project's own rule, not a move.
+  -- Planning tasks stay unheld. Released work past the first stage needs a
+  -- holder, whether it moves there or enters the work there.
   if gp.require_assignee and new.routing_state = 'released' and idx > 0 then
     if tg_op = 'INSERT' then
-      moved := idx <> public.general_default_stage(gp.default_stage, n);
+      moved := true;
     else
       old_idx := public.general_task_stage_at(old.status, old.stage, n);
-      moved := old.routing_state = 'released' and idx <> old_idx;
+      moved := old.routing_state is distinct from 'released' or idx <> old_idx;
     end if;
     if moved and not exists (select 1 from public.general_task_assignees a
                               where a.task_id = new.id) then
