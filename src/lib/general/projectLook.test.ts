@@ -15,6 +15,7 @@ describe('project look', () => {
   })
 
   it('draws every icon from the Icon set', () => {
+    // The real check is this type assignment, enforced by tsc; the assertion only keeps it used.
     const asNames: readonly IconName[] = PROJECT_ICONS
     expect(asNames).toBe(PROJECT_ICONS)
   })

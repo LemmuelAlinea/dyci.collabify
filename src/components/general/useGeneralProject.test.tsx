@@ -9,7 +9,7 @@ import { useGeneralProject, type GeneralProjectState } from './useGeneralProject
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 vi.mock('../../hooks/useLive', () => ({ useLive: () => {} }))
-vi.mock('../../lib/api/general', () => ({ getGeneralProject: vi.fn() }))
+vi.mock('../../lib/api/general', () => ({ getGeneralProject: vi.fn(), listJoinRequests: vi.fn() }))
 
 it('keeps background reload errors in state and rejects an explicitly strict reload', async () => {
   vi.mocked(getGeneralProject).mockRejectedValue(new Error('Offline'))

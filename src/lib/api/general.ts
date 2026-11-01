@@ -130,7 +130,8 @@ export async function getGeneralProject(projectId: string) {
   ])
   if (error) throw error
   if (!data) return null
-  // Until project-settings-general.sql is live the read fails; use the defaults. Remove this fallback then.
+  // Until project-settings-general.sql is live the columns are missing; use the defaults then. Remove this fallback once it is.
+  if (look.error && !isMissingColumn(look.error)) throw look.error
   const fields = look.error ? null : look.data
   return {
     ...(data as GeneralProjectSummary),

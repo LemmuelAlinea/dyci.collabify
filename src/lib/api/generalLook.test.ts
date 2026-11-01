@@ -41,6 +41,11 @@ describe('getGeneralProject', () => {
     const p = await getGeneralProject('p1')
     expect(p).toMatchObject({ stages: ['A', 'B'], color: null, icon: null, default_view: 'overview', visibility: 'private' })
   })
+  it('rejects on any other look error instead of reporting defaults', async () => {
+    const denied = { code: '42501', message: 'permission denied for table general_projects' }
+    results.set(LOOK, { data: null, error: denied })
+    await expect(getGeneralProject('p1')).rejects.toBe(denied)
+  })
 })
 
 describe('listProjectLooks', () => {
