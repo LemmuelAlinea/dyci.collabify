@@ -3969,3 +3969,45 @@ Both start with "zz test".
   unarchived. Tasks carried out at finish stay where they went. The guard allows those
   two backward moves only while the function sets `collabify.sprint_reopen`.
 - Deploy order: run `sprint-reopen.sql` on the database, then push the frontend.
+
+## Project Settings tab and sprint automation (2026-11-01)
+
+**Not live.** Built and committed on local `main`; nothing is pushed and
+`sprint-settings.sql` has not been run on the database. The SQL suites pass in a
+rolled-back dry run, and a read-only check confirmed the live database has no
+`general_sprint_settings` table, `run_sprint_automation` function or
+`collabify-sprint-automation` cron row yet.
+
+- **Settings tab** replaces People in a work project (`components/general/settings/`):
+  General (project info, stages, archive), Sprints, Tasks and Members & permissions.
+  `?tab=people` and `?tab=members` open Settings → Members. Overview → Project info is
+  now view-only; General and Tasks need `edit_project` (the project manager). Design:
+  `docs/superpowers/specs/2026-11-01-project-settings-design.md`.
+- **Who runs sprints.** Starting, finishing and reopening a work-project sprint, and
+  changing sprint settings, belong to the project manager and coordinators
+  (`general_can_run_sprint`, trigger `general_sprints_run_guard`). Members with the
+  `manage_tasks` grant still create sprints and plan tasks into them. The Start and
+  Finish buttons show only to those who can run them.
+- **Sprint settings** (`general_sprint_settings`, loaded by `getSprintSettings` in
+  `lib/api/sprints.ts`, defaults in `lib/work/sprintSettings.ts`): auto finish, auto
+  start, carry unfinished tasks (ask, next sprint, backlog), sprint length, start weekday
+  and the run time (Asia/Manila). The Finish dialog reads the carry setting.
+- **Automation** (`supabase/sprint-settings.sql`): `run_sprint_automation(p_now, p_project)`
+  finishes, creates and starts sprints on its own and catches up missed runs. The
+  `collabify-sprint-automation` pg_cron job calls it every 15 minutes. The project
+  manager and coordinators get a `sprint_automation` notification for each finish and
+  start. `complete_general_sprint` is redefined there and supersedes the copy in
+  `work-planning.sql`.
+- **Fallback.** Until the SQL is live, a project loads with default settings because
+  `isMissingSprintSettingsTable` (`lib/api/sprints.ts`) catches only the missing-table
+  error; every other error shows the load error. Remove that fallback once the SQL is live.
+- **Backup doc** `docs/07-backup.md` lists `sprint-settings.sql` after `sprint-reopen.sql`
+  in both restore commands and the rerun tail. Re-running `work-planning.sql` or
+  `sprint-reopen.sql` means re-running `sprint-settings.sql` after it, then
+  `anon-lockdown.sql`. Suite: `supabase/tests/sprint-settings.test.sql`.
+- **Deploy order:** owner approval and role walk first, then
+  `node scripts/db.mjs supabase/sprint-settings.sql supabase/anon-lockdown.sql`, then
+  push `main`.
+- **Deferred:** per-team sprints, where team leads may start and finish their team's
+  sprints (the hook is `general_can_run_sprint`); the "soon" sprint organization options
+  in Settings → Sprints.

@@ -141,6 +141,11 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `general_route_context` for planning teams and `general_lead_assign_context`
   for incoming team members; old unrestricted Edge Function modes are refused.
   Deploy the reviewed frontend, SQL and `work-ai` together after the owner role walk.
+- Starting, finishing and reopening work-project sprints, and changing sprint settings,
+  belong to the project manager and coordinators (`general_can_run_sprint`,
+  `supabase/sprint-settings.sql`). Members with the `manage_tasks` grant still create
+  sprints and plan tasks into them. The Settings tab (`components/general/settings/`)
+  replaced People: `?tab=people` and `?tab=members` open Settings → Members.
 
 ## Security invariants
 
