@@ -160,6 +160,15 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   afterwards; otherwise Workspace reads are silently lost. A viewer with no role on a work
   project is `readOnly` in `useGeneralProject` and gets no Conversations tab; an approval
   is refused once the project turns Private or the requester leaves the space.
+- Task priority, subtasks, dependencies and task rules (`supabase/project-task-rules.sql`)
+  run after `project-settings-general.sql` and before `anon-lockdown.sql`. Re-running
+  `work-task-handoff.sql`, `task-stages.sql`, `project-qa.sql` or
+  `project-settings-general.sql` means re-running it afterwards. The rules are separate
+  triggers, `general_tasks_0_defaults` and `general_tasks_b_rules`, ordered around
+  `general_tasks_a_stage`; none of the existing task guards is redefined. Subtasks are one
+  level deep, follow their parent's release state and team, and are created through
+  `create_general_subtask`. A dependency blocks Done. The default stage never goes past an
+  active QA stage or reaches the last stage. Suite: `supabase/tests/project-task-rules.test.sql`.
 
 ## Security invariants
 

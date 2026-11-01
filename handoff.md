@@ -4069,3 +4069,40 @@ check confirmed the live database has no `visibility`, `color`, `icon` or
   then a read-only check of the columns, the table and the enum values, then re-run the
   suites, then push `main`.
 - **Next:** the next group from the Project Settings PDF is Task Management.
+
+## Task priority, subtasks, dependencies and rules (2026-11-01)
+
+Phase 2 group 2 from the Project Settings PDF (section C, Task Management). Spec:
+`docs/superpowers/specs/2026-11-01-project-settings-tasks-design.md`. Built on local `main`
+(commits `f3fa93d` to `726859f`), **not live and not pushed**.
+
+- **Database** (`supabase/project-task-rules.sql`, suite `supabase/tests/project-task-rules.test.sql`):
+  seven `general_projects` rule columns (`default_priority`, `default_stage`,
+  `allow_subtasks`, `allow_dependencies`, `allow_multiple_assignees`, `require_assignee`,
+  `require_subtasks_done`); `general_tasks.priority` and `parent_id`;
+  `general_task_dependencies` with RLS and realtime; the triggers `general_tasks_0_defaults`,
+  `general_tasks_b_rules`, `general_task_assignees_single`, `general_tasks_c_follow_parent` and
+  the deferred `general_tasks_subtask_state`; the RPCs `create_general_subtask`,
+  `add_general_task_dependency` and `remove_general_task_dependency`. It adds triggers only and
+  redefines none of the existing task guards. Run position and re-run rule are in
+  `docs/07-backup.md` and `CLAUDE.md`.
+- **Frontend:** the rule columns, priority, parent and dependencies load through
+  `lib/api/general.ts` and `useGeneralProject`; Settings → Tasks has the "Task rules" panel; the
+  task window shows priority, subtasks and dependencies; task cards and filters show priority,
+  subtask counts ("2/3 done") and the waiting marker; Tasks and My tasks sort and filter by priority.
+- **Interim fallbacks.** Until the SQL is live, `isMissingColumn` (the project rules load and the
+  task extras load in `lib/api/general.ts`) falls back to defaults, and `isMissingRelation` returns
+  no dependencies when `general_task_dependencies` is missing. Remove both once the SQL is live.
+- **Deploy order:** owner approval and role walk first, then
+  `node scripts/db.mjs supabase/project-task-rules.sql supabase/anon-lockdown.sql`, then a
+  read-only check of the columns, the table, the functions and the triggers, then re-run the
+  suites, then push `main`.
+- **Dry runs** (this file spliced into each suite, rolled back; no enum swaps needed):
+  `project-task-rules` 104 pass, `general-tasks` 49, `task-stages` 20, `project-qa` 139,
+  `work-task-handoff` 304, `task-archive` 20, `project-roles` 161,
+  `project-settings-general` 49, `sprint-settings` 66, `rls-coverage` 4, none failing. Build,
+  the full vitest run (1537 tests), eslint on the changed files and `scripts/contrast.mjs` are green.
+  The live database has none of the columns, the table or the functions yet.
+- **Known notes:** a direct API batch that names a subtask logs an extra history event. The
+  project-team-leads suite has one failure that predates this work.
+- **Next:** the next group from the Project Settings PDF is Members & Permissions.
