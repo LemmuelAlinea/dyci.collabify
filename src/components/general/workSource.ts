@@ -100,6 +100,7 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     moveToSprint: (ids, sprintId) => then(moveTasksToSprint(home, ids, sprintId)),
     setRank: (id, rank) => then(setTaskRank(home, id, rank)),
     addedMessage: viaMember ? 'Sent to planners for review' : undefined,
+    addPlaceholder: viaMember ? 'Suggest a task for the planners' : undefined,
     addToBacklog: (title) =>
       then(
         // A Member's task starts in planning for a planner to send; they cannot read it back.
@@ -151,7 +152,7 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
         : can
           ? ''
           : manage
-            ? 'You can add, edit and mark milestones reached. Tagging tasks and linking sprints needs Manage tasks.'
+            ? 'You can create, edit, delete and mark milestones reached. Tagging tasks still needs Manage tasks.'
             : 'Owners and Managers run the milestones. You can follow how close each one is.',
     openTask,
     createMilestone: (input) => then(createMilestone(home, input)),

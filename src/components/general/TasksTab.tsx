@@ -141,6 +141,8 @@ export function TasksTab({
         manageTasks: state.can('manage_tasks'),
         archived: state.readOnly,
         leadsUser: state.leadsUser,
+        role: project.class_board_id ? null : state.myRole,
+        holds: (id) => state.tasks.some((x) => x.id === id && x.assignee_ids.includes(state.viewerId ?? '')),
       },
       t,
     )
@@ -301,7 +303,9 @@ export function TasksTab({
           title="No tasks yet"
           body={project.class_board_id
             ? 'Break the project into pieces somebody can pick up. Anyone on the project can add one.'
-            : 'The project manager or a coordinator plans tasks, then sends them to a team.'}
+            : state.myRole === 'member' && project.memberRules?.createTasks
+              ? 'Tasks you add go to the project manager and coordinators for review.'
+              : 'The project manager or a coordinator plans tasks, then sends them to a team.'}
           action={
             !state.readOnly && mayCreate ? (
               <div className="flex flex-wrap justify-center gap-2">
@@ -771,6 +775,7 @@ function NewTaskDialog({
       open={open}
       onClose={onClose}
       title="New task"
+      description={isMember ? 'It goes to the project manager and coordinators for review. You won\'t see it until they send it.' : undefined}
       focusField
       footer={
         <>

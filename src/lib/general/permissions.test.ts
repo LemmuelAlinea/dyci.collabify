@@ -15,6 +15,7 @@ import {
   roleMark,
   canAssignIncoming,
   canEditTask,
+  keepsCreatorRights,
   canGive,
   canRemoveRole,
   canStepDown,
@@ -381,6 +382,22 @@ describe('task powers', () => {
     it('refuses everybody on an archived project', () => {
       expect(canEditTask(viewer({ manageTasks: true, archived: true }), task(['me']))).toBe(false)
     })
+
+    it('gives a Member no creator rights once their task is sent, but keeps holder and lead rights', () => {
+      const sent = { assignee_ids: [] as string[], created_by: 'me', routing_state: 'released', sent_at: '2026-11-02T00:00:00Z' }
+      const member = viewer({ role: 'member' })
+      expect(canEditTask(member, sent)).toBe(false)
+      expect(keepsCreatorRights(member, sent)).toBe(false)
+      expect(canEditTask(member, { ...sent, assignee_ids: ['me'] })).toBe(true)
+      expect(canEditTask(viewer({ role: 'member', leadsUser: leads(['mate']) }), { ...sent, assignee_ids: ['mate'] })).toBe(true)
+      expect(keepsCreatorRights(viewer({ role: 'member', holds: (id) => id === 'parent' }), { ...sent, parent_id: 'parent' })).toBe(true)
+      // Planning work, work released without a send, a coordinator and a class board keep the old rules.
+      expect(canEditTask(member, { ...sent, routing_state: 'planning', sent_at: null })).toBe(true)
+      expect(canEditTask(member, { ...sent, sent_at: null })).toBe(true)
+      expect(canEditTask(viewer({ role: 'coordinator' }), sent)).toBe(true)
+      expect(canEditTask(viewer({ role: null }), sent)).toBe(true)
+      expect(canEditTask(viewer({ role: 'member', manageTasks: true }), sent)).toBe(true)
+    })
   })
 
   describe('canUnassign', () => {
@@ -508,7 +525,13 @@ describe('member options', () => {
     expect(roleMark(creating, 'member', off)).toEqual({ mark: undefined })
     expect(roleMark(creating, 'member', { ...off, manageMilestones: true })).toEqual({ mark: undefined })
     expect(roleMark(creating, 'member', on)).toEqual({ mark: 'yes', note: 'set by the project manager' })
-    expect(roleMark(planning, 'member', on)).toMatchObject({ mark: 'yes', note: expect.stringContaining('set by the project manager') })
+    expect(roleMark(planning, 'member', on)).toEqual({
+      mark: 'yes', note: 'set by the project manager', label: 'Milestones: yes; sprints: with a grant',
+    })
+    // Team leads are Members, so their column follows the switches too.
+    expect(roleMark(planning, 'lead', off)).toEqual({ mark: undefined })
+    expect(roleMark(planning, 'lead', on)).toEqual(roleMark(planning, 'member', on))
+    expect(roleMark(creating, 'lead', on)).toEqual({ mark: 'yes', note: 'set by the project manager' })
     expect(roleMark(planning, 'qa', on)).toEqual({ mark: undefined })
     expect(roleMark(creating, 'pm', on)).toEqual({ mark: 'yes' })
   })

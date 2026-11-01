@@ -21,8 +21,8 @@ vi.mock('../ui/Toast', () => {
 })
 // The real Modal keeps itself mounted through its exit animation; this one is gone when closed.
 vi.mock('../ui/Modal', () => ({
-  Modal: ({ open, children, footer }: { open: boolean; children: React.ReactNode; footer?: React.ReactNode }) =>
-    open ? <div role="dialog">{children}{footer}</div> : null,
+  Modal: ({ open, children, footer, description }: { open: boolean; children: React.ReactNode; footer?: React.ReactNode; description?: React.ReactNode }) =>
+    open ? <div role="dialog">{description && <p>{description}</p>}{children}{footer}</div> : null,
 }))
 vi.mock('./TaskDialog', () => ({ TaskDialog: () => null }))
 vi.mock('./TasksFromNotes', () => ({ TasksFromNotes: () => null }))
@@ -80,6 +80,23 @@ it('shows a Member Add task only while the task switch is on', async () => {
   // Members do not draft from notes: that is the planners' tool.
   expect(buttonOf(on.host, 'From notes')).toBeUndefined()
   await on.close()
+})
+
+it('tells a Member where their tasks go, in the empty state and the New task dialog', async () => {
+  const off = await mount(makeState('member', false))
+  expect(off.host.textContent).toContain('The project manager or a coordinator plans tasks, then sends them to a team.')
+  await off.close()
+  const on = await mount(makeState('member', true))
+  expect(on.host.textContent).toContain('Tasks you add go to the project manager and coordinators for review.')
+  await act(async () => buttonOf(on.host, 'Add task')!.click())
+  expect(document.querySelector('[role="dialog"]')!.textContent).toContain(
+    'It goes to the project manager and coordinators for review. You won\'t see it until they send it.')
+  await on.close()
+  const pm = await mount(makeState('pm', true))
+  expect(pm.host.textContent).toContain('The project manager or a coordinator plans tasks, then sends them to a team.')
+  await act(async () => buttonOf(pm.host, 'Add task')!.click())
+  expect(document.querySelector('[role="dialog"]')!.textContent).not.toContain('for review')
+  await pm.close()
 })
 
 it('shows a stakeholder nothing, whatever the switch says', async () => {

@@ -40,7 +40,7 @@ import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent, TaskPri
 import { blockersOf } from '../../lib/general/taskRules'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
-import { assignableTo, canEditTask, canUnassign } from '../../lib/general/permissions'
+import { assignableTo, canEditTask, canUnassign, keepsCreatorRights } from '../../lib/general/permissions'
 import type { TaskViewer } from '../../lib/general/permissions'
 import { QaActions } from '../work/QaActions'
 import { ProjectFilePicker } from './ProjectFilePicker'
@@ -146,8 +146,10 @@ function TaskBody({
   const canManage = state.can('manage_tasks')
   const createdByMe = task.created_by === me
   const readOnly = state.readOnly
-  const viewer: TaskViewer = { viewerId: me, manageTasks: canManage, archived: readOnly, leadsUser: state.leadsUser }
   const work = !state.project.class_board_id
+  const viewer: TaskViewer = { viewerId: me, manageTasks: canManage, archived: readOnly, leadsUser: state.leadsUser,
+    role: work ? state.myRole : null,
+    holds: (id) => Boolean(me && state.tasks.some((t) => t.id === id && t.assignee_ids.includes(me))) }
   const assignmentViewer: TaskViewer = { ...viewer, manageTasks: work ? state.myRole === 'pm' || state.myRole === 'coordinator' : canManage,
     ...(work ? { workAssignment: { ledTeamIds: state.teams.filter(t => t.leader_id === me).map(t => t.id), members: state.teamMembers } } : {}) }
   // A team leader edits, assigns and unassigns for the people they lead.
@@ -171,8 +173,9 @@ function TaskBody({
     (state.myRole === 'qa' || state.myRole === 'pm') &&
     inQa(task, stagesOf(state.project.stages), state.project.qa_stage)
   const canAttach = !readOnly && (holds || state.can('edit_files'))
-  // Archiving: whoever added the task, at any point, or someone who manages tasks.
-  const canDelete = !readOnly && (canManage || createdByMe)
+  // Archiving: whoever added the task, at any point, or someone who manages
+  // tasks. A Member's task is its team's once it is sent.
+  const canDelete = !readOnly && (canManage || (createdByMe && keepsCreatorRights(viewer, task)))
 
   /**
    * One write at a time. A second press would match a row the first already

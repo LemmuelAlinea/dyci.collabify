@@ -53,7 +53,7 @@ const OPTIONS: { key: keyof MemberRules; label: string; help: string }[] = [
   {
     key: 'manageMilestones',
     label: 'Members can manage milestones',
-    help: 'Create, edit and mark milestones reached. Tagging tasks still needs Manage tasks.',
+    help: 'Create, edit, delete and mark milestones reached. Tagging tasks still needs Manage tasks.',
   },
   {
     key: 'createTasks',

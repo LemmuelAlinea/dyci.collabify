@@ -94,6 +94,8 @@ export type WorkSource = {
   addToBacklog: (title: string) => Promise<void>
   /** Shown after a task is added, when the new task does not appear in the list (a Member's goes to the planners). */
   addedMessage?: string
+  /** The backlog's add-a-task placeholder, when the source has its own (a Member suggests a task). */
+  addPlaceholder?: string
 }
 
 export type Milestone = {

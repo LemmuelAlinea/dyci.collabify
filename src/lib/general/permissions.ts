@@ -284,24 +284,53 @@ export type TaskViewer = {
   archived: boolean
   leadsUser: (userId: string) => boolean
   workAssignment?: { ledTeamIds: readonly string[]; members: readonly { team_id: string; user_id: string }[] }
+  /** The viewer's role on a work project. Left out on a class board. */
+  role?: ProjectRole | null
+  /** Whether the viewer holds this task (read for a subtask's parent). */
+  holds?: (taskId: string) => boolean
 }
 
 /** A task's holders and creator, which is all the task rules read. */
-export type TaskHolders = { assignee_ids: readonly string[]; created_by: string | null; routing_state?: string; team_id?: string | null; archived_at?: string | null }
+export type TaskHolders = {
+  assignee_ids: readonly string[]
+  created_by: string | null
+  routing_state?: string
+  team_id?: string | null
+  archived_at?: string | null
+  sent_at?: string | null
+  parent_id?: string | null
+}
+
+/**
+ * Whether the viewer's creator rights still reach a task they added. A
+ * Member's task belongs to its team once a planner sends it: they keep holder
+ * and lead rights, and nothing as its creator. Work released without a send
+ * keeps the old rules. Mirrors guard_general_task_sent_creator
+ * (supabase/project-member-rules.sql).
+ */
+export function keepsCreatorRights(v: TaskViewer, task: TaskHolders): boolean {
+  if (v.manageTasks || v.role !== 'member') return true
+  if ((task.routing_state ?? 'released') !== 'released' || !task.sent_at) return true
+  const me = v.viewerId
+  if (me && task.assignee_ids.includes(me)) return true
+  if (task.assignee_ids.some(v.leadsUser)) return true
+  return Boolean(task.parent_id && v.holds?.(task.parent_id))
+}
 
 /**
  * Whether the viewer may change a task's details and stage: someone who
- * manages tasks, a holder, its creator while nobody holds it, or the leader of
- * a team one of its holders is on. Mirrors guard_general_task and
- * sync_general_task_stage (supabase/project-team-leads.sql). Points are not
- * covered: they still need manage_tasks.
+ * manages tasks, a holder, its creator while nobody holds it (not a Member's
+ * sent task, see keepsCreatorRights), or the leader of a team one of its
+ * holders is on. Mirrors guard_general_task and sync_general_task_stage
+ * (supabase/project-team-leads.sql). Points are not covered: they still need
+ * manage_tasks.
  */
 export function canEditTask(v: TaskViewer, task: TaskHolders): boolean {
   if (v.archived) return false
   if (v.manageTasks) return true
   const me = v.viewerId
   if (me && task.assignee_ids.includes(me)) return true
-  if (me && task.created_by === me && task.assignee_ids.length === 0) return true
+  if (me && task.created_by === me && task.assignee_ids.length === 0 && keepsCreatorRights(v, task)) return true
   return task.assignee_ids.some(v.leadsUser)
 }
 
@@ -371,8 +400,12 @@ export const ROLE_MATRIX: {
   action: string
   roles: Partial<Record<ProjectRole | 'lead', RoleMark>>
   later?: string
-  /** The member option that gives the Member column this row, and what to say about it. */
-  memberRule?: { key: keyof MemberRules; note: string }
+  /**
+   * The member option that gives the Member column (and the Team lead column,
+   * since leads are Members) this row, what to say about it, and the cell's
+   * words when they aren't plainly "Yes".
+   */
+  memberRule?: { key: keyof MemberRules; note: string; label?: string }
 }[] = [
   {
     action: 'See the project, tasks, sprints, milestones, files and meetings',
@@ -398,7 +431,7 @@ export const ROLE_MATRIX: {
   {
     action: 'Plan sprints and milestones',
     roles: { pm: 'yes', coordinator: 'yes', member: 'grant' },
-    memberRule: { key: 'manageMilestones', note: 'milestones only, set by the project manager' },
+    memberRule: { key: 'manageMilestones', note: 'set by the project manager', label: 'Milestones: yes; sprints: with a grant' },
   },
   { action: 'Start, finish and reopen sprints', roles: { pm: 'yes', coordinator: 'yes' } },
   {
@@ -442,16 +475,18 @@ export const ROLE_MATRIX: {
 ]
 
 /**
- * One cell of the "What each role can do" table: the mark, and a caption when
- * a member option of this project gave it. Without rules, the table as written.
+ * One cell of the "What each role can do" table: the mark, and a caption (and
+ * the cell's own words, if any) when a member option of this project gave it
+ * to Members, and so to team leads. Without rules, the table as written.
  */
 export function roleMark(
   row: (typeof ROLE_MATRIX)[number],
   column: ProjectRole | 'lead',
   rules: MemberRules = DEFAULT_MEMBER_RULES,
-): { mark: RoleMark | undefined; note?: string } {
-  if (column === 'member' && row.memberRule && rules[row.memberRule.key]) {
-    return { mark: 'yes', note: row.memberRule.note }
+): { mark: RoleMark | undefined; note?: string; label?: string } {
+  if ((column === 'member' || column === 'lead') && row.memberRule && rules[row.memberRule.key]) {
+    const { note, label } = row.memberRule
+    return label ? { mark: 'yes', note, label } : { mark: 'yes', note }
   }
   return { mark: row.roles[column] }
 }

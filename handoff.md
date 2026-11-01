@@ -4134,6 +4134,9 @@ commits only. **Not live:** `project-member-rules.sql` has not been applied and 
   holder, sprint or milestone. The release boundary gives creators their unsent work only for QA
   bugs, so a Member cannot read their task until a planner sends it; the app says "Sent to planners
   for review" and does not open it.
+- **Sent tasks:** once a planner sends a Member's task, its creator keeps only holder and lead
+  rights; the trigger `general_tasks_0_sent_creator` refuses their creator edits, Done, archive and
+  delete, and `canEditTask` and the task dialog's archive button mirror it.
 - **Frontend** (commit `360bede`): `lib/general/permissions.ts` (`MemberRules`,
   `canManageMilestones`, `canCreateWorkTaskWith`, `roleMark`), `lib/api/general.ts`
   (`memberRules` on the project, `createMemberTask`, the two columns in `ProjectPatch`), Settings
@@ -4154,6 +4157,6 @@ commits only. **Not live:** `project-member-rules.sql` has not been applied and 
 - **Deploy order:** owner approval and role walk first, then
   `node scripts/db.mjs supabase/project-member-rules.sql supabase/anon-lockdown.sql`, then a
   read-only check of the two columns, the helper, the three policies and the RPC, then re-run the
-  suites, then push `main`. `scripts/schema-drift.mjs` lists the restore order and does not yet
-  include `project-member-rules`; add it when the SQL goes live.
+  suites, then push `main`. `scripts/schema-drift.mjs` lists `project-member-rules` in the
+  restore order.
 - **Next:** the next group from the Project Settings PDF is Milestone Management.

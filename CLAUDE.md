@@ -176,7 +176,8 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   means re-running it afterwards. The two switches, `members_manage_milestones` and
   `members_create_tasks`, are the project manager's and off by default. A Member's task
   (`create_general_member_task`) starts in private planning, and its creator cannot read it
-  until a planner sends it. Suite: `supabase/tests/project-member-rules.test.sql`.
+  until a planner sends it; once sent it is the team's (`general_tasks_0_sent_creator`: holder
+  and lead rights only). Suite: `supabase/tests/project-member-rules.test.sql`.
 
 ## Security invariants
 

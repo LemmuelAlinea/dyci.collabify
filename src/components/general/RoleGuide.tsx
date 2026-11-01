@@ -81,10 +81,10 @@ export function RoleGuide({ memberRules = DEFAULT_MEMBER_RULES }: { memberRules?
                     )}
                   </th>
                   {COLUMNS.map((c) => {
-                    const { mark, note } = roleMark(row, c.key, memberRules)
+                    const { mark, note, label } = roleMark(row, c.key, memberRules)
                     return (
                       <td key={c.key} className={`whitespace-nowrap px-3 py-2.5 ${mark === 'yes' ? 'text-ink' : 'text-muted'}`}>
-                        {mark ? MARK_WORDS[mark] : ''}
+                        {label ?? (mark ? MARK_WORDS[mark] : '')}
                         {note && <span className="mt-0.5 block text-[11px] text-faint">{note}</span>}
                       </td>
                     )

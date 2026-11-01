@@ -56,3 +56,21 @@ it('stays quiet when the new task simply appears in the list', async () => {
   await addTask({})
   expect(useToast().show).not.toHaveBeenCalled()
 })
+
+it('uses the source placeholder when it has one', async () => {
+  const render = async (extra: Partial<WorkSource>) => {
+    const source = {
+      items: [], sprints: [], canPlan: false, canRunSprints: false, canAdd: true,
+      readOnlyReason: '', openTask: vi.fn(), addToBacklog: vi.fn(), ...extra,
+    } as unknown as WorkSource
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+    await act(async () => root.render(<BacklogView source={source} />))
+    const placeholder = host.querySelector<HTMLInputElement>('input[aria-label="New backlog task"]')!.placeholder
+    await act(async () => root.unmount())
+    return placeholder
+  }
+  expect(await render({ addPlaceholder: 'Suggest a task for the planners' })).toBe('Suggest a task for the planners')
+  expect(await render({})).toBe('Add a task to the backlog')
+})

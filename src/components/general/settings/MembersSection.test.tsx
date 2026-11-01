@@ -100,7 +100,7 @@ it('shows the member options with their help text', async () => {
   await withHost(async (host, render) => {
     await render(optionsState())
     expect(host.textContent).toContain('Member options')
-    expect(host.textContent).toContain('Create, edit and mark milestones reached. Tagging tasks still needs Manage tasks.')
+    expect(host.textContent).toContain('Create, edit, delete and mark milestones reached. Tagging tasks still needs Manage tasks.')
     expect(host.textContent).toContain('Their tasks start in planning for the project manager or a coordinator to send.')
     expect(switchOf(host, 'Members can manage milestones')?.getAttribute('aria-checked')).toBe('false')
     expect(switchOf(host, 'Members can create tasks')?.getAttribute('aria-checked')).toBe('false')

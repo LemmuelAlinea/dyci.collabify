@@ -82,6 +82,10 @@ declare
   t       uuid;
   t2      uuid;
   mine    uuid;
+  sent    uuid;  -- v_dev2's task, sent to the team
+  led     uuid;  -- v_dev's task, sent to the team v_dev leads
+  mine2   uuid;  -- v_dev2's task, released without a send
+  v_claims text;
   n       int;
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
@@ -199,8 +203,14 @@ begin
   perform pg_temp.must_be('fixture: the sprint''s tasks carry its milestone',
     (select count(*) = 2 from public.general_tasks where id in (t, t2) and milestone_id = m2));
   perform pg_temp.act_as(v_dev);
+  v_claims := current_setting('request.jwt.claims', true);
   perform pg_temp.must_be('...and deleting one that tags tasks and a sprint untags them',
     pg_temp.rows_of(format($q$delete from public.general_milestones where id = %L$q$, m2)) = 1);
+  -- Checked before anything sets the session again.
+  perform pg_temp.must_be('...and the member''s session is as it was',
+    auth.uid() = v_dev
+    and current_setting('request.jwt.claims', true) = v_claims
+    and coalesce(nullif(current_setting('collabify.general_archive_op', true), ''), 'off') = 'off');
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('...the tasks and the sprint are untagged, nothing else moves',
     (select count(*) = 2 from public.general_tasks
@@ -208,10 +218,6 @@ begin
     and (select milestone_id is null from public.general_sprints where id = s)
     and (select routing_state = 'planning' from public.general_tasks where id = t)
     and (select routing_state = 'released' from public.general_tasks where id = t2));
-  perform pg_temp.act_as(v_dev);
-  perform pg_temp.must_be('...and the member''s session is as it was',
-    auth.uid() = v_dev
-    and coalesce(nullif(current_setting('collabify.general_archive_op', true), ''), 'off') = 'off');
 
   ------------------------------------------------------------ tagging stays manage_tasks
   perform pg_temp.act_as(v_pm);
@@ -304,15 +310,24 @@ begin
     'row-level security');
 
   ------------------------------------------------------------ member tasks, switch on
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set default_priority = 'high' where id = p;
   perform pg_temp.act_as(v_dev);
+  v_claims := current_setting('request.jwt.claims', true);
   mine := public.create_general_member_task(p, '  Zz PMR member task  ', 'Steps',
                                             now() + interval '4 days', team);
+  -- Checked before anything sets the session again.
+  perform pg_temp.must_be('...and the member''s session is as it was',
+    auth.uid() = v_dev
+    and current_setting('request.jwt.claims', true) = v_claims
+    and coalesce(current_setting('request.jwt.claim.sub', true), '') = ''
+    and coalesce(nullif(current_setting('collabify.subtask_op', true), ''), 'off') = 'off');
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('a member''s task starts in private planning with no holder',
     (select routing_state = 'planning' and created_by = v_dev and title = 'Zz PMR member task'
             and description = 'Steps' and due_at is not null and team_id = team
             and status = 'todo' and coalesce(stage, 0) = 0 and kind = 'task'
-            and priority = 'normal' and parent_id is null and sprint_id is null
+            and priority = 'high' and parent_id is null and sprint_id is null
             and milestone_id is null and reviewer_id is null and sent_at is null
             and weight = 1 and completed_at is null
        from public.general_tasks where id = mine)
@@ -325,14 +340,12 @@ begin
                           where x.project_id = p and x.id <> mine)
        from public.general_tasks where id = mine));
   perform pg_temp.act_as(v_dev);
-  perform pg_temp.must_be('...and the member''s session is as it was',
-    auth.uid() = v_dev
-    and coalesce(nullif(current_setting('collabify.subtask_op', true), ''), 'off') = 'off');
   perform pg_temp.must_refuse_with('...an insert that fails',
     format($q$select public.create_general_member_task(%L, 'Zz PMR too long', repeat('x', 20001))$q$, p),
     'general_tasks_description_len');
   perform pg_temp.must_be('...leaves the member''s session as it was too',
     auth.uid() = v_dev
+    and current_setting('request.jwt.claims', true) = v_claims
     and coalesce(nullif(current_setting('collabify.subtask_op', true), ''), 'off') = 'off');
   t := public.create_general_member_task(p, 'Zz PMR no team');
   perform pg_temp.act_as_service();
@@ -365,6 +378,78 @@ begin
   perform pg_temp.act_as(v_coord);
   perform pg_temp.must_be('...and so does a coordinator',
     exists (select 1 from public.general_tasks where id = mine));
+
+  ------------------------------------------------------------ sent tasks
+  -- Once a planner sends a member's task, it is the team's: its creator keeps
+  -- holder and lead rights only.
+  perform pg_temp.act_as(v_dev2);
+  sent := public.create_general_member_task(p, 'Zz PMR sent task');
+  perform pg_temp.act_as(v_dev);
+  led := public.create_general_member_task(p, 'Zz PMR lead''s sent task', 'Before', null, team);
+  perform pg_temp.act_as(v_pm);
+  perform public.send_work_tasks_to_teams(p, (
+    select jsonb_agg(jsonb_build_object('id', x.id, 'team_id', team, 'updated_at', x.updated_at))
+      from public.general_tasks x where x.id in (sent, led)));
+  perform pg_temp.must_be('fixture: both are sent to the team, held by nobody',
+    (select count(*) = 2 from public.general_tasks
+      where id in (sent, led) and routing_state = 'released' and team_id = team
+        and sent_at is not null)
+    and not exists (select 1 from public.general_task_assignees where task_id in (sent, led)));
+  perform pg_temp.act_as(v_dev2);
+  perform pg_temp.must_be('fixture: the creator reads their task once it is sent',
+    exists (select 1 from public.general_tasks where id = sent and created_by = v_dev2));
+  perform pg_temp.must_refuse_with('a member can''t edit, finish or delete their task once it is sent',
+    format($q$update public.general_tasks set title = 'Zz PMR mine still' where id = %L$q$, sent),
+    'This task belongs to its team now. Ask a planner or its holder to change it.');
+  perform pg_temp.must_refuse_with('...nor finish it',
+    format($q$update public.general_tasks set status = 'done' where id = %L$q$, sent),
+    'This task belongs to its team now.');
+  perform pg_temp.must_refuse_with('...nor delete it',
+    format($q$delete from public.general_tasks where id = %L$q$, sent),
+    'This task belongs to its team now.');
+  perform pg_temp.must_refuse_with('a member can''t archive their task once it is sent',
+    format($q$select public.archive_general_task(%L, true)$q$, sent),
+    'This task belongs to its team now.');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...the task is as it was',
+    (select title = 'Zz PMR sent task' and status <> 'done' and archived_at is null
+            and routing_state = 'released'
+       from public.general_tasks where id = sent));
+
+  perform pg_temp.act_as(v_dev);
+  perform pg_temp.must_be('...the lead of its team still changes its description and dates',
+    pg_temp.rows_of(format($q$update public.general_tasks
+                                set description = 'After', due_at = now() + interval '9 days'
+                              where id = %L$q$, led)) = 1);
+  perform pg_temp.must_refuse_with('...but not its title as the creator',
+    format($q$update public.general_tasks set title = 'Zz PMR lead renamed' where id = %L$q$, led),
+    'This task belongs to its team now.');
+
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_be('a coordinator still edits a member''s task',
+    pg_temp.rows_of(format($q$update public.general_tasks set title = 'Zz PMR sent, renamed' where id = %L$q$, sent)) = 1);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and the system still writes it',
+    pg_temp.rows_of(format($q$update public.general_tasks set title = 'Zz PMR sent, by the system' where id = %L$q$, sent)) = 1);
+  -- Work released without a send (from before the handoff) keeps its rules.
+  insert into public.general_tasks (project_id, title, created_by, routing_state)
+  values (p, 'Zz PMR released before the handoff', v_dev2, 'released') returning id into mine2;
+  perform pg_temp.act_as(v_dev2);
+  perform pg_temp.must_be('...work released without a send keeps its creator rules',
+    pg_temp.rows_of(format($q$update public.general_tasks set title = 'Zz PMR older, renamed' where id = %L$q$, mine2)) = 1);
+  perform pg_temp.act_as_service();
+
+  insert into public.general_task_assignees (project_id, task_id, user_id) values (p, sent, v_dev2);
+  perform pg_temp.act_as(v_dev2);
+  n := pg_temp.rows_of(format($q$update public.general_tasks set title = 'Zz PMR held by its creator' where id = %L$q$, sent));
+  n := n + pg_temp.rows_of(format($q$update public.general_tasks set status = 'in_progress' where id = %L$q$, sent));
+  perform public.archive_general_task(sent, true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a member who holds their sent task works on it as a holder',
+    n = 2
+    and (select title = 'Zz PMR held by its creator' and status = 'in_progress'
+                and archived_at is not null and archived_by = v_dev2
+           from public.general_tasks where id = sent));
 
   ------------------------------------------------------------ archived
   perform pg_temp.act_as(v_pm);

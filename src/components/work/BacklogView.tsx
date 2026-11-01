@@ -259,7 +259,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Add a task to the backlog"
+                placeholder={source.addPlaceholder ?? 'Add a task to the backlog'}
                 aria-label="New backlog task"
                 maxLength={200}
                 className="!h-10 !text-[14px]"

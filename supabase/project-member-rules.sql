@@ -37,12 +37,21 @@
 -- (general_task_readable) gives creators their unsent work only for QA bugs,
 -- so a Member does not read their task until a planner sends it.
 --
+-- general_tasks_0_sent_creator (guard_general_task_sent_creator, before update
+-- or delete): once a Member's task is sent, it is the team's. A Member who
+-- created a task that was sent (released, sent_at set), doesn't hold it and
+-- lacks manage_tasks can't edit, finish, archive or delete it as its creator;
+-- holder and lead rights still apply. Writes without claims, the handoff
+-- actions and trigger cascades pass; work released without a send keeps its
+-- creator rules.
+--
 -- Class boards (class_board_id is not null) are untouched.
 --
 -- Run after project-task-rules.sql, then anon-lockdown.sql. Re-running
--- work-milestones.sql means re-running this file afterwards, then
--- anon-lockdown.sql; otherwise milestones go back to manage_tasks only and a
--- Member's milestone delete is refused once the milestone tags a task.
+-- project-task-rules.sql or work-milestones.sql means re-running this file
+-- afterwards, then anon-lockdown.sql; otherwise (work-milestones.sql)
+-- milestones go back to manage_tasks only and a Member's milestone delete is
+-- refused once the milestone tags a task.
 --
 -- Idempotent. Safe to re-run.
 
@@ -223,6 +232,74 @@ begin
 end;
 $$;
 
+-- ---------------------------------------------------------------- sent tasks
+
+/**
+ * Once a Member's task is sent (released through the handoff, so sent_at is
+ * set), it is the team's: its creator keeps no creator-only rights. Work that
+ * was released without a send (tasks from before the handoff) keeps the
+ * creator rules it had. general_tasks_guard and the delete policy let a
+ * creator change or delete a task while nobody holds it, and
+ * archive_general_task lets a creator archive it at any point; this refuses
+ * those writes for a Member who doesn't hold the task and lacks manage_tasks.
+ * Archiving is an update of archived_at; archive_general_task runs as definer
+ * and keeps auth.uid(), so its update is caught too.
+ *
+ * Holder and lead rights still apply: holding the task, leading someone who
+ * holds it, holding a subtask's parent (create_general_subtask's holder path),
+ * or, for the lead of the task's team, a description and dates change
+ * (general_tasks_guard decides the rest). Let through: writes with no claims
+ * (the system), the handoff actions (collabify.work_task_handoff) and writes a
+ * trigger or cascade makes (pg_trigger_depth() > 1), which each decide who may
+ * act. Planning tasks, class boards and every other role are untouched.
+ */
+create or replace function public.guard_general_task_sent_creator()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+begin
+  if me is null
+     or old.created_by is distinct from me
+     or old.routing_state is distinct from 'released'
+     or old.sent_at is null
+     or pg_trigger_depth() > 1
+     or coalesce(current_setting('collabify.work_task_handoff', true), 'off') = 'on'
+     or not exists (select 1 from public.general_projects gp
+                     where gp.id = old.project_id and gp.class_board_id is null)
+     or public.general_role_of(old.project_id, me) is distinct from 'member'
+     or public.general_can(old.project_id, 'manage_tasks')
+     or exists (select 1 from public.general_task_assignees a
+                 where a.task_id = old.id
+                   and (a.user_id = me or public.general_leads_user(old.project_id, me, a.user_id)))
+     or (old.parent_id is not null
+         and exists (select 1 from public.general_task_assignees a
+                      where a.task_id = old.parent_id and a.user_id = me))
+     or (tg_op = 'UPDATE'
+         and exists (select 1 from public.general_teams g
+                       join public.general_team_members tm
+                         on tm.team_id = g.id and tm.project_id = old.project_id and tm.user_id = me
+                      where g.id = old.team_id and g.project_id = old.project_id
+                        and g.leader_id = me and g.archived_at is null)
+         and (to_jsonb(new) - array['description', 'starts_at', 'due_at', 'updated_at'])
+           = (to_jsonb(old) - array['description', 'starts_at', 'due_at', 'updated_at'])) then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+  raise exception 'This task belongs to its team now. Ask a planner or its holder to change it.'
+    using errcode = 'insufficient_privilege';
+end;
+$$;
+
+-- After general_tasks_0_defaults and before general_tasks_a_stage, so the
+-- refusal comes before the stage, rule and holder guards name another reason.
+drop trigger if exists general_tasks_0_sent_creator on public.general_tasks;
+create trigger general_tasks_0_sent_creator
+  before update or delete on public.general_tasks
+  for each row execute function public.guard_general_task_sent_creator();
+
 -- ---------------------------------------------------------------- grants
 
 -- The milestone policies call the helper as the signed-in caller.
@@ -231,5 +308,6 @@ grant execute on function public.general_can_manage_milestones(uuid) to authenti
 revoke all on function public.create_general_member_task(uuid, text, text, timestamptz, uuid) from public, anon;
 grant execute on function public.create_general_member_task(uuid, text, text, timestamptz, uuid) to authenticated;
 revoke all on function public.release_milestone_tasks() from public, anon;
+revoke all on function public.guard_general_task_sent_creator() from public, anon;
 
 commit;

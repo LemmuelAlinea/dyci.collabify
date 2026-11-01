@@ -72,6 +72,11 @@ describe('generalWorkSource', () => {
     expect(generalWorkSource(makeState('qa', on), vi.fn()).addedMessage).toBeUndefined()
   })
 
+  it('gives a Member their own backlog placeholder', () => {
+    expect(generalWorkSource(makeState('member', on), vi.fn()).addPlaceholder).toBe('Suggest a task for the planners')
+    expect(generalWorkSource(makeState('pm', on), vi.fn()).addPlaceholder).toBeUndefined()
+  })
+
   it('keeps a class board member on createTask', async () => {
     const state = makeState('member', on)
     state.project!.class_board_id = 'c1'

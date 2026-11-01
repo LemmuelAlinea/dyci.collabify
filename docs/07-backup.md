@@ -709,7 +709,8 @@ means re-running `project-task-rules.sql` after it, then `anon-lockdown.sql`. Su
   update policy (`edit_project`, the project manager): `members_manage_milestones` and
   `members_create_tasks`;
 - the helper `general_can_manage_milestones` (`manage_tasks`, or the milestone switch on and
-  the caller a writing Member; never on an archived project or a class board);
+  the caller a writing Member; the member switch never applies on a class board or an
+  archived project; the `manage_tasks` path is unchanged);
 - the `general_milestones` insert, update and delete policies, which supersede the copies in
   `work-milestones.sql` and use that helper in place of `manage_tasks`;
 - `release_milestone_tasks`, the milestone delete trigger function first written by
@@ -720,7 +721,17 @@ means re-running `project-task-rules.sql` after it, then `anon-lockdown.sql`. Su
   `members_create_tasks` is on. It inserts with the claims cleared (the task guard owned by
   `work-task-handoff.sql` lets only planners and QA insert) and restores them straight after.
   The task has no holder, sprint or milestone, and its creator cannot read it until a planner
-  sends it.
+  sends it;
+- the trigger `general_tasks_0_sent_creator` (`guard_general_task_sent_creator`, before
+  update or delete on `general_tasks`, after `general_tasks_0_defaults` and before
+  `general_tasks_a_stage` by name). Once a Member's task is sent (released with `sent_at`
+  set), it is the team's: a Member who created it, doesn't hold it and lacks `manage_tasks`
+  can't edit, finish, archive (`archive_general_task` keeps `auth.uid()`, so its update is
+  caught) or delete it as its creator. Holding it, leading a holder, holding a subtask's
+  parent, and the team lead's description and dates edit still apply. Writes without claims,
+  the handoff actions (`collabify.work_task_handoff`) and trigger cascades pass, and work
+  released without a send keeps its creator rules. `guard_general_task` and
+  `archive_general_task` are not redefined.
 
 Tagging tasks and linking sprints keep `manage_tasks`; `guard_general_milestone` and the
 `work-task-handoff.sql` guards are not redefined. Re-running `work-milestones.sql` or
