@@ -237,7 +237,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
             try {
               await source.reopenSprint?.(reopening.id)
             } catch (err) {
-              throw new Error(authErrorMessage(err, 'Could not reopen the sprint.'))
+              throw new Error(authErrorMessage(err, 'Could not reopen the sprint.'), { cause: err })
             }
             show(`${reopening.name} is running again`)
           }}

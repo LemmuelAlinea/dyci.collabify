@@ -18,7 +18,7 @@ import {
 } from '../../lib/api/general'
 import type { CommitRights } from '../../lib/api/general'
 import { listMilestones } from '../../lib/api/milestones'
-import { getSprintSettings, listSprints } from '../../lib/api/sprints'
+import { getSprintSettings, isMissingSprintSettingsTable, listSprints } from '../../lib/api/sprints'
 import { authErrorMessage } from '../../lib/authError'
 import { can as canDo, canAs } from '../../lib/general/permissions'
 import type { GeneralPermission, ProjectRole } from '../../lib/general/permissions'
@@ -185,8 +185,11 @@ export function useGeneralProject(
         listSprints({ kind: 'work', projectId }),
         listMilestones({ kind: 'work', projectId }),
         getCommitRights(projectId).catch(() => NO_RIGHTS),
-        // A project still loads when the settings table is not there yet.
-        getSprintSettings(projectId).catch(() => DEFAULT_SPRINT_SETTINGS),
+        // A project still loads when the settings table is not there yet; remove once sprint-settings.sql is live.
+        getSprintSettings(projectId).catch((err) => {
+          if (isMissingSprintSettingsTable(err)) return DEFAULT_SPRINT_SETTINGS
+          throw err
+        }),
       ])
       setMembers(m)
       setGrants(g)

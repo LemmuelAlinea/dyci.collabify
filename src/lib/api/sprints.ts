@@ -123,6 +123,18 @@ type SettingsRow = {
   run_at: string
 }
 
+/**
+ * True when the error says the settings table is not there yet.
+ * Remove this once sprint-settings.sql is live.
+ */
+export function isMissingSprintSettingsTable(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+  const { code, message } = err as { code?: unknown; message?: unknown }
+  if (code === 'PGRST205' || code === '42P01') return true
+  if (typeof message !== 'string' || !/general_sprint_settings/.test(message)) return false
+  return /does not exist|schema cache/i.test(message)
+}
+
 /** The project's saved sprint settings, or the defaults when it has none. */
 export async function getSprintSettings(projectId: string): Promise<SprintSettings> {
   const { data, error } = await supabase
