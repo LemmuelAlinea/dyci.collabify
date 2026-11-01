@@ -167,6 +167,9 @@ function DetailsForm({ state, onDone }: { state: GeneralProjectState; onDone: ()
   )
 }
 
+const ARCHIVE_NOTE =
+  'Nothing in it can change until the project manager restores it, and its join code closes. Everyone on it can still read it.'
+
 /**
  * Archiving closes a work project to everyone, so it sits apart at the bottom
  * and is the project manager's alone.
@@ -195,7 +198,7 @@ function ArchiveZone({ state }: { state: GeneralProjectState }) {
         <p className="mt-0.5 text-[12px] text-muted">
           {state.archived
             ? 'This project is archived, so nothing in it can change. Restoring it opens it up again.'
-            : 'Nothing in it can change until an Owner restores it, and its join code closes. Everyone on it can still read it.'}
+            : ARCHIVE_NOTE}
         </p>
       </div>
       {state.archived ? (
@@ -217,7 +220,7 @@ function ArchiveZone({ state }: { state: GeneralProjectState }) {
           await state.reload()
         }}
         title={`Archive ${p.name}?`}
-        body="Nothing in it can change until an Owner restores it, and its join code closes. Everyone on it can still read it."
+        body={ARCHIVE_NOTE}
         confirmLabel="Archive project"
         tone="primary"
       />

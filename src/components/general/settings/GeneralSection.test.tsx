@@ -102,7 +102,7 @@ it('archives from the bottom of General after a confirm', async () => {
   await act(async () => button(host, 'Archive project')!.click())
   const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
   expect(dialog.textContent).toContain('Archive Alpha?')
-  expect(dialog.textContent).toContain('Nothing in it can change until an Owner restores it, and its join code closes.')
+  expect(dialog.textContent).toContain('Nothing in it can change until the project manager restores it, and its join code closes.')
   expect(archiveGeneralProject).not.toHaveBeenCalled()
   await act(async () => button(dialog, 'Archive project')!.click())
   expect(archiveGeneralProject).toHaveBeenCalledWith('p1', true)

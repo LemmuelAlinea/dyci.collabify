@@ -17,7 +17,11 @@ function Where() {
   return createElement('output', null, location.search)
 }
 
-async function renderAt(query: string, check: (container: HTMLDivElement) => Promise<void>) {
+async function renderAt(
+  query: string,
+  check: (container: HTMLDivElement) => Promise<void>,
+  state: Partial<GeneralProjectState> = {},
+) {
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
@@ -27,7 +31,7 @@ async function renderAt(query: string, check: (container: HTMLDivElement) => Pro
         createElement(
           MemoryRouter,
           { initialEntries: [`/projects/p?${query}`] },
-          createElement(ProjectSettings, { state: {} as GeneralProjectState }),
+          createElement(ProjectSettings, { state: state as GeneralProjectState }),
           createElement(Where),
         ),
       ),
@@ -78,4 +82,21 @@ it('puts the chosen section in the URL', async () => {
     await act(async () => item(container, 'Members & permissions').click())
     expect(container.textContent).toContain('Members content')
   })
+})
+
+const requests = [{ status: 'open' }, { status: 'open' }, { status: 'approved' }] as GeneralProjectState['requests']
+
+it('counts the open access requests on Members & permissions for someone who can grant', async () => {
+  await renderAt('tab=settings', async (container) => {
+    expect(item(container, 'Members & permissions2').querySelector('span')?.textContent).toBe('2')
+  }, { canGrant: true, requests })
+})
+
+it('shows no count when nobody can grant or none are open', async () => {
+  await renderAt('tab=settings', async (container) => {
+    expect(item(container, 'Members & permissions')).toBeTruthy()
+  }, { canGrant: false, requests })
+  await renderAt('tab=settings', async (container) => {
+    expect(item(container, 'Members & permissions')).toBeTruthy()
+  }, { canGrant: true, requests: [{ status: 'approved' }] as GeneralProjectState['requests'] })
 })

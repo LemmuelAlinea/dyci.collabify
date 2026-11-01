@@ -15,7 +15,8 @@ import { dateRange } from '../../lib/general/dates'
 import { TASK_STATUSES } from '../../lib/general/progress'
 import { sprintItems } from '../../lib/work/backlog'
 import { authErrorMessage } from '../../lib/authError'
-import { daysLeft, daysLeftLabel, finishedSprints, runningSprint, sprintCounts, toDay } from '../../lib/work/sprints'
+import { daysLeft, daysLeftLabel, finishedSprints, runningSprint, sprintCounts } from '../../lib/work/sprints'
+import { reopenFinishNotice } from '../../lib/work/sprintSettings'
 import type { Milestone, Sprint, WorkSource } from '../../lib/work/types'
 
 const COLUMN_TONE = {
@@ -23,12 +24,6 @@ const COLUMN_TONE = {
   in_progress: 'text-warning-700 dark:text-warning-300',
   done: 'text-success-700 dark:text-success-300',
 } as const
-
-/** 'HH:MM' as a 12-hour time, such as 9:00 AM. */
-function clockTime(runAt: string) {
-  const [h, m] = runAt.split(':').map(Number)
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
-}
 
 /** Running the sprint, then looking back at the finished ones. */
 export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { source: WorkSource; milestones?: readonly Milestone[]; onPlan: () => void; archiveHref?: string }) {
@@ -40,6 +35,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
   const running = runningSprint(source.sprints)
   const finished = finishedSprints(source.sprints)
   const archived = finishedSprints(source.sprints, true)
+  const finishNotice = reopening && source.sprintSettings ? reopenFinishNotice(reopening.ends_on, source.sprintSettings, now) : null
 
   async function setArchived(id: string, archive: boolean) {
     setChanging(id)
@@ -145,7 +141,9 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                 </div>
                 {left <= 0 && source.canRunSprints && (
                   <p className="mt-2 text-[12px] text-warning-700 dark:text-warning-300">
-                    Its last day has passed. Finish it to move what is left on.
+                    {source.sprintSettings?.autoFinish
+                      ? 'Its last day has passed. Automatic finishing will close it shortly.'
+                      : 'Its last day has passed. Finish it to move what is left on.'}
                   </p>
                 )}
               </div>
@@ -251,12 +249,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                 </p>
               )}
               <p>Unfinished tasks that moved out of {reopening.name} when it finished stay where they are.</p>
-              {source.sprintSettings?.autoFinish && reopening.ends_on < toDay(now) && (
-                <p>
-                  Automatic finishing is on and this sprint's end date has passed, so it will finish again at{' '}
-                  {clockTime(source.sprintSettings.runAt)}.
-                </p>
-              )}
+              {finishNotice && <p>{finishNotice}</p>}
             </div>
           }
         />

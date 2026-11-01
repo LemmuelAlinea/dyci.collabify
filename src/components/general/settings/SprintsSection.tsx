@@ -160,7 +160,7 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
 
         <Row
           title="Start the next sprint automatically"
-          help="Creates the next sprint if none is planned. Never makes a duplicate, and never starts one after the project's due date."
+          help="Creates the next sprint if none is planned. Never makes a duplicate, and never creates one that starts after the project's due date."
         >
           <Toggle
             label="Start the next sprint automatically"

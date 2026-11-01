@@ -1,4 +1,5 @@
 // src/components/general/settings/ProjectSettings.tsx
+import { useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Icon } from '../../ui/Icon'
 import type { IconName } from '../../ui/Icon'
@@ -20,6 +21,15 @@ const SECTIONS: { id: SettingsSection; label: string; icon: IconName }[] = [
 export function ProjectSettings({ state }: { state: GeneralProjectState }) {
   const [params, setParams] = useSearchParams()
   const active = settingsSection(params)
+  const nav = useRef<HTMLElement>(null)
+  const openRequests = state.canGrant ? state.requests.filter((r) => r.status === 'open').length : 0
+
+  // On a phone the menu scrolls sideways: keep the open section in view.
+  useEffect(() => {
+    if (!window.matchMedia?.('(max-width: 767px)').matches) return
+    const current = nav.current?.querySelector<HTMLElement>('[aria-current="page"]')
+    if (typeof current?.scrollIntoView === 'function') current.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [active])
 
   function open(next: SettingsSection) {
     const changed = new URLSearchParams(params)
@@ -31,6 +41,7 @@ export function ProjectSettings({ state }: { state: GeneralProjectState }) {
   return (
     <div className="flex flex-col gap-5 md:flex-row md:items-start md:gap-8">
       <nav
+        ref={nav}
         aria-label="Settings sections"
         className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:sticky md:top-4 md:w-[200px] md:shrink-0 md:flex-col md:overflow-visible"
       >
@@ -56,6 +67,15 @@ export function ProjectSettings({ state }: { state: GeneralProjectState }) {
               )}
               <Icon name={s.icon} size={17} className={on ? undefined : 'text-nav-icon'} />
               {s.label}
+              {s.id === 'members' && openRequests > 0 && (
+                <span
+                  className={`rounded-full px-2 py-0.5 font-mono text-[12px] ${
+                    on ? 'bg-navy-600 text-white dark:bg-amber-400 dark:text-navy-900' : 'surface-sunken text-faint'
+                  }`}
+                >
+                  {openRequests}
+                </span>
+              )}
             </button>
           )
         })}

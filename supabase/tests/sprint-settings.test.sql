@@ -249,15 +249,16 @@ begin
 end;
 $$;
 
-/** A released task in a sprint. */
-create or replace function pg_temp.task(p uuid, a uuid, s uuid, p_status text, p_archived boolean default false)
+/** A task in a sprint: released unless p_routing says otherwise. */
+create or replace function pg_temp.task(p uuid, a uuid, s uuid, p_status text, p_archived boolean default false,
+                                        p_routing text default 'released')
 returns uuid language plpgsql as $$
 declare
   t uuid;
 begin
   perform pg_temp.act_as_service();
   insert into public.general_tasks (routing_state, created_by, project_id, title, sprint_id, status, archived_at)
-  values ('released', a, p, 'Zz automation task', s, p_status::public.general_task_status,
+  values (p_routing, a, p, 'Zz automation task', s, p_status::public.general_task_status,
           case when p_archived then now() end)
   returning id into t;
   return t;
@@ -372,6 +373,18 @@ begin
              where general_project_id = p and user_id = c and type = 'sprint_automation'
                and preview = '2 unfinished tasks returned to the backlog.'));
 
+  p := pg_temp.team_project(a, c, m, 'Zz auto finish private');
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'active');
+  t1 := pg_temp.task(p, a, s1, 'todo');
+  t2 := pg_temp.task(p, a, s1, 'todo', false, 'planning');
+  insert into public.general_sprint_settings (project_id, auto_finish, carry) values (p, true, 'backlog');
+  perform public.run_sprint_automation(v_due, p);
+  perform pg_temp.must_be('a private planning task is moved with the rest but not counted in the finish notice',
+    (select count(*) = 2 from public.general_tasks where id in (t1, t2) and sprint_id is null)
+    and exists (select 1 from public.notifications
+                 where general_project_id = p and user_id = a and type = 'sprint_automation'
+                   and preview = '1 unfinished task returned to the backlog.'));
+
   ------------------------------------------------------------ start
   p := pg_temp.team_project(a, c, m, 'Zz auto start');
   s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-14', '2026-10-27', 'completed');
@@ -400,6 +413,20 @@ begin
   perform public.run_sprint_automation(v_soon, p);
   perform pg_temp.must_be('a sprint whose start date has passed starts even before the set time',
     (select state = 'active' from public.general_sprints where id = s2));
+
+  p := pg_temp.team_project(a, c, m, 'Zz auto start ended');
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-06', '2026-10-19', 'completed');
+  s2 := pg_temp.sprint(p, 'Sprint 2', '2026-10-20', '2026-11-02', 'planned');
+  insert into public.general_sprint_settings (project_id, auto_start) values (p, true);
+  perform public.run_sprint_automation(v_due, p);
+  perform pg_temp.must_be('a planned sprint whose end date has passed is not started automatically',
+    (select state = 'planned' from public.general_sprints where id = s2)
+    and (select count(*) = 2 from public.general_sprints where project_id = p));
+  s3 := pg_temp.sprint(p, 'Sprint 3', '2026-11-11', '2026-11-24', 'planned');
+  perform public.run_sprint_automation(v_due, p);
+  perform pg_temp.must_be('the next planned sprint that has not ended starts instead',
+    (select state = 'active' from public.general_sprints where id = s3)
+    and (select state = 'planned' from public.general_sprints where id = s2));
 
   ------------------------------------------------------------ create
   p := pg_temp.team_project(a, c, m, 'Zz auto create');

@@ -3995,9 +3995,15 @@ rolled-back dry run, and a read-only check confirmed the live database has no
 - **Automation** (`supabase/sprint-settings.sql`): `run_sprint_automation(p_now, p_project)`
   finishes, creates and starts sprints on its own and catches up missed runs. The
   `collabify-sprint-automation` pg_cron job calls it every 15 minutes. The project
-  manager and coordinators get a `sprint_automation` notification for each finish and
-  start. `complete_general_sprint` is redefined there and supersedes the copy in
+  manager and coordinators get a `sprint_automation` notification for each automatic
+  finish, start and create. Auto start skips planned sprints whose end date has passed
+  and starts the earliest one that has not. The finish notice counts released tasks
+  only. `complete_general_sprint` is redefined there and supersedes the copy in
   `work-planning.sql`.
+- **Known gap.** Members holding the `manage_tasks` grant can still change sprint
+  dates, so with automation on they can indirectly cause a start or a finish (for
+  example by moving an end date into the past). Closing it means guarding date edits
+  the way state changes are guarded.
 - **Fallback.** Until the SQL is live, a project loads with default settings because
   `isMissingSprintSettingsTable` (`lib/api/sprints.ts`) catches only the missing-table
   error; every other error shows the load error. Remove that fallback once the SQL is live.

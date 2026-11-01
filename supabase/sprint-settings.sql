@@ -16,15 +16,17 @@
 -- sprints and moves tasks into them. Three callers pass the rule without the
 -- role: the service role (auth.uid() is null, the scheduled job), a transaction
 -- that has set collabify.sprint_automation to on (run_sprint_automation), and a
--- reopen, which already checks the role.
+-- reopen, which reopen_general_sprint checks by role before it changes the state.
 --
 -- run_sprint_automation() runs every 15 minutes (pg_cron job
--- collabify-sprint-automation). For each project that asks, in Manila time and
--- once the day's set time is reached, it finishes a running sprint the day after
--- it ends, creates the next sprint when nothing is planned, and starts the
--- earliest planned sprint once its day comes. The project manager and
--- coordinators get a sprint_automation notification for each finish, create and
--- start. A missed run catches up the next time.
+-- collabify-sprint-automation). For each project that asks, in Manila time, it
+-- finishes a running sprint from the set time on the day after it ends, creates
+-- the next sprint when nothing is planned, and starts the earliest planned
+-- sprint that has not ended from the set time on its start date. A day the job
+-- missed catches up at the next run: a sprint two or more days past its end
+-- date finishes at once, and a planned sprint whose start date has passed
+-- starts at once. The project manager and coordinators get a sprint_automation
+-- notification for each finish, create and start.
 --
 -- Redefines complete_general_sprint (first written by work-planning.sql) to
 -- check general_can_run_sprint. Run after sprint-reopen.sql. Re-running
@@ -270,8 +272,9 @@ revoke all on function public.notify_sprint_automation(uuid, text, text) from pu
  *   earliest planned sprint (carry next) or back to the backlog (carry
  *   backlog, or nothing planned).
  * - start: with auto start on and nothing running, the earliest planned
- *   sprint, from the set time on its start date, or any time later if a run
- *   was missed.
+ *   sprint that has not ended, from the set time on its start date, or any
+ *   time later if a run was missed. A planned sprint whose end date has passed
+ *   is left alone.
  * The project manager and active coordinators get a notice for each. Each
  * project runs in its own block, so one that fails is logged and skipped.
  * Running again with the same p_now changes nothing. Returns how many projects
@@ -359,9 +362,14 @@ begin
         end if;
 
         -- As complete_general_sprint: archived unfinished tasks stay behind.
-        update public.general_tasks set sprint_id = target
-         where sprint_id = running.id and status <> 'done' and archived_at is null;
-        get diagnostics moved = row_count;
+        -- The notice counts released tasks only; private planning tasks move with
+        -- the rest but are not reported.
+        with u as (
+          update public.general_tasks set sprint_id = target
+           where sprint_id = running.id and status <> 'done' and archived_at is null
+          returning routing_state)
+        select count(*) filter (where coalesce(routing_state, 'released') = 'released')
+          into moved from u;
 
         update public.general_sprints set state = 'completed' where id = running.id;
 
@@ -379,7 +387,7 @@ begin
          and not exists (select 1 from public.general_sprints
                           where project_id = cfg.project_id and state = 'active') then
         select * into nxt from public.general_sprints
-         where project_id = cfg.project_id and state = 'planned'
+         where project_id = cfg.project_id and state = 'planned' and ends_on >= today
          order by starts_on, created_at limit 1;
         if found and (nxt.starts_on < today or (nxt.starts_on = today and due)) then
           update public.general_sprints set state = 'active' where id = nxt.id;
