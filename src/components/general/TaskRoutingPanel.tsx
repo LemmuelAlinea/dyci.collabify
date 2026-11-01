@@ -32,7 +32,8 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
   const rows = state.tasks.filter(t => (t.routing_state ?? 'released') === queue)
   const canReview = state.myRole === 'coordinator' || !state.members.some(m => m.role === 'coordinator' && m.profile?.status === 'active')
   const canUseRow = (t: GeneralTask) => queue !== 'coordinator_review' || (state.myRole === 'coordinator' ? t.reviewer_id === state.viewerId : canReview)
-  const isBlocked = (t: GeneralTask) => queue === 'released' && (t.status === 'done' || (project.has_qa && stageIndex(t.status, t.stage, stagesOf(project.stages).length) >= qaStageIndex(project.stages, project.qa_stage)))
+  // A subtask moves with its parent, so it is never sent, returned or rerouted on its own.
+  const isBlocked = (t: GeneralTask) => Boolean(t.parent_id) || (queue === 'released' && (t.status === 'done' || (project.has_qa && stageIndex(t.status, t.stage, stagesOf(project.stages).length) >= qaStageIndex(project.stages, project.qa_stage))))
   const selectableRows = rows.filter(t => !isBlocked(t) && canUseRow(t))
   const selectedCount = selectableRows.filter(t => selected[t.id]).length
   const picks = Object.values(selected)
@@ -95,11 +96,11 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
             <div className="min-w-0 space-y-1">
               <button type="button" onClick={() => onOpenTask?.(t.id)} className="text-left text-[14px] font-medium break-words text-ink hover:underline">{t.title}</button>
               {t.reviewer_id && <p className="text-[12px] text-muted">{t.reviewer_id === state.viewerId ? 'Assigned to you' : `Reviewer: ${state.nameOf(t.reviewer_id)}`}</p>}
-              {blocked && <p className="text-[12px] text-muted">Reopen work in QA or Done before rerouting.</p>}
+              {blocked && <p className="text-[12px] text-muted">{t.parent_id ? 'Moves with its parent task.' : 'Reopen work in QA or Done before rerouting.'}</p>}
             </div>
           </div>
           <Select aria-label={`Team for ${t.title}`} value={teams[t.id] ?? t.team_id ?? ''} disabled={!editable || blocked || !canUseRow(t)} placeholder="Choose a team with a lead" options={destinations} onChange={e => setTeams(previous => ({ ...previous, [t.id]: e.target.value }))} className="!h-10 !text-[13px]" />
-          {queue === 'coordinator_review' && canReview && (t.reviewer_id === state.viewerId || state.myRole === 'pm') && <Button size="sm" variant="outline" disabled={!editable} onClick={() => { setReason(''); setReturning(t.id) }}>Return to planning</Button>}
+          {queue === 'coordinator_review' && canReview && !t.parent_id && (t.reviewer_id === state.viewerId || state.myRole === 'pm') && <Button size="sm" variant="outline" disabled={!editable} onClick={() => { setReason(''); setReturning(t.id) }}>Return to planning</Button>}
         </div>
       })}
     </div>}

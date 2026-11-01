@@ -1174,6 +1174,7 @@ export type TaskPatch = Partial<{
   due_at: string | null
   starts_at: string | null
   team_id: string | null
+  priority: TaskPriority
 }>
 
 export async function updateTask(taskId: string, patch: TaskPatch) {

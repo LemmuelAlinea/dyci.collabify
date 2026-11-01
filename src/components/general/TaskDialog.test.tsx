@@ -74,3 +74,63 @@ it('shows a Workspace viewer with no role no comment form or access request', as
     expect(document.body.textContent).not.toContain('Request access')
   } finally { await act(async () => root.unmount()); container.remove() }
 })
+
+const workState = (over: Record<string, unknown> = {}) => {
+  const main = { id: "main", title: "Build page", project_id: "p", created_by: "pm", team_id: "a", routing_state: "released", assignee_ids: ["worker"], status: "todo", stage: 0, description: "", starts_at: null, due_at: null, archived_at: null, priority: "normal", parent_id: null }
+  const sub = { ...main, id: "sub", title: "Login form", assignee_ids: [], parent_id: "main" }
+  return { project: { id: "p", class_board_id: null, stages: ["Todo", "Doing", "Done"] }, viewerId: "pm", myRole: "pm", readOnly: false,
+    teams: [{ id: "a", leader_id: "lead" }], teamMembers: [], members: [], tasks: [main, sub], dependencies: [],
+    can: (permission: string) => permission === "manage_tasks", leadsUser: () => false, nameOf: (id: string) => id, roleOf: () => "member", qaBlocks: () => false, reload: vi.fn().mockResolvedValue(undefined), ...over,
+  } as unknown as GeneralProjectState
+}
+
+it("saves a changed priority and leaves it out when unchanged", async () => {
+  const container = document.createElement("div"); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={workState()} taskId="main" onClose={vi.fn()} />))
+    const select = document.querySelector<HTMLSelectElement>("[aria-label=\"Priority\"], select#priority") ?? [...document.querySelectorAll<HTMLSelectElement>("select")].find(el => [...el.options].some(o => o.value === "urgent"))!
+    expect([...select.options].map(o => o.value)).toEqual(["urgent", "high", "normal", "low"])
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(select, "high"); select.dispatchEvent(new Event("change", { bubbles: true })) })
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Save task")!.click())
+    expect(updateTask).toHaveBeenCalledWith("main", expect.objectContaining({ priority: "high" }))
+    vi.mocked(updateTask).mockClear()
+    await act(async () => root.render(<TaskDialog state={workState()} taskId="sub" onClose={vi.fn()} />))
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Save task")!.click())
+    expect(vi.mocked(updateTask).mock.calls[0][1]).not.toHaveProperty("priority")
+  } finally { await act(async () => root.unmount()); container.remove(); vi.mocked(updateTask).mockClear() }
+})
+
+it("shows a viewer without edit rights the priority as text", async () => {
+  const container = document.createElement("div"); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={workState({ viewerId: "viewer", myRole: "member", can: () => false })} taskId="main" onClose={vi.fn()} />))
+    expect(document.body.textContent).toContain("Priority")
+    expect([...document.querySelectorAll("select")].some(el => [...el.options].some(o => o.value === "urgent"))).toBe(false)
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it("opens a subtask from its parent and back again in the same window", async () => {
+  const container = document.createElement("div"); document.body.append(container); const root = createRoot(container)
+  const click = (label: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === label)!.click()
+  try {
+    await act(async () => root.render(<TaskDialog state={workState()} taskId="main" onClose={vi.fn()} />))
+    expect(document.body.textContent).toContain("Subtasks")
+    await act(async () => click("Login form"))
+    expect(document.body.textContent).toContain("Part of Build page")
+    await act(async () => click("Build page"))
+    expect(document.body.textContent).toContain("Subtasks")
+    expect(document.body.textContent).not.toContain("Part of")
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it("does not offer the Done stage while the task waits for an open task", async () => {
+  const container = document.createElement("div"); document.body.append(container); const root = createRoot(container)
+  const state = workState()
+  const blocker = { ...state.tasks[0], id: "blocker", title: "Write copy", assignee_ids: [] }
+  try {
+    await act(async () => root.render(<TaskDialog state={{ ...state, tasks: [...state.tasks, blocker], dependencies: [{ task_id: "main", depends_on_id: "blocker" }] } as unknown as GeneralProjectState} taskId="main" onClose={vi.fn()} />))
+    const stage = [...document.querySelectorAll<HTMLSelectElement>("select")].find(el => [...el.options].some(o => o.textContent === "Done"))!
+    expect([...stage.options].find(o => o.textContent === "Done")!.disabled).toBe(true)
+    expect(document.body.textContent).toContain("can't be marked done")
+  } finally { await act(async () => root.unmount()); container.remove() }
+})

@@ -171,3 +171,12 @@ it.each(['review', 'return'])('locks stale rows after %s succeeds and refresh fa
   await click('Reload tasks')
   expect(rowCheckbox().disabled).toBe(false)
 })
+it('keeps a subtask out of sends, returns and reroutes', async () => {
+  const sub = { ...task, id: 'sub', title: 'Login form', parent_id: 'one' }
+  await render(state({ tasks: [task, sub] }))
+  expect(document.body.textContent).toContain('Moves with its parent task.')
+  expect(document.querySelector<HTMLInputElement>('[aria-label="Select Login form"]')!.disabled).toBe(true)
+  expect(document.querySelector<HTMLSelectElement>('[aria-label="Team for Login form"]')!.disabled).toBe(true)
+  await act(async () => document.querySelector<HTMLInputElement>('[aria-label="Select all tasks"]')!.click())
+  expect(document.body.textContent).toContain('1 selected')
+})

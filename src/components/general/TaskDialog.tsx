@@ -35,7 +35,9 @@ import { stageIndex, stageName, stagesOf, statusForStage } from '../../lib/stage
 import { QA_PASSES, inQa } from '../../lib/work/qa'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
 import { attachFromRepo, attachSummary, repoTree } from '../../lib/general/attachFromRepo'
-import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent } from '../../lib/general/types'
+import { PRIORITIES } from '../../lib/general/types'
+import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent, TaskPriority } from '../../lib/general/types'
+import { blockersOf } from '../../lib/general/taskRules'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
 import { assignableTo, canEditTask, canUnassign } from '../../lib/general/permissions'
@@ -44,6 +46,8 @@ import { QaActions } from '../work/QaActions'
 import { ProjectFilePicker } from './ProjectFilePicker'
 import { RequestAccessButton } from './RequestAccessButton'
 import { BugBadge } from './BugBadge'
+import { TaskDependencies } from './TaskDependencies'
+import { TaskSubtasks } from './TaskSubtasks'
 import { PersonBadge } from './RoleBadge'
 import type { GeneralProjectState } from './useGeneralProject'
 import { Linkify } from '../ui/Linkify'
@@ -57,11 +61,18 @@ export function TaskDialog({
   taskId: string | null
   onClose: () => void
 }) {
-  const task = state.tasks.find((t) => t.id === taskId) ?? null
+  // A parent or subtask opened from inside the window shows here; a new taskId from outside wins.
+  const [opened, setOpened] = useState<{ from: string | null; id: string } | null>(null)
+  const shownId = opened && opened.from === taskId ? opened.id : taskId
+  const task = state.tasks.find((t) => t.id === shownId) ?? null
+  const close = () => {
+    setOpened(null)
+    onClose()
+  }
   return (
     <Modal
       open={Boolean(task)}
-      onClose={onClose}
+      onClose={close}
       title={task?.title ?? 'Task'}
       description={
         task ? (
@@ -74,7 +85,7 @@ export function TaskDialog({
       size="xl"
       headerTone="banner"
     >
-      {task && <TaskBody key={task.id} state={state} taskId={task.id} onClose={onClose} />}
+      {task && <TaskBody key={task.id} state={state} taskId={task.id} onClose={close} onOpenTask={(id) => setOpened({ from: taskId, id })} />}
     </Modal>
   )
 }
@@ -83,10 +94,12 @@ function TaskBody({
   state,
   taskId,
   onClose,
+  onOpenTask,
 }: {
   state: GeneralProjectState
   taskId: string
   onClose: () => void
+  onOpenTask: (id: string) => void
 }) {
   const { show } = useToast()
   const task = state.tasks.find((t) => t.id === taskId)
@@ -203,6 +216,8 @@ function TaskBody({
           </section>
         )}
         <TaskDetails state={state} taskId={task.id} canEdit={canEdit} canEditSchedule={canEditSchedule} onSaved={load} />
+        <TaskSubtasks state={state} task={task} busy={busy} act={act} onOpenTask={onOpenTask} />
+        <TaskDependencies state={state} task={task} busy={busy} act={act} />
 
         <section>
           <h3 className="text-[14px]">Comments</h3>
@@ -463,6 +478,7 @@ function TaskDetails({
   const [due, setDue] = useState('')
   const [starts, setStarts] = useState('')
   const [team, setTeam] = useState('')
+  const [priority, setPriority] = useState<TaskPriority>('normal')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -475,22 +491,32 @@ function TaskDetails({
     setDue(toLocalInput(task.due_at))
     setStarts(toLocalInput(task.starts_at))
     setTeam(task.team_id ?? '')
+    setPriority(task.priority ?? 'normal')
   }, [updatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!task || !state.project) return null
 
   const current = stageIndex(task.status, task.stage, stages.length)
   const gatedStages = stages.some((_, i) => i !== current && state.qaBlocks(current, i))
+  // Priority is for work projects; a task that waits for an open task can't take the last stage.
+  const work = !state.project.class_board_id
+  const waiting = blockersOf(state.dependencies ?? [], state.tasks, task.id).length > 0
 
   if (!canEdit && !canEditSchedule) {
     const teamName = state.teams.find((t) => t.id === task.team_id)?.name
     return (
       <section className="space-y-3 text-[14px]">
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] sm:grid-cols-3 lg:grid-cols-5">
           <div>
             <dt className="text-[12px] text-faint">Stage</dt>
             <dd className="text-ink">{stageName(stages, task)}</dd>
           </div>
+          {work && (
+            <div>
+              <dt className="text-[12px] text-faint">Priority</dt>
+              <dd className="text-ink">{PRIORITIES.find((p) => p.value === (task.priority ?? 'normal'))?.label}</dd>
+            </div>
+          )}
           <div>
             <dt className="text-[12px] text-faint">Starts</dt>
             <dd className="text-ink">{task.starts_at ? formatDue(task.starts_at) : 'Not set'}</dd>
@@ -537,6 +563,7 @@ function TaskDetails({
     try {
       await updateTask(task.id, {
         ...(canEdit ? { title: title.trim(), status: statusForStage(stage, stages.length) as GeneralTaskStatus, stage, team_id: team || null } : {}),
+        ...(canEdit && work && priority !== (task.priority ?? 'normal') ? { priority } : {}),
         ...(canEditSchedule ? { description, due_at: dueAt, starts_at: startsAt } : {}),
       })
       show('Task saved')
@@ -563,12 +590,25 @@ function TaskDetails({
               value={String(stage)}
               onChange={(e) => setStage(Number(e.target.value))}
               options={stages
-                .map((name, i) => ({ value: String(i), label: name }))
+                .map((name, i) => ({ value: String(i), label: name, disabled: waiting && i === stages.length - 1 && i !== current }))
                 // The stage the task is on stays; the ones the QA gate refuses are not offered.
                 .filter((_, i) => i === current || !state.qaBlocks(current, i))}
             />
           )}
         </Field>
+        {work && (
+          <Field label="Priority">
+            {(id) => (
+              <Select
+                id={id}
+                disabled={!canEdit}
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                options={PRIORITIES.map((p) => ({ value: p.value, label: p.label }))}
+              />
+            )}
+          </Field>
+        )}
         <Field label="Starts" optional>
           {(id) => (
             <Input id={id} type="datetime-local" value={starts} disabled={!canEditSchedule} onChange={(e) => setStarts(e.target.value)} />
