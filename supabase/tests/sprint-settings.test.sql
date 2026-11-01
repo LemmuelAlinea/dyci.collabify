@@ -204,4 +204,325 @@ begin
 end;
 $$;
 
+------------------------------------------------------------ the automation job
+-- Every run below passes a fixed clock. Sprint 1 of each project ends on
+-- Tuesday 2026-11-10, so it is due to finish on Wednesday 2026-11-11 at 9:00
+-- Manila time. Each check removes its settings row when done, so a later run
+-- leaves its project alone.
+
+/** A work project with a project manager, a coordinator and a member. */
+create or replace function pg_temp.team_project(a uuid, c uuid, m uuid, p_title text) returns uuid
+language plpgsql as $$
+declare
+  p uuid; v_inv uuid;
+begin
+  perform pg_temp.act_as(a);
+  p := (public.create_general_project(p_title)).id;
+  select id into v_inv from public.invite_to_general_project(p, c);
+  perform pg_temp.act_as(c);
+  perform public.respond_general_invitation(v_inv, true);
+  perform pg_temp.act_as(a);
+  select id into v_inv from public.invite_to_general_project(p, m);
+  perform pg_temp.act_as(m);
+  perform public.respond_general_invitation(v_inv, true);
+  perform pg_temp.act_as_service();
+  update public.general_members set role = 'coordinator' where project_id = p and user_id = c;
+  return p;
+end;
+$$;
+
+/** A sprint in the given state, made the way the app makes one. */
+create or replace function pg_temp.sprint(p uuid, p_name text, p_starts date, p_ends date, p_state text)
+returns uuid language plpgsql as $$
+declare
+  s uuid;
+begin
+  perform pg_temp.act_as_service();
+  insert into public.general_sprints (project_id, name, starts_on, ends_on)
+  values (p, p_name, p_starts, p_ends) returning id into s;
+  if p_state in ('active', 'completed') then
+    update public.general_sprints set state = 'active' where id = s;
+  end if;
+  if p_state = 'completed' then
+    update public.general_sprints set state = 'completed' where id = s;
+  end if;
+  return s;
+end;
+$$;
+
+/** A released task in a sprint. */
+create or replace function pg_temp.task(p uuid, a uuid, s uuid, p_status text, p_archived boolean default false)
+returns uuid language plpgsql as $$
+declare
+  t uuid;
+begin
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (routing_state, created_by, project_id, title, sprint_id, status, archived_at)
+  values ('released', a, p, 'Zz automation task', s, p_status::public.general_task_status,
+          case when p_archived then now() end)
+  returning id into t;
+  return t;
+end;
+$$;
+
+do $$
+declare
+  v_ids uuid[] := array[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
+  v_names text[] := array['Owner', 'Coord', 'Member', 'Away'];
+  i int;
+  a uuid; c uuid; m uuid; c2 uuid;
+  p uuid; v_inv uuid;
+  s1 uuid; s2 uuid; s3 uuid;
+  t1 uuid; t2 uuid; t3 uuid;
+  n int;
+  v_before text; v_after text;
+  v_due  constant timestamptz := '2026-11-11 09:00 Asia/Manila';
+  v_soon constant timestamptz := '2026-11-11 08:59 Asia/Manila';
+begin
+  perform pg_temp.act_as_service();
+  for i in 1..4 loop
+    insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                            raw_user_meta_data, created_at, updated_at)
+    values (v_ids[i], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+            'zz-sprintauto-' || lower(v_names[i]) || '@example.test', '',
+            jsonb_build_object('first_name', 'Zzsprintauto', 'last_name', v_names[i], 'role', 'professor'),
+            now(), now());
+  end loop;
+  update public.profiles set can_teach = true, can_manage_projects = true
+   where id = any (v_ids) and role = 'member';
+  a := v_ids[1]; c := v_ids[2]; m := v_ids[3]; c2 := v_ids[4];
+
+  ------------------------------------------------------------ finish
+  p := pg_temp.team_project(a, c, m, 'Zz auto finish timing');
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'active');
+  insert into public.general_sprint_settings (project_id, auto_finish, carry) values (p, true, 'backlog');
+  perform public.run_sprint_automation(v_soon);
+  perform pg_temp.must_be('auto finish waits for the day after the end date and the set time',
+    (select state = 'active' from public.general_sprints where id = s1));
+  perform public.run_sprint_automation(v_due);
+  perform pg_temp.must_be('auto finish finishes the sprint once that time arrives',
+    (select state = 'completed' from public.general_sprints where id = s1));
+  delete from public.general_sprint_settings where project_id = p;
+
+  p := pg_temp.team_project(a, c, m, 'Zz auto finish next');
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'active');
+  s3 := pg_temp.sprint(p, 'Sprint 3', '2026-11-25', '2026-12-08', 'planned');
+  s2 := pg_temp.sprint(p, 'Sprint 2', '2026-11-11', '2026-11-24', 'planned');
+  t1 := pg_temp.task(p, a, s1, 'todo');
+  t2 := pg_temp.task(p, a, s1, 'done');
+  t3 := pg_temp.task(p, a, s1, 'todo', true);
+  insert into public.general_sprint_settings (project_id, auto_finish, carry) values (p, true, 'next');
+  perform public.run_sprint_automation(v_due);
+  perform pg_temp.must_be('leftovers move to the earliest planned sprint when carry is next',
+    (select state = 'completed' from public.general_sprints where id = s1)
+    and (select sprint_id = s2 from public.general_tasks where id = t1)
+    and (select sprint_id = s1 from public.general_tasks where id = t2)
+    and (select sprint_id = s1 from public.general_tasks where id = t3)
+    and (select state = 'planned' from public.general_sprints where id = s2));
+  perform pg_temp.must_be('the finish notice names where one leftover went',
+    exists (select 1 from public.notifications
+             where general_project_id = p and user_id = a and type = 'sprint_automation'
+               and title = 'Sprint 1 finished on its own'
+               and preview = '1 unfinished task moved to Sprint 2.'));
+  delete from public.general_sprint_settings where project_id = p;
+
+  p := pg_temp.team_project(a, c, m, 'Zz auto finish backlog');
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'active');
+  s2 := pg_temp.sprint(p, 'Sprint 2', '2026-11-11', '2026-11-24', 'planned');
+  t1 := pg_temp.task(p, a, s1, 'todo');
+  t2 := pg_temp.task(p, a, s1, 'in_progress');
+  insert into public.general_sprint_settings (project_id, auto_finish, carry) values (p, true, 'backlog');
+  perform public.run_sprint_automation(v_due);
+  perform pg_temp.must_be('leftovers return to the backlog when carry is backlog',
+    (select state = 'completed' from public.general_sprints where id = s1)
+    and (select count(*) = 2 from public.general_tasks where id in (t1, t2) and sprint_id is null)
+    and (select state = 'planned' from public.general_sprints where id = s2));
+  perform pg_temp.must_be('the finish notice counts the tasks returned to the backlog',
+    exists (select 1 from public.notifications
+             where general_project_id = p and user_id = c and type = 'sprint_automation'
+               and preview = '2 unfinished tasks returned to the backlog.'));
+  delete from public.general_sprint_settings where project_id = p;
+
+  ------------------------------------------------------------ start and create
+  p := pg_temp.team_project(a, c, m, 'Zz auto start');
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-14', '2026-10-27', 'completed');
+  s3 := pg_temp.sprint(p, 'Sprint 3', '2026-11-25', '2026-12-08', 'planned');
+  s2 := pg_temp.sprint(p, 'Sprint 2', '2026-11-11', '2026-11-24', 'planned');
+  insert into public.general_sprint_settings (project_id, auto_start) values (p, true);
+  perform public.run_sprint_automation('2026-11-10 09:00 Asia/Manila');
+  perform public.run_sprint_automation(v_soon);
+  perform pg_temp.must_be('auto start waits for the start date and the set time',
+    (select state = 'planned' from public.general_sprints where id = s2));
+  perform public.run_sprint_automation(v_due);
+  perform pg_temp.must_be('auto start starts the earliest planned sprint once its start date and time arrive',
+    (select state = 'active' from public.general_sprints where id = s2)
+    and (select state = 'planned' from public.general_sprints where id = s3)
+    and (select count(*) = 3 from public.general_sprints where project_id = p));
+  perform pg_temp.must_be('the start notice gives the date range',
+    exists (select 1 from public.notifications
+             where general_project_id = p and user_id = a and type = 'sprint_automation'
+               and title = 'Sprint 2 started on its own'
+               and preview = 'Nov 11 to Nov 24, 2026'));
+  delete from public.general_sprint_settings where project_id = p;
+
+  p := pg_temp.team_project(a, c, m, 'Zz auto create');
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'active');
+  insert into public.general_sprint_settings (project_id, auto_finish, carry, auto_start, length_days, start_weekday)
+  values (p, true, 'backlog', true, 7, 5);
+  perform public.run_sprint_automation(v_due);
+  perform pg_temp.must_be('auto start creates the next sprint when none is planned',
+    (select state = 'completed' from public.general_sprints where id = s1)
+    and (select count(*) = 2 from public.general_sprints where project_id = p)
+    and exists (select 1 from public.general_sprints
+                 where project_id = p and name = 'Sprint 2' and state = 'planned'
+                   and starts_on = '2026-11-13' and ends_on = '2026-11-19'
+                   and goal = '' and milestone_id is null));
+  perform public.run_sprint_automation('2026-11-13 08:59 Asia/Manila');
+  perform pg_temp.must_be('the created sprint waits for its day',
+    (select state = 'planned' from public.general_sprints where project_id = p and name = 'Sprint 2'));
+  perform public.run_sprint_automation('2026-11-13 09:00 Asia/Manila');
+  perform pg_temp.must_be('then starts it when its day comes',
+    (select state = 'active' from public.general_sprints where project_id = p and name = 'Sprint 2'));
+  delete from public.general_sprint_settings where project_id = p;
+
+  p := pg_temp.team_project(a, c, m, 'Zz auto create too early');
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'completed');
+  insert into public.general_sprint_settings (project_id, auto_start) values (p, true);
+  -- The sprint finished before auto start was turned on.
+  alter table public.general_sprint_settings disable trigger general_sprint_settings_prepare;
+  update public.general_sprint_settings set auto_start_since = now() + interval '1 minute' where project_id = p;
+  alter table public.general_sprint_settings enable trigger general_sprint_settings_prepare;
+  perform public.run_sprint_automation(v_due);
+  perform pg_temp.must_be('no sprint is created before auto start was turned on',
+    (select count(*) = 1 from public.general_sprints where project_id = p));
+  delete from public.general_sprint_settings where project_id = p;
+
+  p := pg_temp.team_project(a, c, m, 'Zz auto create past due');
+  update public.general_projects set ends_on = '2026-11-12' where id = p;
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'active');
+  t1 := pg_temp.task(p, a, s1, 'todo');
+  insert into public.general_sprint_settings (project_id, auto_finish, carry, auto_start, start_weekday)
+  values (p, true, 'next', true, 5);
+  perform public.run_sprint_automation(v_due);
+  perform pg_temp.must_be('no sprint is created past the project due date',
+    (select state = 'completed' from public.general_sprints where id = s1)
+    and (select count(*) = 1 from public.general_sprints where project_id = p)
+    and (select sprint_id is null from public.general_tasks where id = t1));
+  update public.general_projects set ends_on = '2026-11-13' where id = p;
+  perform public.run_sprint_automation(v_due);
+  perform pg_temp.must_be('a sprint that starts on the due date is still created',
+    exists (select 1 from public.general_sprints
+             where project_id = p and name = 'Sprint 2' and starts_on = '2026-11-13'));
+  delete from public.general_sprint_settings where project_id = p;
+
+  p := pg_temp.team_project(a, c, m, 'Zz auto create after manual');
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'active');
+  insert into public.general_sprint_settings (project_id, auto_start, start_weekday) values (p, true, 5);
+  perform pg_temp.act_as(a);
+  perform public.complete_general_sprint(s1, null);
+  perform pg_temp.act_as_service();
+  perform public.run_sprint_automation(v_soon);
+  perform public.run_sprint_automation(v_due);
+  perform pg_temp.must_be('after a manual finish, creates the next sprint once',
+    (select count(*) = 1 from public.general_sprints where project_id = p and state = 'planned')
+    and (select count(*) = 2 from public.general_sprints where project_id = p));
+  delete from public.general_sprint_settings where project_id = p;
+
+  ------------------------------------------------------------ a whole cycle, twice
+  p := pg_temp.team_project(a, c, m, 'Zz auto cycle');
+  perform pg_temp.act_as(a);
+  select id into v_inv from public.invite_to_general_project(p, c2);
+  perform pg_temp.act_as(c2);
+  perform public.respond_general_invitation(v_inv, true);
+  perform pg_temp.act_as_service();
+  update public.general_members set role = 'coordinator' where project_id = p and user_id = c2;
+  update public.profiles set status = 'pending' where id = c2;
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'active');
+  t1 := pg_temp.task(p, a, s1, 'todo');
+  -- No start day is set: the first sprint started on a Wednesday, and so does 2026-11-11.
+  insert into public.general_sprint_settings (project_id, auto_finish, carry, auto_start)
+  values (p, true, 'next', true);
+  perform pg_temp.must_be('a run reports the projects it changed',
+    public.run_sprint_automation(v_due) >= 1);
+  perform pg_temp.must_be('a created sprint that starts today starts in the same run',
+    (select state = 'completed' from public.general_sprints where id = s1)
+    and exists (select 1 from public.general_sprints s join public.general_tasks t on t.sprint_id = s.id
+                 where s.project_id = p and s.name = 'Sprint 2' and s.state = 'active'
+                   and s.starts_on = '2026-11-11' and s.ends_on = '2026-11-24' and t.id = t1));
+
+  select string_agg(name || ':' || state || ':' || starts_on, ',' order by name)
+         || '|' || (select count(*) from public.notifications where general_project_id = p)
+         || '|' || (select coalesce(sprint_id::text, '-') from public.general_tasks where id = t1)
+    into v_before
+    from public.general_sprints where project_id = p;
+  perform pg_temp.must_be('a second run reports no change',
+    public.run_sprint_automation(v_due) = 0);
+  select string_agg(name || ':' || state || ':' || starts_on, ',' order by name)
+         || '|' || (select count(*) from public.notifications where general_project_id = p)
+         || '|' || (select coalesce(sprint_id::text, '-') from public.general_tasks where id = t1)
+    into v_after
+    from public.general_sprints where project_id = p;
+  perform pg_temp.must_be('a second run changes nothing', v_before = v_after);
+
+  perform pg_temp.must_be('the project manager and coordinators are notified of each automatic action',
+    (select count(*) = 2 from public.notifications
+      where general_project_id = p and type = 'sprint_automation' and user_id = a)
+    and (select count(*) = 2 from public.notifications
+          where general_project_id = p and type = 'sprint_automation' and user_id = c)
+    and (select count(*) = 1 from public.notifications
+          where general_project_id = p and type = 'sprint_automation' and user_id = a
+            and title = 'Sprint 1 finished on its own' and preview = '1 unfinished task moved to Sprint 2.')
+    and (select count(*) = 1 from public.notifications
+          where general_project_id = p and type = 'sprint_automation' and user_id = a
+            and title = 'Sprint 2 started on its own'));
+  perform pg_temp.must_be('members and inactive coordinators are not notified',
+    not exists (select 1 from public.notifications
+                 where general_project_id = p and type = 'sprint_automation' and user_id in (m, c2)));
+  delete from public.general_sprint_settings where project_id = p;
+
+  ------------------------------------------------------------ skipped
+  p := pg_temp.team_project(a, c, m, 'Zz auto archived');
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'active');
+  insert into public.general_sprint_settings (project_id, auto_finish, carry) values (p, true, 'backlog');
+  perform pg_temp.act_as(a);
+  perform public.archive_general_project(p, true);
+  perform pg_temp.act_as_service();
+  perform public.run_sprint_automation(v_due);
+  perform pg_temp.must_be('archived projects are skipped',
+    (select state = 'active' from public.general_sprints where id = s1));
+  delete from public.general_sprint_settings where project_id = p;
+
+  ------------------------------------------------------------ one project fails
+  p := pg_temp.team_project(a, c, m, 'Zz auto fails');
+  s1 := pg_temp.sprint(p, 'Zz boom', '2026-10-28', '2026-11-10', 'active');
+  t1 := pg_temp.task(p, a, s1, 'todo');
+  insert into public.general_sprint_settings (project_id, auto_finish, carry) values (p, true, 'backlog');
+  s2 := s1;
+  p := pg_temp.team_project(a, c, m, 'Zz auto fine');
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-28', '2026-11-10', 'active');
+  insert into public.general_sprint_settings (project_id, auto_finish, carry) values (p, true, 'backlog');
+  -- The existing row passes; finishing it is refused.
+  alter table public.general_sprints add constraint zz_sprint_boom check (name <> 'Zz boom') not valid;
+  perform public.run_sprint_automation(v_due);
+  alter table public.general_sprints drop constraint zz_sprint_boom;
+  perform pg_temp.must_be('a project that fails is skipped whole and the others still run',
+    (select state = 'active' from public.general_sprints where id = s2)
+    and (select sprint_id = s2 from public.general_tasks where id = t1)
+    and (select state = 'completed' from public.general_sprints where id = s1));
+  delete from public.general_sprint_settings where project_id in (p, (select project_id from public.general_sprints where id = s2));
+
+  ------------------------------------------------------------ the start day
+  p := pg_temp.team_project(a, c, m, 'Zz start day');
+  perform pg_temp.must_be('with no sprints and no start day, a new sprint starts on a Monday',
+    public.general_next_sprint_start(p, '2026-11-11') = '2026-11-16');
+  s1 := pg_temp.sprint(p, 'Sprint 1', '2026-10-29', '2026-11-04', 'completed');
+  perform pg_temp.must_be('start weekday falls back to the first sprint, then Monday',
+    public.general_next_sprint_start(p, '2026-11-11') = '2026-11-12'
+    and public.general_next_sprint_start(p, '2026-11-01') = '2026-11-05');
+  insert into public.general_sprint_settings (project_id, start_weekday) values (p, 1);
+  perform pg_temp.must_be('a set start day wins over the first sprint',
+    public.general_next_sprint_start(p, '2026-11-11') = '2026-11-16');
+end;
+$$;
+
 rollback;

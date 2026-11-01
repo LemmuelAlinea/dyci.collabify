@@ -15,14 +15,29 @@
 -- keeps owning the order of the states. A manage_tasks holder still edits
 -- sprints and moves tasks into them. Three callers pass the rule without the
 -- role: the service role (auth.uid() is null, the scheduled job), a transaction
--- that has set collabify.sprint_automation to on (run_sprint_automation, added
--- to this file with the automation), and a reopen, which already checks the role.
+-- that has set collabify.sprint_automation to on (run_sprint_automation), and a
+-- reopen, which already checks the role.
+--
+-- run_sprint_automation() runs every 15 minutes (pg_cron job
+-- collabify-sprint-automation). For each project that asks, in Manila time and
+-- once the day's set time is reached, it finishes a running sprint the day after
+-- it ends, creates the next sprint when nothing is planned, and starts the
+-- earliest planned sprint once its day comes. The project manager and
+-- coordinators get a sprint_automation notification for each finish and start.
 --
 -- Redefines complete_general_sprint (first written by work-planning.sql) to
 -- check general_can_run_sprint. Run after sprint-reopen.sql. Re-running
 -- work-planning.sql or sprint-reopen.sql means re-running this file after it.
 --
 -- Idempotent. Safe to re-run.
+
+-- A new enum value must be committed before anything can use it.
+begin;
+do $$
+begin
+  alter type public.notification_type add value if not exists 'sprint_automation';
+end $$;
+commit;
 
 begin;
 
@@ -185,5 +200,175 @@ $$;
 
 revoke all on function public.complete_general_sprint(uuid, uuid) from public, anon;
 grant execute on function public.complete_general_sprint(uuid, uuid) to authenticated;
+
+-- ---------------------------------------------------------------- sprint automation
+
+/**
+ * The day a new sprint starts: the project's start day (its setting, else the
+ * weekday its first sprint started on, else Monday) on or after the day after
+ * its last sprint ends, or on or after p_today once that has passed.
+ */
+create or replace function public.general_next_sprint_start(p_project uuid, p_today date)
+returns date language sql stable security definer set search_path = public as $$
+  with d as (
+    select greatest((select max(ends_on) + 1 from public.general_sprints where project_id = p_project),
+                    p_today) as base,
+           coalesce((select start_weekday from public.general_sprint_settings
+                      where project_id = p_project),
+                    (select extract(dow from starts_on)::int from public.general_sprints
+                      where project_id = p_project order by starts_on, created_at limit 1),
+                    1) as weekday
+  )
+  select base + (weekday - extract(dow from base)::int + 7) % 7 from d;
+$$;
+
+revoke all on function public.general_next_sprint_start(uuid, date) from public, anon, authenticated;
+
+/**
+ * Finish, create and start sprints for every project that asks. Per project,
+ * in this order:
+ * - finish: the running sprint, once the day after its end date reaches the
+ *   set time. Unfinished tasks go to the earliest planned sprint (carry next)
+ *   or back to the backlog (carry backlog, or nothing planned).
+ * - create: with auto start on and nothing running or planned, after a sprint
+ *   finished (by hand or just now) since auto start was turned on, and never
+ *   one that would start after the project's due date.
+ * - start: with auto start on and nothing running, the earliest planned sprint
+ *   whose start date has come, once the set time is reached.
+ * Each project runs in its own block, so one that fails is logged and skipped.
+ * Running again with the same p_now changes nothing. Returns how many projects
+ * changed. p_now lets the tests set the clock.
+ */
+create or replace function public.run_sprint_automation(p_now timestamptz default now())
+returns int language plpgsql security definer set search_path = public as $$
+declare
+  was       text := current_setting('collabify.sprint_automation', true);
+  today     date := (p_now at time zone 'Asia/Manila')::date;
+  cfg       record;
+  running   public.general_sprints;
+  nxt       public.general_sprints;
+  due       boolean;
+  finishing boolean;
+  changed   boolean;
+  starts    date;
+  target    uuid;
+  moved     int;
+  total     int := 0;
+begin
+  perform set_config('collabify.sprint_automation', 'on', true);
+
+  for cfg in
+    select s.*, p.ends_on as due_on
+      from public.general_sprint_settings s
+      join public.general_projects p on p.id = s.project_id
+     where (s.auto_finish or s.auto_start) and p.archived_at is null
+     order by s.project_id
+  loop
+    begin
+      perform pg_advisory_xact_lock(hashtext('sprint-automation:' || cfg.project_id));
+      changed := false;
+      due := (p_now at time zone 'Asia/Manila')::time >= cfg.run_at;
+
+      select * into running from public.general_sprints
+       where project_id = cfg.project_id and state = 'active';
+      finishing := found and cfg.auto_finish and due and running.ends_on < today;
+
+      -- Create comes before the finish, so carried tasks have somewhere to go.
+      if cfg.auto_start
+         and not exists (select 1 from public.general_sprints
+                          where project_id = cfg.project_id and state = 'planned')
+         and (finishing
+              or (running.id is null and exists (
+                    select 1 from public.general_sprints
+                     where project_id = cfg.project_id and state = 'completed'
+                       and completed_at >= cfg.auto_start_since))) then
+        starts := public.general_next_sprint_start(cfg.project_id, today);
+        if cfg.due_on is null or starts <= cfg.due_on then
+          insert into public.general_sprints (project_id, name, starts_on, ends_on)
+          select cfg.project_id, 'Sprint ' || (count(*) + 1), starts, starts + cfg.length_days - 1
+            from public.general_sprints where project_id = cfg.project_id;
+          changed := true;
+        end if;
+      end if;
+
+      if finishing then
+        target := null;
+        if cfg.carry = 'next' then
+          select id into target from public.general_sprints
+           where project_id = cfg.project_id and state = 'planned'
+           order by starts_on, created_at limit 1;
+        end if;
+
+        -- As complete_general_sprint: archived unfinished tasks stay behind.
+        update public.general_tasks set sprint_id = target
+         where sprint_id = running.id and status <> 'done' and archived_at is null;
+        get diagnostics moved = row_count;
+
+        update public.general_sprints set state = 'completed' where id = running.id;
+
+        insert into public.notifications (user_id, type, general_project_id, title, preview)
+        select m.user_id, 'sprint_automation'::public.notification_type, cfg.project_id,
+               running.name || ' finished on its own',
+               case when moved = 0 then 'Every task was done.'
+                    else moved || ' unfinished ' || case when moved = 1 then 'task' else 'tasks' end
+                         || coalesce(' moved to ' || (select name from public.general_sprints where id = target),
+                                     ' returned to the backlog') || '.'
+               end
+          from public.general_members m
+          join public.profiles pr on pr.id = m.user_id
+         where m.project_id = cfg.project_id and m.role in ('pm', 'coordinator')
+           and pr.status = 'active';
+        changed := true;
+      end if;
+
+      if cfg.auto_start and due
+         and not exists (select 1 from public.general_sprints
+                          where project_id = cfg.project_id and state = 'active') then
+        select * into nxt from public.general_sprints
+         where project_id = cfg.project_id and state = 'planned'
+         order by starts_on, created_at limit 1;
+        if found and nxt.starts_on <= today then
+          update public.general_sprints set state = 'active' where id = nxt.id;
+
+          insert into public.notifications (user_id, type, general_project_id, title, preview)
+          select m.user_id, 'sprint_automation'::public.notification_type, cfg.project_id,
+                 nxt.name || ' started on its own',
+                 to_char(nxt.starts_on, 'Mon FMDD') || ' to ' || to_char(nxt.ends_on, 'Mon FMDD, YYYY')
+            from public.general_members m
+            join public.profiles pr on pr.id = m.user_id
+           where m.project_id = cfg.project_id and m.role in ('pm', 'coordinator')
+             and pr.status = 'active';
+          changed := true;
+        end if;
+      end if;
+
+      if changed then
+        total := total + 1;
+      end if;
+    exception when others then
+      raise warning 'Sprint automation skipped project %: %', cfg.project_id, sqlerrm;
+    end;
+  end loop;
+
+  perform set_config('collabify.sprint_automation', coalesce(nullif(was, ''), 'off'), true);
+  return total;
+end;
+$$;
+
+revoke all on function public.run_sprint_automation(timestamptz) from public, anon, authenticated;
+
+create extension if not exists pg_cron;
+
+do $$
+begin
+  perform cron.unschedule('collabify-sprint-automation');
+exception when others then null; end $$;
+
+-- Every 15 minutes, so a sprint finishes or starts within a quarter hour of its set time.
+select cron.schedule(
+  'collabify-sprint-automation',
+  '*/15 * * * *',
+  $cron$ select public.run_sprint_automation() $cron$
+);
 
 commit;
