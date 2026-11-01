@@ -23,7 +23,8 @@
 -- once the day's set time is reached, it finishes a running sprint the day after
 -- it ends, creates the next sprint when nothing is planned, and starts the
 -- earliest planned sprint once its day comes. The project manager and
--- coordinators get a sprint_automation notification for each finish and start.
+-- coordinators get a sprint_automation notification for each finish, create and
+-- start. A missed run catches up the next time.
 --
 -- Redefines complete_general_sprint (first written by work-planning.sql) to
 -- check general_can_run_sprint. Run after sprint-reopen.sql. Re-running
@@ -74,13 +75,30 @@ create table if not exists public.general_sprint_settings (
   constraint general_sprint_settings_finish_carry check (not (auto_finish and carry = 'ask'))
 );
 
+-- The finished sprint run_sprint_automation last created a successor for, or
+-- decided not to (the start would pass the project due date). Written by the
+-- job only.
+alter table public.general_sprint_settings add column if not exists auto_created_after uuid;
+
+-- The job runs every quarter hour, so the set time falls on one.
+do $$ begin
+  alter table public.general_sprint_settings add constraint general_sprint_settings_run_at
+    check (extract(minute from run_at) in (0, 15, 30, 45) and extract(second from run_at) = 0);
+exception when duplicate_object then null; end $$;
+
 /**
  * Stamps who saved and when, and keeps auto_start_since in step with auto_start:
  * set when it turns on, cleared when it turns off, never taken from the client.
+ * auto_created_after is never taken from the client either. A write from
+ * run_sprint_automation (collabify.sprint_automation on) is left as it is.
  */
 create or replace function public.prepare_sprint_settings()
 returns trigger language plpgsql set search_path = public as $$
 begin
+  if coalesce(current_setting('collabify.sprint_automation', true), 'off') = 'on' then
+    return new;
+  end if;
+  new.auto_created_after := case when tg_op = 'UPDATE' then old.auto_created_after end;
   new.updated_by := auth.uid();
   new.updated_at := now();
   if not new.auto_start then
@@ -224,22 +242,46 @@ $$;
 
 revoke all on function public.general_next_sprint_start(uuid, date) from public, anon, authenticated;
 
+/** Tells the project manager and active coordinators what the job just did. */
+create or replace function public.notify_sprint_automation(p_project uuid, p_title text, p_preview text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.notifications (user_id, type, general_project_id, title, preview)
+  select m.user_id, 'sprint_automation'::public.notification_type, p_project, p_title, p_preview
+    from public.general_members m
+    join public.profiles pr on pr.id = m.user_id
+   where m.project_id = p_project and m.role in ('pm', 'coordinator') and pr.status = 'active';
+end;
+$$;
+
+revoke all on function public.notify_sprint_automation(uuid, text, text) from public, anon, authenticated;
+
 /**
- * Finish, create and start sprints for every project that asks. Per project,
- * in this order:
- * - finish: the running sprint, once the day after its end date reaches the
- *   set time. Unfinished tasks go to the earliest planned sprint (carry next)
- *   or back to the backlog (carry backlog, or nothing planned).
- * - create: with auto start on and nothing running or planned, after a sprint
- *   finished (by hand or just now) since auto start was turned on, and never
- *   one that would start after the project's due date.
- * - start: with auto start on and nothing running, the earliest planned sprint
- *   whose start date has come, once the set time is reached.
- * Each project runs in its own block, so one that fails is logged and skipped.
+ * Finish, create and start sprints for every work project that asks, or only
+ * p_project. Per project, in Manila time, in this order:
+ * - create: with auto start on and nothing planned, once for each finished
+ *   sprint since auto start was turned on (the one finishing now, else the
+ *   latest one while nothing runs). auto_created_after records it, so a
+ *   deleted sprint is not made again. Never one that would start after the
+ *   project due date; that finished sprint counts as handled all the same.
+ *   It comes first so carried tasks have somewhere to go.
+ * - finish: the running sprint, from the set time on the day after its end
+ *   date, or any time later if a run was missed. Unfinished tasks go to the
+ *   earliest planned sprint (carry next) or back to the backlog (carry
+ *   backlog, or nothing planned).
+ * - start: with auto start on and nothing running, the earliest planned
+ *   sprint, from the set time on its start date, or any time later if a run
+ *   was missed.
+ * The project manager and active coordinators get a notice for each. Each
+ * project runs in its own block, so one that fails is logged and skipped.
  * Running again with the same p_now changes nothing. Returns how many projects
- * changed. p_now lets the tests set the clock.
+ * changed. p_now and p_project let the tests set the clock and keep to their
+ * own projects.
  */
-create or replace function public.run_sprint_automation(p_now timestamptz default now())
+drop function if exists public.run_sprint_automation(timestamptz);
+
+create or replace function public.run_sprint_automation(p_now timestamptz default now(),
+                                                        p_project uuid default null)
 returns int language plpgsql security definer set search_path = public as $$
 declare
   was       text := current_setting('collabify.sprint_automation', true);
@@ -247,9 +289,11 @@ declare
   cfg       record;
   running   public.general_sprints;
   nxt       public.general_sprints;
+  made      public.general_sprints;
   due       boolean;
   finishing boolean;
   changed   boolean;
+  handled   uuid;
   starts    date;
   target    uuid;
   moved     int;
@@ -261,7 +305,9 @@ begin
     select s.*, p.ends_on as due_on
       from public.general_sprint_settings s
       join public.general_projects p on p.id = s.project_id
-     where (s.auto_finish or s.auto_start) and p.archived_at is null
+     where (s.auto_finish or s.auto_start)
+       and p.archived_at is null and p.class_board_id is null
+       and (p_project is null or s.project_id = p_project)
      order by s.project_id
   loop
     begin
@@ -271,24 +317,37 @@ begin
 
       select * into running from public.general_sprints
        where project_id = cfg.project_id and state = 'active';
-      finishing := found and cfg.auto_finish and due and running.ends_on < today;
+      finishing := found and cfg.auto_finish
+                   and (running.ends_on < today - 1 or (running.ends_on < today and due));
 
-      -- Create comes before the finish, so carried tasks have somewhere to go.
-      if cfg.auto_start
+      handled := null;
+      if finishing then
+        handled := running.id;
+      elsif running.id is null then
+        select id into handled from public.general_sprints
+         where project_id = cfg.project_id and state = 'completed'
+           and completed_at >= cfg.auto_start_since
+         order by completed_at desc, created_at desc limit 1;
+      end if;
+
+      if cfg.auto_start and handled is not null
+         and handled is distinct from cfg.auto_created_after
          and not exists (select 1 from public.general_sprints
-                          where project_id = cfg.project_id and state = 'planned')
-         and (finishing
-              or (running.id is null and exists (
-                    select 1 from public.general_sprints
-                     where project_id = cfg.project_id and state = 'completed'
-                       and completed_at >= cfg.auto_start_since))) then
+                          where project_id = cfg.project_id and state = 'planned') then
         starts := public.general_next_sprint_start(cfg.project_id, today);
         if cfg.due_on is null or starts <= cfg.due_on then
           insert into public.general_sprints (project_id, name, starts_on, ends_on)
           select cfg.project_id, 'Sprint ' || (count(*) + 1), starts, starts + cfg.length_days - 1
-            from public.general_sprints where project_id = cfg.project_id;
+            from public.general_sprints where project_id = cfg.project_id
+          returning * into made;
+          perform public.notify_sprint_automation(cfg.project_id,
+            made.name || ' was created on its own',
+            'It runs ' || to_char(made.starts_on, 'Mon FMDD') || ' to '
+              || to_char(made.ends_on, 'Mon FMDD, YYYY') || '.');
           changed := true;
         end if;
+        update public.general_sprint_settings set auto_created_after = handled
+         where project_id = cfg.project_id;
       end if;
 
       if finishing then
@@ -306,38 +365,27 @@ begin
 
         update public.general_sprints set state = 'completed' where id = running.id;
 
-        insert into public.notifications (user_id, type, general_project_id, title, preview)
-        select m.user_id, 'sprint_automation'::public.notification_type, cfg.project_id,
-               running.name || ' finished on its own',
-               case when moved = 0 then 'Every task was done.'
-                    else moved || ' unfinished ' || case when moved = 1 then 'task' else 'tasks' end
-                         || coalesce(' moved to ' || (select name from public.general_sprints where id = target),
-                                     ' returned to the backlog') || '.'
-               end
-          from public.general_members m
-          join public.profiles pr on pr.id = m.user_id
-         where m.project_id = cfg.project_id and m.role in ('pm', 'coordinator')
-           and pr.status = 'active';
+        perform public.notify_sprint_automation(cfg.project_id,
+          running.name || ' finished on its own',
+          case when moved = 0 then 'Every task was done.'
+               else moved || ' unfinished ' || case when moved = 1 then 'task' else 'tasks' end
+                    || coalesce(' moved to ' || (select name from public.general_sprints where id = target),
+                                ' returned to the backlog') || '.'
+          end);
         changed := true;
       end if;
 
-      if cfg.auto_start and due
+      if cfg.auto_start
          and not exists (select 1 from public.general_sprints
                           where project_id = cfg.project_id and state = 'active') then
         select * into nxt from public.general_sprints
          where project_id = cfg.project_id and state = 'planned'
          order by starts_on, created_at limit 1;
-        if found and nxt.starts_on <= today then
+        if found and (nxt.starts_on < today or (nxt.starts_on = today and due)) then
           update public.general_sprints set state = 'active' where id = nxt.id;
-
-          insert into public.notifications (user_id, type, general_project_id, title, preview)
-          select m.user_id, 'sprint_automation'::public.notification_type, cfg.project_id,
-                 nxt.name || ' started on its own',
-                 to_char(nxt.starts_on, 'Mon FMDD') || ' to ' || to_char(nxt.ends_on, 'Mon FMDD, YYYY')
-            from public.general_members m
-            join public.profiles pr on pr.id = m.user_id
-           where m.project_id = cfg.project_id and m.role in ('pm', 'coordinator')
-             and pr.status = 'active';
+          perform public.notify_sprint_automation(cfg.project_id,
+            nxt.name || ' started on its own',
+            to_char(nxt.starts_on, 'Mon FMDD') || ' to ' || to_char(nxt.ends_on, 'Mon FMDD, YYYY'));
           changed := true;
         end if;
       end if;
@@ -355,7 +403,7 @@ begin
 end;
 $$;
 
-revoke all on function public.run_sprint_automation(timestamptz) from public, anon, authenticated;
+revoke all on function public.run_sprint_automation(timestamptz, uuid) from public, anon, authenticated;
 
 create extension if not exists pg_cron;
 
