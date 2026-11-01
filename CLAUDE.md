@@ -171,6 +171,12 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   with a subtask in QA or Done cannot be returned or rerouted. A dependency blocks Done.
   The default stage never goes past an active QA stage or reaches the last stage.
   Suite: `supabase/tests/project-task-rules.test.sql`.
+- Member options (`supabase/project-member-rules.sql`) run after `project-task-rules.sql` and
+  before `anon-lockdown.sql`. Re-running `work-milestones.sql` or `project-task-rules.sql`
+  means re-running it afterwards. The two switches, `members_manage_milestones` and
+  `members_create_tasks`, are the project manager's and off by default. A Member's task
+  (`create_general_member_task`) starts in private planning, and its creator cannot read it
+  until a planner sends it. Suite: `supabase/tests/project-member-rules.test.sql`.
 
 ## Security invariants
 

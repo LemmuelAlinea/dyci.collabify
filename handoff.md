@@ -4111,3 +4111,49 @@ The SQL was applied live on 2026-11-02.
   project-team-leads suite has one failure that predates this work.
 - **Next:** the owner checks task settings, priority, subtask creation and dependencies in the
   browser; the next group from the Project Settings PDF is Members & Permissions.
+
+## Member options (2026-11-02)
+
+Phase 2 group 3 from the Project Settings PDF (section E, Members & Permissions). Spec:
+`docs/superpowers/specs/2026-11-02-project-settings-members-design.md`. Built on `main`, local
+commits only. **Not live:** `project-member-rules.sql` has not been applied and nothing is pushed.
+
+- **Database** (`supabase/project-member-rules.sql`, suite `supabase/tests/project-member-rules.test.sql`):
+  it adds two `general_projects` columns, `members_manage_milestones` and `members_create_tasks`
+  (both off by default, written through the existing update policy, so the project manager); the
+  helper `general_can_manage_milestones` (`manage_tasks`, or the milestone switch on and a writing
+  Member); the `general_milestones` insert, update and delete policies, redefined from their live
+  definitions with the helper; the trigger function `release_milestone_tasks` (first written by
+  `work-milestones.sql`), which now untags the milestone's tasks and sprints with the request's
+  claims cleared; and the RPC `create_general_member_task`. Tagging tasks to a milestone and
+  linking sprints keep `manage_tasks`. Class boards are untouched. Run position and re-run rule
+  are in `docs/07-backup.md` and `CLAUDE.md`.
+- **Member tasks:** the RPC checks the Member role, `general_can_write`, the archive state and the
+  switch, then inserts a private planning task with the claims cleared (the guard owned by
+  `work-task-handoff.sql` lets only planners and QA insert) and restores them. The task has no
+  holder, sprint or milestone. The release boundary gives creators their unsent work only for QA
+  bugs, so a Member cannot read their task until a planner sends it; the app says "Sent to planners
+  for review" and does not open it.
+- **Frontend** (commit `360bede`): `lib/general/permissions.ts` (`MemberRules`,
+  `canManageMilestones`, `canCreateWorkTaskWith`, `roleMark`), `lib/api/general.ts`
+  (`memberRules` on the project, `createMemberTask`, the two columns in `ProjectPatch`), Settings
+  → Members & permissions has a "Member options" panel (the project manager saves; everyone else
+  reads it; hidden on class boards), the role guide shows "Yes" with a caption when a switch is on,
+  and the Tasks tab, `workSource.ts` and `BacklogView` route a Member's add through
+  `createMemberTask` and the milestone controls follow the helper.
+- **Interim fallback to remove once live:** `getGeneralProject` reads the two columns in their own
+  query and treats a missing column as both switches off (`isMissingColumn`, with a "remove once
+  project-member-rules.sql is live" comment in `lib/api/general.ts`). Delete the fallback and its
+  test in `generalTaskRules.test.ts` after the SQL is applied.
+- **Dry runs** (this file spliced into each suite, rolled back, no enum swaps needed):
+  `project-member-rules` 52 pass, `work-milestones` 26, `sprint-milestones` 24,
+  `class-milestones` 31, `project-roles` 161, `work-task-handoff` 304, `project-task-rules` 110,
+  `project-settings-general` 49, `rls-coverage` 4, none failing. `npm run build`, the full vitest
+  run (147 files, 1577 tests), eslint on the 17 changed files and `scripts/contrast.mjs` are green.
+  A read-only check found neither new column on the live database.
+- **Deploy order:** owner approval and role walk first, then
+  `node scripts/db.mjs supabase/project-member-rules.sql supabase/anon-lockdown.sql`, then a
+  read-only check of the two columns, the helper, the three policies and the RPC, then re-run the
+  suites, then push `main`. `scripts/schema-drift.mjs` lists the restore order and does not yet
+  include `project-member-rules`; add it when the SQL goes live.
+- **Next:** the next group from the Project Settings PDF is Milestone Management.
