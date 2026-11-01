@@ -63,6 +63,8 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     items: generalWorkItems(state),
     sprints: state.sprints,
     canPlan,
+    canRunSprints: live && (state.myRole === 'pm' || state.myRole === 'coordinator'),
+    sprintSettings: state.sprintSettings,
     // A team leader reorders the tasks people they lead hold; sprint moves stay with planners.
     canStepItem: (item) => live && canStepRank(canPlan, item.holderIds, state.leadsUser),
     canAdd: live && (Boolean(project?.class_board_id) || canCreateWorkTask(state.myRole, state.myRole === 'qa' ? 'bug' : 'task')),

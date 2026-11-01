@@ -1,3 +1,4 @@
+import type { SprintSettings } from './sprintSettings'
 import type { WorkStatus } from './timeline'
 
 export type SprintState = 'planned' | 'active' | 'completed'
@@ -58,8 +59,15 @@ export type WorkTeams = {
 export type WorkSource = {
   items: WorkItem[]
   sprints: Sprint[]
-  /** May create, edit, start, finish, move and reorder. */
+  /** May create, edit, move and reorder. */
   canPlan: boolean
+  /**
+   * May start and finish a sprint. A work project limits this to the project
+   * manager and Coordinators; a class board's planners all may.
+   */
+  canRunSprints: boolean
+  /** A work project's sprint settings. Unset for a class board. */
+  sprintSettings?: SprintSettings
   /**
    * May move this task up or down its list. Planners always may; a work
    * project's team leader may for tasks somebody they lead holds. Unset means

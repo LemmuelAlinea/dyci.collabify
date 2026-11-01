@@ -360,6 +360,7 @@ export const ROLE_MATRIX: {
     roles: { pm: 'yes', coordinator: 'yes', qa: 'own' },
   },
   { action: 'Plan sprints and milestones', roles: { pm: 'yes', coordinator: 'yes', member: 'grant' } },
+  { action: 'Start, finish and reopen sprints', roles: { pm: 'yes', coordinator: 'yes' } },
   {
     action: 'Move a task out of the QA stage (QA, when the project has QA)',
     roles: { pm: 'yes', qa: 'yes' },

@@ -30,8 +30,11 @@ export function FinishSprintDialog({
   const unfinished = sprintItems(source.items, sprint.id).filter((i) => i.status !== 'done').length
   const counts = sprintCounts(source.items, sprint.id)
   // Taken once, so the label keeps its name and dates if the sprints reload.
-  const [draft] = useState(() => nextSprintDraft(source.sprints))
-  const [target, setTarget] = useState<Target>(planned.length > 0 ? 'next' : 'backlog')
+  const [draft] = useState(() => nextSprintDraft(source.sprints, Date.now(), source.sprintSettings))
+  // The project's setting picks the starting choice; the person can still change it.
+  const [target, setTarget] = useState<Target>(
+    source.sprintSettings?.carry !== 'backlog' && planned.length > 0 ? 'next' : 'backlog',
+  )
   const [nextId, setNextId] = useState(planned[0]?.id ?? '')
   // A retry after a failed finish reuses the sprint the first attempt made.
   const createdRef = useRef<string | null>(null)

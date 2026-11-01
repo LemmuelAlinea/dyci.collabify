@@ -333,6 +333,17 @@ describe('ROLE_MATRIX grants and requests', () => {
   })
 })
 
+describe('ROLE_MATRIX sprint rows', () => {
+  it('lets only the project manager and Coordinator start, finish and reopen sprints', () => {
+    const row = ROLE_MATRIX.find((r) => r.action === 'Start, finish and reopen sprints')
+    expect(row?.roles).toEqual({ pm: 'yes', coordinator: 'yes' })
+  })
+
+  it('keeps planning sprints open to Members with the grant', () => {
+    expect(ROLE_MATRIX.find((r) => r.action === 'Plan sprints and milestones')?.roles.member).toBe('grant')
+  })
+})
+
 describe('task powers', () => {
   const leads = (ids: string[]) => (id: string) => ids.includes(id)
   const viewer = (over: Partial<TaskViewer> = {}): TaskViewer => ({

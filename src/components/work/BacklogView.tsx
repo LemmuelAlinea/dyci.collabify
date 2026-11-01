@@ -11,6 +11,7 @@ import { useToast } from '../ui/Toast'
 import { BugBadge } from '../general/BugBadge'
 import { SprintDialog } from './SprintDialog'
 import { useTeamFilter } from './useTeamFilter'
+import { useNow } from '../../hooks/useNow'
 import { authErrorMessage } from '../../lib/authError'
 import { dateRange, formatDue, isOverdue } from '../../lib/general/dates'
 import { backlogItems, rankForMove, sprintItems } from '../../lib/work/backlog'
@@ -27,6 +28,7 @@ const BACKLOG = ''
  */
 export function BacklogView({ source }: { source: WorkSource }) {
   const { show } = useToast()
+  const now = useNow()
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [bulkTarget, setBulkTarget] = useState(BACKLOG)
   const [creating, setCreating] = useState(false)
@@ -179,17 +181,19 @@ export function BacklogView({ source }: { source: WorkSource }) {
                 </div>
                 {source.canPlan && (
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="!rounded-lg"
-                      disabled={Boolean(running)}
-                      title={running ? `Finish ${running.name} first.` : undefined}
-                      onClick={() => void run(() => source.startSprint(s.id), 'Could not start the sprint.')}
-                    >
-                      <Icon name="target" size={15} />
-                      Start sprint
-                    </Button>
+                    {source.canRunSprints && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="!rounded-lg"
+                        disabled={Boolean(running)}
+                        title={running ? `Finish ${running.name} first.` : undefined}
+                        onClick={() => void run(() => source.startSprint(s.id), 'Could not start the sprint.')}
+                      >
+                        <Icon name="target" size={15} />
+                        Start sprint
+                      </Button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setEditing(s)}
@@ -273,7 +277,7 @@ export function BacklogView({ source }: { source: WorkSource }) {
         onClose={() => setCreating(false)}
         title="New sprint"
         submitLabel="Create sprint"
-        initial={nextSprintDraft(source.sprints)}
+        initial={nextSprintDraft(source.sprints, now, source.sprintSettings)}
         onSubmit={(input) => source.createSprint(input)}
       />
       {editing && (

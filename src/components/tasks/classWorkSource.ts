@@ -55,6 +55,7 @@ export function classWorkSource(t: ProjectTasks, viewerId: string | undefined): 
     items: t.tasks.map(classWorkItem),
     sprints: t.sprints,
     canPlan,
+    canRunSprints: canPlan,
     canAdd: canPlan && Boolean(viewerId),
     readOnlyReason: t.isProfessor
       ? 'Each group plans its own sprints. You can follow along here.'
