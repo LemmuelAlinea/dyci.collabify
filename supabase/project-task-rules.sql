@@ -41,13 +41,18 @@
 --   general_task_assignees_single  one holder per task when the project turns
 --     allow_multiple_assignees off. Tasks that already have several keep them.
 --   general_tasks_c_follow_parent  after a parent's routing_state changes (a
---     send, a review or a return), its subtasks take the same state, reviewer
---     and send time; released ones join the parent's team, and ones going back
---     to planning lose their holders, as planning work is unheld. Each move is
---     in the subtask's history.
+--     send, a review or a return) or a released parent changes team (a
+--     reroute), its subtasks take the same state, reviewer and send time;
+--     released ones join the parent's team. Ones going back to planning or
+--     moving to a new team lose their holders, as the parent does. A parent
+--     isn't returned to planning while a live subtask is in QA or Done. Each
+--     move is in the subtask's history.
+--   general_tasks_b_rules also keeps a released subtask in its parent's team,
+--     so a send batch naming another team for it can't split them.
 --   general_tasks_subtask_state  a deferred constraint trigger: at commit, a
---     subtask's routing_state matches its parent's, so a subtask can't be sent
---     or returned on its own (sending it with its parent is fine).
+--     subtask's routing_state matches its parent's, and a released subtask's
+--     team too, so a subtask can't be sent or returned on its own (sending it
+--     with its parent is fine).
 --
 -- The holder rule only stops forward moves (to a later stage, or out of To do);
 -- moving back is always allowed. Releasing an unheld task that sits past the
@@ -277,6 +282,7 @@ declare
   old_idx int;
   moved   boolean;
   blk     record;
+  par_team uuid;
 begin
   select * into gp from public.general_projects where id = new.project_id;
 
@@ -326,6 +332,17 @@ begin
 
   if gp.id is null or gp.class_board_id is not null then
     return new;
+  end if;
+
+  -- A released subtask is in its parent's team, whatever a send batch names
+  -- for it. Not while the parent's team is being deleted (its row is gone and
+  -- the parent's team_id is about to be cleared too).
+  if new.parent_id is not null and new.routing_state = 'released' then
+    select t.team_id into par_team from public.general_tasks t where t.id = new.parent_id;
+    if par_team is null
+       or exists (select 1 from public.general_teams g where g.id = par_team) then
+      new.team_id := par_team;
+    end if;
   end if;
 
   n := public.stage_count(gp.stages);
@@ -382,7 +399,7 @@ $$;
 
 drop trigger if exists general_tasks_b_rules on public.general_tasks;
 create trigger general_tasks_b_rules
-  before insert or update of parent_id, project_id, status, stage, routing_state
+  before insert or update of parent_id, project_id, status, stage, routing_state, team_id
   on public.general_tasks
   for each row execute function public.check_general_task_rules();
 
@@ -416,9 +433,12 @@ create trigger general_task_assignees_single
 -- ---------------------------------------------------------------- subtasks follow their parent
 
 /**
- * A parent's send, review or return carries its subtasks along. Runs under the
- * handoff that changed the parent; the flags let the guards treat the subtask
- * update as part of that handoff (an archived subtask included).
+ * A parent's send, review, reroute or return carries its subtasks along. Runs
+ * under the handoff that changed the parent; the flags let the guards treat
+ * the subtask update as part of that handoff (an archived subtask included).
+ * Subtasks taking a new team lose their holders, as the rerouted parent does
+ * (not when the parent's team is cleared by a team delete). A parent doesn't
+ * go back to planning while a live subtask is in QA or Done.
  */
 create or replace function public.follow_general_task_parent()
 returns trigger
@@ -429,28 +449,47 @@ as $$
 declare
   c         record;
   holders   uuid[];
+  clear     boolean;
   prior_ho  text := current_setting('collabify.work_task_handoff', true);
   prior_sub text := current_setting('collabify.subtask_op', true);
   prior_arc text := current_setting('collabify.general_archive_op', true);
 begin
-  if new.routing_state is not distinct from old.routing_state
+  if not (new.routing_state is distinct from old.routing_state
+          or (new.routing_state = 'released' and new.team_id is distinct from old.team_id))
      or not exists (select 1 from public.general_tasks x where x.parent_id = new.id)
      or exists (select 1 from public.general_projects p
                  where p.id = new.project_id and p.class_board_id is not null) then
     return null;
   end if;
 
+  if old.routing_state = 'released' and new.routing_state = 'planning'
+     and exists (
+       select 1 from public.general_tasks x
+         join public.general_projects gp on gp.id = x.project_id
+        where x.parent_id = new.id and x.archived_at is null and x.trashed_at is null
+          and (x.status = 'done'
+               or (public.general_project_has_qa(gp.id)
+                   and public.general_task_stage_at(x.status, x.stage, public.stage_count(gp.stages))
+                       >= public.general_qa_stage_pick(gp.stages, gp.qa_stage)))) then
+    raise exception 'Reopen its finished subtasks first.' using errcode = 'check_violation';
+  end if;
+
   perform set_config('collabify.work_task_handoff', 'on', true);
   perform set_config('collabify.subtask_op', 'on', true);
   perform set_config('collabify.general_archive_op', 'on', true);
   for c in
-    select x.id, x.team_id from public.general_tasks x
-     where x.parent_id = new.id and x.routing_state is distinct from new.routing_state
+    select x.id, x.team_id, x.routing_state from public.general_tasks x
+     where x.parent_id = new.id
+       and (x.routing_state is distinct from new.routing_state
+            or (new.routing_state = 'released' and x.team_id is distinct from new.team_id))
      order by x.id
        for update
   loop
+    clear := new.routing_state <> 'released'
+             or (c.routing_state = 'released' and new.team_id is not null
+                 and c.team_id is distinct from new.team_id);
     holders := '{}';
-    if new.routing_state <> 'released' then
+    if clear then
       select coalesce(array_agg(a.user_id order by a.user_id), '{}') into holders
         from public.general_task_assignees a where a.task_id = c.id;
       delete from public.general_task_assignees where task_id = c.id;
@@ -463,9 +502,10 @@ begin
      where id = c.id;
     insert into public.general_task_events (task_id, project_id, actor_id, kind, detail)
     values (c.id, new.project_id, auth.uid(),
-            case new.routing_state when 'released' then 'sent_to_team'
-                                   when 'coordinator_review' then 'sent_to_coordinator'
-                                   else 'returned' end,
+            case when new.routing_state = 'released' and c.routing_state = 'released' then 'rerouted'
+                 when new.routing_state = 'released' then 'sent_to_team'
+                 when new.routing_state = 'coordinator_review' then 'sent_to_coordinator'
+                 else 'returned' end,
             jsonb_build_object('actor_id', auth.uid(), 'old_team_id', c.team_id,
               'new_team_id', case when new.routing_state = 'released' then new.team_id else c.team_id end,
               'reviewer_id', new.reviewer_id, 'reason', null,
@@ -482,10 +522,10 @@ $$;
 
 drop trigger if exists general_tasks_c_follow_parent on public.general_tasks;
 create trigger general_tasks_c_follow_parent
-  after update of routing_state on public.general_tasks
+  after update of routing_state, team_id on public.general_tasks
   for each row execute function public.follow_general_task_parent();
 
-/** At commit, a subtask shares its parent's release state. */
+/** At commit, a subtask shares its parent's release state, and when released its team. */
 create or replace function public.check_general_subtask_state()
 returns trigger
 language plpgsql
@@ -493,7 +533,8 @@ security definer
 set search_path = public
 as $$
 declare
-  c public.general_tasks%rowtype;
+  c   public.general_tasks%rowtype;
+  par public.general_tasks%rowtype;
 begin
   select * into c from public.general_tasks where id = new.id;
   if c.id is null or c.parent_id is null
@@ -501,8 +542,9 @@ begin
                  where p.id = c.project_id and p.class_board_id is not null) then
     return null;
   end if;
-  if (select x.routing_state from public.general_tasks x where x.id = c.parent_id)
-     is distinct from c.routing_state then
+  select * into par from public.general_tasks where id = c.parent_id;
+  if par.routing_state is distinct from c.routing_state
+     or (c.routing_state = 'released' and par.team_id is distinct from c.team_id) then
     raise exception 'Send or return the parent task. Its subtasks move with it.'
       using errcode = 'check_violation';
   end if;
@@ -512,7 +554,7 @@ $$;
 
 drop trigger if exists general_tasks_subtask_state on public.general_tasks;
 create constraint trigger general_tasks_subtask_state
-  after insert or update of routing_state, parent_id on public.general_tasks
+  after insert or update of routing_state, parent_id, team_id on public.general_tasks
   deferrable initially deferred
   for each row execute function public.check_general_subtask_state();
 
@@ -589,6 +631,7 @@ set search_path = public
 as $$
 declare
   gp public.general_projects%rowtype;
+  a  public.general_tasks%rowtype;
   b  public.general_tasks%rowtype;
 begin
   if p_task = p_depends_on then
@@ -608,6 +651,13 @@ begin
   if b.archived_at is not null then
     raise exception 'Restore the task before changing what it waits for.'
       using errcode = 'check_violation';
+  end if;
+  select * into a from public.general_tasks where id = p_task;
+  if a.parent_id = p_depends_on then
+    raise exception 'A subtask can''t wait for its own parent.' using errcode = 'check_violation';
+  end if;
+  if a.status = 'done' then
+    raise exception 'Reopen the task before making it wait.' using errcode = 'check_violation';
   end if;
   if not gp.allow_dependencies then
     raise exception 'Dependencies are turned off for this project.' using errcode = 'check_violation';

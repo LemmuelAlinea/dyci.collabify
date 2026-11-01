@@ -92,6 +92,7 @@ declare
   cb      uuid;  -- a class board's Files project
   team    uuid;
   qteam   uuid;
+  team2   uuid;
   v_class uuid;
   v_cproj uuid;
   v_board uuid;
@@ -489,6 +490,9 @@ begin
   perform pg_temp.must_be('removing the dependency lets it finish',
     (select status = 'done' from public.general_tasks where id = w1)
     and not exists (select 1 from public.general_task_dependencies where task_id = w1));
+  perform pg_temp.must_refuse_with('...and a done task takes no new blocker',
+    format('select public.add_general_task_dependency(%L, %L)', w1, w2),
+    'Reopen the task before making it wait.');
 
   update public.general_projects set allow_dependencies = false where id = p;
   perform pg_temp.must_refuse_with('dependencies off refuses new links but keeps existing ones',
@@ -678,6 +682,77 @@ begin
   perform pg_temp.must_be('...while a parent and its subtask go out together',
     (select count(*) = 2 and bool_and(routing_state = 'released')
        from public.general_tasks where id in (pp, sub2)));
+
+  -- One batch naming another team for the subtask, in both row orders: pair A's
+  -- parent sorts before its subtask, pair B's subtask before its parent.
+  perform pg_temp.act_as_service();
+  insert into public.general_teams (project_id, name) values (p, 'Zz PTR team two') returning id into team2;
+  insert into public.general_team_members (project_id, team_id, user_id) values (p, team2, v_coord);
+  update public.general_teams set leader_id = v_coord where id = team2;
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_tasks (id, project_id, title) values
+    ('00000000-0000-4000-8000-00000000a001', p, 'Zz PTR pair A parent'),
+    ('00000000-0000-4000-8000-00000000b002', p, 'Zz PTR pair B parent');
+  insert into public.general_tasks (id, project_id, title, parent_id) values
+    ('00000000-0000-4000-8000-00000000a002', p, 'Zz PTR pair A subtask', '00000000-0000-4000-8000-00000000a001'),
+    ('00000000-0000-4000-8000-00000000b001', p, 'Zz PTR pair B subtask', '00000000-0000-4000-8000-00000000b002');
+  perform pg_temp.checked(format('select public.send_work_tasks_to_teams(%L, %L::jsonb)', p,
+    (select jsonb_agg(jsonb_build_object('id', x.id,
+              'team_id', case when x.parent_id is null then team else team2 end,
+              'updated_at', x.updated_at))
+       from public.general_tasks x
+      where x.id in ('00000000-0000-4000-8000-00000000a001', '00000000-0000-4000-8000-00000000a002',
+                     '00000000-0000-4000-8000-00000000b001', '00000000-0000-4000-8000-00000000b002'))));
+  perform pg_temp.must_be('a batch naming another team for a subtask keeps it in its parent''s team, either order',
+    (select count(*) = 4 and bool_and(routing_state = 'released' and team_id = team)
+       from public.general_tasks
+      where id in ('00000000-0000-4000-8000-00000000a001', '00000000-0000-4000-8000-00000000a002',
+                   '00000000-0000-4000-8000-00000000b001', '00000000-0000-4000-8000-00000000b002')));
+  perform pg_temp.must_refuse_with('a subtask cannot wait for its own parent',
+    format('select public.add_general_task_dependency(%L, %L)',
+           '00000000-0000-4000-8000-00000000a002', '00000000-0000-4000-8000-00000000a001'),
+    'A subtask can''t wait for its own parent.');
+
+  -- A reroute takes the subtasks to the new team, without their holders.
+  perform pg_temp.act_as_service();
+  insert into public.general_task_assignees (project_id, task_id, user_id)
+  values (p, '00000000-0000-4000-8000-00000000a002', v_dev2);
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.checked(format('select public.send_work_tasks_to_teams(%L, %L::jsonb, %L)', p,
+    (select jsonb_agg(jsonb_build_object('id', x.id, 'team_id', team2, 'updated_at', x.updated_at))
+       from public.general_tasks x where x.id = '00000000-0000-4000-8000-00000000a001'),
+    'Zz PTR moving teams'));
+  perform pg_temp.must_be('rerouting a parent moves its subtasks to the new team without holders',
+    (select team_id = team2 and routing_state = 'released' from public.general_tasks
+      where id = '00000000-0000-4000-8000-00000000a002')
+    and not exists (select 1 from public.general_task_assignees
+                     where task_id = '00000000-0000-4000-8000-00000000a002')
+    and exists (select 1 from public.general_task_events
+                 where task_id = '00000000-0000-4000-8000-00000000a002' and kind = 'rerouted'));
+
+  -- Deleting the team clears it from the parent and the subtask alike.
+  perform pg_temp.checked(format('delete from public.general_teams where id = %L', team2));
+  perform pg_temp.must_be('deleting a team clears it from a parent and its subtask',
+    (select count(*) = 2 and bool_and(team_id is null and routing_state = 'released')
+       from public.general_tasks
+      where id in ('00000000-0000-4000-8000-00000000a001', '00000000-0000-4000-8000-00000000a002')));
+
+  -- A parent isn't returned while a subtask is done.
+  update public.general_tasks set status = 'done' where id = '00000000-0000-4000-8000-00000000b001';
+  perform pg_temp.act_as(v_dev);
+  perform pg_temp.must_refuse_with('returning a parent with a done subtask is refused',
+    format($q$select public.return_work_task(%L, 'Zz PTR not ready')$q$,
+           '00000000-0000-4000-8000-00000000b002'),
+    'Reopen its finished subtasks first.');
+  perform pg_temp.act_as(v_pm);
+  update public.general_tasks set status = 'todo' where id = '00000000-0000-4000-8000-00000000b001';
+  perform pg_temp.act_as(v_dev);
+  perform pg_temp.checked(format($q$select public.return_work_task(%L, 'Zz PTR not ready')$q$,
+           '00000000-0000-4000-8000-00000000b002'));
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_be('...and returns once its subtasks are open',
+    (select count(*) = 2 and bool_and(routing_state = 'planning') from public.general_tasks
+      where id in ('00000000-0000-4000-8000-00000000b001', '00000000-0000-4000-8000-00000000b002')));
 
   ------------------------------------------------------------ require an assignee, both ways
   perform pg_temp.act_as(v_pm);
