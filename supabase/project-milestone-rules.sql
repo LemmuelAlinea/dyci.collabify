@@ -23,7 +23,9 @@
 --     changes), so turning the switch back on keeps undated milestones until
 --     someone edits them; marking one reached is not editing. Refuses setting
 --     reached_at while a milestone it waits for isn't reached ("Waiting for
---     {name}. Reach it first."). A person who sets or clears reached_at sets
+--     {name}. Reach it first."), and clearing it while a reached milestone
+--     waits for this one ("{waiter} waits for this milestone. Mark {waiter}
+--     not reached first."). A person who sets or clears reached_at sets
 --     reached_auto to false, and nobody else changes reached_auto.
 --   general_milestones_0_deleting, before delete, ahead of
 --     general_milestones_release: names the milestone being deleted, so the
@@ -47,8 +49,11 @@
 -- milestone with at least one live task (not archived, not trashed; private
 -- planning work counts), all of them done, and every milestone it waits for
 -- reached, is reached (reached_at now(), reached_auto true); an automatic
--- reach that no longer holds is undone. A reach someone marked is never
--- undone, and manual mode changes nothing. It writes with
+-- reach that no longer holds is undone. A reached milestone never waits:
+-- while one it waits for isn't reached, its reach is undone, a reach someone
+-- marked included (so an automatic un-reach runs down the chain). Otherwise a
+-- marked reach stays, and manual mode changes nothing. It reads the project
+-- first and locks the milestone only when it may write. It writes with
 -- collabify.milestone_auto on (transaction-local), so the people-only rules
 -- above don't block it; as security definer it isn't held to the milestone
 -- update policy, so a member who finishes the last task reaches the
@@ -62,8 +67,10 @@
 -- through add_general_milestone_dependency and
 -- remove_general_milestone_dependency, for whoever may manage the project's
 -- milestones (general_can_manage_milestones). Adding is refused while the
--- project's allow_milestone_dependencies is off; existing links stay and
--- still hold, and can still be removed.
+-- project's allow_milestone_dependencies is off (existing links stay and
+-- still hold, and can still be removed), and when a reached milestone would
+-- wait for one that isn't reached. Adding locks both milestones (for share)
+-- until commit, so their reach can't change under the check.
 --
 -- Class milestones (project_milestones) are untouched.
 --
@@ -146,39 +153,57 @@ security definer
 set search_path = public
 as $$
 declare
-  m       public.general_milestones%rowtype;
-  gp      public.general_projects%rowtype;
-  v_reach boolean;
-  prior   text := current_setting('collabify.milestone_auto', true);
+  m         public.general_milestones%rowtype;
+  gp        public.general_projects%rowtype;
+  v_project uuid;
+  v_done    boolean;
+  v_blocked boolean;
+  v_reach   boolean;
+  prior     text := current_setting('collabify.milestone_auto', true);
 begin
   if p_milestone is null
      or p_milestone::text = coalesce(current_setting('collabify.milestone_deleting', true), '') then
     return;
   end if;
-  -- Locked first; the counts below are later statements, so they see work
+  select g.project_id into v_project from public.general_milestones g where g.id = p_milestone;
+  if not found then
+    return;
+  end if;
+  select * into gp from public.general_projects where id = v_project;
+  if not found then
+    return;
+  end if;
+  if gp.class_board_id is not null or gp.milestone_completion <> 'automatic'
+     or gp.archived_at is not null then
+    return;
+  end if;
+  -- Locked before counting; the counts are later statements, so they see work
   -- another transaction committed while this one waited for the lock.
   select * into m from public.general_milestones where id = p_milestone for update;
   if not found then
     return;
   end if;
-  select * into gp from public.general_projects where id = m.project_id;
-  if gp.class_board_id is not null or gp.milestone_completion <> 'automatic'
-     or gp.archived_at is not null then
-    return;
-  end if;
 
-  v_reach :=
+  v_done :=
     exists (select 1 from public.general_tasks t
              where t.milestone_id = m.id and t.archived_at is null and t.trashed_at is null)
     and not exists (select 1 from public.general_tasks t
                      where t.milestone_id = m.id and t.archived_at is null
-                       and t.trashed_at is null and t.status <> 'done')
-    and not exists (select 1 from public.general_milestone_dependencies d
-                      join public.general_milestones b on b.id = d.depends_on_id
-                     where d.milestone_id = m.id and b.reached_at is null);
+                       and t.trashed_at is null and t.status <> 'done');
+  v_blocked :=
+    exists (select 1 from public.general_milestone_dependencies d
+              join public.general_milestones b on b.id = d.depends_on_id
+             where d.milestone_id = m.id and b.reached_at is null);
+  v_reach := v_done and not v_blocked;
 
-  if v_reach = (m.reached_at is not null) or (not v_reach and not m.reached_auto) then
-    return;   -- already right, or a reach someone marked
+  -- A reached milestone never waits: a blocker that isn't reached undoes any
+  -- reach, a marked one included. Otherwise a marked reach stays.
+  if m.reached_at is null then
+    if not v_reach then
+      return;
+    end if;
+  elsif not v_blocked and (v_done or not m.reached_auto) then
+    return;
   end if;
 
   begin
@@ -195,20 +220,33 @@ begin
 end;
 $$;
 
-/** A task's milestone, done-ness, archive or trash changed: settle both milestones. */
+/**
+ * A task's milestone, done-ness, archive or trash changed: settle the
+ * milestones it left and joined, in id order so two moves can't deadlock.
+ */
 create or replace function public.reach_general_task_milestones()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  a uuid;
+  b uuid;
+  x uuid;
 begin
   if tg_op <> 'INSERT' then
-    perform public.settle_general_milestone(old.milestone_id);
+    a := old.milestone_id;
   end if;
-  if tg_op = 'INSERT'
-     or (tg_op = 'UPDATE' and new.milestone_id is distinct from old.milestone_id) then
-    perform public.settle_general_milestone(new.milestone_id);
+  if tg_op <> 'DELETE' then
+    b := new.milestone_id;
+  end if;
+  if a is not null and b is not null and b < a then
+    x := a; a := b; b := x;
+  end if;
+  perform public.settle_general_milestone(a);
+  if b is distinct from a then
+    perform public.settle_general_milestone(b);
   end if;
   return null;
 end;
@@ -386,6 +424,19 @@ begin
     end if;
   end if;
 
+  if tg_op = 'UPDATE' and new.reached_at is null and old.reached_at is not null then
+    select w.name into blk
+      from public.general_milestone_dependencies d
+      join public.general_milestones w on w.id = d.milestone_id
+     where d.depends_on_id = new.id and w.reached_at is not null
+     order by w.due_on nulls last, w.name, w.id
+     limit 1;
+    if found then
+      raise exception '% waits for this milestone. Mark % not reached first.', blk, blk
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
   return new;
 end;
 $$;
@@ -439,6 +490,7 @@ set search_path = public
 as $$
 declare
   gp public.general_projects%rowtype;
+  m  public.general_milestones%rowtype;
   b  public.general_milestones%rowtype;
 begin
   if p_milestone = p_depends_on then
@@ -446,6 +498,11 @@ begin
       using errcode = 'check_violation';
   end if;
   gp := public.general_milestone_links_check(p_milestone);
+  -- Held until commit, so neither one's reach changes under the checks below
+  -- (a reach change takes a row lock this conflicts with).
+  perform 1 from public.general_milestones
+   where id in (p_milestone, p_depends_on) order by id for share;
+  select * into m from public.general_milestones where id = p_milestone;
   select * into b from public.general_milestones where id = p_depends_on;
   if b.id is null then
     raise exception 'Choose two milestones in this project.' using errcode = 'check_violation';
@@ -455,6 +512,10 @@ begin
   end if;
   if not gp.allow_milestone_dependencies then
     raise exception 'Milestone dependencies are turned off for this project.'
+      using errcode = 'check_violation';
+  end if;
+  if m.reached_at is not null and b.reached_at is null then
+    raise exception 'This milestone is reached. Mark it not reached, or reach % first.', b.name
       using errcode = 'check_violation';
   end if;
 

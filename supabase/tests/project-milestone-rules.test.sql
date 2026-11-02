@@ -93,7 +93,17 @@ declare
   v_pm    uuid := gen_random_uuid();  -- project manager on P, P2 and PZ
   v_dev   uuid := gen_random_uuid();  -- member on P, holds tasks
   v_stake uuid := gen_random_uuid();  -- stakeholder on P
+  v_coord uuid := gen_random_uuid();  -- coordinator on P
   v_space uuid;
+  pa      uuid;  -- a project that gets archived
+  mt      uuid;
+  mpa     uuid;
+  ea      uuid;  -- reached automatically
+  eb      uuid;  -- marked reached, waits for ea
+  tt1     uuid;
+  tt2     uuid;
+  tpa     uuid;
+  e1      uuid;
   p       uuid;  -- the project under test
   p2      uuid;  -- a project that switches to manual
   pz      uuid;  -- another project, for cross-project links
@@ -121,6 +131,7 @@ declare
   u3      uuid;
   b1      boolean;
   b2      boolean;
+  v_who   uuid;
   n       int;
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
@@ -130,7 +141,8 @@ begin
     from (values
       (v_pm,    'zz-pms-pm@example.test'),
       (v_dev,   'zz-pms-dev@example.test'),
-      (v_stake, 'zz-pms-stake@example.test')
+      (v_stake, 'zz-pms-stake@example.test'),
+      (v_coord, 'zz-pms-coord@example.test')
     ) as v(id, em);
 
   insert into public.profiles
@@ -138,7 +150,8 @@ begin
   values
     (v_pm,    'zz-pms-pm@example.test',    'Zz', 'Pmspm',    'member', 'active', false, true),
     (v_dev,   'zz-pms-dev@example.test',   'Zz', 'Pmsdev',   'member', 'active', false, false),
-    (v_stake, 'zz-pms-stake@example.test', 'Zz', 'Pmsstake', 'member', 'active', false, false)
+    (v_stake, 'zz-pms-stake@example.test', 'Zz', 'Pmsstake', 'member', 'active', false, false),
+    (v_coord, 'zz-pms-coord@example.test', 'Zz', 'Pmscoord', 'member', 'active', false, false)
   on conflict (id) do update
     set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach,
         can_manage_projects = excluded.can_manage_projects;
@@ -148,12 +161,13 @@ begin
   p  := (public.create_general_project('Zz PMS project', '', null, null, null, null, v_space)).id;
   p2 := (public.create_general_project('Zz PMS manual', '', null, null, null, null, v_space)).id;
   pz := (public.create_general_project('Zz PMS other', '', null, null, null, null, v_space)).id;
+  pa := (public.create_general_project('Zz PMS archived', '', null, null, null, null, v_space)).id;
 
   perform pg_temp.act_as_service();
   insert into public.general_space_members (space_id, user_id, level) values
-    (v_space, v_dev, 'member'), (v_space, v_stake, 'member');
+    (v_space, v_dev, 'member'), (v_space, v_stake, 'member'), (v_space, v_coord, 'member');
   insert into public.general_members (project_id, user_id, role) values
-    (p, v_dev, 'member'), (p, v_stake, 'stakeholder');
+    (p, v_dev, 'member'), (p, v_stake, 'stakeholder'), (p, v_coord, 'coordinator');
 
   ------------------------------------------------------------ defaults
   perform pg_temp.act_as(v_pm);
@@ -165,6 +179,23 @@ begin
        from public.general_projects where id = p)
     and (select not reached_auto and overdue_notified_at is null and reached_at is null
            from public.general_milestones where id = m0));
+
+  ------------------------------------------------------------ who changes the settings
+  n := 0;
+  foreach v_who in array array[v_coord, v_dev] loop
+    perform pg_temp.act_as(v_who);
+    n := n + pg_temp.rows_of(format($q$update public.general_projects set milestone_completion = 'manual' where id = %L$q$, p))
+           + pg_temp.rows_of(format($q$update public.general_projects set require_milestone_due = false where id = %L$q$, p))
+           + pg_temp.rows_of(format($q$update public.general_projects set allow_milestone_dependencies = false where id = %L$q$, p))
+           + pg_temp.rows_of(format($q$update public.general_projects set milestone_overdue_alerts = false where id = %L$q$, p));
+  end loop;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a coordinator and a member can''t change the milestone settings',
+    n = 0
+    and (select milestone_completion = 'automatic' and require_milestone_due
+                and allow_milestone_dependencies and milestone_overdue_alerts
+           from public.general_projects where id = p));
+  perform pg_temp.act_as(v_pm);
 
   ------------------------------------------------------------ due dates
   perform pg_temp.must_refuse_with('a missing due date is refused while required',
@@ -236,9 +267,12 @@ begin
   perform pg_temp.must_be('...even when the last task is finished by a member who can''t edit milestones',
     pg_temp.reach_of(mc) = 'auto');
 
-  perform pg_temp.must_be('a milestone with no tasks is never reached automatically',
-    pg_temp.reach_of(mb) = 'open');
+  -- Switching back to automatic settles every milestone, the empty one included.
   perform pg_temp.act_as(v_pm);
+  update public.general_projects set milestone_completion = 'manual' where id = p;
+  update public.general_projects set milestone_completion = 'automatic' where id = p;
+  perform pg_temp.must_be('a milestone with no tasks is never reached automatically',
+    pg_temp.reach_of(mb) = 'open' and pg_temp.reach_of(mc) = 'auto' and pg_temp.reach_of(ma) = 'auto');
   update public.general_tasks set milestone_id = mb where id = t4;
   perform pg_temp.must_be('...and one that loses its last task is no longer reached',
     pg_temp.reach_of(mc) = 'open' and pg_temp.reach_of(mb) = 'auto');
@@ -331,9 +365,30 @@ begin
   update public.general_milestones set reached_at = now() where id = d1;
   perform pg_temp.must_be('...a blocker marked reached by hand counts too',
     pg_temp.reach_of(d1) = 'manual' and pg_temp.reach_of(d2) = 'auto' and pg_temp.reach_of(d3) = 'auto');
+  perform pg_temp.must_refuse_with('a milestone can''t be marked not reached while a reached one waits for it',
+    format($q$update public.general_milestones set reached_at = null where id = %L$q$, d1),
+    'Zz PMS build waits for this milestone. Mark Zz PMS build not reached first.');
+  update public.general_milestones set reached_at = null where id = d3;
+  update public.general_milestones set reached_at = null where id = d2;
   update public.general_milestones set reached_at = null where id = d1;
-  perform pg_temp.must_be('...and un-marking it undoes the automatic chain',
+  perform pg_temp.must_be('...so the chain is un-marked from its end',
     pg_temp.reach_of(d1) = 'open' and pg_temp.reach_of(d2) = 'open' and pg_temp.reach_of(d3) = 'open');
+
+  -- B marked reached waits for A, reached automatically; A's task reopens.
+  insert into public.general_milestones (project_id, name, due_on)
+  values (p, 'Zz PMS early', current_date + 5) returning id into ea;
+  insert into public.general_milestones (project_id, name, due_on)
+  values (p, 'Zz PMS sign-off on early', current_date + 6) returning id into eb;
+  perform pg_temp.act_as_service();
+  e1 := pg_temp.tagged_task(p, 'Zz PMS early task', ea, v_pm);
+  perform pg_temp.act_as(v_pm);
+  perform public.add_general_milestone_dependency(eb, ea);
+  update public.general_tasks set status = 'done' where id = e1;
+  update public.general_milestones set reached_at = now() where id = eb;
+  b1 := pg_temp.reach_of(ea) = 'auto' and pg_temp.reach_of(eb) = 'manual';
+  update public.general_tasks set status = 'in_progress' where id = e1;
+  perform pg_temp.must_be('an automatic un-reach un-reaches what waits for it, a marked reach included',
+    b1 and pg_temp.reach_of(ea) = 'open' and pg_temp.reach_of(eb) = 'open');
 
   ------------------------------------------------------------ loops and other refusals
   perform pg_temp.must_refuse_with('a dependency loop is refused',
@@ -358,7 +413,7 @@ begin
     format('select public.add_general_milestone_dependency(%L, %L)', d3, d1),
     'Milestone dependencies are turned off for this project.');
   perform pg_temp.must_be('...the existing links stay',
-    (select count(*) = 2 from public.general_milestone_dependencies where project_id = p));
+    (select count(*) = 3 from public.general_milestone_dependencies where project_id = p));
   perform pg_temp.must_refuse_with('...and still hold',
     format($q$update public.general_milestones set reached_at = now() where id = %L$q$, d2),
     'Waiting for Zz PMS design. Reach it first.');
@@ -367,9 +422,15 @@ begin
     not exists (select 1 from public.general_milestone_dependencies where milestone_id = d3)
     and pg_temp.reach_of(d3) = 'auto');
   update public.general_projects set allow_milestone_dependencies = true where id = p;
+  perform pg_temp.must_refuse_with('a reached milestone can''t be made to wait for one that isn''t',
+    format('select public.add_general_milestone_dependency(%L, %L)', d3, d2),
+    'This milestone is reached. Mark it not reached, or reach Zz PMS build first.');
+  update public.general_milestones set reached_at = null where id = d3;
   perform public.add_general_milestone_dependency(d3, d2);
-  perform pg_temp.must_be('...a new link to a blocker that isn''t reached undoes an automatic reach',
-    pg_temp.reach_of(d3) = 'open');
+  perform pg_temp.must_be('...once it is marked not reached, it can',
+    pg_temp.reach_of(d3) = 'open'
+    and exists (select 1 from public.general_milestone_dependencies
+                 where milestone_id = d3 and depends_on_id = d2));
 
   ------------------------------------------------------------ who manages links
   perform pg_temp.act_as(v_dev);
@@ -393,7 +454,7 @@ begin
     format('select public.add_general_milestone_dependency(%L, %L)', d3, d1),
     'Only someone who manages milestones can link them.');
   perform pg_temp.must_be('...though everyone on the project reads the links',
-    (select count(*) = 2 from public.general_milestone_dependencies where project_id = p));
+    (select count(*) = 3 from public.general_milestone_dependencies where project_id = p));
 
   ------------------------------------------------------------ deleting
   perform pg_temp.act_as(v_pm);
@@ -412,6 +473,44 @@ begin
   n := pg_temp.rows_of(format('delete from public.general_milestones where id = %L', d1));
   perform pg_temp.must_be('...and deleting a blocker lets the milestones that waited reach',
     b1 and n = 1 and pg_temp.reach_of(d2) = 'auto' and pg_temp.reach_of(d3) = 'auto');
+
+  ------------------------------------------------------------ trash
+  -- Marked not reached by hand while its tasks are done, so the next settle
+  -- shows: trashing the archived task settles it again.
+  insert into public.general_milestones (project_id, name, due_on)
+  values (p, 'Zz PMS trash', current_date + 5) returning id into mt;
+  perform pg_temp.act_as_service();
+  tt1 := pg_temp.tagged_task(p, 'Zz PMS trash done', mt, v_pm);
+  tt2 := pg_temp.tagged_task(p, 'Zz PMS trash archived', mt, v_pm);
+  perform pg_temp.act_as(v_pm);
+  update public.general_tasks set status = 'done' where id = tt1;
+  perform public.archive_general_task(tt2, true);
+  b1 := pg_temp.reach_of(mt) = 'auto';
+  update public.general_milestones set reached_at = null where id = mt;
+  b2 := pg_temp.reach_of(mt) = 'open';
+  perform public.trash_archived_item('work_task', tt2);
+  perform pg_temp.act_as_service();  -- Trash is out of the planners' sight
+  perform pg_temp.must_be('trashing a task settles its milestone again',
+    b1 and b2 and (select trashed_at is not null from public.general_tasks where id = tt2)
+    and pg_temp.reach_of(mt) = 'auto');
+
+  ------------------------------------------------------------ archived projects
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_milestones (project_id, name, due_on)
+  values (pa, 'Zz PMS frozen', current_date + 5) returning id into mpa;
+  perform pg_temp.act_as_service();
+  tpa := pg_temp.tagged_task(pa, 'Zz PMS frozen task', mpa, v_pm);
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set milestone_completion = 'manual' where id = pa;
+  update public.general_tasks set status = 'done' where id = tpa;
+  perform public.archive_general_project(pa, true);
+  perform pg_temp.act_as_service();
+  update public.general_projects set milestone_completion = 'automatic' where id = pa;
+  perform public.settle_general_milestone(mpa);
+  perform pg_temp.must_be('an archived project never settles',
+    (select archived_at is not null and milestone_completion = 'automatic'
+       from public.general_projects where id = pa)
+    and pg_temp.reach_of(mpa) = 'open');
 
   ------------------------------------------------------------ class milestones
   perform pg_temp.act_as_service();
