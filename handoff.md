@@ -4203,9 +4203,8 @@ final fix wave). **Not live:**
     needed; re-check the count at deploy.
   - `my_stakeholder_projects()` ignores undated milestones: its next milestone needs `due_on >= current_date`
     (`project-feedback.sql`).
-  - On 2026-11-02 one live work milestone had every released task done and no `reached_at`. Nothing
-    settles it at deploy, so it reads Ready to mark reached until a task on it changes or someone
-    marks it.
+  - On 2026-11-02 one live work milestone had every released task done and no `reached_at`. The
+    file's closing settle loop stamps it when the SQL is applied; check it reads Reached after deploy.
   - The notification carries no milestone id (`notifications` has no milestone column), so it opens
     the milestones view rather than the milestone.
 - **Next:** the owner checks Settings → Milestones, automatic reach, dependencies and the alert in

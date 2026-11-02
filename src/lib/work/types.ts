@@ -69,7 +69,7 @@ export type WorkSource = {
   canRunSprints: boolean
   /** A work project's sprint settings. Unset for a class board. */
   sprintSettings?: SprintSettings
-  /** A work project's milestone completion, for the timeline's reached checkpoints. Unset reads as automatic. */
+  /** A work project's milestone completion, for the timeline's reached checkpoints. Unset means a class source. */
   milestoneCompletion?: MilestoneCompletion
   /**
    * May move this task up or down its list. Planners always may; a work
