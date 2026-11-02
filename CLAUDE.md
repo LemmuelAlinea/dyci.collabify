@@ -178,6 +178,17 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   (`create_general_member_task`) starts in private planning, and its creator cannot read it
   until a planner sends it; once sent it is the team's (`general_tasks_0_sent_creator`: holder
   and lead rights only). Suite: `supabase/tests/project-member-rules.test.sql`.
+- Milestone rules (`supabase/project-milestone-rules.sql`) run after `project-member-rules.sql` and
+  before `anon-lockdown.sql`. Re-running `work-milestones.sql` or `project-member-rules.sql`
+  means re-running it afterwards. The project manager's four switches are `milestone_completion`
+  (automatic reaches a milestone when all its live tasks are done, writing `reached_auto`; manual
+  leaves it to people), `require_milestone_due`, `allow_milestone_dependencies` and
+  `milestone_overdue_alerts`. `due_on` is nullable; the rules are separate triggers and none of
+  the existing milestone guards is redefined. The automatic path writes under
+  `collabify.milestone_auto`. A milestone cannot be reached while one it waits for isn't
+  (`general_milestone_dependencies`, through the add and remove RPCs). The daily cron
+  `collabify-milestone-overdue` (`send_milestone_overdue_alerts`) sends `milestone_overdue` to the
+  project manager and coordinators once per date. Suite: `supabase/tests/project-milestone-rules.test.sql`.
 
 ## Security invariants
 

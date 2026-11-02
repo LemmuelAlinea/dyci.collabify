@@ -4160,3 +4160,43 @@ commits only. **Not live:** `project-member-rules.sql` has not been applied and 
   suites, then push `main`. `scripts/schema-drift.mjs` lists `project-member-rules` in the
   restore order.
 - **Next:** the next group from the Project Settings PDF is Milestone Management.
+
+## Milestone settings (2026-11-02)
+
+Phase 2 group 4 from the Project Settings PDF (Milestone Management). Spec:
+`docs/superpowers/specs/2026-11-02-project-settings-milestones-design.md`. Built on `main`, local
+commits only (`a05fad0`, `3e47a23`, `cd9b99c`, `9dd1dd8`, then the docs commit). **Not live:**
+`project-milestone-rules.sql` has not been applied and nothing is pushed.
+
+- **Database** (`supabase/project-milestone-rules.sql`, suite
+  `supabase/tests/project-milestone-rules.test.sql`, 59 checks): four `general_projects` columns
+  (`milestone_completion`, `require_milestone_due`, `allow_milestone_dependencies`,
+  `milestone_overdue_alerts`); `general_milestones.reached_auto` and `overdue_notified_at`; a
+  nullable `due_on` with the conditional due-date check in `check_general_milestone_rules`; the
+  table `general_milestone_dependencies` with the add and remove RPCs; the automatic reach and
+  settle triggers under the `collabify.milestone_auto` flag; `send_milestone_overdue_alerts` with
+  the cron `collabify-milestone-overdue` (00:00 UTC, 08:00 Manila); and the `milestone_overdue`
+  notification type. Existing milestone guards are not redefined. Run position and re-run rule are
+  in `docs/07-backup.md` and `CLAUDE.md`.
+- **Frontend** (commit `9dd1dd8`): Settings → Milestones (`MilestonesSection`), mode-aware
+  milestone status, dependencies in the milestone dialog and view, undated milestones, and the
+  `milestone_overdue` notification (destination in `notificationDestination.ts`, opening the Plan
+  tab's milestones view).
+- **Dry runs** (this file spliced into each suite with the enum value swapped in the scratch copy,
+  rolled back): `project-milestone-rules` 59 pass, `work-milestones` 26, `sprint-milestones` 24,
+  `class-milestones` 31, `project-member-rules` 65, `project-task-rules` 110,
+  `work-task-handoff` 304, `general-tasks` 49, none failing. `npm run build`, the full vitest run,
+  eslint on the changed files and `scripts/contrast.mjs` are green.
+- **Deploy order:** owner approval and role walk first, then
+  `node scripts/db.mjs supabase/project-milestone-rules.sql supabase/anon-lockdown.sql`, a read-only
+  check, a re-run of the suites, then push `main`. Apply the SQL with or before the frontend: the
+  app's realtime channel includes `general_milestone_dependencies`, which only exists once the SQL is live.
+- **Deferred:**
+  - `notesPlan.ts:115` still requires a date for drafted milestones, even when a project turns
+    `require_milestone_due` off.
+  - The first cron run may alert every milestone already past due and not reached. Pre-stamp
+    `overdue_notified_at` at deploy to skip them; the owner decides.
+  - The notification carries no milestone id (`notifications` has no milestone column), so it opens
+    the milestones view rather than the milestone.
+- **Next:** the owner checks Settings → Milestones, automatic reach, dependencies and the alert in
+  the browser; the next group from the Project Settings PDF follows.
