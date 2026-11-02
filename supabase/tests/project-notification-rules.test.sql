@@ -73,6 +73,66 @@ begin
 end;
 $$;
 
+/**
+ * A work project in the space for the reminders job: the project manager,
+ * a coordinator, two members, a stakeholder and QA (so QA is active).
+ */
+create or replace function pg_temp.rem_project(p_space uuid, p_name text, p_pm uuid, p_coord uuid,
+  p_dev uuid, p_dev2 uuid, p_stake uuid, p_qa uuid)
+returns uuid language plpgsql as $$
+declare
+  p uuid;
+begin
+  perform pg_temp.act_as(p_pm);
+  p := (public.create_general_project(p_name, '', null, null, null, null, p_space)).id;
+  perform pg_temp.act_as_service();
+  insert into public.general_members (project_id, user_id, role) values
+    (p, p_coord, 'coordinator'), (p, p_dev, 'member'), (p, p_dev2, 'member'),
+    (p, p_stake, 'stakeholder'), (p, p_qa, 'qa');
+  return p;
+end;
+$$;
+
+/** A running sprint, made the way the app makes one. */
+create or replace function pg_temp.running_sprint(p uuid, p_name text, p_starts date, p_ends date)
+returns uuid language plpgsql as $$
+declare
+  s uuid;
+begin
+  perform pg_temp.act_as_service();
+  insert into public.general_sprints (project_id, name, starts_on, ends_on)
+  values (p, p_name, p_starts, p_ends) returning id into s;
+  update public.general_sprints set state = 'active' where id = s;
+  return s;
+end;
+$$;
+
+/** A released task due at p_due, held by p_holder (when given). */
+create or replace function pg_temp.due_task(p uuid, p_title text, p_due timestamptz,
+  p_holder uuid, p_by uuid)
+returns uuid language plpgsql as $$
+declare
+  v uuid;
+begin
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (project_id, title, created_by, routing_state, due_at)
+  values (p, p_title, p_by, 'released', p_due)
+  returning id into v;
+  if p_holder is not null then
+    insert into public.general_task_assignees (project_id, task_id, user_id, assigned_by)
+    values (p, v, p_holder, p_by);
+  end if;
+  return v;
+end;
+$$;
+
+/** How many notices of one type a person has from one project. */
+create or replace function pg_temp.got(p_user uuid, p_project uuid, p_type text) returns int
+language sql as $$
+  select count(*)::int from public.notifications
+   where user_id = p_user and general_project_id = p_project and type::text = p_type;
+$$;
+
 do $$
 declare
   v_pm    uuid := gen_random_uuid();  -- project manager on P
@@ -82,7 +142,35 @@ declare
   v_teach uuid := gen_random_uuid();  -- teaches the class
   v_stu1  uuid := gen_random_uuid();  -- student, class board
   v_stu2  uuid := gen_random_uuid();  -- student, class board
+  v_stake uuid := gen_random_uuid();  -- stakeholder on the reminder projects
+  v_qa    uuid := gen_random_uuid();  -- QA on the reminder projects
   v_space uuid;
+  pa      uuid;  -- reminder projects, one per check
+  pb      uuid;
+  pb2     uuid;
+  pc      uuid;
+  pd      uuid;
+  pe      uuid;
+  pf      uuid;
+  pg      uuid;
+  ph      uuid;
+  pi      uuid;
+  pj      uuid;
+  pk      uuid;
+  pl      uuid;
+  pm2     uuid;
+  x1      uuid;
+  x2      uuid;
+  x3      uuid;
+  x4      uuid;
+  v_ids   uuid[];
+  -- The job's mornings: 08:00 Manila on Mar 9, 10, 11 and 12, 2030.
+  d0      timestamptz := timestamptz '2030-03-09 00:00:00+00';
+  d1      timestamptz := timestamptz '2030-03-10 00:00:00+00';
+  d2      timestamptz := timestamptz '2030-03-11 00:00:00+00';
+  d3      timestamptz := timestamptz '2030-03-12 00:00:00+00';
+  n2      int;
+  n3      int;
   p       uuid;  -- the project under test
   po      uuid;  -- milestone overdue alerts
   team    uuid;
@@ -118,7 +206,9 @@ begin
       (v_dev2,  'zz-pnr-dev2@example.test'),
       (v_teach, 'zz-pnr-teach@example.test'),
       (v_stu1,  'zz-pnr-stu1@example.test'),
-      (v_stu2,  'zz-pnr-stu2@example.test')
+      (v_stu2,  'zz-pnr-stu2@example.test'),
+      (v_stake, 'zz-pnr-stake@example.test'),
+      (v_qa,    'zz-pnr-qa@example.test')
     ) as v(id, em);
 
   insert into public.profiles
@@ -130,7 +220,9 @@ begin
     (v_dev2,  'zz-pnr-dev2@example.test',  'Zz', 'Pnrdev2',  'member',  'active', false, false),
     (v_teach, 'zz-pnr-teach@example.test', 'Zz', 'Pnrteach', 'member',  'active', true,  false),
     (v_stu1,  'zz-pnr-stu1@example.test',  'Zz', 'Pnrstu1',  'student', 'active', false, false),
-    (v_stu2,  'zz-pnr-stu2@example.test',  'Zz', 'Pnrstu2',  'student', 'active', false, false)
+    (v_stu2,  'zz-pnr-stu2@example.test',  'Zz', 'Pnrstu2',  'student', 'active', false, false),
+    (v_stake, 'zz-pnr-stake@example.test', 'Zz', 'Pnrstake', 'member',  'active', false, false),
+    (v_qa,    'zz-pnr-qa@example.test',    'Zz', 'Pnrqa',    'member',  'active', false, false)
   on conflict (id) do update
     set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach,
         can_manage_projects = excluded.can_manage_projects;
@@ -141,7 +233,8 @@ begin
 
   perform pg_temp.act_as_service();
   insert into public.general_space_members (space_id, user_id, level) values
-    (v_space, v_coord, 'member'), (v_space, v_dev, 'member'), (v_space, v_dev2, 'member');
+    (v_space, v_coord, 'member'), (v_space, v_dev, 'member'), (v_space, v_dev2, 'member'),
+    (v_space, v_stake, 'member'), (v_space, v_qa, 'member');
   insert into public.general_members (project_id, user_id, role) values
     (p, v_coord, 'coordinator'), (p, v_dev, 'member'), (p, v_dev2, 'member');
   insert into public.general_teams (project_id, name) values (p, 'Zz PNR team') returning id into team;
@@ -373,6 +466,13 @@ begin
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('moving a date later clears its stamp, moving it earlier keeps it (task due)',
     b1 and b2 and not exists (select 1 from public.general_task_reminders where task_id = t1));
+
+  insert into public.general_task_reminders (task_id, project_id, overdue_notified_at)
+  values (t2, p, timestamptz '2030-06-13 00:00:00+00');
+  b1 := exists (select 1 from public.general_task_reminders where task_id = t2);
+  delete from public.general_tasks where id = t2;
+  perform pg_temp.must_be('deleting a task deletes its reminder stamp',
+    b1 and not exists (select 1 from public.general_task_reminders where task_id = t2));
   perform pg_temp.act_as(v_pm);
 
   update public.general_milestones set due_on = due_on - 1 where id = m1;
@@ -430,6 +530,333 @@ begin
                                            'milestone_due_reminder_days', 'task_assignment_notices',
                                            'sprint_completion_notices', 'end_reminded_at',
                                            'overdue_notified_at', 'due_reminded_at')));
+
+  ------------------------------------------------------------ the daily reminders job
+  -- Every run passes a fixed morning and its own project, so it never touches
+  -- any other project. Each check has its own project.
+
+  -- Sprint ending: 1 day before by default.
+  pa := pg_temp.rem_project(v_space, 'Zz PNR sprint A', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.running_sprint(pa, 'Zz Sprint A', date '2030-03-01', date '2030-03-11');
+  insert into public.general_tasks (project_id, title, created_by, routing_state, sprint_id, status) values
+    (pa, 'Zz A open one', v_pm, 'released', x1, 'todo'),
+    (pa, 'Zz A open two', v_pm, 'released', x1, 'in_progress'),
+    (pa, 'Zz A done',     v_pm, 'released', x1, 'done'),
+    (pa, 'Zz A planning', v_pm, 'planning', x1, 'todo'),
+    (pa, 'Zz A archived', v_pm, 'released', x1, 'todo'),
+    (pa, 'Zz A trashed',  v_pm, 'released', x1, 'todo');
+  update public.general_tasks set archived_at = now(), archived_by = v_pm
+   where project_id = pa and title = 'Zz A archived';
+  update public.general_tasks set archived_at = now(), archived_by = v_pm, trashed_at = now(), trashed_by = v_pm
+   where project_id = pa and title = 'Zz A trashed';
+  n := public.send_project_reminders(d0, pa);
+  b1 := n = 0 and pg_temp.got(v_pm, pa, 'sprint_ending_soon') = 0;
+  n := public.send_project_reminders(d1, pa);
+  n2 := public.send_project_reminders(d1, pa);
+  perform pg_temp.must_be('a sprint ending tomorrow tells the planners once with the unfinished count',
+    b1 and n = 1 and n2 = 0
+    and (select count(*) = 2 and count(distinct user_id) = 2
+                and bool_and(title = 'Zz Sprint A ends tomorrow'
+                             and preview = '2 tasks remain unfinished.'
+                             and general_task_id is null)
+           from public.notifications where general_project_id = pa and type = 'sprint_ending_soon')
+    and pg_temp.got(v_pm, pa, 'sprint_ending_soon') = 1
+    and pg_temp.got(v_coord, pa, 'sprint_ending_soon') = 1
+    and (select end_reminded_at = d1 from public.general_sprints where id = x1));
+
+  -- A missed morning: the next run still reminds, until the sprint has ended.
+  pb := pg_temp.rem_project(v_space, 'Zz PNR sprint B', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.running_sprint(pb, 'Zz Sprint B', date '2030-03-01', date '2030-03-10');
+  insert into public.general_tasks (project_id, title, created_by, routing_state, sprint_id, status)
+  values (pb, 'Zz B open', v_pm, 'released', x1, 'todo');
+  n := public.send_project_reminders(d2, pb);
+  n2 := public.send_project_reminders(d1, pb);
+  pb2 := pg_temp.rem_project(v_space, 'Zz PNR sprint B2', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  update public.general_projects set sprint_end_reminder_days = 3 where id = pb2;
+  x2 := pg_temp.running_sprint(pb2, 'Zz Sprint B2', date '2030-03-01', date '2030-03-12');
+  insert into public.general_tasks (project_id, title, created_by, routing_state, sprint_id, status)
+  values (pb2, 'Zz B2 done', v_pm, 'released', x2, 'done');
+  n3 := public.send_project_reminders(d0, pb2);
+  perform pg_temp.must_be('a sprint ending reminder catches up after a missed morning',
+    n = 0 and n2 = 1 and n3 = 1
+    and (select count(*) = 2 and bool_and(title = 'Zz Sprint B ends today'
+                                          and preview = '1 task remains unfinished.')
+           from public.notifications where general_project_id = pb and type = 'sprint_ending_soon')
+    and (select count(*) = 2 and bool_and(title = 'Zz Sprint B2 ends in 3 days'
+                                          and preview = 'Every task is done.')
+           from public.notifications where general_project_id = pb2 and type = 'sprint_ending_soon'));
+
+  -- Overdue tasks: the morning after the due day, in Manila time.
+  pc := pg_temp.rem_project(v_space, 'Zz PNR overdue C', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.due_task(pc, 'Zz C one', timestamptz '2030-03-09 07:00:00+08', v_dev, v_pm);
+  x2 := pg_temp.due_task(pc, 'Zz C two', timestamptz '2030-03-08 23:30:00+08', v_pm, v_pm);
+  x3 := pg_temp.due_task(pc, 'Zz C three', timestamptz '2030-03-10 00:30:00+08', v_dev2, v_pm);
+  n := public.send_project_reminders(d1, pc);
+  b1 := n = 2
+    and (select count(*) = 1 and bool_and(general_task_id = x1 and title = 'Zz C one is overdue'
+                                          and preview = 'It was due Mar 9.')
+           from public.notifications where user_id = v_dev and general_project_id = pc
+            and type = 'general_task_overdue')
+    and (select count(*) = 1 and bool_and(title = 'Zz C two is overdue' and preview = 'It was due Mar 8.')
+           from public.notifications where user_id = v_pm and type = 'general_task_overdue'
+            and general_task_id = x2)
+    and (select count(*) = 2 and count(distinct user_id) = 2
+                and bool_and(user_id in (v_pm, v_coord)
+                             and title = '2 tasks became overdue in Zz PNR overdue C'
+                             and preview = 'Open Tasks to see them.')
+           from public.notifications where general_project_id = pc and type = 'general_task_overdue'
+            and general_task_id is null)
+    and pg_temp.got(v_dev2, pc, 'general_task_overdue') = 0
+    and (select count(*) = 2 and bool_and(project_id = pc and overdue_notified_at = d1)
+           from public.general_task_reminders where task_id in (x1, x2))
+    and not exists (select 1 from public.general_task_reminders where task_id = x3);
+  n := public.send_project_reminders(d2, pc);
+  perform pg_temp.must_be('an overdue task tells its holders and sends the planners one summary',
+    b1 and n = 1
+    and pg_temp.got(v_dev2, pc, 'general_task_overdue') = 1
+    and (select count(*) = 2 and bool_and(user_id in (v_pm, v_coord)
+                                          and title = '1 task became overdue in Zz PNR overdue C')
+           from public.notifications where general_project_id = pc and type = 'general_task_overdue'
+            and general_task_id is null and title like '1 %')
+    and pg_temp.got(v_dev, pc, 'general_task_overdue') = 1);
+
+  -- What never alerts.
+  pd := pg_temp.rem_project(v_space, 'Zz PNR never D', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  insert into public.general_tasks (project_id, title, created_by, routing_state, due_at, status) values
+    (pd, 'Zz D planning', v_pm, 'planning', timestamptz '2030-03-01 09:00:00+08', 'todo'),
+    (pd, 'Zz D done',     v_pm, 'released', timestamptz '2030-03-01 09:00:00+08', 'done'),
+    (pd, 'Zz D archived', v_pm, 'released', timestamptz '2030-03-01 09:00:00+08', 'todo'),
+    (pd, 'Zz D trashed',  v_pm, 'released', timestamptz '2030-03-01 09:00:00+08', 'todo');
+  insert into public.general_task_assignees (project_id, task_id, user_id, assigned_by)
+  select pd, id, v_dev, v_pm from public.general_tasks where project_id = pd;
+  update public.general_tasks set archived_at = now(), archived_by = v_pm
+   where project_id = pd and title = 'Zz D archived';
+  update public.general_tasks set archived_at = now(), archived_by = v_pm, trashed_at = now(), trashed_by = v_pm
+   where project_id = pd and title = 'Zz D trashed';
+  n := public.send_project_reminders(d1, pd);
+  perform pg_temp.must_be('private planning, done, archived and trashed tasks never alert',
+    n = 0
+    and (select count(*) = 4 from public.general_task_assignees where project_id = pd)
+    and (select trashed_at is not null from public.general_tasks
+          where project_id = pd and title = 'Zz D trashed')
+    and not exists (select 1 from public.notifications
+                     where general_project_id = pd and type = 'general_task_overdue')
+    and not exists (select 1 from public.general_task_reminders where project_id = pd));
+
+  -- A task waiting in QA is still open.
+  pe := pg_temp.rem_project(v_space, 'Zz PNR qa E', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  insert into public.general_tasks (project_id, title, created_by, routing_state, due_at, status, stage)
+  values (pe, 'Zz E in QA', v_pm, 'released', timestamptz '2030-03-05 09:00:00+08', 'in_progress',
+          public.general_qa_stage_index(pe))
+  returning id into x1;
+  insert into public.general_task_assignees (project_id, task_id, user_id, assigned_by)
+  values (pe, x1, v_dev, v_pm);
+  n := public.send_project_reminders(d1, pe);
+  perform pg_temp.must_be('a task in QA can be overdue',
+    (select qa_entered_at is not null and status <> 'done' from public.general_tasks where id = x1)
+    and public.general_project_has_qa(pe)
+    and n = 1
+    and (select count(*) = 1 from public.notifications
+          where user_id = v_dev and general_task_id = x1 and type = 'general_task_overdue'));
+
+  -- A later due time can alert again.
+  pf := pg_temp.rem_project(v_space, 'Zz PNR later F', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.due_task(pf, 'Zz F moved', timestamptz '2030-03-05 09:00:00+08', v_dev, v_pm);
+  n := public.send_project_reminders(d1, pf);
+  perform pg_temp.act_as(v_pm);
+  update public.general_tasks set due_at = timestamptz '2030-03-11 09:00:00+08' where id = x1;
+  perform pg_temp.act_as_service();
+  b1 := not exists (select 1 from public.general_task_reminders where task_id = x1);
+  n2 := public.send_project_reminders(d2, pf);
+  n3 := public.send_project_reminders(d3, pf);
+  perform pg_temp.must_be('moving the due time later allows a new overdue alert',
+    n = 1 and b1 and n2 = 0 and n3 = 1
+    and (select count(*) = 2 and bool_and(preview in ('It was due Mar 5.', 'It was due Mar 11.'))
+                and count(distinct preview) = 2
+           from public.notifications where user_id = v_dev and general_task_id = x1
+            and type = 'general_task_overdue')
+    and (select overdue_notified_at = d3 from public.general_task_reminders where task_id = x1));
+
+  -- Milestone due: 2 days before by default.
+  pg := pg_temp.rem_project(v_space, 'Zz PNR goal G', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  insert into public.general_milestones (project_id, name, due_on)
+  values (pg, 'Zz Goal G', date '2030-03-12') returning id into x1;
+  n := public.send_project_reminders(d0, pg);
+  n2 := public.send_project_reminders(d1, pg);
+  b1 := n = 0 and n2 = 1
+    and (select count(*) = 2 and count(distinct user_id) = 2
+                and bool_and(user_id in (v_pm, v_coord) and title = 'Zz Goal G is due in 2 days'
+                             and preview = 'Zz PNR goal G')
+           from public.notifications where general_project_id = pg and type = 'milestone_due_soon')
+    and (select due_reminded_at = d1 from public.general_milestones where id = x1);
+  insert into public.general_milestones (project_id, name, due_on) values
+    (pg, 'Zz Goal G tomorrow', date '2030-03-11'), (pg, 'Zz Goal G today', date '2030-03-10');
+  n := public.send_project_reminders(d1, pg);
+  n2 := public.send_project_reminders(d1, pg);
+  perform pg_temp.must_be('a milestone due in two days tells the planners once',
+    b1 and n = 2 and n2 = 0
+    and pg_temp.got(v_pm, pg, 'milestone_due_soon') = 3
+    and pg_temp.got(v_coord, pg, 'milestone_due_soon') = 3
+    and pg_temp.got(v_dev, pg, 'milestone_due_soon') = 0
+    and exists (select 1 from public.notifications where user_id = v_pm and general_project_id = pg
+                   and title = 'Zz Goal G tomorrow is due tomorrow')
+    and exists (select 1 from public.notifications where user_id = v_pm and general_project_id = pg
+                   and title = 'Zz Goal G today is due today'));
+
+  -- Reached, undated and past-due milestones.
+  ph := pg_temp.rem_project(v_space, 'Zz PNR goal H', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  update public.general_projects
+     set milestone_due_reminder_days = 7, milestone_completion = 'manual', require_milestone_due = false
+   where id = ph;
+  insert into public.general_milestones (project_id, name, due_on) values
+    (ph, 'Zz Goal H reached', date '2030-03-12'),
+    (ph, 'Zz Goal H undated', null),
+    (ph, 'Zz Goal H late', date '2030-03-08');
+  update public.general_milestones set reached_at = now()
+   where project_id = ph and name = 'Zz Goal H reached';
+  n := public.send_project_reminders(d1, ph);
+  perform pg_temp.must_be('reached and undated milestones never get a due reminder',
+    n = 0
+    and (select reached_at is not null from public.general_milestones
+          where project_id = ph and name = 'Zz Goal H reached')
+    and not exists (select 1 from public.notifications
+                     where general_project_id = ph and type = 'milestone_due_soon')
+    and not exists (select 1 from public.general_milestones
+                     where project_id = ph and due_reminded_at is not null));
+
+  -- Each project switch.
+  pi := pg_temp.rem_project(v_space, 'Zz PNR off I', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  update public.general_projects
+     set sprint_end_reminder_days = null, task_overdue_alerts = false, milestone_due_reminder_days = null
+   where id = pi;
+  x1 := pg_temp.running_sprint(pi, 'Zz Sprint I', date '2030-03-01', date '2030-03-11');
+  x2 := pg_temp.due_task(pi, 'Zz I late', timestamptz '2030-03-05 09:00:00+08', v_dev, v_pm);
+  insert into public.general_milestones (project_id, name, due_on)
+  values (pi, 'Zz Goal I', date '2030-03-11') returning id into x3;
+  n := public.send_project_reminders(d1, pi);
+  b1 := n = 0
+    and not exists (select 1 from public.notifications where general_project_id = pi
+                     and type in ('sprint_ending_soon', 'general_task_overdue', 'milestone_due_soon'))
+    and (select end_reminded_at is null from public.general_sprints where id = x1)
+    and not exists (select 1 from public.general_task_reminders where task_id = x2)
+    and (select due_reminded_at is null from public.general_milestones where id = x3);
+  update public.general_projects set sprint_end_reminder_days = 1 where id = pi;
+  n := public.send_project_reminders(d1, pi);
+  b2 := n = 1 and pg_temp.got(v_pm, pi, 'sprint_ending_soon') = 1
+    and pg_temp.got(v_pm, pi, 'general_task_overdue') = 0 and pg_temp.got(v_pm, pi, 'milestone_due_soon') = 0;
+  update public.general_projects set task_overdue_alerts = true where id = pi;
+  n := public.send_project_reminders(d1, pi);
+  b2 := b2 and n = 1 and pg_temp.got(v_pm, pi, 'general_task_overdue') = 1
+    and pg_temp.got(v_dev, pi, 'general_task_overdue') = 1 and pg_temp.got(v_pm, pi, 'milestone_due_soon') = 0;
+  update public.general_projects set milestone_due_reminder_days = 1 where id = pi;
+  n := public.send_project_reminders(d1, pi);
+  perform pg_temp.must_be('each project switch off sends nothing for its notice',
+    b1 and b2 and n = 1 and pg_temp.got(v_pm, pi, 'milestone_due_soon') = 1);
+
+  -- A person's own switch.
+  pj := pg_temp.rem_project(v_space, 'Zz PNR mine J', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.running_sprint(pj, 'Zz Sprint J', date '2030-03-01', date '2030-03-11');
+  x2 := pg_temp.due_task(pj, 'Zz J late', timestamptz '2030-03-05 09:00:00+08', v_dev, v_pm);
+  insert into public.general_milestones (project_id, name, due_on)
+  values (pj, 'Zz Goal J', date '2030-03-11') returning id into x3;
+  update public.notification_prefs set deadline_reminders = false where user_id in (v_coord, v_dev);
+  n := public.send_project_reminders(d1, pj);
+  update public.notification_prefs set deadline_reminders = true where user_id in (v_coord, v_dev);
+  perform pg_temp.must_be('a person''s deadline switch silences their reminders',
+    n = 3
+    and pg_temp.got(v_pm, pj, 'sprint_ending_soon') = 1
+    and pg_temp.got(v_pm, pj, 'general_task_overdue') = 1
+    and pg_temp.got(v_pm, pj, 'milestone_due_soon') = 1
+    and not exists (select 1 from public.notifications
+                     where general_project_id = pj and user_id in (v_coord, v_dev)
+                       and type in ('sprint_ending_soon', 'general_task_overdue', 'milestone_due_soon'))
+    and (select end_reminded_at = d1 from public.general_sprints where id = x1)
+    and exists (select 1 from public.general_task_reminders where task_id = x2)
+    and (select due_reminded_at = d1 from public.general_milestones where id = x3));
+
+  -- Archived and trashed projects.
+  pk := pg_temp.rem_project(v_space, 'Zz PNR archived K', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  pl := pg_temp.rem_project(v_space, 'Zz PNR trashed L', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  foreach v_who in array array[pk, pl] loop
+    perform pg_temp.running_sprint(v_who, 'Zz Sprint gone', date '2030-03-01', date '2030-03-11');
+    perform pg_temp.due_task(v_who, 'Zz gone late', timestamptz '2030-03-05 09:00:00+08', v_dev, v_pm);
+    insert into public.general_milestones (project_id, name, due_on)
+    values (v_who, 'Zz Goal gone', date '2030-03-11');
+  end loop;
+  update public.general_projects set archived_at = now() where id = pk;
+  update public.general_projects set archived_at = now(), trashed_at = now(), trashed_by = v_pm where id = pl;
+  n := public.send_project_reminders(d1, pk) + public.send_project_reminders(d1, pl);
+  perform pg_temp.must_be('archived and trashed projects are skipped',
+    n = 0
+    and (select trashed_at is not null from public.general_projects where id = pl)
+    and not exists (select 1 from public.notifications where general_project_id in (pk, pl)
+                     and type in ('sprint_ending_soon', 'general_task_overdue', 'milestone_due_soon'))
+    and not exists (select 1 from public.general_task_reminders where project_id in (pk, pl))
+    and not exists (select 1 from public.general_sprints
+                     where project_id in (pk, pl) and end_reminded_at is not null)
+    and not exists (select 1 from public.general_milestones
+                     where project_id in (pk, pl) and due_reminded_at is not null));
+
+  -- Nobody but the planners and the holders.
+  v_ids := array[pa, pb, pb2, pc, pd, pe, pf, pg, ph, pi, pj];
+  perform pg_temp.must_be('stakeholders and qa get none of these',
+    not exists (select 1 from public.notifications
+                 where user_id in (v_stake, v_qa)
+                   and type in ('sprint_ending_soon', 'general_task_overdue', 'milestone_due_soon'))
+    and not exists (select 1 from public.notifications
+                     where user_id in (v_dev, v_dev2) and general_project_id = any (v_ids)
+                       and type in ('sprint_ending_soon', 'milestone_due_soon')));
+
+  -- Every project once more, a day after its last run.
+  select count(*) into n2 from public.notifications
+   where general_project_id = any (v_ids)
+     and type in ('sprint_ending_soon', 'general_task_overdue', 'milestone_due_soon');
+  n := 0;
+  foreach v_who in array v_ids loop
+    n := n + public.send_project_reminders(d3, v_who);
+  end loop;
+  perform pg_temp.must_be('a second run sends nothing new',
+    n = 0
+    and (select count(*) = n2 from public.notifications
+          where general_project_id = any (v_ids)
+            and type in ('sprint_ending_soon', 'general_task_overdue', 'milestone_due_soon')));
+
+  -- Applying the file marks what already qualifies, switches or not.
+  pm2 := pg_temp.rem_project(v_space, 'Zz PNR applied M', v_pm, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  update public.general_projects
+     set sprint_end_reminder_days = null, task_overdue_alerts = false, milestone_due_reminder_days = null
+   where id = pm2;
+  x1 := pg_temp.running_sprint(pm2, 'Zz Sprint M', date '2030-03-01', date '2030-03-12');
+  x2 := pg_temp.due_task(pm2, 'Zz M late', timestamptz '2030-03-05 09:00:00+08', v_dev, v_pm);
+  insert into public.general_tasks (project_id, title, created_by, routing_state, due_at)
+  values (pm2, 'Zz M planning', v_pm, 'planning', timestamptz '2030-03-05 09:00:00+08')
+  returning id into x4;
+  insert into public.general_milestones (project_id, name, due_on)
+  values (pm2, 'Zz Goal M', date '2030-03-16') returning id into x3;
+  insert into public.general_milestones (project_id, name, due_on)
+  values (pm2, 'Zz Goal M later', date '2030-03-20');
+  n := public.mark_project_reminders_sent(d1, pm2);
+  b1 := n = 3
+    and (select end_reminded_at = d1 from public.general_sprints where id = x1)
+    and (select overdue_notified_at = d1 from public.general_task_reminders where task_id = x2)
+    and not exists (select 1 from public.general_task_reminders where task_id = x4)
+    and (select due_reminded_at = d1 from public.general_milestones where id = x3)
+    and (select due_reminded_at is null from public.general_milestones
+          where project_id = pm2 and name = 'Zz Goal M later');
+  update public.general_projects
+     set sprint_end_reminder_days = 3, task_overdue_alerts = true, milestone_due_reminder_days = 7
+   where id = pm2;
+  n := public.send_project_reminders(d1, pm2);
+  perform pg_temp.must_be('applying the file marks what already qualifies without notices',
+    b1 and n = 0
+    and not exists (select 1 from public.notifications where general_project_id = pm2
+                     and type in ('sprint_ending_soon', 'general_task_overdue', 'milestone_due_soon')));
+
+  perform pg_temp.must_be('only the database runs the reminders job',
+    not has_function_privilege('authenticated', 'public.send_project_reminders(timestamptz, uuid)', 'execute')
+    and not has_function_privilege('anon', 'public.send_project_reminders(timestamptz, uuid)', 'execute')
+    and not has_function_privilege('authenticated', 'public.mark_project_reminders_sent(timestamptz, uuid)', 'execute')
+    and not has_function_privilege('anon', 'public.mark_project_reminders_sent(timestamptz, uuid)', 'execute'));
 end;
 $$;
 
