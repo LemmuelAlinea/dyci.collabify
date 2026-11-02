@@ -20,19 +20,27 @@
 -- Reminder stamps, each written only by the reminder jobs (or another write
 -- with no signed-in person, such as a restore), so every reminder goes once:
 --   general_sprints.end_reminded_at      cleared when ends_on moves later
---   general_tasks.overdue_notified_at    cleared when due_at moves later or is cleared
 --   general_milestones.due_reminded_at   cleared when due_on moves later or is cleared
--- A signed-in person's value is dropped (kept as it was on an update, null on
--- an insert), like guard_general_milestone_overdue. An earlier date keeps the
--- stamp.
+--   general_task_reminders (task_id, project_id, overdue_notified_at)
+--                                        deleted when due_at moves later or is cleared
+-- On sprints and milestones a signed-in person's value is dropped (kept as it
+-- was on an update, null on an insert), like guard_general_milestone_overdue.
+-- A task's stamp is a side table, not a task column, so the job never writes a
+-- task row (which would bump updated_at, trip the handoff "A task changed"
+-- checks and reach every open client through realtime). It has RLS and no
+-- policies, is revoked from anon and authenticated, and is not in realtime. An
+-- earlier date keeps every stamp.
 --
--- Triggers, added beside the existing ones (none of those is redefined), each
--- before insert or update and named to run after every existing before trigger
--- on its table:
---   general_sprints_zz_reminder     (guard_general_sprint_reminder)
---   general_tasks_zz_reminder       (guard_general_task_reminder), after
---                                   general_tasks_zz_qa_entered
---   general_milestones_zz_reminder  (guard_general_milestone_reminder)
+-- Triggers, added beside the existing ones (none of those is redefined):
+--   general_sprints_zz_reminder     (guard_general_sprint_reminder), before
+--                                   insert or update, after _guard, _prepare
+--                                   and _run_guard
+--   general_milestones_zz_reminder  (guard_general_milestone_reminder), before
+--                                   insert or update, after _guard, _overdue
+--                                   and _rules
+--   general_tasks_zz_reminder       (clear_general_task_reminder), after update
+--                                   when due_at is cleared or moves later:
+--                                   deletes the task's general_task_reminders row
 --
 -- Redefined from their live definitions:
 --   notify_general_assignment() (last written by general-archive-rbac.sql):
@@ -80,9 +88,6 @@ alter table public.general_projects
 alter table public.general_sprints
   add column if not exists end_reminded_at timestamptz;
 
-alter table public.general_tasks
-  add column if not exists overdue_notified_at timestamptz;
-
 alter table public.general_milestones
   add column if not exists due_reminded_at timestamptz;
 
@@ -121,39 +126,46 @@ create trigger general_sprints_zz_reminder
   before insert or update on public.general_sprints
   for each row execute function public.guard_general_sprint_reminder();
 
+-- A task's overdue stamp lives off the task row: the job writing a task row
+-- would bump updated_at (tripping the handoff "A task changed" checks) and
+-- reach every open client through realtime. An earlier draft of this file put
+-- it on general_tasks; it never went live.
+drop trigger if exists general_tasks_zz_reminder on public.general_tasks;
+drop function if exists public.guard_general_task_reminder();
+alter table public.general_tasks drop column if exists overdue_notified_at;
+
+-- One row per task the overdue job has alerted. No policies: only the job
+-- (and the database's own triggers) read or write it.
+create table if not exists public.general_task_reminders (
+  task_id             uuid primary key references public.general_tasks (id) on delete cascade,
+  project_id          uuid not null,
+  overdue_notified_at timestamptz not null
+);
+
+alter table public.general_task_reminders enable row level security;
+revoke all on table public.general_task_reminders from public, anon, authenticated;
+
 /**
- * Only the overdue job (or another write with no signed-in person) writes
- * overdue_notified_at; a person's value is dropped. due_at moved later, or
- * cleared, clears it, so the new due time can alert again; an earlier one
- * keeps it.
+ * A due time moved later, or cleared, forgets the task's overdue stamp, so the
+ * new due time can alert again; an earlier one keeps it.
  */
-create or replace function public.guard_general_task_reminder()
+create or replace function public.clear_general_task_reminder()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  if tg_op = 'INSERT' then
-    if auth.uid() is not null then
-      new.overdue_notified_at := null;
-    end if;
-    return new;
-  end if;
-  if auth.uid() is not null then
-    new.overdue_notified_at := old.overdue_notified_at;
-  end if;
-  if new.due_at is null or new.due_at > old.due_at then
-    new.overdue_notified_at := null;
-  end if;
-  return new;
+  delete from public.general_task_reminders where task_id = new.id;
+  return null;
 end;
 $$;
 
-drop trigger if exists general_tasks_zz_reminder on public.general_tasks;
 create trigger general_tasks_zz_reminder
-  before insert or update on public.general_tasks
-  for each row execute function public.guard_general_task_reminder();
+  after update on public.general_tasks
+  for each row
+  when (new.due_at is null or new.due_at > old.due_at)
+  execute function public.clear_general_task_reminder();
 
 /**
  * Only the reminder job (or another write with no signed-in person) writes
@@ -286,7 +298,7 @@ $$;
 -- ---------------------------------------------------------------- grants
 
 revoke all on function public.guard_general_sprint_reminder() from public, anon, authenticated;
-revoke all on function public.guard_general_task_reminder() from public, anon, authenticated;
+revoke all on function public.clear_general_task_reminder() from public, anon, authenticated;
 revoke all on function public.guard_general_milestone_reminder() from public, anon, authenticated;
 revoke all on function public.send_milestone_overdue_alerts(timestamptz, uuid) from public, anon, authenticated;
 

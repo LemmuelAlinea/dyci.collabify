@@ -163,7 +163,7 @@ begin
             and sprint_completion_notices
        from public.general_projects where id = p)
     and (select end_reminded_at is null from public.general_sprints where id = s1)
-    and (select overdue_notified_at is null from public.general_tasks where id = t1)
+    and not exists (select 1 from public.general_task_reminders where task_id = t1)
     and (select due_reminded_at is null from public.general_milestones where id = m1));
 
   ------------------------------------------------------------ who changes the settings
@@ -297,10 +297,8 @@ begin
   ------------------------------------------------------------ stamps: people can't write them
   perform pg_temp.act_as(v_pm);
   update public.general_sprints set end_reminded_at = now() where id = s1;
-  update public.general_tasks set overdue_notified_at = now() where id = t1;
   update public.general_milestones set due_reminded_at = now() where id = m1;
   b1 := (select end_reminded_at is null from public.general_sprints where id = s1)
-    and (select overdue_notified_at is null from public.general_tasks where id = t1)
     and (select due_reminded_at is null from public.general_milestones where id = m1);
   insert into public.general_sprints (project_id, name, starts_on, ends_on, end_reminded_at)
   values (p, 'Zz PNR stamped sprint', current_date + 14, current_date + 27, now()) returning id into v_who;
@@ -310,33 +308,46 @@ begin
   values (p, 'Zz PNR stamped goal', current_date + 20, now()) returning id into v_who;
   b2 := b2 and (select due_reminded_at is null from public.general_milestones where id = v_who);
   delete from public.general_milestones where id = v_who;
-  insert into public.general_tasks (project_id, title, overdue_notified_at)
-  values (p, 'Zz PNR stamped task', now()) returning id into v_who;
-  b2 := b2 and (select overdue_notified_at is null from public.general_tasks where id = v_who);
   perform pg_temp.act_as_service();
-  delete from public.general_tasks where id = v_who;
   -- The job, or a restore, writes them.
   update public.general_sprints set end_reminded_at = timestamptz '2030-01-01 00:00:00+00' where id = s1;
-  -- An undated task is never overdue, so it keeps no stamp.
-  update public.general_tasks set overdue_notified_at = timestamptz '2030-01-01 00:00:00+00' where id = t1;
-  b2 := b2 and (select overdue_notified_at is null from public.general_tasks where id = t1);
-  update public.general_tasks
-     set due_at = timestamptz '2030-06-01 09:00:00+00',
-         overdue_notified_at = timestamptz '2030-01-01 00:00:00+00'
-   where id = t1;
   update public.general_milestones set due_reminded_at = timestamptz '2030-01-01 00:00:00+00' where id = m1;
   perform pg_temp.act_as(v_pm);
   update public.general_sprints set end_reminded_at = null, goal = 'Zz PNR goal' where id = s1;
-  update public.general_tasks set overdue_notified_at = null where id = t1;
   update public.general_milestones set due_reminded_at = null, name = 'Zz PNR goal renamed' where id = m1;
   perform pg_temp.must_be('a signed-in person cannot write a reminder stamp',
     b1 and b2
     and (select end_reminded_at = timestamptz '2030-01-01 00:00:00+00' and goal = 'Zz PNR goal'
            from public.general_sprints where id = s1)
-    and (select overdue_notified_at = timestamptz '2030-01-01 00:00:00+00'
-           from public.general_tasks where id = t1)
     and (select due_reminded_at = timestamptz '2030-01-01 00:00:00+00' and name = 'Zz PNR goal renamed'
            from public.general_milestones where id = m1));
+
+  -- A task's overdue stamp lives off the task row, where no client reaches it.
+  perform pg_temp.act_as_service();
+  insert into public.general_task_reminders (task_id, project_id, overdue_notified_at)
+  values (t1, p, timestamptz '2030-01-01 00:00:00+00');
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('...nor read the task reminder stamps',
+    'select count(*) from public.general_task_reminders', 'permission denied');
+  perform pg_temp.must_refuse_with('...nor add one',
+    format($q$insert into public.general_task_reminders (task_id, project_id, overdue_notified_at)
+              values (%L, %L, now())$q$, t2, p),
+    'permission denied');
+  perform pg_temp.must_refuse_with('...nor remove one',
+    format($q$delete from public.general_task_reminders where task_id = %L$q$, t1),
+    'permission denied');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and the task stamp is not a task column, not in realtime, behind RLS',
+    not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'general_tasks'
+                   and column_name = 'overdue_notified_at')
+    and not exists (select 1 from pg_publication_tables
+                     where schemaname = 'public' and tablename = 'general_task_reminders')
+    and (select relrowsecurity from pg_class where oid = 'public.general_task_reminders'::regclass)
+    and not exists (select 1 from pg_policies
+                     where schemaname = 'public' and tablename = 'general_task_reminders')
+    and exists (select 1 from public.general_task_reminders where task_id = t1));
+  perform pg_temp.act_as(v_pm);
 
   ------------------------------------------------------------ stamps: a later date clears them
   update public.general_sprints set ends_on = ends_on - 1 where id = s1;
@@ -345,21 +356,24 @@ begin
   perform pg_temp.must_be('moving a date later clears its stamp, moving it earlier keeps it (sprint end)',
     b1 and (select end_reminded_at is null from public.general_sprints where id = s1));
 
+  -- t1 had no due date and carries the stamp row added above; setting one keeps it.
   update public.general_tasks set due_at = timestamptz '2030-06-10 09:00:00+00' where id = t1;
-  b1 := (select overdue_notified_at is null from public.general_tasks where id = t1);
-  perform pg_temp.act_as_service();
-  update public.general_tasks set overdue_notified_at = timestamptz '2030-06-11 00:00:00+00' where id = t1;
-  perform pg_temp.act_as(v_pm);
+  update public.general_tasks set title = 'Zz PNR one renamed' where id = t1;
   update public.general_tasks set due_at = timestamptz '2030-06-09 09:00:00+00' where id = t1;
-  b2 := (select overdue_notified_at is not null from public.general_tasks where id = t1);
-  update public.general_tasks set due_at = timestamptz '2030-06-12 09:00:00+00' where id = t1;
-  b2 := b2 and (select overdue_notified_at is null from public.general_tasks where id = t1);
   perform pg_temp.act_as_service();
-  update public.general_tasks set overdue_notified_at = timestamptz '2030-06-13 00:00:00+00' where id = t1;
+  b1 := exists (select 1 from public.general_task_reminders where task_id = t1);
+  perform pg_temp.act_as(v_pm);
+  update public.general_tasks set due_at = timestamptz '2030-06-12 09:00:00+00' where id = t1;
+  perform pg_temp.act_as_service();
+  b2 := not exists (select 1 from public.general_task_reminders where task_id = t1);
+  insert into public.general_task_reminders (task_id, project_id, overdue_notified_at)
+  values (t1, p, timestamptz '2030-06-13 00:00:00+00');
   perform pg_temp.act_as(v_pm);
   update public.general_tasks set due_at = null where id = t1;
+  perform pg_temp.act_as_service();
   perform pg_temp.must_be('moving a date later clears its stamp, moving it earlier keeps it (task due)',
-    b1 and b2 and (select overdue_notified_at is null from public.general_tasks where id = t1));
+    b1 and b2 and not exists (select 1 from public.general_task_reminders where task_id = t1));
+  perform pg_temp.act_as(v_pm);
 
   update public.general_milestones set due_on = due_on - 1 where id = m1;
   b1 := (select due_reminded_at is not null from public.general_milestones where id = m1);
