@@ -66,7 +66,7 @@ const NOTIFICATIONS: NotificationRow[] = [
   {
     key: 'deadline_reminders',
     label: () => 'Deadline reminders',
-    body: () => 'A reminder before a task you hold is due and another if it slips past its date. Also when a sprint you are in is about to end, when a milestone is almost due, and when draft files sit unsubmitted for three days.',
+    body: () => 'When a task you hold is due soon or overdue, and when draft files sit unsubmitted for three days. If you run a project, also when a sprint is about to end, a milestone is almost due or overdue, and when its tasks slip past their dates.',
     shown: inSomething,
   },
   {

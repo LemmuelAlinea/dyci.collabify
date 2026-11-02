@@ -642,7 +642,9 @@ or reopening stops working. Suite: `supabase/tests/sprint-reopen.test.sql`.
 `general_sprints_run_guard` trigger, `complete_general_sprint` (it supersedes the copy
 in `work-planning.sql`), `run_sprint_automation` and the `collabify-sprint-automation`
 cron job (every 15 minutes). Re-running `work-planning.sql` or `sprint-reopen.sql`
-means re-running `sprint-settings.sql` after it, then `anon-lockdown.sql`. Suite:
+means re-running `sprint-settings.sql` after it, then `project-notification-rules.sql`, then
+`anon-lockdown.sql`. `project-notification-rules.sql` now owns `complete_general_sprint` and
+`run_sprint_automation` (it adds the finish notice to both). Suite:
 `supabase/tests/sprint-settings.test.sql`.
 
 ## Project look, workspace visibility and join requests (2026-11-01)
@@ -772,9 +774,12 @@ delete is refused once the milestone tags a task. Suite:
 
 Class milestones (`project_milestones`) are untouched. Re-running `work-milestones.sql` resets
 the milestone policies and delete trigger that `project-member-rules.sql` owns, so re-run
-`project-member-rules.sql`, then `project-milestone-rules.sql`, then `anon-lockdown.sql` to keep
+`project-member-rules.sql`, then `project-milestone-rules.sql`, then `project-notification-rules.sql`,
+then `anon-lockdown.sql` to keep
 the chain whole. Re-running `project-member-rules.sql` alone means re-running
-`project-milestone-rules.sql` and `anon-lockdown.sql` after it. The first cron run alerts every
+`project-milestone-rules.sql`, `project-notification-rules.sql` and `anon-lockdown.sql` after it.
+`project-notification-rules.sql` now owns `send_milestone_overdue_alerts` (it adds the personal
+preference check). The first cron run alerts every
 milestone already past due and not reached; on 2026-11-02 there were none on live unarchived work
 projects, so no pre-stamp of `overdue_notified_at` is needed (re-check at deploy). Suite:
 `supabase/tests/project-milestone-rules.test.sql`.
@@ -818,7 +823,8 @@ the switch and the overdue alert loses its personal check.
 Re-running `project-notification-rules.sql` itself is not free. Its closing
 `mark_project_reminders_sent` silently stamps everything that qualifies at that moment (overdue
 released tasks, sprints within 3 days of ending, milestones due within 7 days), so those never
-get a notice. A project with a reminder off is stamped at the longest window too. While "Overdue
+get a notice. The 3-day and 7-day windows apply only to a project with that reminder off; a project
+with it on is stamped within its own setting. While "Overdue
 task alerts" is off, newly overdue tasks are stamped silently, so turning it on later sends no
 backlog. On 2026-11-02 the first apply would silence 14 overdue live tasks and 1 milestone due
 within 2 days (by design; re-check at deploy). Suite:

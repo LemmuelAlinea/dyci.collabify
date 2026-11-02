@@ -192,6 +192,7 @@ declare
   qa5     uuid;
   qa6     uuid;
   qa7     uuid;
+  qa8     uuid;
   y1      uuid;
   y2      uuid;
   y3      uuid;
@@ -1036,6 +1037,28 @@ begin
     and pg_temp.got(v_dev, qa7, 'sprint_completed') = 2
     and pg_temp.got(v_pmb, qa7, 'sprint_completed') = 1
     and pg_temp.got(v_coord, qa7, 'sprint_completed') = 1);
+
+  -- One task says "task", and an empty sprint says so.
+  qa8 := pg_temp.rem_project(v_space2, 'Zz PNR finish 9', v_pmb, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.running_sprint(qa8, 'Zz Sprint F9', date '2030-03-01', date '2030-03-14');
+  y1 := pg_temp.sprint_task(qa8, x1, 'Zz F9 done', 'done', v_dev, v_pmb);
+  perform pg_temp.act_as(v_pmb);
+  perform public.complete_general_sprint(x1, null);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a sprint with one task says task, not tasks',
+    (select count(*) = 2 and bool_and(user_id in (v_coord, v_dev)
+                                      and preview = '1 of 1 task done.')
+           from public.notifications where general_project_id = qa8 and type = 'sprint_completed'));
+  delete from public.notifications where general_project_id = qa8 and type = 'sprint_completed';
+  x2 := pg_temp.running_sprint(qa8, 'Zz Sprint F9 empty', date '2030-03-15', date '2030-03-28');
+  perform pg_temp.act_as(v_pmb);
+  perform public.complete_general_sprint(x2, null);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('an empty sprint says no tasks were in it',
+    (select count(*) = 1 and bool_and(user_id = v_coord
+                                      and title = 'Zz Sprint F9 empty is finished'
+                                      and preview = 'No tasks were in it.')
+           from public.notifications where general_project_id = qa8 and type = 'sprint_completed'));
 
   -- Only a finish sends it.
   qa1 := pg_temp.rem_project(v_space2, 'Zz PNR finish 8', v_pmb, v_coord, v_dev, v_dev2, v_stake, v_qa);

@@ -653,12 +653,15 @@ begin
   insert into public.notifications (user_id, type, general_project_id, title, preview)
   select gm.user_id, 'sprint_completed'::public.notification_type, s.project_id,
          format('%s is finished', s.name),
-         format('%s of %s tasks done.', c.done, c.total)
-           || case when c.total = c.done then ''
-                   when nxt.id is not null
-                     then format(' %s moved to %s.', c.total - c.done, nxt.name)
-                   else format(' %s went back to the backlog.', c.total - c.done)
-              end
+         case when c.total = 0 then 'No tasks were in it.'
+              else format('%s of %s %s done.', c.done, c.total,
+                          case when c.total = 1 then 'task' else 'tasks' end)
+                   || case when c.total = c.done then ''
+                           when nxt.id is not null
+                             then format(' %s moved to %s.', c.total - c.done, nxt.name)
+                           else format(' %s went back to the backlog.', c.total - c.done)
+                      end
+         end
     from public.general_sprints s
     join public.general_projects gp on gp.id = s.project_id
     cross join lateral (

@@ -7,7 +7,7 @@ export type SprintEndDays = 1 | 2 | 3
 export type MilestoneDueDays = 1 | 2 | 3 | 7
 
 export type NotificationRules = {
-  /** Days before a sprint ends that its team is reminded. Null is off. */
+  /** Days before a sprint ends that the project manager and coordinators are reminded. Null is off. */
   sprintEndDays: SprintEndDays | null
   /** Holders and planners are told when a task slips past its due date. */
   taskOverdue: boolean

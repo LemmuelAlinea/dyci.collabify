@@ -4233,7 +4233,7 @@ Phase 2 group 5 from the Project Settings PDF (Notifications). Built on `main`, 
   `notificationDestination.ts`, and the Account → Notifications copy. Until the SQL is live,
   `getGeneralProject` falls back to the defaults when the columns are missing.
 - **Dry runs** (this file spliced into each suite with the new enum values swapped in the scratch copy, cron
-  calls stripped, rolled back): `project-notification-rules` 44 pass, plus the siblings
+  calls stripped, rolled back): `project-notification-rules` 46 pass, plus the siblings
   `project-milestone-rules`, `general-tasks`, `work-task-handoff`, `sprint-settings`,
   `sprint-reopen`, `sprint-milestones`, `work-milestones`, `project-task-rules` and
   `project-member-rules`, none failing. `npm run build`, the full vitest run, eslint on the changed
@@ -4244,7 +4244,8 @@ Phase 2 group 5 from the Project Settings PDF (Notifications). Built on `main`, 
   not free: its closing pre-mark silently stamps everything that qualifies at that moment (overdue
   released tasks, sprints within 3 days, milestones within 7), so those never get a notice. While
   "Overdue task alerts" is off, newly overdue tasks are stamped silently, so turning it on later sends no
-  backlog.
+  backlog. The 3-day and 7-day windows apply only to projects with that reminder off; a project with it
+  on is marked within its own setting.
 - **First apply silences 15 items (by design):** on 2026-11-02 the pre-mark would stamp 14 overdue live
   tasks and 1 milestone due within 2 days, so the first morning sends no old cases. Re-check the counts at
   deploy.
@@ -4259,5 +4260,10 @@ Phase 2 group 5 from the Project Settings PDF (Notifications). Built on `main`, 
   - Two finishes at the same moment can send two `sprint_completed` notices (pre-existing race).
   - `SettingRow` is duplicated in `MilestonesSection` and `NotificationsSection`; move it to a shared
     file when a third panel needs it.
+  - Rows that the daily job skips because they are locked at 00:00 UTC are caught up the next morning,
+    so a sprint that ends that day can miss its reminder.
+  - Test gaps: the pre-mark edge cases (a sprint beyond the window, archived or trashed projects, class
+    boards); the stakeholder and QA holder exclusion is not exercised; there is no read test for a
+    null reminder setting showing as Off.
 - **Next:** the owner checks Settings → Notifications and the notices in the browser; the next group from
   the Project Settings PDF follows.
