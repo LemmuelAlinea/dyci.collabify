@@ -37,7 +37,8 @@ export function destination(n: AppNotification, role: Role | null, teaches: bool
     case 'feedback_status':
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=feedback` : paths.home
     case 'task_sent_back':
-      // QA sent a task back: open the task, where the note is the newest comment.
+    case 'workflow_rule':
+      // QA sent a task back (the note is its newest comment), or a workflow rule acted on it: open the task.
       if (n.general_project_id) {
         return `${paths.project(n.general_project_id)}${n.general_task_id ? `?task=${n.general_task_id}` : ''}`
       }

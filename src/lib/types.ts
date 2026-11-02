@@ -224,6 +224,7 @@ export type AppNotification = {
     | 'general_task_overdue'
     | 'join_requested'
     | 'join_answered'
+    | 'workflow_rule'
   class_id: string | null
   announcement_id: string | null
   project_id: string | null

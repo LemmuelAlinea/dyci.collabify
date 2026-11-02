@@ -13,6 +13,7 @@ import { NotificationsSection } from './NotificationsSection'
 import { openSettingsRequests } from './openRequests'
 import { SprintsSection } from './SprintsSection'
 import { TasksSection } from './TasksSection'
+import { WorkflowSection } from './WorkflowSection'
 
 const SECTIONS: { id: SettingsSection; label: string; icon: IconName }[] = [
   { id: 'general', label: 'General', icon: 'settings' },
@@ -21,6 +22,7 @@ const SECTIONS: { id: SettingsSection; label: string; icon: IconName }[] = [
   { id: 'milestones', label: 'Milestones', icon: 'pin' },
   { id: 'members', label: 'Members & permissions', icon: 'users' },
   { id: 'notifications', label: 'Notifications', icon: 'bell' },
+  { id: 'workflow', label: 'Workflow rules', icon: 'spark' },
 ]
 
 export function ProjectSettings({ state }: { state: GeneralProjectState }) {
@@ -96,6 +98,8 @@ export function ProjectSettings({ state }: { state: GeneralProjectState }) {
           <MilestonesSection state={state} />
         ) : active === 'notifications' ? (
           <NotificationsSection state={state} />
+        ) : active === 'workflow' ? (
+          <WorkflowSection state={state} />
         ) : (
           <SprintsSection state={state} />
         )}

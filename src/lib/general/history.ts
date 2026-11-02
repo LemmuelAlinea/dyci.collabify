@@ -38,6 +38,30 @@ const HANDOFF_WORDS = {
   rerouted: 'rerouted %s to another team',
 } as const
 
+const NOTIFIED = {
+  team_lead: 'the team lead',
+  planners: 'the project manager and coordinators',
+  qa: 'QA',
+  holders: "the task's holders",
+  person: 'one person',
+} as const
+
+/** What a workflow rule did, as the start of a sentence: "Moved it to Review". */
+function ruleAction(detail: GeneralTaskEvent['detail'], nameOf: (id: string) => string) {
+  switch (detail.action) {
+    case 'notify':
+      return `Notified ${detail.notify_to ? NOTIFIED[detail.notify_to] : 'somebody'}`
+    case 'set_priority':
+      return `Set the priority to ${detail.priority ? `${detail.priority[0].toUpperCase()}${detail.priority.slice(1)}` : 'a new level'}`
+    case 'assign':
+      return `Assigned it to ${detail.user_id ? nameOf(detail.user_id) : 'somebody'}`
+    case 'move_stage':
+      return detail.stage_from ? `Moved it from ${detail.stage_from} to ${detail.stage}` : `Moved it to ${detail.stage ?? 'a new stage'}`
+    default:
+      return 'Changed it'
+  }
+}
+
 /** One line of a task's history, as a sentence. */
 export function describeEvent(event: GeneralTaskEvent, nameOf: (id: string) => string) {
   const actor = event.actor_id ? nameOf(event.actor_id) : 'Somebody'
@@ -98,7 +122,25 @@ export function describeEvent(event: GeneralTaskEvent, nameOf: (id: string) => s
       const note = event.detail.note?.trim()
       return note ? `${actor} sent it back: ${shorten(note, 120)}` : `${actor} sent it back`
     }
+    case 'rule_applied':
+      return `${ruleAction(event.detail, nameOf)} by the rule “${event.detail.rule_name ?? 'a rule'}”`
   }
+}
+
+const RULE_COMPANIONS = new Set<GeneralTaskEvent['kind']>(['updated', 'assigned', 'unassigned'])
+
+/**
+ * A task's history as lines, newest first as given. A rule's change writes two
+ * rows at the same instant: its own rule_applied row, and the 'updated' or
+ * 'assigned' row the history triggers write for any change, with no actor. The
+ * rule line already says it, so that second row is folded into it rather than
+ * read as "Somebody ...".
+ */
+export function describeHistory(events: readonly GeneralTaskEvent[], nameOf: (id: string) => string) {
+  const byRule = new Set(events.filter((e) => e.kind === 'rule_applied').map((e) => `${e.task_id}|${e.created_at}`))
+  return events
+    .filter((e) => !(e.actor_id === null && RULE_COMPANIONS.has(e.kind) && byRule.has(`${e.task_id}|${e.created_at}`)))
+    .map((e) => ({ id: e.id, event: e, text: describeEvent(e, nameOf) }))
 }
 
 /** One row of a report's activity timeline: what `general_report_activity` returns. */

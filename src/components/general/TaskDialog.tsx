@@ -30,7 +30,7 @@ import {
 import { trashTaskFile } from '../../lib/api/trash'
 import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue, toLocalInput } from '../../lib/general/dates'
-import { describeEvent } from '../../lib/general/history'
+import { describeHistory } from '../../lib/general/history'
 import { stageIndex, stageName, stagesOf, statusForStage } from '../../lib/stages'
 import { QA_PASSES, inQa } from '../../lib/work/qa'
 import type { GeneralTaskStatus } from '../../lib/general/progress'
@@ -424,9 +424,9 @@ function TaskBody({
         <section>
           <h3 className="text-[14px]">History</h3>
           <ul className="mt-2 space-y-1.5">
-            {events.map((e) => (
+            {describeHistory(events, state.nameOf).map(({ event: e, text }) => (
               <li key={e.id} className="text-[12px] text-muted">
-                {describeEvent(e, state.nameOf)}
+                {text}
                 {(['sent_to_coordinator', 'sent_to_team', 'rerouted', 'returned'].includes(e.kind)) && (() => {
                   const detail = e.detail as typeof e.detail & { old_team_id?: string | null; new_team_id?: string | null; former_holder_ids?: string[]; reviewer_id?: string | null }
                   const teamName = (id: string | null | undefined) => state.teams.find(t => t.id === id)?.name ?? (id ? 'Former team' : 'No team')

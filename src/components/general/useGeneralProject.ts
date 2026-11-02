@@ -20,6 +20,7 @@ import {
 } from '../../lib/api/general'
 import type { CommitRights } from '../../lib/api/general'
 import { listMilestoneDependencies, listMilestones } from '../../lib/api/milestones'
+import { listWorkflowRules } from '../../lib/api/workflowRules'
 import { getSprintSettings, isMissingSprintSettingsTable, listSprints } from '../../lib/api/sprints'
 import { isMissingRelation } from '../../lib/api/missingRelation'
 import { authErrorMessage } from '../../lib/authError'
@@ -28,6 +29,7 @@ import type { GeneralPermission, ProjectRole } from '../../lib/general/permissio
 import { effectiveRole, roleLookup } from '../../lib/general/roleLookup'
 import { qaBlocks } from '../../lib/work/qa'
 import type { TaskDependency } from '../../lib/general/taskRules'
+import type { WorkflowRule } from '../../lib/general/workflowRules'
 import type {
   GeneralAccessRequest,
   GeneralField,
@@ -74,6 +76,8 @@ export type GeneralProjectState = {
   milestones: Milestone[]
   /** Which milestone waits for which, across the project. */
   milestoneDependencies: MilestoneDependency[]
+  /** The project's workflow rules, in the order they run. */
+  workflowRules: WorkflowRule[]
   loading: boolean
   /** Loaded, and there is no project this viewer can see. */
   missing: boolean
@@ -154,6 +158,7 @@ export function useGeneralProject(
   const [sprintSettings, setSprintSettings] = useState<SprintSettings>(DEFAULT_SPRINT_SETTINGS)
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [milestoneDependencies, setMilestoneDependencies] = useState<MilestoneDependency[]>([])
+  const [workflowRules, setWorkflowRules] = useState<WorkflowRule[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [commitRights, setCommitRights] = useState<CommitRights>(NO_RIGHTS)
@@ -185,11 +190,12 @@ export function useGeneralProject(
         setSprintSettings(DEFAULT_SPRINT_SETTINGS)
         setMilestones([])
         setMilestoneDependencies([])
+        setWorkflowRules([])
         setCommitRights(NO_RIGHTS)
         setError(null)
         return
       }
-      const [m, g, r, t, tm, p, h, sk, f, tk, dp, sp, ms, md, cr, ss, jr] = await Promise.all([
+      const [m, g, r, t, tm, p, h, sk, f, tk, dp, sp, ms, md, cr, ss, jr, wr] = await Promise.all([
         listGeneralMembers(projectId),
         listGrants(projectId),
         listAccessRequests(projectId),
@@ -215,6 +221,7 @@ export function useGeneralProject(
           if (isMissingRelation(err, 'general_join_requests')) return [] as JoinRequest[]
           throw err
         }),
+        listWorkflowRules(projectId),
       ])
       setMembers(m)
       setGrants(g)
@@ -234,6 +241,7 @@ export function useGeneralProject(
       setSprintSettings(ss)
       setMilestones(ms)
       setMilestoneDependencies(md)
+      setWorkflowRules(wr)
       setCommitRights(cr)
       setValues(await listFieldValues(f.map((x) => x.id)))
       setError(null)
@@ -273,6 +281,7 @@ export function useGeneralProject(
     'general_join_requests',
     'general_milestones',
     'general_milestone_dependencies',
+    'general_workflow_rules',
     // A class board's Commit to Main follows its group's leader.
     'groups',
   ])
@@ -320,6 +329,7 @@ export function useGeneralProject(
       sprintSettings,
       milestones,
       milestoneDependencies,
+      workflowRules,
       loading,
       missing: !loading && !project && !error,
       error,
@@ -351,5 +361,5 @@ export function useGeneralProject(
       qaBlocks: (from: number, to: number) =>
         qaBlocks({ hasQa: Boolean(project?.has_qa), role: myRole }, project?.stages, project?.qa_stage, from, to),
     }
-  }, [project, members, grants, requests, teams, teamMembers, positions, holders, joinRequests, skills, fields, values, tasks, dependencies, sprints, sprintSettings, milestones, milestoneDependencies, loading, error, reload, viewerId, commitRights])
+  }, [project, members, grants, requests, teams, teamMembers, positions, holders, joinRequests, skills, fields, values, tasks, dependencies, sprints, sprintSettings, milestones, milestoneDependencies, workflowRules, loading, error, reload, viewerId, commitRights])
 }

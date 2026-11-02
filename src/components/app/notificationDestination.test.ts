@@ -30,3 +30,10 @@ it('opens the task for an overdue task notice and the Tasks tab for the planner 
   expect(destination(overdue({}), 'member', false)).toBe('/projects/p1?tab=tasks')
   expect(destination(note({ type: 'general_task_overdue' }), 'member', false)).toBe('/home')
 })
+
+it('opens the task for a workflow rule notice, and the project without one', () => {
+  const rule = (over: Partial<AppNotification>) => note({ type: 'workflow_rule', general_project_id: 'p1', ...over })
+  expect(destination(rule({ general_task_id: 't9' }), 'member', false)).toBe('/projects/p1?task=t9')
+  expect(destination(rule({}), 'member', false)).toBe('/projects/p1')
+  expect(destination(note({ type: 'workflow_rule' }), 'member', false)).toBe('/home')
+})

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ACTIVITY_KINDS, describeActivity, describeEvent } from './history'
+import { ACTIVITY_KINDS, describeActivity, describeEvent, describeHistory } from './history'
 import type { ActivityEvent } from './history'
 import type { GeneralTaskEvent } from './types'
 
@@ -319,5 +319,41 @@ describe('describeActivity on project roles', () => {
   it('offers the new kinds in the people filter', () => {
     const people = ACTIVITY_KINDS.find((k) => k.label === 'Project and people')?.kinds ?? []
     for (const kind of ['member_role', 'pm_handover', 'team_leader']) expect(people).toContain(kind)
+  })
+})
+
+describe('history lines for rule changes', () => {
+  const rule = (detail: Record<string, unknown>) =>
+    event({ id: 'r1', actor_id: null, kind: 'rule_applied', created_at: '2026-11-01T01:00:00Z', detail: { rule_id: 'x', rule_name: 'Tell QA', ...detail } as never })
+
+  it('says what a rule did and names the rule', () => {
+    const line = (detail: Record<string, unknown>) => describeEvent(rule(detail), nameOf)
+    expect(line({ action: 'move_stage', stage: 'Review', stage_from: 'Doing' })).toBe('Moved it from Doing to Review by the rule “Tell QA”')
+    expect(line({ action: 'move_stage', stage: 'Review' })).toBe('Moved it to Review by the rule “Tell QA”')
+    expect(line({ action: 'set_priority', priority: 'urgent', priority_from: 'low' })).toBe('Set the priority to Urgent by the rule “Tell QA”')
+    expect(line({ action: 'assign', user_id: 'b' })).toBe('Assigned it to Ben Cruz by the rule “Tell QA”')
+    expect(line({ action: 'notify', notify_to: 'team_lead', recipients: 1 })).toBe('Notified the team lead by the rule “Tell QA”')
+    expect(line({ action: 'notify', notify_to: 'planners', recipients: 2 })).toBe('Notified the project manager and coordinators by the rule “Tell QA”')
+    expect(line({ action: 'notify', notify_to: 'holders', recipients: 1 })).toBe("Notified the task's holders by the rule “Tell QA”")
+    expect(line({ action: 'notify', notify_to: 'qa', recipients: 1 })).toBe('Notified QA by the rule “Tell QA”')
+    expect(line({ action: 'notify', notify_to: 'person', recipients: 1 })).toBe('Notified one person by the rule “Tell QA”')
+  })
+
+  it('folds the null-actor row a rule change leaves into the rule line, so nobody is Somebody', () => {
+    const moved = event({ id: 'u1', actor_id: null, kind: 'updated', created_at: '2026-11-01T01:00:00Z', detail: { fields: ['status'], status: 'in_progress' } })
+    const assigned = event({ id: 'u2', actor_id: null, kind: 'assigned', created_at: '2026-11-01T01:00:00Z', detail: { user_id: 'b' } })
+    const unassigned = event({ id: 'u3', actor_id: null, kind: 'unassigned', created_at: '2026-11-01T01:00:00Z', detail: { user_id: 'b' } })
+    const lines = describeHistory([moved, assigned, unassigned, rule({ action: 'move_stage', stage: 'Review' })], nameOf)
+    expect(lines.map((l) => l.id)).toEqual(['r1'])
+    expect(lines[0].text).toBe('Moved it to Review by the rule “Tell QA”')
+  })
+
+  it('keeps a null-actor row that no rule explains, and rows at other times, on other tasks or by a person', () => {
+    const stray = event({ id: 'u1', actor_id: null, kind: 'updated', created_at: '2026-11-01T02:00:00Z', detail: { fields: ['status'], status: 'done' } })
+    const other = event({ id: 'u2', actor_id: null, kind: 'updated', task_id: 't2', created_at: '2026-11-01T01:00:00Z', detail: { fields: ['status'], status: 'done' } })
+    const person = event({ id: 'u3', actor_id: 'a', kind: 'updated', created_at: '2026-11-01T01:00:00Z', detail: { fields: ['status'], status: 'done' } })
+    const lines = describeHistory([stray, other, person, rule({ action: 'move_stage', stage: 'Review' })], nameOf)
+    expect(lines.map((l) => l.id)).toEqual(['u1', 'u2', 'u3', 'r1'])
+    expect(lines[0].text).toBe('Somebody moved it to Done')
   })
 })

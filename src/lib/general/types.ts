@@ -421,7 +421,7 @@ export type GeneralTaskEvent = {
   project_id: string
   actor_id: string | null
   kind: 'created' | 'updated' | 'assigned' | 'unassigned' | 'qa_passed' | 'qa_sent_back'
-    | 'sent_to_coordinator' | 'returned' | 'sent_to_team' | 'rerouted'
+    | 'sent_to_coordinator' | 'returned' | 'sent_to_team' | 'rerouted' | 'rule_applied'
   /**
    * What the change was. The short fields carry what they changed from, so the
    * history answers "what did it used to say" rather than only "this moved".
@@ -444,6 +444,16 @@ export type GeneralTaskEvent = {
     /** What QA asked to have fixed, on a qa_sent_back event. */
     note?: string
     reason?: string
+    /** On a rule_applied event: the rule, what it did, and what changed. Written by the rule runner, with no actor. */
+    rule_id?: string
+    rule_name?: string
+    action?: 'notify' | 'set_priority' | 'assign' | 'move_stage'
+    notify_to?: 'team_lead' | 'planners' | 'qa' | 'holders' | 'person'
+    recipients?: number
+    priority?: string
+    priority_from?: string
+    stage?: string
+    stage_from?: string
   }
   created_at: string
 }

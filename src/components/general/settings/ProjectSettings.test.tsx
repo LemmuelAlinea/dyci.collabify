@@ -13,6 +13,7 @@ vi.mock('./TasksSection', () => ({ TasksSection: () => 'Tasks content' }))
 vi.mock('./SprintsSection', () => ({ SprintsSection: () => 'Sprints content' }))
 vi.mock('./MilestonesSection', () => ({ MilestonesSection: () => 'Milestones content' }))
 vi.mock('./NotificationsSection', () => ({ NotificationsSection: () => 'Notifications content' }))
+vi.mock('./WorkflowSection', () => ({ WorkflowSection: () => 'Workflow content' }))
 
 function Where() {
   const location = useLocation()
@@ -51,7 +52,7 @@ const item = (container: HTMLElement, label: string) =>
 it('lists the sections and opens General by default', async () => {
   await renderAt('tab=settings', async (container) => {
     expect([...container.querySelectorAll('nav button')].map((b) => b.textContent)).toEqual([
-      'General', 'Sprints', 'Tasks', 'Milestones', 'Members & permissions', 'Notifications',
+      'General', 'Sprints', 'Tasks', 'Milestones', 'Members & permissions', 'Notifications', 'Workflow rules',
     ])
     expect(item(container, 'General').getAttribute('aria-current')).toBe('page')
     expect(container.textContent).toContain('General content')
@@ -86,6 +87,13 @@ it('opens Notifications from its section link', async () => {
   await renderAt('tab=settings&section=notifications', async (container) => {
     expect(item(container, 'Notifications').getAttribute('aria-current')).toBe('page')
     expect(container.textContent).toContain('Notifications content')
+  })
+})
+
+it('opens Workflow rules from its section link', async () => {
+  await renderAt('tab=settings&section=workflow', async (container) => {
+    expect(item(container, 'Workflow rules').getAttribute('aria-current')).toBe('page')
+    expect(container.textContent).toContain('Workflow content')
   })
 })
 
