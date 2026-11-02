@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 /**
  * A page's banner: its name and what it is for. No figures — the counts a
@@ -12,6 +12,7 @@ export function DirectoryHero({
   corner,
   mark,
   accentClass = 'text-banner-accent',
+  accentStyle,
 }: {
   title: string
   accent: string
@@ -23,7 +24,14 @@ export function DirectoryHero({
   mark?: ReactNode
   /** The accent word's color, when the page sets its own instead of the person's banner accent. */
   accentClass?: string
+  /** A project's own color for the accent word, which no class can name. */
+  accentStyle?: CSSProperties
 }) {
+  const accentWord = (
+    <span className={accentStyle ? undefined : accentClass} style={accentStyle}>
+      {accent}
+    </span>
+  )
   return (
     <section className="relative overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-4 py-5 text-banner-ink sm:px-7 sm:py-8 lg:px-9 lg:py-9">
       <div
@@ -50,12 +58,12 @@ export function DirectoryHero({
               <>
                 {mark}
                 <span className="min-w-0 break-words">
-                  {title} <span className={accentClass}>{accent}</span>
+                  {title} {accentWord}
                 </span>
               </>
             ) : (
               <>
-                {title} <span className={accentClass}>{accent}</span>
+                {title} {accentWord}
               </>
             )}
           </h1>

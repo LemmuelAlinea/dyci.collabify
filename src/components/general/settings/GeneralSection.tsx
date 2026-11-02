@@ -25,7 +25,17 @@ import { authErrorMessage } from '../../../lib/authError'
 import { ProjectDeletedError } from '../../../lib/general/projectDeleted'
 import { paths } from '../../../lib/paths'
 import { checkFieldValue, isEmptyValue } from '../../../lib/general/fields'
-import { PROJECT_COLORS, PROJECT_ICONS, PROJECT_VIEWS, SWATCH_CLASS, projectLookLabel } from '../../../lib/general/projectLook'
+import {
+  PROJECT_COLORS,
+  PROJECT_ICONS,
+  PROJECT_VIEWS,
+  SWATCH_CLASS,
+  colorAccent,
+  isCustomColor,
+  projectLookLabel,
+} from '../../../lib/general/projectLook'
+import { inkFor, normalizeHex } from '../../../lib/palette'
+import { ProjectMark } from '../ProjectMark'
 import { PROJECT_STATUSES } from '../../../lib/general/types'
 import type {
   GeneralField,
@@ -137,6 +147,8 @@ function LookPanel({ state }: { state: GeneralProjectState }) {
       <div className="space-y-6">
         {error && <Alert tone="error">{error}</Alert>}
 
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_272px] lg:items-start">
+        <div className="min-w-0 space-y-6">
         <fieldset className="min-w-0 space-y-2">
           <legend className="text-[13px] font-medium text-ink">Color</legend>
           <div className="flex flex-wrap gap-2">
@@ -170,6 +182,12 @@ function LookPanel({ state }: { state: GeneralProjectState }) {
                 </span>
               </label>
             ))}
+            <CustomColor
+              group={group}
+              value={isCustomColor(look.color) ? look.color : null}
+              disabled={!editable}
+              onPick={(hex) => set('color', hex)}
+            />
           </div>
         </fieldset>
 
@@ -209,6 +227,10 @@ function LookPanel({ state }: { state: GeneralProjectState }) {
             ))}
           </div>
         </fieldset>
+        </div>
+
+        <LookPreview name={p.name} color={look.color} icon={look.icon} />
+        </div>
 
         <div className="max-w-sm">
           <Field label="Default view">
@@ -280,6 +302,144 @@ function DetailsPanel({ state }: { state: GeneralProjectState }) {
         )}
       </header>
       {open ? <DetailsForm state={state} onDone={() => setEditing(false)} /> : <DetailsView state={state} />}
+    </section>
+  )
+}
+
+/** Where the native picker starts before a custom color has been chosen. */
+const CUSTOM_START = '#3a6ff7'
+
+/**
+ * The color tile for any color: picking it, or dragging in its picker, makes
+ * the project's color the one chosen. The hex box takes a typed code.
+ */
+function CustomColor({
+  group,
+  value,
+  disabled,
+  onPick,
+}: {
+  group: string
+  value: `#${string}` | null
+  disabled: boolean
+  onPick: (hex: `#${string}`) => void
+}) {
+  // What is typed in the hex box, only while it is being edited.
+  const [draft, setDraft] = useState<string | null>(null)
+  const shown = value ?? CUSTOM_START
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <label className={`${PICK.replace('grid ', 'flex items-center ')} gap-2 px-2`} title="Custom color">
+        <input
+          type="radio"
+          name={`${group}-color`}
+          value="custom"
+          aria-label="Custom color"
+          checked={value !== null}
+          disabled={disabled}
+          onChange={() => onPick(shown as `#${string}`)}
+          className="sr-only"
+        />
+        <span
+          aria-hidden
+          className="grid h-7 w-7 place-items-center rounded-lg border border-line-strong"
+          style={
+            value
+              ? { background: value, color: inkFor(value) }
+              : {
+                  background:
+                    'conic-gradient(var(--swatch-rose), var(--swatch-orange), var(--swatch-amber), var(--swatch-green), var(--swatch-teal), var(--swatch-navy), var(--swatch-violet), var(--swatch-rose))',
+                }
+          }
+        >
+          {value && <Icon name="check" size={14} />}
+        </span>
+        <span aria-hidden className="text-[12px]">Custom</span>
+      </label>
+      {value !== null && (
+        <>
+          <label className="flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-2.5 text-[13px] text-ink has-[:disabled]:cursor-default has-[:disabled]:opacity-60">
+            <input
+              type="color"
+              value={value}
+              disabled={disabled}
+              onChange={(e) => {
+                const hex = normalizeHex(e.target.value)
+                if (hex) onPick(hex as `#${string}`)
+              }}
+              className="h-6 w-7 cursor-pointer border-0 bg-transparent p-0"
+              aria-label="Pick any color"
+            />
+            Any color
+          </label>
+          <input
+            value={draft ?? value}
+            disabled={disabled}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => {
+              // Anything that is not a color falls back to the one in use.
+              const hex = draft === null ? null : normalizeHex(draft)
+              if (hex && hex !== value) onPick(hex as `#${string}`)
+              setDraft(null)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+            }}
+            aria-label="Hex code"
+            spellCheck={false}
+            className="h-11 w-[104px] rounded-xl border border-[var(--control-line)] bg-[var(--surface)] px-2.5 font-mono text-[13px] text-ink disabled:opacity-60"
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
+/** How the chosen color and icon will look: a project card, the side menu and the project banner. */
+function LookPreview({
+  name,
+  color,
+  icon,
+}: {
+  name: string
+  color: ProjectColor | null
+  icon: ProjectIcon | null
+}) {
+  const accent = color ? colorAccent(color) : null
+  return (
+    <section aria-label="Preview" className="space-y-3 lg:sticky lg:top-4">
+      <p className="eyebrow text-faint">Preview</p>
+
+      <div className="rounded-xl border border-line bg-[var(--surface)] p-3.5">
+        <div className="flex items-center gap-3">
+          <ProjectMark color={color} icon={icon} name={name} size="lg" fallbackIcon="kanban" />
+          <div className="min-w-0">
+            <p className="truncate font-display text-[15px] font-semibold text-ink">{name}</p>
+            <p className="text-[12px] text-muted">Project card</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-line bg-[var(--surface-sunken)] p-2.5">
+        <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
+          <ProjectMark color={color} icon={icon} name={name} size="sm" />
+          <span className="min-w-0 truncate text-[13px] text-ink">{name}</span>
+        </div>
+        <p className="mt-1 px-2 text-[11px] text-faint">Side menu</p>
+      </div>
+
+      <div className="relative overflow-hidden rounded-xl banner-fill px-3.5 py-3 text-banner-ink">
+        <div className="flex items-center gap-2.5">
+          {(color || icon) && <ProjectMark color={color} icon={icon} name={name} size="lg" />}
+          <p className="min-w-0 font-display text-[15px] font-semibold leading-snug">
+            <span className="break-words">{name}</span>{' '}
+            <span className={accent?.style ? undefined : (accent?.className ?? 'text-banner-accent')} style={accent?.style}>
+              project.
+            </span>
+          </p>
+        </div>
+        <p className="mt-1.5 text-[11px] text-banner-ink/60">Project banner</p>
+      </div>
     </section>
   )
 }

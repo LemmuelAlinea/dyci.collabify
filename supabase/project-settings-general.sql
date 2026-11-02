@@ -71,6 +71,12 @@ alter table public.general_projects
   add column if not exists visibility text not null default 'private'
     check (visibility in ('private', 'workspace'));
 
+-- A color is one of the named swatches or the project manager's own #rrggbb.
+alter table public.general_projects drop constraint if exists general_projects_color_check;
+alter table public.general_projects add constraint general_projects_color_check
+  check (color in ('navy', 'amber', 'green', 'teal', 'violet', 'rose', 'orange', 'slate')
+         or color ~ '^#[0-9a-f]{6}$');
+
 -- Workspace visibility is for work projects; a class board's Files project keeps its own access.
 do $$ begin
   alter table public.general_projects add constraint general_projects_visibility_work

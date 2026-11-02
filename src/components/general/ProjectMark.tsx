@@ -1,7 +1,7 @@
 // src/components/general/ProjectMark.tsx
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
-import { SWATCH_CLASS } from '../../lib/general/projectLook'
+import { colorTile } from '../../lib/general/projectLook'
 import type { ProjectColor, ProjectIcon } from '../../lib/general/types'
 
 type Size = 'sm' | 'lg'
@@ -46,14 +46,15 @@ export function ProjectMark({
   fallbackIcon?: IconName
 }) {
   const s = SIZE[size]
-  const ground = color
-    ? SWATCH_CLASS[color].tile
+  const tile = color ? colorTile(color) : null
+  const ground = tile
+    ? (tile.className ?? '')
     : active && size === 'sm'
       ? 'bg-nav-active text-nav-active-ink'
       : s.plain
   const glyph: IconName | undefined = icon ?? fallbackIcon
   return (
-    <span aria-hidden className={`grid shrink-0 place-items-center ${s.box} ${ground}`}>
+    <span aria-hidden className={`grid shrink-0 place-items-center ${s.box} ${ground}`} style={tile?.style}>
       {glyph ? <Icon name={glyph} size={s.icon} /> : name.trim().charAt(0).toUpperCase() || 'P'}
     </span>
   )

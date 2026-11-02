@@ -67,7 +67,10 @@ export type GeneralProject = {
   notificationRules?: NotificationRules
 }
 
-export type ProjectColor = 'navy' | 'amber' | 'green' | 'teal' | 'violet' | 'rose' | 'orange' | 'slate'
+export type ProjectSwatch = 'navy' | 'amber' | 'green' | 'teal' | 'violet' | 'rose' | 'orange' | 'slate'
+
+/** A named swatch, or the project manager's own color as lower-case `#rrggbb`. */
+export type ProjectColor = ProjectSwatch | `#${string}`
 
 /** Each name is an IconName; PROJECT_ICONS in projectLook.ts is checked against it. */
 export type ProjectIcon =

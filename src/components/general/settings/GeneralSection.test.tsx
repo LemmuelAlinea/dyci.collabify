@@ -183,6 +183,43 @@ it('starts from what the project already has and can clear a color', async () =>
   })
 })
 
+it('saves a custom color picked or typed as a hex code', async () => {
+  await show(makeState())
+  expect(host.querySelector('input[aria-label="Hex code"]')).toBeNull()
+  await pick('color', 'custom')
+  const hex = host.querySelector<HTMLInputElement>('input[aria-label="Hex code"]')!
+  await type(hex, '#1F9E89')
+  await act(async () => hex.dispatchEvent(new FocusEvent('focusout', { bubbles: true })))
+  await act(async () => button(host, 'Save look and access')!.click())
+  expect(updateGeneralProject).toHaveBeenCalledWith('p1', {
+    color: '#1f9e89', icon: null, default_view: 'overview', visibility: 'private',
+  })
+})
+
+it('keeps the color in use when the hex box holds no color', async () => {
+  await show(makeState({}, { color: '#1f9e89' }))
+  expect(radio('color', 'custom').checked).toBe(true)
+  const hex = host.querySelector<HTMLInputElement>('input[aria-label="Hex code"]')!
+  await type(hex, 'not a color')
+  await act(async () => hex.dispatchEvent(new FocusEvent('focusout', { bubbles: true })))
+  expect(hex.value).toBe('#1f9e89')
+  expect(button(host, 'Save look and access')!.disabled).toBe(true)
+})
+
+it('previews the picked color and icon before saving', async () => {
+  await show(makeState())
+  const preview = host.querySelector<HTMLElement>('section[aria-label="Preview"]')!
+  expect(preview.textContent).toContain('Project card')
+  expect(preview.textContent).toContain('Side menu')
+  expect(preview.textContent).toContain('Project banner')
+  await pick('color', 'custom')
+  await pick('icon', 'bell')
+  const tiles = [...preview.querySelectorAll<HTMLElement>('span[aria-hidden][style]')]
+  expect(tiles.length).toBeGreaterThanOrEqual(3)
+  expect(tiles.every((t) => t.style.background !== '')).toBe(true)
+  expect(preview.querySelectorAll('svg').length).toBeGreaterThanOrEqual(3)
+})
+
 it('describes both visibility choices', async () => {
   await show(makeState())
   expect(host.textContent).toContain('Only members and space owners can open it.')

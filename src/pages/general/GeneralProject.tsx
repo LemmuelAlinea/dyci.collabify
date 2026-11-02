@@ -24,7 +24,7 @@ import { useGeneralNavigation } from '../../context/generalNavigation'
 import { dateRange } from '../../lib/general/dates'
 import { generalTab } from '../../lib/general/navigation'
 import type { GeneralTabId } from '../../lib/general/navigation'
-import { SWATCH_CLASS } from '../../lib/general/projectLook'
+import { colorAccent } from '../../lib/general/projectLook'
 import { ROLE_LABEL } from '../../lib/general/permissions'
 import { projectStatusLabel } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
@@ -149,7 +149,8 @@ export default function GeneralProject() {
         title={p.name}
         mark={p.color || p.icon ? <ProjectMark color={p.color} icon={p.icon} name={p.name} size="lg" /> : undefined}
         accent={p.archived_at ? 'archived.' : 'project.'}
-        accentClass={p.color ? SWATCH_CLASS[p.color].accent : undefined}
+        accentClass={p.color ? colorAccent(p.color).className : undefined}
+        accentStyle={p.color ? colorAccent(p.color).style : undefined}
         description={`${projectStatusLabel(p.status)} · Your role: ${p.my_role ? ROLE_LABEL[p.my_role] : 'watching from the space'} · ${dateRange(p.starts_on, p.ends_on)} · ${p.member_count} ${p.member_count === 1 ? 'member' : 'members'} · ${Number(p.progress_pct)}% done`}
         action={
           <div className="flex flex-wrap gap-1.5">
