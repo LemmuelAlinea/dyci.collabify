@@ -105,13 +105,17 @@
 --                   change when they already hold it. The person is told
 --                   ("{task} was given to you", same preview), with their own
 --                   "Task assignments" on, unless the change was theirs.
---     move_stage    never to the last stage, never past an active QA stage;
---                   no change when it is already there
+--     move_stage    never to the last stage, never past an active QA stage,
+--                   never out of Done; no change when it is already there
 --   Rule-limit skips: "Stage {name} no longer exists.", "{name} is no longer
 --   in the project.", "{name} is a stakeholder now." (a person to notify),
---   "{name} isn't on the task's team.", "{name} can't hold tasks.", "A task can't be moved past QA by a rule.", "A task can't be
---   moved to the last stage by a rule." Nobody to tell and no change are not
---   skips and write nothing. Each applied action writes a rule_applied history
+--   "{name} isn't on the task's team.", "{name} can't hold tasks.", "A task
+--   can't be moved past QA by a rule.", "A task can't be moved to the last
+--   stage by a rule.", "A rule doesn't reopen finished work." A task taken
+--   out of the work meanwhile (no longer released, archived or trashed) is
+--   left alone. A failed skip write is ignored. Nobody to tell and no change
+--   are not skips and write nothing. Both fire functions return at once when
+--   the project has no enabled rules. Each applied action writes a rule_applied history
 --   row with no actor and detail {rule_id, rule_name, action, ...}.
 --   general_workflow_rule_sentence(rule) is the rule as a sentence.
 --
@@ -480,6 +484,11 @@ declare
   v_detail jsonb;
 begin
   select * into t from public.general_tasks where id = p_task for update;
+  -- An earlier rule or a concurrent change may have taken it out of the work.
+  if t.id is null or t.routing_state is distinct from 'released'
+     or t.archived_at is not null or t.trashed_at is not null then
+    return null;
+  end if;
   select * into gp from public.general_projects where id = t.project_id;
   n := public.stage_count(gp.stages);
   v_idx := public.general_task_stage_at(t.status, t.stage, n);
@@ -585,6 +594,9 @@ begin
     select * into v_target from public.general_workflow_stage(t.project_id, p_rule.action_stage);
     if not found then
       return format('Stage %s no longer exists.', p_rule.action_stage);
+    end if;
+    if t.status = 'done' then
+      return 'A rule doesn''t reopen finished work.';
     end if;
     if v_target.idx >= v_target.n - 1 then
       return 'A task can''t be moved to the last stage by a rule.';
@@ -695,9 +707,14 @@ begin
         v_skip := sqlerrm;   -- the database refused it; the savepoint undid it
       end;
       if v_skip is not null then
-        update public.general_workflow_rules
-           set last_skipped_at = now(), last_skip_reason = left(v_skip, 500)
-         where id = r.id;
+        -- A failed skip write never undoes the person's change.
+        begin
+          update public.general_workflow_rules
+             set last_skipped_at = now(), last_skip_reason = left(v_skip, 500)
+           where id = r.id;
+        exception when others then
+          null;
+        end;
       end if;
     end loop;
     perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
@@ -731,6 +748,11 @@ declare
   new_i    int;
   me       uuid := auth.uid();
 begin
+  -- Most projects have no rules: one index lookup and out.
+  if not exists (select 1 from public.general_workflow_rules w
+                  where w.project_id = new.project_id and w.enabled) then
+    return null;
+  end if;
   if coalesce(current_setting('collabify.workflow_rule_run', true), '') = 'on'
      or new.routing_state is distinct from 'released' then
     return null;
@@ -783,6 +805,10 @@ security definer
 set search_path = public
 as $$
 begin
+  if not exists (select 1 from public.general_workflow_rules w
+                  where w.project_id = new.project_id and w.enabled) then
+    return null;
+  end if;
   if coalesce(current_setting('collabify.reminder_premark', true), '') = 'on'
      or coalesce(current_setting('collabify.workflow_rule_run', true), '') = 'on' then
     return null;

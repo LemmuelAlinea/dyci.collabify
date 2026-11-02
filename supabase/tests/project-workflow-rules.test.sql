@@ -1107,6 +1107,19 @@ begin
     (select priority = 'low' from public.general_tasks where id = t)
     and pg_temp.applied(t, r1) = 1 and pg_temp.applied(t, r2) = 1);
 
+  ------------------------------------------------------------ finished work
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'stage_entered', 'Done', 'move_stage', 'Review');
+  t := pg_temp.team_task(p, 'Zz WFR finished', ta, v_dev, v_pm, 2);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 3 where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a rule does not reopen finished work',
+    (select stage = 3 and status = 'done' from public.general_tasks where id = t)
+    and pg_temp.applied(t, r1) = 0
+    and pg_temp.skip_of(r1) = 'A rule doesn''t reopen finished work.');
+
   ------------------------------------------------------------ sentences
   perform pg_temp.act_as(v_pm);
   delete from public.general_workflow_rules where project_id = p;
