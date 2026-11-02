@@ -1,10 +1,9 @@
 -- supabase/project-workflow-rules.sql
 --
 -- A work project's workflow rules: "When {trigger}, then {action}", one of
--- each per rule, at most 20 per project, each on or off. This part holds the
--- rules table, who reads and writes it, the write-time checks, the
--- notification type and the history event kind; the rule runner comes after
--- it in this file.
+-- each per rule, at most 20 per project, each on or off: the rules table, who
+-- reads and writes it, the write-time checks, the notification type, the
+-- history event kind and the rule runner.
 --
 -- general_workflow_rules, one row per rule:
 --   trigger_kind     stage_entered (trigger_stage, a stage name)
@@ -70,6 +69,51 @@
 -- the general_task_events_kind check, last written by work-task-handoff.sql;
 -- actor_id is nullable, so a rule's entry carries no person).
 --
+-- The runner, run_general_workflow_rules(task, trigger, actor, context):
+--   fired by general_tasks_zzz_workflow (after update, after every other
+--   general_tasks trigger) and general_task_reminders_workflow (after insert):
+--     task_released    routing_state became released (not a subtask, which
+--                      follows its parent): a first send and a re-send after a
+--                      return, never a reroute
+--     stage_entered    a released task's stage changed into the rule's stage
+--                      (by name, case-insensitive; a renamed stage never fires)
+--     priority_raised  the priority went from below the rule's level to it or
+--                      above (High means High or Urgent)
+--     task_overdue     the morning run's overdue stamp; not the silent
+--                      pre-mark of mark_project_reminders_sent, which sets
+--                      collabify.reminder_premark around its stamps
+--   Only released, live tasks of live work projects; class boards never.
+--   The enabled rules for the trigger run in creation order, each in its own
+--   savepoint, with collabify.workflow_rule_run on (so a rule's own change
+--   sets off no rules, and the rule row's skip fields accept the write) and
+--   the request's JWT claims cleared (the rule acts for the project, as
+--   create_general_subtask does); both are restored afterwards. The existing
+--   task guards still apply: a refusal skips that action only, records its
+--   message, and the person's change stays.
+--   Actions (apply_general_workflow_rule):
+--     notify        workflow_rule to the team lead, the planners, QA, the
+--                   holders or the person: current active members, not
+--                   stakeholders, not the person whose change set it off,
+--                   with their own "Task assignments" on. Titles "{task}
+--                   moved to {stage}", "{task} was sent to {team}" ("was sent
+--                   out" with no team), "{task} is overdue", "{task} is now
+--                   {Priority}"; preview "From the rule “{name or sentence}”."
+--     set_priority  no change when it already has that priority
+--     assign        only someone on the task's team who may hold tasks; no
+--                   change when they already hold it
+--     move_stage    never to the last stage, never past an active QA stage;
+--                   no change when it is already there
+--   Rule-limit skips: "Stage {name} no longer exists.", "{name} is no longer
+--   in the project.", "{name} isn't on the task's team.", "{name} can't hold
+--   tasks.", "A task can't be moved past QA by a rule.", "A task can't be
+--   moved to the last stage by a rule." Nobody to tell and no change are not
+--   skips and write nothing. Each applied action writes a rule_applied history
+--   row with no actor and detail {rule_id, rule_name, action, ...}.
+--   general_workflow_rule_sentence(rule) is the rule as a sentence.
+--
+-- Redefined from its live definition: mark_project_reminders_sent (owned by
+-- project-notification-rules.sql), unchanged except for the pre-mark flag.
+--
 -- In realtime, replica identity full.
 --
 -- Class boards and class tables are untouched.
@@ -77,7 +121,10 @@
 -- Run after project-notification-rules.sql, then anon-lockdown.sql. Re-running
 -- work-task-handoff.sql or project-qa.sql (each rewrites
 -- general_task_events_kind) means re-running this file afterwards, then
--- anon-lockdown.sql; otherwise rule_applied is refused.
+-- anon-lockdown.sql; otherwise rule_applied is refused. Re-running
+-- project-notification-rules.sql means re-running this file afterwards too:
+-- it puts back mark_project_reminders_sent without the pre-mark flag, and its
+-- own closing pre-mark then sets off "becomes overdue" rules.
 --
 -- Idempotent. Safe to re-run.
 
@@ -366,8 +413,450 @@ begin
   alter table public.general_workflow_rules replica identity full;
 end $$;
 
+-- ---------------------------------------------------------------- the runner
+
+/**
+ * A rule as one sentence, e.g. "When a task moves to Review, notify the team
+ * lead". The app has its own copy (lib/general/workflowRules.ts).
+ */
+create or replace function public.general_workflow_rule_sentence(p_rule public.general_workflow_rules)
+returns text language sql stable security definer set search_path = public as $$
+  select 'When '
+      || case p_rule.trigger_kind
+           when 'stage_entered' then 'a task moves to ' || p_rule.trigger_stage
+           when 'task_released' then 'a task is sent to a team'
+           when 'task_overdue'  then 'a task becomes overdue'
+           else 'a task''s priority is raised to ' || initcap(p_rule.trigger_priority)
+         end
+      || ', '
+      || case p_rule.action_kind
+           when 'notify' then 'notify ' || case p_rule.notify_to
+               when 'team_lead' then 'the team lead'
+               when 'planners'  then 'the project manager and coordinators'
+               when 'qa'        then 'QA'
+               when 'holders'   then 'the task''s holders'
+               else coalesce(x.who, 'someone no longer in the project')
+             end
+           when 'set_priority' then 'set the priority to ' || initcap(p_rule.action_priority)
+           when 'assign' then 'assign ' || coalesce(x.who, 'someone no longer in the project')
+           else 'move it to ' || p_rule.action_stage
+         end
+    from (select (select nullif(btrim(coalesce(pr.first_name, '') || ' ' || coalesce(pr.last_name, '')), '')
+                    from public.profiles pr where pr.id = p_rule.person_id) as who) x
+$$;
+
+/**
+ * Applies one rule to a released task, as the project. Called only by
+ * run_general_workflow_rules, inside its savepoint, with the request's claims
+ * cleared and collabify.workflow_rule_run on. Returns null when the action
+ * was applied or changed nothing, or the reason a rule limit skips it. A
+ * database refusal raises, and the runner records its message. An applied
+ * action writes a rule_applied history row (no actor; detail rule_id,
+ * rule_name, action, plus what it did). p_value is the stage entered or the
+ * priority reached, for the notice's title.
+ */
+create or replace function public.apply_general_workflow_rule(
+  p_rule public.general_workflow_rules, p_task uuid, p_trigger text, p_actor uuid, p_value text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  t        public.general_tasks%rowtype;
+  gp       public.general_projects%rowtype;
+  n        int;
+  v_idx    int;
+  v_who    text;
+  v_role   text;
+  v_team   text;
+  v_title  text;
+  v_target record;
+  v_sent   int;
+  v_detail jsonb;
+begin
+  select * into t from public.general_tasks where id = p_task for update;
+  select * into gp from public.general_projects where id = t.project_id;
+  n := public.stage_count(gp.stages);
+  v_idx := public.general_task_stage_at(t.status, t.stage, n);
+
+  if p_rule.action_kind = 'assign' or p_rule.notify_to = 'person' then
+    select nullif(btrim(coalesce(pr.first_name, '') || ' ' || coalesce(pr.last_name, '')), '')
+      into v_who from public.profiles pr where pr.id = p_rule.person_id;
+    v_who := coalesce(v_who, 'The rule''s person');
+    select m.role::text into v_role
+      from public.general_members m
+      join public.profiles pr on pr.id = m.user_id
+     where m.project_id = t.project_id and m.user_id = p_rule.person_id and pr.status = 'active';
+    if v_role is null then
+      return format('%s is no longer in the project.', v_who);
+    end if;
+  end if;
+
+  case p_rule.action_kind
+  when 'notify' then
+    select g.name into v_team from public.general_teams g where g.id = t.team_id;
+    v_title := case p_trigger
+      when 'stage_entered' then format('%s moved to %s', t.title, p_value)
+      when 'task_released' then
+        case when v_team is null then format('%s was sent out', t.title)
+             else format('%s was sent to %s', t.title, v_team) end
+      when 'task_overdue' then format('%s is overdue', t.title)
+      else format('%s is now %s', t.title, initcap(p_value))
+    end;
+    insert into public.notifications
+      (user_id, type, general_project_id, general_task_id, title, preview)
+    select m.user_id, 'workflow_rule'::public.notification_type, t.project_id, t.id, v_title,
+           format('From the rule “%s”.',
+                  coalesce(nullif(p_rule.name, ''), public.general_workflow_rule_sentence(p_rule)))
+      from public.general_members m
+      join public.profiles pr on pr.id = m.user_id
+      join public.notification_prefs np on np.user_id = m.user_id and np.task_assignments
+     where m.project_id = t.project_id
+       and m.role <> 'stakeholder'
+       and pr.status = 'active'
+       and m.user_id is distinct from p_actor
+       and case p_rule.notify_to
+             when 'team_lead' then exists (
+               select 1 from public.general_teams g
+                 join public.general_team_members tm
+                   on tm.team_id = g.id and tm.project_id = g.project_id and tm.user_id = g.leader_id
+                where g.id = t.team_id and g.project_id = t.project_id
+                  and g.archived_at is null and g.leader_id = m.user_id)
+             when 'planners' then m.role in ('pm', 'coordinator')
+             when 'qa' then m.role = 'qa'
+             when 'holders' then exists (
+               select 1 from public.general_task_assignees a
+                where a.task_id = t.id and a.user_id = m.user_id)
+             else m.user_id = p_rule.person_id
+           end;
+    get diagnostics v_sent = row_count;
+    if v_sent = 0 then
+      return null;   -- nobody to tell is not a skip
+    end if;
+    v_detail := jsonb_build_object('notify_to', p_rule.notify_to, 'recipients', v_sent);
+
+  when 'set_priority' then
+    if t.priority = p_rule.action_priority then
+      return null;
+    end if;
+    update public.general_tasks set priority = p_rule.action_priority where id = t.id;
+    v_detail := jsonb_build_object('priority', p_rule.action_priority, 'priority_from', t.priority);
+
+  when 'assign' then
+    if v_role in ('qa', 'stakeholder') then
+      return format('%s can''t hold tasks.', v_who);
+    end if;
+    if exists (select 1 from public.general_task_assignees a
+                where a.task_id = t.id and a.user_id = p_rule.person_id) then
+      return null;
+    end if;
+    if not exists (select 1 from public.general_teams g
+                     join public.general_team_members tm
+                       on tm.team_id = g.id and tm.project_id = g.project_id
+                    where g.id = t.team_id and g.project_id = t.project_id
+                      and g.archived_at is null and tm.user_id = p_rule.person_id) then
+      return format('%s isn''t on the task''s team.', v_who);
+    end if;
+    -- The one-holder rule and the other assignee guards refuse it here.
+    insert into public.general_task_assignees (project_id, task_id, user_id)
+    values (t.project_id, t.id, p_rule.person_id);
+    v_detail := jsonb_build_object('user_id', p_rule.person_id);
+
+  when 'move_stage' then
+    select * into v_target from public.general_workflow_stage(t.project_id, p_rule.action_stage);
+    if not found then
+      return format('Stage %s no longer exists.', p_rule.action_stage);
+    end if;
+    if v_target.idx >= v_target.n - 1 then
+      return 'A task can''t be moved to the last stage by a rule.';
+    end if;
+    if public.general_project_has_qa(t.project_id)
+       and v_target.idx > public.general_qa_stage_pick(gp.stages, gp.qa_stage) then
+      return 'A task can''t be moved past QA by a rule.';
+    end if;
+    if v_idx = v_target.idx then
+      return null;
+    end if;
+    -- Never the last stage, so the status is To do or In progress.
+    update public.general_tasks
+       set stage = v_target.idx,
+           status = case when v_target.idx = 0 then 'todo' else 'in_progress' end::public.general_task_status
+     where id = t.id;
+    v_detail := jsonb_build_object(
+      'stage', v_target.name,
+      'stage_from', (coalesce(gp.stages, array['To do', 'In progress', 'Done']))[v_idx + 1]);
+  end case;
+
+  insert into public.general_task_events (task_id, project_id, actor_id, kind, detail)
+  values (t.id, t.project_id, null, 'rule_applied',
+          jsonb_build_object(
+            'rule_id', p_rule.id,
+            'rule_name', coalesce(nullif(p_rule.name, ''), public.general_workflow_rule_sentence(p_rule)),
+            'action', p_rule.action_kind) || v_detail);
+  return null;
+end;
+$$;
+
+/**
+ * Runs a project's enabled rules for one trigger on one task, in creation
+ * order. Nothing happens while collabify.workflow_rule_run is on (a rule's
+ * own change sets off no rules), or unless the task is released and live in
+ * a live work project. Each action runs in its own savepoint with the flag on
+ * and the request's JWT claims cleared (as create_general_subtask does), so
+ * it acts for the project rather than the person, and the existing task
+ * guards (dependencies, subtasks, holders, one holder) still refuse what they
+ * refuse. A skip writes the rule's last_skipped_at and last_skip_reason. The
+ * claims and the flag are always restored.
+ * p_context: {"stage": name} for stage_entered (the stage entered),
+ * {"from": old, "to": new} for priority_raised. Without it the task's current
+ * stage and priority stand in.
+ */
+create or replace function public.run_general_workflow_rules(
+  p_task uuid, p_trigger text, p_actor uuid, p_context jsonb default '{}'::jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  ranks constant text[] := array['low', 'normal', 'high', 'urgent'];
+  t       public.general_tasks%rowtype;
+  gp      public.general_projects%rowtype;
+  r       public.general_workflow_rules%rowtype;
+  v_stage text;
+  v_to    text;
+  v_from  text;
+  v_skip  text;
+  prior_claims text := current_setting('request.jwt.claims', true);
+  prior_sub    text := current_setting('request.jwt.claim.sub', true);
+begin
+  if coalesce(current_setting('collabify.workflow_rule_run', true), '') = 'on' then
+    return;
+  end if;
+  select * into t from public.general_tasks where id = p_task;
+  if t.id is null or t.routing_state is distinct from 'released'
+     or t.archived_at is not null or t.trashed_at is not null then
+    return;
+  end if;
+  select * into gp from public.general_projects where id = t.project_id;
+  if gp.class_board_id is not null or gp.archived_at is not null or gp.trashed_at is not null then
+    return;
+  end if;
+  if not exists (select 1 from public.general_workflow_rules w
+                  where w.project_id = gp.id and w.enabled and w.trigger_kind = p_trigger) then
+    return;
+  end if;
+
+  v_stage := coalesce(p_context->>'stage',
+    (coalesce(gp.stages, array['To do', 'In progress', 'Done']))
+      [public.general_task_stage_at(t.status, t.stage, public.stage_count(gp.stages)) + 1]);
+  v_to := coalesce(p_context->>'to', t.priority);
+  v_from := p_context->>'from';
+
+  begin
+    perform set_config('collabify.workflow_rule_run', 'on', true);
+    perform set_config('request.jwt.claims', '', true);
+    perform set_config('request.jwt.claim.sub', '', true);
+    for r in
+      select w.* from public.general_workflow_rules w
+       where w.project_id = gp.id and w.enabled and w.trigger_kind = p_trigger
+         and (p_trigger <> 'stage_entered'
+              or lower(btrim(w.trigger_stage)) = lower(btrim(v_stage)))
+         and (p_trigger <> 'priority_raised'
+              or (array_position(ranks, v_to) >= array_position(ranks, w.trigger_priority)
+                  and coalesce(array_position(ranks, v_from), 0)
+                      < array_position(ranks, w.trigger_priority)))
+       order by w.position
+    loop
+      begin
+        v_skip := public.apply_general_workflow_rule(r, p_task, p_trigger, p_actor,
+                    case p_trigger when 'stage_entered' then v_stage
+                                   when 'priority_raised' then v_to end);
+      exception when others then
+        v_skip := sqlerrm;   -- the database refused it; the savepoint undid it
+      end;
+      if v_skip is not null then
+        update public.general_workflow_rules
+           set last_skipped_at = now(), last_skip_reason = left(v_skip, 500)
+         where id = r.id;
+      end if;
+    end loop;
+    perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
+    perform set_config('request.jwt.claim.sub', coalesce(prior_sub, ''), true);
+    perform set_config('collabify.workflow_rule_run', 'off', true);
+  exception when others then
+    perform set_config('request.jwt.claims', coalesce(prior_claims, ''), true);
+    perform set_config('request.jwt.claim.sub', coalesce(prior_sub, ''), true);
+    perform set_config('collabify.workflow_rule_run', 'off', true);
+    raise;
+  end;
+end;
+$$;
+
+/**
+ * After a task change is final: a task sent out of planning (not a subtask,
+ * which follows its parent), a released task whose stage changed, and a
+ * priority raised. Each calls the runner with what the change was, so a rule
+ * that already acted on this change can't make the next trigger see its work.
+ */
+create or replace function public.fire_general_workflow_rules()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  ranks constant text[] := array['low', 'normal', 'high', 'urgent'];
+  v_stages text[];
+  n        int;
+  new_i    int;
+  me       uuid := auth.uid();
+begin
+  if coalesce(current_setting('collabify.workflow_rule_run', true), '') = 'on'
+     or new.routing_state is distinct from 'released' then
+    return null;
+  end if;
+
+  if old.routing_state is distinct from 'released' and new.parent_id is null then
+    perform public.run_general_workflow_rules(new.id, 'task_released', me);
+  end if;
+
+  select gp.stages into v_stages from public.general_projects gp where gp.id = new.project_id;
+  n := public.stage_count(v_stages);
+  new_i := public.general_task_stage_at(new.status, new.stage, n);
+  if new_i is distinct from public.general_task_stage_at(old.status, old.stage, n) then
+    perform public.run_general_workflow_rules(new.id, 'stage_entered', me,
+      jsonb_build_object('stage', (coalesce(v_stages, array['To do', 'In progress', 'Done']))[new_i + 1]));
+  end if;
+
+  if coalesce(array_position(ranks, new.priority), 0) > coalesce(array_position(ranks, old.priority), 0) then
+    perform public.run_general_workflow_rules(new.id, 'priority_raised', me,
+      jsonb_build_object('from', old.priority, 'to', new.priority));
+  end if;
+  return null;
+end;
+$$;
+
+-- After every other general_tasks trigger ('zzz' sorts after 'zz_').
+drop trigger if exists general_tasks_zzz_workflow on public.general_tasks;
+create trigger general_tasks_zzz_workflow
+  after update on public.general_tasks
+  for each row
+  when (new.routing_state = 'released'
+        and (old.routing_state is distinct from new.routing_state
+             or old.stage is distinct from new.stage
+             or old.status is distinct from new.status
+             or old.priority is distinct from new.priority))
+  execute function public.fire_general_workflow_rules();
+
+/**
+ * The morning run's overdue stamp sets off "becomes overdue", once per stamp
+ * (a due date moved later clears the stamp, so a later overdue fires again).
+ * mark_project_reminders_sent's silent pre-mark (collabify.reminder_premark)
+ * does not.
+ */
+create or replace function public.fire_general_workflow_overdue()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(current_setting('collabify.reminder_premark', true), '') = 'on'
+     or coalesce(current_setting('collabify.workflow_rule_run', true), '') = 'on' then
+    return null;
+  end if;
+  perform public.run_general_workflow_rules(new.task_id, 'task_overdue', auth.uid());
+  return null;
+end;
+$$;
+
+drop trigger if exists general_task_reminders_workflow on public.general_task_reminders;
+create trigger general_task_reminders_workflow
+  after insert on public.general_task_reminders
+  for each row execute function public.fire_general_workflow_overdue();
+
+/**
+ * Redefined from the live definition (project-notification-rules.sql owns
+ * it): unchanged, except the overdue stamps are written with
+ * collabify.reminder_premark on, so the silent pre-mark sets off no
+ * "becomes overdue" rules.
+ */
+create or replace function public.mark_project_reminders_sent(
+  p_now timestamptz default now(),
+  p_project uuid default null)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_today date := (p_now at time zone 'Asia/Manila')::date;
+  v_sprints int;
+  v_tasks int;
+  v_milestones int;
+  prior_premark text := current_setting('collabify.reminder_premark', true);
+begin
+  update public.general_sprints s
+     set end_reminded_at = p_now
+    from public.general_projects gp
+   where gp.id = s.project_id
+     and (p_project is null or s.project_id = p_project)
+     and gp.class_board_id is null
+     and gp.archived_at is null
+     and gp.trashed_at is null
+     and s.state = 'active'
+     and s.ends_on >= v_today
+     and s.ends_on - v_today <= coalesce(gp.sprint_end_reminder_days, 3)
+     and s.end_reminded_at is null;
+  get diagnostics v_sprints = row_count;
+
+  perform set_config('collabify.reminder_premark', 'on', true);
+  insert into public.general_task_reminders (task_id, project_id, overdue_notified_at)
+  select t.id, t.project_id, p_now
+    from public.general_tasks t
+    join public.general_projects gp on gp.id = t.project_id
+   where (p_project is null or t.project_id = p_project)
+     and gp.class_board_id is null
+     and gp.archived_at is null
+     and gp.trashed_at is null
+     and t.routing_state = 'released'
+     and t.archived_at is null
+     and t.trashed_at is null
+     and t.status <> 'done'
+     and t.due_at is not null
+     and (t.due_at at time zone 'Asia/Manila')::date < v_today
+  on conflict (task_id) do nothing;
+  get diagnostics v_tasks = row_count;
+  perform set_config('collabify.reminder_premark', coalesce(nullif(prior_premark, ''), 'off'), true);
+
+  update public.general_milestones m
+     set due_reminded_at = p_now
+    from public.general_projects gp
+   where gp.id = m.project_id
+     and (p_project is null or m.project_id = p_project)
+     and gp.class_board_id is null
+     and gp.archived_at is null
+     and gp.trashed_at is null
+     and m.reached_at is null
+     and m.due_on >= v_today
+     and m.due_on - v_today <= coalesce(gp.milestone_due_reminder_days, 7)
+     and m.due_reminded_at is null;
+  get diagnostics v_milestones = row_count;
+
+  return v_sprints + v_tasks + v_milestones;
+end;
+$$;
+
 -- ---------------------------------------------------------------- grants
 
+revoke all on function public.general_workflow_rule_sentence(public.general_workflow_rules) from public, anon, authenticated;
+revoke all on function public.apply_general_workflow_rule(public.general_workflow_rules, uuid, text, uuid, text) from public, anon, authenticated;
+revoke all on function public.run_general_workflow_rules(uuid, text, uuid, jsonb) from public, anon, authenticated;
+revoke all on function public.fire_general_workflow_rules() from public, anon, authenticated;
+revoke all on function public.fire_general_workflow_overdue() from public, anon, authenticated;
+revoke all on function public.mark_project_reminders_sent(timestamptz, uuid) from public, anon, authenticated;
 revoke all on function public.general_can_manage_workflow(uuid) from public, anon;
 grant execute on function public.general_can_manage_workflow(uuid) to authenticated;
 revoke all on function public.general_workflow_stage(uuid, text) from public, anon, authenticated;

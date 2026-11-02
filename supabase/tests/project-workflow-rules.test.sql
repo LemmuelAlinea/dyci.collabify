@@ -1,7 +1,9 @@
 -- supabase/tests/project-workflow-rules.test.sql
 -- A work project's workflow rules: who reads and writes them, the 20-rule
 -- limit, the field checks, the write-time checks, the skip fields, archived
--- projects, class boards, the notification type and the history event kind.
+-- projects, class boards, the notification type and the history event kind;
+-- then the runner: each trigger, each action, skips, no chains, the release
+-- boundary, history, the personal switch and creation order.
 -- Rolls back; nothing survives.
 --
 --   node scripts/db.mjs supabase/tests/project-workflow-rules.test.sql
@@ -90,6 +92,72 @@ $$;
 create or replace function pg_temp.seen(p_project uuid) returns int
 language sql as $$
   select count(*)::int from public.general_workflow_rules where project_id = p_project;
+$$;
+
+/** A rule, added by the current caller; p_tval and p_aval fill the kind's own field. */
+create or replace function pg_temp.rule(p_project uuid, p_trigger text, p_tval text,
+                                        p_action text, p_aval text,
+                                        p_person uuid default null, p_name text default '')
+returns uuid language plpgsql as $$
+declare
+  v uuid;
+begin
+  insert into public.general_workflow_rules
+    (project_id, name, trigger_kind, trigger_stage, trigger_priority,
+     action_kind, notify_to, action_priority, action_stage, person_id)
+  values (p_project, p_name, p_trigger,
+          case when p_trigger = 'stage_entered' then p_tval end,
+          case when p_trigger = 'priority_raised' then p_tval end,
+          p_action,
+          case when p_action = 'notify' then p_aval end,
+          case when p_action = 'set_priority' then p_aval end,
+          case when p_action = 'move_stage' then p_aval end,
+          p_person)
+  returning id into v;
+  return v;
+end;
+$$;
+
+/**
+ * A released task on a team in stage p_stage, held by p_holder, as the
+ * handoff leaves it. Leaves the caller acting as the service role.
+ */
+create or replace function pg_temp.team_task(p_project uuid, p_title text, p_team uuid,
+                                             p_holder uuid, p_by uuid, p_stage int default 0)
+returns uuid language plpgsql as $$
+declare
+  v uuid;
+begin
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (project_id, title, created_by, routing_state, team_id, stage)
+  values (p_project, p_title, p_by, 'released', p_team, p_stage)
+  returning id into v;
+  if p_holder is not null then
+    insert into public.general_task_assignees (project_id, task_id, user_id)
+    values (p_project, v, p_holder);
+  end if;
+  return v;
+end;
+$$;
+
+/** Rule notices a person has about a task (read as the service role). */
+create or replace function pg_temp.notes(p_user uuid, p_task uuid) returns int
+language sql as $$
+  select count(*)::int from public.notifications
+   where user_id = p_user and general_task_id = p_task and type = 'workflow_rule';
+$$;
+
+/** How many times a rule acted on a task, by the task's history. */
+create or replace function pg_temp.applied(p_task uuid, p_rule uuid) returns int
+language sql as $$
+  select count(*)::int from public.general_task_events
+   where task_id = p_task and kind = 'rule_applied' and detail->>'rule_id' = p_rule::text;
+$$;
+
+/** A rule's last skip reason. */
+create or replace function pg_temp.skip_of(p_rule uuid) returns text
+language sql as $$
+  select last_skip_reason from public.general_workflow_rules where id = p_rule;
 $$;
 
 do $$
@@ -575,6 +643,506 @@ begin
     'Workflow rules are for work projects.');
   perform pg_temp.must_be('...and nobody manages them there',
     not b1 and not exists (select 1 from public.general_workflow_rules where project_id = cb));
+end;
+$$;
+
+-- ==================================================================== the runner
+
+do $$
+declare
+  v_pm    uuid := gen_random_uuid();  -- project manager
+  v_coord uuid := gen_random_uuid();  -- coordinator
+  v_lead  uuid := gen_random_uuid();  -- leads team A
+  v_dev   uuid := gen_random_uuid();  -- team A; leads the QA project's team
+  v_dev2  uuid := gen_random_uuid();  -- team A
+  v_dev3  uuid := gen_random_uuid();  -- leads team B
+  v_qa    uuid := gen_random_uuid();  -- QA on the QA project
+  v_teach uuid := gen_random_uuid();  -- teaches the class
+  v_stu1  uuid := gen_random_uuid();  -- student, class board
+  v_stu2  uuid := gen_random_uuid();  -- student, class board
+  v_space uuid;
+  p       uuid;  -- Backlog, Build, Review, Done
+  q       uuid;  -- Backlog, Build, Review (QA), Ship, Done, with active QA
+  pa      uuid;  -- gets archived
+  cb      uuid;  -- a class board's Files project
+  ta      uuid;  -- team A on p
+  tb      uuid;  -- team B on p
+  tq      uuid;  -- the team on q
+  t       uuid;
+  t2      uuid;
+  tp      uuid;
+  sub     uuid;
+  r1      uuid;
+  r2      uuid;
+  r3      uuid;
+  r4      uuid;
+  r5      uuid;
+  r6      uuid;
+  v_upd   timestamptz;
+  v_res   uuid;
+  v_class uuid;
+  v_set   uuid;
+  v_group uuid;
+  v_cproj uuid;
+  v_board uuid;
+  b1      boolean;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          created_at, updated_at)
+  select v.id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+         v.em, '', now(), now()
+    from (values
+      (v_pm,    'zz-wfr-pm@example.test'),
+      (v_coord, 'zz-wfr-coord@example.test'),
+      (v_lead,  'zz-wfr-lead@example.test'),
+      (v_dev,   'zz-wfr-dev@example.test'),
+      (v_dev2,  'zz-wfr-dev2@example.test'),
+      (v_dev3,  'zz-wfr-dev3@example.test'),
+      (v_qa,    'zz-wfr-qa@example.test'),
+      (v_teach, 'zz-wfr-teach@example.test'),
+      (v_stu1,  'zz-wfr-stu1@example.test'),
+      (v_stu2,  'zz-wfr-stu2@example.test')
+    ) as v(id, em);
+
+  insert into public.profiles
+    (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+  values
+    (v_pm,    'zz-wfr-pm@example.test',    'Zz', 'Wfpm',    'member',  'active', false, true),
+    (v_coord, 'zz-wfr-coord@example.test', 'Zz', 'Wfcoord', 'member',  'active', false, false),
+    (v_lead,  'zz-wfr-lead@example.test',  'Zz', 'Wflead',  'member',  'active', false, false),
+    (v_dev,   'zz-wfr-dev@example.test',   'Zz', 'Wfdev',   'member',  'active', false, false),
+    (v_dev2,  'zz-wfr-dev2@example.test',  'Zz', 'Wfdev2',  'member',  'active', false, false),
+    (v_dev3,  'zz-wfr-dev3@example.test',  'Zz', 'Wfdev3',  'member',  'active', false, false),
+    (v_qa,    'zz-wfr-qa@example.test',    'Zz', 'Wfqa',    'member',  'active', false, false),
+    (v_teach, 'zz-wfr-teach@example.test', 'Zz', 'Wfteach', 'member',  'active', true,  false),
+    (v_stu1,  'zz-wfr-stu1@example.test',  'Zz', 'Wfstu1',  'student', 'active', false, false),
+    (v_stu2,  'zz-wfr-stu2@example.test',  'Zz', 'Wfstu2',  'student', 'active', false, false)
+  on conflict (id) do update
+    set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach,
+        can_manage_projects = excluded.can_manage_projects;
+
+  perform pg_temp.act_as(v_pm);
+  v_space := (public.create_general_space('Zz WFR space', '')).id;
+  p  := (public.create_general_project('Zz WFR project', '', null, null, null, null, v_space)).id;
+  q  := (public.create_general_project('Zz WFR QA project', '', null, null, null, null, v_space)).id;
+  pa := (public.create_general_project('Zz WFR archived', '', null, null, null, null, v_space)).id;
+
+  perform pg_temp.act_as_service();
+  insert into public.general_space_members (space_id, user_id, level) values
+    (v_space, v_coord, 'member'), (v_space, v_lead, 'member'), (v_space, v_dev, 'member'),
+    (v_space, v_dev2, 'member'), (v_space, v_dev3, 'member'), (v_space, v_qa, 'member');
+  insert into public.general_members (project_id, user_id, role) values
+    (p, v_coord, 'coordinator'), (p, v_lead, 'member'), (p, v_dev, 'member'),
+    (p, v_dev2, 'member'), (p, v_dev3, 'member'),
+    (q, v_dev, 'member'), (q, v_qa, 'qa'),
+    (pa, v_dev, 'member');
+  update public.general_projects set stages = array['Backlog', 'Build', 'Review', 'Done'] where id = p;
+  update public.general_projects
+     set stages = array['Backlog', 'Build', 'Review', 'Ship', 'Done'], qa_stage = 'Review'
+   where id = q;
+  insert into public.general_teams (project_id, name) values (p, 'Zz WFR team A') returning id into ta;
+  insert into public.general_teams (project_id, name) values (p, 'Zz WFR team B') returning id into tb;
+  insert into public.general_teams (project_id, name) values (q, 'Zz WFR QA team') returning id into tq;
+  insert into public.general_team_members (project_id, team_id, user_id) values
+    (p, ta, v_lead), (p, ta, v_dev), (p, ta, v_dev2), (p, tb, v_dev3), (q, tq, v_dev);
+  update public.general_teams set leader_id = v_lead where id = ta;
+  update public.general_teams set leader_id = v_dev3 where id = tb;
+  update public.general_teams set leader_id = v_dev where id = tq;
+
+  ------------------------------------------------------------ moves to a stage
+  perform pg_temp.act_as(v_pm);
+  r1 := pg_temp.rule(p, 'stage_entered', 'Review', 'notify', 'team_lead');
+  r2 := pg_temp.rule(p, 'stage_entered', 'Review', 'notify', 'holders');
+  t := pg_temp.team_task(p, 'Zz WFR one', ta, v_dev, v_pm, 1);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 2 where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('moving a task to the stage notifies the team lead',
+    pg_temp.notes(v_lead, t) = 1
+    and exists (select 1 from public.notifications
+                 where user_id = v_lead and general_task_id = t and type = 'workflow_rule'
+                   and general_project_id = p
+                   and title = 'Zz WFR one moved to Review'
+                   and preview = 'From the rule “When a task moves to Review, notify the team lead”.')
+    and pg_temp.notes(v_coord, t) = 0 and pg_temp.notes(v_dev2, t) = 0
+    and pg_temp.applied(t, r1) = 1);
+
+  t2 := pg_temp.team_task(p, 'Zz WFR two', ta, v_dev, v_pm, 1);
+  perform pg_temp.act_as(v_lead);
+  update public.general_tasks set stage = 2 where id = t2;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('the person who moved it is not notified',
+    pg_temp.notes(v_dev, t) = 0 and pg_temp.applied(t, r2) = 0
+    and pg_temp.notes(v_lead, t2) = 0 and pg_temp.applied(t2, r1) = 0
+    and pg_temp.notes(v_dev, t2) = 1 and pg_temp.applied(t2, r2) = 1
+    and (select last_skipped_at is null from public.general_workflow_rules where id = r2));
+
+  ------------------------------------------------------------ for the project
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'stage_entered', 'Build', 'assign', null, v_dev2);
+  t := pg_temp.team_task(p, 'Zz WFR three', ta, v_dev, v_pm, 0);
+  perform pg_temp.act_as(v_dev);
+  b1 := not pg_temp.goes(format(
+    $q$insert into public.general_task_assignees (project_id, task_id, user_id) values (%L, %L, %L)$q$,
+    p, t, v_dev2));
+  update public.general_tasks set stage = 1 where id = t;
+  b1 := b1 and auth.uid() = v_dev
+        and coalesce(current_setting('collabify.workflow_rule_run', true), '') <> 'on';
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a rule acts for the project, not the person',
+    b1
+    and exists (select 1 from public.general_task_assignees
+                 where task_id = t and user_id = v_dev2 and assigned_by is null)
+    and (select stage = 1 and status = 'in_progress' from public.general_tasks where id = t)
+    and pg_temp.applied(t, r1) = 1);
+
+  ------------------------------------------------------------ sent to a team
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'task_released', null, 'notify', 'team_lead');
+  insert into public.general_tasks (project_id, title) values (p, 'Zz WFR sent') returning id into tp;
+  sub := public.create_general_subtask(tp, 'Zz WFR sent subtask');
+  select updated_at into v_upd from public.general_tasks where id = tp;
+  perform public.send_work_tasks_to_teams(p,
+    jsonb_build_array(jsonb_build_object('id', tp, 'team_id', ta, 'updated_at', v_upd)));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('sending a task to a team fires the sent rule once; subtasks do not',
+    (select routing_state = 'released' from public.general_tasks where id = sub)
+    and pg_temp.notes(v_lead, tp) = 1 and pg_temp.notes(v_lead, sub) = 0
+    and pg_temp.applied(tp, r1) = 1 and pg_temp.applied(sub, r1) = 0
+    and exists (select 1 from public.notifications
+                 where user_id = v_lead and general_task_id = tp and type = 'workflow_rule'
+                   and title = 'Zz WFR sent was sent to Zz WFR team A'));
+
+  perform pg_temp.act_as(v_lead);
+  perform public.return_work_task(tp, 'Zz WFR not ready');
+  perform pg_temp.act_as(v_pm);
+  select updated_at into v_upd from public.general_tasks where id = tp;
+  perform public.send_work_tasks_to_teams(p,
+    jsonb_build_array(jsonb_build_object('id', tp, 'team_id', ta, 'updated_at', v_upd)));
+  select updated_at into v_upd from public.general_tasks where id = tp;
+  perform public.send_work_tasks_to_teams(p,
+    jsonb_build_array(jsonb_build_object('id', tp, 'team_id', tb, 'updated_at', v_upd)),
+    'Zz WFR other team');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a re-send after a return fires again; a reroute does not',
+    (select team_id = tb and routing_state = 'released' from public.general_tasks where id = tp)
+    and pg_temp.notes(v_lead, tp) = 2 and pg_temp.notes(v_dev3, tp) = 0
+    and pg_temp.applied(tp, r1) = 2 and pg_temp.applied(sub, r1) = 0);
+
+  ------------------------------------------------------------ priority raised
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'priority_raised', 'high', 'notify', 'planners');
+  r2 := pg_temp.rule(p, 'priority_raised', 'urgent', 'notify', 'planners');
+  t := pg_temp.team_task(p, 'Zz WFR rush', ta, v_dev, v_pm, 1);
+  perform pg_temp.act_as(v_pm);
+  update public.general_tasks set priority = 'urgent' where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('raising priority to urgent fires the high rule and the urgent rule',
+    pg_temp.notes(v_coord, t) = 2 and pg_temp.notes(v_pm, t) = 0
+    and pg_temp.applied(t, r1) = 1 and pg_temp.applied(t, r2) = 1
+    and (select count(*) = 2 from public.notifications
+          where user_id = v_coord and general_task_id = t and type = 'workflow_rule'
+            and title = 'Zz WFR rush is now Urgent'));
+  perform pg_temp.act_as(v_pm);
+  update public.general_tasks set priority = 'low' where id = t;
+  update public.general_tasks set priority = 'normal' where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('lowering priority fires nothing',
+    pg_temp.notes(v_coord, t) = 2 and pg_temp.applied(t, r1) = 1 and pg_temp.applied(t, r2) = 1);
+  perform pg_temp.act_as(v_pm);
+  update public.general_tasks set priority = 'high' where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and raising it to high fires only the high rule',
+    pg_temp.notes(v_coord, t) = 3 and pg_temp.applied(t, r1) = 2 and pg_temp.applied(t, r2) = 1
+    and exists (select 1 from public.notifications
+                 where user_id = v_coord and general_task_id = t and type = 'workflow_rule'
+                   and title = 'Zz WFR rush is now High'));
+
+  ------------------------------------------------------------ overdue
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'task_overdue', null, 'notify', 'holders');
+  t := pg_temp.team_task(p, 'Zz WFR late before', ta, v_dev, v_pm, 1);
+  update public.general_tasks set due_at = now() - interval '3 days' where id = t;
+  perform public.mark_project_reminders_sent(now(), p);
+  b1 := exists (select 1 from public.general_task_reminders where task_id = t)
+        and coalesce(current_setting('collabify.reminder_premark', true), '') <> 'on';
+  t2 := pg_temp.team_task(p, 'Zz WFR late after', ta, v_dev, v_pm, 1);
+  update public.general_tasks set due_at = now() - interval '3 days' where id = t2;
+  perform public.send_project_reminders(now(), p);
+  perform pg_temp.must_be('the morning overdue marker fires the overdue rule; the apply-time pre-mark does not',
+    b1
+    and pg_temp.notes(v_dev, t) = 0 and pg_temp.applied(t, r1) = 0
+    and pg_temp.notes(v_dev, t2) = 1 and pg_temp.applied(t2, r1) = 1
+    and exists (select 1 from public.notifications
+                 where user_id = v_dev and general_task_id = t2 and type = 'workflow_rule'
+                   and title = 'Zz WFR late after is overdue'));
+
+  ------------------------------------------------------------ no chains
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'stage_entered', 'Build', 'set_priority', 'urgent');
+  r2 := pg_temp.rule(p, 'priority_raised', 'high', 'notify', 'planners');
+  r3 := pg_temp.rule(p, 'stage_entered', 'Review', 'notify', 'planners');
+  r4 := pg_temp.rule(p, 'stage_entered', 'Build', 'move_stage', 'Review');
+  t := pg_temp.team_task(p, 'Zz WFR chain', ta, v_dev, v_pm, 0);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 1 where id = t;
+  b1 := auth.uid() = v_dev
+        and coalesce(current_setting('collabify.workflow_rule_run', true), '') <> 'on';
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('changes made by rules set off no rules',
+    b1
+    and (select priority = 'urgent' and stage = 2 from public.general_tasks where id = t)
+    and pg_temp.applied(t, r1) = 1 and pg_temp.applied(t, r4) = 1
+    and pg_temp.applied(t, r2) = 0 and pg_temp.applied(t, r3) = 0
+    and pg_temp.notes(v_coord, t) = 0 and pg_temp.notes(v_pm, t) = 0);
+
+  ------------------------------------------------------------ refused actions
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  t := pg_temp.team_task(p, 'Zz WFR unheld', ta, null, v_pm, 2);
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set require_assignee = true where id = p;
+  r1 := pg_temp.rule(p, 'stage_entered', 'Backlog', 'move_stage', 'Build');
+  update public.general_tasks set stage = 0 where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a refused action is skipped and the person''s change stays',
+    (select stage = 0 and status = 'todo' from public.general_tasks where id = t)
+    and pg_temp.applied(t, r1) = 0
+    and (select last_skipped_at is not null from public.general_workflow_rules where id = r1)
+    and pg_temp.skip_of(r1) = 'Give this task a holder before moving it on.');
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set require_assignee = false where id = p;
+
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'stage_entered', 'Build', 'assign', null, v_dev3);
+  t := pg_temp.team_task(p, 'Zz WFR team only', ta, v_dev, v_pm, 0);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 1 where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('assign skips someone outside the task''s team',
+    not exists (select 1 from public.general_task_assignees where task_id = t and user_id = v_dev3)
+    and (select stage = 1 from public.general_tasks where id = t)
+    and pg_temp.applied(t, r1) = 0
+    and pg_temp.skip_of(r1) = 'Zz Wfdev3 isn''t on the task''s team.');
+
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  update public.general_projects set allow_multiple_assignees = false where id = p;
+  r1 := pg_temp.rule(p, 'stage_entered', 'Build', 'assign', null, v_dev2);
+  r2 := pg_temp.rule(p, 'stage_entered', 'Build', 'assign', null, v_dev);
+  t := pg_temp.team_task(p, 'Zz WFR one holder', ta, v_dev, v_pm, 0);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 1 where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...the one-holder rule skips it too, and a holder already there is no change',
+    not exists (select 1 from public.general_task_assignees where task_id = t and user_id = v_dev2)
+    and pg_temp.skip_of(r1) = 'This project allows one holder per task.'
+    and (select last_skipped_at is null from public.general_workflow_rules where id = r2)
+    and pg_temp.applied(t, r1) = 0 and pg_temp.applied(t, r2) = 0);
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set allow_multiple_assignees = true where id = p;
+
+  ------------------------------------------------------------ the last stage and QA
+  perform pg_temp.act_as(v_pm);
+  r1 := pg_temp.rule(q, 'stage_entered', 'Build', 'move_stage', 'Ship');
+  r2 := pg_temp.rule(q, 'stage_entered', 'Build', 'move_stage', 'Review');
+  t := pg_temp.team_task(q, 'Zz WFR gate', tq, v_dev, v_pm, 0);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 1 where id = t;
+  perform pg_temp.act_as_service();
+  b1 := pg_temp.skip_of(r1) = 'A task can''t be moved past QA by a rule.'
+        and (select stage = 2 from public.general_tasks where id = t)
+        and pg_temp.applied(t, r1) = 0 and pg_temp.applied(t, r2) = 1;
+  -- QA leaves, and Ship becomes the last stage.
+  delete from public.general_members where project_id = q and user_id = v_qa;
+  update public.general_projects set stages = array['Backlog', 'Build', 'Review', 'Ship'] where id = q;
+  update public.general_tasks set stage = 0 where id = t;
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 1 where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a move never goes to the last stage or past active qa',
+    b1
+    and pg_temp.skip_of(r1) = 'A task can''t be moved to the last stage by a rule.'
+    and (select stage = 2 and status = 'in_progress' from public.general_tasks where id = t)
+    and pg_temp.applied(t, r1) = 0 and pg_temp.applied(t, r2) = 2);
+
+  ------------------------------------------------------------ turned off
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'stage_entered', 'Build', 'notify', 'team_lead');
+  update public.general_workflow_rules set enabled = false where id = r1;
+  t := pg_temp.team_task(p, 'Zz WFR off', ta, v_dev, v_pm, 0);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 1 where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a turned-off rule does not fire',
+    pg_temp.notes(v_lead, t) = 0 and pg_temp.applied(t, r1) = 0);
+
+  ------------------------------------------------------------ released, live work only
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'priority_raised', 'high', 'notify', 'planners');
+  r2 := pg_temp.rule(pa, 'priority_raised', 'high', 'notify', 'planners');
+  insert into public.general_tasks (project_id, title) values (p, 'Zz WFR private') returning id into t;
+  update public.general_tasks set priority = 'urgent' where id = t;
+  t2 := pg_temp.team_task(p, 'Zz WFR archived task', ta, v_dev, v_pm, 1);
+  update public.general_tasks set archived_at = now() where id = t2;
+  update public.general_tasks set priority = 'urgent' where id = t2;
+  tp := pg_temp.team_task(p, 'Zz WFR trashed task', ta, v_dev, v_pm, 1);
+  update public.general_tasks set archived_at = now(), trashed_at = now() where id = tp;
+  update public.general_tasks set priority = 'urgent' where id = tp;
+  sub := pg_temp.team_task(pa, 'Zz WFR in an archived project', null, v_dev, v_pm, 1);
+  perform pg_temp.act_as(v_pm);
+  perform public.archive_general_project(pa, true);
+  perform pg_temp.act_as_service();
+  update public.general_tasks set priority = 'urgent' where id = sub;
+  perform pg_temp.must_be('private planning, archived and trashed tasks set off no rules',
+    (select count(*) = 4 and bool_and(priority = 'urgent')
+       from public.general_tasks where id in (t, t2, tp, sub))
+    and not exists (select 1 from public.notifications
+                     where general_task_id in (t, t2, tp, sub) and type = 'workflow_rule')
+    and not exists (select 1 from public.general_task_events
+                     where task_id in (t, t2, tp, sub) and kind = 'rule_applied'));
+
+  ------------------------------------------------------------ history
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'stage_entered', 'Build', 'set_priority', 'high', null, 'Zz rush it');
+  r2 := pg_temp.rule(p, 'stage_entered', 'Build', 'assign', null, v_lead);
+  t := pg_temp.team_task(p, 'Zz WFR history', ta, v_dev, v_pm, 0);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 1 where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('the task history names the rule',
+    exists (select 1 from public.general_task_events
+             where task_id = t and kind = 'rule_applied' and actor_id is null
+               and detail->>'rule_id' = r1::text and detail->>'rule_name' = 'Zz rush it'
+               and detail->>'action' = 'set_priority')
+    and exists (select 1 from public.general_task_events
+                 where task_id = t and kind = 'rule_applied' and actor_id is null
+                   and detail->>'rule_id' = r2::text
+                   and detail->>'rule_name' = 'When a task moves to Build, assign Zz Wflead'
+                   and detail->>'action' = 'assign'));
+
+  ------------------------------------------------------------ personal switch
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'stage_entered', 'Build', 'notify', 'team_lead');
+  perform pg_temp.act_as_service();
+  update public.notification_prefs set task_assignments = false where user_id = v_lead;
+  t := pg_temp.team_task(p, 'Zz WFR quiet', ta, v_dev, v_pm, 0);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 1 where id = t;
+  perform pg_temp.act_as_service();
+  update public.notification_prefs set task_assignments = true where user_id = v_lead;
+  t2 := pg_temp.team_task(p, 'Zz WFR loud', ta, v_dev, v_pm, 0);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 1 where id = t2;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a person''s task assignments switch silences rule notices',
+    pg_temp.notes(v_lead, t) = 0 and pg_temp.applied(t, r1) = 0
+    and pg_temp.notes(v_lead, t2) = 1 and pg_temp.applied(t2, r1) = 1
+    and (select last_skipped_at is null from public.general_workflow_rules where id = r1));
+
+  ------------------------------------------------------------ order
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'stage_entered', 'Build', 'set_priority', 'high');
+  r2 := pg_temp.rule(p, 'stage_entered', 'Build', 'set_priority', 'low');
+  t := pg_temp.team_task(p, 'Zz WFR order', ta, v_dev, v_pm, 0);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 1 where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('rules run in creation order',
+    (select priority = 'low' from public.general_tasks where id = t)
+    and pg_temp.applied(t, r1) = 1 and pg_temp.applied(t, r2) = 1);
+
+  ------------------------------------------------------------ sentences
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'task_released', null, 'notify', 'planners');
+  r2 := pg_temp.rule(p, 'task_overdue', null, 'notify', 'qa');
+  r3 := pg_temp.rule(p, 'priority_raised', 'urgent', 'set_priority', 'high');
+  r4 := pg_temp.rule(p, 'stage_entered', 'Backlog', 'move_stage', 'Build');
+  r5 := pg_temp.rule(p, 'priority_raised', 'high', 'notify', 'holders');
+  r6 := pg_temp.rule(p, 'task_released', null, 'notify', 'person', v_lead);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('each rule reads as a sentence',
+    (select string_agg(public.general_workflow_rule_sentence(w), ' | ' order by w.position)
+       from public.general_workflow_rules w where w.project_id = p)
+    = 'When a task is sent to a team, notify the project manager and coordinators'
+      || ' | When a task becomes overdue, notify QA'
+      || ' | When a task''s priority is raised to Urgent, set the priority to High'
+      || ' | When a task moves to Backlog, move it to Build'
+      || ' | When a task''s priority is raised to High, notify the task''s holders'
+      || ' | When a task is sent to a team, notify Zz Wflead'
+    and not has_function_privilege('authenticated',
+          'public.run_general_workflow_rules(uuid, text, uuid, jsonb)', 'execute'));
+
+  ------------------------------------------------------------ gone stages and people
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'stage_entered', 'Review', 'notify', 'team_lead');
+  r2 := pg_temp.rule(p, 'stage_entered', 'Build', 'move_stage', 'Review');
+  r3 := pg_temp.rule(p, 'stage_entered', 'Build', 'assign', null, v_dev2);
+  perform pg_temp.act_as_service();
+  update public.general_projects set stages = array['Backlog', 'Build', 'Check', 'Done'] where id = p;
+  delete from public.general_members where project_id = p and user_id = v_dev2;
+  t := pg_temp.team_task(p, 'Zz WFR renamed', ta, v_dev, v_pm, 0);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 1 where id = t;
+  update public.general_tasks set stage = 2 where id = t;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a rule whose stage is gone does not fire',
+    pg_temp.notes(v_lead, t) = 0 and pg_temp.applied(t, r1) = 0
+    and (select last_skipped_at is null from public.general_workflow_rules where id = r1)
+    and pg_temp.skip_of(r2) = 'Stage Review no longer exists.'
+    and (select stage = 2 from public.general_tasks where id = t));
+  perform pg_temp.must_be('...and a rule whose person left is skipped',
+    pg_temp.skip_of(r3) = 'Zz Wfdev2 is no longer in the project.'
+    and pg_temp.applied(t, r3) = 0);
+
+  ------------------------------------------------------------ class boards
+  perform pg_temp.act_as_service();
+  insert into public.teaching_resources (professor_id, kind, title, file_path, file_name)
+  values (v_teach, 'syllabus', 'Zz WFR syllabus', 'x/wfr.pdf', 'wfr.pdf') returning id into v_res;
+  insert into public.syllabus_weeks (resource_id, week_no, title) values (v_res, 1, 'Week 1');
+  insert into public.classes
+    (professor_id, name, initial, code, section, year_level, semester, school_year, syllabus_id)
+  values (v_teach, 'Zz WFR class', 'ZZF', 'ZZWFR-CLASS', 'BSIT 1A', '1st', '1st', '2026-2027', v_res)
+  returning id into v_class;
+  insert into public.class_members (class_id, student_id, status) values
+    (v_class, v_stu1, 'active'), (v_class, v_stu2, 'active');
+  insert into public.group_sets (class_id, name, mode) values (v_class, 'Zz WFR set', 'manual')
+  returning id into v_set;
+  insert into public.groups (set_id, name) values (v_set, 'Zz WFR group') returning id into v_group;
+  insert into public.group_members (group_id, set_id, student_id) values
+    (v_group, v_set, v_stu1), (v_group, v_set, v_stu2);
+  insert into public.projects (class_id, created_by, title, type, start_week, end_week, audience,
+                               group_set_id, due_at)
+  values (v_class, v_teach, 'Zz WFR class project', 'activity', 1, 1, 'group', v_set,
+          now() + interval '7 days')
+  returning id into v_cproj;
+  perform public.ensure_project_boards(v_cproj);
+  select id into v_board from public.project_boards
+   where project_id = v_cproj and group_id = v_group;
+  perform pg_temp.act_as(v_stu1);
+  cb := public.ensure_class_board_repo(v_board);
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (project_id, title, created_by)
+  values (cb, 'Zz WFR class task', v_stu1) returning id into t;
+  update public.general_tasks set stage = 1, priority = 'urgent' where id = t;
+  perform public.run_general_workflow_rules(t, 'stage_entered', null);
+  perform pg_temp.must_be('class boards are untouched',
+    (select stage = 1 and status = 'in_progress' and priority = 'urgent' and routing_state = 'released'
+       from public.general_tasks where id = t)
+    and not exists (select 1 from public.general_task_events where task_id = t and kind = 'rule_applied')
+    and not exists (select 1 from public.notifications where general_task_id = t and type = 'workflow_rule'));
 end;
 $$;
 
