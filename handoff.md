@@ -4209,3 +4209,55 @@ final fix wave). **Not live:**
     the milestones view rather than the milestone.
 - **Next:** the owner checks Settings → Milestones, automatic reach, dependencies and the alert in
   the browser; the next group from the Project Settings PDF follows.
+
+## Notification settings (2026-11-02)
+
+Phase 2 group 5 from the Project Settings PDF (Notifications). Built on `main`, local commits only
+(`6a6033f`, `a32a345`, `0dcf71c`, `33d8183`, `68fc2a6`, `a336d17`, then the docs commit).
+**Not live:** `project-notification-rules.sql` has not been applied and nothing is pushed.
+
+- **Database** (`supabase/project-notification-rules.sql`, suite
+  `supabase/tests/project-notification-rules.test.sql`, 44 checks): five `general_projects` columns
+  (`sprint_end_reminder_days` 1, `task_overdue_alerts` on, `milestone_due_reminder_days` 2,
+  `task_assignment_notices` on, `sprint_completion_notices` on); the notification types
+  `sprint_ending_soon`, `general_task_overdue`, `milestone_due_soon` and `sprint_completed`; the stamps
+  `general_sprints.end_reminded_at`, `general_milestones.due_reminded_at` and the side table
+  `general_task_reminders` (so the job never writes a task row), with their guard and clear triggers;
+  redefinitions of `notify_general_assignment`, `send_milestone_overdue_alerts`,
+  `complete_general_sprint` and `run_sprint_automation`; `notify_general_sprint_completed`;
+  `send_project_reminders` and `mark_project_reminders_sent`; the cron `collabify-project-reminders`
+  (00:00 UTC, 08:00 Manila). Every notice also needs the recipient's own preference. Run position and
+  re-run rule are in `docs/07-backup.md` and `CLAUDE.md`.
+- **Frontend:** Settings → Notifications (`NotificationsSection`, with the milestone overdue alert switch
+  moved over from Milestones), the four notification types in `types.ts` and
+  `notificationDestination.ts`, and the Account → Notifications copy. Until the SQL is live,
+  `getGeneralProject` falls back to the defaults when the columns are missing.
+- **Dry runs** (this file spliced into each suite with the new enum values swapped in the scratch copy, cron
+  calls stripped, rolled back): `project-notification-rules` 44 pass, plus the siblings
+  `project-milestone-rules`, `general-tasks`, `work-task-handoff`, `sprint-settings`,
+  `sprint-reopen`, `sprint-milestones`, `work-milestones`, `project-task-rules` and
+  `project-member-rules`, none failing. `npm run build`, the full vitest run, eslint on the changed
+  files and `scripts/contrast.mjs` are green.
+- **Re-run rule:** re-running `project-milestone-rules.sql`, `general-archive-rbac.sql`,
+  `sprint-settings.sql`, `sprint-reopen.sql` or `work-planning.sql` means re-running
+  `project-notification-rules.sql` afterwards, then `anon-lockdown.sql`. Re-running the file itself is
+  not free: its closing pre-mark silently stamps everything that qualifies at that moment (overdue
+  released tasks, sprints within 3 days, milestones within 7), so those never get a notice. While
+  "Overdue task alerts" is off, newly overdue tasks are stamped silently, so turning it on later sends no
+  backlog.
+- **First apply silences 15 items (by design):** on 2026-11-02 the pre-mark would stamp 14 overdue live
+  tasks and 1 milestone due within 2 days, so the first morning sends no old cases. Re-check the counts at
+  deploy.
+- **Deploy order:** owner approval and role walk first, then
+  `node scripts/db.mjs supabase/project-notification-rules.sql supabase/anon-lockdown.sql`, a read-only
+  check, a re-run of the suites, then push `main`. Apply the SQL with or before the frontend.
+  `scripts/schema-drift.mjs` lists the file in the restore order.
+- **Deferred:**
+  - A project manager or coordinator can still finish a sprint by a direct PATCH of
+    `general_sprints.state`, which skips the carry and the `sprint_completed` notice (pre-existing; the
+    app always finishes through `complete_general_sprint`).
+  - Two finishes at the same moment can send two `sprint_completed` notices (pre-existing race).
+  - `SettingRow` is duplicated in `MilestonesSection` and `NotificationsSection`; move it to a shared
+    file when a third panel needs it.
+- **Next:** the owner checks Settings → Notifications and the notices in the browser; the next group from
+  the Project Settings PDF follows.

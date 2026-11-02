@@ -189,6 +189,17 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   (`general_milestone_dependencies`, through the add and remove RPCs). The daily cron
   `collabify-milestone-overdue` (`send_milestone_overdue_alerts`) sends `milestone_overdue` to the
   project manager and coordinators once per date. Suite: `supabase/tests/project-milestone-rules.test.sql`.
+- Notification settings (`supabase/project-notification-rules.sql`) run after `project-milestone-rules.sql` and
+  before `anon-lockdown.sql`. Re-running `project-milestone-rules.sql`, `general-archive-rbac.sql`,
+  `sprint-settings.sql`, `sprint-reopen.sql` or `work-planning.sql` means re-running it afterwards.
+  Five project manager settings on `general_projects`: `sprint_end_reminder_days`, `task_overdue_alerts`,
+  `milestone_due_reminder_days`, `task_assignment_notices` and `sprint_completion_notices`. Reminder stamps
+  (`end_reminded_at`, `due_reminded_at`, the side table `general_task_reminders`) are written only by the
+  job, never by a person. The daily cron `collabify-project-reminders` (`send_project_reminders`) sends
+  `sprint_ending_soon`, `general_task_overdue` and `milestone_due_soon`; finishing a sprint, by hand or by
+  automation, sends `sprint_completed`. Each notice also needs the recipient's own preference. Re-running
+  the file pre-marks everything that already qualifies, silently. Suite:
+  `supabase/tests/project-notification-rules.test.sql`.
 
 ## Security invariants
 
