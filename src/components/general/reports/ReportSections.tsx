@@ -12,7 +12,7 @@ import type {
   TimeLogRow,
 } from '../../../lib/api/generalReports'
 import type { ReportConfig } from '../../../lib/general/reportConfig'
-import { describeActivity } from '../../../lib/general/history'
+import { activityWho, describeActivity, foldActivity } from '../../../lib/general/history'
 import type { Totals } from '../../../lib/general/reportData'
 import { contributionScores, SCORE_PARTS, scoreFormula } from '../../../lib/general/reportScore'
 import type { Forecast } from '../../../lib/general/forecast'
@@ -427,9 +427,9 @@ export function Activity({
 }) {
   const groups = useMemo(() => {
     const map = new Map<string, ActivityRow[]>()
-    for (const r of rows) {
+    for (const r of foldActivity(rows)) {
       const key =
-        groupBy === 'person' ? r.actor_name ?? 'Somebody' : groupBy === 'project' ? projectName(r.project_id) : day(r.at)
+        groupBy === 'person' ? activityWho(r) : groupBy === 'project' ? projectName(r.project_id) : day(r.at)
       map.set(key, [...(map.get(key) ?? []), r])
     }
     return [...map.entries()]

@@ -91,8 +91,10 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `general-repo.sql`, `general-notify.sql`, `general-reports.sql`,
   `general-project-archive-rbac.sql`, `meetings.sql`, `trash.sql`, `access.sql`,
   `storage-sweep.sql`, `task-stages.sql` and more). Re-running ANY file one of them supersedes means
-  re-running all seven in that order, then `anon-lockdown.sql`; re-running one of the seven
-  means re-running the ones after it, then `anon-lockdown.sql`. Re-running `general-project-archive-rbac.sql` alone reopens every
+  re-running all seven in that order, then the later owners (the final rerun tail in
+  `docs/07-backup.md`, through `project-notification-rules.sql` and `project-workflow-rules.sql`),
+  then `anon-lockdown.sql`; re-running one of the seven means re-running the ones after it and
+  those later owners, then `anon-lockdown.sql`. Re-running `general-project-archive-rbac.sql` alone reopens every
   work project to its whole space; re-running a file `project-stakeholders.sql`
   supersedes hands stakeholders back a member's writes. `docs/07-backup.md` lists what
   each of the seven owns. Always start a redefinition from the live `pg_get_functiondef`.
@@ -126,7 +128,9 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   Suggestions stay drafts until the Tasks review confirms them. From notes creates
   planning tasks and never releases or assigns them.
 - `work-task-handoff.sql` is the final task owner, after `project-requests.sql`
-  and the complete company-role/member-skills chain, then `anon-lockdown.sql`.
+  and the complete company-role/member-skills chain; the files after it
+  (`project-settings-general.sql` through `project-workflow-rules.sql`) follow, then
+  `anon-lockdown.sql`.
   Existing tasks remain released; every authenticated new work task starts in
   private planning, including direct inserts claiming `released`. PM/coordinators
   create regular tasks; QA creates private bugs and can read their own unsent bugs.
@@ -203,7 +207,10 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `supabase/tests/project-notification-rules.test.sql`.
 - Workflow rules (`supabase/project-workflow-rules.sql`) run after `project-notification-rules.sql`
   and before `anon-lockdown.sql`. Re-running `project-notification-rules.sql`, `work-task-handoff.sql`
-  or `project-qa.sql` means re-running it afterwards. "When {trigger}, then {action}" rules
+  or `project-qa.sql` means re-running it afterwards, so the runner and its triggers stay last; the
+  latter two list `rule_applied` in their history kinds check, so their re-runs keep rule history.
+  A `project-notification-rules.sql` re-run's unflagged pre-mark may fire "becomes overdue" rules a
+  few hours early (harmless). "When {trigger}, then {action}" rules
   (`general_workflow_rules`, up to 20 per project) are written by the project manager and
   coordinators (`general_can_manage_workflow`) and run for the project with their authority, limited
   by the rule limits; the one flag `collabify.workflow_rule_run` stops chains. Only released, live
@@ -211,7 +218,8 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   the last stage, past an active QA stage or out of Done. A refused action is skipped and recorded
   on the rule (`last_skipped_at`, `last_skip_reason`) and never blocks the person's change. Each
   applied action writes a `rule_applied` history row with a null actor; the app folds the null-actor
-  companion rows into the rule line (`describeHistory`). It redefines `mark_project_reminders_sent`
+  row a writing rule leaves (move, priority, assign; never notify) into the rule line
+  (`foldRuleCompanions`, used by the task history and the report timeline and CSV). It redefines `mark_project_reminders_sent`
   to set `collabify.reminder_premark`. Suite: `supabase/tests/project-workflow-rules.test.sql`.
 
 ## Security invariants

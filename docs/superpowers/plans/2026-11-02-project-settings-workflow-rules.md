@@ -31,7 +31,7 @@
 ## Review Focus
 
 1. **A member moves a task into Review under a rule "assign the team lead".** The lead is assigned, even though the member couldn't assign anyone. *(Task 2: "a rule acts for the project, not the person")*
-2. **A rule's move is refused by an unfinished dependency.** The person's own change stays. The rule records "Last skipped" with the reason. *(Task 2: "a refused action is skipped and the person's change stays")*
+2. **A rule's move is refused because the project requires a holder and the task has none** ("Give this task a holder before moving it on."). The person's own change stays. The rule records "Last skipped" with the reason. *(Task 2: "a refused action is skipped and the person's change stays")*
 3. **Rule A raises a task to Urgent while rule B fires on Urgent.** B doesn't fire. *(Task 2: "changes made by rules set off no rules")*
 4. **The project manager renames the stage a rule uses.** The rule stops firing, and the list says so. *(Task 2: "a rule whose stage is gone does not fire"; Task 3 UI test)*
 5. **A private planning task moves stage.** No rule fires. *(Task 2: "private planning, archived and trashed tasks set off no rules")*

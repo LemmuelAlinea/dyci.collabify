@@ -65,8 +65,9 @@
 -- deleted is cleared (on delete set null) and the rule stays: created_by is
 -- kept on an update unless it goes to null, so nobody repoints it.
 --
--- Notification type workflow_rule. History event kind rule_applied (added to
--- the general_task_events_kind check, last written by work-task-handoff.sql;
+-- Notification type workflow_rule. History event kind rule_applied (in the
+-- general_task_events_kind check this file rewrites last; work-task-handoff.sql
+-- and project-qa.sql list it too, so their re-runs keep rule history;
 -- actor_id is nullable, so a rule's entry carries no person).
 --
 -- The runner, run_general_workflow_rules(task, trigger, actor, context):
@@ -127,12 +128,16 @@
 -- Class boards and class tables are untouched.
 --
 -- Run after project-notification-rules.sql, then anon-lockdown.sql. Re-running
--- work-task-handoff.sql or project-qa.sql (each rewrites
--- general_task_events_kind) means re-running this file afterwards, then
--- anon-lockdown.sql; otherwise rule_applied is refused. Re-running
--- project-notification-rules.sql means re-running this file afterwards too:
--- it puts back mark_project_reminders_sent without the pre-mark flag, and its
--- own closing pre-mark then sets off "becomes overdue" rules.
+-- work-task-handoff.sql or project-qa.sql means re-running this file
+-- afterwards, then anon-lockdown.sql, so the runner and its triggers stay last
+-- in the chain. Their copies of general_task_events_kind list rule_applied, so
+-- those re-runs no longer refuse or drop a rule's history rows. Re-running
+-- project-notification-rules.sql means re-running this file afterwards too: it
+-- puts back mark_project_reminders_sent without the pre-mark flag. Its own
+-- closing pre-mark runs unflagged, so it may fire "becomes overdue" rules for
+-- tasks newly overdue since the last morning run. That is harmless (those
+-- rules run a few hours early); this file keeps its redefinition, which the
+-- morning run and every later re-run use.
 --
 -- Idempotent. Safe to re-run.
 
@@ -483,7 +488,12 @@ declare
   v_sent   int;
   v_detail jsonb;
 begin
-  select * into t from public.general_tasks where id = p_task for update;
+  -- Only an action that writes the task locks its row; a notice only reads it.
+  if p_rule.action_kind = 'notify' then
+    select * into t from public.general_tasks where id = p_task;
+  else
+    select * into t from public.general_tasks where id = p_task for update;
+  end if;
   -- An earlier rule or a concurrent change may have taken it out of the work.
   if t.id is null or t.routing_state is distinct from 'released'
      or t.archived_at is not null or t.trashed_at is not null then

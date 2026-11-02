@@ -672,9 +672,12 @@ grant execute on function public.general_project_has_qa(uuid) to authenticated;
 
 -- general-tasks.sql's CHECK, widened with the two QA kinds. Pass and Send back
 -- write these rows themselves, beside the "updated" row the stage change leaves.
+-- It also lists the kinds later files add (work-task-handoff.sql's handoffs,
+-- project-workflow-rules.sql's rule_applied), so a re-run keeps their rows.
 alter table public.general_task_events drop constraint if exists general_task_events_kind;
 alter table public.general_task_events add constraint general_task_events_kind
-  check (kind in ('created', 'updated', 'assigned', 'unassigned', 'qa_passed', 'qa_sent_back'));
+  check (kind in ('created', 'updated', 'assigned', 'unassigned', 'qa_passed', 'qa_sent_back',
+                  'sent_to_coordinator', 'returned', 'sent_to_team', 'rerouted', 'rule_applied'));
 
 -- ---------------------------------------------------------------- stage helpers
 

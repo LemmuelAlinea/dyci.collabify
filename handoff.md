@@ -4297,13 +4297,17 @@ locally. **The SQL is not live and nothing is pushed.**
     and recorded on the rule (`last_skipped_at`, `last_skip_reason`) and never blocks the person's
     change.
   - Each applied action writes a `rule_applied` history row with a null actor. The existing history
-    triggers write their own null-actor `updated`, `assigned` or `unassigned` rows beside it, and the app
-    folds those companion rows into the rule line (`describeHistory`).
+    triggers write their own null-actor row beside it for a move (`updated`, status) or an assign
+    (`assigned`), and the app folds that companion row into the rule line (`foldRuleCompanions`, in the
+    task history and the report timeline and CSV). A notify rule has no companion.
   - A rule's assign tells the person (`workflow_rule`) and sends no `general_task_assigned` notice.
 - **Re-run rule:** re-running `project-notification-rules.sql`, `work-task-handoff.sql` or
-  `project-qa.sql` means re-running `project-workflow-rules.sql` afterwards, then `anon-lockdown.sql`.
-  Re-running `project-notification-rules.sql` without it puts back `mark_project_reminders_sent` with no
-  pre-mark flag, and its closing pre-mark would fire "becomes overdue" rules. `docs/07-backup.md` has
+  `project-qa.sql` means re-running `project-workflow-rules.sql` afterwards, then `anon-lockdown.sql`,
+  so the runner and its triggers stay last. `work-task-handoff.sql` and `project-qa.sql` list
+  `rule_applied` in their history kinds check, so their re-runs no longer drop rule history.
+  Re-running `project-notification-rules.sql` puts back `mark_project_reminders_sent` with no pre-mark
+  flag, and its own closing pre-mark runs unflagged, so it may fire "becomes overdue" rules for tasks
+  newly overdue since the last morning run (harmless: a few hours early). `docs/07-backup.md` has
   the restore commands, the final rerun tail and the older passages updated to match.
   `scripts/schema-drift.mjs` lists the file in the restore order.
 - **Dry runs** (the file spliced into each suite with `workflow_rule` swapped for an existing enum value
@@ -4317,8 +4321,6 @@ locally. **The SQL is not live and nothing is pushed.**
   check, a re-run of the suites, then push `main`. Apply the SQL with or before the frontend; until
   then `listWorkflowRules` returns no rules when the table is missing.
 - **Deferred:**
-  - Tighten the history fold to rule actions that write: the fold matches a null-actor row by task and
-    time, so a lookalike null-actor row at the same instant could be absorbed.
   - `ruleProblem` does not flag a person who became a stakeholder (or QA, on Assign) until the rule
     fires and records the skip.
   - No `TaskDialog` render test covers the rule line in the history.

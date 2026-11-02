@@ -7,7 +7,7 @@ import { toCsv } from '../../../lib/report'
 import type { ReportData } from '../../../hooks/useGeneralReport'
 import type { ScopeRow } from '../../../lib/api/generalReports'
 import { mergePeople, sumSummary, onlyProject } from '../../../lib/general/reportData'
-import { describeActivity } from '../../../lib/general/history'
+import { activityWho, describeActivity, foldActivity } from '../../../lib/general/history'
 import { REVIEW, STATUS, day, hours, moment } from './format'
 
 export type CsvSection = 'projectComparison' | 'people' | 'activity' | 'tasks' | 'timeLogs' | 'commits' | 'reviews'
@@ -49,7 +49,7 @@ export function sectionCsv(section: CsvSection, data: ReportData, projects: Scop
       if (!data.activity) return null
       return toCsv(
         ['When', 'Project', 'Who', 'What', 'Task'],
-        data.activity.map((r) => [moment(r.at), name(r.project_id), r.actor_name ?? 'Somebody', describeActivity(r), r.task_title ?? '']),
+        foldActivity(data.activity).map((r) => [moment(r.at), name(r.project_id), activityWho(r), describeActivity(r), r.task_title ?? '']),
       )
     case 'tasks':
       if (!data.tasks) return null

@@ -1508,10 +1508,11 @@ drop trigger if exists general_tasks_touch on public.general_tasks;
 create trigger general_tasks_touch before update on public.general_tasks
   for each row execute function public.touch_general_task_updated_at();
 -- Route changes are explicit, atomic handoffs; regular task edits keep their existing guards.
+-- rule_applied (project-workflow-rules.sql) is listed too, so a re-run keeps those rows.
 alter table public.general_task_events drop constraint if exists general_task_events_kind;
 alter table public.general_task_events add constraint general_task_events_kind check
   (kind in ('created','updated','assigned','unassigned','qa_passed','qa_sent_back',
-            'sent_to_coordinator','returned','sent_to_team','rerouted'));
+            'sent_to_coordinator','returned','sent_to_team','rerouted','rule_applied'));
 
 
 create or replace function public.send_work_tasks_to_coordinator(p_project uuid, p_rows jsonb, p_coordinator uuid)

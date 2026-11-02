@@ -314,6 +314,9 @@ node scripts/db.mjs supabase/project-visibility.sql supabase/inbox.sql supabase/
 
 A full restore already creates `invited_level` in `general-spaces.sql` before
 `inbox.sql`; keep `anon-lockdown.sql` last after all function redefinitions.
+That chain predates the later owners: today, after `project-qa.sql`, run the rest of the final
+rerun tail below (through `project-notification-rules.sql` and `project-workflow-rules.sql`), then
+`anon-lockdown.sql`.
 
 `project-team-leads.sql` runs after `project-visibility.sql`. It adds
 `general_teams.leader_id`, `general_leads_user`, `set_general_team_leader`, the
@@ -394,7 +397,7 @@ tasks. Pick someone else."). It is also the final owner of `send_general_deadlin
 (`work-automation.sql`), which skip stakeholders. A cleanup statement takes current
 stakeholders out of project chats.
 
-Re-run it (then `project-feedback.sql`, `project-qa.sql` and `anon-lockdown.sql`) after re-running any of `general.sql`,
+Re-run it (then `project-feedback.sql`, `project-qa.sql`, `project-task-rules.sql`, `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql` and `project-workflow-rules.sql`, then `anon-lockdown.sql`) after re-running any of `general.sql`,
 `general-tasks.sql`, `general-notify.sql`, `general-schedule-guard.sql`, `general-repo.sql`,
 `general-files.sql`, `general-drafts.sql`, `general-archive-rbac.sql`,
 `general-draft-commit.sql`, `meetings.sql`, `general-shares.sql`, `general-discussions.sql`,
@@ -474,7 +477,7 @@ moves pass the holder rule. This replaced an earlier rule that refused any move 
 last stage. `guard_general_task` lets those QA moves through when nothing else changes,
 freezes an archived task's stage with its status, and reads a bug-only QA's role off
 `general_members` (a pending account too).
-Re-run it (then `project-workflow-rules.sql` and `anon-lockdown.sql`) after re-running `task-stages.sql`,
+Re-run it (then `project-task-rules.sql`, `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql` and `project-workflow-rules.sql`, then `anon-lockdown.sql`) after re-running `task-stages.sql`,
 `project-roles.sql`, `project-team-leads.sql` or `project-stakeholders.sql`, and so after any file whose re-run
 calls for one of them (`general-tasks.sql`, `general-schedule-guard.sql`,
 `general-archive-rbac.sql` and the rest of the `project-stakeholders.sql` list):
@@ -517,8 +520,8 @@ keep their group-leader and grant rules. Re-run it after `general.sql`,
 `work-task-handoff.sql`. It stores each work team in its owning project's archive,
 keeps its people and positions, and blocks archiving while live work remains.
 `work-task-handoff.sql` runs after `project-team-archive.sql` and all earlier task owners,
-then `anon-lockdown.sql` (and `project-workflow-rules.sql` before it, which depends on the
-history kinds check this file writes). Adding routing metadata backfills existing tasks as
+then `anon-lockdown.sql` (and, before it, the files after it in the final rerun tail, through
+`project-workflow-rules.sql`, which keeps the workflow rule runner last). Adding routing metadata backfills existing tasks as
 `released` without changing their holders. The final column default is `planning`;
 the insert guard forces authenticated work inserts into planning even if an old
 client sends `released`, and keeps class-board inserts released. Trusted service
@@ -667,7 +670,8 @@ the `join_requested` and `join_answered` values of `notification_type`.
 requester still has a `general_space_members` row for its space; declining is always
 allowed. Re-running `project-visibility.sql`, `general-spaces.sql`,
 `general-project-archive-rbac.sql` or `work-task-handoff.sql` means re-running
-`project-settings-general.sql` after it, then `anon-lockdown.sql`. Suite:
+`project-settings-general.sql` after it, then `project-task-rules.sql`, `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql` and `project-workflow-rules.sql`,
+then `anon-lockdown.sql`. Suite:
 `supabase/tests/project-settings-general.test.sql`.
 
 ## Task priority, subtasks, dependencies and rules (2026-11-01)
@@ -701,8 +705,8 @@ allowed. Re-running `project-visibility.sql`, `general-spaces.sql`,
 It adds triggers beside the existing task guards and redefines none of them: the rules sit
 in their own triggers, ordered around `general_tasks_a_stage` by name. Re-running
 `work-task-handoff.sql`, `task-stages.sql`, `project-qa.sql` or `project-settings-general.sql`
-means re-running `project-task-rules.sql` after it, then `anon-lockdown.sql`. Suite:
-`supabase/tests/project-task-rules.test.sql`.
+means re-running `project-task-rules.sql` after it, then `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql` and `project-workflow-rules.sql`, then
+`anon-lockdown.sql`. Suite: `supabase/tests/project-task-rules.test.sql`.
 
 ## Member options (2026-11-02)
 
@@ -739,6 +743,7 @@ means re-running `project-task-rules.sql` after it, then `anon-lockdown.sql`. Su
 Tagging tasks and linking sprints keep `manage_tasks`; `guard_general_milestone` and the
 `work-task-handoff.sql` guards are not redefined. Re-running `work-milestones.sql` or
 `project-task-rules.sql` means re-running `project-member-rules.sql` after it, then
+`project-milestone-rules.sql`, `project-notification-rules.sql` and `project-workflow-rules.sql`, then
 `anon-lockdown.sql`; otherwise milestones go back to `manage_tasks` only and a Member's milestone
 delete is refused once the milestone tags a task. Suite:
 `supabase/tests/project-member-rules.test.sql`.
@@ -843,7 +848,8 @@ within 2 days (by design; re-check at deploy). Suite:
 - the notification type value `workflow_rule`, added in its own committed block before the main
   transaction;
 - the rewritten `general_task_events_kind` check, which adds `rule_applied` (the previous owner
-  is `work-task-handoff.sql`);
+  is `work-task-handoff.sql`; it and `project-qa.sql` list `rule_applied` too, so their re-runs
+  keep a rule's history rows);
 - `run_general_workflow_rules`, `apply_general_workflow_rule`, the fire functions and their
   triggers `general_tasks_zzz_workflow` and `general_task_reminders_workflow` (after insert on
   `general_task_reminders`), and `general_workflow_rule_sentence`;
@@ -855,11 +861,15 @@ Rules act for the project with the authority of the project manager and coordina
 by the rule limits. The runner sets `collabify.workflow_rule_run` for the length of a rule's
 action, so a rule's own change sets off no rules. Class boards and class tables are untouched.
 
-Re-running `work-task-handoff.sql` or `project-qa.sql` (each rewrites the history kinds check)
-means re-running `project-workflow-rules.sql` afterwards, then `anon-lockdown.sql`; otherwise a
-rule's history row is refused. Re-running `project-notification-rules.sql` also means re-running
-`project-workflow-rules.sql` afterwards: it puts back `mark_project_reminders_sent` without the
-pre-mark flag, and its own closing pre-mark would then set off "becomes overdue" rules. The same
+Re-running `work-task-handoff.sql` or `project-qa.sql` means re-running
+`project-workflow-rules.sql` afterwards, then `anon-lockdown.sql`, so the runner and its triggers
+stay last. Both files' copies of the history kinds check list `rule_applied`, so those re-runs no
+longer refuse or drop a rule's history rows. Re-running `project-notification-rules.sql` also means
+re-running `project-workflow-rules.sql` afterwards: it puts back `mark_project_reminders_sent`
+without the pre-mark flag. Its own closing pre-mark runs unflagged, so it may fire "becomes
+overdue" rules for tasks newly overdue since the last morning run. That is harmless (those rules
+run a few hours early); `project-workflow-rules.sql` keeps its redefinition, which the morning
+run and every later re-run use. The same
 holds for any file whose re-run calls for one of those three, so a chain above that ends at
 `project-notification-rules.sql` or `anon-lockdown.sql` and passes any of them takes
 `project-workflow-rules.sql` before `anon-lockdown.sql`. Suite:

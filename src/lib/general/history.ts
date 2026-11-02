@@ -21,6 +21,8 @@ function listOf(words: string[]) {
   return `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`
 }
 
+const capital = (s: string) => `${s[0]?.toUpperCase() ?? ''}${s.slice(1)}`
+
 function stageName(status: GeneralTaskStatus | undefined) {
   return TASK_STATUSES.find((s) => s.value === status)?.label ?? 'a new stage'
 }
@@ -46,20 +48,31 @@ const NOTIFIED = {
   person: 'one person',
 } as const
 
-/** What a workflow rule did, as the start of a sentence: "Moved it to Review". */
-function ruleAction(detail: GeneralTaskEvent['detail'], nameOf: (id: string) => string) {
+/**
+ * What a workflow rule did, as a sentence naming the rule: "Moved it to Review
+ * by the rule “Tell QA”". `task` is the task as the line names it ("it" inside
+ * the task, its title in a report); `assignee` is who an assign rule gave it to.
+ */
+function ruleLine(detail: GeneralTaskEvent['detail'], task: string, assignee: string) {
+  const inTask = task === 'it'
+  let what: string
   switch (detail.action) {
     case 'notify':
-      return `Notified ${detail.notify_to ? NOTIFIED[detail.notify_to] : 'somebody'}`
+      what = `Notified ${detail.notify_to ? NOTIFIED[detail.notify_to] : 'somebody'}${inTask ? '' : ` about ${task}`}`
+      break
     case 'set_priority':
-      return `Set the priority to ${detail.priority ? `${detail.priority[0].toUpperCase()}${detail.priority.slice(1)}` : 'a new level'}`
+      what = `Set the priority${inTask ? '' : ` of ${task}`} to ${detail.priority ? capital(detail.priority) : 'a new level'}`
+      break
     case 'assign':
-      return `Assigned it to ${detail.user_id ? nameOf(detail.user_id) : 'somebody'}`
+      what = `Assigned ${task} to ${assignee}`
+      break
     case 'move_stage':
-      return detail.stage_from ? `Moved it from ${detail.stage_from} to ${detail.stage}` : `Moved it to ${detail.stage ?? 'a new stage'}`
+      what = detail.stage_from ? `Moved ${task} from ${detail.stage_from} to ${detail.stage}` : `Moved ${task} to ${detail.stage ?? 'a new stage'}`
+      break
     default:
-      return 'Changed it'
+      what = `Changed ${task}`
   }
+  return `${what} by the rule “${detail.rule_name ?? 'a rule'}”`
 }
 
 /** One line of a task's history, as a sentence. */
@@ -123,24 +136,67 @@ export function describeEvent(event: GeneralTaskEvent, nameOf: (id: string) => s
       return note ? `${actor} sent it back: ${shorten(note, 120)}` : `${actor} sent it back`
     }
     case 'rule_applied':
-      return `${ruleAction(event.detail, nameOf)} by the rule “${event.detail.rule_name ?? 'a rule'}”`
+      return ruleLine(event.detail, 'it', subject ? nameOf(subject) : 'somebody')
   }
 }
 
-const RULE_COMPANIONS = new Set<GeneralTaskEvent['kind']>(['updated', 'assigned', 'unassigned'])
+/** A history row as far as folding a rule's change needs it. */
+type FoldRow = { kind: string; actor_id: string | null; task_id: string | null; detail: Record<string, unknown> }
+
+const fieldsOf = (r: FoldRow) => (Array.isArray(r.detail.fields) ? (r.detail.fields as unknown[]) : [])
 
 /**
- * A task's history as lines, newest first as given. A rule's change writes two
- * rows at the same instant: its own rule_applied row, and the 'updated' or
- * 'assigned' row the history triggers write for any change, with no actor. The
- * rule line already says it, so that second row is folded into it rather than
- * read as "Somebody ...".
+ * Whether `row` is the row the history triggers wrote, with no actor, for the
+ * change the rule_applied row `rule` already describes. Only an action that
+ * writes the task leaves one: set_priority (an 'updated' row of the priority
+ * alone, should the trigger record it), move_stage (an 'updated' row of the
+ * status alone; a move between two middle stages leaves none) and assign (an
+ * 'assigned' row, for the same person when both rows name them). A notify rule
+ * writes nothing on the task, so nothing is folded into it.
  */
+function isCompanion(rule: FoldRow, row: FoldRow) {
+  if (row.actor_id !== null) return false
+  const fields = fieldsOf(row)
+  const only = (field: string) => fields.length === 1 && fields[0] === field
+  switch (rule.detail.action) {
+    case 'set_priority':
+      return row.kind === 'updated' && only('priority')
+    case 'move_stage':
+      return row.kind === 'updated' && only('status')
+    case 'assign':
+      return row.kind === 'assigned' && (!rule.detail.user_id || !row.detail.user_id || rule.detail.user_id === row.detail.user_id)
+    default:
+      return false
+  }
+}
+
+/**
+ * Rows in the order given, each rule change's companion folded into its
+ * rule_applied row. A rule's change writes two rows at the same instant on the
+ * same task: its own rule_applied row, and the row the history triggers write
+ * for any change, with no actor. The rule line already says it, so the second
+ * row would only read as "Somebody ...". Each rule row takes at most one
+ * companion, which comes back beside it. Used by a task's history and by a
+ * report's timeline and CSV.
+ */
+export function foldRuleCompanions<T extends FoldRow>(rows: readonly T[], at: (row: T) => string) {
+  const key = (r: T) => `${r.task_id}|${at(r)}`
+  const folded = new Set<T>()
+  const companionOf = new Map<T, T>()
+  for (const rule of rows) {
+    if (rule.kind !== 'rule_applied') continue
+    const companion = rows.find((r) => !folded.has(r) && key(r) === key(rule) && isCompanion(rule, r))
+    if (companion) {
+      folded.add(companion)
+      companionOf.set(rule, companion)
+    }
+  }
+  return rows.filter((r) => !folded.has(r)).map((row) => ({ row, companion: companionOf.get(row) }))
+}
+
+/** A task's history as lines, newest first as given, with rule changes folded. */
 export function describeHistory(events: readonly GeneralTaskEvent[], nameOf: (id: string) => string) {
-  const byRule = new Set(events.filter((e) => e.kind === 'rule_applied').map((e) => `${e.task_id}|${e.created_at}`))
-  return events
-    .filter((e) => !(e.actor_id === null && RULE_COMPANIONS.has(e.kind) && byRule.has(`${e.task_id}|${e.created_at}`)))
-    .map((e) => ({ id: e.id, event: e, text: describeEvent(e, nameOf) }))
+  return foldRuleCompanions(events, (e) => e.created_at).map(({ row: e }) => ({ id: e.id, event: e, text: describeEvent(e, nameOf) }))
 }
 
 /** One row of a report's activity timeline: what `general_report_activity` returns. */
@@ -154,7 +210,19 @@ export type ActivityEvent = {
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const numOf = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0)
-const capital = (s: string) => `${s[0]?.toUpperCase() ?? ''}${s.slice(1)}`
+
+/**
+ * A report's activity rows with rule changes folded, as the timeline and the
+ * CSV both read them. A report leaves user_id out of a row's detail, so an
+ * assign rule's line takes the person from the 'assigned' row it folds.
+ */
+export function foldActivity<T extends ActivityEvent & { at: string; actor_id: string | null; task_id: string | null }>(
+  rows: readonly T[],
+): T[] {
+  return foldRuleCompanions(rows, (r) => r.at).map(({ row, companion }) =>
+    companion && row.subject_name === null ? { ...row, subject_name: companion.subject_name } : row,
+  )
+}
 
 /** "a coordinator", "the project manager", "QA": what follows "is now". */
 function rolePhrase(role: string) {
@@ -163,6 +231,11 @@ function rolePhrase(role: string) {
   if (role === 'pm') return `the ${label.toLowerCase()}`
   if (role === 'qa') return label
   return `a ${label.toLowerCase()}`
+}
+
+/** Who did a report row: a person's name, "A rule" for a rule's change, else "Somebody". */
+export function activityWho(e: Pick<ActivityEvent, 'kind' | 'actor_name'>) {
+  return e.kind === 'rule_applied' ? 'A rule' : e.actor_name ?? 'Somebody'
 }
 
 /**
@@ -203,6 +276,8 @@ export function describeActivity(e: ActivityEvent) {
       return `${actor} passed ${task}`
     case 'qa_sent_back':
       return `${actor} sent ${task} back`
+    case 'rule_applied':
+      return ruleLine(d as GeneralTaskEvent['detail'], task, subject)
     case 'comment':
       return `${actor} commented on ${task}`
     case 'time_logged': {
@@ -266,7 +341,7 @@ export function describeActivity(e: ActivityEvent) {
 
 /** The kinds a report's activity filter offers, grouped the way the chips show them. */
 export const ACTIVITY_KINDS: { label: string; kinds: string[] }[] = [
-  { label: 'Tasks', kinds: ['created', 'updated', 'assigned', 'unassigned', 'qa_passed', 'qa_sent_back', 'task_archived', 'task_restored'] },
+  { label: 'Tasks', kinds: ['created', 'updated', 'assigned', 'unassigned', 'qa_passed', 'qa_sent_back', 'rule_applied', 'task_archived', 'task_restored'] },
   { label: 'Comments', kinds: ['comment'] },
   { label: 'Time', kinds: ['time_logged'] },
   { label: 'Files', kinds: ['file_added', 'file_archived'] },
