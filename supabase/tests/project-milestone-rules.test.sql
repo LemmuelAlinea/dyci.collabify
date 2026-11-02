@@ -94,7 +94,15 @@ declare
   v_dev   uuid := gen_random_uuid();  -- member on P, holds tasks
   v_stake uuid := gen_random_uuid();  -- stakeholder on P
   v_coord uuid := gen_random_uuid();  -- coordinator on P
+  v_off   uuid := gen_random_uuid();  -- coordinator on PO, not active
   v_space uuid;
+  po      uuid;  -- overdue alerts
+  pq      uuid;  -- overdue alerts, archived
+  ov1     uuid;
+  ov2     uuid;
+  ov3     uuid;
+  ov4     uuid;
+  ovq     uuid;
   pa      uuid;  -- a project that gets archived
   mt      uuid;
   mpa     uuid;
@@ -142,7 +150,8 @@ begin
       (v_pm,    'zz-pms-pm@example.test'),
       (v_dev,   'zz-pms-dev@example.test'),
       (v_stake, 'zz-pms-stake@example.test'),
-      (v_coord, 'zz-pms-coord@example.test')
+      (v_coord, 'zz-pms-coord@example.test'),
+      (v_off,   'zz-pms-off@example.test')
     ) as v(id, em);
 
   insert into public.profiles
@@ -151,7 +160,8 @@ begin
     (v_pm,    'zz-pms-pm@example.test',    'Zz', 'Pmspm',    'member', 'active', false, true),
     (v_dev,   'zz-pms-dev@example.test',   'Zz', 'Pmsdev',   'member', 'active', false, false),
     (v_stake, 'zz-pms-stake@example.test', 'Zz', 'Pmsstake', 'member', 'active', false, false),
-    (v_coord, 'zz-pms-coord@example.test', 'Zz', 'Pmscoord', 'member', 'active', false, false)
+    (v_coord, 'zz-pms-coord@example.test', 'Zz', 'Pmscoord', 'member', 'active', false, false),
+    (v_off,   'zz-pms-off@example.test',   'Zz', 'Pmsoff',   'member', 'pending', false, false)
   on conflict (id) do update
     set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach,
         can_manage_projects = excluded.can_manage_projects;
@@ -511,6 +521,110 @@ begin
     (select archived_at is not null and milestone_completion = 'automatic'
        from public.general_projects where id = pa)
     and pg_temp.reach_of(mpa) = 'open');
+
+  ------------------------------------------------------------ overdue alerts
+  -- Dates far ahead, so "today" comes only from p_now; every run names its project.
+  perform pg_temp.act_as(v_pm);
+  po := (public.create_general_project('Zz PMS alerts', '', null, null, null, null, v_space)).id;
+  pq := (public.create_general_project('Zz PMS shelved', '', null, null, null, null, v_space)).id;
+  perform pg_temp.act_as_service();
+  insert into public.general_space_members (space_id, user_id, level) values (v_space, v_off, 'member');
+  insert into public.general_members (project_id, user_id, role) values
+    (po, v_dev, 'member'), (po, v_stake, 'stakeholder'), (po, v_coord, 'coordinator'),
+    (po, v_off, 'coordinator');
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_milestones (project_id, name, due_on)
+  values (po, 'Zz PMS beta', date '2030-12-09') returning id into ov1;
+  insert into public.general_milestones (project_id, name, due_on)
+  values (po, 'Zz PMS later', date '2030-12-31') returning id into ov2;
+  perform pg_temp.act_as_service();
+  -- 23:30 on Dec 9 in Manila: due today, not overdue yet.
+  n := public.send_milestone_overdue_alerts(timestamptz '2030-12-09 15:30:00+00', po);
+  b1 := n = 0 and not exists (select 1 from public.notifications where general_project_id = po);
+  -- 00:30 on Dec 10 in Manila.
+  n := public.send_milestone_overdue_alerts(timestamptz '2030-12-09 16:30:00+00', po);
+  perform pg_temp.must_be('an overdue milestone alerts the pm and coordinators once',
+    b1 and n = 1
+    and (select count(*) = 2
+                and bool_and(type = 'milestone_overdue'
+                             and title = 'Zz PMS beta is overdue in Zz PMS alerts'
+                             and preview = 'It was due Dec 9.')
+                and bool_or(user_id = v_pm) and bool_or(user_id = v_coord)
+           from public.notifications where general_project_id = po)
+    and (select overdue_notified_at = timestamptz '2030-12-09 16:30:00+00'
+           from public.general_milestones where id = ov1)
+    and (select overdue_notified_at is null from public.general_milestones where id = ov2));
+
+  n := public.send_milestone_overdue_alerts(timestamptz '2030-12-11 00:00:00+00', po);
+  perform pg_temp.must_be('a second run sends nothing new',
+    n = 0 and (select count(*) = 2 from public.notifications where general_project_id = po));
+
+  perform pg_temp.act_as(v_pm);
+  update public.general_milestones set overdue_notified_at = null where id = ov1;
+  update public.general_milestones set overdue_notified_at = now() where id = ov2;
+  perform pg_temp.must_be('...and nobody writes the alert stamp by hand',
+    (select overdue_notified_at is not null from public.general_milestones where id = ov1)
+    and (select overdue_notified_at is null from public.general_milestones where id = ov2));
+
+  update public.general_milestones set due_on = date '2030-12-08' where id = ov1;
+  b1 := (select overdue_notified_at is not null from public.general_milestones where id = ov1);
+  update public.general_milestones set due_on = date '2030-12-15' where id = ov1;
+  b2 := (select overdue_notified_at is null from public.general_milestones where id = ov1);
+  perform pg_temp.act_as_service();
+  n := public.send_milestone_overdue_alerts(timestamptz '2030-12-16 00:00:00+00', po);
+  perform pg_temp.must_be('moving the date later allows a new alert',
+    b1 and b2 and n = 1
+    and (select count(*) = 4 from public.notifications where general_project_id = po)
+    and (select count(*) = 2 from public.notifications
+          where general_project_id = po and preview = 'It was due Dec 15.'));
+
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set require_milestone_due = false where id = po;
+  update public.general_milestones set due_on = null where id = ov1;
+  b1 := (select overdue_notified_at is null from public.general_milestones where id = ov1);
+  insert into public.general_milestones (project_id, name, due_on)
+  values (po, 'Zz PMS someday', null) returning id into ov3;
+  insert into public.general_milestones (project_id, name, due_on)
+  values (po, 'Zz PMS done early', date '2030-12-01') returning id into ov4;
+  update public.general_milestones set reached_at = now() where id = ov4;
+  perform pg_temp.act_as_service();
+  n := public.send_milestone_overdue_alerts(timestamptz '2030-12-20 00:00:00+00', po);
+  perform pg_temp.must_be('undated and reached milestones never alert',
+    b1 and n = 0
+    and (select count(*) = 4 from public.notifications where general_project_id = po)
+    and not exists (select 1 from public.general_milestones
+                     where id in (ov1, ov3, ov4) and overdue_notified_at is not null));
+
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set milestone_overdue_alerts = false where id = po;
+  perform pg_temp.act_as_service();
+  n := public.send_milestone_overdue_alerts(timestamptz '2031-01-05 00:00:00+00', po);
+  b1 := n = 0
+    and (select count(*) = 4 from public.notifications where general_project_id = po)
+    and (select overdue_notified_at is null from public.general_milestones where id = ov2);
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set milestone_overdue_alerts = true where id = po;
+  perform pg_temp.act_as_service();
+  n := public.send_milestone_overdue_alerts(timestamptz '2031-01-05 00:00:00+00', po);
+  perform pg_temp.must_be('alerts off sends nothing',
+    b1 and n = 1
+    and (select count(*) = 6 from public.notifications where general_project_id = po));
+
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_milestones (project_id, name, due_on)
+  values (pq, 'Zz PMS shelved goal', date '2030-12-01') returning id into ovq;
+  perform public.archive_general_project(pq, true);
+  perform pg_temp.act_as_service();
+  n := public.send_milestone_overdue_alerts(timestamptz '2031-01-05 00:00:00+00', pq);
+  perform pg_temp.must_be('archived projects are skipped',
+    n = 0
+    and not exists (select 1 from public.notifications where general_project_id = pq)
+    and (select overdue_notified_at is null from public.general_milestones where id = ovq));
+
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('...and only the daily job sends them',
+    format('select public.send_milestone_overdue_alerts(now(), %L)', po),
+    'permission denied');
 
   ------------------------------------------------------------ class milestones
   perform pg_temp.act_as_service();

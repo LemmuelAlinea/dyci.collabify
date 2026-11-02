@@ -72,6 +72,19 @@
 -- wait for one that isn't reached. Adding locks both milestones (for share)
 -- until commit, so their reach can't change under the check.
 --
+-- Overdue alerts: send_milestone_overdue_alerts(p_now, p_project), run daily
+-- by cron 'collabify-milestone-overdue' at 00:00 UTC (08:00 Manila). On work
+-- projects that aren't archived or trashed and have milestone_overdue_alerts
+-- on, every milestone with a due_on before today in Manila, not reached and
+-- not yet alerted gets one 'milestone_overdue' notification for the project
+-- manager and each active coordinator ("{milestone} is overdue in {project}",
+-- "It was due Dec 9."), carrying general_project_id (notifications have no
+-- milestone column), and overdue_notified_at is stamped with p_now. Returns
+-- the number of milestones alerted. general_milestones_overdue (before insert
+-- or update) keeps people from writing overdue_notified_at (only the job,
+-- with no signed-in person, does) and clears it when due_on moves later or is
+-- cleared, so the new date can alert again.
+--
 -- Class milestones (project_milestones) are untouched.
 --
 -- Run after project-member-rules.sql, then anon-lockdown.sql. Re-running
@@ -79,6 +92,14 @@
 -- afterwards, then anon-lockdown.sql.
 --
 -- Idempotent. Safe to re-run.
+
+-- A new enum value must be committed before anything can use it.
+begin;
+do $$
+begin
+  alter type public.notification_type add value if not exists 'milestone_overdue';
+end $$;
+commit;
 
 begin;
 
@@ -555,6 +576,105 @@ begin
 end;
 $$;
 
+-- ---------------------------------------------------------------- overdue alerts
+
+/**
+ * Only the alert job writes overdue_notified_at (a person's value is
+ * dropped). A due date moved later, or cleared, clears it, so the new date
+ * can alert again; an earlier date keeps it.
+ */
+create or replace function public.guard_general_milestone_overdue()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    new.overdue_notified_at := null;
+    return new;
+  end if;
+  if auth.uid() is not null then
+    new.overdue_notified_at := old.overdue_notified_at;
+  end if;
+  if new.due_on is null or new.due_on > old.due_on then
+    new.overdue_notified_at := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists general_milestones_overdue on public.general_milestones;
+create trigger general_milestones_overdue
+  before insert or update on public.general_milestones
+  for each row execute function public.guard_general_milestone_overdue();
+
+/**
+ * Tells the project manager and active coordinators about each milestone
+ * that has become overdue, once per due date. See the header. Every project,
+ * or only p_project. Returns the number of milestones alerted.
+ */
+create or replace function public.send_milestone_overdue_alerts(
+  p_now timestamptz default now(),
+  p_project uuid default null)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_today date := (p_now at time zone 'Asia/Manila')::date;
+  v_count int;
+begin
+  with due as (
+    select m.id, m.project_id, m.name, m.due_on, gp.name as project_name
+      from public.general_milestones m
+      join public.general_projects gp on gp.id = m.project_id
+     where (p_project is null or m.project_id = p_project)
+       and gp.class_board_id is null
+       and gp.archived_at is null
+       and gp.trashed_at is null
+       and gp.milestone_overdue_alerts
+       and m.due_on < v_today
+       and m.reached_at is null
+       and m.overdue_notified_at is null
+     for update of m skip locked
+  ), stamped as (
+    update public.general_milestones g
+       set overdue_notified_at = p_now
+      from due
+     where g.id = due.id
+    returning due.id, due.project_id, due.name, due.due_on, due.project_name
+  ), sent as (
+    insert into public.notifications (user_id, type, general_project_id, title, preview)
+    select gm.user_id, 'milestone_overdue'::public.notification_type, s.project_id,
+           format('%s is overdue in %s', s.name, s.project_name),
+           format('It was due %s.', to_char(s.due_on, 'FMMon FMDD'))
+      from stamped s
+      join public.general_members gm on gm.project_id = s.project_id
+      join public.profiles pr on pr.id = gm.user_id
+     where gm.role in ('pm', 'coordinator') and pr.status = 'active'
+    returning 1
+  )
+  select count(*) into v_count from stamped;
+  return v_count;
+end;
+$$;
+
+create extension if not exists pg_cron;
+
+do $$
+begin
+  perform cron.unschedule('collabify-milestone-overdue');
+exception when others then null; end $$;
+
+-- Daily at 00:00 UTC, 08:00 in Manila.
+select cron.schedule(
+  'collabify-milestone-overdue',
+  '0 0 * * *',
+  $cron$ select public.send_milestone_overdue_alerts() $cron$
+);
+
 -- ---------------------------------------------------------------- existing milestones
 
 -- Milestones whose tasks were all done counted as reached in the app; the
@@ -583,6 +703,8 @@ revoke all on function public.settle_general_milestone_link() from public, anon,
 revoke all on function public.settle_general_project_milestones() from public, anon, authenticated;
 revoke all on function public.mark_general_milestone_deleting() from public, anon, authenticated;
 revoke all on function public.check_general_milestone_rules() from public, anon, authenticated;
+revoke all on function public.guard_general_milestone_overdue() from public, anon, authenticated;
+revoke all on function public.send_milestone_overdue_alerts(timestamptz, uuid) from public, anon, authenticated;
 revoke all on function public.add_general_milestone_dependency(uuid, uuid) from public, anon;
 grant execute on function public.add_general_milestone_dependency(uuid, uuid) to authenticated;
 revoke all on function public.remove_general_milestone_dependency(uuid, uuid) from public, anon;
