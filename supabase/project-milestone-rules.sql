@@ -34,20 +34,22 @@
 --   general_milestones_zz_waiters, after reached_at turns on or off: settles
 --     the milestones that wait for this one.
 --   general_tasks_zz_milestone_reach (+ _insert, _delete), after a task's
---     milestone, done-ness, archive or trash changes, after an insert of a
---     tagged task, and after a live tagged task is deleted: settles the
---     milestones it left and joined. Compared on the final row rather than
---     the columns named in the update, so stage moves (sync_general_task_stage
---     sets status) and sprint moves (task_follow_sprint_milestone sets
---     milestone_id) count.
+--     milestone, done-ness, release, archive or trash changes, after an
+--     insert of a tagged task, and after a live tagged task is deleted:
+--     settles the milestones it left and joined. Compared on the final row
+--     rather than the columns named in the update, so stage moves
+--     (sync_general_task_stage sets status), sprint moves
+--     (task_follow_sprint_milestone sets milestone_id) and handoff sends
+--     (routing_state) count.
 --   general_milestone_dependencies_settle, after a link is added or removed
 --     (or cascades away with its blocker): settles the waiting milestone.
 --   general_projects_milestone_settle, after a project switches back to
 --     automatic: settles its milestones.
 --
 -- settle_general_milestone(id): in automatic mode on a live work project, a
--- milestone with at least one live task (not archived, not trashed; private
--- planning work counts), all of them done, and every milestone it waits for
+-- milestone with at least one live released task (not archived, not trashed;
+-- private planning work doesn't count, so a milestone with only planning work
+-- is never reached), all of them done, and every milestone it waits for
 -- reached, is reached (reached_at now(), reached_auto true); an automatic
 -- reach that no longer holds is undone. A reached milestone never waits:
 -- while one it waits for isn't reached, its reach is undone, a reach someone
@@ -81,9 +83,9 @@
 -- "It was due Dec 9."), carrying general_project_id (notifications have no
 -- milestone column), and overdue_notified_at is stamped with p_now. Returns
 -- the number of milestones alerted. general_milestones_overdue (before insert
--- or update) keeps people from writing overdue_notified_at (only the job,
--- with no signed-in person, does) and clears it when due_on moves later or is
--- cleared, so the new date can alert again.
+-- or update) keeps people from writing overdue_notified_at (only the job and
+-- other writes with no signed-in person, such as a restore, do) and clears it
+-- when due_on moves later or is cleared, so the new date can alert again.
 --
 -- Class milestones (project_milestones) are untouched.
 --
@@ -205,12 +207,15 @@ begin
     return;
   end if;
 
+  -- Released work only: private planning work isn't the team's yet.
   v_done :=
     exists (select 1 from public.general_tasks t
-             where t.milestone_id = m.id and t.archived_at is null and t.trashed_at is null)
+             where t.milestone_id = m.id and t.routing_state = 'released'
+               and t.archived_at is null and t.trashed_at is null)
     and not exists (select 1 from public.general_tasks t
-                     where t.milestone_id = m.id and t.archived_at is null
-                       and t.trashed_at is null and t.status <> 'done');
+                     where t.milestone_id = m.id and t.routing_state = 'released'
+                       and t.archived_at is null and t.trashed_at is null
+                       and t.status <> 'done');
   v_blocked :=
     exists (select 1 from public.general_milestone_dependencies d
               join public.general_milestones b on b.id = d.depends_on_id
@@ -242,7 +247,7 @@ end;
 $$;
 
 /**
- * A task's milestone, done-ness, archive or trash changed: settle the
+ * A task's milestone, done-ness, release, archive or trash changed: settle the
  * milestones it left and joined, in id order so two moves can't deadlock.
  */
 create or replace function public.reach_general_task_milestones()
@@ -280,7 +285,8 @@ create trigger general_tasks_zz_milestone_reach
   when (old.milestone_id is distinct from new.milestone_id
         or (old.status = 'done') is distinct from (new.status = 'done')
         or (old.archived_at is null) is distinct from (new.archived_at is null)
-        or (old.trashed_at is null) is distinct from (new.trashed_at is null))
+        or (old.trashed_at is null) is distinct from (new.trashed_at is null)
+        or (old.routing_state = 'released') is distinct from (new.routing_state = 'released'))
   execute function public.reach_general_task_milestones();
 
 drop trigger if exists general_tasks_zz_milestone_reach_insert on public.general_tasks;
@@ -579,9 +585,10 @@ $$;
 -- ---------------------------------------------------------------- overdue alerts
 
 /**
- * Only the alert job writes overdue_notified_at (a person's value is
- * dropped). A due date moved later, or cleared, clears it, so the new date
- * can alert again; an earlier date keeps it.
+ * Only the alert job (or another write with no signed-in person) writes
+ * overdue_notified_at; a person's value is dropped. A due date moved later,
+ * or cleared, clears it, so the new date can alert again; an earlier date
+ * keeps it.
  */
 create or replace function public.guard_general_milestone_overdue()
 returns trigger
@@ -591,7 +598,9 @@ set search_path = public
 as $$
 begin
   if tg_op = 'INSERT' then
-    new.overdue_notified_at := null;
+    if auth.uid() is not null then
+      new.overdue_notified_at := null;
+    end if;
     return new;
   end if;
   if auth.uid() is not null then

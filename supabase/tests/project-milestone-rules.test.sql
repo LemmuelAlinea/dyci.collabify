@@ -131,6 +131,10 @@ declare
   t2      uuid;
   t3      uuid;
   t4      uuid;
+  tl      uuid;  -- planning work added to a reached milestone, then released
+  tq      uuid;  -- the only task of a planning-only milestone
+  mq      uuid;  -- planning work only
+  ov5     uuid;
   tx      uuid;
   k1      uuid;
   k2      uuid;
@@ -259,15 +263,15 @@ begin
 
   perform pg_temp.act_as(v_dev);
   update public.general_tasks set status = 'done' where id = t1;
+  b1 := pg_temp.reach_of(ma) = 'open';
   update public.general_tasks set status = 'done' where id = t2;
-  perform pg_temp.must_be('...an open private planning task keeps a milestone open',
-    pg_temp.reach_of(ma) = 'open');
-  perform pg_temp.act_as(v_pm);
-  perform public.archive_general_task(t3, true);
-  perform pg_temp.must_be('all tasks done reaches a milestone automatically',
-    pg_temp.reach_of(ma) = 'auto'
+  perform pg_temp.act_as_service();  -- the planning task is out of the member's sight
+  perform pg_temp.must_be('all released tasks done reaches a milestone automatically, open planning work aside',
+    b1 and pg_temp.reach_of(ma) = 'auto'
     and (select abs(extract(epoch from now() - reached_at)) < 60
-           from public.general_milestones where id = ma));
+           from public.general_milestones where id = ma)
+    and (select routing_state = 'planning' and status <> 'done'
+           from public.general_tasks where id = t3));
   perform pg_temp.must_be('...and the cascade flag is cleared after it',
     coalesce(nullif(current_setting('collabify.milestone_auto', true), ''), 'off') = 'off');
 
@@ -287,9 +291,34 @@ begin
   perform pg_temp.must_be('...and one that loses its last task is no longer reached',
     pg_temp.reach_of(mc) = 'open' and pg_temp.reach_of(mb) = 'auto');
   insert into public.general_tasks (project_id, title, milestone_id)
-  values (p, 'Zz PMS late addition', mb);
-  perform pg_temp.must_be('...and tagging a new open task undoes an automatic reach',
+  values (p, 'Zz PMS late planning', mb) returning id into tl;
+  perform pg_temp.must_be('an open planning task does not undo an automatic reach',
+    pg_temp.reach_of(mb) = 'auto'
+    and (select routing_state = 'planning' from public.general_tasks where id = tl));
+  perform pg_temp.act_as_service();
+  update public.general_tasks set routing_state = 'released' where id = tl;
+  perform pg_temp.must_be('releasing an open task undoes an automatic reach',
     pg_temp.reach_of(mb) = 'open');
+  update public.general_tasks set status = 'done' where id = tl;
+  b1 := pg_temp.reach_of(mb) = 'auto';
+  perform pg_temp.tagged_task(p, 'Zz PMS late addition', mb, v_pm);
+  perform pg_temp.must_be('...and tagging a new released open task undoes an automatic reach',
+    b1 and pg_temp.reach_of(mb) = 'open');
+
+  perform pg_temp.act_as(v_pm);
+  insert into public.general_milestones (project_id, name, due_on)
+  values (p, 'Zz PMS planning only', current_date + 7) returning id into mq;
+  insert into public.general_tasks (project_id, title, milestone_id)
+  values (p, 'Zz PMS planned', mq) returning id into tq;
+  perform pg_temp.act_as_service();
+  update public.general_tasks set status = 'done' where id = tq;
+  perform pg_temp.act_as(v_pm);
+  update public.general_projects set milestone_completion = 'manual' where id = p;
+  update public.general_projects set milestone_completion = 'automatic' where id = p;
+  perform pg_temp.must_be('a milestone with only planning tasks is never reached automatically',
+    pg_temp.reach_of(mq) = 'open'
+    and (select routing_state = 'planning' and status = 'done'
+           from public.general_tasks where id = tq));
 
   ------------------------------------------------------------ reopening
   perform pg_temp.act_as(v_dev);
@@ -565,6 +594,18 @@ begin
   perform pg_temp.must_be('...and nobody writes the alert stamp by hand',
     (select overdue_notified_at is not null from public.general_milestones where id = ov1)
     and (select overdue_notified_at is null from public.general_milestones where id = ov2));
+  insert into public.general_milestones (project_id, name, due_on, overdue_notified_at)
+  values (po, 'Zz PMS stamped by hand', date '2030-12-31', now()) returning id into ov5;
+  b1 := (select overdue_notified_at is null from public.general_milestones where id = ov5);
+  perform pg_temp.act_as_service();
+  insert into public.general_milestones (project_id, name, due_on, overdue_notified_at)
+  values (po, 'Zz PMS restored', date '2030-12-31', timestamptz '2030-12-01 00:00:00+00')
+  returning id into v_who;
+  perform pg_temp.must_be('...a person''s new milestone starts unstamped, a restored one keeps its stamp',
+    b1 and (select overdue_notified_at = timestamptz '2030-12-01 00:00:00+00'
+              from public.general_milestones where id = v_who));
+  delete from public.general_milestones where id in (ov5, v_who);
+  perform pg_temp.act_as(v_pm);
 
   update public.general_milestones set due_on = date '2030-12-08' where id = ov1;
   b1 := (select overdue_notified_at is not null from public.general_milestones where id = ov1);
