@@ -38,9 +38,15 @@
 -- members read only.
 --
 -- The guard, general_workflow_rules_guard (before insert or update):
---   "Workflow rules are for work projects."      a class board
---   "You are not on this project."               a signed-in non-member adding one
---   the archived message                         an archived project
+--   "Workflow rules are for work projects."      a class board (ahead of the
+--                                                permission check, since RLS's
+--                                                refusal would hide it)
+--   (no message)                                 a signed-in person who may not
+--                                                write rules: the guard returns
+--                                                early, takes no lock, and RLS
+--                                                refuses the write
+--   the archived message                         an archived project, to its
+--                                                project manager or a coordinator
 --   "A project can have up to 20 rules."         a 21st rule
 --   "A rule stays in its project."               project_id changed
 --   "Choose a stage in this project."            a stage the project lacks
@@ -54,8 +60,11 @@
 --   "That person can't be given tasks."          assign to QA, a stakeholder,
 --                                                or anyone not a current member
 -- The stage and person checks run on insert and when a signed-in edit
--- changes those fields, so a rule whose stage or person has gone can still be
--- turned off or renamed. The runner reports those rules as skipped.
+-- changes those fields (a signed-in person clearing person_id included), so a
+-- rule whose stage or person has gone can still be turned off or renamed. The
+-- runner reports those rules as skipped. A person or creator whose account is
+-- deleted is cleared (on delete set null) and the rule stays: created_by is
+-- kept on an update unless it goes to null, so nobody repoints it.
 --
 -- Notification type workflow_rule. History event kind rule_applied (added to
 -- the general_task_events_kind check, last written by work-task-handoff.sql;
@@ -201,7 +210,10 @@ begin
       raise exception 'A rule stays in its project.' using errcode = 'check_violation';
     end if;
     new.position := old.position;
-    new.created_by := old.created_by;
+    -- A creator's account going (on delete set null) clears it; nobody repoints it.
+    if new.created_by is not null then
+      new.created_by := old.created_by;
+    end if;
     new.created_at := old.created_at;
   end if;
 
@@ -210,13 +222,23 @@ begin
     return new;   -- the foreign key refuses it
   end if;
 
+  -- Ahead of the permission check: RLS's refusal would hide why.
+  if tg_op = 'INSERT' and gp.class_board_id is not null then
+    raise exception 'Workflow rules are for work projects.' using errcode = 'check_violation';
+  end if;
+
+  -- A signed-in person who may not write rules gets RLS's refusal, with no
+  -- lock taken and nothing else said. The project manager or a coordinator
+  -- of an archived project is told why.
+  if not v_system and not public.general_can_manage_workflow(gp.id) then
+    if gp.archived_at is not null
+       and coalesce(public.general_role_of(gp.id, auth.uid())::text, '') in ('pm', 'coordinator') then
+      raise exception '%', public.general_archived_message(gp.id) using errcode = 'check_violation';
+    end if;
+    return new;
+  end if;
+
   if tg_op = 'INSERT' then
-    if gp.class_board_id is not null then
-      raise exception 'Workflow rules are for work projects.' using errcode = 'check_violation';
-    end if;
-    if auth.uid() is not null and public.general_role_of(gp.id, auth.uid()) is null then
-      raise exception 'You are not on this project.' using errcode = 'insufficient_privilege';
-    end if;
     if gp.archived_at is not null then
       raise exception '%', public.general_archived_message(gp.id) using errcode = 'check_violation';
     end if;
@@ -246,12 +268,14 @@ begin
     v_trig := new.trigger_kind is distinct from old.trigger_kind
            or new.trigger_stage is distinct from old.trigger_stage
            or new.trigger_priority is distinct from old.trigger_priority;
-    -- A person cleared on its own is the account going (on delete set null).
+    -- A person cleared with nobody signed in is the account going (on delete
+    -- set null); a signed-in person clearing it must choose someone.
     v_act := new.action_kind is distinct from old.action_kind
           or new.notify_to is distinct from old.notify_to
           or new.action_priority is distinct from old.action_priority
           or new.action_stage is distinct from old.action_stage
-          or (new.person_id is not null and new.person_id is distinct from old.person_id);
+          or (new.person_id is distinct from old.person_id
+              and (new.person_id is not null or auth.uid() is not null));
     if not v_system and (v_trig or v_act) then
       new.last_skipped_at := null;
       new.last_skip_reason := null;

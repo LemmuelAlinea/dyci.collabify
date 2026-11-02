@@ -101,6 +101,7 @@ declare
   v_stake uuid := gen_random_uuid();  -- stakeholder
   v_out   uuid := gen_random_uuid();  -- in the space, not on the project
   v_gone  uuid := gen_random_uuid();  -- on the project, account not active
+  v_tmp   uuid := gen_random_uuid();  -- a coordinator whose profile gets deleted
   v_teach uuid := gen_random_uuid();  -- teaches the class
   v_stu1  uuid := gen_random_uuid();  -- student, class board
   v_stu2  uuid := gen_random_uuid();  -- student, class board
@@ -112,6 +113,8 @@ declare
   r2      uuid;
   r3      uuid;
   ra      uuid;
+  rt      uuid;
+  rt2     uuid;
   t1      uuid;
   v_who   uuid;
   v_res   uuid;
@@ -257,7 +260,7 @@ begin
   perform pg_temp.must_refuse_with('...somebody off the project cannot add one',
     format($q$insert into public.general_workflow_rules (project_id, trigger_kind, action_kind, notify_to)
               values (%L, 'task_released', 'notify', 'holders')$q$, p),
-    'not on this project');
+    'row-level security');
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('members, qa and stakeholders read rules but cannot write them',
     n = 0
@@ -272,6 +275,11 @@ begin
   perform pg_temp.must_refuse_with('a 21st rule is refused',
     format($q$select pg_temp.lead_rule(%L, 'Build')$q$, p),
     'A project can have up to 20 rules.');
+  perform pg_temp.act_as(v_dev);
+  perform pg_temp.must_refuse_with('...while somebody who may not write rules is refused by RLS alone',
+    format($q$select pg_temp.lead_rule(%L, 'Build')$q$, p),
+    'row-level security');
+  perform pg_temp.act_as(v_pm);
   perform pg_temp.must_be('...after twenty went in',
     pg_temp.seen(p) = 20
     and (select max(position) = 20 and count(distinct position) = 20
@@ -425,6 +433,13 @@ begin
     (select person_id = v_dev from public.general_workflow_rules where id = r3)
     and pg_temp.goes(format($q$update public.general_workflow_rules set person_id = %L where id = %L$q$, v_coord, r3))
     and pg_temp.goes(format($q$update public.general_workflow_rules set person_id = %L where id = %L$q$, v_pm, r3)));
+  perform pg_temp.must_refuse_with('...and a signed-in person cannot clear the person',
+    format($q$update public.general_workflow_rules set person_id = null where id = %L$q$, r3),
+    'Choose someone in this project.');
+  perform pg_temp.must_refuse_with('...nor the person to notify',
+    format($q$update public.general_workflow_rules set person_id = null
+               where project_id = %L and notify_to = 'person'$q$, p),
+    'Choose someone in this project.');
 
   -- A rule whose person left keeps working as a row: it can still be turned off.
   perform pg_temp.act_as_service();
@@ -435,6 +450,35 @@ begin
     pg_temp.rows_of(format($q$update public.general_workflow_rules set enabled = false where id = %L$q$, r3)) = 1);
   perform pg_temp.act_as_service();
   insert into public.general_members (project_id, user_id, role) values (p, v_dev, 'member');
+
+  -- A creator's or named person's account deleted: the rule stays, cleared.
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at)
+  values (v_tmp, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'zz-pwr-tmp@example.test', '', now(), now());
+  insert into public.profiles
+    (id, email, first_name, last_name, role, status, can_teach, can_manage_projects)
+  values (v_tmp, 'zz-pwr-tmp@example.test', 'Zz', 'Pwrtmp', 'member', 'active', false, false)
+  on conflict (id) do update set role = excluded.role, status = excluded.status;
+  insert into public.general_space_members (space_id, user_id, level) values (v_space, v_tmp, 'member');
+  insert into public.general_members (project_id, user_id, role) values (p, v_tmp, 'coordinator');
+  perform pg_temp.act_as(v_tmp);
+  rt := pg_temp.lead_rule(p, 'Review');
+  insert into public.general_workflow_rules (project_id, trigger_kind, action_kind, person_id)
+  values (p, 'task_overdue', 'assign', v_tmp) returning id into rt2;
+  b1 := (select created_by = v_tmp from public.general_workflow_rules where id = rt)
+    and (select person_id = v_tmp and created_by = v_tmp from public.general_workflow_rules where id = rt2);
+  perform pg_temp.act_as_service();
+  -- Off the project first: the member-removal history needs the profile.
+  delete from public.general_members where project_id = p and user_id = v_tmp;
+  delete from public.profiles where id = v_tmp;
+  perform pg_temp.must_be('deleting a creator''s or named person''s profile keeps the rule, cleared',
+    b1
+    and not exists (select 1 from public.profiles where id = v_tmp)
+    and (select created_by is null and trigger_stage = 'Review' and enabled
+           from public.general_workflow_rules where id = rt)
+    and (select created_by is null and person_id is null and action_kind = 'assign'
+           from public.general_workflow_rules where id = rt2));
+  delete from public.general_workflow_rules where id in (rt, rt2);
 
   ------------------------------------------------------------ skip fields
   perform pg_temp.act_as_service();
