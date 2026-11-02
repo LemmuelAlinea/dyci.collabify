@@ -126,6 +126,25 @@ begin
 end;
 $$;
 
+/** A released task in a sprint, with a status, held by p_holder (when given). */
+create or replace function pg_temp.sprint_task(p uuid, p_sprint uuid, p_title text, p_status text,
+  p_holder uuid, p_by uuid)
+returns uuid language plpgsql as $$
+declare
+  v uuid;
+begin
+  perform pg_temp.act_as_service();
+  insert into public.general_tasks (project_id, title, created_by, routing_state, sprint_id, status)
+  values (p, p_title, p_by, 'released', p_sprint, p_status::public.general_task_status)
+  returning id into v;
+  if p_holder is not null then
+    insert into public.general_task_assignees (project_id, task_id, user_id, assigned_by)
+    values (p, v, p_holder, p_by);
+  end if;
+  return v;
+end;
+$$;
+
 /** How many notices of one type a person has from one project. */
 create or replace function pg_temp.got(p_user uuid, p_project uuid, p_type text) returns int
 language sql as $$
@@ -144,6 +163,8 @@ declare
   v_stu2  uuid := gen_random_uuid();  -- student, class board
   v_stake uuid := gen_random_uuid();  -- stakeholder on the reminder projects
   v_qa    uuid := gen_random_uuid();  -- QA on the reminder projects
+  v_pmb   uuid := gen_random_uuid();  -- project manager on the sprint completion projects
+  v_space2 uuid;
   v_space uuid;
   pa      uuid;  -- reminder projects, one per check
   pb      uuid;
@@ -164,6 +185,17 @@ declare
   x3      uuid;
   x4      uuid;
   v_ids   uuid[];
+  qa1     uuid;  -- sprint completion projects, one per check
+  qa2     uuid;
+  qa3     uuid;
+  qa4     uuid;
+  qa5     uuid;
+  qa6     uuid;
+  qa7     uuid;
+  y1      uuid;
+  y2      uuid;
+  y3      uuid;
+  y4      uuid;
   -- The job's mornings: 08:00 Manila on Mar 9, 10, 11 and 12, 2030.
   d0      timestamptz := timestamptz '2030-03-09 00:00:00+00';
   d1      timestamptz := timestamptz '2030-03-10 00:00:00+00';
@@ -208,7 +240,8 @@ begin
       (v_stu1,  'zz-pnr-stu1@example.test'),
       (v_stu2,  'zz-pnr-stu2@example.test'),
       (v_stake, 'zz-pnr-stake@example.test'),
-      (v_qa,    'zz-pnr-qa@example.test')
+      (v_qa,    'zz-pnr-qa@example.test'),
+      (v_pmb,   'zz-pnr-pmb@example.test')
     ) as v(id, em);
 
   insert into public.profiles
@@ -222,7 +255,8 @@ begin
     (v_stu1,  'zz-pnr-stu1@example.test',  'Zz', 'Pnrstu1',  'student', 'active', false, false),
     (v_stu2,  'zz-pnr-stu2@example.test',  'Zz', 'Pnrstu2',  'student', 'active', false, false),
     (v_stake, 'zz-pnr-stake@example.test', 'Zz', 'Pnrstake', 'member',  'active', false, false),
-    (v_qa,    'zz-pnr-qa@example.test',    'Zz', 'Pnrqa',    'member',  'active', false, false)
+    (v_qa,    'zz-pnr-qa@example.test',    'Zz', 'Pnrqa',    'member',  'active', false, false),
+    (v_pmb,   'zz-pnr-pmb@example.test',   'Zz', 'Pnrpmb',   'member',  'active', false, true)
   on conflict (id) do update
     set role = excluded.role, status = excluded.status, can_teach = excluded.can_teach,
         can_manage_projects = excluded.can_manage_projects;
@@ -733,12 +767,14 @@ begin
   x2 := pg_temp.due_task(pi, 'Zz I late', timestamptz '2030-03-05 09:00:00+08', v_dev, v_pm);
   insert into public.general_milestones (project_id, name, due_on)
   values (pi, 'Zz Goal I', date '2030-03-11') returning id into x3;
+  -- Overdue alerts off still stamp the task, silently, so turning them on
+  -- later sends no backlog. Sprints and milestones wait unstamped.
   n := public.send_project_reminders(d1, pi);
-  b1 := n = 0
+  b1 := n = 1
     and not exists (select 1 from public.notifications where general_project_id = pi
                      and type in ('sprint_ending_soon', 'general_task_overdue', 'milestone_due_soon'))
     and (select end_reminded_at is null from public.general_sprints where id = x1)
-    and not exists (select 1 from public.general_task_reminders where task_id = x2)
+    and (select overdue_notified_at = d1 from public.general_task_reminders where task_id = x2)
     and (select due_reminded_at is null from public.general_milestones where id = x3);
   update public.general_projects set sprint_end_reminder_days = 1 where id = pi;
   n := public.send_project_reminders(d1, pi);
@@ -746,8 +782,8 @@ begin
     and pg_temp.got(v_pm, pi, 'general_task_overdue') = 0 and pg_temp.got(v_pm, pi, 'milestone_due_soon') = 0;
   update public.general_projects set task_overdue_alerts = true where id = pi;
   n := public.send_project_reminders(d1, pi);
-  b2 := b2 and n = 1 and pg_temp.got(v_pm, pi, 'general_task_overdue') = 1
-    and pg_temp.got(v_dev, pi, 'general_task_overdue') = 1 and pg_temp.got(v_pm, pi, 'milestone_due_soon') = 0;
+  b2 := b2 and n = 0 and pg_temp.got(v_pm, pi, 'general_task_overdue') = 0
+    and pg_temp.got(v_dev, pi, 'general_task_overdue') = 0 and pg_temp.got(v_pm, pi, 'milestone_due_soon') = 0;
   update public.general_projects set milestone_due_reminder_days = 1 where id = pi;
   n := public.send_project_reminders(d1, pi);
   perform pg_temp.must_be('each project switch off sends nothing for its notice',
@@ -857,6 +893,164 @@ begin
     and not has_function_privilege('anon', 'public.send_project_reminders(timestamptz, uuid)', 'execute')
     and not has_function_privilege('authenticated', 'public.mark_project_reminders_sent(timestamptz, uuid)', 'execute')
     and not has_function_privilege('anon', 'public.mark_project_reminders_sent(timestamptz, uuid)', 'execute'));
+
+  ------------------------------------------------------------ sprint completion
+  -- Their own project manager and space: one person may create only 20
+  -- projects an hour.
+  perform pg_temp.act_as(v_pmb);
+  v_space2 := (public.create_general_space('Zz PNR space 2', '')).id;
+  perform pg_temp.act_as_service();
+  insert into public.general_space_members (space_id, user_id, level) values
+    (v_space2, v_coord, 'member'), (v_space2, v_dev, 'member'), (v_space2, v_dev2, 'member'),
+    (v_space2, v_stake, 'member'), (v_space2, v_qa, 'member');
+
+  -- A person finishes: planners and holders of released, live tasks, not the
+  -- finisher. A planner who holds a task gets one notice.
+  qa1 := pg_temp.rem_project(v_space2, 'Zz PNR finish 1', v_pmb, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.running_sprint(qa1, 'Zz Sprint F1', date '2030-03-01', date '2030-03-14');
+  y1 := pg_temp.sprint_task(qa1, x1, 'Zz F1 dev', 'done', v_dev, v_pmb);
+  y2 := pg_temp.sprint_task(qa1, x1, 'Zz F1 pm', 'done', v_pmb, v_pmb);
+  y3 := pg_temp.sprint_task(qa1, x1, 'Zz F1 archived', 'done', v_dev2, v_pmb);
+  update public.general_tasks set archived_at = now(), archived_by = v_pmb where id = y3;
+  insert into public.general_tasks (project_id, title, created_by, routing_state, sprint_id)
+  values (qa1, 'Zz F1 planning', v_pmb, 'planning', x1);
+  perform pg_temp.act_as(v_coord);
+  perform public.complete_general_sprint(x1, null);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('finishing a sprint tells the planners and the sprint team, not the finisher',
+    (select state = 'completed' from public.general_sprints where id = x1)
+    and (select count(*) = 2 and count(distinct user_id) = 2
+                and bool_and(user_id in (v_pmb, v_dev)
+                             and title = 'Zz Sprint F1 is finished'
+                             and preview = '2 of 2 tasks done.'
+                             and general_task_id is null)
+           from public.notifications where general_project_id = qa1 and type = 'sprint_completed')
+    and pg_temp.got(v_coord, qa1, 'sprint_completed') = 0
+    and pg_temp.got(v_dev2, qa1, 'sprint_completed') = 0
+    and pg_temp.got(v_stake, qa1, 'sprint_completed') = 0
+    and pg_temp.got(v_qa, qa1, 'sprint_completed') = 0);
+
+  -- Carried into the next sprint: the counts are from before the move.
+  qa2 := pg_temp.rem_project(v_space2, 'Zz PNR finish 2', v_pmb, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.running_sprint(qa2, 'Zz Sprint F2', date '2030-03-01', date '2030-03-14');
+  insert into public.general_sprints (project_id, name, starts_on, ends_on)
+  values (qa2, 'Zz Sprint F2 next', date '2030-03-15', date '2030-03-28') returning id into x2;
+  y1 := pg_temp.sprint_task(qa2, x1, 'Zz F2 done', 'done', v_dev, v_pmb);
+  y2 := pg_temp.sprint_task(qa2, x1, 'Zz F2 open', 'todo', v_dev2, v_pmb);
+  y3 := pg_temp.sprint_task(qa2, x1, 'Zz F2 unheld', 'in_progress', null, v_pmb);
+  insert into public.general_tasks (project_id, title, created_by, routing_state, sprint_id)
+  values (qa2, 'Zz F2 planning', v_pmb, 'planning', x1) returning id into y4;
+  perform pg_temp.act_as(v_pmb);
+  perform public.complete_general_sprint(x1, x2);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('carried-over holders are told and counts are from before the move',
+    (select sprint_id = x2 from public.general_tasks where id = y2)
+    and (select sprint_id = x2 from public.general_tasks where id = y3)
+    and (select sprint_id = x1 from public.general_tasks where id = y1)
+    and (select count(*) = 3 and count(distinct user_id) = 3
+                and bool_and(user_id in (v_coord, v_dev, v_dev2)
+                             and title = 'Zz Sprint F2 is finished'
+                             and preview = '1 of 3 tasks done. 2 moved to Zz Sprint F2 next.')
+           from public.notifications where general_project_id = qa2 and type = 'sprint_completed')
+    and pg_temp.got(v_pmb, qa2, 'sprint_completed') = 0);
+
+  -- Back to the backlog.
+  qa3 := pg_temp.rem_project(v_space2, 'Zz PNR finish 3', v_pmb, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.running_sprint(qa3, 'Zz Sprint F3', date '2030-03-01', date '2030-03-14');
+  y1 := pg_temp.sprint_task(qa3, x1, 'Zz F3 done', 'done', v_dev, v_pmb);
+  y2 := pg_temp.sprint_task(qa3, x1, 'Zz F3 open', 'todo', v_dev2, v_pmb);
+  perform pg_temp.act_as(v_pmb);
+  perform public.complete_general_sprint(x1, null);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('work sent back to the backlog is counted in the preview',
+    (select sprint_id is null from public.general_tasks where id = y2)
+    and (select count(*) = 3 and bool_and(preview = '1 of 2 tasks done. 1 went back to the backlog.')
+           from public.notifications where general_project_id = qa3 and type = 'sprint_completed')
+    and pg_temp.got(v_dev2, qa3, 'sprint_completed') = 1);
+
+  -- The automation: the planners already get sprint_automation.
+  qa4 := pg_temp.rem_project(v_space2, 'Zz PNR finish 4', v_pmb, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.running_sprint(qa4, 'Zz Sprint F4', date '2030-02-22', date '2030-03-07');
+  y1 := pg_temp.sprint_task(qa4, x1, 'Zz F4 done', 'done', v_dev, v_pmb);
+  y2 := pg_temp.sprint_task(qa4, x1, 'Zz F4 open', 'todo', v_dev2, v_pmb);
+  y3 := pg_temp.sprint_task(qa4, x1, 'Zz F4 coord', 'done', v_coord, v_pmb);
+  insert into public.general_sprint_settings (project_id, auto_finish, carry)
+  values (qa4, true, 'backlog');
+  n := public.run_sprint_automation(d1, qa4);
+  perform pg_temp.must_be('the automation tells the sprint team but not the planners again',
+    n = 1
+    and (select state = 'completed' from public.general_sprints where id = x1)
+    and (select sprint_id is null from public.general_tasks where id = y2)
+    and (select count(*) = 2 and count(distinct user_id) = 2
+                and bool_and(user_id in (v_dev, v_dev2)
+                             and title = 'Zz Sprint F4 is finished'
+                             and preview = '2 of 3 tasks done. 1 went back to the backlog.')
+           from public.notifications where general_project_id = qa4 and type = 'sprint_completed')
+    and pg_temp.got(v_pmb, qa4, 'sprint_completed') = 0
+    and pg_temp.got(v_coord, qa4, 'sprint_completed') = 0
+    and pg_temp.got(v_pmb, qa4, 'sprint_automation') = 1
+    and pg_temp.got(v_coord, qa4, 'sprint_automation') = 1
+    and coalesce(current_setting('collabify.sprint_automation', true), 'off') <> 'on');
+
+  -- The project switch.
+  qa5 := pg_temp.rem_project(v_space2, 'Zz PNR finish 5', v_pmb, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  update public.general_projects set sprint_completion_notices = false where id = qa5;
+  x1 := pg_temp.running_sprint(qa5, 'Zz Sprint F5', date '2030-03-01', date '2030-03-14');
+  y1 := pg_temp.sprint_task(qa5, x1, 'Zz F5 done', 'done', v_dev, v_pmb);
+  y2 := pg_temp.sprint_task(qa5, x1, 'Zz F5 open', 'todo', v_dev2, v_pmb);
+  perform pg_temp.act_as(v_pmb);
+  perform public.complete_general_sprint(x1, null);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('sprint completion notices off sends nothing',
+    (select state = 'completed' from public.general_sprints where id = x1)
+    and (select sprint_id is null from public.general_tasks where id = y2)
+    and not exists (select 1 from public.notifications
+                     where general_project_id = qa5 and type = 'sprint_completed'));
+
+  -- A person's own switch.
+  qa6 := pg_temp.rem_project(v_space2, 'Zz PNR finish 6', v_pmb, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.running_sprint(qa6, 'Zz Sprint F6', date '2030-03-01', date '2030-03-14');
+  y1 := pg_temp.sprint_task(qa6, x1, 'Zz F6 done', 'done', v_dev, v_pmb);
+  y2 := pg_temp.sprint_task(qa6, x1, 'Zz F6 open', 'todo', v_dev2, v_pmb);
+  update public.notification_prefs set project_updates = false where user_id in (v_coord, v_dev);
+  perform pg_temp.act_as(v_pmb);
+  perform public.complete_general_sprint(x1, null);
+  perform pg_temp.act_as_service();
+  update public.notification_prefs set project_updates = true where user_id in (v_coord, v_dev);
+  perform pg_temp.must_be('a person''s project updates switch silences it',
+    (select count(*) = 1 and bool_and(user_id = v_dev2)
+           from public.notifications where general_project_id = qa6 and type = 'sprint_completed'));
+
+  -- Reopened and finished again.
+  qa7 := pg_temp.rem_project(v_space2, 'Zz PNR finish 7', v_pmb, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.running_sprint(qa7, 'Zz Sprint F7', date '2030-03-01', date '2030-03-14');
+  y1 := pg_temp.sprint_task(qa7, x1, 'Zz F7 done', 'done', v_dev, v_pmb);
+  perform pg_temp.act_as(v_pmb);
+  perform public.complete_general_sprint(x1, null);
+  perform public.reopen_general_sprint(x1);
+  perform pg_temp.act_as(v_coord);
+  perform public.complete_general_sprint(x1, null);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('reopening and finishing again announces again',
+    (select state = 'completed' from public.general_sprints where id = x1)
+    and pg_temp.got(v_dev, qa7, 'sprint_completed') = 2
+    and pg_temp.got(v_pmb, qa7, 'sprint_completed') = 1
+    and pg_temp.got(v_coord, qa7, 'sprint_completed') = 1);
+
+  -- Only a finish sends it.
+  qa1 := pg_temp.rem_project(v_space2, 'Zz PNR finish 8', v_pmb, v_coord, v_dev, v_dev2, v_stake, v_qa);
+  x1 := pg_temp.running_sprint(qa1, 'Zz Sprint F8', date '2030-03-01', date '2030-03-14');
+  y1 := pg_temp.sprint_task(qa1, x1, 'Zz F8 done', 'done', v_dev, v_pmb);
+  perform pg_temp.act_as(v_pmb);
+  perform pg_temp.must_refuse_with('nobody can announce a sprint without finishing it',
+    format('select public.notify_general_sprint_completed(%L, null)', x1),
+    'finish');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...so the sprint team hears nothing',
+    (select state = 'active' from public.general_sprints where id = x1)
+    and not exists (select 1 from public.notifications
+                     where general_project_id = qa1 and type = 'sprint_completed')
+    and not has_function_privilege('anon', 'public.notify_general_sprint_completed(uuid, uuid)', 'execute'));
 end;
 $$;
 

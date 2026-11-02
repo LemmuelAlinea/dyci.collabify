@@ -52,6 +52,21 @@
 --     unchanged, except each recipient also needs their own
 --     deadline_reminders. The milestone is stamped whether or not anyone
 --     received it.
+--   complete_general_sprint(p_sprint, p_carry_to) and
+--   run_sprint_automation(p_now, p_project) (both sprint-settings.sql):
+--     unchanged, except each calls notify_general_sprint_completed just
+--     before unfinished work moves.
+--
+-- Sprint completion: both finish paths carry unfinished work before the state
+-- changes, so the notice is written from inside them, just before the carry,
+-- while the sprint still holds its team and its counts.
+-- notify_general_sprint_completed sends sprint_completed, when the project's
+-- sprint_completion_notices is on, to the project manager, active
+-- coordinators and every holder of a released, live task in the sprint, each
+-- with their own "Project updates" on, except the signed-in person finishing
+-- it. When the automation finishes it, the planners are skipped (they get
+-- sprint_automation) and nobody is left out. Stakeholders and QA get none.
+-- Reopening and finishing again announces again.
 --
 -- The daily reminders job, send_project_reminders(p_now, p_project), runs by
 -- cron 'collabify-project-reminders' at 00:00 UTC (08:00 Manila) on live work
@@ -62,9 +77,11 @@
 --                         sprint_end_reminder_days; to the project manager and
 --                         active coordinators, with its unfinished count
 --   general_task_overdue  a released, live task not done whose due day
---                         (Manila) has passed, when task_overdue_alerts is on;
---                         to each holder, plus one summary per project per run
---                         to the project manager and active coordinators
+--                         (Manila) has passed; to each holder, plus one
+--                         summary per project per run to the project manager
+--                         and active coordinators. With task_overdue_alerts
+--                         off the task is stamped with no notice, so turning
+--                         the alerts on later sends no backlog
 --   milestone_due_soon    an unreached milestone due within
 --                         milestone_due_reminder_days; to the project manager
 --                         and active coordinators
@@ -76,8 +93,10 @@
 --
 -- Run after project-milestone-rules.sql, then anon-lockdown.sql. Re-running
 -- general-archive-rbac.sql (or any file that redefines
--- notify_general_assignment) or project-milestone-rules.sql means re-running
--- this file afterwards, then anon-lockdown.sql.
+-- notify_general_assignment), project-milestone-rules.sql, sprint-settings.sql
+-- (or work-planning.sql or sprint-reopen.sql, which mean re-running
+-- sprint-settings.sql) means re-running this file afterwards, then
+-- anon-lockdown.sql; otherwise finished sprints stop being announced.
 --
 -- Idempotent. Safe to re-run.
 
@@ -334,10 +353,11 @@ $$;
  * - Sprint ending (sprint_end_reminder_days on): the running sprint ends
  *   today or within that many days. The planners get sprint_ending_soon with
  *   the count of its released, live tasks not done.
- * - Task overdue (task_overdue_alerts on): a released, live task not done
- *   whose due day (Manila) is before today. Each holder gets
- *   general_task_overdue for the task; the planners get one summary per
- *   project for this run's newly overdue tasks. The stamp is a
+ * - Task overdue: a released, live task not done whose due day (Manila) is
+ *   before today. With task_overdue_alerts on, each holder gets
+ *   general_task_overdue for the task and the planners get one summary per
+ *   project for this run's newly overdue tasks; with it off the task is
+ *   stamped silently, so turning it on later sends no backlog. The stamp is a
  *   general_task_reminders row; the task row is never written or locked, and
  *   only the ids this run's insert returns notify.
  * - Milestone due (milestone_due_reminder_days on): an unreached milestone due
@@ -414,14 +434,14 @@ begin
 
   -- Task overdue.
   with due as (
-    select t.id, t.project_id, t.title, t.due_at, gp.name as project_name
+    select t.id, t.project_id, t.title, t.due_at, gp.name as project_name,
+           gp.task_overdue_alerts as alerts
       from public.general_tasks t
       join public.general_projects gp on gp.id = t.project_id
      where (p_project is null or t.project_id = p_project)
        and gp.class_board_id is null
        and gp.archived_at is null
        and gp.trashed_at is null
-       and gp.task_overdue_alerts
        and t.routing_state = 'released'
        and t.archived_at is null
        and t.trashed_at is null
@@ -438,7 +458,9 @@ begin
     on conflict (task_id) do nothing
     returning task_id
   ), fresh as (
-    select due.* from due join stamped on stamped.task_id = due.id
+    -- With task_overdue_alerts off the stamp is silent, so turning the alerts
+    -- on later sends no backlog.
+    select due.* from due join stamped on stamped.task_id = due.id where due.alerts
   ), held as (
     insert into public.notifications
       (user_id, type, general_project_id, general_task_id, title, preview)
@@ -517,12 +539,16 @@ end;
 $$;
 
 /**
- * Marks as sent, with no notice, every reminder that already qualifies on the
- * Manila day of p_now: what send_project_reminders would find with every
- * project switch on, and the longest offered window (3 days for sprints, 7
- * for milestones) where a reminder is off. Run when this file is applied, so
- * the first morning sends no old cases and turning a switch on later doesn't
- * either. Every project, or only p_project. Returns the number stamped.
+ * Marks as sent, with no notice, what already qualifies on the Manila day of
+ * p_now, every switch on or off: each running sprint that ends within its
+ * sprint_end_reminder_days (3 when the reminder is off), each released, live
+ * task not done whose due day has passed, and each unreached milestone due
+ * within its milestone_due_reminder_days (7 when the reminder is off). Run
+ * when this file is applied, so the first morning sends none of these. After
+ * that, a sprint or milestone that comes into range while its reminder is off
+ * stays unstamped and is sent once the reminder is turned on; an overdue task
+ * is stamped by the daily job whether or not its alerts are on. Every project,
+ * or only p_project. Returns the number stamped.
  */
 create or replace function public.mark_project_reminders_sent(
   p_now timestamptz default now(),
@@ -587,6 +613,267 @@ begin
 end;
 $$;
 
+-- ---------------------------------------------------------------- sprint completion
+
+/**
+ * Announces that a running sprint is finishing (sprint_completed), when the
+ * work project's sprint_completion_notices is on. Both finish paths call it
+ * just before unfinished work moves, so the sprint team and the counts are
+ * the sprint's as it ends; the notices commit with the finish or not at all.
+ * Recipients: the project manager and active coordinators, plus every holder
+ * of a released, live task in the sprint (done or not), each with their own
+ * "Project updates" on. Stakeholders and QA get none. The signed-in person
+ * finishing it is left out. When the automation finishes it
+ * (collabify.sprint_automation on) nobody is left out, and the planners are
+ * skipped because sprint_automation already told them.
+ * Title "{sprint} is finished"; preview "{done} of {total} tasks done.", plus
+ * " {moved} moved to {next sprint}." or " {moved} went back to the backlog."
+ * when unfinished work moves. The counts are released, live tasks; every
+ * unfinished one moves (archived ones stay, and trashed tasks are archived).
+ * Callable only from a finish: the service role, the automation, or
+ * complete_general_sprint, which sets collabify.sprint_finish to the sprint
+ * for the call. A client can't set that flag.
+ */
+create or replace function public.notify_general_sprint_completed(p_sprint uuid, p_carry_to uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_auto boolean := coalesce(current_setting('collabify.sprint_automation', true), 'off') = 'on';
+  v_me   uuid := auth.uid();
+begin
+  if v_me is not null and not v_auto
+     and coalesce(current_setting('collabify.sprint_finish', true), '') <> p_sprint::text then
+    raise exception 'A sprint completion notice goes out only when the sprint finishes. Finish the sprint instead.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  insert into public.notifications (user_id, type, general_project_id, title, preview)
+  select gm.user_id, 'sprint_completed'::public.notification_type, s.project_id,
+         format('%s is finished', s.name),
+         format('%s of %s tasks done.', c.done, c.total)
+           || case when c.total = c.done then ''
+                   when nxt.id is not null
+                     then format(' %s moved to %s.', c.total - c.done, nxt.name)
+                   else format(' %s went back to the backlog.', c.total - c.done)
+              end
+    from public.general_sprints s
+    join public.general_projects gp on gp.id = s.project_id
+    cross join lateral (
+      select count(*) filter (where t.status = 'done') as done, count(*) as total
+        from public.general_tasks t
+       where t.sprint_id = s.id
+         and t.routing_state = 'released'
+         and t.archived_at is null
+         and t.trashed_at is null
+    ) c
+    left join public.general_sprints nxt on nxt.id = p_carry_to and nxt.project_id = s.project_id
+    join public.general_members gm on gm.project_id = s.project_id
+    join public.profiles pr on pr.id = gm.user_id
+    join public.notification_prefs np on np.user_id = gm.user_id
+   where s.id = p_sprint
+     and s.state = 'active'
+     and gp.class_board_id is null
+     and gp.sprint_completion_notices
+     and gm.role not in ('stakeholder', 'qa')
+     and pr.status = 'active'
+     and np.project_updates
+     and (v_auto or gm.user_id is distinct from v_me)
+     and not (v_auto and gm.role in ('pm', 'coordinator'))
+     and ((not v_auto and gm.role in ('pm', 'coordinator'))
+          or exists (select 1
+                       from public.general_task_assignees a
+                       join public.general_tasks t on t.id = a.task_id
+                      where a.user_id = gm.user_id
+                        and t.sprint_id = s.id
+                        and t.routing_state = 'released'
+                        and t.archived_at is null
+                        and t.trashed_at is null));
+end;
+$$;
+
+/**
+ * Finish a running sprint. Unfinished tasks move to p_carry_to, or back to the
+ * backlog when it is null. sprint-settings.sql's body, as live; one addition:
+ * the sprint completion notice goes out just before unfinished work moves.
+ */
+create or replace function public.complete_general_sprint(p_sprint uuid, p_carry_to uuid default null)
+returns void language plpgsql set search_path = public as $$
+declare
+  s public.general_sprints;
+begin
+  select * into s from public.general_sprints where id = p_sprint;
+  if not found then
+    raise exception 'That sprint is not there any more. Reload the page.';
+  end if;
+  if not public.general_can_run_sprint(s.project_id) then
+    raise exception 'Only the project manager or a coordinator can finish a sprint.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if s.state <> 'active' then
+    raise exception 'Only a running sprint can be finished.' using errcode = 'check_violation';
+  end if;
+  if p_carry_to is not null and not exists (
+    select 1 from public.general_sprints
+     where id = p_carry_to and project_id = s.project_id and state = 'planned'
+  ) then
+    raise exception 'Unfinished tasks can only move to a planned sprint on this project.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- The sprint team and the counts as the sprint ends, before work moves.
+  perform set_config('collabify.sprint_finish', p_sprint::text, true);
+  perform public.notify_general_sprint_completed(p_sprint, p_carry_to);
+  perform set_config('collabify.sprint_finish', '', true);
+
+  -- Archived unfinished tasks stay in the finished sprint on purpose.
+  update public.general_tasks
+     set sprint_id = p_carry_to
+   where sprint_id = p_sprint and status <> 'done' and archived_at is null;
+
+  update public.general_sprints set state = 'completed' where id = p_sprint;
+end;
+$$;
+
+/**
+ * sprint-settings.sql's run_sprint_automation, as live; one addition: when it
+ * finishes a sprint, the sprint completion notice goes out just before
+ * unfinished work moves (to the sprint team only; the planners get
+ * sprint_automation). See sprint-settings.sql for what the job does.
+ */
+create or replace function public.run_sprint_automation(p_now timestamptz default now(),
+                                                        p_project uuid default null)
+returns int language plpgsql security definer set search_path = public as $$
+declare
+  was       text := current_setting('collabify.sprint_automation', true);
+  today     date := (p_now at time zone 'Asia/Manila')::date;
+  cfg       record;
+  running   public.general_sprints;
+  nxt       public.general_sprints;
+  made      public.general_sprints;
+  due       boolean;
+  finishing boolean;
+  changed   boolean;
+  handled   uuid;
+  starts    date;
+  target    uuid;
+  moved     int;
+  total     int := 0;
+begin
+  perform set_config('collabify.sprint_automation', 'on', true);
+
+  for cfg in
+    select s.*, p.ends_on as due_on
+      from public.general_sprint_settings s
+      join public.general_projects p on p.id = s.project_id
+     where (s.auto_finish or s.auto_start)
+       and p.archived_at is null and p.class_board_id is null
+       and (p_project is null or s.project_id = p_project)
+     order by s.project_id
+  loop
+    begin
+      perform pg_advisory_xact_lock(hashtext('sprint-automation:' || cfg.project_id));
+      changed := false;
+      due := (p_now at time zone 'Asia/Manila')::time >= cfg.run_at;
+
+      select * into running from public.general_sprints
+       where project_id = cfg.project_id and state = 'active';
+      finishing := found and cfg.auto_finish
+                   and (running.ends_on < today - 1 or (running.ends_on < today and due));
+
+      handled := null;
+      if finishing then
+        handled := running.id;
+      elsif running.id is null then
+        select id into handled from public.general_sprints
+         where project_id = cfg.project_id and state = 'completed'
+           and completed_at >= cfg.auto_start_since
+         order by completed_at desc, created_at desc limit 1;
+      end if;
+
+      if cfg.auto_start and handled is not null
+         and handled is distinct from cfg.auto_created_after
+         and not exists (select 1 from public.general_sprints
+                          where project_id = cfg.project_id and state = 'planned') then
+        starts := public.general_next_sprint_start(cfg.project_id, today);
+        if cfg.due_on is null or starts <= cfg.due_on then
+          insert into public.general_sprints (project_id, name, starts_on, ends_on)
+          select cfg.project_id, 'Sprint ' || (count(*) + 1), starts, starts + cfg.length_days - 1
+            from public.general_sprints where project_id = cfg.project_id
+          returning * into made;
+          perform public.notify_sprint_automation(cfg.project_id,
+            made.name || ' was created on its own',
+            'It runs ' || to_char(made.starts_on, 'Mon FMDD') || ' to '
+              || to_char(made.ends_on, 'Mon FMDD, YYYY') || '.');
+          changed := true;
+        end if;
+        update public.general_sprint_settings set auto_created_after = handled
+         where project_id = cfg.project_id;
+      end if;
+
+      if finishing then
+        target := null;
+        if cfg.carry = 'next' then
+          select id into target from public.general_sprints
+           where project_id = cfg.project_id and state = 'planned'
+           order by starts_on, created_at limit 1;
+        end if;
+
+        -- The sprint team and the counts as the sprint ends, before work moves.
+        perform public.notify_general_sprint_completed(running.id, target);
+
+        -- As complete_general_sprint: archived unfinished tasks stay behind.
+        -- The notice counts released tasks only; private planning tasks move with
+        -- the rest but are not reported.
+        with u as (
+          update public.general_tasks set sprint_id = target
+           where sprint_id = running.id and status <> 'done' and archived_at is null
+          returning routing_state)
+        select count(*) filter (where coalesce(routing_state, 'released') = 'released')
+          into moved from u;
+
+        update public.general_sprints set state = 'completed' where id = running.id;
+
+        perform public.notify_sprint_automation(cfg.project_id,
+          running.name || ' finished on its own',
+          case when moved = 0 then 'Every task was done.'
+               else moved || ' unfinished ' || case when moved = 1 then 'task' else 'tasks' end
+                    || coalesce(' moved to ' || (select name from public.general_sprints where id = target),
+                                ' returned to the backlog') || '.'
+          end);
+        changed := true;
+      end if;
+
+      if cfg.auto_start
+         and not exists (select 1 from public.general_sprints
+                          where project_id = cfg.project_id and state = 'active') then
+        select * into nxt from public.general_sprints
+         where project_id = cfg.project_id and state = 'planned' and ends_on >= today
+         order by starts_on, created_at limit 1;
+        if found and (nxt.starts_on < today or (nxt.starts_on = today and due)) then
+          update public.general_sprints set state = 'active' where id = nxt.id;
+          perform public.notify_sprint_automation(cfg.project_id,
+            nxt.name || ' started on its own',
+            to_char(nxt.starts_on, 'Mon FMDD') || ' to ' || to_char(nxt.ends_on, 'Mon FMDD, YYYY'));
+          changed := true;
+        end if;
+      end if;
+
+      if changed then
+        total := total + 1;
+      end if;
+    exception when others then
+      raise warning 'Sprint automation skipped project %: %', cfg.project_id, sqlerrm;
+    end;
+  end loop;
+
+  perform set_config('collabify.sprint_automation', coalesce(nullif(was, ''), 'off'), true);
+  return total;
+end;
+$$;
+
 -- ---------------------------------------------------------------- grants
 
 revoke all on function public.guard_general_sprint_reminder() from public, anon, authenticated;
@@ -595,6 +882,13 @@ revoke all on function public.guard_general_milestone_reminder() from public, an
 revoke all on function public.send_milestone_overdue_alerts(timestamptz, uuid) from public, anon, authenticated;
 revoke all on function public.send_project_reminders(timestamptz, uuid) from public, anon, authenticated;
 revoke all on function public.mark_project_reminders_sent(timestamptz, uuid) from public, anon, authenticated;
+-- complete_general_sprint runs as the caller, so the notice helper is
+-- executable by authenticated; it refuses any call that isn't a finish.
+revoke all on function public.notify_general_sprint_completed(uuid, uuid) from public, anon;
+grant execute on function public.notify_general_sprint_completed(uuid, uuid) to authenticated;
+revoke all on function public.complete_general_sprint(uuid, uuid) from public, anon;
+grant execute on function public.complete_general_sprint(uuid, uuid) to authenticated;
+revoke all on function public.run_sprint_automation(timestamptz, uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------- schedule
 
