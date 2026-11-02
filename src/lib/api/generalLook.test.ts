@@ -25,6 +25,8 @@ const RULES =
   'general_projects:default_priority, default_stage, allow_subtasks, allow_dependencies, allow_multiple_assignees, require_assignee, require_subtasks_done'
 const LOOK = 'general_projects:color, icon, default_view, visibility'
 const MEMBER_RULES = 'general_projects:members_manage_milestones, members_create_tasks'
+const NOTIFICATION_RULES =
+  'general_projects:sprint_end_reminder_days, task_overdue_alerts, milestone_due_reminder_days, task_assignment_notices, sprint_completion_notices'
 const MILESTONE_RULES =
   'general_projects:milestone_completion, require_milestone_due, allow_milestone_dependencies, milestone_overdue_alerts'
 
@@ -35,6 +37,10 @@ beforeEach(() => {
   results.set(MEMBER_RULES, { data: { members_manage_milestones: false, members_create_tasks: false }, error: null })
   results.set(MILESTONE_RULES, {
     data: { milestone_completion: 'automatic', require_milestone_due: true, allow_milestone_dependencies: true, milestone_overdue_alerts: true },
+    error: null,
+  })
+  results.set(NOTIFICATION_RULES, {
+    data: { sprint_end_reminder_days: 1, task_overdue_alerts: true, milestone_due_reminder_days: 2, task_assignment_notices: true, sprint_completion_notices: true },
     error: null,
   })
   results.set(RULES, { data: { default_priority: 'normal', default_stage: 0, allow_subtasks: true, allow_dependencies: true, allow_multiple_assignees: true, require_assignee: false, require_subtasks_done: true }, error: null })

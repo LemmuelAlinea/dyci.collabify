@@ -30,9 +30,9 @@ export function generalTab(params: URLSearchParams, defaultTab: GeneralTabId = '
   return TABS.has(value) ? value : 'overview'
 }
 
-export type SettingsSection = 'general' | 'sprints' | 'tasks' | 'milestones' | 'members'
+export type SettingsSection = 'general' | 'sprints' | 'tasks' | 'milestones' | 'members' | 'notifications'
 
-const SETTINGS_SECTIONS = new Set<SettingsSection>(['general', 'sprints', 'tasks', 'milestones', 'members'])
+const SETTINGS_SECTIONS = new Set<SettingsSection>(['general', 'sprints', 'tasks', 'milestones', 'members', 'notifications'])
 
 /** The section open inside Settings. Old People links (?tab=people, ?tab=members) open Members. */
 export function settingsSection(params: URLSearchParams): SettingsSection {

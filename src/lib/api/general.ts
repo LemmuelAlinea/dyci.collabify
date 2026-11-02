@@ -18,6 +18,8 @@ import type { GeneralPermission, ProjectRole } from '../general/permissions'
 import type { GeneralTaskStatus } from '../general/progress'
 import { DEFAULT_MEMBER_RULES } from '../general/permissions'
 import { DEFAULT_MILESTONE_RULES } from '../general/milestoneRules'
+import { DEFAULT_NOTIFICATION_RULES } from '../general/notificationRules'
+import type { MilestoneDueDays, SprintEndDays } from '../general/notificationRules'
 import type { MilestoneCompletion } from '../general/milestoneRules'
 import { DEFAULT_TASK_RULES } from '../general/taskRules'
 import type { TaskDependency, TaskRules } from '../general/taskRules'
@@ -150,6 +152,17 @@ type MilestoneRuleRow = {
   milestone_overdue_alerts: boolean
 }
 
+const NOTIFICATION_RULE_COLUMNS =
+  'sprint_end_reminder_days, task_overdue_alerts, milestone_due_reminder_days, task_assignment_notices, sprint_completion_notices'
+
+type NotificationRuleRow = {
+  sprint_end_reminder_days: SprintEndDays | null
+  task_overdue_alerts: boolean
+  milestone_due_reminder_days: MilestoneDueDays | null
+  task_assignment_notices: boolean
+  sprint_completion_notices: boolean
+}
+
 function taskRulesOf(row: TaskRuleRow): TaskRules {
   return {
     defaultPriority: row.default_priority,
@@ -164,7 +177,7 @@ function taskRulesOf(row: TaskRuleRow): TaskRules {
 
 export async function getGeneralProject(projectId: string) {
   // The overview predates stages, so they come from the table beside it.
-  const [{ data, error }, stages, look, rules, memberOptions, milestoneOptions] = await Promise.all([
+  const [{ data, error }, stages, look, rules, memberOptions, milestoneOptions, notificationOptions] = await Promise.all([
     supabase.from('general_project_overview').select('*').eq('id', projectId).maybeSingle(),
     supabase.from('general_projects').select('stages, qa_stage, class_board_id').eq('id', projectId).maybeSingle(),
     // Its own query, so the stages still load before project-settings-general.sql adds these columns.
@@ -174,6 +187,8 @@ export async function getGeneralProject(projectId: string) {
     supabase.from('general_projects').select('members_manage_milestones, members_create_tasks').eq('id', projectId).maybeSingle(),
     // Its own query, so the project still loads before project-milestone-rules.sql adds these columns.
     supabase.from('general_projects').select(MILESTONE_RULE_COLUMNS).eq('id', projectId).maybeSingle(),
+    // Its own query, so the project still loads before project-notification-rules.sql adds these columns.
+    supabase.from('general_projects').select(NOTIFICATION_RULE_COLUMNS).eq('id', projectId).maybeSingle(),
   ])
   if (error) throw error
   if (!data) return null
@@ -190,6 +205,9 @@ export async function getGeneralProject(projectId: string) {
   // Until project-milestone-rules.sql is live the columns are missing, so milestones keep today's behaviour. Remove this fallback once it is.
   if (milestoneOptions.error && !isMissingColumn(milestoneOptions.error)) throw milestoneOptions.error
   const milestoneRow = milestoneOptions.error ? null : (milestoneOptions.data as MilestoneRuleRow | null)
+  // Until project-notification-rules.sql is live the columns are missing, so the project reads the defaults. Remove this fallback once it is.
+  if (notificationOptions.error && !isMissingColumn(notificationOptions.error)) throw notificationOptions.error
+  const notificationRow = notificationOptions.error ? null : (notificationOptions.data as NotificationRuleRow | null)
   return {
     ...(data as GeneralProjectSummary),
     stages: (stages.data?.stages as string[] | null) ?? null,
@@ -211,6 +229,15 @@ export async function getGeneralProject(projectId: string) {
           overdueAlerts: milestoneRow.milestone_overdue_alerts,
         }
       : DEFAULT_MILESTONE_RULES,
+    notificationRules: notificationRow
+      ? {
+          sprintEndDays: notificationRow.sprint_end_reminder_days,
+          taskOverdue: notificationRow.task_overdue_alerts,
+          milestoneDueDays: notificationRow.milestone_due_reminder_days,
+          assignment: notificationRow.task_assignment_notices,
+          sprintCompletion: notificationRow.sprint_completion_notices,
+        }
+      : DEFAULT_NOTIFICATION_RULES,
   }
 }
 
@@ -409,6 +436,12 @@ export type ProjectPatch = Partial<{
   require_milestone_due: boolean
   allow_milestone_dependencies: boolean
   milestone_overdue_alerts: boolean
+  /** The notification settings (project manager only). Null turns a reminder off. */
+  sprint_end_reminder_days: SprintEndDays | null
+  task_overdue_alerts: boolean
+  milestone_due_reminder_days: MilestoneDueDays | null
+  task_assignment_notices: boolean
+  sprint_completion_notices: boolean
 }>
 
 export async function updateGeneralProject(projectId: string, patch: ProjectPatch) {

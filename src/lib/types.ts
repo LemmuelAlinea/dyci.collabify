@@ -218,6 +218,10 @@ export type AppNotification = {
     | 'task_sent_back'
     | 'sprint_automation'
     | 'milestone_overdue'
+    | 'sprint_ending_soon'
+    | 'sprint_completed'
+    | 'milestone_due_soon'
+    | 'general_task_overdue'
     | 'join_requested'
     | 'join_answered'
   class_id: string | null

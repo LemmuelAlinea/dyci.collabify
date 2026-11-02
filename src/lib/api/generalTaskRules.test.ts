@@ -60,6 +60,8 @@ const RULES =
 const MEMBER_RULES = 'general_projects:members_manage_milestones, members_create_tasks'
 const MILESTONE_RULES =
   'general_projects:milestone_completion, require_milestone_due, allow_milestone_dependencies, milestone_overdue_alerts'
+const NOTIFICATION_RULES =
+  'general_projects:sprint_end_reminder_days, task_overdue_alerts, milestone_due_reminder_days, task_assignment_notices, sprint_completion_notices'
 const TASKS = 'general_task_overview:*'
 const EXTRAS = 'general_tasks:id, priority, parent_id'
 const DEPS = 'general_task_dependencies:task_id, depends_on_id'
@@ -68,6 +70,10 @@ beforeEach(() => {
   results.clear()
   results.set(MILESTONE_RULES, {
     data: { milestone_completion: 'automatic', require_milestone_due: true, allow_milestone_dependencies: true, milestone_overdue_alerts: true },
+    error: null,
+  })
+  results.set(NOTIFICATION_RULES, {
+    data: { sprint_end_reminder_days: 1, task_overdue_alerts: true, milestone_due_reminder_days: 2, task_assignment_notices: true, sprint_completion_notices: true },
     error: null,
   })
   calls.length = 0
@@ -175,6 +181,37 @@ describe('getGeneralProject milestone rules', () => {
   it('rejects on any other error instead of reporting the defaults', async () => {
     const denied = { code: '42501', message: 'permission denied for table general_projects' }
     results.set(MILESTONE_RULES, { data: null, error: denied })
+    await expect(getGeneralProject('p1')).rejects.toBe(denied)
+  })
+})
+
+describe('getGeneralProject notification rules', () => {
+  beforeEach(() => {
+    results.set(OVERVIEW, { data: { id: 'p1', name: 'P' }, error: null })
+    results.set(STAGES, { data: { stages: null, qa_stage: null, class_board_id: null }, error: null })
+    results.set(LOOK, { data: { color: null, icon: null, default_view: 'overview', visibility: 'private' }, error: null })
+    results.set(RULES, { data: null, error: null })
+    results.set(MEMBER_RULES, { data: { members_manage_milestones: false, members_create_tasks: false }, error: null })
+  })
+
+  it('returns the settings from the project row, with Off as null', async () => {
+    results.set(NOTIFICATION_RULES, {
+      data: { sprint_end_reminder_days: null, task_overdue_alerts: false, milestone_due_reminder_days: 7, task_assignment_notices: false, sprint_completion_notices: false },
+      error: null,
+    })
+    const p = await getGeneralProject('p1')
+    expect(p?.notificationRules).toEqual({ sprintEndDays: null, taskOverdue: false, milestoneDueDays: 7, assignment: false, sprintCompletion: false })
+  })
+
+  it('uses the defaults while the columns are missing', async () => {
+    results.set(NOTIFICATION_RULES, { data: null, error: missingColumn })
+    const p = await getGeneralProject('p1')
+    expect(p?.notificationRules).toEqual({ sprintEndDays: 1, taskOverdue: true, milestoneDueDays: 2, assignment: true, sprintCompletion: true })
+  })
+
+  it('rejects on any other error instead of reporting the defaults', async () => {
+    const denied = { code: '42501', message: 'permission denied for table general_projects' }
+    results.set(NOTIFICATION_RULES, { data: null, error: denied })
     await expect(getGeneralProject('p1')).rejects.toBe(denied)
   })
 })

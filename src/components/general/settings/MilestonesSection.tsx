@@ -18,16 +18,12 @@ const COMPLETION_OPTIONS: { value: MilestoneCompletion; label: string }[] = [
   { value: 'manual', label: 'Manual — when someone marks it' },
 ]
 
-type SwitchKey = Exclude<keyof MilestoneRules, 'completion'>
+// Overdue milestone alerts moved to the Notifications panel.
+type SwitchKey = Exclude<keyof MilestoneRules, 'completion' | 'overdueAlerts'>
 
 const SWITCHES: { label: string; key: SwitchKey; help?: string }[] = [
   { label: 'Require a due date', key: 'requireDue', help: 'Turn this off to let milestones go without a due date.' },
   { label: 'Allow milestone dependencies', key: 'allowDependencies', help: 'A milestone can wait for others to be reached first. Links already made stay.' },
-  {
-    label: 'Overdue milestone alerts',
-    key: 'overdueAlerts',
-    help: 'The project manager and coordinators are told the morning after a missed due date.',
-  },
 ]
 
 export function MilestonesSection({ state }: { state: GeneralProjectState }) {
@@ -61,7 +57,6 @@ export function MilestonesSection({ state }: { state: GeneralProjectState }) {
         milestone_completion: rules.completion,
         require_milestone_due: rules.requireDue,
         allow_milestone_dependencies: rules.allowDependencies,
-        milestone_overdue_alerts: rules.overdueAlerts,
       })
       await state.reload()
       show('Milestone settings saved')

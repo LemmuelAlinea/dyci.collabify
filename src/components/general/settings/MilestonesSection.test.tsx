@@ -57,9 +57,9 @@ const choose = (el: HTMLSelectElement, value: string) =>
     el.dispatchEvent(new Event('change', { bubbles: true }))
   })
 
-const SWITCHES = ['Require a due date', 'Allow milestone dependencies', 'Overdue milestone alerts']
+const SWITCHES = ['Require a due date', 'Allow milestone dependencies']
 
-it('shows the completion select with both choices and the three switches', async () => {
+it('shows the completion select with both choices and the two switches', async () => {
   await show(makeState())
   expect([...completion()!.options].map((o) => o.textContent)).toEqual([
     'Automatic — when all its tasks are done',
@@ -67,7 +67,8 @@ it('shows the completion select with both choices and the three switches', async
   ])
   expect(completion()!.value).toBe('automatic')
   for (const name of SWITCHES) expect(labelled(name)?.getAttribute('role')).toBe('switch')
-  expect(host.textContent).toContain('The project manager and coordinators are told the morning after a missed due date.')
+  expect(labelled('Overdue milestone alerts')).toBeNull()
+  expect(host.textContent).not.toContain('Overdue milestone alerts')
 })
 
 it('starts from the saved rules of the project', async () => {
@@ -82,14 +83,12 @@ it('saves the rules as snake_case columns in one call, then reloads and says so'
   await show(makeState())
   await choose(completion()!, 'manual')
   await act(async () => labelled('Require a due date')!.click())
-  await act(async () => labelled('Overdue milestone alerts')!.click())
   await act(async () => button('Save milestone settings')!.click())
   expect(updateGeneralProject).toHaveBeenCalledTimes(1)
   expect(updateGeneralProject).toHaveBeenCalledWith('p1', {
     milestone_completion: 'manual',
     require_milestone_due: false,
     allow_milestone_dependencies: true,
-    milestone_overdue_alerts: false,
   })
   expect(reload).toHaveBeenCalled()
   expect(useToast().show).toHaveBeenCalledWith('Milestone settings saved')

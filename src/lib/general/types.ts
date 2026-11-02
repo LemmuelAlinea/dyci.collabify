@@ -8,6 +8,7 @@ import type { FieldType, FieldValue } from './fields'
 import type { GeneralLevel, GeneralPermission, MemberRules, ProjectRole } from './permissions'
 import type { GeneralTaskStatus } from './progress'
 import type { MilestoneRules } from './milestoneRules'
+import type { NotificationRules } from './notificationRules'
 import type { TaskRules } from './taskRules'
 
 export type GeneralStatus = 'planning' | 'in_progress' | 'on_hold' | 'done' | 'cancelled'
@@ -62,6 +63,8 @@ export type GeneralProject = {
   memberRules?: MemberRules
   /** How milestones are reached, whether they need a due date, may wait for each other and alert when overdue. Read by getGeneralProject only. */
   milestoneRules?: MilestoneRules
+  /** What the project sends: sprint, task and milestone reminders and the assignment and completion notices. Read by getGeneralProject only. */
+  notificationRules?: NotificationRules
 }
 
 export type ProjectColor = 'navy' | 'amber' | 'green' | 'teal' | 'violet' | 'rose' | 'orange' | 'slate'

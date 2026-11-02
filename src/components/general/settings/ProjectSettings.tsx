@@ -9,6 +9,7 @@ import type { GeneralProjectState } from '../useGeneralProject'
 import { GeneralSection } from './GeneralSection'
 import { MembersSection } from './MembersSection'
 import { MilestonesSection } from './MilestonesSection'
+import { NotificationsSection } from './NotificationsSection'
 import { openSettingsRequests } from './openRequests'
 import { SprintsSection } from './SprintsSection'
 import { TasksSection } from './TasksSection'
@@ -19,6 +20,7 @@ const SECTIONS: { id: SettingsSection; label: string; icon: IconName }[] = [
   { id: 'tasks', label: 'Tasks', icon: 'kanban' },
   { id: 'milestones', label: 'Milestones', icon: 'pin' },
   { id: 'members', label: 'Members & permissions', icon: 'users' },
+  { id: 'notifications', label: 'Notifications', icon: 'bell' },
 ]
 
 export function ProjectSettings({ state }: { state: GeneralProjectState }) {
@@ -92,6 +94,8 @@ export function ProjectSettings({ state }: { state: GeneralProjectState }) {
           <TasksSection state={state} />
         ) : active === 'milestones' ? (
           <MilestonesSection state={state} />
+        ) : active === 'notifications' ? (
+          <NotificationsSection state={state} />
         ) : (
           <SprintsSection state={state} />
         )}

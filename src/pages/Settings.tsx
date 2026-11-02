@@ -66,7 +66,7 @@ const NOTIFICATIONS: NotificationRow[] = [
   {
     key: 'deadline_reminders',
     label: () => 'Deadline reminders',
-    body: () => 'One nudge the day before a task you hold is due, one if it slips past its date, and one when draft files sit unsubmitted for three days.',
+    body: () => 'A reminder before a task you hold is due and another if it slips past its date. Also when a sprint you are in is about to end, when a milestone is almost due, and when draft files sit unsubmitted for three days.',
     shown: inSomething,
   },
   {
@@ -89,8 +89,8 @@ const NOTIFICATIONS: NotificationRow[] = [
     label: () => 'Project changes and discussions',
     body: (r) =>
       isStudent(r)
-        ? "When a class project's due date moves or it closes, someone starts a discussion, a work project you are on is archived or restored, or your role in a space or project changes."
-        : 'When someone starts a discussion, a work project you are on is archived or restored, or your role in a space or project changes.',
+        ? "When a class project's due date moves or it closes, someone starts a discussion, a sprint finishes, a work project you are on is archived or restored, or your role in a space or project changes."
+        : 'When someone starts a discussion, a sprint finishes, a work project you are on is archived or restored, or your role in a space or project changes.',
     shown: inSomething,
   },
   {

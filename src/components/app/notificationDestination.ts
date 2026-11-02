@@ -53,6 +53,17 @@ export function destination(n: AppNotification, role: Role | null, teaches: bool
     case 'milestone_overdue':
       // A milestone is past its due date. The notification carries no milestone, so open the project's Milestones.
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=plan&work=milestones` : paths.home
+    case 'sprint_ending_soon':
+    case 'sprint_completed':
+      return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=plan&work=sprints` : paths.home
+    case 'milestone_due_soon':
+      return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=plan&work=milestones` : paths.home
+    case 'general_task_overdue':
+      // A holder's notice names the task; the planners' daily summary names none, so open the Tasks tab.
+      if (!n.general_project_id) return paths.home
+      return n.general_task_id
+        ? `${paths.project(n.general_project_id)}?task=${n.general_task_id}`
+        : `${paths.project(n.general_project_id)}?tab=tasks`
     case 'draft_waiting':
       return n.general_project_id ? `${paths.project(n.general_project_id)}?tab=files&view=draft` : paths.home
     case 'meeting_scheduled':
