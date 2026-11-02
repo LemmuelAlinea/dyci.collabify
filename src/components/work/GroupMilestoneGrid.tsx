@@ -57,7 +57,7 @@ export function GroupMilestoneGrid({
             {grid.milestones.map((m) => (
               <th key={m.id} scope="col" className="px-3 py-2 text-left font-medium">
                 <span className="block max-w-[10rem] truncate text-ink" title={m.name}>{m.name}</span>
-                <span className="block font-mono text-[11px] font-normal text-faint">{formatDay(m.due_on)}</span>
+                <span className="block font-mono text-[11px] font-normal text-faint">{m.due_on ? formatDay(m.due_on) : 'No due date'}</span>
               </th>
             ))}
           </tr>

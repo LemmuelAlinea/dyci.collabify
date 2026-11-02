@@ -399,7 +399,7 @@ export function TasksTab({
           events={[
             ...taskCalendarEvents(shown, (t) => state.teams.find((x) => x.id === t.team_id)?.name ?? ''),
             ...sprintCalendarEvents(state.sprints),
-            ...milestoneCalendarEvents(state.milestones, reachedIn(released)),
+            ...milestoneCalendarEvents(state.milestones, reachedIn(released, state.project?.milestoneRules?.completion)),
           ]}
           onOpen={showTask}
         />

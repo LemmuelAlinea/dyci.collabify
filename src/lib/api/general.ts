@@ -17,6 +17,8 @@ import type { FieldType, FieldValue } from '../general/fields'
 import type { GeneralPermission, ProjectRole } from '../general/permissions'
 import type { GeneralTaskStatus } from '../general/progress'
 import { DEFAULT_MEMBER_RULES } from '../general/permissions'
+import { DEFAULT_MILESTONE_RULES } from '../general/milestoneRules'
+import type { MilestoneCompletion } from '../general/milestoneRules'
 import { DEFAULT_TASK_RULES } from '../general/taskRules'
 import type { TaskDependency, TaskRules } from '../general/taskRules'
 import type {
@@ -138,6 +140,16 @@ type TaskRuleRow = {
   require_subtasks_done: boolean
 }
 
+const MILESTONE_RULE_COLUMNS =
+  'milestone_completion, require_milestone_due, allow_milestone_dependencies, milestone_overdue_alerts'
+
+type MilestoneRuleRow = {
+  milestone_completion: MilestoneCompletion
+  require_milestone_due: boolean
+  allow_milestone_dependencies: boolean
+  milestone_overdue_alerts: boolean
+}
+
 function taskRulesOf(row: TaskRuleRow): TaskRules {
   return {
     defaultPriority: row.default_priority,
@@ -152,7 +164,7 @@ function taskRulesOf(row: TaskRuleRow): TaskRules {
 
 export async function getGeneralProject(projectId: string) {
   // The overview predates stages, so they come from the table beside it.
-  const [{ data, error }, stages, look, rules, memberOptions] = await Promise.all([
+  const [{ data, error }, stages, look, rules, memberOptions, milestoneOptions] = await Promise.all([
     supabase.from('general_project_overview').select('*').eq('id', projectId).maybeSingle(),
     supabase.from('general_projects').select('stages, qa_stage, class_board_id').eq('id', projectId).maybeSingle(),
     // Its own query, so the stages still load before project-settings-general.sql adds these columns.
@@ -160,6 +172,8 @@ export async function getGeneralProject(projectId: string) {
     supabase.from('general_projects').select(TASK_RULE_COLUMNS).eq('id', projectId).maybeSingle(),
     // Its own query, so the project still loads before project-member-rules.sql adds these columns.
     supabase.from('general_projects').select('members_manage_milestones, members_create_tasks').eq('id', projectId).maybeSingle(),
+    // Its own query, so the project still loads before project-milestone-rules.sql adds these columns.
+    supabase.from('general_projects').select(MILESTONE_RULE_COLUMNS).eq('id', projectId).maybeSingle(),
   ])
   if (error) throw error
   if (!data) return null
@@ -173,6 +187,9 @@ export async function getGeneralProject(projectId: string) {
   const memberRow = memberOptions.error
     ? null
     : (memberOptions.data as { members_manage_milestones: boolean; members_create_tasks: boolean } | null)
+  // Until project-milestone-rules.sql is live the columns are missing, so milestones keep today's behaviour. Remove this fallback once it is.
+  if (milestoneOptions.error && !isMissingColumn(milestoneOptions.error)) throw milestoneOptions.error
+  const milestoneRow = milestoneOptions.error ? null : (milestoneOptions.data as MilestoneRuleRow | null)
   return {
     ...(data as GeneralProjectSummary),
     stages: (stages.data?.stages as string[] | null) ?? null,
@@ -186,6 +203,14 @@ export async function getGeneralProject(projectId: string) {
     memberRules: memberRow
       ? { manageMilestones: memberRow.members_manage_milestones, createTasks: memberRow.members_create_tasks }
       : DEFAULT_MEMBER_RULES,
+    milestoneRules: milestoneRow
+      ? {
+          completion: milestoneRow.milestone_completion,
+          requireDue: milestoneRow.require_milestone_due,
+          allowDependencies: milestoneRow.allow_milestone_dependencies,
+          overdueAlerts: milestoneRow.milestone_overdue_alerts,
+        }
+      : DEFAULT_MILESTONE_RULES,
   }
 }
 
@@ -379,6 +404,11 @@ export type ProjectPatch = Partial<{
   /** The member options (project manager only). */
   members_manage_milestones: boolean
   members_create_tasks: boolean
+  /** The milestone settings (project manager only). */
+  milestone_completion: MilestoneCompletion
+  require_milestone_due: boolean
+  allow_milestone_dependencies: boolean
+  milestone_overdue_alerts: boolean
 }>
 
 export async function updateGeneralProject(projectId: string, patch: ProjectPatch) {

@@ -11,6 +11,7 @@ vi.mock('./MembersSection', () => ({ MembersSection: () => 'Members content' }))
 vi.mock('./GeneralSection', () => ({ GeneralSection: () => 'General content' }))
 vi.mock('./TasksSection', () => ({ TasksSection: () => 'Tasks content' }))
 vi.mock('./SprintsSection', () => ({ SprintsSection: () => 'Sprints content' }))
+vi.mock('./MilestonesSection', () => ({ MilestonesSection: () => 'Milestones content' }))
 
 function Where() {
   const location = useLocation()
@@ -46,10 +47,10 @@ async function renderAt(
 const item = (container: HTMLElement, label: string) =>
   [...container.querySelectorAll<HTMLButtonElement>('nav button')].find((b) => b.textContent === label)!
 
-it('lists the four sections and opens General by default', async () => {
+it('lists the sections and opens General by default', async () => {
   await renderAt('tab=settings', async (container) => {
     expect([...container.querySelectorAll('nav button')].map((b) => b.textContent)).toEqual([
-      'General', 'Sprints', 'Tasks', 'Members & permissions',
+      'General', 'Sprints', 'Tasks', 'Milestones', 'Members & permissions',
     ])
     expect(item(container, 'General').getAttribute('aria-current')).toBe('page')
     expect(container.textContent).toContain('General content')
@@ -64,6 +65,13 @@ it('opens Members from an old People link', async () => {
       expect(container.textContent).toContain('Members content')
     })
   }
+})
+
+it('opens Milestones from its link', async () => {
+  await renderAt('tab=settings&section=milestones', async (container) => {
+    expect(item(container, 'Milestones').getAttribute('aria-current')).toBe('page')
+    expect(container.textContent).toContain('Milestones content')
+  })
 })
 
 it('opens Tasks from its link', async () => {

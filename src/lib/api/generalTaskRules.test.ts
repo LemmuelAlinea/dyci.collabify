@@ -58,12 +58,18 @@ const LOOK = 'general_projects:color, icon, default_view, visibility'
 const RULES =
   'general_projects:default_priority, default_stage, allow_subtasks, allow_dependencies, allow_multiple_assignees, require_assignee, require_subtasks_done'
 const MEMBER_RULES = 'general_projects:members_manage_milestones, members_create_tasks'
+const MILESTONE_RULES =
+  'general_projects:milestone_completion, require_milestone_due, allow_milestone_dependencies, milestone_overdue_alerts'
 const TASKS = 'general_task_overview:*'
 const EXTRAS = 'general_tasks:id, priority, parent_id'
 const DEPS = 'general_task_dependencies:task_id, depends_on_id'
 
 beforeEach(() => {
   results.clear()
+  results.set(MILESTONE_RULES, {
+    data: { milestone_completion: 'automatic', require_milestone_due: true, allow_milestone_dependencies: true, milestone_overdue_alerts: true },
+    error: null,
+  })
   calls.length = 0
   rpcCalls.length = 0
   updates.length = 0
@@ -138,6 +144,37 @@ describe('getGeneralProject member options', () => {
   it('rejects on any other error instead of reporting the switches off', async () => {
     const denied = { code: '42501', message: 'permission denied for table general_projects' }
     results.set(MEMBER_RULES, { data: null, error: denied })
+    await expect(getGeneralProject('p1')).rejects.toBe(denied)
+  })
+})
+
+describe('getGeneralProject milestone rules', () => {
+  beforeEach(() => {
+    results.set(OVERVIEW, { data: { id: 'p1', name: 'P' }, error: null })
+    results.set(STAGES, { data: { stages: null, qa_stage: null, class_board_id: null }, error: null })
+    results.set(LOOK, { data: { color: null, icon: null, default_view: 'overview', visibility: 'private' }, error: null })
+    results.set(RULES, { data: null, error: null })
+    results.set(MEMBER_RULES, { data: { members_manage_milestones: false, members_create_tasks: false }, error: null })
+  })
+
+  it('returns the settings from the project row', async () => {
+    results.set(MILESTONE_RULES, {
+      data: { milestone_completion: 'manual', require_milestone_due: false, allow_milestone_dependencies: false, milestone_overdue_alerts: false },
+      error: null,
+    })
+    const p = await getGeneralProject('p1')
+    expect(p?.milestoneRules).toEqual({ completion: 'manual', requireDue: false, allowDependencies: false, overdueAlerts: false })
+  })
+
+  it('uses the defaults while the columns are missing', async () => {
+    results.set(MILESTONE_RULES, { data: null, error: missingColumn })
+    const p = await getGeneralProject('p1')
+    expect(p?.milestoneRules).toEqual({ completion: 'automatic', requireDue: true, allowDependencies: true, overdueAlerts: true })
+  })
+
+  it('rejects on any other error instead of reporting the defaults', async () => {
+    const denied = { code: '42501', message: 'permission denied for table general_projects' }
+    results.set(MILESTONE_RULES, { data: null, error: denied })
     await expect(getGeneralProject('p1')).rejects.toBe(denied)
   })
 })

@@ -151,7 +151,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
                 <div>
                   <h3 className="mb-3 text-[14px]">Sprint timeline</h3>
-                  <SprintTimeline sprint={running} milestones={milestones} items={source.items} />
+                  <SprintTimeline sprint={running} milestones={milestones} items={source.items} completion={source.milestoneCompletion} />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                   {TASK_STATUSES.map((s) => {

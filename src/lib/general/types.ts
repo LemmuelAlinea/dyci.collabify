@@ -7,6 +7,7 @@ import type { AccountStatus, Profile, Role } from '../types'
 import type { FieldType, FieldValue } from './fields'
 import type { GeneralLevel, GeneralPermission, MemberRules, ProjectRole } from './permissions'
 import type { GeneralTaskStatus } from './progress'
+import type { MilestoneRules } from './milestoneRules'
 import type { TaskRules } from './taskRules'
 
 export type GeneralStatus = 'planning' | 'in_progress' | 'on_hold' | 'done' | 'cancelled'
@@ -59,6 +60,8 @@ export type GeneralProject = {
   taskRules?: TaskRules
   /** Whether Members manage milestones and create tasks here. Read by getGeneralProject only. */
   memberRules?: MemberRules
+  /** How milestones are reached, whether they need a due date, may wait for each other and alert when overdue. Read by getGeneralProject only. */
+  milestoneRules?: MilestoneRules
 }
 
 export type ProjectColor = 'navy' | 'amber' | 'green' | 'teal' | 'violet' | 'rose' | 'orange' | 'slate'

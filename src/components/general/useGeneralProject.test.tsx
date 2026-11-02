@@ -18,7 +18,7 @@ vi.mock('../../lib/api/general', () => {
     getCommitRights: async () => ({ commit: false, grant: false, board: false, committers: [] }),
   }
 })
-vi.mock('../../lib/api/milestones', () => ({ listMilestones: async () => [] }))
+vi.mock('../../lib/api/milestones', () => ({ listMilestones: async () => [], listMilestoneDependencies: async () => [] }))
 vi.mock('../../lib/api/sprints', async importOriginal => ({ ...await importOriginal<object>(), listSprints: async () => [], getSprintSettings: async () => ({}) }))
 
 it('keeps background reload errors in state and rejects an explicitly strict reload', async () => {

@@ -3,6 +3,7 @@
  * milestone is next, and how each group stands against each milestone.
  * Worked out from the tasks as they are, never stored.
  */
+import type { MilestoneCompletion } from '../general/milestoneRules'
 import { milestoneProgress, milestoneStatus, sortMilestones } from './milestones'
 import type { MilestoneStatus } from './milestones'
 import type { Milestone, MilestoneGroup, WorkItem } from './types'
@@ -38,15 +39,16 @@ export type MilestoneGlance = {
   status: MilestoneStatus
 }
 
-/** The earliest milestone not yet reached, late ones included; null when none is left. */
+/** The earliest milestone not yet reached, late and ready ones included; null when none is left. */
 export function nextMilestone(
   milestones: readonly Milestone[],
   items: readonly WorkItem[],
   now = Date.now(),
+  mode: MilestoneCompletion = 'automatic',
 ): MilestoneGlance | null {
   for (const m of sortMilestones(milestones)) {
     const p = milestoneProgress(items, m.id)
-    const status = milestoneStatus(m, p, now)
+    const status = milestoneStatus(m, p, now, mode)
     if (status !== 'reached') return { milestone: m, ...p, status }
   }
   return null

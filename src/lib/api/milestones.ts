@@ -4,19 +4,23 @@
  * rules: supabase/work-milestones.sql and supabase/class-milestones.sql.
  */
 import { supabase } from '../supabase'
-import type { Milestone, MilestoneInput } from '../work/types'
+import type { Milestone, MilestoneDependency, MilestoneInput } from '../work/types'
+import { isMissingColumn, isMissingRelation } from './missingRelation'
 
 export type MilestoneHome = { kind: 'work' | 'class'; projectId: string }
 
 const TABLE = { work: 'general_milestones', class: 'project_milestones' } as const
 const TASKS = { work: 'general_tasks', class: 'project_tasks' } as const
 const COLUMNS = {
-  work: 'id, name, description, due_on, reached_at, created_at',
+  work: 'id, name, description, due_on, reached_at, reached_auto, created_at',
   class: 'id, name, description, due_on, created_at',
 } as const
+// Before project-milestone-rules.sql is live reached_auto is missing; remove this and the retry in listMilestones once it is.
+const WORK_COLUMNS_BEFORE_RULES = 'id, name, description, due_on, reached_at, created_at'
 
+/** An empty date is no due date: allowed only where the project's settings say so. */
 function fields(input: MilestoneInput) {
-  return { name: input.name.trim(), description: input.description.trim(), due_on: input.dueOn }
+  return { name: input.name.trim(), description: input.description.trim(), due_on: input.dueOn || null }
 }
 
 function touched(data: unknown[] | null, message: string) {
@@ -24,17 +28,47 @@ function touched(data: unknown[] | null, message: string) {
 }
 
 export async function listMilestones(home: MilestoneHome): Promise<Milestone[]> {
-  const { data, error } = await supabase
-    .from(TABLE[home.kind])
-    .select(COLUMNS[home.kind])
-    .eq('project_id', home.projectId)
-    .order('due_on')
+  const read = (columns: string) =>
+    supabase.from(TABLE[home.kind]).select(columns).eq('project_id', home.projectId).order('due_on')
+  let { data, error } = await read(COLUMNS[home.kind])
+  if (error && home.kind === 'work' && isMissingColumn(error)) ({ data, error } = await read(WORK_COLUMNS_BEFORE_RULES))
   if (error) throw error
   // Class milestones have no reached_at column; they read as never marked.
   return ((data ?? []) as unknown as (Omit<Milestone, 'reached_at'> & { reached_at?: string | null })[]).map((m) => ({
     ...m,
     reached_at: m.reached_at ?? null,
   }))
+}
+
+/** Every link between a work project's milestones; the database returns those the viewer may read. */
+export async function listMilestoneDependencies(projectId: string): Promise<MilestoneDependency[]> {
+  const { data, error } = await supabase
+    .from('general_milestone_dependencies')
+    .select('milestone_id, depends_on_id')
+    .eq('project_id', projectId)
+  if (error) {
+    // Until project-milestone-rules.sql is live there are no links; remove this once it is.
+    if (isMissingRelation(error, 'general_milestone_dependencies')) return []
+    throw error
+  }
+  return (data ?? []) as MilestoneDependency[]
+}
+
+/** `milestoneId` waits for `dependsOnId`. The database refuses loops, reached milestones and a switch that is off. */
+export async function addMilestoneDependency(milestoneId: string, dependsOnId: string) {
+  const { error } = await supabase.rpc('add_general_milestone_dependency', {
+    p_milestone: milestoneId,
+    p_depends_on: dependsOnId,
+  })
+  if (error) throw error
+}
+
+export async function removeMilestoneDependency(milestoneId: string, dependsOnId: string) {
+  const { error } = await supabase.rpc('remove_general_milestone_dependency', {
+    p_milestone: milestoneId,
+    p_depends_on: dependsOnId,
+  })
+  if (error) throw error
 }
 
 export async function createMilestone(home: MilestoneHome, input: MilestoneInput) {

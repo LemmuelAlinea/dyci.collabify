@@ -1,3 +1,4 @@
+import type { MilestoneCompletion } from '../general/milestoneRules'
 import type { SprintSettings } from './sprintSettings'
 import type { WorkStatus } from './timeline'
 
@@ -68,6 +69,8 @@ export type WorkSource = {
   canRunSprints: boolean
   /** A work project's sprint settings. Unset for a class board. */
   sprintSettings?: SprintSettings
+  /** A work project's milestone completion, for the timeline's reached checkpoints. Unset reads as automatic. */
+  milestoneCompletion?: MilestoneCompletion
   /**
    * May move this task up or down its list. Planners always may; a work
    * project's team leader may for tasks somebody they lead holds. Unset means
@@ -102,13 +105,19 @@ export type Milestone = {
   id: string
   name: string
   description: string
-  /** Calendar day, YYYY-MM-DD. */
-  due_on: string
-  /** Work projects only: when someone marked it reached. Always null in class projects. */
+  /** Calendar day, YYYY-MM-DD. Null in a work project that does not require due dates. */
+  due_on: string | null
+  /** Work projects only: when it was reached, by a person or by the database. Always null in class projects. */
   reached_at: string | null
+  /** Work projects only: the database reached it (automatic completion), not a person. */
+  reached_auto?: boolean
   created_at: string
 }
 
+/** One link: `milestone_id` waits for `depends_on_id`. Work projects only. */
+export type MilestoneDependency = { milestone_id: string; depends_on_id: string }
+
+/** `dueOn` is '' for no due date (work projects whose settings allow it). */
 export type MilestoneInput = { name: string; description: string; dueOn: string }
 
 /** One group's tasks, for a professor following every group's progress. */
@@ -129,6 +138,18 @@ export type MilestoneSource = {
   sprints: Sprint[]
   /** Work projects: may mark a milestone reached by hand. */
   canMarkReached: boolean
+  /** Work projects: how a milestone is reached. Class milestones read as automatic. */
+  completion?: MilestoneCompletion
+  /** Work projects: a milestone needs a due date. Class milestones always do. */
+  requireDue?: boolean
+  /** Work projects: which milestone waits for which. */
+  dependencies?: MilestoneDependency[]
+  /** May change what milestones wait for. */
+  canLink?: boolean
+  /** The project allows new links; existing ones stay and can still be removed. */
+  allowLinks?: boolean
+  addDependency?: (milestoneId: string, dependsOnId: string) => Promise<void>
+  removeDependency?: (milestoneId: string, dependsOnId: string) => Promise<void>
   /** Shown as a note when this viewer can only read; '' otherwise. */
   readOnlyReason: string
   openTask: (id: string) => void

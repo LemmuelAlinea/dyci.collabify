@@ -108,12 +108,12 @@ export function sprintTimeline<M extends Pick<Milestone, 'id' | 'name' | 'due_on
   const points: TimelinePoint[] = [
     { day: sprint.starts_on, label: 'Kickoff', state: sprint.starts_on <= today ? 'done' : 'upcoming' },
     ...milestones
-      .filter((m) => m.due_on > sprint.starts_on && m.due_on <= sprint.ends_on)
-      .sort((a, b) => a.due_on.localeCompare(b.due_on))
-      .map((m) => ({
-        day: m.due_on,
+      .flatMap((m) => (m.due_on !== null && m.due_on > sprint.starts_on && m.due_on <= sprint.ends_on ? [{ m, day: m.due_on }] : []))
+      .sort((a, b) => a.day.localeCompare(b.day))
+      .map(({ m, day }) => ({
+        day,
         label: m.name,
-        state: reached(m) ? ('done' as const) : m.due_on < today ? ('late' as const) : ahead(m.due_on),
+        state: reached(m) ? ('done' as const) : day < today ? ('late' as const) : ahead(day),
       })),
     { day: sprint.ends_on, label: 'Sprint ends', state: sprint.ends_on < today ? 'done' : ahead(sprint.ends_on) },
   ]

@@ -1,4 +1,5 @@
 import { useNow } from '../../hooks/useNow'
+import type { MilestoneCompletion } from '../../lib/general/milestoneRules'
 import { reachedIn } from '../../lib/work/milestones'
 import { nextCheckpoint, sprintTimeline, toDay } from '../../lib/work/sprints'
 import type { TimelineState } from '../../lib/work/sprints'
@@ -48,13 +49,16 @@ export function SprintTimeline({
   sprint,
   milestones,
   items,
+  completion,
 }: {
   sprint: Sprint
   milestones: readonly Milestone[]
   items: readonly WorkItem[]
+  /** How milestones are reached; automatic when left out. */
+  completion?: MilestoneCompletion
 }) {
   const now = useNow()
-  const points = sprintTimeline(sprint, milestones, reachedIn(items), now)
+  const points = sprintTimeline(sprint, milestones, reachedIn(items, completion), now)
   const next = nextCheckpoint(points)
   const n = points.length
   const today = toDay(now)

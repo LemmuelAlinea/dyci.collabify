@@ -1,7 +1,9 @@
 // src/components/general/workSource.ts
 import {
+  addMilestoneDependency,
   createMilestone,
   deleteMilestone,
+  removeMilestoneDependency,
   setMilestoneReached,
   tagTasks,
   updateMilestone,
@@ -21,6 +23,7 @@ import {
 } from '../../lib/api/sprints'
 import type { SprintHome } from '../../lib/api/sprints'
 import { createMemberTask, createTask } from '../../lib/api/general'
+import { DEFAULT_MILESTONE_RULES } from '../../lib/general/milestoneRules'
 import { DEFAULT_MEMBER_RULES, canCreateWorkTaskWith, canManageMilestones, canStepRank } from '../../lib/general/permissions'
 import type { MilestoneSource, WorkItem, WorkSource } from '../../lib/work/types'
 import type { GeneralProjectState } from './useGeneralProject'
@@ -68,6 +71,7 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     canPlan,
     canRunSprints: live && (state.myRole === 'pm' || state.myRole === 'coordinator'),
     sprintSettings: state.sprintSettings,
+    milestoneCompletion: project?.milestoneRules?.completion,
     // A team leader reorders the tasks people they lead hold; sprint moves stay with planners.
     canStepItem: (item) => live && canStepRank(canPlan, item.holderIds, state.leadsUser),
     canAdd: live && (Boolean(project?.class_board_id) || canCreateWorkTaskWith(state.myRole, state.myRole === 'qa' ? 'bug' : 'task', memberRules)),
@@ -127,6 +131,7 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
   const can = live && state.can('manage_tasks')
   // Members may run milestones while the project lets them; tagging and sprint links stay with manage_tasks.
   const manage = live && canManageMilestones(state.myRole, can, project?.memberRules)
+  const rules = project?.milestoneRules ?? DEFAULT_MILESTONE_RULES
   // Reload even when the action fails: a partial write still changed rows.
   const then = async <T,>(action: Promise<T>) => {
     try {
@@ -143,6 +148,12 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
     canTag: can,
     sprints: state.sprints,
     canMarkReached: manage,
+    completion: rules.completion,
+    requireDue: rules.requireDue,
+    dependencies: state.milestoneDependencies ?? [],
+    // The database lets whoever manages milestones link them.
+    canLink: manage,
+    allowLinks: rules.allowDependencies,
     readOnlyReason: state.archived
       ? 'This project is archived, so nothing in it can change.'
       : state.myRole === 'stakeholder'
@@ -159,6 +170,8 @@ export function generalMilestoneSource(state: GeneralProjectState, openTask: (id
     updateMilestone: (id, input) => then(updateMilestone(home, id, input)),
     deleteMilestone: (id) => then(deleteMilestone(home, id)),
     setReached: (id, reached) => then(setMilestoneReached(id, reached)),
+    addDependency: (id, dependsOnId) => then(addMilestoneDependency(id, dependsOnId)),
+    removeDependency: (id, dependsOnId) => then(removeMilestoneDependency(id, dependsOnId)),
     tag: (ids, milestoneId) => then(tagTasks(home, ids, milestoneId)),
     linkSprint: (sprintId, milestoneId) =>
       then(setSprintMilestone({ kind: 'work', projectId: home.projectId }, sprintId, milestoneId)),

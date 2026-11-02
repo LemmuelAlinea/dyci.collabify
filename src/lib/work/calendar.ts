@@ -67,14 +67,19 @@ export function sprintCalendarEvents(
  * Each milestone on its day. Opens no task: `task_id` is null. `isReached`
  * decides which read as done; pass the one the milestones view uses so the
  * calendar and the view agree. By default only a hand-marked one is done.
+ * A milestone with no due date has no day, so it is left off.
  */
 export function milestoneCalendarEvents(
   milestones: readonly Pick<Milestone, 'id' | 'name' | 'due_on' | 'reached_at'>[],
   isReached: (m: Pick<Milestone, 'id' | 'name' | 'due_on' | 'reached_at'>) => boolean = (m) => Boolean(m.reached_at),
 ): CalendarEvent[] {
-  return milestones.map((m) => ({
-    kind: 'milestone', ref_id: m.id, title: m.name, at: noonOf(m.due_on),
-    class_id: '', class_initial: '', class_name: '', project_id: '', project_title: 'Milestone',
-    task_id: null, group_name: null, done: isReached(m), late: false,
-  }))
+  return milestones.flatMap((m) =>
+    m.due_on === null
+      ? []
+      : [{
+          kind: 'milestone' as const, ref_id: m.id, title: m.name, at: noonOf(m.due_on),
+          class_id: '', class_initial: '', class_name: '', project_id: '', project_title: 'Milestone',
+          task_id: null, group_name: null, done: isReached(m), late: false,
+        }],
+  )
 }

@@ -31,6 +31,7 @@ export function MilestoneDialog({
   initial,
   onSubmit,
   perSprint,
+  requireDue = true,
 }: {
   open: boolean
   onClose: () => void
@@ -39,6 +40,8 @@ export function MilestoneDialog({
   initial: MilestoneInput
   onSubmit: (input: MilestoneInput) => Promise<unknown>
   perSprint?: PerSprint
+  /** A work project can allow milestones with no due date; the database holds the rule. */
+  requireDue?: boolean
 }) {
   const [mode, setMode] = useState<'one' | 'sprints'>('one')
   const [name, setName] = useState(initial.name)
@@ -65,7 +68,7 @@ export function MilestoneDialog({
     setError(null)
     if (bySprint) return saveEach()
     if (!name.trim()) return setError('A milestone needs a name.')
-    if (!dueOn) return setError('A milestone needs a due date.')
+    if (requireDue && !dueOn) return setError('A milestone needs a due date.')
     setBusy(true)
     try {
       await onSubmit({ name, description, dueOn })
@@ -188,7 +191,7 @@ export function MilestoneDialog({
             <Field label="Name">
               {(id) => <Input id={id} maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />}
             </Field>
-            <Field label="Due">
+            <Field label="Due" optional={!requireDue}>
               {(id) => <Input id={id} type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} />}
             </Field>
           </>

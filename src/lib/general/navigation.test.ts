@@ -93,6 +93,7 @@ describe('general navigation', () => {
     expect(settingsSection(new URLSearchParams('tab=settings'))).toBe('general')
     expect(settingsSection(new URLSearchParams('tab=settings&section=sprints'))).toBe('sprints')
     expect(settingsSection(new URLSearchParams('tab=settings&section=tasks'))).toBe('tasks')
+    expect(settingsSection(new URLSearchParams('tab=settings&section=milestones'))).toBe('milestones')
     expect(settingsSection(new URLSearchParams('tab=settings&section=members'))).toBe('members')
     expect(settingsSection(new URLSearchParams('tab=settings&section=nope'))).toBe('general')
   })

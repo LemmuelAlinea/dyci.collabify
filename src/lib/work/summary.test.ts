@@ -75,6 +75,18 @@ describe('nextMilestone', () => {
     expect(next?.status).toBe('late')
   })
 
+  it('keeps a finished milestone in manual mode until someone marks it, as ready', () => {
+    const items = [item({ id: '1', milestone_id: 'm', status: 'done' })]
+    expect(nextMilestone([ms()], items, NOW)).toBeNull()
+    expect(nextMilestone([ms()], items, NOW, 'manual')).toMatchObject({ status: 'ready', done: 1, total: 1 })
+  })
+
+  it('passes over an undated milestone only after every dated one', () => {
+    const next = nextMilestone([ms({ id: 'none', due_on: null }), ms({ id: 'dated', due_on: '2026-12-01' })], [], NOW)
+    expect(next?.milestone.id).toBe('dated')
+    expect(nextMilestone([ms({ id: 'none', due_on: null })], [], NOW)).toMatchObject({ status: 'upcoming' })
+  })
+
   it('is null with no milestones, or when every one is reached', () => {
     expect(nextMilestone([], [], NOW)).toBeNull()
     expect(nextMilestone([ms({ reached_at: '2026-10-09T00:00:00Z' })], [], NOW)).toBeNull()

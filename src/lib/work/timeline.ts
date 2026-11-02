@@ -308,8 +308,9 @@ export function placeBand(band: Band, chart: Chart) {
 /** A single dated point drawn above the tasks: a milestone, at noon on its day. */
 export type Mark = { id: string; label: string; at: number }
 
-export function milestoneMarks(milestones: readonly { id: string; name: string; due_on: string }[]): Mark[] {
-  return milestones.map((m) => ({ id: m.id, label: m.name, at: dayStart(m.due_on) + DAY / 2 }))
+/** A milestone with no due date has no day to sit on, so it gets no mark. */
+export function milestoneMarks(milestones: readonly { id: string; name: string; due_on: string | null }[]): Mark[] {
+  return milestones.flatMap((m) => (m.due_on === null ? [] : [{ id: m.id, label: m.name, at: dayStart(m.due_on) + DAY / 2 }]))
 }
 
 export function placeMark(mark: Mark, chart: Chart) {

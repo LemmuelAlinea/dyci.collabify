@@ -25,7 +25,7 @@ function Label({ m, align, running }: { m: Milestone; align: 'center' | 'left'; 
   return (
     <span className={`block min-w-0 ${align === 'center' ? 'text-center' : 'text-left'}`}>
       <span className="line-clamp-2 text-[13px] leading-snug font-medium text-ink group-hover:underline">{m.name}</span>
-      <span className={`block font-mono text-[11px] ${running ? 'text-warning-700 dark:text-warning-300' : 'text-faint'}`}>{formatDay(m.due_on)}{running && ' · Sprint running'}</span>
+      <span className={`block font-mono text-[11px] ${running ? 'text-warning-700 dark:text-warning-300' : 'text-faint'}`}>{m.due_on ? formatDay(m.due_on) : 'No due date'}{running && ' · Sprint running'}</span>
     </span>
   )
 }
@@ -42,7 +42,7 @@ export function MilestoneChart({
   runningId,
   onPick,
 }: {
-  /** Already in date order. */
+  /** Already in date order; ones with no due date come last, in the same line. */
   milestones: Milestone[]
   isReached: (m: Milestone) => boolean
   /** The milestone the running sprint counts toward, if any. */
@@ -52,7 +52,7 @@ export function MilestoneChart({
   const n = milestones.length
   if (n === 0) return null
   const say = (m: Milestone) =>
-    `${m.name}, due ${formatDay(m.due_on)}, ${isReached(m) ? 'reached' : 'not reached yet'}${m.id === runningId ? ', the running sprint counts toward it' : ''}. Show its card.`
+    `${m.name}, ${m.due_on ? `due ${formatDay(m.due_on)}` : 'no due date'}, ${isReached(m) ? 'reached' : 'not reached yet'}${m.id === runningId ? ', the running sprint counts toward it' : ''}. Show its card.`
 
   return (
     <section aria-label="Milestone timeline" className="card p-4 shadow-card">

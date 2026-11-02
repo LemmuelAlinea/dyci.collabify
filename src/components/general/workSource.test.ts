@@ -111,6 +111,22 @@ describe('generalMilestoneSource', () => {
     expect(source.readOnlyReason).toBe('')
   })
 
+  it('hands the milestone settings and links to the view, and lets managers link', () => {
+    const rules = { completion: 'manual', requireDue: false, allowDependencies: false, overdueAlerts: true }
+    const links = [{ milestone_id: 'b', depends_on_id: 'a' }]
+    const state = makeState('pm', off, { milestoneDependencies: links })
+    state.project!.milestoneRules = rules as never
+    const source = generalMilestoneSource(state, vi.fn())
+    expect(source).toMatchObject({ completion: 'manual', requireDue: false, allowLinks: false, canLink: true, dependencies: links })
+    expect(generalMilestoneSource(makeState('member', off), vi.fn()).canLink).toBe(false)
+    expect(generalMilestoneSource(makeState('member', { ...off, manageMilestones: true }), vi.fn()).canLink).toBe(true)
+  })
+
+  it('reads the defaults while the project has no settings', () => {
+    const source = generalMilestoneSource(makeState('pm', off), vi.fn())
+    expect(source).toMatchObject({ completion: 'automatic', requireDue: true, allowLinks: true, dependencies: [] })
+  })
+
   it('gives QA and stakeholders nothing, and a read-only project nothing', () => {
     for (const role of ['qa', 'stakeholder']) {
       const source = generalMilestoneSource(makeState(role, on), vi.fn())

@@ -4,8 +4,9 @@ import { ProgressBar, StatusPill } from './MilestoneBits'
 import { Icon } from '../ui/Icon'
 import type { IconName } from '../ui/Icon'
 import { useNow } from '../../hooks/useNow'
-import { dateRange, formatDay, formatDue } from '../../lib/general/dates'
-import { dueInLabel } from '../../lib/work/milestones'
+import { dateRange, formatDue } from '../../lib/general/dates'
+import type { MilestoneCompletion } from '../../lib/general/milestoneRules'
+import { dueLine } from '../../lib/work/milestones'
 import type { WorkSection } from '../../lib/work/nav'
 import { daysLeft, daysLeftLabel, runningSprint, sprintCounts } from '../../lib/work/sprints'
 import { needsYou, nextMilestone } from '../../lib/work/summary'
@@ -22,6 +23,8 @@ type GlanceProps = {
   mine: ReadonlySet<string>
   /** May plan sprints; the empty sprint card only points to Backlog when true. */
   canPlan: boolean
+  /** How milestones are reached; automatic when left out. */
+  completion?: MilestoneCompletion
   onOpenTask: (id: string) => void
   onSection: (s: WorkSection) => void
   aside?: ReactNode
@@ -32,17 +35,17 @@ type GlanceProps = {
  * the viewer now. The same cards in either space; each one links to the
  * section where that work is done.
  */
-export function WorkGlance({ items, sprints, milestones, mine, canPlan, onOpenTask, onSection, aside }: GlanceProps) {
+export function WorkGlance({ items, sprints, milestones, mine, canPlan, completion, onOpenTask, onSection, aside }: GlanceProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <SprintCard items={items} sprints={sprints} milestones={milestones} canPlan={canPlan} onSection={onSection} />
+      <SprintCard items={items} sprints={sprints} milestones={milestones} canPlan={canPlan} completion={completion} onSection={onSection} />
       {aside ? (
         <div className="grid gap-4 lg:grid-rows-[auto_1fr]">
-          <MilestoneCard items={items} milestones={milestones} onSection={onSection} />
+          <MilestoneCard items={items} milestones={milestones} completion={completion} onSection={onSection} />
           {aside}
         </div>
       ) : (
-        <MilestoneCard items={items} milestones={milestones} onSection={onSection} />
+        <MilestoneCard items={items} milestones={milestones} completion={completion} onSection={onSection} />
       )}
       <div className="lg:col-span-2">
         <NeedsYouCard items={items} mine={mine} onOpenTask={onOpenTask} />
@@ -86,7 +89,7 @@ function Counted({ done, total, noun, pct }: { done: number; total: number; noun
   )
 }
 
-function SprintCard({ items, sprints, milestones, canPlan, onSection }: Pick<GlanceProps, 'items' | 'sprints' | 'milestones' | 'canPlan' | 'onSection'>) {
+function SprintCard({ items, sprints, milestones, canPlan, completion, onSection }: Pick<GlanceProps, 'items' | 'sprints' | 'milestones' | 'canPlan' | 'completion' | 'onSection'>) {
   const now = useNow()
   const sprint = runningSprint(sprints)
 
@@ -117,15 +120,15 @@ function SprintCard({ items, sprints, milestones, canPlan, onSection }: Pick<Gla
         <Counted done={done} total={total} noun="tasks" pct={pct} />
       </div>
       <div className="mt-4">
-        <SprintTimeline sprint={sprint} milestones={milestones} items={items} />
+        <SprintTimeline sprint={sprint} milestones={milestones} items={items} completion={completion} />
       </div>
     </section>
   )
 }
 
-function MilestoneCard({ items, milestones, onSection }: Pick<GlanceProps, 'items' | 'milestones' | 'onSection'>) {
+function MilestoneCard({ items, milestones, completion, onSection }: Pick<GlanceProps, 'items' | 'milestones' | 'completion' | 'onSection'>) {
   const now = useNow()
-  const next = nextMilestone(milestones, items, now)
+  const next = nextMilestone(milestones, items, now, completion)
   return (
     <section className="card p-4 shadow-card sm:p-5">
       <CardHead icon="pin" label="Next milestone" action="Open Milestones" onAction={() => onSection('milestones')} />
@@ -140,7 +143,7 @@ function MilestoneCard({ items, milestones, onSection }: Pick<GlanceProps, 'item
             <StatusPill status={next.status} />
           </div>
           <p className="mt-1 text-[12px] text-faint">
-            {formatDay(next.milestone.due_on)} · {dueInLabel(next.milestone.due_on, now)}
+            {dueLine(next.milestone.due_on, now)}
           </p>
           <div className="mt-3">
             <Counted done={next.done} total={next.total} noun="tagged tasks" pct={next.pct} />

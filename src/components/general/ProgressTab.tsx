@@ -77,7 +77,7 @@ export function ProgressTab({ state: sourceState }: { state: GeneralProjectState
     <div className="min-w-0 space-y-6">
       <section className="space-y-3">
         <h2>Milestones</h2>
-        {milestones.length ? <MilestoneChart milestones={milestones} isReached={m => milestoneStatus(m, milestoneProgress(tasks, m.id), now) === 'reached'} runningId={runningSprint(state.sprints)?.milestone_id} onPick={id => setParams(milestoneParams(params, id))} /> : (
+        {milestones.length ? <MilestoneChart milestones={milestones} isReached={m => milestoneStatus(m, milestoneProgress(tasks, m.id), now, state.project?.milestoneRules?.completion) === 'reached'} runningId={runningSprint(state.sprints)?.milestone_id} onPick={id => setParams(milestoneParams(params, id))} /> : (
           <p className="card p-6 text-[13px] text-muted">No milestones yet. <Link className="font-medium text-ink underline" to={{ search: workParams.toString() }}>View Work milestones</Link></p>
         )}
       </section>

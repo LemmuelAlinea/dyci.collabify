@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { ActionMenu } from '../ui/ActionMenu'
 import { Icon } from '../ui/Icon'
+import { Select } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { MilestoneChart } from './MilestoneChart'
 import { MilestoneDialog } from './MilestoneDialog'
@@ -13,15 +14,31 @@ import { AddSprintDialog } from './AddSprintDialog'
 import { TagTasksDialog } from './TagTasksDialog'
 import { useNow } from '../../hooks/useNow'
 import { authErrorMessage } from '../../lib/authError'
-import { formatDay } from '../../lib/general/dates'
 import { addDays, runningSprint, toDay } from '../../lib/work/sprints'
 import {
-  dueInLabel,
+  dueLine,
   milestoneProgress,
   milestoneStatus,
   sortMilestones,
+  waitingFor,
 } from '../../lib/work/milestones'
-import type { Milestone, MilestoneSource } from '../../lib/work/types'
+import type { Milestone, MilestoneDependency, MilestoneSource } from '../../lib/work/types'
+
+/** Every milestone that waits for this one, directly or through others; waiting on one of them would close a loop. */
+function waitingOn(dependencies: readonly MilestoneDependency[], id: string) {
+  const found = new Set<string>()
+  const queue = [id]
+  while (queue.length) {
+    const next = queue.pop()
+    for (const d of dependencies) {
+      if (d.depends_on_id === next && !found.has(d.milestone_id)) {
+        found.add(d.milestone_id)
+        queue.push(d.milestone_id)
+      }
+    }
+  }
+  return found
+}
 
 /**
  * Dated goals and how close each one is. A milestone's progress is the share
@@ -40,6 +57,9 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
   const [flash, setFlash] = useState<string | null>(null)
   const still = useReducedMotion()
   const list = sortMilestones(source.milestones)
+  const completion = source.completion ?? 'automatic'
+  const requireDue = source.requireDue ?? true
+  const links = source.dependencies ?? []
   // A professor's source carries one group per board; everyone else reads their own items.
   const professor = source.groups.length > 0
   // A finished sprint is fixed, so only planned and running ones get a milestone each.
@@ -99,7 +119,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
 
       <MilestoneChart
         milestones={list}
-        isReached={(m) => milestoneStatus(m, milestoneProgress(source.items, m.id), now) === 'reached'}
+        isReached={(m) => milestoneStatus(m, milestoneProgress(source.items, m.id), now, completion) === 'reached'}
         runningId={runningSprint(source.sprints)?.milestone_id}
         onPick={showCard}
       />
@@ -112,7 +132,11 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
         <ul className="space-y-3">
           {list.map((m) => {
             const progress = milestoneProgress(source.items, m.id)
-            const status = milestoneStatus(m, progress, now)
+            const status = milestoneStatus(m, progress, now, completion)
+            const blockers = waitingFor(m, links, source.milestones)
+            const waits = links.filter((d) => d.milestone_id === m.id)
+            const blocked = new Set([m.id, ...waits.map((d) => d.depends_on_id), ...waitingOn(links, m.id)])
+            const candidates = source.allowLinks ? list.filter((o) => !blocked.has(o.id)) : []
             const tagged = source.items.filter((i) => i.milestone_id === m.id)
             const linked = source.sprints.filter((sp) => sp.milestone_id === m.id)
             return (
@@ -131,8 +155,14 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
                       {!professor && <StatusPill status={status} />}
                     </div>
                     <p className="mt-0.5 font-mono text-[12px] text-faint">
-                      {formatDay(m.due_on)} · {dueInLabel(m.due_on, now)}
+                      {dueLine(m.due_on, now)}
+                      {m.reached_at && m.reached_auto ? ' · Reached automatically' : ''}
                     </p>
+                    {blockers.length > 0 && (
+                      <p className="mt-1 text-[13px] text-warning-700 dark:text-warning-300">
+                        Waiting for {blockers.map((b) => b.name).join(', ')}
+                      </p>
+                    )}
                     {m.description && <p className="mt-1.5 max-w-prose text-[13px] text-muted">{m.description}</p>}
                   </div>
                   <ActionMenu
@@ -168,7 +198,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
                           <span className="w-16 shrink-0 text-right font-mono text-[12px] text-faint">
                             {p.done}/{p.total}
                           </span>
-                          <StatusPill status={milestoneStatus(m, p, now)} />
+                          <StatusPill status={milestoneStatus(m, p, now, completion)} />
                         </li>
                       )
                     })}
@@ -183,7 +213,55 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
                         <span className="font-mono text-faint">{progress.pct}%</span>
                       </div>
                       <ProgressBar pct={progress.pct} />
+                      {status === 'ready' && source.canMarkReached && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-2"
+                          onClick={() => void run(() => source.setReached(m.id, true), 'Could not change that milestone.')}
+                        >
+                          <Icon name="checkCircle" size={15} />
+                          Mark reached
+                        </Button>
+                      )}
                     </div>
+                    {source.canLink && source.addDependency && source.removeDependency && (waits.length > 0 || candidates.length > 0) && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[12px] text-faint">Waiting for:</span>
+                        {waits.map((d) => {
+                          const blocker = source.milestones.find((o) => o.id === d.depends_on_id)
+                          if (!blocker) return null
+                          return (
+                            <span key={d.depends_on_id} className="flex items-center gap-1 rounded-lg surface-sunken py-1 pr-1 pl-2.5 text-[12px] text-ink">
+                              {blocker.name}
+                              <button
+                                type="button"
+                                onClick={() => void run(() => source.removeDependency!(m.id, d.depends_on_id), 'Could not remove that link.')}
+                                aria-label={`Stop waiting for ${blocker.name}`}
+                                className="grid h-5 w-5 place-items-center rounded-full text-faint hover:text-ink"
+                              >
+                                <Icon name="x" size={11} />
+                              </button>
+                            </span>
+                          )
+                        })}
+                        {candidates.length > 0 && (
+                          <span className="w-56 max-w-full">
+                            <Select
+                              aria-label="Wait for another milestone"
+                              className="!h-9 !text-[13px]"
+                              value=""
+                              placeholder="Add a milestone to wait for"
+                              options={candidates.map((o) => ({ value: o.id, label: o.name }))}
+                              onChange={(e) => {
+                                const picked = e.target.value
+                                if (picked) void run(() => source.addDependency!(m.id, picked), 'Could not add that link.')
+                              }}
+                            />
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {linked.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-[12px] text-faint">Sprints:</span>
@@ -248,7 +326,8 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
         onClose={() => setCreating(false)}
         title="New milestone"
         submitLabel="Add milestone"
-        initial={{ name: '', description: '', dueOn: addDays(toDay(now), 14) }}
+        initial={{ name: '', description: '', dueOn: requireDue ? addDays(toDay(now), 14) : '' }}
+        requireDue={requireDue}
         onSubmit={(input) => source.createMilestone(input)}
         perSprint={
           source.canTag && openSprints.length > 0
@@ -270,7 +349,8 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
           onClose={() => setEditing(null)}
           title={`Edit ${editing.name}`}
           submitLabel="Save milestone"
-          initial={{ name: editing.name, description: editing.description, dueOn: editing.due_on }}
+          initial={{ name: editing.name, description: editing.description, dueOn: editing.due_on ?? '' }}
+          requireDue={requireDue}
           onSubmit={(input) => source.updateMilestone(editing.id, input)}
         />
       )}

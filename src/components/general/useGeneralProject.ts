@@ -19,7 +19,7 @@ import {
   listTeams,
 } from '../../lib/api/general'
 import type { CommitRights } from '../../lib/api/general'
-import { listMilestones } from '../../lib/api/milestones'
+import { listMilestoneDependencies, listMilestones } from '../../lib/api/milestones'
 import { getSprintSettings, isMissingSprintSettingsTable, listSprints } from '../../lib/api/sprints'
 import { isMissingRelation } from '../../lib/api/missingRelation'
 import { authErrorMessage } from '../../lib/authError'
@@ -45,7 +45,7 @@ import type {
 } from '../../lib/general/types'
 import { fullName } from '../../lib/types'
 import { DEFAULT_SPRINT_SETTINGS, type SprintSettings } from '../../lib/work/sprintSettings'
-import type { Milestone, Sprint } from '../../lib/work/types'
+import type { Milestone, MilestoneDependency, Sprint } from '../../lib/work/types'
 
 const NO_RIGHTS: CommitRights = { commit: false, grant: false, board: false, committers: [] }
 
@@ -72,6 +72,8 @@ export type GeneralProjectState = {
   sprintSettings: SprintSettings
   /** Soonest due first. */
   milestones: Milestone[]
+  /** Which milestone waits for which, across the project. */
+  milestoneDependencies: MilestoneDependency[]
   loading: boolean
   /** Loaded, and there is no project this viewer can see. */
   missing: boolean
@@ -151,6 +153,7 @@ export function useGeneralProject(
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [sprintSettings, setSprintSettings] = useState<SprintSettings>(DEFAULT_SPRINT_SETTINGS)
   const [milestones, setMilestones] = useState<Milestone[]>([])
+  const [milestoneDependencies, setMilestoneDependencies] = useState<MilestoneDependency[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [commitRights, setCommitRights] = useState<CommitRights>(NO_RIGHTS)
@@ -181,11 +184,12 @@ export function useGeneralProject(
         setSprints([])
         setSprintSettings(DEFAULT_SPRINT_SETTINGS)
         setMilestones([])
+        setMilestoneDependencies([])
         setCommitRights(NO_RIGHTS)
         setError(null)
         return
       }
-      const [m, g, r, t, tm, p, h, sk, f, tk, dp, sp, ms, cr, ss, jr] = await Promise.all([
+      const [m, g, r, t, tm, p, h, sk, f, tk, dp, sp, ms, md, cr, ss, jr] = await Promise.all([
         listGeneralMembers(projectId),
         listGrants(projectId),
         listAccessRequests(projectId),
@@ -199,6 +203,7 @@ export function useGeneralProject(
         listDependencies(projectId),
         listSprints({ kind: 'work', projectId }),
         listMilestones({ kind: 'work', projectId }),
+        listMilestoneDependencies(projectId),
         getCommitRights(projectId).catch(() => NO_RIGHTS),
         // A project still loads when the settings table is not there yet; remove once sprint-settings.sql is live.
         getSprintSettings(projectId).catch((err) => {
@@ -228,6 +233,7 @@ export function useGeneralProject(
       setSprints(sp)
       setSprintSettings(ss)
       setMilestones(ms)
+      setMilestoneDependencies(md)
       setCommitRights(cr)
       setValues(await listFieldValues(f.map((x) => x.id)))
       setError(null)
@@ -266,6 +272,7 @@ export function useGeneralProject(
     'general_sprint_settings',
     'general_join_requests',
     'general_milestones',
+    'general_milestone_dependencies',
     // A class board's Commit to Main follows its group's leader.
     'groups',
   ])
@@ -312,6 +319,7 @@ export function useGeneralProject(
       sprints,
       sprintSettings,
       milestones,
+      milestoneDependencies,
       loading,
       missing: !loading && !project && !error,
       error,
@@ -343,5 +351,5 @@ export function useGeneralProject(
       qaBlocks: (from: number, to: number) =>
         qaBlocks({ hasQa: Boolean(project?.has_qa), role: myRole }, project?.stages, project?.qa_stage, from, to),
     }
-  }, [project, members, grants, requests, teams, teamMembers, positions, holders, joinRequests, skills, fields, values, tasks, dependencies, sprints, sprintSettings, milestones, loading, error, reload, viewerId, commitRights])
+  }, [project, members, grants, requests, teams, teamMembers, positions, holders, joinRequests, skills, fields, values, tasks, dependencies, sprints, sprintSettings, milestones, milestoneDependencies, loading, error, reload, viewerId, commitRights])
 }
