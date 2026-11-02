@@ -4165,25 +4165,29 @@ commits only. **Not live:** `project-member-rules.sql` has not been applied and 
 
 Phase 2 group 4 from the Project Settings PDF (Milestone Management). Spec:
 `docs/superpowers/specs/2026-11-02-project-settings-milestones-design.md`. Built on `main`, local
-commits only (`a05fad0`, `3e47a23`, `cd9b99c`, `9dd1dd8`, then the docs commit). **Not live:**
+commits only (`a05fad0`, `3e47a23`, `cd9b99c`, `9dd1dd8`, the docs commit `05a2263`, then the
+final fix wave). **Not live:**
 `project-milestone-rules.sql` has not been applied and nothing is pushed.
 
 - **Database** (`supabase/project-milestone-rules.sql`, suite
-  `supabase/tests/project-milestone-rules.test.sql`, 59 checks): four `general_projects` columns
+  `supabase/tests/project-milestone-rules.test.sql`, 62 checks): four `general_projects` columns
   (`milestone_completion`, `require_milestone_due`, `allow_milestone_dependencies`,
   `milestone_overdue_alerts`); `general_milestones.reached_auto` and `overdue_notified_at`; a
   nullable `due_on` with the conditional due-date check in `check_general_milestone_rules`; the
   table `general_milestone_dependencies` with the add and remove RPCs; the automatic reach and
-  settle triggers under the `collabify.milestone_auto` flag; `send_milestone_overdue_alerts` with
+  settle triggers under the `collabify.milestone_auto` flag (released live tasks only: private
+  planning work never counts, and a release settles the milestone again); `send_milestone_overdue_alerts` with
   the cron `collabify-milestone-overdue` (00:00 UTC, 08:00 Manila); and the `milestone_overdue`
   notification type. Existing milestone guards are not redefined. Run position and re-run rule are
   in `docs/07-backup.md` and `CLAUDE.md`.
-- **Frontend** (commit `9dd1dd8`): Settings → Milestones (`MilestonesSection`), mode-aware
-  milestone status, dependencies in the milestone dialog and view, undated milestones, and the
+- **Frontend** (commit `9dd1dd8`, then the fix wave): Settings → Milestones (`MilestonesSection`),
+  milestone status (reached only from `reached_at` on a work project; Waiting while a milestone it
+  waits for isn't reached, with Mark reached hidden; Ready to mark reached for finished,
+  unstamped work in both modes), dependencies in the milestone dialog and view, undated milestones, and the
   `milestone_overdue` notification (destination in `notificationDestination.ts`, opening the Plan
   tab's milestones view).
 - **Dry runs** (this file spliced into each suite with the enum value swapped in the scratch copy,
-  rolled back): `project-milestone-rules` 59 pass, `work-milestones` 26, `sprint-milestones` 24,
+  rolled back): `project-milestone-rules` 62 pass, `work-milestones` 26, `sprint-milestones` 24,
   `class-milestones` 31, `project-member-rules` 65, `project-task-rules` 110,
   `work-task-handoff` 304, `general-tasks` 49, none failing. `npm run build`, the full vitest run,
   eslint on the changed files and `scripts/contrast.mjs` are green.
@@ -4194,8 +4198,14 @@ commits only (`a05fad0`, `3e47a23`, `cd9b99c`, `9dd1dd8`, then the docs commit).
 - **Deferred:**
   - `notesPlan.ts:115` still requires a date for drafted milestones, even when a project turns
     `require_milestone_due` off.
-  - The first cron run may alert every milestone already past due and not reached. Pre-stamp
-    `overdue_notified_at` at deploy to skip them; the owner decides.
+  - The first cron run alerts every milestone already past due and not reached. On 2026-11-02 the
+    live count on unarchived work projects was 0, so pre-stamping `overdue_notified_at` is not
+    needed; re-check the count at deploy.
+  - `my_stakeholder_projects()` ignores undated milestones: its next milestone needs `due_on >= current_date`
+    (`project-feedback.sql`).
+  - On 2026-11-02 one live work milestone had every released task done and no `reached_at`. Nothing
+    settles it at deploy, so it reads Ready to mark reached until a task on it changes or someone
+    marks it.
   - The notification carries no milestone id (`notifications` has no milestone column), so it opens
     the milestones view rather than the milestone.
 - **Next:** the owner checks Settings → Milestones, automatic reach, dependencies and the alert in

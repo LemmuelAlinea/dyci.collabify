@@ -3,7 +3,9 @@ import type { MilestoneStatus } from '../../lib/work/milestones'
 
 const TONE: Record<MilestoneStatus, string> = {
   reached: 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-300',
-  ready: 'bg-warning-50 text-warning-800 dark:bg-warning-400/15 dark:text-warning-300',
+  waiting: 'bg-pending-soft text-pending-ink',
+  // Not a warning: the work is finished, only the stamp is missing.
+  ready: 'bg-navy-50 text-navy-700 dark:bg-navy-500/18 dark:text-navy-100',
   late: 'bg-danger-50 text-danger-700 dark:bg-danger-500/15 dark:text-danger-300',
   at_risk: 'bg-warning-50 text-warning-800 dark:bg-warning-400/15 dark:text-warning-300',
   upcoming: 'bg-pending-soft text-pending-ink',

@@ -6,11 +6,11 @@ import type { IconName } from '../ui/Icon'
 import { useNow } from '../../hooks/useNow'
 import { dateRange, formatDue } from '../../lib/general/dates'
 import type { MilestoneCompletion } from '../../lib/general/milestoneRules'
-import { dueLine } from '../../lib/work/milestones'
+import { dueLine, waitingLabel } from '../../lib/work/milestones'
 import type { WorkSection } from '../../lib/work/nav'
 import { daysLeft, daysLeftLabel, runningSprint, sprintCounts } from '../../lib/work/sprints'
 import { needsYou, nextMilestone } from '../../lib/work/summary'
-import type { Milestone, Sprint, WorkItem } from '../../lib/work/types'
+import type { Milestone, MilestoneDependency, Sprint, WorkItem } from '../../lib/work/types'
 
 /** Rows shown per Needs you group before "and N more". */
 const LIST_CAP = 5
@@ -23,8 +23,10 @@ type GlanceProps = {
   mine: ReadonlySet<string>
   /** May plan sprints; the empty sprint card only points to Backlog when true. */
   canPlan: boolean
-  /** How milestones are reached; automatic when left out. */
+  /** A work project's milestone completion; left out for a class. */
   completion?: MilestoneCompletion
+  /** A work project's milestone links: which milestone waits for which. */
+  dependencies?: MilestoneDependency[]
   onOpenTask: (id: string) => void
   onSection: (s: WorkSection) => void
   aside?: ReactNode
@@ -35,17 +37,17 @@ type GlanceProps = {
  * the viewer now. The same cards in either space; each one links to the
  * section where that work is done.
  */
-export function WorkGlance({ items, sprints, milestones, mine, canPlan, completion, onOpenTask, onSection, aside }: GlanceProps) {
+export function WorkGlance({ items, sprints, milestones, mine, canPlan, completion, dependencies, onOpenTask, onSection, aside }: GlanceProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <SprintCard items={items} sprints={sprints} milestones={milestones} canPlan={canPlan} completion={completion} onSection={onSection} />
       {aside ? (
         <div className="grid gap-4 lg:grid-rows-[auto_1fr]">
-          <MilestoneCard items={items} milestones={milestones} completion={completion} onSection={onSection} />
+          <MilestoneCard items={items} milestones={milestones} completion={completion} dependencies={dependencies} onSection={onSection} />
           {aside}
         </div>
       ) : (
-        <MilestoneCard items={items} milestones={milestones} completion={completion} onSection={onSection} />
+        <MilestoneCard items={items} milestones={milestones} completion={completion} dependencies={dependencies} onSection={onSection} />
       )}
       <div className="lg:col-span-2">
         <NeedsYouCard items={items} mine={mine} onOpenTask={onOpenTask} />
@@ -126,9 +128,9 @@ function SprintCard({ items, sprints, milestones, canPlan, completion, onSection
   )
 }
 
-function MilestoneCard({ items, milestones, completion, onSection }: Pick<GlanceProps, 'items' | 'milestones' | 'completion' | 'onSection'>) {
+function MilestoneCard({ items, milestones, completion, dependencies, onSection }: Pick<GlanceProps, 'items' | 'milestones' | 'completion' | 'dependencies' | 'onSection'>) {
   const now = useNow()
-  const next = nextMilestone(milestones, items, now, completion)
+  const next = nextMilestone(milestones, items, now, completion, dependencies)
   return (
     <section className="card p-4 shadow-card sm:p-5">
       <CardHead icon="pin" label="Next milestone" action="Open Milestones" onAction={() => onSection('milestones')} />
@@ -145,6 +147,7 @@ function MilestoneCard({ items, milestones, completion, onSection }: Pick<Glance
           <p className="mt-1 text-[12px] text-faint">
             {dueLine(next.milestone.due_on, now)}
           </p>
+          {next.waitingFor.length > 0 && <p className="mt-1 text-[12px] text-muted">{waitingLabel(next.waitingFor)}</p>}
           <div className="mt-3">
             <Counted done={next.done} total={next.total} noun="tagged tasks" pct={next.pct} />
           </div>

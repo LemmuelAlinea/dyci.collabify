@@ -755,7 +755,9 @@ delete is refused once the milestone tags a task. Suite:
 - the table `general_milestone_dependencies` (a milestone waits for another in the same project,
   no self-links, no loops), written only through `add_general_milestone_dependency` and
   `remove_general_milestone_dependency`;
-- the automatic reach: `settle_general_milestone` and the triggers that call it
+- the automatic reach: `settle_general_milestone` (released live tasks only; private planning
+  work never counts, so a milestone with only planning work is never reached) and the triggers
+  that call it, a task's release included
   (`general_tasks_zz_milestone_reach`, its `_insert` and `_delete` twins,
   `general_milestones_zz_waiters`, `general_milestone_dependencies_settle`,
   `general_projects_milestone_settle`), which write under the transaction-local
@@ -768,9 +770,11 @@ delete is refused once the milestone tags a task. Suite:
   `collabify-milestone-overdue` runs daily at 00:00 UTC (08:00 Manila). It alerts the project
   manager and each active coordinator once per milestone and date; signed-in roles can't call it.
 
-Class milestones (`project_milestones`) are untouched. Re-running `work-milestones.sql` or
-`project-member-rules.sql` means re-running `project-milestone-rules.sql` after it, then
-`anon-lockdown.sql`; otherwise the milestone policies and delete trigger lose the reach and
-dependency behaviour. The first cron run alerts every milestone already past due and not
-reached; stamp them (`overdue_notified_at`) at deploy to skip those. Suite:
+Class milestones (`project_milestones`) are untouched. Re-running `work-milestones.sql` resets
+the milestone policies and delete trigger that `project-member-rules.sql` owns, so re-run
+`project-member-rules.sql`, then `project-milestone-rules.sql`, then `anon-lockdown.sql` to keep
+the chain whole. Re-running `project-member-rules.sql` alone means re-running
+`project-milestone-rules.sql` and `anon-lockdown.sql` after it. The first cron run alerts every
+milestone already past due and not reached; on 2026-11-02 there were none on live unarchived work
+projects, so no pre-stamp of `overdue_notified_at` is needed (re-check at deploy). Suite:
 `supabase/tests/project-milestone-rules.test.sql`.

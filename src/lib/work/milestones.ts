@@ -8,11 +8,15 @@ import { dayDiff, toDay } from './sprints'
 import type { WorkStatus } from './timeline'
 import type { Milestone, MilestoneDependency } from './types'
 
-/** `ready` is manual completion only: every tagged task is done and nobody has marked it reached. */
-export type MilestoneStatus = 'reached' | 'ready' | 'late' | 'at_risk' | 'upcoming'
+/**
+ * `waiting`: a milestone it waits for is not reached. `ready`: a work
+ * milestone whose tagged tasks are all done but that is not stamped reached.
+ */
+export type MilestoneStatus = 'reached' | 'waiting' | 'ready' | 'late' | 'at_risk' | 'upcoming'
 
 export const MILESTONE_STATUS_LABEL: Record<MilestoneStatus, string> = {
   reached: 'Reached',
+  waiting: 'Waiting',
   ready: 'Ready to mark reached',
   late: 'Late',
   at_risk: 'At risk',
@@ -26,20 +30,26 @@ export function milestoneProgress(items: readonly { milestone_id: string | null;
 }
 
 /**
- * Reached, then (manual completion) ready, then late, then at risk (a week out
- * with under half done), else upcoming. Automatic completion reads every task
- * done as reached, as the database does. Manual waits for someone to mark it,
- * so finished work reads ready. A milestone with no due date is never late or at risk.
+ * Reached (stamped), then waiting (a milestone in `blockers` is not reached),
+ * then ready (every tagged task done), then late, then at risk (a week out
+ * with under half done), else upcoming. A work milestone (`mode` given) is
+ * reached only once stamped: the database stamps it in automatic mode, so
+ * finished work without the stamp was marked not reached, or is about to be
+ * stamped, and reads ready in both modes. A class milestone (no `mode`) has
+ * no stamp or links, so finished work reads reached. A milestone with no due
+ * date is never late or at risk.
  */
 export function milestoneStatus(
   m: Pick<Milestone, 'due_on' | 'reached_at'>,
   progress: { done: number; total: number },
   now = Date.now(),
-  mode: MilestoneCompletion = 'automatic',
+  mode?: MilestoneCompletion,
+  blockers: readonly unknown[] = [],
 ): MilestoneStatus {
   const finished = progress.total > 0 && progress.done === progress.total
   if (m.reached_at) return 'reached'
-  if (finished) return mode === 'manual' ? 'ready' : 'reached'
+  if (blockers.length > 0) return 'waiting'
+  if (finished) return mode ? 'ready' : 'reached'
   if (!m.due_on) return 'upcoming'
   const days = dayDiff(toDay(now), m.due_on)
   if (days < 0) return 'late'
@@ -47,8 +57,12 @@ export function milestoneStatus(
   return 'upcoming'
 }
 
-/** The test the milestones view applies, for a caller that draws milestones elsewhere. */
-export function reachedIn(items: readonly { milestone_id: string | null; status: WorkStatus }[], mode: MilestoneCompletion = 'automatic') {
+/**
+ * The test the milestones view applies, for a caller that draws milestones
+ * elsewhere. A work milestone (`mode` given) reads reached only from its
+ * stamp, so what it waits for never changes the answer.
+ */
+export function reachedIn(items: readonly { milestone_id: string | null; status: WorkStatus }[], mode?: MilestoneCompletion) {
   return (m: Pick<Milestone, 'id' | 'due_on' | 'reached_at'>) =>
     milestoneStatus(m, milestoneProgress(items, m.id), Date.now(), mode) === 'reached'
 }
@@ -85,4 +99,9 @@ export function waitingFor<T extends Pick<Milestone, 'id' | 'due_on' | 'created_
 ): T[] {
   const blockers = new Set(dependencies.filter((d) => d.milestone_id === milestone.id).map((d) => d.depends_on_id))
   return sortMilestones(milestones.filter((m) => blockers.has(m.id) && !m.reached_at))
+}
+
+/** "Waiting for Alpha, Beta", from `waitingFor`. */
+export function waitingLabel(blockers: readonly Pick<Milestone, 'name'>[]) {
+  return `Waiting for ${blockers.map((b) => b.name).join(', ')}`
 }

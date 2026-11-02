@@ -4,9 +4,9 @@
  * Worked out from the tasks as they are, never stored.
  */
 import type { MilestoneCompletion } from '../general/milestoneRules'
-import { milestoneProgress, milestoneStatus, sortMilestones } from './milestones'
+import { milestoneProgress, milestoneStatus, sortMilestones, waitingFor } from './milestones'
 import type { MilestoneStatus } from './milestones'
-import type { Milestone, MilestoneGroup, WorkItem } from './types'
+import type { Milestone, MilestoneDependency, MilestoneGroup, WorkItem } from './types'
 
 export const DUE_SOON_DAYS = 7
 const DAY = 86_400_000
@@ -37,19 +37,27 @@ export type MilestoneGlance = {
   total: number
   pct: number
   status: MilestoneStatus
+  /** The milestones it waits for that are not reached, soonest first. */
+  waitingFor: Milestone[]
 }
 
-/** The earliest milestone not yet reached, late and ready ones included; null when none is left. */
+/**
+ * The earliest milestone not yet reached, late, waiting and ready ones
+ * included; null when none is left. `mode` is a work project's completion
+ * (left out for a class), and `dependencies` its links.
+ */
 export function nextMilestone(
   milestones: readonly Milestone[],
   items: readonly WorkItem[],
   now = Date.now(),
-  mode: MilestoneCompletion = 'automatic',
+  mode?: MilestoneCompletion,
+  dependencies: readonly MilestoneDependency[] = [],
 ): MilestoneGlance | null {
   for (const m of sortMilestones(milestones)) {
     const p = milestoneProgress(items, m.id)
-    const status = milestoneStatus(m, p, now, mode)
-    if (status !== 'reached') return { milestone: m, ...p, status }
+    const blockers = waitingFor(m, dependencies, milestones)
+    const status = milestoneStatus(m, p, now, mode, blockers)
+    if (status !== 'reached') return { milestone: m, ...p, status, waitingFor: blockers }
   }
   return null
 }

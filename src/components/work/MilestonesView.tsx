@@ -21,6 +21,7 @@ import {
   milestoneStatus,
   sortMilestones,
   waitingFor,
+  waitingLabel,
 } from '../../lib/work/milestones'
 import type { Milestone, MilestoneDependency, MilestoneSource } from '../../lib/work/types'
 
@@ -57,7 +58,8 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
   const [flash, setFlash] = useState<string | null>(null)
   const still = useReducedMotion()
   const list = sortMilestones(source.milestones)
-  const completion = source.completion ?? 'automatic'
+  // Unset for a class: its milestones have no stamp, so finished work reads reached.
+  const completion = source.completion
   const requireDue = source.requireDue ?? true
   const links = source.dependencies ?? []
   // A professor's source carries one group per board; everyone else reads their own items.
@@ -119,7 +121,9 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
 
       <MilestoneChart
         milestones={list}
-        isReached={(m) => milestoneStatus(m, milestoneProgress(source.items, m.id), now, completion) === 'reached'}
+        isReached={(m) =>
+          milestoneStatus(m, milestoneProgress(source.items, m.id), now, completion, waitingFor(m, links, source.milestones)) === 'reached'
+        }
         runningId={runningSprint(source.sprints)?.milestone_id}
         onPick={showCard}
       />
@@ -132,11 +136,16 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
         <ul className="space-y-3">
           {list.map((m) => {
             const progress = milestoneProgress(source.items, m.id)
-            const status = milestoneStatus(m, progress, now, completion)
             const blockers = waitingFor(m, links, source.milestones)
+            const status = milestoneStatus(m, progress, now, completion, blockers)
             const waits = links.filter((d) => d.milestone_id === m.id)
             const blocked = new Set([m.id, ...waits.map((d) => d.depends_on_id), ...waitingOn(links, m.id)])
-            const candidates = source.allowLinks ? list.filter((o) => !blocked.has(o.id)) : []
+            // A reached milestone never waits, so it may only wait for reached ones.
+            const candidates = source.allowLinks
+              ? list.filter((o) => !blocked.has(o.id) && (!m.reached_at || o.reached_at))
+              : []
+            // The database refuses a reach while a milestone it waits for isn't reached.
+            const canMark = source.canMarkReached && (Boolean(m.reached_at) || blockers.length === 0)
             const tagged = source.items.filter((i) => i.milestone_id === m.id)
             const linked = source.sprints.filter((sp) => sp.milestone_id === m.id)
             return (
@@ -160,7 +169,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
                     </p>
                     {blockers.length > 0 && (
                       <p className="mt-1 text-[13px] text-warning-700 dark:text-warning-300">
-                        Waiting for {blockers.map((b) => b.name).join(', ')}
+                        {waitingLabel(blockers)}
                       </p>
                     )}
                     {m.description && <p className="mt-1.5 max-w-prose text-[13px] text-muted">{m.description}</p>}
@@ -171,7 +180,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
                       source.canTag && { label: 'Tag tasks', icon: 'plus', onSelect: () => setTagging(m) },
                       source.canTag &&
                         source.sprints.length > 0 && { label: 'Add sprint', icon: 'target', onSelect: () => setAddingSprint(m) },
-                      source.canMarkReached && {
+                      canMark && {
                         label: m.reached_at ? 'Not reached yet' : 'Mark reached',
                         icon: m.reached_at ? 'undo' : 'checkCircle',
                         onSelect: () => void run(() => source.setReached(m.id, !m.reached_at), 'Could not change that milestone.'),
@@ -198,7 +207,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
                           <span className="w-16 shrink-0 text-right font-mono text-[12px] text-faint">
                             {p.done}/{p.total}
                           </span>
-                          <StatusPill status={milestoneStatus(m, p, now, completion)} />
+                          <StatusPill status={milestoneStatus(m, p, now, completion, blockers)} />
                         </li>
                       )
                     })}
@@ -213,7 +222,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
                         <span className="font-mono text-faint">{progress.pct}%</span>
                       </div>
                       <ProgressBar pct={progress.pct} />
-                      {status === 'ready' && source.canMarkReached && (
+                      {status === 'ready' && canMark && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -227,7 +236,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
                     </div>
                     {source.canLink && source.addDependency && source.removeDependency && (waits.length > 0 || candidates.length > 0) && (
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[12px] text-faint">Waiting for:</span>
+                        <span className="text-[12px] text-faint">Depends on:</span>
                         {waits.map((d) => {
                           const blocker = source.milestones.find((o) => o.id === d.depends_on_id)
                           if (!blocker) return null

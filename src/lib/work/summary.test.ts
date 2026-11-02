@@ -81,6 +81,24 @@ describe('nextMilestone', () => {
     expect(nextMilestone([ms()], items, NOW, 'manual')).toMatchObject({ status: 'ready', done: 1, total: 1 })
   })
 
+  it('keeps a finished work milestone in automatic mode until the database stamps it, as ready', () => {
+    const items = [item({ id: '1', milestone_id: 'm', status: 'done' })]
+    expect(nextMilestone([ms()], items, NOW, 'automatic')).toMatchObject({ status: 'ready' })
+    expect(nextMilestone([ms({ reached_at: '2026-10-09T00:00:00Z' })], items, NOW, 'automatic')).toBeNull()
+  })
+
+  it('reads a finished milestone that waits for another as waiting, and names what it waits for', () => {
+    const blocker = ms({ id: 'a', name: 'Alpha', due_on: '2026-11-30' })
+    const items = [item({ id: '1', milestone_id: 'm', status: 'done' })]
+    const deps = [{ milestone_id: 'm', depends_on_id: 'a' }]
+    for (const mode of ['automatic', 'manual'] as const) {
+      const next = nextMilestone([ms(), blocker], items, NOW, mode, deps)
+      expect(next?.milestone.id).toBe('m')
+      expect(next?.status).toBe('waiting')
+      expect(next?.waitingFor.map((b) => b.name)).toEqual(['Alpha'])
+    }
+  })
+
   it('passes over an undated milestone only after every dated one', () => {
     const next = nextMilestone([ms({ id: 'none', due_on: null }), ms({ id: 'dated', due_on: '2026-12-01' })], [], NOW)
     expect(next?.milestone.id).toBe('dated')

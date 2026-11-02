@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { dueInLabel, dueLine, milestoneProgress, milestoneStatus, reachedIn, sortMilestones, waitingFor } from './milestones'
+import {
+  dueInLabel,
+  dueLine,
+  MILESTONE_STATUS_LABEL,
+  milestoneProgress,
+  milestoneStatus,
+  reachedIn,
+  sortMilestones,
+  waitingFor,
+  waitingLabel,
+} from './milestones'
 import type { Milestone } from './types'
 
 const noon = (day: string) => {
@@ -71,6 +81,13 @@ describe('reachedIn', () => {
     expect(reached(ms({ id: 'b' }))).toBe(false)
     expect(reached(ms({ id: 'b', reached_at: '2026-10-05T00:00:00Z' }))).toBe(true)
   })
+  it('on a work project, reads reached only from the stamp, in both modes', () => {
+    const items = [{ milestone_id: 'a', status: 'done' as const }]
+    for (const mode of ['automatic', 'manual'] as const) {
+      expect(reachedIn(items, mode)(ms({ id: 'a' }))).toBe(false)
+      expect(reachedIn(items, mode)(ms({ id: 'a', reached_at: '2026-10-05T00:00:00Z' }))).toBe(true)
+    }
+  })
 })
 
 describe('dueInLabel', () => {
@@ -110,9 +127,31 @@ describe('milestoneStatus in manual mode', () => {
     expect(milestoneStatus(ms(), { done: 0, total: 0 }, noon('2026-10-20'), 'manual')).toBe('at_risk')
     expect(milestoneStatus(ms(), { done: 2, total: 4 }, noon('2026-10-15'), 'manual')).toBe('upcoming')
   })
-  it('leaves automatic mode as it was, and automatic is the default', () => {
-    expect(milestoneStatus(ms(), { done: 2, total: 2 }, noon('2026-10-15'), 'automatic')).toBe('reached')
+})
+
+describe('milestoneStatus on a work project', () => {
+  it('reads finished work in automatic mode as ready until the database stamps it reached', () => {
+    expect(milestoneStatus(ms(), { done: 2, total: 2 }, noon('2026-10-15'), 'automatic')).toBe('ready')
+    expect(milestoneStatus(ms({ reached_at: '2026-10-14T00:00:00Z' }), { done: 2, total: 2 }, noon('2026-10-15'), 'automatic')).toBe('reached')
+  })
+  it('leaves a class milestone, which has no mode, reached once every task is done', () => {
     expect(milestoneStatus(ms(), { done: 2, total: 2 }, noon('2026-10-15'))).toBe('reached')
+  })
+  it('is waiting while a milestone it waits for is not reached, finished or late, in both modes', () => {
+    const blockers = [ms({ id: 'a', name: 'Alpha' })]
+    for (const mode of ['automatic', 'manual'] as const) {
+      expect(milestoneStatus(ms(), { done: 2, total: 2 }, noon('2026-10-15'), mode, blockers)).toBe('waiting')
+      expect(milestoneStatus(ms(), { done: 0, total: 2 }, noon('2026-10-25'), mode, blockers)).toBe('waiting')
+    }
+  })
+  it('is reached once stamped, whatever it waits for', () => {
+    const marked = ms({ reached_at: '2026-10-05T00:00:00Z' })
+    expect(milestoneStatus(marked, { done: 0, total: 2 }, noon('2026-10-15'), 'manual', [ms({ id: 'a' })])).toBe('reached')
+  })
+  it('labels waiting, and ready apart from at risk', () => {
+    expect(MILESTONE_STATUS_LABEL.waiting).toBe('Waiting')
+    expect(waitingLabel([ms({ name: 'Alpha' })])).toBe('Waiting for Alpha')
+    expect(waitingLabel([ms({ name: 'Alpha' }), ms({ name: 'Beta' })])).toBe('Waiting for Alpha, Beta')
   })
 })
 

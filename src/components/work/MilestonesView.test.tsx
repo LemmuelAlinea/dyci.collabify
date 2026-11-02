@@ -4,6 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { MilestonesView } from './MilestonesView'
+import { StatusPill } from './MilestoneBits'
 import type { Milestone, MilestoneSource, WorkItem } from '../../lib/work/types'
 
 vi.stubGlobal('React', React)
@@ -139,7 +140,65 @@ it('shows the links but no controls to somebody who cannot manage them', async (
 it('shows Ready to mark reached in manual mode once every tagged task is done', async () => {
   await render(sourceOf({ completion: 'manual', items: [item('t1', 'a', 'done')] }))
   expect(card('Alpha').textContent).toContain('Ready to mark reached')
+  // Automatic: the database stamps it; finished work without the stamp is ready too.
   await render(sourceOf({ completion: 'automatic', items: [item('t1', 'a', 'done')] }))
+  expect(card('Alpha').textContent).toContain('Ready to mark reached')
+  await render(sourceOf({
+    completion: 'automatic',
+    milestones: [gamma, beta, { ...alpha, reached_at: '2026-10-05T00:00:00Z', reached_auto: true }],
+    items: [item('t1', 'a', 'done')],
+  }))
   expect(card('Alpha').textContent).not.toContain('Ready to mark reached')
-  expect(card('Alpha').textContent).toContain('Reached')
+  expect(card('Alpha').textContent).toContain('Reached automatically')
+})
+
+it('shows Waiting, not Ready, while a finished milestone waits for another, in both modes', async () => {
+  for (const completion of ['automatic', 'manual'] as const) {
+    await render(sourceOf({ completion, items: [item('t1', 'b', 'done')] }))
+    const pill = [...card('Beta').querySelectorAll('span')].find((s) => s.textContent === 'Waiting')
+    expect(pill).toBeDefined()
+    expect(card('Beta').textContent).not.toContain('Ready to mark reached')
+  }
+})
+
+it('hides Mark reached while the milestone waits for one that is not reached', async () => {
+  await render(sourceOf({ completion: 'manual', items: [item('t1', 'b', 'done'), item('t2', 'a', 'done')] }))
+  // The card's own button: Alpha is ready, Beta waits for it.
+  const buttonIn = (name: string) => [...card(name).querySelectorAll('button')].some((b) => b.textContent?.includes('Mark reached'))
+  expect(buttonIn('Alpha')).toBe(true)
+  expect(buttonIn('Beta')).toBe(false)
+  // The card menu.
+  const menuOf = async (name: string) => {
+    await act(async () => card(name).querySelector<HTMLButtonElement>(`button[aria-label="Actions for ${name}"]`)!.click())
+    const items = [...document.querySelectorAll('[role="menuitem"]')].map((b) => b.textContent)
+    await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })))
+    return items
+  }
+  expect(await menuOf('Alpha')).toContain('Mark reached')
+  expect(await menuOf('Beta')).not.toContain('Mark reached')
+})
+
+it('offers only reached milestones to wait for once a milestone is reached', async () => {
+  const reachedGamma = { ...gamma, reached_at: '2026-10-05T00:00:00Z' }
+  const reachedBeta = { ...beta, reached_at: '2026-10-04T00:00:00Z' }
+  await render(sourceOf({ milestones: [reachedGamma, reachedBeta, alpha], dependencies: [] }))
+  expect([...picker('Gamma')!.options].map((o) => o.textContent)).toEqual(['Add a milestone to wait for', 'Beta'])
+  // An open milestone may still wait for any of them.
+  expect([...picker('Alpha')!.options].map((o) => o.textContent)).toEqual(['Add a milestone to wait for', 'Beta', 'Gamma'])
+})
+
+it('labels the link chips Depends on, and keeps one Waiting for line', async () => {
+  await render(sourceOf())
+  expect(card('Beta').textContent).toContain('Depends on:')
+  expect(card('Beta').textContent).not.toContain('Waiting for:')
+  expect(card('Beta').textContent?.match(/Waiting for/g)).toHaveLength(1)
+})
+
+it('gives ready its own tone, apart from at risk', async () => {
+  await act(async () => root.render(<><StatusPill status="ready" /><StatusPill status="at_risk" /><StatusPill status="waiting" /></>))
+  const [ready, atRisk, waiting] = [...host.querySelectorAll('span')]
+  expect(ready.className).not.toBe(atRisk.className)
+  expect(ready.className).not.toMatch(/warning/)
+  expect(waiting.className).toMatch(/pending-soft/)
+  expect(waiting.textContent).toBe('Waiting')
 })

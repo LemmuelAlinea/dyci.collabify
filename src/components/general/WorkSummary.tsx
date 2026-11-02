@@ -47,6 +47,7 @@ export function WorkSummary({
         sprints={state.sprints}
         milestones={state.milestones}
         completion={project.milestoneRules?.completion}
+        dependencies={state.milestoneDependencies}
         mine={mine}
         canPlan={!state.readOnly && state.can('manage_tasks')}
         onOpenTask={onOpenTask}
