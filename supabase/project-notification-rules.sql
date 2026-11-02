@@ -338,7 +338,8 @@ $$;
  *   whose due day (Manila) is before today. Each holder gets
  *   general_task_overdue for the task; the planners get one summary per
  *   project for this run's newly overdue tasks. The stamp is a
- *   general_task_reminders row; the task row is never written.
+ *   general_task_reminders row; the task row is never written or locked, and
+ *   only the ids this run's insert returns notify.
  * - Milestone due (milestone_due_reminder_days on): an unreached milestone due
  *   today or within that many days. The planners get milestone_due_soon.
  * Everything found is stamped with p_now whether or not anyone received it.
@@ -428,8 +429,10 @@ begin
        and t.due_at is not null
        and (t.due_at at time zone 'Asia/Manila')::date < v_today
        and not exists (select 1 from public.general_task_reminders r where r.task_id = t.id)
-     for update of t skip locked
   ), stamped as (
+    -- The insert decides who is told: a concurrent run that stamped a task
+    -- first wins, and only the ids returned here notify. Tasks are never
+    -- locked, so edits, comments and holders go on meanwhile.
     insert into public.general_task_reminders (task_id, project_id, overdue_notified_at)
     select due.id, due.project_id, p_now from due
     on conflict (task_id) do nothing
