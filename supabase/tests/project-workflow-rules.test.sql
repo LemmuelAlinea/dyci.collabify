@@ -796,6 +796,34 @@ begin
                  where task_id = t and user_id = v_dev2 and assigned_by is null)
     and (select stage = 1 and status = 'in_progress' from public.general_tasks where id = t)
     and pg_temp.applied(t, r1) = 1);
+  perform pg_temp.must_be('...and the person a rule gives the task to is told',
+    pg_temp.notes(v_dev2, t) = 1
+    and exists (select 1 from public.notifications
+                 where user_id = v_dev2 and general_task_id = t and type = 'workflow_rule'
+                   and general_project_id = p
+                   and title = 'Zz WFR three was given to you'
+                   and preview = 'From the rule “When a task moves to Build, assign Zz Wfdev2”.')
+    and not exists (select 1 from public.notifications
+                     where user_id = v_dev2 and general_task_id = t
+                       and type = 'general_task_assigned'));
+  perform pg_temp.act_as_service();
+  update public.notification_prefs set task_assignments = false where user_id = v_dev2;
+  t := pg_temp.team_task(p, 'Zz WFR three quiet', ta, v_dev, v_pm, 0);
+  perform pg_temp.act_as(v_dev);
+  update public.general_tasks set stage = 1 where id = t;
+  perform pg_temp.act_as_service();
+  update public.notification_prefs set task_assignments = true where user_id = v_dev2;
+  perform pg_temp.act_as(v_pm);
+  r2 := pg_temp.rule(p, 'stage_entered', 'Review', 'assign', null, v_lead);
+  t2 := pg_temp.team_task(p, 'Zz WFR three self', ta, v_dev2, v_pm, 1);
+  perform pg_temp.act_as(v_lead);
+  update public.general_tasks set stage = 2 where id = t2;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...unless their task assignments switch is off, or the change was theirs',
+    exists (select 1 from public.general_task_assignees where task_id = t and user_id = v_dev2)
+    and pg_temp.notes(v_dev2, t) = 0 and pg_temp.applied(t, r1) = 1
+    and exists (select 1 from public.general_task_assignees where task_id = t2 and user_id = v_lead)
+    and pg_temp.notes(v_lead, t2) = 0 and pg_temp.applied(t2, r2) = 1);
 
   ------------------------------------------------------------ sent to a team
   perform pg_temp.act_as(v_pm);
@@ -830,6 +858,23 @@ begin
     (select team_id = tb and routing_state = 'released' from public.general_tasks where id = tp)
     and pg_temp.notes(v_lead, tp) = 2 and pg_temp.notes(v_dev3, tp) = 0
     and pg_temp.applied(tp, r1) = 2 and pg_temp.applied(sub, r1) = 0);
+
+  -- A release that lands in a default stage fires only the "sent" rules.
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  update public.general_projects set default_stage = 1 where id = p;
+  r1 := pg_temp.rule(p, 'task_released', null, 'notify', 'team_lead');
+  r2 := pg_temp.rule(p, 'stage_entered', 'Build', 'notify', 'team_lead');
+  insert into public.general_tasks (project_id, title) values (p, 'Zz WFR sent to Build') returning id into t;
+  select updated_at into v_upd from public.general_tasks where id = t;
+  perform public.send_work_tasks_to_teams(p,
+    jsonb_build_array(jsonb_build_object('id', t, 'team_id', ta, 'updated_at', v_upd)));
+  update public.general_projects set default_stage = 0 where id = p;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a release fires only the sent rules, even into a default stage',
+    (select stage = 1 and routing_state = 'released' from public.general_tasks where id = t)
+    and pg_temp.applied(t, r1) = 1 and pg_temp.applied(t, r2) = 0
+    and pg_temp.notes(v_lead, t) = 1);
 
   ------------------------------------------------------------ priority raised
   perform pg_temp.act_as(v_pm);
@@ -1090,9 +1135,11 @@ begin
   r1 := pg_temp.rule(p, 'stage_entered', 'Review', 'notify', 'team_lead');
   r2 := pg_temp.rule(p, 'stage_entered', 'Build', 'move_stage', 'Review');
   r3 := pg_temp.rule(p, 'stage_entered', 'Build', 'assign', null, v_dev2);
+  r4 := pg_temp.rule(p, 'stage_entered', 'Build', 'notify', 'person', v_dev3);
   perform pg_temp.act_as_service();
   update public.general_projects set stages = array['Backlog', 'Build', 'Check', 'Done'] where id = p;
   delete from public.general_members where project_id = p and user_id = v_dev2;
+  update public.general_members set role = 'stakeholder' where project_id = p and user_id = v_dev3;
   t := pg_temp.team_task(p, 'Zz WFR renamed', ta, v_dev, v_pm, 0);
   perform pg_temp.act_as(v_dev);
   update public.general_tasks set stage = 1 where id = t;
@@ -1106,6 +1153,9 @@ begin
   perform pg_temp.must_be('...and a rule whose person left is skipped',
     pg_temp.skip_of(r3) = 'Zz Wfdev2 is no longer in the project.'
     and pg_temp.applied(t, r3) = 0);
+  perform pg_temp.must_be('...and a person to notify who is a stakeholder now is skipped',
+    pg_temp.skip_of(r4) = 'Zz Wfdev3 is a stakeholder now.'
+    and pg_temp.applied(t, r4) = 0 and pg_temp.notes(v_dev3, t) = 0);
 
   ------------------------------------------------------------ class boards
   perform pg_temp.act_as_service();

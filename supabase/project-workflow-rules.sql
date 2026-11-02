@@ -75,8 +75,10 @@
 --     task_released    routing_state became released (not a subtask, which
 --                      follows its parent): a first send and a re-send after a
 --                      return, never a reroute
---     stage_entered    a released task's stage changed into the rule's stage
---                      (by name, case-insensitive; a renamed stage never fires)
+--     stage_entered    an already released task's stage changed into the
+--                      rule's stage (by name, case-insensitive; a renamed
+--                      stage never fires). A release landing in a default
+--                      stage fires only task_released.
 --     priority_raised  the priority went from below the rule's level to it or
 --                      above (High means High or Urgent)
 --     task_overdue     the morning run's overdue stamp; not the silent
@@ -100,12 +102,14 @@
 --                   {Priority}"; preview "From the rule “{name or sentence}”."
 --     set_priority  no change when it already has that priority
 --     assign        only someone on the task's team who may hold tasks; no
---                   change when they already hold it
+--                   change when they already hold it. The person is told
+--                   ("{task} was given to you", same preview), with their own
+--                   "Task assignments" on, unless the change was theirs.
 --     move_stage    never to the last stage, never past an active QA stage;
 --                   no change when it is already there
 --   Rule-limit skips: "Stage {name} no longer exists.", "{name} is no longer
---   in the project.", "{name} isn't on the task's team.", "{name} can't hold
---   tasks.", "A task can't be moved past QA by a rule.", "A task can't be
+--   in the project.", "{name} is a stakeholder now." (a person to notify),
+--   "{name} isn't on the task's team.", "{name} can't hold tasks.", "A task can't be moved past QA by a rule.", "A task can't be
 --   moved to the last stage by a rule." Nobody to tell and no change are not
 --   skips and write nothing. Each applied action writes a rule_applied history
 --   row with no actor and detail {rule_id, rule_name, action, ...}.
@@ -491,6 +495,9 @@ begin
     if v_role is null then
       return format('%s is no longer in the project.', v_who);
     end if;
+    if p_rule.action_kind = 'notify' and v_role = 'stakeholder' then
+      return format('%s is a stakeholder now.', v_who);
+    end if;
   end if;
 
   case p_rule.action_kind
@@ -561,6 +568,17 @@ begin
     -- The one-holder rule and the other assignee guards refuse it here.
     insert into public.general_task_assignees (project_id, task_id, user_id)
     values (t.project_id, t.id, p_rule.person_id);
+    -- assigned_by stays null (no person gave it), so the assignment notice
+    -- doesn't go; the rule tells them instead.
+    insert into public.notifications
+      (user_id, type, general_project_id, general_task_id, title, preview)
+    select p_rule.person_id, 'workflow_rule'::public.notification_type, t.project_id, t.id,
+           format('%s was given to you', t.title),
+           format('From the rule “%s”.',
+                  coalesce(nullif(p_rule.name, ''), public.general_workflow_rule_sentence(p_rule)))
+      from public.notification_prefs np
+     where np.user_id = p_rule.person_id and np.task_assignments
+       and p_rule.person_id is distinct from p_actor;
     v_detail := jsonb_build_object('user_id', p_rule.person_id);
 
   when 'move_stage' then
@@ -725,7 +743,9 @@ begin
   select gp.stages into v_stages from public.general_projects gp where gp.id = new.project_id;
   n := public.stage_count(v_stages);
   new_i := public.general_task_stage_at(new.status, new.stage, n);
-  if new_i is distinct from public.general_task_stage_at(old.status, old.stage, n) then
+  -- A release fires only the "sent" rules, even when it lands in a default stage.
+  if old.routing_state = 'released'
+     and new_i is distinct from public.general_task_stage_at(old.status, old.stage, n) then
     perform public.run_general_workflow_rules(new.id, 'stage_entered', me,
       jsonb_build_object('stage', (coalesce(v_stages, array['To do', 'In progress', 'Done']))[new_i + 1]));
   end if;
