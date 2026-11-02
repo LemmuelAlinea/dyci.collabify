@@ -201,6 +201,18 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   automation, sends `sprint_completed`. Each notice also needs the recipient's own preference. Re-running
   the file pre-marks everything that already qualifies, silently. Suite:
   `supabase/tests/project-notification-rules.test.sql`.
+- Workflow rules (`supabase/project-workflow-rules.sql`) run after `project-notification-rules.sql`
+  and before `anon-lockdown.sql`. Re-running `project-notification-rules.sql`, `work-task-handoff.sql`
+  or `project-qa.sql` means re-running it afterwards. "When {trigger}, then {action}" rules
+  (`general_workflow_rules`, up to 20 per project) are written by the project manager and
+  coordinators (`general_can_manage_workflow`) and run for the project with their authority, limited
+  by the rule limits; the one flag `collabify.workflow_rule_run` stops chains. Only released, live
+  tasks fire them. A release fires only "sent" (a subtask never does). A rule never moves a task to
+  the last stage, past an active QA stage or out of Done. A refused action is skipped and recorded
+  on the rule (`last_skipped_at`, `last_skip_reason`) and never blocks the person's change. Each
+  applied action writes a `rule_applied` history row with a null actor; the app folds the null-actor
+  companion rows into the rule line (`describeHistory`). It redefines `mark_project_reminders_sent`
+  to set `collabify.reminder_premark`. Suite: `supabase/tests/project-workflow-rules.test.sql`.
 
 ## Security invariants
 

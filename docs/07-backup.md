@@ -23,7 +23,7 @@ is idempotent. A database that vanished entirely can be rebuilt by running those
 files in this order:
 
 ```bash
-node scripts/db.mjs supabase/schema.sql supabase/classes.sql supabase/groups.sql supabase/projects.sql supabase/tasks.sql supabase/task-points.sql supabase/task-detail.sql supabase/task-claim-limit.sql supabase/task-unclaim.sql supabase/task-status-owner.sql supabase/solo-auto-claim.sql supabase/deadline-lock.sql supabase/submissions.sql supabase/reassignments.sql supabase/results.sql supabase/syllabus.sql supabase/syllabus-assessments.sql supabase/polls.sql supabase/messages.sql supabase/dashboard.sql supabase/realtime.sql supabase/recover-work.sql supabase/removed-visible.sql supabase/class-restore.sql supabase/approvals.sql supabase/accounts.sql supabase/audit.sql supabase/admin-rename.sql supabase/calendar.sql supabase/analytics.sql supabase/analytics-insight.sql supabase/reports.sql supabase/student-reports.sql supabase/admin-program.sql supabase/program-notices.sql supabase/program-registry.sql supabase/safety.sql supabase/live.sql supabase/notifications.sql supabase/rate-limit.sql supabase/class-notices.sql supabase/project-series.sql supabase/indexes.sql supabase/consent.sql supabase/privacy-requests.sql supabase/term-shifts.sql supabase/hardening.sql supabase/workplaces.sql supabase/general.sql supabase/general-tasks.sql supabase/general-notify.sql supabase/presets.sql supabase/general-repo.sql supabase/general-files.sql supabase/general-drafts.sql supabase/general-history.sql supabase/general-schedule.sql supabase/general-schedule-guard.sql supabase/general-spaces.sql supabase/general-space-teams.sql supabase/general-project-archive.sql supabase/general-archive-rbac.sql supabase/general-folders.sql supabase/general-draft-restore.sql supabase/general-project-archive-rbac.sql supabase/general-reports.sql supabase/general-project-space.sql supabase/access.sql supabase/one-workplace.sql supabase/cleanup.sql supabase/admin-invitable.sql supabase/notification-coverage.sql supabase/inbox.sql supabase/class-files.sql supabase/general-draft-commit.sql supabase/teaching-guards.sql supabase/meetings.sql supabase/general-shares.sql supabase/general-discussions.sql supabase/discussion-polls-voice.sql supabase/storage-sweep.sql supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql supabase/work-milestones.sql supabase/class-milestones.sql supabase/sprint-milestones.sql supabase/analytics-trends.sql supabase/peer-evaluation.sql supabase/scoring.sql supabase/class-notes.sql supabase/report-notes.sql supabase/report-deliverables.sql supabase/report-events.sql supabase/task-stages.sql supabase/company-accounts.sql supabase/project-roles.sql supabase/project-visibility.sql supabase/project-team-leads.sql supabase/project-stakeholders.sql supabase/project-feedback.sql supabase/project-qa.sql supabase/member-skills.sql supabase/project-files-access.sql supabase/sprint-archive.sql supabase/sprint-reopen.sql supabase/sprint-settings.sql supabase/project-requests.sql supabase/project-team-archive.sql supabase/work-task-handoff.sql supabase/project-settings-general.sql supabase/project-task-rules.sql supabase/project-member-rules.sql supabase/project-milestone-rules.sql supabase/project-notification-rules.sql supabase/anon-lockdown.sql
+node scripts/db.mjs supabase/schema.sql supabase/classes.sql supabase/groups.sql supabase/projects.sql supabase/tasks.sql supabase/task-points.sql supabase/task-detail.sql supabase/task-claim-limit.sql supabase/task-unclaim.sql supabase/task-status-owner.sql supabase/solo-auto-claim.sql supabase/deadline-lock.sql supabase/submissions.sql supabase/reassignments.sql supabase/results.sql supabase/syllabus.sql supabase/syllabus-assessments.sql supabase/polls.sql supabase/messages.sql supabase/dashboard.sql supabase/realtime.sql supabase/recover-work.sql supabase/removed-visible.sql supabase/class-restore.sql supabase/approvals.sql supabase/accounts.sql supabase/audit.sql supabase/admin-rename.sql supabase/calendar.sql supabase/analytics.sql supabase/analytics-insight.sql supabase/reports.sql supabase/student-reports.sql supabase/admin-program.sql supabase/program-notices.sql supabase/program-registry.sql supabase/safety.sql supabase/live.sql supabase/notifications.sql supabase/rate-limit.sql supabase/class-notices.sql supabase/project-series.sql supabase/indexes.sql supabase/consent.sql supabase/privacy-requests.sql supabase/term-shifts.sql supabase/hardening.sql supabase/workplaces.sql supabase/general.sql supabase/general-tasks.sql supabase/general-notify.sql supabase/presets.sql supabase/general-repo.sql supabase/general-files.sql supabase/general-drafts.sql supabase/general-history.sql supabase/general-schedule.sql supabase/general-schedule-guard.sql supabase/general-spaces.sql supabase/general-space-teams.sql supabase/general-project-archive.sql supabase/general-archive-rbac.sql supabase/general-folders.sql supabase/general-draft-restore.sql supabase/general-project-archive-rbac.sql supabase/general-reports.sql supabase/general-project-space.sql supabase/access.sql supabase/one-workplace.sql supabase/cleanup.sql supabase/admin-invitable.sql supabase/notification-coverage.sql supabase/inbox.sql supabase/class-files.sql supabase/general-draft-commit.sql supabase/teaching-guards.sql supabase/meetings.sql supabase/general-shares.sql supabase/general-discussions.sql supabase/discussion-polls-voice.sql supabase/storage-sweep.sql supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql supabase/work-milestones.sql supabase/class-milestones.sql supabase/sprint-milestones.sql supabase/analytics-trends.sql supabase/peer-evaluation.sql supabase/scoring.sql supabase/class-notes.sql supabase/report-notes.sql supabase/report-deliverables.sql supabase/report-events.sql supabase/task-stages.sql supabase/company-accounts.sql supabase/project-roles.sql supabase/project-visibility.sql supabase/project-team-leads.sql supabase/project-stakeholders.sql supabase/project-feedback.sql supabase/project-qa.sql supabase/member-skills.sql supabase/project-files-access.sql supabase/sprint-archive.sql supabase/sprint-reopen.sql supabase/sprint-settings.sql supabase/project-requests.sql supabase/project-team-archive.sql supabase/work-task-handoff.sql supabase/project-settings-general.sql supabase/project-task-rules.sql supabase/project-member-rules.sql supabase/project-milestone-rules.sql supabase/project-notification-rules.sql supabase/project-workflow-rules.sql supabase/anon-lockdown.sql
 ```
 
 After re-running any of `classes.sql`, `general-tasks.sql`, `general-schedule-guard.sql`,
@@ -50,7 +50,7 @@ recreates the view `class-planning.sql` extends. So after
 onward:
 
 ```bash
-node scripts/db.mjs supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql supabase/work-milestones.sql supabase/class-milestones.sql supabase/sprint-milestones.sql supabase/analytics-trends.sql supabase/peer-evaluation.sql supabase/scoring.sql supabase/class-notes.sql supabase/report-notes.sql supabase/report-deliverables.sql supabase/report-events.sql supabase/task-stages.sql supabase/company-accounts.sql supabase/project-roles.sql supabase/project-visibility.sql supabase/project-team-leads.sql supabase/project-stakeholders.sql supabase/project-feedback.sql supabase/project-qa.sql supabase/member-skills.sql supabase/project-files-access.sql supabase/sprint-archive.sql supabase/sprint-reopen.sql supabase/sprint-settings.sql supabase/project-requests.sql supabase/project-team-archive.sql supabase/work-task-handoff.sql supabase/project-settings-general.sql supabase/project-task-rules.sql supabase/project-member-rules.sql supabase/project-milestone-rules.sql supabase/project-notification-rules.sql supabase/anon-lockdown.sql
+node scripts/db.mjs supabase/trash.sql supabase/appearance.sql supabase/automation.sql supabase/work-automation.sql supabase/task-archive.sql supabase/archive-page.sql supabase/join-codes.sql supabase/anon-lockdown.sql supabase/section-faculty.sql supabase/announcement-links.sql supabase/group-leader.sql supabase/discussion-edit-delete.sql supabase/class-schedule.sql supabase/work-planning.sql supabase/class-planning.sql supabase/work-milestones.sql supabase/class-milestones.sql supabase/sprint-milestones.sql supabase/analytics-trends.sql supabase/peer-evaluation.sql supabase/scoring.sql supabase/class-notes.sql supabase/report-notes.sql supabase/report-deliverables.sql supabase/report-events.sql supabase/task-stages.sql supabase/company-accounts.sql supabase/project-roles.sql supabase/project-visibility.sql supabase/project-team-leads.sql supabase/project-stakeholders.sql supabase/project-feedback.sql supabase/project-qa.sql supabase/member-skills.sql supabase/project-files-access.sql supabase/sprint-archive.sql supabase/sprint-reopen.sql supabase/sprint-settings.sql supabase/project-requests.sql supabase/project-team-archive.sql supabase/work-task-handoff.sql supabase/project-settings-general.sql supabase/project-task-rules.sql supabase/project-member-rules.sql supabase/project-milestone-rules.sql supabase/project-notification-rules.sql supabase/project-workflow-rules.sql supabase/anon-lockdown.sql
 ```
 
 On 7 October 2026 the live definitions of all ten functions matched
@@ -474,7 +474,7 @@ moves pass the holder rule. This replaced an earlier rule that refused any move 
 last stage. `guard_general_task` lets those QA moves through when nothing else changes,
 freezes an archived task's stage with its status, and reads a bug-only QA's role off
 `general_members` (a pending account too).
-Re-run it (then `anon-lockdown.sql`) after re-running `task-stages.sql`,
+Re-run it (then `project-workflow-rules.sql` and `anon-lockdown.sql`) after re-running `task-stages.sql`,
 `project-roles.sql`, `project-team-leads.sql` or `project-stakeholders.sql`, and so after any file whose re-run
 calls for one of them (`general-tasks.sql`, `general-schedule-guard.sql`,
 `general-archive-rbac.sql` and the rest of the `project-stakeholders.sql` list):
@@ -517,7 +517,8 @@ keep their group-leader and grant rules. Re-run it after `general.sql`,
 `work-task-handoff.sql`. It stores each work team in its owning project's archive,
 keeps its people and positions, and blocks archiving while live work remains.
 `work-task-handoff.sql` runs after `project-team-archive.sql` and all earlier task owners,
-then `anon-lockdown.sql`. Adding routing metadata backfills existing tasks as
+then `anon-lockdown.sql` (and `project-workflow-rules.sql` before it, which depends on the
+history kinds check this file writes). Adding routing metadata backfills existing tasks as
 `released` without changing their holders. The final column default is `planning`;
 the insert guard forces authenticated work inserts into planning even if an old
 client sends `released`, and keeps class-board inserts released. Trusted service
@@ -544,7 +545,7 @@ The final rerun tail is `company-accounts.sql`, `project-roles.sql`,
 `project-feedback.sql`, `project-qa.sql`, `member-skills.sql`,
 `project-files-access.sql`, `sprint-archive.sql`, `sprint-reopen.sql`, `sprint-settings.sql`, `project-requests.sql`,
 `project-team-archive.sql`,
-`work-task-handoff.sql`, `project-settings-general.sql`, `project-task-rules.sql`, `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql`, then `anon-lockdown.sql`. Re-run the applicable suffix
+`work-task-handoff.sql`, `project-settings-general.sql`, `project-task-rules.sql`, `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql`, `project-workflow-rules.sql`, then `anon-lockdown.sql`. Re-run the applicable suffix
 after any superseded owner. Activate the complete reviewed frontend and `work-ai`
 function together; the function accepts only reviewed `route` or `lead` assignment
 modes. Do not deploy earlier tasks independently. Task activity names coordinator
@@ -643,7 +644,7 @@ or reopening stops working. Suite: `supabase/tests/sprint-reopen.test.sql`.
 in `work-planning.sql`), `run_sprint_automation` and the `collabify-sprint-automation`
 cron job (every 15 minutes). Re-running `work-planning.sql` or `sprint-reopen.sql`
 means re-running `sprint-settings.sql` after it, then `project-notification-rules.sql`, then
-`anon-lockdown.sql`. `project-notification-rules.sql` now owns `complete_general_sprint` and
+`project-workflow-rules.sql`, then `anon-lockdown.sql`. `project-notification-rules.sql` now owns `complete_general_sprint` and
 `run_sprint_automation` (it adds the finish notice to both). Suite:
 `supabase/tests/sprint-settings.test.sql`.
 
@@ -775,9 +776,9 @@ delete is refused once the milestone tags a task. Suite:
 Class milestones (`project_milestones`) are untouched. Re-running `work-milestones.sql` resets
 the milestone policies and delete trigger that `project-member-rules.sql` owns, so re-run
 `project-member-rules.sql`, then `project-milestone-rules.sql`, then `project-notification-rules.sql`,
-then `anon-lockdown.sql` to keep
+then `project-workflow-rules.sql`, then `anon-lockdown.sql` to keep
 the chain whole. Re-running `project-member-rules.sql` alone means re-running
-`project-milestone-rules.sql`, `project-notification-rules.sql` and `anon-lockdown.sql` after it.
+`project-milestone-rules.sql`, `project-notification-rules.sql`, `project-workflow-rules.sql` and `anon-lockdown.sql` after it.
 `project-notification-rules.sql` now owns `send_milestone_overdue_alerts` (it adds the personal
 preference check). The first cron run alerts every
 milestone already past due and not reached; on 2026-11-02 there were none on live unarchived work
@@ -817,7 +818,7 @@ Class boards and class tables are untouched. Re-running `project-milestone-rules
 `general-archive-rbac.sql` (or `general-notify.sql`, which means `general-archive-rbac.sql`
 first), `sprint-settings.sql`, `sprint-reopen.sql` or `work-planning.sql` (the last two mean
 `sprint-settings.sql` first) means re-running `project-notification-rules.sql` afterwards, then
-`anon-lockdown.sql`; otherwise finished sprints stop being announced, assignment notices ignore
+`project-workflow-rules.sql` and `anon-lockdown.sql`; otherwise finished sprints stop being announced, assignment notices ignore
 the switch and the overdue alert loses its personal check.
 
 Re-running `project-notification-rules.sql` itself is not free. Its closing
@@ -829,3 +830,37 @@ task alerts" is off, newly overdue tasks are stamped silently, so turning it on 
 backlog. On 2026-11-02 the first apply would silence 14 overdue live tasks and 1 milestone due
 within 2 days (by design; re-check at deploy). Suite:
 `supabase/tests/project-notification-rules.test.sql`.
+
+## Project workflow rules (2026-11-03)
+
+`project-workflow-rules.sql` runs after `project-notification-rules.sql` and before
+`anon-lockdown.sql`. It owns:
+
+- the table `general_workflow_rules` ("When a trigger, then an action", up to 20 per work
+  project, each on or off) with its guard `general_workflow_rules_guard`, its RLS (members and
+  anyone who reads the project read; `general_can_manage_workflow`, the project manager and
+  active coordinators of a live work project, write) and its realtime entry;
+- the notification type value `workflow_rule`, added in its own committed block before the main
+  transaction;
+- the rewritten `general_task_events_kind` check, which adds `rule_applied` (the previous owner
+  is `work-task-handoff.sql`);
+- `run_general_workflow_rules`, `apply_general_workflow_rule`, the fire functions and their
+  triggers `general_tasks_zzz_workflow` and `general_task_reminders_workflow` (after insert on
+  `general_task_reminders`), and `general_workflow_rule_sentence`;
+- a redefinition of `mark_project_reminders_sent` (previous owner
+  `project-notification-rules.sql`) that sets `collabify.reminder_premark` around its stamps, so
+  the silent pre-mark never fires "becomes overdue" rules.
+
+Rules act for the project with the authority of the project manager and coordinators, limited
+by the rule limits. The runner sets `collabify.workflow_rule_run` for the length of a rule's
+action, so a rule's own change sets off no rules. Class boards and class tables are untouched.
+
+Re-running `work-task-handoff.sql` or `project-qa.sql` (each rewrites the history kinds check)
+means re-running `project-workflow-rules.sql` afterwards, then `anon-lockdown.sql`; otherwise a
+rule's history row is refused. Re-running `project-notification-rules.sql` also means re-running
+`project-workflow-rules.sql` afterwards: it puts back `mark_project_reminders_sent` without the
+pre-mark flag, and its own closing pre-mark would then set off "becomes overdue" rules. The same
+holds for any file whose re-run calls for one of those three, so a chain above that ends at
+`project-notification-rules.sql` or `anon-lockdown.sql` and passes any of them takes
+`project-workflow-rules.sql` before `anon-lockdown.sql`. Suite:
+`supabase/tests/project-workflow-rules.test.sql`.

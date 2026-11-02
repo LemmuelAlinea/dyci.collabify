@@ -4267,3 +4267,61 @@ Phase 2 group 5 from the Project Settings PDF (Notifications). Built on `main`, 
     null reminder setting showing as Off.
 - **Next:** the owner checks Settings → Notifications and the notices in the browser; the next group from
   the Project Settings PDF follows.
+
+## Project workflow rules (2026-11-03)
+
+Group 6 of the Project Settings PDF: "When {trigger}, then {action}" rules, built and reviewed
+locally. **The SQL is not live and nothing is pushed.**
+
+- **Commits:** `00a378c` (rules table, access, checks, types), `451c478` (keep rule authors when
+  profiles go), `110b5ad` (run rules when tasks change), `3841084` (tell people a rule gave them a
+  task), `49ae65e` (harden the runner), `7f69d4f` (Settings → Workflow rules in the app), plus the
+  "Document workflow rules" commit that adds this section.
+- **`supabase/project-workflow-rules.sql` owns:** `general_workflow_rules` (guard
+  `general_workflow_rules_guard`, RLS, realtime), `general_can_manage_workflow`, the notification
+  type `workflow_rule`, the rewritten `general_task_events_kind` check (adds `rule_applied`;
+  previous owner `work-task-handoff.sql`), `run_general_workflow_rules`,
+  `apply_general_workflow_rule`, the fire triggers (`general_tasks_zzz_workflow` and the after-insert
+  trigger on `general_task_reminders`), `general_workflow_rule_sentence`, and a redefinition of
+  `mark_project_reminders_sent` (previous owner `project-notification-rules.sql`) that sets
+  `collabify.reminder_premark` so the silent pre-mark never fires "becomes overdue" rules.
+- **Behaviour:**
+  - Rules act for the project with the authority of the project manager and coordinators, limited by
+    the rule limits; the runner clears the request's JWT claims while it acts.
+  - The one flag `collabify.workflow_rule_run` stops chains: a rule's own change sets off no rules.
+  - Only released, live tasks of live work projects fire rules. Class boards never do.
+  - A release fires only "sent" (a first send or a re-send after a return, never a reroute), even into a
+    default stage. A subtask never fires "sent"; it follows its parent.
+  - A move never goes to the last stage, past an active QA stage or out of Done.
+  - A refused action (a task guard, a rule limit, a person who left or became a stakeholder) is skipped
+    and recorded on the rule (`last_skipped_at`, `last_skip_reason`) and never blocks the person's
+    change.
+  - Each applied action writes a `rule_applied` history row with a null actor. The existing history
+    triggers write their own null-actor `updated`, `assigned` or `unassigned` rows beside it, and the app
+    folds those companion rows into the rule line (`describeHistory`).
+  - A rule's assign tells the person (`workflow_rule`) and sends no `general_task_assigned` notice.
+- **Re-run rule:** re-running `project-notification-rules.sql`, `work-task-handoff.sql` or
+  `project-qa.sql` means re-running `project-workflow-rules.sql` afterwards, then `anon-lockdown.sql`.
+  Re-running `project-notification-rules.sql` without it puts back `mark_project_reminders_sent` with no
+  pre-mark flag, and its closing pre-mark would fire "becomes overdue" rules. `docs/07-backup.md` has
+  the restore commands, the final rerun tail and the older passages updated to match.
+  `scripts/schema-drift.mjs` lists the file in the restore order.
+- **Dry runs** (the file spliced into each suite with `workflow_rule` swapped for an existing enum value
+  in the scratch copy, rolled back): `project-workflow-rules` 86 pass, and with the file loaded twice 86.
+  Siblings with the file loaded, none failing: `project-notification-rules`, `project-task-rules`,
+  `project-qa`, `general-tasks`, `work-task-handoff`, `project-member-rules`, `sprint-settings` and
+  `anon-lockdown`. Build, the full vitest run, eslint on the changed files and the contrast script are
+  green. Live was left untouched.
+- **Deploy order:** owner approval and role walk first, then
+  `node scripts/db.mjs supabase/project-workflow-rules.sql supabase/anon-lockdown.sql`, a read-only
+  check, a re-run of the suites, then push `main`. Apply the SQL with or before the frontend; until
+  then `listWorkflowRules` returns no rules when the table is missing.
+- **Deferred:**
+  - Tighten the history fold to rule actions that write: the fold matches a null-actor row by task and
+    time, so a lookalike null-actor row at the same instant could be absorbed.
+  - `ruleProblem` does not flag a person who became a stakeholder (or QA, on Assign) until the rule
+    fires and records the skip.
+  - No `TaskDialog` render test covers the rule line in the history.
+  - The "Last skipped" date uses the viewer's time zone.
+- **Next:** the owner walks Settings → Workflow rules in the browser; the next group from the Project
+  Settings PDF follows.
