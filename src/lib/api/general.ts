@@ -77,7 +77,7 @@ import type {
   SpacePerson,
 } from '../general/types'
 
-const PERSON = 'id, first_name, last_name, avatar_url'
+const PERSON = 'id, first_name, middle_name, last_name, avatar_url'
 const BUCKET = 'general-files'
 export const GENERAL_FILE_LIMIT = 50 * 1024 * 1024
 
