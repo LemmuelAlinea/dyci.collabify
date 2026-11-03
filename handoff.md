@@ -4328,10 +4328,9 @@ locally. **The SQL is not live and nothing is pushed.**
 - **Next:** the owner walks Settings → Workflow rules in the browser; the next group from the Project
   Settings PDF follows.
 
-## Project member import (2026-11-04; pre-rollout verification)
+## Project member import (2026-11-04; rollout)
 
-Implementation commits: `6f624f7`, `3c8a80a`, `098f951`, `a858e73`, `8ab1e11`,
-and `34b37fb` on `codex/member-import`.
+Implementation through `fedab5f` on `main`.
 
 - Active work-project managers and coordinators can review temporary `.docx`, `.xlsx`,
   text PDF and scanned/mixed PDF rosters in Settings → Members & permissions.
@@ -4339,9 +4338,11 @@ and `34b37fb` on `codex/member-import`.
   existing values; Replace changes only stated fields for listed members. Blank fields
   and absent members stay unchanged. Teams and positions may be created; roles, grants,
   invitations, functional team leaders and task assignments stay unchanged.
+  Word and Excel files with embedded images ask for a PDF export so a roster
+  image cannot be silently omitted.
 - Extraction is read-only. Apply refreshes the complete structure snapshot and uses one
   atomic RPC that checks authority, current membership, stale review and retry safety.
-- Build passes; Vitest passes 1,757 tests (160 files). Schema drift exits 0 with 26
+- Build passes; Vitest passes 1,759 tests (160 files). Schema drift exits 0 with 26
   existing advisory checks. All 100 SQL suites pass in separate rollback transactions
   with the import migration loaded twice and anon-lockdown last: 4,076 PASS notices,
   no failures, exit 0 for every suite. Cleanup checks silently and exits 0.
@@ -4352,10 +4353,11 @@ and `34b37fb` on `codex/member-import`.
   controller ruling; the suite passes 57 checks. Production task permissions are unchanged.
   Every rollback confirms the import RPC remains absent afterward.
 - Restore/deploy order: `project-workflow-rules.sql`, `project-member-import.sql`, then
-  `anon-lockdown.sql`; both restore lists include the import. Finish the pending workflow
-  rules owner walk and rollout decision before applying this feature's SQL. Owner rollout
-  approval must precede live SQL, `work-ai` deployment and the frontend push.
-- **not deployed; SQL remains unapplied; owner-signed-in browser walk pending**.
-  The remaining walk covers Word, multi-sheet Excel, text/scanned PDF, unknown and
-  duplicate names, Add, Replace and stale review with a PM/coordinator account.
-  Then run the live import and anon-lockdown suites and record deployment evidence.
+  `anon-lockdown.sql`; both restore lists include the import. The owner confirmed the
+  Workflow rules walk and approved rollout. The import SQL and anon-lockdown are live;
+  the live import and anon suites pass 51 and 15 checks, respectively. `work-ai` version
+  17 is deployed, and `main` through `fedab5f` is pushed. Vercel reports success and
+  serves the new frontend assets. The signed-in end-to-end browser walk remains pending:
+  Word, multi-sheet Excel, text/scanned PDF, unknown and duplicate names, Add, Replace
+  and stale review with a PM/coordinator account. Do not mark that walk complete until
+  the owner confirms the result.
