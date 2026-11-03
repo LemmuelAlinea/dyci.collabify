@@ -63,6 +63,7 @@ export function TaskViewMenu({ view, onView }: { view: TaskView; onView: (v: Tas
       label={`View: ${view[0].toUpperCase()}${view.slice(1)}`}
       icon="layoutGrid"
       align="start"
+      tooltip
       triggerClassName="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line surface text-muted transition-colors hover:border-line-strong hover:text-ink"
       items={TASK_LAYOUTS.map((v) => ({
         label: `${v[0].toUpperCase()}${v.slice(1)}`,

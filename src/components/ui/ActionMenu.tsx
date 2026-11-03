@@ -26,7 +26,10 @@ export function ActionMenu({
   icon = 'dots',
   triggerClassName,
   showLabel = false,
+  tooltip = false,
 }: {
+  /** Shows the label as a hover tooltip, for an icon-only trigger. */
+  tooltip?: boolean
   label: string
   items: (ActionMenuItem | false | null | undefined)[]
   align?: 'start' | 'end'
@@ -107,6 +110,7 @@ export function ActionMenu({
         ref={trigger}
         type="button"
         aria-label={label}
+        title={tooltip ? label : undefined}
         aria-haspopup="menu"
         aria-expanded={open}
         disabled={disabled}
