@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { Document, Packer, Paragraph } from 'docx'
 import ExcelJS from 'exceljs'
 import { jsPDF } from 'jspdf'
-import { readMemberImportFile } from './memberImportFile'
+import { readMemberImportFile, type RosterRow } from './memberImportFile'
 
 // Use the real readers through their Node entry points in this Node-only suite.
 vi.mock('mammoth', async () => {
@@ -25,6 +25,9 @@ function pdf(text?: string) {
   return new File([doc.output('arraybuffer')], 'roster.pdf')
 }
 describe('readMemberImportFile', () => {
+  it('distinguishes team, explicitly project-wide and unknown position scopes', () => {
+    expectTypeOf<RosterRow['positions'][number]>().toEqualTypeOf<{ team: string; name: string; scope: 'team' | 'project' | 'unknown' }>()
+  })
   it('labels Word paragraphs', async () => {
     expect(await readMemberImportFile(await word(['Ana Cruz — Design', 'Ben Lim — QA']))).toEqual({ fileName: 'roster.docx', text: '[Paragraph 1]\nAna Cruz — Design\n\n[Paragraph 2]\nBen Lim — QA' })
   })

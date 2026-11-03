@@ -4,7 +4,7 @@ export type RosterRow = {
   name: string
   source: string
   teams: string[]
-  positions: { team: string; name: string }[]
+  positions: { team: string; name: string; scope: 'team' | 'project' | 'unknown' }[]
   skills: string[]
   present: { teams: boolean; positions: boolean; skills: boolean }
 }
