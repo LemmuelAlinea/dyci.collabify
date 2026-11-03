@@ -4327,3 +4327,34 @@ locally. **The SQL is not live and nothing is pushed.**
   - The "Last skipped" date uses the viewer's time zone.
 - **Next:** the owner walks Settings → Workflow rules in the browser; the next group from the Project
   Settings PDF follows.
+
+## Project member import (2026-11-04; pre-rollout verification)
+
+Implementation commits: `6f624f7`, `3c8a80a`, `098f951`, `a858e73`, `8ab1e11`,
+and `34b37fb` on `codex/member-import`.
+
+- Active work-project managers and coordinators can review temporary `.docx`, `.xlsx`,
+  text PDF and scanned/mixed PDF rosters in Settings → Members & permissions.
+  Unknown names block review; duplicate names require a member choice. Add preserves
+  existing values; Replace changes only stated fields for listed members. Blank fields
+  and absent members stay unchanged. Teams and positions may be created; roles, grants,
+  invitations, functional team leaders and task assignments stay unchanged.
+- Extraction is read-only. Apply refreshes the complete structure snapshot and uses one
+  atomic RPC that checks authority, current membership, stale review and retry safety.
+- Build passes; Vitest passes 1,757 tests (160 files). Schema drift exits 0 with 26
+  existing advisory checks. All 100 SQL suites ran in separate rollback transactions
+  with the import migration loaded twice and anon-lockdown last: 99 pass, one fails.
+  `project-member-import` passes 51 checks and `anon-lockdown` passes 15.
+  `project-team-leads` fails after 22 checks on its older mixed-holder description-edit
+  expectation; the unchanged baseline fails identically under the later receiving-team
+  guard in `work-task-handoff.sql`. Full regression is therefore not green.
+  No earlier implementation or suite was changed; resolve that mismatch before rollout.
+  Every successful rollback confirms the import RPC remains absent afterward.
+- Restore/deploy order: `project-workflow-rules.sql`, `project-member-import.sql`, then
+  `anon-lockdown.sql`; both restore lists include the import. Finish the pending workflow
+  rules owner walk and rollout decision before applying this feature's SQL. Owner rollout
+  approval must precede live SQL, `work-ai` deployment and the frontend push.
+- **not deployed; SQL remains unapplied; owner-signed-in browser walk pending**.
+  The remaining walk covers Word, multi-sheet Excel, text/scanned PDF, unknown and
+  duplicate names, Add, Replace and stale review with a PM/coordinator account.
+  Then run the live import and anon-lockdown suites and record deployment evidence.
