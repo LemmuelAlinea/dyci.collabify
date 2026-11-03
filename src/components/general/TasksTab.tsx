@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { Avatar } from '../app/Avatar'
 import { StageBadge, StageSelect } from '../tasks/StageSelect'
-import { TaskViewSwitch } from '../tasks/TaskViewSwitch'
+import { TaskViewMenu } from '../tasks/TaskViewSwitch'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { BoardScroller } from './BoardScroller'
@@ -191,10 +191,10 @@ export function TasksTab({
           {state.sprints.length > 0 && (
             <ScopePicker value={scope} options={scopeOptions(state.sprints)} onChange={onScope} />
           )}
-          <TaskViewSwitch view={layout} onView={onLayout} shown={shown.length} total={scoped.length} />
-          <div>
+          <div className="flex items-center justify-between gap-3">
             <FilterPopover
               label="Filter tasks"
+              beside={<TaskViewMenu view={layout} onView={onLayout} />}
               active={[query.trim(), team, assignee, status, kind].filter(Boolean).length + priorityActive(priorityView)}
               summary={[
                 query.trim() && `“${query.trim()}”`,
@@ -261,6 +261,11 @@ export function TasksTab({
               </FilterField>
               {!project.class_board_id && <PriorityFilter value={priorityView} onChange={setPriorityView} />}
             </FilterPopover>
+            <p className="shrink-0 text-[12px] text-faint">
+              {shown.length === scoped.length
+                ? `${scoped.length} ${scoped.length === 1 ? 'task' : 'tasks'}`
+                : `${shown.length} of ${scoped.length} tasks`}
+            </p>
           </div>
         </>
       )}

@@ -10,6 +10,8 @@ export type ActionMenuItem = {
   tone?: 'danger'
   disabled?: boolean
   separated?: boolean
+  /** Set (true or false) to make the item one of a pick-one group, ticked when true. */
+  checked?: boolean
 }
 
 const WIDTH = 208
@@ -136,7 +138,8 @@ export function ActionMenu({
               <button
                 key={item.label}
                 type="button"
-                role="menuitem"
+                role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
+                aria-checked={item.checked}
                 disabled={item.disabled}
                 onClick={() => {
                   setOpen(false)
@@ -152,6 +155,7 @@ export function ActionMenu({
               >
                 {item.icon && <Icon name={item.icon} size={15} className={item.tone === 'danger' ? '' : 'text-muted'} />}
                 {item.label}
+                {item.checked && <Icon name="check" size={15} className="ml-auto text-navy-600 dark:text-navy-200" />}
               </button>
             ))}
           </div>,

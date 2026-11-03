@@ -1,4 +1,5 @@
 import { Icon } from '../ui/Icon'
+import { ActionMenu } from '../ui/ActionMenu'
 import { TaskFilters } from './TaskFilters'
 import type { TaskFilterState } from './taskFilterState'
 import type { ProjectTaskRow } from '../../lib/api/tasks'
@@ -52,6 +53,24 @@ export function TaskViewSwitch({
           : `${shown} of ${total} tasks`}
       </p>
     </div>
+  )
+}
+
+/** The same four views folded into one icon, for a toolbar that has no room for the tabs. */
+export function TaskViewMenu({ view, onView }: { view: TaskView; onView: (v: TaskView) => void }) {
+  return (
+    <ActionMenu
+      label={`View: ${view[0].toUpperCase()}${view.slice(1)}`}
+      icon="layoutGrid"
+      align="start"
+      triggerClassName="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line surface text-muted transition-colors hover:border-line-strong hover:text-ink"
+      items={TASK_LAYOUTS.map((v) => ({
+        label: `${v[0].toUpperCase()}${v.slice(1)}`,
+        icon: ICON[v],
+        checked: view === v,
+        onSelect: () => onView(v),
+      }))}
+    />
   )
 }
 

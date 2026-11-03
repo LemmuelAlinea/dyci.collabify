@@ -24,7 +24,10 @@ export function FilterPopover({
   children,
   label = 'Filters',
   align,
+  beside,
 }: {
+  /** A control that sits right after the filter icon, before the summary. */
+  beside?: ReactNode
   /** How many filters are set. Drives the badge and the clear button. */
   active: number
   /** What is on, in words — shown beside the button so it is never a surprise. */
@@ -109,6 +112,8 @@ export function FilterPopover({
           </span>
         )}
       </button>
+
+      {beside}
 
       {active > 0 && (
         <>
