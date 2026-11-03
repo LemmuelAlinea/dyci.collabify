@@ -13,6 +13,7 @@ import { MemberList } from '../MembersTab'
 import { InvitePanel } from '../InvitePanel'
 import { RequestsPanel } from '../RequestsPanel'
 import { JoinRequestsPanel } from './JoinRequestsPanel'
+import { MemberImportDialog } from './MemberImportDialog'
 import { RoleGuide } from '../RoleGuide'
 import { StructurePanel } from '../StructurePanel'
 import type { GeneralProjectState } from '../useGeneralProject'
@@ -20,11 +21,14 @@ import type { GeneralProjectState } from '../useGeneralProject'
 export function MembersSection({ state }: { state: GeneralProjectState }) {
   const [requestsOpen, setRequestsOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const canImport = !!state.project && !state.project.class_board_id && !state.archived && !state.readOnly && (state.myRole === 'pm' || state.myRole === 'coordinator')
   const canSeeRequests = (state.canGrant && !state.archived) || state.myRole === 'member'
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap justify-end gap-2">
+        {canImport && <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>Set up members from file</Button>}
         {canSeeRequests && (
           <Button type="button" variant="outline" onClick={() => setRequestsOpen(true)}>
             Access requests
@@ -39,6 +43,7 @@ export function MembersSection({ state }: { state: GeneralProjectState }) {
       <MemberOptionsPanel state={state} />
       <RoleGuide memberRules={state.project?.memberRules} />
       <StructurePanel state={state} />
+      {importOpen && canImport && <MemberImportDialog key={state.project!.id} state={state} onClose={() => setImportOpen(false)} />}
       <Modal open={requestsOpen} onClose={() => setRequestsOpen(false)} title={state.canGrant && !state.archived ? 'Access requests' : 'Your access'} size="md">
         <RequestsPanel state={state} />
       </Modal>

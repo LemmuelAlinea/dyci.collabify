@@ -151,3 +151,19 @@ it('leaves the panel out of a class board', async () => {
     expect(host.textContent).not.toContain('Member options')
   })
 })
+
+it('offers file setup only to PM and coordinators on active work projects', async () => {
+  await withHost(async (host, render) => {
+    for (const role of ['pm', 'coordinator', 'member', 'qa', 'stakeholder']) {
+      await render(optionsState({ myRole: role }))
+      expect(Boolean(buttonOf(host, 'Set up members from file'))).toBe(['pm', 'coordinator'].includes(role))
+    }
+    await render(optionsState({ archived: true }))
+    expect(buttonOf(host, 'Set up members from file')).toBeUndefined()
+    await render(optionsState({ readOnly: true }))
+    expect(buttonOf(host, 'Set up members from file')).toBeUndefined()
+    const work = optionsState()
+    await render({ ...work, project: { ...work.project!, class_board_id: 'class' } } as GeneralProjectState)
+    expect(buttonOf(host, 'Set up members from file')).toBeUndefined()
+  })
+})
