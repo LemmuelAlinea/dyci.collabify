@@ -13,6 +13,7 @@ export function DirectoryHero({
   mark,
   accentClass = 'text-banner-accent',
   accentStyle,
+  accentWeight,
 }: {
   title: string
   accent: string
@@ -26,9 +27,11 @@ export function DirectoryHero({
   accentClass?: string
   /** A project's own color for the accent word, which no class can name. */
   accentStyle?: CSSProperties
+  /** The accent word's weight, when it should differ from the title's, such as `font-medium`. */
+  accentWeight?: string
 }) {
   const accentWord = (
-    <span className={accentStyle ? undefined : accentClass} style={accentStyle}>
+    <span className={[accentStyle ? undefined : accentClass, accentWeight].filter(Boolean).join(' ') || undefined} style={accentStyle}>
       {accent}
     </span>
   )

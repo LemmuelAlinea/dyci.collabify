@@ -151,6 +151,7 @@ export default function GeneralProject() {
         accent={p.archived_at ? 'archived.' : 'PROJECT.'}
         accentClass={p.color ? colorAccent(p.color).className : undefined}
         accentStyle={p.color ? colorAccent(p.color).style : undefined}
+        accentWeight={p.archived_at ? undefined : 'font-medium'}
         description={`${projectStatusLabel(p.status)} · Your role: ${p.my_role ? ROLE_LABEL[p.my_role] : 'watching from the space'} · ${dateRange(p.starts_on, p.ends_on)} · ${p.member_count} ${p.member_count === 1 ? 'member' : 'members'} · ${Number(p.progress_pct)}% done`}
         action={
           <div className="flex flex-wrap gap-1.5">
