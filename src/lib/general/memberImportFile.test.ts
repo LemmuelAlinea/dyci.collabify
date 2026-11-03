@@ -65,6 +65,21 @@ describe('readMemberImportFile', () => {
     const file = new File([doc.output('arraybuffer')], 'roster.pdf')
     expect(await readMemberImportFile(file)).toEqual({ fileName: file.name, pdfBase64: Buffer.from(await file.arrayBuffer()).toString('base64') })
   })
+  it('sends a PDF with text and a roster image on the same page', async () => {
+    const doc = new jsPDF()
+    doc.text('Member roster — page 1', 10, 10)
+    doc.addImage({ imageData: { data: new Uint8ClampedArray([0, 0, 0, 255]), width: 1, height: 1 }, format: 'RGBA', x: 10, y: 20, width: 20, height: 20 })
+    const file = new File([doc.output('arraybuffer')], 'roster.pdf')
+    expect(await readMemberImportFile(file)).toEqual({ fileName: file.name, pdfBase64: Buffer.from(await file.arrayBuffer()).toString('base64') })
+  })
+  it('refuses overlong extracted PDF text before scanned-page fallback', async () => {
+    const doc = new jsPDF()
+    doc.setFontSize(1)
+    for (let i = 0; i < 61; i++) doc.text('a'.repeat(1000), 1, 1 + i * 2)
+    doc.addPage()
+    doc.addImage({ imageData: { data: new Uint8ClampedArray([0, 0, 0, 255]), width: 1, height: 1 }, format: 'RGBA', x: 10, y: 20, width: 20, height: 20 })
+    await expect(readMemberImportFile(new File([doc.output('arraybuffer')], 'roster.pdf'))).rejects.toThrow(/60,000/)
+  })
   it('refuses damaged input', async () => {
     await expect(readMemberImportFile(new File(['broken'], 'roster.docx'))).rejects.toThrow(/could not be opened/i)
   })

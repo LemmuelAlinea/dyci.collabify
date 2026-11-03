@@ -14,6 +14,7 @@ export async function readMemberImportFile(file: File): Promise<{ fileName: stri
   if (!['docx', 'xlsx', 'pdf'].includes(kind ?? '')) throw new Error('Upload a .docx, .xlsx or PDF roster.')
   if (file.size > 5 * 1024 * 1024) throw new Error('That file is over 5 MB. Upload a smaller roster.')
   const blocks: string[] = []
+  let pdfBase64: string | undefined
   try {
     if (kind === 'docx') {
       const mammoth = await import('mammoth')
@@ -40,21 +41,24 @@ export async function readMemberImportFile(file: File): Promise<{ fileName: stri
       if (!pdfjs.GlobalWorkerOptions.workerSrc) pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/build/pdf.worker.mjs?url')).default
       const bytes = new Uint8Array(await file.arrayBuffer())
       const doc = await pdfjs.getDocument({ data: bytes.slice() }).promise
-      let emptyPages = 0
+      let needsDocument = false
+      const imageOps = new Set(Object.entries(pdfjs.OPS).filter(([name]) => name.startsWith('paint') && name.includes('Image')).map(([, op]) => op))
       try {
         for (let i = 1; i <= doc.numPages; i++) {
-          const content = await (await doc.getPage(i)).getTextContent()
+          const page = await doc.getPage(i)
+          const content = await page.getTextContent()
+          if ((await page.getOperatorList()).fnArray.some(op => imageOps.has(op))) needsDocument = true
           const text = content.items.map(item => 'str' in item ? item.str + (item.hasEOL ? '\n' : ' ') : '').join('').trim()
           if (text) blocks.push(`[Page ${i}]\n${text}`)
-          else emptyPages++
+          else needsDocument = true
         }
       } finally {
         await doc.destroy()
       }
-      if (emptyPages) {
+      if (needsDocument) {
         let binary = ''
         for (const byte of bytes) binary += String.fromCharCode(byte)
-        return { fileName: file.name, pdfBase64: btoa(binary) }
+        pdfBase64 = btoa(binary)
       }
     }
   } catch (err) {
@@ -62,7 +66,8 @@ export async function readMemberImportFile(file: File): Promise<{ fileName: stri
     throw new Error('That file could not be opened. It may be damaged or locked; upload another copy.', { cause: err })
   }
   const text = blocks.join('\n\n')
-  if (!text.trim()) throw new Error('That roster has no text. Upload a file containing the member names.')
   if (text.length > 60000) throw new Error('That roster is over 60,000 characters. Split it into smaller files.')
+  if (pdfBase64) return { fileName: file.name, pdfBase64 }
+  if (!text.trim()) throw new Error('That roster has no text. Upload a file containing the member names.')
   return { fileName: file.name, text }
 }
