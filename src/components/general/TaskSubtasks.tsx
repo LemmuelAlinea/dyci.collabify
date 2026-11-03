@@ -7,6 +7,7 @@ import { stageName } from '../../lib/stages'
 import { LIMIT } from '../../lib/limits'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Field'
+import { Icon } from '../ui/Icon'
 import type { GeneralProjectState } from './useGeneralProject'
 
 export type TaskAct = (action: () => Promise<void>, done: string, failed: string) => Promise<void>
@@ -44,6 +45,7 @@ export function TaskSubtasks({
   onOpenTask: (id: string) => void
 }) {
   const [title, setTitle] = useState('')
+  const [open, setOpen] = useState(true)
   if (!state.project || state.project.class_board_id) return null
 
   if (task.parent_id) {
@@ -73,56 +75,66 @@ export function TaskSubtasks({
 
   return (
     <section>
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[14px]">Subtasks</h3>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 text-left"
+      >
+        <Icon name={open ? 'chevronDown' : 'chevronRight'} size={14} className="text-faint" />
+        <h3 className="flex-1 text-[14px]">Subtasks</h3>
         {total > 0 && <span className="font-mono text-[12px] text-faint">{done}/{total} done</span>}
-      </div>
-      <ul className="mt-2 space-y-1.5">
-        {subtasks.map((s) => (
-          <li key={s.id} className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[13px]">
-            <button type="button" onClick={() => onOpenTask(s.id)} className="min-w-0 flex-1 truncate text-left text-ink hover:underline">
-              {s.title}
-            </button>
-            <span className="shrink-0 text-[12px] text-muted">{stageName(state.project?.stages, s)}</span>
-            <span className="max-w-[10rem] shrink-0 truncate text-[12px] text-faint">
-              {s.assignee_ids.length ? s.assignee_ids.map(state.nameOf).join(', ') : 'Nobody holds this yet.'}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {allowed &&
-        (task.status === 'done' ? (
-          <p className="mt-2 text-[13px] text-muted">Reopen the task before adding a subtask.</p>
-        ) : (
-          <form
-            className="mt-2 flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              const text = title.trim()
-              if (!text) return
-              void act(
-                async () => {
-                  await createSubtask(task.id, text)
-                  setTitle('')
-                },
-                'Subtask added',
-                'Could not add that subtask.',
-              )
-            }}
-          >
-            <Input
-              aria-label="Add a subtask"
-              placeholder="Add a subtask"
-              maxLength={LIMIT.taskTitle}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="!h-9 !text-[13px]"
-            />
-            <Button type="submit" size="sm" variant="outline" className="!h-9" disabled={busy || !title.trim()}>
-              Add
-            </Button>
-          </form>
-        ))}
+      </button>
+      {open && (
+        <>
+          <ul className="mt-2 space-y-1.5">
+            {subtasks.map((s) => (
+              <li key={s.id} className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[13px]">
+                <button type="button" onClick={() => onOpenTask(s.id)} className="min-w-0 flex-1 truncate text-left text-ink hover:underline">
+                  {s.title}
+                </button>
+                <span className="shrink-0 text-[12px] text-muted">{stageName(state.project?.stages, s)}</span>
+                <span className="max-w-[10rem] shrink-0 truncate text-[12px] text-faint">
+                  {s.assignee_ids.length ? s.assignee_ids.map(state.nameOf).join(', ') : 'Nobody holds this yet.'}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {allowed &&
+            (task.status === 'done' ? (
+              <p className="mt-2 text-[13px] text-muted">Reopen the task before adding a subtask.</p>
+            ) : (
+              <form
+                className="mt-2 flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  const text = title.trim()
+                  if (!text) return
+                  void act(
+                    async () => {
+                      await createSubtask(task.id, text)
+                      setTitle('')
+                    },
+                    'Subtask added',
+                    'Could not add that subtask.',
+                  )
+                }}
+              >
+                <Input
+                  aria-label="Add a subtask"
+                  placeholder="Add a subtask"
+                  maxLength={LIMIT.taskTitle}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="!h-9 !text-[13px]"
+                />
+                <Button type="submit" size="sm" variant="outline" className="!h-9" disabled={busy || !title.trim()}>
+                  Add
+                </Button>
+              </form>
+            ))}
+        </>
+      )}
     </section>
   )
 }

@@ -11,7 +11,10 @@ export function PageScrollbar() {
     const update = () => {
       const viewport = page.clientHeight
       const maxScroll = page.scrollHeight - viewport
-      track.style.display = maxScroll > 1 ? 'block' : 'none'
+      // The track stays on a page that cannot scroll, so the 8px gutter keeps
+      // the page's colour instead of showing the body's default behind it.
+      track.style.display = 'block'
+      thumb.style.visibility = maxScroll > 1 ? 'visible' : 'hidden'
       if (maxScroll <= 1) return
 
       const height = Math.max(40, viewport * viewport / page.scrollHeight)
