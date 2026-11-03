@@ -29,8 +29,9 @@ const asTree = (files: GeneralSharedFile[]) => files as unknown as GeneralTreeFi
  * Copies of draft files and folders teammates passed to the viewer, and the
  * ones the viewer passed on. A share is fixed as it was when sent: it can be
  * read, downloaded or copied into your own draft, never changed in place.
+ * `onCopied` lets a draft shown beside it reload once a copy lands.
  */
-export function SharedTab({ state }: { state: GeneralProjectState }) {
+export function SharedTab({ state, onCopied }: { state: GeneralProjectState; onCopied?: () => void }) {
   const projectId = state.project?.id
   const viewerId = state.viewerId
   const { show } = useToast()
@@ -131,6 +132,7 @@ export function SharedTab({ state }: { state: GeneralProjectState }) {
       share.id,
       async () => {
         await copyShareToDraft(share.id)
+        onCopied?.()
         return `Copied to your draft. Find it under My draft in Files.`
       },
       'Could not copy it to your draft. Try again in a moment.',

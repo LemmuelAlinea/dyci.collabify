@@ -316,7 +316,7 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
             onOpen={setOpen}
             onDone={load}
           /></section>
-          <section id="project-shared-files" aria-label="Shared files" className="min-w-0 scroll-mt-24 border-t border-line pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"><SharedTab state={state} /></section>
+          <section id="project-shared-files" aria-label="Shared files" className="min-w-0 scroll-mt-24 border-t border-line pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"><SharedTab state={state} onCopied={() => void load()} /></section>
         </div>
       )}
       {view === 'changes' && (
