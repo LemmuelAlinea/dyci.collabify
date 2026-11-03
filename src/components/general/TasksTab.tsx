@@ -160,9 +160,6 @@ export function TasksTab({
   return (
     <div className="space-y-4">
       {!project.class_board_id && (state.myRole === 'pm' || state.myRole === 'coordinator') && <>
-        <div className="flex justify-end">
-          <Button size="sm" variant="outline" onClick={() => setRoutingOpen(true)}>Plan & route work</Button>
-        </div>
         <Modal open={routingOpen} onClose={() => setRoutingOpen(false)} title="Plan & route work" size="xl">
           <TaskRoutingPanel key={project.id} state={state} onOpenTask={onOpenTask} onViewBoard={() => {
             setRoutingOpen(false)
@@ -181,7 +178,14 @@ export function TasksTab({
           </li>)}
         </ul>
       </section>}
-      {!project.class_board_id && <h3 className="text-[14px] font-semibold text-ink">Released work</h3>}
+      {!project.class_board_id && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-[14px] font-semibold text-ink">Released work</h3>
+          {(state.myRole === 'pm' || state.myRole === 'coordinator') && (
+            <Button size="sm" variant="outline" onClick={() => setRoutingOpen(true)}>Plan & route work</Button>
+          )}
+        </div>
+      )}
       {released.length > 0 && (
         <>
           {state.sprints.length > 0 && (
