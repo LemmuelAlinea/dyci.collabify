@@ -12,6 +12,7 @@ import { supabase } from '../supabase'
 import { isMissingColumn, isMissingRelation } from './missingRelation'
 import { pathsNotRemoved, rowDeleteError } from '../general/storage'
 import { ProjectDeletedError } from '../general/projectDeleted'
+import type { ImportPreview } from '../general/memberImport'
 import type { PresetPayload } from '../general/presets'
 import type { FieldType, FieldValue } from '../general/fields'
 import type { GeneralPermission, ProjectRole } from '../general/permissions'
@@ -2108,4 +2109,18 @@ export async function listWorkTaskReturnReceipts(projectId: string): Promise<Wor
   const { data, error } = await supabase.rpc('work_task_return_receipts', { p_project: projectId })
   if (error) throw error
   return (data ?? []) as WorkTaskReturnReceipt[]
+}
+
+export type ApplyCounts = { teams: number; positions: number; members: number }
+
+export async function applyMemberImport(
+  projectId: string,
+  mode: 'add' | 'replace',
+  preview: Pick<ImportPreview, 'rows' | 'expected'>,
+): Promise<ApplyCounts> {
+  const { data, error } = await supabase.rpc('apply_general_member_import', {
+    p_project: projectId, p_mode: mode, p_rows: preview.rows, p_expected: preview.expected,
+  })
+  if (error) throw error
+  return data as ApplyCounts
 }
