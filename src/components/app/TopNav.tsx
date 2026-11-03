@@ -6,6 +6,7 @@ import { ROLE_LABEL, fullName } from '../../lib/types'
 import { ThemeToggle } from '../ThemeToggle'
 import { Icon } from '../ui/Icon'
 import { Avatar } from './Avatar'
+import { FullscreenToggle } from './FullscreenToggle'
 import { NotificationBell } from './NotificationBell'
 import { WorkspaceSearch } from './WorkspaceSearch'
 
@@ -148,6 +149,7 @@ export function TopNav({ onOpenDrawer }: { onOpenDrawer: () => void }) {
             <Icon name="search" size={18} />
           </button>
           <NotificationBell />
+          <FullscreenToggle />
           <ThemeToggle />
           <AccountMenu settingsTo={paths.settings} />
         </div>
