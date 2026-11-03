@@ -1,5 +1,6 @@
 // src/components/general/SkillTags.tsx
 import { useState } from 'react'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
 import { Input } from '../ui/Field'
 import { useToast } from '../ui/Toast'
@@ -20,6 +21,7 @@ export function SkillTags({ state, member }: { state: GeneralProjectState; membe
   const [draft, setDraft] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [pending, setPending] = useState<{ kind: 'add' | 'remove'; tag: string } | null>(null)
   const project = state.project
   if (!project || member.role === 'qa' || member.role === 'stakeholder') return null
 
@@ -30,12 +32,20 @@ export function SkillTags({ state, member }: { state: GeneralProjectState; membe
     { userId: member.user_id, role: member.role },
   )
 
-  async function add() {
-    if (!project || busy) return
+  const own = member.user_id === state.viewerId
+  const whose = own ? 'your skills' : `${name}’s skills`
+
+  // Adding and removing both ask first; the check runs before the question.
+  function askAdd() {
+    if (busy) return
     const found = skillProblem(tags, draft)
     if (found) return setProblem(found)
     const tag = normalizeTag(draft)
-    if (!tag) return
+    if (tag) setPending({ kind: 'add', tag })
+  }
+
+  async function add(tag: string) {
+    if (!project || busy) return
     setBusy(true)
     try {
       await addMemberSkill(project.id, member.user_id, tag)
@@ -83,7 +93,7 @@ export function SkillTags({ state, member }: { state: GeneralProjectState; membe
             {editable && (
               <button
                 type="button"
-                onClick={() => void remove(tag)}
+                onClick={() => setPending({ kind: 'remove', tag })}
                 disabled={busy}
                 aria-label={`Remove skill ${tag}`}
                 className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-faint hover:text-ink disabled:opacity-60"
@@ -104,7 +114,7 @@ export function SkillTags({ state, member }: { state: GeneralProjectState; membe
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
-                  void add()
+                  askAdd()
                 }
               }}
               maxLength={60}
@@ -122,6 +132,19 @@ export function SkillTags({ state, member }: { state: GeneralProjectState; membe
           {problem}
         </p>
       )}
+      <ConfirmDialog
+        open={pending !== null}
+        onClose={() => setPending(null)}
+        onConfirm={() => (pending?.kind === 'add' ? add(pending.tag) : pending ? remove(pending.tag) : undefined)}
+        title={pending?.kind === 'add' ? 'Add this skill?' : 'Remove this skill?'}
+        body={
+          pending?.kind === 'add'
+            ? `“${pending.tag}” joins ${whose}. Assign by position reads it when it suggests who takes a task.`
+            : `“${pending?.tag ?? ''}” leaves ${whose}. Assign by position stops reading it.`
+        }
+        confirmLabel={pending?.kind === 'add' ? 'Add skill' : 'Remove skill'}
+        tone={pending?.kind === 'add' ? 'primary' : 'danger'}
+      />
     </div>
   )
 }
