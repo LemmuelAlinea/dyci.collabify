@@ -96,3 +96,10 @@ export const draftLeadAssignees = (projectId: string) =>
 
 export const askFiles =(projectId: string, question: string) =>
   call<{ answer: string; found: boolean; sources: string[]; skipped: number }>('ask', projectId, { question })
+
+export type { RosterRow } from '../general/memberImportFile'
+
+export const extractMemberRoster = (
+  projectId: string,
+  source: Awaited<ReturnType<typeof import('../general/memberImportFile').readMemberImportFile>>,
+) => call<{ rows: import('../general/memberImportFile').RosterRow[] }>('member-import', projectId, source)
