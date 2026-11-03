@@ -188,13 +188,10 @@ export function TasksTab({
       )}
       {released.length > 0 && (
         <>
-          {state.sprints.length > 0 && (
-            <ScopePicker value={scope} options={scopeOptions(state.sprints)} onChange={onScope} />
-          )}
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <TaskViewMenu view={layout} onView={onLayout} />
             <FilterPopover
               label="Filter tasks"
-              beside={<TaskViewMenu view={layout} onView={onLayout} />}
               active={[query.trim(), team, assignee, status, kind].filter(Boolean).length + priorityActive(priorityView)}
               summary={[
                 query.trim() && `“${query.trim()}”`,
@@ -261,7 +258,10 @@ export function TasksTab({
               </FilterField>
               {!project.class_board_id && <PriorityFilter value={priorityView} onChange={setPriorityView} />}
             </FilterPopover>
-            <p className="shrink-0 text-[12px] text-faint">
+            {state.sprints.length > 0 && (
+              <ScopePicker value={scope} options={scopeOptions(state.sprints)} onChange={onScope} />
+            )}
+            <p className="ml-auto shrink-0 text-[12px] text-faint">
               {shown.length === scoped.length
                 ? `${scoped.length} ${scoped.length === 1 ? 'task' : 'tasks'}`
                 : `${shown.length} of ${scoped.length} tasks`}
