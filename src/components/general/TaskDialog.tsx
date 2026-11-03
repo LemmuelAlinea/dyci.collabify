@@ -65,6 +65,7 @@ export function TaskDialog({
   const [opened, setOpened] = useState<{ from: string | null; id: string } | null>(null)
   const shownId = opened && opened.from === taskId ? opened.id : taskId
   const task = state.tasks.find((t) => t.id === shownId) ?? null
+  const parent = task?.parent_id ? state.tasks.find((t) => t.id === task.parent_id) : undefined
   const close = () => {
     setOpened(null)
     onClose()
@@ -74,6 +75,29 @@ export function TaskDialog({
       open={Boolean(task)}
       onClose={close}
       title={task?.title ?? 'Task'}
+      breadcrumb={
+        task?.parent_id ? (
+          <ol className="flex min-w-0 items-center gap-1.5">
+            <li className="min-w-0 truncate">
+              {parent ? (
+                <button
+                  type="button"
+                  onClick={() => setOpened({ from: taskId, id: parent.id })}
+                  className="max-w-full truncate hover:text-banner-ink hover:underline"
+                >
+                  {parent.title}
+                </button>
+              ) : (
+                'Another task'
+              )}
+            </li>
+            <li aria-hidden="true">
+              <Icon name="chevronRight" size={13} />
+            </li>
+            <li aria-current="page" className="shrink-0">Subtask</li>
+          </ol>
+        ) : undefined
+      }
       description={
         task ? (
           <span className="inline-flex flex-wrap items-center gap-2">

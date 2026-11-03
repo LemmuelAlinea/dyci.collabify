@@ -10,6 +10,8 @@ type Props = {
   onClose: () => void
   title: string
   description?: ReactNode
+  /** The trail above the title, such as a subtask's parent task. */
+  breadcrumb?: ReactNode
   children: ReactNode
   footer?: ReactNode
   /** `full` takes the whole window, top bar included: a file somebody is working in. */
@@ -70,6 +72,7 @@ export function Modal({
   onClose,
   title,
   description,
+  breadcrumb,
   children,
   footer,
   size = 'md',
@@ -221,6 +224,11 @@ export function Modal({
           className={`flex items-start justify-between gap-4 border-b ${full ? 'px-4 py-3 sm:px-6' : 'px-6 py-5'} ${tone.header}`}
         >
           <div className="min-w-0">
+            {breadcrumb && (
+              <nav aria-label="Breadcrumb" className={`mb-1 text-[13px] ${tone.description}`}>
+                {breadcrumb}
+              </nav>
+            )}
             <h2 className={tone.title}>{title}</h2>
             {description && <p className={`mt-1 text-[13px] ${tone.description}`}>{description}</p>}
           </div>
