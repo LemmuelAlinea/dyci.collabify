@@ -5,6 +5,7 @@ import { StageBadge, StageSelect } from '../tasks/StageSelect'
 import { TaskViewSwitch } from '../tasks/TaskViewSwitch'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
+import { BoardScroller } from './BoardScroller'
 import { TaskRoutingPanel } from './TaskRoutingPanel'
 import { TasksFromNotes } from './TasksFromNotes'
 import { EmptyState } from '../ui/EmptyState'
@@ -338,7 +339,7 @@ export function TasksTab({
         <EmptyState icon="search" title="Nothing matches" body="No task fits these filters. Clear one and try again." />
       ) : layout === 'board' ? (
         // Three stages share the width; more run side by side and scroll.
-        <div
+        <BoardScroller
           className={`grid gap-4 ${
             stages.length === 3
               ? 'lg:grid-cols-3'
@@ -374,7 +375,7 @@ export function TasksTab({
               </section>
             )
           })}
-        </div>
+        </BoardScroller>
       ) : layout === 'list' ? (
         <TaskTable tasks={shown} state={state} stages={stages} marksOf={marksOf} onOpen={showTask} mayMove={mayMove} onMove={move} />
       ) : layout === 'timeline' ? (
