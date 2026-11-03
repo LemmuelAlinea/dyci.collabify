@@ -148,7 +148,7 @@ export default function GeneralProject() {
       <DirectoryHero
         title={p.name}
         mark={p.color || p.icon ? <ProjectMark color={p.color} icon={p.icon} name={p.name} size="lg" /> : undefined}
-        accent={p.archived_at ? 'archived.' : 'project.'}
+        accent={p.archived_at ? 'archived.' : 'PROJECT.'}
         accentClass={p.color ? colorAccent(p.color).className : undefined}
         accentStyle={p.color ? colorAccent(p.color).style : undefined}
         description={`${projectStatusLabel(p.status)} · Your role: ${p.my_role ? ROLE_LABEL[p.my_role] : 'watching from the space'} · ${dateRange(p.starts_on, p.ends_on)} · ${p.member_count} ${p.member_count === 1 ? 'member' : 'members'} · ${Number(p.progress_pct)}% done`}

@@ -926,7 +926,7 @@ function GroupPreview({ id, mode, picks, depth }: { id: GroupId; mode: Mode; pic
         'Preview of the buttons on a banner',
         <div className="banner-fill relative overflow-hidden rounded-lg px-4 py-4 text-banner-ink">
           <p className="relative font-display text-[15px] font-semibold">
-            Capstone <span className="text-banner-accent">project.</span>
+            Capstone <span className="text-banner-accent">PROJECT.</span>
           </p>
           <div className="relative mt-3 flex flex-wrap gap-1.5 text-[11px] font-medium">
             <span className="inline-flex h-7 items-center gap-1 rounded-md bg-btn-create px-2.5 text-btn-create-ink">
