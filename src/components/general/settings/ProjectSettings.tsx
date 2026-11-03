@@ -72,7 +72,7 @@ export function ProjectSettings({ state }: { state: GeneralProjectState }) {
                   className="absolute inset-y-1.5 left-0 hidden w-[3px] rounded-full bg-nav-marker md:block"
                 />
               )}
-              <Icon name={s.icon} size={17} className={on ? undefined : 'text-nav-icon'} />
+              <Icon name={s.icon} size={17} className={on ? 'shrink-0' : 'shrink-0 text-nav-icon'} />
               {s.label}
               {s.id === 'members' && openRequests > 0 && (
                 <span
