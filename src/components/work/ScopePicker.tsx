@@ -19,7 +19,7 @@ export function ScopePicker({
           onChange={(e) => onChange(e.target.value)}
           options={options}
           aria-label="Which tasks to show"
-          className="!h-9 min-w-[12rem] !text-[13px]"
+          className="!h-9 !pl-3 !pr-8 !text-[13px] sm:min-w-[12rem] sm:!pl-4 sm:!pr-10"
         />
       </span>
     </label>

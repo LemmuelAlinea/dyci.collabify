@@ -188,7 +188,7 @@ export function TasksTab({
       )}
       {released.length > 0 && (
         <>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <TaskViewMenu view={layout} onView={onLayout} />
             <FilterPopover
               label="Filter tasks"
@@ -259,7 +259,9 @@ export function TasksTab({
               {!project.class_board_id && <PriorityFilter value={priorityView} onChange={setPriorityView} />}
             </FilterPopover>
             {state.sprints.length > 0 && (
-              <ScopePicker value={scope} options={scopeOptions(state.sprints)} onChange={onScope} />
+              <div className="min-w-0 flex-1 sm:flex-none">
+                <ScopePicker value={scope} options={scopeOptions(state.sprints)} onChange={onScope} />
+              </div>
             )}
             <p className="ml-auto shrink-0 text-[12px] text-faint">
               {shown.length === scoped.length
