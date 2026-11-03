@@ -4342,14 +4342,15 @@ and `34b37fb` on `codex/member-import`.
 - Extraction is read-only. Apply refreshes the complete structure snapshot and uses one
   atomic RPC that checks authority, current membership, stale review and retry safety.
 - Build passes; Vitest passes 1,757 tests (160 files). Schema drift exits 0 with 26
-  existing advisory checks. All 100 SQL suites ran in separate rollback transactions
-  with the import migration loaded twice and anon-lockdown last: 99 pass, one fails.
+  existing advisory checks. All 100 SQL suites pass in separate rollback transactions
+  with the import migration loaded twice and anon-lockdown last: 4,076 PASS notices,
+  no failures, exit 0 for every suite. Cleanup checks silently and exits 0.
   `project-member-import` passes 51 checks and `anon-lockdown` passes 15.
-  `project-team-leads` fails after 22 checks on its older mixed-holder description-edit
-  expectation; the unchanged baseline fails identically under the later receiving-team
-  guard in `work-task-handoff.sql`. Full regression is therefore not green.
-  No earlier implementation or suite was changed; resolve that mismatch before rollout.
-  Every successful rollback confirms the import RPC remains absent afterward.
+  The initial `project-team-leads` failure reproduced without this migration: its
+  mixed-holder description-edit expectation predated the receiving-team guard.
+  Corrected only that expectation and its unchanged-description assertion under the
+  controller ruling; the suite passes 57 checks. Production task permissions are unchanged.
+  Every rollback confirms the import RPC remains absent afterward.
 - Restore/deploy order: `project-workflow-rules.sql`, `project-member-import.sql`, then
   `anon-lockdown.sql`; both restore lists include the import. Finish the pending workflow
   rules owner walk and rollout decision before applying this feature's SQL. Owner rollout

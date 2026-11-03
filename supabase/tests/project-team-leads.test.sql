@@ -284,16 +284,17 @@ begin
   perform pg_temp.must_refuse_with('...and so is moving its status',
     format($q$update public.general_tasks set status = 'in_progress' where id = %L$q$, v_tv),
     'Only whoever holds this task');
-  perform pg_temp.must_allow('L edits a task held by U (team A) and V (team B): one holder on L''s team is enough',
-    format($q$update public.general_tasks set description = 'Zz shared, edited by L' where id = %L$q$, v_tuv));
+  perform pg_temp.must_refuse_with('L cannot edit a shared task description without leading its receiving team',
+    format($q$update public.general_tasks set description = 'Zz shared, edited by L' where id = %L$q$, v_tuv),
+    'Only the project manager, a coordinator, or this team''s lead changes the description and dates');
   perform pg_temp.must_allow('L reorders U''s task in the backlog',
     format($q$update public.general_tasks set rank = 42 where id = %L$q$, v_tu));
   perform pg_temp.must_refuse_with('...but L cannot put U''s task in a sprint',
     format($q$update public.general_tasks set sprint_id = %L where id = %L$q$, v_sprint, v_tu),
     'plan sprints and order the backlog');
   perform pg_temp.act_as_service();
-  perform pg_temp.must_be('...the shared task and the new rank landed, and U''s task is in no sprint',
-    (select description = 'Zz shared, edited by L' from public.general_tasks where id = v_tuv)
+  perform pg_temp.must_be('...the shared description stays unchanged, the new rank landed, and U''s task is in no sprint',
+    (select description = '' from public.general_tasks where id = v_tuv)
     and (select rank = 42 and sprint_id is null from public.general_tasks where id = v_tu));
   perform pg_temp.act_as(v_u);
   perform pg_temp.must_refuse_with('...and U, who leads nobody, cannot reorder U''s own task',
