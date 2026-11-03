@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { Document, Packer, Paragraph } from 'docx'
+import { Document, ImageRun, Packer, Paragraph } from 'docx'
 import ExcelJS from 'exceljs'
 import { jsPDF } from 'jspdf'
 import { readMemberImportFile, type RosterRow } from './memberImportFile'
@@ -30,6 +30,22 @@ describe('readMemberImportFile', () => {
   })
   it('labels Word paragraphs', async () => {
     expect(await readMemberImportFile(await word(['Ana Cruz — Design', 'Ben Lim — QA']))).toEqual({ fileName: 'roster.docx', text: '[Paragraph 1]\nAna Cruz — Design\n\n[Paragraph 2]\nBen Lim — QA' })
+  })
+  it('refuses a Word roster with text and an embedded PNG with PDF export guidance', async () => {
+    const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmNgYGD4DwABBAEA43qFxAAAAABJRU5ErkJggg==', 'base64')
+    const bytes = await Packer.toBuffer(new Document({ sections: [{ children: [
+      new Paragraph('Member roster'),
+      new Paragraph({ children: [new ImageRun({ type: 'png', data: image, transformation: { width: 100, height: 100 } })] }),
+    ] }] }))
+    await expect(readMemberImportFile(new File([new Uint8Array(bytes)], 'roster.docx'))).rejects.toThrow(/images.*Export.*PDF/)
+  })
+  it('refuses an Excel roster with text and an embedded PNG with PDF export guidance', async () => {
+    const book = new ExcelJS.Workbook()
+    const sheet = book.addWorksheet('Roster')
+    sheet.getCell('A1').value = 'Member roster'
+    const image = book.addImage({ base64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmNgYGD4DwABBAEA43qFxAAAAABJRU5ErkJggg==', extension: 'png' })
+    sheet.addImage(image, 'A2:C5')
+    await expect(readMemberImportFile(new File([await book.xlsx.writeBuffer()], 'roster.xlsx'))).rejects.toThrow(/images.*Export.*PDF/)
   })
   it('labels every Excel sheet and source row', async () => {
     const book = new ExcelJS.Workbook()

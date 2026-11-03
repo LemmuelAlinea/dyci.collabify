@@ -1,5 +1,7 @@
 import { SHEET_LIMIT } from './sheet'
 
+const IMAGE_ROSTER_ERROR = 'That Word or Excel roster contains images. Export it as a PDF and upload it again so every member can be read.'
+
 export type RosterRow = {
   name: string
   source: string
@@ -16,6 +18,15 @@ export async function readMemberImportFile(file: File): Promise<{ fileName: stri
   const blocks: string[] = []
   let pdfBase64: string | undefined
   try {
+    if (kind !== 'pdf') {
+      const { unzipSync } = await import('fflate')
+      let hasImages = false
+      unzipSync(new Uint8Array(await file.arrayBuffer()), { filter: entry => {
+        if (/^(word|xl)\/media\/.+/i.test(entry.name)) hasImages = true
+        return false
+      } })
+      if (hasImages) throw new Error(IMAGE_ROSTER_ERROR)
+    }
     if (kind === 'docx') {
       const mammoth = await import('mammoth')
       const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })
@@ -62,7 +73,7 @@ export async function readMemberImportFile(file: File): Promise<{ fileName: stri
       }
     }
   } catch (err) {
-    if (err instanceof Error && err.message.includes('too many')) throw err
+    if (err instanceof Error && (err.message.includes('too many') || err.message === IMAGE_ROSTER_ERROR)) throw err
     throw new Error('That file could not be opened. It may be damaged or locked; upload another copy.', { cause: err })
   }
   const text = blocks.join('\n\n')
