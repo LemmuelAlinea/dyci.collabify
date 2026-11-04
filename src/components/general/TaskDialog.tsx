@@ -372,17 +372,20 @@ function TaskBody({
         <TaskSubtasks state={state} task={task} busy={busy} act={act} onOpenTask={onOpenTask} />
         <TaskDependencies state={state} task={task} busy={busy} act={act} />
 
-        <section>
+        <section
+          className="rounded-2xl border border-line p-4 shadow-[0_12px_32px_rgba(0,0,0,0.12)] backdrop-blur-xl"
+          style={{ background: 'linear-gradient(145deg, color-mix(in srgb, var(--surface) 82%, transparent), color-mix(in srgb, var(--surface-sunken) 68%, transparent))' }}
+        >
           <div className="flex items-center justify-between gap-2">
             <button type="button" aria-expanded={attachmentsOpen} onClick={() => setAttachmentsOpen((open) => !open)} className="flex min-w-0 items-center gap-2 text-left">
-              <Icon name={attachmentsOpen ? 'chevronDown' : 'chevronRight'} size={14} className="text-faint" />
-              <h3 className="text-[14px]">Attachments</h3>
-              {files.length > 0 && <span className="rounded bg-[var(--surface-sunken)] px-2 text-[12px] text-muted">{files.length}</span>}
+              <Icon name={attachmentsOpen ? 'chevronDown' : 'chevronRight'} size={16} className="text-faint" />
+              <h3 className="text-[16px] font-semibold">Attachments</h3>
+              {files.length > 0 && <span className="rounded-md bg-[var(--surface-sunken)]/70 px-2 text-[12px] text-muted">{files.length}</span>}
             </button>
             {!canAttach && !readOnly && <RequestAccessButton state={state} permission="edit_files" />}
           </div>
           {attachmentsOpen && <>
-            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+            <div className="mt-3 flex gap-3 overflow-x-auto pb-3">
               {files.map((file) => <TaskAttachmentCard
                 key={file.id}
                 file={file}

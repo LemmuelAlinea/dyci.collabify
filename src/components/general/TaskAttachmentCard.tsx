@@ -102,6 +102,23 @@ export function TaskAttachmentCard({ file, canTrash, onTrash, onError }: {
   const [visible, setVisible] = useState(typeof IntersectionObserver === 'undefined')
   const type = fileType(file)
   const solid = !preview || preview.kind === 'file' || preview.kind === 'audio'
+  const glass = {
+    background: `linear-gradient(150deg, ${type.color}66, rgba(13, 26, 54, 0.66) 75%)`,
+    borderColor: `${type.color}88`,
+    boxShadow: `0 10px 26px rgba(0, 0, 0, 0.18), 0 0 18px ${type.color}30, inset 0 1px rgba(255, 255, 255, 0.2)`,
+  }
+  const download = () => {
+    void generalFileUrl(file.file_path, file.file_name)
+      .then((downloadUrl) => {
+        const link = document.createElement('a')
+        link.href = downloadUrl
+        link.download = file.file_name
+        document.body.append(link)
+        link.click()
+        link.remove()
+      })
+      .catch((error) => onError(authErrorMessage(error, 'Could not download that file.')))
+  }
 
   useEffect(() => {
     if (visible || !card.current) return
@@ -127,7 +144,7 @@ export function TaskAttachmentCard({ file, canTrash, onTrash, onError }: {
   }, [file, visible])
 
   return (
-    <div ref={card} className="relative w-44 shrink-0 overflow-hidden rounded-xl border border-line bg-[var(--surface-sunken)]">
+    <div ref={card} className="relative w-52 shrink-0 overflow-hidden rounded-2xl border backdrop-blur-xl" style={glass}>
       <button
         type="button"
         aria-label={`Open ${file.file_name}`}
@@ -137,8 +154,8 @@ export function TaskAttachmentCard({ file, canTrash, onTrash, onError }: {
         }}
         className="block w-full text-left"
       >
-        <div className="relative h-28 overflow-hidden p-1" style={{ backgroundColor: type.color }}>
-          <div className={`flex h-full w-full items-center justify-center overflow-hidden rounded-md ${solid ? 'text-white' : 'bg-white text-slate-800'}`}>
+        <div className="relative h-32 overflow-hidden p-2" style={{ background: `linear-gradient(150deg, color-mix(in srgb, ${type.color} 64%, #0b1933), color-mix(in srgb, ${type.color} 38%, #0b1933) 65%, rgba(10, 21, 45, 0.56))` }}>
+          <div className={`flex h-full w-full items-center justify-center overflow-hidden rounded-lg border border-white/35 shadow-[0_3px_12px_rgba(0,0,0,0.2)] ${solid ? 'text-white backdrop-blur-md' : 'bg-white text-slate-800'}`}>
             {preview?.kind === 'image' && <img src={preview.url} alt="" className="h-full w-full object-cover" />}
             {preview?.kind === 'video' && <video src={preview.url} muted preload="metadata" className="h-full w-full object-cover" />}
             {preview?.kind === 'audio' && <div className="flex flex-col items-center gap-1"><Icon name="mic" size={28} /><span className="text-[12px] font-semibold">{type.label}</span></div>}
@@ -146,16 +163,19 @@ export function TaskAttachmentCard({ file, canTrash, onTrash, onError }: {
             {preview?.kind === 'file' && <div className="flex flex-col items-center gap-1"><Icon name="file" size={28} /><span className="text-[12px] font-semibold">{type.label}</span><span className="text-[9px]">Preview unavailable</span></div>}
             {!preview && <span className="text-[12px] font-semibold">{type.label}</span>}
           </div>
-          {!solid && <span className="absolute inset-x-1 top-1 flex h-5 items-center justify-center rounded-t-md text-[10px] font-bold text-white" style={{ backgroundColor: type.color }}>{type.label}</span>}
+          {!solid && <span className="absolute inset-x-2 top-2 flex h-5 items-center justify-center rounded-t-lg border-b border-white/20 text-[10px] font-bold text-white backdrop-blur-sm" style={{ backgroundColor: `color-mix(in srgb, ${type.color} 62%, #0b1933)` }}>{type.label}</span>}
         </div>
-        <div className="min-w-0 bg-[#242529] px-2.5 py-1.5 text-white">
+        <div className="min-w-0 border-t border-white/15 bg-[rgba(10,21,45,0.68)] px-3 py-2 text-white backdrop-blur-md">
           <p className="truncate text-[12px]" title={file.file_name}>{file.file_name}</p>
           <p className="truncate text-[10px] text-white/65">{formatDue(file.created_at)}</p>
         </div>
       </button>
-      {canTrash && <div className="absolute right-1 top-1 rounded-md bg-black/60 text-white">
-        <ActionMenu label={`Actions for ${file.file_name}`} items={[{ label: 'Move to trash', icon: 'trash', tone: 'danger', onSelect: onTrash }]} />
-      </div>}
+      <div className="absolute right-3 top-3 rounded-lg border border-white/30 bg-black/30 text-white backdrop-blur-md">
+        <ActionMenu label={`Actions for ${file.file_name}`} items={[
+          { label: 'Download', icon: 'download', onSelect: download },
+          canTrash && { label: 'Move to trash', icon: 'trash', tone: 'danger', onSelect: onTrash },
+        ]} />
+      </div>
     </div>
   )
 }

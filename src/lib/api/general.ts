@@ -1467,8 +1467,8 @@ export async function deleteTaskFile(file: GeneralFile) {
 }
 
 /** The bucket is private, so viewing goes through a ten-minute signed URL. */
-export async function generalFileUrl(path: string) {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 10)
+export async function generalFileUrl(path: string, downloadName?: string) {
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 10, downloadName ? { download: downloadName } : undefined)
   if (error) throw error
   return data.signedUrl
 }

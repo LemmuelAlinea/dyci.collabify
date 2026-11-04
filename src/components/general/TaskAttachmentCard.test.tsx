@@ -24,12 +24,12 @@ const file = (name: string): GeneralFile => ({
 
 let host: HTMLDivElement
 let root: ReturnType<typeof createRoot>
-async function render(name: string) {
+async function render(name: string, canTrash = false) {
   vi.stubGlobal('IntersectionObserver', undefined)
   host = document.createElement('div'); document.body.append(host); root = createRoot(host)
-  await act(async () => root.render(<TaskAttachmentCard file={file(name)} canTrash={false} onTrash={vi.fn()} onError={vi.fn()} />))
+  await act(async () => root.render(<TaskAttachmentCard file={file(name)} canTrash={canTrash} onTrash={vi.fn()} onError={vi.fn()} />))
 }
-afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.stubGlobal('fetch', originalFetch); vi.stubGlobal('IntersectionObserver', originalObserver); vi.mocked(generalFileUrl).mockClear() })
+afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.stubGlobal('fetch', originalFetch); vi.stubGlobal('IntersectionObserver', originalObserver); vi.mocked(generalFileUrl).mockClear(); vi.restoreAllMocks() })
 
 it('shows actual text in an attachment card', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, blob: async () => new Blob(['Project notes\nFinish the draft']) }))
@@ -72,4 +72,18 @@ it.each([
   await render(name)
   const previewBox = host.querySelector<HTMLDivElement>(`button[aria-label="Open ${name}"] > div`)
   expect(previewBox?.getAttribute('style')?.toLowerCase()).toContain(color.toLowerCase())
+})
+
+it('downloads the file above Move to trash in the action menu', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Preview unavailable')))
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+  await render('scope.docx', true)
+  await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Actions for scope.docx"]')!.click())
+  const items = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+  expect(items.map((item) => item.textContent?.trim())).toEqual(['Download', 'Move to trash'])
+  await act(async () => items[0].click())
+  await vi.waitFor(() => expect(generalFileUrl).toHaveBeenCalledWith('scope.docx', 'scope.docx'))
+  const downloaded = click.mock.instances[0] as HTMLAnchorElement
+  expect(downloaded.download).toBe('scope.docx')
+  expect(downloaded.href).toBe('https://example.test/file')
 })
