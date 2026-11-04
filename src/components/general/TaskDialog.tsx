@@ -19,7 +19,6 @@ import {
   deleteLog,
   deleteTask,
   GENERAL_FILE_LIMIT,
-  generalFileUrl,
   listComments,
   listFiles,
   listLogs,
@@ -48,6 +47,8 @@ import { ProjectFilePicker } from './ProjectFilePicker'
 import { RequestAccessButton } from './RequestAccessButton'
 import { BugBadge } from './BugBadge'
 import { TaskDependencies } from './TaskDependencies'
+import { TaskAttachmentCard } from './TaskAttachmentCard'
+import { TaskDescription } from './TaskDescription'
 import { TaskSubtasks } from './TaskSubtasks'
 import { PersonBadge } from './RoleBadge'
 import type { GeneralProjectState } from './useGeneralProject'
@@ -216,6 +217,7 @@ function TaskBody({
   const [loaded, setLoaded] = useState(false)
   const [busy, setBusy] = useState(false)
   const [activity, setActivity] = useState<'comments' | 'history' | 'time'>('comments')
+  const [attachmentsOpen, setAttachmentsOpen] = useState(true)
 
   const load = useCallback(async () => {
     try {
@@ -372,45 +374,25 @@ function TaskBody({
 
         <section>
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-[14px]">Files</h3>
+            <button type="button" aria-expanded={attachmentsOpen} onClick={() => setAttachmentsOpen((open) => !open)} className="flex min-w-0 items-center gap-2 text-left">
+              <Icon name={attachmentsOpen ? 'chevronDown' : 'chevronRight'} size={14} className="text-faint" />
+              <h3 className="text-[14px]">Attachments</h3>
+              {files.length > 0 && <span className="rounded bg-[var(--surface-sunken)] px-2 text-[12px] text-muted">{files.length}</span>}
+            </button>
             {!canAttach && !readOnly && <RequestAccessButton state={state} permission="edit_files" />}
           </div>
-          <ul className="mt-2 space-y-1.5">
-            {files.map((f) => (
-              <li key={f.id} className="flex items-center gap-2 rounded-lg border border-line px-3 py-2">
-                <Icon name="file" size={15} className="shrink-0 text-faint" />
-                <button
-                  type="button"
-                  onClick={() =>
-                    void generalFileUrl(f.file_path)
-                      .then((url) => window.open(url, '_blank', 'noopener'))
-                      .catch((err) => show(authErrorMessage(err, 'Could not open that file.'), 'error'))
-                  }
-                  className="min-w-0 flex-1 truncate text-left text-[13px] text-ink hover:underline"
-                >
-                  {f.file_name}
-                </button>
-                {!readOnly && (f.uploaded_by === me || state.can('edit_files')) && (
-                  <ActionMenu
-                    label={`Actions for ${f.file_name}`}
-                    disabled={busy}
-                    items={[
-                      {
-                        label: 'Move to trash',
-                        icon: 'trash',
-                        tone: 'danger',
-                        onSelect: () =>
-                          void act(() => trashTaskFile(f.id), 'File moved to Trash. It stays there for 30 days.', 'Could not move it to Trash.'),
-                      },
-                    ]}
-                  />
-                )}
-              </li>
-            ))}
-            {loaded && files.length === 0 && <li className="text-[13px] text-faint">No files.</li>}
-          </ul>
-          {canAttach && (
-            <div className="mt-2 flex flex-wrap items-start gap-2">
+          {attachmentsOpen && <>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+              {files.map((file) => <TaskAttachmentCard
+                key={file.id}
+                file={file}
+                canTrash={!readOnly && (file.uploaded_by === me || state.can('edit_files')) && !busy}
+                onTrash={() => void act(() => trashTaskFile(file.id), 'File moved to Trash. It stays there for 30 days.', 'Could not move it to Trash.')}
+                onError={(message) => show(message, 'error')}
+              />)}
+              {loaded && files.length === 0 && <p className="text-[13px] text-faint">No attachments.</p>}
+            </div>
+            {canAttach && <div className="mt-2 flex flex-wrap items-start gap-2">
               <FilePicker
                 onPick={(file) =>
                   act(() => uploadTaskFile(task.project_id, task.id, file), 'File added', 'Could not upload that file.')
@@ -435,8 +417,8 @@ function TaskBody({
                   )
                 }
               />
-            </div>
-          )}
+            </div>}
+          </>}
         </section>
 
         <section>
@@ -616,10 +598,7 @@ function TaskDetails({
     return (
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <div className="order-2 min-w-0 space-y-6 lg:order-1">
-          <section className="space-y-2 text-[14px]">
-            <h3>Description</h3>
-            <p className="whitespace-pre-wrap break-words text-ink">{task.description || 'No description.'}</p>
-          </section>
+          <TaskDescription value={task.description} disabled />
           {children}
         </div>
         <aside className="order-1 min-w-0 lg:order-2">
@@ -683,18 +662,7 @@ function TaskDetails({
       <div className="order-2 min-w-0 space-y-6 lg:order-1">
         {error && <Alert tone="error">{error}</Alert>}
         <form id={formId} onSubmit={(e) => { e.preventDefault(); void save() }}>
-          <Field label="Description" optional>
-            {(id) => (
-              <Textarea
-                id={id}
-                rows={6}
-                maxLength={LIMIT.generalDescription}
-                value={description}
-                disabled={!canEditSchedule}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            )}
-          </Field>
+          <TaskDescription value={description} disabled={!canEditSchedule} onChange={setDescription} />
         </form>
         {children}
       </div>
@@ -792,6 +760,7 @@ function CommentForm({ onSend }: { onSend: (body: string) => Promise<void> }) {
         placeholder="Write a comment"
         value={body}
         onChange={(e) => setBody(e.target.value)}
+        className="!resize-none"
       />
       <div className="flex justify-end">
         <Button type="submit" size="sm" loading={busy} disabled={!body.trim()}>

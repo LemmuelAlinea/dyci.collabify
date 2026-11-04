@@ -1,4 +1,4 @@
-import type { SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import type { ComponentPropsWithRef, SelectHTMLAttributes } from 'react'
 import { Icon } from './Icon'
 
 const CONTROL =
@@ -41,7 +41,7 @@ export function Textarea({
   className = '',
   rows = 4,
   ...rest
-}: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+}: ComponentPropsWithRef<'textarea'>) {
   return (
     <textarea
       rows={rows}

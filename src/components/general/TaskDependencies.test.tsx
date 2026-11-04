@@ -56,6 +56,17 @@ it('keeps suggested tasks hidden until someone searches', async () => {
   expect(picks()).toEqual(['Task other'])
 })
 
+it('collapses and reopens the waiting list', async () => {
+  await render(stateWith({ dependencies: [] }))
+  const toggle = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.includes('Waiting for'))!
+  expect(toggle.getAttribute('aria-expanded')).toBe('true')
+  await act(async () => toggle.click())
+  expect(toggle.getAttribute('aria-expanded')).toBe('false')
+  expect(document.body.textContent).not.toContain('Not waiting for anything.')
+  await act(async () => toggle.click())
+  expect(document.body.textContent).toContain('Not waiting for anything.')
+})
+
 it('shows no waiting note once every blocker is done', async () => {
   await render(stateWith({ tasks: [task, t('blocker', { status: 'done' })] }))
   expect(document.body.textContent).toContain('Task blocker')

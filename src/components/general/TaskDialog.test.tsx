@@ -179,3 +179,36 @@ it('discards an unsaved title when Cancel closes the task', async () => {
     expect(title.value).toBe('Build page')
   } finally { await act(async () => root.unmount()); container.remove() }
 })
+
+it('expands an overflowing description and keeps the comment box fixed', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={workState()} taskId="main" onClose={vi.fn()} />))
+    const description = document.querySelector<HTMLTextAreaElement>('form#task-details-main textarea')!
+    Object.defineProperty(description, 'scrollHeight', { configurable: true, value: 420 })
+    Object.defineProperty(description, 'clientHeight', { configurable: true, value: 190 })
+    await act(async () => window.dispatchEvent(new Event('resize')))
+    const more = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === 'Show more')!
+    expect(more).toBeDefined()
+    expect(description.className).toContain('!resize-none')
+    await act(async () => more.click())
+    expect(description.style.height).toBe('422px')
+    expect(document.body.textContent).toContain('Show less')
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === 'Show less')!.click())
+    expect(description.style.height).toBe('')
+    expect(document.querySelector<HTMLTextAreaElement>('[aria-label="Write a comment"]')!.className).toContain('!resize-none')
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('collapses attachments without hiding the section heading', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={workState()} taskId="main" onClose={vi.fn()} />))
+    const toggle = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === 'Attachments')!
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(document.body.textContent).toContain('No attachments.')
+    await act(async () => toggle.click())
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(document.body.textContent).not.toContain('No attachments.')
+  } finally { await act(async () => root.unmount()); container.remove() }
+})

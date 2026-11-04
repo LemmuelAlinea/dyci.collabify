@@ -57,6 +57,7 @@ export function TaskDependencies({
   act: TaskAct
 }) {
   const [query, setQuery] = useState('')
+  const [expanded, setExpanded] = useState(true)
   if (!state.project || state.project.class_board_id) return null
 
   const rules = state.project.taskRules ?? DEFAULT_TASK_RULES
@@ -83,12 +84,17 @@ export function TaskDependencies({
 
   return (
     <section>
-      <h3 className="text-[14px]">Waiting for</h3>
+      <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="flex w-full items-center gap-2 text-left">
+        <Icon name={expanded ? 'chevronDown' : 'chevronRight'} size={14} className="text-faint" />
+        <h3 className="flex-1 text-[14px]">Waiting for</h3>
+        {blockers.length > 0 && <span className="rounded bg-[var(--surface-sunken)] px-2 text-[12px] text-muted">{blockers.length}</span>}
+      </button>
       {open > 0 && task.status !== 'done' && (
         <p className="mt-2 text-[13px] text-warning-700 dark:text-warning-300">
           Waiting for {open} task{open === 1 ? '' : 's'}. It can't be marked done until they are.
         </p>
       )}
+      {expanded && <>
       <ul className="mt-2 space-y-1.5">
         {blockers.map((b) => (
           <li key={b.id} className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[13px]">
@@ -149,6 +155,7 @@ export function TaskDependencies({
           {matches.length > PICKER_LIMIT && <p className="text-[12px] text-muted">Showing 8 of {matches.length} tasks. Type to narrow.</p>}
         </div>
       )}
+      </>}
     </section>
   )
 }
