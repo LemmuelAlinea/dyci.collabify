@@ -33,9 +33,9 @@ it('locks dates and description for a holder but lets the receiving lead edit th
     await act(async () => root.render(<TaskDialog state={{ ...base, viewerId: 'lead', myRole: 'member', tasks: [unassigned] } as unknown as GeneralProjectState} taskId="task" onClose={vi.fn()} />))
     expect([...document.querySelectorAll<HTMLInputElement>('input[type="datetime-local"]')].every(input => !input.disabled)).toBe(true)
     expect(document.querySelector<HTMLTextAreaElement>('textarea')!.disabled).toBe(false)
-    expect(document.querySelector<HTMLInputElement>('input[maxlength]')!.disabled).toBe(true)
+    expect(document.querySelector('header input[aria-label="Task title"]')).toBeNull()
     await act(async () => { const input = document.querySelector('textarea')!; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(input, 'Lead update'); input.dispatchEvent(new Event('input', { bubbles: true })) })
-    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'Save task')!.click())
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'Save changes')!.click())
     expect(updateTask).toHaveBeenCalledWith('task', { description: 'Lead update', due_at: null, starts_at: null })
   } finally { await act(async () => root.unmount()); container.remove(); vi.mocked(updateTask).mockClear() }
 })
@@ -91,11 +91,11 @@ it("saves a changed priority and leaves it out when unchanged", async () => {
     const select = document.querySelector<HTMLSelectElement>("[aria-label=\"Priority\"], select#priority") ?? [...document.querySelectorAll<HTMLSelectElement>("select")].find(el => [...el.options].some(o => o.value === "urgent"))!
     expect([...select.options].map(o => o.value)).toEqual(["urgent", "high", "normal", "low"])
     await act(async () => { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(select, "high"); select.dispatchEvent(new Event("change", { bubbles: true })) })
-    await act(async () => [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Save task")!.click())
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Save changes")!.click())
     expect(updateTask).toHaveBeenCalledWith("main", expect.objectContaining({ priority: "high" }))
     vi.mocked(updateTask).mockClear()
     await act(async () => root.render(<TaskDialog state={workState()} taskId="sub" onClose={vi.fn()} />))
-    await act(async () => [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Save task")!.click())
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Save changes")!.click())
     expect(vi.mocked(updateTask).mock.calls[0][1]).not.toHaveProperty("priority")
   } finally { await act(async () => root.unmount()); container.remove(); vi.mocked(updateTask).mockClear() }
 })
@@ -132,5 +132,50 @@ it("does not offer the Done stage while the task waits for an open task", async 
     const stage = [...document.querySelectorAll<HTMLSelectElement>("select")].find(el => [...el.options].some(o => o.textContent === "Done"))!
     expect([...stage.options].find(o => o.textContent === "Done")!.disabled).toBe(true)
     expect(document.body.textContent).toContain("can't be marked done")
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('opens task history on demand while keeping comments available', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={workState()} taskId="main" onClose={vi.fn()} />))
+    expect(document.querySelector('[aria-label="Write a comment"]')).not.toBeNull()
+    expect(document.body.textContent).not.toContain('Nothing yet.')
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'History')!.click())
+    expect(document.body.textContent).toContain('Nothing yet.')
+    expect(document.querySelector('[aria-label="Write a comment"]')).toBeNull()
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('keeps archiving in the task actions menu', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={workState()} taskId="main" onClose={vi.fn()} />))
+    expect(document.querySelector('[role="menuitem"]')).toBeNull()
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Task actions"]')!.click())
+    expect(document.querySelector('[role="menuitem"]')?.textContent).toContain('Archive task')
+  } finally { await act(async () => root.unmount()); container.remove() }
+})
+
+it('edits the title in the header and saves it from the footer', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={workState()} taskId="main" onClose={vi.fn()} />))
+    const title = document.querySelector<HTMLInputElement>('[role="dialog"] header input[aria-label="Task title"]')!
+    expect(title.value).toBe('Build page')
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(title, 'Build landing page'); title.dispatchEvent(new Event('input', { bubbles: true })) })
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('footer button')].find(button => button.textContent === 'Save changes')!.click())
+    expect(updateTask).toHaveBeenCalledWith('main', expect.objectContaining({ title: 'Build landing page' }))
+  } finally { await act(async () => root.unmount()); container.remove(); vi.mocked(updateTask).mockClear() }
+})
+
+it('discards an unsaved title when Cancel closes the task', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
+  try {
+    await act(async () => root.render(<TaskDialog state={workState()} taskId="main" onClose={vi.fn()} />))
+    const title = document.querySelector<HTMLInputElement>('[aria-label="Task title"]')!
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(title, 'Unsaved title'); title.dispatchEvent(new Event('input', { bubbles: true })) })
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('footer button')].find(button => button.textContent === 'Cancel')!.click())
+    expect(title.value).toBe('Build page')
   } finally { await act(async () => root.unmount()); container.remove() }
 })

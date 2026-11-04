@@ -74,10 +74,10 @@ export function TaskDependencies({
   const excluded = new Set<string>([task.id, ...blockers.map((b) => b.id), ...waitingOnTask(state, task.id)])
   if (task.parent_id) excluded.add(task.parent_id)
   const needle = query.trim().toLowerCase()
-  const matches = picking
+  const matches = picking && needle
     ? state.tasks
         .filter((t) => !excluded.has(t.id) && t.parent_id !== task.id && !t.archived_at)
-        .filter((t) => !needle || t.title.toLowerCase().includes(needle))
+        .filter((t) => t.title.toLowerCase().includes(needle))
     : []
   const candidates = matches.slice(0, PICKER_LIMIT)
 
@@ -121,7 +121,7 @@ export function TaskDependencies({
             onChange={(e) => setQuery(e.target.value)}
             className="!h-9 !text-[13px]"
           />
-          <ul className="space-y-1">
+          {needle && <ul className="space-y-1">
             {candidates.map((t) => (
               <li key={t.id}>
                 <button
@@ -145,7 +145,7 @@ export function TaskDependencies({
               </li>
             ))}
             {!candidates.length && <li className="px-3 text-[13px] text-faint">No tasks to add.</li>}
-          </ul>
+          </ul>}
           {matches.length > PICKER_LIMIT && <p className="text-[12px] text-muted">Showing 8 of {matches.length} tasks. Type to narrow.</p>}
         </div>
       )}

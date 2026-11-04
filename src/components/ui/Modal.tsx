@@ -9,6 +9,7 @@ type Props = {
   open: boolean
   onClose: () => void
   title: string
+  titleContent?: ReactNode
   description?: ReactNode
   /** The trail above the title, such as a subtask's parent task. */
   breadcrumb?: ReactNode
@@ -71,6 +72,7 @@ export function Modal({
   open,
   onClose,
   title,
+  titleContent,
   description,
   breadcrumb,
   children,
@@ -229,7 +231,7 @@ export function Modal({
                 {breadcrumb}
               </nav>
             )}
-            <h2 className={tone.title}>{title}</h2>
+            {titleContent ?? <h2 className={tone.title}>{title}</h2>}
             {description && <p className={`mt-1 text-[13px] ${tone.description}`}>{description}</p>}
           </div>
           <div className="-mt-1 -mr-2 flex shrink-0 items-center gap-1">

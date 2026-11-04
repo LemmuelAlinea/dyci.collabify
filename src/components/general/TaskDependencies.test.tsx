@@ -49,6 +49,13 @@ it('lists blockers and says the task cannot be done while one is open', async ()
   expect(document.body.textContent).toContain("Waiting for 1 task. It can't be marked done until they are.")
 })
 
+it('keeps suggested tasks hidden until someone searches', async () => {
+  await render(stateWith())
+  expect(picks()).toEqual([])
+  await act(async () => setValue(searchBox()!, 'oth'))
+  expect(picks()).toEqual(['Task other'])
+})
+
 it('shows no waiting note once every blocker is done', async () => {
   await render(stateWith({ tasks: [task, t('blocker', { status: 'done' })] }))
   expect(document.body.textContent).toContain('Task blocker')
@@ -57,6 +64,7 @@ it('shows no waiting note once every blocker is done', async () => {
 
 it('adds a dependency from the picker, leaving out itself, its subtasks and linked tasks', async () => {
   await render(stateWith())
+  await act(async () => setValue(searchBox()!, 'task'))
   expect(picks()).toEqual(expect.arrayContaining(['Task other', 'Task mom']))
   expect(picks()).not.toContain('Task main')
   expect(picks()).not.toContain('Task sub')
@@ -70,12 +78,14 @@ it('adds a dependency from the picker, leaving out itself, its subtasks and link
 it('leaves the parent of a subtask out of the picker', async () => {
   const sub = t('sub', { parent_id: 'mom', assignee_ids: ['worker'] })
   await render(stateWith({ tasks: [sub, t('mom'), t('other')], dependencies: [] }), sub)
+  await act(async () => setValue(searchBox()!, 'task'))
   expect(picks()).toContain('Task other')
   expect(picks()).not.toContain('Task mom')
 })
 
 it('leaves out a task that already waits for this one', async () => {
   await render(stateWith({ dependencies: [{ task_id: 'other', depends_on_id: 'main' }] }))
+  await act(async () => setValue(searchBox()!, 'task'))
   expect(picks()).not.toContain('Task other')
   expect(picks()).toContain('Task mom')
 })
@@ -85,6 +95,7 @@ it('tells the viewer to narrow a picker with more than eight matches', async () 
     tasks: [task, ...Array.from({ length: 9 }, (_, i) => t(`choice-${i}`))],
     dependencies: [],
   }))
+  await act(async () => setValue(searchBox()!, 'choice'))
   expect(picks()).toHaveLength(8)
   expect(document.body.textContent).toContain('Type to narrow')
 })
