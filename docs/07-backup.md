@@ -853,6 +853,9 @@ within 2 days (by design; re-check at deploy). Suite:
 - `run_general_workflow_rules`, `apply_general_workflow_rule`, the fire functions and their
   triggers `general_tasks_zzz_workflow` and `general_task_reminders_workflow` (after insert on
   `general_task_reminders`), and `general_workflow_rule_sentence`;
+- `general_workflow_overdue_runs` and `run_due_general_workflow_rules`, scheduled each minute
+  as `collabify-workflow-overdue`; `clear_general_task_reminder` also clears its stamp when a
+  deadline moves later, while the daily reminder keeps its 08:00 Manila schedule;
 - a redefinition of `mark_project_reminders_sent` (previous owner
   `project-notification-rules.sql`) that sets `collabify.reminder_premark` around its stamps, so
   the silent pre-mark never fires "becomes overdue" rules.
@@ -866,10 +869,9 @@ Re-running `work-task-handoff.sql` or `project-qa.sql` means re-running
 stay last. Both files' copies of the history kinds check list `rule_applied`, so those re-runs no
 longer refuse or drop a rule's history rows. Re-running `project-notification-rules.sql` also means
 re-running `project-workflow-rules.sql` afterwards: it puts back `mark_project_reminders_sent`
-without the pre-mark flag. Its own closing pre-mark runs unflagged, so it may fire "becomes
-overdue" rules for tasks newly overdue since the last morning run. That is harmless (those rules
-run a few hours early); `project-workflow-rules.sql` keeps its redefinition, which the morning
-run and every later re-run use. The same
+without the pre-mark flag and `clear_general_task_reminder` without the workflow stamp reset.
+Its closing pre-mark may fire newly overdue rules before the workflow file restores the flag.
+The minute poll and daily fallback share a stamp, so neither repeats an action. The same
 holds for any file whose re-run calls for one of those three, so a chain above that ends at
 `project-notification-rules.sql` or `anon-lockdown.sql` and passes any of them takes
 `project-workflow-rules.sql` before `anon-lockdown.sql`. Suite:

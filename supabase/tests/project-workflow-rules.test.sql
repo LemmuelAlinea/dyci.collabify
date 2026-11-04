@@ -926,6 +926,40 @@ begin
                  where user_id = v_dev and general_task_id = t2 and type = 'workflow_rule'
                    and title = 'Zz WFR late after is overdue'));
 
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  t := pg_temp.team_task(p, 'Zz WFR rule added late', ta, v_dev, v_pm, 1);
+  update public.general_tasks set due_at = now() - interval '1 minute' where id = t;
+  perform pg_temp.act_as_service();
+  perform public.run_due_general_workflow_rules(now(), p);
+  perform pg_temp.act_as(v_pm);
+  r1 := pg_temp.rule(p, 'task_overdue', null, 'set_priority', 'urgent');
+  perform pg_temp.act_as_service();
+  perform public.run_due_general_workflow_rules(now(), p);
+  perform pg_temp.must_be('a rule added after the deadline does not run retroactively',
+    (select priority = 'normal' from public.general_tasks where id = t)
+    and pg_temp.applied(t, r1) = 0);
+
+  perform pg_temp.act_as(v_pm);
+  delete from public.general_workflow_rules where project_id = p;
+  r1 := pg_temp.rule(p, 'task_overdue', null, 'set_priority', 'urgent');
+  t := pg_temp.team_task(p, 'Zz WFR same-day overdue', ta, v_dev, v_pm, 1);
+  update public.general_tasks set due_at = now() - interval '1 minute' where id = t;
+  perform pg_temp.act_as_service();
+  perform public.run_due_general_workflow_rules(now(), p);
+  perform pg_temp.must_be('same-day overdue changes priority at the deadline',
+    (select priority = 'urgent' from public.general_tasks where id = t)
+    and pg_temp.applied(t, r1) = 1);
+  perform public.run_due_general_workflow_rules(now(), p);
+  perform pg_temp.must_be('overdue poll does not repeat a rule', pg_temp.applied(t, r1) = 1);
+  perform pg_temp.act_as(v_pm);
+  update public.general_tasks set due_at = now() + interval '1 minute', priority = 'normal' where id = t;
+  perform pg_temp.act_as_service();
+  perform public.run_due_general_workflow_rules(now() + interval '2 minutes', p);
+  perform pg_temp.must_be('a postponed deadline can fire again',
+    (select priority = 'urgent' from public.general_tasks where id = t)
+    and pg_temp.applied(t, r1) = 2);
+
   ------------------------------------------------------------ no chains
   perform pg_temp.act_as(v_pm);
   delete from public.general_workflow_rules where project_id = p;

@@ -72,7 +72,8 @@
 --
 -- The runner, run_general_workflow_rules(task, trigger, actor, context):
 --   fired by general_tasks_zzz_workflow (after update, after every other
---   general_tasks trigger) and general_task_reminders_workflow (after insert):
+--   general_tasks trigger), run_due_general_workflow_rules (each minute),
+--   and general_task_reminders_workflow (daily fallback):
 --     task_released    routing_state became released (not a subtask, which
 --                      follows its parent): a first send and a re-send after a
 --                      return, never a reroute
@@ -82,9 +83,8 @@
 --                      stage fires only task_released.
 --     priority_raised  the priority went from below the rule's level to it or
 --                      above (High means High or Urgent)
---     task_overdue     the morning run's overdue stamp; not the silent
---                      pre-mark of mark_project_reminders_sent, which sets
---                      collabify.reminder_premark around its stamps
+--     task_overdue     the first poll after the due time; the daily reminder
+--                      is a fallback, while the silent pre-mark does not fire
 --   Only released, live tasks of live work projects; class boards never.
 --   The enabled rules for the trigger run in creation order, each in its own
 --   savepoint, with collabify.workflow_rule_run on (so a rule's own change
@@ -132,12 +132,10 @@
 -- afterwards, then anon-lockdown.sql, so the runner and its triggers stay last
 -- in the chain. Their copies of general_task_events_kind list rule_applied, so
 -- those re-runs no longer refuse or drop a rule's history rows. Re-running
--- project-notification-rules.sql means re-running this file afterwards too: it
--- puts back mark_project_reminders_sent without the pre-mark flag. Its own
--- closing pre-mark runs unflagged, so it may fire "becomes overdue" rules for
--- tasks newly overdue since the last morning run. That is harmless (those
--- rules run a few hours early); this file keeps its redefinition, which the
--- morning run and every later re-run use.
+-- project-notification-rules.sql means re-running this file afterwards too:
+-- it replaces mark_project_reminders_sent and clear_general_task_reminder.
+-- Its closing pre-mark may fire newly overdue rules before this file restores
+-- the silent pre-mark flag; the minute poll and daily fallback share one stamp.
 --
 -- Idempotent. Safe to re-run.
 
@@ -803,17 +801,94 @@ create trigger general_tasks_zzz_workflow
   execute function public.fire_general_workflow_rules();
 
 /**
- * The morning run's overdue stamp sets off "becomes overdue", once per stamp
- * (a due date moved later clears the stamp, so a later overdue fires again).
- * mark_project_reminders_sent's silent pre-mark (collabify.reminder_premark)
- * does not.
+ * Workflow overdue rules need their own stamp: task reminders run once each
+ * morning, while a rule must act when the due time passes.
  */
+create table if not exists public.general_workflow_overdue_runs (
+  task_id uuid primary key references public.general_tasks (id) on delete cascade
+);
+
+alter table public.general_workflow_overdue_runs enable row level security;
+revoke all on table public.general_workflow_overdue_runs from public, anon, authenticated;
+
+-- Tasks already handled by the daily reminder must not fire again on rollout.
+insert into public.general_workflow_overdue_runs (task_id)
+select task_id from public.general_task_reminders
+on conflict do nothing;
+
+create or replace function public.clear_general_task_reminder()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.general_task_reminders where task_id = new.id;
+  delete from public.general_workflow_overdue_runs where task_id = new.id;
+  return null;
+end;
+$$;
+
+create or replace function public.run_due_general_workflow_rules(
+  p_now timestamptz default now(), p_project uuid default null)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_task uuid;
+  v_count int := 0;
+begin
+  for v_task in
+    with due as (
+      select t.id
+        from public.general_tasks t
+        join public.general_projects gp on gp.id = t.project_id
+       where (p_project is null or t.project_id = p_project)
+         and gp.class_board_id is null
+         and gp.archived_at is null and gp.trashed_at is null
+         and t.routing_state = 'released'
+         and t.archived_at is null and t.trashed_at is null
+         and t.status <> 'done' and t.due_at <= p_now
+         and not exists (select 1 from public.general_workflow_overdue_runs x
+                          where x.task_id = t.id)
+    ), stamped as (
+      insert into public.general_workflow_overdue_runs (task_id)
+      select id from due
+      on conflict do nothing
+      returning task_id
+    )
+    select task_id from stamped
+  loop
+    perform public.run_general_workflow_rules(v_task, 'task_overdue', null);
+    v_count := v_count + 1;
+  end loop;
+  return v_count;
+end;
+$$;
+
+-- Daily reminders remain at 08:00 Manila; workflow deadlines poll each minute.
+do $$
+begin
+  perform cron.unschedule('collabify-workflow-overdue');
+exception when others then null; end $$;
+
+select cron.schedule(
+  'collabify-workflow-overdue',
+  '* * * * *',
+  $cron$ select public.run_due_general_workflow_rules() $cron$
+);
+
+-- The daily reminder is a fallback if its stamp beats the minute poll.
 create or replace function public.fire_general_workflow_overdue()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_task uuid;
 begin
   if not exists (select 1 from public.general_workflow_rules w
                   where w.project_id = new.project_id and w.enabled) then
@@ -823,7 +898,11 @@ begin
      or coalesce(current_setting('collabify.workflow_rule_run', true), '') = 'on' then
     return null;
   end if;
-  perform public.run_general_workflow_rules(new.task_id, 'task_overdue', auth.uid());
+  insert into public.general_workflow_overdue_runs (task_id)
+  values (new.task_id) on conflict do nothing returning task_id into v_task;
+  if v_task is not null then
+    perform public.run_general_workflow_rules(v_task, 'task_overdue', null);
+  end if;
   return null;
 end;
 $$;
@@ -912,6 +991,7 @@ revoke all on function public.apply_general_workflow_rule(public.general_workflo
 revoke all on function public.run_general_workflow_rules(uuid, text, uuid, jsonb) from public, anon, authenticated;
 revoke all on function public.fire_general_workflow_rules() from public, anon, authenticated;
 revoke all on function public.fire_general_workflow_overdue() from public, anon, authenticated;
+revoke all on function public.run_due_general_workflow_rules(timestamptz, uuid) from public, anon, authenticated;
 revoke all on function public.mark_project_reminders_sent(timestamptz, uuid) from public, anon, authenticated;
 revoke all on function public.general_can_manage_workflow(uuid) from public, anon;
 grant execute on function public.general_can_manage_workflow(uuid) to authenticated;

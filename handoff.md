@@ -4361,3 +4361,15 @@ Implementation through `fedab5f` on `main`.
   Word, multi-sheet Excel, text/scanned PDF, unknown and duplicate names, Add, Replace
   and stale review with a PM/coordinator account. Do not mark that walk complete until
   the owner confirms the result.
+
+## Workflow overdue timing fix (2026-11-04)
+
+The overdue workflow trigger used the daily reminder stamp, which runs at 08:00 Manila
+and selects tasks only after their due calendar day. A task due at 05:00 therefore
+remained Normal even after the deadline. `project-workflow-rules.sql` now polls due
+timestamps each minute with its own once-per-task stamp. Moving the deadline later
+clears that stamp. Daily task reminders retain their existing schedule and use the
+shared stamp as a fallback without repeating a rule. The migration and
+`anon-lockdown.sql` are live; the two reported tasks and one other due task became
+Urgent. The build, 1,760 Vitest tests and all 100 SQL suites pass. The updated
+graph was rebuilt.

@@ -209,8 +209,8 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   and before `anon-lockdown.sql`. Re-running `project-notification-rules.sql`, `work-task-handoff.sql`
   or `project-qa.sql` means re-running it afterwards, so the runner and its triggers stay last; the
   latter two list `rule_applied` in their history kinds check, so their re-runs keep rule history.
-  A `project-notification-rules.sql` re-run's unflagged pre-mark may fire "becomes overdue" rules a
-  few hours early (harmless). "When {trigger}, then {action}" rules
+  A `project-notification-rules.sql` re-run's unflagged pre-mark may fire newly overdue rules
+  before the workflow file restores the silent pre-mark flag. "When {trigger}, then {action}" rules
   (`general_workflow_rules`, up to 20 per project) are written by the project manager and
   coordinators (`general_can_manage_workflow`) and run for the project with their authority, limited
   by the rule limits; the one flag `collabify.workflow_rule_run` stops chains. Only released, live
@@ -220,7 +220,9 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   applied action writes a `rule_applied` history row with a null actor; the app folds the null-actor
   row a writing rule leaves (move, priority, assign; never notify) into the rule line
   (`foldRuleCompanions`, used by the task history and the report timeline and CSV). It redefines `mark_project_reminders_sent`
-  to set `collabify.reminder_premark`. Suite: `supabase/tests/project-workflow-rules.test.sql`.
+  to set `collabify.reminder_premark`. `collabify-workflow-overdue` polls due times each minute
+  with its own stamp; the daily reminder is a fallback and retains its 08:00 Manila schedule.
+  Suite: `supabase/tests/project-workflow-rules.test.sql`.
 
 ## Security invariants
 
