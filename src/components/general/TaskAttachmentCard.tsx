@@ -12,6 +12,25 @@ type Preview =
   | { kind: 'file'; text: string }
 
 const TEXT_EXTENSIONS = new Set(['txt', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'ts', 'tsx', 'jsx', 'py', 'sql', 'log', 'yml', 'yaml', 'ini', 'toml', 'svg'])
+const CODE_EXTENSIONS = new Set(['html', 'css', 'js', 'ts', 'tsx', 'jsx', 'py', 'sql', 'json', 'xml', 'yml', 'yaml', 'toml'])
+
+function fileType(file: GeneralFile) {
+  const extension = file.file_name.split('.').pop()?.toLowerCase() ?? ''
+  const mime = file.mime_type ?? ''
+  const label = extension.toUpperCase()
+  if (['doc', 'docx', 'odt', 'rtf'].includes(extension)) return { label, color: '#3B82F6' }
+  if (extension === 'pdf') return { label: 'PDF', color: '#EF4444' }
+  if (['xls', 'xlsx', 'xlsm', 'csv'].includes(extension)) return { label, color: '#22C55E' }
+  if (['ppt', 'pptx', 'odp'].includes(extension)) return { label, color: '#F97316' }
+  if (mime.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(extension)) return { label, color: '#A855F7' }
+  if (mime.startsWith('video/') || ['mp4', 'mov', 'webm', 'avi'].includes(extension)) return { label, color: '#F43F5E' }
+  if (mime.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'm4a'].includes(extension)) return { label, color: '#06B6D4' }
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)) return { label, color: '#D97706' }
+  if (CODE_EXTENSIONS.has(extension)) return { label: 'CODE', color: '#38BDF8' }
+  if (['db', 'sqlite', 'sqlite3', 'mdb', 'accdb'].includes(extension)) return { label: 'DB', color: '#14B8A6' }
+  if (['exe', 'msi', 'dll', 'apk'].includes(extension)) return { label: 'EXE', color: '#64748B' }
+  return { label: 'FILE', color: '#6B7280' }
+}
 
 async function attachmentPreview(file: GeneralFile, url: string): Promise<Preview> {
   const extension = file.file_name.split('.').pop()?.toLowerCase() ?? ''
@@ -81,6 +100,8 @@ export function TaskAttachmentCard({ file, canTrash, onTrash, onError }: {
   const [preview, setPreview] = useState<Preview | null>(null)
   const card = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(typeof IntersectionObserver === 'undefined')
+  const type = fileType(file)
+  const solid = !preview || preview.kind === 'file' || preview.kind === 'audio'
 
   useEffect(() => {
     if (visible || !card.current) return
@@ -116,13 +137,16 @@ export function TaskAttachmentCard({ file, canTrash, onTrash, onError }: {
         }}
         className="block w-full text-left"
       >
-        <div className="flex h-28 items-center justify-center overflow-hidden bg-white text-slate-800">
-          {preview?.kind === 'image' && <img src={preview.url} alt="" className="h-full w-full object-cover" />}
-          {preview?.kind === 'video' && <video src={preview.url} muted preload="metadata" className="h-full w-full object-cover" />}
-          {preview?.kind === 'audio' && <Icon name="mic" size={34} className="text-slate-500" />}
-          {preview?.kind === 'text' && <pre className="h-full w-full overflow-hidden whitespace-pre-wrap break-words p-2 text-[8px] leading-3">{preview.text.slice(0, 900) || 'Empty file'}</pre>}
-          {preview?.kind === 'file' && <div className="flex flex-col items-center gap-1 text-slate-500"><Icon name="file" size={32} /><span className="text-[11px] font-semibold">{preview.text}</span><span className="text-[9px]">Preview unavailable</span></div>}
-          {!preview && <Icon name="file" size={28} className="text-slate-300" />}
+        <div className="relative h-28 overflow-hidden p-1" style={{ backgroundColor: type.color }}>
+          <div className={`flex h-full w-full items-center justify-center overflow-hidden rounded-md ${solid ? 'text-white' : 'bg-white text-slate-800'}`}>
+            {preview?.kind === 'image' && <img src={preview.url} alt="" className="h-full w-full object-cover" />}
+            {preview?.kind === 'video' && <video src={preview.url} muted preload="metadata" className="h-full w-full object-cover" />}
+            {preview?.kind === 'audio' && <div className="flex flex-col items-center gap-1"><Icon name="mic" size={28} /><span className="text-[12px] font-semibold">{type.label}</span></div>}
+            {preview?.kind === 'text' && <pre className="h-full w-full overflow-hidden whitespace-pre-wrap break-words p-2 pt-7 text-[8px] leading-3">{preview.text.slice(0, 900) || 'Empty file'}</pre>}
+            {preview?.kind === 'file' && <div className="flex flex-col items-center gap-1"><Icon name="file" size={28} /><span className="text-[12px] font-semibold">{type.label}</span><span className="text-[9px]">Preview unavailable</span></div>}
+            {!preview && <span className="text-[12px] font-semibold">{type.label}</span>}
+          </div>
+          {!solid && <span className="absolute inset-x-1 top-1 flex h-5 items-center justify-center rounded-t-md text-[10px] font-bold text-white" style={{ backgroundColor: type.color }}>{type.label}</span>}
         </div>
         <div className="min-w-0 bg-[#242529] px-2.5 py-1.5 text-white">
           <p className="truncate text-[12px]" title={file.file_name}>{file.file_name}</p>

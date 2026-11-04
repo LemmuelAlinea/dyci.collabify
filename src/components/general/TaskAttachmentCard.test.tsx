@@ -61,3 +61,15 @@ it('shows spreadsheet cells in its card', async () => {
   await render('budget.xlsx')
   await vi.waitFor(() => expect(host.querySelector('pre')?.textContent).toContain('Item  |  Cost'), { timeout: 5000 })
 })
+
+it.each([
+  ['report.docx', '#3B82F6'], ['report.pdf', '#EF4444'], ['budget.xlsx', '#22C55E'],
+  ['slides.pptx', '#F97316'], ['photo.png', '#A855F7'], ['clip.mp4', '#F43F5E'],
+  ['voice.mp3', '#06B6D4'], ['bundle.zip', '#D97706'], ['app.ts', '#38BDF8'],
+  ['data.sqlite', '#14B8A6'], ['setup.exe', '#64748B'], ['unknown.bin', '#6B7280'],
+])('colors %s attachment previews with %s', async (name, color) => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Preview unavailable')))
+  await render(name)
+  const previewBox = host.querySelector<HTMLDivElement>(`button[aria-label="Open ${name}"] > div`)
+  expect(previewBox?.getAttribute('style')?.toLowerCase()).toContain(color.toLowerCase())
+})
