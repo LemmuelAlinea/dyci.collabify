@@ -95,7 +95,9 @@ export default function SpaceHome() {
           <BentoCell>
             <Reveal once delay={0.12}>
               <DashSection icon="calendar" title="Coming up">
-                <ComingUpPanel days={days} projectName={projectName} now={now} />
+                <div className="max-h-[19.5rem] overflow-y-auto overscroll-contain pr-1">
+                  <ComingUpPanel days={days} projectName={projectName} now={now} />
+                </div>
               </DashSection>
             </Reveal>
           </BentoCell>
