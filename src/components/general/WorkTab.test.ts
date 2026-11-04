@@ -9,7 +9,7 @@ import type { GeneralProjectState } from './useGeneralProject'
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 vi.mock('../work/MilestonesView', () => ({ MilestonesView: () => 'Milestone content' }))
 vi.mock('../work/BacklogView', () => ({ BacklogView: () => 'Planned sprints and backlog' }))
-vi.mock('../work/SprintsView', () => ({ SprintsView: () => 'Active and finished sprints' }))
+vi.mock('../work/SprintsView', () => ({ SprintsView: ({ onPlan }: { onPlan: () => void }) => createElement('div', null, 'Active and finished sprints', createElement('button', { onClick: onPlan }, 'Go to Backlog')) }))
 vi.mock('../work/QaQueue', () => ({ QaQueue: () => 'QA content' }))
 vi.mock('./TasksTab', () => ({ TasksTab: () => 'Task content' }))
 vi.mock('./TaskDialog', () => ({ TaskDialog: () => null }))
@@ -32,33 +32,43 @@ async function renderAt(query: string, check: (container: HTMLDivElement) => Pro
 }
 
 describe('Plan tabs', () => {
-  it('shows milestones and sprints separately', async () => {
+  it('shows backlog, milestones, and sprints separately', async () => {
     await renderAt('tab=plan', async container => {
       const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
-      expect(tabs.map(tab => tab.textContent)).toEqual(['Milestones', 'Sprints'])
+      expect(tabs.map(tab => tab.textContent)).toEqual(['Backlog', 'Milestones', 'Sprints'])
+      expect(tabs[1].getAttribute('aria-selected')).toBe('true')
       expect(container.textContent).toContain('Milestone content')
       expect(container.textContent).not.toContain('Planned sprints and backlog')
-      await act(async () => tabs[1].click())
-      expect(tabs[1].getAttribute('aria-selected')).toBe('true')
-      expect(container.textContent).toContain('Planned sprints and backlog')
-      expect(container.textContent).toContain('Active and finished sprints')
-      expect(container.textContent!.indexOf('Active and finished sprints')).toBeLessThan(
-        container.textContent!.indexOf('Planned sprints and backlog'),
-      )
-      expect(container.textContent).not.toContain('Milestone content')
       await act(async () => tabs[0].click())
       expect(tabs[0].getAttribute('aria-selected')).toBe('true')
+      expect(container.textContent).toContain('Planned sprints and backlog')
+      expect(container.textContent).not.toContain('Active and finished sprints')
+      await act(async () => tabs[2].click())
+      expect(tabs[2].getAttribute('aria-selected')).toBe('true')
+      expect(container.textContent).toContain('Active and finished sprints')
+      expect(container.textContent).not.toContain('Planned sprints and backlog')
+      expect(container.textContent).not.toContain('Milestone content')
+      await act(async () => [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'Go to Backlog')!.click())
+      expect(tabs[0].getAttribute('aria-selected')).toBe('true')
+      expect(container.textContent).toContain('Planned sprints and backlog')
+      await act(async () => tabs[1].click())
+      expect(tabs[1].getAttribute('aria-selected')).toBe('true')
       expect(container.textContent).toContain('Milestone content')
       expect(container.textContent).not.toContain('Planned sprints and backlog')
     })
   })
 
-  it('opens legacy sprint and backlog links in the Sprint tab', async () => {
-    for (const query of ['tab=work&work=sprints', 'tab=tasks&work=sprints', 'tab=work&work=backlog']) {
+  it('opens existing sprint links in Sprints and backlog links in Backlog', async () => {
+    for (const query of ['tab=work&work=sprints', 'tab=tasks&work=sprints']) {
       await renderAt(query, container => {
         expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('Sprints')
-        expect(container.textContent).toContain('Planned sprints and backlog')
+        expect(container.textContent).toContain('Active and finished sprints')
+        expect(container.textContent).not.toContain('Planned sprints and backlog')
       })
     }
+    await renderAt('tab=work&work=backlog', container => {
+      expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('Backlog')
+      expect(container.textContent).toContain('Planned sprints and backlog')
+    })
   })
 })

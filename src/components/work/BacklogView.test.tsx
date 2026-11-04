@@ -74,3 +74,17 @@ it('uses the source placeholder when it has one', async () => {
   expect(await render({ addPlaceholder: 'Suggest a task for the planners' })).toBe('Suggest a task for the planners')
   expect(await render({})).toBe('Add a task to the backlog')
 })
+
+it('puts the backlog before planned sprints', async () => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  const source = { items: [], sprints: [], canPlan: false, canAdd: false, readOnlyReason: '' } as unknown as WorkSource
+  try {
+    await act(async () => root.render(<BacklogView source={source} />))
+    expect([...host.querySelectorAll('h3')].map((heading) => heading.textContent?.trim())).toEqual(['Backlog 0', 'Coming up'])
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+  }
+})

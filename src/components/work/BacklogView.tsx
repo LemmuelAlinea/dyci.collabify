@@ -145,6 +145,58 @@ export function BacklogView({ source }: { source: WorkSource }) {
         </div>
       )}
 
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h3>
+              Backlog <span className="font-mono text-[13px] font-normal text-faint">{backlog.length}</span>
+            </h3>
+            <p className="mt-0.5 text-[13px] text-muted">Every unfinished task that is not in a sprint. The top is what comes next.</p>
+          </div>
+          {source.canPlan && live.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[13px] text-muted">{live.length} checked</span>
+              <Select
+                value={bulkValid}
+                onChange={(e) => setBulkTarget(e.target.value)}
+                options={targets}
+                aria-label="Move checked tasks to"
+                className="!h-9 !text-[13px]"
+              />
+              <Button size="sm" className="!rounded-lg" onClick={() => void moveChecked()}>
+                Move
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setChecked(new Set())}>
+                Clear
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="card overflow-hidden shadow-card">
+          {list(backlog) ?? (
+            <p className="px-4 py-6 text-center text-[13px] text-muted">
+              The backlog is empty. Every unfinished task is in a sprint.
+            </p>
+          )}
+          {source.canAdd && (
+            <form onSubmit={(e) => void add(e)} className="flex gap-2 border-t border-line p-3">
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={source.addPlaceholder ?? 'Add a task to the backlog'}
+                aria-label="New backlog task"
+                maxLength={200}
+                className="!h-10 !text-[14px]"
+              />
+              <Button type="submit" size="sm" className="!h-10 !rounded-lg" loading={adding} disabled={!title.trim()}>
+                Add
+              </Button>
+            </form>
+          )}
+        </div>
+      </section>
+
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3>Coming up</h3>
@@ -219,58 +271,6 @@ export function BacklogView({ source }: { source: WorkSource }) {
           )
         })
       )}
-
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h3>
-              Backlog <span className="font-mono text-[13px] font-normal text-faint">{backlog.length}</span>
-            </h3>
-            <p className="mt-0.5 text-[13px] text-muted">Every unfinished task that is not in a sprint. The top is what comes next.</p>
-          </div>
-          {source.canPlan && live.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[13px] text-muted">{live.length} checked</span>
-              <Select
-                value={bulkValid}
-                onChange={(e) => setBulkTarget(e.target.value)}
-                options={targets}
-                aria-label="Move checked tasks to"
-                className="!h-9 !text-[13px]"
-              />
-              <Button size="sm" className="!rounded-lg" onClick={() => void moveChecked()}>
-                Move
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setChecked(new Set())}>
-                Clear
-              </Button>
-            </div>
-          )}
-        </div>
-
-        <div className="card overflow-hidden shadow-card">
-          {list(backlog) ?? (
-            <p className="px-4 py-6 text-center text-[13px] text-muted">
-              The backlog is empty. Every unfinished task is in a sprint.
-            </p>
-          )}
-          {source.canAdd && (
-            <form onSubmit={(e) => void add(e)} className="flex gap-2 border-t border-line p-3">
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={source.addPlaceholder ?? 'Add a task to the backlog'}
-                aria-label="New backlog task"
-                maxLength={200}
-                className="!h-10 !text-[14px]"
-              />
-              <Button type="submit" size="sm" className="!h-10 !rounded-lg" loading={adding} disabled={!title.trim()}>
-                Add
-              </Button>
-            </form>
-          )}
-        </div>
-      </section>
 
       <SprintDialog
         key={createKey}

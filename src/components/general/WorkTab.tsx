@@ -53,20 +53,19 @@ export function WorkTab({ state, area }: { state: GeneralProjectState; area: 'ov
       ) : area === 'plan' ? (
         <div className="space-y-8">
           <Tabs<WorkSection>
-            tabs={[{ id: 'milestones', label: 'Milestones', icon: 'target' }, { id: 'backlog', label: 'Sprints', icon: 'calendar' }]}
-            active={section === 'backlog' || section === 'sprints' ? 'backlog' : 'milestones'}
+            tabs={[
+              { id: 'backlog', label: 'Backlog', icon: 'board' },
+              { id: 'milestones', label: 'Milestones', icon: 'target' },
+              { id: 'sprints', label: 'Sprints', icon: 'calendar' },
+            ]}
+            active={section === 'backlog' || section === 'sprints' ? section : 'milestones'}
             onChange={changeSection}
             variant="panel"
           />
-          {section === 'backlog' || section === 'sprints' ? <div className="space-y-8">
-            <section id="project-sprint-activity" aria-label="Active and finished sprints" className="scroll-mt-24">
-              <SprintsView source={source} milestones={state.milestones} onPlan={() => document.getElementById('project-backlog')?.scrollIntoView()}
-                archiveHref={state.project ? paths.projectArchive(state.project.id) : undefined} />
-            </section>
-            <section id="project-backlog" aria-label="Backlog and upcoming sprints" className="scroll-mt-24 border-t border-line pt-6">
-              <BacklogView source={source} />
-            </section>
-          </div> : <MilestonesView source={generalMilestoneSource(state, showTask)} selectedId={params.get('milestone')} />}
+          {section === 'backlog' ? <BacklogView source={source} /> : section === 'sprints' ?
+            <SprintsView source={source} milestones={state.milestones} onPlan={() => changeSection('backlog')}
+              archiveHref={state.project ? paths.projectArchive(state.project.id) : undefined} /> :
+            <MilestonesView source={generalMilestoneSource(state, showTask)} selectedId={params.get('milestone')} />}
         </div>
       ) : (
         <div className="space-y-6">
