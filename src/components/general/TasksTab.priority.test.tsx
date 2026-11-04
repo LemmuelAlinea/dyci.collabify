@@ -48,7 +48,7 @@ afterEach(async () => {
 const titles = () => [...container.querySelectorAll('article h4')].map((h) => h.textContent)
 const click = (el: Element | null | undefined) => act(async () => (el as HTMLElement).click())
 const button = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === label || b.getAttribute('aria-label')?.startsWith(label))
-const chip = (label: string) => [...container.querySelectorAll<HTMLButtonElement>('[role="group"][aria-label="Priority"] button')].find((b) => b.textContent === label)
+const chip = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('[role="group"][aria-label="Priority"] button')].find((b) => b.textContent === label)
 const cardOf = (id: string) => container.querySelector(`[aria-label="Open Task ${id}"]`)!.closest('article')!
 
 it('shows a badge for urgent, high and low and none for normal', async () => {
@@ -121,7 +121,7 @@ it('filters by priority and sorts urgent first, and remembers the choice', async
   await click(chip('Low'))
   expect(titles()).toEqual(['Task low', 'Task urg'])
 
-  const sort = container.querySelector<HTMLSelectElement>('select[aria-label="Sort"]')!
+  const sort = document.querySelector<HTMLSelectElement>('select[aria-label="Sort"]')!
   await act(async () => { sort.value = 'priority'; sort.dispatchEvent(new Event('change', { bubbles: true })) })
   expect(titles()).toEqual(['Task urg', 'Task low'])
   expect(JSON.parse(localStorage.getItem('collabify:task-priority:p')!)).toEqual({ priorities: ['urgent', 'low'], sort: 'priority' })

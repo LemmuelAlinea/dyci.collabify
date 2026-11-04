@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 import { useFocusTrap } from '../../lib/focus'
@@ -36,23 +37,42 @@ export function FilterPopover({
   align?: 'left' | 'right'
 }) {
   const [open, setOpen] = useState(false)
-  const [side, setSide] = useState<'left' | 'right'>('left')
+  const [pos, setPos] = useState<{ top: number; left: number; maxHeight: number; side: 'left' | 'right' } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const button = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
 
-  // The panel is as wide as 340px (or 92vw on a phone) and hangs off the button,
-  // so a button near the right edge pushes it off screen. Measured once on open
-  // rather than while open, so the panel never jumps under the pointer.
+  // The panel lives in a fixed layer on <body>, not under the button. Hung off
+  // the button as an absolute box, it made a short page taller than the screen,
+  // so the page scrolled into empty ground below the app. It is as wide as 340px
+  // (or 92vw on a phone), opens toward the side with room, and scrolls inside
+  // itself when the screen is shorter than the filters.
+  function place() {
+    const r = button.current?.getBoundingClientRect()
+    if (!r) return
+    const w = Math.min(window.innerWidth * 0.92, 340)
+    const side = align ?? (r.left + w <= window.innerWidth - 8 ? 'left' : 'right')
+    const raw = side === 'left' ? r.left : r.right - w
+    const left = Math.min(Math.max(8, raw), window.innerWidth - w - 8)
+    const top = r.bottom + 8
+    setPos({ top, left, side, maxHeight: Math.max(160, window.innerHeight - top - 8) })
+  }
+
   function toggle() {
-    if (!open && ref.current) {
-      const r = ref.current.getBoundingClientRect()
-      const w = Math.min(window.innerWidth * 0.92, 340)
-      const offRight = Math.max(0, r.left + w - (window.innerWidth - 8))
-      const offLeft = Math.max(0, 8 - (r.right - w))
-      setSide(offRight <= offLeft ? 'left' : 'right')
-    }
+    if (!open) place()
     setOpen((v) => !v)
   }
+
+  useLayoutEffect(() => {
+    if (!open) return
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   // `open` is the caller's intent; `render` is what is on screen, staying true
   // for one transition after `open` goes false so the panel has something to
@@ -76,7 +96,8 @@ export function FilterPopover({
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (!ref.current?.contains(target) && !panel.current?.contains(target)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     document.addEventListener('mousedown', onDown)
@@ -90,6 +111,7 @@ export function FilterPopover({
   return (
     <div className="relative flex min-w-0 items-center gap-3" ref={ref}>
       <button
+        ref={button}
         type="button"
         onClick={toggle}
         aria-expanded={open}
@@ -123,7 +145,7 @@ export function FilterPopover({
         </>
       )}
 
-      {render && (
+      {render && createPortal(
         <div
           ref={panel}
           role="dialog"
@@ -134,8 +156,9 @@ export function FilterPopover({
           // flips back true, so a genuinely open panel is never inert.
           inert={!open}
           data-state={open ? 'open' : 'closed'}
-          className={`motion-overlay surface absolute top-12 z-40 w-[min(92vw,340px)] space-y-3 rounded-2xl border border-line p-4 shadow-lift ${
-            (align ?? side) === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
+          style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999, maxHeight: pos?.maxHeight }}
+          className={`app-ui motion-overlay surface fixed z-[70] w-[min(92vw,340px)] space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-line p-4 shadow-lift ${
+            pos?.side === 'right' ? 'origin-top-right' : 'origin-top-left'
           }`}
         >
           {children}
@@ -156,7 +179,8 @@ export function FilterPopover({
               Done
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
