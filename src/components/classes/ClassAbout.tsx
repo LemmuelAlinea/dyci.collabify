@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Icon } from '../ui/Icon'
+import { ClampedText } from '../ui/ClampedText'
 import { useToast } from '../ui/Toast'
 import { resourceUrl } from '../../lib/api/resources'
 import { supabase } from '../../lib/supabase'
@@ -59,9 +60,12 @@ export function ClassAbout({ cls }: { cls: ClassSummary }) {
       {cls.description && (
         <section className="card p-4 sm:p-6 shadow-card">
           <h2>About this class</h2>
-          <p className="mt-2.5 text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
-            {cls.description}
-          </p>
+          <ClampedText
+            key={cls.description}
+            text={cls.description}
+            lines={4}
+            className="mt-2.5 text-[14px] leading-relaxed text-muted"
+          />
         </section>
       )}
 

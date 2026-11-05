@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import { Toggle } from '../ui/Field'
 import { useToast } from '../ui/Toast'
+import { ClampedText } from '../ui/ClampedText'
 import { classMeta, fullName } from '../../lib/types'
 import type { ClassSummary } from '../../lib/types'
 import { inviteLink } from '../../lib/pendingJoin'
@@ -103,14 +104,18 @@ export function ClassHeader({
               <div className="min-w-0">
                 <h1 className="text-balance text-banner-ink">{cls.name}</h1>
                 <p className="mt-1.5 text-[13px] text-banner-ink/55 @min-[960px]:mt-2">{classMeta(cls)}</p>
-                <p className="mt-2 max-w-[62ch] text-[13px] leading-relaxed text-banner-ink/55 @min-[960px]:mt-3">
-                  {cls.description ||
+                <ClampedText
+                  key={cls.description}
+                  text={cls.description ||
                     (canManage
                       ? 'Manage the people, projects, materials and decisions that move this class through the term.'
                       : cls.professor
                         ? `Led by ${fullName(cls.professor)}. Announcements, projects and group work stay together here.`
                         : 'Announcements, projects and group work stay together here.')}
-                </p>
+                  lines={2}
+                  className="mt-2 max-w-[62ch] text-[13px] leading-relaxed text-banner-ink/55 @min-[960px]:mt-3"
+                  buttonClassName="text-banner-accent hover:text-banner-accent-soft"
+                />
               </div>
             </div>
 
