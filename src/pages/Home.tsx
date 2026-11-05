@@ -16,9 +16,9 @@ const StakeholderHome = lazy(() => import('./app/StakeholderHome'))
 type View = 'classes' | 'work'
 const VIEW_KEY = 'collabify:home-view'
 
-function readView(): View {
+function readView(key: string | null): View {
   try {
-    return localStorage.getItem(VIEW_KEY) === 'work' ? 'work' : 'classes'
+    return key && localStorage.getItem(key) === 'work' ? 'work' : 'classes'
   } catch {
     return 'classes'
   }
@@ -33,17 +33,20 @@ function readView(): View {
  * alone when they have work or can manage projects. Faculty who teach, and students who have work too,
  * run two full dashboards, so they see one at a time and trade with the swap
  * button at the top right of its banner; the last one they chose is
- * remembered on this device.
+ * remembered for this account on this device.
  */
 export default function Home() {
   const { profile } = useAuth()
-  const [view, setView] = useState<View>(readView)
+  const [choice, setChoice] = useState<{ userId: string; view: View } | null>(null)
+  const viewKey = profile?.id ? `${VIEW_KEY}:${profile.id}` : null
+  const view = choice && choice.userId === profile?.id ? choice.view : readView(viewKey)
   const { spaces, myProjects } = useGeneralNavigation()
   // Still loading counts as no work, so the class dashboard shows meanwhile.
   const studentWithWork =
     profile?.role === 'student' && Boolean(membershipOf(spaces, myProjects)?.hasWork)
   // A member with no switches and nothing to open, once both lists have loaded.
   const membership = membershipOf(spaces, myProjects)
+  const workAvailable = canManageProjects(profile) || Boolean(membership?.hasWork)
   const waiting =
     isMember(profile) &&
     !canTeach(profile) &&
@@ -55,19 +58,20 @@ export default function Home() {
   const stakeholderOnly = isStakeholderOnly(profile, membership)
 
   function choose(next: View) {
-    setView(next)
+    if (!profile || !viewKey) return
+    setChoice({ userId: profile.id, view: next })
     try {
-      localStorage.setItem(VIEW_KEY, next)
+      localStorage.setItem(viewKey, next)
     } catch {
       // Private windows can refuse storage; the switch still works for this visit.
     }
   }
 
   if (canTeach(profile)) {
-    return view === 'work' ? (
+    return view === 'work' && workAvailable ? (
       <WorkOverview standalone onSwitch={() => choose('classes')} />
     ) : (
-      <ProfessorHome onSwitch={() => choose('work')} />
+      <ProfessorHome onSwitch={workAvailable ? () => choose('work') : undefined} />
     )
   }
 
