@@ -60,7 +60,7 @@ export function ClassHeader({
         All classes
       </Link>
 
-      <div className="relative mt-4 overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-5 py-5 text-banner-ink @min-[600px]:px-7 @min-[600px]:py-6 @min-[960px]:px-9 @min-[960px]:py-8">
+      <div className="relative mt-4 overflow-hidden rounded-panel border border-banner-ink/10 banner-fill px-5 py-4 text-banner-ink @min-[600px]:px-7 @min-[600px]:py-5 @min-[960px]:px-9">
         <div
           aria-hidden
           className="banner-deco pointer-events-none absolute -top-48 -right-40 h-[420px] w-[420px] rounded-full bg-banner-glow/10 blur-[115px]"
@@ -96,7 +96,7 @@ export function ClassHeader({
             {canManage && actions}
           </div>
 
-          <div className="mt-4 grid gap-5 @min-[960px]:mt-6 @min-[960px]:grid-cols-[minmax(0,1fr)_minmax(360px,0.7fr)] @min-[960px]:items-end @min-[960px]:gap-7">
+          <div className="mt-4 grid gap-5 @min-[960px]:grid-cols-[minmax(0,1fr)_minmax(360px,0.7fr)] @min-[960px]:items-end @min-[960px]:gap-7">
             <div className="flex min-w-0 items-start gap-4 @min-[960px]:gap-5">
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-banner-ink/8 font-display text-[15px] font-bold text-banner-accent ring-1 ring-banner-ink/12 @min-[960px]:h-16 @min-[960px]:w-16 @min-[960px]:text-[18px]">
                 {cls.initial}
@@ -127,7 +127,7 @@ export function ClassHeader({
                 canManage ? '@min-[600px]:grid-cols-3 @min-[960px]:grid-cols-2' : ''
               }`}
             >
-              <div className="banner-cell px-4 py-3 @min-[960px]:py-3.5">
+              <div className="banner-cell px-4 py-2.5">
                 <dt className="text-[11px] text-banner-ink/45">Class code</dt>
                 <dd className="mt-1.5">
                   <button
@@ -151,7 +151,7 @@ export function ClassHeader({
                   )}
                 </dd>
               </div>
-              <div className="banner-cell px-4 py-3 @min-[960px]:py-3.5">
+              <div className="banner-cell px-4 py-2.5">
                 <dt className="text-[11px] text-banner-ink/45">Roster</dt>
                 <dd className="mt-1.5 flex items-center gap-2 font-mono text-[15px] font-bold text-banner-ink">
                   <Icon name="users" size={15} className="text-banner-ink/45" />
@@ -161,7 +161,7 @@ export function ClassHeader({
                 </dd>
               </div>
               {canManage && (
-                <div className="banner-cell col-span-2 px-4 py-3 @min-[600px]:col-span-1 @min-[960px]:col-span-2 @min-[960px]:py-3.5">
+                <div className="banner-cell col-span-2 px-4 py-2.5 @min-[600px]:col-span-1 @min-[960px]:col-span-2">
                   <dt className="text-[11px] text-banner-ink/45">Joining</dt>
                   <dd className="mt-1.5">
                     <label className="flex items-center gap-3 text-[13px] font-medium text-banner-ink">
