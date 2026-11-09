@@ -47,6 +47,45 @@ it.each([true, false])('invites the selected search result (injected: %s)', asyn
     expect(injected ? inviteToSpace : invite).not.toHaveBeenCalled()
     expect(onDone).toHaveBeenCalledOnce()
     expect(onClose).toHaveBeenCalledOnce()
+    expect(document.querySelector('select')).toBeNull()
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+  }
+})
+
+it('shows a role select and passes the chosen role when roles are given', async () => {
+  vi.useFakeTimers()
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const invite = vi.fn().mockResolvedValue(undefined)
+  const search = vi.fn().mockResolvedValue([
+    { person_id: 'p', first_name: 'Alex', last_name: 'Reyes', avatar_url: null },
+  ])
+  try {
+    await act(async () => root.render(createElement(ToastContext.Provider, { value: { show: vi.fn() } },
+      createElement(InviteToSpaceDialog, {
+        open: true, spaceId: 's', onDone: vi.fn().mockResolvedValue(undefined), onClose: vi.fn(), search, invite,
+        roles: ['coordinator', 'member', 'qa'],
+      }),
+    )))
+    const select = document.querySelector('select')!
+    expect(select.value).toBe('member')
+    expect([...select.options].map((o) => o.textContent)).toEqual(['Coordinator', 'Member', 'QA'])
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(select, 'qa')
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    const input = document.querySelector('input')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Alex')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => { await vi.advanceTimersByTimeAsync(250) })
+    const button = [...document.querySelectorAll('button')].find((node) => node.textContent === 'Invite')!
+    await act(async () => button.click())
+    expect(invite).toHaveBeenCalledExactlyOnceWith('s', 'p', 'qa')
   } finally {
     await act(async () => root.unmount())
     container.remove()

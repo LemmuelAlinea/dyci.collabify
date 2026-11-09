@@ -13,28 +13,40 @@ import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useLive } from '../../hooks/useLive'
 import { forgetSpace } from '../../hooks/useSpaces'
-import { searchProjectManagers } from '../../lib/api/general'
 import {
+  handOverSpace,
   inviteSpaceMember,
   listSpaceInvitations,
   listSpaceMembers,
+  previewSpaceRole,
   removeSpaceMember,
-  setSpaceLevel,
+  setSpaceRole,
   withdrawSpaceInvitation,
 } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
-import { LEVELS, levelLabel } from '../../lib/general/permissions'
-import type { GeneralLevel } from '../../lib/general/permissions'
+import {
+  ROLE_LABEL,
+  SPACE_ROLES,
+  canEditSpace,
+  spaceRoleChoices,
+} from '../../lib/general/permissions'
+import type { ProjectRole } from '../../lib/general/permissions'
 import type { SpaceInvitation, SpacePerson } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
+import { plural } from '../../lib/plural'
+
+type PendingRole = {
+  person: SpacePerson
+  role: ProjectRole
+  projects: number
+  tasks: number
+  qa: number
+}
 
 /**
- * Owners invite members or co-owners, who need Project manager turned on.
- *
- * The levels here decide only what somebody may do to the space itself —
- * rename it, add co-owners, archive it (Settings). A space Owner who is not on
- * a project reads it and changes nothing, except assigning a project manager
- * when it has none.
+ * The people in a work space and the role each holds in it. The project manager
+ * sets every role and hands the space over; a coordinator sets the roles below
+ * their own. A change that would release tasks or start a QA gate asks first.
  */
 export default function SpaceMembers() {
   const { spaceId } = useParams<{ spaceId: string }>()
@@ -52,28 +64,16 @@ export default function SpaceMembers() {
   const [invites, setInvites] = useState<SpaceInvitation[]>([])
   const [pageError, setPageError] = useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
-  const [memberInviteOpen, setMemberInviteOpen] = useState(false)
+  const [pending, setPending] = useState<PendingRole | null>(null)
+  const [handingOver, setHandingOver] = useState<SpacePerson | null>(null)
   const [removing, setRemoving] = useState<SpacePerson | null>(null)
   const [leaving, setLeaving] = useState(false)
 
   const archived = Boolean(space?.archived_at)
-  const canInvite = !archived && (space?.my_level === 'owner' || space?.my_level === 'manager')
-  const isOwner = space?.my_level === 'owner'
-  const canManageLevels = isOwner && !archived
-  // A class's space keeps its own invites (FacultyPanel).
-  const canAddCoOwner = isOwner && !archived && space?.kind === 'work'
-  // Owners only in a work space; a class's space lets its Managers see them too.
-  const seesInvites =
-    !archived && (isOwner || (space?.kind !== 'work' && space?.my_level === 'manager'))
-
-  // Co-owners need Project manager, so the search lists only them, and never
-  // the Owner doing the adding.
-  const viewerId = profile?.id
-  const searchCoOwners = useCallback(
-    async (query: string) =>
-      (await searchProjectManagers(query)).filter((hit) => hit.person_id !== viewerId),
-    [viewerId],
-  )
+  const mine = space?.my_role ?? null
+  const seesInvites = !archived && canEditSpace(mine)
+  const isPm = mine === 'pm' && !archived
+  const inviteRoles = mine === 'pm' ? SPACE_ROLES : SPACE_ROLES.filter((r) => r !== 'coordinator')
 
   useEffect(() => {
     document.title = space ? `Members · ${space.name} · Collabify` : 'Members · Collabify'
@@ -83,12 +83,9 @@ export default function SpaceMembers() {
     if (!spaceId || !space) return
     try {
       setMembers(await listSpaceMembers(spaceId))
-      // Only somebody who may invite can read either of these, so they are
-      // asked for separately and their refusal is not the page's failure.
-      if (
-        !space.archived_at &&
-        (space.my_level === 'owner' || (space.kind !== 'work' && space.my_level === 'manager'))
-      ) {
+      // Only somebody who may invite can read these, so they are asked for
+      // separately and their refusal is not the page's failure.
+      if (!space.archived_at && canEditSpace(space.my_role ?? null)) {
         setInvites(await listSpaceInvitations(spaceId))
       } else {
         setInvites([])
@@ -106,15 +103,51 @@ export default function SpaceMembers() {
 
   useLive(load, ['general_space_members', 'general_space_invitations', 'general_spaces'])
 
-  async function changeLevel(person: SpacePerson, level: GeneralLevel) {
+  async function saveRole(person: SpacePerson, role: ProjectRole) {
+    if (!spaceId) return
+    await setSpaceRole(spaceId, person.user_id, role)
+    show(`${person.first_name} is now ${ROLE_LABEL[role]} in this space`)
+    await Promise.all([load(), reloadNavigation()])
+  }
+
+  async function changeRole(person: SpacePerson, role: ProjectRole) {
     if (!spaceId) return
     try {
-      await setSpaceLevel(spaceId, person.user_id, level)
-      show(`${person.first_name} is now ${levelLabel(level)}`)
-      await Promise.all([load(), reloadNavigation()])
+      const preview = await previewSpaceRole(spaceId, person.user_id, role)
+      if (preview.task_count === 0 && preview.qa_start_count === 0) {
+        await saveRole(person, role)
+      } else {
+        setPending({
+          person,
+          role,
+          projects: preview.project_count,
+          tasks: preview.task_count,
+          qa: preview.qa_start_count,
+        })
+      }
     } catch (err) {
-      show(authErrorMessage(err, 'Could not change that level.'), 'error')
+      show(authErrorMessage(err, 'Could not change that role.'), 'error')
     }
+  }
+
+  async function confirmRole() {
+    if (!pending) return
+    try {
+      await saveRole(pending.person, pending.role)
+    } catch (err) {
+      throw new Error(authErrorMessage(err, 'Could not change that role.'))
+    }
+  }
+
+  async function handOver() {
+    if (!spaceId || !handingOver) return
+    try {
+      await handOverSpace(spaceId, handingOver.user_id)
+    } catch (err) {
+      throw new Error(authErrorMessage(err, 'Could not hand over the space.'))
+    }
+    show(`${handingOver.first_name} is now the project manager`)
+    await Promise.all([load(), reloadNavigation()])
   }
 
   async function remove() {
@@ -146,20 +179,14 @@ export default function SpaceMembers() {
     <div className="w-full">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-[62ch] text-[13px] text-muted">
-          A space holds projects. You see the projects you're on; the space's owners see all of
-          them.
+          A space holds projects. You see the projects you're on, and the project manager sees all
+          of them.
         </p>
         <div className="flex flex-wrap gap-2">
-          {canAddCoOwner && (
-            <Button size="sm" onClick={() => setMemberInviteOpen(true)}>
-              <Icon name="plus" size={15} />
-              Invite a member
-            </Button>
-          )}
-          {canAddCoOwner && (
+          {seesInvites && (
             <Button size="sm" onClick={() => setInviteOpen(true)}>
               <Icon name="plus" size={15} />
-              Add a co-owner
+              Invite a member
             </Button>
           )}
         </div>
@@ -171,7 +198,7 @@ export default function SpaceMembers() {
         {archived && (
           <Alert tone="info">
             This space is archived. Its projects stay readable, but nothing in the space can
-            change until an Owner restores it.
+            change until the project manager restores it.
           </Alert>
         )}
 
@@ -198,11 +225,7 @@ export default function SpaceMembers() {
                   <span className="min-w-[10rem] flex-1 text-[14px]">
                     {i.invitee_first_name} {i.invitee_last_name}
                   </span>
-                  {space?.kind === 'work' && (
-                    <span className="text-[13px] text-muted">
-                      {i.invited_level === 'member' ? 'Member' : 'Co-owner (Owner)'}
-                    </span>
-                  )}
+                  <span className="text-[13px] text-muted">{ROLE_LABEL[i.invited_role]}</span>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -238,67 +261,114 @@ export default function SpaceMembers() {
               <span className="font-mono text-[12px] text-faint">{members.length}</span>
             </header>
             <ul className="divide-y divide-line">
-              {members.map((m) => (
-                <li
-                  key={m.user_id}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-5"
-                >
-                  <Avatar profile={m} size={32} />
-                  <span className="min-w-[10rem] flex-1 text-[14px]">
-                    {m.first_name} {m.last_name}
-                    {m.user_id === profile?.id && <span className="text-faint"> · you</span>}
-                  </span>
-                  {canManageLevels && m.user_id !== profile?.id ? (
-                    <Select
-                      value={m.level}
-                      options={m.is_student ? LEVELS.filter((l) => l.value === 'member') : LEVELS}
-                      className="!h-9 !w-[9.5rem] !text-[13px]"
-                      onChange={(e) => void changeLevel(m, e.target.value as GeneralLevel)}
-                    />
-                  ) : (
-                    <span className="text-[13px] text-muted">{levelLabel(m.level)}</span>
-                  )}
-                  {canInvite && m.user_id !== profile?.id && (
-                    <Button size="sm" variant="ghost" onClick={() => setRemoving(m)}>
-                      Remove
-                    </Button>
-                  )}
-                </li>
-              ))}
+              {members.map((m) => {
+                const own = m.user_id === profile?.id
+                const role = m.role ?? 'member'
+                // Nobody changes their own role, and an archived space changes nothing.
+                const choices = own || archived ? [] : spaceRoleChoices(mine, role)
+                return (
+                  <li
+                    key={m.user_id}
+                    className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-5"
+                  >
+                    <Avatar profile={m} size={32} />
+                    <span className="min-w-[10rem] flex-1 text-[14px]">
+                      {m.first_name} {m.last_name}
+                      {own && <span className="text-faint"> · you</span>}
+                    </span>
+                    {choices.length > 0 ? (
+                      <Select
+                        value={role}
+                        aria-label={`Role for ${m.first_name} ${m.last_name}`}
+                        options={choices.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+                        className="!h-9 !w-[9.5rem] !text-[13px]"
+                        onChange={(e) => void changeRole(m, e.target.value as ProjectRole)}
+                      />
+                    ) : (
+                      <span className="text-[13px] text-muted">{ROLE_LABEL[role]}</span>
+                    )}
+                    {isPm && !own && !m.is_student && (
+                      <Button size="sm" variant="ghost" onClick={() => setHandingOver(m)}>
+                        Hand over
+                      </Button>
+                    )}
+                    {choices.length > 0 && (
+                      <Button size="sm" variant="ghost" onClick={() => setRemoving(m)}>
+                        Remove
+                      </Button>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           </section>
         )}
 
         <section className="rounded-panel border border-line p-4 sm:p-5">
           <h2 className="text-[15px]">Leave this space</h2>
-          <p className="mt-1 text-[13px] text-muted">
-            You stop seeing the projects in it. Any project here you are actually on stays yours.
-          </p>
-          <Button size="sm" variant="outline" className="mt-3" onClick={() => setLeaving(true)}>
-            Leave
-          </Button>
+          {mine === 'pm' ? (
+            <p className="mt-1 text-[13px] text-muted">Hand over the space before leaving.</p>
+          ) : (
+            <>
+              <p className="mt-1 text-[13px] text-muted">
+                You stop seeing the projects in it. Any project here you are actually on stays yours.
+              </p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => setLeaving(true)}>
+                Leave
+              </Button>
+            </>
+          )}
         </section>
       </div>
-
-      <InviteToSpaceDialog
-        open={memberInviteOpen}
-        onClose={() => setMemberInviteOpen(false)}
-        spaceId={spaceId ?? ''}
-        onDone={load}
-        invite={inviteSpaceMember}
-        title="Invite a member"
-        description="They join this space as a Member. Joining a space does not grant project access; invite them to projects separately."
-      />
 
       <InviteToSpaceDialog
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
         spaceId={spaceId ?? ''}
         onDone={load}
-        search={searchCoOwners}
-        title="Add a co-owner"
-        description="A co-owner sees every project in this space and can add co-owners too. Only people with Project manager turned on are listed."
-        noMatch="Nobody by that name has Project manager turned on."
+        invite={inviteSpaceMember}
+        roles={inviteRoles}
+        title="Invite a member"
+        description="They join this space with the role you choose. Joining a space does not add them to any project."
+      />
+
+      <ConfirmDialog
+        open={pending !== null}
+        onClose={() => setPending(null)}
+        onConfirm={confirmRole}
+        title="Change this role?"
+        tone="primary"
+        confirmLabel="Change role"
+        body={
+          pending && (
+            <>
+              <p>
+                This moves {pending.person.first_name} to {ROLE_LABEL[pending.role]} in{' '}
+                {pending.projects} {plural(pending.projects, 'project', 'projects')}.
+              </p>
+              {pending.tasks > 0 && (
+                <p className="mt-2">
+                  They let go of {pending.tasks} {plural(pending.tasks, 'task', 'tasks')}.
+                </p>
+              )}
+              {pending.qa > 0 && (
+                <p className="mt-2">
+                  QA review starts in {pending.qa} {plural(pending.qa, 'project', 'projects')}.
+                </p>
+              )}
+            </>
+          )
+        }
+      />
+
+      <ConfirmDialog
+        open={handingOver !== null}
+        onClose={() => setHandingOver(null)}
+        onConfirm={handOver}
+        title="Hand over this space?"
+        tone="primary"
+        confirmLabel="Hand over"
+        body={`${handingOver?.first_name ?? 'They'} becomes the project manager, and you become a coordinator. Project roles stay as they are.`}
       />
 
       <ConfirmDialog
@@ -318,7 +388,6 @@ export default function SpaceMembers() {
         body="You stop seeing the projects in it. Any project here you are on stays yours."
         confirmLabel="Leave"
       />
-
     </div>
   )
 }

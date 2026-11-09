@@ -3,10 +3,13 @@ import { Avatar } from '../app/Avatar'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Field'
 import { Modal } from '../ui/Modal'
+import { Select } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 import { searchPeople } from '../../lib/api/general'
 import { inviteToSpace } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
+import { ROLE_LABEL } from '../../lib/general/permissions'
+import type { ProjectRole } from '../../lib/general/permissions'
 import type { PersonHit } from '../../lib/general/types'
 
 export function InviteToSpaceDialog({
@@ -19,22 +22,26 @@ export function InviteToSpaceDialog({
   title = 'Invite to this space',
   description = 'They will be able to see every project in it.',
   noMatch = 'Nobody by that name.',
+  roles,
 }: {
   open: boolean
   onClose: () => void
   spaceId: string
   onDone: () => Promise<void>
   search?: (query: string) => Promise<PersonHit[]>
-  invite?: (spaceId: string, userId: string) => Promise<void>
+  invite?: (spaceId: string, userId: string, role?: ProjectRole) => Promise<void>
   title?: string
   description?: string
   /** What an empty search says. */
   noMatch?: string
+  /** The roles the inviter may give. When set, the dialog asks which one and passes it to `invite`. */
+  roles?: ProjectRole[]
 }) {
   const { show } = useToast()
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<PersonHit[]>([])
   const [busy, setBusy] = useState<string | null>(null)
+  const [role, setRole] = useState<ProjectRole>('member')
 
   useEffect(() => {
     if (!open) return
@@ -52,7 +59,7 @@ export function InviteToSpaceDialog({
   async function invitePerson(person: PersonHit) {
     setBusy(person.person_id)
     try {
-      await invite(spaceId, person.person_id)
+      await (roles ? invite(spaceId, person.person_id, role) : invite(spaceId, person.person_id))
       show(`${person.first_name} was invited`)
       await onDone()
       onClose()
@@ -79,6 +86,18 @@ export function InviteToSpaceDialog({
       }
     >
       <div className="space-y-3">
+        {roles && (
+          <Field label="Role">
+            {(id) => (
+              <Select
+                id={id}
+                value={role}
+                options={roles.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+                onChange={(e) => setRole(e.target.value as ProjectRole)}
+              />
+            )}
+          </Field>
+        )}
         <Field label="Search by name">
           {(id) => (
             <Input

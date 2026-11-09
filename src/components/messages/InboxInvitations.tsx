@@ -12,6 +12,7 @@ import { usePendingInvitations } from '../../hooks/usePendingInvitations'
 import { respondToInvitation } from '../../lib/api/general'
 import { respondToSpaceInvitation } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
+import { ROLE_LABEL } from '../../lib/general/permissions'
 
 type Invite = {
   /** `project:<id>` or `space:<id>` — what a notification links to with `?invite=`. */
@@ -65,7 +66,7 @@ export function InboxInvitations({ onAnswered }: { onAnswered?: () => void }) {
         description: inv.space_description,
         access: inv.space_kind === 'education'
           ? undefined
-          : inv.invited_level === 'member' ? 'Member' : 'Co-owner (Owner)',
+          : ROLE_LABEL[inv.invited_role],
         inviter: inv.inviter_id
           ? {
               first_name: inv.inviter_first_name ?? '',
