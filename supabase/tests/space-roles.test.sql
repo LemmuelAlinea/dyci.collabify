@@ -66,6 +66,14 @@ declare
   v_qa      uuid := gen_random_uuid();  -- gets qa
   v_student uuid := gen_random_uuid();  -- a student
   v_teacher uuid := gen_random_uuid();  -- owner of the class space
+  v_i1      uuid := gen_random_uuid();  -- invited, joins as a member
+  v_i2      uuid := gen_random_uuid();  -- coordinator of the second space
+  v_s2      uuid;
+  v_p4      uuid;
+  v_p5      uuid;
+  v_p6      uuid;
+  v_team    uuid;
+  v_inv     uuid;
   v_space   uuid;
   v_class   uuid;
   v_proj    uuid;
@@ -91,7 +99,9 @@ begin
       (v_coord,   'zz-sr-coord@example.test'),
       (v_qa,      'zz-sr-qa@example.test'),
       (v_student, 'zz-sr-student@example.test'),
-      (v_teacher, 'zz-sr-teacher@example.test')
+      (v_teacher, 'zz-sr-teacher@example.test'),
+      (v_i1,      'zz-sr-i1@example.test'),
+      (v_i2,      'zz-sr-i2@example.test')
     ) as v(id, em);
 
   insert into public.profiles
@@ -103,7 +113,9 @@ begin
     (v_coord,   'zz-sr-coord@example.test',   'Zz', 'Srcoord',   'member',  'active', false, false),
     (v_qa,      'zz-sr-qa@example.test',      'Zz', 'Srqa',      'member',  'active', false, false),
     (v_student, 'zz-sr-student@example.test', 'Zz', 'Srstudent', 'student', 'active', false, false),
-    (v_teacher, 'zz-sr-teacher@example.test', 'Zz', 'Srteacher', 'member',  'active', true,  false)
+    (v_teacher, 'zz-sr-teacher@example.test', 'Zz', 'Srteacher', 'member',  'active', true,  false),
+    (v_i1,      'zz-sr-i1@example.test',      'Zz', 'Sri1',      'member',  'active', false, false),
+    (v_i2,      'zz-sr-i2@example.test',      'Zz', 'Sri2',      'member',  'active', false, false)
   on conflict (id) do update
     set role = excluded.role, status = excluded.status,
         can_manage_projects = excluded.can_manage_projects, can_teach = excluded.can_teach;
@@ -424,6 +436,108 @@ begin
   perform pg_temp.must_refuse_with('only the pm hands over',
     format($q$select public.hand_over_general_space(%L, %L)$q$, v_space, v_pm), 'project manager');
   perform pg_temp.act_as_service();
+
+  -- ---------------------------------------------------------------- invitations and joining
+  perform pg_temp.act_as(v_pm);
+  v_s2 := (public.create_general_space('Zz SR invite space', '')).id;
+  v_p4 := (public.create_general_project('Zz SR project four', '', null, null, null, null, v_s2)).id;
+  perform pg_temp.act_as_service();
+  insert into public.general_space_members (space_id, user_id, role) values
+    (v_s2, v_coord, 'coordinator'), (v_s2, v_i2, 'coordinator'), (v_s2, v_student, 'stakeholder');
+  insert into public.general_members (project_id, user_id, role) values (v_p4, v_member, 'member');
+  -- Joining a project already put them in the space; take that row away so the invitation is theirs to accept.
+  delete from public.general_space_members where space_id = v_s2 and user_id = v_member;
+
+  perform pg_temp.act_as(v_pm);
+  v_inv := (public.invite_general_space_member(v_s2, v_member, 'qa')).id;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('invite carries a role',
+    (select invited_role = 'qa' from public.general_space_invitations where id = v_inv));
+  perform pg_temp.act_as(v_member);
+  perform public.respond_general_space_invitation(v_inv, true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('accepting gives the role',
+    (select role = 'qa' from public.general_space_members where space_id = v_s2 and user_id = v_member));
+  perform pg_temp.must_be('accepting starts no cascade',
+    (select role = 'member' from public.general_members where project_id = v_p4 and user_id = v_member));
+
+  perform pg_temp.act_as(v_coord);
+  perform public.invite_general_space_member(v_s2, v_i1);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('coordinator can invite',
+    exists (select 1 from public.general_space_invitations
+             where space_id = v_s2 and invitee = v_i1 and invited_by = v_coord
+               and invited_role = 'member' and status = 'pending'));
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_be('coordinator can list invitations',
+    (select count(*) from public.list_general_space_invitations(v_s2)) = 1);
+  perform pg_temp.must_refuse_with('coordinator cannot invite a coordinator',
+    format($q$select public.invite_general_space_member(%L, %L, 'coordinator')$q$, v_s2, v_i1), 'project manager');
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('invite as pm refused',
+    format($q$select public.invite_general_space_member(%L, %L, 'pm')$q$, v_s2, v_i1), 'hand over');
+  perform pg_temp.must_refuse_with('co-owner invite refused on work',
+    format($q$select public.invite_to_general_space(%L, %L)$q$, v_s2, v_i1), 'hand over');
+  perform pg_temp.act_as(v_teacher);
+  perform public.invite_to_general_space(v_class, v_i1);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('class space invite still works',
+    exists (select 1 from public.general_space_invitations where space_id = v_class and invitee = v_i1));
+
+  -- Joining a project by code.
+  perform pg_temp.act_as(v_coord);
+  v_p5 := (public.create_general_project('Zz SR project five', '', null, null, null, null, v_s2)).id;
+  perform pg_temp.act_as_service();
+  insert into public.general_join_codes (project_id, code, open) values (v_p5, 'ZZSRCODE5', true)
+  on conflict (project_id) do update set code = excluded.code, open = true;
+  perform pg_temp.act_as(v_i2);
+  perform public.join_general_project('ZZSRCODE5');
+  perform pg_temp.act_as(v_pm);
+  perform public.join_general_project('ZZSRCODE5');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('code join uses the space role',
+    (select role = 'coordinator' from public.general_members where project_id = v_p5 and user_id = v_i2));
+  perform pg_temp.must_be('space pm joining by code is coordinator',
+    (select role = 'coordinator' from public.general_members where project_id = v_p5 and user_id = v_pm));
+
+  insert into public.general_space_members (space_id, user_id, role) values (v_s2, v_i1, 'member');
+  perform pg_temp.act_as(v_coord);
+  perform public.invite_to_general_project(v_p5, v_i1, 'qa');
+  perform pg_temp.act_as(v_i1);
+  perform public.join_general_project('ZZSRCODE5');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('code join: pending invitation wins',
+    (select role = 'qa' from public.general_members where project_id = v_p5 and user_id = v_i1));
+
+  -- Inviting a coordinator to a project.
+  insert into public.general_members (project_id, user_id, role) values (v_p4, v_coord, 'coordinator');
+  perform pg_temp.act_as(v_coord);
+  perform public.invite_to_general_project(v_p4, v_i2, 'coordinator');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('project coordinator may invite a space coordinator',
+    exists (select 1 from public.general_invitations
+             where project_id = v_p4 and invitee = v_i2 and role = 'coordinator' and status = 'pending'));
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_refuse_with('project coordinator cannot invite other coordinators',
+    format($q$select public.invite_to_general_project(%L, %L, 'coordinator')$q$, v_p4, v_i1), 'project manager');
+  perform pg_temp.act_as_service();
+
+  -- A project made from a space team takes each person's space role.
+  insert into public.general_space_teams (space_id, name, created_by)
+  values (v_s2, 'Zz SR team', v_pm) returning id into v_team;
+  insert into public.general_space_team_members (team_id, space_id, user_id) values
+    (v_team, v_s2, v_pm), (v_team, v_s2, v_student), (v_team, v_s2, v_i2), (v_team, v_s2, v_member);
+  perform pg_temp.act_as(v_pm);
+  v_p6 := (public.create_general_project('Zz SR project six', '', null, null, null, null, v_s2, v_team)).id;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('team seed uses space roles',
+    (select role = 'stakeholder' from public.general_members where project_id = v_p6 and user_id = v_student)
+    and (select role = 'coordinator' from public.general_members where project_id = v_p6 and user_id = v_i2)
+    and (select role = 'qa' from public.general_members where project_id = v_p6 and user_id = v_member));
+  perform pg_temp.must_be('team seed keeps the creator as pm',
+    (select role = 'pm' from public.general_members where project_id = v_p6 and user_id = v_pm));
+  perform pg_temp.must_be('team seed adds a stakeholder to the team',
+    exists (select 1 from public.general_team_members where project_id = v_p6 and user_id = v_student));
 end;
 $$;
 

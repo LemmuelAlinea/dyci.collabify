@@ -661,4 +661,445 @@ begin
 end;
 $function$;
 
+-- ---------------------------------------------------------------- invitations and joining
+-- Invitations carry a role. The space project manager and coordinators invite; a
+-- coordinator invite comes from the project manager only. Work spaces have one project
+-- manager, so there are no co-owner invitations.
+create or replace function public.general_space_manages_invites(p_space uuid)
+ returns boolean
+ language sql
+ stable security definer
+ set search_path to 'public'
+as $function$
+  select public.general_space_has_invite(p_space);
+$function$;
+
+drop function if exists public.invite_general_space_member(uuid, uuid);
+create or replace function public.invite_general_space_member(
+  p_space uuid,
+  p_user  uuid,
+  p_role  public.general_role default 'member'
+) returns public.general_space_invitations
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  inv public.general_space_invitations%rowtype;
+begin
+  if not public.general_space_has_invite(p_space) then
+    raise exception 'You need permission to invite people to this space. Ask the project manager or a coordinator to send it.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if public.is_education_space(p_space) then
+    raise exception 'This invitation is for a work space. Use the class invitation instead.'
+      using errcode = 'check_violation';
+  end if;
+  if public.general_space_is_archived(p_space) then
+    raise exception 'This space is archived. The project manager can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+  if p_role = 'pm' then
+    raise exception 'Use hand over to change the project manager.'
+      using errcode = 'check_violation';
+  end if;
+  if p_role = 'coordinator' and not exists (
+       select 1 from public.general_space_members
+        where space_id = p_space and user_id = auth.uid() and role = 'pm') then
+    raise exception 'Only the project manager can invite a coordinator.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
+    raise exception 'That account cannot be invited' using errcode = 'no_data_found';
+  end if;
+  if exists (select 1 from public.general_space_members
+              where space_id = p_space and user_id = p_user) then
+    raise exception 'They are already in this space' using errcode = 'unique_violation';
+  end if;
+
+  perform public.rate_limit('general_space_invite', 60, interval '1 hour',
+    'You have sent a lot of invitations in the last hour. Try again later.');
+  insert into public.general_space_invitations (space_id, invitee, invited_by, invited_level, invited_role)
+  values (p_space, p_user, auth.uid(), 'member', p_role)
+  returning * into inv;
+  return inv;
+end;
+$function$;
+revoke all on function public.invite_general_space_member(uuid, uuid, public.general_role) from public, anon;
+grant execute on function public.invite_general_space_member(uuid, uuid, public.general_role) to authenticated, service_role;
+
+create or replace function public.invite_to_general_space(p_space uuid, p_user uuid)
+ returns public.general_space_invitations
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  inv public.general_space_invitations%rowtype;
+begin
+  -- A class's space keeps its own invite: its teachers bring in co-teachers,
+  -- who sit at Manager (guard_class_space_member).
+  if public.is_education_space(p_space) then
+    if not public.general_space_can_invite(p_space) then
+      raise exception 'You need permission to invite people to this space'
+        using errcode = 'insufficient_privilege';
+    end if;
+  else
+    raise exception 'A space has one project manager. Use Hand over instead.'
+      using errcode = 'check_violation';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
+    raise exception 'That account cannot be invited' using errcode = 'no_data_found';
+  end if;
+  if exists (
+       select 1 from public.general_space_members
+        where space_id = p_space and user_id = p_user) then
+    raise exception 'They are already in this space' using errcode = 'unique_violation';
+  end if;
+
+  perform public.rate_limit('general_space_invite', 60, interval '1 hour',
+    'You have sent a lot of invitations in the last hour. Try again later.');
+
+  insert into public.general_space_invitations (space_id, invitee, invited_by)
+  values (p_space, p_user, auth.uid())
+  returning * into inv;
+  return inv;
+end;
+$function$;
+
+create or replace function public.respond_general_space_invitation(p_invitation uuid, p_accept boolean)
+ returns public.general_space_invitations
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  inv public.general_space_invitations%rowtype;
+begin
+  if not public.general_viewer_active() then
+    raise exception 'Sign in with an active account to answer an invitation'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  select * into inv from public.general_space_invitations
+   where id = p_invitation for update;
+  if inv.id is null or inv.invitee is distinct from auth.uid() then
+    raise exception 'That invitation is not yours to answer'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if inv.status <> 'pending' then
+    raise exception 'That invitation was already answered or withdrawn'
+      using errcode = 'check_violation';
+  end if;
+  if p_accept and public.general_space_is_archived(inv.space_id) then
+    raise exception 'That space is archived, so it cannot take new members'
+      using errcode = 'check_violation';
+  end if;
+  if p_accept and not public.is_education_space(inv.space_id)
+     and inv.invited_level = 'owner'
+     and not public.is_project_manager(auth.uid()) then
+    raise exception 'Only people with Project manager turned on can co-own a space. Ask an admin to turn it on, then accept again.'
+      using errcode = 'check_violation';
+  end if;
+
+  update public.general_space_invitations
+     set status = case when p_accept then 'accepted' else 'declined' end
+                    ::public.general_invite_status,
+         answered_at = now()
+   where id = p_invitation
+  returning * into inv;
+
+  if p_accept and public.is_education_space(inv.space_id) then
+    insert into public.general_space_members (space_id, user_id)
+    values (inv.space_id, auth.uid())
+    on conflict do nothing;
+  elsif p_accept then
+    -- Joining a space sets no role on projects the person already holds.
+    insert into public.general_space_members (space_id, user_id, role)
+    values (inv.space_id, auth.uid(), inv.invited_role)
+    on conflict do nothing;
+  end if;
+  return inv;
+end;
+$function$;
+
+create or replace function public.join_general_project(p_code text)
+ returns uuid
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  p public.general_projects%rowtype;
+begin
+  if not public.general_viewer_active() then
+    raise exception 'Sign in with an active account to join a project'
+      using errcode = 'insufficient_privilege';
+  end if;
+  -- No student refusal any more (the copy in company-accounts.sql had one).
+  -- A student joins a work project by its code like anybody else, as a
+  -- member (or with the role a pending invitation holds), and the project
+  -- manager can change the role afterwards. Spaces are another matter:
+  -- join_general_space keeps its own rules.
+
+  -- Counted before the code is read, so a wrong guess costs an attempt.
+  perform public.rate_limit('general_join', 10, interval '10 minutes',
+    'Too many join attempts. Wait a few minutes and try again.');
+
+  select pr.* into p
+    from public.general_join_codes jc
+    join public.general_projects pr on pr.id = jc.project_id
+   where jc.code = upper(btrim(p_code)) and jc.open and pr.archived_at is null;
+  if p.id is null then
+    return null; -- a miss, not a refusal; the rate-limit count already committed
+  end if;
+
+  -- A pending invitation's role wins: only the project manager can have made
+  -- it coordinator, and the code should not undo that. Never pm. Without one,
+  -- the person's space role applies (the space pm reads as coordinator).
+  insert into public.general_members (project_id, user_id, role)
+  values (p.id, auth.uid(), coalesce(
+    (select i.role from public.general_invitations i
+      where i.project_id = p.id and i.invitee = auth.uid() and i.status = 'pending'
+        and i.role <> 'pm'
+      order by i.created_at desc limit 1),
+    public.general_space_default_role(p.id, auth.uid()),
+    'member'))
+  on conflict do nothing;
+
+  update public.general_invitations
+     set status = 'accepted', answered_at = now()
+   where project_id = p.id and invitee = auth.uid() and status = 'pending';
+
+  return p.id;
+end;
+$function$;
+
+create or replace function public.invite_to_general_project(p_project uuid, p_user uuid, p_role public.general_role default 'member')
+ returns public.general_invitations
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  inv public.general_invitations%rowtype;
+  i_am_pm boolean := public.general_role_of(p_project, auth.uid()) is not distinct from 'pm';
+begin
+  if not public.general_can(p_project, 'manage_members') then
+    raise exception 'You need permission to invite people to this project'
+      using errcode = 'insufficient_privilege';
+  end if;
+  -- Every role but pm can be invited; only the pm invites a coordinator, unless
+  -- the person is already a coordinator of the space. QA is on since phase 4:
+  -- the pm and a coordinator both invite as qa, and the invitee holds no tasks
+  -- once they join (guard_general_task_child).
+  if p_role = 'pm' then
+    raise exception 'Use hand over to change the project manager.'
+      using errcode = 'check_violation';
+  end if;
+  if p_role = 'coordinator' and not i_am_pm
+     and public.general_space_default_role(p_project, p_user) is distinct from 'coordinator' then
+    raise exception 'Only the project manager can invite a coordinator.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
+    raise exception 'That account cannot be invited' using errcode = 'check_violation';
+  end if;
+  if exists (select 1 from public.general_members where project_id = p_project and user_id = p_user) then
+    raise exception 'They are already on this project' using errcode = 'unique_violation';
+  end if;
+
+  select * into inv from public.general_invitations
+   where project_id = p_project and invitee = p_user and status = 'pending';
+  if inv.id is not null then
+    -- Already invited, and inviting again is not an error. The pm may change
+    -- the role it carries; anyone else gets it back as it stands.
+    if i_am_pm and inv.role is distinct from p_role then
+      update public.general_invitations set role = p_role where id = inv.id
+      returning * into inv;
+    end if;
+    return inv;
+  end if;
+
+  perform public.rate_limit('general_invite', 100, interval '1 hour',
+    'You have sent a lot of invitations in the last hour. Try again later.');
+
+  -- The invitee joins with this role when they accept or join by code.
+  insert into public.general_invitations (project_id, invitee, invited_by, role)
+  values (p_project, p_user, auth.uid(), p_role)
+  returning * into inv;
+  return inv;
+end;
+$function$;
+
+-- create_general_project, eight-argument form, as live. Only the team seed changes: it
+-- takes each person's space role. The creator row is inserted above it and stays.
+create or replace function public.create_general_project(p_name text, p_description text default ''::text, p_starts_on date default null::date, p_ends_on date default null::date, p_preset text default null::text, p_content jsonb default null::jsonb, p_space uuid default null::uuid, p_space_team uuid default null::uuid)
+ returns public.general_projects
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  p          public.general_projects%rowtype;
+  item       jsonb;
+  team_name  text;
+  team_ids   jsonb := '{}'::jsonb;
+  n          int;
+  v_preset   text := nullif(btrim(coalesce(p_preset, '')), '');
+  v_space    uuid := p_space;
+  v_name     text;
+  v_space_team public.general_space_teams%rowtype;
+  v_project_team uuid;
+begin
+  if not public.general_viewer_active() then
+    raise exception 'Sign in with an active account to create a project'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  perform public.rate_limit('general_create', 20, interval '1 hour',
+    'You have created a lot of projects in the last hour. Try again later.');
+
+  if v_space is null then
+    select s.id into v_space
+      from public.general_spaces s
+      join public.general_space_members m on m.space_id = s.id
+     where m.user_id = auth.uid() and m.level = 'owner' and s.archived_at is null
+     order by s.created_at
+     limit 1;
+  end if;
+
+  if v_space is null then
+    select coalesce(nullif(btrim(concat_ws(' ', pr.first_name, pr.last_name)), '')
+                      || '''s space', 'My space')
+      into v_name
+      from public.profiles pr where pr.id = auth.uid();
+
+    insert into public.general_spaces (name, description, created_by)
+    values (coalesce(v_name, 'My space'), '', auth.uid())
+    returning id into v_space;
+
+    insert into public.general_space_members (space_id, user_id, level)
+    values (v_space, auth.uid(), 'owner');
+  elsif not public.is_general_space_member(v_space) then
+    raise exception 'You are not in that space, so you cannot create a project in it'
+      using errcode = 'insufficient_privilege';
+  elsif public.general_space_is_archived(v_space) then
+    raise exception 'That space is archived. An Owner can restore it to add projects.'
+      using errcode = 'check_violation';
+  end if;
+
+  if p_space_team is not null then
+    select * into v_space_team
+      from public.general_space_teams t
+     where t.id = p_space_team and t.space_id = v_space;
+    if not found then
+      raise exception 'That team is not in this space' using errcode = 'invalid_parameter_value';
+    end if;
+    if not public.general_space_team_can_use(p_space_team) then
+      raise exception 'You are not a member of that team' using errcode = 'insufficient_privilege';
+    end if;
+  end if;
+
+  insert into public.general_projects
+    (name, description, starts_on, ends_on, created_by, preset, has_code, space_id)
+  values (btrim(p_name), coalesce(p_description, ''), p_starts_on, p_ends_on, auth.uid(),
+          v_preset, v_preset is not distinct from 'capstone', v_space)
+  returning * into p;
+
+  insert into public.general_members (project_id, user_id, level)
+  values (p.id, auth.uid(), 'owner');
+
+  if p_space_team is not null then
+    insert into public.general_teams (project_id, name, space_team_id)
+    values (p.id, v_space_team.name, p_space_team)
+    returning id into v_project_team;
+
+    insert into public.general_members (project_id, user_id, role)
+    select p.id, tm.user_id,
+           case when tm.user_id = auth.uid() then 'pm'::public.general_role
+                else coalesce(public.general_space_default_role(p.id, tm.user_id), 'member'::public.general_role)
+           end
+      from public.general_space_team_members tm
+     where tm.team_id = p_space_team
+    on conflict (project_id, user_id) do nothing;
+
+    insert into public.general_team_members (team_id, project_id, user_id)
+    select v_project_team, p.id, tm.user_id
+      from public.general_space_team_members tm
+     where tm.team_id = p_space_team
+    on conflict (team_id, user_id) do nothing;
+
+    team_ids := jsonb_build_object(v_space_team.name, v_project_team);
+  end if;
+
+  if p_content is null or jsonb_typeof(p_content) <> 'object' then
+    return p;
+  end if;
+
+  if jsonb_array_length(coalesce(p_content -> 'fields', '[]'::jsonb)) > 40
+     or jsonb_array_length(coalesce(p_content -> 'teams', '[]'::jsonb)) > 20
+     or jsonb_array_length(coalesce(p_content -> 'positions', '[]'::jsonb)) > 40
+     or jsonb_array_length(coalesce(p_content -> 'tasks', '[]'::jsonb)) > 100 then
+    raise exception 'That preset is too large to apply'
+      using errcode = 'check_violation';
+  end if;
+
+  n := 0;
+  for team_name in
+    select value #>> '{}' from jsonb_array_elements(coalesce(p_content -> 'teams', '[]'::jsonb))
+  loop
+    if btrim(coalesce(team_name, '')) <> '' and not team_ids ? team_name then
+      insert into public.general_teams (project_id, name)
+      values (p.id, btrim(team_name))
+      returning jsonb_build_object(team_name, id) into item;
+      team_ids := team_ids || item;
+      n := n + 1;
+    end if;
+  end loop;
+
+  for item in
+    select value from jsonb_array_elements(coalesce(p_content -> 'fields', '[]'::jsonb))
+  loop
+    insert into public.general_fields (project_id, name, type, options, sort)
+    values (
+      p.id,
+      btrim(item ->> 'name'),
+      (item ->> 'type')::public.general_field_type,
+      coalesce(item -> 'options', '[]'::jsonb),
+      coalesce((item ->> 'sort')::int, 0)
+    );
+  end loop;
+
+  n := 0;
+  for item in
+    select value from jsonb_array_elements(coalesce(p_content -> 'positions', '[]'::jsonb))
+  loop
+    insert into public.general_positions (project_id, name, team_id, sort)
+    values (
+      p.id,
+      btrim(item ->> 'name'),
+      case when item ->> 'team' is not null then (team_ids ->> (item ->> 'team'))::uuid end,
+      n
+    );
+    n := n + 1;
+  end loop;
+
+  for item in
+    select value from jsonb_array_elements(coalesce(p_content -> 'tasks', '[]'::jsonb))
+  loop
+    insert into public.general_tasks (project_id, title, description, team_id, created_by)
+    values (
+      p.id,
+      btrim(item ->> 'title'),
+      coalesce(item ->> 'description', ''),
+      case when item ->> 'team' is not null then (team_ids ->> (item ->> 'team'))::uuid end,
+      auth.uid()
+    );
+  end loop;
+
+  return p;
+end;
+$function$;
+
 commit;
