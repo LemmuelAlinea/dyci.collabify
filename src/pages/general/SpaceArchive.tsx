@@ -27,7 +27,7 @@ import { paths } from '../../lib/paths'
  * whoever archived it and to that project's Owners and Managers, so the list,
  * its count and the project page all agree.
  *
- * Restoring and deleting are an Owner's call, and the menu is only there for one.
+ * Restoring and deleting are the project manager's call, and the menu is only there for one.
  * Deleting asks for the project's name, because it cannot be undone.
  */
 export default function SpaceArchive() {
@@ -77,7 +77,7 @@ export default function SpaceArchive() {
     <div className="w-full">
       <div className="space-y-4">
         <p className="max-w-[62ch] text-[13px] text-muted">
-          Projects you archived, or lead, stay readable here. An Owner can bring one back or delete it for good.
+          Projects you archived, or lead, stay readable here. Its project manager can bring one back or delete it for good.
         </p>
         {error && <Alert tone="error">{error}</Alert>}
 

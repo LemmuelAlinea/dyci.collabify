@@ -9,9 +9,10 @@ import { useToast } from '../../components/ui/Toast'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { archiveSpace, updateSpace } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
+import { canEditSpace } from '../../lib/general/permissions'
 
 /**
- * Everything about a space its Owner can change, in one tab: its name and
+ * Everything about a space a space manager can change, in one tab: its name and
  * description, and archiving. Archive comes first; Restore only shows once the
  * space is archived. Deleting a space goes through Archive → Trash.
  */
@@ -37,6 +38,8 @@ export default function SpaceDetails() {
   if (!space) return null
 
   const archived = Boolean(space.archived_at)
+  const canEdit = canEditSpace(space.my_role ?? null)
+  const isPm = space.my_role === 'pm'
   const changed = name.trim() !== space.name || description !== space.description
 
   async function save(event: FormEvent) {
@@ -81,7 +84,7 @@ export default function SpaceDetails() {
                 id={id}
                 required
                 maxLength={80}
-                disabled={archived}
+                disabled={archived || !canEdit}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
               />
@@ -93,13 +96,14 @@ export default function SpaceDetails() {
                 id={id}
                 rows={3}
                 maxLength={400}
-                disabled={archived}
+                disabled={archived || !canEdit}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
               />
             )}
           </Field>
         </form>
+        {canEdit && (
         <div className="mt-4 flex justify-end">
           <Button
             form="space-settings"
@@ -111,8 +115,10 @@ export default function SpaceDetails() {
             Save changes
           </Button>
         </div>
+        )}
       </section>
 
+      {isPm && (
       <section className="rounded-panel border border-line p-4 sm:p-5">
         <h2 className="text-[15px]">{archived ? 'Restore space' : 'Archive space'}</h2>
         <p className="mt-1 text-[13px] text-muted">
@@ -129,6 +135,7 @@ export default function SpaceDetails() {
           {archived ? 'Restore space' : 'Archive space'}
         </Button>
       </section>
+      )}
 
       <ConfirmDialog
         open={archiveOpen}

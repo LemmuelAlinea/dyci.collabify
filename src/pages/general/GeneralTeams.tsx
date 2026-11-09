@@ -14,7 +14,6 @@ import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useLive } from '../../hooks/useLive'
-import { canManageProjects } from '../../lib/access'
 import {
   addSpaceTeamMember,
   archiveSpaceTeam,
@@ -27,7 +26,7 @@ import {
 } from '../../lib/api/general'
 import { listSpaceMembers } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
-import { levelLabel } from '../../lib/general/permissions'
+import { canEditSpace } from '../../lib/general/permissions'
 import type { GeneralSpaceTeam, GeneralSpaceTeamMember, SpacePerson } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { paths } from '../../lib/paths'
@@ -56,6 +55,7 @@ export default function GeneralTeams() {
 
   const archived = Boolean(space?.archived_at)
   const archivePage = new URLSearchParams(location.search).get('archived') === '1'
+  const canManage = !archived && canEditSpace(space?.my_role ?? null)
 
   const load = useCallback(async () => {
     if (!spaceId) return
@@ -143,7 +143,7 @@ export default function GeneralTeams() {
               {archivePage ? 'Active teams' : 'Archived teams'}
             </Link>
           )}
-          {!archivePage && !archived && spaceId && canManageProjects(profile) && (
+          {!archivePage && !archived && spaceId && canManage && (
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Icon name="plus" size={15} />
               Create team
@@ -167,9 +167,9 @@ export default function GeneralTeams() {
           icon="users"
           title="No teams yet"
           body={
-            canManageProjects(profile)
-              ? 'Create a team here, then reuse it when creating projects in this Space.'
-              : 'Teams a project manager makes in this Space show up here.'
+            canManage
+              ? 'Create a team here, then reuse it when creating projects in this space.'
+              : 'Teams a project manager or coordinator makes in this space show up here.'
           }
         />
       ) : (
@@ -180,7 +180,6 @@ export default function GeneralTeams() {
             const options = spaceMembers
               .filter((member) => !memberIds.has(member.user_id))
               .map((member) => ({ value: member.user_id, label: fullName(member) }))
-            const canManage = !archived && (team.my_level === 'owner' || team.my_level === 'manager')
             return (
               <section key={team.id} className="overflow-hidden rounded-panel border border-line surface">
                 <header className="border-b border-line px-4 py-3 sm:px-5">
@@ -191,9 +190,6 @@ export default function GeneralTeams() {
                         <p className="mt-1 text-[13px] leading-relaxed text-muted">{team.description}</p>
                       )}
                     </div>
-                    <span className="shrink-0 rounded-md surface-sunken px-2 py-0.5 text-[12px] text-muted">
-                      {levelLabel(team.my_level)}
-                    </span>
                   </div>
                   <p className="mt-2 text-[12px] text-faint">
                     {team.member_count} {team.member_count === 1 ? 'member' : 'members'} · {team.project_count}{' '}
@@ -252,7 +248,6 @@ export default function GeneralTeams() {
                         />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[14px] text-ink">{fullName(member)}</p>
-                          <p className="text-[12px] text-faint">{levelLabel(member.level)}</p>
                         </div>
                         {!archivePage && canManage && person?.user_id !== profile?.id && (
                           <Button size="sm" variant="ghost" onClick={() => void removeMember(team, member)}>

@@ -11,7 +11,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { rememberSpace } from '../../hooks/useSpaces'
 import { canManageProjects, canTeach, inAnyClass, isMember } from '../../lib/access'
-import { levelLabel } from '../../lib/general/permissions'
+import { ROLE_LABEL, levelLabel } from '../../lib/general/permissions'
 import type { GeneralSpaceSummary } from '../../lib/general/types'
 import { paths } from '../../lib/paths'
 
@@ -267,7 +267,7 @@ function SpaceCard({
             <h3 className="line-clamp-2 text-[17px] leading-snug text-ink transition-colors group-hover:text-navy-600 dark:group-hover:text-amber-300">
               {s.name}
             </h3>
-            <p className="mt-1 text-[12px] leading-relaxed text-muted">You are {levelLabel(s.my_level)}</p>
+            <p className="mt-1 text-[12px] leading-relaxed text-muted">You are {s.my_role ? ROLE_LABEL[s.my_role] : levelLabel(s.my_level)}</p>
           </div>
         </div>
 
