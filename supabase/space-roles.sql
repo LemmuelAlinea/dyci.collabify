@@ -162,7 +162,8 @@ create trigger general_space_members_notify_level
   when (old.level is distinct from new.level or old.role is distinct from new.role)
   execute function public.notify_general_membership();
 
-create or replace view public.general_space_overview as
+create or replace view public.general_space_overview
+with (security_invoker = true) as
  select s.id,
     s.name,
     s.description,
@@ -1157,5 +1158,300 @@ end;
 $function$;
 revoke all on function public.list_my_general_space_invitations() from public, anon;
 grant execute on function public.list_my_general_space_invitations() to authenticated, service_role;
+
+-- ---------------------------------------------------------------- details, teams and removing people
+-- A work space's coordinators change its details and run its teams; every team is readable
+-- by the space. Archiving stays with the project manager.
+create or replace function public.update_general_space(p_space uuid, p_name text, p_description text)
+ returns public.general_spaces
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  s public.general_spaces%rowtype;
+begin
+  if not (public.general_space_has_manage(p_space)
+          or (not public.is_education_space(p_space) and public.general_space_has_invite(p_space))) then
+    raise exception 'You need permission to change this space. Ask the project manager or a coordinator.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_space_is_archived(p_space) then
+    raise exception 'This space is archived. The project manager can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+
+  update public.general_spaces
+     set name = btrim(p_name), description = coalesce(p_description, '')
+   where id = p_space
+  returning * into s;
+  return s;
+end;
+$function$;
+
+create or replace function public.archive_general_space(p_space uuid, p_archived boolean)
+ returns public.general_spaces
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  s public.general_spaces%rowtype;
+begin
+  if not public.is_general_space_owner(p_space) then
+    if public.is_education_space(p_space) then
+      raise exception 'Only an Owner archives a space' using errcode = 'insufficient_privilege';
+    end if;
+    raise exception 'Only the project manager archives a space.' using errcode = 'insufficient_privilege';
+  end if;
+
+  update public.general_spaces
+     set archived_at = case when p_archived then now() else null end
+   where id = p_space
+  returning * into s;
+  return s;
+end;
+$function$;
+
+create or replace function public.general_space_team_can_manage(p_team uuid)
+ returns boolean
+ language sql
+ stable security definer
+ set search_path to 'public'
+as $function$
+  select exists (
+    select 1 from public.general_space_teams t
+     where t.id = p_team
+       and public.general_space_can_invite(t.space_id)
+  );
+$function$;
+
+create or replace function public.create_general_space_team(p_space uuid, p_name text, p_description text default ''::text, p_members uuid[] default '{}'::uuid[])
+ returns public.general_space_teams
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  t public.general_space_teams%rowtype;
+  u uuid;
+begin
+  if not public.general_space_has_invite(p_space) then
+    raise exception 'Only the project manager or a coordinator can create a team in this space.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_space_is_archived(p_space) then
+    raise exception 'That space is archived' using errcode = 'check_violation';
+  end if;
+
+  insert into public.general_space_teams (space_id, name, description, created_by)
+  values (p_space, btrim(p_name), coalesce(p_description, ''), auth.uid())
+  returning * into t;
+
+  insert into public.general_space_team_members (team_id, space_id, user_id, level)
+  values (t.id, p_space, auth.uid(), 'owner')
+  on conflict (team_id, user_id) do update set level = 'owner';
+
+  foreach u in array coalesce(p_members, '{}'::uuid[]) loop
+    if u <> auth.uid() then
+      insert into public.general_space_team_members (team_id, space_id, user_id, level)
+      select t.id, p_space, u, 'member'
+       where exists (
+         select 1 from public.general_space_members sm
+          where sm.space_id = p_space and sm.user_id = u
+       )
+      on conflict (team_id, user_id) do nothing;
+    end if;
+  end loop;
+
+  return t;
+end;
+$function$;
+
+-- A team may lose its last Owner: the space's project manager and coordinators run it.
+create or replace function public.remove_general_space_team_member(p_team uuid, p_user uuid)
+ returns void
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  target public.general_space_team_members%rowtype;
+begin
+  select * into target
+    from public.general_space_team_members
+   where team_id = p_team and user_id = p_user;
+  if not found then
+    return;
+  end if;
+
+  if p_user <> auth.uid() and not public.general_space_team_can_manage(p_team) then
+    raise exception 'You cannot manage that team' using errcode = 'insufficient_privilege';
+  end if;
+  if exists (select 1 from public.general_space_teams where id = p_team and archived_at is not null) then
+    raise exception 'That team is archived' using errcode = 'check_violation';
+  end if;
+
+  delete from public.general_space_team_members
+   where team_id = p_team and user_id = p_user;
+end;
+$function$;
+
+create or replace function public.list_general_space_teams(p_space uuid)
+ returns table(id uuid, space_id uuid, name text, description text, created_by uuid, created_at timestamp with time zone, updated_at timestamp with time zone, archived_at timestamp with time zone, my_level public.general_level, member_count integer, project_count integer)
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+begin
+  if not public.is_general_space_member(p_space) then
+    raise exception 'You are not in this space' using errcode = 'insufficient_privilege';
+  end if;
+
+  return query
+    select t.id, t.space_id, t.name, t.description, t.created_by, t.created_at, t.updated_at,
+           t.archived_at,
+           mine.level as my_level,
+           (select count(*) from public.general_space_team_members m where m.team_id = t.id)::int,
+           (select count(distinct gt.project_id) from public.general_teams gt where gt.space_team_id = t.id)::int
+      from public.general_space_teams t
+      left join public.general_space_team_members mine
+        on mine.team_id = t.id and mine.user_id = auth.uid()
+     where t.space_id = p_space
+     order by t.name;
+end;
+$function$;
+
+create or replace function public.list_general_space_teams(p_space uuid, p_archived boolean)
+ returns table(id uuid, space_id uuid, name text, description text, created_by uuid, created_at timestamp with time zone, updated_at timestamp with time zone, archived_at timestamp with time zone, my_level public.general_level, member_count integer, project_count integer)
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+begin
+  if not public.is_general_space_member(p_space) then
+    raise exception 'You are not in this space' using errcode = 'insufficient_privilege';
+  end if;
+
+  return query
+    select t.id, t.space_id, t.name, t.description, t.created_by, t.created_at, t.updated_at,
+           t.archived_at,
+           mine.level as my_level,
+           (select count(*) from public.general_space_team_members m where m.team_id = t.id)::int,
+           (select count(distinct gt.project_id) from public.general_teams gt where gt.space_team_id = t.id)::int
+      from public.general_space_teams t
+      left join public.general_space_team_members mine
+        on mine.team_id = t.id and mine.user_id = auth.uid()
+     where t.space_id = p_space
+       and t.trashed_at is null
+       and ((p_archived and t.archived_at is not null)
+            or (not p_archived and t.archived_at is null))
+     order by t.name;
+end;
+$function$;
+
+create or replace function public.list_general_space_team_members(p_space uuid)
+ returns table(team_id uuid, user_id uuid, first_name text, last_name text, avatar_url text, level public.general_level, joined_at timestamp with time zone)
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+begin
+  if not public.is_general_space_member(p_space) then
+    raise exception 'You are not in this space' using errcode = 'insufficient_privilege';
+  end if;
+
+  return query
+    select tm.team_id, tm.user_id, pr.first_name, pr.last_name, pr.avatar_url,
+           tm.level, tm.joined_at
+      from public.general_space_team_members tm
+      join public.general_space_teams t on t.id = tm.team_id
+      join public.profiles pr on pr.id = tm.user_id
+     where tm.space_id = p_space
+     order by t.name, tm.level, pr.last_name, pr.first_name;
+end;
+$function$;
+
+drop policy if exists general_space_teams_select on public.general_space_teams;
+create policy general_space_teams_select on public.general_space_teams
+  for select using (
+    public.is_general_space_team_member(id)
+    or public.general_space_has_invite(space_id)
+    or public.is_general_space_member(space_id)
+  );
+
+drop policy if exists general_space_team_members_select on public.general_space_team_members;
+create policy general_space_team_members_select on public.general_space_team_members
+  for select using (
+    public.is_general_space_team_member(team_id)
+    or public.general_space_has_invite(space_id)
+    or public.is_general_space_member(space_id)
+  );
+
+-- Removing people: only the project manager removes a coordinator or the project manager.
+create or replace function public.remove_general_space_member(p_space uuid, p_user uuid)
+ returns void
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  target public.general_space_members%rowtype;
+  owners int;
+  work boolean := not public.is_education_space(p_space);
+begin
+  -- Leaving on your own account needs no permission; removing somebody else does.
+  if p_user is distinct from auth.uid()
+     and not public.general_space_can_invite(p_space) then
+    raise exception 'You need permission to remove someone from this space'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_user = auth.uid() and not public.general_viewer_active() then
+    raise exception 'Sign in with an active account to leave a space'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  perform 1 from public.general_space_members
+   where space_id = p_space and level = 'owner' for update;
+
+  select * into target from public.general_space_members
+   where space_id = p_space and user_id = p_user for update;
+  if target.user_id is null then
+    raise exception 'They are not in this space' using errcode = 'no_data_found';
+  end if;
+
+  if work then
+    if p_user is distinct from auth.uid()
+       and target.role in ('pm', 'coordinator')
+       and not exists (select 1 from public.general_space_members
+                        where space_id = p_space and user_id = auth.uid() and role = 'pm') then
+      raise exception 'Only the project manager can remove a coordinator or the project manager.'
+        using errcode = 'insufficient_privilege';
+    end if;
+  elsif target.level = 'owner' and not public.is_general_space_owner(p_space) then
+    -- A Manager cannot remove an Owner.
+    raise exception 'Only an Owner removes another Owner'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if target.level = 'owner'
+     and exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
+    select count(*) into owners
+      from public.general_space_members m
+      join public.profiles pr on pr.id = m.user_id
+     where m.space_id = p_space and m.level = 'owner' and pr.status <> 'rejected';
+    if owners <= 1 then
+      if work then
+        raise exception 'Hand over the space before leaving.' using errcode = 'check_violation';
+      end if;
+      raise exception 'A space needs at least one Owner. Make someone else an Owner first.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  delete from public.general_space_members
+   where space_id = p_space and user_id = p_user;
+end;
+$function$;
 
 commit;

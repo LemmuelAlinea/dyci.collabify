@@ -235,7 +235,7 @@ begin
   ------------------------------------------------------------------ the last Owner
   perform pg_temp.act_as(owner_id);
   begin
-    perform public.set_general_space_level(space.id, owner_id, 'member');
+    perform public.set_general_space_role(space.id, owner_id, 'member');
     perform pg_temp.ok('the last Owner cannot step down', false);
   exception when check_violation then
     perform pg_temp.ok('the last Owner cannot step down', true);
@@ -248,11 +248,11 @@ begin
     perform pg_temp.ok('the last Owner cannot leave', true);
   end;
 
-  -- With a second Owner, the first may go.
-  perform public.set_general_space_level(space.id, watcher_id, 'owner');
+  -- After a hand over, the first project manager may go.
+  perform public.hand_over_general_space(space.id, watcher_id);
   select level into lvl from public.general_space_members
    where space_id = space.id and user_id = watcher_id;
-  perform pg_temp.ok('an Owner can promote somebody', lvl = 'owner');
+  perform pg_temp.ok('a hand over makes somebody the project manager', lvl = 'owner');
   perform public.remove_general_space_member(space.id, owner_id);
   perform pg_temp.ok('...and then step out themselves',
     not exists (select 1 from public.general_space_members
@@ -268,7 +268,7 @@ begin
   ------------------------------------------------------------------ permission levels
   perform pg_temp.act_as(watcher_id);
   other := public.create_general_space('Levels', '');
-  perform public.invite_to_general_space(other.id, stranger_id);
+  perform public.invite_general_space_member(other.id, stranger_id);
 
   perform pg_temp.act_as(stranger_id);
   select count(*) into n from public.general_spaces where id = other.id;
@@ -276,17 +276,12 @@ begin
   perform public.respond_general_space_invitation(
     (select id from public.general_space_invitations
       where space_id = other.id and invitee = stranger_id), true);
-  perform pg_temp.ok('accepting an invitation joins the space as an Owner',
-    (select level from public.general_space_members
-      where space_id = other.id and user_id = stranger_id) = 'owner');
-
-  -- Make them a plain Member for the checks below.
-  perform pg_temp.act_as(watcher_id);
-  perform public.set_general_space_level(other.id, stranger_id, 'member');
-  perform pg_temp.act_as(stranger_id);
+  perform pg_temp.ok('accepting an invitation joins the space as a member',
+    (select role from public.general_space_members
+      where space_id = other.id and user_id = stranger_id) = 'member');
 
   begin
-    perform public.invite_to_general_space(other.id, owner_id);
+    perform public.invite_general_space_member(other.id, owner_id);
     perform pg_temp.ok('a Member cannot invite', false);
   exception when insufficient_privilege then
     perform pg_temp.ok('a Member cannot invite', true);
@@ -299,28 +294,17 @@ begin
     perform pg_temp.ok('a Member cannot rename the space', true);
   end;
 
-  -- A Manager neither invites (only Owners invite co-owners) nor renames.
+  -- A coordinator invites and renames like the project manager.
   perform pg_temp.act_as(watcher_id);
-  perform public.set_general_space_level(other.id, stranger_id, 'manager');
+  perform public.set_general_space_role(other.id, stranger_id, 'coordinator');
   perform pg_temp.act_as(stranger_id);
-  begin
-    perform public.invite_to_general_space(other.id, owner_id);
-    perform pg_temp.ok('a Manager cannot invite', false);
-  exception when insufficient_privilege then
-    perform pg_temp.ok('a Manager cannot invite', true);
-  end;
-  perform pg_temp.act_as(watcher_id);
-  perform public.invite_to_general_space(other.id, owner_id);
-  perform pg_temp.ok('...while an Owner can',
+  perform public.invite_general_space_member(other.id, owner_id);
+  perform pg_temp.ok('a coordinator can invite',
     exists (select 1 from public.general_space_invitations
              where space_id = other.id and invitee = owner_id and status = 'pending'));
-  perform pg_temp.act_as(stranger_id);
-  begin
-    perform public.update_general_space(other.id, 'Renamed', '');
-    perform pg_temp.ok('a Manager still cannot rename the space', false);
-  exception when insufficient_privilege then
-    perform pg_temp.ok('a Manager still cannot rename the space', true);
-  end;
+  perform public.update_general_space(other.id, 'Renamed', '');
+  perform pg_temp.ok('a coordinator can rename the space',
+    (select name = 'Renamed' from public.general_spaces where id = other.id));
 
   ------------------------------------------------------------------ archiving
   perform pg_temp.act_as(watcher_id);

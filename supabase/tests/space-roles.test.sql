@@ -74,6 +74,8 @@ declare
   v_p5      uuid;
   v_p6      uuid;
   v_team    uuid;
+  v_team2   uuid;
+  v_team3   uuid;
   v_inv     uuid;
   v_space   uuid;
   v_class   uuid;
@@ -572,6 +574,114 @@ begin
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('accepting over a coordinator seat keeps coordinator',
     (select role = 'coordinator' from public.general_space_members where space_id = v_s2 and user_id = v_i2));
+
+  -- ---------------------------------------------------------------- details, teams and removing people
+  -- v_i2 is a coordinator of v_s2 with no Project manager switch, on neither the second team nor project four. v_i1 is a plain member with no team.
+  perform pg_temp.act_as(v_i2);
+  perform public.update_general_space(v_s2, 'New name', 'Zz');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('coordinator edits details',
+    (select name = 'New name' from public.general_spaces where id = v_s2));
+  perform pg_temp.act_as(v_i1);
+  perform pg_temp.must_refuse_with('member cannot edit details',
+    format($q$select public.update_general_space(%L, 'Nope', '')$q$, v_s2), 'permission');
+  perform pg_temp.act_as(v_i2);
+  perform pg_temp.must_refuse_with('coordinator cannot archive the space',
+    format($q$select public.archive_general_space(%L, true)$q$, v_s2), 'project manager');
+  perform pg_temp.act_as(v_old);
+  perform pg_temp.must_refuse_with('class space archive keeps its text',
+    format($q$select public.archive_general_space(%L, true)$q$, v_class), 'Owner archives') ;
+  perform pg_temp.act_as_service();
+
+  -- The second team has only the project manager on it.
+  perform pg_temp.act_as(v_pm);
+  v_team2 := (public.create_general_space_team(v_s2, 'Zz SR team two')).id;
+  perform pg_temp.act_as(v_i1);
+  perform pg_temp.must_be('member reads every team',
+    (select count(*) = 2 from public.list_general_space_teams(v_s2)));
+  perform pg_temp.must_be('member reads every live team, other overload',
+    (select count(*) = 2 from public.list_general_space_teams(v_s2, false)));
+  perform pg_temp.must_be('not on the team: my_level null',
+    (select my_level is null from public.list_general_space_teams(v_s2) where id = v_team2));
+  perform pg_temp.must_be('not on the team: my_level null, other overload',
+    (select my_level is null from public.list_general_space_teams(v_s2, false) where id = v_team2));
+  perform pg_temp.must_be('member reads team people',
+    (select count(*) > 0 from public.list_general_space_team_members(v_s2)));
+  perform pg_temp.must_be('member reads every team people',
+    (select count(distinct team_id) = 2 from public.list_general_space_team_members(v_s2)));
+  perform pg_temp.must_be('member reads the team rows',
+    (select count(*) = 2 from public.general_space_teams where space_id = v_s2));
+  perform pg_temp.act_as_service();
+  update public.general_space_teams set archived_at = now(), trashed_at = now() where id = v_team2;
+  perform pg_temp.act_as(v_i1);
+  perform pg_temp.must_be('a trashed team stays out of the archive-page list',
+    (select count(*) = 1 from public.list_general_space_teams(v_s2, false)));
+  perform pg_temp.act_as_service();
+  update public.general_space_teams set archived_at = null where id = v_team2;
+
+  perform pg_temp.act_as(v_i2);
+  v_team3 := (public.create_general_space_team(v_s2, 'Zz SR coordinator team')).id;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('coordinator creates a team',
+    exists (select 1 from public.general_space_teams where id = v_team3 and created_by = v_i2));
+  update public.profiles set can_manage_projects = true where id = v_i1;
+  perform pg_temp.act_as(v_i1);
+  perform pg_temp.must_refuse_with('switch holder who is a member cannot create',
+    format($q$select public.create_general_space_team(%L, 'Zz SR nope')$q$, v_s2), 'coordinator');
+
+  perform pg_temp.act_as(v_i2);
+  perform public.update_general_space_team(v_team2, 'Renamed', '');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('coordinator edits a team they are not on',
+    (select name = 'Renamed' from public.general_space_teams where id = v_team2));
+  insert into public.general_space_team_members (team_id, space_id, user_id, level)
+  values (v_team, v_s2, v_i1, 'owner');
+  perform pg_temp.act_as(v_i1);
+  perform pg_temp.must_refuse_with('team owner who is a member cannot edit',
+    format($q$select public.update_general_space_team(%L, 'Nope', '')$q$, v_team), 'manage');
+
+  perform pg_temp.act_as(v_pm);
+  perform public.remove_general_space_team_member(v_team3, v_i2);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('pm removes the only team owner',
+    not exists (select 1 from public.general_space_team_members where team_id = v_team3 and user_id = v_i2));
+  perform pg_temp.act_as(v_member);
+  perform public.remove_general_space_team_member(v_team, v_member);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('member can still leave a team',
+    not exists (select 1 from public.general_space_team_members where team_id = v_team and user_id = v_member));
+
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_refuse_with('project seed needs team membership',
+    format($q$select public.create_general_project('Zz SR seed', '', null, null, null, null, %L, %L)$q$, v_s2, v_team),
+    'team');
+
+  -- Removing people.
+  perform pg_temp.act_as(v_i2);
+  perform pg_temp.must_refuse_with('coordinator cannot remove the pm',
+    format($q$select public.remove_general_space_member(%L, %L)$q$, v_s2, v_pm), 'project manager');
+  perform pg_temp.must_refuse_with('coordinator cannot remove a coordinator',
+    format($q$select public.remove_general_space_member(%L, %L)$q$, v_s2, v_coord), 'project manager');
+  perform public.remove_general_space_member(v_s2, v_i1);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('coordinator removes a member',
+    not exists (select 1 from public.general_space_members where space_id = v_s2 and user_id = v_i1));
+  perform pg_temp.act_as(v_pm);
+  perform pg_temp.must_refuse_with('pm cannot leave without handing over',
+    format($q$select public.remove_general_space_member(%L, %L)$q$, v_s2, v_pm), 'hand over');
+  perform pg_temp.act_as(v_coord);
+  perform public.remove_general_space_member(v_s2, v_coord);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('a coordinator can still leave',
+    not exists (select 1 from public.general_space_members where space_id = v_s2 and user_id = v_coord));
+
+  -- A coordinator reads only the projects they are on.
+  perform pg_temp.act_as(v_i2);
+  perform pg_temp.must_be('coordinator gets no read of a project they are not on',
+    not public.can_read_general_project(v_p4));
+  perform pg_temp.must_be('coordinator on the project still reads it',
+    public.can_read_general_project(v_p5));
+  perform pg_temp.act_as_service();
 end;
 $$;
 

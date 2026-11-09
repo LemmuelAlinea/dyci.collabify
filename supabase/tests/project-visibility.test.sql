@@ -6,7 +6,7 @@
 -- A work project is read by its members, and by the Owners of its space
 -- (read-only). A plain space member who is not on the project sees nothing of
 -- it. Joining a project adds you to its space; leaving it does not take you
--- out. Space invites offer Member or co-owner access, and
+-- out. Work spaces have one project manager and invite with a role, and
 -- space join codes no longer admit anyone. Class-board Files projects keep
 -- their old access. Every refusal is paired with a case that is allowed, so a
 -- refusal never passes for the wrong reason.
@@ -371,6 +371,8 @@ begin
 end $$;
 
 -- ------------------------------------------------------------------ invites
+-- A work space has one project manager, so there are no co-owner invitations; people join
+-- with a role through invite_general_space_member.
 
 do $$
 declare
@@ -378,91 +380,18 @@ declare
   v_owner  uuid := (select v from fx where k = 'owner');
   v_plain  uuid := (select v from fx where k = 'plain');
   v_cowner uuid := (select v from fx where k = 'cowner');
-  v_nopm   uuid := (select v from fx where k = 'nopm');
 begin
   perform pg_temp.act_as(v_plain);
   perform pg_temp.must_refuse_with('a plain space member cannot invite anyone',
+    format('select public.invite_general_space_member(%L, %L)', v_space, v_cowner),
+    'permission');
+  perform pg_temp.act_as(v_owner);
+  perform pg_temp.must_refuse_with('the co-owner invitation is gone from a work space',
     format('select public.invite_to_general_space(%L, %L)', v_space, v_cowner),
-    'Only an Owner');
-
-  perform pg_temp.act_as(v_owner);
-  perform pg_temp.must_refuse_with('the Owner cannot invite someone without Project manager',
-    format('select public.invite_to_general_space(%L, %L)', v_space, v_nopm),
-    'Only people with Project manager turned on can co-own a space. Invite them to a project instead.');
-  perform pg_temp.must_allow('the Owner invites someone with Project manager',
-    format('select public.invite_to_general_space(%L, %L)', v_space, v_cowner));
-
-  perform pg_temp.must_be('legacy co-owner invitations default to Owner',
-    (select invited_level = 'owner' from public.general_space_invitations
-      where space_id = v_space and invitee = v_cowner and status = 'pending'));
-
-  perform pg_temp.must_be('the Owner lists co-owner access',
-    (select invited_level = 'owner' from public.list_general_space_invitations(v_space)
-      where invitee_id = v_cowner));
-  perform pg_temp.act_as(v_cowner);
-  perform pg_temp.must_be('the co-owner invitee lists Owner access',
-    (select invited_level = 'owner' from public.list_my_general_space_invitations()
-      where space_id = v_space));
-  perform pg_temp.must_allow('...who accepts',
-    format('select public.respond_general_space_invitation(%L, true)',
-      (select id from public.general_space_invitations
-        where space_id = v_space and invitee = v_cowner and status = 'pending')));
-  perform pg_temp.act_as_service();
-  perform pg_temp.must_be('...and joins the space as an Owner',
-    (select level = 'owner' from public.general_space_members
-      where space_id = v_space and user_id = v_cowner));
+    'one project manager');
 end $$;
 
--- A plain member with Project manager can be invited to co-own; an Owner cannot.
-do $$
-declare
-  v_space uuid := (select v from fx where k = 'space');
-  v_owner uuid := (select v from fx where k = 'owner');
-  v_pm    uuid := (select v from fx where k = 'pm');
-  v_cowner uuid := (select v from fx where k = 'cowner');
-begin
-  perform pg_temp.act_as(v_owner);
-  perform pg_temp.must_refuse_with('inviting someone who already co-owns the space is refused',
-    format('select public.invite_to_general_space(%L, %L)', v_space, v_cowner),
-    'They already co-own this space');
-  perform pg_temp.must_allow('the Owner invites a plain space member who has Project manager',
-    format('select public.invite_to_general_space(%L, %L)', v_space, v_pm));
-  perform pg_temp.act_as(v_pm);
-  perform pg_temp.must_allow('...who accepts',
-    format('select public.respond_general_space_invitation(%L, true)',
-      (select id from public.general_space_invitations
-        where space_id = v_space and invitee = v_pm and status = 'pending')));
-  perform pg_temp.act_as_service();
-  perform pg_temp.must_be('...and is raised from member to Owner',
-    (select level = 'owner' from public.general_space_members
-      where space_id = v_space and user_id = v_pm));
-end $$;
-
--- Making someone an Owner directly follows the same rule.
-do $$
-declare
-  v_space uuid := (select v from fx where k = 'space');
-  v_owner uuid := (select v from fx where k = 'owner');
-  v_plain uuid := (select v from fx where k = 'plain');
-  v_pm2   uuid := (select v from fx where k = 'pm2');
-begin
-  perform pg_temp.act_as(v_owner);
-  perform pg_temp.must_refuse_with('an Owner cannot make someone without Project manager an Owner',
-    format('select public.set_general_space_level(%L, %L, %L)', v_space, v_plain, 'owner'),
-    'Only people with Project manager turned on can co-own a space');
-  perform pg_temp.must_allow('...but can make someone with it an Owner',
-    format('select public.set_general_space_level(%L, %L, %L)', v_space, v_pm2, 'owner'));
-  perform pg_temp.must_allow('...and can still make the plain member a Manager',
-    format('select public.set_general_space_level(%L, %L, %L)', v_space, v_plain, 'manager'));
-  perform pg_temp.must_allow('...and back to member',
-    format('select public.set_general_space_level(%L, %L, %L)', v_space, v_plain, 'member'));
-  perform pg_temp.act_as_service();
-  perform pg_temp.must_be('...so they are a member again and the switch-holder an Owner',
-    (select level = 'member' from public.general_space_members where space_id = v_space and user_id = v_plain)
-    and (select level = 'owner' from public.general_space_members where space_id = v_space and user_id = v_pm2));
-end $$;
-
--- In a work space a Manager runs no invitations or codes; an Owner does.
+-- In a work space a coordinator (level Manager) sends and reads invitations like the project manager.
 do $$
 declare
   v_space   uuid := (select v from fx where k = 'space');
@@ -473,25 +402,20 @@ declare
 begin
   update public.profiles set can_manage_projects = true where id = v_nopm;
   perform pg_temp.act_as(v_owner);
-  v_inv := (public.invite_to_general_space(v_space, v_nopm)).id;
+  v_inv := (public.invite_general_space_member(v_space, v_nopm)).id;
   perform pg_temp.act_as_service();
   insert into public.general_space_join_codes (space_id, code, open)
   values (v_space, 'ZZPVCODE', false);
 
   perform pg_temp.act_as(v_manager);
-  perform pg_temp.must_be('a work-space Manager reads no pending invitations',
-    not exists (select 1 from public.general_space_invitations where id = v_inv));
-  perform pg_temp.must_be('...nor the join code',
-    not exists (select 1 from public.general_space_join_codes where space_id = v_space));
-  perform pg_temp.must_refuse_with('...cannot list the invitations',
-    format('select * from public.list_general_space_invitations(%L)', v_space),
-    'You need permission to see this space''s invitations');
-  perform pg_temp.must_refuse_with('...cannot withdraw one',
-    format('select public.withdraw_general_space_invitation(%L)', v_inv),
-    'You need permission to withdraw this invitation');
-  perform pg_temp.must_refuse_with('...and cannot close the join code',
-    format('select public.set_general_space_join_code(%L, false)', v_space),
-    'You need permission to change this space''s join code');
+  perform pg_temp.must_be('a work-space coordinator reads the pending invitations',
+    exists (select 1 from public.general_space_invitations where id = v_inv));
+  perform pg_temp.must_be('...and the join code',
+    exists (select 1 from public.general_space_join_codes where space_id = v_space));
+  perform pg_temp.must_be('...lists the invitations',
+    exists (select 1 from public.list_general_space_invitations(v_space) where invitation_id = v_inv));
+  perform pg_temp.must_allow('...and closes the join code',
+    format('select public.set_general_space_join_code(%L, false)', v_space));
 
   perform pg_temp.act_as(v_owner);
   perform pg_temp.must_be('the Owner reads the pending invitation',
@@ -534,25 +458,18 @@ begin
        from public.general_projects where id = v_project));
 end $$;
 
--- An invitee whose switch was turned off after the invite cannot accept it.
+-- A member invitation needs no Project manager switch: an invitee without it can still decline
+-- and is not seated until they accept.
 do $$
 declare
   v_space uuid := (select v from fx where k = 'space');
   v_owner uuid := (select v from fx where k = 'owner');
   v_nopm  uuid := (select v from fx where k = 'nopm');
 begin
-  update public.profiles set can_manage_projects = true where id = v_nopm;
   perform pg_temp.act_as(v_owner);
-  perform public.invite_to_general_space(v_space, v_nopm);
-  perform pg_temp.act_as_service();
-  update public.profiles set can_manage_projects = false where id = v_nopm;
+  perform public.invite_general_space_member(v_space, v_nopm);
   perform pg_temp.act_as(v_nopm);
-  perform pg_temp.must_refuse_with('an invitee who lost Project manager cannot accept',
-    format('select public.respond_general_space_invitation(%L, true)',
-      (select id from public.general_space_invitations
-        where space_id = v_space and invitee = v_nopm and status = 'pending')),
-    'Project manager');
-  perform pg_temp.must_allow('...but can decline',
+  perform pg_temp.must_allow('an invitee without Project manager can decline',
     format('select public.respond_general_space_invitation(%L, false)',
       (select id from public.general_space_invitations
         where space_id = v_space and invitee = v_nopm and status = 'pending')));
@@ -616,11 +533,8 @@ declare
   v_inv uuid;
 begin
   perform pg_temp.act_as(v_plain);
-  perform pg_temp.must_refuse_with('a non-Owner cannot invite a regular member',
-    format('select public.invite_general_space_member(%L, %L)', v_space, v_nopm), 'Only an Owner');
-  perform pg_temp.act_as((select v from fx where k = 'manager'));
-  perform pg_temp.must_refuse_with('a Manager cannot invite a regular member',
-    format('select public.invite_general_space_member(%L, %L)', v_space, v_nopm), 'Only an Owner');
+  perform pg_temp.must_refuse_with('a plain member cannot invite a regular member',
+    format('select public.invite_general_space_member(%L, %L)', v_space, v_nopm), 'permission');
   perform pg_temp.act_as(v_owner);
   perform pg_temp.must_refuse_with('a seated Member cannot receive a regular invite',
     format('select public.invite_general_space_member(%L, %L)', v_space, v_plain), 'already in this space');
@@ -661,12 +575,12 @@ begin
   perform pg_temp.act_as(v_owner);
   v_inv := (public.invite_general_space_member(v_space, v_nopm)).id;
   perform pg_temp.act_as_service();
-  insert into public.general_space_members (space_id, user_id, level) values (v_space, v_nopm, 'owner');
+  insert into public.general_space_members (space_id, user_id, role) values (v_space, v_nopm, 'coordinator');
   perform pg_temp.act_as(v_nopm);
   perform public.respond_general_space_invitation(v_inv, true);
   perform pg_temp.act_as_service();
-  perform pg_temp.must_be('accepting a pending Member invitation never demotes an Owner',
-    (select level = 'owner' from public.general_space_members where space_id = v_space and user_id = v_nopm));
+  perform pg_temp.must_be('accepting a pending Member invitation never demotes a coordinator',
+    (select level = 'manager' from public.general_space_members where space_id = v_space and user_id = v_nopm));
 
   delete from public.general_space_members where space_id = v_space and user_id = v_member;
   perform pg_temp.act_as(v_owner);
@@ -681,13 +595,10 @@ begin
    where space_id = v_space and user_id = (select v from fx where k = 'student');
   update public.profiles set can_manage_projects = false where id = v_owner;
   perform pg_temp.act_as(v_owner);
-  perform pg_temp.must_refuse_with('regular invitations retain the student-inviter restriction',
-    format('select public.invite_general_space_member(%L, %L)', v_space,
-      (select v from fx where k = 'student')), 'Only project managers and teachers');
+  -- The space's project manager invites a student whether or not the switch is on.
+  v_inv := (public.invite_general_space_member(v_space, (select v from fx where k = 'student'))).id;
   perform pg_temp.act_as_service();
   update public.profiles set can_manage_projects = true where id = v_owner;
-  perform pg_temp.act_as(v_owner);
-  v_inv := (public.invite_general_space_member(v_space, (select v from fx where k = 'student'))).id;
   perform pg_temp.act_as((select v from fx where k = 'student'));
   perform public.respond_general_space_invitation(v_inv, true);
   perform pg_temp.act_as_service();
