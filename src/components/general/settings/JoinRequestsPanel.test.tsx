@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { JoinRequestsPanel } from './JoinRequestsPanel'
 import type { GeneralProjectState } from '../useGeneralProject'
 import { answerJoinRequest } from '../../../lib/api/general'
+import { listSpaceMembers } from '../../../lib/api/spaces'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -71,6 +72,25 @@ it('says they joined when the name is not known', async () => {
   expect(host.textContent).toContain('Someone in your space')
   await act(async () => button('Approve')!.click())
   expect(toast).toHaveBeenCalledWith('They joined as Member')
+})
+
+it('starts a join request on the space role', async () => {
+  vi.mocked(listSpaceMembers).mockResolvedValueOnce([
+    { user_id: 'u1', first_name: 'Ana', last_name: 'Cruz', avatar_url: null, level: 'member', joined_at: '', is_student: false, role: 'qa' },
+  ] as never)
+  await show(makeState())
+  expect(host.querySelector('select')!.value).toBe('qa')
+  await act(async () => button('Approve')!.click())
+  expect(answerJoinRequest).toHaveBeenCalledWith('r1', true, 'qa')
+})
+
+it('keeps a role the manager already changed when names arrive', async () => {
+  let resolve!: (v: never) => void
+  vi.mocked(listSpaceMembers).mockReturnValueOnce(new Promise((r) => (resolve = r as never)))
+  await show(makeState())
+  await choose(host.querySelector('select')!, 'stakeholder')
+  await act(async () => resolve([{ user_id: 'u1', first_name: 'Ana', last_name: 'Cruz', role: 'qa' }] as never))
+  expect(host.querySelector('select')!.value).toBe('stakeholder')
 })
 
 it('approves as Member by default', async () => {

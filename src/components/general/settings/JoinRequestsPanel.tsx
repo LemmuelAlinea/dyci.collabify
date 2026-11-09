@@ -7,7 +7,7 @@ import { answerJoinRequest } from '../../../lib/api/general'
 import { listSpaceMembers } from '../../../lib/api/spaces'
 import { authErrorMessage } from '../../../lib/authError'
 import { formatDue } from '../../../lib/general/dates'
-import { ROLE_LABEL, inviteRoles } from '../../../lib/general/permissions'
+import { ROLE_LABEL, defaultInviteRole, inviteRoles } from '../../../lib/general/permissions'
 import type { ProjectRole } from '../../../lib/general/permissions'
 import type { JoinRequest } from '../../../lib/general/types'
 import { fullName } from '../../../lib/types'
@@ -24,6 +24,7 @@ export function JoinRequestsPanel({ state }: { state: GeneralProjectState }) {
   const open = state.joinRequests.filter((r) => r.status === 'open')
   const spaceId = state.project?.space_id
   const [names, setNames] = useState<Map<string, string>>(new Map())
+  const [spaceRoles, setSpaceRoles] = useState<Map<string, ProjectRole>>(new Map())
   const listed = open.length > 0
 
   useEffect(() => {
@@ -31,7 +32,9 @@ export function JoinRequestsPanel({ state }: { state: GeneralProjectState }) {
     let live = true
     listSpaceMembers(spaceId)
       .then((people) => {
-        if (live) setNames(new Map(people.map((p) => [p.user_id, fullName(p)])))
+        if (!live) return
+        setNames(new Map(people.map((p) => [p.user_id, fullName(p)])))
+        setSpaceRoles(new Map(people.flatMap((p) => (p.role ? [[p.user_id, p.role] as const] : []))))
       })
       // A failure costs names, not the panel.
       .catch(() => {})
@@ -48,18 +51,30 @@ export function JoinRequestsPanel({ state }: { state: GeneralProjectState }) {
       <p className="mt-0.5 text-[12px] text-muted">People in your space who want to be on this project.</p>
       <ul className="mt-3 space-y-3">
         {open.map((r) => (
-          <JoinRequestRow key={r.id} request={r} name={names.get(r.user_id)} state={state} />
+          <JoinRequestRow key={r.id} request={r} name={names.get(r.user_id)} spaceRole={spaceRoles.get(r.user_id)} state={state} />
         ))}
       </ul>
     </section>
   )
 }
 
-function JoinRequestRow({ request, name: known, state }: { request: JoinRequest; name: string | undefined; state: GeneralProjectState }) {
+function JoinRequestRow({
+  request,
+  name: known,
+  spaceRole,
+  state,
+}: {
+  request: JoinRequest
+  name: string | undefined
+  spaceRole: ProjectRole | undefined
+  state: GeneralProjectState
+}) {
   const name = known ?? 'Someone in your space'
   const { show } = useToast()
   const roles = inviteRoles(state.myRole as ProjectRole)
-  const [role, setRole] = useState<ProjectRole>('member')
+  // Starts on the space role once the list loads; a role the manager picked is never overwritten.
+  const [chosen, setChosen] = useState<ProjectRole | null>(null)
+  const role = chosen ?? defaultInviteRole(spaceRole, roles)
   const [busy, setBusy] = useState(false)
 
   async function answer(approve: boolean) {
@@ -91,7 +106,7 @@ function JoinRequestRow({ request, name: known, state }: { request: JoinRequest;
           aria-label={`Role for ${name}`}
           value={role}
           disabled={busy}
-          onChange={(e) => setRole(e.target.value as ProjectRole)}
+          onChange={(e) => setChosen(e.target.value as ProjectRole)}
           options={roles.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
           className="!h-9 !text-[13px]"
         />

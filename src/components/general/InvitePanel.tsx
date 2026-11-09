@@ -16,8 +16,9 @@ import {
   setJoinCode,
   withdrawInvitation,
 } from '../../lib/api/general'
+import { listSpaceMembers } from '../../lib/api/spaces'
 import { authErrorMessage } from '../../lib/authError'
-import { ROLE_LABEL, inviteRoles } from '../../lib/general/permissions'
+import { ROLE_LABEL, defaultInviteRole, inviteRoles } from '../../lib/general/permissions'
 import type { ProjectRole } from '../../lib/general/permissions'
 import type { PersonHit, ProjectInvitation } from '../../lib/general/types'
 import { fullName } from '../../lib/types'
@@ -61,8 +62,29 @@ function Search({ state }: { state: GeneralProjectState }) {
   // The project manager and a Coordinator each choose a role; anyone else invites no one.
   const [picked, setPicked] = useState<PersonHit | null>(null)
   const [role, setRole] = useState<ProjectRole>('member')
-  const roles = state.myRole ? inviteRoles(state.myRole) : []
-  const canChooseRole = roles.length > 1
+  const baseRoles = state.myRole ? inviteRoles(state.myRole) : []
+  const canChooseRole = baseRoles.length > 1
+  // Each person's space role, read once. A failure leaves the map empty: everyone starts on Member.
+  const [spaceRoles, setSpaceRoles] = useState<Map<string, ProjectRole>>(new Map())
+  const spaceId = state.project?.class_board_id ? undefined : state.project?.space_id
+  useEffect(() => {
+    if (!spaceId) return
+    let live = true
+    listSpaceMembers(spaceId)
+      .then((people) => {
+        if (live) setSpaceRoles(new Map(people.flatMap((p) => (p.role ? [[p.user_id, p.role] as const] : []))))
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [spaceId])
+  // A Coordinator can bring in another space Coordinator as one; nobody else gets that choice.
+  const rolesFor = (hit: PersonHit): ProjectRole[] =>
+    state.myRole === 'coordinator' && spaceRoles.get(hit.person_id) === 'coordinator'
+      ? [...baseRoles, 'coordinator']
+      : baseRoles
+  const roles = picked ? rolesFor(picked) : baseRoles
 
   useEffect(() => {
     const q = query.trim()
@@ -82,10 +104,10 @@ function Search({ state }: { state: GeneralProjectState }) {
 
   const memberIds = new Set(state.members.map((m) => m.user_id))
 
-  // Every pick starts at Member, so Coordinator and Stakeholder are always deliberate choices.
+  // A pick starts on the person's space role, or Member when they have none.
   function pick(hit: PersonHit | null) {
     setPicked(hit)
-    setRole('member')
+    setRole(hit ? defaultInviteRole(spaceRoles.get(hit.person_id), rolesFor(hit)) : 'member')
   }
 
   async function invite(hit: PersonHit, as: ProjectRole) {
@@ -305,8 +327,9 @@ function JoinCode({ state }: { state: GeneralProjectState }) {
       ) : (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[13px] text-muted">
-            Off. Anyone with the code joins as a Member, so share it with care. The code stays the same
-            for good; turning it off is how you stop people joining.
+            Off. Anyone with the code joins with their space role, or as a Member if they have none, so
+            share it with care. The code stays the same for good; turning it off is how you stop
+            people joining.
           </p>
           {state.isOwner && !state.archived && (
             <Button size="sm" variant="outline" loading={busy} onClick={() => void set(true)}>
