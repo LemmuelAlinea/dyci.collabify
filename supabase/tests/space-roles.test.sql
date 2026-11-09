@@ -68,6 +68,7 @@ declare
   v_teacher uuid := gen_random_uuid();  -- owner of the class space
   v_i1      uuid := gen_random_uuid();  -- invited, joins as a member
   v_i2      uuid := gen_random_uuid();  -- coordinator of the second space
+  v_st2     uuid := gen_random_uuid();  -- a second student
   v_s2      uuid;
   v_p4      uuid;
   v_p5      uuid;
@@ -101,7 +102,8 @@ begin
       (v_student, 'zz-sr-student@example.test'),
       (v_teacher, 'zz-sr-teacher@example.test'),
       (v_i1,      'zz-sr-i1@example.test'),
-      (v_i2,      'zz-sr-i2@example.test')
+      (v_i2,      'zz-sr-i2@example.test'),
+      (v_st2,     'zz-sr-st2@example.test')
     ) as v(id, em);
 
   insert into public.profiles
@@ -115,7 +117,8 @@ begin
     (v_student, 'zz-sr-student@example.test', 'Zz', 'Srstudent', 'student', 'active', false, false),
     (v_teacher, 'zz-sr-teacher@example.test', 'Zz', 'Srteacher', 'member',  'active', true,  false),
     (v_i1,      'zz-sr-i1@example.test',      'Zz', 'Sri1',      'member',  'active', false, false),
-    (v_i2,      'zz-sr-i2@example.test',      'Zz', 'Sri2',      'member',  'active', false, false)
+    (v_i2,      'zz-sr-i2@example.test',      'Zz', 'Sri2',      'member',  'active', false, false),
+    (v_st2,     'zz-sr-st2@example.test',     'Zz', 'Srst2',     'student', 'active', false, false)
   on conflict (id) do update
     set role = excluded.role, status = excluded.status,
         can_manage_projects = excluded.can_manage_projects, can_teach = excluded.can_teach;
@@ -538,6 +541,37 @@ begin
     (select role = 'pm' from public.general_members where project_id = v_p6 and user_id = v_pm));
   perform pg_temp.must_be('team seed adds a stakeholder to the team',
     exists (select 1 from public.general_team_members where project_id = v_p6 and user_id = v_student));
+
+  -- A coordinator without the Project manager switch invites a student; a member cannot.
+  perform pg_temp.act_as(v_i2);
+  perform public.invite_general_space_member(v_s2, v_st2, 'qa');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('coordinator without the switch invites a student',
+    exists (select 1 from public.general_space_invitations
+             where space_id = v_s2 and invitee = v_st2 and invited_by = v_i2));
+  perform pg_temp.act_as(v_i1);
+  perform pg_temp.must_refuse_with('a plain member cannot invite a student',
+    format($q$select public.invite_general_space_member(%L, %L)$q$, v_s2, v_st2), 'permission');
+  perform pg_temp.act_as(v_st2);
+  perform pg_temp.must_be('the invitee list returns the role',
+    (select invited_role = 'qa' from public.list_my_general_space_invitations() where space_id = v_s2));
+  perform pg_temp.act_as_service();
+
+  -- Accepting over an existing seat: a Member seat takes the role, any other seat stands.
+  update public.general_space_invitations set invited_role = 'stakeholder'
+   where space_id = v_s2 and invitee = v_i1 and status = 'pending' returning id into v_inv;
+  perform pg_temp.act_as(v_i1);
+  perform public.respond_general_space_invitation(v_inv, true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('accepting over a member seat takes the invited role',
+    (select role = 'stakeholder' from public.general_space_members where space_id = v_s2 and user_id = v_i1));
+  insert into public.general_space_invitations (space_id, invitee, invited_by, invited_level, invited_role)
+  values (v_s2, v_i2, v_pm, 'member', 'qa') returning id into v_inv;
+  perform pg_temp.act_as(v_i2);
+  perform public.respond_general_space_invitation(v_inv, true);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('accepting over a coordinator seat keeps coordinator',
+    (select role = 'coordinator' from public.general_space_members where space_id = v_s2 and user_id = v_i2));
 end;
 $$;
 

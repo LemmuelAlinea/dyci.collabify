@@ -815,9 +815,12 @@ begin
     on conflict do nothing;
   elsif p_accept then
     -- Joining a space sets no role on projects the person already holds.
+    -- A person already seated as a plain Member (joining a project seats them) takes
+    -- the invited role; any other seat stands.
     insert into public.general_space_members (space_id, user_id, role)
     values (inv.space_id, auth.uid(), inv.invited_role)
-    on conflict do nothing;
+    on conflict (space_id, user_id) do update set role = excluded.role
+      where general_space_members.role = 'member';
   end if;
   return inv;
 end;
@@ -1101,5 +1104,58 @@ begin
   return p;
 end;
 $function$;
+
+-- A space coordinator without the Project manager switch can invite a student to a work
+-- space. The project invitation path is as live.
+create or replace function public.guard_student_invite()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+begin
+  if tg_table_name = 'general_space_invitations' then
+    if exists (select 1 from public.general_spaces s where s.id = new.space_id and s.kind = 'work')
+       and public.general_space_has_invite(new.space_id) then
+      return new;
+    end if;
+  end if;
+  if auth.uid() is not null
+     and public.is_student(new.invitee)
+     and not (public.is_project_manager(auth.uid()) or public.is_teaching_faculty(auth.uid())) then
+    raise exception 'Only project managers and teachers can invite a student.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end;
+$function$;
+
+-- The invitee sees the role an invitation carries.
+drop function if exists public.list_my_general_space_invitations();
+create function public.list_my_general_space_invitations()
+ returns table(invitation_id uuid, space_id uuid, space_name text, space_description text, space_kind text, inviter_id uuid, inviter_first_name text, inviter_last_name text, inviter_avatar_url text, created_at timestamp with time zone, invited_level public.general_level, invited_role public.general_role)
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+#variable_conflict use_column
+begin
+  if not public.general_viewer_active() then
+    return;
+  end if;
+
+  return query
+    select i.id, i.space_id, s.name, s.description, s.kind::text,
+           i.invited_by, pr.first_name, pr.last_name, pr.avatar_url, i.created_at, i.invited_level,
+           i.invited_role
+      from public.general_space_invitations i
+      join public.general_spaces s on s.id = i.space_id
+      left join public.profiles pr on pr.id = i.invited_by
+     where i.invitee = auth.uid() and i.status = 'pending'
+     order by i.created_at desc;
+end;
+$function$;
+revoke all on function public.list_my_general_space_invitations() from public, anon;
+grant execute on function public.list_my_general_space_invitations() to authenticated, service_role;
 
 commit;
