@@ -899,9 +899,11 @@ re-run changes no project role. It owns:
 
 - New: `sync_general_space_member_role`, `general_space_default_role`,
   `general_space_role_gate`, `general_space_role_targets`, `preview_general_space_role`,
-  `set_general_space_role`, `hand_over_general_space`. The cascade writes project roles
-  under the flag `collabify.space_role_cascade`, which only `guard_general_task_child`
-  honors (for the DELETE its release step causes).
+  `set_general_space_role`, `hand_over_general_space`. The flag
+  `collabify.space_role_cascade` wraps only the delete from `general_task_assignees` for a
+  move to QA or Stakeholder, and only `guard_general_task_child` honors it.
+- Schema: `general_space_members.role`, `general_space_invitations.invited_role` and the
+  unique index `general_space_members_one_pm`.
 - Triggers: `general_space_members_a_sync_role` (new), `general_space_members_student_level`
   and `general_space_members_notify_level` (recreated to fire on a role change).
 - View: `general_space_overview`.
@@ -909,7 +911,7 @@ re-run changes no project role. It owns:
   `set_general_space_level`, `guard_general_task_child`, `general_space_manages_invites`,
   `invite_general_space_member`, `invite_to_general_space`,
   `respond_general_space_invitation`, `list_my_general_space_invitations`,
-  `join_general_project`, `invite_to_general_project`, `create_general_project` (eight-argument
+  `list_general_space_members`, `list_general_space_invitations`, `join_general_project`, `invite_to_general_project`, `create_general_project` (eight-argument
   form), `guard_student_invite`, `update_general_space`, `archive_general_space`,
   `general_space_team_can_manage`, `create_general_space_team`,
   `remove_general_space_team_member`, `list_general_space_teams` (both forms),

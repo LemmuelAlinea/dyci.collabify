@@ -153,9 +153,12 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   Coordinator, no project role changes). `set_general_space_role` (preview with
   `preview_general_space_role`) updates the person's live projects, never a project PM row
   and never an archived project; a space Coordinator's change leaves project Coordinators
-  alone, a PM's change updates them. It runs under `collabify.space_role_cascade`. Joins and
-  project invites start on `general_space_default_role`. A space Coordinator reads only the
-  projects they are on; the space PM reads all. The space's top tabs are Overview, Projects,
+  alone, a PM's change updates them. The flag `collabify.space_role_cascade` wraps only the
+  delete from `general_task_assignees` for a move to QA or Stakeholder. Joining by code and
+  team seeding start on `general_space_default_role`; a project invite starts there only in
+  the app, and the database also lets a project Coordinator invite as coordinator when that
+  is the person's space role. A space Coordinator gets no extra read; only the space PM
+  reads every project, and Workspace visibility still applies. The space's top tabs are Overview, Projects,
   Reports and Settings; Settings (`SpaceSettings.tsx`) has Details (a Coordinator edits,
   only the PM archives), Teams and Members (PM and Coordinators change, others read), and
   Archive (PM and Coordinators only). Old `/teams`, `/members` and `/archive` links redirect
