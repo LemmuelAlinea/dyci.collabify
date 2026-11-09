@@ -135,7 +135,7 @@ export default function SpaceMembers() {
     try {
       await saveRole(pending.person, pending.role)
     } catch (err) {
-      throw new Error(authErrorMessage(err, 'Could not change that role.'))
+      throw new Error(authErrorMessage(err, 'Could not change that role.'), { cause: err })
     }
   }
 
@@ -144,7 +144,7 @@ export default function SpaceMembers() {
     try {
       await handOverSpace(spaceId, handingOver.user_id)
     } catch (err) {
-      throw new Error(authErrorMessage(err, 'Could not hand over the space.'))
+      throw new Error(authErrorMessage(err, 'Could not hand over the space.'), { cause: err })
     }
     show(`${handingOver.first_name} is now the project manager`)
     await Promise.all([load(), reloadNavigation()])

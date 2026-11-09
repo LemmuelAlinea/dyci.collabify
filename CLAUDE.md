@@ -145,6 +145,22 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `general_route_context` for planning teams and `general_lead_assign_context`
   for incoming team members; old unrestricted Edge Function modes are refused.
   Deploy the reviewed frontend, SQL and `work-ai` together after the owner role walk.
+- Space roles (`supabase/space-roles.sql`, after `project-member-import.sql`, before
+  `anon-lockdown.sql`): on a work space `general_space_members.role` (`pm`, `coordinator`,
+  `member`, `qa`, `stakeholder`) is the source of truth and `level` is derived from it by
+  `general_space_members_a_sync_role`; class spaces keep levels and a null role. A space has
+  exactly one PM, changed only by `hand_over_general_space` (the old PM becomes a
+  Coordinator, no project role changes). `set_general_space_role` (preview with
+  `preview_general_space_role`) updates the person's live projects, never a project PM row
+  and never an archived project; a space Coordinator's change leaves project Coordinators
+  alone, a PM's change updates them. It runs under `collabify.space_role_cascade`. Joins and
+  project invites start on `general_space_default_role`. A space Coordinator reads only the
+  projects they are on; the space PM reads all. The space's top tabs are Overview, Projects,
+  Reports and Settings; Settings (`SpaceSettings.tsx`) has Details (a Coordinator edits,
+  only the PM archives), Teams and Members (PM and Coordinators change, others read), and
+  Archive (PM and Coordinators only). Old `/teams`, `/members` and `/archive` links redirect
+  into it. Re-running any file the backup doc lists under Space roles means re-running it
+  afterwards. Suite: `supabase/tests/space-roles.test.sql`.
 - Starting, finishing and reopening work-project sprints, and changing sprint settings,
   belong to the project manager and coordinators (`general_can_run_sprint`,
   `supabase/sprint-settings.sql`). Members with the `manage_tasks` grant still create

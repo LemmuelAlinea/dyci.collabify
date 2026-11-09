@@ -4373,3 +4373,27 @@ shared stamp as a fallback without repeating a rule. The migration and
 `anon-lockdown.sql` are live; the two reported tasks and one other due task became
 Urgent. The build, 1,760 Vitest tests and all 100 SQL suites pass. The updated
 graph was rebuilt.
+
+## Space settings and space roles (2026-11-10; branch, not live)
+
+Branch `feature/space-settings-roles`, not pushed. Design:
+`docs/superpowers/specs/2026-11-10-space-settings-and-roles-design.md`.
+
+- A work space now has the project role language. `general_space_members.role` is the source
+  of truth and `level` is derived. One PM per space, changed by `hand_over_general_space`.
+  `set_general_space_role` carries a role into the person's live projects (never a project PM
+  row, never an archived project); a space Coordinator's change leaves project Coordinators
+  alone. Joins and project invites start on the space role. Teams are read by the whole space
+  and changed by the PM and Coordinators; Coordinators can edit details and invite students.
+- Frontend: the space tabs are Overview, Projects, Reports, Settings. Settings has a left
+  menu (Details, Teams, Members, Archive) built like project Settings; old links redirect;
+  Members sets roles with a confirm dialog when tasks release or a QA gate starts; the
+  invite dialogs and the Inbox show roles.
+- Not live: `supabase/space-roles.sql` has NOT been applied to the live database and nothing
+  is pushed. It passes its dry run (rolled back) only. The old app cannot change space roles
+  once the SQL is on, so apply it and push `main` back to back.
+- Deferred: a localhost layout check (tabs, menu, light, dark, phone) and the live role walk
+  as PM, Coordinator, Member and Stakeholder; the launch snapshot compare of
+  `general_members` (expect zero differences) and the one-PM-per-space check.
+- Next: the owner's rollout go-ahead, then apply `space-roles.sql` and `anon-lockdown.sql`,
+  run the suites, push, walk the roles, and record the outcome here.
