@@ -73,6 +73,9 @@ declare
   v_arch    uuid;
   v_t1      uuid;
   v_t2      uuid;
+  v_proj3   uuid;
+  v_t3      uuid;
+  v_t4      uuid;
   v_snap_n  int;
   n         int;
   s         text;
@@ -361,6 +364,41 @@ begin
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('project pm stays pm',
     (select role = 'pm' from public.general_members where project_id = v_proj2 and user_id = v_member));
+
+  -- ---------------------------------------------------------------- a caller who is not on the project
+  perform pg_temp.act_as(v_pm);
+  v_proj3 := (public.create_general_project('Zz SR project three', '', null, null, null, null, v_space)).id;
+  perform pg_temp.act_as_service();
+  insert into public.general_members (project_id, user_id, role) values
+    (v_proj3, v_member, 'member'), (v_proj3, v_old, 'member'), (v_proj3, v_qa, 'member');
+  update public.general_members set role = 'coordinator' where project_id = v_proj3 and user_id = v_pm;
+  delete from public.general_members where project_id = v_proj3 and user_id = v_pm;
+  insert into public.general_tasks (project_id, title) values (v_proj3, 'Zz SR task three')
+    returning id into v_t3;
+  insert into public.general_tasks (project_id, title) values (v_proj3, 'Zz SR task four')
+    returning id into v_t4;
+  insert into public.general_task_assignees (task_id, project_id, user_id) values
+    (v_t3, v_proj3, v_member), (v_t4, v_proj3, v_qa);
+
+  perform pg_temp.claim_as(v_coord);
+  perform pg_temp.must_be('preview: caller off the project still counts it',
+    (select project_count = 2 and qa_start_count = 1 from public.preview_general_space_role(v_space, v_member, 'qa')));
+  perform public.set_general_space_role(v_space, v_member, 'qa');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('coordinator off the project: role changes',
+    (select role = 'qa' from public.general_members where project_id = v_proj3 and user_id = v_member));
+  perform pg_temp.must_be('coordinator off the project: task released',
+    (select count(*) = 0 from public.general_task_assignees where project_id = v_proj3 and user_id = v_member));
+  perform pg_temp.claim_as(v_coord);
+  perform pg_temp.must_be('preview: caller off a project that already has qa counts no new gate',
+    (select qa_start_count = 0 from public.preview_general_space_role(v_space, v_old, 'qa')));
+  perform pg_temp.claim_as(v_pm);
+  perform public.set_general_space_role(v_space, v_qa, 'stakeholder');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('space pm off the project: role changes',
+    (select role = 'stakeholder' from public.general_members where project_id = v_proj3 and user_id = v_qa));
+  perform pg_temp.must_be('space pm off the project: task released',
+    (select count(*) = 0 from public.general_task_assignees where project_id = v_proj3 and user_id = v_qa));
 
   -- ---------------------------------------------------------------- hand over
   perform pg_temp.claim_as(v_pm);

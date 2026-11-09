@@ -366,7 +366,10 @@ begin
                  and a.project_id in (select public.general_space_role_targets(p_space, p_user, p_role, by_pm)))
            else 0 end,
            case when p_role = 'qa' then
-             (count(*) filter (where not public.general_project_has_qa(t)))::int
+             (count(*) filter (where not exists (
+               select 1 from public.general_members m
+                 join public.profiles pq on pq.id = m.user_id
+                where m.project_id = t and m.role = 'qa' and pq.status = 'active')))::int
            else 0 end
       from public.general_space_role_targets(p_space, p_user, p_role, by_pm) t;
 end;
@@ -392,8 +395,17 @@ begin
 
   -- The projects are read before the space row changes: the change does not touch them.
   for proj in select public.general_space_role_targets(p_space, p_user, p_role, by_pm) loop
-    update public.general_members set role = p_role
-     where project_id = proj and user_id = p_user;
+    -- The conditions repeat the target rules on the row itself: a hand over or a
+    -- project role change can land between the read and this update.
+    update public.general_members g set role = p_role
+      from public.general_projects pr
+     where pr.id = g.project_id and pr.archived_at is null
+       and g.project_id = proj and g.user_id = p_user
+       and g.role <> 'pm' and g.role <> p_role
+       and (by_pm or g.role <> 'coordinator');
+    if not found then
+      continue;
+    end if;
 
     -- Grants are extras for members only (set_general_member_role, project-qa.sql).
     if p_role <> 'member' then
@@ -405,7 +417,9 @@ begin
 
     if p_role in ('stakeholder', 'qa') then
       perform set_config('collabify.general_archive_op', 'on', true);
+      perform set_config('collabify.space_role_cascade', 'on', true);
       delete from public.general_task_assignees where project_id = proj and user_id = p_user;
+      perform set_config('collabify.space_role_cascade', 'off', true);
       perform set_config('collabify.general_archive_op', 'off', true);
     end if;
     n := n + 1;
@@ -527,6 +541,123 @@ begin
 
   update public.general_space_members set level = p_level
    where space_id = p_space and user_id = p_user;
+end;
+$function$;
+
+-- guard_general_task_child as live, plus the space role cascade bypass for DELETE.
+CREATE OR REPLACE FUNCTION public.guard_general_task_child()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  p uuid;
+  -- Leaving an archived project cascades into general_task_assignees; that
+  -- delete should go through even though the membership row that drove it is
+  -- already gone by the time this trigger fires.
+  v_member_gone boolean := false;
+  v_role public.general_role;
+  t public.general_tasks%rowtype;
+  actor_role public.general_role;
+begin
+  if tg_op = 'DELETE' then
+    p := old.project_id;
+  else
+    p := new.project_id;
+  end if;
+  if auth.uid() is null then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+
+  -- A space role change letting go of a task its target held: the caller need not be
+  -- on the project (set_general_space_role sets the flag around that delete only).
+  if tg_op = 'DELETE' and tg_table_name = 'general_task_assignees'
+     and coalesce(current_setting('collabify.space_role_cascade', true), 'off') = 'on' then
+    return old;
+  end if;
+  if tg_op = 'DELETE' and tg_table_name = 'general_task_assignees' then
+    v_member_gone := not exists (
+      select 1 from public.general_members
+       where project_id = old.project_id and user_id = old.user_id
+    );
+  end if;
+  if not v_member_gone then
+    if not public.is_general_member(p) then
+      raise exception 'You are not on this project' using errcode = 'insufficient_privilege';
+    end if;
+    if not public.general_can_write(p) then
+      raise exception 'Stakeholders can view this project but not change it.'
+        using errcode = 'insufficient_privilege';
+    end if;
+    if public.general_is_archived(p) then
+      raise exception 'This project is archived. An Owner can restore it to make changes.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+  if tg_op = 'INSERT' then
+    case tg_table_name
+      when 'general_task_assignees' then
+        -- Nobody hands a stakeholder or QA a task, whichever policy branch
+        -- let the row in: a self-claim, a task manager or a team leader.
+        select role into v_role from public.general_members
+         where project_id = new.project_id and user_id = new.user_id;
+        if v_role = 'stakeholder' then
+          raise exception 'Stakeholders can''t hold tasks. Pick someone else.'
+            using errcode = 'insufficient_privilege';
+        end if;
+        if v_role = 'qa' then
+          raise exception 'QA can''t hold tasks. Pick someone else.'
+            using errcode = 'insufficient_privilege';
+        end if;
+        new.assigned_by := auth.uid();
+        -- Serializes claims and routing against the same task row.
+        select * into t from public.general_tasks where id=new.task_id for update;
+        if exists(select 1 from public.general_projects where id=p and class_board_id is null) then
+          if t.id is null or t.project_id<>p or t.routing_state<>'released'
+             or t.archived_at is not null or t.trashed_at is not null then
+            raise exception 'Send live work to a team before assigning it.' using errcode='check_violation';
+          end if;
+          select m.role into actor_role from public.general_members m
+            join public.profiles pr on pr.id=m.user_id
+            where m.project_id=p and m.user_id=auth.uid() and pr.status='active'
+            for share of m,pr nowait;
+          if not found then
+            raise exception 'Your project membership changed. Reload and try again.' using errcode='insufficient_privilege';
+          end if;
+          perform 1 from public.general_members m join public.profiles pr on pr.id=m.user_id
+            where m.project_id=p and m.user_id=new.user_id and pr.status='active'
+              and m.role not in ('qa','stakeholder') for share of m,pr nowait;
+          if not found then
+            raise exception 'Choose an active project member who can hold tasks.' using errcode='check_violation';
+          end if;
+          if actor_role not in ('pm','coordinator') then
+            perform 1 from public.general_teams g
+              join public.general_team_members lead on lead.project_id=p and lead.team_id=g.id and lead.user_id=auth.uid()
+              join public.general_team_members recipient on recipient.project_id=p and recipient.team_id=g.id and recipient.user_id=new.user_id
+              where g.project_id=p and g.id=t.team_id and g.archived_at is null and g.leader_id=auth.uid()
+              for share of g,lead,recipient nowait;
+            if not found or actor_role='stakeholder' then
+              raise exception 'Only the receiving team lead assigns its members. Reload and try again.' using errcode='insufficient_privilege';
+            end if;
+          end if;
+        elsif not public.general_can(new.project_id, 'manage_tasks')
+           and public.general_task_held(new.task_id) then
+          raise exception 'Somebody already holds this task' using errcode='check_violation';
+        end if;
+      when 'general_task_comments'  then new.author_id := auth.uid();
+      when 'general_task_files'     then new.uploaded_by := auth.uid();
+      when 'general_task_logs'      then new.user_id := auth.uid();
+      else null;
+    end case;
+  elsif tg_op = 'UPDATE' and tg_table_name = 'general_task_comments' then
+    new.author_id := old.author_id;
+    new.task_id := old.task_id;
+    new.project_id := old.project_id;
+    new.created_at := old.created_at;
+    new.edited_at := now();
+  end if;
+  return case when tg_op = 'DELETE' then old else new end;
 end;
 $function$;
 
