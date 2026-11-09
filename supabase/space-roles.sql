@@ -254,4 +254,280 @@ as $$
 $$;
 revoke execute on function public.general_space_default_role(uuid, uuid) from public, anon, authenticated;
 
+-- The shared gate of set and preview. Returns true when the caller is the space's
+-- project manager, false for a coordinator. Locks the pm row, then the target row.
+create or replace function public.general_space_role_gate(
+  p_space uuid,
+  p_user  uuid,
+  p_role  public.general_role
+) returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me     public.general_role;
+  target public.general_role;
+begin
+  if not exists (select 1 from public.general_spaces s where s.id = p_space and s.kind = 'work') then
+    raise exception 'Roles apply to work spaces. Change a class member''s access level instead.'
+      using errcode = 'check_violation';
+  end if;
+  if not public.general_space_has_invite(p_space) then
+    raise exception 'You need permission to change roles in this space.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_space_is_archived(p_space) then
+    raise exception 'This space is archived. The project manager can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+  if p_role = 'pm' then
+    raise exception 'Use hand over to change the project manager.'
+      using errcode = 'check_violation';
+  end if;
+
+  perform 1 from public.general_space_members
+   where space_id = p_space and role = 'pm' for update;
+  select role into target from public.general_space_members
+   where space_id = p_space and user_id = p_user for update;
+  if target is null then
+    raise exception 'They are not in this space' using errcode = 'no_data_found';
+  end if;
+
+  -- Asked again under the lock: a hand over may have moved the caller since.
+  select role into me from public.general_space_members
+   where space_id = p_space and user_id = auth.uid();
+  if me is null or me not in ('pm', 'coordinator') then
+    raise exception 'You need permission to change roles in this space.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if target = 'pm' then
+    raise exception 'Use hand over to change the project manager.'
+      using errcode = 'check_violation';
+  end if;
+  if me = 'coordinator' then
+    if target not in ('member', 'qa', 'stakeholder') then
+      raise exception 'Only the project manager can change a coordinator.'
+        using errcode = 'insufficient_privilege';
+    end if;
+    if p_role = 'coordinator' then
+      raise exception 'Only the project manager can make someone a coordinator.'
+        using errcode = 'insufficient_privilege';
+    end if;
+  end if;
+  return me = 'pm';
+end;
+$$;
+revoke all on function public.general_space_role_gate(uuid, uuid, public.general_role) from public, anon, authenticated;
+
+-- Live work projects a space role change reaches.
+create or replace function public.general_space_role_targets(
+  p_space uuid,
+  p_user  uuid,
+  p_role  public.general_role,
+  p_by_pm boolean
+) returns setof uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id
+    from public.general_projects p
+    join public.general_members g on g.project_id = p.id and g.user_id = p_user
+   where p.space_id = p_space
+     and p.class_board_id is null
+     and p.archived_at is null
+     and g.role <> 'pm'
+     and g.role <> p_role
+     and (p_by_pm or g.role <> 'coordinator');
+$$;
+revoke all on function public.general_space_role_targets(uuid, uuid, public.general_role, boolean) from public, anon, authenticated;
+
+create or replace function public.preview_general_space_role(
+  p_space uuid,
+  p_user  uuid,
+  p_role  public.general_role
+) returns table (project_count int, task_count int, qa_start_count int)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  by_pm boolean;
+begin
+  by_pm := public.general_space_role_gate(p_space, p_user, p_role);
+  return query
+    select count(*)::int,
+           case when p_role in ('qa', 'stakeholder') then
+             (select count(*)::int from public.general_task_assignees a
+               where a.user_id = p_user
+                 and a.project_id in (select public.general_space_role_targets(p_space, p_user, p_role, by_pm)))
+           else 0 end,
+           case when p_role = 'qa' then
+             (count(*) filter (where not public.general_project_has_qa(t)))::int
+           else 0 end
+      from public.general_space_role_targets(p_space, p_user, p_role, by_pm) t;
+end;
+$$;
+revoke all on function public.preview_general_space_role(uuid, uuid, public.general_role) from public, anon;
+grant execute on function public.preview_general_space_role(uuid, uuid, public.general_role) to authenticated;
+
+create or replace function public.set_general_space_role(
+  p_space uuid,
+  p_user  uuid,
+  p_role  public.general_role
+) returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  by_pm boolean;
+  proj  uuid;
+  n     int := 0;
+begin
+  by_pm := public.general_space_role_gate(p_space, p_user, p_role);
+
+  -- The projects are read before the space row changes: the change does not touch them.
+  for proj in select public.general_space_role_targets(p_space, p_user, p_role, by_pm) loop
+    update public.general_members set role = p_role
+     where project_id = proj and user_id = p_user;
+
+    -- Grants are extras for members only (set_general_member_role, project-qa.sql).
+    if p_role <> 'member' then
+      delete from public.general_grants where project_id = proj and user_id = p_user;
+      update public.general_access_requests
+         set status = 'withdrawn', answered_at = now()
+       where project_id = proj and user_id = p_user and status = 'open';
+    end if;
+
+    if p_role in ('stakeholder', 'qa') then
+      perform set_config('collabify.general_archive_op', 'on', true);
+      delete from public.general_task_assignees where project_id = proj and user_id = p_user;
+      perform set_config('collabify.general_archive_op', 'off', true);
+    end if;
+    n := n + 1;
+  end loop;
+
+  update public.general_space_members set role = p_role
+   where space_id = p_space and user_id = p_user and role <> p_role;
+  return n;
+end;
+$$;
+revoke all on function public.set_general_space_role(uuid, uuid, public.general_role) from public, anon;
+grant execute on function public.set_general_space_role(uuid, uuid, public.general_role) to authenticated;
+
+create or replace function public.hand_over_general_space(p_space uuid, p_user uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from public.general_spaces s where s.id = p_space and s.kind = 'work') then
+    raise exception 'Hand over applies to work spaces.' using errcode = 'check_violation';
+  end if;
+  if public.general_space_is_archived(p_space) then
+    raise exception 'This space is archived. The project manager can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+  perform 1 from public.general_space_members
+   where space_id = p_space and role = 'pm' for update;
+  if not exists (select 1 from public.general_space_members
+                  where space_id = p_space and user_id = auth.uid() and role = 'pm') then
+    raise exception 'Only the project manager can hand over this space.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  perform 1 from public.general_space_members
+   where space_id = p_space and user_id = p_user for update;
+  if not exists (select 1 from public.general_space_members m
+                   join public.profiles pr on pr.id = m.user_id
+                  where m.space_id = p_space and m.user_id = p_user and pr.status = 'active') then
+    raise exception 'They are not an active member of this space.' using errcode = 'no_data_found';
+  end if;
+  if p_user = auth.uid() then
+    raise exception 'Choose someone else to hand the space to.' using errcode = 'check_violation';
+  end if;
+  if public.is_student(p_user) then
+    raise exception 'A student cannot be the project manager.' using errcode = 'check_violation';
+  end if;
+  if not public.is_project_manager(p_user) then
+    raise exception 'They need Project manager turned on first. Ask an admin to turn it on.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- The old project manager steps aside first: only one row may hold pm.
+  update public.general_space_members set role = 'coordinator'
+   where space_id = p_space and user_id = auth.uid();
+  update public.general_space_members set role = 'pm'
+   where space_id = p_space and user_id = p_user;
+end;
+$$;
+revoke all on function public.hand_over_general_space(uuid, uuid) from public, anon;
+grant execute on function public.hand_over_general_space(uuid, uuid) to authenticated;
+
+-- Work spaces change a person through the space role; class spaces keep levels.
+create or replace function public.set_general_space_level(p_space uuid, p_user uuid, p_level public.general_level)
+ returns void
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  target public.general_space_members%rowtype;
+  owners int;
+begin
+  if not public.is_education_space(p_space) then
+    raise exception 'Use the space role to change this person.'
+      using errcode = 'check_violation';
+  end if;
+  if not public.is_general_space_owner(p_space) then
+    raise exception 'Only an Owner changes access levels'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if public.general_space_is_archived(p_space) then
+    raise exception 'This space is archived. An Owner can restore it to make changes.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- Every Owner row locked before counting, so two Owners stepping down at
+  -- once cannot both see the other still there.
+  perform 1 from public.general_space_members
+   where space_id = p_space and level = 'owner' for update;
+
+  select * into target from public.general_space_members
+   where space_id = p_space and user_id = p_user for update;
+  if target.user_id is null then
+    raise exception 'They are not in this space' using errcode = 'no_data_found';
+  end if;
+
+  if p_level = 'owner' and target.level <> 'owner'
+     and not public.is_education_space(p_space)
+     and not public.is_project_manager(p_user) then
+    raise exception 'Only people with Project manager turned on can co-own a space. Ask an admin to turn it on first.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- Stepping down a deactivated Owner never changes how many active Owners
+  -- there are, so it is never blocked — only demoting somebody who is still
+  -- active can leave the space with zero of them.
+  if target.level = 'owner' and p_level <> 'owner'
+     and exists (select 1 from public.profiles where id = p_user and status <> 'rejected') then
+    select count(*) into owners
+      from public.general_space_members m
+      join public.profiles pr on pr.id = m.user_id
+     where m.space_id = p_space and m.level = 'owner' and pr.status <> 'rejected';
+    if owners <= 1 then
+      raise exception 'A space needs at least one Owner. Make someone else an Owner first.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  update public.general_space_members set level = p_level
+   where space_id = p_space and user_id = p_user;
+end;
+$function$;
+
 commit;
