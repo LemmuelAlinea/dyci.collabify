@@ -61,11 +61,13 @@ begin
   perform pg_temp.act_as_service();
   insert into public.general_members (project_id, user_id, level)
   values (proj.id, manager_id, 'manager'), (proj.id, member_id, 'member');
-  -- A co-Owner of the same space who is on neither project. Only the space's
-  -- Owners read projects they are not on (project-visibility.sql).
-  insert into public.general_space_members (space_id, user_id, level)
-  values (proj.space_id, neighbour, 'owner')
-  on conflict do nothing;
+  -- The space's project manager, who is on neither project: the creator steps aside to
+  -- coordinator. Only the project manager reads projects they are not on.
+  update public.general_space_members set role = 'coordinator'
+   where space_id = proj.space_id and user_id = owner_id;
+  insert into public.general_space_members (space_id, user_id, role)
+  values (proj.space_id, neighbour, 'pm')
+  on conflict (space_id, user_id) do update set role = 'pm';
   insert into public.general_tasks (project_id, title, created_by)
   values (proj.id, 'A task', owner_id) returning id into task_id;
   insert into public.general_teams (project_id, name) values (proj.id, 'Writers');

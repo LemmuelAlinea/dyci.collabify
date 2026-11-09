@@ -61,7 +61,7 @@ begin
   ------------------------------------------------------------------ space invitations
   perform pg_temp.act_as(owner_id);
   space := public.create_general_space('Cover space', '');
-  select (public.invite_to_general_space(space.id, mate_id)).id into inv;
+  select (public.invite_general_space_member(space.id, mate_id)).id into inv;
   perform pg_temp.svc();
   perform pg_temp.ok('a space invitation reaches the invitee',
     exists (select 1 from public.notifications where user_id = mate_id and type = 'space_invited'
@@ -76,15 +76,15 @@ begin
 
   ------------------------------------------------------------------ space membership
   perform pg_temp.act_as(owner_id);
-  perform public.set_general_space_level(space.id, mate_id, 'manager');
+  perform public.set_general_space_role(space.id, mate_id, 'coordinator');
   perform pg_temp.svc();
   perform pg_temp.ok('a level change reaches the member',
     exists (select 1 from public.notifications where user_id = mate_id and type = 'membership_changed'
-             and preview = 'You are now Manager' and general_space_id = space.id));
+             and preview = 'You are now a coordinator' and general_space_id = space.id));
 
   update public.notification_prefs set project_updates = false where user_id = mate_id;
   perform pg_temp.act_as(owner_id);
-  perform public.set_general_space_level(space.id, mate_id, 'member');
+  perform public.set_general_space_role(space.id, mate_id, 'member');
   perform pg_temp.svc();
   perform pg_temp.ok('project_updates off silences a level change',
     pg_temp.got(mate_id, 'membership_changed') = 1);

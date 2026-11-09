@@ -76,6 +76,7 @@ declare
   v_team    uuid;
   v_team2   uuid;
   v_team3   uuid;
+  v_team4   uuid;
   v_inv     uuid;
   v_space   uuid;
   v_class   uuid;
@@ -674,6 +675,21 @@ begin
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('a coordinator can still leave',
     not exists (select 1 from public.general_space_members where space_id = v_s2 and user_id = v_coord));
+
+  -- A student who is a coordinator creates a team and sits on it as a member.
+  update public.general_space_members set role = 'coordinator' where space_id = v_s2 and user_id = v_student;
+  perform pg_temp.act_as(v_student);
+  v_team4 := (public.create_general_space_team(v_s2, 'Zz SR student coordinator team')).id;
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('student coordinator creates a team',
+    exists (select 1 from public.general_space_teams where id = v_team4 and created_by = v_student));
+  perform pg_temp.must_be('...and sits on it as a member',
+    (select level = 'member' from public.general_space_team_members where team_id = v_team4 and user_id = v_student));
+  perform pg_temp.act_as(v_student);
+  perform public.update_general_space_team(v_team4, 'Zz SR student renamed', '');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('...and manages it as a coordinator',
+    (select name = 'Zz SR student renamed' from public.general_space_teams where id = v_team4));
 
   -- A coordinator reads only the projects they are on.
   perform pg_temp.act_as(v_i2);

@@ -577,9 +577,12 @@ begin
   perform pg_temp.act_as_service();
   v_space := (select space_id from public.general_projects where id = v_r);
 
-  insert into public.general_space_members (space_id, user_id, level)
-  values (v_space, v_sowner, 'owner'), (v_space, v_smember, 'member')
-  on conflict (space_id, user_id) do update set level = excluded.level;
+  -- A work space has one project manager: v_sowner holds it, v_pm steps aside to coordinator
+  -- and stays R's project manager.
+  update public.general_space_members set role = 'coordinator' where space_id = v_space and user_id = v_pm;
+  insert into public.general_space_members (space_id, user_id, role)
+  values (v_space, v_sowner, 'pm'), (v_space, v_smember, 'member')
+  on conflict (space_id, user_id) do update set role = excluded.role;
 
   -- R: pm (pm), coord (coordinator), plain, granted, mem2, pm2 (members).
   insert into public.general_members (project_id, user_id, role) values

@@ -486,24 +486,24 @@ declare
   v_student3 uuid := (select v from fx where k = 'student3');
   v_space    uuid := (select v from fx where k = 'space');
 begin
-  -- A student left as Owner from before the level trigger existed. The service
-  -- role is exempt from that trigger, which is how such a row still exists.
+  -- A student can be a coordinator of a work space, never its project manager. The service
+  -- role is exempt from the level trigger, so try the pm seat as a signed-in claim.
   perform pg_temp.act_as_service();
-  insert into public.general_space_members (space_id, user_id, level)
-  values (v_space, v_student3, 'owner');
+  insert into public.general_space_members (space_id, user_id, role)
+  values (v_space, v_student3, 'coordinator');
+  perform pg_temp.must_be('a student can hold a coordinator seat in a work space',
+    (select level = 'manager' from public.general_space_members
+      where space_id = v_space and user_id = v_student3));
+  perform pg_temp.must_refuse_with('...but never the project manager seat',
+    format($q$update public.general_space_members set role = 'pm' where space_id = %L and user_id = %L$q$,
+           v_space, v_student3),
+    'student');
 
+  -- A student coordinator invites a student, as any coordinator does.
+  delete from public.general_space_members where space_id = v_space and user_id = v_student2;
   perform pg_temp.act_as(v_student3);
-  -- The RPC refuses first now: a work-space invitee needs Project manager.
-  perform pg_temp.must_refuse_with('a grandfathered student Owner still cannot invite a student',
-    format('select public.invite_to_general_space(%L, %L)', v_space, v_student2),
-    'Only people with Project manager turned on can co-own a space');
-  -- So prove the trigger on its own: insert as postgres (no RLS) with the
-  -- student Owner's claims.
-  perform set_config('role', 'none', true);
-  perform pg_temp.must_refuse_with('...and the invite trigger on its own refuses it too',
-    format($q$insert into public.general_space_invitations (space_id, invitee, invited_by)
-              values (%L, %L, %L)$q$, v_space, v_student2, v_student3),
-    'Only project managers and teachers can invite a student');
+  perform pg_temp.must_allow('a student coordinator can invite a student',
+    format('select public.invite_general_space_member(%L, %L)', v_space, v_student2));
   perform pg_temp.act_as_service();
 end $$;
 

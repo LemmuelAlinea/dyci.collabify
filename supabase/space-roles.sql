@@ -39,6 +39,7 @@ drop trigger if exists general_space_members_a_sync_role on public.general_space
 create trigger general_space_members_a_sync_role
   before insert or update of role, level on public.general_space_members
   for each row execute function public.sync_general_space_member_role();
+revoke all on function public.sync_general_space_member_role() from public, anon, authenticated;
 
 -- Launch backfill: work-space rows only, and never a role that is already set.
 update public.general_space_members m
@@ -1249,8 +1250,8 @@ begin
   returning * into t;
 
   insert into public.general_space_team_members (team_id, space_id, user_id, level)
-  values (t.id, p_space, auth.uid(), 'owner')
-  on conflict (team_id, user_id) do update set level = 'owner';
+  values (t.id, p_space, auth.uid(), case when public.is_student(auth.uid()) then 'member' else 'owner' end::public.general_level)
+  on conflict (team_id, user_id) do update set level = excluded.level;
 
   foreach u in array coalesce(p_members, '{}'::uuid[]) loop
     if u <> auth.uid() then

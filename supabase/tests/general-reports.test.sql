@@ -76,10 +76,14 @@ begin
   perform pg_temp.act_as_service();
   insert into public.general_members (project_id, user_id, level)
   values (proj.id, pmgr_id, 'manager'), (proj.id, member_id, 'member'), (proj.id, leaver, 'member');
-  insert into public.general_space_members (space_id, user_id, level)
-  values (proj.space_id, viewer_id, 'member'), (proj.space_id, smgr_id, 'owner'),
+  -- The space's project manager is smgr_id, who is on no project; the creator steps aside.
+  update public.general_space_members set role = 'coordinator'
+   where space_id = proj.space_id and user_id = owner_id;
+  insert into public.general_space_members (space_id, user_id, role)
+  values (proj.space_id, smgr_id, 'pm'),
+         (proj.space_id, viewer_id, 'member'),
          (proj.space_id, member_id, 'member'), (proj.space_id, pmgr_id, 'member')
-  on conflict do nothing;
+  on conflict (space_id, user_id) do update set role = excluded.role;
 
   insert into public.general_tasks (routing_state, project_id, title, created_by, status, completed_at, due_at)
   values ('released', proj.id, 'Member task', member_id, 'done', now() - interval '1 day', now() - interval '2 days')
@@ -133,7 +137,7 @@ begin
 
   -- A space Manager is neither a lead nor a reader of projects they are not on.
   perform pg_temp.act_as_service();
-  update public.general_space_members set level = 'manager'
+  update public.general_space_members set role = 'coordinator'
    where space_id = proj.space_id and user_id = smgr_id;
   perform pg_temp.act_as(smgr_id);
   perform pg_temp.ok('a space Manager is not a lead: only Owners see every project',
@@ -141,8 +145,9 @@ begin
   select count(*) into n from public.general_report_scope(proj.space_id);
   perform pg_temp.ok('...and gets no project they are not on', n = 0);
   perform pg_temp.act_as_service();
-  update public.general_space_members set level = 'owner'
-   where space_id = proj.space_id and user_id = smgr_id;
+  -- The creator is the project manager again for the rest of the suite.
+  update public.general_space_members set role = 'pm'
+   where space_id = proj.space_id and user_id = owner_id;
 
   -------------------------------------------------- member sees only themselves
   perform pg_temp.act_as(member_id);
