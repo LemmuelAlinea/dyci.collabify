@@ -296,6 +296,7 @@ git commit -m "Open space details and teams to coordinators"
 ```ts
 expect(spaceRoleChoices('pm', 'member')).toEqual(['coordinator', 'member', 'qa', 'stakeholder'])
 expect(spaceRoleChoices('pm', 'coordinator')).toEqual(['coordinator', 'member', 'qa', 'stakeholder'])
+expect(spaceRoleChoices('pm', 'pm')).toEqual([])
 expect(spaceRoleChoices('coordinator', 'qa')).toEqual(['member', 'qa', 'stakeholder'])
 expect(spaceRoleChoices('coordinator', 'coordinator')).toEqual([])
 expect(spaceRoleChoices('coordinator', 'pm')).toEqual([])
