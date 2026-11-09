@@ -19,7 +19,7 @@ import { paths } from '../../lib/paths'
  * Every space you are in.
  *
  * A space holds projects. A member sees the projects they are on; the space's
- * owners see all of them. Work for one group stays with that group.
+ * project manager sees all of them. Work for one group stays with that group.
  *
  * Classes appear here only for members the admin has not let teach, and for
  * admins. Anyone with a Classes section in the rail — students and teaching
@@ -72,7 +72,7 @@ export default function SpacePicker() {
       title={viewingArchived ? 'No archived spaces' : 'No spaces yet'}
       body={
         viewingArchived
-          ? 'Archived spaces appear here after an Owner archives them.'
+          ? 'Archived spaces appear here after a project manager archives them.'
           : canCreate
             ? 'Create one to hold your projects. Projects you are invited to bring their space with them.'
             : 'Projects you are invited to bring their space with them.'
@@ -93,7 +93,7 @@ export default function SpacePicker() {
         description={
           viewingArchived
             ? 'Archived spaces stay readable, but they no longer show in your active spaces.'
-            : "A space holds projects. You see the projects you're on; the space's owners see all of them."
+            : "A space holds projects. You see the projects you're on; the space's project manager sees all of them."
         }
         action={!viewingArchived && canCreate ? (
           <Button variant="create" onClick={() => setNewOpen(true)}>

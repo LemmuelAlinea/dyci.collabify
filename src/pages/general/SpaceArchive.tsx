@@ -24,7 +24,7 @@ import { paths } from '../../lib/paths'
  * serves it better than a filter that changes a list in place.
  *
  * Nothing is filtered here. The database only returns an archived project to
- * whoever archived it and to that project's Owners and Managers, so the list,
+ * whoever archived it and to that project's project manager and coordinators, so the list,
  * its count and the project page all agree.
  *
  * Restoring and deleting are the project manager's call, and the menu is only there for one.
@@ -77,7 +77,7 @@ export default function SpaceArchive() {
     <div className="w-full">
       <div className="space-y-4">
         <p className="max-w-[62ch] text-[13px] text-muted">
-          Projects you archived, or lead, stay readable here. Its project manager can bring one back or delete it for good.
+          Projects you archived, or lead, stay readable here. Each project's manager can bring it back or delete it for good.
         </p>
         {error && <Alert tone="error">{error}</Alert>}
 

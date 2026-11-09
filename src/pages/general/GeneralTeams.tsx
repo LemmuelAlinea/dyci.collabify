@@ -475,7 +475,7 @@ function CreateTeamDialog({
               </p>
             )}
           </div>
-          <p className="mt-1 text-[12px] text-faint">You are added as the team Owner.</p>
+          <p className="mt-1 text-[12px] text-faint">You are added to the team.</p>
         </div>
       </form>
     </Modal>
