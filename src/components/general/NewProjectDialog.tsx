@@ -11,7 +11,7 @@ import {
   createSpaceTeam,
   deleteTemplate,
   listMyTemplates,
-  listSpaceTeams,
+  listMySpaceTeams,
 } from '../../lib/api/general'
 import type { GeneralTemplate } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
@@ -87,7 +87,7 @@ export function NewProjectDialog({
       return
     }
     let alive = true
-    listSpaceTeams(spaceId)
+    listMySpaceTeams(spaceId)
       .then((rows) => {
         if (!alive) return
         setTeams(rows)

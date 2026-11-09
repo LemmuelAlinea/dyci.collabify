@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chooseLandingSpace, generalTab, milestoneParams, projectRouteId, settingsSection, spaceRouteId } from './navigation'
+import { chooseLandingSpace, generalTab, milestoneParams, projectRouteId, settingsSection, spaceRouteId, spaceSettingsSection } from './navigation'
 import { workSection } from '../work/nav'
 import type { GeneralSpaceSummary } from './types'
 
@@ -18,6 +18,7 @@ const space = (
   created_at: '2026-09-20T00:00:00Z',
   updated_at: '2026-09-20T00:00:00Z',
   my_level: member ? 'member' : null,
+  my_role: member ? 'member' : null,
   member_count: 1,
   project_count: 0,
   archived_count: 0,
@@ -135,5 +136,15 @@ describe('general navigation', () => {
     expect(chooseLandingSpace([space('a', false, true, 'education')], null)).toBeNull()
     expect(chooseLandingSpace([space('a', false, true, 'education')], 'a')).toBeNull()
     expect(chooseLandingSpace([space('a', false, true, 'education'), space('b')], null)).toBe('b')
+  })
+})
+
+describe('spaceSettingsSection', () => {
+  it('opens the named section and hides Archive from people who cannot see it', () => {
+    expect(spaceSettingsSection(new URLSearchParams('section=archive'), false)).toBe('details')
+    expect(spaceSettingsSection(new URLSearchParams('section=archive'), true)).toBe('archive')
+    expect(spaceSettingsSection(new URLSearchParams('section=teams'), false)).toBe('teams')
+    expect(spaceSettingsSection(new URLSearchParams('section=nope'), true)).toBe('details')
+    expect(spaceSettingsSection(new URLSearchParams(''), true)).toBe('details')
   })
 })

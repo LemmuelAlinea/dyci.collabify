@@ -490,3 +490,28 @@ export function roleMark(
   }
   return { mark: row.roles[column] }
 }
+
+/** The roles a space can give a person, in the order a picker lists them. The Project manager is handed over, never picked. */
+export const SPACE_ROLES: ProjectRole[] = ['coordinator', 'member', 'qa', 'stakeholder']
+
+/**
+ * The roles `mine` may set on someone now holding `target`. The Project manager's
+ * row is fixed, and a coordinator changes neither a coordinator nor the manager.
+ */
+export function spaceRoleChoices(mine: ProjectRole | null, target: ProjectRole): ProjectRole[] {
+  if (target === 'pm') return []
+  if (mine === 'pm') return SPACE_ROLES
+  if (mine === 'coordinator' && target !== 'coordinator') return SPACE_ROLES.filter((role) => role !== 'coordinator')
+  return []
+}
+
+/** Whether the person can edit a space's details, teams and members. */
+export function canEditSpace(mine: ProjectRole | null): boolean {
+  return mine === 'pm' || mine === 'coordinator'
+}
+
+/** The role an invite starts on: the inviter's own space role, with the manager's becoming coordinator. */
+export function defaultInviteRole(spaceRole: ProjectRole | undefined, allowed: ProjectRole[]): ProjectRole {
+  const wanted = spaceRole === 'pm' ? 'coordinator' : spaceRole
+  return wanted && allowed.includes(wanted) ? wanted : 'member'
+}

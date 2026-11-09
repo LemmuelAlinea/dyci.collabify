@@ -51,6 +51,16 @@ export function milestoneParams(params: URLSearchParams, id: string): URLSearchP
   return next
 }
 
+export type SpaceSettingsSection = 'details' | 'teams' | 'members' | 'archive'
+
+/** The section open inside a space's Settings. Archive opens only for people who can see it. */
+export function spaceSettingsSection(params: URLSearchParams, canSeeArchive: boolean): SpaceSettingsSection {
+  const raw = params.get('section')
+  if (raw === 'teams' || raw === 'members') return raw
+  if (raw === 'archive' && canSeeArchive) return 'archive'
+  return 'details'
+}
+
 export function spaceRouteId(pathname: string): string | null {
   const id = /^\/spaces\/([^/]+)/.exec(pathname)?.[1] ?? null
   return id === 'archive' ? null : id

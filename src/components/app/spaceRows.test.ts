@@ -16,6 +16,7 @@ function space(overrides: Partial<GeneralSpaceSummary> = {}): GeneralSpaceSummar
     updated_at: '',
     class_id: null,
     my_level: 'member',
+    my_role: 'member',
     member_count: 1,
     project_count: 0,
     archived_count: 0,

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   LEVELS,
+  SPACE_ROLES,
+  canEditSpace,
+  defaultInviteRole,
+  spaceRoleChoices,
   PERMISSIONS,
   ROLE_BADGE,
   ROLE_LABEL,
@@ -534,5 +538,36 @@ describe('member options', () => {
     expect(roleMark(creating, 'lead', on)).toEqual({ mark: 'yes', note: 'set by the project manager' })
     expect(roleMark(planning, 'qa', on)).toEqual({ mark: undefined })
     expect(roleMark(creating, 'pm', on)).toEqual({ mark: 'yes' })
+  })
+})
+
+describe('space roles', () => {
+  it('lists the roles a space can hold', () => {
+    expect(SPACE_ROLES).toEqual(['coordinator', 'member', 'qa', 'stakeholder'])
+  })
+
+  it('offers the roles a person may give', () => {
+    expect(spaceRoleChoices('pm', 'member')).toEqual(['coordinator', 'member', 'qa', 'stakeholder'])
+    expect(spaceRoleChoices('pm', 'coordinator')).toEqual(['coordinator', 'member', 'qa', 'stakeholder'])
+    expect(spaceRoleChoices('pm', 'pm')).toEqual([])
+    expect(spaceRoleChoices('coordinator', 'qa')).toEqual(['member', 'qa', 'stakeholder'])
+    expect(spaceRoleChoices('coordinator', 'coordinator')).toEqual([])
+    expect(spaceRoleChoices('coordinator', 'pm')).toEqual([])
+    expect(spaceRoleChoices('member', 'qa')).toEqual([])
+    expect(spaceRoleChoices(null, 'qa')).toEqual([])
+  })
+
+  it('lets the project manager and coordinators edit a space', () => {
+    expect(canEditSpace('pm')).toBe(true)
+    expect(canEditSpace('coordinator')).toBe(true)
+    expect(canEditSpace('qa')).toBe(false)
+    expect(canEditSpace(null)).toBe(false)
+  })
+
+  it('picks the invite role to start on', () => {
+    expect(defaultInviteRole('qa', ['member', 'qa'])).toBe('qa')
+    expect(defaultInviteRole('pm', ['member', 'coordinator'])).toBe('coordinator')
+    expect(defaultInviteRole('coordinator', ['member', 'qa'])).toBe('member')
+    expect(defaultInviteRole(undefined, ['member'])).toBe('member')
   })
 })

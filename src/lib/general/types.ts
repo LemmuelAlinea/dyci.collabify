@@ -118,6 +118,8 @@ export type GeneralSpace = {
 export type GeneralSpaceSummary = GeneralSpace & {
   /** Null while an invitation is still unanswered. */
   my_level: GeneralLevel | null
+  /** The viewer's space role; null while an invitation is unanswered. */
+  my_role: ProjectRole | null
   member_count: number
   /** Live projects. Archived ones are counted separately and live on their own page. */
   project_count: number
@@ -134,7 +136,7 @@ export type SpacePerson = {
   joined_at: string
   /** Students only ever hold Member, so the level pickers offer nothing else. */
   is_student: boolean
-  /** A project's role for the person. Only list_general_project_members returns it. */
+  /** A project's role for the person. Only the project and space member lists return it. */
   role?: ProjectRole
 }
 
@@ -152,6 +154,7 @@ export type MySpaceInvitation = {
   inviter_avatar_url: string | null
   created_at: string
   invited_level: GeneralLevel
+  invited_role: ProjectRole
 }
 
 /** list_general_space_invitations. */
@@ -164,6 +167,7 @@ export type SpaceInvitation = {
   invited_by: string | null
   created_at: string
   invited_level: GeneralLevel
+  invited_role: ProjectRole
 }
 
 /** general_project_overview: one row per project the viewer is on. */
@@ -232,7 +236,8 @@ export type GeneralSpaceTeam = {
   created_at: string
   updated_at: string
   archived_at: string | null
-  my_level: GeneralLevel
+  /** Null for somebody who reaches the team through the space and holds no seat on it. */
+  my_level: GeneralLevel | null
   member_count: number
   project_count: number
 }

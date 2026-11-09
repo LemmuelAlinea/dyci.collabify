@@ -341,6 +341,12 @@ export async function listSpaceTeams(spaceId: string, archived = false) {
   return (data ?? []) as GeneralSpaceTeam[]
 }
 
+/** The teams the viewer holds a seat on, the only ones the database lets them use for a project. */
+export async function listMySpaceTeams(spaceId: string) {
+  const teams = await listSpaceTeams(spaceId)
+  return teams.filter((team) => team.my_level !== null)
+}
+
 export async function listSpaceTeamMembers(spaceId: string) {
   const { data, error } = await supabase.rpc('list_general_space_team_members', {
     p_space: spaceId,

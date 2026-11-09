@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { legacyPath, paths } from './paths'
 
 describe('paths', () => {
+  it('points space pages at settings sections', () => {
+    expect(paths.spaceMembers('s')).toBe('/spaces/s/settings?section=members')
+    expect(paths.spaceTeams('s')).toBe('/spaces/s/settings?section=teams')
+    expect(paths.spaceArchive('s')).toBe('/spaces/s/settings?section=archive')
+    expect(paths.spaceTeamsArchive('s')).toBe('/spaces/s/settings?section=teams&archived=1')
+  })
+
   it('builds the short routes', () => {
     expect(paths.home).toBe('/home')
     expect(paths.conversation('c1')).toBe('/inbox/c1')

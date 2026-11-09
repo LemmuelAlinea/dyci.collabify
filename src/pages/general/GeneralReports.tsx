@@ -18,7 +18,7 @@ import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useGeneralReport } from '../../hooks/useGeneralReport'
-import { listSpaceTeams } from '../../lib/api/general'
+import { listMySpaceTeams } from '../../lib/api/general'
 import {
   createReportTemplate,
   deleteReportTemplate,
@@ -98,7 +98,7 @@ export default function GeneralReports() {
   useEffect(() => {
     if (!spaceId) return
     const ids = chosenIds ? chosenIds.split(',') : []
-    Promise.all([listSpaceTeams(spaceId).catch(() => []), listProjectTeams(ids).catch(() => [])]).then(([spaceTeams, projectTeams]) => {
+    Promise.all([listMySpaceTeams(spaceId).catch(() => []), listProjectTeams(ids).catch(() => [])]).then(([spaceTeams, projectTeams]) => {
       const nameOf = (id: string) => report.scope?.find((p) => p.project_id === id)?.name ?? ''
       setTeams([
         ...spaceTeams.map((t) => ({ id: t.id, label: t.name, hint: 'Space team' })),

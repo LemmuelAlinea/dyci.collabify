@@ -13,7 +13,7 @@
  * a thousand lines and covers a different thing.
  */
 import { supabase } from '../supabase'
-import type { GeneralLevel } from '../general/permissions'
+import type { GeneralLevel, ProjectRole } from '../general/permissions'
 import type {
   GeneralSpace,
   GeneralSpaceSummary,
@@ -94,6 +94,47 @@ export async function setSpaceLevel(spaceId: string, userId: string, level: Gene
   if (error) throw error
 }
 
+export type SpaceRolePreview = { project_count: number; task_count: number; qa_start_count: number }
+
+/** Sets a person's space role and returns how many of their project seats changed. */
+export async function setSpaceRole(spaceId: string, userId: string, role: ProjectRole): Promise<number> {
+  const { data, error } = await supabase.rpc('set_general_space_role', {
+    p_space: spaceId,
+    p_user: userId,
+    p_role: role,
+  })
+  if (error) throw error
+  return (data ?? 0) as number
+}
+
+/** What a role change would touch, so the person can confirm it first. */
+export async function previewSpaceRole(
+  spaceId: string,
+  userId: string,
+  role: ProjectRole,
+): Promise<SpaceRolePreview> {
+  const { data, error } = await supabase.rpc('preview_general_space_role', {
+    p_space: spaceId,
+    p_user: userId,
+    p_role: role,
+  })
+  if (error) throw error
+  const row = (Array.isArray(data) ? data[0] : data) as Partial<SpaceRolePreview> | null | undefined
+  return {
+    project_count: row?.project_count ?? 0,
+    task_count: row?.task_count ?? 0,
+    qa_start_count: row?.qa_start_count ?? 0,
+  }
+}
+
+export async function handOverSpace(spaceId: string, userId: string): Promise<void> {
+  const { error } = await supabase.rpc('hand_over_general_space', {
+    p_space: spaceId,
+    p_user: userId,
+  })
+  if (error) throw error
+}
+
 export async function removeSpaceMember(spaceId: string, userId: string) {
   const { error } = await supabase.rpc('remove_general_space_member', {
     p_space: spaceId,
@@ -124,10 +165,15 @@ export async function inviteToSpace(spaceId: string, userId: string) {
   if (error) throw error
 }
 
-export async function inviteSpaceMember(spaceId: string, userId: string): Promise<void> {
+export async function inviteSpaceMember(
+  spaceId: string,
+  userId: string,
+  role: ProjectRole = 'member',
+): Promise<void> {
   const { error } = await supabase.rpc('invite_general_space_member', {
     p_space: spaceId,
     p_user: userId,
+    p_role: role,
   })
   if (error) throw error
 }

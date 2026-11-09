@@ -8,7 +8,7 @@ import { NewProjectDialog } from './NewProjectDialog'
 import SpaceProjects from '../../pages/general/SpaceProjects'
 import { listProjectRequests, listProjectRequestMessages, postProjectRequestMessage, setProjectRequestStatus, createProjectFromRequest } from '../../lib/api/projectRequests'
 import { listSpaceMembers } from '../../lib/api/spaces'
-import { listMyTemplates, listSpaceTeams } from '../../lib/api/general'
+import { listMyTemplates, listMySpaceTeams } from '../../lib/api/general'
 
 vi.mock('../../lib/api/projectRequests', () => ({
   listProjectRequests: vi.fn(), listProjectRequestMessages: vi.fn(),
@@ -16,7 +16,7 @@ vi.mock('../../lib/api/projectRequests', () => ({
   createProjectFromRequest: vi.fn(), createProjectRequest: vi.fn(), editProjectRequest: vi.fn(),
 }))
 vi.mock('../../lib/api/spaces', () => ({ listSpaceMembers: vi.fn() }))
-vi.mock('../../lib/api/general', () => ({ listMyTemplates: vi.fn(), listSpaceTeams: vi.fn() }))
+vi.mock('../../lib/api/general', () => ({ listMyTemplates: vi.fn(), listMySpaceTeams: vi.fn() }))
 vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'author' }, profile: { role: 'member', status: 'active', can_manage_projects: true } }) }))
 vi.mock('../../context/generalNavigation', () => ({ useGeneralNavigation: () => ({ currentSpace: { id: 'space', name: 'Design', my_level: 'manager', kind: 'work' }, projects: [], error: null, reload: vi.fn() }) }))
 vi.mock('../../pages/general/spaceOutlet', () => ({ useSpaceOutlet: () => ({ all: [], canStart: true, openNewProject: vi.fn() }) }))
@@ -143,7 +143,7 @@ it('marks a request ready and offers project creation', async () => {
 
 it('converts with the agreed request values and navigates to the project', async () => {
   vi.mocked(listMyTemplates).mockResolvedValue([])
-  vi.mocked(listSpaceTeams).mockResolvedValue([])
+  vi.mocked(listMySpaceTeams).mockResolvedValue([])
   vi.mocked(createProjectFromRequest).mockResolvedValue('project')
   const host = document.createElement('div'); document.body.append(host); const root = createRoot(host)
   await act(async () => root.render(createElement(NewProjectDialog, { open: true, onClose: vi.fn(), spaceId: 'space', request: { ...request, status: 'ready' } })))
