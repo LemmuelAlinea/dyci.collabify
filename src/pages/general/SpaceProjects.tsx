@@ -127,7 +127,7 @@ export default function SpaceProjects() {
           )}
         </>
       ))}
-      {space && <NewProjectDialog open={request !== null} onClose={() => setRequest(null)} spaceId={space.id} request={request} />}
+      {space && <NewProjectDialog open={request !== null} onClose={() => setRequest(null)} spaceId={space.id} spaceRole={space.my_role ?? null} request={request} />}
     </div>
   )
 }

@@ -315,7 +315,7 @@ node scripts/db.mjs supabase/project-visibility.sql supabase/inbox.sql supabase/
 A full restore already creates `invited_level` in `general-spaces.sql` before
 `inbox.sql`; keep `anon-lockdown.sql` last after all function redefinitions.
 That chain predates the later owners: today, after `project-qa.sql`, run the rest of the final
-rerun tail below (through `project-notification-rules.sql` and `project-workflow-rules.sql`), then
+rerun tail below (through `project-workflow-rules.sql`, `project-member-import.sql` and `space-roles.sql`), then
 `anon-lockdown.sql`.
 
 `project-team-leads.sql` runs after `project-visibility.sql`. It adds
@@ -397,7 +397,7 @@ tasks. Pick someone else."). It is also the final owner of `send_general_deadlin
 (`work-automation.sql`), which skip stakeholders. A cleanup statement takes current
 stakeholders out of project chats.
 
-Re-run it (then `project-feedback.sql`, `project-qa.sql`, `project-task-rules.sql`, `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql` and `project-workflow-rules.sql`, then `anon-lockdown.sql`) after re-running any of `general.sql`,
+Re-run it (then `project-feedback.sql`, `project-qa.sql`, `project-task-rules.sql`, `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql`, `project-workflow-rules.sql` and `space-roles.sql`, then `anon-lockdown.sql`) after re-running any of `general.sql`,
 `general-tasks.sql`, `general-notify.sql`, `general-schedule-guard.sql`, `general-repo.sql`,
 `general-files.sql`, `general-drafts.sql`, `general-archive-rbac.sql`,
 `general-draft-commit.sql`, `meetings.sql`, `general-shares.sql`, `general-discussions.sql`,
@@ -477,7 +477,7 @@ moves pass the holder rule. This replaced an earlier rule that refused any move 
 last stage. `guard_general_task` lets those QA moves through when nothing else changes,
 freezes an archived task's stage with its status, and reads a bug-only QA's role off
 `general_members` (a pending account too).
-Re-run it (then `project-task-rules.sql`, `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql` and `project-workflow-rules.sql`, then `anon-lockdown.sql`) after re-running `task-stages.sql`,
+Re-run it (then `project-task-rules.sql`, `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql`, `project-workflow-rules.sql` and `space-roles.sql`, then `anon-lockdown.sql`) after re-running `task-stages.sql`,
 `project-roles.sql`, `project-team-leads.sql` or `project-stakeholders.sql`, and so after any file whose re-run
 calls for one of them (`general-tasks.sql`, `general-schedule-guard.sql`,
 `general-archive-rbac.sql` and the rest of the `project-stakeholders.sql` list):
@@ -521,7 +521,7 @@ keep their group-leader and grant rules. Re-run it after `general.sql`,
 keeps its people and positions, and blocks archiving while live work remains.
 `work-task-handoff.sql` runs after `project-team-archive.sql` and all earlier task owners,
 then `anon-lockdown.sql` (and, before it, the files after it in the final rerun tail, through
-`project-workflow-rules.sql`, which keeps the workflow rule runner last). Adding routing metadata backfills existing tasks as
+`space-roles.sql`, which follows `project-member-import.sql` and the workflow rule runner). Adding routing metadata backfills existing tasks as
 `released` without changing their holders. The final column default is `planning`;
 the insert guard forces authenticated work inserts into planning even if an old
 client sends `released`, and keeps class-board inserts released. Trusted service
@@ -548,7 +548,7 @@ The final rerun tail is `company-accounts.sql`, `project-roles.sql`,
 `project-feedback.sql`, `project-qa.sql`, `member-skills.sql`,
 `project-files-access.sql`, `sprint-archive.sql`, `sprint-reopen.sql`, `sprint-settings.sql`, `project-requests.sql`,
 `project-team-archive.sql`,
-`work-task-handoff.sql`, `project-settings-general.sql`, `project-task-rules.sql`, `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql`, `project-workflow-rules.sql`, then `anon-lockdown.sql`. Re-run the applicable suffix
+`work-task-handoff.sql`, `project-settings-general.sql`, `project-task-rules.sql`, `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql`, `project-workflow-rules.sql`, `project-member-import.sql`, `space-roles.sql`, then `anon-lockdown.sql`. Re-run the applicable suffix
 after any superseded owner. Activate the complete reviewed frontend and `work-ai`
 function together; the function accepts only reviewed `route` or `lead` assignment
 modes. Do not deploy earlier tasks independently. Task activity names coordinator
@@ -671,7 +671,7 @@ requester still has a `general_space_members` row for its space; declining is al
 allowed. Re-running `project-visibility.sql`, `general-spaces.sql`,
 `general-project-archive-rbac.sql` or `work-task-handoff.sql` means re-running
 `project-settings-general.sql` after it, then `project-task-rules.sql`, `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql` and `project-workflow-rules.sql`,
-then `anon-lockdown.sql`. Suite:
+then `space-roles.sql` (it owns `answer_join_request` after this file) and `anon-lockdown.sql`. Suite:
 `supabase/tests/project-settings-general.test.sql`.
 
 ## Task priority, subtasks, dependencies and rules (2026-11-01)
@@ -915,7 +915,8 @@ re-run changes no project role. It owns:
   form), `guard_student_invite`, `update_general_space`, `archive_general_space`,
   `general_space_team_can_manage`, `create_general_space_team`,
   `remove_general_space_team_member`, `list_general_space_teams` (both forms),
-  `list_general_space_team_members`, `remove_general_space_member`.
+  `list_general_space_team_members`, `remove_general_space_member`, `answer_join_request`,
+  `withdraw_general_space_invitation`.
 - Policies: `general_space_teams_select`, `general_space_team_members_select`.
 
 Re-run it (then `anon-lockdown.sql`) after re-running any of `general-spaces.sql`,
@@ -924,5 +925,7 @@ Re-run it (then `anon-lockdown.sql`) after re-running any of `general-spaces.sql
 `access.sql`, `general.sql`, `general-tasks.sql`, `general-files.sql`, `presets.sql`,
 `inbox.sql`, `notification-coverage.sql`, `class-files.sql`, `archive-page.sql`,
 `task-archive.sql` or `project-settings-general.sql`, since each defines an object above.
+Re-running `one-workplace.sql` drops and recreates `general_space_overview` without `my_role`, so it means re-running
+`space-roles.sql` afterwards, which restores the column.
 Suite: `supabase/tests/space-roles.test.sql`. Apply only after rollout approval, and push the
 frontend straight after: the old app cannot change space roles once the SQL is on.

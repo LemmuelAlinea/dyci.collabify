@@ -307,7 +307,9 @@ export default function SpaceMembers() {
         <section className="rounded-panel border border-line p-4 sm:p-5">
           <h2 className="text-[15px]">Leave this space</h2>
           {mine === 'pm' ? (
-            <p className="mt-1 text-[13px] text-muted">Hand over the space before leaving.</p>
+            <p className="mt-1 text-[13px] text-muted">
+              {archived ? 'Restore the space to hand it over before leaving.' : 'Hand over the space before leaving.'}
+            </p>
           ) : (
             <>
               <p className="mt-1 text-[13px] text-muted">

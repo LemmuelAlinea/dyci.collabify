@@ -107,6 +107,16 @@ it('offers a coordinator every role but coordinator, and the manager all four', 
   expect(values(host)).toEqual(['member', 'coordinator', 'qa', 'stakeholder'])
 })
 
+it.each(['coordinator', 'pm'])('lets a coordinator approve a space %s as Coordinator', async (spaceRole) => {
+  vi.mocked(listSpaceMembers).mockResolvedValueOnce([
+    { user_id: 'u1', first_name: 'Ana', last_name: 'Cruz', avatar_url: null, level: 'member', joined_at: '', is_student: false, role: spaceRole },
+  ] as never)
+  await show(makeState({ myRole: 'coordinator' }))
+  expect(host.querySelector('select')!.value).toBe('coordinator')
+  await act(async () => button('Approve')!.click())
+  expect(answerJoinRequest).toHaveBeenCalledWith('r1', true, 'coordinator')
+})
+
 it('declines without a role', async () => {
   await show(makeState())
   await act(async () => button('Decline')!.click())

@@ -93,6 +93,13 @@ it('offers a coordinator the Coordinator choice only for a space Coordinator', a
   expect(select.value).toBe('coordinator')
 })
 
+it('starts a coordinator inviting the space project manager on Coordinator', async () => {
+  vi.mocked(listSpaceMembers).mockResolvedValueOnce([spaceMember('pm')] as never)
+  const select = await openPick(makeState({ myRole: 'coordinator' }))
+  expect(values(select)).toEqual(['member', 'qa', 'stakeholder', 'coordinator'])
+  expect(select.value).toBe('coordinator')
+})
+
 it('keeps the usual choices for a coordinator inviting someone without that role', async () => {
   vi.mocked(listSpaceMembers).mockResolvedValueOnce([spaceMember('qa')] as never)
   const select = await openPick(makeState({ myRole: 'coordinator' }))

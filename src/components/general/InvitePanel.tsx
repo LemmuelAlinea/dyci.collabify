@@ -79,9 +79,9 @@ function Search({ state }: { state: GeneralProjectState }) {
       live = false
     }
   }, [spaceId])
-  // A Coordinator can bring in another space Coordinator as one; nobody else gets that choice.
+  // A Coordinator can bring in a space Coordinator or the space project manager as a Coordinator; nobody else gets that choice.
   const rolesFor = (hit: PersonHit): ProjectRole[] =>
-    state.myRole === 'coordinator' && spaceRoles.get(hit.person_id) === 'coordinator'
+    state.myRole === 'coordinator' && ['coordinator', 'pm'].includes(spaceRoles.get(hit.person_id) ?? '')
       ? [...baseRoles, 'coordinator']
       : baseRoles
   const roles = picked ? rolesFor(picked) : baseRoles

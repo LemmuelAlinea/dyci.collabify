@@ -410,6 +410,9 @@ begin
   perform pg_temp.claim_as(v_coord);
   perform pg_temp.must_be('preview: caller off a project that already has qa counts no new gate',
     (select qa_start_count = 0 from public.preview_general_space_role(v_space, v_old, 'qa')));
+  perform pg_temp.must_be('stakeholder cascade starts with a held task and a non-stakeholder role',
+    exists (select 1 from public.general_task_assignees where task_id = v_t4 and user_id = v_qa)
+    and (select role <> 'stakeholder' from public.general_members where project_id = v_proj3 and user_id = v_qa));
   perform pg_temp.claim_as(v_pm);
   perform public.set_general_space_role(v_space, v_qa, 'stakeholder');
   perform pg_temp.act_as_service();
@@ -489,6 +492,18 @@ begin
   perform pg_temp.act_as_service();
   perform pg_temp.must_be('class space invite still works',
     exists (select 1 from public.general_space_invitations where space_id = v_class and invitee = v_i1));
+
+  -- The launch withdraw of Owner invitations touches work spaces only.
+  insert into public.general_space_invitations (space_id, invitee, invited_by, invited_level)
+  values (v_s2, v_old, v_pm, 'owner');
+  update public.general_space_invitations
+     set status = 'withdrawn', answered_at = coalesce(answered_at, now())
+   where status = 'pending' and invited_level = 'owner'
+     and exists (select 1 from public.general_spaces s where s.id = space_id and s.kind = 'work');
+  perform pg_temp.must_be('a pending work-space owner invitation is withdrawn',
+    (select status = 'withdrawn' from public.general_space_invitations where space_id = v_s2 and invitee = v_old));
+  perform pg_temp.must_be('a pending class co-teacher invitation stays pending',
+    (select status = 'pending' from public.general_space_invitations where space_id = v_class and invitee = v_i1));
 
   -- Joining a project by code.
   perform pg_temp.act_as(v_coord);
@@ -576,6 +591,35 @@ begin
   perform pg_temp.must_be('accepting over a coordinator seat keeps coordinator',
     (select role = 'coordinator' from public.general_space_members where space_id = v_s2 and user_id = v_i2));
 
+  -- A project coordinator answers a join request from a space coordinator as a coordinator, and no other.
+  update public.general_projects set visibility = 'workspace' where id = v_p4;
+  insert into public.general_join_requests (project_id, user_id) values (v_p4, v_i2), (v_p4, v_i1);
+  perform pg_temp.act_as(v_coord);
+  perform pg_temp.must_refuse_with('project coordinator cannot add a plain space member as coordinator',
+    format($q$select public.answer_join_request(%L, true, 'coordinator')$q$,
+           (select id from public.general_join_requests where project_id = v_p4 and user_id = v_i1)), 'project manager');
+  perform public.answer_join_request(
+    (select id from public.general_join_requests where project_id = v_p4 and user_id = v_i2), true, 'coordinator');
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('project coordinator approves a space coordinator as coordinator',
+    (select role = 'coordinator' from public.general_members where project_id = v_p4 and user_id = v_i2));
+  -- Put project four back as it was for the checks below.
+  delete from public.general_members where project_id = v_p4 and user_id = v_i2;
+  update public.general_projects set visibility = 'private' where id = v_p4;
+
+  -- Only the project manager withdraws a coordinator invitation.
+  update public.general_space_invitations set status = 'withdrawn' where space_id = v_s2 and status = 'pending' and invitee = v_st2;
+  perform pg_temp.act_as(v_pm);
+  v_inv := (public.invite_general_space_member(v_s2, v_st2, 'coordinator')).id;
+  perform pg_temp.act_as(v_i2);
+  perform pg_temp.must_refuse_with('a coordinator cannot withdraw a coordinator invitation',
+    format($q$select public.withdraw_general_space_invitation(%L)$q$, v_inv), 'project manager');
+  perform pg_temp.act_as(v_pm);
+  perform public.withdraw_general_space_invitation(v_inv);
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('the project manager withdraws it',
+    (select status = 'withdrawn' from public.general_space_invitations where id = v_inv));
+
   -- ---------------------------------------------------------------- details, teams and removing people
   -- v_i2 is a coordinator of v_s2 with no Project manager switch, on neither the second team nor project four. v_i1 is a plain member with no team.
   perform pg_temp.act_as(v_i2);
@@ -617,6 +661,10 @@ begin
   perform pg_temp.act_as(v_i1);
   perform pg_temp.must_be('a trashed team stays out of the archive-page list',
     (select count(*) = 1 from public.list_general_space_teams(v_s2, false)));
+  perform pg_temp.must_be('a trashed team stays out of the one-argument list',
+    (select count(*) = 1 from public.list_general_space_teams(v_s2)));
+  perform pg_temp.must_be('a trashed team keeps its people out of the team people list',
+    (select count(distinct team_id) = 1 from public.list_general_space_team_members(v_s2)));
   perform pg_temp.act_as_service();
   update public.general_space_teams set archived_at = null where id = v_team2;
 

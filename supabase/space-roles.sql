@@ -53,7 +53,8 @@ create unique index if not exists general_space_members_one_pm
 -- Owner invitations no longer exist; the project manager is fixed.
 update public.general_space_invitations
    set status = 'withdrawn', answered_at = coalesce(answered_at, now())
- where status = 'pending' and invited_level = 'owner';
+ where status = 'pending' and invited_level = 'owner'
+   and exists (select 1 from public.general_spaces s where s.id = space_id and s.kind = 'work');
 
 create or replace function public.guard_student_level()
 returns trigger
@@ -990,7 +991,7 @@ begin
     raise exception 'You are not in that space, so you cannot create a project in it'
       using errcode = 'insufficient_privilege';
   elsif public.general_space_is_archived(v_space) then
-    raise exception 'That space is archived. An Owner can restore it to add projects.'
+    raise exception 'That space is archived. The project manager can restore it to add projects.'
       using errcode = 'check_violation';
   end if;
 
@@ -1319,6 +1320,7 @@ begin
       left join public.general_space_team_members mine
         on mine.team_id = t.id and mine.user_id = auth.uid()
      where t.space_id = p_space
+       and t.trashed_at is null
      order by t.name;
 end;
 $function$;
@@ -1369,6 +1371,7 @@ begin
       join public.general_space_teams t on t.id = tm.team_id
       join public.profiles pr on pr.id = tm.user_id
      where tm.space_id = p_space
+       and t.trashed_at is null
      order by t.name, tm.level, pr.last_name, pr.first_name;
 end;
 $function$;
@@ -1452,6 +1455,131 @@ begin
 
   delete from public.general_space_members
    where space_id = p_space and user_id = p_user;
+end;
+$function$;
+
+-- A project coordinator can bring a space coordinator (or the space project manager,
+-- who joins as coordinator) onto the project as one, and nobody else.
+create or replace function public.answer_join_request(p_request uuid, p_approve boolean, p_role general_role DEFAULT 'member'::general_role)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  r       public.general_join_requests;
+  v_name  text;
+  my_role public.general_role;
+begin
+  select * into r from public.general_join_requests where id = p_request for update;
+  if r.id is null then
+    raise exception 'That request is not there any more. Reload the page.'
+      using errcode = 'no_data_found';
+  end if;
+
+  my_role := public.general_role_of(r.project_id, auth.uid());
+  if my_role is null or my_role not in ('pm', 'coordinator') then
+    raise exception 'Only the project manager or a coordinator can answer a join request.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if r.status <> 'open' then
+    raise exception 'That request was already answered or withdrawn. Reload the page.'
+      using errcode = 'check_violation';
+  end if;
+  if public.general_is_archived(r.project_id) then
+    raise exception '%', public.general_archived_message(r.project_id)
+      using errcode = 'check_violation';
+  end if;
+
+  select name into v_name from public.general_projects where id = r.project_id;
+
+  if not coalesce(p_approve, false) then
+    update public.general_join_requests
+       set status = 'declined', answered_by = auth.uid(), answered_at = now()
+     where id = p_request;
+    insert into public.notifications (user_id, type, general_project_id, title, preview)
+    values (r.user_id, 'join_answered'::public.notification_type, r.project_id,
+            'Your request to join ' || v_name || ' was declined', null);
+    return;
+  end if;
+
+  -- A request outlives what made it valid: the project can turn Private, or the
+  -- requester leave the space. general_space_members is read for the requester,
+  -- not the caller, so is_general_space_member (auth.uid()) does not fit here.
+  if not exists (select 1 from public.general_projects p
+                  where p.id = r.project_id and p.visibility = 'workspace'
+                    and exists (select 1 from public.general_space_members s
+                                 where s.space_id = p.space_id and s.user_id = r.user_id)) then
+    raise exception 'That request can''t be approved any more. The project is private or they left the space.'
+      using errcode = 'check_violation';
+  end if;
+
+  if p_role is null then
+    raise exception 'Pick a role for them to join with.' using errcode = 'check_violation';
+  end if;
+  if p_role = 'pm' then
+    raise exception 'Use hand over to change the project manager.'
+      using errcode = 'check_violation';
+  end if;
+  if p_role = 'coordinator' and my_role <> 'pm'
+     and public.general_space_default_role(r.project_id, r.user_id) is distinct from 'coordinator' then
+    raise exception 'Only the project manager can add a coordinator.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not exists (select 1 from public.profiles where id = r.user_id and status <> 'rejected') then
+    raise exception 'That account cannot join this project.' using errcode = 'check_violation';
+  end if;
+
+  -- general_members_close_join_request closes the request as it inserts; the
+  -- update below records this answer's role either way.
+  insert into public.general_members (project_id, user_id, role)
+  values (r.project_id, r.user_id, p_role)
+  on conflict do nothing;
+
+  update public.general_join_requests
+     set status = 'approved', role = p_role, answered_by = auth.uid(), answered_at = now()
+   where id = p_request;
+
+  insert into public.notifications (user_id, type, general_project_id, title, preview)
+  values (r.user_id, 'join_answered'::public.notification_type, r.project_id,
+          'You joined ' || v_name, null);
+end;
+$function$;
+
+-- Only the project manager withdraws the coordinator invitation the project manager sent.
+create or replace function public.withdraw_general_space_invitation(p_invitation uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  inv public.general_space_invitations%rowtype;
+begin
+  select * into inv from public.general_space_invitations
+   where id = p_invitation for update;
+  if inv.id is null then
+    raise exception 'That invitation is gone' using errcode = 'no_data_found';
+  end if;
+  if public.general_space_is_archived(inv.space_id)
+     or not public.general_space_manages_invites(inv.space_id) then
+    raise exception 'You need permission to withdraw this invitation'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if inv.status <> 'pending' then
+    raise exception 'That invitation was already answered' using errcode = 'check_violation';
+  end if;
+  if inv.invited_role = 'coordinator'
+     and exists (select 1 from public.general_spaces s where s.id = inv.space_id and s.kind = 'work')
+     and not exists (select 1 from public.general_space_members m
+                      where m.space_id = inv.space_id and m.user_id = auth.uid() and m.role = 'pm') then
+    raise exception 'Only the project manager can withdraw a coordinator invitation.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  update public.general_space_invitations
+     set status = 'withdrawn', answered_at = now()
+   where id = p_invitation;
 end;
 $function$;
 

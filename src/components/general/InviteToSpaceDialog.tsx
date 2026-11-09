@@ -43,6 +43,11 @@ export function InviteToSpaceDialog({
   const [busy, setBusy] = useState<string | null>(null)
   const [role, setRole] = useState<ProjectRole>('member')
 
+  // A new opening starts on Member, never on the role the last invite used.
+  useEffect(() => {
+    if (open) setRole('member')
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     const q = query.trim()

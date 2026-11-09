@@ -71,7 +71,10 @@ function JoinRequestRow({
 }) {
   const name = known ?? 'Someone in your space'
   const { show } = useToast()
-  const roles = inviteRoles(state.myRole as ProjectRole)
+  const base = inviteRoles(state.myRole as ProjectRole)
+  // A Coordinator can approve a space Coordinator or the space project manager as a Coordinator.
+  const roles: ProjectRole[] =
+    state.myRole === 'coordinator' && (spaceRole === 'coordinator' || spaceRole === 'pm') ? [...base, 'coordinator'] : base
   // Starts on the space role once the list loads; a role the manager picked is never overwritten.
   const [chosen, setChosen] = useState<ProjectRole | null>(null)
   const role = chosen ?? defaultInviteRole(spaceRole, roles)

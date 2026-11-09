@@ -92,7 +92,7 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   `general-project-archive-rbac.sql`, `meetings.sql`, `trash.sql`, `access.sql`,
   `storage-sweep.sql`, `task-stages.sql` and more). Re-running ANY file one of them supersedes means
   re-running all seven in that order, then the later owners (the final rerun tail in
-  `docs/07-backup.md`, through `project-notification-rules.sql` and `project-workflow-rules.sql`),
+  `docs/07-backup.md`, through `project-workflow-rules.sql`, `project-member-import.sql` and `space-roles.sql`),
   then `anon-lockdown.sql`; re-running one of the seven means re-running the ones after it and
   those later owners, then `anon-lockdown.sql`. Re-running `general-project-archive-rbac.sql` alone reopens every
   work project to its whole space; re-running a file `project-stakeholders.sql`
@@ -129,7 +129,7 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   planning tasks and never releases or assigns them.
 - `work-task-handoff.sql` is the final task owner, after `project-requests.sql`
   and the complete company-role/member-skills chain; the files after it
-  (`project-settings-general.sql` through `project-workflow-rules.sql`) follow, then
+  (`project-settings-general.sql` through `space-roles.sql`) follow, then
   `anon-lockdown.sql`.
   Existing tasks remain released; every authenticated new work task starts in
   private planning, including direct inserts claiming `released`. PM/coordinators

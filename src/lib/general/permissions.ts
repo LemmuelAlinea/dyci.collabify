@@ -510,7 +510,7 @@ export function canEditSpace(mine: ProjectRole | null): boolean {
   return mine === 'pm' || mine === 'coordinator'
 }
 
-/** The role an invite starts on: the inviter's own space role, with the manager's becoming coordinator. */
+/** The role an invite starts on: the invitee's own space role, with the project manager's becoming coordinator. */
 export function defaultInviteRole(spaceRole: ProjectRole | undefined, allowed: ProjectRole[]): ProjectRole {
   const wanted = spaceRole === 'pm' ? 'coordinator' : spaceRole
   return wanted && allowed.includes(wanted) ? wanted : 'member'

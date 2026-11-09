@@ -17,6 +17,8 @@ import type { GeneralTemplate } from '../../lib/api/general'
 import { authErrorMessage } from '../../lib/authError'
 import { LIMIT } from '../../lib/limits'
 import { paths } from '../../lib/paths'
+import { canEditSpace } from '../../lib/general/permissions'
+import type { ProjectRole } from '../../lib/general/permissions'
 import { presetById, presetPayload } from '../../lib/general/presets'
 import type { PresetAudience } from '../../lib/general/presets'
 import { PresetPicker } from './PresetPicker'
@@ -36,12 +38,15 @@ export function NewProjectDialog({
   open,
   onClose,
   spaceId,
+  spaceRole,
   request,
 }: {
   open: boolean
   onClose: () => void
   /** The space it goes into. Left out, the database uses your own. */
   spaceId?: string | null
+  /** Your role in that space. Only its project manager and coordinators can start a space team. */
+  spaceRole?: ProjectRole | null
   request?: ProjectRequest | null
 }) {
   const navigate = useNavigate()
@@ -215,7 +220,7 @@ export function NewProjectDialog({
               options={[
                 { value: 'none', label: 'No team for now' },
                 ...(teams.length ? [{ value: 'existing', label: 'Use an existing Space team' }] : []),
-                { value: 'new', label: 'Create a new Space team' },
+                ...(canEditSpace(spaceRole ?? null) ? [{ value: 'new', label: 'Create a new Space team' }] : []),
               ]}
               className="!h-10 !text-[13px]"
             />

@@ -76,7 +76,7 @@ export default function SpaceLayout() {
     all.filter((p) => p.my_level === 'owner').reduce((n, p) => n + p.open_request_count, 0)
 
   const line = archived
-    ? 'This space is archived. Everything stays readable, and nothing can change until an Owner restores it.'
+    ? 'This space is archived. Everything stays readable, and nothing can change until the project manager restores it.'
     : overdue > 0
       ? `${overdue} of your tasks ${plural(overdue, 'is', 'are')} overdue.` +
         (thisWeek > 0 ? ` Another ${thisWeek} ${plural(thisWeek, 'is', 'are')} due this week.` : '')
@@ -152,7 +152,7 @@ export default function SpaceLayout() {
         </Suspense>
       </div>
 
-      <NewProjectDialog open={newOpen} onClose={() => setNewOpen(false)} spaceId={spaceId} />
+      <NewProjectDialog open={newOpen} onClose={() => setNewOpen(false)} spaceId={spaceId} spaceRole={space?.my_role ?? null} />
       <JoinProjectDialog open={joinOpen} onClose={() => setJoinOpen(false)} />
     </div>
   )

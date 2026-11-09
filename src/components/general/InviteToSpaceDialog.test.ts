@@ -91,3 +91,30 @@ it('shows a role select and passes the chosen role when roles are given', async 
     container.remove()
   }
 })
+
+it('starts every opening on Member', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const draw = (open: boolean) => act(async () => root.render(createElement(ToastContext.Provider, { value: { show: vi.fn() } },
+    createElement(InviteToSpaceDialog, {
+      open, spaceId: 's', onDone: vi.fn().mockResolvedValue(undefined), onClose: vi.fn(),
+      search: vi.fn().mockResolvedValue([]), invite: vi.fn(), roles: ['coordinator', 'member'],
+    }),
+  )))
+  try {
+    await draw(true)
+    const select = document.querySelector('select')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(select, 'coordinator')
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect(document.querySelector('select')!.value).toBe('coordinator')
+    await draw(false)
+    await draw(true)
+    expect(document.querySelector('select')!.value).toBe('member')
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+  }
+})

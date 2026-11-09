@@ -240,6 +240,10 @@ alter table public.classes alter column space_id set not null;
  * create-or-replace matches the view's final shape and the file stays
  * re-runnable in one pass). Columns only ever append.
  */
+-- `create or replace` cannot drop a column, and space-roles.sql adds my_role to this view, so a
+-- re-run needs the drop first. Nothing else depends on the view; space-roles.sql restores my_role.
+drop view if exists public.general_space_overview;
+
 create or replace view public.general_space_overview
 with (security_invoker = true) as
 select s.id,
