@@ -17,19 +17,16 @@ import { paths } from '../../lib/paths'
 import { plural } from '../../lib/plural'
 import type { SpaceOutlet } from './spaceOutlet'
 
-type SpaceTab = 'overview' | 'projects' | 'teams' | 'members' | 'reports' | 'archive' | 'settings'
+type SpaceTab = 'overview' | 'projects' | 'reports' | 'settings'
 
 const TABS: { id: SpaceTab; label: string; icon: IconName; to: (id: string) => string }[] = [
   { id: 'overview', label: 'Overview', icon: 'info', to: paths.space },
   { id: 'projects', label: 'Projects', icon: 'board', to: paths.spaceProjects },
-  { id: 'teams', label: 'Teams', icon: 'target', to: paths.spaceTeams },
-  { id: 'members', label: 'Members', icon: 'users', to: paths.spaceMembers },
   { id: 'reports', label: 'Reports', icon: 'chart', to: paths.spaceReports },
-  { id: 'archive', label: 'Archive', icon: 'archive', to: paths.spaceArchive },
   { id: 'settings', label: 'Settings', icon: 'settings', to: paths.spaceSettings },
 ]
 
-/** `/spaces/:id/teams/archive` is still the Teams tab. */
+/** `/spaces/:id/settings?section=…` is still the Settings tab. */
 function tabOf(pathname: string, spaceId: string): SpaceTab {
   const rest = pathname.slice(paths.space(spaceId).length).split('/')[1] ?? ''
   return TABS.some((t) => t.id === rest) ? (rest as SpaceTab) : 'overview'
@@ -66,7 +63,6 @@ export default function SpaceLayout() {
     return <Navigate to={paths.class(space.class_id)} replace />
   }
 
-  const isOwner = space?.my_level === 'owner'
   const archived = Boolean(space?.archived_at)
   // Students are invited onto projects; only project managers open or join one here.
   const canStart = !archived && canManageProjects(profile)
@@ -95,11 +91,8 @@ export default function SpaceLayout() {
   const tab = tabOf(pathname, spaceId)
   const counts: Partial<Record<SpaceTab, number>> = {
     projects: projects ? all.length : undefined,
-    members: space?.member_count,
-    archive: space?.archived_count || undefined,
   }
-  // Settings is the Owner's: renaming and archiving are theirs alone.
-  const tabs = TABS.filter((t) => t.id !== 'settings' || isOwner).map((t) => ({
+  const tabs = TABS.map((t) => ({
     id: t.id,
     label: t.label,
     icon: t.icon,

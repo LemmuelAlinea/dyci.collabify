@@ -1,153 +1,107 @@
-import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
-import { Alert } from '../../components/ui/Alert'
-import { Button } from '../../components/ui/Button'
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
-import { Field, Input } from '../../components/ui/Field'
-import { Textarea } from '../../components/ui/Select'
-import { useToast } from '../../components/ui/Toast'
+import { useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Icon } from '../../components/ui/Icon'
+import type { IconName } from '../../components/ui/Icon'
 import { useGeneralNavigation } from '../../context/generalNavigation'
-import { archiveSpace, updateSpace } from '../../lib/api/spaces'
-import { authErrorMessage } from '../../lib/authError'
-import { paths } from '../../lib/paths'
+import { spaceSettingsSection } from '../../lib/general/navigation'
+import type { SpaceSettingsSection } from '../../lib/general/navigation'
+import { canEditSpace } from '../../lib/general/permissions'
+import GeneralTeams from './GeneralTeams'
+import SpaceArchive from './SpaceArchive'
+import SpaceDetails from './SpaceDetails'
+import SpaceMembers from './SpaceMembers'
 
-/**
- * Everything about a space its Owner can change, in one tab: its name and
- * description, and archiving. Archive comes first; Restore only shows once the
- * space is archived. Deleting a space goes through Archive → Trash.
- */
+const SECTIONS: { id: SpaceSettingsSection; label: string; icon: IconName }[] = [
+  { id: 'details', label: 'Details', icon: 'settings' },
+  { id: 'teams', label: 'Teams', icon: 'target' },
+  { id: 'members', label: 'Members', icon: 'users' },
+  { id: 'archive', label: 'Archive', icon: 'archive' },
+]
+
+/** A space's Settings: a left menu of Details, Teams, Members and Archive, the open one in the URL. */
 export default function SpaceSettings() {
-  const { show } = useToast()
-  const { spaces, currentSpace: space, reload } = useGeneralNavigation()
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [archiveOpen, setArchiveOpen] = useState(false)
+  const { currentSpace: space } = useGeneralNavigation()
+  const [params, setParams] = useSearchParams()
+  const nav = useRef<HTMLElement>(null)
+  const canSeeArchive = canEditSpace(space?.my_role ?? null)
+  const active = spaceSettingsSection(params, canSeeArchive)
 
+  // On a phone the menu scrolls sideways: keep the open section in view.
   useEffect(() => {
-    if (!space) return
-    setName(space.name)
-    setDescription(space.description)
-  }, [space])
+    if (!window.matchMedia?.('(max-width: 767px)').matches) return
+    const current = nav.current?.querySelector<HTMLElement>('[aria-current="page"]')
+    if (typeof current?.scrollIntoView === 'function') current.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [active])
 
-  useEffect(() => {
-    document.title = space ? `Settings · ${space.name} · Collabify` : 'Settings · Collabify'
-  }, [space])
-
-  if (spaces !== null && space && space.my_level !== 'owner') {
-    return <Navigate to={paths.space(space.id)} replace />
-  }
   if (!space) return null
 
-  const archived = Boolean(space.archived_at)
-  const changed = name.trim() !== space.name || description !== space.description
-
-  async function save(event: FormEvent) {
-    event.preventDefault()
-    if (!space) return
-    setError(null)
-    setBusy(true)
-    try {
-      await updateSpace(space.id, name, description)
-      show('Space updated')
-      await reload()
-    } catch (err) {
-      setError(authErrorMessage(err, 'Could not save those changes.'))
-    } finally {
-      setBusy(false)
-    }
+  function open(next: SpaceSettingsSection) {
+    const changed = new URLSearchParams(params)
+    changed.set('section', next)
+    // archived=1 only means something inside Teams.
+    if (next !== 'teams') changed.delete('archived')
+    setParams(changed, { replace: true })
   }
 
-  async function restore() {
-    if (!space) return
-    try {
-      await archiveSpace(space.id, false)
-      show('Space restored')
-      await reload()
-    } catch (err) {
-      show(authErrorMessage(err, 'Could not restore the space.'), 'error')
-    }
+  const counts: Partial<Record<SpaceSettingsSection, number>> = {
+    members: space.member_count,
+    archive: space.archived_count || undefined,
   }
 
   return (
-    <div className="mx-auto w-full max-w-[760px] space-y-6">
-      <section className="rounded-panel border border-line p-4 sm:p-5">
-        <h2 className="text-[15px]">Space details</h2>
-        <p className="mt-1 text-[13px] text-muted">
-          {archived ? 'Restore the space to change these.' : 'How this space shows up for everyone in it.'}
-        </p>
-        <form id="space-settings" onSubmit={save} className="mt-4 space-y-4">
-          {error && <Alert tone="error">{error}</Alert>}
-          <Field label="Name">
-            {(id) => (
-              <Input
-                id={id}
-                required
-                maxLength={80}
-                disabled={archived}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-            )}
-          </Field>
-          <Field label="Description" hint="Optional. What the space is for.">
-            {(id) => (
-              <Textarea
-                id={id}
-                rows={3}
-                maxLength={400}
-                disabled={archived}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-              />
-            )}
-          </Field>
-        </form>
-        <div className="mt-4 flex justify-end">
-          <Button
-            form="space-settings"
-            type="submit"
-            loading={busy}
-            disabled={archived || !changed || name.trim().length === 0}
-            className="!rounded-xl"
-          >
-            Save changes
-          </Button>
-        </div>
-      </section>
-
-      <section className="rounded-panel border border-line p-4 sm:p-5">
-        <h2 className="text-[15px]">{archived ? 'Restore space' : 'Archive space'}</h2>
-        <p className="mt-1 text-[13px] text-muted">
-          {archived
-            ? 'Projects return to normal and members can make changes again.'
-            : 'Every project stays readable, but nobody can change the space until you restore it.'}
-        </p>
-        <Button
-          size="sm"
-          variant="outline"
-          className="mt-3"
-          onClick={() => (archived ? void restore() : setArchiveOpen(true))}
-        >
-          {archived ? 'Restore space' : 'Archive space'}
-        </Button>
-      </section>
-
-      <ConfirmDialog
-        open={archiveOpen}
-        onClose={() => setArchiveOpen(false)}
-        onConfirm={async () => {
-          await archiveSpace(space.id, true)
-          show(`${space.name} archived`)
-          await reload()
-        }}
-        title={`Archive ${space.name}?`}
-        body="Every project stays readable, but no member can change the space until you restore it."
-        confirmLabel="Archive space"
-        tone="primary"
-      />
+    <div className="flex flex-col gap-5 md:flex-row md:items-start md:gap-8">
+      <nav
+        ref={nav}
+        aria-label="Settings sections"
+        className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:sticky md:top-4 md:w-[200px] md:shrink-0 md:flex-col md:overflow-visible"
+      >
+        {SECTIONS.filter((s) => s.id !== 'archive' || canSeeArchive).map((s) => {
+          const on = s.id === active
+          const count = counts[s.id]
+          return (
+            <button
+              key={s.id}
+              type="button"
+              aria-current={on ? 'page' : undefined}
+              onClick={() => open(s.id)}
+              className={`relative flex h-9 shrink-0 items-center gap-3 whitespace-nowrap rounded-lg px-3 text-left text-[14px] transition-colors md:w-full ${
+                on
+                  ? 'bg-nav-active font-semibold text-nav-active-ink'
+                  : 'font-medium text-muted hover:bg-[var(--surface-sunken)] hover:text-ink'
+              }`}
+            >
+              {on && (
+                <span
+                  aria-hidden
+                  className="absolute inset-y-1.5 left-0 hidden w-[3px] rounded-full bg-nav-marker md:block"
+                />
+              )}
+              <Icon name={s.icon} size={17} className={on ? 'shrink-0' : 'shrink-0 text-nav-icon'} />
+              {s.label}
+              {count !== undefined && count > 0 && (
+                <span
+                  className={`rounded-full px-2 py-0.5 font-mono text-[12px] ${
+                    on ? 'bg-navy-600 text-white dark:bg-amber-400 dark:text-navy-900' : 'surface-sunken text-faint'
+                  }`}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </nav>
+      <div className="min-w-0 flex-1">
+        {active === 'teams' ? (
+          <GeneralTeams />
+        ) : active === 'members' ? (
+          <SpaceMembers />
+        ) : active === 'archive' ? (
+          <SpaceArchive />
+        ) : (
+          <SpaceDetails />
+        )}
+      </div>
     </div>
   )
 }

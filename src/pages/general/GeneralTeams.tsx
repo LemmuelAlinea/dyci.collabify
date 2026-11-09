@@ -55,7 +55,7 @@ export default function GeneralTeams() {
   const [adding, setAdding] = useState<Record<string, string>>({})
 
   const archived = Boolean(space?.archived_at)
-  const archivePage = location.pathname.endsWith('/archive')
+  const archivePage = new URLSearchParams(location.search).get('archived') === '1'
 
   const load = useCallback(async () => {
     if (!spaceId) return

@@ -79,10 +79,8 @@ const SpaceLayout = lazy(() => import('./pages/general/SpaceLayout'))
 const SpaceHome = lazy(() => import('./pages/general/SpaceHome'))
 const SpaceProjects = lazy(() => import('./pages/general/SpaceProjects'))
 const Projects = lazy(() => import('./pages/app/projects/Projects'))
-const GeneralTeams = lazy(() => import('./pages/general/GeneralTeams'))
 const SpacePicker = lazy(() => import('./pages/general/SpacePicker'))
-const SpaceMembers = lazy(() => import('./pages/general/SpaceMembers'))
-const SpaceArchive = lazy(() => import('./pages/general/SpaceArchive'))
+const SpaceLegacyRedirect = lazy(() => import('./pages/general/SpaceLegacyRedirect'))
 const SpaceSettings = lazy(() => import('./pages/general/SpaceSettings'))
 const GeneralProject = lazy(() => import('./pages/general/GeneralProject'))
 const ProjectArchive = lazy(() => import('./pages/general/ProjectArchive'))
@@ -169,10 +167,10 @@ export default function App() {
               <Route path="/spaces/:spaceId" element={<SpaceLayout />}>
                 <Route index element={<SpaceHome />} />
                 <Route path="projects" element={<SpaceProjects />} />
-                <Route path="members" element={<SpaceMembers />} />
-                <Route path="teams" element={<GeneralTeams />} />
-                <Route path="teams/archive" element={<GeneralTeams />} />
-                <Route path="archive" element={<SpaceArchive />} />
+                <Route path="members" element={<SpaceLegacyRedirect section="members" />} />
+                <Route path="teams" element={<SpaceLegacyRedirect section="teams" />} />
+                <Route path="teams/archive" element={<SpaceLegacyRedirect section="teams" archived />} />
+                <Route path="archive" element={<SpaceLegacyRedirect section="archive" />} />
                 <Route path="reports" element={<GeneralReports />} />
                 <Route path="settings" element={<SpaceSettings />} />
               </Route>
