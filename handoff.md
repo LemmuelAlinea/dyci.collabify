@@ -4440,5 +4440,6 @@ been measured at 100 items.
   runs with the file spliced in. Vitest, build and eslint pass.
 - **Rollout.** A read-only check of the live schema was clean, and 14 suites passed against it, rolled back.
 - **Remove once settled.** The missing-column fallback in `lib/api/sprints.ts` is no longer needed.
-- **Deferred:** no signed-in walk of the three modes on the live site yet; it needs the owner to sign in.
+- **Walked live** on 2026-11-10 as a project manager, on a throwaway project since deleted: all three modes, team sprints, the refusals, the tabs, finish, reopen and the Tasks scope.
+- **Deferred:** the team lead view on a page (one account, so suites only), and the automation in a real run (suites only).
   A planned sprint that already holds tasks cannot take a team until they are moved out (design call 17).
