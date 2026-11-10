@@ -19,7 +19,8 @@ export function dialogIsOpen() {
 
 /**
  * Finds the lit target for a step: every element marked `data-walkthrough` with one of the
- * markers and a visible box, joined into one. It follows the page as it moves.
+ * markers and a visible box, joined into one. It measures every frame while active, since
+ * a transform or a layout shift moves the target without any event or mutation to hear.
  */
 export function useTargetBox(markers: readonly string[], active: boolean): Result {
   const [state, setState] = useState<Result & { key: string }>({ ...IDLE, key: '' })
@@ -36,9 +37,17 @@ export function useTargetBox(markers: readonly string[], active: boolean): Resul
     let frame = 0
     let grace: ReturnType<typeof setTimeout> | undefined
     let scrolled = false
+    let last: Result | null = null
+
+    // A frame that changes nothing must not render anything.
+    const report = (next: Result) => {
+      if (last && same(last.box, next.box) && last.dialogOpen === next.dialogOpen && last.missing === next.missing) return
+      last = next
+      setState({ ...next, key })
+    }
 
     const measure = () => {
-      frame = 0
+      frame = requestAnimationFrame(measure)
       const boxes: Box[] = []
       const found: Element[] = selector ? [...document.querySelectorAll(selector)] : []
       for (const el of found) {
@@ -46,7 +55,6 @@ export function useTargetBox(markers: readonly string[], active: boolean): Resul
         if (r.width > 0 && r.height > 0) boxes.push({ top: r.top, left: r.left, width: r.width, height: r.height })
       }
       const box = unionBox(boxes)
-      const dialogOpen = dialogIsOpen()
 
       if (box) {
         if (grace) clearTimeout(grace)
@@ -57,32 +65,14 @@ export function useTargetBox(markers: readonly string[], active: boolean): Resul
           first?.scrollIntoView?.({ block: 'center', behavior: reduce ? 'auto' : 'smooth' })
         }
       } else if (!grace) {
-        grace = setTimeout(
-          () => setState((s0) => (s0.key === key && s0.missing ? s0 : { ...(s0.key === key ? s0 : IDLE), key, missing: true })),
-          TARGET_GRACE_MS,
-        )
+        grace = setTimeout(() => report({ box: null, dialogOpen: dialogIsOpen(), missing: true }), TARGET_GRACE_MS)
       }
-      setState((s0) => {
-        const s = s0.key === key ? s0 : { ...IDLE, key }
-        return same(s.box, box) && s.dialogOpen === dialogOpen && (!box || !s.missing) && s0 === s
-          ? s0
-          : { key, box, dialogOpen, missing: box ? false : s.missing }
-      })
-    }
-    const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(measure)
+      report({ box, dialogOpen: dialogIsOpen(), missing: box ? false : (last?.missing ?? false) })
     }
 
-    const observer = new MutationObserver(schedule)
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['inert'] })
-    window.addEventListener('resize', schedule)
-    window.addEventListener('scroll', schedule, true)
-    schedule()
+    frame = requestAnimationFrame(measure)
     return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', schedule)
-      window.removeEventListener('scroll', schedule, true)
-      if (frame) cancelAnimationFrame(frame)
+      cancelAnimationFrame(frame)
       if (grace) clearTimeout(grace)
     }
   }, [key, active, reduce])

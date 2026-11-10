@@ -7,9 +7,9 @@ export type WalkthroughValue = {
   startReplay: () => void
 }
 
-const NONE: WalkthroughValue = { canReplay: false, startReplay: () => {} }
+export const NO_WALKTHROUGH: WalkthroughValue = { canReplay: false, startReplay: () => {} }
 
-export const WalkthroughContext = createContext<WalkthroughValue>(NONE)
+export const WalkthroughContext = createContext<WalkthroughValue>(NO_WALKTHROUGH)
 
 /** Outside the provider there is nothing to replay. */
 export function useWalkthrough() {

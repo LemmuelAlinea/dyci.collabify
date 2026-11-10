@@ -16,6 +16,8 @@ const h = vi.hoisted(() => ({
   target: { box: null as unknown, dialogOpen: false, missing: false },
   list: vi.fn(),
   save: vi.fn(),
+  crash: false,
+  pageMounts: 0,
 }))
 
 vi.mock('../../context/AuthContext', () => ({ useAuth: () => h.auth }))
@@ -24,7 +26,13 @@ vi.mock('../../lib/api/walkthroughs', () => ({
   listMyWalkthroughs: (...a: unknown[]) => h.list(...a),
   saveWalkthroughs: (...a: unknown[]) => h.save(...a),
 }))
-vi.mock('./useTargetBox', () => ({ useTargetBox: () => h.target, dialogIsOpen: () => false }))
+vi.mock('./useTargetBox', () => ({
+  useTargetBox: (_markers: readonly string[], active: boolean) => {
+    if (h.crash) throw new Error('walkthrough broke')
+    return active ? h.target : { box: null, dialogOpen: false, missing: false }
+  },
+  dialogIsOpen: () => false,
+}))
 
 const BOX = { top: 100, left: 200, width: 120, height: 40 }
 const student = { id: 'u1', role: 'student', status: 'active', can_teach: false, can_manage_projects: false }
@@ -69,6 +77,9 @@ function Probe() {
     seen.go = navigate
     seen.replay = walkthrough
   })
+  React.useEffect(() => {
+    h.pageMounts += 1
+  }, [])
   return <p data-testid="path">{loc.pathname}</p>
 }
 const tree = (path = '/') => (
@@ -104,6 +115,8 @@ beforeEach(() => {
   h.target.box = BOX
   h.target.dialogOpen = false
   h.target.missing = false
+  h.crash = false
+  h.pageMounts = 0
   h.list.mockReset().mockResolvedValue([])
   h.save.mockReset().mockResolvedValue(undefined)
 })
@@ -211,9 +224,11 @@ it('reloads the lists when a dialog closes', async () => {
   expect(h.nav.reload).toHaveBeenCalledTimes(1)
 })
 
-it('offers Take me there once the target is missing', async () => {
+it('offers Take me there on a data-finished step once the target is missing', async () => {
+  h.auth.profile = manager
+  h.list.mockResolvedValue([accountDone])
   await mount()
-  expect(pathname()).toBe('/settings')
+  expect(pathname()).toBe('/spaces')
   await act(async () => seen.go('/elsewhere'))
   h.target.box = null
   await rerender()
@@ -221,7 +236,148 @@ it('offers Take me there once the target is missing', async () => {
   h.target.missing = true
   await rerender()
   await press('Take me there')
+  expect(pathname()).toBe('/spaces')
+})
+
+it('never offers Take me there on a step that finishes with its button', async () => {
+  h.auth.profile = { id: 'u5', role: 'member', status: 'active', can_teach: false, can_manage_projects: false }
+  h.list.mockResolvedValue([accountDone, row('member')])
+  await mount()
+  expect(text()).toContain('Invitations land in your Inbox')
+  await act(async () => seen.go('/inbox'))
+  h.target.box = null
+  h.target.missing = true
+  await rerender()
+  expect(hasButton('Take me there')).toBe(false)
+  expect(hasButton('Done')).toBe(true)
+  expect(pathname()).toBe('/inbox')
+})
+
+const deferred = () => {
+  let resolve = () => {}
+  let reject = (_: Error) => {}
+  const promise = new Promise<void>((yes, no) => {
+    resolve = yes
+    reject = no
+  })
+  return { promise, resolve: () => resolve(), reject: (e: Error) => reject(e) }
+}
+const openThenCloseDialog = async () => {
+  h.target.dialogOpen = true
+  await rerender()
+  h.target.dialogOpen = false
+  h.target.box = null
+  h.target.missing = true
+  await rerender()
+}
+
+it('holds the card until a slow reload succeeds', async () => {
+  const slow = deferred()
+  h.nav.reload = vi.fn().mockReturnValue(slow.promise)
+  await mount()
+  await openThenCloseDialog()
+  expect(h.nav.reload).toHaveBeenCalledTimes(1)
+  expect(hasButton('Skip')).toBe(false)
+  await act(async () => slow.resolve())
+  expect(hasButton('Skip')).toBe(true)
+  expect(h.nav.reload).toHaveBeenCalledTimes(1)
+})
+
+it('brings the card back when the reload fails', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  const slow = deferred()
+  h.nav.reload = vi.fn().mockReturnValue(slow.promise)
+  await mount()
+  await openThenCloseDialog()
+  expect(hasButton('Skip')).toBe(false)
+  await act(async () => slow.reject(new Error('offline')))
+  expect(hasButton('Skip')).toBe(true)
+  expect(warn).toHaveBeenCalled()
+})
+
+it('still reloads after a dialog closes while paused, and shows no card', async () => {
+  h.list.mockResolvedValue([accountDone, row('student', 'paused')])
+  await mount()
+  expect(hasButton('Skip')).toBe(false)
+  h.target.dialogOpen = true
+  await rerender()
+  h.target.dialogOpen = false
+  await rerender()
+  expect(h.nav.reload).toHaveBeenCalledTimes(1)
+  expect(hasButton('Skip')).toBe(false)
+  expect(document.querySelectorAll('[data-spotlight="card"]')).toHaveLength(0)
+})
+
+it('keeps the account steps in the count for the visit that showed them', async () => {
+  await mount()
+  expect(text()).toContain('Step 1 of 4')
+  await press('Next')
+  expect(text()).toContain('Step 2 of 4')
+  await press('Next')
+  expect(text()).toContain('Join your class')
+  expect(text()).toContain('Step 3 of 4')
+})
+
+it('counts only what is left on a later visit', async () => {
+  h.list.mockResolvedValue([accountDone])
+  await mount()
+  expect(text()).toContain('Join your class')
+  expect(text()).toContain('Step 1 of 2')
+})
+
+it('does not carry the account steps into the next walkthrough', async () => {
+  h.auth.profile = teacher
+  h.nav.spaces = [klass]
+  await mount()
+  expect(text()).toContain('Step 1 of 4')
+  await press('Next')
+  await press('Next')
+  expect(text()).toContain('Share this code with your section')
+  expect(text()).toContain('Step 4 of 4')
+  await press('Done')
+  expect(text()).toContain('Create a space')
+  expect(text()).toContain('Step 1 of 2')
+})
+
+it('walks a student to their newest class for Find your work', async () => {
+  h.nav.spaces = [space({ id: 'c1', kind: 'education', class_id: 'k1', my_role: null, my_level: 'member' })]
+  h.nav.myProjects = []
+  h.list.mockResolvedValue([accountDone, row('student')])
+  await mount('/settings')
+  expect(text()).toContain('Find your work')
+  expect(pathname()).toBe('/classes/k1')
+})
+
+it('a throw in the walkthrough leaves the page rendered and stops Replay', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  await mount()
+  expect(seen.replay.canReplay).toBe(true)
+  expect(h.pageMounts).toBe(1)
+
+  h.crash = true
+  await rerender()
   expect(pathname()).toBe('/settings')
+  expect(h.pageMounts).toBe(1)
+  expect(hasButton('Skip')).toBe(false)
+  expect(seen.replay.canReplay).toBe(false)
+  expect(warn).toHaveBeenCalledWith('The walkthrough stopped.', expect.any(Error))
+  expect(() => seen.replay.startReplay()).not.toThrow()
+
+  h.crash = false
+  await rerender()
+  expect(h.pageMounts).toBe(1)
+  expect(hasButton('Skip')).toBe(false)
+})
+
+it('a throw on the first render still renders the page', async () => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  h.crash = true
+  await mount('/somewhere')
+  expect(pathname()).toBe('/somewhere')
+  expect(h.pageMounts).toBe(1)
+  expect(seen.replay.canReplay).toBe(false)
 })
 
 it('the no-code button pauses', async () => {

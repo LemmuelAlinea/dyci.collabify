@@ -1,13 +1,41 @@
 // @vitest-environment happy-dom
 import * as React from 'react'
 import { act } from 'react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { Spotlight } from './Spotlight'
 import { TARGET_GRACE_MS, useTargetBox } from './useTargetBox'
+import { DUR } from '../../lib/motion'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+
+type Motion = { animate: Record<string, number>; duration: number; spotlight?: string }
+const h = vi.hoisted(() => ({ reduce: false, renders: [] as Motion[] }))
+
+// Records what each light element was told, so the moves can be read without running them.
+vi.mock('motion/react', async (original) => ({
+  ...(await original<typeof import('motion/react')>()),
+  useReducedMotion: () => h.reduce,
+  motion: {
+    div: ({
+      animate,
+      transition,
+      initial: _initial,
+      ref,
+      ...rest
+    }: React.ComponentProps<'div'> & {
+      animate: Record<string, number>
+      transition: { duration: number }
+      initial: boolean
+    }) => {
+      h.renders.push({ animate, duration: transition.duration, spotlight: (rest as Record<string, string>)['data-spotlight'] })
+      return <div ref={ref} {...rest} />
+    },
+  },
+}))
 
 let host: HTMLDivElement
 let root: ReturnType<typeof createRoot>
@@ -15,11 +43,14 @@ beforeEach(() => {
   host = document.createElement('div')
   document.body.append(host)
   root = createRoot(host)
+  h.reduce = false
+  h.renders = []
 })
 afterEach(async () => {
   await act(async () => root.unmount())
   host.remove()
   document.body.replaceChildren()
+  document.documentElement.style.removeProperty('--app-bar')
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
@@ -79,8 +110,71 @@ it('is not itself an aria-modal dialog', async () => {
   expect(document.querySelector('[aria-modal="true"]')).toBeNull()
 })
 
-function Probe({ markers }: { markers: readonly string[] }) {
-  const result = useTargetBox(markers, true)
+it('leaves the announcement to the focus move', async () => {
+  await show()
+  expect(document.querySelector('[aria-live]')).toBeNull()
+})
+
+it('marks its layer and follows the dark background depth', async () => {
+  await show()
+  const layer = document.querySelector('[data-spotlight-layer]')!
+  expect(layer.classList.contains('depth-ground')).toBe(true)
+  expect(layer.contains(document.querySelector('[data-spotlight="card"]'))).toBe(true)
+  const css = readFileSync(join(process.cwd(), 'src/styles/index.css'), 'utf8')
+  expect(css).toContain("html.has-modal .app-ui:not([role='menu']):not([data-spotlight-layer]) {")
+})
+
+const scrimMoveTo = (top: number) => h.renders.find((r) => r.spotlight === 'scrim' && r.animate.height === top)
+const moved = { ...box, top: 300 }
+
+it('moves the light instantly while the step stays the same', async () => {
+  await show({ stepId: 'a' })
+  h.renders = []
+  await show({ stepId: 'a', box: moved })
+  expect(scrimMoveTo(294)?.duration).toBe(0)
+})
+
+it('glides the light when the step changes, then settles', async () => {
+  await show({ stepId: 'a' })
+  h.renders = []
+  await show({ stepId: 'b', box: moved })
+  expect(scrimMoveTo(294)?.duration).toBe(DUR.base / 1000)
+  expect(h.renders.at(-1)?.duration).toBe(0)
+  h.renders = []
+  await show({ stepId: 'b', box: { ...box, top: 400 } })
+  expect(scrimMoveTo(394)?.duration).toBe(0)
+})
+
+it('does not glide under reduced motion', async () => {
+  h.reduce = true
+  await show({ stepId: 'a' })
+  h.renders = []
+  await show({ stepId: 'b', box: moved })
+  expect(h.renders.every((r) => r.duration === 0)).toBe(true)
+})
+
+it('keeps the hole below the app bar', async () => {
+  document.documentElement.style.setProperty('--app-bar', '64px')
+  await show({ box: { ...box, top: 30 } })
+  expect(h.renders.find((r) => r.spotlight === 'scrim')?.animate.height).toBe(64)
+})
+
+it('opens the hole at the top of the screen with no app bar', async () => {
+  await show({ box: { ...box, top: 30 } })
+  expect(h.renders.find((r) => r.spotlight === 'scrim')?.animate.height).toBe(24)
+})
+
+it('moves the phone card under the app bar when the sheet would cover the target', async () => {
+  vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(375)
+  vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(700)
+  document.documentElement.style.setProperty('--app-bar', '60px')
+  await show({ box: { top: 560, left: 20, width: 120, height: 44 } })
+  expect(h.renders.filter((r) => r.spotlight === 'card').at(-1)?.animate.top).toBe(76)
+})
+
+function Probe({ markers, active = true, onRender }: { markers: readonly string[]; active?: boolean; onRender?: () => void }) {
+  const result = useTargetBox(markers, active)
+  onRender?.()
   return <output data-testid="probe">{JSON.stringify(result)}</output>
 }
 const probe = () => JSON.parse(document.querySelector('[data-testid="probe"]')!.textContent!)
@@ -101,6 +195,68 @@ it('falls back to a card when the target goes away', async () => {
   expect(probe().box).toBeNull()
   await tick(TARGET_GRACE_MS)
   expect(probe()).toMatchObject({ box: null, missing: true })
+})
+
+const movable = () => {
+  const rect = { top: 10, left: 20, width: 30, height: 40 }
+  const target = document.createElement('div')
+  target.setAttribute('data-walkthrough', 'x')
+  target.getBoundingClientRect = () => ({ ...rect }) as DOMRect
+  document.body.append(target)
+  return rect
+}
+
+it('follows a target that moves with no mutation or event', async () => {
+  vi.useFakeTimers()
+  const rect = movable()
+  await act(async () => root.render(<Probe markers={['x']} />))
+  await tick(50)
+  expect(probe().box.top).toBe(10)
+  rect.top = 32
+  await tick(50)
+  expect(probe().box.top).toBe(32)
+})
+
+it('does not render on a frame where nothing changed', async () => {
+  vi.useFakeTimers()
+  const rect = movable()
+  const onRender = vi.fn()
+  await act(async () => root.render(<Probe markers={['x']} onRender={onRender} />))
+  await tick(50)
+  onRender.mockClear()
+  await tick(500)
+  expect(onRender).not.toHaveBeenCalled()
+  rect.left = 90
+  await tick(50)
+  expect(onRender).toHaveBeenCalledTimes(1)
+})
+
+it('cancels the loop and the grace when it stops', async () => {
+  vi.useFakeTimers()
+  await act(async () => root.render(<Probe markers={['x']} />))
+  await tick(50)
+  expect(vi.getTimerCount()).toBeGreaterThan(0)
+  await act(async () => root.render(null))
+  expect(vi.getTimerCount()).toBe(0)
+})
+
+it('does not measure while inactive', async () => {
+  vi.useFakeTimers()
+  await act(async () => root.render(<Probe markers={['x']} active={false} />))
+  expect(vi.getTimerCount()).toBe(0)
+})
+
+it('reports a dialog with no markers, for a paused walkthrough', async () => {
+  vi.useFakeTimers()
+  await act(async () => root.render(<Probe markers={[]} />))
+  await tick(50)
+  expect(probe().dialogOpen).toBe(false)
+  const dialog = document.createElement('div')
+  dialog.setAttribute('role', 'dialog')
+  dialog.setAttribute('aria-modal', 'true')
+  document.body.append(dialog)
+  await tick(50)
+  expect(probe().dialogOpen).toBe(true)
 })
 
 it('starts the grace again when the markers change', async () => {

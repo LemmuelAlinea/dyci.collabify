@@ -17,19 +17,23 @@ type Props = {
   /** A replay covers the target so nothing under the light can be pressed. */
   blockTarget: boolean
   actions: { label: string; onPress: () => void; primary?: boolean }[]
+  /** The light glides only when this changes. Any other move, such as a scroll, is instant. */
+  stepId?: string
 }
 
 const SCRIM = 'bg-[color-mix(in_oklab,var(--scrim,var(--color-navy-950))_60%,transparent)]'
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
 const readViewport = (): Viewport => ({ width: window.innerWidth, height: window.innerHeight })
+/** TopNav writes the app bar's height on the root element; 0 when there is no bar. */
+const readTopInset = () => parseFloat(document.documentElement.style.getPropertyValue('--app-bar')) || 0
 const style = (b: Box) => ({ top: b.top, left: b.left, width: b.width, height: b.height })
 
 /**
  * The step card, and the light around its target. Purely presentational: whoever renders it
  * decides when a dialog or a missing target means it should not show.
  */
-export function Spotlight({ title, body, eyebrow, box, blockTarget, actions }: Props) {
+export function Spotlight({ title, body, eyebrow, box, blockTarget, actions, stepId }: Props) {
   const reduce = useReducedMotion()
   const titleId = useId()
   const card = useRef<HTMLDivElement>(null)
@@ -55,10 +59,15 @@ export function Spotlight({ title, body, eyebrow, box, blockTarget, actions }: P
     card.current?.focus({ preventScroll: true })
   }, [title])
 
-  const hole = box ? holeFor(box, vp) : null
-  const placed = placeCard(hole, size, vp)
+  const topInset = readTopInset()
+  const hole = box ? holeFor(box, vp, topInset) : null
+  const placed = placeCard(hole, size, vp, topInset)
 
-  const ease = { duration: reduce ? 0 : DUR.base / 1000, ease: 'easeOut' as const }
+  // Differs for the one commit that starts the step's glide. A move already running keeps its
+  // own transition, so settling this does not cut it short.
+  const [settledStep, setSettledStep] = useState(stepId)
+  useEffect(() => setSettledStep(stepId), [stepId])
+  const ease = { duration: reduce || settledStep === stepId ? 0 : DUR.base / 1000, ease: 'easeOut' as const }
 
   // Tab stays on the card's buttons and whatever is lit under the hole.
   // Listened for on the document, since focus leaves the card once it reaches the lit target.
@@ -95,7 +104,7 @@ export function Spotlight({ title, body, eyebrow, box, blockTarget, actions }: P
   }, [])
 
   return createPortal(
-    <div className="app-ui">
+    <div className="app-ui depth-ground" data-spotlight-layer="">
       {hole &&
         scrimPanels(hole, vp).map((panel, i) => (
           <motion.div
@@ -139,13 +148,11 @@ export function Spotlight({ title, body, eyebrow, box, blockTarget, actions }: P
         animate={{ top: placed.top, left: placed.left, opacity: 1 }}
         transition={ease}
       >
-        <div aria-live="polite">
-          <p className="eyebrow">{eyebrow}</p>
-          <h2 id={titleId} className="mt-1 font-display text-[18px] leading-snug">
-            {title}
-          </h2>
-          <p className="mt-2 text-[14px] text-muted">{body}</p>
-        </div>
+        <p className="eyebrow">{eyebrow}</p>
+        <h2 id={titleId} className="mt-1 font-display text-[18px] leading-snug">
+          {title}
+        </h2>
+        <p className="mt-2 text-[14px] text-muted">{body}</p>
         <div className="mt-4 flex flex-wrap justify-end gap-2">
           {actions.map((a) => (
             <Button key={a.label} size="sm" variant={a.primary ? 'primary' : 'ghost'} onClick={a.onPress}>
