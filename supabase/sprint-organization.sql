@@ -540,6 +540,18 @@ begin
     raise exception 'Unfinished tasks can only move to a planned sprint on this project.'
       using errcode = 'check_violation';
   end if;
+  if p_carry_to is not null
+     and public.general_sprint_organization(s.project_id) = 'streams'
+     and not exists (select 1 from public.general_sprints
+                      where id = p_carry_to and team_id = s.team_id) then
+    if s.team_id is null then
+      raise exception 'This sprint has no team, so its open work goes back to the backlog.'
+        using errcode = 'check_violation';
+    end if;
+    raise exception 'Carry the work to one of %''s planned sprints.',
+      (select name from public.general_teams where id = s.team_id)
+      using errcode = 'check_violation';
+  end if;
 
   -- The sprint team and the counts as the sprint ends, before work moves.
   perform set_config('collabify.sprint_finish', p_sprint::text, true);
@@ -567,12 +579,18 @@ returns void language plpgsql set search_path = public as $$
 declare
   s public.general_sprints;
   was text := current_setting('collabify.sprint_reopen', true);
+  v_organization text;
 begin
   select * into s from public.general_sprints where id = p_sprint;
   if not found then
     raise exception 'That sprint is not there any more. Reload the page.';
   end if;
+  v_organization := public.general_sprint_organization(s.project_id);
   if not public.general_can_run_sprint(s.project_id, s.id) then
+    if v_organization = 'streams' then
+      raise exception 'Only the project manager, a coordinator or this team''s lead can run a finished sprint again.'
+        using errcode = 'insufficient_privilege';
+    end if;
     raise exception 'Only the project manager or a coordinator can run a finished sprint again.'
       using errcode = 'insufficient_privilege';
   end if;
@@ -580,10 +598,26 @@ begin
     raise exception 'Only a finished sprint can run again.' using errcode = 'check_violation';
   end if;
 
+  perform pg_advisory_xact_lock(hashtext('sprint-organization:' || s.project_id));
+
+  if v_organization = 'streams' then
+    if s.team_id is null then
+      raise exception '% has no team, so it cannot run again while each team runs its own sprints.', s.name
+        using errcode = 'check_violation';
+    end if;
+    if exists (select 1 from public.general_teams t where t.id = s.team_id and t.archived_at is not null) then
+      raise exception 'Restore this sprint''s team before running it again.' using errcode = 'check_violation';
+    end if;
+  end if;
+
   perform set_config('collabify.sprint_reopen', 'on', true);
 
+  -- Sequential: whatever runs goes back. Streams: only the same team's.
+  -- Parallel: nothing else changes.
   update public.general_sprints set state = 'planned'
-   where project_id = s.project_id and state = 'active';
+   where project_id = s.project_id and state = 'active'
+     and (v_organization = 'sequential'
+          or (v_organization = 'streams' and team_id = s.team_id));
 
   update public.general_sprints set state = 'active', archived = false
    where id = p_sprint;
@@ -598,5 +632,603 @@ $$;
 
 revoke all on function public.reopen_general_sprint(uuid) from public, anon;
 grant execute on function public.reopen_general_sprint(uuid) to authenticated;
+
+-- ---------------------------------------------------------------- notices name the team
+
+/** In streams a notice says whose sprint it is, unless the name already does. */
+create or replace function public.general_sprint_label(p_name text, p_team uuid, p_project uuid)
+returns text language sql stable security definer set search_path = public as $$
+  select case
+           when public.general_sprint_organization(p_project) = 'streams'
+                and t.name is not null
+                and lower(left(p_name, length(t.name))) <> lower(t.name)
+             then t.name || ': ' || p_name
+           else p_name
+         end
+    from (select (select name from public.general_teams where id = p_team) as name) t;
+$$;
+
+revoke all on function public.general_sprint_label(text, uuid, uuid) from public, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.notify_general_sprint_completed(p_sprint uuid, p_carry_to uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_auto boolean := coalesce(current_setting('collabify.sprint_automation', true), 'off') = 'on';
+  v_me   uuid := auth.uid();
+begin
+  if v_me is not null and not v_auto
+     and coalesce(current_setting('collabify.sprint_finish', true), '') <> p_sprint::text then
+    raise exception 'A sprint completion notice goes out only when the sprint finishes. Finish the sprint instead.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  insert into public.notifications (user_id, type, general_project_id, title, preview)
+  select gm.user_id, 'sprint_completed'::public.notification_type, s.project_id,
+         format('%s is finished', public.general_sprint_label(s.name, s.team_id, s.project_id)),
+         case when c.total = 0 then 'No tasks were in it.'
+              else format('%s of %s %s done.', c.done, c.total,
+                          case when c.total = 1 then 'task' else 'tasks' end)
+                   || case when c.total = c.done then ''
+                           when nxt.id is not null
+                             then format(' %s moved to %s.', c.total - c.done, nxt.name)
+                           else format(' %s went back to the backlog.', c.total - c.done)
+                      end
+         end
+    from public.general_sprints s
+    join public.general_projects gp on gp.id = s.project_id
+    cross join lateral (
+      select count(*) filter (where t.status = 'done') as done, count(*) as total
+        from public.general_tasks t
+       where t.sprint_id = s.id
+         and t.routing_state = 'released'
+         and t.archived_at is null
+         and t.trashed_at is null
+    ) c
+    left join public.general_sprints nxt on nxt.id = p_carry_to and nxt.project_id = s.project_id
+    join public.general_members gm on gm.project_id = s.project_id
+    join public.profiles pr on pr.id = gm.user_id
+    join public.notification_prefs np on np.user_id = gm.user_id
+   where s.id = p_sprint
+     and s.state = 'active'
+     and gp.class_board_id is null
+     and gp.sprint_completion_notices
+     and gm.role not in ('stakeholder', 'qa')
+     and pr.status = 'active'
+     and np.project_updates
+     and (v_auto or gm.user_id is distinct from v_me)
+     and not (v_auto and gm.role in ('pm', 'coordinator'))
+     and ((not v_auto and gm.role in ('pm', 'coordinator'))
+          or exists (select 1
+                       from public.general_task_assignees a
+                       join public.general_tasks t on t.id = a.task_id
+                      where a.user_id = gm.user_id
+                        and t.sprint_id = s.id
+                        and t.routing_state = 'released'
+                        and t.archived_at is null
+                        and t.trashed_at is null));
+end;
+$function$;
+
+-- ---------------------------------------------------------------- sprint automation
+
+/** A team's next start: as the project's, counting only that team's sprints. */
+create or replace function public.general_next_sprint_start(p_project uuid, p_today date, p_team uuid)
+returns date language sql stable security definer set search_path = public as $$
+  with d as (
+    select greatest((select max(ends_on) + 1 from public.general_sprints
+                      where project_id = p_project and team_id = p_team),
+                    p_today) as base,
+           coalesce((select start_weekday from public.general_sprint_settings
+                      where project_id = p_project),
+                    (select extract(dow from starts_on)::int from public.general_sprints
+                      where project_id = p_project and team_id = p_team
+                      order by starts_on, created_at limit 1),
+                    1) as weekday
+  )
+  select base + (weekday - extract(dow from base)::int + 7) % 7 from d;
+$$;
+
+revoke all on function public.general_next_sprint_start(uuid, date, uuid) from public, anon, authenticated;
+
+/** The job finishing one sprint: the notices, the leftovers, the state. */
+create or replace function public.general_sprint_job_finish(p_sprint uuid, p_target uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  s     public.general_sprints;
+  moved int;
+begin
+  select * into s from public.general_sprints where id = p_sprint;
+
+  -- The sprint team and the counts as the sprint ends, before work moves.
+  perform public.notify_general_sprint_completed(s.id, p_target);
+
+  -- As complete_general_sprint: archived unfinished tasks stay behind. The
+  -- notice counts released tasks only; private planning tasks move with the
+  -- rest but are not reported.
+  with u as (
+    update public.general_tasks set sprint_id = p_target
+     where sprint_id = s.id and status <> 'done' and archived_at is null
+    returning routing_state)
+  select count(*) filter (where coalesce(routing_state, 'released') = 'released')
+    into moved from u;
+
+  update public.general_sprints set state = 'completed' where id = s.id;
+
+  perform public.notify_sprint_automation(s.project_id,
+    public.general_sprint_label(s.name, s.team_id, s.project_id) || ' finished on its own',
+    case when moved = 0 then 'Every task was done.'
+         else moved || ' unfinished ' || case when moved = 1 then 'task' else 'tasks' end
+              || coalesce(' moved to ' || (select name from public.general_sprints where id = p_target),
+                          ' returned to the backlog') || '.'
+    end);
+end;
+$$;
+
+revoke all on function public.general_sprint_job_finish(uuid, uuid) from public, anon, authenticated;
+
+/**
+ * The job starting one sprint. A start the rules refuse is skipped and recorded,
+ * and the planners and the team's lead hear once. Returns whether anything
+ * changed.
+ */
+create or replace function public.general_sprint_job_start(p_sprint uuid)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare
+  s        public.general_sprints;
+  v_label  text;
+  v_reason text;
+begin
+  select * into s from public.general_sprints where id = p_sprint;
+  v_label := public.general_sprint_label(s.name, s.team_id, s.project_id);
+
+  begin
+    update public.general_sprints set state = 'active' where id = s.id;
+    perform public.notify_sprint_automation(s.project_id,
+      v_label || ' started on its own',
+      to_char(s.starts_on, 'Mon FMDD') || ' to ' || to_char(s.ends_on, 'Mon FMDD, YYYY'));
+    return true;
+  exception when check_violation then
+    v_reason := sqlerrm;
+  end;
+
+  update public.general_sprints
+     set auto_start_blocked_reason = v_reason,
+         auto_start_blocked_at = coalesce(auto_start_blocked_at, now())
+   where id = s.id;
+
+  if s.auto_start_blocked_at is not null then
+    return false;
+  end if;
+
+  perform public.notify_sprint_automation(s.project_id, v_label || ' couldn''t start on its own', v_reason);
+  insert into public.notifications (user_id, type, general_project_id, title, preview)
+  select t.leader_id, 'sprint_automation'::public.notification_type, s.project_id,
+         v_label || ' couldn''t start on its own', v_reason
+    from public.general_teams t
+    join public.general_members m on m.project_id = t.project_id and m.user_id = t.leader_id
+    join public.profiles pr on pr.id = t.leader_id
+   where t.id = s.team_id and t.archived_at is null
+     and m.role not in ('pm', 'coordinator', 'stakeholder') and pr.status = 'active';
+  return true;
+end;
+$$;
+
+revoke all on function public.general_sprint_job_start(uuid) from public, anon, authenticated;
+
+/**
+ * Finish, create and start sprints for every work project that asks, or only
+ * p_project. Sequential is as it was. Streams runs the same three steps per
+ * team that has used sprints. Parallel finishes and starts by date and never
+ * creates. Each project runs in its own block, so one that fails is logged and
+ * skipped. Running again with the same p_now changes nothing.
+ */
+create or replace function public.run_sprint_automation(p_now timestamptz default now(),
+                                                        p_project uuid default null)
+returns int language plpgsql security definer set search_path = public as $$
+declare
+  was       text := current_setting('collabify.sprint_automation', true);
+  today     date := (p_now at time zone 'Asia/Manila')::date;
+  cfg       record;
+  v_team    record;
+  running   public.general_sprints;
+  nxt       public.general_sprints;
+  made      public.general_sprints;
+  due       boolean;
+  finishing boolean;
+  changed   boolean;
+  handled   uuid;
+  starts    date;
+  target    uuid;
+  total     int := 0;
+begin
+  perform set_config('collabify.sprint_automation', 'on', true);
+
+  for cfg in
+    select s.*, p.ends_on as due_on
+      from public.general_sprint_settings s
+      join public.general_projects p on p.id = s.project_id
+     where (s.auto_finish or s.auto_start)
+       and p.archived_at is null and p.class_board_id is null
+       and (p_project is null or s.project_id = p_project)
+     order by s.project_id
+  loop
+    begin
+      perform pg_advisory_xact_lock(hashtext('sprint-automation:' || cfg.project_id));
+      changed := false;
+      due := (p_now at time zone 'Asia/Manila')::time >= cfg.run_at;
+
+      if cfg.organization = 'sequential' then
+        select * into running from public.general_sprints
+         where project_id = cfg.project_id and state = 'active';
+        finishing := found and cfg.auto_finish
+                     and (running.ends_on < today - 1 or (running.ends_on < today and due));
+
+        handled := null;
+        if finishing then
+          handled := running.id;
+        elsif running.id is null then
+          select id into handled from public.general_sprints
+           where project_id = cfg.project_id and state = 'completed'
+             and completed_at >= cfg.auto_start_since
+           order by completed_at desc, created_at desc limit 1;
+        end if;
+
+        if cfg.auto_start and handled is not null
+           and handled is distinct from cfg.auto_created_after
+           and not exists (select 1 from public.general_sprints
+                            where project_id = cfg.project_id and state = 'planned') then
+          starts := public.general_next_sprint_start(cfg.project_id, today);
+          if cfg.due_on is null or starts <= cfg.due_on then
+            insert into public.general_sprints (project_id, name, starts_on, ends_on)
+            select cfg.project_id, 'Sprint ' || (count(*) + 1), starts, starts + cfg.length_days - 1
+              from public.general_sprints where project_id = cfg.project_id
+            returning * into made;
+            perform public.notify_sprint_automation(cfg.project_id,
+              made.name || ' was created on its own',
+              'It runs ' || to_char(made.starts_on, 'Mon FMDD') || ' to '
+                || to_char(made.ends_on, 'Mon FMDD, YYYY') || '.');
+            changed := true;
+          end if;
+          update public.general_sprint_settings set auto_created_after = handled
+           where project_id = cfg.project_id;
+          update public.general_sprints set next_auto_created = true where id = handled;
+        end if;
+
+        if finishing then
+          target := null;
+          if cfg.carry = 'next' then
+            select id into target from public.general_sprints
+             where project_id = cfg.project_id and state = 'planned'
+             order by starts_on, created_at limit 1;
+          end if;
+          perform public.general_sprint_job_finish(running.id, target);
+          changed := true;
+        end if;
+
+        if cfg.auto_start
+           and not exists (select 1 from public.general_sprints
+                            where project_id = cfg.project_id and state = 'active') then
+          select * into nxt from public.general_sprints
+           where project_id = cfg.project_id and state = 'planned' and ends_on >= today
+           order by starts_on, created_at limit 1;
+          if found and (nxt.starts_on < today or (nxt.starts_on = today and due)) then
+            if public.general_sprint_job_start(nxt.id) then
+              changed := true;
+            end if;
+          end if;
+        end if;
+
+      elsif cfg.organization = 'streams' then
+        -- Only teams that have used sprints: a chain starts with a person.
+        for v_team in
+          select t.id, t.name from public.general_teams t
+           where t.project_id = cfg.project_id and t.archived_at is null
+             and exists (select 1 from public.general_sprints s where s.team_id = t.id)
+           order by t.name
+        loop
+          select * into running from public.general_sprints
+           where team_id = v_team.id and state = 'active';
+          finishing := found and cfg.auto_finish
+                       and (running.ends_on < today - 1 or (running.ends_on < today and due));
+
+          handled := null;
+          if finishing then
+            handled := running.id;
+          elsif running.id is null then
+            select id into handled from public.general_sprints
+             where team_id = v_team.id and state = 'completed'
+               and completed_at >= cfg.auto_start_since
+             order by completed_at desc, created_at desc limit 1;
+          end if;
+
+          if cfg.auto_start and handled is not null
+             and not (select next_auto_created from public.general_sprints where id = handled)
+             and not exists (select 1 from public.general_sprints
+                              where team_id = v_team.id and state = 'planned') then
+            starts := public.general_next_sprint_start(cfg.project_id, today, v_team.id);
+            if cfg.due_on is null or starts <= cfg.due_on then
+              insert into public.general_sprints (project_id, team_id, name, starts_on, ends_on)
+              select cfg.project_id, v_team.id, left(v_team.name, 64) || ' sprint ' || (count(*) + 1),
+                     starts, starts + cfg.length_days - 1
+                from public.general_sprints where team_id = v_team.id
+              returning * into made;
+              perform public.notify_sprint_automation(cfg.project_id,
+                public.general_sprint_label(made.name, made.team_id, made.project_id) || ' was created on its own',
+                'It runs ' || to_char(made.starts_on, 'Mon FMDD') || ' to '
+                  || to_char(made.ends_on, 'Mon FMDD, YYYY') || '.');
+              changed := true;
+            end if;
+            update public.general_sprints set next_auto_created = true where id = handled;
+          end if;
+
+          if finishing then
+            target := null;
+            if cfg.carry = 'next' then
+              select id into target from public.general_sprints
+               where team_id = v_team.id and state = 'planned'
+               order by starts_on, created_at limit 1;
+            end if;
+            perform public.general_sprint_job_finish(running.id, target);
+            changed := true;
+          end if;
+
+          if cfg.auto_start
+             and not exists (select 1 from public.general_sprints
+                              where team_id = v_team.id and state = 'active') then
+            select * into nxt from public.general_sprints
+             where team_id = v_team.id and state = 'planned' and ends_on >= today
+             order by starts_on, created_at limit 1;
+            if found and (nxt.starts_on < today or (nxt.starts_on = today and due)) then
+              if public.general_sprint_job_start(nxt.id) then
+                changed := true;
+              end if;
+            end if;
+          end if;
+        end loop;
+
+        -- Sprints waiting for a team can't start; the job says so once.
+        if cfg.auto_start then
+          for nxt in
+            select * from public.general_sprints
+             where project_id = cfg.project_id and state = 'planned' and team_id is null
+               and ends_on >= today and (starts_on < today or (starts_on = today and due))
+             order by starts_on, created_at
+          loop
+            if public.general_sprint_job_start(nxt.id) then
+              changed := true;
+            end if;
+          end loop;
+        end if;
+
+      else
+        if cfg.auto_finish then
+          for running in
+            select * from public.general_sprints
+             where project_id = cfg.project_id and state = 'active'
+               and (ends_on < today - 1 or (ends_on < today and due))
+             order by ends_on, created_at
+          loop
+            target := null;
+            if cfg.carry = 'next' then
+              select id into target from public.general_sprints
+               where project_id = cfg.project_id and state = 'planned'
+               order by starts_on, created_at limit 1;
+            end if;
+            perform public.general_sprint_job_finish(running.id, target);
+            changed := true;
+          end loop;
+        end if;
+
+        if cfg.auto_start then
+          for nxt in
+            select * from public.general_sprints
+             where project_id = cfg.project_id and state = 'planned'
+               and ends_on >= today and (starts_on < today or (starts_on = today and due))
+             order by starts_on, created_at
+          loop
+            if public.general_sprint_job_start(nxt.id) then
+              changed := true;
+            end if;
+          end loop;
+        end if;
+      end if;
+
+      if changed then
+        total := total + 1;
+      end if;
+    exception when others then
+      raise warning 'Sprint automation skipped project %: %', cfg.project_id, sqlerrm;
+    end;
+  end loop;
+
+  perform set_config('collabify.sprint_automation', coalesce(nullif(was, ''), 'off'), true);
+  return total;
+end;
+$$;
+
+revoke all on function public.run_sprint_automation(timestamptz, uuid) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------- the ending reminder
+
+CREATE OR REPLACE FUNCTION public.send_project_reminders(p_now timestamp with time zone DEFAULT now(), p_project uuid DEFAULT NULL::uuid)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_today date := (p_now at time zone 'Asia/Manila')::date;
+  v_sprints int;
+  v_tasks int;
+  v_milestones int;
+begin
+  -- Sprint ending.
+  with due as (
+    select s.id, s.project_id, s.name, s.ends_on - v_today as days_left,
+           case when public.general_sprint_organization(s.project_id) = 'streams' then t.leader_id end as lead_id
+      from public.general_sprints s
+      join public.general_projects gp on gp.id = s.project_id
+      left join public.general_teams t on t.id = s.team_id and t.archived_at is null
+     where (p_project is null or s.project_id = p_project)
+       and gp.class_board_id is null
+       and gp.archived_at is null
+       and gp.trashed_at is null
+       and gp.sprint_end_reminder_days is not null
+       and s.state = 'active'
+       and s.ends_on >= v_today
+       and s.ends_on - v_today <= gp.sprint_end_reminder_days
+       and s.end_reminded_at is null
+     for update of s skip locked
+  ), stamped as (
+    update public.general_sprints g
+       set end_reminded_at = p_now
+      from due
+     where g.id = due.id
+    returning due.id, due.project_id, due.name, due.days_left, due.lead_id
+  ), counted as (
+    select s.*,
+           (select count(*) from public.general_tasks t
+             where t.sprint_id = s.id
+               and t.routing_state = 'released'
+               and t.archived_at is null
+               and t.trashed_at is null
+               and t.status <> 'done') as open_count
+      from stamped s
+  ), sent as (
+    insert into public.notifications (user_id, type, general_project_id, title, preview)
+    select gm.user_id, 'sprint_ending_soon'::public.notification_type, c.project_id,
+           case c.days_left
+             when 0 then format('%s ends today', c.name)
+             when 1 then format('%s ends tomorrow', c.name)
+             else format('%s ends in %s days', c.name, c.days_left)
+           end,
+           case c.open_count
+             when 0 then 'Every task is done.'
+             when 1 then '1 task remains unfinished.'
+             else format('%s tasks remain unfinished.', c.open_count)
+           end
+      from counted c
+      join public.general_members gm on gm.project_id = c.project_id
+      join public.profiles pr on pr.id = gm.user_id
+      join public.notification_prefs np on np.user_id = gm.user_id
+     where (gm.role in ('pm', 'coordinator')
+            or (gm.user_id = c.lead_id and gm.role <> 'stakeholder'))
+       and pr.status = 'active'
+       and np.deadline_reminders
+    returning 1
+  )
+  select count(*) into v_sprints from stamped;
+
+  -- Task overdue.
+  with due as (
+    select t.id, t.project_id, t.title, t.due_at, gp.name as project_name,
+           gp.task_overdue_alerts as alerts
+      from public.general_tasks t
+      join public.general_projects gp on gp.id = t.project_id
+     where (p_project is null or t.project_id = p_project)
+       and gp.class_board_id is null
+       and gp.archived_at is null
+       and gp.trashed_at is null
+       and t.routing_state = 'released'
+       and t.archived_at is null
+       and t.trashed_at is null
+       and t.status <> 'done'
+       and t.due_at is not null
+       and (t.due_at at time zone 'Asia/Manila')::date < v_today
+       and not exists (select 1 from public.general_task_reminders r where r.task_id = t.id)
+  ), stamped as (
+    -- The insert decides who is told: a concurrent run that stamped a task
+    -- first wins, and only the ids returned here notify. Tasks are never
+    -- locked, so edits, comments and holders go on meanwhile.
+    insert into public.general_task_reminders (task_id, project_id, overdue_notified_at)
+    select due.id, due.project_id, p_now from due
+    on conflict (task_id) do nothing
+    returning task_id
+  ), fresh as (
+    -- With task_overdue_alerts off the stamp is silent, so turning the alerts
+    -- on later sends no backlog.
+    select due.* from due join stamped on stamped.task_id = due.id where due.alerts
+  ), held as (
+    insert into public.notifications
+      (user_id, type, general_project_id, general_task_id, title, preview)
+    select a.user_id, 'general_task_overdue'::public.notification_type, f.project_id, f.id,
+           format('%s is overdue', f.title),
+           format('It was due %s.', to_char(f.due_at at time zone 'Asia/Manila', 'FMMon FMDD'))
+      from fresh f
+      join public.general_task_assignees a on a.task_id = f.id
+      join public.general_members gm on gm.project_id = f.project_id and gm.user_id = a.user_id
+      join public.profiles pr on pr.id = a.user_id
+      join public.notification_prefs np on np.user_id = a.user_id
+     where gm.role not in ('stakeholder', 'qa') and pr.status = 'active'
+       and np.deadline_reminders
+    returning 1
+  ), summary as (
+    insert into public.notifications (user_id, type, general_project_id, title, preview)
+    select gm.user_id, 'general_task_overdue'::public.notification_type, c.project_id,
+           case c.k
+             when 1 then format('1 task became overdue in %s', c.project_name)
+             else format('%s tasks became overdue in %s', c.k, c.project_name)
+           end,
+           'Open Tasks to see them.'
+      from (select project_id, project_name, count(*) as k
+              from fresh group by project_id, project_name) c
+      join public.general_members gm on gm.project_id = c.project_id
+      join public.profiles pr on pr.id = gm.user_id
+      join public.notification_prefs np on np.user_id = gm.user_id
+     where gm.role in ('pm', 'coordinator') and pr.status = 'active'
+       and np.deadline_reminders
+    returning 1
+  )
+  select count(*) into v_tasks from stamped;
+
+  -- Milestone due. Past due is the overdue alert's job.
+  with due as (
+    select m.id, m.project_id, m.name, m.due_on - v_today as days_left, gp.name as project_name
+      from public.general_milestones m
+      join public.general_projects gp on gp.id = m.project_id
+     where (p_project is null or m.project_id = p_project)
+       and gp.class_board_id is null
+       and gp.archived_at is null
+       and gp.trashed_at is null
+       and gp.milestone_due_reminder_days is not null
+       and m.reached_at is null
+       and m.due_on >= v_today
+       and m.due_on - v_today <= gp.milestone_due_reminder_days
+       and m.due_reminded_at is null
+     for update of m skip locked
+  ), stamped as (
+    update public.general_milestones g
+       set due_reminded_at = p_now
+      from due
+     where g.id = due.id
+    returning due.id, due.project_id, due.name, due.days_left, due.project_name
+  ), sent as (
+    insert into public.notifications (user_id, type, general_project_id, title, preview)
+    select gm.user_id, 'milestone_due_soon'::public.notification_type, s.project_id,
+           case s.days_left
+             when 0 then format('%s is due today', s.name)
+             when 1 then format('%s is due tomorrow', s.name)
+             else format('%s is due in %s days', s.name, s.days_left)
+           end,
+           s.project_name
+      from stamped s
+      join public.general_members gm on gm.project_id = s.project_id
+      join public.profiles pr on pr.id = gm.user_id
+      join public.notification_prefs np on np.user_id = gm.user_id
+     where gm.role in ('pm', 'coordinator') and pr.status = 'active'
+       and np.deadline_reminders
+    returning 1
+  )
+  select count(*) into v_milestones from stamped;
+
+  return v_sprints + v_tasks + v_milestones;
+end;
+$function$;
+
+revoke all on function public.send_project_reminders(timestamptz, uuid) from public, anon, authenticated;
 
 commit;

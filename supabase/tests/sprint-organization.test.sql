@@ -57,6 +57,9 @@ returns uuid language plpgsql as $$
 declare
   p uuid; v_inv uuid; v_user uuid; v_front uuid; v_back uuid;
 begin
+  -- This suite makes more projects than the hourly limit allows one person.
+  perform pg_temp.act_as_service();
+  delete from public.rate_limits where user_id = a;
   perform pg_temp.act_as(a);
   p := (public.create_general_project(p_title)).id;
   foreach v_user in array array[c, m, l1, l2] loop
@@ -424,6 +427,197 @@ begin
     not exists (select 1 from public.general_sprint_settings g
                   join public.general_sprints s on s.id = g.auto_created_after
                  where not s.next_auto_created));
+
+  ------------------------------------------------------------ finishing a team's sprint
+  p := pg_temp.org_project(a, c, m, l1, l2, 'Zz org finish');
+  front := pg_temp.team(p, 'Frontend'); back := pg_temp.team(p, 'Backend');
+  perform pg_temp.mode(p, 'streams');
+  s1 := pg_temp.sprint(p, 'Front 1', front, 'active');
+  s2 := pg_temp.sprint(p, 'Front 2', front);
+  s3 := pg_temp.sprint(p, 'Back 1', back);
+  t1 := pg_temp.task(p, a, front, s1);
+  perform pg_temp.act_as(a);
+  perform pg_temp.must_refuse('finishing a team sprint carries work only to that team''s planned sprint',
+    format('select public.complete_general_sprint(%L, %L)', s1, s3),
+    'Carry the work to one of Frontend''s planned sprints.');
+  perform public.complete_general_sprint(s1, s2);
+  perform pg_temp.must_be('open work moves to the team''s planned sprint',
+    (select sprint_id = s2 from public.general_tasks where id = t1));
+  perform pg_temp.act_as_service();
+  perform pg_temp.must_be('the finish notice names the team in streams',
+    exists (select 1 from public.notifications
+             where general_project_id = p and user_id = c and type = 'sprint_completed'
+               and title = 'Frontend: Front 1 is finished'));
+
+  ------------------------------------------------------------ reopening
+  p := pg_temp.org_project(a, c, m, l1, l2, 'Zz org reopen streams');
+  front := pg_temp.team(p, 'Frontend'); back := pg_temp.team(p, 'Backend');
+  perform pg_temp.mode(p, 'streams');
+  s1 := pg_temp.sprint(p, 'Front 1', front, 'completed');
+  s2 := pg_temp.sprint(p, 'Front 2', front, 'active');
+  s3 := pg_temp.sprint(p, 'Back 1', back, 'active');
+  perform pg_temp.act_as(a);
+  perform public.reopen_general_sprint(s1);
+  perform pg_temp.must_be('reopening in streams sends back only the same team''s running sprint',
+    (select state = 'active' from public.general_sprints where id = s1)
+    and (select state = 'planned' from public.general_sprints where id = s2)
+    and (select state = 'active' from public.general_sprints where id = s3));
+
+  p := pg_temp.org_project(a, c, m, l1, l2, 'Zz org reopen no team');
+  s1 := pg_temp.sprint(p, 'Old', null, 'completed');
+  perform pg_temp.mode(p, 'streams');
+  perform pg_temp.act_as(a);
+  perform pg_temp.must_refuse('a sprint with no team cannot run again in streams',
+    format('select public.reopen_general_sprint(%L)', s1),
+    'Old has no team');
+
+  p := pg_temp.org_project(a, c, m, l1, l2, 'Zz org reopen parallel');
+  perform pg_temp.mode(p, 'parallel');
+  s1 := pg_temp.sprint(p, 'One', null, 'completed');
+  s2 := pg_temp.sprint(p, 'Two', null, 'active');
+  perform pg_temp.act_as(a);
+  perform public.reopen_general_sprint(s1);
+  perform pg_temp.must_be('reopening in parallel sends nothing back',
+    (select count(*) = 2 from public.general_sprints where project_id = p and state = 'active'));
+
+  ------------------------------------------------------------ automation, streams
+  p := pg_temp.org_project(a, c, m, l1, l2, 'Zz org auto streams');
+  front := pg_temp.team(p, 'Frontend'); back := pg_temp.team(p, 'Backend');
+  perform pg_temp.act_as_service();
+  insert into public.general_teams (project_id, name) values (p, 'Design');
+  insert into public.general_sprint_settings (project_id, organization, auto_finish, auto_start, carry, length_days)
+  values (p, 'streams', true, true, 'next', 14);
+  perform set_config('collabify.sprint_automation', 'on', true);
+  update public.general_sprint_settings set auto_start_since = '2026-10-01' where project_id = p;
+  perform set_config('collabify.sprint_automation', 'off', true);
+  s1 := pg_temp.sprint(p, 'Front 1', front, 'active', '2026-10-28', '2026-11-10');
+  s2 := pg_temp.sprint(p, 'Back 1', back, 'active', '2026-10-28', '2026-11-17');
+  t1 := pg_temp.task(p, a, front, s1);
+  perform public.run_sprint_automation('2026-11-11 09:00 Asia/Manila', p);
+  perform pg_temp.must_be('streams automation finishes, creates and starts per team',
+    (select state = 'completed' and next_auto_created from public.general_sprints where id = s1)
+    and (select state = 'active' from public.general_sprints where id = s2)
+    and (select count(*) = 1 from public.general_sprints
+          where project_id = p and team_id = front and state = 'active'
+            and name = 'Frontend sprint 2' and starts_on = '2026-11-11' and ends_on = '2026-11-24')
+    and (select s.name = 'Frontend sprint 2' from public.general_tasks t
+           join public.general_sprints s on s.id = t.sprint_id where t.id = t1));
+  perform pg_temp.must_be('a team without sprint history gets no sprint of its own',
+    (select count(*) = 3 from public.general_sprints where project_id = p));
+  perform pg_temp.must_be('automation notices name the team in streams',
+    exists (select 1 from public.notifications
+             where general_project_id = p and user_id = a and type = 'sprint_automation'
+               and title = 'Frontend: Front 1 finished on its own')
+    and exists (select 1 from public.notifications
+                 where general_project_id = p and user_id = a and type = 'sprint_automation'
+                   and title = 'Frontend sprint 2 started on its own'));
+  select count(*) into n from public.notifications where general_project_id = p;
+  perform pg_temp.must_be('a second streams run changes nothing',
+    public.run_sprint_automation('2026-11-11 09:00 Asia/Manila', p) = 0
+    and (select count(*) = 3 from public.general_sprints where project_id = p)
+    and (select count(*) = n from public.notifications where general_project_id = p));
+
+  ------------------------------------------------------------ automation, parallel
+  p := pg_temp.org_project(a, c, m, l1, l2, 'Zz org auto parallel');
+  perform pg_temp.mode(p, 'parallel');
+  update public.general_sprint_settings
+     set auto_finish = true, auto_start = true, carry = 'backlog' where project_id = p;
+  s1 := pg_temp.sprint(p, 'Done now', null, 'active', '2026-10-28', '2026-11-10');
+  s2 := pg_temp.sprint(p, 'Still going', null, 'active', '2026-10-28', '2026-11-20');
+  s3 := pg_temp.sprint(p, 'Starts now', null, 'planned', '2026-11-11', '2026-11-24');
+  perform pg_temp.sprint(p, 'Starts later', null, 'planned', '2026-11-20', '2026-11-30');
+  t1 := pg_temp.task(p, a, null, s1);
+  perform public.run_sprint_automation('2026-11-11 09:00 Asia/Manila', p);
+  perform pg_temp.must_be('parallel automation finishes and starts by date and never creates',
+    (select state = 'completed' from public.general_sprints where id = s1)
+    and (select state = 'active' from public.general_sprints where id = s2)
+    and (select state = 'active' from public.general_sprints where id = s3)
+    and (select state = 'planned' from public.general_sprints where project_id = p and name = 'Starts later')
+    and (select count(*) = 4 from public.general_sprints where project_id = p)
+    and (select sprint_id is null from public.general_tasks where id = t1));
+
+  ------------------------------------------------------------ a blocked automatic start
+  p := pg_temp.org_project(a, c, m, l1, l2, 'Zz org blocked');
+  front := pg_temp.team(p, 'Frontend'); back := pg_temp.team(p, 'Backend');
+  s1 := pg_temp.sprint(p, 'No team', null, 'planned', '2026-11-11', '2026-11-24');
+  s2 := pg_temp.sprint(p, 'Front 1', front, 'planned', '2026-11-11', '2026-11-24');
+  t1 := pg_temp.task(p, a, back, s2);
+  perform pg_temp.mode(p, 'streams');
+  update public.general_sprint_settings set auto_start = true where project_id = p;
+  perform public.run_sprint_automation('2026-11-11 09:00 Asia/Manila', p);
+  perform pg_temp.must_be('a blocked automatic start notifies once and records why',
+    (select state = 'planned' and auto_start_blocked_reason = 'Give this sprint a team first.'
+            and auto_start_blocked_at is not null from public.general_sprints where id = s1)
+    and (select state = 'planned' and auto_start_blocked_reason like '1 task in this sprint%'
+           from public.general_sprints where id = s2)
+    and (select count(*) = 1 from public.notifications
+          where general_project_id = p and user_id = a and type = 'sprint_automation'
+            and title = 'No team couldn''t start on its own'
+            and preview = 'Give this sprint a team first.'));
+  perform pg_temp.must_be('the team''s lead hears about their sprint only',
+    (select count(*) = 1 from public.notifications
+      where general_project_id = p and user_id = l1 and type = 'sprint_automation')
+    and not exists (select 1 from public.notifications
+                     where general_project_id = p and user_id = l2 and type = 'sprint_automation'));
+  perform public.run_sprint_automation('2026-11-11 09:15 Asia/Manila', p);
+  perform pg_temp.must_be('a later run does not notify again',
+    (select count(*) = 2 from public.notifications
+      where general_project_id = p and user_id = a and type = 'sprint_automation'));
+  perform pg_temp.act_as_service();
+  update public.general_tasks set sprint_id = null where id = t1;
+  perform pg_temp.act_as(a);
+  update public.general_sprints set state = 'active' where id = s2;
+  perform pg_temp.must_be('starting it by hand clears the reason',
+    (select auto_start_blocked_reason is null and auto_start_blocked_at is null
+       from public.general_sprints where id = s2));
+
+  ------------------------------------------------------------ the ending reminder
+  p := pg_temp.org_project(a, c, m, l1, l2, 'Zz org reminder');
+  front := pg_temp.team(p, 'Frontend');
+  perform pg_temp.mode(p, 'streams');
+  perform pg_temp.act_as_service();
+  update public.general_projects set sprint_end_reminder_days = 2 where id = p;
+  s1 := pg_temp.sprint(p, 'Front 1', front, 'active', '2026-11-01', '2026-11-12');
+  perform public.send_project_reminders('2026-11-11 08:00 Asia/Manila', p);
+  perform pg_temp.must_be('the team lead gets their team''s ending reminder in streams',
+    exists (select 1 from public.notifications
+             where general_project_id = p and user_id = l1 and type = 'sprint_ending_soon')
+    and exists (select 1 from public.notifications
+                 where general_project_id = p and user_id = a and type = 'sprint_ending_soon')
+    and not exists (select 1 from public.notifications
+                     where general_project_id = p and user_id = l2 and type = 'sprint_ending_soon'));
+
+  p := pg_temp.org_project(a, c, m, l1, l2, 'Zz org reminder sequential');
+  front := pg_temp.team(p, 'Frontend');
+  perform pg_temp.act_as_service();
+  update public.general_projects set sprint_end_reminder_days = 2 where id = p;
+  s1 := pg_temp.sprint(p, 'Front 1', front, 'active', '2026-11-01', '2026-11-12');
+  perform public.send_project_reminders('2026-11-11 08:00 Asia/Manila', p);
+  perform pg_temp.must_be('a team label sends the lead nothing outside streams',
+    not exists (select 1 from public.notifications
+                 where general_project_id = p and user_id = l1 and type = 'sprint_ending_soon'));
+
+  ------------------------------------------------------------ automation, sequential
+  p := pg_temp.org_project(a, c, m, l1, l2, 'Zz org auto sequential');
+  perform pg_temp.act_as_service();
+  insert into public.general_sprint_settings (project_id, auto_finish, auto_start, carry)
+  values (p, true, true, 'next');
+  perform set_config('collabify.sprint_automation', 'on', true);
+  update public.general_sprint_settings set auto_start_since = '2026-10-01' where project_id = p;
+  perform set_config('collabify.sprint_automation', 'off', true);
+  s1 := pg_temp.sprint(p, 'Sprint 1', null, 'active', '2026-10-28', '2026-11-10');
+  t1 := pg_temp.task(p, a, null, s1);
+  perform public.run_sprint_automation('2026-11-11 09:00 Asia/Manila', p);
+  perform pg_temp.must_be('sequential automation is unchanged',
+    (select state = 'completed' and next_auto_created from public.general_sprints where id = s1)
+    and (select auto_created_after = s1 from public.general_sprint_settings where project_id = p)
+    and (select count(*) = 1 from public.general_sprints
+          where project_id = p and name = 'Sprint 2' and state = 'active')
+    and (select s.name = 'Sprint 2' from public.general_tasks t
+           join public.general_sprints s on s.id = t.sprint_id where t.id = t1)
+    and exists (select 1 from public.notifications
+                 where general_project_id = p and user_id = a and type = 'sprint_automation'
+                   and title = 'Sprint 1 finished on its own'));
 end;
 $$;
 
