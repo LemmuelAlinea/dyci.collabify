@@ -18,9 +18,20 @@ export type Sprint = {
   created_at: string
   /** The milestone it counts toward: its tasks are tagged with it. Null for none. */
   milestone_id: string | null
+  /** The team it belongs to. A work project only; in Multiple sprint streams it decides who runs it. */
+  team_id?: string | null
+  /** Why the automation could not start it; null once it can. A work project only. */
+  auto_start_blocked_reason?: string | null
 }
 
-export type SprintInput = { name: string; goal: string; startsOn: string; endsOn: string }
+export type SprintInput = {
+  name: string
+  goal: string
+  startsOn: string
+  endsOn: string
+  /** Left out for a class board, which has no teams on its sprints. */
+  teamId?: string | null
+}
 
 /** One task as Backlog and Sprints see it, from either space. */
 export type WorkItem = {
@@ -49,7 +60,7 @@ export type WorkItem = {
 export type WorkTeams = {
   projectId: string
   viewerId: string | undefined
-  teams: { id: string; name: string; leader_id: string | null }[]
+  teams: { id: string; name: string; leader_id: string | null; archived_at?: string | null }[]
   members: { team_id: string; user_id: string }[]
 }
 
@@ -67,6 +78,8 @@ export type WorkSource = {
    * manager and Coordinators; a class board's planners all may.
    */
   canRunSprints: boolean
+  /** May run this sprint: in Multiple sprint streams, the team's lead too. Unset means canRunSprints. */
+  canRunSprint?: (sprint: Sprint) => boolean
   /** A work project's sprint settings. Unset for a class board. */
   sprintSettings?: SprintSettings
   /** A work project's milestone completion, for the timeline's reached checkpoints. Unset means a class source. */
@@ -90,7 +103,7 @@ export type WorkSource = {
   startSprint: (id: string) => Promise<void>
   finishSprint: (id: string, carryTo: string | null) => Promise<void>
   archiveSprint: (id: string, archived: boolean) => Promise<void>
-  /** Run a finished sprint again. Set only for a work project's project manager and coordinators. */
+  /** Run a finished sprint again. Set only for those who can run a work project's sprints. */
   reopenSprint?: (id: string) => Promise<void>
   moveToSprint: (taskIds: string[], sprintId: string | null) => Promise<void>
   setRank: (taskId: string, rank: number) => Promise<void>

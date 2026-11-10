@@ -3,7 +3,7 @@
  * YYYY-MM-DD strings read as local midnight, the way a project's dates are,
  * so a sprint ending "the 18th" ends on the 18th wherever the reader is.
  */
-import { startWeekdayOf, type SprintSettings } from './sprintSettings'
+import { startWeekdayOf, type SprintOrganization, type SprintSettings } from './sprintSettings'
 import type { Milestone, Sprint, SprintInput, WorkItem } from './types'
 
 export const SPRINT_DAYS = 14
@@ -31,6 +31,87 @@ export function dayDiff(from: string, to: string) {
 
 export function runningSprint(sprints: readonly Sprint[]) {
   return sprints.find((s) => s.state === 'active') ?? null
+}
+
+/** Every running sprint, the one ending soonest first. */
+export function runningSprints(sprints: readonly Sprint[]) {
+  return sprints
+    .filter((s) => s.state === 'active')
+    .sort((a, b) => a.ends_on.localeCompare(b.ends_on) || a.created_at.localeCompare(b.created_at))
+}
+
+/**
+ * Why this sprint cannot start, or null when it can. Mirrors
+ * check_general_sprint_start in supabase/sprint-organization.sql, which decides.
+ */
+export function canStartSprint(
+  sprint: Sprint,
+  sprints: readonly Sprint[],
+  organization: SprintOrganization,
+  context: {
+    teamName?: (id: string) => string | undefined
+    items?: readonly Pick<WorkItem, 'sprint_id' | 'status' | 'teamId'>[]
+  } = {},
+): string | null {
+  if (organization === 'parallel') return null
+  const others = sprints.filter((s) => s.state === 'active' && s.id !== sprint.id)
+  if (organization === 'sequential') return others[0] ? `Finish ${others[0].name} first.` : null
+
+  if (!sprint.team_id) return 'Give this sprint a team first.'
+  const same = others.find((s) => s.team_id === sprint.team_id)
+  if (same) return `${context.teamName?.(sprint.team_id) ?? 'This team'} is already running ${same.name}.`
+  const foreign = (context.items ?? []).filter(
+    (i) => i.sprint_id === sprint.id && i.status !== 'done' && (i.teamId ?? null) !== sprint.team_id,
+  ).length
+  if (foreign === 1) return '1 task in this sprint belongs to another team. Move it out first.'
+  if (foreign > 1) return `${foreign} tasks in this sprint belong to another team. Move them out first.`
+  return null
+}
+
+export type RunningTab = { key: string; label: string; sprint: Sprint | null }
+
+type TabTeam = { id: string; name: string; archived_at?: string | null }
+
+/**
+ * The switcher over several running sprints. Streams has a tab per team: those
+ * running a sprint, the viewer's own first, then idle teams (no sprint to show).
+ * Parallel has a tab per running sprint. Empty when there is nothing to switch.
+ */
+export function runningTabs(
+  sprints: readonly Sprint[],
+  organization: SprintOrganization,
+  teams: readonly TabTeam[],
+  viewerTeamIds: readonly string[],
+): RunningTab[] {
+  if (organization === 'sequential') return []
+  const running = runningSprints(sprints)
+  if (running.length === 0) return []
+  if (organization === 'parallel') {
+    return running.length > 1 ? running.map((s) => ({ key: s.id, label: s.name, sprint: s })) : []
+  }
+
+  const live = teams.filter((t) => !t.archived_at)
+  const mine = (id: string | null | undefined) => (id && viewerTeamIds.includes(id) ? 0 : 1)
+  const active = [...running]
+    .sort((a, b) => mine(a.team_id) - mine(b.team_id))
+    .map((s) => ({
+      key: s.team_id ?? s.id,
+      label: live.find((t) => t.id === s.team_id)?.name ?? s.name,
+      sprint: s as Sprint | null,
+    }))
+  const idle = live
+    .filter((t) => !running.some((s) => s.team_id === t.id))
+    .map((t) => ({ key: t.id, label: t.name, sprint: null }))
+  const tabs = [...active, ...idle]
+  return tabs.length > 1 ? tabs : []
+}
+
+/** How a sprint reads in a "Move to" list. */
+export function sprintTargetLabel(sprint: Sprint, teamName: (id: string) => string | undefined) {
+  const team = sprint.team_id ? teamName(sprint.team_id) : undefined
+  const running = sprint.state === 'active'
+  if (team) return `${sprint.name} · ${team}${running ? ' · running' : ''}`
+  return running ? `${sprint.name} (running)` : sprint.name
 }
 
 export function plannedSprints(sprints: readonly Sprint[]) {
@@ -64,22 +145,30 @@ export function daysLeftLabel(n: number) {
 /**
  * The next sprint: named in sequence, starting the day after the latest one ends, or today.
  * With a project's settings it runs that many days and starts on the first set weekday
- * from there; without them (a class board) it runs 14 days from that day.
+ * from there; without them (a class board) it runs 14 days from that day. With a team it
+ * follows that team's sprints alone and carries the team's name.
  */
-export function nextSprintDraft(sprints: readonly Sprint[], now = Date.now(), settings?: SprintSettings): SprintInput {
+export function nextSprintDraft(
+  sprints: readonly Sprint[],
+  now = Date.now(),
+  settings?: SprintSettings,
+  team?: { id: string; name: string },
+): SprintInput {
+  const chain = team ? sprints.filter((s) => s.team_id === team.id) : sprints
   const today = toDay(now)
-  const latest = sprints.reduce<string | null>((max, s) => (max && max > s.ends_on ? max : s.ends_on), null)
+  const latest = chain.reduce<string | null>((max, s) => (max && max > s.ends_on ? max : s.ends_on), null)
   let startsOn = latest && addDays(latest, 1) > today ? addDays(latest, 1) : today
   if (settings) {
-    const weekday = startWeekdayOf(settings, sprints)
+    const weekday = startWeekdayOf(settings, chain)
     const [y, m, d] = startsOn.split('-').map(Number)
     startsOn = addDays(startsOn, (weekday - new Date(y, m - 1, d).getDay() + 7) % 7)
   }
   return {
-    name: `Sprint ${sprints.length + 1}`,
+    name: team ? `${team.name} sprint ${chain.length + 1}` : `Sprint ${chain.length + 1}`,
     goal: '',
     startsOn,
     endsOn: addDays(startsOn, (settings?.lengthDays ?? SPRINT_DAYS) - 1),
+    ...(team ? { teamId: team.id } : {}),
   }
 }
 

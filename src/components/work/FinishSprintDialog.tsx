@@ -26,11 +26,14 @@ export function FinishSprintDialog({
   source: WorkSource
 }) {
   const { show } = useToast()
-  const planned = plannedSprints(source.sprints)
+  // In streams a sprint's work stays with its team.
+  const streams = source.sprintSettings?.organization === 'streams'
+  const planned = plannedSprints(source.sprints).filter((s) => !streams || s.team_id === sprint.team_id)
   const unfinished = sprintItems(source.items, sprint.id).filter((i) => i.status !== 'done').length
   const counts = sprintCounts(source.items, sprint.id)
+  const team = streams ? source.teams?.teams.find((t) => t.id === sprint.team_id) : undefined
   // Taken once, so the label keeps its name and dates if the sprints reload.
-  const [draft] = useState(() => nextSprintDraft(source.sprints, Date.now(), source.sprintSettings))
+  const [draft] = useState(() => nextSprintDraft(source.sprints, Date.now(), source.sprintSettings, team))
   // The project's setting picks the starting choice; the person can still change it.
   const [target, setTarget] = useState<Target>(
     source.sprintSettings?.carry !== 'backlog' && planned.length > 0 ? 'next' : 'backlog',
@@ -120,7 +123,8 @@ export function FinishSprintDialog({
                   </span>
                 ),
               )}
-            {option('new', `Into a new sprint (${draft.name}, ${dateRange(draft.startsOn, draft.endsOn)})`)}
+            {/* A team's sprint that lost its team has nowhere new to go. */}
+            {(!streams || team) && option('new', `Into a new sprint (${draft.name}, ${dateRange(draft.startsOn, draft.endsOn)})`)}
             {option('backlog', 'Back to the backlog')}
           </div>
         )}

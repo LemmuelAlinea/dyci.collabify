@@ -13,6 +13,7 @@ const FIELD_WORDS: Record<string, string> = {
   due_at: 'due date',
   starts_at: 'start date',
   team_id: 'team',
+  sprint_id: 'sprint',
   weight: 'points',
 }
 
@@ -94,6 +95,9 @@ export function describeEvent(event: GeneralTaskEvent, nameOf: (id: string) => s
       // One field changed, and we know what it was: say so, because "changed
       // the title" is the answer to a question nobody asked.
       if (fields.length === 1) {
+        if (fields[0] === 'sprint_id' && d.sprint_from) {
+          return `It went back to the backlog from ${d.sprint_from} because its team changed`
+        }
         if (fields[0] === 'status') {
           return d.status_from
             ? `${actor} moved it from ${stageName(d.status_from)} to ${stageName(d.status)}`

@@ -39,20 +39,21 @@ function Label({ m, align, running }: { m: Milestone; align: 'center' | 'left'; 
 export function MilestoneChart({
   milestones,
   isReached,
-  runningId,
+  runningIds = [],
   onPick,
 }: {
   /** Already in date order; ones with no due date come last, in the same line. */
   milestones: Milestone[]
   isReached: (m: Milestone) => boolean
   /** The milestone the running sprint counts toward, if any. */
-  runningId?: string | null
+  /** Milestones a running sprint counts toward. */
+  runningIds?: readonly string[]
   onPick: (id: string) => void
 }) {
   const n = milestones.length
   if (n === 0) return null
   const say = (m: Milestone) =>
-    `${m.name}, ${m.due_on ? `due ${formatDay(m.due_on)}` : 'no due date'}, ${isReached(m) ? 'reached' : 'not reached yet'}${m.id === runningId ? ', the running sprint counts toward it' : ''}. Show its card.`
+    `${m.name}, ${m.due_on ? `due ${formatDay(m.due_on)}` : 'no due date'}, ${isReached(m) ? 'reached' : 'not reached yet'}${runningIds.includes(m.id) ? ', the running sprint counts toward it' : ''}. Show its card.`
 
   return (
     <section aria-label="Milestone timeline" className="card p-4 shadow-card">
@@ -82,10 +83,10 @@ export function MilestoneChart({
                   aria-label={say(m)}
                   className={`group flex h-full w-full items-center rounded-lg ${above ? 'flex-col-reverse' : 'flex-col'}`}
                 >
-                  <Dot reached={isReached(m)} running={m.id === runningId} />
+                  <Dot reached={isReached(m)} running={runningIds.includes(m.id)} />
                   <span aria-hidden className="h-6 w-px shrink-0 bg-[var(--line-strong)]" />
                   <span className={`w-full ${above ? 'mb-1' : 'mt-1'}`}>
-                    <Label m={m} align="center" running={m.id === runningId} />
+                    <Label m={m} align="center" running={runningIds.includes(m.id)} />
                   </span>
                 </button>
               </li>
@@ -100,9 +101,9 @@ export function MilestoneChart({
           <li key={m.id} className="relative">
             <button type="button" onClick={() => onPick(m.id)} aria-label={say(m)} className="group flex w-full items-start gap-3 rounded-lg">
               <span className="mt-1">
-                <Dot reached={isReached(m)} running={m.id === runningId} />
+                <Dot reached={isReached(m)} running={runningIds.includes(m.id)} />
               </span>
-              <Label m={m} align="left" running={m.id === runningId} />
+              <Label m={m} align="left" running={runningIds.includes(m.id)} />
             </button>
           </li>
         ))}

@@ -82,6 +82,9 @@ describe('describeEvent', () => {
     expect(describeEvent(event({ kind: 'updated', detail: parked }), nameOf)).toBe(
       'Ana Reyes moved it to a new stage',
     )
+    expect(describeEvent(event({ kind: 'updated', detail: { fields: ['sprint_id'], sprint_from: 'Front 1' } }), nameOf)).toBe(
+      'It went back to the backlog from Front 1 because its team changed',
+    )
     expect(describeEvent(event({ kind: 'updated', detail: { fields: ['sort'] } }), nameOf)).toBe(
       'Ana Reyes changed the sort',
     )

@@ -48,6 +48,8 @@ export function WorkSummary({
         milestones={state.milestones}
         completion={project.milestoneRules?.completion}
         dependencies={state.milestoneDependencies}
+        organization={state.sprintSettings?.organization}
+        teams={{ projectId: project.id, viewerId: state.viewerId, teams: state.teams, members: state.teamMembers }}
         mine={mine}
         canPlan={!state.readOnly && state.can('manage_tasks')}
         onOpenTask={onOpenTask}

@@ -3,6 +3,7 @@ import { useEffect, useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Alert } from '../../ui/Alert'
 import { Button } from '../../ui/Button'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Input, Toggle } from '../../ui/Field'
 import { Icon } from '../../ui/Icon'
 import { Select } from '../../ui/Select'
@@ -10,8 +11,30 @@ import { useToast } from '../../ui/Toast'
 import { saveSprintSettings } from '../../../lib/api/sprints'
 import { authErrorMessage } from '../../../lib/authError'
 import { startWeekdayOf } from '../../../lib/work/sprintSettings'
-import type { SprintCarry } from '../../../lib/work/sprintSettings'
+import type { SprintCarry, SprintOrganization } from '../../../lib/work/sprintSettings'
 import type { GeneralProjectState } from '../useGeneralProject'
+
+const ORGANIZATIONS: { value: SprintOrganization; label: string; help: string; change: string }[] = [
+  {
+    value: 'sequential',
+    label: 'Sequential',
+    help: 'One sprint runs at a time.',
+    change: 'One sprint runs at a time across the project. Teams stay on sprints as labels.',
+  },
+  {
+    value: 'streams',
+    label: 'Multiple sprint streams',
+    help: 'Each team runs its own sprint, one at a time per team.',
+    change:
+      "Each team runs its own sprint, and team leads can start and finish theirs. A sprint holds only its team's tasks, so tasks with no team stay in the backlog.",
+  },
+  {
+    value: 'parallel',
+    label: 'Flexible parallel',
+    help: 'Any number of sprints can run at once.',
+    change: 'Any number of sprints can run at once, each with its own dates. A task stays in one sprint at a time.',
+  },
+]
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const DAY_OPTIONS = WEEKDAYS.map((label, i) => ({ value: String(i), label }))
@@ -52,6 +75,10 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lengthError, setLengthError] = useState<string | null>(null)
+  const [switching, setSwitching] = useState<SprintOrganization | null>(null)
+
+  const organization = ORGANIZATIONS.find((o) => o.value === saved.organization) ?? ORGANIZATIONS[0]
+  const switchTo = ORGANIZATIONS.find((o) => o.value === switching)
 
   const lengthId = useId()
   const carryId = useId()
@@ -106,6 +133,7 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
     setBusy(true)
     try {
       await saveSprintSettings(state.project.id, {
+        organization: saved.organization,
         autoFinish,
         autoStart,
         carry: autoFinish && carry === 'ask' ? 'next' : carry,
@@ -119,6 +147,19 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
       setError(authErrorMessage(err, 'Could not save the sprint settings.'))
     } finally {
       setBusy(false)
+    }
+  }
+
+  /** A mode change saves alone, so unsaved edits below it stay unsaved. */
+  async function changeOrganization() {
+    if (!state.project || !switching) return
+    setError(null)
+    try {
+      await saveSprintSettings(state.project.id, { ...saved, organization: switching })
+      await state.reload()
+      show('Sprint organization changed')
+    } catch (err) {
+      setError(authErrorMessage(err, 'Could not change how sprints are organized.'))
     }
   }
 
@@ -136,16 +177,24 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
       )}
 
       <div className="divide-y divide-[var(--line)]">
-        <Row title="Sprint organization" help="One sprint runs at a time." helpId={orgHelpId}>
+        <Row title="Sprint organization" help={organization.help} helpId={orgHelpId}>
           <div
             role="radiogroup"
             aria-label="Sprint organization"
             aria-describedby={orgHelpId}
             className="flex flex-wrap gap-2"
           >
-            <Choice selected label="Sequential" disabled={!editable} />
-            <Choice label="Multiple sprint streams · soon" disabled />
-            <Choice label="Flexible parallel · soon" disabled />
+            {ORGANIZATIONS.map((o) => (
+              <Choice
+                key={o.value}
+                label={o.label}
+                selected={o.value === organization.value}
+                disabled={!editable || busy}
+                onSelect={() => {
+                  if (o.value !== organization.value) setSwitching(o.value)
+                }}
+              />
+            ))}
           </div>
         </Row>
 
@@ -249,6 +298,18 @@ export function SprintsSection({ state }: { state: GeneralProjectState }) {
       <p className="mt-4 text-[12px] text-muted">
         Only the project manager and coordinators can change these. Changes apply to this project only.
       </p>
+
+      {switchTo && (
+        <ConfirmDialog
+          open
+          tone="primary"
+          title={`Switch to ${switchTo.label}?`}
+          confirmLabel="Switch"
+          body={switchTo.change}
+          onClose={() => setSwitching(null)}
+          onConfirm={changeOrganization}
+        />
+      )}
     </section>
   )
 }
@@ -292,17 +353,28 @@ function Row({
 }
 
 /** One option of the segmented organization control. */
-function Choice({ label, selected = false, disabled }: { label: string; selected?: boolean; disabled?: boolean }) {
+function Choice({
+  label,
+  selected,
+  disabled,
+  onSelect,
+}: {
+  label: string
+  selected: boolean
+  disabled: boolean
+  onSelect: () => void
+}) {
   return (
     <button
       type="button"
       role="radio"
       aria-checked={selected}
       disabled={disabled}
+      onClick={onSelect}
       className={`inline-flex items-center rounded-full border px-3.5 py-1.5 text-[13px] transition-colors duration-150 disabled:cursor-not-allowed ${
         selected
           ? 'border-navy-600 bg-navy-600 font-medium text-white disabled:opacity-100 dark:border-amber-400 dark:bg-amber-400 dark:text-navy-900'
-          : 'border-line-strong text-muted opacity-60'
+          : 'border-line-strong text-muted hover:text-ink disabled:opacity-60 disabled:hover:text-muted'
       }`}
     >
       {label}

@@ -10,12 +10,14 @@ import { useToast } from '../ui/Toast'
 import { BugBadge } from '../general/BugBadge'
 import { SprintTimeline } from './SprintTimeline'
 import { FinishSprintDialog } from './FinishSprintDialog'
+import { RunningSprintTabs } from './RunningSprintTabs'
+import { useRunningSprint } from './useRunningSprint'
 import { useNow } from '../../hooks/useNow'
 import { dateRange } from '../../lib/general/dates'
 import { TASK_STATUSES } from '../../lib/general/progress'
 import { sprintItems } from '../../lib/work/backlog'
 import { authErrorMessage } from '../../lib/authError'
-import { daysLeft, daysLeftLabel, finishedSprints, runningSprint, sprintCounts } from '../../lib/work/sprints'
+import { daysLeft, daysLeftLabel, finishedSprints, plannedSprints, runningSprints, sprintCounts } from '../../lib/work/sprints'
 import { reopenFinishNotice } from '../../lib/work/sprintSettings'
 import type { Milestone, Sprint, WorkSource } from '../../lib/work/types'
 
@@ -32,7 +34,23 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
   const [finishing, setFinishing] = useState(false)
   const [changing, setChanging] = useState<string | null>(null)
   const [reopening, setReopening] = useState<Sprint | null>(null)
-  const running = runningSprint(source.sprints)
+  const organization = source.sprintSettings?.organization ?? 'sequential'
+  const teams = source.teams
+  const { tabs, activeKey, sprint: running, pick } = useRunningSprint({
+    projectId: teams?.projectId,
+    sprints: source.sprints,
+    organization,
+    teams: teams?.teams ?? [],
+    viewerTeamIds: (teams?.members ?? []).filter((m) => m.user_id === teams?.viewerId).map((m) => m.team_id),
+  })
+  const canRun = (s: Sprint) => (source.canRunSprint ? source.canRunSprint(s) : source.canRunSprints)
+  const teamOf = (s: Sprint) => (s.team_id ? teams?.teams.find((t) => t.id === s.team_id)?.name : undefined)
+  const blocked = plannedSprints(source.sprints).filter((s) => s.auto_start_blocked_reason)
+  // What a reopen sends back to planned, by mode.
+  const displaced =
+    organization === 'parallel'
+      ? null
+      : (runningSprints(source.sprints).find((s) => organization === 'sequential' || s.team_id === reopening?.team_id) ?? null)
   const finished = finishedSprints(source.sprints)
   const archived = finishedSprints(source.sprints, true)
   const finishNotice = reopening && source.sprintSettings ? reopenFinishNotice(reopening.ends_on, source.sprintSettings, now) : null
@@ -77,7 +95,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                   {doneItems.length === 0 && <li className="text-[12px] text-faint">Nothing was finished in it.</li>}
                 </ul>
               </details>
-              {!isArchived && source.reopenSprint && (
+              {!isArchived && source.reopenSprint && canRun(s) && (
                 <Button size="sm" variant="outline" className="!rounded-lg" onClick={() => setReopening(s)}>
                   <Icon name="refresh" size={14} />
                   Reopen
@@ -100,6 +118,14 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
     <div className="space-y-6">
       {source.readOnlyReason && <Alert tone="info">{source.readOnlyReason}</Alert>}
 
+      {blocked.map((s) => (
+        <p key={s.id} className="text-[13px] text-warning-700 dark:text-warning-300">
+          {s.name}. Couldn't start on its own: {s.auto_start_blocked_reason}
+        </p>
+      ))}
+
+      <RunningSprintTabs tabs={tabs} activeKey={activeKey} onPick={pick} />
+
       {running ? (
         (() => {
           const items = sprintItems(source.items, running.id)
@@ -110,7 +136,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
             <section className="card space-y-5 p-4 shadow-card sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="eyebrow">Running sprint</p>
+                  <p className="eyebrow">Running sprint{organization === 'streams' && teamOf(running) ? ` · ${teamOf(running)}` : ''}</p>
                   <h2 className="mt-1">{running.name}</h2>
                   <p className="mt-1 font-mono text-[12px] text-faint">
                     {dateRange(running.starts_on, running.ends_on)} ·{' '}
@@ -118,7 +144,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                   </p>
                   {running.goal && <p className="mt-2 max-w-prose text-[14px] text-muted">{running.goal}</p>}
                 </div>
-                {source.canRunSprints && (
+                {canRun(running) && (
                   <Button size="sm" className="!rounded-lg" onClick={() => setFinishing(true)}>
                     <Icon name="checkCircle" size={15} />
                     Finish sprint
@@ -139,7 +165,7 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
                 <div className="mt-2 h-2 overflow-hidden rounded-full surface-sunken">
                   <span className="block h-full rounded-full bg-progress" style={{ width: `${pct}%` }} />
                 </div>
-                {left <= 0 && source.canRunSprints && (
+                {left <= 0 && canRun(running) && (
                   <p className="mt-2 text-[12px] text-warning-700 dark:text-warning-300">
                     {source.sprintSettings?.autoFinish
                       ? 'Its last day has passed. Automatic finishing will close it shortly.'
@@ -241,10 +267,10 @@ export function SprintsView({ source, milestones = [], onPlan, archiveHref }: { 
           }}
           body={
             <div className="space-y-2">
-              <p>It becomes the running sprint again.</p>
-              {running && (
+              <p>{organization === 'sequential' ? 'It becomes the running sprint again.' : 'It runs again.'}</p>
+              {displaced && (
                 <p>
-                  <strong className="text-ink">{running.name}</strong> stops running and goes back to Backlog as a planned
+                  <strong className="text-ink">{displaced.name}</strong> stops running and goes back to Backlog as a planned
                   sprint. Its tasks stay in it.
                 </p>
               )}

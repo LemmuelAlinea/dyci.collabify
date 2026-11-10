@@ -25,7 +25,7 @@ import type { SprintHome } from '../../lib/api/sprints'
 import { createMemberTask, createTask } from '../../lib/api/general'
 import { DEFAULT_MILESTONE_RULES } from '../../lib/general/milestoneRules'
 import { DEFAULT_MEMBER_RULES, canCreateWorkTaskWith, canManageMilestones, canStepRank } from '../../lib/general/permissions'
-import type { MilestoneSource, WorkItem, WorkSource } from '../../lib/work/types'
+import type { MilestoneSource, Sprint, WorkItem, WorkSource } from '../../lib/work/types'
 import type { GeneralProjectState } from './useGeneralProject'
 
 /** A work project's tasks as the shared Work views read them. */
@@ -54,6 +54,14 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
   const live = Boolean(project) && !state.readOnly
   const canPlan = live && state.can('manage_tasks')
   const memberRules = project?.memberRules ?? DEFAULT_MEMBER_RULES
+  const planner = live && (state.myRole === 'pm' || state.myRole === 'coordinator')
+  const streams = state.sprintSettings?.organization === 'streams'
+  // Mirrors general_can_run_sprint: in streams a team's active lead runs its sprints.
+  const canRunSprint = (sprint: Sprint) =>
+    planner ||
+    (live && streams && state.myRole !== 'stakeholder' &&
+      state.teams.some((t) => t.id === sprint.team_id && t.leader_id === state.viewerId && !t.archived_at))
+  const leadsAStream = live && streams && state.teams.some((t) => t.leader_id === state.viewerId && !t.archived_at)
   // A work project's Member adds through createMemberTask; a class board's members keep createTask.
   const viaMember = !project?.class_board_id && state.myRole === 'member'
   // Reload even when the action fails: a partial write still changed rows.
@@ -69,7 +77,8 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     items: generalWorkItems(state),
     sprints: state.sprints,
     canPlan,
-    canRunSprints: live && (state.myRole === 'pm' || state.myRole === 'coordinator'),
+    canRunSprints: planner,
+    canRunSprint,
     sprintSettings: state.sprintSettings,
     milestoneCompletion: project?.milestoneRules?.completion,
     // A team leader reorders the tasks people they lead hold; sprint moves stay with planners.
@@ -97,10 +106,7 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
     startSprint: (id) => then(startSprint(home, id)),
     finishSprint: (id, carryTo) => then(finishSprint(home, id, carryTo)),
     archiveSprint: (id, archived) => then(archiveSprint(home, id, archived)),
-    reopenSprint:
-      live && (state.myRole === 'pm' || state.myRole === 'coordinator')
-        ? (id) => then(reopenSprint(id))
-        : undefined,
+    reopenSprint: planner || leadsAStream ? (id) => then(reopenSprint(id)) : undefined,
     moveToSprint: (ids, sprintId) => then(moveTasksToSprint(home, ids, sprintId)),
     setRank: (id, rank) => then(setTaskRank(home, id, rank)),
     addedMessage: viaMember ? 'Sent to planners for review' : undefined,

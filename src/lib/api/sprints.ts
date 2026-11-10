@@ -5,7 +5,7 @@
  * and supabase/class-planning.sql. These calls only say what to do.
  */
 import { supabase } from '../supabase'
-import { DEFAULT_SPRINT_SETTINGS, type SprintCarry, type SprintSettings } from '../work/sprintSettings'
+import { DEFAULT_SPRINT_SETTINGS, type SprintCarry, type SprintOrganization, type SprintSettings } from '../work/sprintSettings'
 import type { Sprint, SprintInput } from '../work/types'
 
 export type SprintHome = { kind: 'work'; projectId: string } | { kind: 'class'; boardId: string }
@@ -14,6 +14,7 @@ const SPRINTS = { work: 'general_sprints', class: 'board_sprints' } as const
 const TASKS = { work: 'general_tasks', class: 'project_tasks' } as const
 const FINISH = { work: 'complete_general_sprint', class: 'complete_board_sprint' } as const
 const COLUMNS = 'id, name, goal, starts_on, ends_on, state, archived, started_at, completed_at, created_at, milestone_id'
+const WORK_COLUMNS = COLUMNS + ', team_id, auto_start_blocked_reason'
 
 function owner(home: SprintHome) {
   return home.kind === 'work'
@@ -22,7 +23,13 @@ function owner(home: SprintHome) {
 }
 
 function fields(input: SprintInput) {
-  return { name: input.name.trim(), goal: input.goal.trim(), starts_on: input.startsOn, ends_on: input.endsOn }
+  return {
+    name: input.name.trim(),
+    goal: input.goal.trim(),
+    starts_on: input.startsOn,
+    ends_on: input.endsOn,
+    ...(input.teamId !== undefined ? { team_id: input.teamId } : {}),
+  }
 }
 
 /** An update or delete that matched no row was refused by RLS or the row is gone. */
@@ -30,11 +37,23 @@ function touched(data: unknown[] | null, message: string) {
   if (!data || data.length === 0) throw new Error(message)
 }
 
+/**
+ * True when the error says a sprint organization column is not there yet.
+ * Remove this once sprint-organization.sql is live.
+ */
+function isMissingOrganizationColumn(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+  const { code, message } = err as { code?: unknown; message?: unknown }
+  return code === '42703' || (typeof message === 'string' && /team_id|auto_start_blocked|organization/.test(message) && /does not exist|schema cache/i.test(message))
+}
+
 export async function listSprints(home: SprintHome) {
   const { column, id } = owner(home)
-  const { data, error } = await supabase.from(SPRINTS[home.kind]).select(COLUMNS).eq(column, id).order('starts_on')
+  const read = (columns: string) => supabase.from(SPRINTS[home.kind]).select(columns).eq(column, id).order('starts_on')
+  let { data, error } = await read(home.kind === 'work' ? WORK_COLUMNS : COLUMNS)
+  if (error && home.kind === 'work' && isMissingOrganizationColumn(error)) ({ data, error } = await read(COLUMNS))
   if (error) throw error
-  return (data ?? []) as Sprint[]
+  return (data ?? []) as unknown as Sprint[]
 }
 
 /** `milestoneId` makes it count toward that milestone from the start. */
@@ -87,8 +106,8 @@ export async function finishSprint(home: SprintHome, sprintId: string, carryTo: 
 }
 
 /**
- * Run a finished work-project sprint again; the running one goes back to
- * planned. Project manager and coordinators only: supabase/sprint-reopen.sql.
+ * Run a finished work-project sprint again. What else stops running depends on
+ * the project's mode: supabase/sprint-organization.sql.
  */
 export async function reopenSprint(sprintId: string) {
   const { error } = await supabase.rpc('reopen_general_sprint', { p_sprint: sprintId })
@@ -115,6 +134,7 @@ export async function setTaskRank(home: SprintHome, taskId: string, rank: number
 }
 
 type SettingsRow = {
+  organization?: SprintOrganization
   auto_finish: boolean
   auto_start: boolean
   carry: SprintCarry
@@ -137,15 +157,16 @@ export function isMissingSprintSettingsTable(err: unknown): boolean {
 
 /** The project's saved sprint settings, or the defaults when it has none. */
 export async function getSprintSettings(projectId: string): Promise<SprintSettings> {
-  const { data, error } = await supabase
-    .from('general_sprint_settings')
-    .select('auto_finish, auto_start, carry, length_days, start_weekday, run_at')
-    .eq('project_id', projectId)
-    .maybeSingle()
+  const read = (columns: string) =>
+    supabase.from('general_sprint_settings').select(columns).eq('project_id', projectId).maybeSingle()
+  const columns = 'auto_finish, auto_start, carry, length_days, start_weekday, run_at'
+  let { data, error } = await read('organization, ' + columns)
+  if (error && isMissingOrganizationColumn(error)) ({ data, error } = await read(columns))
   if (error) throw error
   if (!data) return DEFAULT_SPRINT_SETTINGS
-  const row = data as SettingsRow
+  const row = data as unknown as SettingsRow
   return {
+    organization: row.organization ?? 'sequential',
     autoFinish: row.auto_finish,
     autoStart: row.auto_start,
     carry: row.carry,
@@ -163,6 +184,7 @@ export async function saveSprintSettings(projectId: string, s: SprintSettings) {
     .upsert(
       {
         project_id: projectId,
+        organization: s.organization,
         auto_finish: s.autoFinish,
         auto_start: s.autoStart,
         carry: s.carry,

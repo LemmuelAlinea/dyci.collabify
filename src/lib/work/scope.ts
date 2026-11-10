@@ -1,26 +1,35 @@
 /**
- * Which tasks Tasks shows: the running sprint (the default while one runs),
+ * Which tasks Tasks shows: a running sprint (the default while one runs),
  * everything, the backlog, or one sprint. Kept in the address as `?scope=`.
  */
-import { runningSprint } from './sprints'
+import { runningSprints } from './sprints'
 import type { Sprint } from './types'
 
-/** 'running' | 'all' | 'backlog' | `sprint:${id}` */
+/** 'running' | `running:${id}` | 'all' | 'backlog' | `sprint:${id}` */
 export type TaskScope = string
 
+/** With several running, plain 'running' means the first entry, so old links keep working. */
+function firstRunning(sprints: readonly Sprint[]): TaskScope | null {
+  const running = runningSprints(sprints)
+  if (running.length === 0) return null
+  return running.length === 1 ? 'running' : `running:${running[0].id}`
+}
+
 export function defaultScope(sprints: readonly Sprint[]): TaskScope {
-  return runningSprint(sprints) ? 'running' : 'all'
+  return firstRunning(sprints) ?? 'all'
 }
 
 export function readScope(raw: string | null, sprints: readonly Sprint[]): TaskScope {
   if (raw === 'all' || raw === 'backlog') return raw
-  if (raw === 'running' && runningSprint(sprints)) return raw
+  if (raw === 'running') return defaultScope(sprints)
+  if (raw?.startsWith('running:') && runningSprints(sprints).some((s) => `running:${s.id}` === raw)) return raw
   if (raw?.startsWith('sprint:') && sprints.some((s) => `sprint:${s.id}` === raw)) return raw
   return defaultScope(sprints)
 }
 
 export function scopeSprintId(scope: TaskScope, sprints: readonly Sprint[]) {
-  if (scope === 'running') return runningSprint(sprints)?.id ?? null
+  if (scope === 'running') return runningSprints(sprints)[0]?.id ?? null
+  if (scope.startsWith('running:')) return scope.slice('running:'.length)
   return scope.startsWith('sprint:') ? scope.slice('sprint:'.length) : null
 }
 
@@ -41,9 +50,13 @@ export function applyScope<T extends { sprint_id: string | null }>(
 }
 
 export function scopeOptions(sprints: readonly Sprint[]) {
-  const running = runningSprint(sprints)
+  const running = runningSprints(sprints)
+  const entries =
+    running.length === 1
+      ? [{ value: 'running', label: `Running sprint · ${running[0].name}` }]
+      : running.map((s) => ({ value: `running:${s.id}`, label: `Running · ${s.name}` }))
   return [
-    ...(running ? [{ value: 'running', label: `Running sprint · ${running.name}` }] : []),
+    ...entries,
     { value: 'all', label: 'All tasks' },
     { value: 'backlog', label: 'Backlog' },
     ...sprints

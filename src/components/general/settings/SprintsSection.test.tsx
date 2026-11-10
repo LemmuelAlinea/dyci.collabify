@@ -100,7 +100,7 @@ it('saves the edited values, keeping the start day derived when it is untouched'
   await pick(control<HTMLSelectElement>('Start and finish time'), '17:30')
   await act(async () => button('Save sprint settings')!.click())
   expect(saveSprintSettings).toHaveBeenCalledWith('p1', {
-    autoFinish: false, autoStart: true, carry: 'backlog', lengthDays: 7, startWeekday: null, runAt: '17:30',
+    organization: 'sequential', autoFinish: false, autoStart: true, carry: 'backlog', lengthDays: 7, startWeekday: null, runAt: '17:30',
   })
   expect(reload).toHaveBeenCalled()
   expect(show).toHaveBeenCalledWith('Sprint settings saved')
@@ -144,13 +144,37 @@ it('shows what went wrong when the save fails', async () => {
   expect(show).not.toHaveBeenCalled()
 })
 
-it('lists the two later organizations as disabled options and keeps Sequential selected', async () => {
+it('offers the three organizations live and selects the saved one', async () => {
+  await render(makeState({}, { organization: 'streams' }))
+  expect(button('Sequential')!.disabled).toBe(false)
+  expect(button('Flexible parallel')!.disabled).toBe(false)
+  expect(button('Multiple sprint streams')!.getAttribute('aria-checked')).toBe('true')
+  expect(host.textContent).toContain('Each team runs its own sprint, one at a time per team.')
+})
+
+it('confirms a mode change, says what changes, and saves only then', async () => {
   await render(makeState())
-  const soon1 = button('Multiple sprint streams · soon')!
-  const soon2 = button('Flexible parallel · soon')!
-  expect(soon1.disabled).toBe(true)
-  expect(soon2.disabled).toBe(true)
-  expect(button('Sequential')!.getAttribute('aria-checked')).toBe('true')
-  await act(async () => soon1.click())
-  expect(button('Sequential')!.getAttribute('aria-checked')).toBe('true')
+  await act(async () => button('Multiple sprint streams')!.click())
+  expect(saveSprintSettings).not.toHaveBeenCalled()
+  expect(document.body.textContent).toContain('A sprint holds only its team')
+  const confirm = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Switch')!
+  await act(async () => confirm.click())
+  expect(saveSprintSettings).toHaveBeenCalledWith('p1', expect.objectContaining({ organization: 'streams' }))
+  expect(reload).toHaveBeenCalled()
+})
+
+it('shows a refused mode change as the alert and keeps the saved mode', async () => {
+  vi.mocked(saveSprintSettings).mockRejectedValueOnce(new Error('Finish all but one running sprint first.'))
+  await render(makeState({}, { organization: 'parallel' }))
+  await act(async () => button('Sequential')!.click())
+  const confirm = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Switch')!
+  await act(async () => confirm.click())
+  expect(host.textContent).toContain('Finish all but one running sprint first.')
+  expect(button('Flexible parallel')!.getAttribute('aria-checked')).toBe('true')
+})
+
+it('sends the saved mode with the other settings', async () => {
+  await render(makeState({}, { organization: 'parallel' }))
+  await act(async () => button('Save sprint settings')!.click())
+  expect(saveSprintSettings).toHaveBeenCalledWith('p1', expect.objectContaining({ organization: 'parallel' }))
 })

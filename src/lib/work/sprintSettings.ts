@@ -8,7 +8,11 @@ import type { Sprint } from './types'
 
 export type SprintCarry = 'ask' | 'next' | 'backlog'
 
+/** One at a time, one at a time per team, or any number at once. */
+export type SprintOrganization = 'sequential' | 'streams' | 'parallel'
+
 export type SprintSettings = {
+  organization: SprintOrganization
   autoFinish: boolean
   autoStart: boolean
   carry: SprintCarry
@@ -20,6 +24,7 @@ export type SprintSettings = {
 }
 
 export const DEFAULT_SPRINT_SETTINGS: SprintSettings = {
+  organization: 'sequential',
   autoFinish: false,
   autoStart: false,
   carry: 'ask',

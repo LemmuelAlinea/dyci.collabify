@@ -14,7 +14,7 @@ import { AddSprintDialog } from './AddSprintDialog'
 import { TagTasksDialog } from './TagTasksDialog'
 import { useNow } from '../../hooks/useNow'
 import { authErrorMessage } from '../../lib/authError'
-import { addDays, runningSprint, toDay } from '../../lib/work/sprints'
+import { addDays, runningSprints, toDay } from '../../lib/work/sprints'
 import {
   dueLine,
   milestoneProgress,
@@ -124,7 +124,7 @@ export function MilestonesView({ source, selectedId }: { source: MilestoneSource
         isReached={(m) =>
           milestoneStatus(m, milestoneProgress(source.items, m.id), now, completion, waitingFor(m, links, source.milestones)) === 'reached'
         }
-        runningId={runningSprint(source.sprints)?.milestone_id}
+        runningIds={runningSprints(source.sprints).flatMap((s) => s.milestone_id ?? [])}
         onPick={showCard}
       />
 

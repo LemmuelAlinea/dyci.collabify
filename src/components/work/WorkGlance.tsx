@@ -8,7 +8,11 @@ import { dateRange, formatDue } from '../../lib/general/dates'
 import type { MilestoneCompletion } from '../../lib/general/milestoneRules'
 import { dueLine, waitingLabel } from '../../lib/work/milestones'
 import type { WorkSection } from '../../lib/work/nav'
-import { daysLeft, daysLeftLabel, runningSprint, sprintCounts } from '../../lib/work/sprints'
+import { daysLeft, daysLeftLabel, sprintCounts } from '../../lib/work/sprints'
+import type { SprintOrganization } from '../../lib/work/sprintSettings'
+import type { WorkTeams } from '../../lib/work/types'
+import { RunningSprintTabs } from './RunningSprintTabs'
+import { useRunningSprint } from './useRunningSprint'
 import { needsYou, nextMilestone } from '../../lib/work/summary'
 import type { Milestone, MilestoneDependency, Sprint, WorkItem } from '../../lib/work/types'
 
@@ -16,6 +20,9 @@ import type { Milestone, MilestoneDependency, Sprint, WorkItem } from '../../lib
 const LIST_CAP = 5
 
 type GlanceProps = {
+  /** A work project's sprint organization and teams; a class board has neither. */
+  organization?: SprintOrganization
+  teams?: WorkTeams
   items: WorkItem[]
   sprints: Sprint[]
   milestones: Milestone[]
@@ -37,10 +44,10 @@ type GlanceProps = {
  * the viewer now. The same cards in either space; each one links to the
  * section where that work is done.
  */
-export function WorkGlance({ items, sprints, milestones, mine, canPlan, completion, dependencies, onOpenTask, onSection, aside }: GlanceProps) {
+export function WorkGlance({ items, sprints, milestones, mine, canPlan, completion, dependencies, organization, teams, onOpenTask, onSection, aside }: GlanceProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <SprintCard items={items} sprints={sprints} milestones={milestones} canPlan={canPlan} completion={completion} onSection={onSection} />
+      <SprintCard items={items} sprints={sprints} milestones={milestones} canPlan={canPlan} completion={completion} organization={organization} teams={teams} onSection={onSection} />
       {aside ? (
         <div className="grid gap-4 lg:grid-rows-[auto_1fr]">
           <MilestoneCard items={items} milestones={milestones} completion={completion} dependencies={dependencies} onSection={onSection} />
@@ -91,9 +98,16 @@ function Counted({ done, total, noun, pct }: { done: number; total: number; noun
   )
 }
 
-function SprintCard({ items, sprints, milestones, canPlan, completion, onSection }: Pick<GlanceProps, 'items' | 'sprints' | 'milestones' | 'canPlan' | 'completion' | 'onSection'>) {
+function SprintCard({ items, sprints, milestones, canPlan, completion, organization = 'sequential', teams, onSection }: Pick<GlanceProps, 'items' | 'sprints' | 'milestones' | 'canPlan' | 'completion' | 'organization' | 'teams' | 'onSection'>) {
   const now = useNow()
-  const sprint = runningSprint(sprints)
+  const { tabs, activeKey, sprint, pick } = useRunningSprint({
+    projectId: teams?.projectId,
+    sprints,
+    organization,
+    teams: teams?.teams ?? [],
+    viewerTeamIds: (teams?.members ?? []).filter((m) => m.user_id === teams?.viewerId).map((m) => m.team_id),
+  })
+  const teamName = organization === 'streams' ? teams?.teams.find((t) => t.id === sprint?.team_id)?.name : undefined
 
   if (!sprint) {
     const planned = sprints.some((s) => s.state === 'planned')
@@ -112,7 +126,12 @@ function SprintCard({ items, sprints, milestones, canPlan, completion, onSection
   const pct = total ? Math.round((done / total) * 100) : 0
   return (
     <section className="card p-4 shadow-card sm:p-5">
-      <CardHead icon="target" label="Running sprint" action="Open Sprints" onAction={() => onSection('sprints')} />
+      <CardHead icon="target" label={teamName ? `Running sprint · ${teamName}` : 'Running sprint'} action="Open Sprints" onAction={() => onSection('sprints')} />
+      {tabs.length > 0 && (
+        <div className="mt-3">
+          <RunningSprintTabs tabs={tabs} activeKey={activeKey} onPick={pick} />
+        </div>
+      )}
       <h3 className="mt-2 truncate">{sprint.name}</h3>
       {sprint.goal && <p className="mt-0.5 text-[13px] text-muted">{sprint.goal}</p>}
       <p className="mt-1 text-[12px] text-faint">

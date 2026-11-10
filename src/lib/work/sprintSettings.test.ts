@@ -20,6 +20,7 @@ const sprint = (over: Partial<Sprint> = {}): Sprint => ({
 describe('DEFAULT_SPRINT_SETTINGS', () => {
   it('matches the table defaults', () => {
     expect(DEFAULT_SPRINT_SETTINGS).toEqual({
+      organization: 'sequential',
       autoFinish: false,
       autoStart: false,
       carry: 'ask',
