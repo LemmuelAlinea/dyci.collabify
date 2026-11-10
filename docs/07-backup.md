@@ -705,7 +705,7 @@ then `space-roles.sql` (it owns `answer_join_request` after this file) and `anon
 It adds triggers beside the existing task guards and redefines none of them: the rules sit
 in their own triggers, ordered around `general_tasks_a_stage` by name. Re-running
 `work-task-handoff.sql`, `task-stages.sql`, `project-qa.sql` or `project-settings-general.sql`
-means re-running `project-task-rules.sql` after it, then `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql` and `project-workflow-rules.sql`, then
+means re-running `project-task-rules.sql` after it, then `project-member-rules.sql`, `project-milestone-rules.sql`, `project-notification-rules.sql` and `project-workflow-rules.sql`, then `space-roles.sql`, then
 `anon-lockdown.sql`. Suite: `supabase/tests/project-task-rules.test.sql`.
 
 ## Member options (2026-11-02)
@@ -865,7 +865,7 @@ by the rule limits. The runner sets `collabify.workflow_rule_run` for the length
 action, so a rule's own change sets off no rules. Class boards and class tables are untouched.
 
 Re-running `work-task-handoff.sql` or `project-qa.sql` means re-running
-`project-workflow-rules.sql` afterwards, then `anon-lockdown.sql`, so the runner and its triggers
+`project-workflow-rules.sql` afterwards, then `space-roles.sql` and `anon-lockdown.sql`, so the runner and its triggers
 stay last. Both files' copies of the history kinds check list `rule_applied`, so those re-runs no
 longer refuse or drop a rule's history rows. Re-running `project-notification-rules.sql` also means
 re-running `project-workflow-rules.sql` afterwards: it puts back `mark_project_reminders_sent`

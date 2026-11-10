@@ -175,7 +175,7 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   need membership. A space member who is not on it sees "Ask to join"
   (`general_join_requests`); the project manager and coordinators answer in Settings →
   Members & permissions, within the invite role rules (no pm, only the project manager
-  gives coordinator). The project color, icon and default view are set in Settings →
+  gives coordinator; a Coordinator may also give it in a join request when coordinator is already the person's space role). The project color, icon and default view are set in Settings →
   General and read through `ProjectMark` and `lib/general/projectLook.ts`.
   `supabase/project-settings-general.sql` runs after `work-task-handoff.sql` and before
   `anon-lockdown.sql`. Re-running `project-visibility.sql`, `general-spaces.sql`,
