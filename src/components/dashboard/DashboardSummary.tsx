@@ -150,7 +150,7 @@ export function DashboardSummary({
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
             <p className={`flex min-w-0 items-center gap-3 ${action || corner ? 'min-h-9' : ''}`}>
               <span className="h-px w-7 shrink-0 bg-banner-glow" />
-              <span className="truncate font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft/75 uppercase">
+              <span className="truncate font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft uppercase">
                 {kicker}
               </span>
             </p>
@@ -165,7 +165,7 @@ export function DashboardSummary({
 
         <p
           className={`mt-3 flex items-start gap-2 text-[14px] leading-relaxed ${
-            urgent ? 'text-banner-accent' : 'text-banner-ink/60'
+            urgent ? 'text-banner-accent-text' : 'text-banner-muted'
           }`}
         >
           {urgent && <Icon name="alert" size={17} className="mt-0.5 shrink-0" />}
@@ -185,25 +185,25 @@ export function DashboardSummary({
                     name={t.icon}
                     size={17}
                     className={`h-3 w-3 sm:h-[17px] sm:w-[17px] ${
-                      t.tone === 'warn' ? 'text-banner-accent' : 'text-banner-ink/45'
+                      t.tone === 'warn' ? 'text-banner-accent' : 'text-banner-faint'
                     }`}
                   />
                   {t.to && (
                     <Icon
                       name="arrowRight"
                       size={15}
-                      className="hidden text-banner-ink/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:block sm:h-[15px] sm:w-[15px]"
+                      className="hidden text-banner-faint opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:block sm:h-[15px] sm:w-[15px]"
                     />
                   )}
                 </span>
                 <span
                   className={`mt-1 block font-mono text-[18px] leading-none font-bold tabular-nums sm:mt-3 sm:text-[30px] ${
-                    t.tone === 'warn' ? 'text-banner-accent' : 'text-banner-ink'
+                    t.tone === 'warn' ? 'text-banner-accent-text' : 'text-banner-ink'
                   }`}
                 >
                   <CountUp value={t.value} />
                 </span>
-                <span className="mt-1 line-clamp-2 block min-h-[18px] text-[8.5px] leading-[1.1] text-banner-ink/55 sm:mt-1.5 sm:min-h-0 sm:text-[12px] sm:leading-snug">
+                <span className="mt-1 line-clamp-2 block min-h-[18px] text-[8.5px] leading-[1.1] text-banner-muted sm:mt-1.5 sm:min-h-0 sm:text-[12px] sm:leading-snug">
                   {t.label}
                 </span>
               </>

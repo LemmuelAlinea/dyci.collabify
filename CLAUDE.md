@@ -40,6 +40,9 @@ Do not hardcode colors. Everything reads from tokens in `src/styles/index.css`:
   banners; the ground itself is the `.banner-fill` class, its glow and grid carry
   `.banner-deco`, figure cells on it `.banner-cell`), `progress`, `nav-icon`,
   `nav-active`, `nav-marker`, `badge`, `icon-tile` / `icon-glyph` (card icon squares).
+- Small text on a banner uses `text-banner-muted`, `text-banner-faint`, `text-banner-accent-soft`
+  or `text-banner-accent-text`, which `lib/palette.ts` holds to 4.5:1 on the person's banner.
+  Never fade banner text with an opacity (`text-banner-ink/60`).
 - Dark mode's app grounds read `--u-page`, `--u-surface`, `--u-sunken`, `--u-raised`
   first (the person's background depth), then fall back to the defaults.
 

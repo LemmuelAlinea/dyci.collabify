@@ -4406,3 +4406,13 @@ Live on `main` at `14bdd3d`. Design:
   still says Owner; a space Coordinator sees Withdraw on a Coordinator invitation and gets a
   refusal.
 - Next: nothing planned for this feature; open work is the Deferred notes.
+
+## Banner text contrast (2026-11-10)
+
+Small text on a page banner faded with opacity, and the soft accent was never checked, so on a
+mid-tone banner it vanished (a `#080b21` accent on `#0072b2` hid the space name). `lib/palette.ts`
+now sets `--banner-muted`, `--banner-faint`, `--banner-accent-soft` and `--banner-accent-text`,
+each held to 4.5:1 on the person's banner, and pulls the project color words to 3:1. A dark banner
+keeps its fade; a mid-tone one has no room and uses nearly full-strength text. Every
+`text-banner-ink/NN` is gone. Checked with the real palette code and stylesheet on eight banner
+colors on localhost, with no sign-in, so not on a signed-in page.

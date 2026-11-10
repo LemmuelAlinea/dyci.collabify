@@ -59,13 +59,13 @@ export function RoleHome({
             }}
           />
           <div className="relative">
-            <p className="font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft/75 uppercase">
+            <p className="font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft uppercase">
               Program
             </p>
             <h1 className="mt-5 font-display leading-tight text-banner-ink">
               {greeting()}, {profile.first_name}.
             </h1>
-            <p className="mt-3 max-w-[620px] text-[14px] leading-relaxed text-banner-ink/60">
+            <p className="mt-3 max-w-[620px] text-[14px] leading-relaxed text-banner-muted">
               {intro}
             </p>
           </div>

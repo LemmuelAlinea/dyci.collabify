@@ -266,11 +266,11 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
         <div className="relative">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-banner-ink/8 px-2.5 py-1 text-[11px] font-medium text-banner-ink/65 ring-1 ring-banner-ink/10">
+              <span className="rounded-full bg-banner-ink/8 px-2.5 py-1 text-[11px] font-medium text-banner-muted ring-1 ring-banner-ink/10">
                 {group.set_name}
               </span>
               {group.set_closed_at ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-banner-ink/10 px-2.5 py-1 text-[11px] font-medium text-banner-ink/70">
+                <span className="inline-flex items-center gap-1 rounded-full bg-banner-ink/10 px-2.5 py-1 text-[11px] font-medium text-banner-muted">
                   <Icon name="lock" size={11} />
                   Final
                 </span>
@@ -280,7 +280,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                 </span>
               )}
               {viewerLeads && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-banner-ink/8 px-2.5 py-1 text-[11px] font-medium text-banner-accent ring-1 ring-banner-ink/10">
+                <span className="inline-flex items-center gap-1 rounded-full bg-banner-ink/8 px-2.5 py-1 text-[11px] font-medium text-banner-accent-text ring-1 ring-banner-ink/10">
                   <Icon name="crown" size={11} strokeWidth={2} />
                   You lead this group
                 </span>
@@ -344,7 +344,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                         setRenaming(false)
                         setDraftName(group.name)
                       }}
-                      className="h-10 rounded-lg px-3 text-[13px] text-banner-ink/60 transition-colors hover:bg-banner-ink/8 hover:text-banner-ink"
+                      className="h-10 rounded-lg px-3 text-[13px] text-banner-muted transition-colors hover:bg-banner-ink/8 hover:text-banner-ink"
                     >
                       Cancel
                     </button>
@@ -357,7 +357,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                         type="button"
                         onClick={() => setRenaming(true)}
                         aria-label="Rename group"
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-banner-ink/45 transition-colors hover:bg-banner-ink/8 hover:text-banner-accent-soft"
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-banner-faint transition-colors hover:bg-banner-ink/8 hover:text-banner-accent-soft"
                       >
                         <Icon name="edit" size={15} />
                       </button>
@@ -365,10 +365,10 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                   </div>
                 )}
 
-                <p className="mt-2 text-[13px] text-banner-ink/55">
+                <p className="mt-2 text-[13px] text-banner-muted">
                   {cls ? `${cls.initial} · ${cls.name}` : ''}
                 </p>
-                <p className="mt-3 max-w-[58ch] text-[13px] leading-relaxed text-banner-ink/55">
+                <p className="mt-3 max-w-[58ch] text-[13px] leading-relaxed text-banner-muted">
                   Keep the group roster, assigned projects and individual task progress together.
                 </p>
               </div>
@@ -376,13 +376,13 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
 
             <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-banner-ink/12 bg-banner-ink/12">
               <div className="banner-cell px-4 py-3.5">
-                <dt className="text-[11px] text-banner-ink/45">Members</dt>
+                <dt className="text-[11px] text-banner-faint">Members</dt>
                 <dd className="mt-1.5 font-mono text-[18px] font-bold text-banner-ink">
                   {group.member_count} / {group.member_limit}
                 </dd>
               </div>
               <div className="banner-cell px-4 py-3.5">
-                <dt className="text-[11px] text-banner-ink/45">Formation</dt>
+                <dt className="text-[11px] text-banner-faint">Formation</dt>
                 <dd className="mt-1.5 truncate text-[13px] font-medium text-banner-ink">
                   {modeLabel(group.set_mode)}
                 </dd>
@@ -392,7 +392,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
 
           {studentFormedOpen && (
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-banner-ink/10 pt-4">
-              <p className="text-[12px] text-banner-ink/50">
+              <p className="text-[12px] text-banner-faint">
                 {isMember ? 'You currently belong to this group.' : 'This group is accepting members.'}
               </p>
               {isMember ? (

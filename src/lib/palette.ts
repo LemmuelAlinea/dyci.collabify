@@ -340,6 +340,19 @@ export function ramp(hex: string, anchor: Stop = 500): Record<Stop, string> {
 
 // ---------------------------------------------------------------- variables
 
+/** The word a project's color sets on a banner, as `:root` has it. */
+const SWATCH_ACCENTS = {
+  navy: '#8493cf',
+  amber: '#f7c74a',
+  green: '#5fd68f',
+  teal: '#2dd4bf',
+  violet: '#a78bfa',
+  rose: '#fb7185',
+  orange: '#fb923c',
+  slate: '#a9b4cc',
+} as const
+const SWATCHES = Object.keys(SWATCH_ACCENTS) as (keyof typeof SWATCH_ACCENTS)[]
+
 /** Every variable a palette can set, so switching palettes clears the old one. */
 export const PALETTE_VARS: readonly string[] = [
   ...(['success', 'warning', 'danger'] as const).flatMap((r) =>
@@ -351,6 +364,11 @@ export const PALETTE_VARS: readonly string[] = [
   '--banner-cell',
   '--banner-ink',
   '--banner-accent',
+  '--banner-accent-soft',
+  '--banner-accent-text',
+  '--banner-muted',
+  '--banner-faint',
+  ...SWATCHES.map((s) => `--swatch-${s}-accent`),
   '--banner-glow',
   '--banner-edge',
   '--banner-end',
@@ -414,6 +432,19 @@ function withContrastAll(fg: string, grounds: string[], ratio: number): string {
   return out
 }
 
+/**
+ * `ink` faded to `percent`, or faded less if that is what it takes to still read
+ * at 4.5:1 on every ground. A mid-tone banner has no room for a fade at all.
+ */
+function fadedInk(ink: string, grounds: string[], percent: number): string {
+  for (let p = percent; p < 100; p += 2) {
+    if (grounds.every((g) => contrast(mix(g, ink, p / 100), g) >= 4.5)) {
+      return `color-mix(in srgb, ${ink} ${p}%, transparent)`
+    }
+  }
+  return ink
+}
+
 /** The variables for one mode's picks. Slots left untouched set nothing. */
 export function toCssVars(picks: Picks | undefined, mode: Mode): Record<string, string> {
   const vars: Record<string, string> = {}
@@ -438,12 +469,23 @@ export function toCssVars(picks: Picks | undefined, mode: Mode): Record<string, 
   const grounds = style === 'gradient' ? [first, picks.banner2 ?? d.banner2] : [first]
   if (style !== 'glow' || isHex(picks.banner) || isHex(picks.bannerAccent)) {
     vars['--banner'] = first
-    vars['--banner-ink'] = inkForAll(grounds)
+    const ink = inkForAll(grounds)
+    vars['--banner-ink'] = ink
     // The accent is checked against whatever banner is showing, picked or not:
     // a new banner can make the old accent unreadable.
     const accent = withContrastAll(picks.bannerAccent ?? d.bannerAccent, grounds, 3)
     vars['--banner-accent'] = accent
     vars['--banner-glow'] = accent
+    // 3:1 is for large words and icons. Small text on a banner uses these, held
+    // to 4.5:1; muted and faint are also checked on the 12% wash chips sit on.
+    vars['--banner-accent-text'] = withContrastAll(accent, grounds, 4.5)
+    vars['--banner-accent-soft'] = withContrastAll(mix(accent, ink, 0.45), grounds, 4.5)
+    const washed = grounds.flatMap((b) => [b, mix(b, ink, 0.12)])
+    vars['--banner-muted'] = fadedInk(ink, washed, 62)
+    vars['--banner-faint'] = fadedInk(ink, washed, 50)
+    for (const s of SWATCHES) {
+      vars[`--swatch-${s}-accent`] = withContrastAll(SWATCH_ACCENTS[s], grounds, 3)
+    }
     // Outlines on the page in the banner's colour: 3:1 against the page (WCAG
     // 1.4.11), so a banner as dark as the page still leaves a visible edge.
     vars['--banner-edge'] = withContrast(first, g.page, 3)

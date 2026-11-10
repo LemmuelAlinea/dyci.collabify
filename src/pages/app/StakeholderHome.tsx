@@ -79,11 +79,11 @@ export function StakeholderHomeView({
             }}
           />
           <div className="relative max-w-2xl">
-            <p className="font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft/75 uppercase">
+            <p className="font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft uppercase">
               Stakeholder
             </p>
             <h1 className="mt-5 font-display leading-tight text-banner-ink">Your projects</h1>
-            <p className="mt-3 text-[14px] leading-relaxed text-banner-ink/60">
+            <p className="mt-3 text-[14px] leading-relaxed text-banner-muted">
               See how each project is going and what is due next, then post your feedback where the
               team will see it.
             </p>

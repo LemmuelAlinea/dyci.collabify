@@ -438,7 +438,7 @@ function LookPreview({
             </span>
           </p>
         </div>
-        <p className="mt-1.5 text-[11px] text-banner-ink/60">Project banner</p>
+        <p className="mt-1.5 text-[11px] text-banner-muted">Project banner</p>
       </div>
     </section>
   )

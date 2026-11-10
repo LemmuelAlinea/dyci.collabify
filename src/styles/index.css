@@ -219,8 +219,11 @@
   --color-banner: var(--banner);
   --color-banner-ink: var(--banner-ink);
   --color-banner-accent: var(--banner-accent);
-  /* Was amber-200 on the banners: the accent lifted halfway to the text. */
-  --color-banner-accent-soft: color-mix(in oklab, var(--banner-accent) 55%, var(--banner-ink));
+  /* Small text on a banner. A custom banner holds each to 4.5:1 (lib/palette.ts). */
+  --color-banner-accent-soft: var(--banner-accent-soft);
+  --color-banner-accent-text: var(--banner-accent-text);
+  --color-banner-muted: var(--banner-muted);
+  --color-banner-faint: var(--banner-faint);
   --color-banner-glow: var(--banner-glow);
   --color-banner-edge: var(--banner-edge);
   --color-banner-end: var(--banner-end);
@@ -328,6 +331,11 @@
     --banner: #080b21;
     --banner-ink: #fef7e6;
     --banner-accent: #f7c74a;
+    /* Was amber-200 on the banners: the accent lifted halfway to the text. */
+    --banner-accent-soft: color-mix(in oklab, var(--banner-accent) 55%, var(--banner-ink));
+    --banner-accent-text: var(--banner-accent);
+    --banner-muted: color-mix(in srgb, var(--banner-ink) 62%, transparent);
+    --banner-faint: color-mix(in srgb, var(--banner-ink) 50%, transparent);
     --banner-glow: #f0b429;
     /* The banner's colour as an outline on the page (space shortcut cards). */
     --banner-edge: var(--banner);

@@ -39,8 +39,15 @@ export const SWATCH_CLASS: Record<ProjectSwatch, { tile: string; accent: string 
 /** A project's own color: a `#rrggbb` the project manager picked rather than a named swatch. */
 export const isCustomColor = (color: ProjectColor | null | undefined): color is `#${string}` => isHex(color)
 
-/** The banner's darkest ground, which a custom accent word is lifted against. */
+/** The banner's darkest ground, for when the page has no banner color to read. */
 const BANNER_GROUND = '#10162e'
+
+/** The banner this person sees, so a custom accent word is checked against it. */
+function bannerGround(): string {
+  if (typeof document === 'undefined') return BANNER_GROUND
+  const banner = getComputedStyle(document.documentElement).getPropertyValue('--banner').trim()
+  return isHex(banner) ? banner : BANNER_GROUND
+}
 
 type Look = { className?: string; style?: CSSProperties }
 
@@ -52,7 +59,7 @@ export function colorTile(color: ProjectColor): Look {
 
 /** The banner word for a color: a swatch's accent, or a custom color lifted until it reads on the banner. */
 export function colorAccent(color: ProjectColor): Look {
-  if (isCustomColor(color)) return { style: { color: withContrast(color, BANNER_GROUND, 4.5) } }
+  if (isCustomColor(color)) return { style: { color: withContrast(color, bannerGround(), 4.5) } }
   return { className: SWATCH_CLASS[color as ProjectSwatch]?.accent }
 }
 

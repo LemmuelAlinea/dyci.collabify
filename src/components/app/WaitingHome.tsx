@@ -37,12 +37,12 @@ export function WaitingHome() {
           <div className="relative max-w-2xl">
             <p className="flex items-center gap-3">
               <span className="h-px w-7 shrink-0 bg-banner-glow" />
-              <span className="font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft/75 uppercase">
+              <span className="font-mono text-[12px] tracking-[0.22em] text-banner-accent-soft uppercase">
                 Member
               </span>
             </p>
             <h1 className="mt-5 font-display leading-tight text-banner-ink">You're in</h1>
-            <p className="mt-3 text-[14px] leading-relaxed text-banner-ink/60">
+            <p className="mt-3 text-[14px] leading-relaxed text-banner-muted">
               Nothing to open yet. A project manager can invite you to a project, or an admin can
               give you a role. Invitations show up in your Inbox.
             </p>

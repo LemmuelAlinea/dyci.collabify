@@ -80,11 +80,11 @@ export function ClassHeader({
         <div className="relative">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
-              <span className="font-mono text-[11px] tracking-[0.2em] text-banner-accent-soft/70 uppercase">
+              <span className="font-mono text-[11px] tracking-[0.2em] text-banner-accent-soft uppercase">
                 Class workspace
               </span>
               {cls.archived_at ? (
-                <span className="rounded-full bg-banner-ink/10 px-2.5 py-1 text-[11px] font-medium text-banner-ink/70">
+                <span className="rounded-full bg-banner-ink/10 px-2.5 py-1 text-[11px] font-medium text-banner-muted">
                   Archived
                 </span>
               ) : (
@@ -98,12 +98,12 @@ export function ClassHeader({
 
           <div className="mt-4 grid gap-5 @min-[960px]:grid-cols-[minmax(0,1fr)_minmax(360px,0.7fr)] @min-[960px]:items-end @min-[960px]:gap-7">
             <div className="flex min-w-0 items-start gap-4 @min-[960px]:gap-5">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-banner-ink/8 font-display text-[15px] font-bold text-banner-accent ring-1 ring-banner-ink/12 @min-[960px]:h-16 @min-[960px]:w-16 @min-[960px]:text-[18px]">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-banner-ink/8 font-display text-[15px] font-bold text-banner-accent-text ring-1 ring-banner-ink/12 @min-[960px]:h-16 @min-[960px]:w-16 @min-[960px]:text-[18px]">
                 {cls.initial}
               </span>
               <div className="min-w-0">
                 <h1 className="text-balance text-banner-ink">{cls.name}</h1>
-                <p className="mt-1.5 text-[13px] text-banner-ink/55 @min-[960px]:mt-2">{classMeta(cls)}</p>
+                <p className="mt-1.5 text-[13px] text-banner-muted @min-[960px]:mt-2">{classMeta(cls)}</p>
                 <ClampedText
                   key={cls.description}
                   text={cls.description ||
@@ -113,8 +113,8 @@ export function ClassHeader({
                         ? `Led by ${fullName(cls.professor)}. Announcements, projects and group work stay together here.`
                         : 'Announcements, projects and group work stay together here.')}
                   lines={2}
-                  className="mt-2 max-w-[62ch] text-[13px] leading-relaxed text-banner-ink/55 @min-[960px]:mt-3"
-                  buttonClassName="text-banner-accent hover:text-banner-accent-soft"
+                  className="mt-2 max-w-[62ch] text-[13px] leading-relaxed text-banner-muted @min-[960px]:mt-3"
+                  buttonClassName="text-banner-accent-text hover:text-banner-accent-soft"
                 />
               </div>
             </div>
@@ -128,13 +128,13 @@ export function ClassHeader({
               }`}
             >
               <div className="banner-cell px-4 py-2.5">
-                <dt className="text-[11px] text-banner-ink/45">Class code</dt>
+                <dt className="text-[11px] text-banner-faint">Class code</dt>
                 <dd className="mt-1.5">
                   <button
                     type="button"
                     onClick={copyCode}
                     title="Copy class code"
-                    className="inline-flex items-center gap-2 font-mono text-[15px] font-bold tracking-wide text-banner-accent transition-colors hover:text-banner-accent-soft"
+                    className="inline-flex items-center gap-2 font-mono text-[15px] font-bold tracking-wide text-banner-accent-text transition-colors hover:text-banner-accent-soft"
                   >
                     {cls.code}
                     <Icon name={copied ? 'check' : 'copy'} size={14} />
@@ -143,7 +143,7 @@ export function ClassHeader({
                     <button
                       type="button"
                       onClick={copyLink}
-                      className="mt-1.5 flex items-center gap-1.5 text-[12px] text-banner-ink/60 transition-colors hover:text-banner-ink"
+                      className="mt-1.5 flex items-center gap-1.5 text-[12px] text-banner-muted transition-colors hover:text-banner-ink"
                     >
                       <Icon name={linkCopied ? 'check' : 'copy'} size={13} />
                       {linkCopied ? 'Invite link copied' : 'Copy invite link'}
@@ -152,9 +152,9 @@ export function ClassHeader({
                 </dd>
               </div>
               <div className="banner-cell px-4 py-2.5">
-                <dt className="text-[11px] text-banner-ink/45">Roster</dt>
+                <dt className="text-[11px] text-banner-faint">Roster</dt>
                 <dd className="mt-1.5 flex items-center gap-2 font-mono text-[15px] font-bold text-banner-ink">
-                  <Icon name="users" size={15} className="text-banner-ink/45" />
+                  <Icon name="users" size={15} className="text-banner-faint" />
                   {cls.student_count}
                   {cls.student_cap ? ` of ${cls.student_cap}` : ''}{' '}
                   {(cls.student_cap ?? cls.student_count) === 1 ? 'student' : 'students'}
@@ -162,7 +162,7 @@ export function ClassHeader({
               </div>
               {canManage && (
                 <div className="banner-cell col-span-2 px-4 py-2.5 @min-[600px]:col-span-1 @min-[960px]:col-span-2">
-                  <dt className="text-[11px] text-banner-ink/45">Joining</dt>
+                  <dt className="text-[11px] text-banner-faint">Joining</dt>
                   <dd className="mt-1.5">
                     <label className="flex items-center gap-3 text-[13px] font-medium text-banner-ink">
                       <Toggle

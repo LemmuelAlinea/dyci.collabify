@@ -915,7 +915,7 @@ function GroupPreview({ id, mode, picks, depth }: { id: GroupId; mode: Mode; pic
           <p className="relative font-display text-[17px] font-semibold">
             Your <span className="text-banner-accent">projects.</span>
           </p>
-          <p className="relative mt-0.5 text-[11.5px] text-banner-ink/60">Everything you are working on.</p>
+          <p className="relative mt-0.5 text-[11.5px] text-banner-muted">Everything you are working on.</p>
           <span className="relative mt-3 inline-flex h-7 items-center rounded-md bg-btn-create px-2.5 text-[11px] font-medium text-btn-create-ink">
             New project
           </span>

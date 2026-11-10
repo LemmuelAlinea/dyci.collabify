@@ -131,6 +131,59 @@ describe('toCssVars', () => {
     expect(contrast(vars['--banner-accent'], '#fff3bf')).toBeGreaterThanOrEqual(3)
   })
 
+  describe('small text on a banner', () => {
+    /** What a `color-mix(… p%, transparent)` or plain colour looks like on `ground`. */
+    const onGround = (value: string, ground: string) => {
+      const m = value.match(/color-mix\(in srgb, (#[0-9a-f]{6}) (\d+)%, transparent\)/)
+      if (!m) return value
+      const t = Number(m[2]) / 100
+      const channels = [1, 3, 5].map((i) => {
+        const a = parseInt(ground.slice(i, i + 2), 16)
+        const b = parseInt(m[1].slice(i, i + 2), 16)
+        return Math.round(a + (b - a) * t)
+      })
+      return `#${channels.map((c) => c.toString(16).padStart(2, '0')).join('')}`
+    }
+
+    // A dark accent on a mid blue, the pair that hid the space name.
+    it.each([
+      ['#0072b2', '#080b21'],
+      ['#808080', '#f7c74a'],
+      ['#fff3bf', '#ffd000'],
+      ['#b91c1c', '#7f1d1d'],
+      ['#0f766e', '#134e4a'],
+    ])('reads at 4.5:1 on %s with accent %s', (banner, bannerAccent) => {
+      const vars = toCssVars({ banner, bannerAccent }, 'dark')
+      for (const name of ['--banner-accent-soft', '--banner-accent-text', '--banner-muted', '--banner-faint']) {
+        expect(contrast(onGround(vars[name], banner), banner)).toBeGreaterThanOrEqual(4.5)
+      }
+    })
+
+    it('keeps the fade on a dark banner, where there is room for it', () => {
+      const vars = toCssVars({ banner: '#080b21' }, 'dark')
+      expect(vars['--banner-muted']).toBe('color-mix(in srgb, #fef7e6 62%, transparent)')
+      expect(vars['--banner-faint']).toBe('color-mix(in srgb, #fef7e6 50%, transparent)')
+    })
+
+    it('leaves a readable accent alone', () => {
+      expect(toCssVars({ banner: '#080b21', bannerAccent: '#f7c74a' }, 'dark')['--banner-accent-text']).toBe('#f7c74a')
+    })
+
+    it('holds across both ends of a gradient', () => {
+      const vars = toCssVars({ bannerStyle: 'gradient', banner: '#000000', banner2: '#26327a' }, 'dark')
+      for (const ground of ['#000000', '#26327a']) {
+        expect(contrast(onGround(vars['--banner-muted'], ground), ground)).toBeGreaterThanOrEqual(4.5)
+        expect(contrast(vars['--banner-accent-soft'], ground)).toBeGreaterThanOrEqual(4.5)
+      }
+    })
+
+    it('moves a project color word off a banner it would vanish on', () => {
+      const vars = toCssVars({ banner: '#fff3bf' }, 'light')
+      expect(contrast(vars['--swatch-amber-accent'], '#fff3bf')).toBeGreaterThanOrEqual(3)
+      expect(toCssVars({ banner: '#080b21' }, 'dark')['--swatch-amber-accent']).toBe('#f7c74a')
+    })
+  })
+
   it('keeps banner buttons readable on whatever banner is showing', () => {
     const vars = toCssVars({ btnCreate: '#ffffff', btnAction: '#26327a', btnDanger: '#fb2c36' }, 'dark')
     expect(vars['--btn-create-ink']).toBe('#10162e')

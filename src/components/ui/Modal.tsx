@@ -60,8 +60,8 @@ const TONES = {
   banner: {
     header: 'border-banner-ink/10 banner-fill text-banner-ink',
     title: 'text-banner-ink',
-    description: 'text-banner-ink/65',
-    close: 'text-banner-ink/60 hover:bg-banner-ink/10 hover:text-banner-ink',
+    description: 'text-banner-muted',
+    close: 'text-banner-muted hover:bg-banner-ink/10 hover:text-banner-ink',
   },
 }
 

@@ -70,7 +70,7 @@ export function DirectoryHero({
               </>
             )}
           </h1>
-          <p className="mt-3 max-w-[62ch] text-[14px] leading-relaxed text-banner-ink/60">
+          <p className="mt-3 max-w-[62ch] text-[14px] leading-relaxed text-banner-muted">
             {description}
           </p>
         </div>

@@ -148,7 +148,7 @@ export function AppShell() {
                       type="button"
                       onClick={() => setDrawer(false)}
                       aria-label="Close navigation"
-                      className="grid h-9 w-9 place-items-center rounded-lg text-banner-ink/60 hover:bg-banner-ink/10 hover:text-banner-ink"
+                      className="grid h-9 w-9 place-items-center rounded-lg text-banner-muted hover:bg-banner-ink/10 hover:text-banner-ink"
                     >
                       <Icon name="x" size={19} />
                     </button>
