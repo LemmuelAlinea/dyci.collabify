@@ -104,7 +104,8 @@ export function TaskRoutingPanel({ state, onOpenTask, onViewBoard }: { state: Ge
         </div>
       })}
     </div>}
-    {rows.length > 0 && <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
+    {/* Pinned to the bottom of the dialog, edge to edge over its padding, so a long queue never hides it. */}
+    {rows.length > 0 && <div className="surface sticky -bottom-5 z-10 -mx-6 -mb-5 flex flex-wrap items-center gap-3 border-t border-line px-6 py-4">
       <span className="text-[13px] text-muted">{picks.length} selected</span>
       <Button size="sm" disabled={!editable || !ready} onClick={() => { if (queue === 'released') { setReason(''); setRerouting(true) } else void send() }}>Send to team</Button>
       {queue === 'planning' && state.myRole === 'pm' && <>

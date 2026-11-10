@@ -4468,3 +4468,7 @@ been measured at 100 items.
 - **Where and Who stay manual** unless the person has only one choice, since they decide who gets notified.
 - **Checks.** `npm test` and `npm run build` pass. Both real invitations were pasted on localhost: the fields filled, a second paste replaced the first, and pasting into the link field worked. Schedule itself was not pressed, because it notifies real people; the save path is unchanged.
 - **Next:** nothing open.
+
+## Plan & route bottom bar stays visible (2026-11-10)
+
+The selected count and send buttons in the Plan & route work dialog are pinned to the dialog's bottom edge on all three queues (`TaskRoutingPanel.tsx`). Frontend only. Checked with the real dialog and panel on a throwaway local page with 30 sample tasks per queue, at desktop and phone widths; not walked signed in. On a phone the Planning bar is 169px tall because its controls wrap.
