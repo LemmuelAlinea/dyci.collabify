@@ -256,6 +256,24 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   with its own stamp; the daily reminder is a fallback and retains its 08:00 Manila schedule.
   Suite: `supabase/tests/project-workflow-rules.test.sql`.
 
+## First-run walkthroughs
+
+- Code: the rules live in `lib/walkthrough/` (`flows.ts`, `progress.ts`, `geometry.ts`, plain functions with
+  Vitest tests) and the spotlight in `components/walkthrough/` (`WalkthroughProvider` runs inside `AppShell`
+  for an active, admitted account). Progress is one row per person and flow in `user_walkthroughs`, read
+  through `lib/api/walkthroughs.ts`; it is not on `profiles` and not in `localStorage`.
+- A step's lit target needs a `data-walkthrough` marker on the real element, never a text match.
+  `lib/walkthrough/markers.test.ts` holds every marker the flows name, so a renamed or removed button fails
+  the test instead of leaving a step pointing at nothing.
+- A new step goes in `flows.ts`: its route, marker, the data that finishes it and its card text. Done means
+  the real thing exists, so read data rather than a click, except the Next and Done buttons.
+- `supabase/walkthroughs.sql` runs after `sprint-organization.sql` and before `anon-lockdown.sql`, and
+  `docs/07-backup.md` lists it. Its launch backfill, which marks existing signed-in accounts as finished, runs
+  only when the table is first created, so a re-run interrupts nobody. Suite:
+  `supabase/tests/walkthroughs.test.sql`.
+- Admins, stakeholders and stakeholder-only members get no walkthrough. Replay in Settings is look-only and
+  creates nothing.
+
 ## Security invariants
 
 - `role`, `status`, `can_teach` and `can_manage_projects` are only changeable by an
