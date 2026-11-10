@@ -4374,9 +4374,9 @@ shared stamp as a fallback without repeating a rule. The migration and
 Urgent. The build, 1,760 Vitest tests and all 100 SQL suites pass. The updated
 graph was rebuilt.
 
-## Space settings and space roles (2026-11-10; branch, not live)
+## Space settings and space roles (2026-11-10; live)
 
-Branch `feature/space-settings-roles`, not pushed. Design:
+Live on `main` at `14bdd3d`. Design:
 `docs/superpowers/specs/2026-11-10-space-settings-and-roles-design.md`.
 
 - A work space now has the project role language. `general_space_members.role` is the source
@@ -4389,11 +4389,15 @@ Branch `feature/space-settings-roles`, not pushed. Design:
   menu (Details, Teams, Members, Archive) built like project Settings; old links redirect;
   Members sets roles with a confirm dialog when tasks release or a QA gate starts; the
   invite dialogs and the Inbox show roles.
-- Not live: `supabase/space-roles.sql` has NOT been applied to the live database and nothing
-  is pushed. It passes its dry run (rolled back) only. The old app cannot change space roles
-  once the SQL is on, so apply it and push `main` back to back.
-- Deferred: a localhost layout check (tabs, menu, light, dark, phone) and the live role walk
-  as PM, Coordinator, Member and Stakeholder; the launch snapshot compare of
-  `general_members` (expect zero differences) and the one-PM-per-space check.
-- Next: the owner's rollout go-ahead, then apply `space-roles.sql` and `anon-lockdown.sql`,
-  run the suites, push, walk the roles, and record the outcome here.
+- Rollout (2026-11-10): `space-roles.sql` and `anon-lockdown.sql` applied to live, then
+  `main` pushed. Against live, `space-roles.test.sql` passes 114 and `anon-lockdown.test.sql`
+  passes 15 (both roll back). The `general_members` snapshot compare shows 145 rows before and
+  after with zero differences. Every populated work space has exactly one `pm` (8 PMs, 65
+  Members, no null roles); the empty space "Class project files" has none. Education spaces
+  kept their levels and a null role.
+- Deferred: the signed-in walk of the page as PM, Coordinator, Member and Stakeholder, in
+  light, dark and phone widths. The owner skipped the localhost layout check, so the page
+  has not been viewed signed in. Parked: `archive-page.sql` and `project-stakeholders.sql`
+  refusal text still says Owner; a space Coordinator sees Withdraw on a Coordinator invitation
+  and gets a refusal.
+- Next: the owner's signed-in walk, then any fixes it turns up.
