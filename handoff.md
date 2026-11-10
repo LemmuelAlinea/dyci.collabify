@@ -4427,8 +4427,7 @@ been measured at 100 items.
 
 ## Sprint organization (2026-11-10)
 
-**Not live.** Built and committed on local branch `sprint-organization`; nothing is pushed and
-`sprint-organization.sql` has not run on the live database.
+**Live.** `sprint-organization.sql` and `anon-lockdown.sql` ran on the live database on 2026-11-10, then the frontend was merged to `main` and pushed. Every project stays Sequential until someone switches it.
 
 - **What it is.** Settings → Sprints now offers Sequential, Multiple sprint streams (one sprint at a time per
   team) and Flexible parallel (any number at once). Spec and plan are dated 2026-11-03.
@@ -4439,8 +4438,7 @@ been measured at 100 items.
   lists, one Tasks scope per running sprint, and every running milestone highlighted.
 - **Checks.** `supabase/tests/sprint-organization.test.sql` and the neighbouring suites pass in rolled-back dry
   runs with the file spliced in. Vitest, build and eslint pass.
-- **Deploy order.** After owner review:
-  `node scripts/db.mjs supabase/sprint-organization.sql supabase/anon-lockdown.sql`, a read-only check, the
-  suites again, then merge to `main` and push.
-- **Deferred:** no signed-in walk of the three modes on the live database, because the SQL is not live yet.
+- **Rollout.** A read-only check of the live schema was clean, and 14 suites passed against it, rolled back.
+- **Remove once settled.** The missing-column fallback in `lib/api/sprints.ts` is no longer needed.
+- **Deferred:** no signed-in walk of the three modes on the live site yet; it needs the owner to sign in.
   A planned sprint that already holds tasks cannot take a team until they are moved out (design call 17).
