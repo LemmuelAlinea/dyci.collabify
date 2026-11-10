@@ -4475,7 +4475,7 @@ The selected count and send buttons in the Plan & route work dialog are pinned t
 
 ## Drag tasks between stages (2026-11-10)
 
-**Committed on `main`, not pushed.** Frontend only, no SQL. The owner reviews before `main` is pushed.
+**Live on `main` since 2026-11-10 (3206c0f).** Frontend only, no SQL.
 
 - **What it is.** On the work project Tasks board and the My tasks board, a card lifts, follows the pointer and settles into the stage it is dropped on. A mouse lifts after 5 pixels. A finger lifts after a 200 ms hold, so a swipe still scrolls the page. The board auto-scrolls near the edges, and Escape puts the card back. Start, Mark done and the other buttons are unchanged.
 - **Code.** `components/tasks/useBoardDrag.tsx` is the drag; `components/tasks/BoardColumn.tsx` holds the column and `MoveToStage`; `lib/work/boardDrop.ts` holds the rule (`workDropRefusal`), tested in `boardDrop.test.ts`. No new dependency, Motion only. `StageBoard` in `TasksTab.tsx` is the old inline board plus drag.
@@ -4483,4 +4483,4 @@ The selected count and send buttons in the Plan & route work dialog are pinned t
 - **Calls made.** Cards land where the board's own order puts them; dragging does not reorder within a column. The non-drag way is a small Move to list on each card, a native select, offering only the stages that would be accepted. My tasks loads `listDoneRuleFacts` only while its Done column and work tasks are both showing.
 - **Checks.** `npm test` (2040), `npm run build` and `npx eslint src` pass. The real `TasksTab` and `MyTaskBoard` ran on a throwaway local page with sample data and a stubbed network: mouse and touch drag, a swipe that does not lift, auto-scroll on 60 cards, a blocked Done, the QA gate with five stages, a server refusal rolling back, Move to, reduced motion, dark, 900 and 375 wide. **Not walked signed in or on the Xiaomi Pad itself**: touch used synthetic pointer events, so the hold against the real browser's scrolling is unproven.
 - **Deferred:** the class project board (`TaskBoard.tsx`) has no drag. On a tablet in portrait the columns stack (three stages) or wrap two across (more), so a drop to a far column relies on auto-scroll or Move to.
-- **Next:** the owner reviews, then push `main`.
+- **Next:** try the hold-to-lift on the Xiaomi Pad.
