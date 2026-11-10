@@ -284,3 +284,24 @@ it('canReplay is false for an account with no walkthroughs', async () => {
   await mount()
   expect(seen.replay.canReplay).toBe(false)
 })
+
+it('offers Done on the Inbox step and finishing writes the member flow done', async () => {
+  h.auth.profile = { id: 'u5', role: 'member', status: 'active', can_teach: false, can_manage_projects: false }
+  h.list.mockResolvedValue([accountDone, row('member')])
+  await mount()
+  expect(text()).toContain('Invitations land in your Inbox')
+  await press('Done')
+  expect(h.save).toHaveBeenCalledWith('u5', [expect.objectContaining({ flow: 'member', done_steps: ['watch-inbox'] })])
+  expect(h.save).toHaveBeenCalledWith('u5', [{ flow: 'member', status: 'done', done_steps: ['watch-inbox'] }])
+  expect(hasButton('Skip')).toBe(false)
+})
+
+it('offers no primary action on a step with no press', async () => {
+  h.auth.profile = manager
+  h.list.mockResolvedValue([accountDone])
+  await mount()
+  expect(text()).toContain('Create a space')
+  expect(hasButton('Next')).toBe(false)
+  expect(hasButton('Done')).toBe(false)
+  expect(hasButton('Skip')).toBe(true)
+})

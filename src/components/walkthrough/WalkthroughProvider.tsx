@@ -206,9 +206,9 @@ export function WalkthroughProvider({ children }: { children: ReactNode }) {
       actions.push({ label: 'Take me there', onPress: () => navigate(to) })
     }
     if (s.pauseLabel) actions.push({ label: s.pauseLabel, onPress: () => commit(markPaused(progress, flow)) })
-    if (!s.isDone) {
+    if (s.press) {
       actions.push({
-        label: s.press ?? 'Next',
+        label: s.press,
         primary: true,
         onPress: () => commit(markStep(progress, s)),
       })
