@@ -4460,11 +4460,11 @@ been measured at 100 items.
 
 ## Paste an invitation into Schedule meeting (2026-11-10)
 
-**Committed on `main`, not pushed.** Frontend only, no SQL. The owner reviews before `main` is pushed.
+**Live on `main` since 2026-11-10 (fd82120).** Frontend only, no SQL.
 
 - **What it is.** The Schedule meeting modal has an Invitation box at the top. Pasting a Google Meet or Zoom invitation fills the title, start, length, link and, for Zoom, the Meeting ID and passcode in the agenda. Pasting a whole invitation into the Meeting link field does the same, including when editing a meeting.
 - **Code.** `lib/meetingInvite.ts` (`readInvitation`, `inviteChecks`), tested in `meetingInvite.test.ts`. The times convert from the invitation's zone to the reader's clock through `Intl`; Zoom's place names are the `ZONE_NAMES` list, and an unknown one falls back to the reader's clock with a note.
 - **Calls made.** Google's "(No title)" becomes "Google Meet meeting". Zoom gives no length, so it is 1 hour with a note. A length outside the usual list is added to the Length options when it is within the 5 to 480 minutes the database allows. A year-less date uses the weekday to find the year. A typed title or agenda survives a paste with none to replace it; the Zoom chat link is never the join link.
 - **Where and Who stay manual** unless the person has only one choice, since they decide who gets notified.
 - **Checks.** `npm test` and `npm run build` pass. Both real invitations were pasted on localhost: the fields filled, a second paste replaced the first, and pasting into the link field worked. Schedule itself was not pressed, because it notifies real people; the save path is unchanged.
-- **Next:** the owner reviews, then push `main`.
+- **Next:** nothing open.
