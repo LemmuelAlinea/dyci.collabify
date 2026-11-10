@@ -18,9 +18,9 @@ export function unionBox(boxes: Box[]): Box | null {
   return { top, left, width: right - left, height: bottom - top }
 }
 
-/** The lit area: the target with a little air, kept inside the screen. */
-export function holeFor(box: Box, vp: Viewport): Box {
-  const top = Math.max(0, box.top - PAD)
+/** The lit area: the target with a little air, kept inside the screen and below the app bar. */
+export function holeFor(box: Box, vp: Viewport, topInset = 0): Box {
+  const top = Math.max(topInset, box.top - PAD)
   const left = Math.max(0, box.left - PAD)
   const bottom = Math.min(vp.height, box.top + box.height + PAD)
   const right = Math.min(vp.width, box.left + box.width + PAD)
@@ -39,13 +39,20 @@ export function scrimPanels(hole: Box, vp: Viewport): Box[] {
   ]
 }
 
-export type Placement = { top: number; left: number; mode: 'anchored' | 'sheet' | 'center' }
+export type Placement = { top: number; left: number; mode: 'anchored' | 'sheet' | 'top' | 'center' }
 
-/** Where the card goes: beside the lit target, as a bottom sheet on a phone, or centered with no target. */
+const overlaps = (a: Box, b: Box) =>
+  a.top < b.top + b.height && b.top < a.top + a.height && a.left < b.left + b.width && b.left < a.left + a.width
+
+/**
+ * Where the card goes: beside the lit target, centered with no target, or on a phone as a
+ * bottom sheet, moving under the app bar when the sheet would cover the lit target.
+ */
 export function placeCard(
   hole: Box | null,
   card: { width: number; height: number },
   vp: Viewport,
+  topInset = 0,
 ): Placement {
   const clampLeft = (left: number) => Math.max(GUTTER, Math.min(left, vp.width - GUTTER - card.width))
   const sheetTop = Math.max(GUTTER, vp.height - GUTTER - card.height)
@@ -57,7 +64,14 @@ export function placeCard(
       mode: 'center',
     }
   }
-  if (vp.width < PHONE) return { top: sheetTop, left: GUTTER, mode: 'sheet' }
+  if (vp.width < PHONE) {
+    const at = (top: number): Box => ({ top, left: GUTTER, ...card })
+    const underBar = topInset + GUTTER
+    const topFits = underBar + card.height <= vp.height - GUTTER && !overlaps(hole, at(underBar))
+    return overlaps(hole, at(sheetTop)) && topFits
+      ? { top: underBar, left: GUTTER, mode: 'top' }
+      : { top: sheetTop, left: GUTTER, mode: 'sheet' }
+  }
 
   const left = clampLeft(hole.left)
   const below = hole.top + hole.height + GAP
