@@ -528,12 +528,17 @@ function StaticRow({
     )
   }
 
+  // The walkthrough points at these two rows.
+  const marker =
+    item.to === paths.tasks ? 'nav-tasks' : item.to === paths.groups ? 'nav-groups' : undefined
+
   return (
     <li>
       <NavLink
         to={item.to}
         end={item.end}
         onClick={onNavigate}
+        data-walkthrough={marker}
         aria-label={collapsed ? label : undefined}
         {...hintHandlers(item.label)}
         className={({ isActive }) =>

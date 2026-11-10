@@ -114,7 +114,12 @@ export default function SpaceLayout() {
             action={
               canStart && (
                 <>
-                  <Button size="sm" variant="create" onClick={() => setNewOpen(true)}>
+                  <Button
+                    size="sm"
+                    variant="create"
+                    onClick={() => setNewOpen(true)}
+                    data-walkthrough="new-project"
+                  >
                     <Icon name="plus" size={15} />
                     New project
                   </Button>

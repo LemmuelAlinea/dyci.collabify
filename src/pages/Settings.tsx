@@ -12,6 +12,7 @@ import type { IconName } from '../components/ui/Icon'
 import { Spinner } from '../components/ui/Icon'
 import { useAuth } from '../context/AuthContext'
 import { useGeneralNavigation } from '../context/generalNavigation'
+import { useWalkthrough } from '../context/walkthrough'
 import { AVATAR_ACCEPT, avatarExtension, avatarProblem } from '../lib/limits'
 import { useThemePreference } from '../hooks/useThemePreference'
 import { canTeach, membershipOf } from '../lib/access'
@@ -121,17 +122,20 @@ function Section({
   icon,
   title,
   description,
+  marker,
   children,
 }: {
   id: string
   icon: IconName
   title: string
   description: string
+  marker?: string
   children: ReactNode
 }) {
   return (
     <section
       id={id}
+      data-walkthrough={marker}
       className="surface scroll-mt-28 overflow-hidden rounded-panel border border-line"
     >
       <header className="flex items-start gap-3.5 border-b border-line bg-[var(--surface-sunken)] px-5 py-4 sm:px-6">
@@ -162,6 +166,7 @@ export default function Settings() {
   const { profile, updateProfile, loadNotificationPrefs, updateNotificationPrefs, sendPasswordReset, signOut } =
     useAuth()
   const navigation = useGeneralNavigation()
+  const { canReplay, startReplay } = useWalkthrough()
   const membership = membershipOf(navigation.spaces, navigation.myProjects)
   const { mode, choose } = useThemePreference()
 
@@ -371,7 +376,7 @@ export default function Settings() {
           >
           <div className="flex flex-col gap-6 sm:flex-row">
             <div className="flex flex-col items-center gap-3">
-              <div className="relative">
+              <div className="relative" data-walkthrough="account-photo">
                 <Avatar profile={profile} size={92} />
                 <button
                   type="button"
@@ -446,6 +451,7 @@ export default function Settings() {
 
           <Section
             id="appearance"
+            marker="account-look"
             icon="palette"
             title="Appearance"
             description="Light or dark, and your own colors for each. Applies right away and follows your account."
@@ -549,6 +555,20 @@ export default function Settings() {
                 A reset link is on its way to <strong>{profile.email}</strong>. It works for one
                 hour.
               </Alert>
+            )}
+
+            {canReplay && (
+              <div className="flex flex-col gap-4 rounded-xl border border-line p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium text-ink">Walkthrough</p>
+                  <p className="mt-0.5 text-[13px] leading-relaxed text-muted">
+                    See the getting-started steps again. Nothing changes in your account.
+                  </p>
+                </div>
+                <Button variant="outline" onClick={startReplay} className="!rounded-xl sm:shrink-0">
+                  Replay walkthrough
+                </Button>
+              </div>
             )}
 
             <div className="flex flex-col gap-4 rounded-xl border border-line p-5 sm:flex-row sm:items-center sm:justify-between">

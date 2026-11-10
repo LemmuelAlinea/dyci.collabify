@@ -133,6 +133,7 @@ export function ClassHeader({
                   <button
                     type="button"
                     onClick={copyCode}
+                    data-walkthrough="class-code"
                     title="Copy class code"
                     className="inline-flex items-center gap-2 font-mono text-[15px] font-bold tracking-wide text-banner-accent-text transition-colors hover:text-banner-accent-soft"
                   >

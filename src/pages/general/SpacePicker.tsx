@@ -96,7 +96,7 @@ export default function SpacePicker() {
             : "A space holds projects. You see the projects you're on; the space's project manager sees all of them."
         }
         action={!viewingArchived && canCreate ? (
-          <Button variant="create" onClick={() => setNewOpen(true)}>
+          <Button variant="create" onClick={() => setNewOpen(true)} data-walkthrough="create-space">
             <Icon name="plus" size={17} />
             Create space
           </Button>

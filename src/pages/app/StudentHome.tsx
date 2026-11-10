@@ -120,7 +120,11 @@ export default function StudentHome({ onSwitch }: { onSwitch?: () => void } = {}
               title="You are not in a class yet"
               body="Enter the code your professor gives you. Your projects, groups and tasks arrive with the class."
               action={
-                <Button onClick={() => setJoinOpen(true)} className="!rounded-xl">
+                <Button
+                  onClick={() => setJoinOpen(true)}
+                  className="!rounded-xl"
+                  data-walkthrough="join-class"
+                >
                   Join a class
                 </Button>
               }

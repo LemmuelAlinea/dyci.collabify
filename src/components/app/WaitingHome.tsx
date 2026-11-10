@@ -48,6 +48,7 @@ export function WaitingHome() {
             </p>
             <Link
               to={paths.inbox}
+              data-walkthrough="open-inbox"
               className={`${buttonClass({ variant: 'accent', size: 'md' })} mt-7`}
             >
               <Icon name="mail" size={16} />
