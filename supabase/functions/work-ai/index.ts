@@ -26,8 +26,11 @@ import { cors, corsMode, denied } from '../_shared/cors.ts'
 import { pickTeamRoutes, pickLeadAssignees, maskMemberNames } from '../_shared/assignPick.ts'
 import type { AssignCandidate, AssignMatch, AssignTaskIn } from '../_shared/assignPick.ts'
 import { completeNotesDates, matchSprintName, validDay } from '../_shared/notesSchedule.ts'
+import { keepAliveJson } from '../_shared/keepAlive.ts'
 
 const MODEL = 'claude-opus-5'
+/** The most tasks one Tasks from notes run can draft. */
+const NOTES_TASK_LIMIT = 100
 const BUCKET = 'general-files'
 
 type Json = Record<string, unknown>
@@ -115,14 +118,16 @@ async function ask(
   effort: Effort,
   maxTokens = 8000,
 ) {
-  const message = await anthropic.messages.create({
+  // Streamed so a long answer cannot time out between here and the model.
+  const message = await anthropic.messages.stream({
     model: MODEL,
     max_tokens: maxTokens,
     system,
     output_config: { effort, format: { type: 'json_schema', schema } },
     messages: [{ role: 'user', content: user }],
-  })
+  }).finalMessage()
   if (message.stop_reason === 'refusal') throw new Refused('No answer could be produced for that.')
+  if (message.stop_reason === 'max_tokens') throw new Refused('That was too long to finish in one go. Split it into smaller parts and try again.')
   const block = message.content.find((b) => b.type === 'text')
   return JSON.parse(block && 'text' in block ? block.text : '{}') as Json
 }
@@ -314,7 +319,7 @@ discussion, not background, not things already done.
   below. Give substantial work more time than simple handoffs. Overlap tasks
   that independent people can do in parallel; leave room for review and fixes.
   Use weekdays for estimated dates. Do not move a stated date to a weekday.
-- At most 60 items, in the order the text gives them. A task list or plan
+- At most ${NOTES_TASK_LIMIT} items, in the order the text gives them. A task list or plan
   document is all action items: take every task it lists.
 - sprints: only when the text clearly lays out sprints or iterations by name
   ("Sprint 1", "Iteration 2", a sprint plan) and says which tasks belong to
@@ -383,7 +388,7 @@ ${VOICE}`,
       note: str,
     }),
     'medium',
-    16000,
+    32000,
   )
 
   const day = validDay
@@ -434,7 +439,7 @@ ${VOICE}`,
   console.log('[tasks] shared', shared.files.length, 'linked', JSON.stringify(((out.tasks as Json[]) ?? []).map((t) => t.files)))
   const tasks = ((out.tasks as Json[]) ?? [])
     .filter((t) => String(t.title ?? '').trim())
-    .slice(0, 60)
+    .slice(0, NOTES_TASK_LIMIT)
     .map((t) => {
       const due = day(t.due)
       const start = day(t.start)
@@ -895,14 +900,16 @@ Deno.serve(async (req) => {
       if (limited.error) return json(CORS, { result: 'failed', message: limited.error.message }, 429)
     }
 
-    const result = await action.run({
+    const run = () => action.run({
       caller,
       anthropic: new Anthropic({ apiKey }),
       userId: user.id,
       projectId,
       body,
     })
-    return json(CORS, { result: 'ok', ...(result as Json) })
+    // A long task list can take minutes to draft.
+    if (name === 'tasks') return keepAliveJson(CORS, run as () => Promise<Json>)
+    return json(CORS, { result: 'ok', ...(await run() as Json) })
   } catch (err) {
     if (err instanceof Refused) return json(CORS, { result: 'failed', message: err.message }, err.status)
     const message = err instanceof Error ? err.message : 'That did not work. Try again.'

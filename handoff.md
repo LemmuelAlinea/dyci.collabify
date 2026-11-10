@@ -4416,3 +4416,11 @@ each held to 4.5:1 on the person's banner, and pulls the project color words to 
 keeps its fade; a mid-tone one has no room and uses nearly full-strength text. Every
 `text-banner-ink/NN` is gone. Checked with the real palette code and stylesheet on eight banner
 colors on localhost, with no sign-in, so not on a signed-in page.
+
+## Tasks from notes limit (2026-11-10)
+
+`work-ai` `tasks` now drafts up to 100 items (`NOTES_TASK_LIMIT`), with 32,000 output tokens. `ask`
+streams from the model for every action and refuses clearly at `max_tokens`. Because a 100-item draft
+can pass the gateway's 150-second wait, `tasks` answers through `_shared/keepAlive.ts`, so a refusal
+arrives as a 200 with `result: 'failed'`. The function's wall-clock limit still applies and has not
+been measured at 100 items.
