@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, useReducedMotion } from 'motion/react'
 import { Button } from '../ui/Button'
+import { dialogIsOpen } from './useTargetBox'
 import { DUR } from '../../lib/motion'
 import { holeFor, placeCard, scrimPanels } from '../../lib/walkthrough/geometry'
 import type { Box, Viewport } from '../../lib/walkthrough/geometry'
@@ -63,6 +64,8 @@ export function Spotlight({ title, body, eyebrow, box, blockTarget, actions }: P
   // Listened for on the document, since focus leaves the card once it reaches the lit target.
   const onTab = (e: KeyboardEvent) => {
     if (e.key !== 'Tab') return
+    // A real dialog on top has its own focus trap; Tab is its to handle.
+    if (dialogIsOpen()) return
     const own = [...(card.current?.querySelectorAll<HTMLElement>('button') ?? [])]
     const lit =
       hole && !blockTarget

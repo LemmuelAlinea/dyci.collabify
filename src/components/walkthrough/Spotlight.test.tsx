@@ -139,6 +139,30 @@ it('keeps Tab among the card buttons and the lit target', async () => {
   expect(document.activeElement).toBe(lit)
 })
 
+it('leaves Tab to an open dialog, but not to one that is inert', async () => {
+  await show()
+  const shell = document.createElement('div')
+  const dialog = document.createElement('div')
+  dialog.setAttribute('role', 'dialog')
+  dialog.setAttribute('aria-modal', 'true')
+  const field = document.createElement('input')
+  dialog.append(field)
+  shell.append(dialog)
+  document.body.append(shell)
+  const press = () => {
+    const e = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    field.dispatchEvent(e)
+    return e
+  }
+  field.focus()
+  expect(press().defaultPrevented).toBe(false)
+  expect(document.activeElement).toBe(field)
+
+  shell.setAttribute('inert', '')
+  field.focus()
+  expect(press().defaultPrevented).toBe(true)
+})
+
 it('reports an open dialog', async () => {
   vi.useFakeTimers()
   await act(async () => root.render(<Probe markers={['x']} />))

@@ -13,7 +13,7 @@ const same = (a: Box | null, b: Box | null) =>
   a === b || (!!a && !!b && a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height)
 
 /** Any open modal dialog not behind an inert ancestor. This also catches the phone drawer. */
-function dialogIsOpen() {
+export function dialogIsOpen() {
   return [...document.querySelectorAll('[role="dialog"][aria-modal="true"]')].some((d) => !d.closest('[inert]'))
 }
 
