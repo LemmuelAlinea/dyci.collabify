@@ -23,12 +23,13 @@ import { useToast } from '../../../components/ui/Toast'
 import { useAuth } from '../../../context/AuthContext'
 import { useGeneralNavigation } from '../../../context/generalNavigation'
 import { useGeneralDashboard } from '../../../hooks/useGeneralDashboard'
-import { listMyArchivedTasks, listProjectStages, updateTask } from '../../../lib/api/general'
+import { listDoneRuleFacts, listMyArchivedTasks, listProjectStages, updateTask } from '../../../lib/api/general'
 import { listMyArchivedClassTasks, myTasks as myClassTasks, setTaskStatus } from '../../../lib/api/tasks'
 import type { MyTask } from '../../../lib/api/tasks'
 import { membershipOf, showsClassScope } from '../../../lib/access'
 import { authErrorMessage } from '../../../lib/authError'
 import { myTasks as myOpenWorkTasks } from '../../../lib/general/dashboard'
+import { blockersOf, subtasksOf } from '../../../lib/general/taskRules'
 import {
   EMPTY_PRIORITY_VIEW,
   filterByPriority,
@@ -42,6 +43,7 @@ import { readScope, writeScope } from '../../../lib/scope'
 import { formatMinutes, taskShare, taskStatusLabel } from '../../../lib/types'
 import { useNow } from '../../../hooks/useNow'
 import type { GeneralTask } from '../../../lib/general/types'
+import { workDropRefusal } from '../../../lib/work/boardDrop'
 import { qaBlocks, qaGated } from '../../../lib/work/qa'
 import { stageIndex, stagesOf } from '../../../lib/stages'
 import type { TaskStatus } from '../../../lib/types'
@@ -359,8 +361,10 @@ export default function MyTasks() {
     try {
       await setTaskStatus(t.id, to)
       await load()
+      return true
     } catch (err) {
       show(authErrorMessage(err, 'Could not move that task.'), 'error')
+      return false
     }
   }
 
@@ -369,9 +373,38 @@ export default function MyTasks() {
       await updateTask(t.id, { status: to })
       await reloadDash()
       if (to === 'done') show('Marked done. Finished work tasks leave My tasks.')
+      return true
     } catch (err) {
       show(authErrorMessage(err, 'Could not move that task.'), 'error')
+      return false
     }
+  }
+
+  // The Done column shows only beside class tasks, so that is when a work task needs these.
+  const wantsDoneFacts = view === 'board' && classFiltered.length > 0 && workFiltered.length > 0
+  const factsKey = wantsDoneFacts ? projectIds.join(',') : ''
+  const [doneFacts, setDoneFacts] = useState<Awaited<ReturnType<typeof listDoneRuleFacts>> | null>(null)
+  const loadDoneFacts = useCallback(async () => {
+    setDoneFacts(factsKey ? await listDoneRuleFacts(factsKey.split(',')).catch(() => null) : null)
+  }, [factsKey])
+  useEffect(() => {
+    void loadDoneFacts()
+  }, [loadDoneFacts])
+  useLive(loadDoneFacts, ['general_task_dependencies'], { enabled: Boolean(factsKey) })
+
+  /** Why a work task can't reach Done. Facts still loading leave it to the database. */
+  const doneRefusal = (t: GeneralTask) => {
+    const open = dashData?.tasks ?? []
+    return workDropRefusal({
+      task: t,
+      to: 2,
+      stageCount: 3,
+      qaBlocks: () => noDone(t),
+      rules: { requireAssignee: false, requireSubtasksDone: doneFacts?.requireSubtasksDone.has(t.project_id) ?? false },
+      openSubtasks: subtasksOf(open, t.id).length,
+      blockers: blockersOf(doneFacts?.dependencies ?? [], open, t.id),
+      parentDone: false,
+    })
   }
 
   // Board and List read class and work tasks as one set.
@@ -390,7 +423,10 @@ export default function MyTasks() {
         minutes: t.logged_minutes,
         onOpen: () => showTask(t.id),
         next: { label: NEXT[t.status].label, icon: NEXT[t.status].icon, run: () => void moveClassTask(t) },
-        onStage: (to) => moveClassTask(t, to),
+        onStage: async (to) => {
+          await moveClassTask(t, to)
+        },
+        onDrop: (to) => moveClassTask(t, to),
       }),
     ),
     ...workFiltered.map(
@@ -408,8 +444,12 @@ export default function MyTasks() {
         priority: t.priority,
         partOf: partOf(t) ?? undefined,
         onOpen: () => showWorkTask(t),
-        onStage: (to) => moveWorkTask(t, to),
+        onStage: async (to) => {
+          await moveWorkTask(t, to)
+        },
+        onDrop: (to) => moveWorkTask(t, to),
         noDone: noDone(t),
+        doneRefusal: doneRefusal(t),
       }),
     ),
   ]
@@ -512,7 +552,13 @@ export default function MyTasks() {
           <EmptyState icon="check" art="tasks" title={emptyCopy.title} body={emptyCopy.body} />
         ) : view === 'board' ? (
           <>
-            <MyTaskBoard items={items} showDone={classFiltered.length > 0} now={now} sort={priorityView.sort} />
+            <MyTaskBoard
+              items={items}
+              showDone={classFiltered.length > 0}
+              now={now}
+              sort={priorityView.sort}
+              onRefused={(reason) => show(reason, 'error')}
+            />
             <p className="text-[12px] text-faint">
               Only the people on a task can move it. Work tasks leave this page once they are done.
             </p>

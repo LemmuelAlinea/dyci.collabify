@@ -1,7 +1,10 @@
 // src/components/general/TasksTab.tsx
 import { useMemo, useState } from 'react'
 import { Avatar } from '../app/Avatar'
+import { BoardColumn, MoveToStage } from '../tasks/BoardColumn'
 import { StageBadge, StageSelect } from '../tasks/StageSelect'
+import { useBoardDrag } from '../tasks/useBoardDrag'
+import type { BoardDrag } from '../tasks/useBoardDrag'
 import { TaskViewMenu } from '../tasks/TaskViewSwitch'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
@@ -20,7 +23,7 @@ import { authErrorMessage } from '../../lib/authError'
 import { formatDue, fromLocalInput, isOverdue } from '../../lib/general/dates'
 import { DEFAULT_MEMBER_RULES, canCreateWorkTask, canCreateWorkTaskWith, canEditTask } from '../../lib/general/permissions'
 import { EMPTY_PRIORITY_VIEW, filterByPriority, priorityActive, prioritySummary, sortByPriority } from '../../lib/general/taskFilters'
-import { taskMarkIndex } from '../../lib/general/taskRules'
+import { DEFAULT_TASK_RULES, blockersOf, subtasksOf, taskMarkIndex } from '../../lib/general/taskRules'
 import type { TaskMarkData } from '../../lib/general/taskRules'
 import { projectProgress } from '../../lib/general/progress'
 import { STAGE_TONE, nextStep, stageIndex, stagesOf, statusForStage } from '../../lib/stages'
@@ -28,6 +31,7 @@ import type { GeneralTaskStatus } from '../../lib/general/progress'
 import type { GeneralTask, TaskKind } from '../../lib/general/types'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
+import { landingIndex, workDropRefusal } from '../../lib/work/boardDrop'
 import { reachedIn } from '../../lib/work/milestones'
 import { QA_PASSES } from '../../lib/work/qa'
 import { milestoneCalendarEvents, sprintCalendarEvents, taskCalendarEvents } from '../../lib/work/calendar'
@@ -148,12 +152,15 @@ export function TasksTab({
       t,
     )
 
+  /** Every stage change on this tab, the board's drag included. True when it went through. */
   async function move(t: GeneralTask, to: GeneralTaskStatus, stage: number) {
     try {
       await updateTask(t.id, { status: to, stage })
       await state.reload()
+      return true
     } catch (err) {
       show(authErrorMessage(err, 'Could not move that task.'), 'error')
+      return false
     }
   }
 
@@ -349,46 +356,17 @@ export function TasksTab({
       ) : shown.length === 0 ? (
         <EmptyState icon="search" title="Nothing matches" body="No task fits these filters. Clear one and try again." />
       ) : layout === 'board' ? (
-        // Three stages share the width; more run side by side and scroll.
-        <BoardScroller
-          className={`grid gap-4 ${
-            stages.length === 3
-              ? 'lg:grid-cols-3'
-              : 'sm:grid-cols-2 lg:auto-cols-[minmax(250px,1fr)] lg:grid-flow-col lg:grid-cols-none lg:overflow-x-auto lg:pb-2'
-          }`}
-        >
-          {stages.map((name, index) => {
-            const column = shown.filter((t) => stageIndex(t.status, t.stage, stages.length) === index)
-            return (
-              <section key={`${index}-${name}`} className="min-w-0 space-y-3">
-                <header className="flex items-baseline justify-between gap-2 border-b border-line pb-2">
-                  <h3 className={`truncate font-semibold ${STAGE_TONE[statusForStage(index, stages.length)]}`}>{name}</h3>
-                  <span className="font-mono text-[12px] text-faint">{column.length}</span>
-                </header>
-                {column.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-[12px] text-faint">
-                    Nothing here
-                  </p>
-                ) : (
-                  column.map((t) => (
-                    <TaskCard
-                      key={t.id}
-                      task={t}
-                      state={state}
-                      canMove={mayMove(t)}
-                      stages={stages}
-                      marks={marksOf(t)}
-                      onMove={(to, stage) => void move(t, to, stage)}
-                      onOpen={() => showTask(t.id)}
-                    />
-                  ))
-                )}
-              </section>
-            )
-          })}
-        </BoardScroller>
+        <StageBoard
+          tasks={shown}
+          state={state}
+          stages={stages}
+          marksOf={marksOf}
+          mayMove={mayMove}
+          onMove={move}
+          onOpen={showTask}
+        />
       ) : layout === 'list' ? (
-        <TaskTable tasks={shown} state={state} stages={stages} marksOf={marksOf} onOpen={showTask} mayMove={mayMove} onMove={move} />
+        <TaskTable tasks={shown} state={state} stages={stages} marksOf={marksOf} onOpen={showTask} mayMove={mayMove} onMove={async (t, to, stage) => { await move(t, to, stage) }} />
       ) : layout === 'timeline' ? (
         <TimelineView
           tasks={shown.map((t) => ({
@@ -425,6 +403,117 @@ export function TasksTab({
         onCreated={showTask}
       />
       {mayDraft && <TasksFromNotes open={fromNotes} onClose={() => setFromNotes(false)} state={state} />}
+    </div>
+  )
+}
+
+/** The board: a column per stage, with cards that drag between them. */
+function StageBoard({
+  tasks,
+  state,
+  stages,
+  marksOf,
+  mayMove,
+  onMove,
+  onOpen,
+}: {
+  tasks: GeneralTask[]
+  state: GeneralProjectState
+  stages: readonly string[]
+  marksOf: (t: GeneralTask) => TaskMarkData | null
+  mayMove: (t: GeneralTask) => boolean
+  onMove: (t: GeneralTask, to: GeneralTaskStatus, stage: number) => Promise<boolean>
+  onOpen: (id: string) => void
+}) {
+  const { show } = useToast()
+  const count = stages.length
+  const isClassBoard = Boolean(state.project?.class_board_id)
+  const rules = isClassBoard ? null : (state.project?.taskRules ?? DEFAULT_TASK_RULES)
+
+  const refusalOf = (t: GeneralTask, to: number) =>
+    workDropRefusal({
+      task: t,
+      to,
+      stageCount: count,
+      qaBlocks: state.qaBlocks,
+      rules,
+      openSubtasks: subtasksOf(state.tasks, t.id).filter((c) => c.status !== 'done').length,
+      blockers: blockersOf(state.dependencies ?? [], state.tasks, t.id),
+      parentDone: state.tasks.some((p) => p.id === t.parent_id && p.status === 'done'),
+    })
+
+  const { attach, ...drag } = useBoardDrag({
+    refusal: (id, column) => {
+      const t = tasks.find((x) => x.id === id)
+      return t ? refusalOf(t, column) : 'That task is no longer on this board.'
+    },
+    commit: async (id, column) => {
+      const t = tasks.find((x) => x.id === id)
+      return t ? onMove(t, statusForStage(column, count), column) : false
+    },
+    onRefused: (reason) => show(reason, 'error'),
+  })
+
+  // While its move is on the way a card reads as already being where it landed.
+  const placed = tasks.map((t) => {
+    const column = drag.pendingColumn(t.id)
+    return column === undefined ? t : { ...t, status: statusForStage(column, count), stage: column }
+  })
+  const order = placed.map((t) => t.id)
+
+  return (
+    <div ref={attach} className="space-y-4">
+      {/* Three stages share the width; more run side by side and scroll. */}
+      <BoardScroller
+        className={`-mx-1.5 grid gap-4 px-1.5 ${
+          count === 3
+            ? 'lg:grid-cols-3'
+            : 'sm:grid-cols-2 lg:-my-1.5 lg:auto-cols-[minmax(250px,1fr)] lg:grid-flow-col lg:grid-cols-none lg:overflow-x-auto lg:pt-1.5 lg:pb-3.5'
+        }`}
+      >
+        {stages.map((name, index) => {
+          const column = placed.filter((t) => stageIndex(t.status, t.stage, count) === index)
+          const movable = (t: GeneralTask) => mayMove(t) && drag.pendingColumn(t.id) === undefined
+          return (
+            <BoardColumn
+              key={`${index}-${name}`}
+              drag={drag}
+              column={index}
+              slotAt={drag.active ? landingIndex(order, column.map((t) => t.id), drag.active.id) : 0}
+              header={
+                <header className="flex items-baseline justify-between gap-2 border-b border-line pb-2">
+                  <h3 className={`truncate font-semibold ${STAGE_TONE[statusForStage(index, count)]}`}>{name}</h3>
+                  <span className="font-mono text-[12px] text-faint">{column.length}</span>
+                </header>
+              }
+              empty={
+                <p className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-[12px] text-faint">
+                  Nothing here
+                </p>
+              }
+              cards={column.map((t) => (
+                <TaskCard
+                  key={t.id}
+                  task={t}
+                  state={state}
+                  canMove={mayMove(t)}
+                  stages={stages}
+                  marks={marksOf(t)}
+                  drag={drag}
+                  column={index}
+                  draggable={movable(t)}
+                  moveOptions={movable(t)
+                    ? stages.flatMap((label, value) => (value !== index && !refusalOf(t, value) ? [{ value, label }] : []))
+                    : []}
+                  onMove={(to, stage) => void onMove(t, to, stage)}
+                  onOpen={() => onOpen(t.id)}
+                />
+              ))}
+            />
+          )
+        })}
+      </BoardScroller>
+      {drag.layer}
     </div>
   )
 }
@@ -470,6 +559,10 @@ function TaskCard({
   canMove,
   stages,
   marks,
+  drag,
+  column,
+  draggable,
+  moveOptions,
   onMove,
   onOpen,
 }: {
@@ -478,6 +571,10 @@ function TaskCard({
   canMove: boolean
   stages: readonly string[]
   marks: TaskMarkData | null
+  drag: BoardDrag
+  column: number
+  draggable: boolean
+  moveOptions: { value: number; label: string }[]
   onMove: (to: GeneralTaskStatus, stage: number) => void
   onOpen: () => void
 }) {
@@ -490,14 +587,15 @@ function TaskCard({
 
   return (
     <article
-      className={`surface group relative rounded-xl border p-3.5 shadow-card transition-colors duration-200 ${
+      {...drag.cardProps(task.id, column, draggable)}
+      className={`surface group relative rounded-xl border p-3.5 shadow-card transition-[border-color,opacity] duration-200 ${
         yours
           ? 'border-warning-300 hover:border-warning-400 dark:border-warning-400/50'
           : 'border-line hover:border-line-strong'
-      }`}
+      } ${drag.cardClass(task.id)}`}
     >
       {/* A stretched button rather than a wrapping one: the card holds its own controls. */}
-      <button type="button" onClick={onOpen} aria-label={`Open ${task.title}`} className="absolute inset-0 z-0 rounded-xl" />
+      <button type="button" data-card-open="" onClick={onOpen} aria-label={`Open ${task.title}`} className="absolute inset-0 z-0 rounded-xl" />
       <div className="pointer-events-none flex items-start justify-between gap-2">
         <h4
           className={`min-w-0 text-[14px] leading-snug font-medium break-words group-hover:underline ${
@@ -578,14 +676,17 @@ function TaskCard({
             {task.assignee_ids.length === 0 ? 'Open to the project' : 'Whoever is on it moves it'}
           </span>
         )}
-        <button
-          type="button"
-          onClick={onOpen}
-          aria-label={`Edit ${task.title}`}
-          className="grid h-7 w-7 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
-        >
-          <Icon name="edit" size={14} />
-        </button>
+        <div className="flex items-center gap-0.5">
+          <MoveToStage title={task.title} options={moveOptions} onMove={(to) => drag.moveTo(task.id, to)} />
+          <button
+            type="button"
+            onClick={onOpen}
+            aria-label={`Edit ${task.title}`}
+            className="grid h-7 w-7 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
+          >
+            <Icon name="edit" size={14} />
+          </button>
+        </div>
       </div>
     </article>
   )

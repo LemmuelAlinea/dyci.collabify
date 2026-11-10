@@ -5,8 +5,11 @@ import type { PrioritySort } from '../../lib/general/taskFilters'
 import { comparePriority } from '../../lib/general/taskRules'
 import type { TaskPriority } from '../../lib/general/types'
 import { PriorityBadge } from '../general/PriorityBadge'
+import { BoardColumn, MoveToStage } from './BoardColumn'
 import { StageBadge, StageSelect } from './StageSelect'
+import { useBoardDrag } from './useBoardDrag'
 import { DEFAULT_STAGES } from '../../lib/stages'
+import { landingIndex } from '../../lib/work/boardDrop'
 import { QA_PASSES } from '../../lib/work/qa'
 import { TASK_STATUSES, formatMinutes } from '../../lib/types'
 import type { TaskStatus } from '../../lib/types'
@@ -72,6 +75,10 @@ export type MyTaskItem = {
   onStage?: (to: TaskStatus) => Promise<void>
   /** Done is not offered: getting there crosses the project's QA stage, and QA passes its tasks. */
   noDone?: boolean
+  /** The Board's drag: moves the task and says whether it went through. */
+  onDrop?: (to: TaskStatus) => Promise<boolean>
+  /** Why the database would refuse this task reaching Done, or null. */
+  doneRefusal?: string | null
 }
 
 const COLUMN_TONE: Record<TaskStatus, string> = {
@@ -92,7 +99,7 @@ const whereOf = (t: MyTaskItem) => (t.partOf ? `${t.where} · ${t.partOf}` : t.w
 function Title({ item, className }: { item: MyTaskItem; className: string }) {
   const tone = item.status === 'done' ? 'text-muted line-through' : 'text-ink'
   return (
-    <button type="button" onClick={item.onOpen} className={`${className} ${tone} text-left hover:underline`}>
+    <button type="button" data-card-open="" onClick={item.onOpen} className={`${className} ${tone} text-left hover:underline`}>
       {item.title}
     </button>
   )
@@ -154,59 +161,106 @@ export function MyTaskBoard({
   showDone,
   now,
   sort = '',
+  onRefused,
 }: {
   items: MyTaskItem[]
   showDone: boolean
   now: number
   sort?: PrioritySort
+  /** Says why a drop was refused. */
+  onRefused?: (reason: string) => void
 }) {
   const stages = TASK_STATUSES.filter((s) => showDone || s.value !== 'done')
+  const statusAt = (column: number) => TASK_STATUSES[column].value
+  const refusalOf = (t: MyTaskItem, column: number) =>
+    statusAt(column) === 'done' ? (t.doneRefusal ?? (t.noDone ? QA_PASSES : null)) : null
+
+  const { attach, ...drag } = useBoardDrag({
+    refusal: (key, column) => {
+      const t = items.find((x) => x.key === key)
+      return t ? refusalOf(t, column) : 'That task is no longer on this board.'
+    },
+    commit: async (key, column) => {
+      const t = items.find((x) => x.key === key)
+      return t?.onDrop ? t.onDrop(statusAt(column)) : false
+    },
+    onRefused: (reason) => onRefused?.(reason),
+  })
+
+  // While its move is on the way a card reads as already being where it landed.
+  const placed = items.map((t) => {
+    const column = drag.pendingColumn(t.key)
+    return column === undefined ? t : { ...t, status: statusAt(column) }
+  })
+  const order = [...placed].sort(orderOf(sort)).map((t) => t.key)
+
   return (
-    <div className={`grid gap-4 ${stages.length === 3 ? 'lg:grid-cols-3' : 'md:grid-cols-2'}`}>
+    <div ref={attach} className={`grid gap-4 ${stages.length === 3 ? 'lg:grid-cols-3' : 'md:grid-cols-2'}`}>
       {stages.map((s) => {
-        const column = items.filter((t) => t.status === s.value).sort(orderOf(sort))
+        const index = TASK_STATUSES.indexOf(s)
+        const column = placed.filter((t) => t.status === s.value).sort(orderOf(sort))
         return (
-          <section key={s.value} className="min-w-0 space-y-3">
-            <header className="flex items-baseline justify-between gap-2 border-b border-line pb-2">
-              <h2 className={`text-[15px] font-semibold ${COLUMN_TONE[s.value]}`}>{s.label}</h2>
-              <span className="font-mono text-[12px] text-faint">{column.length}</span>
-            </header>
-            {column.length === 0 ? (
+          <BoardColumn
+            key={s.value}
+            drag={drag}
+            column={index}
+            slotAt={drag.active ? landingIndex(order, column.map((t) => t.key), drag.active.id) : 0}
+            header={
+              <header className="flex items-baseline justify-between gap-2 border-b border-line pb-2">
+                <h2 className={`text-[15px] font-semibold ${COLUMN_TONE[s.value]}`}>{s.label}</h2>
+                <span className="font-mono text-[12px] text-faint">{column.length}</span>
+              </header>
+            }
+            empty={
               <p className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-[12px] text-faint">
                 Nothing here
               </p>
-            ) : (
-              column.map((t) => {
-                const late = isOverdue(t.due_at, t.status, now)
-                return (
-                  <article
-                    key={t.key}
-                    className="rounded-xl border border-line surface p-3.5 shadow-card transition-colors hover:border-line-strong"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <Title item={t} className="block min-w-0 text-[14px] leading-snug font-medium" />
-                      <span className="flex shrink-0 items-center gap-1">
-                        <PriorityBadge priority={t.priority} />
-                        <KindTag kind={t.kind} />
+            }
+            cards={column.map((t) => {
+              const late = isOverdue(t.due_at, t.status, now)
+              const movable = Boolean(t.onDrop) && drag.pendingColumn(t.key) === undefined
+              return (
+                <article
+                  key={t.key}
+                  {...drag.cardProps(t.key, index, movable)}
+                  className={`relative rounded-xl border border-line surface p-3.5 shadow-card transition-[border-color,opacity] duration-200 hover:border-line-strong ${drag.cardClass(t.key)}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <Title item={t} className="block min-w-0 text-[14px] leading-snug font-medium" />
+                    <span className="flex shrink-0 items-center gap-1">
+                      <PriorityBadge priority={t.priority} />
+                      <KindTag kind={t.kind} />
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-[12px] text-muted">{whereOf(t)}</p>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-faint">
+                      <span className={`font-mono ${late ? 'text-danger-600 dark:text-danger-400' : ''}`}>
+                        {late ? 'Overdue' : t.due_at ? formatDue(t.due_at) : 'No due date'}
                       </span>
-                    </div>
-                    <p className="mt-1 truncate text-[12px] text-muted">{whereOf(t)}</p>
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                      <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-faint">
-                        <span className={`font-mono ${late ? 'text-danger-600 dark:text-danger-400' : ''}`}>
-                          {late ? 'Overdue' : t.due_at ? formatDue(t.due_at) : 'No due date'}
-                        </span>
-                        <Counts item={t} />
-                      </span>
+                      <Counts item={t} />
+                    </span>
+                    <span className="flex items-center gap-1">
+                      {movable && (
+                        <MoveToStage
+                          title={t.title}
+                          options={stages.flatMap((o) => {
+                            const value = TASK_STATUSES.indexOf(o)
+                            return value !== index && !refusalOf(t, value) ? [{ value, label: o.label }] : []
+                          })}
+                          onMove={(to) => drag.moveTo(t.key, to)}
+                        />
+                      )}
                       {t.next && <NextButton next={t.next} />}
-                    </div>
-                  </article>
-                )
-              })
-            )}
-          </section>
+                    </span>
+                  </div>
+                </article>
+              )
+            })}
+          />
         )
       })}
+      {drag.layer}
     </div>
   )
 }

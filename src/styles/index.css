@@ -850,6 +850,21 @@
   .scroll-hidden::-webkit-scrollbar {
     display: none;
   }
+
+  /* A board card that can be dragged, and the page while one is up. */
+  [data-grab],
+  [data-grab] [data-card-open] {
+    cursor: grab;
+  }
+  [data-grab] {
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  .board-dragging,
+  .board-dragging * {
+    cursor: grabbing !important;
+    user-select: none;
+  }
   /**
    * The rail's places card, drawn in the person's banner: an outline that runs
    * from its left-hand colour to its right-hand one, over a faint wash of the

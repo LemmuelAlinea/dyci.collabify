@@ -250,6 +250,21 @@ export async function listProjectStages(projectIds: string[]) {
   return (data ?? []) as { id: string; stages: string[] | null; qa_stage: string | null }[]
 }
 
+/** What decides whether a task may reach Done, across several projects. */
+export async function listDoneRuleFacts(projectIds: string[]) {
+  const [projects, links] = await Promise.all([
+    supabase.from('general_projects').select('id, require_subtasks_done').in('id', projectIds),
+    supabase.from('general_task_dependencies').select('task_id, depends_on_id').in('project_id', projectIds),
+  ])
+  if (projects.error) throw projects.error
+  if (links.error) throw links.error
+  const rows = (projects.data ?? []) as { id: string; require_subtasks_done: boolean }[]
+  return {
+    requireSubtasksDone: new Set(rows.filter((r) => r.require_subtasks_done).map((r) => r.id)),
+    dependencies: (links.data ?? []) as TaskDependency[],
+  }
+}
+
 /** Several projects' color and icon, for lists that draw each project's look. */
 export async function listProjectLooks(projectIds: string[]) {
   if (projectIds.length === 0) return []

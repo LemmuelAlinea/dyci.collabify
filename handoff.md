@@ -4472,3 +4472,15 @@ been measured at 100 items.
 ## Plan & route bottom bar stays visible (2026-11-10)
 
 The selected count and send buttons in the Plan & route work dialog are pinned to the dialog's bottom edge on all three queues (`TaskRoutingPanel.tsx`). Frontend only. Checked with the real dialog and panel on a throwaway local page with 30 sample tasks per queue, at desktop and phone widths; not walked signed in. On a phone the Planning bar is 169px tall because its controls wrap.
+
+## Drag tasks between stages (2026-11-10)
+
+**Committed on `main`, not pushed.** Frontend only, no SQL. The owner reviews before `main` is pushed.
+
+- **What it is.** On the work project Tasks board and the My tasks board, a card lifts, follows the pointer and settles into the stage it is dropped on. A mouse lifts after 5 pixels. A finger lifts after a 200 ms hold, so a swipe still scrolls the page. The board auto-scrolls near the edges, and Escape puts the card back. Start, Mark done and the other buttons are unchanged.
+- **Code.** `components/tasks/useBoardDrag.tsx` is the drag; `components/tasks/BoardColumn.tsx` holds the column and `MoveToStage`; `lib/work/boardDrop.ts` holds the rule (`workDropRefusal`), tested in `boardDrop.test.ts`. No new dependency, Motion only. `StageBoard` in `TasksTab.tsx` is the old inline board plus drag.
+- **The rule.** Only a card its viewer may already move can be lifted (`mayMove`, or `onDrop` on My tasks). `workDropRefusal` refuses in the database's own words and order: the QA gate, a finished subtask of a done parent, no holder when the project requires one, open subtasks, then what the task waits for. A refused column dims while a card is up and says why when the card is over it. The database still decides: a move it refuses glides back and shows its message. Moves use the same `updateTask` and `setTaskStatus` calls as the buttons.
+- **Calls made.** Cards land where the board's own order puts them; dragging does not reorder within a column. The non-drag way is a small Move to list on each card, a native select, offering only the stages that would be accepted. My tasks loads `listDoneRuleFacts` only while its Done column and work tasks are both showing.
+- **Checks.** `npm test` (2040), `npm run build` and `npx eslint src` pass. The real `TasksTab` and `MyTaskBoard` ran on a throwaway local page with sample data and a stubbed network: mouse and touch drag, a swipe that does not lift, auto-scroll on 60 cards, a blocked Done, the QA gate with five stages, a server refusal rolling back, Move to, reduced motion, dark, 900 and 375 wide. **Not walked signed in or on the Xiaomi Pad itself**: touch used synthetic pointer events, so the hold against the real browser's scrolling is unproven.
+- **Deferred:** the class project board (`TaskBoard.tsx`) has no drag. On a tablet in portrait the columns stack (three stages) or wrap two across (more), so a drop to a far column relies on auto-scroll or Move to.
+- **Next:** the owner reviews, then push `main`.
