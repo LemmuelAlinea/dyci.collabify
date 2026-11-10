@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createMeeting, updateMeeting } from '../../lib/api/meetings'
 import { authErrorMessage } from '../../lib/authError'
 import { fromLocalInput, toLocalInput } from '../../lib/general/dates'
+import { inviteChecks, readInvitation, untitledMeeting } from '../../lib/meetingInvite'
+import type { MeetingInvite } from '../../lib/meetingInvite'
 import { PLATFORM_LABEL, audienceText, detectPlatform } from '../../lib/meetings'
 import type { Meeting, MeetingAudience, MeetingScope } from '../../lib/meetings'
 import { Alert } from '../ui/Alert'
@@ -12,10 +14,19 @@ import { Modal } from '../ui/Modal'
 import { Select, Textarea } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 
-const DURATIONS = [15, 30, 45, 60, 90, 120, 180].map((n) => ({
+const lengthOption = (n: number) => ({
   value: String(n),
-  label: n < 60 ? `${n} minutes` : n === 60 ? '1 hour' : `${n / 60} hours`,
-}))
+  label:
+    n < 60 ? `${n} minutes` : n === 60 ? '1 hour' : n % 30 === 0 ? `${n / 60} hours` : `${Math.floor(n / 60)} h ${n % 60} min`,
+})
+
+const DURATIONS = [15, 30, 45, 60, 90, 120, 180].map(lengthOption)
+
+/** The usual lengths, plus the one an invitation asked for when it is not among them. */
+function lengthOptions(current: string) {
+  if (DURATIONS.some((d) => d.value === current)) return DURATIONS
+  return [...DURATIONS, lengthOption(Number(current))].sort((a, b) => Number(a.value) - Number(b.value))
+}
 
 /** Classes and spaces are where; the audiences inside them are who. */
 const whereKey = (a: Pick<MeetingAudience, 'scope' | 'class_id' | 'space_id'>) =>
@@ -106,11 +117,19 @@ export function ScheduleMeetingModal({
   const [agenda, setAgenda] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pasted, setPasted] = useState('')
+  const [readNote, setReadNote] = useState<{ checks: string[]; text: string } | null>(null)
+  // What the last invitation wrote, so another one can replace it without
+  // touching anything the person typed.
+  const filled = useRef({ title: '', agenda: '' })
 
   // Reset each time it opens, from the meeting being changed or from scratch.
   useEffect(() => {
     if (!open) return
     setError(null)
+    setPasted('')
+    setReadNote(null)
+    filled.current = { title: '', agenda: '' }
     if (editing) {
       setTitle(editing.title)
       setNow(false)
@@ -149,6 +168,36 @@ export function ScheduleMeetingModal({
     ? audienceText(editing)
     : chosen && (chosen.scope === 'class' || chosen.scope === 'space' ? placeName : chosen.label)
 
+  /** Fill the form from an invitation. Only a real title replaces one that was typed. */
+  function applyInvite(invite: MeetingInvite) {
+    const ours = (typed: string, last: string) => !typed.trim() || typed === last
+    const nextTitle = invite.title ?? (ours(title, filled.current.title) ? untitledMeeting(invite.platform) : title)
+    const nextAgenda = ours(agenda, filled.current.agenda) ? invite.details : agenda
+    filled.current = { title: nextTitle, agenda: nextAgenda }
+    setTitle(nextTitle)
+    setAgenda(nextAgenda)
+    setLink(invite.joinUrl)
+    if (invite.startsAt) setStarts(toLocalInput(invite.startsAt))
+    setDuration(String(invite.durationMin ?? 60))
+    setError(null)
+    setReadNote({
+      text: `Filled in from the ${PLATFORM_LABEL[invite.platform]} invitation.`,
+      checks: inviteChecks(invite, now),
+    })
+  }
+
+  /** Every paste lands here as a change, so paste, drop and typing behave alike. */
+  function onInvitationChange(text: string) {
+    const invite = readInvitation(text)
+    if (invite) {
+      applyInvite(invite)
+      setPasted('')
+      return
+    }
+    setPasted(text)
+    setReadNote(null)
+  }
+
   async function save() {
     setError(null)
     if (!editing && !who) return setError('Choose who the meeting is for.')
@@ -182,7 +231,11 @@ export function ScheduleMeetingModal({
       open={open}
       onClose={onClose}
       title={editing ? 'Edit meeting' : now ? 'Start a meeting now' : 'Schedule a meeting'}
-      description="Make the meeting in Zoom or Google Meet, then paste its link here."
+      description={
+        editing
+          ? 'Make the meeting in Zoom or Google Meet, then paste its link here.'
+          : 'Make the meeting in Zoom or Google Meet, then paste its invitation here.'
+      }
       size="lg"
       focusField
       footer={
@@ -203,6 +256,31 @@ export function ScheduleMeetingModal({
     >
       <div className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
+
+        {!editing && creatable.length > 0 && (
+          <div className="space-y-2">
+            <Field
+              label="Invitation"
+              optional
+              error={pasted.trim() ? 'No Zoom or Google Meet link in that text. Paste the whole invitation, or fill in the details below.' : undefined}
+            >
+              {(id) => (
+                <Textarea
+                  id={id}
+                  rows={3}
+                  value={pasted}
+                  onChange={(e) => onInvitationChange(e.target.value)}
+                  placeholder="Paste the invitation from Google Meet or Zoom. Collabify fills in the rest."
+                />
+              )}
+            </Field>
+            {readNote && (
+              <Alert tone={readNote.checks.length ? 'info' : 'success'}>
+                {[readNote.text, ...readNote.checks].join(' ')}
+              </Alert>
+            )}
+          </div>
+        )}
 
         {editing ? (
           <p className="rounded-xl surface-sunken px-3.5 py-2.5 text-[13px] text-muted">
@@ -266,7 +344,7 @@ export function ScheduleMeetingModal({
             </Field>
           )}
           <Field label="Length">
-            {(id) => <Select id={id} value={duration} onChange={(e) => setDuration(e.target.value)} options={DURATIONS} />}
+            {(id) => <Select id={id} value={duration} onChange={(e) => setDuration(e.target.value)} options={lengthOptions(duration)} />}
           </Field>
         </div>
 
@@ -287,6 +365,14 @@ export function ScheduleMeetingModal({
               inputMode="url"
               value={link}
               onChange={(e) => setLink(e.target.value)}
+              onPaste={(e) => {
+                // A whole invitation pasted here would lose its lines to the one-line input.
+                const text = e.clipboardData.getData('text')
+                const invite = /\s/.test(text.trim()) ? readInvitation(text) : null
+                if (!invite) return
+                e.preventDefault()
+                applyInvite(invite)
+              }}
               placeholder="A Meet, Google Calendar or Zoom link"
             />
           )}
@@ -300,7 +386,7 @@ export function ScheduleMeetingModal({
             <Icon name="plus" size={12} />
             New Zoom meeting
           </a>
-          <span>Copy the link it gives you, then paste it above.</span>
+          <span>Copy its link or whole invitation, then paste it above.</span>
         </p>
 
         <Field label="Agenda" optional>

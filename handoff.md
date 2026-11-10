@@ -4457,3 +4457,14 @@ been measured at 100 items.
 - **Checks.** `npm test`, `npm run lint` and `npm run build` pass. The walkthrough and anon-lockdown SQL suites pass against the live database. The browser walk on localhost passed for project manager, teacher, student at phone width, plain member, both switches with skip and pause, resume and Replay, in light and dark. Tablet width, reduced motion and a custom palette were not walked. The account `nathan.delrosario@dyci.edu.ph` was used: its first sign-in is spent, its switches are restored, its test data is removed, and it has no walkthrough rows.
 - **Deferred:** small review notes marked Stay (a hidden card after a reload that never settles, a skipped step not recorded when its data later regresses, step glide dormant in the live app, a per-frame query while paused, a zero-height hole under the app bar, body text not announced without `aria-describedby`, the backfill's account rows covered only in the suite); the QA walkthrough and stakeholder walkthroughs (non-goals).
 - **Next:** the owner reviews, then merge the branch and push `main`.
+
+## Paste an invitation into Schedule meeting (2026-11-10)
+
+**Committed on `main`, not pushed.** Frontend only, no SQL. The owner reviews before `main` is pushed.
+
+- **What it is.** The Schedule meeting modal has an Invitation box at the top. Pasting a Google Meet or Zoom invitation fills the title, start, length, link and, for Zoom, the Meeting ID and passcode in the agenda. Pasting a whole invitation into the Meeting link field does the same, including when editing a meeting.
+- **Code.** `lib/meetingInvite.ts` (`readInvitation`, `inviteChecks`), tested in `meetingInvite.test.ts`. The times convert from the invitation's zone to the reader's clock through `Intl`; Zoom's place names are the `ZONE_NAMES` list, and an unknown one falls back to the reader's clock with a note.
+- **Calls made.** Google's "(No title)" becomes "Google Meet meeting". Zoom gives no length, so it is 1 hour with a note. A length outside the usual list is added to the Length options when it is within the 5 to 480 minutes the database allows. A year-less date uses the weekday to find the year. A typed title or agenda survives a paste with none to replace it; the Zoom chat link is never the join link.
+- **Where and Who stay manual** unless the person has only one choice, since they decide who gets notified.
+- **Checks.** `npm test` and `npm run build` pass. Both real invitations were pasted on localhost: the fields filled, a second paste replaced the first, and pasting into the link field worked. Schedule itself was not pressed, because it notifies real people; the save path is unchanged.
+- **Next:** the owner reviews, then push `main`.
