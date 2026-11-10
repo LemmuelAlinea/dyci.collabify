@@ -92,7 +92,9 @@ export function generalWorkSource(state: GeneralProjectState, openTask: (id: str
         ? 'You are viewing this project from its space. Join it to change the plan.'
         : canPlan
           ? ''
-          : state.teams.some((t) => t.leader_id === state.viewerId)
+          : leadsAStream
+            ? "Planners create and fill sprints. You can start and finish your team's sprints and reorder the tasks the people you lead hold."
+            : state.teams.some((t) => t.leader_id === state.viewerId)
             ? 'Planners manage sprints. You can follow the released work and reorder the tasks the people you lead hold.'
             : 'Planners manage sprints. You can follow the released work.',
     teams:

@@ -169,9 +169,19 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   afterwards. Suite: `supabase/tests/space-roles.test.sql`.
 - Starting, finishing and reopening work-project sprints, and changing sprint settings,
   belong to the project manager and coordinators (`general_can_run_sprint`,
-  `supabase/sprint-settings.sql`). Members with the `manage_tasks` grant still create
+  `supabase/sprint-settings.sql`; in Multiple sprint streams the team's active lead runs that
+  team's sprints too). Members with the `manage_tasks` grant still create
   sprints and plan tasks into them. The Settings tab (`components/general/settings/`)
   replaced People: `?tab=people` and `?tab=members` open Settings → Members.
+- Sprint organization (`supabase/sprint-organization.sql`, after `space-roles.sql`, before
+  `anon-lockdown.sql`): `general_sprint_settings.organization` is `sequential` (default), `streams` or
+  `parallel`. `check_general_sprint_start` replaced the unique index, under one advisory lock per project.
+  In streams a sprint needs a team (`general_sprints.team_id`), holds only that team's tasks, and an open
+  task that changes team returns to the backlog. Switching modes is checked by
+  `guard_sprint_organization`. The app reads `runningSprints` and `useRunningSprint`, never one running
+  sprint on a work project. Re-running `work-planning.sql`, `sprint-reopen.sql`, `sprint-settings.sql`,
+  `project-stakeholders.sql` or `project-notification-rules.sql` means re-running it afterwards. Suite:
+  `supabase/tests/sprint-organization.test.sql`.
 - Workspace visibility (`general_projects.visibility = 'workspace'`,
   `supabase/project-settings-general.sql`): every member of the space reads the project
   like a non-member space Owner does, through `can_read_general_project`; writes still

@@ -38,7 +38,7 @@ anon-lockdown section-faculty announcement-links group-leader discussion-edit-de
 work-milestones class-milestones sprint-milestones analytics-trends peer-evaluation scoring class-notes report-notes
 report-deliverables report-events task-stages company-accounts project-roles project-visibility project-team-leads project-stakeholders
 project-feedback project-qa member-skills project-files-access sprint-archive sprint-reopen sprint-settings project-requests
-project-team-archive work-task-handoff project-settings-general project-task-rules project-member-rules project-milestone-rules project-notification-rules project-workflow-rules project-member-import anon-lockdown`.split(/\s+/)
+project-team-archive work-task-handoff project-settings-general project-task-rules project-member-rules project-milestone-rules project-notification-rules project-workflow-rules project-member-import space-roles sprint-organization anon-lockdown`.split(/\s+/)
 
 const seen = new Map()
 for (const name of ORDER) {

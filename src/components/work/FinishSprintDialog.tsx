@@ -123,8 +123,8 @@ export function FinishSprintDialog({
                   </span>
                 ),
               )}
-            {/* A team's sprint that lost its team has nowhere new to go. */}
-            {(!streams || team) && option('new', `Into a new sprint (${draft.name}, ${dateRange(draft.startsOn, draft.endsOn)})`)}
+            {/* A lead runs sprints but does not create them; a sprint that lost its team has nowhere new to go. */}
+            {source.canPlan && (!streams || team) && option('new', `Into a new sprint (${draft.name}, ${dateRange(draft.startsOn, draft.endsOn)})`)}
             {option('backlog', 'Back to the backlog')}
           </div>
         )}

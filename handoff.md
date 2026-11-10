@@ -4424,3 +4424,23 @@ streams from the model for every action and refuses clearly at `max_tokens`. Bec
 can pass the gateway's 150-second wait, `tasks` answers through `_shared/keepAlive.ts`, so a refusal
 arrives as a 200 with `result: 'failed'`. The function's wall-clock limit still applies and has not
 been measured at 100 items.
+
+## Sprint organization (2026-11-10)
+
+**Not live.** Built and committed on local branch `sprint-organization`; nothing is pushed and
+`sprint-organization.sql` has not run on the live database.
+
+- **What it is.** Settings → Sprints now offers Sequential, Multiple sprint streams (one sprint at a time per
+  team) and Flexible parallel (any number at once). Spec and plan are dated 2026-11-03.
+- **Database.** `supabase/sprint-organization.sql` adds the mode, a team on each sprint and the automation's
+  columns, drops `general_sprints_one_running`, and owns start, finish, reopen, automation and the ending
+  reminder per mode. Sequential projects behave as before. `docs/07-backup.md` lists what it owns.
+- **App.** A Team picker on sprints, `RunningSprintTabs` on the Sprints tab and Overview, per-team "Move to"
+  lists, one Tasks scope per running sprint, and every running milestone highlighted.
+- **Checks.** `supabase/tests/sprint-organization.test.sql` and the neighbouring suites pass in rolled-back dry
+  runs with the file spliced in. Vitest, build and eslint pass.
+- **Deploy order.** After owner review:
+  `node scripts/db.mjs supabase/sprint-organization.sql supabase/anon-lockdown.sql`, a read-only check, the
+  suites again, then merge to `main` and push.
+- **Deferred:** no signed-in walk of the three modes on the live database, because the SQL is not live yet.
+  A planned sprint that already holds tasks cannot take a team until they are moved out (design call 17).
