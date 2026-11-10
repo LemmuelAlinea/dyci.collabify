@@ -102,6 +102,36 @@ describe('resolveRun', () => {
     expect(r.kind === 'step' && r.step.id).toBe('find-work')
   })
 
+  describe('a paused teaching walkthrough', () => {
+    const paused = toMap([done, row('teaching', 'paused')])
+
+    it('a paused teacher with both switches moves on to project manager', () => {
+      const r = run(facts({ profile: both }), paused)
+      expect(r).toMatchObject({ kind: 'step', flow: 'project_manager' })
+      expect(r.kind === 'step' && r.step.id).toBe('create-space')
+    })
+
+    it('a paused teacher with only teaching stays paused', () =>
+      expect(run(facts({ profile: { ...both, can_manage_projects: false } }), paused)).toEqual({
+        kind: 'paused',
+        flow: 'teaching',
+      }))
+
+    it('a paused teacher resumes after a class exists', () => {
+      const r = run(
+        facts({ profile: { ...both, can_manage_projects: false }, spaces: [classSpace] }),
+        paused,
+      )
+      expect(r.kind === 'step' && r.step.id).toBe('share-code')
+    })
+
+    it('a paused flow still comes first once its step is done', () => {
+      const r = run(facts({ profile: both, spaces: [classSpace] }), paused)
+      expect(r).toMatchObject({ kind: 'step', flow: 'teaching' })
+      expect(r.kind === 'step' && r.step.id).toBe('share-code')
+    })
+  })
+
   it('finishes when everything is satisfied', () =>
     expect(
       run(

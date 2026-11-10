@@ -390,6 +390,22 @@ it('the no-code button pauses', async () => {
   expect(hasButton('Skip')).toBe(false)
 })
 
+it('pausing teaching holds project manager until the next open', async () => {
+  h.auth.profile = teacher
+  h.list.mockResolvedValue([accountDone])
+  await mount()
+  expect(text()).toContain('Create a class')
+  await press("I don't have a section yet")
+  expect(h.save).toHaveBeenCalledWith('u3', [{ flow: 'teaching', status: 'paused', done_steps: [] }])
+  expect(document.querySelectorAll('[data-spotlight="scrim"]')).toHaveLength(0)
+  expect(text()).not.toContain('Create a space')
+  await act(async () => root.unmount())
+  root = createRoot(host)
+  h.list.mockResolvedValue([accountDone, row('teaching', 'paused')])
+  await mount()
+  expect(text()).toContain('Create a space')
+})
+
 it('shows the end card once after a walked project manager finishes', async () => {
   h.auth.profile = manager
   h.list.mockResolvedValue([accountDone, row('project_manager')])

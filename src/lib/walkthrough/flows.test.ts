@@ -90,6 +90,10 @@ describe('step data', () => {
     expect(step('share-code').route(facts())).toBeNull()
   })
 
+  it('lets a teacher with no section pause create-class', () => {
+    expect(step('create-class').pauseLabel).toBe("I don't have a section yet")
+  })
+
   it('reads class and inbox facts', () => {
     expect(step('join-class').isDone?.(facts({ inClass: true }))).toBe(true)
     expect(step('join-class').isDone?.(facts())).toBe(false)

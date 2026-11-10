@@ -104,6 +104,7 @@ export const FLOWS: Record<FlowId, readonly StepDef[]> = {
       title: 'Create a class',
       body: 'Name it and set its section and term.',
       targets: ['create-class'],
+      pauseLabel: "I don't have a section yet",
       route: () => paths.classes,
       isDone: (f) => taughtClasses(f.spaces).length > 0,
     },

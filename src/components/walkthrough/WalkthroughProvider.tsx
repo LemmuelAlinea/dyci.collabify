@@ -209,15 +209,17 @@ function WalkthroughRun({ publish }: { publish: (value: WalkthroughValue) => voi
   const value = useMemo(() => ({ canReplay, startReplay }), [canReplay, startReplay])
   useEffect(() => publish(value), [publish, value])
 
-  const skip = () => {
+  const leave = (make: (p: ProgressMap, flow: FlowId) => Change) => {
     if (!progress || run.kind !== 'step' || !facts || !opened) return
-    const change = markSkipped(progress, run.flow)
+    const change = make(progress, run.flow)
     const another = flowsFor(facts).some(
       (id) => id !== run.flow && opened.flows.has(id) && !closed(change.progress, id),
     )
     if (another) setHeld(true)
     commit(change)
   }
+  const skip = () => leave(markSkipped)
+  const pause = () => leave(markPaused)
 
   let card: ReactNode = null
   if (replay && replayStep) {
@@ -262,7 +264,7 @@ function WalkthroughRun({ publish }: { publish: (value: WalkthroughValue) => voi
     if (missing && to && to !== location.pathname && !s.press) {
       actions.push({ label: 'Take me there', onPress: () => navigate(to) })
     }
-    if (s.pauseLabel) actions.push({ label: s.pauseLabel, onPress: () => commit(markPaused(progress, flow)) })
+    if (s.pauseLabel) actions.push({ label: s.pauseLabel, onPress: pause })
     if (s.press) {
       actions.push({
         label: s.press,

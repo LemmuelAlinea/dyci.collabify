@@ -35,14 +35,21 @@ export function resolveRun(
   opts: { openedWith: ReadonlySet<FlowId>; held: boolean },
 ): Run {
   if (opts.held) return { kind: 'none' }
-  const flow = flowsFor(f).find((id) => opts.openedWith.has(id) && !closed(p[id]))
-  if (!flow) return { kind: 'none' }
-  const steps = stepsOf(flow, p)
-  const at = steps.findIndex((s) => !stepDone(s, f, p))
-  if (at < 0) return { kind: 'finished', flow }
-  const step = steps[at]
-  if (p[flow]?.status === 'paused' && step.pauseLabel) return { kind: 'paused', flow }
-  return { kind: 'step', flow, step, index: at + 1, total: steps.length }
+  let paused: Run = { kind: 'none' }
+  for (const flow of flowsFor(f)) {
+    if (!opts.openedWith.has(flow) || closed(p[flow])) continue
+    const steps = stepsOf(flow, p)
+    const at = steps.findIndex((s) => !stepDone(s, f, p))
+    if (at < 0) return { kind: 'finished', flow }
+    const step = steps[at]
+    // A paused flow is passed over so the next one can show; it holds only when nothing else does.
+    if (p[flow]?.status === 'paused' && step.pauseLabel) {
+      if (paused.kind === 'none') paused = { kind: 'paused', flow }
+      continue
+    }
+    return { kind: 'step', flow, step, index: at + 1, total: steps.length }
+  }
+  return paused
 }
 
 export type Change = { progress: ProgressMap; writes: ProgressRow[] }
