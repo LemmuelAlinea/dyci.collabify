@@ -939,3 +939,13 @@ bring back. Re-running `work-planning.sql`, `sprint-reopen.sql`, `sprint-setting
 `anon-lockdown.sql`. Every rerun tail in this document ends with this file before `anon-lockdown.sql`, including
 any that name only the earlier files. Suite: `supabase/tests/sprint-organization.test.sql`. Apply only after
 rollout approval, and run it before pushing the frontend, which writes the new column.
+
+## First-run walkthroughs
+
+`walkthroughs.sql` runs after `sprint-organization.sql` and before final `anon-lockdown.sql`. It owns
+`user_walkthroughs` (one row per person and flow, own-row policies, no delete) and
+`keep_walkthrough_finished`, which keeps a skipped or done row from going back to active. Nothing earlier
+supersedes it, so no other file's rerun means re-running this one. Its backfill, which marks every account that
+has already signed in as done, runs only when the table is first created; a rerun leaves the rows alone.
+Suite: `supabase/tests/walkthroughs.test.sql`, which needs the file applied or spliced in. Apply it right
+before pushing the frontend, which reads and writes the table.
