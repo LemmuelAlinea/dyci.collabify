@@ -4487,7 +4487,7 @@ The selected count and send buttons in the Plan & route work dialog are pinned t
 
 ## Comments only inside your scope (2026-11-10)
 
-**Committed on `main`, not pushed. The SQL is not applied to the live database.** Apply `task-comment-scope.sql` then `anon-lockdown.sql`, and push `main`, together.
+**Live since 2026-11-10 (d6db26a).** `main` is pushed, and `task-comment-scope.sql` then `anon-lockdown.sql` ran on the live database. The suite passes against it, rolled back.
 
 - **Why.** The owner set the rule: team leads act on their own tasks and tasks their team members hold; plain members act only on their own. A rolled-back test as real leads and members on five live projects showed moving and editing already obey this. Viewing and commenting did not. The owner chose read-only with no comments outside that scope.
 - **What changed.** On a work project a Member comments only on tasks they hold, or tasks someone they lead holds. The project manager, coordinators, QA and the `manage_tasks` grant comment on any task. Class boards are unchanged. Everyone in the project still reads every task. People outside the scope see a short note in place of the comment box.
