@@ -4395,9 +4395,14 @@ Live on `main` at `14bdd3d`. Design:
   after with zero differences. Every populated work space has exactly one `pm` (8 PMs, 65
   Members, no null roles); the empty space "Class project files" has none. Education spaces
   kept their levels and a null role.
-- Deferred: the signed-in walk of the page as PM, Coordinator, Member and Stakeholder, in
-  light, dark and phone widths. The owner skipped the localhost layout check, so the page
-  has not been viewed signed in. Parked: `archive-page.sql` and `project-stakeholders.sql`
-  refusal text still says Owner; a space Coordinator sees Withdraw on a Coordinator invitation
-  and gets a refusal.
-- Next: the owner's signed-in walk, then any fixes it turns up.
+- Live walk as the iWeb space PM: Details, Teams, Members and Archive load, old `/members`
+  links redirect, and light, dark, tablet and phone widths hold with no page overflow. Warren
+  Aguilar (demo account) went Member to Coordinator and his three live projects followed; the
+  archived project was untouched. Picking QA showed the confirm (3 projects, 5 tasks, 3 QA
+  gates) and Cancel changed nothing. He was restored; the `general_members` compare shows zero
+  differences. The test left him 8 `membership_changed` notifications.
+- Deferred: the same page viewed signed in as a Coordinator, Member and Stakeholder (covered
+  only by the suites). Parked: `archive-page.sql` and `project-stakeholders.sql` refusal text
+  still says Owner; a space Coordinator sees Withdraw on a Coordinator invitation and gets a
+  refusal.
+- Next: nothing planned for this feature; open work is the Deferred notes.
