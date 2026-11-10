@@ -103,6 +103,42 @@ it('falls back to a card when the target goes away', async () => {
   expect(probe()).toMatchObject({ box: null, missing: true })
 })
 
+it('starts the grace again when the markers change', async () => {
+  vi.useFakeTimers()
+  await act(async () => root.render(<Probe markers={['x']} />))
+  await tick(TARGET_GRACE_MS + 50)
+  expect(probe().missing).toBe(true)
+
+  await act(async () => root.render(<Probe markers={['y']} />))
+  await tick(50)
+  expect(probe()).toMatchObject({ box: null, missing: false })
+  await tick(TARGET_GRACE_MS)
+  expect(probe().missing).toBe(true)
+})
+
+it('keeps Tab among the card buttons and the lit target', async () => {
+  const lit = document.createElement('button')
+  lit.getBoundingClientRect = () => ({ top: 100, left: 200, width: 120, height: 40 }) as DOMRect
+  document.body.append(lit)
+  await show()
+  lit.focus()
+  const press = (shiftKey: boolean) => {
+    const e = new KeyboardEvent('keydown', { key: 'Tab', shiftKey, bubbles: true, cancelable: true })
+    ;(document.activeElement as HTMLElement).dispatchEvent(e)
+    return e
+  }
+  const card = document.querySelector('[data-spotlight="card"]')!
+  const forward = press(false)
+  expect(forward.defaultPrevented).toBe(true)
+  expect(card.contains(document.activeElement)).toBe(true)
+  expect(document.activeElement?.textContent).toBe('Skip')
+  lit.focus()
+  press(true)
+  expect(document.activeElement?.textContent).toBe('Next')
+  press(false)
+  expect(document.activeElement).toBe(lit)
+})
+
 it('reports an open dialog', async () => {
   vi.useFakeTimers()
   await act(async () => root.render(<Probe markers={['x']} />))

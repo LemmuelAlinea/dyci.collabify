@@ -1,5 +1,4 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, useReducedMotion } from 'motion/react'
 import { Button } from '../ui/Button'
@@ -61,7 +60,8 @@ export function Spotlight({ title, body, eyebrow, box, blockTarget, actions }: P
   const ease = { duration: reduce ? 0 : DUR.base / 1000, ease: 'easeOut' as const }
 
   // Tab stays on the card's buttons and whatever is lit under the hole.
-  const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+  // Listened for on the document, since focus leaves the card once it reaches the lit target.
+  const onTab = (e: KeyboardEvent) => {
     if (e.key !== 'Tab') return
     const own = [...(card.current?.querySelectorAll<HTMLElement>('button') ?? [])]
     const lit =
@@ -81,6 +81,15 @@ export function Spotlight({ title, body, eyebrow, box, blockTarget, actions }: P
     e.preventDefault()
     ring[next].focus()
   }
+  const tabRef = useRef(onTab)
+  useEffect(() => {
+    tabRef.current = onTab
+  })
+  useEffect(() => {
+    const listen = (e: KeyboardEvent) => tabRef.current(e)
+    document.addEventListener('keydown', listen, true)
+    return () => document.removeEventListener('keydown', listen, true)
+  }, [])
 
   return createPortal(
     <div className="app-ui">
@@ -121,7 +130,6 @@ export function Spotlight({ title, body, eyebrow, box, blockTarget, actions }: P
         role="group"
         aria-labelledby={titleId}
         tabIndex={-1}
-        onKeyDown={onKeyDown}
         className="surface fixed z-[55] rounded-card border border-line p-4 shadow-card outline-none"
         style={{ width: cardWidth }}
         initial={false}

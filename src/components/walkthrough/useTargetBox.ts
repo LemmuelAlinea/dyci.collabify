@@ -22,7 +22,7 @@ function dialogIsOpen() {
  * markers and a visible box, joined into one. It follows the page as it moves.
  */
 export function useTargetBox(markers: readonly string[], active: boolean): Result {
-  const [state, setState] = useState<Result>(IDLE)
+  const [state, setState] = useState<Result & { key: string }>({ ...IDLE, key: '' })
   const reduce = useReducedMotion()
   const key = markers.join('|')
 
@@ -57,13 +57,17 @@ export function useTargetBox(markers: readonly string[], active: boolean): Resul
           first?.scrollIntoView?.({ block: 'center', behavior: reduce ? 'auto' : 'smooth' })
         }
       } else if (!grace) {
-        grace = setTimeout(() => setState((s) => (s.missing ? s : { ...s, missing: true })), TARGET_GRACE_MS)
+        grace = setTimeout(
+          () => setState((s0) => (s0.key === key && s0.missing ? s0 : { ...(s0.key === key ? s0 : IDLE), key, missing: true })),
+          TARGET_GRACE_MS,
+        )
       }
-      setState((s) =>
-        same(s.box, box) && s.dialogOpen === dialogOpen && (!box || !s.missing)
-          ? s
-          : { box, dialogOpen, missing: box ? false : s.missing },
-      )
+      setState((s0) => {
+        const s = s0.key === key ? s0 : { ...IDLE, key }
+        return same(s.box, box) && s.dialogOpen === dialogOpen && (!box || !s.missing) && s0 === s
+          ? s0
+          : { key, box, dialogOpen, missing: box ? false : s.missing }
+      })
     }
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(measure)
@@ -83,5 +87,6 @@ export function useTargetBox(markers: readonly string[], active: boolean): Resul
     }
   }, [key, active, reduce])
 
-  return active ? state : IDLE
+  // State from another step's markers is not this step's.
+  return active && state.key === key ? state : IDLE
 }
