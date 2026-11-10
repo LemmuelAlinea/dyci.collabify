@@ -9,6 +9,7 @@ import { homeFor } from '../../lib/access'
 import { Logo } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
 import { PageLoading } from '../ui/PageLoading'
+import { WalkthroughProvider } from '../walkthrough/WalkthroughProvider'
 import { ErrorBoundary } from './ErrorBoundary'
 import { SideNav } from './SideNav'
 import { TopNav } from './TopNav'
@@ -84,6 +85,7 @@ export function AppShell() {
 
   return (
     <GeneralNavigationProvider enabled={Boolean(profile && profile.status === 'active' && profile.role)}>
+      <WalkthroughProvider>
       <div className="app-ui flex min-h-dvh overflow-x-clip">
         <a href="#main-content" className="skip-link">
           Skip to main content
@@ -174,6 +176,7 @@ export function AppShell() {
           </main>
         </div>
       </div>
+      </WalkthroughProvider>
     </GeneralNavigationProvider>
   )
 }
