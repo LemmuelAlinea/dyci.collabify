@@ -97,6 +97,27 @@ describe('step data', () => {
     expect(step('watch-inbox').isDone?.(facts({ hasWork: true }))).toBe(true)
     expect(step('watch-inbox').isDone?.(facts({ inClass: true }))).toBe(true)
     expect(step('watch-inbox').isDone?.(facts())).toBe(false)
-    expect(step('find-work').route(facts())).toBeNull()
+  })
+
+  it('find-work routes to the newest live class they are in, else Home', () => {
+    const s = step('find-work')
+    const cls = (over: Partial<GeneralSpaceSummary>) =>
+      space({ kind: 'education', my_role: null, my_level: 'member', class_id: 'c1', ...over })
+    expect(s.route(facts())).toBe(paths.home)
+    expect(
+      s.route(
+        facts({
+          spaces: [
+            cls({ class_id: 'old', created_at: '2026-01-01T00:00:00Z' }),
+            cls({ class_id: 'new', created_at: '2026-03-01T00:00:00Z' }),
+            cls({ class_id: 'gone', created_at: '2026-04-01T00:00:00Z', archived_at: '2026-05-01T00:00:00Z' }),
+            cls({ class_id: 'left', created_at: '2026-04-01T00:00:00Z', my_level: null }),
+            cls({ class_id: null, created_at: '2026-04-01T00:00:00Z' }),
+            space({ id: 'work', created_at: '2026-04-01T00:00:00Z', class_id: 'not-a-class' }),
+          ],
+        }),
+      ),
+    ).toBe(paths.class('new'))
+    expect(s.route(facts({ spaces: [cls({ my_level: null })] }))).toBe(paths.home)
   })
 })

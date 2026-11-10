@@ -68,6 +68,13 @@ export function taughtClasses(spaces: GeneralSpaceSummary[]): GeneralSpaceSummar
     .sort(newestFirst)
 }
 
+/** Live classes the person is in, in any level, newest first. */
+export function joinedClasses(spaces: GeneralSpaceSummary[]): GeneralSpaceSummary[] {
+  return spaces
+    .filter((s) => s.kind === 'education' && !s.archived_at && s.class_id && s.my_level)
+    .sort(newestFirst)
+}
+
 export const ACCOUNT_STEPS: readonly StepDef[] = [
   {
     id: 'account-photo',
@@ -153,7 +160,10 @@ export const FLOWS: Record<FlowId, readonly StepDef[]> = {
       title: 'Find your work',
       body: 'My tasks and Groups fill up from your class.',
       targets: ['nav-tasks', 'nav-groups'],
-      route: () => null,
+      route: (f) => {
+        const newest = joinedClasses(f.spaces)[0]
+        return newest?.class_id ? paths.class(newest.class_id) : paths.home
+      },
       press: 'Done',
     },
   ],
