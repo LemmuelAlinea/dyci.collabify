@@ -173,6 +173,11 @@ Both light and dark are defined in the same block — a raw hex breaks one of th
   team's sprints too). Members with the `manage_tasks` grant still create
   sprints and plan tasks into them. The Settings tab (`components/general/settings/`)
   replaced People: `?tab=people` and `?tab=members` open Settings → Members.
+- Task comments (`supabase/task-comment-scope.sql`, after `walkthroughs.sql`, before `anon-lockdown.sql`): on a
+  work project everyone reads every task, but a Member comments only on tasks they hold, or tasks someone they
+  lead holds. The project manager, coordinators, QA and the `manage_tasks` grant comment on any task; a class board
+  keeps its rule. `canCommentTask` mirrors `general_can_comment_task`. Re-running `general-tasks.sql` or
+  `project-stakeholders.sql` means re-running it afterwards. Suite: `supabase/tests/task-comment-scope.test.sql`.
 - Sprint organization (`supabase/sprint-organization.sql`, after `space-roles.sql`, before
   `anon-lockdown.sql`): `general_sprint_settings.organization` is `sequential` (default), `streams` or
   `parallel`. `check_general_sprint_start` replaced the unique index, under one advisory lock per project.

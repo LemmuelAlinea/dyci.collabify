@@ -67,8 +67,11 @@ it('shows a Workspace viewer with no role no comment form or access request', as
   const container = document.createElement('div'); document.body.append(container); const root = createRoot(container)
   try {
     await act(async () => root.render(<TaskDialog state={{ ...base, viewerId: 'member', myRole: 'member', readOnly: false } as unknown as GeneralProjectState} taskId="task" onClose={vi.fn()} />))
-    expect(document.querySelector('[aria-label="Write a comment"]')).not.toBeNull()
+    expect(document.querySelector('[aria-label="Write a comment"]')).toBeNull()
+    expect(document.body.textContent).toContain('Only the people on it, their team lead and the project')
     expect(document.body.textContent).toContain('Request access')
+    await act(async () => root.render(<TaskDialog state={{ ...base, tasks: [{ ...task, assignee_ids: ['member'] }], viewerId: 'member', myRole: 'member', readOnly: false } as unknown as GeneralProjectState} taskId="task" onClose={vi.fn()} />))
+    expect(document.querySelector('[aria-label="Write a comment"]')).not.toBeNull()
     await act(async () => root.render(<TaskDialog state={{ ...base, viewerId: 'viewer', myRole: null, readOnly: true } as unknown as GeneralProjectState} taskId="task" onClose={vi.fn()} />))
     expect(document.querySelector('[aria-label="Write a comment"]')).toBeNull()
     expect(document.body.textContent).not.toContain('Request access')

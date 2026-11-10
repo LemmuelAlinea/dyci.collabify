@@ -40,7 +40,7 @@ import type { GeneralComment, GeneralFile, GeneralLog, GeneralTaskEvent, TaskPri
 import { blockersOf } from '../../lib/general/taskRules'
 import { LIMIT } from '../../lib/limits'
 import { formatMinutes } from '../../lib/types'
-import { assignableTo, canEditTask, canUnassign, keepsCreatorRights } from '../../lib/general/permissions'
+import { assignableTo, canCommentTask, canEditTask, canUnassign, keepsCreatorRights } from '../../lib/general/permissions'
 import type { TaskViewer } from '../../lib/general/permissions'
 import { QaActions } from '../work/QaActions'
 import { ProjectFilePicker } from './ProjectFilePicker'
@@ -465,12 +465,16 @@ function TaskBody({
               ))}
               {loaded && comments.length === 0 && <p className="text-[13px] text-faint">No comments yet.</p>}
             </ul>
-            {!readOnly && (
+            {canCommentTask(viewer, task) ? (
               <CommentForm
                 onSend={(body) =>
                   act(() => addComment(task.id, task.project_id, body), '', 'Could not post that comment.')
                 }
               />
+            ) : !readOnly && (
+              <p className="mt-3 text-[12px] text-faint">
+                You can read this task. Only the people on it, their team lead and the project&apos;s planners can comment.
+              </p>
             )}
           </div>}
           {activity === 'time' && <div className="pt-3">

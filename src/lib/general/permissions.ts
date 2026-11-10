@@ -335,6 +335,20 @@ export function canEditTask(v: TaskViewer, task: TaskHolders): boolean {
 }
 
 /**
+ * Whether the viewer may comment on a task. On a work project a Member reads
+ * every task but comments only on what they hold, or what someone they lead
+ * holds; holding the task is what counts, so its creator gets nothing here. A
+ * class board has no role and keeps its rule. Mirrors general_can_comment_task
+ * (supabase/task-comment-scope.sql).
+ */
+export function canCommentTask(v: TaskViewer, task: TaskHolders): boolean {
+  if (v.archived) return false
+  if (!v.role || v.manageTasks || v.role === 'pm' || v.role === 'coordinator' || v.role === 'qa') return true
+  if (v.viewerId && task.assignee_ids.includes(v.viewerId)) return true
+  return task.assignee_ids.some(v.leadsUser)
+}
+
+/**
  * Whether the viewer may take this holder off the task: someone who manages
  * tasks, the holder themselves, or a leader of a team the holder is on.
  * Mirrors the general_task_assignees_delete policy.
