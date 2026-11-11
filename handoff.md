@@ -4566,7 +4566,7 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
 
 ## Phone status and navigation bars match the page (2026-11-11)
 
-**Committed locally on `main`; not pushed until the owner reviews.** No SQL.
+**Live on `main` since 2026-11-11 (19e8dfa), after the owner's review.** No SQL.
 
 - **Why.** On the installed Android app the top bar was a fixed `#080b21` and the bottom bar brand navy
   `#26327a`, while the owner's page was full black from their background depth.
@@ -4584,4 +4584,4 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
   after render, matching the top bar; light gives `#ffffff`; the privacy page's navy ground gives `#131a3f`.
 - **Not verified:** a real phone. Chrome's handling of the bottom bar has changed across recent versions, so
   some phone and Chrome combinations may still show a black or system-coloured bottom bar.
-- **Next:** push after review, then reinstall the app on the phone and compare both bars.
+- **Next:** reinstall the app on the phone and compare both bars.
