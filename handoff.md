@@ -4524,7 +4524,7 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
 
 ## Page size slider in Settings → Appearance (2026-11-11)
 
-**Local only, on branch `feature/page-zoom`. Not pushed; the owner reviews first.** No SQL.
+**Live on `main` since 2026-11-11 (a785686), after the owner's review.** No SQL.
 
 - **What it is.** Settings → Appearance has a "Page size" slider between the theme cards and Your colors:
   minus and plus buttons, a range input drawn as a progress bar (`--progress` fill on `--surface-sunken`,
@@ -4562,4 +4562,4 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
   one a second, so it cannot show the glide's smoothness.
 - **Not verified:** Safari/iPad and Firefox, and a real touch device. Monaco (the code editor) under zoom was
   not exercised; if clicks land off by the zoom there, that is Monaco's own coordinate math.
-- **Next:** the owner reviews the branch, then merge to `main` and try it on the Xiaomi Pad.
+- **Next:** try it on the Xiaomi Pad: the glide's smoothness and hold-to-repeat with a real finger.
