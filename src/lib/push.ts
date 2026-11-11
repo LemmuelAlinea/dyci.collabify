@@ -130,7 +130,8 @@ export function useDevicePush() {
     load()
       .then((api) => {
         if (!live) return
-        setOs(api)
+        // The SDK object is a class; handed to a setter bare, React would call it as an updater.
+        setOs(() => api)
         setState(read(api))
       })
       .catch(() => live && setState('failed'))
