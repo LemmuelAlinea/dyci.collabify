@@ -4563,3 +4563,25 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
 - **Not verified:** Safari/iPad and Firefox, and a real touch device. Monaco (the code editor) under zoom was
   not exercised; if clicks land off by the zoom there, that is Monaco's own coordinate math.
 - **Next:** try it on the Xiaomi Pad: the glide's smoothness and hold-to-repeat with a real finger.
+
+## Phone status and navigation bars match the page (2026-11-11)
+
+**Committed locally on `main`; not pushed until the owner reviews.** No SQL.
+
+- **Why.** On the installed Android app the top bar was a fixed `#080b21` and the bottom bar brand navy
+  `#26327a`, while the owner's page was full black from their background depth.
+- **Top (status bar).** Android paints it from `<meta name="theme-color">`. `src/lib/systemBars.ts`
+  (`syncStatusBar`) reads the solid colour actually painted at the top of the screen (one canvas pixel, so
+  oklab and color-mix results read too) and writes it there; `components/StatusBarSync.tsx` (in `App.tsx`)
+  runs it after the theme, the person's colours or the route change, and again at 300ms and 1.2s for late
+  pages. `public/theme.js` sets a first guess before paint: the dark depth's `--u-page`, else `#0a0e24`; light
+  `#ffffff`. `ThemeProvider` no longer writes the old fixed values.
+- **Bottom (navigation bar).** An installed app takes it from the manifest's single `theme_color`, so it cannot
+  follow each person. The owner chose the default dark page: `theme_color` and `background_color` are now
+  `#080b21` (the splash ground too). Android only picks this up when Chrome refreshes the installed app, which
+  can lag a day or more; uninstalling and adding it to the Home Screen again applies it at once.
+- **Verified** in the preview at phone width: the owner's account (full black) gets `#000000` before paint and
+  after render, matching the top bar; light gives `#ffffff`; the privacy page's navy ground gives `#131a3f`.
+- **Not verified:** a real phone. Chrome's handling of the bottom bar has changed across recent versions, so
+  some phone and Chrome combinations may still show a black or system-coloured bottom bar.
+- **Next:** push after review, then reinstall the app on the phone and compare both bars.

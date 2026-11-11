@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ThemeSync } from './components/ThemeSync'
+import { StatusBarSync } from './components/StatusBarSync'
 import { AppShell } from './components/app/AppShell'
 import { ErrorBoundary } from './components/app/ErrorBoundary'
 import { ProtectedRoute, RequireAdmitted, RequireTeaching } from './routes/ProtectedRoute'
@@ -101,6 +102,7 @@ export default function App() {
     // escapes that — a failure in the shell itself, or on a page outside it.
     <ErrorBoundary home="/">
       <ThemeSync />
+      <StatusBarSync />
       {/* The shell has its own Suspense around the page area, so this one only
           catches a lazy route that renders outside it. */}
       <Suspense fallback={<PageLoading />}>

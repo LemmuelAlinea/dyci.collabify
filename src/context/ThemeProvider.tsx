@@ -34,11 +34,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const resolved: 'light' | 'dark' =
     mode === 'system' ? (systemDark ? 'dark' : 'light') : mode
 
+  // The phone's status bar colour follows the page itself: components/StatusBarSync.tsx.
   useEffect(() => {
     document.documentElement.classList.toggle('dark', resolved === 'dark')
-    document
-      .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', resolved === 'dark' ? '#080b21' : '#26327A')
   }, [resolved])
 
   // Each mode has its own colours, so a swap between light and dark re-applies.

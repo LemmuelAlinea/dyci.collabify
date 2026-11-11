@@ -27,6 +27,12 @@ try {
       }
     }
   }
+
+  // The phone's status bar, before the app can read the real top colour
+  // (src/lib/systemBars.ts): the app's page ground for this mode and depth.
+  var page = dark ? (vars && /^#[0-9a-f]{6}$/i.test(vars['--u-page']) ? vars['--u-page'] : '#0a0e24') : '#ffffff'
+  var meta = document.querySelector('meta[name="theme-color"]')
+  if (meta) meta.setAttribute('content', page)
 } catch {}
 
 // Page zoom from Settings → Appearance, kept on this device. The range and the
