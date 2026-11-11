@@ -158,7 +158,7 @@ export function MilestoneDialog({
             <p className="mb-2 text-[13px] text-muted">
               Each sprint gets a milestone with its name, due the day it ends. Its tasks count toward it.
             </p>
-            <ul className="max-h-[40vh] divide-y divide-[var(--line)] overflow-y-auto rounded-xl border border-line">
+            <ul className="max-h-[calc(40vh/var(--zoom,1))] divide-y divide-[var(--line)] overflow-y-auto rounded-xl border border-line">
               {perSprint.sprints.map((s) => (
                 <li key={s.id}>
                   <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5">

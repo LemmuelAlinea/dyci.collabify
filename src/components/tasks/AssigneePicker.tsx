@@ -125,7 +125,7 @@ export function AssigneePicker({
         // names were clipped mid-word on both sides. Opening rightward from
         // the same anchor keeps it inside the column it belongs to, since the
         // panel and a column are about the same width.
-        <div className="surface fixed inset-x-3 bottom-3 z-60 overflow-hidden rounded-2xl border border-line shadow-lift sm:absolute sm:inset-x-auto sm:top-8 sm:bottom-auto sm:left-0 sm:z-40 sm:w-[256px] sm:max-w-[calc(100vw-2rem)] sm:rounded-xl">
+        <div className="surface fixed inset-x-3 bottom-3 z-60 overflow-hidden rounded-2xl border border-line shadow-lift sm:absolute sm:inset-x-auto sm:top-8 sm:bottom-auto sm:left-0 sm:z-40 sm:w-[256px] sm:max-w-[calc((100vw/var(--zoom,1))-2rem)] sm:rounded-xl">
           <div className="flex items-start justify-between gap-3 border-b border-line px-3.5 py-2.5 sm:px-3 sm:py-2">
             <p className="text-[12px] leading-snug text-faint sm:text-[12px]">
               {releasable
@@ -141,7 +141,7 @@ export function AssigneePicker({
               <Icon name="x" size={15} />
             </button>
           </div>
-          <ul className="max-h-[45vh] overflow-y-auto py-1 sm:max-h-[220px]">
+          <ul className="max-h-[calc(45vh/var(--zoom,1))] overflow-y-auto py-1 sm:max-h-[220px]">
             {members.map((m) => {
               const on = taken.has(m.student_id)
               const full = !on && !room(m.student_id)

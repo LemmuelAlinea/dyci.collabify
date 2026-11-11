@@ -71,7 +71,7 @@ export default function WordEditor({
 
   if (ready === null) {
     return (
-      <div className={`flex items-center justify-center gap-2 rounded-xl border border-line surface-sunken text-[13px] text-muted ${fill ? 'h-[calc(100dvh-15rem)]' : 'h-[60vh]'}`}>
+      <div className={`flex items-center justify-center gap-2 rounded-xl border border-line surface-sunken text-[13px] text-muted ${fill ? 'h-[calc((100dvh/var(--zoom,1))-15rem)]' : 'h-[calc(60vh/var(--zoom,1))]'}`}>
         <Spinner size={14} />
         Opening the document…
       </div>
@@ -282,7 +282,7 @@ function Document({
       />
       <div
         ref={canvas}
-        className={`word-canvas overflow-auto surface-sunken ${reflow ? 'word-reflow' : ''} ${fill ? 'h-[calc(100dvh-19rem)] min-h-[16rem]' : 'h-[62vh] min-h-[22rem]'}`}
+        className={`word-canvas overflow-auto surface-sunken ${reflow ? 'word-reflow' : ''} ${fill ? 'h-[calc((100dvh/var(--zoom,1))-19rem)] min-h-[16rem]' : 'h-[calc(62vh/var(--zoom,1))] min-h-[22rem]'}`}
       >
         <div className={reflow ? 'p-2' : 'word-zoom mx-auto w-fit py-4'} style={reflow ? undefined : { zoom: scale }}>
           <EditorContent editor={editor} />

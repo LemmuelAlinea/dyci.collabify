@@ -92,7 +92,7 @@ export default function Messages() {
 
       <div
         className={`surface flex min-h-0 overflow-hidden rounded-panel border border-line ${
-          conversationId ? 'h-[max(420px,calc(100dvh-8.5rem))]' : 'h-[clamp(480px,calc(100dvh-458px),760px)]'
+          conversationId ? 'h-[max(420px,calc((100dvh/var(--zoom,1))-8.5rem))]' : 'h-[clamp(480px,calc((100dvh/var(--zoom,1))-458px),760px)]'
         }`}
       >
         <aside

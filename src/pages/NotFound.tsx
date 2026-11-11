@@ -3,7 +3,7 @@ import { ButtonLink } from '../components/ui/Button'
 
 export default function NotFound() {
   return (
-    <div className="grid min-h-dvh place-items-center px-6 text-center">
+    <div className="grid min-h-[calc(100dvh/var(--zoom,1))] place-items-center px-6 text-center">
       <div className="max-w-[420px]">
         <LogoMark size={48} />
         <p className="eyebrow mt-6 text-faint">Error 404</p>

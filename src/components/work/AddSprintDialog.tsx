@@ -75,7 +75,7 @@ export function AddSprintDialog({
             No planned or running sprints to add. Create one in Backlog first.
           </p>
         ) : (
-          <ul className="max-h-[50vh] divide-y divide-[var(--line)] overflow-y-auto rounded-xl border border-line">
+          <ul className="max-h-[calc(50vh/var(--zoom,1))] divide-y divide-[var(--line)] overflow-y-auto rounded-xl border border-line">
             {candidates.map((s) => (
               <li key={s.id}>
                 <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5">

@@ -26,7 +26,7 @@ export default function AuthCallback() {
   }, [ready, session, profile, navigate])
 
   return (
-    <div className="grid min-h-dvh place-items-center px-6">
+    <div className="grid min-h-[calc(100dvh/var(--zoom,1))] place-items-center px-6">
       <div className="flex flex-col items-center gap-5 text-center">
         <LogoMark size={48} />
         <div className="flex items-center gap-3 text-[14px] text-muted">

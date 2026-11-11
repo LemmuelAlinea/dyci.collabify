@@ -4521,3 +4521,38 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
   dyci-collabify.vercel.app" state.
 - **Next:** the owner stores the REST API key in the Vault, reviews, then push `main` and test on a desktop, an
   Android phone and an iPhone from the Home Screen.
+
+## Page size slider in Settings → Appearance (2026-11-11)
+
+**Local only, on branch `feature/page-zoom`. Not pushed; the owner reviews first.** No SQL.
+
+- **What it is.** Settings → Appearance has a "Page size" slider between the theme cards and Your colors:
+  minus and plus buttons, a range input drawn as a progress bar (`--progress` fill on `--surface-sunken`,
+  `.zoom-range` in `index.css`), the percentage, and Reset to 100%. 80% to 130% in 5% steps. It applies while
+  dragging and keeps the control under the finger (scrolls by the shift after each change).
+- **How.** CSS `zoom` on `<html>` plus `--zoom` beside it (`src/lib/zoom.ts`, pre-paint in `public/theme.js`).
+  Root font size would not work: the app sizes text in px (2,400+ `text-[Npx]`, no rem text scale).
+  Saved per device in `localStorage` (`collabify.zoom`), not on the account: the size that suits a phone is not
+  the size that suits a desktop. Pre-paint repeats the 80–130 range check; keep the two in step.
+- **What zoom on the root changes, and the answers.**
+  - Viewport units grow with it, so every layout `vh`/`dvh`/`vw` size and `h-dvh`/`min-h-dvh`/`min-h-screen`
+    divide by `var(--zoom,1)` (43 class edits, plus `.page-scrollbar`). Font `clamp()`s with `vw` are left alone;
+    they should grow. **A new viewport-unit size needs the same division.**
+  - Chrome reports boxes, `innerWidth` and pointer positions in screen px while a style `top`/`left` is page px.
+    `pageRect`, `pageViewport` and `toPage` convert; used by `ActionMenu`, `FilterPopover`, `IconAction`,
+    `SideNav` hints, the walkthrough `Spotlight`/`useTargetBox`, `useBoardDrag` and `PageScrollbar`. Safari has
+    long reported boxes in page px; `rectScale` measures which this browser does. **New code that places a
+    fixed layer from a measured box should read through these.**
+  - Media queries still see the real width. On a 1030px screen (just past `lg`) every main page held at 130%;
+    Settings and a project page clipped from 140%. That is why the range stops at 130%.
+- **Also.** `Icon` gained `minus`. Your colors' text column now wraps its button under it on a narrow screen
+  (`grow basis-56`); it was squeezed to 117px on a phone even at 100%.
+- **Verified** in the preview, signed in, on Chrome 152: 80/100/130% at 1030, 768 and 375 wide across Home,
+  Spaces, Inbox, Calendar, Tasks, Projects, a project page, Meetings and Settings (no page scroll sideways, no
+  clipped controls outside the scrolling tab strip); plus, minus, drag (handle ends under the pointer), arrow
+  keys and Home, focus ring; the view menu and filter popover open under their buttons at 130%; a lifted board
+  card tracks the pointer within 1px at 130% (cancelled with Escape, nothing moved); the walkthrough replay's
+  light wraps its target at 130%; a reload applies the saved size before the app renders; dark and light.
+- **Not verified:** Safari/iPad and Firefox, and a real touch device. Monaco (the code editor) under zoom was
+  not exercised; if clicks land off by the zoom there, that is Monaco's own coordinate math.
+- **Next:** the owner reviews the branch, then merge to `main` and try it on the Xiaomi Pad.

@@ -189,7 +189,7 @@ export default function ExcelEditor({
       <div
         ref={frame}
         className={`excel-frame overflow-hidden rounded-xl border border-line ${
-          fill ? 'h-[calc(100dvh-17rem)] min-h-[18rem]' : 'h-[62vh] min-h-[22rem]'
+          fill ? 'h-[calc((100dvh/var(--zoom,1))-17rem)] min-h-[18rem]' : 'h-[calc(62vh/var(--zoom,1))] min-h-[22rem]'
         }`}
       >
         <FortuneWorkbook

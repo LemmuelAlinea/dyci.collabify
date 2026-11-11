@@ -6,6 +6,7 @@ import { dialogIsOpen } from './useTargetBox'
 import { DUR } from '../../lib/motion'
 import { holeFor, placeCard, scrimPanels } from '../../lib/walkthrough/geometry'
 import type { Box, Viewport } from '../../lib/walkthrough/geometry'
+import { pageRect, pageViewport } from '../../lib/zoom'
 
 type Props = {
   title: string
@@ -24,7 +25,8 @@ type Props = {
 const SCRIM = 'bg-[color-mix(in_oklab,var(--scrim,var(--color-navy-950))_60%,transparent)]'
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
-const readViewport = (): Viewport => ({ width: window.innerWidth, height: window.innerHeight })
+/** In page px, like the target box, so the light holds at any page zoom. */
+const readViewport = (): Viewport => pageViewport()
 /** TopNav writes the app bar's height on the root element; 0 when there is no bar. */
 const readTopInset = () => parseFloat(document.documentElement.style.getPropertyValue('--app-bar')) || 0
 const style = (b: Box) => ({ top: b.top, left: b.left, width: b.width, height: b.height })
@@ -50,7 +52,7 @@ export function Spotlight({ title, body, eyebrow, box, blockTarget, actions, ste
   useLayoutEffect(() => {
     const el = card.current
     if (!el) return
-    const { height } = el.getBoundingClientRect()
+    const { height } = pageRect(el)
     setSize((s) => (s.width === cardWidth && s.height === (height || s.height) ? s : { width: cardWidth, height: height || s.height }))
   }, [cardWidth, title, body, actions.length, vp.height])
 
@@ -80,7 +82,7 @@ export function Spotlight({ title, body, eyebrow, box, blockTarget, actions, ste
       hole && !blockTarget
         ? [...document.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => {
             if (card.current?.contains(el)) return false
-            const r = el.getBoundingClientRect()
+            const r = pageRect(el)
             const cx = r.left + r.width / 2
             const cy = r.top + r.height / 2
             return r.width > 0 && cx >= hole.left && cx <= hole.left + hole.width && cy >= hole.top && cy <= hole.top + hole.height

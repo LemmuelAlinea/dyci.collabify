@@ -281,7 +281,7 @@ export function ReportSidebar({
 }) {
   return (
     <div className="hidden @min-[860px]:block print:hidden">
-      <div className="sticky top-[72px] max-h-[calc(100dvh-96px)] space-y-4 overflow-y-auto pb-1 [scrollbar-width:thin]">
+      <div className="sticky top-[72px] max-h-[calc((100dvh/var(--zoom,1))-96px)] space-y-4 overflow-y-auto pb-1 [scrollbar-width:thin]">
         <Catalogue catalogue={catalogue} kind={r.kind} onPick={r.choose} dense />
 
         <section className="space-y-2">

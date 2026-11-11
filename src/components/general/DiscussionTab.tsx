@@ -617,7 +617,7 @@ function LiveRoom({
   return (
     <section
       aria-label="Live discussion"
-      className="flex h-[max(460px,calc(100dvh-15rem))] flex-col overflow-hidden rounded-panel border border-line surface"
+      className="flex h-[max(460px,calc((100dvh/var(--zoom,1))-15rem))] flex-col overflow-hidden rounded-panel border border-line surface"
     >
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
         <div className="min-w-0">

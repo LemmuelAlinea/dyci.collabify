@@ -8,7 +8,7 @@ import type { Role } from '../lib/types'
 
 function Booting() {
   return (
-    <div className="grid min-h-dvh place-items-center px-6">
+    <div className="grid min-h-[calc(100dvh/var(--zoom,1))] place-items-center px-6">
       <div className="flex flex-col items-center gap-5">
         <LogoMark size={44} />
         <Spinner size={18} className="text-muted" />

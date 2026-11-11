@@ -206,7 +206,7 @@ export function WorkspaceSearch({ onClose }: { onClose?: () => void }) {
       />
 
       {open && query.trim() && (
-        <div className="surface absolute left-0 z-50 mt-2 max-h-[min(70vh,520px)] w-full overflow-y-auto rounded-xl border border-line shadow-lift">
+        <div className="surface absolute left-0 z-50 mt-2 max-h-[min((70vh/var(--zoom,1)),520px)] w-full overflow-y-auto rounded-xl border border-line shadow-lift">
           {error ? (
             <p className="px-4 py-3 text-[13px] text-danger-600 dark:text-danger-300">{error}</p>
           ) : sections.length === 0 ? (

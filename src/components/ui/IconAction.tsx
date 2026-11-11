@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { buttonClass } from './buttonClass'
 import { Icon, Spinner } from './Icon'
 import type { IconName } from './Icon'
+import { pageRect, pageViewport } from '../../lib/zoom'
 
 type Tip = { x: number; y: number }
 
@@ -35,7 +36,7 @@ export function IconAction({
   const [tip, setTip] = useState<Tip | null>(null)
 
   function show(event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) {
-    const rect = event.currentTarget.getBoundingClientRect()
+    const rect = pageRect(event.currentTarget)
     setTip({ x: rect.left + rect.width / 2, y: rect.bottom + 6 })
   }
   const hide = () => setTip(null)
@@ -78,9 +79,9 @@ export function IconAction({
             ref={(el) => {
               if (!el) return
               el.style.left = `${tip.x}px`
-              const r = el.getBoundingClientRect()
+              const r = pageRect(el)
               const gap = 8
-              const shift = Math.min(0, window.innerWidth - gap - r.right) || Math.max(0, gap - r.left)
+              const shift = Math.min(0, pageViewport().width - gap - r.right) || Math.max(0, gap - r.left)
               if (shift) el.style.left = `${tip.x + shift}px`
             }}
             style={{ left: tip.x, top: tip.y }}

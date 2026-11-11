@@ -551,7 +551,7 @@ function AssignFacultyDialog({
             <p className="font-mono text-[12px] text-faint">
               {picked.size} of {teachers.length} selected
             </p>
-            <ul className="max-h-[50vh] space-y-2 overflow-y-auto">
+            <ul className="max-h-[calc(50vh/var(--zoom,1))] space-y-2 overflow-y-auto">
               {shown.map((t) => (
                 <li key={t.id}>
                   <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line px-3.5 py-2.5 hover:bg-[var(--surface-sunken)]">

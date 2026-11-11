@@ -52,7 +52,7 @@ export function AuthLayout({
 
   return (
     <div
-      className={`surface grid min-h-dvh overflow-x-hidden lg:h-dvh lg:min-h-0 lg:overflow-hidden ${
+      className={`surface grid min-h-[calc(100dvh/var(--zoom,1))] overflow-x-hidden lg:h-[calc(100dvh/var(--zoom,1))] lg:min-h-0 lg:overflow-hidden ${
         mirrored
           ? 'lg:grid-cols-[minmax(0,54fr)_minmax(0,46fr)]'
           : 'lg:grid-cols-[minmax(0,46fr)_minmax(0,54fr)]'
@@ -68,7 +68,7 @@ export function AuthLayout({
         initial={animateSwap ? { transform: brandStart } : false}
         animate={{ transform: 'translateX(0%)' }}
         transition={panelTransition}
-        className={`relative z-20 overflow-hidden bg-navy-950 text-amber-50 lg:h-dvh ${
+        className={`relative z-20 overflow-hidden bg-navy-950 text-amber-50 lg:h-[calc(100dvh/var(--zoom,1))] ${
           mirrored ? 'lg:order-2' : ''
         }`}
       >
@@ -188,7 +188,7 @@ export function AuthLayout({
         initial={animateSwap ? { transform: formStart, opacity: 0.82 } : false}
         animate={{ transform: 'translateX(0%)', opacity: 1 }}
         transition={panelTransition}
-        className={`surface relative z-10 flex min-h-0 flex-col outline-none lg:h-dvh ${
+        className={`surface relative z-10 flex min-h-0 flex-col outline-none lg:h-[calc(100dvh/var(--zoom,1))] ${
           mirrored ? 'lg:order-1' : ''
         }`}
       >

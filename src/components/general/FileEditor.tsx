@@ -31,7 +31,7 @@ const ExcelEditor = lazy(() => import('./ExcelEditor'))
 
 function EditorLoading({ what }: { what: string }) {
   return (
-    <div className="flex h-[60vh] min-h-[22rem] items-center justify-center gap-2 rounded-xl border border-line surface-sunken text-[13px] text-muted">
+    <div className="flex h-[calc(60vh/var(--zoom,1))] min-h-[22rem] items-center justify-center gap-2 rounded-xl border border-line surface-sunken text-[13px] text-muted">
       <Spinner size={14} />
       Opening the {what}…
     </div>

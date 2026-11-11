@@ -66,7 +66,7 @@ export function TagTasksDialog({
         {candidates.length === 0 ? (
           <p className="text-[14px] text-muted">No unfinished tasks to tag.</p>
         ) : (
-          <ul className="max-h-[50vh] divide-y divide-[var(--line)] overflow-y-auto rounded-xl border border-line">
+          <ul className="max-h-[calc(50vh/var(--zoom,1))] divide-y divide-[var(--line)] overflow-y-auto rounded-xl border border-line">
             {candidates.map((item) => (
               <li key={item.id}>
                 <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5">

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
+import { pageRect, pageViewport } from '../../lib/zoom'
 
 export type ActionMenuItem = {
   label: string
@@ -52,13 +53,15 @@ export function ActionMenu({
   useLayoutEffect(() => {
     if (!open) return
     function place() {
-      const t = trigger.current?.getBoundingClientRect()
-      if (!t) return
+      if (!trigger.current) return
+      // Page px, so the panel lands under the trigger at any page zoom.
+      const t = pageRect(trigger.current)
+      const vp = pageViewport()
       const h = panel.current?.offsetHeight ?? 0
       const below = t.bottom + GAP
-      const top = below + h > window.innerHeight - 8 && t.top - GAP - h > 8 ? t.top - GAP - h : below
+      const top = below + h > vp.height - 8 && t.top - GAP - h > 8 ? t.top - GAP - h : below
       const raw = align === 'end' ? t.right - WIDTH : t.left
-      const left = Math.min(Math.max(8, raw), window.innerWidth - WIDTH - 8)
+      const left = Math.min(Math.max(8, raw), vp.width - WIDTH - 8)
       setPos({ top, left })
     }
     place()

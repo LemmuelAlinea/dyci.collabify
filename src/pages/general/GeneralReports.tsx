@@ -269,7 +269,7 @@ export default function GeneralReports() {
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <aside className="hidden lg:block print:hidden" aria-label="Report builder">
-          <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-card border border-line bg-[var(--surface)] p-4">
+          <div className="sticky top-4 max-h-[calc((100vh/var(--zoom,1))-2rem)] overflow-y-auto rounded-card border border-line bg-[var(--surface)] p-4">
             <h1 className="mb-4 font-display text-[20px] leading-7 font-semibold text-ink">Reports</h1>
             {builder}
           </div>

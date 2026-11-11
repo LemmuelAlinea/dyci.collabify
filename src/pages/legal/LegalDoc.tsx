@@ -163,7 +163,7 @@ export function LegalDocPage({ slug }: { slug: LegalSlug }) {
   const others = LEGAL_DOCS.filter((other) => other.slug !== slug)
 
   return (
-    <div className="surface text-ink min-h-screen">
+    <div className="surface text-ink min-h-[calc(100vh/var(--zoom,1))]">
       <div className="mx-auto w-full max-w-[1280px] px-5 pb-24 sm:px-8 lg:px-12">
         <header className={`${MEASURE} pt-16 sm:pt-24`}>
           <Link

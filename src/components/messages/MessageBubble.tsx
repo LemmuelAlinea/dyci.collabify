@@ -46,7 +46,7 @@ function Attachment({ attachment, mine }: { attachment: MessageAttachment; mine:
 
   if (length) {
     return (
-      <div className="w-[min(300px,62vw)] space-y-1.5">
+      <div className="w-[min(300px,(62vw/var(--zoom,1)))] space-y-1.5">
         <p
           className={`flex items-center gap-1.5 text-[11px] font-medium tracking-wide uppercase ${
             mine ? 'text-white/70' : 'text-muted'
@@ -193,7 +193,7 @@ export function MessageBubble({
             )}
 
             {editing ? (
-              <div className="w-[min(60vw,320px)] space-y-2">
+              <div className="w-[min((60vw/var(--zoom,1)),320px)] space-y-2">
                 <Textarea
                   rows={2}
                   value={draft}

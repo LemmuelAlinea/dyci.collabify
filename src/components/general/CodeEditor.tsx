@@ -173,7 +173,7 @@ export default function CodeEditor({
         ref={host}
         role="group"
         aria-label={`${language.label} code`}
-        className={fill ? 'h-[calc(100dvh-17rem)] min-h-[16rem]' : 'h-[60vh] min-h-[22rem]'}
+        className={fill ? 'h-[calc((100dvh/var(--zoom,1))-17rem)] min-h-[16rem]' : 'h-[calc(60vh/var(--zoom,1))] min-h-[22rem]'}
       />
 
       {listOpen && problems.length > 0 && (

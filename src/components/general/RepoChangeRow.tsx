@@ -465,7 +465,7 @@ function ReviewFilePreview({ file }: { file: RepoFile }) {
               Loading preview…
             </div>
           ) : (
-            <div className="flex max-h-[70vh] justify-center overflow-auto p-3">
+            <div className="flex max-h-[calc(70vh/var(--zoom,1))] justify-center overflow-auto p-3">
               <img src={url} alt={name} className="max-w-full rounded-lg" />
             </div>
           )}

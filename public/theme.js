@@ -28,3 +28,13 @@ try {
     }
   }
 } catch {}
+
+// Page zoom from Settings → Appearance, kept on this device. The range and the
+// `--zoom` variable mirror src/lib/zoom.ts.
+try {
+  var zoom = Number(localStorage.getItem('collabify.zoom'))
+  if (zoom >= 80 && zoom <= 130 && zoom !== 100 && CSS.supports('zoom', '2')) {
+    document.documentElement.style.setProperty('zoom', String(zoom / 100))
+    document.documentElement.style.setProperty('--zoom', String(zoom / 100))
+  }
+} catch {}

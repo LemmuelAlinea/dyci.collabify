@@ -86,7 +86,7 @@ export function RichEditor({
         suppressContentEditableWarning
         onInput={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
         onBlur={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
-        className="rich-body min-h-[22rem] max-h-[60vh] overflow-y-auto bg-[var(--surface)] px-4 py-3 text-[14px] leading-relaxed text-ink focus:outline-none"
+        className="rich-body min-h-[22rem] max-h-[calc(60vh/var(--zoom,1))] overflow-y-auto bg-[var(--surface)] px-4 py-3 text-[14px] leading-relaxed text-ink focus:outline-none"
       />
     </div>
   )

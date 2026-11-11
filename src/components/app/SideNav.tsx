@@ -10,6 +10,7 @@ import { usePendingInvitations } from '../../hooks/usePendingInvitations'
 import { useProjectLooks } from '../../hooks/useProjectLooks'
 import { membershipOf } from '../../lib/access'
 import { paths } from '../../lib/paths'
+import { pageRect } from '../../lib/zoom'
 import { Logo, LogoMark } from '../brand/Logo'
 import { ProjectMark } from '../general/ProjectMark'
 import { Icon } from '../ui/Icon'
@@ -104,7 +105,7 @@ export function SideNav({
     event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>,
   ) {
     if (!collapsed) return
-    const rect = event.currentTarget.getBoundingClientRect()
+    const rect = pageRect(event.currentTarget)
     setHint({ text, top: rect.top + rect.height / 2 })
   }
 

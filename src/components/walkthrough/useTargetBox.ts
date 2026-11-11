@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useReducedMotion } from 'motion/react'
 import { unionBox } from '../../lib/walkthrough/geometry'
 import type { Box } from '../../lib/walkthrough/geometry'
+import { pageRect } from '../../lib/zoom'
 
 /** How long a step waits for its target before the card stands alone. */
 export const TARGET_GRACE_MS = 1500
@@ -51,7 +52,8 @@ export function useTargetBox(markers: readonly string[], active: boolean): Resul
       const boxes: Box[] = []
       const found: Element[] = selector ? [...document.querySelectorAll(selector)] : []
       for (const el of found) {
-        const r = el.getBoundingClientRect()
+        // Page px, the units the spotlight's fixed layers are drawn in at any page zoom.
+        const r = pageRect(el)
         if (r.width > 0 && r.height > 0) boxes.push({ top: r.top, left: r.left, width: r.width, height: r.height })
       }
       const box = unionBox(boxes)

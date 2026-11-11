@@ -282,7 +282,7 @@ export function ColorCustomizer() {
 
   return (
     <div className="mt-6 flex flex-wrap items-center gap-4 border-t border-line pt-5">
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 grow basis-56">
         <h3>Your colors</h3>
         <p className="mt-1 max-w-[62ch] text-[13px] text-muted">
           Banners and their buttons, statuses, the sidebar, progress bars, badges and project icons, set apart for

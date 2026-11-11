@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { animate, motion, useMotionValue, useReducedMotion, useSpring, useTransform, useVelocity } from 'motion/react'
 import { edgeSpeed } from '../../lib/work/boardDrop'
+import { toPage } from '../../lib/zoom'
 
 /** A press on one of these stays that control's. The card's own open button can start a drag. */
 const NOT_A_HANDLE = 'a, input, select, textarea, label, button:not([data-card-open]), [data-no-drag]'
@@ -81,8 +82,8 @@ function glide(root: HTMLElement, before: Rects, skip: string | null, reduce: bo
     const was = before.get(id)
     if (!was || id === skip) return
     const now = el.getBoundingClientRect()
-    const dx = was.left - now.left
-    const dy = was.top - now.top
+    const dx = toPage(was.left - now.left)
+    const dy = toPage(was.top - now.top)
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return
     // A card that crosses columns stays above the ones it passes.
     if (dx !== 0) el.style.zIndex = '20'
@@ -202,7 +203,7 @@ export function useBoardDrag(options: BoardDragOptions): BoardDrag & { attach: (
       glide(root, before, s.id, reduce)
       const rect = root.querySelector(`[data-board-card="${s.id}"]`)?.getBoundingClientRect()
       const inView = rect && rect.bottom > 0 && rect.top < window.innerHeight && rect.right > 0 && rect.left < window.innerWidth
-      void (rect && inView ? fly(rect.left, rect.top) : fade()).then(() => clear(s))
+      void (rect && inView ? fly(toPage(rect.left), toPage(rect.top)) : fade()).then(() => clear(s))
     })
     add(s.id, column)
     setActive((a) => a && { ...a, phase: 'landing' })
@@ -218,7 +219,7 @@ export function useBoardDrag(options: BoardDragOptions): BoardDrag & { attach: (
       return
     }
     const rect = s.el.getBoundingClientRect()
-    void fly(rect.left, rect.top).then(() => clear(s))
+    void fly(toPage(rect.left), toPage(rect.top)).then(() => clear(s))
   }
 
   function finish(s: Session, dropped: boolean) {
@@ -257,8 +258,10 @@ export function useBoardDrag(options: BoardDragOptions): BoardDrag & { attach: (
     const horizontal = scrollerOf(columns[0], 'x')
     const page = vertical === document.scrollingElement
 
-    x.jump(rect.left)
-    y.jump(rect.top)
+    // Hit tests stay in screen px, as the pointer and boxes report them; what the
+    // layer is drawn with is page px, so the card stays under the finger at any page zoom.
+    x.jump(toPage(rect.left))
+    y.jump(toPage(rect.top))
     scale.jump(1)
     opacity.jump(1)
 
@@ -312,8 +315,8 @@ export function useBoardDrag(options: BoardDragOptions): BoardDrag & { attach: (
       if (e.pointerId !== pointer) return
       s.px = e.clientX
       s.py = e.clientY
-      x.set(e.clientX - s.grabX)
-      y.set(e.clientY - s.grabY)
+      x.set(toPage(e.clientX - s.grabX))
+      y.set(toPage(e.clientY - s.grabY))
     }
     const onUp = (e: PointerEvent) => {
       if (e.pointerId === pointer) finish(s, true)
@@ -346,7 +349,7 @@ export function useBoardDrag(options: BoardDragOptions): BoardDrag & { attach: (
     session.current = s
     document.documentElement.classList.add('board-dragging')
     window.getSelection()?.removeAllRanges()
-    setActive({ id, column, width: rect.width, height: rect.height, phase: 'dragging', refusals, clone })
+    setActive({ id, column, width: toPage(rect.width), height: toPage(rect.height), phase: 'dragging', refusals, clone })
     void animate(scale, reduce ? 1 : LIFTED_SCALE, transition)
   }
 

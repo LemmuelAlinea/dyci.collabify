@@ -218,8 +218,8 @@ export function Modal({
           right
             ? 'h-full max-w-[480px] border-l border-line'
             : full
-            ? 'h-dvh max-h-dvh'
-            : `max-h-[calc(92dvh-var(--app-bar,0px))] rounded-t-panel sm:max-h-[calc(100dvh-var(--app-bar,0px)-3rem)] sm:rounded-panel ${WIDTHS[size]}`
+            ? 'h-[calc(100dvh/var(--zoom,1))] max-h-[calc(100dvh/var(--zoom,1))]'
+            : `max-h-[calc((92dvh/var(--zoom,1))-var(--app-bar,0px))] rounded-t-panel sm:max-h-[calc((100dvh/var(--zoom,1))-var(--app-bar,0px)-3rem)] sm:rounded-panel ${WIDTHS[size]}`
         }`}
       >
         <header

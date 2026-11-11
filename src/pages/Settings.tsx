@@ -5,6 +5,7 @@ import { Avatar } from '../components/app/Avatar'
 import { DirectoryHero } from '../components/app/DirectoryHero'
 import { ColorCustomizer } from '../components/settings/ColorCustomizer'
 import { DevicePush } from '../components/settings/DevicePush'
+import { PageZoom } from '../components/settings/PageZoom'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { Field, Input, Toggle } from '../components/ui/Field'
 import { Alert } from '../components/ui/Alert'
@@ -455,7 +456,7 @@ export default function Settings() {
             marker="account-look"
             icon="palette"
             title="Appearance"
-            description="Light or dark, and your own colors for each. Applies right away and follows your account."
+            description="Light or dark, page size, and your own colors. Applies right away; page size stays on this device."
           >
           <div className="grid grid-cols-3 gap-3 sm:gap-3">
             {APPEARANCE.map((a) => {
@@ -490,6 +491,7 @@ export default function Settings() {
           <div className="mt-4 flex justify-end">
             <Saved show={themeSaved} text="Appearance saved" />
           </div>
+          <PageZoom />
           <ColorCustomizer />
           </Section>
 

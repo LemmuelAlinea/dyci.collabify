@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 import { useFocusTrap } from '../../lib/focus'
 import { DUR } from '../../lib/motion'
+import { pageRect, pageViewport } from '../../lib/zoom'
 
 /**
  * Every filter in the product lives behind this one button.
@@ -48,14 +49,16 @@ export function FilterPopover({
   // (or 92vw on a phone), opens toward the side with room, and scrolls inside
   // itself when the screen is shorter than the filters.
   function place() {
-    const r = button.current?.getBoundingClientRect()
-    if (!r) return
-    const w = Math.min(window.innerWidth * 0.92, 340)
-    const side = align ?? (r.left + w <= window.innerWidth - 8 ? 'left' : 'right')
+    if (!button.current) return
+    // Page px, so the panel lands under the button at any page zoom.
+    const r = pageRect(button.current)
+    const vp = pageViewport()
+    const w = Math.min(vp.width * 0.92, 340)
+    const side = align ?? (r.left + w <= vp.width - 8 ? 'left' : 'right')
     const raw = side === 'left' ? r.left : r.right - w
-    const left = Math.min(Math.max(8, raw), window.innerWidth - w - 8)
+    const left = Math.min(Math.max(8, raw), vp.width - w - 8)
     const top = r.bottom + 8
-    setPos({ top, left, side, maxHeight: Math.max(160, window.innerHeight - top - 8) })
+    setPos({ top, left, side, maxHeight: Math.max(160, vp.height - top - 8) })
   }
 
   function toggle() {
@@ -157,7 +160,7 @@ export function FilterPopover({
           inert={!open}
           data-state={open ? 'open' : 'closed'}
           style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999, maxHeight: pos?.maxHeight }}
-          className={`app-ui motion-overlay surface fixed z-[70] w-[min(92vw,340px)] space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-line p-4 shadow-lift ${
+          className={`app-ui motion-overlay surface fixed z-[70] w-[min((92vw/var(--zoom,1)),340px)] space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-line p-4 shadow-lift ${
             pos?.side === 'right' ? 'origin-top-right' : 'origin-top-left'
           }`}
         >

@@ -179,7 +179,7 @@ export default function Landing() {
   }, [])
 
   return (
-    <div className="landing-page min-h-screen bg-white antialiased">
+    <div className="landing-page min-h-[calc(100vh/var(--zoom,1))] bg-white antialiased">
       <Nav />
 
       <main>

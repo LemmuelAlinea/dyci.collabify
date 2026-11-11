@@ -73,7 +73,7 @@ export function PdfPreview({
   return (
     <div
       aria-label={label}
-      className={`overflow-auto ${fill ? 'h-[calc(100dvh-11rem)]' : 'max-h-[70vh]'} rounded-xl border border-line bg-neutral-100 p-3 dark:bg-neutral-950`}
+      className={`overflow-auto ${fill ? 'h-[calc((100dvh/var(--zoom,1))-11rem)]' : 'max-h-[calc(70vh/var(--zoom,1))]'} rounded-xl border border-line bg-neutral-100 p-3 dark:bg-neutral-950`}
     >
       <div className="mx-auto flex max-w-full flex-col items-center gap-3">
         {loaded.pages.map((pageNumber) => (

@@ -92,14 +92,14 @@ export function AppShell() {
   return (
     <GeneralNavigationProvider enabled={Boolean(profile && profile.status === 'active' && profile.role)}>
       <WalkthroughProvider>
-      <div className="app-ui flex min-h-dvh overflow-x-clip">
+      <div className="app-ui flex min-h-[calc(100dvh/var(--zoom,1))] overflow-x-clip">
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
 
         <aside
           id="desktop-side-navigation"
-          className={`surface relative sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line lg:flex ${
+          className={`surface relative sticky top-0 hidden h-[calc(100dvh/var(--zoom,1))] shrink-0 flex-col border-r border-line lg:flex ${
             collapsed ? 'w-16' : 'w-[276px]'
           } ${reduce ? '' : 'transition-[width] duration-200'}`}
         >
