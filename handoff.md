@@ -4615,7 +4615,7 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
 
 ## Notification chime while Collabify is open (2026-11-12)
 
-**Committed locally on `main`; not pushed until the owner reviews.** No SQL.
+**Live on `main` since 2026-11-12 (0a7aeeb), after the owner's review.** No SQL.
 
 - **What.** A short two-note chime (E5 then A5, about half a second, drawn with Web Audio, no file) when the
   bell's unread count rises while the page is in view. Not for the backlog on first load, not in the background
@@ -4630,4 +4630,4 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
 - **Verified** in the preview, signed in: the row shows; off saves and stays silent; on plays the two notes; a
   faked unread rise 0 → 1 chimed once, the same count again stayed silent. Build and 2,082 tests pass.
 - **Not verified:** hearing it on a phone, and the held-back banner with a real push.
-- **Next:** push after review; with Collabify open on a phone, have someone send you a notification.
+- **Next:** with Collabify open on a phone, have someone send you a notification.
