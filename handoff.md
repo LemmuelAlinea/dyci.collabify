@@ -4528,8 +4528,12 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
 
 - **What it is.** Settings → Appearance has a "Page size" slider between the theme cards and Your colors:
   minus and plus buttons, a range input drawn as a progress bar (`--progress` fill on `--surface-sunken`,
-  `.zoom-range` in `index.css`), the percentage, and Reset to 100%. 80% to 130% in 5% steps. It applies while
-  dragging and keeps the control under the finger (scrolls by the shift after each change).
+  `.zoom-range` in `index.css`), the percentage, and Reset to 100%. 80% to 130% in 1% steps (the owner asked
+  for 1, not 5). Every change glides the page there (`ZOOM_GLIDE_MS` 220, ease-out cubic `easeZoom`, drawn
+  through `drawZoom` each frame; a new change mid-glide sets off from wherever the page is), and jumps with
+  reduced motion. Holding minus or plus repeats after 400ms, every 45ms; the click that ends a hold adds no
+  step. Only the chosen whole percent is saved (`saveZoom`). The control stays under the finger: every frame
+  scrolls by the shift.
 - **How.** CSS `zoom` on `<html>` plus `--zoom` beside it (`src/lib/zoom.ts`, pre-paint in `public/theme.js`).
   Root font size would not work: the app sizes text in px (2,400+ `text-[Npx]`, no rem text scale).
   Saved per device in `localStorage` (`collabify.zoom`), not on the account: the size that suits a phone is not
@@ -4553,6 +4557,9 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
   keys and Home, focus ring; the view menu and filter popover open under their buttons at 130%; a lifted board
   card tracks the pointer within 1px at 130% (cancelled with Escape, nothing moved); the walkthrough replay's
   light wraps its target at 130%; a reload applies the saved size before the app renders; dark and light.
+  The glide and hold were proven in `PageZoom.test.tsx` with fake timers (in-between frames, easing, no
+  reversal, reduced motion, hold count, no extra step on release): the preview pane throttles timers to about
+  one a second, so it cannot show the glide's smoothness.
 - **Not verified:** Safari/iPad and Firefox, and a real touch device. Monaco (the code editor) under zoom was
   not exercised; if clicks land off by the zoom there, that is Monaco's own coordinate math.
 - **Next:** the owner reviews the branch, then merge to `main` and try it on the Xiaomi Pad.

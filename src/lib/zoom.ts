@@ -25,7 +25,9 @@
 
 export const ZOOM_MIN = 80
 export const ZOOM_MAX = 130
-export const ZOOM_STEP = 5
+export const ZOOM_STEP = 1
+/** How long a change between two sizes glides, in ms. Reduced motion jumps. */
+export const ZOOM_GLIDE_MS = 220
 export const ZOOM_DEFAULT = 100
 export const ZOOM_KEY = 'collabify.zoom'
 
@@ -68,24 +70,43 @@ export function readStoredZoom(): number {
   }
 }
 
-/** Draws the page at `percent` and keeps it for this device. */
-export function applyZoom(percent: number) {
-  const value = clampZoom(percent)
+/** How far a glide has eased, for `t` from 0 to 1. Ease-out cubic: quick, then settling. */
+export function easeZoom(t: number): number {
+  const c = Math.min(1, Math.max(0, t))
+  return 1 - (1 - c) ** 3
+}
+
+/**
+ * Draws the page at `percent`. Fractions are allowed, so a glide can pass through
+ * the sizes between two stops. Nothing is saved.
+ */
+export function drawZoom(percent: number) {
+  const value = Number.isFinite(percent) ? Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, percent)) : ZOOM_DEFAULT
   const html = root()
-  if (value === ZOOM_DEFAULT || !zoomSupported()) {
+  if (Math.abs(value - ZOOM_DEFAULT) < 0.01 || !zoomSupported()) {
     html.style.removeProperty('zoom')
     html.style.removeProperty('--zoom')
   } else {
-    html.style.setProperty('zoom', String(value / 100))
-    html.style.setProperty('--zoom', String(value / 100))
+    const factor = String(Math.round(value * 100) / 10000)
+    html.style.setProperty('zoom', factor)
+    html.style.setProperty('--zoom', factor)
   }
+}
+
+/** Tells layers that place themselves from the window's size to measure again. */
+export function announceZoom() {
+  window.dispatchEvent(new Event('resize'))
+}
+
+/** Keeps a zoom for this device, for the next visit's first paint. */
+export function saveZoom(percent: number) {
+  const value = clampZoom(percent)
   try {
     if (value === ZOOM_DEFAULT) window.localStorage.removeItem(ZOOM_KEY)
     else window.localStorage.setItem(ZOOM_KEY, String(value))
   } catch {
     // Private windows can refuse storage. The zoom still applies for this visit.
   }
-  window.dispatchEvent(new Event('resize'))
 }
 
 /** The zoom the page is drawn at, as a factor: 1.2 for 120%. */

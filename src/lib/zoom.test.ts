@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { ZOOM_DEFAULT, ZOOM_MAX, ZOOM_MIN, clampZoom, parseZoom, stepZoom, zoomFill } from './zoom'
+import { ZOOM_DEFAULT, ZOOM_MAX, ZOOM_MIN, clampZoom, easeZoom, parseZoom, stepZoom, zoomFill } from './zoom'
 
 describe('clampZoom', () => {
   it('keeps a stop on the slider', () => {
     expect(clampZoom(120)).toBe(120)
   })
-  it('rounds to the nearest step', () => {
-    expect(clampZoom(112)).toBe(110)
-    expect(clampZoom(113)).toBe(115)
+  it('rounds to a whole percent', () => {
+    expect(clampZoom(112.4)).toBe(112)
+    expect(clampZoom(112.6)).toBe(113)
+    expect(clampZoom(101)).toBe(101)
   })
   it('holds the ends', () => {
     expect(clampZoom(10)).toBe(ZOOM_MIN)
@@ -37,8 +38,8 @@ describe('parseZoom', () => {
 
 describe('stepZoom', () => {
   it('moves one step each way', () => {
-    expect(stepZoom(100, 1)).toBe(105)
-    expect(stepZoom(100, -1)).toBe(95)
+    expect(stepZoom(100, 1)).toBe(101)
+    expect(stepZoom(100, -1)).toBe(99)
   })
   it('stops at the ends', () => {
     expect(stepZoom(ZOOM_MAX, 1)).toBe(ZOOM_MAX)
@@ -51,5 +52,20 @@ describe('zoomFill', () => {
     expect(zoomFill(ZOOM_MIN)).toBe(0)
     expect(zoomFill(ZOOM_MAX)).toBe(100)
     expect(zoomFill(100)).toBe(40)
+  })
+})
+
+describe('easeZoom', () => {
+  it('starts at 0 and lands exactly on 1', () => {
+    expect(easeZoom(0)).toBe(0)
+    expect(easeZoom(1)).toBe(1)
+  })
+  it('moves quickly first, then settles', () => {
+    expect(easeZoom(0.5)).toBeCloseTo(0.875, 5)
+    expect(easeZoom(0.25)).toBeGreaterThan(0.25)
+  })
+  it('holds past either end, so a late frame never overshoots', () => {
+    expect(easeZoom(1.4)).toBe(1)
+    expect(easeZoom(-0.2)).toBe(0)
   })
 })
