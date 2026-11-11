@@ -4498,7 +4498,8 @@ The selected count and send buttons in the Plan & route work dialog are pinned t
 
 ## Device push notifications through OneSignal (2026-11-11)
 
-**Not pushed yet.** The SQL is on the live database but does nothing until the OneSignal key is in the Vault.
+**Live on `main` since 2026-11-11 (4ba2038).** The SQL is on the live database and the key is in the Vault;
+a key check to an unused id got OneSignal's 200 "not subscribed" answer.
 Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
 
 - **What it is.** Everything that shows under the bell also arrives on each device a person turned on, even when
