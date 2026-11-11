@@ -6,6 +6,7 @@ import { GeneralNavigationProvider } from '../../context/GeneralNavigationContex
 import { useFocusTrap } from '../../lib/focus'
 import { paths } from '../../lib/paths'
 import { homeFor } from '../../lib/access'
+import { linkPush } from '../../lib/push'
 import { Logo } from '../brand/Logo'
 import { Icon } from '../ui/Icon'
 import { PageLoading } from '../ui/PageLoading'
@@ -63,6 +64,11 @@ export function AppShell() {
   const location = useLocation()
 
   useEffect(() => setDrawer(false), [location.pathname, location.search])
+  // Ties this device to the account so its notifications can reach it (live site only).
+  const pushUser = profile?.status === 'active' && profile.role ? profile.id : null
+  useEffect(() => {
+    if (pushUser) void linkPush(pushUser).catch(() => undefined)
+  }, [pushUser])
   useEffect(() => {
     try {
       localStorage.setItem(COLLAPSED_KEY, String(collapsed))

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { Avatar } from '../components/app/Avatar'
 import { DirectoryHero } from '../components/app/DirectoryHero'
 import { ColorCustomizer } from '../components/settings/ColorCustomizer'
+import { DevicePush } from '../components/settings/DevicePush'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { Field, Input, Toggle } from '../components/ui/Field'
 import { Alert } from '../components/ui/Alert'
@@ -498,6 +499,7 @@ export default function Settings() {
             title="Notifications"
             description="Choose what shows up under the bell. Changes save as you flip them."
           >
+          <DevicePush />
           {prefsError && (
             <div className="mb-4">
               <Alert tone="error">{prefsError}</Alert>

@@ -12,6 +12,13 @@ export async function listNotifications(userId: string, limit = 20) {
   return (data ?? []) as AppNotification[]
 }
 
+/** One of the reader's own notifications, or null when it is gone. */
+export async function getNotification(id: string) {
+  const { data, error } = await supabase.from('notifications').select('*').eq('id', id).maybeSingle()
+  if (error) throw error
+  return data as AppNotification | null
+}
+
 export async function unreadCount(userId: string) {
   const { count, error } = await supabase
     .from('notifications')

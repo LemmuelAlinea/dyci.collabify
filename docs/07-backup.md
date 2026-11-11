@@ -957,3 +957,12 @@ before pushing the frontend, which reads and writes the table.
 `project-stakeholders.sql` (first written in `general-tasks.sql`). Re-running either of those means
 re-running it afterwards, or every member can comment on every task again. Suite:
 `supabase/tests/task-comment-scope.test.sql`.
+
+## Device push
+
+`push-notifications.sql` runs before `anon-lockdown.sql`; its place among the other files does not
+matter, since nothing earlier owns what it creates. It owns `send_notification_push` and the trigger
+`notifications_z_push` (after insert on `notifications`), which posts each new row to OneSignal through
+`pg_net` for the recipient's user id. The OneSignal REST API key lives only in the Vault as
+`collabify_onesignal_rest_key`; without it the trigger does nothing, and a failed request is a warning,
+never an error. Suite: `supabase/tests/push-notifications.test.sql`.

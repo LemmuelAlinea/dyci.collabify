@@ -19,6 +19,7 @@ import {
   retryAfter,
 } from '../lib/rateLimit'
 import { AuthContext } from './AuthContext'
+import { unlinkPush } from '../lib/push'
 import type { AuthValue, SignUpInput } from './AuthContext'
 
 const redirectTo = (path: string) => `${window.location.origin}${path}`
@@ -198,6 +199,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    // Untie this device first, so a shared computer stops getting this person's notifications.
+    await unlinkPush()
     await supabase.auth.signOut()
     // The throttle counters are keyed per identifier and would otherwise
     // outlive the session, which on a shared machine leaves a record that

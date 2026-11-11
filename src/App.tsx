@@ -67,6 +67,7 @@ const Submissions = lazy(() => import('./pages/app/submissions/Submissions'))
 const Reports = lazy(() => import('./pages/app/reports/Reports'))
 const Sections = lazy(() => import('./pages/app/admin/Sections'))
 const Settings = lazy(() => import('./pages/Settings'))
+const OpenNotification = lazy(() => import('./pages/app/OpenNotification'))
 const Trash = lazy(() => import('./pages/app/Trash'))
 const Archive = lazy(() => import('./pages/app/Archive'))
 const ClassSpace = lazy(() => import('./pages/app/classes/ClassSpace'))
@@ -132,6 +133,8 @@ export default function App() {
           <Route element={<ProtectedRoute open />}>
           <Route element={<AppShell />}>
             <Route path="/settings" element={<Settings />} />
+            {/* Where a device push opens; it redirects, so it has no nav entry. */}
+            <Route path="/n/:id" element={<OpenNotification />} />
             <Route path="/trash" element={<Trash />} />
             <Route path="/privacy/request" element={<PrivacyRequest />} />
 

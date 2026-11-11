@@ -4495,3 +4495,28 @@ The selected count and send buttons in the Plan & route work dialog are pinned t
 - **Code.** `general_can_comment_task` and the insert policy are in `supabase/task-comment-scope.sql`; `canCommentTask` in `lib/general/permissions.ts` mirrors it for `TaskDialog`.
 - **Audit.** Files need a holder or the `edit_files` grant, time logs need a holder, and subtasks and dependencies already refuse people outside the scope, so comments were the only gap in the writes. Tried as real leads, members, coordinators, project managers and stakeholders on five live projects with the rule applied and rolled back: 19 suite checks and every comment outcome matched. A lead can still add a subtask or dependency on an unassigned task filed under their team (3 live cases), as with assigning it. No live class-board task had a member off it, so that branch was not exercised.
 - **Open:** Ethan Gonzales is still a Coordinator on the Cloud-Based project, which is why that account can move any task there. That only narrows if the role changes.
+
+## Device push notifications through OneSignal (2026-11-11)
+
+**Not pushed yet.** The SQL is on the live database but does nothing until the OneSignal key is in the Vault.
+Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
+
+- **What it is.** Everything that shows under the bell also arrives on each device a person turned on, even when
+  Collabify is closed: desktop Chrome, Edge, Firefox and Safari, Android, and iPhone/iPad (iOS 16.4+) once
+  Collabify is on the Home Screen. Settings → Notifications has a "This device" row: Turn on/off, blocked help,
+  Add to Home Screen steps on an iPhone or iPad tab.
+- **OneSignal app.** "Collabify", Typical site, `https://dyci-collabify.vercel.app`, App ID
+  `f3a232e0-d87f-4ddf-9da5-40b0e65d22ac` (public). One slide prompt with auto-prompt off; click behavior Same
+  origin + Navigate. Free plan; web push is not under the 1,000-MAU cap.
+- **Sending.** `supabase/push-notifications.sql`: trigger `notifications_z_push` posts each new row to OneSignal
+  through `pg_net`, aimed at `external_id = user_id`, opening `/n/<id>`. Key: Vault `collabify_onesignal_rest_key`.
+  Suite: `supabase/tests/push-notifications.test.sql` (10 checks, passes live, rolled back).
+- **Device.** `src/lib/push.ts` loads the SDK only on the live origin, for an active admitted account, and calls
+  `OneSignal.login(profile.id)` from `AppShell`; `signOut` calls `logout()` first. `/n/:id`
+  (`pages/app/OpenNotification.tsx`) marks the row read and redirects through `destination()`.
+  `public/OneSignalSDKWorker.js`, `public/manifest.webmanifest`, icons (192, 512, maskable 512, apple-touch 180,
+  256 for the OneSignal dashboard). CSP report-only lists OneSignal's hosts.
+- **Not verified:** a real push on any device (needs the key and the live site). Localhost shows only the "works on
+  dyci-collabify.vercel.app" state.
+- **Next:** the owner stores the REST API key in the Vault, reviews, then push `main` and test on a desktop, an
+  Android phone and an iPhone from the Home Screen.
