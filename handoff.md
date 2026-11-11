@@ -4588,7 +4588,7 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
 
 ## Download the app button on the landing page (2026-11-11)
 
-**Committed locally on `main`; not pushed until the owner reviews.** No SQL.
+**Live on `main` since 2026-11-11 (caa92f9), after the owner's review.** No SQL.
 
 - **Why the install often did not appear.** Chrome's automatic install prompt (and the `beforeinstallprompt`
   event a button needs) still requires a service worker with a real fetch handler; only the menu install dropped
@@ -4611,4 +4611,4 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
   shows the offline page when the server is down (then unregistered).
 - **Not verified:** the real Chrome prompt on the live site and push still arriving with the new worker. Check
   both on a phone after the push.
-- **Next:** push after review; on Android Chrome, open the live landing page, tap Download the app.
+- **Next:** on Android Chrome, open the live landing page and tap Download the app; confirm a push still arrives.
