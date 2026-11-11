@@ -28,7 +28,7 @@
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
         {
           "key": "Content-Security-Policy-Report-Only",
-          "value": "default-src 'self'; script-src 'self' https://cdn.onesignal.com; style-src 'self' 'unsafe-inline' https://onesignal.com; img-src 'self' data: blob: https://jublbxdqzcjmbunukxct.supabase.co https://lh3.googleusercontent.com; font-src 'self'; media-src 'self' blob: https://jublbxdqzcjmbunukxct.supabase.co; connect-src 'self' https://jublbxdqzcjmbunukxct.supabase.co wss://jublbxdqzcjmbunukxct.supabase.co https://onesignal.com https://api.onesignal.com https://cdn.onesignal.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self' https://cdn.onesignal.com https://api.onesignal.com; style-src 'self' 'unsafe-inline' https://onesignal.com; img-src 'self' data: blob: https://jublbxdqzcjmbunukxct.supabase.co https://lh3.googleusercontent.com https://img.os-content.com; font-src 'self'; media-src 'self' blob: https://jublbxdqzcjmbunukxct.supabase.co; connect-src 'self' https://jublbxdqzcjmbunukxct.supabase.co wss://jublbxdqzcjmbunukxct.supabase.co https://onesignal.com https://api.onesignal.com https://cdn.onesignal.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
         }
       ]
     }
