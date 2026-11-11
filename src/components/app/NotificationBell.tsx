@@ -13,6 +13,7 @@ import type { AppNotification } from '../../lib/types'
 import { DUR } from '../../lib/motion'
 import { destination } from './notificationDestination'
 import { canTeach } from '../../lib/access'
+import { playChime, shouldChime } from '../../lib/chime'
 
 function ago(iso: string) {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -45,10 +46,29 @@ export function NotificationBell({ tone = 'auto' }: { tone?: 'auto' | 'onNavy' }
     return () => clearTimeout(t)
   }, [open])
 
+  // The last count seen while the page was in view; a rise past it chimes (lib/chime.ts).
+  const seen = useRef<number | null>(null)
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') seen.current = null
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+  // Another account on this tab starts from its own count, not the last one's.
+  const profileId = profile?.id
+  useEffect(() => {
+    seen.current = null
+  }, [profileId])
+
   const refreshCount = useCallback(async () => {
     if (!profile) return
     try {
-      setUnread(await unreadCount(profile.id))
+      const next = await unreadCount(profile.id)
+      const visible = document.visibilityState === 'visible'
+      if (shouldChime(seen.current, next, visible)) playChime()
+      if (visible) seen.current = next
+      setUnread(next)
     } catch {
       // A failing badge must never take the topbar down with it.
     }

@@ -9,10 +9,12 @@ import { UpdateNotice } from './components/app/UpdateNotice'
 import { PageScrollbar } from './components/app/PageScrollbar'
 import { installStaleBuildReload } from './lib/staleBuild'
 import { registerAppWorker } from './lib/install'
+import { prepareChime } from './lib/chime'
 import './styles/index.css'
 
 installStaleBuildReload()
 registerAppWorker()
+prepareChime()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

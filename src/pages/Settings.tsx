@@ -5,6 +5,7 @@ import { Avatar } from '../components/app/Avatar'
 import { DirectoryHero } from '../components/app/DirectoryHero'
 import { ColorCustomizer } from '../components/settings/ColorCustomizer'
 import { DevicePush } from '../components/settings/DevicePush'
+import { ChimeSetting } from '../components/settings/ChimeSetting'
 import { PageZoom } from '../components/settings/PageZoom'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { Field, Input, Toggle } from '../components/ui/Field'
@@ -502,6 +503,7 @@ export default function Settings() {
             description="Choose what shows up under the bell. Changes save as you flip them."
           >
           <DevicePush />
+          <ChimeSetting />
           {prefsError && (
             <div className="mb-4">
               <Alert tone="error">{prefsError}</Alert>

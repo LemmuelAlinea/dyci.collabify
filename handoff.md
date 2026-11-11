@@ -4612,3 +4612,22 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
 - **Not verified:** the real Chrome prompt on the live site and push still arriving with the new worker. Check
   both on a phone after the push.
 - **Next:** on Android Chrome, open the live landing page and tap Download the app; confirm a push still arrives.
+
+## Notification chime while Collabify is open (2026-11-12)
+
+**Committed locally on `main`; not pushed until the owner reviews.** No SQL.
+
+- **What.** A short two-note chime (E5 then A5, about half a second, drawn with Web Audio, no file) when the
+  bell's unread count rises while the page is in view. Not for the backlog on first load, not in the background
+  (device push sounds there), one chime for several arrivals (1.5s gap). `src/lib/chime.ts`
+  (`shouldChime`, `playChime`, `prepareChime` in `main.tsx` unlocks audio on the first tap or key press);
+  `NotificationBell` tracks the last count seen while visible and resets it when hidden or on another account.
+- **Switch.** Settings → Notifications → "Sound on this device" (`components/settings/ChimeSetting.tsx`), on unless
+  turned off, per device in `localStorage` (`collabify.chime`); turning it on plays it once, and "Play it" previews.
+- **One sound, not two.** `lib/push.ts` holds back OneSignal's foreground banner (`foregroundWillDisplay`) only
+  when the chime can play (`chimeReady`: switched on and audio unlocked); otherwise the phone's banner shows as
+  before. Web push cannot set a custom sound; closed-app notifications keep the phone's own sound.
+- **Verified** in the preview, signed in: the row shows; off saves and stays silent; on plays the two notes; a
+  faked unread rise 0 → 1 chimed once, the same count again stayed silent. Build and 2,082 tests pass.
+- **Not verified:** hearing it on a phone, and the held-back banner with a real push.
+- **Next:** push after review; with Collabify open on a phone, have someone send you a notification.

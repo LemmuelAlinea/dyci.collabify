@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { chimeReady } from './chime'
 
 /*
  * Device push through OneSignal's web SDK (docs/superpowers/specs/2026-11-11-device-push-design.md).
@@ -20,7 +21,10 @@ type OneSignalApi = {
     isPushSupported: () => boolean
     permissionNative: NotificationPermission
     requestPermission: () => Promise<void>
-    addEventListener: (event: 'permissionChange', fn: () => void) => void
+    addEventListener: {
+      (event: 'permissionChange', fn: () => void): void
+      (event: 'foregroundWillDisplay', fn: (event: { preventDefault: () => void }) => void): void
+    }
     removeEventListener: (event: 'permissionChange', fn: () => void) => void
   }
   User: {
@@ -51,6 +55,12 @@ function load(): Promise<OneSignalApi> {
     window.OneSignalDeferred.push(async (os) => {
       try {
         await os.init({ appId: APP_ID })
+        // With Collabify open, the bell and its chime (lib/chime.ts) say a notification arrived;
+        // the phone's own banner would sound a second time. It still shows when the chime
+        // cannot play: switched off, or audio not yet unlocked by a tap.
+        os.Notifications.addEventListener('foregroundWillDisplay', (event) => {
+          if (chimeReady()) event.preventDefault()
+        })
         resolve(os)
       } catch (err) {
         reject(err)
