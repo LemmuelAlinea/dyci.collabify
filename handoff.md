@@ -4585,3 +4585,30 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
 - **Not verified:** a real phone. Chrome's handling of the bottom bar has changed across recent versions, so
   some phone and Chrome combinations may still show a black or system-coloured bottom bar.
 - **Next:** reinstall the app on the phone and compare both bars.
+
+## Download the app button on the landing page (2026-11-11)
+
+**Committed locally on `main`; not pushed until the owner reviews.** No SQL.
+
+- **Why the install often did not appear.** Chrome's automatic install prompt (and the `beforeinstallprompt`
+  event a button needs) still requires a service worker with a real fetch handler; only the menu install dropped
+  that. Collabify's only worker was OneSignal's, registered only after someone turned on notifications.
+- **Worker.** `public/OneSignalSDKWorker.js` now does two jobs: OneSignal's push code (its `importScripts` in a
+  try, so a CDN failure cannot stop the worker installing) and a fetch handler for page loads only, straight from
+  the network with navigation preload, falling back to a small offline page. Files, data and the API are not
+  touched. `registerAppWorker` (`src/lib/install.ts`, called in `main.tsx`) registers it for everyone at scope
+  `/` on production builds; it is the file and scope OneSignal registers, so they never compete.
+- **Button.** `components/landing/InstallButton.tsx`, "Download the app", in the hero (beside See how it works)
+  and the closing section. It shows the browser's prompt when there is one; otherwise a dialog with the steps
+  for this device: iPhone/iPad (Share, Add to Home Screen; iPad in desktop mode included), Android (⋮ menu),
+  computer (address bar icon or menu; Safari's Add to Dock), Messenger/Facebook/Instagram in-app browsers
+  (open in a real browser first, with Copy the link) and Firefox on a computer (use another browser).
+  `installRoute` decides, tested in `install.test.ts`. Hidden inside the installed app and after
+  `appinstalled`.
+- **Verified:** the dialog on desktop and at phone width with an Android browser; a stand-in
+  `beforeinstallprompt` makes one click call the prompt once with no dialog, and `appinstalled` hides both
+  buttons. On a local production build the worker registers at `/`, controls the page, serves page loads, and
+  shows the offline page when the server is down (then unregistered).
+- **Not verified:** the real Chrome prompt on the live site and push still arriving with the new worker. Check
+  both on a phone after the push.
+- **Next:** push after review; on Android Chrome, open the live landing page, tap Download the app.

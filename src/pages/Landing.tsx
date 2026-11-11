@@ -5,6 +5,7 @@ import { Features, Roles } from '../components/landing/Roles'
 import { Workflow } from '../components/landing/Workflow'
 import { BlueprintField, Kicker, Marquee, Rise, Shell } from '../components/landing/parts'
 import { LEGAL_LINKS } from '../lib/legal'
+import { InstallButton } from '../components/landing/InstallButton'
 
 /**
  * The combined landing page.
@@ -235,6 +236,7 @@ export default function Landing() {
                     >
                       Already have an account? Sign in
                     </Link>
+                    <InstallButton tone="light" />
                   </div>
                 </Rise>
               </div>

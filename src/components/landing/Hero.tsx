@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useReducedMotion } from 'motion/react'
 import type { BoardHandle } from './board/BoardScene'
 import { BlueprintField, Glow, Rise, Shell } from './parts'
+import { InstallButton } from './InstallButton'
 
 const BoardExperience = lazy(() => import('./board/BoardExperience'))
 
@@ -209,6 +210,7 @@ export function Hero() {
                   </span>
                   See how it works
                 </a>
+                <InstallButton tone="dark" />
               </div>
             </Rise>
 
