@@ -95,6 +95,12 @@ function MessagesRedirect() {
   return <Navigate to={`${paths.conversation(conversationId ?? '')}${search}`} replace />
 }
 
+/** A board's page is the professor's; a student lands on the project itself. */
+function StudentBoardRedirect() {
+  const { projectId } = useParams()
+  return <Navigate to={paths.classProject(projectId ?? '')} replace />
+}
+
 export default function App() {
   return (
     // The outer net. The shell has its own boundary around the page area, which
@@ -228,6 +234,16 @@ export default function App() {
                 element={
                   <RoleSwitch
                     student={<ProjectDetail role="student" />}
+                    member={<ProjectDetail role="professor" />}
+                  />
+                }
+              />
+              {/* One group's (or one student's) work in a class project. */}
+              <Route
+                path="/class-projects/:projectId/boards/:boardId"
+                element={
+                  <RoleSwitch
+                    student={<StudentBoardRedirect />}
                     member={<ProjectDetail role="professor" />}
                   />
                 }

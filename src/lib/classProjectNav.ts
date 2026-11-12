@@ -1,6 +1,6 @@
 import { paths } from './paths'
 import { stageIndex } from './stages'
-import type { BoardSummary, ProjectTask } from './types'
+import type { BoardSummary, MemberProgress, ProjectTask } from './types'
 
 export type ProfessorProjectTab = 'groups' | 'brief' | 'tasks' | 'milestones' | 'grades'
 export const PROFESSOR_PROJECT_TABS: readonly ProfessorProjectTab[] = [
@@ -109,4 +109,23 @@ export function boardLabel(solo: boolean): {
   return solo
     ? { one: 'student', many: 'students', title: 'Students' }
     : { one: 'group', many: 'groups', title: 'Groups' }
+}
+
+/**
+ * Who carries the most of the group: the member with the highest `group_pct`,
+ * the first of them on a tie. Null when nobody has delivered any of it yet.
+ */
+export function topShare(
+  rows: Pick<MemberProgress, 'group_pct' | 'profile'>[],
+): { name: string; pct: number } | null {
+  let best: (typeof rows)[number] | null = null
+  for (const r of rows) if (r.group_pct > 0 && (!best || r.group_pct > best.group_pct)) best = r
+  if (!best) return null
+  return { name: best.profile?.first_name || 'Member', pct: best.group_pct }
+}
+
+/** The group's leader, as `LeaderBadge` marks them on the member rows. */
+export function boardLeader(rows: Pick<MemberProgress, 'is_leader' | 'profile'>[]): string | null {
+  const lead = rows.find((r) => r.is_leader)?.profile
+  return lead ? [lead.first_name, lead.last_name].filter(Boolean).join(' ') : null
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
@@ -39,6 +39,17 @@ export function ProjectGroupsView({
   const solo = project.audience === 'individual'
   const label = boardLabel(solo)
   const boardPath = (id: string) => paths.classProjectBoard(project.id, id)
+
+  // A board's page for a board that is gone sent us here. Say so once: the
+  // notice leaves the history entry, so a reload or back does not repeat it.
+  const location = useLocation()
+  const [missingBoard, setMissingBoard] = useState(
+    () => (location.state as { notice?: string } | null)?.notice === 'missing-board',
+  )
+  useEffect(() => {
+    if ((location.state as { notice?: string } | null)?.notice !== 'missing-board') return
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+  }, [location, navigate])
 
   // Who is in which group lives in the address, so a link can open it.
   const managing = !solo && params.get('manage') === '1'
@@ -81,6 +92,11 @@ export function ProjectGroupsView({
 
   return (
     <div className="space-y-6">
+      {missingBoard && (
+        <Alert tone="info" onClose={() => setMissingBoard(false)}>
+          That {label.one} is no longer on this project.
+        </Alert>
+      )}
       {t.error && <Alert tone="error">{t.error}</Alert>}
 
       {(handIns > 0 || reassignments > 0) && (

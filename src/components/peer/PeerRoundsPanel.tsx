@@ -27,8 +27,11 @@ const endOfDay = (day: string) => `${day}T23:59:00+08:00`
  * Peer evaluation on one group project: open a round, watch who has answered,
  * remind the rest, and read the results group by group. Only the final round
  * will feed scores (Phase C2); a check-in is an early warning.
+ *
+ * With `boardId` it is one group's page: only that group's results and
+ * comments, and no round controls, which stay on the project's Grades tab.
  */
-export function PeerRoundsPanel({ projectId }: { projectId: string }) {
+export function PeerRoundsPanel({ projectId, boardId }: { projectId: string; boardId?: string }) {
   const { show } = useToast()
   const [rounds, setRounds] = useState<PeerRoundStatus[]>([])
   const [results, setResults] = useState<PeerResult[]>([])
@@ -74,8 +77,9 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
   const missing = openRound
     ? results.filter((r) => r.round_id === openRound.id && !r.rated_all && r.team_size > 1)
     : []
-  const latest = latestRoundRows(results)
+  const latest = latestRoundRows(results).filter((r) => !boardId || r.board_id === boardId)
   const boards = [...new Set(latest.map((r) => r.board_id))]
+  const controls = !boardId
 
   const act = async (fn: () => Promise<unknown>, done: string) => {
     setBusy(true)
@@ -97,10 +101,17 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
         <p className="mt-0.5 max-w-[66ch] text-[13px] text-muted">
           Students rate everyone in their group, themselves included, on five behaviours. A check-in
           warns early. Only the final round will feed scores.
+          {boardId && " Rounds open and close from the project's Grades tab."}
         </p>
       </header>
 
-      {openRound ? (
+      {boardId && boards.length === 0 && (
+        <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-[13px] text-muted">
+          No peer results for this group yet.
+        </p>
+      )}
+
+      {!controls ? null : openRound ? (
         <div className="space-y-3 rounded-card surface-sunken p-3">
           <p className="text-[14px] text-ink">
             {KIND[openRound.kind]} round open until {dateFmt.format(new Date(openRound.closes_at))} ·{' '}
@@ -221,7 +232,7 @@ export function PeerRoundsPanel({ projectId }: { projectId: string }) {
         </>
       )}
 
-      {rounds.length > 0 && (
+      {controls && rounds.length > 0 && (
         <ul className="space-y-1 text-[12px] text-faint">
           {rounds.map((r) => (
             <li key={r.id}>

@@ -14,6 +14,7 @@ import { ProjectWizard } from '../../../components/projects/ProjectWizard'
 import { SeriesActionDialog } from '../../../components/projects/SeriesActionDialog'
 import { BoardVerdict } from '../../../components/tasks/BoardVerdict'
 import { ClassFilesTab } from '../../../components/tasks/ClassFilesTab'
+import { BoardHeader, BoardPage } from '../../../components/classProject/BoardPage'
 import { ProfessorProject } from '../../../components/classProject/ProfessorProject'
 import { ProjectBrief } from '../../../components/classProject/ProjectBrief'
 import { RateTeamButton } from '../../../components/peer/RateTeamButton'
@@ -74,14 +75,26 @@ type SeriesAction = 'due' | 'lock' | 'archive' | 'release'
 function WithProjectTasks({
   project,
   role,
+  boardId,
   children,
 }: {
   project: ProjectSummary
   role: 'professor' | 'student'
+  boardId?: string
   children: (t: ProjectTasks) => ReactNode
 }) {
-  const t = useProjectTasks({ project, role })
+  const t = useProjectTasks({ project, role, boardId })
   return <>{children(t)}</>
+}
+
+/** A board's page for a board this project does not have goes back to the project's groups. */
+function MissingBoard({ t, projectId }: { t: ProjectTasks; projectId: string }) {
+  const navigate = useNavigate()
+  const missing = t.boardMissing
+  useEffect(() => {
+    if (missing) navigate(paths.classProject(projectId), { replace: true, state: { notice: 'missing-board' } })
+  }, [missing, navigate, projectId])
+  return null
 }
 
 export default function ProjectDetail({ role }: { role: 'professor' | 'student' }) {
@@ -235,10 +248,21 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
     />
   )
 
+  // A professor's page for one group (or student) on the project.
+  const boardPage = role === 'professor' && boardId ? boardId : null
+
   return (
-    <WithProjectTasks project={project} role={role}>
+    // Keyed so the project's own page never inherits the board a board page pinned.
+    <WithProjectTasks key={boardPage ? 'board' : 'project'} project={project} role={role} boardId={boardPage ?? undefined}>
       {(t) => (
     <div className="mx-auto w-full max-w-[1280px]">
+      {boardPage ? (
+        <>
+          <MissingBoard t={t} projectId={project.id} />
+          <BoardHeader project={project} t={t} boardId={boardPage} />
+        </>
+      ) : (
+      <>
       <Link
         to={paths.classProjects}
         className="inline-flex items-center gap-2 text-[13px] font-medium text-muted transition-colors hover:text-ink"
@@ -408,8 +432,12 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
           )}
         </div>
       </header>
+      </>
+      )}
 
-      {role === 'professor' ? (
+      {boardPage ? (
+        <BoardPage project={project} t={t} viewerId={profile?.id} />
+      ) : role === 'professor' ? (
         <ProfessorProject
           project={project}
           t={t}

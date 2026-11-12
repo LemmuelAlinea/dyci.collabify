@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   PROFESSOR_PROJECT_TABS, adjacentBoards, boardLabel, boardStage, legacyProfessorTarget,
-  readBoardTab, readProfessorProjectTab,
+  boardLeader, readBoardTab, readProfessorProjectTab, topShare,
 } from './classProjectNav'
 
 const q = (s: string) => new URLSearchParams(s)
@@ -92,4 +92,26 @@ describe('boardLabel', () => {
     expect(boardLabel(true)).toEqual({ one: 'student', many: 'students', title: 'Students' }))
   it('says groups otherwise', () =>
     expect(boardLabel(false)).toEqual({ one: 'group', many: 'groups', title: 'Groups' }))
+})
+
+describe('topShare', () => {
+  const p = (first_name: string) => ({ id: first_name, first_name, middle_name: null, last_name: 'Cruz', avatar_url: null })
+  it('names the member carrying the most of the group', () =>
+    expect(topShare([
+      { group_pct: 20, profile: p('Ben') }, { group_pct: 40, profile: p('Ana') }, { group_pct: 10, profile: p('Cy') },
+    ])).toEqual({ name: 'Ana', pct: 40 }))
+  it('keeps the first on a tie', () =>
+    expect(topShare([{ group_pct: 30, profile: p('Ben') }, { group_pct: 30, profile: p('Ana') }]))
+      .toEqual({ name: 'Ben', pct: 30 }))
+  it('is null while nobody has delivered anything', () => {
+    expect(topShare([{ group_pct: 0, profile: p('Ben') }])).toBeNull()
+    expect(topShare([])).toBeNull()
+  })
+})
+
+describe('boardLeader', () => {
+  const p = { id: 'a', first_name: 'Ana', middle_name: null, last_name: 'Cruz', avatar_url: null }
+  it('names the row marked leader', () =>
+    expect(boardLeader([{ is_leader: false, profile: { ...p, first_name: 'Ben' } }, { is_leader: true, profile: p }])).toBe('Ana Cruz'))
+  it('is null without one', () => expect(boardLeader([{ is_leader: false, profile: p }])).toBeNull())
 })
