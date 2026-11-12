@@ -39,6 +39,8 @@ export const paths = {
   group: (id: string) => `/groups/${id}`,
   classProjects: '/class-projects',
   classProject: (id: string) => `/class-projects/${id}`,
+  classProjectBoard: (projectId: string, boardId: string) => `/class-projects/${projectId}/boards/${boardId}`,
+  waiting: '/waiting',
   record: '/record',
 
   submissions: '/teaching/submissions',
