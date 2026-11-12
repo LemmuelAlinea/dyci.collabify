@@ -4631,3 +4631,18 @@ Design: `docs/superpowers/specs/2026-11-11-device-push-design.md`.
   faked unread rise 0 → 1 chimed once, the same count again stayed silent. Build and 2,082 tests pass.
 - **Not verified:** hearing it on a phone, and the held-back banner with a real push.
 - **Next:** with Collabify open on a phone, have someone send you a notification.
+
+## Class board drag and drop (2026-11-13)
+
+**Live on `main` since 2026-11-13 (1b0a268), after the owner's review.** No SQL.
+
+- **What.** A class project's Work → Tasks board (`components/tasks/TaskBoard.tsx`) drags cards between stages
+  with the work board's `useBoardDrag`, `BoardColumn` and `BoardScroller`. Only someone who could already use a
+  card's move button drags it (a holder, or a solo board's owner; never the professor). A drop calls
+  `setTaskStatus(id, statusForStage(column), column)`; a failure toasts and the card goes back. Each movable
+  card also gets the Move to menu (`MoveToStage`) for keyboard and phone. `TaskCard` takes optional `drag`,
+  `column`, `draggable` and `moveOptions`.
+- **Verified** in the preview as a student: only their own cards could be picked up; Planning → Development
+  saved and held across a reload; dragged back to Planning. Build passes.
+- **Not verified:** a touch drag (hold to lift) on a phone.
+- **Next:** on a phone, hold a card on a class board and drag it to another stage.
