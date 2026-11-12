@@ -34,10 +34,12 @@ import type { TaskFilterState } from './taskFilterState'
  * belongs in a component instead.
  */
 export function useProjectTasks({
-  project, role,
+  project, role, boardId,
 }: {
   project: ProjectSummary
   role: TeachingViewRole
+  /** A page about one board pins it here; `showBoard` still moves it for everyone else. */
+  boardId?: string | null
 }) {
   const [boards, setBoards] = useState<BoardSummary[] | null>(null)
   const [rows, setRows] = useState<ProjectTaskRow[]>([])
@@ -49,8 +51,15 @@ export function useProjectTasks({
   // with that board chosen rather than every board at once.
   const [filters, setFilters] = useState<TaskFilterState>(() => ({
     ...EMPTY_TASK_FILTERS,
-    board: role === 'professor' ? (params.get('board') ?? '') : '',
+    board: role === 'professor' ? (boardId ?? params.get('board') ?? '') : '',
   }))
+
+  // Previous and next change the route's board without remounting the page,
+  // so the pinned board follows it.
+  useEffect(() => {
+    if (role !== 'professor' || !boardId) return
+    setFilters((f) => (f.board === boardId ? f : { ...f, board: boardId }))
+  }, [boardId, role])
 
   const isProfessor = role === 'professor'
   // A passed deadline still takes work — only the professor closing it stops
@@ -86,6 +95,9 @@ export function useProjectTasks({
   const active = isProfessor
     ? ((boards ?? []).find((b) => b.id === filters.board) ?? null)
     : (boards?.[0] ?? null)
+
+  // The page named a board this project does not have (a stale or mistyped link).
+  const boardMissing = Boolean(boardId) && boards !== null && !boards.some((b) => b.id === boardId)
 
   const { tasks, members, loading: boardLoading, reload } = useTaskBoard(active)
 
@@ -212,8 +224,8 @@ export function useProjectTasks({
     [params, setParams, section],
   )
 
-  const showBoard = useCallback((boardId: string | null) => {
-    setFilters((f) => ({ ...f, board: boardId ?? '' }))
+  const showBoard = useCallback((id: string | null) => {
+    setFilters((f) => ({ ...f, board: id ?? '' }))
   }, [])
 
   return {
@@ -232,6 +244,7 @@ export function useProjectTasks({
     locked,
     solo,
     active,
+    boardMissing,
     tasks,
     boardTasks,
     members,
