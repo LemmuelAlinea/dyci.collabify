@@ -104,6 +104,10 @@ export function GroupWork({
     )
   }
 
+  // A teacher goes to this group's own page in the project; a student to the project.
+  const projectLink = (board: BoardSummary) =>
+    role === 'professor' ? paths.classProjectBoard(board.project_id, board.id) : paths.classProject(board.project_id)
+
   const activeBoard = boards.find((b) => tasks[b.id]?.some((t) => t.id === openTask))
 
   return (
@@ -157,7 +161,7 @@ export function GroupWork({
                 </span>
                 <span className="font-mono text-[12px] text-faint">{pct}%</span>
                 <Link
-                  to={paths.classProject(board.project_id)}
+                  to={projectLink(board)}
                   className="flex items-center gap-1 text-[13px] font-medium text-navy-600 hover:underline dark:text-navy-200"
                 >
                   Project
@@ -177,7 +181,7 @@ export function GroupWork({
                   <p className="py-2 text-[13px] text-muted">
                     Nothing on this board yet.{' '}
                     <Link
-                      to={`${paths.classProject(board.project_id)}?tab=work`}
+                      to={role === 'professor' ? projectLink(board) : `${paths.classProject(board.project_id)}?tab=work`}
                       className="font-medium text-navy-600 hover:underline dark:text-navy-200"
                     >
                       Break the project down

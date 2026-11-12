@@ -129,3 +129,16 @@ export function boardLeader(rows: Pick<MemberProgress, 'is_leader' | 'profile'>[
   const lead = rows.find((r) => r.is_leader)?.profile
   return lead ? [lead.first_name, lead.last_name].filter(Boolean).join(' ') : null
 }
+
+/**
+ * The project page's back link. For a professor the class is home, so it goes
+ * to that class's Projects tab; a student keeps the list of every project.
+ */
+export function projectBackLink(
+  role: 'professor' | 'student',
+  classId: string,
+): { to: string; label: string } {
+  return role === 'professor'
+    ? { to: `${paths.class(classId)}?tab=projects`, label: 'Class projects' }
+    : { to: paths.classProjects, label: 'All projects' }
+}

@@ -1,12 +1,13 @@
 import { supabase } from '../supabase'
 import { fileName, folderOf, isKeep } from '../general/files'
 import { paths } from '../paths'
+import { fullName } from '../types'
 
 /**
  * Search across the things too numerous to load up front: tasks, files and
  * meetings. Every query goes through the caller's own row-level security, so a
- * result is only ever something the reader could already open — a professor
- * finds no group's files, a student no other board's tasks.
+ * result is only ever something the reader could already open — a student
+ * finds no other group's files, no other board's tasks.
  */
 
 export type SearchHit = {
@@ -130,7 +131,8 @@ async function mainFiles(query: string, like: string): Promise<SearchHit[]> {
   if (current.length === 0) return []
 
   // Which project each file lives in. A group board's files sit in a hidden
-  // work project tied to the board; they open on the class project's Files.
+  // work project tied to the board; they open on that group's page in the
+  // class project, which sends a student on to the project's own Files.
   const projectIds = [...new Set(current.map((b) => b.project_id))]
   const { data: projects, error: pErr } = await supabase
     .from('general_projects')
@@ -140,16 +142,22 @@ async function mainFiles(query: string, like: string): Promise<SearchHit[]> {
   const byId = new Map((projects ?? []).map((p) => [p.id, p]))
 
   const boardIds = (projects ?? []).flatMap((p) => (p.class_board_id ? [p.class_board_id] : []))
-  const boards = new Map<string, { project_id: string; title: string }>()
+  const boards = new Map<string, { project_id: string; title: string; owner: string | null }>()
   if (boardIds.length > 0) {
     const { data: rows, error: bErr } = await supabase
       .from('project_boards')
-      .select('id, project_id, projects(title, archived_at, trashed_at)')
+      .select(
+        'id, project_id, projects(title, archived_at, trashed_at), group:groups(name), student:profiles!student_id(first_name, last_name)',
+      )
       .in('id', boardIds)
     if (bErr) throw bErr
+    type Owner = { first_name: string; last_name: string }
     for (const r of rows ?? []) {
       const project = one(r.projects as Named | Named[] | null)
-      if (live(project)) boards.set(r.id, { project_id: r.project_id, title: project!.title! })
+      const group = one(r.group as { name: string } | { name: string }[] | null)
+      const student = one(r.student as Owner | Owner[] | null)
+      const owner = group?.name ?? (student ? fullName(student) || null : null)
+      if (live(project)) boards.set(r.id, { project_id: r.project_id, title: project!.title!, owner })
     }
   }
 
@@ -158,9 +166,10 @@ async function mainFiles(query: string, like: string): Promise<SearchHit[]> {
     if (!project || !live(project)) return []
     const board = project.class_board_id ? boards.get(project.class_board_id) : null
     if (project.class_board_id && !board) return []
-    const where = board ? board.title : project.name
+    // The same file in several groups reads apart by whose it is.
+    const where = board ? (board.owner ? `${board.title} · ${board.owner}` : board.title) : project.name
     const folder = folderOf(b.path)
-    const base = board ? paths.classProject(board.project_id) : paths.project(project.id)
+    const base = board ? paths.classProjectBoard(board.project_id, project.class_board_id!) : paths.project(project.id)
     return [{ key: `main:${b.project_id}:${b.path}`, label: fileName(b.path), detail: `File · ${where}${folder ? ` · ${folder}` : ''}`, to: filesLink(base, b.path) }]
   }).slice(0, LIMIT)
 }

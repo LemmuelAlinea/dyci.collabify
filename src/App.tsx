@@ -6,6 +6,7 @@ import { AppShell } from './components/app/AppShell'
 import { ErrorBoundary } from './components/app/ErrorBoundary'
 import { TeachingRedirect } from './routes/TeachingRedirect'
 import { ProfessorGroupsRedirect } from './routes/ProfessorGroupsRedirect'
+import { StudentBoardRedirect } from './routes/StudentBoardRedirect'
 import { ProtectedRoute, RequireAdmitted, RequireTeaching } from './routes/ProtectedRoute'
 import { RoleSwitch } from './routes/RoleSwitch'
 import { LegacyRedirect } from './routes/LegacyRedirect'
@@ -95,12 +96,6 @@ function MessagesRedirect() {
   const { conversationId } = useParams()
   const { search } = useLocation()
   return <Navigate to={`${paths.conversation(conversationId ?? '')}${search}`} replace />
-}
-
-/** A board's page is the professor's; a student lands on the project itself. */
-function StudentBoardRedirect() {
-  const { projectId } = useParams()
-  return <Navigate to={paths.classProject(projectId ?? '')} replace />
 }
 
 export default function App() {

@@ -43,7 +43,7 @@ import type { CriterionInput } from '../../../lib/api/projects'
 import { clearProjectScores, projectHasScores } from '../../../lib/api/scores'
 import { classWeekMap } from '../../../lib/api/syllabus'
 import { authErrorMessage } from '../../../lib/authError'
-import { legacyProfessorTarget } from '../../../lib/classProjectNav'
+import { legacyProfessorTarget, projectBackLink } from '../../../lib/classProjectNav'
 import { paths } from '../../../lib/paths'
 import {
   hasPassed,
@@ -264,11 +264,11 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
       ) : (
       <>
       <Link
-        to={paths.classProjects}
+        to={projectBackLink(role, project.class_id).to}
         className="inline-flex items-center gap-2 text-[13px] font-medium text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={15} />
-        All projects
+        {projectBackLink(role, project.class_id).label}
       </Link>
 
       {/* A live discussion room takes the page; the banner returns when it closes. */}

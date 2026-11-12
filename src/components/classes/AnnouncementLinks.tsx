@@ -181,7 +181,9 @@ export function LinkList({ links, teacher }: { links: AnnouncementLink[]; teache
 
   async function openTask(l: Extract<AnnouncementLink, { kind: 'task' }>) {
     const tasksTab = `${paths.classProject(l.project_id)}?tab=work`
-    if (teacher) return navigate(`${paths.classProject(l.project_id)}?tab=tasks&task=${l.id}`)
+    // `l.id` is the task as set (an origin), not any group's copy, so no dialog
+    // can open it; the Tasks tab lists it under What you set.
+    if (teacher) return navigate(`${paths.classProject(l.project_id)}?tab=tasks`)
     setOpening(l.id)
     try {
       const copy = await findMyTaskCopy(l.id)

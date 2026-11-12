@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   PROFESSOR_PROJECT_TABS, adjacentBoards, boardLabel, boardStage, legacyProfessorTarget,
-  boardLeader, readBoardTab, readProfessorProjectTab, topShare,
+  boardLeader, projectBackLink, readBoardTab, readProfessorProjectTab, topShare,
 } from './classProjectNav'
+import { paths } from './paths'
 
 const q = (s: string) => new URLSearchParams(s)
 
@@ -114,4 +115,13 @@ describe('boardLeader', () => {
   it('names the row marked leader', () =>
     expect(boardLeader([{ is_leader: false, profile: { ...p, first_name: 'Ben' } }, { is_leader: true, profile: p }])).toBe('Ana Cruz'))
   it('is null without one', () => expect(boardLeader([{ is_leader: false, profile: p }])).toBeNull())
+})
+
+describe('projectBackLink', () => {
+  it('takes a professor back to the class, on its Projects tab', () => {
+    expect(projectBackLink('professor', 'c1')).toEqual({ to: '/classes/c1?tab=projects', label: 'Class projects' })
+  })
+  it('keeps a student on every project, as before', () => {
+    expect(projectBackLink('student', 'c1')).toEqual({ to: paths.classProjects, label: 'All projects' })
+  })
 })
