@@ -99,12 +99,36 @@ export function ProjectWizard({
   const [makeOpen, setMakeOpen] = useState(false)
   const [madeSet, setMadeSet] = useState<MadeSet | null>(null)
   const madeSetIds = useRef<string[]>([])
-
+  const showRef = useRef(show)
   useEffect(() => {
-    if (!open) return
+    showRef.current = show
+  })
+
+  /**
+   * Takes back the groups made here, unless a project uses them. Every way out
+   * that is not a save ends here: Cancel, Escape, the page closing the dialog
+   * itself, and the page going away with the dialog still open.
+   */
+  function takeBackMade() {
+    const made = madeSetIds.current
     madeSetIds.current = []
-    setMadeSet(null)
+    if (made.length === 0) return
+    void removeUnusedSets(made).then((removed) => {
+      if (removed > 0) showRef.current('Groups made for this project were removed.')
+    })
+  }
+  // It reads only refs, so the first render's copy is as good as any later one.
+  const takeBackRef = useRef(takeBackMade)
+
+  // Either edge: a page that closes the dialog without Cancel still gets its
+  // leftovers removed, and a fresh open never inherits an earlier session's.
+  useEffect(() => {
+    takeBackRef.current()
+    if (open) setMadeSet(null)
   }, [open])
+
+  // Leaving the page with the dialog open: Back, or a link inside it.
+  useEffect(() => () => takeBackRef.current(), [])
 
   // The effects below read the project being edited by its values, never by the
   // object. The project page refetches on every live change and on a 30-second
@@ -204,13 +228,8 @@ export function ProjectWizard({
   /** Closing without saving takes back the groups made here, unless a project uses them. */
   function cancel() {
     if (busy) return
-    const made = madeSetIds.current
-    madeSetIds.current = []
+    takeBackMade()
     onClose()
-    if (made.length === 0) return
-    void removeUnusedSets(made).then((removed) => {
-      if (removed > 0) show('Groups made for this project were removed.')
-    })
   }
 
   async function save(value: ProjectFormValue) {
@@ -230,6 +249,9 @@ export function ProjectWizard({
         }
         await updateProjectSeries(targets, value.input, value.criteria)
         if (value.file) await uploadProjectFile(editing.id, value.file)
+        // Saved, the groups made here are the class's to keep. Cleared before
+        // onSaved, which may navigate away and unmount this dialog.
+        madeSetIds.current = []
         await onSaved(editing.id)
       } else {
         // One function serves both cases: a single section is written as an
@@ -244,10 +266,9 @@ export function ProjectWizard({
         if (value.file) {
           for (const id of ids) await uploadProjectFile(id, value.file)
         }
+        madeSetIds.current = []
         await onSaved(ids[0])
       }
-      // Saved, the groups made here are the class's to keep.
-      madeSetIds.current = []
       onClose()
     } catch (err) {
       setError(authErrorMessage(err, 'Could not save the project.'))

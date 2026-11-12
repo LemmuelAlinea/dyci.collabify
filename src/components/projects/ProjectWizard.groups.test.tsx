@@ -286,6 +286,66 @@ it('keeps the groups made here once the project saves', async () => {
   expect(m.show).not.toHaveBeenCalled()
 })
 
+it('takes back unused groups when the page goes away with the wizard open', async () => {
+  m.sets = [live('s-old', 'c1')]
+  await render(editing)
+  await make(buttons('Make groups now')[0], live('s-new', 'c1'))
+
+  m.projectsUsingSet.mockResolvedValue(0)
+  // Back, or the syllabus link inside the dialog, unmounts the page.
+  await act(async () => root.unmount())
+  await flush()
+  expect(m.projectsUsingSet.mock.calls.map((c) => c[0])).toEqual(['s-new'])
+  expect(m.deleteSet).toHaveBeenCalledWith('s-new')
+  expect(m.deleteSet).not.toHaveBeenCalledWith('s-old')
+  expect(m.show).toHaveBeenCalledWith('Groups made for this project were removed.')
+  root = createRoot(host)
+})
+
+it('deletes nothing when a save navigates away', async () => {
+  m.sets = [live('s-old', 'c1')]
+  await render(editing)
+  await make(buttons('Make groups now')[0], live('s-new', 'c1'))
+
+  // The page's onSaved navigates, which unmounts the wizard mid-save.
+  onSaved.mockImplementationOnce(() => root.unmount())
+  const form = host.querySelector('form')!
+  await act(async () => {
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+  await flush()
+  expect(onSaved).toHaveBeenCalledWith('p1')
+  expect(m.projectsUsingSet).not.toHaveBeenCalled()
+  expect(m.deleteSet).not.toHaveBeenCalled()
+  root = createRoot(host)
+})
+
+it('takes back unused groups when the page closes the wizard without Cancel', async () => {
+  m.sets = [live('s-old', 'c1')]
+  await render(editing)
+  await make(buttons('Make groups now')[0], live('s-new', 'c1'))
+
+  m.projectsUsingSet.mockResolvedValue(0)
+  await act(async () =>
+    root.render(
+      <MemoryRouter>
+        <ProjectWizard
+          open={false}
+          onClose={onClose}
+          classes={[main]}
+          fixedClassId="c1"
+          createdBy="prof"
+          editing={editing}
+          onSaved={onSaved}
+        />
+      </MemoryRouter>,
+    ),
+  )
+  await flush()
+  expect(m.deleteSet).toHaveBeenCalledWith('s-new')
+  expect(m.deleteSet).toHaveBeenCalledTimes(1)
+})
+
 it('removes nothing and says nothing when no groups were made', async () => {
   m.sets = [live('s-old', 'c1')]
   await render(editing)
