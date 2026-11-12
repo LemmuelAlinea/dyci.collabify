@@ -96,10 +96,23 @@ begin
   perform pg_temp.svc();
   perform pg_temp.ok('a student commits to Main', (select commit_count from public.general_repos where id = v_repo) = 1);
 
+  -- class-files-teacher-read.sql: the class's teacher reads Main, and only reads it.
   perform pg_temp.act_as(v_prof);
-  perform pg_temp.ok('the professor reads nothing in Main',
-    not exists (select 1 from public.general_repo_tree where repo_id = v_repo)
-    and not exists (select 1 from public.general_project_overview where id = gp));
+  perform pg_temp.ok('the professor reads Main',
+    exists (select 1 from public.general_repo_tree where repo_id = v_repo and path = 'report.md')
+    and exists (select 1 from public.general_project_overview where id = gp));
+  begin
+    perform public.commit_general_files(v_repo, 'Professor edit', 1,
+      '[{"path": "prof.md", "action": "added", "content": "No"}]'::jsonb);
+    refused := false;
+  exception when insufficient_privilege or check_violation then refused := true;
+  end;
+  perform pg_temp.ok('...but cannot commit to it', refused);
+  update public.general_blobs set content = 'Changed' where repo_id = v_repo and path = 'report.md';
+  perform pg_temp.svc();
+  perform pg_temp.ok('...or change a file in it',
+    (select content from public.general_blobs where repo_id = v_repo and path = 'report.md') = 'Hello'
+    and (select commit_count from public.general_repos where id = v_repo) = 1);
   perform pg_temp.act_as(v_out);
   perform pg_temp.ok('a classmate outside the group reads nothing',
     not exists (select 1 from public.general_repo_tree where repo_id = v_repo)
