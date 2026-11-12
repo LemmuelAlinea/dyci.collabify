@@ -8,6 +8,10 @@ import { Modal } from '../ui/Modal'
 import { EmptyState } from '../ui/EmptyState'
 import { useToast } from '../ui/Toast'
 import { TaskCard } from './TaskCard'
+import { BoardColumn } from './BoardColumn'
+import { useBoardDrag } from './useBoardDrag'
+import { BoardScroller } from '../general/BoardScroller'
+import { landingIndex } from '../../lib/work/boardDrop'
 import { TaskForm } from './TaskForm'
 import { TaskDetailModal } from './detail/TaskDetailModal'
 import {
@@ -111,6 +115,32 @@ export function TaskBoard({
   // Recomputed on every render: a new task rebalances every other slice.
   const total = totalWeight ?? boardWeight(tasks)
 
+  // Only the people on a task (or a solo board's owner) move it, by button or by drag.
+  const mayMove = (t: ProjectTask) => canWork && (solo || (viewerId ? isMine(t, viewerId) : false))
+  const count = stages.length
+
+  const { attach, ...drag } = useBoardDrag({
+    refusal: (id) => (tasks.some((x) => x.id === id) ? null : 'That task is no longer on this board.'),
+    commit: async (id, column) => {
+      try {
+        await setTaskStatus(id, statusForStage(column, count), column)
+        await onChanged()
+        return true
+      } catch (err) {
+        show(authErrorMessage(err, 'Could not move that task.'), 'error')
+        return false
+      }
+    },
+    onRefused: (reason) => show(reason, 'error'),
+  })
+
+  // While its move is on the way a card reads as already being where it landed.
+  const placed = tasks.map((t) => {
+    const column = drag.pendingColumn(t.id)
+    return column === undefined ? t : { ...t, status: statusForStage(column, count), stage: column }
+  })
+  const order = placed.map((t) => t.id)
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -157,33 +187,47 @@ export function TaskBoard({
           }
         />
       ) : (
-        // Three stages share the width; more run side by side and scroll.
-        <div
-          className={`grid gap-4 ${
-            stages.length === 3
-              ? 'lg:grid-cols-3'
-              : 'sm:grid-cols-2 lg:auto-cols-[minmax(250px,1fr)] lg:grid-flow-col lg:grid-cols-none lg:overflow-x-auto lg:pb-2'
-          }`}
-        >
-          {stages.map((name, index) => {
-            const inColumn = tasks.filter((t) => stageIndex(t.status, t.stage, stages.length) === index)
-            return (
-              <section key={`${index}-${name}`} className="min-w-0 space-y-3">
-                <header className="flex items-baseline justify-between gap-2 border-b border-line pb-2">
-                  <h3 className={`truncate font-semibold ${STAGE_TONE[statusForStage(index, stages.length)]}`}>
-                    {name}
-                  </h3>
-                  <span className="font-mono text-[12px] text-faint">{inColumn.length}</span>
-                </header>
-
-                {inColumn.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-[12px] text-faint">
-                    Nothing here
-                  </p>
-                ) : (
-                  inColumn.map((task) => (
+        <div ref={attach}>
+          {/* Three stages share the width; more run side by side and scroll. */}
+          <BoardScroller
+            className={`-mx-1.5 grid gap-4 px-1.5 ${
+              count === 3
+                ? 'lg:grid-cols-3'
+                : 'sm:grid-cols-2 lg:-my-1.5 lg:auto-cols-[minmax(250px,1fr)] lg:grid-flow-col lg:grid-cols-none lg:overflow-x-auto lg:pt-1.5 lg:pb-3.5'
+            }`}
+          >
+            {stages.map((name, index) => {
+              const inColumn = placed.filter((t) => stageIndex(t.status, t.stage, count) === index)
+              return (
+                <BoardColumn
+                  key={`${index}-${name}`}
+                  drag={drag}
+                  column={index}
+                  slotAt={drag.active ? landingIndex(order, inColumn.map((t) => t.id), drag.active.id) : 0}
+                  header={
+                    <header className="flex items-baseline justify-between gap-2 border-b border-line pb-2">
+                      <h3 className={`truncate font-semibold ${STAGE_TONE[statusForStage(index, count)]}`}>
+                        {name}
+                      </h3>
+                      <span className="font-mono text-[12px] text-faint">{inColumn.length}</span>
+                    </header>
+                  }
+                  empty={
+                    <p className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-[12px] text-faint">
+                      Nothing here
+                    </p>
+                  }
+                  cards={inColumn.map((task) => (
                     <TaskCard
                       key={task.id}
+                      drag={drag}
+                      column={index}
+                      draggable={mayMove(task) && drag.pendingColumn(task.id) === undefined}
+                      moveOptions={
+                        mayMove(task) && drag.pendingColumn(task.id) === undefined
+                          ? stages.flatMap((label, value) => (value !== index ? [{ value, label }] : []))
+                          : []
+                      }
                       task={task}
                       share={taskShare(task, total)}
                       members={members}
@@ -224,11 +268,12 @@ export function TaskBoard({
                       counts={task as unknown as { file_count: number; comment_count: number }}
                       solo={solo}
                     />
-                  ))
-                )}
-              </section>
-            )
-          })}
+                  ))}
+                />
+              )
+            })}
+          </BoardScroller>
+          {drag.layer}
         </div>
       )}
 

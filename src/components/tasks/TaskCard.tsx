@@ -1,5 +1,7 @@
 import { AssigneePicker } from './AssigneePicker'
 import { Icon } from '../ui/Icon'
+import { MoveToStage } from './BoardColumn'
+import type { BoardDrag } from './useBoardDrag'
 import { DEFAULT_STAGES, nextStep, stageIndex } from '../../lib/stages'
 import { dueSoonLabel, isMine } from '../../lib/types'
 import type {
@@ -26,6 +28,10 @@ export function TaskCard({
   counts,
   solo = false,
   stages = DEFAULT_STAGES,
+  drag,
+  column = 0,
+  draggable = false,
+  moveOptions = [],
 }: {
   task: ProjectTask
   /** This task's slice of the board's 100. */
@@ -51,6 +57,12 @@ export function TaskCard({
   solo?: boolean
   /** The project's progress stages. */
   stages?: readonly string[]
+  /** The board's drag, when the card sits on a board that drags. */
+  drag?: BoardDrag
+  column?: number
+  draggable?: boolean
+  /** Stages the Move to menu offers; empty hides it. */
+  moveOptions?: { value: number; label: string }[]
 }) {
   const next = nextStep(stageIndex(task.status, task.stage, stages.length), stages)
   const due = dueSoonLabel(task.due_at)
@@ -66,16 +78,18 @@ export function TaskCard({
 
   return (
     <article
-      className={`surface group relative rounded-xl border p-3.5 shadow-card transition-colors duration-200 hover:border-line-strong ${
+      {...drag?.cardProps(task.id, column, draggable)}
+      className={`surface group relative rounded-xl border p-3.5 shadow-card transition-[border-color,opacity] duration-200 hover:border-line-strong ${
         yours
           ? 'border-warning-300 hover:border-warning-400 dark:border-warning-400/50'
           : 'border-line hover:border-line-strong'
-      }`}
+      } ${drag?.cardClass(task.id) ?? ''}`}
     >
       {/* A stretched link rather than a wrapping button: the card holds its own
-          controls, and a button cannot legally contain them. */}
+          controls, and a button cannot legally contain them. A drag can start on it. */}
       <button
         type="button"
+        data-card-open=""
         onClick={onOpen}
         aria-label={`Open ${task.title}`}
         className="absolute inset-0 z-0 rounded-xl"
@@ -201,6 +215,9 @@ export function TaskCard({
         )}
 
         <div className="flex items-center gap-0.5">
+          {drag && (
+            <MoveToStage title={task.title} options={moveOptions} onMove={(to) => drag.moveTo(task.id, to)} />
+          )}
           {onArchive && (
             <button
               type="button"
