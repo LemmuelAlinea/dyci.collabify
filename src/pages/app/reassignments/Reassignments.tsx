@@ -39,7 +39,14 @@ const TONE: Record<string, string> = {
  * started task cannot change hands at all — so when a member goes quiet, this
  * is the only way the rest of the group gets unblocked.
  */
-export default function Reassignments({ embedded }: { embedded?: boolean }) {
+export default function Reassignments({
+  embedded,
+  onReady,
+}: {
+  embedded?: boolean
+  /** Called once the list has loaded (or failed to), so a host page can scroll to it. */
+  onReady?: () => void
+}) {
   const { show } = useToast()
   const [rows, setRows] = useState<ReassignmentRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -64,6 +71,11 @@ export default function Reassignments({ embedded }: { embedded?: boolean }) {
   }, [load])
 
   useLive(load, ['task_reassignments', 'task_assignees', 'project_tasks'])
+
+  const loaded = rows !== null
+  useEffect(() => {
+    if (loaded) onReady?.()
+  }, [loaded, onReady])
 
   const pending = useMemo(() => (rows ?? []).filter((r) => r.status === 'pending'), [rows])
   const settled = useMemo(() => (rows ?? []).filter((r) => r.status !== 'pending'), [rows])

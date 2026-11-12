@@ -77,7 +77,16 @@ function stamp(iso: string) {
  * Archived classes and archived projects are left out: archiving is how a
  * professor says they are finished with something.
  */
-export default function Submissions({ classId, embedded }: { classId?: string; embedded?: boolean }) {
+export default function Submissions({
+  classId,
+  embedded,
+  onReady,
+}: {
+  classId?: string
+  embedded?: boolean
+  /** Called once the list has loaded (or failed to), so a host page can scroll past it. */
+  onReady?: () => void
+}) {
   const { profile } = useAuth()
   const { show } = useToast()
   const [classes, setClasses] = useState<ClassSummary[] | null>(null)
@@ -219,6 +228,9 @@ export default function Submissions({ classId, embedded }: { classId?: string; e
     setStatus('')
   }
   const loading = rows === null || classes === null
+  useEffect(() => {
+    if (!loading) onReady?.()
+  }, [loading, onReady])
 
   return (
     <div className="w-full">
