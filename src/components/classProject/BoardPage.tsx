@@ -183,22 +183,26 @@ export function BoardPage({
                 Files open in the next update.
               </p>
             )}
-            {tab === 'grade' && <BoardGrade project={project} t={t} board={board} />}
+            {/* Keyed: a half-written note or score must not follow Previous or Next to another board. */}
+            {tab === 'grade' && <BoardGrade key={board.id} project={project} t={t} board={board} />}
           </>
         )}
       </div>
 
-      {/* Over any tab: a task opened from the board, the list or a link. */}
-      <TaskDetailModal
-        taskId={t.openTask}
-        onClose={() => t.showTask(null)}
-        viewerId={viewerId}
-        role="professor"
-        boardWeight={t.weightByBoard.get(t.rows.find((r) => r.id === t.openTask)?.board_id ?? '') ?? 0}
-        // A professor is never locked out of a task by the project closing.
-        locked={false}
-        onChanged={t.refresh}
-      />
+      {/* Over any tab: a task opened from the list or a link. Overview's board
+        opens its own from the same `?task=`, so this one stays out of its way. */}
+      {!(tab === 'overview' && t.view === 'board') && (
+        <TaskDetailModal
+          taskId={t.openTask}
+          onClose={() => t.showTask(null)}
+          viewerId={viewerId}
+          role="professor"
+          boardWeight={t.weightByBoard.get(t.rows.find((r) => r.id === t.openTask)?.board_id ?? '') ?? 0}
+          // A professor is never locked out of a task by the project closing.
+          locked={false}
+          onChanged={t.refresh}
+        />
+      )}
     </>
   )
 }
@@ -379,7 +383,7 @@ function BoardGrade({ project, t, board }: { project: ProjectSummary; t: Project
   return (
     <div className="space-y-4">
       <BoardVerdict board={board} role="professor" onChanged={t.refresh} />
-      <ScoreCard key={board.id} board={board} scores={scores} />
+      <ScoreCard board={board} scores={scores} />
       {project.audience === 'group' && <PeerRoundsPanel projectId={project.id} boardId={board.id} />}
     </div>
   )
