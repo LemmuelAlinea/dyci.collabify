@@ -60,21 +60,57 @@ describe('navFor', () => {
     expect(spaces(groups)?.hideWhenEmpty).toBe(true)
   })
 
-  it('opens teaching faculty on a card with Spaces first, with Teaching and Resources and no Your record', () => {
-    const groups = navFor(teacher, true)
-    expect(titles(groups)).toEqual([
-      'Classes & spaces',
-      'Overview',
-      'Main',
-      'Quick access',
-      'Teaching',
-      'Resources',
-      'Account',
-    ])
-    expect(places(groups)?.picker).toEqual(['spaces', 'classes'])
-    expect(section(groups, 'Teaching')).toEqual(['Submissions', 'Reassignments', 'Analytics', 'Reports'])
-    expect(section(groups, 'Resources')).toEqual(['Syllabi', 'Curriculum'])
-    expect(labels(groups)).not.toContain('Your record')
+  describe('the teaching rail', () => {
+    const manager = account('member', 'active', true, true)
+    const gone = ['Groups', 'Submissions', 'Reassignments', 'Analytics', 'Reports']
+
+    it('opens on Main, then Classes, Resources and Account', () => {
+      const groups = navFor(teacher, true)
+      expect(titles(groups)).toEqual(['Main', 'Classes', 'Resources', 'Account'])
+      expect(section(groups, 'Resources')).toEqual(['Syllabi', 'Curriculum'])
+      expect(labels(groups)).not.toContain('Your record')
+      expect(titles(navFor(teacher, true, { inClass: true, hasWork: false }))).toEqual([
+        'Main',
+        'Classes',
+        'Resources',
+        'Account',
+      ])
+    })
+
+    it('puts Waiting on you, with its count, between Home and Inbox', () => {
+      const groups = navFor(teacher, true)
+      expect(section(groups, 'Main')).toEqual(['Home', 'Waiting on you', 'Inbox', 'Calendar', 'Meetings'])
+      const waiting = groups.find((g) => g.title === 'Main')!.items[1]
+      expect(waiting.badge).toBe('waiting')
+      expect(waiting.to).toBe('/waiting')
+    })
+
+    it('lists the classes as live rows', () => {
+      const classes = navFor(teacher, true).find((g) => g.title === 'Classes')
+      expect(classes?.classList).toBe(true)
+      expect(classes?.items).toEqual([])
+    })
+
+    it('adds Work between Classes and Resources for work or the Project manager switch', () => {
+      for (const groups of [
+        navFor(teacher, true, { inClass: true, hasWork: true }),
+        navFor(manager, true),
+        navFor(manager, true, { inClass: false, hasWork: false }),
+      ]) {
+        expect(titles(groups)).toEqual(['Main', 'Classes', 'Work', 'Resources', 'Account'])
+        const work = groups.find((g) => g.title === 'Work')!
+        expect(work.picker).toEqual(['spaces'])
+        expect(work.items.map((i) => i.label)).toEqual(['Projects', 'My tasks'])
+      }
+    })
+
+    it('drops the old teaching pages, Groups and Quick access', () => {
+      for (const groups of [navFor(teacher, true), navFor(manager, true, { inClass: true, hasWork: true })]) {
+        for (const label of gone) expect(labels(groups)).not.toContain(label)
+        expect(titles(groups)).not.toContain('Quick access')
+        expect(titles(groups)).not.toContain('Teaching')
+      }
+    })
   })
 
   it('opens faculty who do not teach on Spaces, with no Classes, Teaching or Groups', () => {
@@ -84,7 +120,7 @@ describe('navFor', () => {
   })
 
   it('never narrows faculty on the admission flag', () => {
-    expect(places(navFor(teacher, false))?.picker).toContain('classes')
+    expect(navFor(teacher, false).find((g) => g.classList)).toBeDefined()
   })
 
   it('gives an admin in nothing only Admin and Account', () => {
@@ -115,8 +151,8 @@ describe('navFor', () => {
 
   it('calls the conversations page Inbox for everyone', () => {
     for (const who of [student, teacher, nonTeacher, admin]) {
-      const overview = navFor(who, true, { inClass: true, hasWork: true }).find((g) => g.title === 'Overview')!
-      expect(overview.items.find((i) => i.to === '/inbox')?.label).toBe('Inbox')
+      const items = navFor(who, true, { inClass: true, hasWork: true }).flatMap((g) => g.items)
+      expect(items.find((i) => i.to === '/inbox')?.label).toBe('Inbox')
     }
   })
 
@@ -133,18 +169,19 @@ describe('navFor', () => {
 
   it('lists classes under Spaces for faculty who do not teach, not for those who do', () => {
     expect(spaces(navFor(nonTeacher, true))?.withClasses).toBe(true)
-    expect(spaces(navFor(teacher, true))?.withClasses).toBe(false)
+    expect(spaces(navFor(teacher, true, { inClass: true, hasWork: true }))?.withClasses).toBe(false)
     expect(spaces(navFor(student, true, { inClass: true, hasWork: true }))?.withClasses).toBe(false)
   })
 
   it('hides an empty Spaces only for accounts that cannot open a class', () => {
     expect(spaces(navFor(nonTeacher, true))?.hideWhenEmpty).toBe(true)
-    expect(spaces(navFor(teacher, true))?.hideWhenEmpty).toBe(false)
+    expect(spaces(navFor(account('member', 'active', true, true), true))?.hideWhenEmpty).toBe(false)
+    expect(spaces(navFor(teacher, true, { inClass: true, hasWork: true }))?.hideWhenEmpty).toBe(true)
     expect(spaces(navFor(admin, true, { inClass: false, hasWork: true }))?.hideWhenEmpty).toBe(true)
   })
 
   it('fills Quick access with recent projects and hides it while there are none', () => {
-    for (const who of [student, teacher, nonTeacher]) {
+    for (const who of [student, nonTeacher]) {
       const quick = navFor(who, true, { inClass: true, hasWork: true }).find((g) => g.title === 'Quick access')
       expect(quick?.live).toBe('recent')
       expect(quick?.hideWhenEmpty).toBe(true)
@@ -164,6 +201,7 @@ describe('navFor', () => {
       '/calendar',
       '/meetings',
       '/inbox',
+      '/waiting',
       '/settings',
       '/trash',
       '/archive',
@@ -216,7 +254,7 @@ describe('navFor', () => {
     })
 
     it('keeps the normal rails for teaching faculty, project managers, students and the admin', () => {
-      expect(labels(navFor(teacher, true, slim))).toContain('Submissions')
+      expect(labels(navFor(teacher, true, slim))).toContain('Waiting on you')
       const manager = account('member', 'active', false, true)
       expect(labels(navFor(manager, true, slim))).toContain('My tasks')
       expect(labels(navFor(student, true, slim))).toContain('Your record')

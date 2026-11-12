@@ -10,8 +10,12 @@ export type NavItem = {
   to?: string
   /** Phase 2. Rendered as a disabled row with a "Soon" tag. */
   soon?: boolean
-  /** Named counter the shell fills in live: unread messages plus invitations waiting. */
-  badge?: 'inbox'
+  /**
+   * Named counter the shell fills in live: `inbox` is unread messages plus
+   * invitations waiting, `waiting` the hand-ins and reassignment requests a
+   * teacher has not answered.
+   */
+  badge?: 'inbox' | 'waiting'
   /** Match this path exactly, so a parent page is not lit on its children. */
   end?: boolean
 }
@@ -40,6 +44,12 @@ export type NavGroup = {
   withClasses?: boolean
   /** The header folds the section away, live rows included. Remembered per device. */
   collapsible?: boolean
+  /**
+   * Live rows `SideNav` fills in: the classes the reader teaches, each opening
+   * its class. The class in view (`/classes/:id`, or one of its projects)
+   * lists its live projects under it, then a `+ New class` row closes the list.
+   */
+  classList?: true
 }
 
 
@@ -51,13 +61,15 @@ export type NavGroup = {
  * file — then the spine every account shares (Overview, then Work), their
  * recent projects, and whatever their role adds on top. A section someone
  * cannot use is not shown to them: faculty the admin has not let teach get no
- * Classes, Teaching or Resources, and an account that cannot make a space of
- * its own sees Spaces only once somebody has invited it into one.
+ * Classes or Resources, and an account that cannot make a space of its own
+ * sees Spaces only once somebody has invited it into one. Teaching faculty are
+ * the one exception to the shared spine: their rail is their classes.
  */
 const HOME: NavItem = { label: 'Home', icon: 'board', to: paths.home, end: true }
 const INBOX: NavItem = { label: 'Inbox', icon: 'mail', to: paths.inbox, badge: 'inbox' }
 const CALENDAR: NavItem = { label: 'Calendar', icon: 'calendar', to: paths.calendar }
 const PROJECTS: NavItem = { label: 'Projects', icon: 'kanban', to: paths.projects }
+const MEETINGS: NavItem = { label: 'Meetings', icon: 'video', to: paths.meetings }
 
 const OVERVIEW: NavGroup = {
   title: 'Overview',
@@ -77,7 +89,7 @@ function workGroup(groups: boolean): NavGroup {
       { label: 'My tasks', icon: 'check', to: paths.tasks },
       PROJECTS,
       ...(groups ? [{ label: 'Groups', icon: 'users' as IconName, to: paths.groups }] : []),
-      { label: 'Meetings', icon: 'video', to: paths.meetings },
+      MEETINGS,
     ],
   }
 }
@@ -162,18 +174,43 @@ const QUICK_ACCESS: NavGroup = {
 }
 
 /**
- * The two queues that wait on a professor, then the pages that read the work
- * back rather than run it.
+ * The teaching rail is organized around the classes, and everything a class
+ * holds — its projects, groups, hand-ins and reports — lives inside the class.
+ * Main keeps only what crosses classes: Waiting on you gathers the hand-ins and
+ * reassignment requests from all of them, with a count.
  */
-const TEACHING: NavGroup = {
-  title: 'Teaching',
+const TEACHING_MAIN: NavGroup = {
+  title: 'Main',
   collapsible: true,
   items: [
-    { label: 'Submissions', icon: 'upload', to: paths.submissions },
-    { label: 'Reassignments', icon: 'refresh', to: paths.reassignments },
-    { label: 'Analytics', icon: 'chart', to: paths.analytics },
-    { label: 'Reports', icon: 'file', to: paths.teachingReports },
+    HOME,
+    { label: 'Waiting on you', icon: 'clock', to: paths.waiting, badge: 'waiting' },
+    INBOX,
+    CALENDAR,
+    MEETINGS,
   ],
+}
+
+const CLASS_LIST: NavGroup = {
+  title: 'Classes',
+  classList: true,
+  collapsible: true,
+  items: [],
+}
+
+/**
+ * A teacher's work-side pages, only for one who has work or may make spaces:
+ * their spaces, then Projects and My tasks. Empty spaces hide unless making
+ * them is part of the job.
+ */
+function teachingWork(manager: boolean): NavGroup {
+  return {
+    title: 'Work',
+    picker: ['spaces'],
+    hideWhenEmpty: !manager,
+    withClasses: false,
+    items: [PROJECTS, { label: 'My tasks', icon: 'check', to: paths.tasks }],
+  }
 }
 
 /**
@@ -256,12 +293,15 @@ const MAIN_WAITING: NavGroup = {
  * isn't active, has nothing to open but Settings — every other page here
  * needs an admitted account.
  *
- * Every admitted rail opens on the places card. A student's lists Classes,
- * then Spaces once somebody invites them into one; teaching faculty get
- * Spaces then Classes, Spaces open first. Spaces drops out while empty for
- * anyone who cannot open a class — students, faculty who do not teach,
- * admins. Teaching faculty keep it, empty or not, because making spaces is
- * part of their job.
+ * Every admitted rail but the teaching one opens on the places card. A
+ * student's lists Classes, then Spaces once somebody invites them into one.
+ * Spaces drops out while empty for anyone who cannot make one — students,
+ * faculty who do not teach, admins.
+ *
+ * Teaching faculty get a rail built around their classes: Main (Home, Waiting
+ * on you, Inbox, Calendar, Meetings), then each class they teach, then Work —
+ * their spaces, Projects and My tasks — only once they have work or the
+ * Project manager switch, then Resources and Account.
  *
  * An admin runs the program rather than sitting in it, so until someone
  * invites them into a class, space or project their rail is Admin and
@@ -305,12 +345,11 @@ export function navFor(
     ]
   }
   if (canTeach(profile)) {
+    const manager = canManageProjects(profile)
     return [
-      placesGroup(['spaces', 'classes']),
-      OVERVIEW,
-      workGroup(true),
-      QUICK_ACCESS,
-      TEACHING,
+      TEACHING_MAIN,
+      CLASS_LIST,
+      ...(membership?.hasWork || manager ? [teachingWork(manager)] : []),
       resourcesGroup(role),
       ACCOUNT_WITH_ARCHIVE,
     ]

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import type { FocusEvent, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink, matchPath, useLocation } from 'react-router-dom'
@@ -6,9 +6,11 @@ import { useAuth } from '../../context/AuthContext'
 import { useGeneralNavigation } from '../../context/generalNavigation'
 import { useAdmission } from '../../hooks/useAdmission'
 import { useUnreadTotal } from '../../hooks/useConversations'
+import { useLive } from '../../hooks/useLive'
 import { usePendingInvitations } from '../../hooks/usePendingInvitations'
 import { useProjectLooks } from '../../hooks/useProjectLooks'
-import { membershipOf } from '../../lib/access'
+import { canTeach, membershipOf } from '../../lib/access'
+import { teachingWaitingCount } from '../../lib/api/waiting'
 import { paths } from '../../lib/paths'
 import { pageRect } from '../../lib/zoom'
 import { Logo, LogoMark } from '../brand/Logo'
@@ -87,6 +89,24 @@ export function SideNav({
   const inboxCount = unread + pending
   const admitted = useAdmission(profile?.role === 'student' ? profile.id : undefined)
 
+  // What waits on a teacher, across every class they teach. Nobody else has
+  // the row, so nobody else asks.
+  const teaching = canTeach(profile)
+  const userId = profile?.id
+  const [waitingCount, setWaitingCount] = useState(0)
+  const loadWaiting = useCallback(async () => {
+    if (!teaching || !userId) return
+    try {
+      setWaitingCount(await teachingWaitingCount(userId))
+    } catch {
+      // The badge keeps its last count; Waiting on you reports its own errors.
+    }
+  }, [teaching, userId])
+  useEffect(() => {
+    void loadWaiting()
+  }, [loadWaiting])
+  useLive(loadWaiting, ['project_boards', 'board_results', 'task_reassignments'], { enabled: teaching })
+
   useEffect(() => setHint(null), [collapsed, location.pathname, location.search])
 
   if (!profile) return null
@@ -120,6 +140,53 @@ export function SideNav({
   }
 
   const spaces = navigation.spaces ?? []
+  const counts = { inbox: inboxCount, waiting: waitingCount }
+
+  /**
+   * The class in view: the one a `/classes/:id` route names, or the class a
+   * class project on screen belongs to. The project route only carries the
+   * project id, so its class comes from the class projects already loaded.
+   */
+  const classMatch = matchPath({ path: '/classes/:classId', end: false }, location.pathname)
+  const projectMatch = matchPath({ path: '/class-projects/:projectId', end: false }, location.pathname)
+  const currentProjectId = projectMatch?.params.projectId ?? null
+  const currentClassId =
+    classMatch?.params.classId ??
+    (currentProjectId
+      ? navigation.classProjects?.find((project) => project.id === currentProjectId)?.class_id
+      : undefined) ??
+    null
+
+  /**
+   * The taught classes, each named with its section the way the class
+   * directory names it, and the live projects of the class in view — the
+   * most recently changed, capped, always keeping the one on screen.
+   */
+  function classList(): { rows: LiveRow[]; openTo: string | null; projects: LiveRow[] } {
+    const rows = classRows(spaces, Infinity).map((row) => ({
+      ...row,
+      name: row.detail && row.detail !== 'Class' ? `${row.name} · ${row.detail}` : row.name,
+      detail: undefined,
+    }))
+    const openTo = currentClassId ? paths.class(currentClassId) : null
+    if (!openTo || !rows.some((row) => row.to === openTo)) return { rows, openTo: null, projects: [] }
+    const mine = (navigation.classProjects ?? [])
+      .filter((project) => project.class_id === currentClassId)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    const shown = mine.slice(0, PROJECT_CAP)
+    const current = mine.find((project) => project.id === currentProjectId)
+    if (current && !shown.includes(current)) shown[shown.length - 1] = current
+    return {
+      rows,
+      openTo,
+      projects: shown.map((project) => ({
+        id: project.id,
+        name: project.title,
+        to: paths.classProject(project.id),
+        tone: 'education' as const,
+      })),
+    }
+  }
 
   /**
    * The places card's lists, one per kind the rail offers. With
@@ -202,9 +269,44 @@ export function SideNav({
           )}
 
           {groups.map((group) => {
+            if (group.classList) {
+              const { rows, openTo, projects } = classList()
+              const isFolded = !collapsed && group.collapsible === true && folded.includes(group.title)
+              return (
+                <ClassListGroup
+                  key={group.title}
+                  title={group.title}
+                  // Folded, only the class in view stays, so the rail still says where you are.
+                  rows={isFolded ? rows.filter((row) => row.to === openTo) : rows}
+                  openTo={openTo}
+                  projects={projects}
+                  collapsed={collapsed}
+                  fold={
+                    group.collapsible
+                      ? { open: !isFolded, onToggle: () => toggleFold(group.title) }
+                      : undefined
+                  }
+                  onNavigate={onNavigate}
+                  hintHandlers={hintHandlers}
+                />
+              )
+            }
+
             if (group.picker) {
               const lists = places(group)
-              if (lists.length === 0) return null
+              // A card with rows of its own below it — Work's Projects and My
+              // tasks — keeps them when the card has nothing to show.
+              const items = group.items.map((item) => (
+                <StaticRow
+                  key={item.label}
+                  item={item}
+                  collapsed={collapsed}
+                  counts={counts}
+                  onNavigate={onNavigate}
+                  hintHandlers={hintHandlers}
+                />
+              ))
+              if (lists.length === 0 && items.length === 0) return null
               if (collapsed) {
                 return (
                   <ul key={group.title} className="space-y-0.5">
@@ -218,17 +320,26 @@ export function SideNav({
                         hintHandlers={hintHandlers}
                       />
                     ))}
+                    {items}
                   </ul>
                 )
               }
+              const picker =
+                lists.length > 0 ? (
+                  <PlacePicker
+                    key={group.title}
+                    title={group.title}
+                    lists={lists}
+                    currentSpaceId={navigation.currentSpaceId}
+                    onNavigate={onNavigate}
+                  />
+                ) : null
+              if (items.length === 0) return picker
               return (
-                <PlacePicker
-                  key={group.title}
-                  title={group.title}
-                  lists={lists}
-                  currentSpaceId={navigation.currentSpaceId}
-                  onNavigate={onNavigate}
-                />
+                <div key={group.title}>
+                  {picker ?? <GroupHeader title={group.title} />}
+                  <ul className={`space-y-0.5 ${picker ? 'mt-2' : ''}`}>{items}</ul>
+                </div>
               )
             }
 
@@ -292,7 +403,7 @@ export function SideNav({
                       key={item.label}
                       item={item}
                       collapsed={collapsed}
-                      unread={inboxCount}
+                      counts={counts}
                       onNavigate={onNavigate}
                       hintHandlers={hintHandlers}
                     />
@@ -378,6 +489,85 @@ function LiveRowLink({
         )}
       </NavLink>
     </li>
+  )
+}
+
+/**
+ * The classes a teacher teaches, the class in view opened onto its projects so
+ * a project is one click from the rail, then the way to make another class.
+ * Collapsed, the rail keeps only each class's letter, its name in the hint.
+ */
+function ClassListGroup({
+  title,
+  rows,
+  openTo,
+  projects,
+  collapsed,
+  fold,
+  onNavigate,
+  hintHandlers,
+}: {
+  title: string
+  rows: LiveRow[]
+  /** The class route that is open, whose projects list under it. */
+  openTo: string | null
+  projects: LiveRow[]
+  collapsed: boolean
+  fold?: { open: boolean; onToggle: () => void }
+  onNavigate?: () => void
+  hintHandlers: (text: string) => Record<string, unknown>
+}) {
+  const listId = `nav-${title.toLowerCase().replace(/\s+/g, '-')}`
+  if (collapsed) {
+    if (rows.length === 0) return null
+    return (
+      <ul id={listId} className="space-y-0.5">
+        {rows.map((row) => (
+          <LiveRowLink key={row.id} row={row} collapsed onNavigate={onNavigate} hintHandlers={hintHandlers} />
+        ))}
+      </ul>
+    )
+  }
+  return (
+    <div>
+      <GroupHeader title={title} fold={fold && { ...fold, controls: listId }} />
+      <ul id={listId} className="space-y-0.5">
+        {rows.map((row) => (
+          <Fragment key={row.id}>
+            <LiveRowLink row={row} collapsed={false} onNavigate={onNavigate} hintHandlers={hintHandlers} />
+            {row.to === openTo && projects.length > 0 && (
+              <li>
+                <ul aria-label={`Projects in ${row.name}`} className="ml-5 space-y-0.5 border-l border-line pl-2">
+                  {projects.map((project) => (
+                    <LiveRowLink
+                      key={project.id}
+                      row={project}
+                      collapsed={false}
+                      onNavigate={onNavigate}
+                      hintHandlers={hintHandlers}
+                    />
+                  ))}
+                </ul>
+              </li>
+            )}
+          </Fragment>
+        ))}
+        {(!fold || fold.open) && (
+          <li>
+            <Link
+              to={`${paths.classes}?new=1`}
+              onClick={onNavigate}
+              className={`${ROW} h-9 gap-3 px-3 text-[14px] ${IDLE}`}
+            >
+              <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center rounded border border-dashed border-line-strong">
+                <Icon name="plus" size={12} />
+              </span>
+              <span className="flex-1 truncate">New class</span>
+            </Link>
+          </li>
+        )}
+      </ul>
+    </div>
   )
 }
 
@@ -494,18 +684,19 @@ function ActiveBar() {
 function StaticRow({
   item,
   collapsed,
-  unread,
+  counts,
   onNavigate,
   hintHandlers,
 }: {
   item: NavItem
   collapsed: boolean
-  unread: number
+  counts: Record<NonNullable<NavItem['badge']>, number>
   onNavigate?: () => void
   hintHandlers: (text: string) => Record<string, unknown>
 }) {
-  const label = item.badge === 'inbox' && unread > 0
-    ? `${item.label}, ${unread} new`
+  const count = item.badge ? counts[item.badge] : 0
+  const label = count > 0
+    ? `${item.label}, ${count} ${item.badge === 'waiting' ? 'waiting' : 'new'}`
     : item.label
 
   if (!item.to) {
@@ -557,16 +748,17 @@ function StaticRow({
               className={isActive ? 'text-nav-active' : 'text-nav-icon'}
             />
             {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-            {item.badge === 'inbox' && unread > 0 && (
+            {count > 0 && (
               <span
                 aria-hidden
+                data-badge={item.badge}
                 className={`grid place-items-center rounded-full bg-badge font-mono text-[12px] font-bold text-badge-ink ${
                   collapsed
                     ? 'absolute top-0.5 right-0.5 h-4 min-w-4 px-1'
                     : 'h-5 min-w-5 px-1.5'
                 }`}
               >
-                {unread > 99 ? '99+' : unread}
+                {count > 99 ? '99+' : count}
               </span>
             )}
           </>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useLive } from '../../../hooks/useLive'
 import { Button } from '../../../components/ui/Button'
 import { Alert } from '../../../components/ui/Alert'
@@ -25,10 +26,27 @@ export default function ProfessorClasses() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [createOpen, setCreateOpen] = useState(false)
+  const [params, setParams] = useSearchParams()
 
   useEffect(() => {
     document.title = 'Classes · Collabify'
   }, [])
+
+  // The rail's New class row lands here with ?new=1: open the form, then drop
+  // the param so a reload or Back does not open it again.
+  const askedNew = params.get('new') === '1'
+  useEffect(() => {
+    if (!askedNew) return
+    if (teaching) setCreateOpen(true)
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current)
+        next.delete('new')
+        return next
+      },
+      { replace: true },
+    )
+  }, [askedNew, teaching, setParams])
 
   const load = useCallback(async () => {
     if (!profile) return
