@@ -36,14 +36,20 @@ export function taskLayout(params: URLSearchParams): TaskLayout {
   return named && (TASK_LAYOUTS as readonly string[]).includes(named) ? (named as TaskLayout) : 'board'
 }
 
+/**
+ * The address with Work's place changed. An old `tab=tasks` or `tab=progress`
+ * becomes `tab=work`, unless `keepTab` is set: a professor's class project has
+ * its own Tasks tab, which `tab=tasks` names.
+ */
 export function withWork(
   params: URLSearchParams,
   patch: { section?: WorkSection; layout?: TaskLayout; scope?: string },
+  { keepTab = false }: { keepTab?: boolean } = {},
 ): URLSearchParams {
   const next = new URLSearchParams(params)
   if (patch.section) next.set('work', patch.section)
   if (patch.layout) next.set('layout', patch.layout)
   if (patch.scope) next.set('scope', patch.scope)
-  if (LEGACY_TABS.has(next.get('tab') ?? '')) next.set('tab', 'work')
+  if (!keepTab && LEGACY_TABS.has(next.get('tab') ?? '')) next.set('tab', 'work')
   return next
 }

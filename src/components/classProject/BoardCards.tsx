@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import type { ProjectTaskRow } from '../../lib/api/tasks'
 import { boardStage } from '../../lib/classProjectNav'
 import { paths } from '../../lib/paths'
+import { submissionStatus } from '../../lib/submissions'
 import { boardOwnerName } from '../../lib/types'
 import type { BoardSummary } from '../../lib/types'
 
@@ -91,9 +92,12 @@ export function BoardCards({
 }
 
 function BoardFlags({ board }: { board: BoardSummary }) {
-  const handedIn = Boolean(board.submitted_at) && !board.result_verdict
-  const accepted = board.result_verdict === 'accepted'
-  const returned = board.result_verdict === 'returned'
+  // The same reading Submissions uses: handed in again after a return is
+  // waiting, and an accepted board taken back is no longer accepted.
+  const status = submissionStatus(board)
+  const handedIn = status === 'waiting'
+  const accepted = status === 'accepted'
+  const returned = status === 'returned'
   const late = board.late_count > 0
   if (!handedIn && !accepted && !returned && !late) return null
   return (

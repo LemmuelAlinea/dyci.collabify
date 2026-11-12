@@ -87,6 +87,14 @@ describe('withWork', () => {
     expect(withWork(p('tab=progress'), { section: 'summary' }).get('tab')).toBe('work')
   })
 
+  it("keeps a professor's Tasks tab when asked to", () => {
+    const next = withWork(p('tab=tasks'), { layout: 'list' }, { keepTab: true })
+    expect(next.get('tab')).toBe('tasks')
+    expect(next.get('layout')).toBe('list')
+    expect(withWork(p('tab=tasks'), { scope: 'sprint:s1' }, { keepTab: true }).get('tab')).toBe('tasks')
+    expect(withWork(p('tab=tasks'), { section: 'backlog' }, { keepTab: true }).get('tab')).toBe('tasks')
+  })
+
   it('leaves another tab alone', () => {
     expect(withWork(p('tab=files'), { layout: 'list' }).get('tab')).toBe('files')
   })

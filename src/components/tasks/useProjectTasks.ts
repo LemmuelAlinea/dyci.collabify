@@ -199,17 +199,19 @@ export function useProjectTasks({
   // The QA queue belongs to work projects; a class project's link to it lands on the default.
   const section = named === 'qa' ? fallback : named
   const view = taskLayout(params)
+  // A professor's `tab=tasks` is the project's Tasks tab, not an old Work link.
+  const keep = useMemo(() => ({ keepTab: isProfessor }), [isProfessor])
   const setSection = useCallback(
-    (s: WorkSection) => setParams(withWork(params, { section: s })),
-    [params, setParams],
+    (s: WorkSection) => setParams(withWork(params, { section: s }, keep)),
+    [params, setParams, keep],
   )
   const setView = useCallback(
-    (l: TaskLayout) => setParams(withWork(params, { layout: l }), { replace: true }),
-    [params, setParams],
+    (l: TaskLayout) => setParams(withWork(params, { layout: l }, keep), { replace: true }),
+    [params, setParams, keep],
   )
   const setSprintScope = useCallback(
-    (s: TaskScope) => setParams(withWork(params, { scope: s }), { replace: true }),
-    [params, setParams],
+    (s: TaskScope) => setParams(withWork(params, { scope: s }, keep), { replace: true }),
+    [params, setParams, keep],
   )
   const showTask = useCallback(
     (id: string | null) => {

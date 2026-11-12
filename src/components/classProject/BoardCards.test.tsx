@@ -19,6 +19,7 @@ const board = (id: string, over: Partial<BoardSummary> = {}) =>
     student_name: null,
     submitted_at: null,
     result_verdict: null,
+    result_at: null,
     late_count: 0,
     member_count: 4,
     done_pct: 0,
@@ -50,8 +51,22 @@ it('shows progress, the stage and the flags for each board', async () => {
     <BoardCards
       boards={[
         board('a', { done_pct: 72, submitted_at: '2026-11-10T00:00:00Z' }),
-        board('b', { done_pct: 40, result_verdict: 'accepted', late_count: 2 }),
-        board('c', { result_verdict: 'returned' }),
+        board('b', {
+          done_pct: 40,
+          submitted_at: '2026-11-08T00:00:00Z',
+          result_verdict: 'accepted',
+          result_at: '2026-11-09T00:00:00Z',
+          late_count: 2,
+        }),
+        board('c', { result_verdict: 'returned', result_at: '2026-11-09T00:00:00Z' }),
+        // Accepted, then taken back by the group: no longer accepted.
+        board('d', { result_verdict: 'accepted', result_at: '2026-11-09T00:00:00Z' }),
+        // Returned, then handed in again: waiting once more.
+        board('e', {
+          submitted_at: '2026-11-11T00:00:00Z',
+          result_verdict: 'returned',
+          result_at: '2026-11-09T00:00:00Z',
+        }),
       ]}
       rows={[row('a', 'in_progress', 1), row('a', 'done', null), row('b', 'done', null)]}
       stages={STAGES}
@@ -68,6 +83,9 @@ it('shows progress, the stage and the flags for each board', async () => {
   expect(card('Group b').textContent).not.toContain('Handed in')
   expect(card('Group c').textContent).toContain('Returned')
   expect(card('Group c').textContent).toContain('No tasks yet')
+  expect(card('Group d').textContent).not.toContain('Accepted')
+  expect(card('Group e').textContent).toContain('Handed in')
+  expect(card('Group e').textContent).not.toContain('Returned')
 })
 
 it('leaves member counts off student cards and opens through onOpen', async () => {
