@@ -1,9 +1,7 @@
 import { Spinner } from '../ui/Icon'
 import { WorkNav } from '../work/WorkNav'
 import { workSectionsFor } from '../../lib/work/nav'
-import type { WorkSection } from '../../lib/work/nav'
 import { EmptyState } from '../ui/EmptyState'
-import { ProfessorTasksView } from './ProfessorTasksView'
 import { StudentTasksView } from './StudentTasksView'
 import type { ProjectTasks } from './useProjectTasks'
 import { isReleased } from '../../lib/types'
@@ -13,27 +11,23 @@ import type { ProjectSummary, TeachingViewRole } from '../../lib/types'
 const CLASS_SECTIONS = workSectionsFor(false)
 
 /**
- * Work inside one project: Summary and Tasks. A student sees their own board; a professor sees
- * what they set, where every group stands, and can open any board read-only.
+ * A student's Work inside one project: Summary, Backlog, Sprints, Milestones and
+ * Tasks on their own board. The professor reads a class project through
+ * `ProfessorProject` instead.
  *
- * This file holds only what both roles share: the loading state and the two
- * reasons there is nothing to show. The state lives in `useProjectTasks`, and
- * each role's markup lives in its own file — they had grown to 580 lines
- * together, and reading either one meant scrolling past the other.
+ * This file holds the loading state and the two reasons there is nothing to
+ * show. The state lives in `useProjectTasks`, and the markup in `StudentTasksView`.
  */
 export function ProjectTasksTab({
   project, role,
   viewerId,
   t,
-  sections = CLASS_SECTIONS,
 }: {
   project: ProjectSummary
   role: TeachingViewRole
   viewerId: string | undefined
   /** Owned by the project page, which shares it with Files and the hand-in. */
   t: ProjectTasks
-  /** The sections on offer; the switch hides when there is only one. */
-  sections?: readonly WorkSection[]
 }) {
 
   if (t.boards === null) {
@@ -45,7 +39,7 @@ export function ProjectTasksTab({
     )
   }
 
-  if (!t.isProfessor && !isReleased(project)) {
+  if (!isReleased(project)) {
     return (
       <EmptyState
         icon="clock"
@@ -60,23 +54,15 @@ export function ProjectTasksTab({
       <EmptyState
         icon="users"
         title="No boards yet"
-        body={
-          t.isProfessor
-            ? 'A board appears for each group once the project reaches them. Check the group set on this project.'
-            : 'You are not in a group for this project yet, so there is nowhere to plan your work.'
-        }
+        body="You are not in a group for this project yet, so there is nowhere to plan your work."
       />
     )
   }
 
   return (
     <div className="space-y-5">
-      {sections.length > 1 && <WorkNav sections={sections} active={t.section} onChange={t.setSection} />}
-      {t.isProfessor ? (
-        <ProfessorTasksView project={project} role={role} viewerId={viewerId} t={t} />
-      ) : (
-        <StudentTasksView project={project} role={role} viewerId={viewerId} t={t} />
-      )}
+      <WorkNav sections={CLASS_SECTIONS} active={t.section} onChange={t.setSection} />
+      <StudentTasksView project={project} role={role} viewerId={viewerId} t={t} />
     </div>
   )
 }

@@ -15,30 +15,21 @@ export function GroupMilestoneGrid({
   groups,
   who,
   onOpenGroup,
-  onSetMilestones,
 }: {
   milestones: Milestone[]
   groups: MilestoneGroup[]
   /** 'group' or 'student', for the copy. */
   who: string
   onOpenGroup: (id: string) => void
-  onSetMilestones: () => void
 }) {
   const now = useNow()
   const grid = milestoneGrid(milestones, groups, now)
 
+  // Milestones are set just above the grid, on the same tab.
   if (grid.milestones.length === 0) {
     return (
       <p className="text-[13px] text-muted">
-        No milestones yet.{' '}
-        <button
-          type="button"
-          onClick={onSetMilestones}
-          className="font-medium text-navy-600 hover:underline dark:text-navy-200"
-        >
-          Set them in Milestones
-        </button>{' '}
-        to follow each {who} against them.
+        No milestones yet. Set them above to follow each {who} against them.
       </p>
     )
   }

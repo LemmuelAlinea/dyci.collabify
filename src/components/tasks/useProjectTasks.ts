@@ -194,7 +194,7 @@ export function useProjectTasks({
   const openTask = params.get('task')
   // Where you are inside Work lives in the address, so Submissions' and
   // Reassignments' links to a board or a task land on Tasks.
-  const fallback = isProfessor ? 'summary' : 'tasks'
+  const fallback = 'tasks'
   const named = workSection(params, fallback)
   // The QA queue belongs to work projects; a class project's link to it lands on the default.
   const section = named === 'qa' ? fallback : named

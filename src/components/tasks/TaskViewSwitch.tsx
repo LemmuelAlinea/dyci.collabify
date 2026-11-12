@@ -23,16 +23,19 @@ export function TaskViewSwitch({
   onView,
   shown,
   total,
+  views = TASK_LAYOUTS,
 }: {
   view: TaskView
   onView: (v: TaskView) => void
   shown: number
   total: number
+  /** The ways on offer; every one unless a page holds fewer. */
+  views?: readonly TaskView[]
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="surface-sunken flex max-w-full gap-1 overflow-x-auto rounded-lg p-0.5">
-        {TASK_LAYOUTS.map((v) => (
+        {views.map((v) => (
           <button
             key={v}
             type="button"
