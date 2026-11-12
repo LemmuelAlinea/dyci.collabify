@@ -89,6 +89,9 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
   const [leaderPick, setLeaderPick] = useState('')
 
   const canManage = role === 'professor' && !group?.set_closed_at
+  // A professor's groups live in each class's Groups tab; a student keeps /groups.
+  const allGroups =
+    role === 'professor' && group ? `${paths.class(group.class_id)}?tab=groups` : paths.groups
   const isMember = members.some((m) => m.student_id === profile?.id)
   const canRename = Boolean(group && !group.set_closed_at && (role === 'professor' || isMember))
   const leader = members.find((m) => m.student_id === group?.leader_id) ?? null
@@ -239,7 +242,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
   return (
     <div className="mx-auto w-full max-w-[1280px]">
       <Link
-        to={paths.groups}
+        to={allGroups}
         className="inline-flex items-center gap-2 text-[13px] font-medium text-muted transition-colors hover:text-ink"
       >
         <Icon name="arrowLeft" size={16} />
@@ -307,7 +310,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
                       await archiveGroup(group.id, !group.archived_at)
                       show(group.archived_at ? `${group.name} restored` : `${group.name} archived`)
                       if (group.archived_at) await load()
-                      else navigate(paths.groups)
+                      else navigate(allGroups)
                     } catch (err) {
                       show(authErrorMessage(err, 'Could not archive the group.'), 'error')
                     } finally {
@@ -765,7 +768,7 @@ export default function GroupDetail({ role }: { role: 'professor' | 'student' })
           try {
             await deleteGroup(group.id)
             show(`${group.name} deleted`)
-            navigate(paths.groups)
+            navigate(allGroups)
           } catch (err) {
             setDeletePrompt(false)
             show(authErrorMessage(err, 'Could not delete the group.'), 'error')

@@ -11,14 +11,14 @@ import { paths } from '../../lib/paths'
 import type { ClassSummary, ProjectSummary } from '../../lib/types'
 
 /**
- * A group project's Groups tab: the same board as the Groups page and a class's
- * Groups tab, narrowed to this project's own group set, so only the groups and
+ * A group project's Groups tab: the same board as a class's Groups tab,
+ * narrowed to this project's own group set, so only the groups and
  * students this project is worked by appear.
  *
- * Making or deleting a whole set stays on the Groups page: other projects may
- * use the same set, and deleting it from inside one project would reach them
- * too. Everything about the groups themselves (who is in which, names, locking)
- * is one click away on each group's own page, exactly as from the Groups page.
+ * Making or deleting a whole set stays on the class's Groups tab: other
+ * projects may use the same set, and deleting it from inside one project would
+ * reach them too. Everything about the groups themselves (who is in which,
+ * names, locking) is one click away on each group's own page.
  */
 export function ProjectGroupsTab({
   project,
@@ -80,7 +80,7 @@ export function ProjectGroupsTab({
             'The set of groups this project was made with is no longer there.'
           )}
         </p>
-        <ButtonLink to={paths.groups} variant="ghost" size="sm" className="shrink-0 !rounded-lg">
+        <ButtonLink to={`${paths.class(classId)}?tab=groups`} variant="ghost" size="sm" className="shrink-0 !rounded-lg">
           <Icon name="users" size={15} />
           All groups
         </ButtonLink>
@@ -96,7 +96,7 @@ export function ProjectGroupsTab({
         showFilters={myGroups.length > 6}
         showSetFilter={false}
         emptyTitle="No groups in this set yet"
-        emptyBody="Make and fill groups on the Groups page. Once this set has groups, they show up here."
+        emptyBody="Make and fill groups on the class's Groups tab. Once this set has groups, they show up here."
         setActions={
           canManage
             ? (set) => (
