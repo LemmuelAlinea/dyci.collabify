@@ -4,6 +4,7 @@ import { ThemeSync } from './components/ThemeSync'
 import { StatusBarSync } from './components/StatusBarSync'
 import { AppShell } from './components/app/AppShell'
 import { ErrorBoundary } from './components/app/ErrorBoundary'
+import { TeachingRedirect } from './routes/TeachingRedirect'
 import { ProtectedRoute, RequireAdmitted, RequireTeaching } from './routes/ProtectedRoute'
 import { RoleSwitch } from './routes/RoleSwitch'
 import { LegacyRedirect } from './routes/LegacyRedirect'
@@ -65,6 +66,7 @@ const ProgramLibrary = lazy(() => import('./pages/app/admin/ProgramLibrary'))
 const ProjectDetail = lazy(() => import('./pages/app/projects/ProjectDetail'))
 const Reassignments = lazy(() => import('./pages/app/reassignments/Reassignments'))
 const Submissions = lazy(() => import('./pages/app/submissions/Submissions'))
+const WaitingOnYou = lazy(() => import('./pages/app/waiting/WaitingOnYou'))
 const Reports = lazy(() => import('./pages/app/reports/Reports'))
 const Sections = lazy(() => import('./pages/app/admin/Sections'))
 const Settings = lazy(() => import('./pages/Settings'))
@@ -257,8 +259,20 @@ export default function App() {
             <Route element={<RequireAdmitted allow={['member', 'admin']} />}>
               {/* Teaching needs Can teach. The admin reads these across the program. */}
               <Route element={<RequireTeaching />}>
-                <Route path="/teaching/submissions" element={<Submissions />} />
-                <Route path="/teaching/reassignments" element={<Reassignments />} />
+                <Route path="/waiting" element={<WaitingOnYou />} />
+                <Route
+                  path="/teaching/submissions"
+                  element={<TeachingRedirect to={paths.waiting} page={<Submissions />} />}
+                />
+                <Route
+                  path="/teaching/reassignments"
+                  element={
+                    <TeachingRedirect
+                      to={`${paths.waiting}?section=reassignments`}
+                      page={<Reassignments />}
+                    />
+                  }
+                />
                 <Route path="/teaching/analytics" element={<Analytics />} />
                 <Route path="/teaching/reports" element={<Reports />} />
                 <Route path="/teaching/syllabi" element={<Syllabi />} />

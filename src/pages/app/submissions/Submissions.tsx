@@ -77,7 +77,7 @@ function stamp(iso: string) {
  * Archived classes and archived projects are left out: archiving is how a
  * professor says they are finished with something.
  */
-export default function Submissions({ classId }: { classId?: string }) {
+export default function Submissions({ classId, embedded }: { classId?: string; embedded?: boolean }) {
   const { profile } = useAuth()
   const { show } = useToast()
   const [classes, setClasses] = useState<ClassSummary[] | null>(null)
@@ -88,9 +88,12 @@ export default function Submissions({ classId }: { classId?: string }) {
   // page already on "Waiting on you", even while the page is open.
   const [params, setParams] = useSearchParams()
   const raw = params.get('status')
+  // Embedded on the waiting page it opens on Waiting; `all` keeps the full list.
   const status: SubmissionStatus | '' = SUBMISSION_STATUSES.some((s) => s.value === raw)
     ? (raw as SubmissionStatus)
-    : ''
+    : embedded && raw === null
+      ? 'waiting'
+      : ''
   const filters = useMemo(() => ({ ...narrowing, status }), [narrowing, status])
   const setStatus = useCallback(
     (next: SubmissionStatus | '') =>
@@ -98,17 +101,18 @@ export default function Submissions({ classId }: { classId?: string }) {
         (prev) => {
           const out = new URLSearchParams(prev)
           if (next) out.set('status', next)
+          else if (embedded) out.set('status', 'all')
           else out.delete('status')
           return out
         },
         { replace: true },
       ),
-    [setParams],
+    [setParams, embedded],
   )
 
   useEffect(() => {
-    if (!classId) document.title = 'Submissions · Collabify'
-  }, [classId])
+    if (!classId && !embedded) document.title = 'Submissions · Collabify'
+  }, [classId, embedded])
 
   const load = useCallback(async () => {
     if (!profile) return
@@ -218,7 +222,7 @@ export default function Submissions({ classId }: { classId?: string }) {
 
   return (
     <div className="w-full">
-      {!classId && (
+      {!classId && !embedded && (
         <DirectoryHero
           title="Work that was"
           accent="handed in."
@@ -226,7 +230,7 @@ export default function Submissions({ classId }: { classId?: string }) {
         />
       )}
 
-      <div className={classId ? 'space-y-5' : 'mt-6 space-y-5'}>
+      <div className={classId || embedded ? 'space-y-5' : 'mt-6 space-y-5'}>
         {error && <Alert tone="error">{error}</Alert>}
 
         {loading ? (

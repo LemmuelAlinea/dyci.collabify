@@ -188,7 +188,14 @@ export default function ProfessorHome({ onSwitch }: { onSwitch?: () => void } = 
               tiles always close into one rectangle. */}
           <BentoGrid className="mt-7 md:mt-8">
             <Reveal once delay={0.04} className="flex">
-              <BentoTile className="w-full" icon="checkCircle" title="Needs your attention" count={waiting}>
+              <BentoTile
+                className="w-full"
+                icon="checkCircle"
+                title="Needs your attention"
+                count={waiting}
+                seeAll={paths.waiting}
+                seeAllLabel="See everything waiting"
+              >
                 <AttentionList items={data.attention} />
               </BentoTile>
             </Reveal>

@@ -39,7 +39,7 @@ const TONE: Record<string, string> = {
  * started task cannot change hands at all — so when a member goes quiet, this
  * is the only way the rest of the group gets unblocked.
  */
-export default function Reassignments() {
+export default function Reassignments({ embedded }: { embedded?: boolean }) {
   const { show } = useToast()
   const [rows, setRows] = useState<ReassignmentRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -56,8 +56,8 @@ export default function Reassignments() {
   }, [])
 
   useEffect(() => {
-    document.title = 'Reassignments · Collabify'
-  }, [])
+    if (!embedded) document.title = 'Reassignments · Collabify'
+  }, [embedded])
 
   useEffect(() => {
     void load()
@@ -79,18 +79,20 @@ export default function Reassignments() {
 
   return (
     <div className="w-full space-y-6">
-      <DirectoryHero
-        title="Keep work"
-        accent="moving."
-        description="Review requests to move stalled tasks, understand the reason and decide who should carry the work next."
-      />
+      {!embedded && (
+        <DirectoryHero
+          title="Keep work"
+          accent="moving."
+          description="Review requests to move stalled tasks, understand the reason and decide who should carry the work next."
+        />
+      )}
 
       {error && <Alert tone="error">{error}</Alert>}
 
       <section className="overflow-hidden rounded-panel border border-line surface shadow-card">
         <div className="flex items-center justify-between gap-3 border-b border-line surface-sunken px-5 py-4">
           <div>
-            <h2>Waiting on you</h2>
+            <h2>{embedded ? 'Pending' : 'Waiting on you'}</h2>
             <p className="mt-1 text-[12px] text-faint">New requests that still need a decision.</p>
           </div>
           <span className="rounded-full surface px-2.5 py-1 font-mono text-[12px] text-muted ring-1 ring-[var(--line)]">
