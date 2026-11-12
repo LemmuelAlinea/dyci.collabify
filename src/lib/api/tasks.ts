@@ -612,3 +612,14 @@ export async function ensureClassBoardRepo(boardId: string) {
   if (error) throw error
   return data as string
 }
+
+/**
+ * The hidden work project that holds a board's Files, for whoever teaches the
+ * class: null when the group never opened them. It creates nothing, and it
+ * refuses anyone else (class-files-teacher-read.sql).
+ */
+export async function classBoardRepoId(boardId: string) {
+  const { data, error } = await supabase.rpc('class_board_repo_id', { p_board: boardId })
+  if (error) throw error
+  return (data ?? null) as string | null
+}

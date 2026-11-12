@@ -96,6 +96,13 @@ export type GeneralProjectState = {
    */
   readOnly: boolean
   /**
+   * Set only by a class board's read-only Files (`ClassFilesTab readOnly`): the
+   * viewer teaches the class and reads the group's files without being on the
+   * project. Calls only a member may make (my draft, the AI helpers) are skipped,
+   * and Shared lists every share in the group rather than the viewer's own.
+   */
+  classTeacher?: boolean
+  /**
    * The viewer's role here; null for somebody who reaches the project through
    * its space. A class board's Files project has no roles of its own, so its
    * Owner reads as the project manager and its Manager as a Coordinator.

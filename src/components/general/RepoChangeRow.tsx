@@ -218,7 +218,8 @@ export function RepoChangeRow({
             <p className="text-[13px] text-muted">This change carries no files.</p>
           )}
 
-          {change.status === 'open' && shown.length > 0 && state.project && (
+          {/* The AI helpers answer project members only. */}
+          {change.status === 'open' && shown.length > 0 && state.project && !state.classTeacher && (
             <ChangeSummary projectId={state.project.id} changeId={change.id} />
           )}
 

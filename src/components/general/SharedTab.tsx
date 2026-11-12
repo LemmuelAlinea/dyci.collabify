@@ -156,14 +156,18 @@ export function SharedTab({ state, onCopied }: { state: GeneralProjectState; onC
     )
   }
 
-  const received = shares.filter((s) => s.sender_id !== viewerId && viewerId && s.recipient_ids.includes(viewerId))
-  const sent = shares.filter((s) => s.sender_id === viewerId)
+  // A class's teacher reads every share in the group, sent by and to its students.
+  const teacher = Boolean(state.classTeacher)
+  const received = teacher
+    ? shares
+    : shares.filter((s) => s.sender_id !== viewerId && viewerId && s.recipient_ids.includes(viewerId))
+  const sent = teacher ? [] : shares.filter((s) => s.sender_id === viewerId)
   const mayCopy = !state.readOnly
   const hit = (s: GeneralShare) =>
     matches(query, s.path, state.nameOf(s.sender_id), ...s.recipient_ids.map((id) => state.nameOf(id)))
 
   function menu(share: GeneralShare, mine: boolean): ActionMenuItem[] {
-    return [
+    const read: ActionMenuItem[] = [
       share.type === 'file'
         ? { label: 'Open', icon: 'eye', onSelect: () => openFile(share, share.files[0]) }
         : { label: 'Open folder', icon: 'folder', onSelect: () => browse(share, share.path) },
@@ -172,6 +176,11 @@ export function SharedTab({ state, onCopied }: { state: GeneralProjectState; onC
         icon: 'download',
         onSelect: () => void download(share, share.path),
       },
+    ]
+    // Stopping or removing a share writes, so a teacher only opens and downloads.
+    if (teacher) return read
+    return [
+      ...read,
       ...(!mine && mayCopy ? [{ label: 'Copy to my draft', icon: 'copy' as const, onSelect: () => copy(share) }] : []),
       mine
         ? {
@@ -206,9 +215,9 @@ export function SharedTab({ state, onCopied }: { state: GeneralProjectState; onC
     const level = nodesAt(buildTree(asTree(browsing.files)), folder) ?? []
     return (
       <div className="space-y-4">
-        <Header />
+        <Header teacher={teacher} />
         <FolderBar
-          rootLabel="Shared with me"
+          rootLabel={teacher ? 'Shared' : 'Shared with me'}
           path={folder}
           onNavigate={(p) => browse(browsing, p)}
           actions={
@@ -273,7 +282,7 @@ export function SharedTab({ state, onCopied }: { state: GeneralProjectState; onC
 
   return (
     <div className="space-y-4">
-      <Header />
+      <Header teacher={teacher} />
       <Input
         icon="search"
         value={query}
@@ -288,15 +297,21 @@ export function SharedTab({ state, onCopied }: { state: GeneralProjectState; onC
           <Icon name="users" size={26} className="mx-auto text-faint" />
           <p className="mx-auto mt-3 max-w-[32rem] text-[13px] text-muted">
             {query.trim()
-              ? `Nothing shared with you matches “${query.trim()}”.`
-              : 'Nothing is shared with you yet. When a teammate shares a file or folder from their draft, it shows here.'}
+              ? `Nothing shared ${teacher ? 'here' : 'with you'} matches “${query.trim()}”.`
+              : teacher
+                ? 'Nothing is shared here yet. When a student shares a file or folder from their draft, it shows here.'
+                : 'Nothing is shared with you yet. When a teammate shares a file or folder from their draft, it shows here.'}
           </p>
         </div>
       ) : (
         <ShareList
           shares={receivedShown}
           busy={busy}
-          detail={(s) => `From ${state.nameOf(s.sender_id)} · ${formatDue(s.created_at)}`}
+          detail={(s) =>
+            teacher
+              ? `From ${state.nameOf(s.sender_id)} to ${s.recipient_ids.map((id) => state.nameOf(id)).join(', ')} · ${formatDue(s.created_at)}`
+              : `From ${state.nameOf(s.sender_id)} · ${formatDue(s.created_at)}`
+          }
           onOpen={(s) => (s.type === 'file' ? openFile(s, s.files[0]) : browse(s, s.path))}
           menu={(s) => menu(s, false)}
         />
@@ -331,13 +346,14 @@ export function SharedTab({ state, onCopied }: { state: GeneralProjectState; onC
   )
 }
 
-function Header() {
+function Header({ teacher = false }: { teacher?: boolean }) {
   return (
     <header className="min-w-0">
-      <h2>Shared with me</h2>
+      <h2>{teacher ? 'Shared' : 'Shared with me'}</h2>
       <p className="mt-0.5 text-[12px] text-muted">
-        Files and folders your teammates shared from their drafts. Each is a copy as it was when
-        shared.
+        {teacher
+          ? 'Files and folders the students shared with each other from their drafts. Each is a copy as it was when shared.'
+          : 'Files and folders your teammates shared from their drafts. Each is a copy as it was when shared.'}
       </p>
     </header>
   )

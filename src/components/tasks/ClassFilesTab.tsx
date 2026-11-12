@@ -6,27 +6,34 @@ import { useGeneralProject } from '../general/useGeneralProject'
 import { Alert } from '../ui/Alert'
 import { EmptyState } from '../ui/EmptyState'
 import { Spinner } from '../ui/Icon'
-import { ensureClassBoardRepo } from '../../lib/api/tasks'
+import { classBoardRepoId, ensureClassBoardRepo } from '../../lib/api/tasks'
 import { authErrorMessage } from '../../lib/authError'
+import { boardLabel } from '../../lib/classProjectNav'
 import type { ProjectTasks } from './useProjectTasks'
 
 /**
  * A class project's Files: the group's own repository, the same page a work
- * project has. Students only: a group's working files are theirs, and the
- * database refuses teachers too. Handing in, or the professor closing the
- * project, freezes them. `show` picks the same group's Shared with me or Discussion instead.
+ * project has. Only the group's students change them. Whoever teaches the
+ * class reads them, through `class-files-teacher-read.sql`, with `readOnly`:
+ * nothing is created for them, and no control that writes shows. Handing in,
+ * or the professor closing the project, freezes them. `show` picks the same
+ * group's Shared with me or Discussion instead.
  */
 export function ClassFilesTab({
   t,
   viewerId,
   show = 'files',
+  readOnly = false,
 }: {
   t: ProjectTasks
   viewerId: string | undefined
   show?: 'files' | 'shared' | 'discussion'
+  /** A teacher reading the group's files: never opens them, never writes. */
+  readOnly?: boolean
 }) {
   const board = t.active
-  const [projectId, setProjectId] = useState<string | undefined>(undefined)
+  // undefined while it is being found; null when a teacher finds the group never opened Files.
+  const [projectId, setProjectId] = useState<string | null | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -34,15 +41,15 @@ export function ClassFilesTab({
     setProjectId(undefined)
     setError(null)
     if (!board) return
-    ensureClassBoardRepo(board.id)
+    ;(readOnly ? classBoardRepoId(board.id) : ensureClassBoardRepo(board.id))
       .then((id) => live && setProjectId(id))
       .catch((err) => live && setError(authErrorMessage(err, 'Could not open these files. Try again.')))
     return () => {
       live = false
     }
-  }, [board])
+  }, [board, readOnly])
 
-  const state = useGeneralProject(projectId, viewerId)
+  const state = useGeneralProject(projectId ?? undefined, viewerId)
 
   if (t.boards === null) {
     return (
@@ -64,12 +71,24 @@ export function ClassFilesTab({
 
   const frozen = Boolean(board.submitted_at) || t.locked
   // A handed-in or closed board is read-only. FilesTab already turns every
-  // control off for an archived project.
-  const view = { ...state, archived: state.archived || frozen }
+  // control off for an archived project. A teacher's view is always read-only.
+  const view = readOnly
+    ? { ...state, archived: true, readOnly: true, classTeacher: true, can: () => false }
+    : { ...state, archived: state.archived || frozen }
+
+  if (readOnly && projectId === null) {
+    return (
+      <EmptyState
+        icon="folder"
+        title="No files yet"
+        body={`This ${boardLabel(t.solo).one} has not added any files.`}
+      />
+    )
+  }
 
   return (
     <div className="space-y-4">
-      {frozen && (
+      {frozen && !readOnly && (
         <Alert tone="info">
           {board.submitted_at
             ? 'This project is handed in, so its files are fixed. Take the submission back to change them.'
@@ -86,7 +105,7 @@ export function ClassFilesTab({
       ) : (
         show === 'shared' ? (
           <SharedTab state={view} />
-        ) : show === 'discussion' ? (
+        ) : show === 'discussion' && !readOnly ? (
           <DiscussionTab state={view} />
         ) : (
           <FilesTab state={view} />

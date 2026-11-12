@@ -79,8 +79,8 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
   const [failed, setFailed] = useState(false)
   const [params, setParams] = useSearchParams()
   // Only my_general_draft refuses a Stakeholder (they may keep an earlier draft),
-  // so the UI hides My draft.
-  const noDraft = state.myRole === 'stakeholder'
+  // so the UI hides My draft. A class's teacher is not on the project and has no draft.
+  const noDraft = state.myRole === 'stakeholder' || Boolean(state.classTeacher)
   const legacyShared = params.get('tab') === 'shared'
   const rawView = params.get('view') as View | null
   const view: View =
@@ -279,7 +279,8 @@ export function FilesTab({ state }: { state: GeneralProjectState }) {
         className="max-w-md"
       />
 
-      {view === 'main' && state.project && tree.some((f) => f.kind !== 'binary' && !isKeep(f.path)) && (
+      {/* The AI helpers answer project members only. */}
+      {view === 'main' && state.project && !state.classTeacher && tree.some((f) => f.kind !== 'binary' && !isKeep(f.path)) && (
         <AskFiles projectId={state.project.id} tree={tree} onOpen={setOpen} />
       )}
 
@@ -590,6 +591,17 @@ function StartFiles({ state, onDone }: { state: GeneralProjectState; onDone: () 
   const { show } = useToast()
   const [busy, setBusy] = useState(false)
   const may = state.can('commit_main') && !state.readOnly
+
+  // A class's teacher reads a group that opened Files but never started them.
+  if (state.classTeacher) {
+    return (
+      <div className="rounded-panel border border-dashed border-line px-4 py-10 text-center">
+        <Icon name="folder" size={28} className="mx-auto text-faint" />
+        <h2 className="mt-3">No files yet</h2>
+        <p className="mx-auto mt-1.5 max-w-[34rem] text-[13px] text-muted">Nobody has added any files yet.</p>
+      </div>
+    )
+  }
 
   // A work project's files are for its members: somebody reading it from the space sees none of them.
   if (!state.myRole && state.project && !state.project.class_board_id) {

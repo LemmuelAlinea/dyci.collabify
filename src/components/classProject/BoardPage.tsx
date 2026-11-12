@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Alert } from '../ui/Alert'
@@ -11,6 +11,7 @@ import { ScoreCard } from '../scoring/ScoreCard'
 import { useProjectScores } from '../scoring/useProjectScores'
 import { BoardProgress } from '../tasks/BoardProgress'
 import { BoardVerdict } from '../tasks/BoardVerdict'
+import { ClassFilesTab } from '../tasks/ClassFilesTab'
 import { MemberProgress } from '../tasks/MemberProgress'
 import { TaskBoard } from '../tasks/TaskBoard'
 import { TaskList } from '../tasks/TaskList'
@@ -37,7 +38,7 @@ import { scopeOptions } from '../../lib/work/scope'
 import { milestoneMarks, sprintBands } from '../../lib/work/timeline'
 
 /** What a tab's own place means; it means nothing on another tab. */
-const TAB_PARAMS = ['work', 'layout', 'scope', 'task']
+const TAB_PARAMS = ['work', 'layout', 'scope', 'task', 'view', 'path', 'share', 'spath']
 
 /** The board-page address for a board, on the same tab. */
 function boardHref(projectId: string, boardId: string, tab: BoardTab) {
@@ -178,11 +179,7 @@ export function BoardPage({
           <>
             {tab === 'overview' && <BoardOverview project={project} t={t} board={board} viewerId={viewerId} />}
             {tab === 'plan' && <BoardPlan t={t} viewerId={viewerId} />}
-            {tab === 'files' && (
-              <p className="rounded-card border border-dashed border-line px-4 py-10 text-center text-[13px] text-muted">
-                Files open in the next update.
-              </p>
-            )}
+            {tab === 'files' && <BoardFiles t={t} viewerId={viewerId} />}
             {/* Keyed: a half-written note or score must not follow Previous or Next to another board. */}
             {tab === 'grade' && <BoardGrade key={board.id} project={project} t={t} board={board} />}
           </>
@@ -372,6 +369,35 @@ function BoardPlan({ t, viewerId }: { t: ProjectTasks; viewerId?: string }) {
         ) : (
           <SprintsView source={source} milestones={t.milestones} onPlan={() => t.setSection('backlog')} />
         ))}
+    </div>
+  )
+}
+
+/**
+ * The group's working files and what its students shared, read-only: a
+ * teacher reads them (class-files-teacher-read.sql) and changes nothing.
+ */
+function BoardFiles({ t, viewerId }: { t: ProjectTasks; viewerId?: string }) {
+  const [part, setPart] = useState<'files' | 'shared'>('files')
+
+  return (
+    <div className="space-y-4">
+      <div className="surface-sunken flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg p-0.5">
+        {(['files', 'shared'] as const).map((p) => (
+          <button
+            key={p}
+            type="button"
+            aria-pressed={part === p}
+            onClick={() => setPart(p)}
+            className={`flex shrink-0 items-center rounded-md px-3 py-1.5 text-[13px] transition-colors ${
+              part === p ? 'surface font-medium text-ink ring-1 ring-[var(--line-strong)]' : 'text-muted hover:text-ink'
+            }`}
+          >
+            {p === 'files' ? 'Files' : 'Shared'}
+          </button>
+        ))}
+      </div>
+      <ClassFilesTab t={t} viewerId={viewerId} show={part} readOnly />
     </div>
   )
 }
