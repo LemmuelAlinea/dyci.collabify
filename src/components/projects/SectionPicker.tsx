@@ -1,4 +1,5 @@
 import { Alert } from '../ui/Alert'
+import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
 import { Select } from '../ui/Select'
 import type { LiveGroupSet } from '../../lib/api/groups'
@@ -78,6 +79,7 @@ export function SectionPicker({
   audience,
   chosen,
   onChange,
+  onMakeGroups,
 }: {
   primary: ClassSummary
   /** Every class the professor teaches, the primary one included. */
@@ -87,6 +89,8 @@ export function SectionPicker({
   audience: ProjectAudience
   chosen: SectionChoice[]
   onChange: (next: SectionChoice[]) => void
+  /** Opens the group maker for a section that has no set yet. */
+  onMakeGroups: (classId: string) => void
 }) {
   const others = classes.filter((c) => c.id !== primary.id)
   // Same course, same term — the sections this feature exists for. Offering
@@ -129,20 +133,21 @@ export function SectionPicker({
     const noSyllabus = !cls.syllabus_id
     const otherSyllabus = !isPrimary && !noSyllabus && cls.syllabus_id !== primary.syllabus_id
     const noGroups = audience === 'group' && sets.length === 0
+    const students = `${cls.student_count} student${cls.student_count === 1 ? '' : 's'}`
 
     const hint = isPrimary
       ? 'The section you are creating from.'
       : noSyllabus
         ? 'No syllabus attached, so a project has no weeks to hang off.'
         : noGroups
-          ? 'No groups to assign to. Make a set in this class first.'
-          : `${cls.student_count} student${cls.student_count === 1 ? '' : 's'}`
+          ? `${students} · no groups yet`
+          : students
 
     return (
       <Row
         key={cls.id}
         checked={chosenHere}
-        disabled={isPrimary || noSyllabus || noGroups}
+        disabled={isPrimary || noSyllabus}
         onToggle={() => toggle(cls)}
         title={`${cls.initial}  ·  ${cls.section}`}
         hint={hint}
@@ -167,6 +172,15 @@ export function SectionPicker({
             }))}
             className="h-11 text-[14px]"
           />
+        )}
+        {noGroups && chosenHere && !isPrimary && (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[13px] text-muted">This section has no groups yet.</p>
+            <Button type="button" size="sm" variant="outline" onClick={() => onMakeGroups(cls.id)}>
+              <Icon name="users" size={14} />
+              Make groups now
+            </Button>
+          </div>
         )}
       </Row>
     )

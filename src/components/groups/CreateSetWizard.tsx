@@ -15,7 +15,7 @@ import { spreadIntoGroups } from '../../lib/grouping'
 import type { PickableStudent } from '../../lib/api/groups'
 import { authErrorMessage } from '../../lib/authError'
 import { GROUPING_MODES } from '../../lib/types'
-import type { ClassSummary, GroupingMode } from '../../lib/types'
+import type { ClassSummary, GroupSet, GroupingMode } from '../../lib/types'
 
 type Step = 'setup' | 'arrange'
 
@@ -31,7 +31,8 @@ export function CreateSetWizard({
   classes: ClassSummary[]
   /** Set when opened from inside a class, so the picker is skipped. */
   fixedClassId?: string
-  onCreated: () => Promise<void> | void
+  /** Hands over the set just made, for a caller that selects it. */
+  onCreated: (set: GroupSet) => Promise<void> | void
 }) {
   const { show } = useToast()
 
@@ -147,7 +148,7 @@ export function CreateSetWizard({
 
       show(`${name.trim()} created with ${payload.length} groups`)
       onClose()
-      await onCreated()
+      await onCreated(set)
     } catch (err) {
       setError(authErrorMessage(err, 'Could not create that set.'))
     } finally {

@@ -86,6 +86,8 @@ export type SectionOptions = {
   groupSets: LiveGroupSet[]
 }
 
+export type MadeSet = { id: string; classId: string; primary: boolean }
+
 export type ProjectFormValue = {
   input: Omit<ProjectInput, 'classId'>
   criteria: CriterionInput[]
@@ -105,10 +107,20 @@ export function ProjectForm({
   onSubmit,
   rubricLocked = false,
   onClearScores,
+  onMakeGroups,
+  madeSet,
 }: {
   formId: string
   weeks: ClassWeek[]
   groupSets: LiveGroupSet[]
+  /** Opens the group maker for a class: this one, or a section in "Where it runs". */
+  onMakeGroups: (classId: string) => void
+  /**
+   * A set just made from here, to be selected: for this class when `primary`,
+   * otherwise for that section. A new object each time, so the same set made
+   * twice is still selected.
+   */
+  madeSet?: MadeSet | null
   defaults?: ProjectSummary
   defaultCriteria?: CriterionInput[]
   /** Set only when creating: offers the other sections of the same course. */
@@ -174,6 +186,35 @@ export function ProjectForm({
       live = false
     }
   }, [defaultsId, stagesKnown])
+
+  // The weeks are this class's, so they name it even when no sections are offered.
+  const classId = sectionOptions?.primary.id ?? weeks[0]?.class_id
+  const makeGroupsButton = classId ? (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="shrink-0"
+      onClick={() => onMakeGroups(classId)}
+    >
+      <Icon name="users" size={14} />
+      Make groups now
+    </Button>
+  ) : null
+
+  // Groups made without leaving the form are what the professor meant to use.
+  useEffect(() => {
+    if (!madeSet) return
+    if (madeSet.primary) {
+      setGroupSetId(madeSet.id)
+      return
+    }
+    setSections((prev) =>
+      prev.some((s) => s.classId === madeSet.classId)
+        ? prev.map((s) => (s.classId === madeSet.classId ? { ...s, groupSetId: madeSet.id } : s))
+        : [...prev, { classId: madeSet.classId, groupSetId: madeSet.id }],
+    )
+  }, [madeSet])
 
   const hasBrief =
     guidelines.trim().length > 0 || criteria.some((c) => c.label.trim() || c.description.trim())
@@ -438,27 +479,32 @@ export function ProjectForm({
 
           {audience === 'group' &&
             (groupSets.length === 0 ? (
-              <Alert tone="info">
-                This class has no groups to assign to. Create a set and put students in it,
-                or make this an individual project.
-              </Alert>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-line px-3.5 py-3">
+                <p className="text-[13px] text-muted">This class has no groups yet.</p>
+                {makeGroupsButton}
+              </div>
             ) : (
               <>
                 <Field label="Which groups">
                   {(id) => (
-                    <Select
-                      id={id}
-                      value={groupSetId}
-                      onChange={(e) => setGroupSetId(e.target.value)}
-                      placeholder="Pick a set of groups"
-                      options={groupSets.map((s) => ({
-                        value: s.id,
-                        label:
-                          `${s.name} · ${s.group_count} group${s.group_count === 1 ? '' : 's'}` +
-                          `, ${s.member_count} student${s.member_count === 1 ? '' : 's'}` +
-                          (s.closed_at ? ' · final' : ''),
-                      }))}
-                    />
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <div className="min-w-0 flex-1">
+                        <Select
+                          id={id}
+                          value={groupSetId}
+                          onChange={(e) => setGroupSetId(e.target.value)}
+                          placeholder="Pick a set of groups"
+                          options={groupSets.map((s) => ({
+                            value: s.id,
+                            label:
+                              `${s.name} · ${s.group_count} group${s.group_count === 1 ? '' : 's'}` +
+                              `, ${s.member_count} student${s.member_count === 1 ? '' : 's'}` +
+                              (s.closed_at ? ' · final' : ''),
+                          }))}
+                        />
+                      </div>
+                      {makeGroupsButton}
+                    </div>
                   )}
                 </Field>
                 {chosenSet && chosenSet.member_count === 0 && (
@@ -551,6 +597,7 @@ export function ProjectForm({
             audience={audience}
             chosen={sections}
             onChange={setSections}
+            onMakeGroups={onMakeGroups}
           />
         </Section>
       )}

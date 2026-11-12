@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { Alert } from '../ui/Alert'
 import { Icon, Spinner } from '../ui/Icon'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
+import { useToast } from '../ui/Toast'
+import { CreateSetWizard } from '../groups/CreateSetWizard'
 import { ProjectForm } from './ProjectForm'
-import type { ProjectFormValue } from './ProjectForm'
+import type { MadeSet, ProjectFormValue } from './ProjectForm'
 import { SeriesScope } from './SeriesScope'
-import { listLiveSets } from '../../lib/api/groups'
+import { deleteSet, listLiveSets, projectsUsingSet } from '../../lib/api/groups'
 import type { LiveGroupSet } from '../../lib/api/groups'
 import { listProfessorClasses } from '../../lib/api/classes'
 import {
@@ -22,9 +24,34 @@ import type { CriterionInput } from '../../lib/api/projects'
 import { classWeekMap } from '../../lib/api/syllabus'
 import { authErrorMessage } from '../../lib/authError'
 import { paths } from '../../lib/paths'
-import type { ClassSummary, ClassWeek, ProjectSummary, SeriesMember } from '../../lib/types'
+import type {
+  ClassSummary,
+  ClassWeek,
+  GroupSet,
+  ProjectSummary,
+  SeriesMember,
+} from '../../lib/types'
 
 const FORM_ID = 'project-form'
+
+/**
+ * Removes the sets made inside a wizard that closed without saving, leaving any
+ * that a project already uses. Returns how many went.
+ */
+async function removeUnusedSets(ids: string[]) {
+  let removed = 0
+  for (const id of ids) {
+    try {
+      if ((await projectsUsingSet(id)) === 0) {
+        await deleteSet(id)
+        removed++
+      }
+    } catch {
+      // Left in place, it is an ordinary set the class Groups tab can delete.
+    }
+  }
+  return removed
+}
 
 export function ProjectWizard({
   open,
@@ -63,6 +90,21 @@ export function ProjectWizard({
   const [mine, setMine] = useState<ClassSummary[]>([])
   const [members, setMembers] = useState<SeriesMember[]>([])
   const [scope, setScope] = useState<string[]>([])
+
+  const { show } = useToast()
+  // Groups made from inside the wizard, for the class or one of its sections.
+  // The ids are what a close without saving removes again. Nothing on screen
+  // reads them, so a ref: a close then sees the list as it is now.
+  const [makeFor, setMakeFor] = useState<string | null>(null)
+  const [makeOpen, setMakeOpen] = useState(false)
+  const [madeSet, setMadeSet] = useState<MadeSet | null>(null)
+  const madeSetIds = useRef<string[]>([])
+
+  useEffect(() => {
+    if (!open) return
+    madeSetIds.current = []
+    setMadeSet(null)
+  }, [open])
 
   // The effects below read the project being edited by its values, never by the
   // object. The project page refetches on every live change and on a 30-second
@@ -105,6 +147,13 @@ export function ProjectWizard({
     }
   }, [open, isEditing, editingSeriesId])
 
+  // Sets are loaded for every class the professor teaches, not just this one:
+  // each section of a fan-out names its own arrangement.
+  const setClassIds = useMemo(
+    () => (isEditing ? [classId] : [...new Set([classId, ...mine.map((c) => c.id)])]),
+    [isEditing, classId, mine],
+  )
+
   useEffect(() => {
     if (!open || !classId) {
       setWeeks(null)
@@ -115,10 +164,7 @@ export function ProjectWizard({
     setWeeks(null)
     // Otherwise the previous class's groups stay on screen while this one loads.
     setSets([])
-    // Sets are loaded for every class the professor teaches, not just this one:
-    // each section of a fan-out names its own arrangement.
-    const ids = isEditing ? [classId] : [...new Set([classId, ...mine.map((c) => c.id)])]
-    void Promise.all([classWeekMap(classId), listLiveSets(ids)])
+    void Promise.all([classWeekMap(classId), listLiveSets(setClassIds)])
       .then(([w, s]) => {
         if (!live) return
         setWeeks(w)
@@ -132,9 +178,40 @@ export function ProjectWizard({
     return () => {
       live = false
     }
-  }, [open, classId, isEditing, mine])
+  }, [open, classId, setClassIds])
 
   const cls = classes.find((c) => c.id === classId) ?? mine.find((c) => c.id === classId)
+
+  function makeGroups(forClassId: string) {
+    setMakeFor(forClassId)
+    setMakeOpen(true)
+  }
+
+  /**
+   * Picks up the set just made without reloading the weeks: blanking those
+   * unmounts the form, and everything typed into it with them.
+   */
+  async function groupsMade(set: GroupSet) {
+    madeSetIds.current = [...madeSetIds.current, set.id]
+    try {
+      setSets(await listLiveSets(setClassIds))
+    } catch (err) {
+      setError(authErrorMessage(err, 'The groups were made, but the list here did not refresh. They stay selected; save to keep them.'))
+    }
+    setMadeSet({ id: set.id, classId: set.class_id, primary: set.class_id === classId })
+  }
+
+  /** Closing without saving takes back the groups made here, unless a project uses them. */
+  function cancel() {
+    if (busy) return
+    const made = madeSetIds.current
+    madeSetIds.current = []
+    onClose()
+    if (made.length === 0) return
+    void removeUnusedSets(made).then((removed) => {
+      if (removed > 0) show('Groups made for this project were removed.')
+    })
+  }
 
   async function save(value: ProjectFormValue) {
     setError(null)
@@ -169,6 +246,8 @@ export function ProjectWizard({
         }
         await onSaved(ids[0])
       }
+      // Saved, the groups made here are the class's to keep.
+      madeSetIds.current = []
       onClose()
     } catch (err) {
       setError(authErrorMessage(err, 'Could not save the project.'))
@@ -183,7 +262,7 @@ export function ProjectWizard({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={cancel}
       title={editing ? 'Edit project' : 'New project'}
       description={
         editing
@@ -195,7 +274,7 @@ export function ProjectWizard({
       size="lg"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
+          <Button variant="ghost" onClick={cancel} disabled={busy}>
             Cancel
           </Button>
           <Button
@@ -218,7 +297,12 @@ export function ProjectWizard({
             <span className="text-[13px] font-medium text-ink">Class</span>
             <Select
               value={classId}
-              onChange={(e) => setClassId(e.target.value)}
+              onChange={(e) => {
+                // The form remounts for the new class; a set made for the old
+                // one must not be selected in it.
+                setMadeSet(null)
+                setClassId(e.target.value)
+              }}
               placeholder="Pick a class"
               options={classes.map((c) => ({ value: c.id, label: `${c.initial} · ${c.name}` }))}
             />
@@ -285,9 +369,20 @@ export function ProjectWizard({
             onSubmit={save}
             rubricLocked={rubricLocked}
             onClearScores={onClearScores}
+            onMakeGroups={makeGroups}
+            madeSet={madeSet}
           />
         )}
       </div>
+
+      <CreateSetWizard
+        open={makeOpen}
+        onClose={() => setMakeOpen(false)}
+        classes={mine.length > 0 ? mine : classes}
+        // Kept after closing, so the dialog does not flash a class picker on its way out.
+        fixedClassId={makeFor ?? undefined}
+        onCreated={groupsMade}
+      />
     </Modal>
   )
 }
