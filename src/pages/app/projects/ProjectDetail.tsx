@@ -6,19 +6,16 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { IconAction } from '../../../components/ui/IconAction'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { Alert } from '../../../components/ui/Alert'
-import { FileDrop } from '../../../components/ui/FileDrop'
-import { formatBytes } from '../../../lib/formatBytes'
 import { Icon, Spinner } from '../../../components/ui/Icon'
 import { useToast } from '../../../components/ui/Toast'
 import { Tabs } from '../../../components/ui/Tabs'
-import { StatusPill } from '../../../components/projects/ProjectCard'
 import { dueLabel } from '../../../components/projects/dueLabel'
 import { ProjectWizard } from '../../../components/projects/ProjectWizard'
 import { SeriesActionDialog } from '../../../components/projects/SeriesActionDialog'
 import { BoardVerdict } from '../../../components/tasks/BoardVerdict'
 import { ClassFilesTab } from '../../../components/tasks/ClassFilesTab'
-import { ProjectGroupsTab } from '../../../components/groups/ProjectGroupsTab'
-import { GradeCard } from '../../../components/scoring/GradeCard'
+import { ProfessorProject } from '../../../components/classProject/ProfessorProject'
+import { ProjectBrief } from '../../../components/classProject/ProjectBrief'
 import { RateTeamButton } from '../../../components/peer/RateTeamButton'
 import { ProjectTasksTab } from '../../../components/tasks/ProjectTasksTab'
 import { SubmitProject } from '../../../components/tasks/SubmitProject'
@@ -33,7 +30,6 @@ import {
   listAttachments,
   listCriteria,
   listSeriesMembers,
-  projectFileUrl,
   releaseNow,
   releaseSeriesNow,
   setProjectArchived,
@@ -41,19 +37,18 @@ import {
   setSeriesArchived,
   setSeriesDue,
   setSeriesLocked,
-  uploadProjectFile,
 } from '../../../lib/api/projects'
 import type { CriterionInput } from '../../../lib/api/projects'
 import { clearProjectScores, projectHasScores } from '../../../lib/api/scores'
 import { classWeekMap } from '../../../lib/api/syllabus'
 import { authErrorMessage } from '../../../lib/authError'
+import { legacyProfessorTarget } from '../../../lib/classProjectNav'
 import { paths } from '../../../lib/paths'
 import {
   hasPassed,
   isReleased,
   PROJECT_TYPES,
   projectTypeLabel,
-  weekRange,
   weekSpanLabel,
 } from '../../../lib/types'
 import type {
@@ -90,7 +85,8 @@ function WithProjectTasks({
 }
 
 export default function ProjectDetail({ role }: { role: 'professor' | 'student' }) {
-  const { projectId = '' } = useParams()
+  // `boardId` is set when a later route renders this page for one board.
+  const { projectId = '', boardId } = useParams()
   const focused = useFocusMode()
   const { profile } = useAuth()
   const { show } = useToast()
@@ -140,21 +136,23 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
     [params, setParams],
   )
   const [editOpen, setEditOpen] = useState(false)
-  const [uploading, setUploading] = useState(false)
   const [removing, setRemoving] = useState<ProjectAttachment | null>(null)
   const [deletePrompt, setDeletePrompt] = useState(false)
 
   const canManage = role === 'professor'
-  // Old links (a review notice, Trash) can still name Files for a teacher.
+  // Groups is a teacher's tab; a student's link naming it lands on the Brief.
   useEffect(() => {
-    if ((tab === 'files' || tab === 'shared' || tab === 'discussion') && role !== 'student') changeTab('brief')
+    if (tab === 'groups' && role === 'student') changeTab('brief')
   }, [tab, role, changeTab])
-  // Groups is a teacher's tab, and only a group project has groups. Checked once
-  // the project has loaded, so a link naming it is not bounced while it loads.
+  // A professor's old links (Work and its sections, a board, Groups, Files)
+  // land on the tab or board page that holds the same thing now. Only on the
+  // project's own address: a board's page reads its own tabs.
+  const loadedId = project?.id
   useEffect(() => {
-    if (tab !== 'groups') return
-    if (role !== 'professor' || (project && project.audience !== 'group')) changeTab('brief')
-  }, [tab, role, project, changeTab])
+    if (role !== 'professor' || boardId || !loadedId) return
+    const target = legacyProfessorTarget(loadedId, params)
+    if (target) navigate(target, { replace: true })
+  }, [role, boardId, loadedId, params, navigate])
 
   const load = useCallback(async () => {
     if (!projectId) return
@@ -200,14 +198,6 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
     if (project) document.title = `${project.title} · Collabify`
   }, [project])
 
-  async function openFile(a: ProjectAttachment) {
-    try {
-      window.open(await projectFileUrl(a.file_path), '_blank', 'noopener')
-    } catch (err) {
-      show(authErrorMessage(err, 'Could not open that file.'), 'error')
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex items-center gap-3 py-16 text-[14px] text-muted">
@@ -226,16 +216,24 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
   }
 
   const meta = PROJECT_TYPES.find((t) => t.value === project.type)
-  const span = weeks.filter(
-    (w) => w.week_no >= project.start_week && w.week_no <= project.end_week,
-  )
-  const rubricTotal = criteria.reduce((n, c) => n + c.max_points, 0)
   // One row is not a series: a project created for a single section carries no
   // series id at all, and there is nothing to scope.
   const inSeries = members.length > 1
   const others = members.filter((m) => m.project_id !== project.id)
   // Closed by hand, or simply past its deadline: the same rule the projects list uses.
   const closed = Boolean(project.locked_at) || Boolean(project.due_at && hasPassed(project.due_at))
+  const brief = (
+    <ProjectBrief
+      project={project}
+      role={role}
+      criteria={criteria}
+      files={files}
+      weeks={weeks}
+      error={error}
+      onChanged={load}
+      onRemove={setRemoving}
+    />
+  )
 
   return (
     <WithProjectTasks project={project} role={role}>
@@ -411,239 +409,51 @@ export default function ProjectDetail({ role }: { role: 'professor' | 'student' 
         </div>
       </header>
 
-      <div className="mt-6">
-        <Tabs<TabId>
-          tabs={[
-            { id: 'brief', label: 'Brief', icon: 'file' },
-            // A group's discussions are the group's own, like its files.
-            ...(role === 'student' ? [{ id: 'discussion' as const, label: 'Discussion', icon: 'message' as const }] : []),
-            // Planning, progress and the boards themselves, for both roles.
-            { id: 'work', label: 'Work', icon: 'kanban' },
-            ...(role === 'professor' && project.audience === 'group'
-              ? [{ id: 'groups' as const, label: 'Groups', icon: 'users' as const }]
-              : []),
-            // A group's files are the group's own: teachers see what is handed
-            // in, not the working files (the database refuses them too).
-            ...(role === 'student'
-              ? [
-                  { id: 'files' as const, label: 'Files', icon: 'folder' as const },
-                  { id: 'shared' as const, label: 'Shared with me', icon: 'users' as const },
-                ]
-              : []),
-          ]}
-          active={tab}
-          onChange={changeTab}
-          variant="panel"
+      {role === 'professor' ? (
+        <ProfessorProject
+          project={project}
+          t={t}
+          viewerId={profile?.id}
+          cls={classes.find((c) => c.id === project.class_id) ?? null}
+          brief={brief}
         />
-      </div>
-
-      {tab === 'work' && (
-        <div className="mt-6">
-          <ProjectTasksTab project={project} role={role} viewerId={profile?.id} t={t} />
-        </div>
-      )}
-      {tab === 'groups' && role === 'professor' && project.audience === 'group' && (
-        <div className="mt-6">
-          <ProjectGroupsTab
-            project={project}
-            cls={classes.find((c) => c.id === project.class_id) ?? null}
-            viewerId={profile?.id}
-          />
-        </div>
-      )}
-      {(tab === 'files' || tab === 'shared' || tab === 'discussion') && role === 'student' && (
-        <div className="mt-6">
-          {isReleased(project) ? (
-            <ClassFilesTab t={t} viewerId={profile?.id} show={tab} />
-          ) : (
-            <Alert tone="info">This project has not been released yet, so there are no files to work on.</Alert>
-          )}
-        </div>
-      )}
-
-      <div className={`mt-6 ${tab === 'brief' ? '' : 'hidden'}`}>
-        {error && <Alert tone="error">{error}</Alert>}
-        {project.archived_at && (
-          <Alert tone="info">
-            This project is archived. Students no longer see it.
-          </Alert>
-        )}
-
-        <div className="grid gap-6 lg:grid-cols-2">
-        {role === 'student' && <GradeCard projectId={project.id} />}
-        {/* The syllabus lines it was built on — the reason the project exists. */}
-        <section className="rounded-panel border border-line surface p-4 shadow-card sm:p-6 lg:col-span-2">
-          <div className="flex items-center justify-between gap-3">
-            <h2>Based on the syllabus</h2>
-            <StatusPill project={project} />
+      ) : (
+        <>
+          <div className="mt-6">
+            <Tabs<TabId>
+              tabs={[
+                { id: 'brief', label: 'Brief', icon: 'file' },
+                // A group's discussions are the group's own, like its files.
+                { id: 'discussion', label: 'Discussion', icon: 'message' },
+                // Planning, progress and the board itself.
+                { id: 'work', label: 'Work', icon: 'kanban' },
+                { id: 'files', label: 'Files', icon: 'folder' },
+                { id: 'shared', label: 'Shared with me', icon: 'users' },
+              ]}
+              active={tab}
+              onChange={changeTab}
+              variant="panel"
+            />
           </div>
-          {span.length === 0 ? (
-            <p className="mt-2 text-[13px] text-muted">
-              The weeks behind this project are no longer in the syllabus.
-            </p>
-          ) : (
-            <ul className="mt-4 space-y-3">
-              {/* Folded to the week and its dates: topics and assessments open
-                  on demand, so a long span does not push the brief down. */}
-              {span.map((w) => (
-                <li key={w.week_id} className="rounded-xl border border-line">
-                  <details className="group">
-                    <summary className="flex cursor-pointer list-none items-center gap-3 rounded-xl px-4 py-3 hover:bg-[var(--surface-sunken)] [&::-webkit-details-marker]:hidden">
-                      <Icon
-                        name="chevronRight"
-                        size={14}
-                        className="shrink-0 text-faint transition-transform group-open:rotate-90 motion-reduce:transition-none"
-                      />
-                      <span className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <span className="text-[14px] font-semibold text-ink">
-                          Week {w.week_no}
-                          {w.title ? ` · ${w.title}` : ''}
-                        </span>
-                        <span className="font-mono text-[12px] text-faint">{weekRange(w)}</span>
-                      </span>
-                    </summary>
-                    <div className="px-4 pb-3 pl-[42px]">
-                      {w.topics && (
-                        <p className="text-[13px] leading-relaxed text-muted">{w.topics}</p>
-                      )}
-                      {w.assessments && (
-                        <p className="mt-1.5 flex gap-2 text-[12px] leading-relaxed text-warning-700 dark:text-warning-300">
-                          <Icon name="checkCircle" size={13} className="mt-0.5 shrink-0" />
-                          {w.assessments}
-                        </p>
-                      )}
-                      {!w.topics && !w.assessments && (
-                        <p className="text-[13px] text-faint">No topics listed for this week.</p>
-                      )}
-                    </div>
-                  </details>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
 
-        <section className="rounded-panel border border-line surface p-4 shadow-card sm:p-6">
-          <h2>Guidelines</h2>
-          {project.guidelines ? (
-            <p className="mt-3 text-[14px] leading-relaxed whitespace-pre-wrap text-muted">
-              {project.guidelines}
-            </p>
-          ) : (
-            <p className="mt-2 text-[13px] text-faint">
-              {canManage
-                ? 'No guidelines yet. Edit the project to add the brief.'
-                : 'Your professor has not written guidelines for this one.'}
-            </p>
+          {tab === 'work' && (
+            <div className="mt-6">
+              <ProjectTasksTab project={project} role={role} viewerId={profile?.id} t={t} />
+            </div>
           )}
-        </section>
-
-        <section className="rounded-panel border border-line surface p-4 shadow-card sm:p-6">
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2>Rubric</h2>
-            {criteria.length > 0 && (
-              <p className="font-mono text-[12px] text-faint">
-                {rubricTotal} / {project.total_points} points
-              </p>
-            )}
-          </div>
-          {criteria.length === 0 ? (
-            <p className="mt-2 text-[13px] text-faint">
-              Marked on the total of {project.total_points} points.
-            </p>
-          ) : (
-            <ul className="mt-4 divide-y divide-[var(--line)]">
-              {criteria.map((c) => (
-                <li key={c.id} className="flex items-start gap-4 py-3 first:pt-0 last:pb-0">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-medium text-ink">{c.label}</p>
-                    {c.description && (
-                      <p className="mt-0.5 text-[13px] leading-relaxed text-muted">
-                        {c.description}
-                      </p>
-                    )}
-                  </div>
-                  <span className="shrink-0 rounded-lg surface-sunken px-2.5 py-1 font-mono text-[12px] text-muted">
-                    {c.max_points}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="rounded-panel border border-line surface p-4 shadow-card sm:p-6 lg:col-span-2">
-          <h2>Files</h2>
-          {files.length === 0 ? (
-            <p className="mt-2 text-[13px] text-faint">Nothing attached.</p>
-          ) : (
-            <ul className="mt-4 space-y-2">
-              {files.map((a) => (
-                <li
-                  key={a.id}
-                  className="flex items-center gap-3 rounded-xl border border-line px-4 py-3"
-                >
-                  <Icon name="file" size={18} className="shrink-0 text-muted" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-medium text-ink">{a.file_name}</p>
-                    <p className="text-[12px] text-faint">{formatBytes(a.size_bytes)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => openFile(a)}
-                    aria-label={`Open ${a.file_name}`}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-ink"
-                  >
-                    <Icon name="download" size={16} />
-                  </button>
-                  {canManage && (
-                    <button
-                      type="button"
-                      onClick={() => setRemoving(a)}
-                      aria-label={`Remove ${a.file_name}`}
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-destructive-50 hover:text-destructive-600 dark:hover:bg-destructive-500/12 dark:hover:text-destructive-400"
-                    >
-                      <Icon name="trash" size={16} />
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {canManage && (
-            <div className="mt-4">
-              <FileDrop
-                file={null}
-                compact={files.length > 0}
-                maxSize={50}
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.png,.jpg,.jpeg"
-                hint="PDF, Word, Excel, PowerPoint, or an image. Up to 50 MB."
-                onPick={async (f) => {
-                  if (!f) return
-                  setUploading(true)
-                  try {
-                    await uploadProjectFile(project.id, f)
-                    show('File attached')
-                    await load()
-                  } catch (err) {
-                    show(authErrorMessage(err, 'Could not attach that file.'), 'error')
-                  } finally {
-                    setUploading(false)
-                  }
-                }}
-              />
-              {uploading && (
-                <p className="mt-2 flex items-center gap-2 text-[13px] text-muted">
-                  <Spinner size={14} />
-                  Uploading…
-                </p>
+          {(tab === 'files' || tab === 'shared' || tab === 'discussion') && (
+            <div className="mt-6">
+              {isReleased(project) ? (
+                <ClassFilesTab t={t} viewerId={profile?.id} show={tab} />
+              ) : (
+                <Alert tone="info">This project has not been released yet, so there are no files to work on.</Alert>
               )}
             </div>
           )}
-        </section>
-        </div>
-      </div>
+
+          <div className={`mt-6 ${tab === 'brief' ? '' : 'hidden'}`}>{brief}</div>
+        </>
+      )}
 
       {canManage && profile && (
         <ProjectWizard

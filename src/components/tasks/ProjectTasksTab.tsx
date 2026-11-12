@@ -1,6 +1,7 @@
 import { Spinner } from '../ui/Icon'
 import { WorkNav } from '../work/WorkNav'
 import { workSectionsFor } from '../../lib/work/nav'
+import type { WorkSection } from '../../lib/work/nav'
 import { EmptyState } from '../ui/EmptyState'
 import { ProfessorTasksView } from './ProfessorTasksView'
 import { StudentTasksView } from './StudentTasksView'
@@ -24,12 +25,15 @@ export function ProjectTasksTab({
   project, role,
   viewerId,
   t,
+  sections = CLASS_SECTIONS,
 }: {
   project: ProjectSummary
   role: TeachingViewRole
   viewerId: string | undefined
   /** Owned by the project page, which shares it with Files and the hand-in. */
   t: ProjectTasks
+  /** The sections on offer; the switch hides when there is only one. */
+  sections?: readonly WorkSection[]
 }) {
 
   if (t.boards === null) {
@@ -67,7 +71,7 @@ export function ProjectTasksTab({
 
   return (
     <div className="space-y-5">
-      <WorkNav sections={CLASS_SECTIONS} active={t.section} onChange={t.setSection} />
+      {sections.length > 1 && <WorkNav sections={sections} active={t.section} onChange={t.setSection} />}
       {t.isProfessor ? (
         <ProfessorTasksView project={project} role={role} viewerId={viewerId} t={t} />
       ) : (
